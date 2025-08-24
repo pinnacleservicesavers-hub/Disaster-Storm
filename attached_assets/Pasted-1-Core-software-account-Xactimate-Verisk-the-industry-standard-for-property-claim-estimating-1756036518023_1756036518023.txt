@@ -1,0 +1,88 @@
+1) Core software & account
+
+Xactimate (Verisk) — the industry standard for property-claim estimating. Choose Pro if you want Desktop + Online + Mobile; Standard if you only need one platform. Current public pricing for Pro shows $330/mo or $2,690/yr. 
+Verisk
+Xactimate
+
+(Optional) XactAnalysis — the carrier/TPA assignment & analytics portal you may be invited into by a client. You don’t need this to write estimates, but many carriers push work through it. 
+Verisk
+
+2) Hardware / system prerequisites
+
+Windows 10/11 PC for Xactimate Desktop X1 (fast CPU, plenty of RAM/SSD), or use Chrome/Edge for Xactimate Online. Stable broadband required. Mac users typically run the Online version in a browser. 
+Verisk
+
+3) Pricing data (critical)
+
+Pull the local Verisk price list for each claim (by ZIP/city) inside X1 (Claim Info → Parameters → Request Price List). Update regularly so your line-item rates match what carriers expect. 
+Xactware help
+
+4) Training & proof of skill
+
+Do Verisk’s training and consider Xactimate User Certification Levels 1–3 (valid 2 years). Level 1 = fundamentals; Level 2/3 = advanced proficiency. This credential helps reduce pushback on your estimates. 
+Verisk
++1
+
+5) Field documentation kit (for tree & storm losses)
+
+Photos & video: “before / during / after,” wide → mid → close, plus compass directions.
+
+Measurements: tape/laser (DBH for trees, length/height, reach/rigging distances), job sketches.
+
+Integrations (time-savers):
+
+HOVER to capture exterior measurements & photos and import directly into Xactimate. 
+Hover Help Center
++2
+Hover Help Center
++2
+
+Matterport TruePlan to convert a scan into an SKX you can open in Xactimate (for interiors/garages hit by trees). 
+Matterport Support
+
+6) Tree-work estimating approach (what adjusters expect to see)
+
+Break out Emergency services (after-hours mobilization, hazard mitigation, traffic control), Access/rigging & crane time (by hour/ton-meter class if applicable), Tree removal (per tree, include DBH/complexity), Debris handling (haul-off/chipping/fees), Protection (tarping, fencing), and Follow-up (stump grind, backfill/grade, repair items).
+
+Use macros/templates in Xactimate so every tree-on-structure job is consistent (you can save a “Tree on Dwelling – Crane” macro with your standard line items & notes).
+
+7) Carrier-facing notes
+
+In your Line Item Notes, include: tree species (if known), DBH, fall direction, proximity to energized lines, structure impacted, access constraints, equipment required (crane size, mats), crew size & hours, and why each task was reasonable & necessary (R&N) for safety and mitigation.
+
+8) Alternatives (some carriers use these)
+
+CoreLogic / Symbility (now “Cotality | Claims”) — competing estimating ecosystem used by several big carriers. If you ever need to work inside it, you can create a Cotality | Claims Workspace account and install Claims Estimate; their pricing database is maintained by CoreLogic. 
+Cotality
+Support Site
++1
+
+Fast setup checklist (do this in order)
+
+Buy Xactimate Pro (so you have Desktop + Online + Mobile). 
+Xactimate
+
+Log in, set your company profile, logo, and default units. 
+Verisk
+
+Request local price lists for your service areas. 
+Xactware help
+
+Build two macros: “Tree on Structure – Crane” and “Tree on Structure – No Crane.”
+
+Create a photo checklist (B/D/A + N/E/S/W + hazard tags) and make it mandatory for crews.
+
+Add HOVER and/or Matterport TruePlan if you’ll benefit from fast, carrier-friendly measurements/sketches. 
+Hover Help Center
+Matterport Support
+
+Knock out Xactimate Level 1 training/cert to standardize workflow; add L2 when you’re ready. 
+Verisk
+
+If you want, I can draft you:
+
+a tree-on-structure Xactimate macro (line-item skeleton + notes),
+
+a field photo & measurement checklist,
+
+and a one-page “How we scope storm losses” SOP for your crews.

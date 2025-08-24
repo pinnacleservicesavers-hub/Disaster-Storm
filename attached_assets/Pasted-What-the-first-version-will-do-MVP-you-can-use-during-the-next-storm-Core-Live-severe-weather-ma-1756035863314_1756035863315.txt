@@ -1,0 +1,411 @@
+What the first version will do (MVP you can use during the next storm)
+
+Core
+
+Live severe-weather map (radar + warnings) for the states you listed.
+
+Automatic alerts to your subcontractors when Tornado Warnings / Severe T-Storm Warnings / Hurricane advisories hit their county.
+
+“Report Damage” link (anyone can upload photos/video + GPS) → system reverse-geocodes to an address, pins it, and creates a Job with owner info placeholders.
+
+Contact + e-signature + payments:
+
+One-tap call/text/email from the job record.
+
+Send contracts for e-signature (HelloSign/Dropbox Sign or DocuSign).
+
+Take payment (Stripe) or mark “Insurance”.
+
+Evidence locker: auto-organizes photos, videos, notes, call recordings by address + customer name + claim #.
+
+Claim packet export (PDF/ZIP) with timeline and all artifacts.
+
+Daily 6:00 AM subcontractor task list based on active jobs + today’s weather.
+
+Reminders for state lien deadlines (you set the state + completion date → we schedule warnings).
+
+Smart data sources (no scraping headaches)
+
+NWS/NOAA CAP Alerts (tornado + thunderstorm warnings) for instant, official triggers.
+
+SPC Local Storm Reports (LSR) feed for “trees down / tornado / hail / wind damage” near-realtime pins (approximate lat/lon → nearest address).
+
+National Hurricane Center advisories/forecast cones.
+
+Reverse-geocoding for addresses (LocationIQ/Google Maps).
+
+Property/owner via a permitted property API (e.g., Estated, ATTOM) instead of scraping county sites or TruthFinder (both have heavy ToS/FCRA/commercial-use limits).
+
+“Live view” = embed live radar + warning polygons + optional storm-chaser YouTube/SevereStudios streams in a panel. (Direct rebroadcast requires permission; embedding public streams is fine.)
+
+2) Accounts to create (cheap/free tier is fine)
+
+Supabase (auth, Postgres DB, storage, real-time).
+
+Mapbox (or Leaflet + free OSM tiles) for the map.
+
+Twilio (SMS/voice/call recording/IVR).
+
+HelloSign/Dropbox Sign (or DocuSign) for e-sign.
+
+Stripe for card payments.
+
+OpenAI (claim letter/rebuttal drafts, status summaries).
+
+Optional: LocationIQ (reverse geocoding), SendGrid (email).
+
+3) Replit project layout
+storm-app/
+  server/            # Node/Express backend + cron workers
+    server.js
+    alertWorker.js
+    package.json
+  web/               # React (Vite) frontend
+    index.html
+    src/
+      main.jsx
+      App.jsx
+      Map.jsx
+      JobPanel.jsx
+  .env               # API keys (Replit Secrets)
+
+
+Install (in server):
+
+npm init -y
+npm i express axios node-cron @supabase/supabase-js twilio openai cors
+
+
+Install (in web):
+
+npm create vite@latest web -- --template react
+cd web && npm i leaflet axios
+
+
+.env (add in Replit Secrets)
+
+SUPABASE_URL=...
+SUPABASE_KEY=...
+TWILIO_SID=...
+TWILIO_TOKEN=...
+TWILIO_NUMBER=+1XXXXXXXXXX
+OPENAI_API_KEY=...
+MAPBOX_TOKEN=...   # or skip if using Leaflet + free tiles
+LOCATIONIQ_KEY=... # optional
+
+4) Database schema (Supabase)
+
+subcontractors
+
+id, name, phone, email, states[], counties[], sms_opt_in (bool)
+
+alerts (NWS/SPC)
+
+id (source id), type (“TOR”, “SVR”, “HURR”), state, county_fips, starts_at, ends_at, geom
+
+damage_reports
+
+id, created_by (subcontractor or public), lat, lon, address, city, state, zip
+
+photos[] (storage urls), videos[] (urls), notes, source (“public”, “lsr”, “nws”, “internal”)
+
+jobs
+
+id, status (“new”, “estimate”, “scheduled”, “in_progress”, “complete”, “claim”, “closed”)
+
+customer_name, phone, email
+
+address, city, state, zip, county_fips, lat, lon
+
+claim_number, insurance_name, insurance_phone, insurance_email
+
+folder (storage path), aob_signed (bool), contract_signed (bool)
+
+lien_state, completion_date, lien_deadline
+
+artifacts
+
+id, job_id, kind (“photo”, “video”, “note”, “call”, “email”, “doc”, “invoice”)
+
+url_or_text, created_at, created_by
+
+invoices
+
+id, job_id, subtotal, tax, total, method (“card”, “check”, “insurance”), paid (bool)
+
+xactimate_like_json (line items)
+
+users (Supabase auth) with role (“admin”, “subcontractor”, “adjuster_view”)
+
+5) Weather → alert flow (paste-ready worker)
+
+server/alertWorker.js
+
+import axios from "axios";
+import cron from "node-cron";
+import { createClient } from "@supabase/supabase-js";
+import Twilio from "twilio";
+
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+const twilio = Twilio(process.env.TWILIO_SID, process.env.TWILIO_TOKEN);
+
+// States you cover (2-letter codes, comma-separated)
+const STATES = "GA,FL,AL,NC,SC,TN,TX,LA,MI,VA,MD,DE,NJ,NY,CT,RI,MA,NH,ME,PA,VT,OH,KY,WV,OK,KS,NE,SD,IN,MO,IL";
+
+async function fetchActiveAlerts() {
+  // NWS CAP alerts for Tornado/Severe T-storm/Hurricane
+  const url = "https://api.weather.gov/alerts/active";
+  const params = {
+    status: "actual",
+    area: STATES,
+    // encode spaces with %20
+    event: "Tornado Warning,Severe Thunderstorm Warning,Hurricane Warning,Hurricane Watch,Tornado Watch"
+  };
+  const { data } = await axios.get(url, { params, headers: { "User-Agent": "SLM-StormApp" }});
+  return data.features || [];
+}
+
+async function saveAndNotify(feature) {
+  const id = feature.id;
+  const props = feature.properties || {};
+  const area = props.areaDesc || "";
+  const event = props.event || "";
+  const ends = props.ends || props.expires;
+  const counties = (props.geocode?.UGC || []).filter(x => x.startsWith("C")); // county UGC codes
+  const state = props?.areaDesc?.split(",").slice(-1)[0]?.trim() || "";
+
+  // upsert alert row
+  const { error } = await supabase.from("alerts").upsert({
+    id,
+    type: event,
+    state,
+    county_fips: null, // optional: map UGC -> FIPS if you store it
+    starts_at: props.onset || props.sent,
+    ends_at: ends,
+    geom: feature.geometry || null
+  });
+  if (error) console.error("supabase upsert error", error);
+
+  // Find subcontractors by state match (simple MVP filter)
+  const { data: subs } = await supabase
+    .from("subcontractors")
+    .select("id,name,phone,states")
+    .contains("states", [state]).limit(1000);
+
+  if (!subs) return;
+
+  const msg = `⚠️ ${event} for ${area}.
+Start: ${props.onset || props.sent}
+End: ${ends || "TBD"}
+Details: ${props.headline || ""}`;
+
+  // SMS each subcontractor (respect opt-in)
+  await Promise.all((subs || []).map(s =>
+    twilio.messages.create({
+      to: s.phone,
+      from: process.env.TWILIO_NUMBER,
+      body: msg
+    }).catch(e => console.log("twilio sms error", s.phone, e?.message))
+  ));
+}
+
+// Run every 2 minutes
+cron.schedule("*/2 * * * *", async () => {
+  try {
+    const alerts = await fetchActiveAlerts();
+    for (const f of alerts) await saveAndNotify(f);
+    console.log(`Alert check ok: ${alerts.length}`);
+  } catch (e) {
+    console.error("Alert worker failed", e.message);
+  }
+});
+
+
+server/server.js
+
+import express from "express";
+import cors from "cors";
+import { createClient } from "@supabase/supabase-js";
+import axios from "axios";
+import "./alertWorker.js";
+
+const app = express();
+app.use(cors());
+app.use(express.json({ limit: "25mb" }));
+
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+
+// Reverse-geocode + create a job from a public/subcontractor report
+app.post("/api/report-damage", async (req, res) => {
+  const { lat, lon, photos = [], notes = "" } = req.body;
+
+  let address = null;
+  try {
+    const r = await axios.get("https://us1.locationiq.com/v1/reverse", {
+      params: { key: process.env.LOCATIONIQ_KEY, lat, lon, format: "json" }
+    });
+    address = r.data?.display_name || null;
+  } catch (e) { /* non-fatal */ }
+
+  const { data, error } = await supabase.from("damage_reports").insert({
+    lat, lon, address, notes, source: "public"
+  }).select().single();
+
+  if (error) return res.status(500).json({ error: error.message });
+
+  // store each photo to Supabase Storage (client can also upload directly with signed URLs)
+  // (MVP: save URLs the client sent)
+
+  res.json({ ok: true, report: data });
+});
+
+// Very simple AI “explain over-Xactimate” draft
+app.post("/api/ai/explain-overage", async (req, res) => {
+  const { scope, lineItems, reasonCodes } = req.body;
+  try {
+    const body = {
+      model: "gpt-5-thinking",
+      messages: [{
+        role: "user",
+        content: `Write a professional justification to an insurance adjuster explaining why emergency tree removal invoice exceeds Xactimate.
+Scope: ${scope}
+Line items: ${JSON.stringify(lineItems)}
+Reasons: ${JSON.stringify(reasonCodes)}
+Emphasize life-safety, access constraints, night/weekend, crane access/setup, traffic control, and local hazard pay.`
+      }],
+      temperature: 0.2
+    };
+    const { data } = await axios.post("https://api.openai.com/v1/chat/completions", body,
+      { headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}` }});
+    res.json({ text: data.choices[0].message.content });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.listen(3000, () => console.log("Server running on :3000"));
+
+6) Frontend (React + Leaflet) essentials
+
+web/src/Map.jsx (radar + warning polygons + pins)
+
+import { useEffect, useState } from "react";
+import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
+import axios from "axios";
+
+export default function MapView() {
+  const [reports, setReports] = useState([]);
+
+  useEffect(() => {
+    // load recent public damage reports (last 24h)
+    axios.get("/api/reports?hours=24").then(r => setReports(r.data || []))
+      .catch(()=>{});
+  }, []);
+
+  return (
+    <MapContainer center={[32.46,-84.99]} zoom={6} style={{height:"100vh"}}>
+      <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"/>
+      {/* Optional: radar overlay tiles from a provider that allows it */}
+      {reports.map(r => (
+        <Marker key={r.id} position={[r.lat,r.lon]}>
+          <Popup>
+            <b>{r.address || "Unverified address"}</b>
+            <div>{r.notes}</div>
+          </Popup>
+        </Marker>
+      ))}
+    </MapContainer>
+  );
+}
+
+
+Create a “Report Damage” button that posts { lat, lon, photos } to /api/report-damage using the device GPS and camera.
+
+7) Contracts, payments, calls, recordings
+
+E-sign: from a Job screen, click “Send Contract” → server calls HelloSign/DocuSign to create an envelope with merge fields (customer name, address, scope, price, AOB). Webhook updates contract_signed = true.
+
+Payments: when “Insurance” is selected, skip Stripe and show the claim fields. If “Card/Check”, use Stripe Checkout → webhook marks paid = true.
+
+Call/SMS/Email: use Twilio (Conversations/Programmable Voice). For recording, start the call with “This call may be recorded for documentation,” and respect state call-recording laws (see compliance, below). Save recording URL to artifacts.
+
+8) Claim packet & timeline
+
+Every event (photo upload, call, email, site arrival GPS, signature, invoice) writes an artifact row.
+
+“Export Packet” → server composes a PDF (Puppeteer or @react-pdf/renderer) with:
+
+Cover (customer, address, claim #, dates)
+
+Timeline (ISO timestamps)
+
+Contract + AOB
+
+Photos (before/after)
+
+Invoice + Xactimate-style summary
+
+Weather page (warning details + radar snapshot link)
+
+Also offer a ZIP with original files.
+
+Tamper-evident log (optional now, easy later): hash-chain each artifact row to prove integrity.
+
+9) Scheduling & daily ops
+
+6:00 AM cron: email/SMS each subcontractor their jobs + weather note (“Rain likely after 2 PM”).
+
+Arrival auto-check-in: when the phone enters a 100-meter geofence, mark task “on-site”.
+
+If weather risk, allow one-tap reschedule → notify customer automatically.
+
+10) Compliance you must respect (practical guardrails)
+
+Property/owner data: Use licensed property APIs (Estated, ATTOM). Avoid scraping county sites or TruthFinder (ToS/FCRA/privacy risks).
+
+TCPA/Spam: Auto-dial/text adjusters only with a human-approved cadence and opt-out. Never “as often as needed” on autopilot.
+
+Public adjusting: Negotiating claims on behalf of insureds can require a PA license in many states. Keep the AI as a drafting assistant; final send should be a human click unless you’re licensed.
+
+Call recording: Some states require two-party consent. Play a recording notice and give a no-record option where required.
+
+Reviews: You cannot “hide all bad reviews” on third-party sites (violates platform rules). In your own app, you can moderate what’s published to your website/socials.
+
+Lien filing: Provide reminders and links (e.g., LienItNow) but don’t auto-file legal forms without explicit user action.
+
+11) Xactimate reality check (and a practical substitute)
+
+Xactimate is proprietary; embedding it requires a commercial agreement. For now:
+
+Build your own line-item library with codes that map to common Xactimate items.
+
+Export CSV/PDF in an “Xactimate-style” format adjusters recognize.
+
+Add the AI justification generator (endpoint above) to explain overages (life safety, crane setup, utility coordination, after-hours, debris volume, hazard pay, access constraints, etc.).
+
+12) Make it better than anything out there (quick wins)
+
+LSR ingest: Auto-pin “trees down / wind dmg / tornado” reports from the SPC LSR feed with reverse-geocode + county match.
+
+Power-outage overlay: Where permitted, overlay outages to prioritize canvassing.
+
+Door-hanger mode: Generate a QR code per job → homeowner scans to upload photos, sign AOB, and choose pay method.
+
+Adjuster center: One screen shows claim stage, last contact, next action, and a “Send polite nudge” button (AI drafts, human approves).
+
+Court-ready log: Immutable event timeline + hash chain for every claim.
+
+Multi-crew dispatch: Balance crews by drive time, job length, crane need, and weather window.
+
+13) Your next 90 minutes
+
+Create Supabase project → add tables above.
+
+Create Replit, add the server files, secrets, and run.
+
+Create the React app (web), paste the Map.jsx, point API calls to your Replit server URL, and run.
+
+Add one subcontractor (your phone) to subcontractors and test the alert SMS by temporarily setting the cron to run once and hitting the NWS endpoint manually.
+
+Use the /api/report-damage endpoint from your phone to post a test pin with a photo.

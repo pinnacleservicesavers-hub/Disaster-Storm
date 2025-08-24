@@ -1,0 +1,35 @@
+Company,Type,ClaimsPhone,ClaimsEmail,MailStreetOrPO,City,State,Zip,Notes,Website
+Allstate Insurance Company,National carrier,800-255-7828,,PO Box 660636,Dallas,TX,75266,Mailing address for property/casualty claims.,https://www.allstate.com/help-support/claims
+Liberty Mutual Insurance,National carrier,800-225-2467,,175 Berkeley St,Boston,MA,02116,Personal lines claims by phone/portal; no public claims email.,https://www.libertymutual.com/claims
+Travelers,National carrier,800-252-4633,,1 Tower Square,Hartford,CT,06183,24/7 claim line; homeowners supported via phone/portal.,https://www.travelers.com/claims
+Nationwide,National carrier,800-421-3535,,1 Nationwide Plaza,Columbus,OH,43215,Property/home claims via phone or online.,https://www.nationwide.com/personal/insurance/claims/
+Progressive Home (ASI),National carrier,866-274-5677,claims@email.americanstrategic.com,1 ASI Way,St. Petersburg,FL,33702,Progressive’s home is serviced by ASI.,https://www.americanstrategic.com/claims
+Amica Mutual Insurance,National carrier,800-242-6422,,PO Box 9690,Providence,RI,02940-9690,Claims mailing; file by phone/portal.,https://www.amica.com/en/claim-center.html
+Chubb (Personal Risk Services),National carrier,800-252-4670,PRSfirst_reports@chubb.com,202 Halls Mill Rd,Whitehouse Station,NJ,08889,Email listed for ACE/PRS policies; phone 24/7.,https://www.chubb.com/us-en/claims/how-personal-claims-work.html
+The Hartford (Homeowners),National carrier,877-805-9918,,1 Hartford Plaza,Hartford,CT,06155,AARP partner in many states; file by phone/portal.,https://www.thehartford.com/claim
+The Cincinnati Insurance Companies,Regional/National,877-242-2544,,PO Box 145496,Cincinnati,OH,45250-5496,"Street address: 6200 S Gilmore Rd, Fairfield, OH 45014.",https://www.cinfin.com/contact-us/claims
+The Hanover Insurance Group,National carrier,800-628-0250,,440 Lincoln St,Worcester,MA,01653,Report without login available; no public claims email for personal lines.,https://www.hanover.com/claims
+Safeco Insurance,National carrier,800-332-3226,,PO Box 5014,Scranton,PA,18505-5014,Personal lines brand of Liberty Mutual; manage online; no public claims email.,https://www.safeco.com/claims
+Erie Insurance,Regional/National,800-367-3743,,100 Erie Insurance Place,Erie,PA,16530-1104,24/7 claim reporting.,https://www.erieinsurance.com/support-center/claims
+Frankenmuth Insurance,Regional,800-234-4433,,1 Mutual Avenue,Frankenmuth,MI,48787,24/7 claims line.,https://www.fmins.com/claims/
+Kin Insurance,Insurtech (multi-state),866-204-2219,,,,,,24/7 claims support via portal/phone; no public intake email.,https://www.kin.com/contact/
+Tower Hill Insurance Group,Florida carrier,800-342-3407,claims@thig.com,PO Box 147018,Gainesville,FL,32614-7018,Docs can be emailed with claim # in subject.,https://www.thig.com/claims/
+Security First Insurance,Florida carrier,877-581-4862,FirstChoice@SecurityFirstFlorida.com,,,,,Start claim via site; email listed for starting claims.,https://www.securityfirstflorida.com/start-claim
+Universal Property & Casualty (UPCIC),Florida/multi-state carrier,800-425-9113,claimshelp@universalproperty.com,,,,,File by phone/portal; email widely used for claim comms.,https://www.universalproperty.com/claims
+Citizens Property Insurance (FL),State-backed (FL),866-411-2742,,PO Box 19700,Jacksonville,FL,32245-9700,Docs can be mailed; claims by phone or myPolicy.,https://www.citizensfla.com/claims
+Texas Windstorm Insurance Association (TWIA),Residual market (TX coast),800-788-8247,claims@twia.org,,,,,Windstorm-only; claims via phone/online; accepts email.,https://www.twia.org/claims-center/
+Texas FAIR Plan Association (TFPA),Residual market (TX),800-979-6440,,,,,,Homeowners for hard-to-insure; claims via online/phone.,https://www.texasfairplan.org/claims/
+NCJUA/NCIUA (NC Beach & FAIR Plans),Residual market (NC),,Claims.Admin@ncjua.com,,,,,Email listed for claims admin; reporting often via agent/phone.,https://www.ncjua-nciua.org/contact/
+SC Wind & Hail Underwriting Association,Residual market (SC),800-236-1873,claims@scwind.com,,,,,Wind/hail on SC coast; accepts email inquiries.,https://www.scwind.com/contact.html
+Louisiana Citizens Property Ins. Corp.,State-backed (LA),888-568-6455,,"1 Galleria Blvd, Suite 720",Metairie,LA,70001,Report claims via phone/online; business & mailing address shown.,https://www.lacitizens.com/claims-center
+Georgia Farm Bureau Mutual Insurance,State carrier (GA),855-432-2567,,1620 Bass Rd,Macon,GA,31210,Property claims supported 24/7; no public claims email.,https://www.gfbinsurance.com/claims/about-claims
+Alfa Insurance (AL/GA/MS),Regional,800-964-2532,,,,,,Report property claims by phone/online; no public claims email.,https://www.alfainsurance.com/claims/start-your-claim
+Farm Bureau Financial Services,Regional (KS/OK & plains),800-226-6383,,5400 University Ave,West Des Moines,IA,50266-5997,"Covers KS, OK, and other plains states; claims by phone/online.",https://www.fbfs.com/claims-center/property
+State Farm Insurance,National carrier,800-732-5246,,One State Farm Plaza,Bloomington,IL,61710,24/7 claims hotline (800-SF-CLAIM). No public claims email; claims by phone/portal.,https://www.statefarm.com/claims
+Allstate Insurance,National carrier,800-255-7828,claims@claims.allstate.com,PO Box 660636,Dallas,TX,75266,Mailing address for P&C claims. Claims email widely used.,https://www.allstate.com/claims
+Farmers Insurance,National carrier,800-435-7764,myclaim@farmersinsurance.com,PO Box 268994,Oklahoma City,OK,73126,Farmers National Document Center. Email is used for claim correspondence.,https://www.farmers.com/claims/
+Farm Bureau Insurance (Generic),Regional (multi-state),800-226-6383,,5400 University Ave,West Des Moines,IA,50266,Covers multiple state farm bureaus; many have their own numbers. This is FBFS corporate.,https://www.fbfs.com/claims-center/property
+AssuranceAmerica Insurance,Regional carrier,888-580-8134,claims@assuranceamerica.com,20 Glenlake Parkway NE Suite 650,Atlanta,GA,30328,Regional carrier. Provides claims email and hotline.,https://www.assuranceamerica.com/claims
+Auto-Owners Insurance,National carrier,888-252-4626,,6101 Anacapri Blvd,Lansing,MI,48917,24/7 claims reporting. No public email for claim submission.,https://www.auto-owners.com/claims
+USAA Insurance,National carrier,800-531-8722,,9800 Fredericksburg Rd,San Antonio,TX,78288,24/7 hotline. No public claims email; adjuster provides email after claim is opened.,https://www.usaa.com/claims
+AAA Insurance (CSAA/Auto Club),Regional carrier,800-922-8228,,3055 Oak Rd,Walnut Creek,CA,94597,AAA clubs differ by state. CSAA shown here. Claims by phone/portal.,https://csaa-insurance.aaa.com/claims

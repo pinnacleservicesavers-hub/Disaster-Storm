@@ -1,0 +1,73 @@
+What you get (new pieces)
+
+POST /webhooks/glide → send { lat, lon, media[], notes, crew_id, verify } from a Glide “Call Webhook” action. It does GPS → owner lookup → (optional) Melissa verify → saves rows to Supabase.
+
+schema.sql → copy/paste into Supabase SQL editor to create leads, properties, media tables (plus a helpful view).
+
+POST /export/xactimate.csv → give it a list of leads and it returns a CSV with Claim #, Insured name, loss address, phone, email, notes.
+
+Quick wiring (step-by-step)
+
+Supabase
+
+Create a project → SQL → run the contents of schema.sql.
+
+Settings → API: copy the Project URL and anon key.
+
+In your service .env add:
+
+SUPABASE_URL=... 
+SUPABASE_ANON_KEY=...
+
+
+Replit / local
+
+npm install
+cp .env.example .env   # add your keys (Smarty, Regrid, ATTOM, Melissa, Supabase)
+npm run dev
+
+
+Glide
+
+Add a button → Action: Call Webhook.
+
+URL: https://YOUR-SERVICE/webhooks/glide
+
+Method: POST (JSON).
+
+Body fields map to your table columns, e.g.:
+
+{
+  "lat": [Column: Latitude],
+  "lon": [Column: Longitude],
+  "media": [{ "url": [Column: PhotoURL], "type": "photo" }],
+  "notes": [Column: Notes],
+  "crew_id": [User: Email],
+  "verify": true
+}
+
+
+Tip: store the API response lead_id back into Glide if you want to show “synced ✅”.
+
+Test the webhook
+
+curl -X POST http://localhost:8080/webhooks/glide \
+  -H "Content-Type: application/json" \
+  -d @glide_webhook_example.json
+
+
+Check Supabase → leads/properties/media for the new rows.
+
+Export to Xactimate
+
+From a lead list (in Glide or Supabase), build a JSON array with { claim_number, owner_name, address, phone, email, notes }.
+
+Send it to:
+
+curl -X POST http://localhost:8080/export/xactimate.csv \
+  -H "Content-Type: application/json" \
+  -d '{ "leads": [ { "claim_number": "BERYL-00123", "owner_name":"Jane Q Public", "address":"123 Main St, Columbus, GA 31901", "phone":"706-555-1212", "email":"jane@example.com", "notes":"Tree on dwelling; crane access from alley." } ] }' \
+  --output xactimate_export.csv
+
+
+Open the CSV and copy the fields straight into Claim Info in X1 (ClaimNumber, Insured name, Loss Address, etc.).

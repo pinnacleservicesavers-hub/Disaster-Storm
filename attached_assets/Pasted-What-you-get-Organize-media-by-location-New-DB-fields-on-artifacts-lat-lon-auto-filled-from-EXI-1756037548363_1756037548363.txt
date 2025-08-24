@@ -1,0 +1,83 @@
+What you get
+
+Organize media by location
+
+New DB fields on artifacts: lat, lon (auto-filled from EXIF when available).
+
+API: GET /api/jobs/:id/artifacts-by-location groups items by nearby GPS.
+
+UI page: /media?job=<ID> shows clusters with thumbnails.
+
+Draw on photos (annotations)
+
+New page /annotate with a canvas editor (Fabric.js).
+
+Tools: pen, text, AI caption, and Save Annotated (uploads PNG back to the job).
+
+Talk-to-text for photos & videos
+
+Button 🎙️ on /annotate records a quick voice note and turns it into text via transcription API.
+
+API: POST /api/media/transcribe (accepts audio/video, returns text).
+
+Adds transcribed text onto the photo as a textbox (perfect for claim labels).
+
+AI captions for insurance claims
+
+API: POST /api/media/describe with an image URL → returns a concise, objective damage description.
+
+/annotate drops that text onto the image so you can adjust wording before saving.
+
+It keeps all the v4 features: PDF claim packet, Twilio consent/recorded calls, polished dashboard, Stripe Checkout, Dropbox Sign, lien reminders, NWS alerts + SPC pins.
+
+Quick setup (new pieces)
+
+Supabase schema change (one-time):
+
+Run supabase_alter_artifacts_location.sql
+
+alter table artifacts add column if not exists lat double precision;
+alter table artifacts add column if not exists lon double precision;
+
+
+Secrets (add if not set):
+
+OPENAI_API_KEY=...     # used for transcription + image captions
+
+
+(Keep all your existing secrets from v4.)
+
+Run:
+
+npm install
+npm run dev
+
+How to use
+
+Group by location: open /media?job=<JOB_ID> → see clusters (approx 110m radius).
+
+Annotate: open /annotate?job=<JOB_ID>, paste an Image URL (from a job artifact or anywhere public), hit Load, then:
+
+Pen to draw arrows/circles
+
+Add Text for labels
+
+AI Caption to auto-describe damage
+
+🎙️ Talk-to-text to dictate notes
+
+Save Annotated → uploads as a new artifact under that job
+
+Uploads with GPS: when you upload photos on the Jobs page, the server tries to read EXIF GPS and stores lat/lon automatically so your media groups itself.
+
+Tips & guardrails
+
+For the most accurate GPS tagging, snap photos with location services ON.
+
+Transcription supports common formats (mp3/mp4/mpeg/wav/webm). For video, it will transcribe the audio track.
+
+Image captions are assistive—you remain the reviewer. That’s best practice for claims.
+
+If you want arrows/shape tools and color picker, I can extend the editor—just say the word.
+
+Want me to wire these annotations directly into the PDF claim packet (so the packet shows the marked-up versions alongside originals)? I can prepare a v6 that includes that, plus ZIP export (PDF + originals), and a one-click “attach to claim email” flow.

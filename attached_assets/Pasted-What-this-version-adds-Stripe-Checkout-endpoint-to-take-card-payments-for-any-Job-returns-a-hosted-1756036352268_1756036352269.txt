@@ -1,0 +1,120 @@
+What this version adds
+
+Stripe Checkout endpoint to take card payments for any Job (returns a hosted payment link).
+
+Dropbox Sign endpoint to send Contract/AOB for e-signature (supports test mode).
+
+Lien rules by state (editable) and an API that computes the deadline from completion date.
+
+Keeps everything from v1 (NWS alert texts, SPC damage pins, GPS “Report Damage,” AI letter).
+
+One-time setup (10–15 mins)
+
+Supabase
+
+Run supabase_schema.sql and then supabase_lien_rules.sql.
+
+Replit Secrets (add these)
+
+SUPABASE_URL=...
+SUPABASE_KEY=...
+TWILIO_SID=...
+TWILIO_TOKEN=...
+TWILIO_NUMBER=+1XXXXXXXXXX
+OPENAI_API_KEY=...
+LOCATIONIQ_KEY=...
+STRIPE_SECRET=sk_live_or_test...
+STRIPE_WEBHOOK_SECRET= (add later when you create a webhook)
+DROPBOX_SIGN_KEY=your_api_key
+DROPBOX_SIGN_TEST=1           # keep “1” while testing
+PUBLIC_URL=https://<your-repl-url>  # used for Stripe success/cancel
+COVERED_STATES=GA,FL,AL,NC,SC,TN,TX,LA,MI,VA,MD,DE,NJ,NY,CT,RI,MA,NH,ME,PA,VT,OH,KY,WV,OK,KS,NE,SD,IN,MO,IL
+
+
+Install & run
+
+npm install
+npm run dev
+
+
+Open the webview — map loads with Report Damage and Create Payment Link buttons.
+
+How to use the new features
+A) Take a card payment (Stripe)
+
+Click Create Payment Link (temporary UI) → enter Job ID, description, and amount.
+
+It opens a Stripe Checkout page. When paid, you’ll get a checkout.session.completed webhook (endpoint added at /webhooks/stripe) that writes a paid invoice row and a payment artifact.
+
+In production, go to Stripe → Developers → Webhooks → point to https://YOUR_URL/webhooks/stripe and paste the signing secret into STRIPE_WEBHOOK_SECRET. (The included route shows where to enable raw-body verification.)
+
+B) Send Contract/AOB for e-signature (Dropbox Sign)
+
+POST to /api/sign/send with:
+
+{
+  "job_id": "UUID",
+  "customer_name": "Jane Homeowner",
+  "customer_email": "jane@example.com",
+  "subject": "Emergency Tree Service Contract",
+  "message": "Please review and sign.",
+  "contract_pdf_url": "https://your-public-contract.pdf",
+  "aob_pdf_url": "https://your-aob.pdf"
+}
+
+
+The API sends the signature request (test mode if DROPBOX_SIGN_TEST=1) and logs an artifact.
+
+Add a webhook in Dropbox Sign → point to /webhooks/dropbox-sign. When all parties sign, we record a SIGNED artifact; you can map back to the job with the stored signature_request_id.
+
+C) Lien deadlines (state-specific + editable)
+
+The table lien_rules(state, days, notes, require_prelim) is included.
+
+Edit or add a state via:
+
+POST /api/lien/rules with { "state":"AL", "days":90, "notes":"Residential typical", "require_prelim": false }
+
+Compute a deadline:
+GET /api/lien/deadline?state=GA&completion_date=2025-08-01
+→ returns the calculated date (defaults to 90 days if rule missing).
+
+You’ll later set each Job’s lien_state and completion_date; a daily cron can text nudges as the deadline approaches.
+
+What I recommend next (to make this “best in class” fast)
+
+Job & Claim UI (simple React pages)
+
+Convert Damage Report → Job; assign to a subcontractor; upload artifacts (photos/video/notes).
+
+Buttons: Send Contract, Stripe Payment, Export Packet, Nudge Adjuster (AI drafts; you approve).
+
+Property data via Estated (cost-effective)
+
+Add owner name/mailing address from a licensed API; store on the Job.
+
+Twilio voice webhooks with consent
+
+IVR that says: “This call may be recorded…” (offer no-record option for two-party states). Store call recordings as artifacts.
+
+Daily 6:00 AM digest + weather heads-up
+
+Already easy to add: cron → compile “today’s jobs” + precip window → SMS each subcontractor.
+
+Export claim packet (PDF/ZIP)
+
+Use Puppeteer or @react-pdf/renderer to assemble the timeline, contract, AOB, photos, invoices, and alert metadata.
+
+If you want me to add these right away, say the word and I’ll ship you v3 with:
+
+Jobs/Claims web UI
+
+File uploads to Supabase Storage
+
+Estated property lookup
+
+Stripe/Sign buttons on each job
+
+Deadline reminder cron + SMS content
+
+In the meantime, import v2 and start testing with your own number and a couple of sample jobs.

@@ -1,0 +1,81 @@
+What’s inside (ready to import into Replit)
+
+/public/
+
+index.html (live map + “Report Damage”)
+
+jobs.html (Jobs & Claims UI)
+
+/server/
+
+server.js (API + Stripe/Dropbox Sign + Estated + uploads)
+
+alertWorker.js (NWS alerts + SPC pins)
+
+deadlineWorker.js (daily lien deadline SMS)
+
+SQL
+
+supabase_schema.sql (tables incl. assigned_sub_id)
+
+supabase_lien_seed.sql (seed GA=90 days; you can edit/extend)
+
+Storage
+
+Uploads go to Supabase Storage bucket artifacts (config via SUPABASE_BUCKET).
+
+Secrets to add in Replit
+SUPABASE_URL=...
+SUPABASE_KEY=...
+SUPABASE_BUCKET=artifacts
+TWILIO_SID=...
+TWILIO_TOKEN=...
+TWILIO_NUMBER=+1XXXXXXXXXX
+OPENAI_API_KEY=...
+LOCATIONIQ_KEY=...
+STRIPE_SECRET=sk_test_...
+STRIPE_WEBHOOK_SECRET=   # add after creating webhook
+DROPBOX_SIGN_KEY=...
+DROPBOX_SIGN_TEST=1
+PUBLIC_URL=https://<your-repl-url>
+ESTATED_TOKEN=...
+COVERED_STATES=GA,FL,AL,NC,SC,TN,TX,LA,MI,VA,MD,DE,NJ,NY,CT,RI,MA,NH,ME,PA,VT,OH,KY,WV,OK,KS,NE,SD,IN,MO,IL
+DEADLINE_CRON=0 10 * * *    # 10:00 UTC ≈ 6am ET (edit if you want)
+
+Quick use
+
+Supabase → SQL: run supabase_schema.sql, then supabase_lien_seed.sql.
+
+Create Storage bucket named artifacts (make public).
+
+Replit: npm install → npm run dev.
+
+Subcontractors: insert your phone in subcontractors with sms_opt_in=true.
+
+Visit /jobs:
+
+Create a job → Stripe Payment button opens a hosted checkout.
+
+Send Contract/AOB button triggers Dropbox Sign (paste your public PDF URLs).
+
+Upload photos/videos → saved in Storage and logged as artifacts.
+
+Lien reminders: set lien_state and completion_date on the job; SMS goes out at the intervals (10/7/3/1 days remaining).
+
+Notes & best practices
+
+Property: /api/property/lookup?address=... uses Estated (licensed, ToS-safe).
+
+Call recording: when you add Twilio voice, play a consent notice and respect two-party states.
+
+Claim “nudge”: /api/claim/nudge drafts the email; you approve/send (keeps you clear of PA restrictions).
+
+Want me to add:
+
+PDF claim packet export (timeline + contract/AOB + photos + invoice),
+
+Twilio voice call/recording webhooks with consent prompts,
+
+A nicer React front-end,
+
+…I can ship a v4 with those baked in.

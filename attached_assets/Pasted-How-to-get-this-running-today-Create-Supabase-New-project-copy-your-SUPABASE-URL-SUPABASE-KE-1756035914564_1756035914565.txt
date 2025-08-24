@@ -1,0 +1,119 @@
+How to get this running (today)
+
+Create Supabase
+
+New project → copy your SUPABASE_URL & SUPABASE_KEY.
+
+SQL editor → paste supabase_schema.sql from the zip and run it.
+
+Create your keys (free/cheap tiers)
+
+Twilio: phone number for SMS/voice → grab TWILIO_SID, TWILIO_TOKEN, and your TWILIO_NUMBER.
+
+LocationIQ (free) for reverse-geocode: LOCATIONIQ_KEY.
+
+OpenAI: OPENAI_API_KEY.
+
+(Later) Stripe (payments) + Dropbox Sign/DocuSign (e-sign) + Estated/ATTOM (property ownership).
+
+Import to Replit
+
+New Replit → Node.js → upload the zip and extract.
+
+Add Secrets:
+SUPABASE_URL, SUPABASE_KEY, TWILIO_SID, TWILIO_TOKEN, TWILIO_NUMBER,
+OPENAI_API_KEY, LOCATIONIQ_KEY, and optional COVERED_STATES (e.g., GA,AL,FL,...).
+
+Shell: npm install → npm run dev.
+
+Open the webview: you’ll see the map + a Report Damage button.
+
+Seed one subcontractor
+In Supabase → subcontractors → Insert a row with your name/phone, sms_opt_in = true, states = {"GA","AL","FL",...}.
+
+Test alerts
+The worker in server/alertWorker.js runs automatically. When NWS posts a Tornado/Severe T-Storm/Hurricane alert for one of your states, you’ll get a text.
+
+What’s already wired vs what’s next
+
+Already wired
+
+✅ Live map (OSM tiles)
+
+✅ GPS “Report Damage” → DB with reverse-geocode
+
+✅ NWS CAP alerts → SMS to opted-in subcontractors
+
+✅ SPC LSR ingest → auto-pins likely damage spots
+
+✅ AI letter endpoint (you supply details → it drafts the justification)
+
+Next 2–3 days of work (most impact)
+
+Jobs & Claims UI (simple pages):
+
+Convert a report to a Job, assign to subcontractor, upload photos/videos/notes.
+
+Claim fields (carrier, claim #, adjuster contact).
+
+One-tap call/text/email via Twilio (log to artifacts).
+
+E-sign + Payments
+
+Dropbox Sign or DocuSign: send Contract/AOB; webhook sets contract_signed/aob_signed = true.
+
+Stripe Checkout: card payments for non-insurance.
+
+Daily Ops
+
+6:00 AM cron to text each subcontractor their task list + weather heads-up.
+
+Lien deadline reminders: set state & completion date → app schedules nudges (you click to file via LienItNow).
+
+Owner/Property data
+
+Use Estated or ATTOM (licensed) to fetch owner name and mailing address. Avoid scraping or TruthFinder (ToS/legal issues).
+
+Export Packet
+
+Generate a PDF/ZIP: timeline, contract/AOB, photos, invoices, weather alert details.
+
+If you want, I’ll add the next pages/endpoints and ship you a second zip that includes:
+
+Jobs screen (create/assign/update)
+
+File uploads to Supabase Storage
+
+Stripe + Dropbox Sign integrations
+
+Twilio voice webhooks with consent recording
+
+A “Nudge Adjuster” button (AI drafts, you approve, then it sends)
+
+Recommended stack & why (picked for you)
+
+Supabase (auth, Postgres, Storage, real-time): fast dev + exportable data.
+
+Leaflet + OSM tiles (map): zero license headache; swap in Mapbox later if you want styling.
+
+NWS/NOAA + SPC + NHC: official, free, reliable.
+
+Twilio: SMS/voice/call recording/IVR on one platform.
+
+Dropbox Sign (or DocuSign): standard e-signature.
+
+Stripe: simplest payments + receipts.
+
+OpenAI: clean letters, rebuttals, weekly claim summaries.
+
+Guardrails (important)
+
+Public Adjusting: in many states only licensed PAs can negotiate claims—keep your AI as a drafting assistant; you (or a licensed PA) presses “Send.”
+
+Call Recording: play a consent message and offer non-recorded option in two-party states.
+
+Messaging: give adjusters/homeowners an opt-out (“Reply STOP”).
+
+Property Data: use licensed APIs (Estated/ATTOM), not scraping or people-finder sites.
+
+Reviews: you can moderate what shows on your website/app; you can’t hide third-party platform reviews.
