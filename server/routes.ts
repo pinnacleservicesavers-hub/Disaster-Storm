@@ -1,5 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import fetch from "node-fetch";
 import { storage } from "./storage";
 import { weatherService } from "./services/weather";
 import { aiService } from "./services/ai";
@@ -9,6 +10,21 @@ import { translationService } from "./services/translation";
 import { insertClaimSchema, insertFieldReportSchema, insertDroneFootageSchema } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Tornado alerts endpoint - get active Tornado Warnings in multiple states
+  app.get("/api/alerts", async (_req, res) => {
+    try {
+      const states = ["GA","FL","AL","SC","NC","MS","LA","TX","OK","KS"];
+      const urls = states.map(s =>
+        `https://api.weather.gov/alerts/active?area=${s}&event=Tornado%20Warning`
+      );
+      const results = await Promise.all(urls.map(u => fetch(u).then(r => r.json())));
+      const features = results.flatMap(r => r.features || []);
+      res.json({ count: features.length, features });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // Weather API routes
   app.get("/api/weather/alerts", async (req, res) => {
     try {
