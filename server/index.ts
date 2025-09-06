@@ -36,6 +36,43 @@ app.use((req, res, next) => {
   next();
 });
 
+// Basic Auth middleware for non-API routes
+const basicAuthMiddleware = (req: Request, res: Response, next: NextFunction) => {
+  // Skip auth for API routes
+  if (req.path.startsWith('/api')) {
+    return next();
+  }
+
+  const adminUser = process.env.ADMIN_USER;
+  const adminPass = process.env.ADMIN_PASS;
+
+  if (!adminUser || !adminPass) {
+    console.error('ADMIN_USER and ADMIN_PASS environment variables must be set');
+    return res.status(500).send('Server configuration error');
+  }
+
+  const authHeader = req.headers.authorization;
+  
+  if (!authHeader || !authHeader.startsWith('Basic ')) {
+    res.setHeader('WWW-Authenticate', 'Basic realm="Protected Area"');
+    return res.status(401).send('Authentication required');
+  }
+
+  const base64Credentials = authHeader.slice(6);
+  const credentials = Buffer.from(base64Credentials, 'base64').toString('ascii');
+  const [username, password] = credentials.split(':');
+
+  if (username === adminUser && password === adminPass) {
+    return next();
+  } else {
+    res.setHeader('WWW-Authenticate', 'Basic realm="Protected Area"');
+    return res.status(401).send('Invalid credentials');
+  }
+};
+
+// Apply Basic Auth to all routes
+app.use(basicAuthMiddleware);
+
 (async () => {
   const server = await registerRoutes(app);
 
