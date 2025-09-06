@@ -1,5 +1,6 @@
 // @ts-nocheck  <-- keeps TypeScript from complaining while we wire this up
 import { useEffect, useRef, useState } from "react";
+import DroneViewer from "./DroneViewer";
 
 declare global {
   interface Window {
@@ -154,10 +155,12 @@ export default function App() {
       <div id="map" ref={mapDivRef} style={{ width: "100%", height: 400, marginBottom: 16 }} />
 
       {address && (
-        <div style={{ padding: 12, backgroundColor: "#f0f0f0", borderRadius: 4 }}>
+        <div style={{ padding: 12, backgroundColor: "#f0f0f0", borderRadius: 4, marginBottom: 16 }}>
           <strong>Address:</strong> {address}
         </div>
       )}
+
+      <DroneViewer streamUrl="https://example.com/your-embed-url" />
     </div>
   );
 }
