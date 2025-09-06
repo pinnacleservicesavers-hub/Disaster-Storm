@@ -10,13 +10,15 @@ declare global {
 
 export default function App() {
   const mapDivRef = useRef<HTMLDivElement | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
   const mapRef = useRef<any>(null);
   const markerRef = useRef<any>(null);
+  const autocompleteRef = useRef<any>(null);
   const [address, setAddress] = useState("");
 
-  // This runs after Google’s script loads (we set callback=initMap in index.html)
+  // This runs after Google's script loads (we set callback=initMap in index.html)
   const init = () => {
-    if (!mapDivRef.current) return;
+    if (!mapDivRef.current || !searchInputRef.current) return;
 
     const start = { lat: 33.749, lng: -84.388 }; // Atlanta
     mapRef.current = new window.google.maps.Map(mapDivRef.current, {
@@ -27,6 +29,34 @@ export default function App() {
     markerRef.current = new window.google.maps.Marker({
       map: mapRef.current,
       position: start,
+    });
+
+    // Initialize Places Autocomplete
+    autocompleteRef.current = new window.google.maps.places.Autocomplete(searchInputRef.current, {
+      fields: ["formatted_address", "geometry", "name"],
+      types: ["establishment", "geocode"],
+    });
+
+    // Listen for place selection from autocomplete
+    autocompleteRef.current.addListener("place_changed", () => {
+      const place = autocompleteRef.current.getPlace();
+      if (!place.geometry || !place.geometry.location) {
+        alert("No location data available for this place.");
+        return;
+      }
+
+      const pos = {
+        lat: place.geometry.location.lat(),
+        lng: place.geometry.location.lng(),
+      };
+
+      // Update map and marker
+      markerRef.current.setPosition(pos);
+      mapRef.current.setCenter(pos);
+      mapRef.current.setZoom(15);
+
+      // Update address display
+      setAddress(place.formatted_address || place.name || "Selected location");
     });
 
     const geocoder = new window.google.maps.Geocoder();
@@ -97,6 +127,22 @@ export default function App() {
   return (
     <div style={{ maxWidth: 1000, margin: "20px auto", padding: 12 }}>
       <h1>🗺️ Google Map Test</h1>
+
+      {/* Places Autocomplete Search */}
+      <div style={{ marginBottom: 16 }}>
+        <input
+          ref={searchInputRef}
+          placeholder="Search for places..."
+          style={{
+            width: "100%",
+            padding: 12,
+            fontSize: 16,
+            border: "1px solid #ccc",
+            borderRadius: 4,
+            boxSizing: "border-box",
+          }}
+        />
+      </div>
 
       <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
         <input id="lat" placeholder="Latitude" style={{ flex: 1, padding: 8 }} />
