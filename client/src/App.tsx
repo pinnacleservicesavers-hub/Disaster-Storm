@@ -102,4 +102,16 @@ export default function App() {
         <input id="lat" placeholder="Latitude" style={{ flex: 1, padding: 8 }} />
         <input id="lng" placeholder="Longitude" style={{ flex: 1, padding: 8 }} />
         <button onClick={goToLatLng}>Go to GPS</button>
-        <button
+        <button onClick={useMyLocation}>Use My Location</button>
+      </div>
+
+      <div id="map" ref={mapDivRef} style={{ width: "100%", height: 400, marginBottom: 16 }} />
+
+      {address && (
+        <div style={{ padding: 12, backgroundColor: "#f0f0f0", borderRadius: 4 }}>
+          <strong>Address:</strong> {address}
+        </div>
+      )}
+    </div>
+  );
+}
