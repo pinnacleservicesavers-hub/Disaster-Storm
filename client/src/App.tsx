@@ -16,6 +16,7 @@ export default function App() {
   const markerRef = useRef<any>(null);
   const autocompleteRef = useRef<any>(null);
   const [address, setAddress] = useState("");
+  const [showCopied, setShowCopied] = useState(false);
 
   // This runs after Google's script loads (we set callback=initMap in index.html)
   const init = () => {
@@ -125,6 +126,27 @@ export default function App() {
     );
   };
 
+  // Copy address to clipboard
+  const copyAddress = async () => {
+    if (!address) return;
+    
+    try {
+      await navigator.clipboard.writeText(address);
+      setShowCopied(true);
+      setTimeout(() => setShowCopied(false), 2000);
+    } catch (err) {
+      // Fallback for older browsers
+      const textArea = document.createElement("textarea");
+      textArea.value = address;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textArea);
+      setShowCopied(true);
+      setTimeout(() => setShowCopied(false), 2000);
+    }
+  };
+
   return (
     <div style={{ maxWidth: 1000, margin: "20px auto", padding: 12 }}>
       <h1>🗺️ Google Map Test</h1>
@@ -155,8 +177,52 @@ export default function App() {
       <div id="map" ref={mapDivRef} style={{ width: "100%", height: 400, marginBottom: 16 }} />
 
       {address && (
-        <div style={{ padding: 12, backgroundColor: "#f0f0f0", borderRadius: 4, marginBottom: 16 }}>
-          <strong>Address:</strong> {address}
+        <div style={{ 
+          padding: 12, 
+          backgroundColor: "#f0f0f0", 
+          borderRadius: 4, 
+          marginBottom: 16,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 12
+        }}>
+          <div>
+            <strong>Address:</strong> {address}
+          </div>
+          <div style={{ position: "relative" }}>
+            <button
+              onClick={copyAddress}
+              style={{
+                padding: "6px 12px",
+                backgroundColor: "#007bff",
+                color: "white",
+                border: "none",
+                borderRadius: 4,
+                cursor: "pointer",
+                fontSize: 14,
+                whiteSpace: "nowrap"
+              }}
+            >
+              Copy address
+            </button>
+            {showCopied && (
+              <div style={{
+                position: "absolute",
+                top: "-30px",
+                right: "0",
+                backgroundColor: "#28a745",
+                color: "white",
+                padding: "4px 8px",
+                borderRadius: 4,
+                fontSize: 12,
+                whiteSpace: "nowrap",
+                zIndex: 1000
+              }}>
+                Copied!
+              </div>
+            )}
+          </div>
         </div>
       )}
 
