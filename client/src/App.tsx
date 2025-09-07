@@ -226,7 +226,8 @@ export default function App() {
         </div>
       )}
 
-      <DroneViewer streamUrl="https://example.com/your-embed-url" />
+      <DroneViewer streamUrl="https://www.youtube.com/embed/21X5lGlDOfg?autoplay=1&mute=1" />
+/>
     </div>
   );
 }

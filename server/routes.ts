@@ -17,9 +17,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const urls = states.map(s =>
         `https://api.weather.gov/alerts/active?area=${s}&event=Tornado%20Warning`
       );
-      const results = await Promise.all(urls.map(u => fetch(u).then(r => r.json())));
+      const results = await Promise.all(urls.map(u => fetch(u).then(r => r.json() as any)));
       const features = results.flatMap(r => r.features || []);
       res.json({ count: features.length, features });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // YouTube live streams endpoint - search for live streams by keywords
+  app.get("/api/live", async (req, res) => {
+    try {
+      const YT_KEY = process.env.YT_API_KEY!;
+      if (!YT_KEY) {
+        return res.status(500).json({ error: "YT_API_KEY not configured" });
+      }
+      
+      const q = req.query.q || "tornado live";
+      const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&eventType=live&maxResults=8&q=${encodeURIComponent(
+        String(q)
+      )}&key=${YT_KEY}`;
+      const data = await fetch(url).then(r => r.json() as any);
+      const items = (data.items || []).map((i: any) => ({
+        id: i.id.videoId,
+        title: i.snippet.title,
+        channel: i.snippet.channelTitle
+      }));
+      res.json(items);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Property owner lookup endpoint - get owner info by address
+  app.get("/api/owner", async (req, res) => {
+    try {
+      const address = String(req.query.address || "");
+      if (!address) return res.status(400).json({ error: "address required" });
+      
+      const ESTATED_KEY = process.env.ESTATED_KEY!;
+      if (!ESTATED_KEY) {
+        return res.status(500).json({ error: "ESTATED_KEY not configured" });
+      }
+      
+      const url = `https://api.estated.com/property/v5?token=${ESTATED_KEY}&combined_address=${encodeURIComponent(address)}`;
+      const data = await fetch(url).then(r => r.json() as any);
+      // pick out owner info if present
+      const owner = data?.data?.owner || data?.data?.owners?.[0] || null;
+      res.json({ owner, raw: data });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
