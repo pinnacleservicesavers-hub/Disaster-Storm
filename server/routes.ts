@@ -492,6 +492,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // simple in-memory store; swap for a DB later
   const inbox: any[] = [];
+  
+  // SSE client connections
+  const clients = new Set();
 
   async function reverseGeocode(lat: number, lon: number) {
     const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`, {
@@ -499,6 +502,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
     const j = await r.json().catch(() => null) as any;
     return j?.display_name || "";
+  }
+
+  function pushSSE(item: any) {
+    const msg = `data: ${JSON.stringify(item)}\n\n`;
+    clients.forEach((c: any) => {
+      try {
+        c.write(msg);
+      } catch (error) {
+        // Remove dead connections
+        clients.delete(c);
+      }
+    });
   }
 
   app.post("/api/dsp-ingest", async (req, res) => {
@@ -511,11 +526,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     item.id = Date.now().toString();
     inbox.unshift(item);
 
-    // TODO: broadcast to clients via SSE or WebSocket; for now just 200 OK
+    // Broadcast to SSE clients in real-time
+    pushSSE(item);
+
     return res.json({ ok: true, item });
   });
 
   app.get("/api/inbox", (req, res) => res.json(inbox));
+
+  // Server-Sent Events endpoint for real-time updates
+  app.get("/api/stream", (req, res) => {
+    res.set({
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      "Connection": "keep-alive",
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Headers": "Cache-Control"
+    });
+    res.flushHeaders();
+    res.write("retry: 5000\n\n");
+    
+    clients.add(res);
+    
+    req.on("close", () => {
+      clients.delete(res);
+    });
+    
+    req.on("error", () => {
+      clients.delete(res);
+    });
+  });
 
   // WebSocket for real-time updates
   const httpServer = createServer(app);
