@@ -1,0 +1,237 @@
+// Storm Ops Backend (Express)
+// --------------------------------------------
+// Provides:
+// - /api/dsp-ingest  : providers/DSPs post live items
+// - /api/stream      : SSE for Inbox + Map markers
+// - /api/inbox       : fetch recent items
+// - /api/owner-lookup: placeholder to plug licensed data vendors
+// - /api/sms, /api/call (Twilio)
+// - /api/email       (Nodemailer)
+// - /api/upload      (multer disk uploads)
+// - /api/describe    (AI caption placeholder)
+// - /api/reminders   (node-cron reminders for claims/liens)
+// - /files/contract.pdf : serve your contract PDF from ./assets/contract.pdf
+//
+// ENV (set in Replit Secrets):
+//   TWILIO_SID, TWILIO_TOKEN, TWILIO_FROM
+//   SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM
+//   PUBLIC_PHONE (optional, used in TwiML message)
+//
+// Install deps:
+//   npm i express cors multer node-cron twilio nodemailer node-fetch
+//   (Node 18+ has global fetch; we still import node-fetch for compatibility)
+
+import express from "express";
+import cors from "cors";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
+import cron from "node-cron";
+import twilio from "twilio";
+import nodemailer from "nodemailer";
+import fetchPkg from "node-fetch";
+const fetch = globalThis.fetch || fetchPkg;
+
+const app = express();
+app.use(cors());
+app.use(express.json({ limit: "12mb" }));
+
+// ---- static assets (uploads + optional assets directory) ----
+const ROOT = process.cwd();
+const UPLOAD_DIR = path.join(ROOT, "uploads");
+const ASSETS_DIR = path.join(ROOT, "assets");
+if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+if (!fs.existsSync(ASSETS_DIR)) fs.mkdirSync(ASSETS_DIR, { recursive: true });
+app.use("/uploads", express.static(UPLOAD_DIR));
+app.use("/assets", express.static(ASSETS_DIR));
+
+// ---- health/version ----
+app.get("/health", (req, res) => res.json({ ok: true }));
+app.get("/api/version", (req, res) => res.json({ name: "storm-ops-backend", version: 1 }));
+
+// ---- in-memory Inbox store (swap for DB in prod) ----
+const inbox = []; // [{ id, provider, timestamp, mediaUrl, thumbnailUrl, lat, lon, address, notes, tags }]
+const sseClients = new Set();
+
+// ---- SSE: stream Inbox items live to clients ----
+app.get("/api/stream", (req, res) => {
+  res.set({
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    Connection: "keep-alive",
+  });
+  res.flushHeaders();
+  res.write("retry: 5000\n\n");
+  sseClients.add(res);
+  req.on("close", () => sseClients.delete(res));
+});
+function broadcast(item) {
+  const line = `data: ${JSON.stringify(item)}\n\n`;
+  for (const client of sseClients) client.write(line);
+}
+
+// ---- reverse geocode helper (OSM/Nominatim) ----
+async function reverseGeocode(lat, lon) {
+  try {
+    const r = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`,
+      { headers: { "User-Agent": "StormOpsHub/1.0" } }
+    );
+    const j = await r.json();
+    return j?.display_name || "";
+  } catch (e) {
+    return "";
+  }
+}
+
+// ---- providers/DSPs POST live items here ----
+app.post("/api/dsp-ingest", async (req, res) => {
+  try {
+    const item = req.body || {};
+    if (!item.mediaUrl) return res.status(400).json({ error: "mediaUrl required" });
+    if (!item.timestamp) item.timestamp = new Date().toISOString();
+    if (!item.address && item.lat && item.lon) item.address = await reverseGeocode(item.lat, item.lon);
+    item.id = String(Date.now());
+    // naive tag derive (client also adds)
+    const text = `${item.notes || ""} ${item.address || ""}`.toLowerCase();
+    const tags = [];
+    if (/tree on roof|through roof|roof damage/.test(text)) tags.push("tree_on_roof");
+    if (/tree on (house|building|home|structure)/.test(text)) tags.push("tree_on_building");
+    if (/line down|power line|utility line|pole down/.test(text)) tags.push("line_down");
+    if (/collapse|structural|building damage|wall down/.test(text)) tags.push("structure_damage");
+    item.tags = Array.from(new Set([...(item.tags||[]), ...tags]));
+
+    inbox.unshift(item);
+    broadcast(item);
+    res.json({ ok: true, item });
+  } catch (e) {
+    res.status(500).json({ error: "ingest failed", detail: String(e) });
+  }
+});
+
+// ---- inbox history (poll fallback) ----
+app.get("/api/inbox", (req, res) => res.json(inbox.slice(0, 500)));
+
+// ---- owner lookup seam (plug licensed vendor/county APIs) ----
+app.post("/api/owner-lookup", async (req, res) => {
+  const { address, lat, lon } = req.body || {};
+  // TODO: integrate ATTOM/Estated/CoreLogic/DataTree or county APIs as permitted; keep audit logs and comply with TCPA/privacy.
+  res.json({ ownerName: null, mailingAddress: address || null, phone: null, email: null, sources: [] });
+});
+
+// ---- uploads (proof of insurance, photos, etc.) ----
+const upload = multer({ dest: UPLOAD_DIR });
+app.post("/api/upload", upload.single("file"), (req, res) => {
+  res.json({ ok: true, file: { name: req.file.originalname, path: `/uploads/${req.file.filename}` } });
+});
+
+// ---- serve contract PDF from ./assets/contract.pdf ----
+app.get("/files/contract.pdf", (req, res) => {
+  const guess = path.join(ASSETS_DIR, "contract.pdf");
+  if (fs.existsSync(guess)) return res.sendFile(guess);
+  return res.status(404).send("Contract file not found — place it at ./assets/contract.pdf");
+});
+
+// ---- Twilio SMS + Voice ----
+// Replit Secrets required: TWILIO_SID, TWILIO_TOKEN, TWILIO_FROM
+const tw = (process.env.TWILIO_SID && process.env.TWILIO_TOKEN)
+  ? twilio(process.env.TWILIO_SID, process.env.TWILIO_TOKEN)
+  : null;
+
+app.post("/api/sms", async (req, res) => {
+  try {
+    const { to, body } = req.body || {};
+    if (!tw) return res.status(500).json({ error: "Twilio not configured" });
+    if (!to || !body) return res.status(400).json({ error: "to and body required" });
+    const r = await tw.messages.create({ to, from: process.env.TWILIO_FROM, body });
+    res.json({ ok: true, sid: r.sid });
+  } catch (e) {
+    res.status(500).json({ error: "SMS failed", detail: String(e) });
+  }
+});
+
+app.post("/api/call", async (req, res) => {
+  try {
+    const { to, twiml } = req.body || {};
+    if (!tw) return res.status(500).json({ error: "Twilio not configured" });
+    if (!to) return res.status(400).json({ error: "to required" });
+    const r = await tw.calls.create({
+      to,
+      from: process.env.TWILIO_FROM,
+      twiml: twiml || `<Response><Say voice="alice">This is Strategic Land Management calling regarding your storm damage. Please call us at ${process.env.PUBLIC_PHONE || '888-628-2229'}.</Say></Response>`
+    });
+    res.json({ ok: true, sid: r.sid });
+  } catch (e) {
+    res.status(500).json({ error: "Call failed", detail: String(e) });
+  }
+});
+
+// ---- Email (Nodemailer SMTP) ----
+// Replit Secrets: SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM
+const transporter = (process.env.SMTP_HOST)
+  ? nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: Number(process.env.SMTP_PORT || 587),
+      secure: false,
+      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+    })
+  : null;
+
+app.post("/api/email", async (req, res) => {
+  try {
+    if (!transporter) return res.status(500).json({ error: "Email transport not configured" });
+    const { to, subject, html, attachments } = req.body || {};
+    if (!to || !subject) return res.status(400).json({ error: "to and subject required" });
+    const info = await transporter.sendMail({
+      from: process.env.SMTP_FROM || process.env.SMTP_USER,
+      to,
+      subject,
+      html: html || "",
+      attachments,
+    });
+    res.json({ ok: true, id: info.messageId });
+  } catch (e) {
+    res.status(500).json({ error: "Email failed", detail: String(e) });
+  }
+});
+
+// ---- AI describe placeholder (hook Vision API later) ----
+app.post("/api/describe", async (req, res) => {
+  // req.body.images = [dataUrl,...] (optional future)
+  res.json({ captions: ["Tree on roof; broken ridge; tarp recommended"] });
+});
+
+// ---- Reminders (claim 30/60d; completion 45d; lien 10mo) ----
+const scheduledJobs = [];
+function scheduleAt(dateISO, label) {
+  const dt = new Date(dateISO);
+  if (isNaN(dt)) return;
+  const cronExp = `${dt.getUTCMinutes()} ${dt.getUTCHours()} ${dt.getUTCDate()} ${dt.getUTCMonth() + 1} *`;
+  const job = cron.schedule(
+    cronExp,
+    () => {
+      console.log("Reminder:", label, new Date().toISOString());
+      // You can notify admins via email/SMS here as needed.
+    },
+    { timezone: "UTC" }
+  );
+  scheduledJobs.push(job);
+}
+app.post("/api/reminders", (req, res) => {
+  const { claimDate, completeDate, lienDate } = req.body || {};
+  const addDays = (start, d) => new Date(new Date(start).getTime() + d * 86400000).toISOString();
+  if (claimDate) {
+    scheduleAt(addDays(claimDate, 30), "30 days since claim submission");
+    scheduleAt(addDays(claimDate, 60), "60 days since claim submission");
+  }
+  if (completeDate) scheduleAt(addDays(completeDate, 45), "45 days since work completion (consider lien)");
+  if (lienDate) {
+    const tenMonthsMs = 1000 * 60 * 60 * 24 * 30 * 10; // approx 10 months
+    scheduleAt(new Date(new Date(lienDate).getTime() + tenMonthsMs).toISOString(), "10 months since lien filed");
+  }
+  res.json({ ok: true });
+});
+
+// ---- Start server ----
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Storm Ops Backend listening on :${PORT}`));

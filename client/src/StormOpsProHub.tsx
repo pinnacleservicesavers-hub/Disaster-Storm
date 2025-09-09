@@ -99,78 +99,84 @@ function NOAAAlertsLayer({ enabled }: { enabled: boolean }){
   return null;
 }
 
-function QuickMap({ radarOn, alertsOn }: { radarOn: boolean; alertsOn: boolean }){
-  const [lat, setLat] = useState(() => Number(localStorage.getItem("mapLat")) || 32.5104);
-  const [lng, setLng] = useState(() => Number(localStorage.getItem("mapLng")) || -84.8766);
-  const [z, setZ] = useState(() => Number(localStorage.getItem("mapZoom")) || 7);
+function QuickMap({ radarOn, alertsOn }: { radarOn: boolean; alertsOn: boolean }) {
+  const [lat, setLat] = useState(() => Number(localStorage.getItem("mapLat")) || 32.51);
+  const [lng, setLng] = useState(() => Number(localStorage.getItem("mapLng")) || -84.87);
+  const [z, setZ]   = useState(() => Number(localStorage.getItem("mapZoom")) || 7);
+  const [showMarkers, setShowMarkers] = useState(true);
   const position = useMemo(() => [lat, lng] as [number, number], [lat, lng]);
   const mapRef = useRef<any>(null);
   const markerRef = useRef<any>(null);
-  const save = () => { 
-    localStorage.setItem("mapLat", String(lat)); 
-    localStorage.setItem("mapLng", String(lng)); 
-    localStorage.setItem("mapZoom", String(z)); 
+  const markersLayerRef = useRef<any>(null);
+  const save = () => {
+    localStorage.setItem("mapLat", String(lat));
+    localStorage.setItem("mapLng", String(lng));
+    localStorage.setItem("mapZoom", String(z));
   };
 
+  // focus from Inbox
   useEffect(() => {
     function onFocus(e: any){
-      const d = e.detail || {}; 
+      const d = e.detail || {};
       if (!mapRef.current || !d.lat || !d.lon) return;
       mapRef.current.setView([d.lat, d.lon], d.zoom || 18);
-      const L = (window as any).L; 
-      if (!L) return;
-      if (markerRef.current) { 
-        mapRef.current.removeLayer(markerRef.current); 
-        markerRef.current = null; 
-      }
+      const L = (window as any).L; if (!L) return;
+      if (markerRef.current) { mapRef.current.removeLayer(markerRef.current); markerRef.current = null; }
       markerRef.current = L.marker([d.lat, d.lon]).addTo(mapRef.current);
     }
     window.addEventListener('focusLocation', onFocus);
     return () => window.removeEventListener('focusLocation', onFocus);
   }, []);
 
+  // live markers
+  useEffect(() => {
+    const L = (window as any).L; if (!L || !mapRef.current) return;
+    if (markersLayerRef.current) { mapRef.current.removeLayer(markersLayerRef.current); }
+    markersLayerRef.current = L.layerGroup().addTo(mapRef.current);
+
+    async function addItem(it: any){
+      if (!it || !it.lat || !it.lon) return;
+      const icon = L.divIcon({ className:'damage-pin',
+        html:`<div style="background:#ef4444;color:#fff;padding:2px 6px;border-radius:8px;">${(it.tags?.[0]||'damage')}</div>` });
+      const m = L.marker([it.lat, it.lon], { icon });
+      m.bindPopup(`<b>${it.address||''}</b><br/>${(it.tags||[]).join(', ')||''}`);
+      markersLayerRef.current.addLayer(m);
+    }
+
+    let pollId: any;
+    fetch('/api/inbox').then(r=>r.json()).then(arr => (arr||[]).forEach(addItem)).catch(()=>{});
+    const ev = new EventSource('/api/stream');
+    ev.onmessage = m => { try { addItem(JSON.parse(m.data)); } catch {} };
+    ev.onerror   = () => { ev.close(); pollId = setInterval(() => {
+      fetch('/api/inbox').then(r=>r.json()).then(arr => (arr||[]).forEach(addItem)).catch(()=>{});
+    }, 15000); };
+
+    return () => { ev.close(); if (pollId) clearInterval(pollId); if (markersLayerRef.current) mapRef.current.removeLayer(markersLayerRef.current); };
+  }, []);
+
   return (
     <div className="w-full bg-white border border-gray-200 rounded-lg shadow-sm">
       <div className="p-4 space-y-3">
         <div className="grid grid-cols-3 gap-2">
-          <input 
-            type="number" 
-            step="0.0001" 
-            value={lat} 
-            onChange={(e) => setLat(Number(e.target.value))} 
-            placeholder="Latitude"
-            className="border border-gray-300 rounded-md px-2 py-1"
-          />
-          <input 
-            type="number" 
-            step="0.0001" 
-            value={lng} 
-            onChange={(e) => setLng(Number(e.target.value))} 
-            placeholder="Longitude"
-            className="border border-gray-300 rounded-md px-2 py-1"
-          />
-          <input 
-            type="number" 
-            step="1" 
-            min={2} 
-            max={12} 
-            value={z} 
-            onChange={(e) => setZ(Number(e.target.value))} 
-            placeholder="Zoom"
-            className="border border-gray-300 rounded-md px-2 py-1"
-          />
+          <input type="number" step="0.0001" value={lat} onChange={(e)=>setLat(Number(e.target.value))} placeholder="Latitude" className="border border-gray-300 rounded-md px-2 py-1" />
+          <input type="number" step="0.0001" value={lng} onChange={(e)=>setLng(Number(e.target.value))} placeholder="Longitude" className="border border-gray-300 rounded-md px-2 py-1" />
+          <input type="number" step="1" min={2} max={12} value={z} onChange={(e)=>setZ(Number(e.target.value))} placeholder="Zoom" className="border border-gray-300 rounded-md px-2 py-1" />
         </div>
-        <div className="flex justify-end">
-          <button 
-            onClick={save}
-            className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 font-medium transition-colors"
-          >
-            Save View
-          </button>
+        <div className="flex items-center gap-3">
+          <label className="text-sm flex items-center gap-2">
+            <input type="checkbox" checked={showMarkers} onChange={(e)=>{
+              setShowMarkers(e.target.checked);
+              if (!mapRef.current || !markersLayerRef.current) return;
+              if (e.target.checked) markersLayerRef.current.addTo(mapRef.current);
+              else mapRef.current.removeLayer(markersLayerRef.current);
+            }} />
+            Show damage markers
+          </label>
+          <button onClick={save} className="border border-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-50 font-medium transition-colors">Save View</button>
         </div>
-        <div className="h-[420px] rounded-2xl overflow-hidden border border-gray-200">
-          <MapContainer ref={mapRef} center={position} zoom={z} className="h-full w-full">
-            <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+        <div className="h-[420px] rounded-2xl overflow-hidden">
+          <MapContainer ref={(m: any)=>{mapRef.current=m;}} center={position} zoom={z} className="h-full w-full">
+            <TileLayer attribution='&copy; OpenStreetMap contributors' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
             <RadarLayer enabled={radarOn} />
             <NOAAAlertsLayer enabled={alertsOn} />
           </MapContainer>
