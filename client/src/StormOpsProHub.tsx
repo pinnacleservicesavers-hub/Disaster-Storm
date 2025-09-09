@@ -779,6 +779,17 @@ export default function StormOpsProHub() {
   const [radarOn, setRadarOn] = useState(true);
   const [alertsOn, setAlertsOn] = useState(true);
   const [activeTab, setActiveTab] = useState("map");
+  
+  // Role state management
+  const [role, setRole] = useState(localStorage.getItem('role') || 'ops');
+  
+  // Role permission helper
+  const allow = (requiredRole: string) => {
+    const roles = ['field', 'ops', 'admin'];
+    const userLevel = roles.indexOf(role);
+    const requiredLevel = roles.indexOf(requiredRole);
+    return userLevel >= requiredLevel;
+  };
 
   return (
     <div className="min-h-screen w-full bg-gradient-to-b from-slate-50 to-slate-100 p-6">
@@ -788,7 +799,7 @@ export default function StormOpsProHub() {
             <h1 className="text-3xl font-bold text-gray-900">Storm Operations Pro Hub</h1>
             <p className="text-gray-600">Professional emergency response and drone coordination platform</p>
           </div>
-          <RoleSelector />
+          <RoleSelector value={role} onChange={setRole} />
         </div>
 
         <div className="w-full">

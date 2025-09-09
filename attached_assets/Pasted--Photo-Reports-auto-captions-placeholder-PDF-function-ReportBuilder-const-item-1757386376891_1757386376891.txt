@@ -1,0 +1,47 @@
+// --- Photo Reports (auto captions placeholder + PDF) ---
+function ReportBuilder(){
+  const [items, setItems] = useState([]); // {file, caption}
+  const [pdfName, setPdfName] = useState('storm-report.pdf');
+  function onFiles(e){ const fs = Array.from(e.target.files||[]); setItems(prev=>[...prev, ...fs.map(f=>({ file:f, caption:'Auto: damage detected (placeholder)' }))]); }
+  async function autoDescribe(){ setItems(prev=> prev.map(x=> ({...x, caption: x.caption.includes('placeholder')? 'Tree on roof; broken ridge; tarp recommended' : x.caption }))); }
+  async function makePDF(){
+    try {
+      const mod = await import('jspdf'); const { jsPDF } = mod; const doc = new jsPDF();
+      for (let i=0;i<items.length;i++){
+        const it = items[i]; const dataUrl = await new Promise(res=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.readAsDataURL(it.file); });
+        if (i>0) doc.addPage();
+        doc.setFontSize(14); doc.text(`Photo ${i+1}`, 14, 18);
+        doc.addImage(dataUrl, 'JPEG', 14, 24, 180, 120);
+        doc.setFontSize(12); wrapText(doc, it.caption, 14, 150, 180, 6);
+      }
+      doc.save(pdfName);
+    } catch(e){ alert('Install jspdf: npm i jspdf'); }
+  }
+  return (
+    <Card><CardContent className="p-4 space-y-3">
+      <div className="text-lg font-semibold">Photo Reports</div>
+      <input type="file" accept="image/*" multiple onChange={onFiles} />
+      <div className="grid md:grid-cols-3 gap-3">
+        {items.map((it,idx)=> (
+          <div key={idx} className="space-y-1">
+            <img src={URL.createObjectURL(it.file)} className="w-full h-40 object-cover rounded" />
+            <Input value={it.caption} onChange={(e)=>setItems(items.map((x,i)=> i===idx?{...x, caption:e.target.value}:x))} />
+          </div>
+        ))}
+      </div>
+      <div className="grid md:grid-cols-3 gap-2 items-center">
+        <Input value={pdfName} onChange={(e)=>setPdfName(e.target.value)} />
+        <Button variant="outline" onClick={autoDescribe}>AI Describe (placeholder)</Button>
+        <Button onClick={makePDF}>Generate PDF</Button>
+      </div>
+    </CardContent></Card>
+  );
+}
+function wrapText(doc, text, x, y, maxWidth, lineHeight){
+  const words = text.split(' '); let line='';
+  for (let n=0;n<words.length;n++){ const test = line + words[n] + ' ';
+    if (doc.getTextWidth(test) > maxWidth){ doc.text(line.trim(), x, y); line = words[n] + ' '; y+=lineHeight; }
+    else line = test;
+  }
+  if (line) doc.text(line.trim(), x, y);
+}

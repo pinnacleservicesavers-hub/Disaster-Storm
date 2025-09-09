@@ -1,0 +1,98 @@
+// --- Customers CRM (pipeline, comms log, docs) ---
+function useCustomers(){
+  const [list, setList] = useState(()=>{ try{ return JSON.parse(localStorage.getItem('customers')||'[]'); }catch{ return []; } });
+  useEffect(()=>{ localStorage.setItem('customers', JSON.stringify(list)); }, [list]);
+  function add(c){ setList(prev=>[ { id: String(Date.now()), status:'new', timeline:[], docs:[], messages:[], ...c }, ...prev ]); }
+  function update(id, patch){ setList(prev=> prev.map(c=> c.id===id ? { ...c, ...patch } : c)); }
+  function pushMsg(id, msg){ setList(prev=> prev.map(c=> c.id===id ? { ...c, messages:[...c.messages, { ts: Date.now(), ...msg }] } : c)); }
+  function pushDoc(id, doc){ setList(prev=> prev.map(c=> c.id===id ? { ...c, docs:[...c.docs, doc] } : c)); }
+  function pushEvent(id, evt){ setList(prev=> prev.map(c=> c.id===id ? { ...c, timeline:[...c.timeline, { ts: Date.now(), ...evt }] } : c)); }
+  return { list, add, update, pushMsg, pushDoc, pushEvent };
+}
+const PIPELINE = ['new','contacted','contract_signed','scheduled','in_progress','completed','claim_submitted','awaiting_payment','paid'];
+function CustomersCRM(){
+  const { list, add, update, pushMsg, pushDoc, pushEvent } = useCustomers();
+  const [form, setForm] = useState({ name:'', address:'', phone:'', email:'', claimNumber:'', insurer:'' });
+  function create(){ if(!form.name && !form.address) return; add(form); setForm({ name:'', address:'', phone:'', email:'', claimNumber:'', insurer:'' }); }
+  return (
+    <div className="space-y-4">
+      <Card><CardContent className="p-4 space-y-2">
+        <div className="text-lg font-semibold">Customer Intake</div>
+        <div className="grid md:grid-cols-3 gap-2">
+          <Input value={form.name} onChange={(e)=>setForm({...form,name:e.target.value})} placeholder="Owner name" />
+          <Input value={form.address} onChange={(e)=>setForm({...form,address:e.target.value})} placeholder="Service address" />
+          <Input value={form.phone} onChange={(e)=>setForm({...form,phone:e.target.value})} placeholder="Phone" />
+          <Input value={form.email} onChange={(e)=>setForm({...form,email:e.target.value})} placeholder="Email" />
+          <Input value={form.insurer} onChange={(e)=>setForm({...form,insurer:e.target.value})} placeholder="Insurance company" />
+          <Input value={form.claimNumber} onChange={(e)=>setForm({...form,claimNumber:e.target.value})} placeholder="Claim #" />
+        </div>
+        <div className="flex gap-2"><Button onClick={create}>Create Customer</Button></div>
+        <div className="text-xs text-muted-foreground">Everything is logged—calls, texts, emails, docs, photos, reports.</div>
+      </CardContent></Card>
+
+      <div className="grid md:grid-cols-2 gap-4">
+        {list.map(c => <CustomerCard key={c.id} c={c} update={update} pushMsg={pushMsg} pushDoc={pushDoc} pushEvent={pushEvent} />)}
+      </div>
+    </div>
+  );
+}
+function CustomerCard({ c, update, pushMsg, pushDoc, pushEvent }){
+  const [note, setNote] = useState(''); const [msg, setMsg] = useState('');
+  async function sendSMS(){ await fetch('/api/sms',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ to:c.phone, body: msg })}); pushMsg(c.id,{ dir:'out', type:'sms', to:c.phone, body:msg }); setMsg(''); }
+  async function sendEmail(){ await fetch('/api/email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ to:c.email, subject:`Storm work update for ${c.address}`, html: msg })}); pushMsg(c.id,{ dir:'out', type:'email', to:c.email, body:msg }); setMsg(''); }
+  function changeStatus(s){ update(c.id,{ status:s }); pushEvent(c.id,{ type:'status', to:s }); }
+  return (
+    <Card><CardContent className="p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="text-lg font-semibold">{c.name||'Unknown Owner'}</div>
+          <div className="text-sm text-muted-foreground">{c.address}</div>
+          <div className="text-xs">{c.insurer || 'Insurer N/A'} • Claim #{c.claimNumber||'—'}</div>
+        </div>
+        <select className="border rounded-md px-2 py-1" value={c.status} onChange={(e)=>changeStatus(e.target.value)}>
+          {PIPELINE.map(p => <option key={p} value={p}>{p.replaceAll('_',' ')}</option>)}
+        </select>
+      </div>
+
+      <div className="grid md:grid-cols-3 gap-3">
+        <div className="space-y-2">
+          <div className="font-medium">Communications</div>
+          <Input value={msg} onChange={(e)=>setMsg(e.target.value)} placeholder="Write SMS/Email..." />
+          <div className="flex gap-2">
+            {c.phone && <Button onClick={sendSMS}>Send SMS</Button>}
+            {c.email && <Button variant="secondary" onClick={sendEmail}>Send Email</Button>}
+            {c.phone && <a href={`tel:${c.phone.replace(/[^0-9+]/g,'')}`}><Button variant="outline">Call</Button></a>}
+          </div>
+          <div className="space-y-1 max-h-40 overflow-auto text-xs">
+            {c.messages?.map((m,i)=>(<div key={i}>[{new Date(m.ts).toLocaleString()}] {m.type?.toUpperCase()} → {m.to}: {m.body}</div>))}
+          </div>
+        </div>
+        <div className="space-y-2">
+          <div className="font-medium">Docs & Media</div>
+          <input type="file" multiple onChange={(e)=>{
+            const files = Array.from(e.target.files||[]);
+            files.forEach(f=> pushDoc(c.id,{ name:f.name, size:f.size }));
+          }} />
+          <div className="text-xs text-muted-foreground">Contracts, proof of insurance, photos/videos. (Hook to /api/upload for persistence.)</div>
+          <div className="space-y-1 max-h-40 overflow-auto text-xs">
+            {c.docs?.map((d,i)=>(<div key={i}>📄 {d.name} ({Math.round((d.size||0)/1024)} KB)</div>))}
+          </div>
+        </div>
+        <div className="space-y-2">
+          <div className="font-medium">Notes / Timeline</div>
+          <Input value={note} onChange={(e)=>setNote(e.target.value)} placeholder="Add an internal note" />
+          <Button variant="outline" onClick={()=>{ pushEvent(c.id,{ type:'note', text:note }); setNote(''); }}>Add Note</Button>
+          <div className="space-y-1 max-h-40 overflow-auto text-xs">
+            {c.timeline?.map((t,i)=>(<div key={i}>[{new Date(t.ts).toLocaleString()}] {t.type} {t.text||t.to||''}</div>))}
+          </div>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <Button variant="outline" onClick={()=>changeStatus('contract_signed')}>Mark Contracted</Button>
+        <Button variant="outline" onClick={()=>changeStatus('claim_submitted')}>Mark Claim Submitted</Button>
+        <Button variant="outline" onClick={()=>changeStatus('paid')}>Mark Paid</Button>
+      </div>
+    </CardContent></Card>
+  );
+}
