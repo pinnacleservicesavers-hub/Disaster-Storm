@@ -1,0 +1,65 @@
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { MapContainer, TileLayer, useMap } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
+
+/**
+ * Storm Ops Multi‑Feed Hub (React)
+ * --------------------------------
+ * One screen to:
+ *  - Open Axon/DroneSense secure portals
+ *  - View OSM + Radar + NOAA alerts
+ *  - Watch HLS/iFrame shares from VOTIX, FlytBase, DroneDeploy, DJI FlightHub 2 (when given)
+ *  - Pick which feed to watch via a clean "Live Feeds" tab
+ *
+ * Notes:
+ *  - Many enterprise portals block iframes. Use their shareable player links or open in a new tab.
+ *  - HLS (.m3u8) is supported with native playback or hls.js fallback (loaded dynamically).
+ */
+
+function openNew(url) { if (url) window.open(url, "_blank", "noopener,noreferrer"); }
+
+function PersistedField({ k, label, placeholder }) {
+  const [val, setVal] = useState(() => localStorage.getItem(k) || "");
+  useEffect(() => { localStorage.setItem(k, val); }, [k, val]);
+  return (
+    <div className="flex flex-col gap-1">
+      <label className="text-sm text-muted-foreground">{label}</label>
+      <Input value={val} onChange={(e) => setVal(e.target.value)} placeholder={placeholder} />
+    </div>
+  );
+}
+
+// --- Map Layers ---
+function RadarLayer({ enabled }) {
+  const map = useMap();
+  const layerRef = useRef(null);
+  useEffect(() => {
+    if (!enabled) { if (layerRef.current) { map.removeLayer(layerRef.current); layerRef.current = null; } return; }
+    const L = window.L; if (!L) return;
+    const radar = L.tileLayer(
+      "https://tilecache.rainviewer.com/v2/radar/now/256/{z}/{x}/{y}/2/1_1.png",
+      { opacity: 0.75, attribution: "<a href='https://www.rainviewer.com/'>RainViewer</a>" }
+    );
+    radar.addTo(map); layerRef.current = radar;
+    return () => { if (layerRef.current) { map.removeLayer(layerRef.current); layerRef.current = null; } };
+  }, [enabled, map]);
+  return null;
+}
+
+function NOAAAlertsLayer({ enabled }) {
+  const map = useMap();
+  const layerRef = useRef(null);
+  useEffect(() => {
+    if (!enabled) { if (layerRef.current) { map.removeLayer(layerRef.current); layerRef.current = null; } return; }
+    const L = window.L; if (!L) return;
+    const noaa = L.tileLayer.wms("https://idpgis.ncep.noaa.gov/arcgis/services/NWS_Watches_Warnings/MapServer/WMSServer", {
+      layers: "1", format: "image/png", transparent: true, attribution: "NOAA/NWS"
+    });
+    noaa.addTo(map); layerRef.current = noaa;
+    return () => { if (layerRef.current) { map.removeLayer(layerRef.current); layerRef.current = null; } };
+  }, [
