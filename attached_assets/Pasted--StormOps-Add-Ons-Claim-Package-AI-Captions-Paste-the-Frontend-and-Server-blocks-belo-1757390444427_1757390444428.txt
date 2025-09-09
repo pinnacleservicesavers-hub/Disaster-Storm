@@ -1,0 +1,49 @@
+# StormOps Add‑Ons: Claim Package + AI Captions
+
+Paste the **Frontend** and **Server** blocks below into your project.
+
+---
+
+## Frontend — replace your `CustomerCard` in `StormOpsProHub.jsx`
+
+```jsx
+function CustomerCard({ c, update, pushMsg, pushDoc, pushEvent }){
+  const [note, setNote] = useState('');
+  const [msg, setMsg] = useState('');
+
+  // Claim-threaded messages (from backend /api/messages?claim=...)
+  const [thread, setThread] = useState([]);
+  useEffect(()=>{
+    if (!c.claimNumber){ setThread([]); return; }
+    fetch(`/api/messages?claim=${encodeURIComponent(c.claimNumber)}`)
+      .then(r=>r.json()).then(setThread).catch(()=>{});
+  }, [c.claimNumber]);
+
+  // Invoice editor
+  const [invoiceItems, setInvoiceItems] = useState([{ name:'Emergency service', amount:0, quantity:1 }]);
+  const [taxRate, setTaxRate] = useState(0);
+  const subtotal = invoiceItems.reduce((s,it)=> s + (Number(it.amount)||0) * (Number(it.quantity)||1), 0);
+  const tax = subtotal * (Number(taxRate)||0)/100;
+  const total = subtotal + tax;
+
+  // E‑Sign status (badge + auto‑attach certificate)
+  const [esign, setEsign] = useState({ status:'unknown', certificate:null });
+  useEffect(()=>{
+    let stop = false;
+    async function check(){
+      const params = new URLSearchParams({});
+      if (c.claimNumber) params.set('claim', c.claimNumber);
+      if (c.email) params.set('email', c.email);
+      if (![...params.keys()].length) return;
+      const r = await fetch(`/api/esign/status?${params.toString()}`).then(r=>r.json()).catch(()=>null);
+      const rec = r?.record || (r?.results && (r.results.find(x=>x.signedAt) || r.results[0])) || null;
+      if (stop || !rec) return;
+      const next = { status: rec.signedAt? 'signed':'pending', certificate: rec.certificate || null };
+      setEsign(prev=> (prev.status!==next.status || prev.certificate!==next.certificate) ? next : prev);
+      if (rec.certificate){
+        const already = (c.docs||[]).some(d => d.url===rec.certificate || d.name==='E-Sign Certificate.pdf');
+        if (!already){
+          try { pushDoc(c.id, { name:'E-Sign Certificate.pdf', url: rec.certificate }); } catch(_){ }
+          try { pushEvent(c.id, { type:'esign_cert_added', text: rec.certificate }); } catch(_){ }
+        }
+```

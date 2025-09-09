@@ -593,20 +593,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      async function reverseGeocode(lat: number, lon: number) {
+      const reverseGeocodeLocal = async (lat: number, lon: number) => {
         try {
           const r = await fetch(
             `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`,
             { headers: { "User-Agent": "StormOpsHub/1.0" } }
           );
-          const j = await r.json();
+          const j = await r.json() as any;
           return j?.display_name || "";
         } catch (e) {
           return "";
         }
       }
       
-      const guessed = address || ((lat && lon) ? await reverseGeocode(lat, lon) : null);
+      const guessed = address || ((lat && lon) ? await reverseGeocodeLocal(lat, lon) : null);
       res.json({ ownerName: null, mailingAddress: guessed, phone: null, email: null, sources: [] });
     } catch (e) {
       res.status(500).json({ error: "lookup_failed", detail: String(e) });
@@ -821,7 +821,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       doc.fontSize(22).text('Strategic Land Management LLC — Emergency Storm Response', x0, y0, { width: W, align: 'center' });
       doc.moveDown(0.5).fontSize(12).text('📞 888-628-2229    🌐 www.strategiclandmgmt.com    ✉️ strategiclandmgmt@gmail.com', { align: 'center' });
 
-      function col(n: number){ return x0 + n*colW; }
+      const col = (n: number) => x0 + n*colW;
       doc.moveDown(1);
       // Column 1
       doc.fontSize(14).text('❤️ Our Mission', col(0), 120, { width: colW-12, continued:false });
