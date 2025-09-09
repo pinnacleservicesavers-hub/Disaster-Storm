@@ -42,8 +42,29 @@ const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SEC
 const ROOT = process.cwd();
 const UPLOAD_DIR = path.join(ROOT, "uploads");
 const ASSETS_DIR = path.join(ROOT, "assets");
+const DATA_DIR = path.join(ROOT, "data");
 if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-if (!fs.existsSync(ASSETS_DIR)) fs.mkdirSync(ASSETS_DIR, { recursive: true });
+if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+
+// ---- SLA tracking data file ----
+const SLA_PATH = path.join(DATA_DIR, 'sla.json');
+if (!fs.existsSync(SLA_PATH)) fs.writeFileSync(SLA_PATH, JSON.stringify({ items: [] }, null, 2));
+
+function readSLA() { 
+  try { 
+    return JSON.parse(fs.readFileSync(SLA_PATH, 'utf8')); 
+  } catch { 
+    return { items: [] }; 
+  } 
+}
+
+function writeSLA(data: any) { 
+  try { 
+    fs.writeFileSync(SLA_PATH, JSON.stringify(data, null, 2)); 
+  } catch (e) {
+    console.error('Failed to write SLA data:', e);
+  } 
+}
 
 // ---- in-memory Inbox store (swap for DB in prod) ----
 const inbox = []; // [{ id, provider, timestamp, mediaUrl, thumbnailUrl, lat, lon, address, notes, tags }]
@@ -179,37 +200,29 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
   // ---- inbox history (poll fallback) ----
   app.get("/api/inbox", (req, res) => res.json(inbox.slice(0, 500)));
 
-  // ---- geocoding endpoint for map functionality ----
+  // ---- geocoding endpoint for map functionality (OpenStreetMap Nominatim) ----
   app.get("/api/geocode", async (req, res) => {
     try {
-      const { address } = req.query;
-      if (!address) {
-        return res.status(400).json({ error: 'Address parameter required' });
-      }
-
-      // Use simple geocoding with fake results for demo (replace with real service)
-      const fakeResults = {
-        'orlando': { lat: 28.5383, lng: -81.3792 },
-        'miami': { lat: 25.7617, lng: -80.1918 },
-        'tampa': { lat: 27.9506, lng: -82.4572 },
-        'jacksonville': { lat: 30.3322, lng: -81.6557 }
-      };
+      const address = String(req.query.address || '').trim();
+      if (!address) return res.json({});
       
-      const key = String(address).toLowerCase();
-      const found = Object.keys(fakeResults).find(k => key.includes(k));
+      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`;
+      const response = await fetch(url, { 
+        headers: { 'User-Agent': 'StormOps/1.0 (contact: strategiclandmgmt@gmail.com)' }
+      });
+      const arr = await response.json();
       
-      if (found) {
-        res.json(fakeResults[found]);
-      } else {
-        // Default to Orlando area with slight random offset
-        res.json({
-          lat: 28.5383 + (Math.random() - 0.5) * 0.1,
-          lng: -81.3792 + (Math.random() - 0.5) * 0.1
+      if (Array.isArray(arr) && arr.length) {
+        return res.json({ 
+          lat: Number(arr[0].lat), 
+          lng: Number(arr[0].lon), 
+          raw: arr[0] 
         });
       }
+      res.json({});
     } catch (error) {
       console.error('Geocoding error:', error);
-      res.status(500).json({ error: 'Geocoding failed' });
+      res.json({});
     }
   });
 
@@ -245,21 +258,37 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
     res.json({ ok: true, file: { name: req.file.originalname, path: `/uploads/${req.file.filename}` } });
   });
 
-  // ---- SLA tracking endpoint ----
-  app.post("/api/sla/register", async (req, res) => {
+  // ---- SLA tracking endpoints ----
+  // Types: claim_submitted → alerts at +30d, +60d; work_completed → lien at +45d; lien_filed → alert at +10mo (~300d, 330d)
+  app.post("/api/sla/register", (req, res) => {
     try {
-      const { customerId, type, ts, address, name } = req.body || {};
-      if (!customerId || !type || !ts) {
-        return res.status(400).json({ error: 'customerId, type, and ts required' });
-      }
+      const { customerId, type, ts = Date.now(), address, name } = req.body || {};
+      if (!customerId || !type) return res.status(400).json({ error: 'missing_fields' });
       
-      // In a real app, store in database for reminders/alerts
-      console.log(`SLA registered: ${type} for customer ${customerId} (${name}) at ${address} - timestamp: ${ts}`);
-      
-      res.json({ ok: true, message: 'SLA tracking registered' });
+      const db = readSLA();
+      db.items.push({ 
+        id: `${customerId}:${type}:${ts}`, 
+        customerId, 
+        type, 
+        ts: Number(ts), 
+        address: address || '', 
+        name: name || '' 
+      });
+      writeSLA(db);
+      res.json({ ok: true });
     } catch (error) {
       console.error('SLA registration error:', error);
-      res.status(500).json({ error: 'SLA registration failed' });
+      res.status(500).json({ error: 'sla_register_failed' });
+    }
+  });
+
+  app.get("/api/sla/list", (req, res) => {
+    try { 
+      const db = readSLA(); 
+      res.json(db.items || []); 
+    } catch (error) { 
+      console.error('SLA list error:', error);
+      res.status(500).json([]); 
     }
   });
 
@@ -550,6 +579,82 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
 
       res.json({ ok:true, id: info.messageId, summaryPath: `/uploads/${path.basename(outPath)}` });
     }catch(e){ res.status(500).json({ error:'claim_package_failed', detail:String(e) }); }
+  });
+
+  // ---- Notification helpers for SLA alerts ----
+  async function notify({ subject, html, sms }: { subject: string; html: string; sms?: string }) {
+    try {
+      if (typeof transporter !== 'undefined' && transporter) {
+        await transporter.sendMail({ 
+          from: process.env.SMTP_FROM || process.env.SMTP_USER, 
+          to: process.env.ALERT_TO || 'strategiclandmgmt@gmail.com', 
+          subject, 
+          html 
+        });
+      }
+    } catch (e) {
+      console.error('Email notification failed:', e);
+    }
+    
+    try {
+      if (typeof tw !== 'undefined' && tw && process.env.ALERT_SMS_TO) {
+        await tw.messages.create({ 
+          to: process.env.ALERT_SMS_TO, 
+          from: process.env.TWILIO_FROM, 
+          body: sms || subject 
+        });
+      }
+    } catch (e) {
+      console.error('SMS notification failed:', e);
+    }
+  }
+
+  function daysBetween(a: number, b: number) { 
+    return Math.floor((b - a) / 86400000); 
+  }
+
+  // ---- Daily SLA scan at 09:00 America/New_York ----
+  cron.schedule('0 9 * * *', async () => {
+    console.log('Running daily SLA check...');
+    const db = readSLA(); 
+    const now = Date.now();
+    
+    for (const item of db.items) {
+      const days = daysBetween(Number(item.ts), now);
+      
+      if (item.type === 'claim_submitted' && (days === 30 || days === 60)) {
+        await notify({ 
+          subject: `[SLA] Claim follow-up ${days} days — ${item.address}`, 
+          html: `Claim follow-up at ${days} days for ${item.name || 'Customer'}<br/>Address: ${item.address}` 
+        });
+      }
+      
+      if (item.type === 'work_completed' && days === 45) {
+        await notify({ 
+          subject: `[SLA] File lien (45 days) — ${item.address}`, 
+          html: `Work completed 45 days ago for ${item.name || 'Customer'}. Consider filing lien if unpaid.<br/>Address: ${item.address}` 
+        });
+      }
+      
+      if (item.type === 'lien_filed' && (days === 300 || days === 330)) {
+        await notify({ 
+          subject: `[SLA] Lien age ${days} days — ${item.address}`, 
+          html: `Lien filed ${days} days ago for ${item.name || 'Customer'}. Check state deadlines.<br/>Address: ${item.address}` 
+        });
+      }
+    }
+  }, {
+    timezone: 'America/New_York'
+  });
+
+  // ---- Quick links to lien services ----
+  app.get('/api/lien/links', (req, res) => {
+    res.json({ 
+      links: [
+        { name: 'LienIt', url: 'https://www.lienit.com/' },
+        { name: 'LienItNow', url: 'https://www.lienitnow.com/' }
+      ]
+    });
   });
 
   // ---- Reminders (claim 30/60d; completion 45d; lien 10mo) ----
