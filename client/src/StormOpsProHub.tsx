@@ -813,11 +813,16 @@ export default function StormOpsProHub() {
                 { id: "inbox", label: "📥 Inbox" },
                 { id: "multiview", label: "📺 Multi-View" },
                 { id: "votix", label: "🔴 VOTIX" },
-                { id: "flytbase", label: "🚁 FlytBase" },
-                { id: "dronedeploy", label: "📹 DroneDeploy" },
+                { id: "flyt", label: "🚁 FlytBase" },
+                { id: "deploy", label: "📹 DroneDeploy" },
                 { id: "dji", label: "🛸 DJI FH2" },
-                { id: "dsps", label: "👥 Hire Pilots" }
-              ].map(tab => (
+                { id: "dsps", label: "👥 Hire Pilots" },
+                { id: "owner", label: "🏢 Owner Lookup" },
+                { id: "customers", label: "👤 CRM" },
+                { id: "reports", label: "📊 Reports" },
+                { id: "legal", label: "⚖️ Legal" },
+                { id: "contractor", label: "🔧 Contractor" }
+              ].filter(tab => allow(tab.id)).map(tab => (
                 <button
                   key={tab.id}
                   className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${
@@ -882,7 +887,7 @@ export default function StormOpsProHub() {
             )}
 
             {/* FlytBase Tab */}
-            {activeTab === "flytbase" && (
+            {activeTab === "flyt" && (
               <div className="p-4">
                 <ProviderTab 
                   name="FlytBase" 
@@ -894,7 +899,7 @@ export default function StormOpsProHub() {
             )}
 
             {/* DroneDeploy Tab */}
-            {activeTab === "dronedeploy" && (
+            {activeTab === "deploy" && (
               <div className="p-4">
                 <ProviderTab 
                   name="DroneDeploy" 
@@ -921,6 +926,65 @@ export default function StormOpsProHub() {
             {activeTab === "dsps" && (
               <div className="p-4">
                 <DSPDirectory />
+              </div>
+            )}
+
+            {/* Owner Lookup Tab */}
+            {activeTab === "owner" && (
+              <div className="p-4">
+                <OwnerLookup />
+              </div>
+            )}
+
+            {/* CRM Tab */}
+            {activeTab === "customers" && (
+              <div className="p-4">
+                <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+                  <div className="p-4">
+                    <h3 className="text-lg font-semibold mb-4">Customer Relationship Management</h3>
+                    <p className="text-gray-600">Manage customer relationships, track interactions, and build your claims pipeline.</p>
+                    <div className="mt-4 text-sm text-gray-500">🚧 CRM features coming soon</div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Reports Tab */}
+            {activeTab === "reports" && (
+              <div className="p-4">
+                <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+                  <div className="p-4">
+                    <h3 className="text-lg font-semibold mb-4">Photo Reports & AI Analysis</h3>
+                    <p className="text-gray-600">Generate professional reports with AI-powered damage analysis and PDF export.</p>
+                    <div className="mt-4 text-sm text-gray-500">🚧 Reporting features coming soon</div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Legal Tab */}
+            {activeTab === "legal" && (
+              <div className="p-4">
+                <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+                  <div className="p-4">
+                    <h3 className="text-lg font-semibold mb-4">Liens & Legal Compliance</h3>
+                    <p className="text-gray-600">Track lien deadlines, manage legal requirements, and ensure compliance across all jurisdictions.</p>
+                    <div className="mt-4 text-sm text-gray-500">🚧 Legal features coming soon</div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Contractor Tab */}
+            {activeTab === "contractor" && (
+              <div className="p-4">
+                <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+                  <div className="p-4">
+                    <h3 className="text-lg font-semibold mb-4">Contractor Portal</h3>
+                    <p className="text-gray-600">Strategic Land Management portal with SBA/FEMA links, contract management, and insurance verification.</p>
+                    <div className="mt-4 text-sm text-gray-500">🚧 Contractor features coming soon</div>
+                  </div>
+                </div>
               </div>
             )}
           </div>

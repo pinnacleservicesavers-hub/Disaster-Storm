@@ -1,0 +1,699 @@
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { MapContainer, TileLayer, useMap } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
+
+/**
+ * Axon Deep-link + Storm Map Launcher (React)
+ * ------------------------------------------
+ * Unified, production-ready build with:
+ *  - Storm Map (OSM + RainViewer radar + NOAA alerts) + auto-center on new items
+ *  - Inbox with damage-tag filters (tree_on_roof, line_down, etc.), badges, search, sorting
+ *  - Multi-View (2x2) with Pin buttons from each provider tab (VOTIX/FlytBase/DroneDeploy/DJI FH2)
+ *  - Provider tabs (HLS + iframe), plus quick open links
+ *  - DSP Directory (hire pilots)
+ *  - Owner Lookup (calls /api/owner-lookup), one-click Call/Text/Email
+ *  - Role Selector (Ops / Field / Admin) — ready to wire to access rules
+ */
+
+function openNew(url) { if (url) window.open(url, "_blank", "noopener,noreferrer"); }
+
+// ===== Role selector =====
+function RoleSelector({ value, onChange }){
+  const [role, setRole] = useState(value || localStorage.getItem('role')||'ops');
+  useEffect(()=>{ localStorage.setItem('role', role); window.dispatchEvent(new Event('roleChanged')); if(onChange) onChange(role); }, [role]);
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-sm text-muted-foreground">Role:</span>
+      <select className="border rounded-md px-2 py-1" value={role} onChange={(e)=>setRole(e.target.value)}>
+        <option value="ops">Ops</option>
+        <option value="field">Field</option>
+        <option value="admin">Admin</option>
+      </select>
+    </div>
+  );
+}
+
+// ===== Map layers =====
+function RadarLayer({ enabled }) {
+  const map = useMap();
+  const layerRef = useRef(null);
+  useEffect(() => {
+    if (!enabled) { if (layerRef.current) { map.removeLayer(layerRef.current); layerRef.current = null; } return; }
+    const L = window.L; if (!L) return;
+    const radar = L.tileLayer("https://tilecache.rainviewer.com/v2/radar/now/256/{z}/{x}/{y}/2/1_1.png", { opacity: 0.75, attribution: "<a href='https://www.rainviewer.com/'>RainViewer</a>" });
+    radar.addTo(map); layerRef.current = radar;
+    return () => { if (layerRef.current) { map.removeLayer(layerRef.current); layerRef.current = null; } };
+  }, [enabled, map]);
+  return null;
+}
+function NOAAAlertsLayer({ enabled }) {
+  const map = useMap();
+  const layerRef = useRef(null);
+  useEffect(() => {
+    if (!enabled) { if (layerRef.current) { map.removeLayer(layerRef.current); layerRef.current = null; } return; }
+    const L = window.L; if (!L) return;
+    const noaa = L.tileLayer.wms("https://idpgis.ncep.noaa.gov/arcgis/services/NWS_Watches_Warnings/MapServer/WMSServer", { layers: "1", format: "image/png", transparent: true, attribution: "NOAA/NWS" });
+    noaa.addTo(map); layerRef.current = noaa;
+    return () => { if (layerRef.current) { map.removeLayer(layerRef.current); layerRef.current = null; } };
+  }, [enabled, map]);
+  return null;
+}
+
+function QuickMap({ radarOn, alertsOn }) {
+  const [lat, setLat] = useState(() => Number(localStorage.getItem("mapLat")) || 32.51);
+  const [lng, setLng] = useState(() => Number(localStorage.getItem("mapLng")) || -84.87);
+  const [z, setZ] = useState(() => Number(localStorage.getItem("mapZoom")) || 7);
+  const [showMarkers, setShowMarkers] = useState(true);
+  const position = useMemo(() => [lat, lng], [lat, lng]);
+  const mapRef = useRef(null);
+  const markerRef = useRef(null);
+  const markersLayerRef = useRef(null);
+  const save = () => { localStorage.setItem("mapLat", String(lat)); localStorage.setItem("mapLng", String(lng)); localStorage.setItem("mapZoom", String(z)); };
+
+  // Listen for geofence/route events from Inbox (auto-center + drop marker)
+  useEffect(() => {
+    function onFocus(e){
+      const d = e.detail || {}; if (!mapRef.current || !d.lat || !d.lon) return;
+      mapRef.current.setView([d.lat, d.lon], d.zoom || 18);
+      const L = window.L; if (!L) return;
+      if (markerRef.current) { mapRef.current.removeLayer(markerRef.current); markerRef.current = null; }
+      markerRef.current = L.marker([d.lat, d.lon]).addTo(mapRef.current);
+    }
+    window.addEventListener('focusLocation', onFocus);
+    return () => window.removeEventListener('focusLocation', onFocus);
+  }, []);
+
+  // Live damage markers from inbox
+  useEffect(()=>{
+    const L = window.L; if (!L) return; if (!mapRef.current) return;
+    if (markersLayerRef.current) { mapRef.current.removeLayer(markersLayerRef.current); markersLayerRef.current=null; }
+    markersLayerRef.current = L.layerGroup().addTo(mapRef.current);
+
+    async function addItem(it){
+      if (!it || !it.lat || !it.lon) return;
+      const icon = L.divIcon({ className: 'damage-pin', html: `<div style=\"background:#ef4444;color:#fff;padding:2px 6px;border-radius:8px;\">${(it.tags?.[0]||'damage')}</div>` });
+      const m = L.marker([it.lat, it.lon], { icon });
+      m.bindPopup(`<b>${it.address||''}</b><br/>${(it.tags||[]).join(', ')||''}`);
+      markersLayerRef.current.addLayer(m);
+    }
+
+    let pollId;
+    fetch('/api/inbox').then(r=>r.json()).then(arr=>{ (arr||[]).forEach(addItem); }).catch(()=>{});
+    const ev = new EventSource('/api/stream');
+    ev.onmessage = (m)=>{ try{ const obj = JSON.parse(m.data); addItem(obj); }catch(_){} };
+    ev.onerror = ()=>{ ev.close(); pollId = setInterval(()=>{ fetch('/api/inbox').then(r=>r.json()).then(arr=>{ (arr||[]).forEach(addItem); }).catch(()=>{}); }, 15000); };
+
+    return ()=>{ ev.close(); if (pollId) clearInterval(pollId); if (markersLayerRef.current){ mapRef.current.removeLayer(markersLayerRef.current); markersLayerRef.current=null; } };
+  }, []);
+
+  return (
+    <Card className="w-full">
+      <CardContent className="p-4 space-y-3">
+        <div className="grid grid-cols-3 gap-2">
+          <Input type="number" step="0.0001" value={lat} onChange={(e)=>setLat(Number(e.target.value))} placeholder="Latitude" />
+          <Input type="number" step="0.0001" value={lng} onChange={(e)=>setLng(Number(e.target.value))} placeholder="Longitude" />
+          <Input type="number" step="1" min={2} max={12} value={z} onChange={(e)=>setZ(Number(e.target.value))} placeholder="Zoom" />
+        </div>
+        <div className="flex items-center gap-3">
+          <label className="text-sm flex items-center gap-2"><input type="checkbox" checked={showMarkers} onChange={(e)=>{ setShowMarkers(e.target.checked); if (markersLayerRef.current){ if(e.target.checked) markersLayerRef.current.addTo(mapRef.current); else mapRef.current.removeLayer(markersLayerRef.current); } }} /> Show damage markers</label>
+          <Button variant="outline" onClick={save}>Save View</Button>
+        </div>
+        <div className="h-[420px] rounded-2xl overflow-hidden">
+          <MapContainer whenCreated={(m)=>{mapRef.current=m;}} center={position} zoom={z} className="h-full w-full">
+            <TileLayer attribution='&copy; OpenStreetMap contributors' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+            <RadarLayer enabled={radarOn} />
+            <NOAAAlertsLayer enabled={alertsOn} />
+          </MapContainer>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+
+// ===== Damage tags & filters =====
+const TAGS = [
+  'tree_on_roof','tree_on_building','tree_on_fence','tree_on_barn','tree_on_shed','tree_on_car','tree_in_pool','tree_on_playground','line_down','structure_damage'
+];
+const KEYWORD_MAP = [
+  ['tree_on_roof', /tree on roof|through roof|roof damage/i],
+  ['tree_on_building', /tree on (house|building|home|structure)/i],
+  ['tree_on_fence', /tree on fence|fence down/i],
+  ['tree_on_barn', /tree on barn/i],
+  ['tree_on_shed', /tree on shed/i],
+  ['tree_on_car', /tree on (car|vehicle|truck)/i],
+  ['tree_in_pool', /tree in pool|pool damage/i],
+  ['tree_on_playground', /tree on playground|playset|swing ?set/i],
+  ['line_down', /(line down|power line|utility line|pole down)/i],
+  ['structure_damage', /(collapse|compromised|structural|wall down|house split|building damage)/i]
+];
+function addTags(item){
+  const text = ((item.notes||'') + ' ' + (item.address||'')).toLowerCase();
+  const tags = [];
+  for (const [tag, rx] of KEYWORD_MAP){ if (rx.test(text)) tags.push(tag); }
+  return { ...item, tags };
+}
+function TagFilterBar({ tagFilters, setTagFilters }){
+  return (
+    <div className="flex flex-wrap gap-2">
+      {TAGS.map(t => (
+        <label key={t} className="text-xs flex items-center gap-1 border rounded-full px-2 py-1">
+          <input type="checkbox" checked={!!tagFilters[t]} onChange={(e)=>setTagFilters({ ...tagFilters, [t]: e.target.checked })} /> {t}
+        </label>
+      ))}
+    </div>
+  );
+}
+
+// ===== HLS player =====
+function HlsPlayer({ src }) {
+  const videoRef = useRef(null);
+  useEffect(function () {
+    const video = videoRef.current; if (!video || !src) return;
+    if (video.canPlayType('application/vnd.apple.mpegurl')) { video.src = src; video.play().catch(()=>{}); return; }
+    let hls;
+    (async function(){
+      try {
+        const mod = await import('hls.js'); const Hls = mod.default;
+        if (Hls && Hls.isSupported()) {
+          hls = new Hls(); hls.loadSource(src); hls.attachMedia(video);
+          hls.on(Hls.Events.MANIFEST_PARSED, ()=> video.play().catch(()=>{}));
+        } else { window.open(src, '_blank'); }
+      } catch(e) { console.warn('HLS init failed', e); }
+    })();
+    return function(){ if (hls) hls.destroy(); };
+  }, [src]);
+  return (<video ref={videoRef} controls className="w-full h-full object-contain rounded-xl" />);
+}
+function FlexiblePlayer({ url }) {
+  if (!url) return <div className="text-sm text-muted-foreground">No feed set</div>;
+  const lower = url.toLowerCase();
+  if (lower.includes('.m3u8')) return <HlsPlayer src={url} />;
+  return <iframe title="Feed" src={url} className="w-full h-full rounded-xl" allow="autoplay; fullscreen" />;
+}
+
+// ===== Pin helpers + Multi-View =====
+function pinTo(slot, url){ if (!url) return; localStorage.setItem(slot, url); window.dispatchEvent(new Event('mvUpdate')); }
+function PinButtons({ currentUrl }){
+  return (
+    <div className="flex flex-wrap gap-2">
+      <Button variant="outline" onClick={()=>pinTo('mv1', currentUrl)}>Pin → Pane 1</Button>
+      <Button variant="outline" onClick={()=>pinTo('mv2', currentUrl)}>Pin → Pane 2</Button>
+      <Button variant="outline" onClick={()=>pinTo('mv3', currentUrl)}>Pin → Pane 3</Button>
+      <Button variant="outline" onClick={()=>pinTo('mv4', currentUrl)}>Pin → Pane 4</Button>
+    </div>
+  );
+}
+function MultiView() {
+  const [mv1, setMv1] = useState(localStorage.getItem('mv1') || '');
+  const [mv2, setMv2] = useState(localStorage.getItem('mv2') || '');
+  const [mv3, setMv3] = useState(localStorage.getItem('mv3') || '');
+  const [mv4, setMv4] = useState(localStorage.getItem('mv4') || '');
+  useEffect(()=>{ localStorage.setItem('mv1', mv1); }, [mv1]);
+  useEffect(()=>{ localStorage.setItem('mv2', mv2); }, [mv2]);
+  useEffect(()=>{ localStorage.setItem('mv3', mv3); }, [mv3]);
+  useEffect(()=>{ localStorage.setItem('mv4', mv4); }, [mv4]);
+  useEffect(()=>{
+    function onStorage(e){ if(['mv1','mv2','mv3','mv4'].includes(e.key||'')){
+      setMv1(localStorage.getItem('mv1')||''); setMv2(localStorage.getItem('mv2')||''); setMv3(localStorage.getItem('mv3')||''); setMv4(localStorage.getItem('mv4')||'');
+    }}
+    function onCustom(){ setMv1(localStorage.getItem('mv1')||''); setMv2(localStorage.getItem('mv2')||''); setMv3(localStorage.getItem('mv3')||''); setMv4(localStorage.getItem('mv4')||''); }
+    window.addEventListener('storage', onStorage); window.addEventListener('mvUpdate', onCustom);
+    return ()=>{ window.removeEventListener('storage', onStorage); window.removeEventListener('mvUpdate', onCustom); };
+  }, []);
+  return (
+    <div className="space-y-4">
+      <div className="grid md:grid-cols-4 gap-2">
+        <Input value={mv1} onChange={(e)=>setMv1(e.target.value)} placeholder="Pane 1 URL (.m3u8 or https://player)" />
+        <Input value={mv2} onChange={(e)=>setMv2(e.target.value)} placeholder="Pane 2 URL" />
+        <Input value={mv3} onChange={(e)=>setMv3(e.target.value)} placeholder="Pane 3 URL" />
+        <Input value={mv4} onChange={(e)=>setMv4(e.target.value)} placeholder="Pane 4 URL" />
+      </div>
+      <div className="grid md:grid-cols-2 gap-3">
+        <Card className="h-[320px]"><CardContent className="p-2 h-full"><FlexiblePlayer url={mv1} /></CardContent></Card>
+        <Card className="h-[320px]"><CardContent className="p-2 h-full"><FlexiblePlayer url={mv2} /></CardContent></Card>
+        <Card className="h-[320px]"><CardContent className="p-2 h-full"><FlexiblePlayer url={mv3} /></CardContent></Card>
+        <Card className="h-[320px]"><CardContent className="p-2 h-full"><FlexiblePlayer url={mv4} /></CardContent></Card>
+      </div>
+    </div>
+  );
+}
+
+// ===== Provider tabs =====
+function ProviderTab({ name, hlsKey, iframeKey, portal }){
+  const [hls, setHls] = useState(localStorage.getItem(hlsKey)||'');
+  const [ifr, setIfr] = useState(localStorage.getItem(iframeKey)||'');
+  useEffect(()=>{ localStorage.setItem(hlsKey, hls); }, [hlsKey, hls]);
+  useEffect(()=>{ localStorage.setItem(iframeKey, ifr); }, [iframeKey, ifr]);
+  const chosen = hls || ifr || '';
+  return (
+    <div className="space-y-3">
+      <div className="grid md:grid-cols-3 gap-3">
+        <div className="space-y-1"><label className="text-sm text-muted-foreground">{name} HLS (.m3u8)</label><Input value={hls} onChange={(e)=>setHls(e.target.value)} placeholder="https://.../index.m3u8" /></div>
+        <div className="space-y-1"><label className="text-sm text-muted-foreground">{name} Share/Embed URL</label><Input value={ifr} onChange={(e)=>setIfr(e.target.value)} placeholder="https://..." /></div>
+        <div className="flex items-end gap-2"><Button onClick={()=>openNew(portal)}>Open {name}</Button>{chosen && <PinButtons currentUrl={chosen} />}</div>
+      </div>
+      <Card><CardContent className="p-3">{hls ? <HlsPlayer src={hls} /> : (ifr ? <iframe title={`${name} Player`} src={ifr} className="w-full h-[420px] rounded-xl" allow="autoplay; fullscreen" /> : <div className="text-sm text-muted-foreground">Enter an HLS or share URL above.</div>)}</CardContent></Card>
+      <div className="text-xs text-muted-foreground">If the embed is blocked by CSP, click Open {name} to launch their portal.</div>
+    </div>
+  );
+}
+
+// ===== DSP Directory =====
+function CompanyCard({ name, site, phone, note }){
+  return (
+    <Card><CardContent className="p-4 space-y-2">
+      <div className="text-lg font-semibold">{name}</div>
+      <div className="flex flex-wrap gap-2">
+        <Button variant="secondary" onClick={()=>openNew(site)}>Website</Button>
+        {phone && <a href={`tel:${phone.replace(/[^0-9+]/g,'')}`}><Button>Call {phone}</Button></a>}
+      </div>
+      {note && <div className="text-sm text-muted-foreground">{note}</div>}
+    </CardContent></Card>
+  );
+}
+function DSPDirectory(){
+  const companies = [
+    { name: "Zeitview (DroneBase)", site: "https://www.zeitview.com/", phone: "310-895-9914", note: "Catastrophe response; use site contact for sales." },
+    { name: "DroneUp", site: "https://www.droneup.com/contact", phone: "877-601-1860", note: "Nationwide operator network; disaster staffing." },
+    { name: "Airborne Response", site: "https://airborneresponse.com/", phone: "305-771-1120", note: "Mission Critical Unmanned; disaster response." },
+    { name: "SkySkopes", site: "https://www.skyskopes.com/contact/", phone: "701-838-2610", note: "Enterprise UAS; utilities & energy." }
+  ];
+  return (
+    <div className="space-y-4">
+      <div className="text-sm text-muted-foreground">Ask for live HLS (.m3u8) during ops + post-storm imagery with GPS/addresses and a data feed (CSV/GeoJSON/API).</div>
+      <div className="grid md:grid-cols-2 gap-4">{companies.map(c => <CompanyCard key={c.name} {...c} />)}</div>
+    </div>
+  );
+}
+
+// ===== Inbox (SSE + filters + map center + owner prefill) =====
+function focusMap(lat, lon){ if (lat && lon) window.dispatchEvent(new CustomEvent('focusLocation', { detail: { lat, lon, zoom: 18 } })); }
+function prefillOwner(it){ if (it.address) localStorage.setItem('owner_addr', it.address); if (it.lat) localStorage.setItem('owner_lat', it.lat); if (it.lon) localStorage.setItem('owner_lon', it.lon); }
+function InboxStream() {
+  const [items, setItems] = useState([]);
+  const [query, setQuery] = useState('');
+  const [tagFilters, setTagFilters] = useState({});
+  const [sortBy, setSortBy] = useState('newest');
+  useEffect(()=>{
+    let alive = true; let pollId;
+    const ev = new EventSource('/api/stream');
+    ev.onmessage = (m)=>{ try{ const obj = JSON.parse(m.data); if (alive) setItems(prev=>[addTags(obj), ...prev]); }catch(_){} };
+    ev.onerror = ()=>{ ev.close(); startPoll(); };
+    async function fetchAll(){ try{ const r = await fetch('/api/inbox', { cache: 'no-store' }); if (!r.ok) return; const j = await r.json(); if (alive) setItems(j.map(addTags)); }catch(e){} }
+    function startPoll(){ fetchAll(); pollId = setInterval(fetchAll, 10000); }
+    return ()=>{ alive=false; ev.close(); if (pollId) clearInterval(pollId); };
+  }, []);
+  const filtered = items.filter(it=>{
+    const hay = ((it.notes||'') + ' ' + (it.address||'')).toLowerCase();
+    if (query && !hay.includes(query.toLowerCase())) return false;
+    const active = Object.keys(tagFilters).filter(k=>tagFilters[k]);
+    if (active.length){ const hasAll = active.every(t => (it.tags||[]).includes(t)); if (!hasAll) return false; }
+    return true;
+  }).sort((a,b)=> sortBy==='newest' ? new Date(b.timestamp||0)-new Date(a.timestamp||0) : (a.address||'').localeCompare(b.address||''));
+  return (
+    <div className="space-y-3">
+      <div className="grid md:grid-cols-3 gap-2 items-center">
+        <Input value={query} onChange={(e)=>setQuery(e.target.value)} placeholder="Search notes/address" />
+        <TagFilterBar tagFilters={tagFilters} setTagFilters={setTagFilters} />
+        <div className="flex justify-end gap-2">
+          <select className="border rounded-md px-2 py-1" value={sortBy} onChange={(e)=>setSortBy(e.target.value)}>
+            <option value="newest">Sort: Newest</option>
+            <option value="address">Sort: Address</option>
+          </select>
+        </div>
+      </div>
+      {!filtered.length && <div className="text-sm text-muted-foreground">No matching items yet.</div>}
+      <div className="grid md:grid-cols-2 gap-4">
+        {filtered.map(it => (
+          <Card key={it.id || it.mediaUrl}><CardContent className="p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="font-medium">{(it.provider||'Unknown')} — {new Date(it.timestamp||Date.now()).toLocaleString()}</div>
+              <div className="flex flex-wrap gap-1">{(it.tags||[]).map(t=> <span key={t} className="text-[10px] px-2 py-[2px] rounded-full bg-slate-200">{t}</span>)}</div>
+            </div>
+            {it.thumbnailUrl && <img src={it.thumbnailUrl} alt="thumb" className="w-full rounded" />}
+            <div className="text-sm">{it.address ? it.address : ((it.lat && it.lon) ? (it.lat+', '+it.lon) : '')}</div>
+            <div className="flex gap-2 flex-wrap">
+              {it.mediaUrl && <a href={it.mediaUrl} target="_blank" rel="noreferrer"><Button variant="secondary">Open Media</Button></a>}
+              <Button variant="outline" onClick={()=>focusMap(it.lat, it.lon)}>Center on Map</Button>
+              <Button variant="outline" onClick={()=>prefillOwner(it)}>Owner Lookup</Button>
+            </div>
+            {it.notes && <div className="text-sm text-muted-foreground">{it.notes}</div>}
+          </CardContent></Card>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ===== Owner Lookup (client UI; backend at /api/owner-lookup) =====
+function OwnerLookup(){
+  const [addr, setAddr] = useState(localStorage.getItem('owner_addr')||'');
+  const [lat, setLat] = useState(localStorage.getItem('owner_lat')||'');
+  const [lon, setLon] = useState(localStorage.getItem('owner_lon')||'');
+  const [res, setRes] = useState(null);
+  useEffect(()=>{ localStorage.setItem('owner_addr', addr); localStorage.setItem('owner_lat', lat); localStorage.setItem('owner_lon', lon); }, [addr,lat,lon]);
+  async function lookup(){
+    try{ const r = await fetch('/api/owner-lookup', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ address: addr, lat, lon }) }); if (!r.ok){ setRes({ error: 'Lookup service not configured' }); return; } const j = await r.json(); setRes(j); }catch(e){ setRes({ error: 'Network error' }); }
+  }
+  function sms(number){ window.location.href = `sms:${number}`; }
+  function call(number){ window.location.href = `tel:${number}`; }
+  function email(address){ window.location.href = `mailto:${address}`; }
+  return (
+    <div className="space-y-3">
+      <div className="grid md:grid-cols-3 gap-2">
+        <Input value={addr} onChange={(e)=>setAddr(e.target.value)} placeholder="Street, City, State (or blank if using GPS)" />
+        <Input value={lat} onChange={(e)=>setLat(e.target.value)} placeholder="Latitude" />
+        <Input value={lon} onChange={(e)=>setLon(e.target.value)} placeholder="Longitude" />
+      </div>
+      <div className="flex gap-2"><Button onClick={lookup}>Lookup Owner</Button><Button variant="secondary" onClick={()=>{ setAddr(''); setLat(''); setLon(''); setRes(null); }}>Clear</Button></div>
+      {res && (
+        <Card><CardContent className="p-4 space-y-2">
+          {res.error ? (<div className="text-sm text-red-600">{res.error}</div>) : (
+            <div className="space-y-2">
+              <div className="text-lg font-semibold">{res.ownerName || 'Unknown Owner'}</div>
+              <div className="text-sm">{res.mailingAddress || addr}</div>
+              <div className="flex flex-wrap gap-2">
+                {res.phone && <Button onClick={()=>call(res.phone)}>Call {res.phone}</Button>}
+                {res.phone && <Button variant="outline" onClick={()=>sms(res.phone)}>Text {res.phone}</Button>}
+                {res.email && <Button variant="secondary" onClick={()=>email(res.email)}>Email</Button>}
+              </div>
+              {res.sources && <div className="text-xs text-muted-foreground">Sources: {res.sources.join(', ')}</div>}
+            </div>
+          )}
+          <div className="text-xs text-muted-foreground">Use public records and vendor data per contracts and law (TCPA/email/privacy). Log access for emergency response compliance.</div>
+        </CardContent></Card>
+      )}
+    </div>
+  );
+}
+
+// ===== Main App =====
+export default function StormOpsHub() {
+  const [radarOn, setRadarOn] = useState(localStorage.getItem('radarOn')==='1' || true);
+  const [alertsOn, setAlertsOn] = useState(localStorage.getItem('alertsOn')==='1' || true);
+  const [role, setRole] = useState(localStorage.getItem('role') || 'ops');
+  useEffect(()=>{ localStorage.setItem('radarOn', radarOn? '1':'0'); }, [radarOn]);
+  useEffect(()=>{ localStorage.setItem('alertsOn', alertsOn? '1':'0'); }, [alertsOn]);
+  useEffect(()=>{
+    function onRole(){ setRole(localStorage.getItem('role')||'ops'); }
+    window.addEventListener('roleChanged', onRole);
+    window.addEventListener('storage', (e)=>{ if(e.key==='role') onRole(); });
+    return ()=>{ window.removeEventListener('roleChanged', onRole); };
+  }, []);
+
+  const ROLE_TABS = {
+    ops: ['map','inbox','multiview','votix','flyt','deploy','dji','dsps','owner','customers','reports','legal','contractor'],
+    field: ['map','inbox','multiview','owner','customers'],
+    admin: ['map','inbox','multiview','votix','flyt','deploy','dji','dsps','owner','customers','reports','legal','contractor']
+  };
+  function allow(t){ return (ROLE_TABS[role]||[]).includes(t); }
+
+  return (
+    <div className="min-h-screen w-full bg-gradient-to-b from-slate-50 to-slate-100 p-6">
+      <div className="mx-auto max-w-7xl space-y-6">
+        <header className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">Storm Operations Hub</h1>
+            <p className="text-muted-foreground">Pick a platform, watch live, tag damage, route crews, contact owners, build claims.</p>
+          </div>
+          <RoleSelector value={role} onChange={setRole} />
+        </header>
+
+        <Tabs defaultValue="map" className="w-full">
+          <TabsList>
+            {allow('map') && <TabsTrigger value="map">Storm Map</TabsTrigger>}
+            {allow('inbox') && <TabsTrigger value="inbox">Inbox</TabsTrigger>}
+            {allow('multiview') && <TabsTrigger value="multiview">Multi-View</TabsTrigger>}
+            {allow('votix') && <TabsTrigger value="votix">VOTIX</TabsTrigger>}
+            {allow('flyt') && <TabsTrigger value="flyt">FlytBase</TabsTrigger>}
+            {allow('deploy') && <TabsTrigger value="deploy">DroneDeploy</TabsTrigger>}
+            {allow('dji') && <TabsTrigger value="dji">DJI FH2</TabsTrigger>}
+            {allow('dsps') && <TabsTrigger value="dsps">Hire Pilots</TabsTrigger>}
+            {allow('owner') && <TabsTrigger value="owner">Owner Lookup</TabsTrigger>}
+            {allow('customers') && <TabsTrigger value="customers">Customers (CRM)</TabsTrigger>}
+            {allow('reports') && <TabsTrigger value="reports">Photo Reports</TabsTrigger>}
+            {allow('legal') && <TabsTrigger value="legal">Liens & Legal</TabsTrigger>}
+            {allow('contractor') && <TabsTrigger value="contractor">Strategic LM</TabsTrigger>}
+          </TabsList>
+
+          <TabsContent value="map" className="space-y-4">
+            <QuickMap radarOn={radarOn} alertsOn={alertsOn} />
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={()=>setRadarOn(v=>!v)}>{radarOn?"Disable Radar":"Enable Radar"}</Button>
+              <Button variant="outline" onClick={()=>setAlertsOn(v=>!v)}>{alertsOn?"Disable Alerts":"Enable Alerts"}</Button>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="inbox" className="space-y-4"><InboxStream /></TabsContent>
+          <TabsContent value="multiview" className="space-y-4"><MultiView /></TabsContent>
+
+          <TabsContent value="votix" className="space-y-4"><ProviderTab name="VOTIX" hlsKey="votixHls" iframeKey="votixIframe" portal="https://platform.votix.com/" /></TabsContent>
+          <TabsContent value="flyt" className="space-y-4"><ProviderTab name="FlytBase" hlsKey="flytHls" iframeKey="flytIframe" portal="https://my.flytbase.com/" /></TabsContent>
+          <TabsContent value="deploy" className="space-y-4"><ProviderTab name="DroneDeploy" hlsKey="ddHls" iframeKey="ddIframe" portal="https://www.dronedeploy.com/live/" /></TabsContent>
+          <TabsContent value="dji" className="space-y-4"><ProviderTab name="DJI FlightHub 2" hlsKey="fh2Hls" iframeKey="fh2Iframe" portal="https://flighthub2.dji.com/" /></TabsContent>
+
+          <TabsContent value="dsps" className="space-y-4"><DSPDirectory /></TabsContent>
+          <TabsContent value="owner" className="space-y-4"><OwnerLookup /></TabsContent>
+          <TabsContent value="customers" className="space-y-4"><CustomersCRM /></TabsContent>
+          <TabsContent value="reports" className="space-y-4"><ReportBuilder /></TabsContent>
+          <TabsContent value="legal" className="space-y-4"><LiensLegal /></TabsContent>
+          <TabsContent value="contractor" className="space-y-4"><ContractorPortal /></TabsContent>
+        </Tabs>
+      </div>
+    </div>
+  );
+}
+// ===== Customers CRM (pipeline, comms log, docs) =====
+function useCustomers(){
+  const [list, setList] = useState(()=>{ try{ return JSON.parse(localStorage.getItem('customers')||'[]'); }catch{ return []; } });
+  useEffect(()=>{ localStorage.setItem('customers', JSON.stringify(list)); }, [list]);
+  function add(c){ setList(prev=>[ { id: String(Date.now()), status:'new', timeline:[], docs:[], messages:[], ...c }, ...prev ]); }
+  function update(id, patch){ setList(prev=> prev.map(c=> c.id===id ? { ...c, ...patch } : c)); }
+  function pushMsg(id, msg){ setList(prev=> prev.map(c=> c.id===id ? { ...c, messages:[...c.messages, { ts: Date.now(), ...msg }] } : c)); }
+  function pushDoc(id, doc){ setList(prev=> prev.map(c=> c.id===id ? { ...c, docs:[...c.docs, doc] } : c)); }
+  function pushEvent(id, evt){ setList(prev=> prev.map(c=> c.id===id ? { ...c, timeline:[...c.timeline, { ts: Date.now(), ...evt }] } : c)); }
+  return { list, add, update, pushMsg, pushDoc, pushEvent };
+}
+const PIPELINE = ['new','contacted','contract_signed','scheduled','in_progress','completed','claim_submitted','awaiting_payment','paid'];
+function CustomersCRM(){
+  const { list, add, update, pushMsg, pushDoc, pushEvent } = useCustomers();
+  const [form, setForm] = useState({ name:'', address:'', phone:'', email:'', claimNumber:'', insurer:'' });
+  function create(){ if(!form.name && !form.address) return; add(form); setForm({ name:'', address:'', phone:'', email:'', claimNumber:'', insurer:'' }); }
+  return (
+    <div className="space-y-4">
+      <Card><CardContent className="p-4 space-y-2">
+        <div className="text-lg font-semibold">Customer Intake</div>
+        <div className="grid md:grid-cols-3 gap-2">
+          <Input value={form.name} onChange={(e)=>setForm({...form,name:e.target.value})} placeholder="Owner name" />
+          <Input value={form.address} onChange={(e)=>setForm({...form,address:e.target.value})} placeholder="Service address" />
+          <Input value={form.phone} onChange={(e)=>setForm({...form,phone:e.target.value})} placeholder="Phone" />
+          <Input value={form.email} onChange={(e)=>setForm({...form,email:e.target.value})} placeholder="Email" />
+          <Input value={form.insurer} onChange={(e)=>setForm({...form,insurer:e.target.value})} placeholder="Insurance company" />
+          <Input value={form.claimNumber} onChange={(e)=>setForm({...form,claimNumber:e.target.value})} placeholder="Claim #" />
+        </div>
+        <div className="flex gap-2"><Button onClick={create}>Create Customer</Button></div>
+        <div className="text-xs text-muted-foreground">Everything is logged—calls, texts, emails, docs, photos, reports.</div>
+      </CardContent></Card>
+
+      <div className="grid md:grid-cols-2 gap-4">
+        {list.map(c => <CustomerCard key={c.id} c={c} update={update} pushMsg={pushMsg} pushDoc={pushDoc} pushEvent={pushEvent} />)}
+      </div>
+    </div>
+  );
+}
+function CustomerCard({ c, update, pushMsg, pushDoc, pushEvent }){
+  const [note, setNote] = useState('');
+  const [msg, setMsg] = useState('');
+  async function sendSMS(){ await fetch('/api/sms',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ to:c.phone, body: msg })}); pushMsg(c.id,{ dir:'out', type:'sms', to:c.phone, body:msg }); setMsg(''); }
+  async function sendEmail(){ await fetch('/api/email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ to:c.email, subject:`Storm work update for ${c.address}`, html: msg })}); pushMsg(c.id,{ dir:'out', type:'email', to:c.email, body:msg }); setMsg(''); }
+  function changeStatus(s){ update(c.id,{ status:s }); pushEvent(c.id,{ type:'status', to:s }); }
+  return (
+    <Card><CardContent className="p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="text-lg font-semibold">{c.name||'Unknown Owner'}</div>
+          <div className="text-sm text-muted-foreground">{c.address}</div>
+          <div className="text-xs">{c.insurer || 'Insurer N/A'} • Claim #{c.claimNumber||'—'}</div>
+        </div>
+        <select className="border rounded-md px-2 py-1" value={c.status} onChange={(e)=>changeStatus(e.target.value)}>
+          {PIPELINE.map(p => <option key={p} value={p}>{p.replaceAll('_',' ')}</option>)}
+        </select>
+      </div>
+
+      <div className="grid md:grid-cols-3 gap-3">
+        <div className="space-y-2">
+          <div className="font-medium">Communications</div>
+          <Input value={msg} onChange={(e)=>setMsg(e.target.value)} placeholder="Write SMS/Email..." />
+          <div className="flex gap-2">
+            {c.phone && <Button onClick={sendSMS}>Send SMS</Button>}
+            {c.email && <Button variant="secondary" onClick={sendEmail}>Send Email</Button>}
+            {c.phone && <a href={`tel:${c.phone.replace(/[^0-9+]/g,'')}`}><Button variant="outline">Call</Button></a>}
+          </div>
+          <div className="space-y-1 max-h-40 overflow-auto text-xs">
+            {c.messages?.map((m,i)=>(<div key={i}>[{new Date(m.ts).toLocaleString()}] {m.type?.toUpperCase()} → {m.to}: {m.body}</div>))}
+          </div>
+        </div>
+        <div className="space-y-2">
+          <div className="font-medium">Docs & Media</div>
+          <input type="file" multiple onChange={(e)=>{
+            const files = Array.from(e.target.files||[]);
+            files.forEach(f=> pushDoc(c.id,{ name:f.name, size:f.size }));
+          }} />
+          <div className="text-xs text-muted-foreground">Contracts, proof of insurance, photos/videos. (Hook to /api/upload for persistence.)</div>
+          <div className="space-y-1 max-h-40 overflow-auto text-xs">
+            {c.docs?.map((d,i)=>(<div key={i}>📄 {d.name} ({Math.round((d.size||0)/1024)} KB)</div>))}
+          </div>
+        </div>
+        <div className="space-y-2">
+          <div className="font-medium">Notes / Timeline</div>
+          <Input value={note} onChange={(e)=>setNote(e.target.value)} placeholder="Add an internal note" />
+          <Button variant="outline" onClick={()=>{ pushEvent(c.id,{ type:'note', text:note }); setNote(''); }}>Add Note</Button>
+          <div className="space-y-1 max-h-40 overflow-auto text-xs">
+            {c.timeline?.map((t,i)=>(<div key={i}>[{new Date(t.ts).toLocaleString()}] {t.type} {t.text||t.to||''}</div>))}
+          </div>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <Button variant="outline" onClick={()=>changeStatus('contract_signed')}>Mark Contracted</Button>
+        <Button variant="outline" onClick={()=>changeStatus('claim_submitted')}>Mark Claim Submitted</Button>
+        <Button variant="outline" onClick={()=>changeStatus('paid')}>Mark Paid</Button>
+      </div>
+    </CardContent></Card>
+  );
+}
+
+// ===== Photo Report Builder (auto captions + PDF) =====
+function ReportBuilder(){
+  const [items, setItems] = useState([]); // {file, caption}
+  const [pdfName, setPdfName] = useState('storm-report.pdf');
+  function onFiles(e){ const fs = Array.from(e.target.files||[]); const mapped = fs.map(f=>({ file:f, caption:`Auto: damage detected (placeholder)` })); setItems(prev=>[...prev, ...mapped]); }
+  async function autoDescribe(){
+    // Placeholder. Call your /api/describe to get AI captions per image.
+    setItems(prev=> prev.map(x=> ({...x, caption: x.caption.includes('placeholder')? 'Tree on roof; broken ridge; tarp recommended' : x.caption })));
+  }
+  async function makePDF(){
+    try {
+      const mod = await import('jspdf'); const { jsPDF } = mod;
+      const doc = new jsPDF();
+      for (let i=0;i<items.length;i++){
+        const it = items[i];
+        const dataUrl = await new Promise((res)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.readAsDataURL(it.file); });
+        if (i>0) doc.addPage();
+        doc.setFontSize(14); doc.text(`Photo ${i+1}`, 14, 18);
+        doc.addImage(dataUrl, 'JPEG', 14, 24, 180, 120);
+        doc.setFontSize(12); wrapText(doc, it.caption, 14, 150, 180, 6);
+      }
+      doc.save(pdfName);
+    } catch(e){ alert('Install jspdf: npm i jspdf'); }
+  }
+  return (
+    <Card><CardContent className="p-4 space-y-3">
+      <div className="text-lg font-semibold">Photo Reports</div>
+      <input type="file" accept="image/*" multiple onChange={onFiles} />
+      <div className="grid md:grid-cols-3 gap-3">
+        {items.map((it,idx)=> (
+          <div key={idx} className="space-y-1">
+            <img src={URL.createObjectURL(it.file)} className="w-full h-40 object-cover rounded" />
+            <Input value={it.caption} onChange={(e)=>setItems(items.map((x,i)=> i===idx?{...x, caption:e.target.value}:x))} />
+          </div>
+        ))}
+      </div>
+      <div className="grid md:grid-cols-3 gap-2 items-center">
+        <Input value={pdfName} onChange={(e)=>setPdfName(e.target.value)} />
+        <Button variant="outline" onClick={autoDescribe}>AI Describe (placeholder)</Button>
+        <Button onClick={makePDF}>Generate PDF</Button>
+      </div>
+      <div className="text-xs text-muted-foreground">Use this to package photos + captions for insurers. Click “Generate PDF” and attach via email.</div>
+    </CardContent></Card>
+  );
+}
+function wrapText(doc, text, x, y, maxWidth, lineHeight){
+  const words = text.split(' '); let line='';
+  for (let n=0;n<words.length;n++){
+    const test = line + words[n] + ' ';
+    if (doc.getTextWidth(test) > maxWidth){ doc.text(line.trim(), x, y); line = words[n] + ' '; y+=lineHeight; }
+    else line = test;
+  }
+  if (line) doc.text(line.trim(), x, y);
+}
+
+// ===== Liens & Legal (links + reminder seeds) =====
+function LiensLegal(){
+  const [claimDate, setClaimDate] = useState('');
+  const [completeDate, setCompleteDate] = useState('');
+  const [lienDate, setLienDate] = useState('');
+  function enableReminders(){
+    fetch('/api/reminders', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ claimDate, completeDate, lienDate })});
+    alert('Reminders scheduled on server (demo).');
+  }
+  return (
+    <Card><CardContent className="p-4 space-y-3">
+      <div className="text-lg font-semibold">Liens & Legal Tools</div>
+      <div className="grid md:grid-cols-3 gap-2">
+        <div>
+          <div className="text-sm">Claim Submitted (sets 30/60 day alerts)</div>
+          <Input type="date" value={claimDate} onChange={(e)=>setClaimDate(e.target.value)} />
+        </div>
+        <div>
+          <div className="text-sm">Work Completed (sets 45-day lien alert)</div>
+          <Input type="date" value={completeDate} onChange={(e)=>setCompleteDate(e.target.value)} />
+        </div>
+        <div>
+          <div className="text-sm">Lien Filed (10-month heads-up)</div>
+          <Input type="date" value={lienDate} onChange={(e)=>setLienDate(e.target.value)} />
+        </div>
+      </div>
+      <div className="flex gap-2">
+        <Button onClick={enableReminders}>Enable Reminders</Button>
+        <Button variant="secondary" onClick={()=>openNew('https://www.lienit.com/')}>Open LienIt</Button>
+        <Button variant="secondary" onClick={()=>openNew('https://www.lienitnow.com/')}>Open LienItNow</Button>
+      </div>
+      <div className="text-xs text-muted-foreground">State lien laws vary. Use counsel for specifics. This app provides reminders and links; verify deadlines per state.</div>
+    </CardContent></Card>
+  );
+}
+
+// ===== Contractor Portal (Strategic LM) =====
+function ContractorPortal(){
+  return (
+    <div className="space-y-4">
+      <Card><CardContent className="p-4 space-y-2">
+        <div className="text-2xl font-bold">Strategic Land Management LLC</div>
+        <div>Emergency Storm Response Team</div>
+        <div className="text-sm">📞 888-628-2229 • 🌐 <a className="underline" href="https://www.strategiclandmgmt.com" target="_blank" rel="noreferrer">www.strategiclandmgmt.com</a> • ✉️ strategiclandmgmt@gmail.com</div>
+        <div className="text-xs text-muted-foreground">Veteran-owned & disabled veteran-owned. Certified arborist: John Culpepper.</div>
+        <div className="grid md:grid-cols-2 gap-3 mt-2">
+          <Button variant="secondary" onClick={()=>openNew('https://disasterloanassistance.sba.gov/')}>SBA Disaster Loans</Button>
+          <Button variant="secondary" onClick={()=>openNew('https://www.fema.gov/assistance/individual')}>FEMA Individual Assistance</Button>
+        </div>
+      </CardContent></Card>
+
+      <Card><CardContent className="p-4 space-y-2">
+        <div className="font-semibold">Emergency Tree Removal Contract</div>
+        <div className="text-sm text-muted-foreground">Your uploaded contract is available to attach and send from the app.</div>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={()=>openNew('/files/contract.pdf')}>Open Contract</Button>
+          <Button onClick={()=>fetch('/api/email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ to:'strategiclandmgmt@gmail.com', subject:'Contract (for signature)', html:'Attached contract', attachments:[{ path:'/files/contract.pdf' }] })})}>Email Contract to Customer</Button>
+        </div>
+      </CardContent></Card>
+
+      <Card><CardContent className="p-4 space-y-2">
+        <div className="font-semibold">Upload Proof of Insurance (optional)</div>
+        <input type="file" onChange={(e)=>{/* Hook /api/upload */}} />
+        <div className="text-xs text-muted-foreground">Stored under your Contractor profile; share on request.</div>
+      </CardContent></Card>
+
+      <Card><CardContent className="p-4 space-y-2">
+        <div className="font-semibold">Brochure</div>
+        <div className="text-sm">We can generate a tri-fold PDF brochure using your content and logos. Ask to "generate brochure" and we’ll add it here.</div>
+      </CardContent></Card>
+    </div>
+  );
+}
+
