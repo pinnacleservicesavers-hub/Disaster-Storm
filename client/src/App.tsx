@@ -1,5 +1,5 @@
-import StormOpsHub from "./AxonLauncher";
+import StormOpsProHub from "./StormOpsProHub";
 
 export default function App() {
-  return <StormOpsHub />;
+  return <StormOpsProHub />;
 }
