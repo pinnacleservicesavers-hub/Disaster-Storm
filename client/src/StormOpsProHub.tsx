@@ -979,8 +979,16 @@ function CustomersCRM(){
 }
 function CustomerCard({ c, update, pushMsg, pushDoc, pushEvent }: any){
   const [note, setNote] = useState(''); const [msg, setMsg] = useState('');
+  
+  // Claim-threaded email messages
+  const [thread, setThread] = useState([]);
+  useEffect(()=>{
+    if (!c.claimNumber) return;
+    fetch(`/api/messages?claim=${encodeURIComponent(c.claimNumber)}`)
+      .then(r=>r.json()).then(setThread).catch(()=>{});
+  }, [c.claimNumber]);
   async function sendSMS(){ await fetch('/api/sms',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ to:c.phone, body: msg })}); pushMsg(c.id,{ dir:'out', type:'sms', to:c.phone, body:msg }); setMsg(''); }
-  async function sendEmail(){ await fetch('/api/email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ to:c.email, subject:`Storm work update for ${c.address}`, html: msg })}); pushMsg(c.id,{ dir:'out', type:'email', to:c.email, body:msg }); setMsg(''); }
+  async function sendEmail(){ await fetch('/api/email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ to:c.email, subject:`Storm work update for ${c.address}`, html: msg, claimNumber: c.claimNumber })}); pushMsg(c.id,{ dir:'out', type:'email', to:c.email, body:msg }); setMsg(''); }
   function changeStatus(s: string){ update(c.id,{ status:s }); pushEvent(c.id,{ type:'status', to:s }); }
   return (
     <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
@@ -1006,7 +1014,13 @@ function CustomerCard({ c, update, pushMsg, pushDoc, pushEvent }: any){
               {c.phone && <a href={`tel:${c.phone.replace(/[^0-9+]/g,'')}`}><button className="border border-gray-300 text-gray-700 px-3 py-1 rounded-md text-sm hover:bg-gray-50">Call</button></a>}
             </div>
             <div className="space-y-1 max-h-40 overflow-auto text-xs">
+              {/* Local messages */}
               {c.messages?.map((m: any,i: number)=>(<div key={i}>[{new Date(m.ts).toLocaleString()}] {m.type?.toUpperCase()} → {m.to}: {m.body}</div>))}
+              
+              {/* Claim-threaded email messages */}
+              {thread.map((t: any,i: number)=>(<div key={`thread-${i}`} className="border-l-2 border-blue-200 pl-2 bg-blue-50">
+                [{new Date(t.ts).toLocaleString()}] EMAIL {t.dir?.toUpperCase()} {t.dir==='out'?'→':'←'} {t.to||t.from}: {t.subject}
+              </div>))}
             </div>
           </div>
           <div className="space-y-2">

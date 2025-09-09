@@ -1,0 +1,277 @@
+// StormOpsProHub.jsx — Frontend Blocks (CustomerCard + ContractorPortal)
+// This file contains drop-in components for your app.
+// - CustomerCard: owner prefill, claim-thread view, e‑sign badge + refresh, invoice + Stripe link
+// - ContractorPortal: brochure generator and links
+
+function CustomerCard({ c, update, pushMsg, pushDoc, pushEvent }){
+  const [note, setNote] = useState('');
+  const [msg, setMsg] = useState('');
+
+  // Claim-threaded messages (from backend /api/messages?claim=...)
+  const [thread, setThread] = useState([]);
+  useEffect(()=>{
+    if (!c.claimNumber){ setThread([]); return; }
+    fetch(`/api/messages?claim=${encodeURIComponent(c.claimNumber)}`)
+      .then(r=>r.json()).then(setThread).catch(()=>{});
+  }, [c.claimNumber]);
+
+  // Invoice editor
+  const [invoiceItems, setInvoiceItems] = useState([{ name:'Emergency service', amount:0, quantity:1 }]);
+  const [taxRate, setTaxRate] = useState(0);
+  const subtotal = invoiceItems.reduce((s,it)=> s + (Number(it.amount)||0) * (Number(it.quantity)||1), 0);
+  const tax = subtotal * (Number(taxRate)||0)/100;
+  const total = subtotal + tax;
+
+  // E‑Sign status (badge + auto‑attach certificate)
+  const [esign, setEsign] = useState({ status:'unknown', certificate:null });
+  useEffect(()=>{
+    let stop = false;
+    async function check(){
+      const params = new URLSearchParams({});
+      if (c.claimNumber) params.set('claim', c.claimNumber);
+      if (c.email) params.set('email', c.email);
+      if (![...params.keys()].length) return;
+      const r = await fetch(`/api/esign/status?${params.toString()}`).then(r=>r.json()).catch(()=>null);
+      const rec = r?.record || (r?.results && (r.results.find(x=>x.signedAt) || r.results[0])) || null;
+      if (stop || !rec) return;
+      const next = { status: rec.signedAt? 'signed':'pending', certificate: rec.certificate || null };
+      setEsign(prev=> (prev.status!==next.status || prev.certificate!==next.certificate) ? next : prev);
+      if (rec.certificate){
+        const already = (c.docs||[]).some(d => d.url===rec.certificate || d.name==='E-Sign Certificate.pdf');
+        if (!already){
+          try { pushDoc(c.id, { name:'E-Sign Certificate.pdf', url: rec.certificate }); } catch(_){ }
+          try { pushEvent(c.id, { type:'esign_cert_added', text: rec.certificate }); } catch(_){ }
+        }
+      }
+    }
+    check();
+    const id = setInterval(check, 30000);
+    return ()=>{ stop = true; clearInterval(id); };
+  }, [c.id, c.claimNumber, c.email]);
+
+  async function sendSMS(){
+    await fetch('/api/sms',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ to:c.phone, body: msg })});
+    pushMsg(c.id,{ dir:'out', type:'sms', to:c.phone, body:msg });
+    setMsg('');
+  }
+  async function sendEmail(){
+    await fetch('/api/email',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        to:c.email,
+        subject:`Storm work update for ${c.address}`,
+        html: msg,
+        claimNumber: c.claimNumber || undefined
+      })
+    });
+    pushMsg(c.id,{ dir:'out', type:'email', to:c.email, body:msg });
+    setMsg('');
+  }
+
+  async function ownerPrefill(){
+    try{
+      if(!c.address){ alert('Add service address first'); return; }
+      const r = await fetch('/api/owner-lookup',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ address: c.address }) }).then(r=>r.json());
+      if (r){
+        const patch = { name: r.ownerName || c.name };
+        if (r.mailingAddress) patch.mailingAddress = r.mailingAddress;
+        update(c.id, patch);
+        pushEvent(c.id,{ type:'owner_prefill', text: r.ownerName || 'unknown' });
+        alert('Owner details prefilled');
+      }
+    }catch(e){ alert('Owner lookup failed'); }
+  }
+
+  async function sendForESign(){
+    try{
+      if (!c.email){ alert('Need customer email'); return; }
+      const payload = { email: c.email, name: c.name || 'Customer', address: c.address, claimNumber: c.claimNumber };
+      let link = null;
+      try{
+        const r = await fetch('/api/esign/initiate',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) }).then(r=>r.json());
+        if (r?.link) link = r.link;
+      }catch(_){}
+      if (link){
+        await fetch('/api/email',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ to:c.email, subject:`Please e-sign: Emergency Tree Removal`, html:`Please review and e-sign: <a href="${link}">${link}</a>`, claimNumber:c.claimNumber||undefined })});
+        pushEvent(c.id,{ type:'esign_sent', text: link });
+        alert('E-sign invite sent');
+      } else {
+        await fetch('/api/email',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ to:c.email, subject:`Review & approve emergency contract`, html:`Please review the attached contract and reply \"I agree\" to authorize emergency work.<br/><a href=\"/files/contract.pdf\">Open Contract</a>`, claimNumber:c.claimNumber||undefined, attachments:[{ path:'/files/contract.pdf' }] })});
+        pushEvent(c.id,{ type:'contract_sent', text:'/files/contract.pdf' });
+        alert('Fallback email sent with contract attached');
+      }
+    }catch(e){ alert('E-sign send failed'); }
+  }
+
+  async function requestPayment(){
+    const items = invoiceItems.map(it=>({ name: it.name||'Service', amount: Number(it.amount||0), quantity: Number(it.quantity||1) }));
+    if (tax > 0) items.push({ name:'Tax', amount: Number(tax.toFixed(2)), quantity: 1 });
+    const r = await fetch('/api/invoice/checkout', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ customer: { email: c.email }, lineItems: items, metadata: { claim: c.claimNumber||'', customerId: c.id } })
+    }).then(r=>r.json()).catch(()=>null);
+    if (r?.url){
+      if (c.phone) await fetch('/api/sms',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ to:c.phone, body:`Pay securely for ${c.address}: ${r.url}` })});
+      if (c.email) await fetch('/api/email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ to:c.email, subject:`Payment link for ${c.address}`, html:`<a href=\"${r.url}\">Pay securely</a>`, claimNumber:c.claimNumber||undefined })});
+      alert('Payment link sent.');
+    } else {
+      alert('Payment link failed.');
+    }
+  }
+
+  function changeStatus(s){ update(c.id,{ status:s }); pushEvent(c.id,{ type:'status', to:s }); }
+
+  return (
+    <Card><CardContent className="p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="text-lg font-semibold">{c.name||'Unknown Owner'}</div>
+          <div className="text-sm text-muted-foreground">{c.address}</div>
+          {c.mailingAddress && <div className="text-xs">Mailing: {c.mailingAddress}</div>}
+          <div className="text-xs">{c.insurer || 'Insurer N/A'} • Claim #{c.claimNumber||'—'}</div>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className={`text-xs px-2 py-1 rounded-full ${esign.status==='signed'?'bg-green-600 text-white':esign.status==='pending'?'bg-amber-500 text-black':'bg-gray-300 text-gray-800'}`}>E‑Sign: {esign.status==='signed'?'Signed':esign.status==='pending'?'Pending':'Unknown'}</span>
+          <Button variant="outline" onClick={ownerPrefill}>Owner Prefill</Button>
+          <select className="border rounded-md px-2 py-1" value={c.status} onChange={(e)=>changeStatus(e.target.value)}>
+            {PIPELINE.map(p => <option key={p} value={p}>{p.replaceAll('_',' ')}</option>)}
+          </select>
+        </div>
+      </div>
+
+      <div className="grid md:grid-cols-3 gap-3">
+        {/* Communications */}
+        <div className="space-y-2">
+          <div className="font-medium">Communications</div>
+          <Input value={msg} onChange={(e)=>setMsg(e.target.value)} placeholder="Write SMS/Email..." />
+          <div className="flex gap-2">
+            {c.phone && <Button onClick={sendSMS}>Send SMS</Button>}
+            {c.email && <Button variant="secondary" onClick={sendEmail}>Send Email</Button>}
+            {c.phone && <a href={`tel:${c.phone.replace(/[^0-9+]/g,'')}`}><Button variant="outline">Call</Button></a>}
+          </div>
+          <div className="space-y-1 max-h-40 overflow-auto">
+            {c.messages?.map((m,i)=>(<div key={i} className="text-xs">[{new Date(m.ts).toLocaleString()}] {m.type?.toUpperCase()} → {m.to}: {m.body}</div>))}
+          </div>
+          <div className="mt-2 text-xs">
+            <div className="font-medium">Insurance Thread</div>
+            <div className="max-h-40 overflow-auto space-y-1">
+              {thread.map((m,i)=>(
+                <div key={i}>[{new Date(m.ts).toLocaleString()}] {m.dir==='in'?'FROM':'TO'} {m.dir==='in'?m.from:m.to}: <span dangerouslySetInnerHTML={{__html: m.subject||''}} />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Docs & Media */}
+        <div className="space-y-2">
+          <div className="font-medium">Docs & Media</div>
+          <input type="file" multiple onChange={(e)=>{
+            const files = Array.from(e.target.files||[]);
+            files.forEach(f=> pushDoc(c.id,{ name:f.name, size:f.size }));
+          }} />
+          <div className="text-xs text-muted-foreground">Contracts, proof of insurance, photos/videos. (Hook to /api/upload for persistence.)</div>
+          <div className="space-y-1 max-h-40 overflow-auto">
+            {c.docs?.map((d,i)=>(
+              <div key={i} className="text-xs">📄 {d.url ? <a href={d.url} target="_blank" rel="noreferrer">{d.name||'file'}</a> : <span>{d.name} {d.size?`(${Math.round((d.size||0)/1024)} KB)`:''}</span>}</div>
+            ))}
+          </div>
+        </div>
+
+        {/* Notes / Timeline */}
+        <div className="space-y-2">
+          <div className="font-medium">Notes / Timeline</div>
+          <Input value={note} onChange={(e)=>setNote(e.target.value)} placeholder="Add an internal note" />
+          <Button variant="outline" onClick={()=>{ pushEvent(c.id,{ type:'note', text:note }); setNote(''); }}>Add Note</Button>
+          <div className="space-y-1 max-h-40 overflow-auto">
+            {c.timeline?.map((t,i)=>(<div key={i} className="text-xs">[{new Date(t.ts).toLocaleString()}] {t.type} {t.text||t.to||''}</div>))}
+          </div>
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div className="flex flex-wrap gap-2">
+        <Button variant="outline" onClick={()=>changeStatus('contract_signed')}>Mark Contracted</Button>
+        <Button variant="outline" onClick={()=>changeStatus('claim_submitted')}>Mark Claim Submitted</Button>
+        <Button variant="outline" onClick={()=>changeStatus('paid')}>Mark Paid</Button>
+        <Button onClick={sendForESign}>Send for E‑Sign</Button>
+        <Button variant="secondary" onClick={async ()=>{
+          const params = new URLSearchParams({});
+          if (c.claimNumber) params.set('claim', c.claimNumber);
+          if (c.email) params.set('email', c.email);
+          const r = await fetch(`/api/esign/status?${params.toString()}`).then(r=>r.json()).catch(()=>null);
+          const rec = r?.record || (r?.results && (r.results.find(x=>x.signedAt) || r.results[0])) || null;
+          if (rec){ setEsign({ status: rec.signedAt?'signed':'pending', certificate: rec.certificate||null }); if (rec.certificate) pushDoc(c.id,{ name:'E-Sign Certificate.pdf', url: rec.certificate }); }
+        }}>Refresh E‑Sign Status</Button>
+        <Button onClick={requestPayment}>Request Payment</Button>
+      </div>
+
+      {/* Invoice editor */}
+      <div className="mt-3 border rounded-md p-3">
+        <div className="font-medium mb-2">Invoice</div>
+        {invoiceItems.map((it, idx)=> (
+          <div key={idx} className="grid md:grid-cols-12 gap-2 items-center mb-2">
+            <Input className="md:col-span-6" value={it.name} onChange={(e)=>setInvoiceItems(invoiceItems.map((x,i)=> i===idx? {...x, name:e.target.value}:x))} placeholder="Item name" />
+            <Input className="md:col-span-2" type="number" step="0.01" value={it.amount} onChange={(e)=>setInvoiceItems(invoiceItems.map((x,i)=> i===idx? {...x, amount:e.target.value}:x))} placeholder="Amount" />
+            <Input className="md:col-span-2" type="number" step="1" value={it.quantity} onChange={(e)=>setInvoiceItems(invoiceItems.map((x,i)=> i===idx? {...x, quantity:e.target.value}:x))} placeholder="Qty" />
+            <Button className="md:col-span-2" variant="outline" onClick={()=>setInvoiceItems(invoiceItems.filter((_,i)=>i!==idx))}>Remove</Button>
+          </div>
+        ))}
+        <div className="flex flex-wrap gap-2 mb-2 items-center">
+          <Button variant="outline" onClick={()=>setInvoiceItems([...invoiceItems, { name:'', amount:0, quantity:1 }])}>+ Add item</Button>
+          <div className="flex items-center gap-2 text-sm">
+            <span>Tax %</span>
+            <Input style={{width:100}} type="number" step="0.01" value={taxRate} onChange={(e)=>setTaxRate(e.target.value)} />
+          </div>
+        </div>
+        <div className="text-sm">Subtotal: ${subtotal.toFixed(2)} • Tax: ${tax.toFixed(2)} • <b>Total: ${total.toFixed(2)}</b></div>
+        <div className="mt-2">
+          <Button onClick={requestPayment}>Send Payment Link</Button>
+        </div>
+      </div>
+    </CardContent></Card>
+  );
+}
+
+const openNew = (url) => window.open(url, '_blank');
+
+function ContractorPortal(){
+  return (
+    <div className="space-y-4">
+      <Card><CardContent className="p-4 space-y-2">
+        <div className="text-2xl font-bold">Strategic Land Management LLC</div>
+        <div>Emergency Storm Response Team</div>
+        <div className="text-sm">📞 888-628-2229 • 🌐 <a className="underline" href="https://www.strategiclandmgmt.com" target="_blank" rel="noreferrer">www.strategiclandmgmt.com</a> • ✉️ strategiclandmgmt@gmail.com</div>
+        <div className="text-xs text-muted-foreground">Veteran-owned & disabled veteran-owned. Certified arborist: John Culpepper.</div>
+        <div className="grid md:grid-cols-2 gap-3 mt-2">
+          <Button variant="secondary" onClick={()=>openNew('https://disasterloanassistance.sba.gov/')}>SBA Disaster Loans</Button>
+          <Button variant="secondary" onClick={()=>openNew('https://www.fema.gov/assistance/individual')}>FEMA Individual Assistance</Button>
+        </div>
+      </CardContent></Card>
+
+      <Card><CardContent className="p-4 space-y-2">
+        <div className="font-semibold">Emergency Tree Removal Contract</div>
+        <div className="text-sm text-muted-foreground">Your uploaded contract is available to attach and send from the app.</div>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={()=>openNew('/files/contract.pdf')}>Open Contract</Button>
+          <Button onClick={()=>fetch('/api/email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ to:'strategiclandmgmt@gmail.com', subject:'Contract (for signature)', html:'Attached contract', attachments:[{ path:'/files/contract.pdf' }] })})}>Email Contract to Customer</Button>
+        </div>
+      </CardContent></Card>
+
+      <Card><CardContent className="p-4 space-y-2">
+        <div className="font-semibold">Upload Proof of Insurance (optional)</div>
+        <input type="file" onChange={(e)=>{/* Hook /api/upload */}} />
+        <div className="text-xs text-muted-foreground">Stored under your Contractor profile; share on request.</div>
+      </CardContent></Card>
+
+      <Card><CardContent className="p-4 space-y-2">
+        <div className="font-semibold">Brochure</div>
+        <div className="text-sm">Generate a tri-fold PDF brochure using your content.</div>
+        <Button onClick={async ()=>{
+          const r = await fetch('/api/brochure/strategic',{ method:'POST' }).then(r=>r.json()).catch(()=>null);
+          if (r?.path) window.open(r.path, '_blank'); else alert('Brochure failed.');
+        }}>Generate Tri-Fold Brochure (PDF)</Button>
+      </CardContent></Card>
+    </div>
+  );
+}
