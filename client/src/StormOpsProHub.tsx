@@ -782,14 +782,17 @@ export default function StormOpsProHub() {
   
   // Role state management
   const [role, setRole] = useState(localStorage.getItem('role') || 'ops');
-  
-  // Role permission helper
-  const allow = (requiredRole: string) => {
-    const roles = ['field', 'ops', 'admin'];
-    const userLevel = roles.indexOf(role);
-    const requiredLevel = roles.indexOf(requiredRole);
-    return userLevel >= requiredLevel;
+  useEffect(()=>{ function onRole(){ setRole(localStorage.getItem('role')||'ops'); }
+    window.addEventListener('roleChanged', onRole);
+    return ()=>window.removeEventListener('roleChanged', onRole);
+  }, []);
+
+  const ROLE_TABS = {
+    ops:   ['map','inbox','multiview','votix','flyt','deploy','dji','dsps','owner','customers','reports','legal','contractor'],
+    field: ['map','inbox','multiview','owner','customers'],
+    admin: ['map','inbox','multiview','votix','flyt','deploy','dji','dsps','owner','customers','reports','legal','contractor'],
   };
+  function allow(t: string){ return (ROLE_TABS[role as keyof typeof ROLE_TABS]||[]).includes(t); }
 
   return (
     <div className="min-h-screen w-full bg-gradient-to-b from-slate-50 to-slate-100 p-6">
