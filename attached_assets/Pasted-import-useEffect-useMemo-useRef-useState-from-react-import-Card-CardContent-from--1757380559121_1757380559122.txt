@@ -1,0 +1,389 @@
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { MapContainer, TileLayer, useMap } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
+
+/**
+ * Storm Operations Hub (Multi-Platform)
+ * -----------------------------------
+ * Combines:
+ *  - Axon/DroneSense deep links
+ *  - DJI FlightHub 2
+ *  - VOTIX
+ *  - FlytBase
+ *  - DroneDeploy Live Stream
+ *  - Windy embed
+ *  - Leaflet map with radar + NOAA alerts
+ */
+
+function openNew(url) {
+  window.open(url, "_blank", "noopener,noreferrer");
+}
+
+function RadarLayer({ enabled }) {
+  const map = useMap();
+  const layerRef = useRef(null);
+  useEffect(() => {
+    if (!enabled) {
+      if (layerRef.current) { map.removeLayer(layerRef.current); layerRef.current = null; }
+      return;
+    }
+    const L = window.L;
+    if (!L) return;
+    const radar = L.tileLayer("https://tilecache.rainviewer.com/v2/radar/now/256/{z}/{x}/{y}/2/1_1.png", {
+      opacity: 0.75,
+      attribution: "<a href='https://www.rainviewer.com/'>RainViewer</a>"
+    });
+    radar.addTo(map);
+    layerRef.current = radar;
+    return () => { if (layerRef.current) { map.removeLayer(layerRef.current); layerRef.current = null; } };
+  }, [enabled, map]);
+  return null;
+}
+
+function NOAAAlertsLayer({ enabled }) {
+  const map = useMap();
+  const layerRef = useRef(null);
+  useEffect(() => {
+    if (!enabled) {
+      if (layerRef.current) { map.removeLayer(layerRef.current); layerRef.current = null; }
+      return;
+    }
+    const L = window.L;
+    if (!L) return;
+    const noaa = L.tileLayer.wms("https://idpgis.ncep.noaa.gov/arcgis/services/NWS_Watches_Warnings/MapServer/WMSServer", {
+      layers: "1",
+      format: "image/png",
+      transparent: true,
+      attribution: "NOAA/NWS"
+    });
+    noaa.addTo(map);
+    layerRef.current = noaa;
+    return () => { if (layerRef.current) { map.removeLayer(layerRef.current); layerRef.current = null; } };
+  }, [enabled, map]);
+  return null;
+}
+
+function QuickMap({ radarOn, alertsOn }) {
+  const [lat, setLat] = useState(32.51);
+  const [lng, setLng] = useState(-84.87);
+  const [z] = useState(6);
+  const position = useMemo(() => [lat, lng], [lat, lng]);
+
+  return (
+    <Card className="w-full">
+      <CardContent className="p-2">
+        <div className="h-[420px] rounded-2xl overflow-hidden">
+          <MapContainer center={position} zoom={z} className="h-full w-full">
+            <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+            <RadarLayer enabled={radarOn} />
+            <NOAAAlertsLayer enabled={alertsOn} />
+          </MapContainer>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+export default function StormOpsHub() {
+  const [radarOn, setRadarOn] = useState(true);
+  const [alertsOn, setAlertsOn] = useState(true);
+
+  const links = {
+    axonOps: "https://web.dronesense.com/ops",
+    axonVideo: "https://web.dronesense.com/video",
+    axonRespond: "https://www.evidence.com/",
+    dji: "https://flighthub2.dji.com/",
+    votix: "https://platform.votix.com/",
+    flytbase: "https://my.flytbase.com/",
+    dronedeploy: "https://www.dronedeploy.com/live/"
+  };
+
+  return (
+    <div className="min-h-screen w-full bg-gradient-to-b from-slate-50 to-slate-100 p-6">
+      <div className="mx-auto max-w-6xl space-y-6">
+        <h1 className="text-3xl font-bold">Storm Operations Hub</h1>
+        <p className="text-muted-foreground">Pick any platform to view live drone feeds + storm layers.</p>
+
+        <Tabs defaultValue="map" className="w-full">
+          <TabsList>
+            <TabsTrigger value="map">Storm Map</TabsTrigger>
+            <TabsTrigger value="axon">Axon/DroneSense</TabsTrigger>
+            <TabsTrigger value="dji">DJI FlightHub 2</TabsTrigger>
+            <TabsTrigger value="votix">VOTIX</TabsTrigger>
+            <TabsTrigger value="flyt">FlytBase</TabsTrigger>
+            <TabsTrigger value="deploy">DroneDeploy</TabsTrigger>
+            <TabsTrigger value="windy">Windy</TabsTrigger>
+            <TabsTrigger value="dsps">Hire Pilots (DSPs)</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="map">
+            <QuickMap radarOn={radarOn} alertsOn={alertsOn} />
+            <div className="flex gap-2 justify-end mt-2">
+              <Button variant="outline" onClick={() => setRadarOn(!radarOn)}>{radarOn?"Disable Radar":"Enable Radar"}</Button>
+              <Button variant="outline" onClick={() => setAlertsOn(!alertsOn)}>{alertsOn?"Disable Alerts":"Enable Alerts"}</Button>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="axon" className="space-y-2">
+            <Button onClick={() => openNew(links.axonOps)}>Open Operations Hub</Button>
+            <Button onClick={() => openNew(links.axonVideo)}>Open Video View</Button>
+            <Button onClick={() => openNew(links.axonRespond)}>Open Axon Respond</Button>
+          </TabsContent>
+
+          <TabsContent value="dji" className="space-y-2">
+            <Button onClick={() => openNew(links.dji)}>Open DJI FlightHub 2</Button>
+          </TabsContent>
+
+          <TabsContent value="votix" className="space-y-2">
+            <Button onClick={() => openNew(links.votix)}>Open VOTIX</Button>
+          </TabsContent>
+
+          <TabsContent value="flyt" className="space-y-2">
+            <Button onClick={() => openNew(links.flytbase)}>Open FlytBase</Button>
+          </TabsContent>
+
+          <TabsContent value="deploy" className="space-y-2">
+            <Button onClick={() => openNew(links.dronedeploy)}>Open DroneDeploy Live Stream</Button>
+          </TabsContent>
+
+          <TabsContent value="windy">
+            <Card>
+              <CardContent>
+                <iframe title="Windy Embed" width="100%" height="500" src="https://embed.windy.com/embed2.html?lat=33&lon=-85&zoom=5&level=surface&overlay=wind" frameBorder="0"></iframe>
+              </CardContent>
+            </Card>
+          </TabsContent>
+          <TabsContent value="dsps" className="space-y-4">
+            <DSPDirectory />
+          </TabsContent>
+        </Tabs>
+      </div>
+    </div>
+  );
+}
+// ========== DSP Directory (simple) ==========
+function DSPDirectory() {
+  return (
+    <div className="space-y-4">
+      <div className="text-sm text-muted-foreground">These providers can staff pilots before/after storms. Ask for live HLS (.m3u8) links during ops and post-storm imagery with GPS/addresses plus a data feed (CSV/GeoJSON/API).</div>
+      <div className="grid md:grid-cols-2 gap-4">
+        <Card>
+          <CardContent className="p-4 space-y-2">
+            <div className="text-lg font-semibold">Zeitview (formerly DroneBase)</div>
+            <div className="flex gap-2 flex-wrap">
+              <a href="https://www.zeitview.com/" target="_blank" rel="noreferrer"><Button variant="secondary">Website</Button></a>
+              <a href="tel:13108959914"><Button>Call 310-895-9914</Button></a>
+            </div>
+            <div className="text-sm text-muted-foreground">Catastrophe response for insurers; use site contact for sales.</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 space-y-2">
+            <div className="text-lg font-semibold">DroneUp</div>
+            <div className="flex gap-2 flex-wrap">
+              <a href="https://www.droneup.com/contact" target="_blank" rel="noreferrer"><Button variant="secondary">Website</Button></a>
+              <a href="tel:18776011860"><Button>Call 877-601-1860</Button></a>
+            </div>
+            <div className="text-sm text-muted-foreground">Large U.S. operator network; can staff disaster areas.</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 space-y-2">
+            <div className="text-lg font-semibold">Airborne Response</div>
+            <div className="flex gap-2 flex-wrap">
+              <a href="https://airborneresponse.com/" target="_blank" rel="noreferrer"><Button variant="secondary">Website</Button></a>
+              <a href="tel:13057711120"><Button>Call 305-771-1120</Button></a>
+            </div>
+            <div className="text-sm text-muted-foreground">Mission Critical Unmanned Solutions; insurance & disaster response.</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 space-y-2">
+            <div className="text-lg font-semibold">SkySkopes</div>
+            <div className="flex gap-2 flex-wrap">
+              <a href="https://www.skyskopes.com/contact/" target="_blank" rel="noreferrer"><Button variant="secondary">Website</Button></a>
+              <a href="tel:17018382610"><Button>Call 701-838-2610</Button></a>
+            </div>
+            <div className="text-sm text-muted-foreground">Enterprise UAS ops; energy & utilities; regional teams.</div>
+          </CardContent>
+        </Card>
+      </div>
+      <Card>
+        <CardContent className="p-4 space-y-2">
+          <div className="font-semibold">Footage Inbox (paste test JSON and press Add)</div>
+          <p className="text-sm text-muted-foreground">In production, you will create a webhook at /api/dsp-ingest and push items into your DB. This UI simulates ingest for now.</p>
+          <FootageInboxSimple />
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function FootageInboxSimple() {
+  const [items, setItems] = useState([]);
+  const [text, setText] = useState("");
+
+  function addItem() {
+    try {
+      const obj = JSON.parse(text);
+      obj.id = String(Date.now());
+      setItems([obj, ...items]);
+      setText("");
+      alert("New footage received.");
+    } catch (e) {
+      alert("Invalid JSON");
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      <textarea className="w-full h-28 border rounded-xl p-2" value={text} onChange={(e)=>setText(e.target.value)} placeholder='{"provider":"DroneUp","timestamp":"2025-09-08T23:00:00Z","mediaUrl":"https://.../index.m3u8","lat":32.51,"lon":-84.87,"notes":"Tree on home"}' />
+      <div className="flex gap-2">
+        <Button onClick={addItem}>Add</Button>
+      </div>
+      <div className="grid md:grid-cols-2 gap-3">
+        {items.map(it => (
+          <Card key={it.id}><CardContent className="p-3 space-y-2">
+            <div className="font-medium">{it.provider} — {it.timestamp}</div>
+            <div className="text-sm">GPS: {it.lat}, {it.lon}</div>
+            {it.mediaUrl && <a className="inline-block" href={it.mediaUrl} target="_blank" rel="noreferrer"><Button variant="secondary">Open Media</Button></a>}
+            {it.notes && <div className="text-sm text-muted-foreground">{it.notes}</div>}
+          </CardContent></Card>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ========== DSP Directory & Ingest ==========
+function CompanyCard({ name, site, phone, note }) {
+  return (
+    <Card>
+      <CardContent className="p-4 space-y-2">
+        <div className="text-lg font-semibold">{name}</div>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" onClick={() => openNew(site)}>Website</Button>
+          {phone && (
+            <a href={`tel:${phone.replace(/[^\d+]/g,'')}`}>
+              <Button>Call {phone}</Button>
+            </a>
+          )}
+        </div>
+        {note && <div className="text-sm text-muted-foreground">{note}</div>}
+      </CardContent>
+    </Card>
+  );
+}
+
+function DSPDirectory() {
+  const companies = [
+    { name: "Zeitview (formerly DroneBase)", site: "https://www.zeitview.com/", phone: "310-895-9914", note: "Enterprise inspections & catastrophe response; use site contact for sales." },
+    { name: "DroneUp", site: "https://www.droneup.com/contact", phone: "877-601-1860", note: "Nationwide operator network; disaster staffing." },
+    { name: "Airborne Response", site: "https://airborneresponse.com/", phone: "305-771-1120", note: "Mission Critical Unmanned Solutions; insurance & disaster response." },
+    { name: "SkySkopes", site: "https://www.skyskopes.com/contact/", phone: "701-838-2610", note: "Enterprise UAS ops; energy & utilities; regional teams." }
+  ];
+
+  return (
+    <div className="space-y-4">
+      <div className="text-sm text-muted-foreground">These providers can staff pilots before/after storms. Ask for live HLS (.m3u8) links during ops and post-storm imagery with GPS/addresses plus a data feed (CSV/GeoJSON/API).</div>
+
+      <div className="grid md:grid-cols-2 gap-4">
+        {companies.map((c) => <CompanyCard key={c.name} {...c} />)}
+      </div>
+
+      <IngestHowTo />
+      <FootageInbox />
+    </div>
+  );
+}
+
+function IngestHowTo() {
+  return (
+    <Card>
+      <CardContent className="p-4 space-y-2 text-sm leading-relaxed">
+        <div className="font-semibold">How footage gets to you (plug this into contracts):</div>
+        <ol className="list-decimal pl-5 space-y-1">
+          <li>During flights, provider shares <strong>live HLS (.m3u8)</strong> URLs for each aircraft.</li>
+          <li>After flights, provider POSTs a JSON payload to your <code>/api/dsp-ingest</code> webhook with: <code>{`{ provider, timestamp, mediaUrl, thumbnailUrl, lat, lon, address?, notes }`}</code>.</li>
+          <li>Your app ingests, reverse‑geocodes (if needed), and alerts Ops.</li>
+        </ol>
+        <div className="rounded-xl bg-slate-50 p-3">
+          <div className="font-medium mb-1">Example JSON</div>
+          <pre className="text-xs overflow-x-auto">{`{
+  "provider": "DroneUp",
+  "timestamp": "2025-09-08T23:00:00Z",
+  "mediaUrl": "https://example-cdn.com/clip123.m3u8",
+  "thumbnailUrl": "https://example-cdn.com/clip123.jpg",
+  "lat": 32.5104,
+  "lon": -84.8766,
+  "notes": "Tree on roof; lines down"
+}`}</pre>
+        </div>
+        <div>Need server code? Create an Express route <code>/api/dsp-ingest</code> that stores items (DB) and emits a websocket/broadcast. For now, use the <em>Footage Inbox</em> below to paste test JSON and simulate alerts.</div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function FootageInbox() {
+  const [items, setItems] = useState(() => []);
+  const [draft, setDraft] = useState("");
+
+  async function reverseGeocode(lat, lon) {
+    try {
+      const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
+      const j = await r.json();
+      return j?.display_name || "";
+    } catch (_) { return ""; }
+  }
+
+  async function addItemFromJSON() {
+    try {
+      const obj = JSON.parse(draft);
+      if (!obj.address && obj.lat && obj.lon) {
+        obj.address = await reverseGeocode(obj.lat, obj.lon);
+      }
+      obj.id = Date.now().toString();
+      setItems((prev) => [obj, ...prev]);
+      setDraft("");
+      alert("New footage received and alert sent to Ops.");
+    } catch (e) {
+      alert("Invalid JSON. Paste the example and modify it.");
+    }
+  }
+
+  return (
+    <Card>
+      <CardContent className="p-4 space-y-3">
+        <div className="text-lg font-semibold">Footage Inbox (test harness)</div>
+        <div className="text-sm text-muted-foreground">Paste JSON payloads from providers to simulate webhook ingest. We’ll reverse‑geocode to get an address if only GPS is provided.</div>
+        <textarea className="w-full h-28 border rounded-xl p-2" value={draft} onChange={(e)=>setDraft(e.target.value)} placeholder='Paste JSON…' />
+        <div className="flex gap-2">
+          <Button onClick={addItemFromJSON}>Add Footage</Button>
+        </div>
+        <div className="grid md:grid-cols-2 gap-4">
+          {items.map((it) => (
+            <Card key={it.id}>
+              <CardContent className="p-3 space-y-2">
+                <div className="font-medium">{it.provider} — {new Date(it.timestamp||Date.now()).toLocaleString()}</div>
+                {it.thumbnailUrl && (<img src={it.thumbnailUrl} alt="thumb" className="w-full rounded" />)}
+                <div className="text-sm">{it.address || (it.lat && it.lon ? `${it.lat}, ${it.lon}` : "")}</div>
+                {it.mediaUrl && (
+                  <div className="flex gap-2">
+                    <a href={it.mediaUrl} target="_blank" rel="noreferrer">
+                      <Button variant="secondary">Open Media</Button>
+                    </a>
+                  </div>
+                )}
+                {it.notes && <div className="text-sm text-muted-foreground">{it.notes}</div>}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
