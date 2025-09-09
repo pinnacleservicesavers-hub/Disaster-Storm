@@ -11,9 +11,6 @@ import "leaflet/dist/leaflet.css";
  *  - Simple mission code passthrough (stored locally for convenience)
  *  - Live storm context map (OSM base + optional RainViewer radar overlay)
  *  - Clean UI with Tailwind CSS
- *
- * Notes:
- *  - Axon/DroneSense video pages require auth; we are *linking* not embedding.
  */
 
 function openNew(url: string) {
@@ -44,13 +41,15 @@ function RadarToggle() {
     localStorage.setItem("radarOn", on ? "1" : "0");
   }, [on]);
   return (
-    <div className="flex items-center justify-between rounded-xl border border-gray-200 p-3">
+    <div className="flex items-center justify-between rounded-xl border border-gray-200 p-3 bg-white shadow-sm">
       <div className="space-y-1">
         <div className="font-medium">Radar Overlay</div>
         <div className="text-sm text-gray-600">RainViewer global radar tiles (no API key)</div>
       </div>
       <button 
-        className={`px-4 py-2 rounded-md font-medium ${on ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`}
+        className={`px-4 py-2 rounded-md font-medium transition-colors ${
+          on ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+        }`}
         onClick={() => setOn(!on)}
       >
         {on ? "On" : "Off"}
@@ -134,13 +133,13 @@ function QuickMap({ radarOn }: { radarOn: boolean }) {
         </div>
         <div className="flex justify-end">
           <button 
-            className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 font-medium"
+            className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 font-medium transition-colors"
             onClick={handleSetView}
           >
             Save View
           </button>
         </div>
-        <div className="h-[420px] rounded-2xl overflow-hidden">
+        <div className="h-[420px] rounded-2xl overflow-hidden border border-gray-200">
           <MapContainer center={position} zoom={z} className="h-full w-full">
             <TileLayer
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -175,7 +174,7 @@ export default function AxonLauncher() {
     <div className="min-h-screen w-full bg-gradient-to-b from-slate-50 to-slate-100 p-6">
       <div className="mx-auto max-w-6xl space-y-6">
         <header className="flex flex-col gap-2">
-          <h1 className="text-3xl font-bold tracking-tight">Operations Hub & Respond Launcher</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-gray-900">Operations Hub & Respond Launcher</h1>
           <p className="text-gray-600">Deep-link into Axon/DroneSense with your org login, plus a live storm context map you can keep open in the same window.</p>
         </header>
 
@@ -199,7 +198,7 @@ export default function AxonLauncher() {
                 <PersistedField k="missionCode" label="Mission Join Code (optional)" placeholder="Paste code from teammate" />
                 <div className="flex items-end">
                   <button 
-                    className="w-full bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 font-medium"
+                    className="w-full bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 font-medium transition-colors"
                     onClick={() => openNew(links.opsHub)}
                   >
                     Open Operations Hub
@@ -209,28 +208,28 @@ export default function AxonLauncher() {
 
               <div className="grid md:grid-cols-3 gap-3">
                 <button 
-                  className="bg-gray-100 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-200 font-medium"
+                  className="bg-gray-100 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-200 font-medium transition-colors"
                   onClick={() => openNew(links.video)}
                 >
                   Open Video View
                 </button>
                 <button 
-                  className="bg-gray-100 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-200 font-medium"
+                  className="bg-gray-100 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-200 font-medium transition-colors"
                   onClick={() => openNew(links.evidence)}
                 >
                   Open Axon Respond
                 </button>
                 <button 
-                  className="border border-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-50 font-medium"
+                  className="border border-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-50 font-medium transition-colors"
                   onClick={() => alert(`Share this mission code with authorized users: ${missionCode || "(none saved)"}`)}
                 >
                   Show Mission Code
                 </button>
               </div>
 
-              <div className="rounded-xl border border-gray-200 p-3">
-                <div className="text-sm text-gray-600">
-                  Tip: These launchers open secure Axon pages in a new tab. Users will authenticate per your agency settings (SSO/MFA). Embedding is intentionally blocked by CSP for security.
+              <div className="rounded-xl border border-gray-200 p-3 bg-blue-50">
+                <div className="text-sm text-gray-700">
+                  <strong>Tip:</strong> These launchers open secure Axon pages in a new tab. Users will authenticate per your agency settings (SSO/MFA). Embedding is intentionally blocked by CSP for security.
                 </div>
               </div>
             </div>
@@ -240,31 +239,31 @@ export default function AxonLauncher() {
             <RadarToggle />
             <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
               <div className="p-4 space-y-2">
-                <div className="font-medium">Quick Weather Links</div>
+                <div className="font-medium text-gray-900">Quick Weather Links</div>
                 <div className="grid grid-cols-1 gap-2">
                   <button 
-                    className="text-left px-3 py-2 hover:bg-gray-50 rounded-md text-gray-700"
+                    className="text-left px-3 py-2 hover:bg-gray-50 rounded-md text-gray-700 transition-colors"
                     onClick={() => openNew("https://www.windy.com/?33.0,-85.0,6")}
                   >
-                    Open Windy (map)
+                    🌪️ Open Windy (map)
                   </button>
                   <button 
-                    className="text-left px-3 py-2 hover:bg-gray-50 rounded-md text-gray-700"
+                    className="text-left px-3 py-2 hover:bg-gray-50 rounded-md text-gray-700 transition-colors"
                     onClick={() => openNew("https://www.spc.noaa.gov/products/outlook/")}
                   >
-                    NOAA SPC Outlooks
+                    🌩️ NOAA SPC Outlooks
                   </button>
                   <button 
-                    className="text-left px-3 py-2 hover:bg-gray-50 rounded-md text-gray-700"
+                    className="text-left px-3 py-2 hover:bg-gray-50 rounded-md text-gray-700 transition-colors"
                     onClick={() => openNew("https://www.nhc.noaa.gov/")}
                   >
-                    NHC (Tropical)
+                    🌀 NHC (Tropical)
                   </button>
                   <button 
-                    className="text-left px-3 py-2 hover:bg-gray-50 rounded-md text-gray-700"
+                    className="text-left px-3 py-2 hover:bg-gray-50 rounded-md text-gray-700 transition-colors"
                     onClick={() => openNew("https://weather.gov/")}
                   >
-                    NWS Local Forecast
+                    🌦️ NWS Local Forecast
                   </button>
                 </div>
               </div>
@@ -273,73 +272,83 @@ export default function AxonLauncher() {
         </div>
 
         <div className="w-full">
-          <div className="border-b border-gray-200">
-            <nav className="-mb-px flex space-x-8">
+          <div className="border-b border-gray-200 bg-white rounded-t-lg">
+            <nav className="-mb-px flex space-x-8 px-4">
               <button
-                className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
                   activeTab === "map"
                     ? "border-blue-500 text-blue-600"
                     : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                 }`}
                 onClick={() => setActiveTab("map")}
               >
-                Storm Map
+                🗺️ Storm Map
               </button>
               <button
-                className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
                   activeTab === "help"
                     ? "border-blue-500 text-blue-600"
                     : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                 }`}
                 onClick={() => setActiveTab("help")}
               >
-                Setup Help
+                ❓ Setup Help
               </button>
             </nav>
           </div>
           
-          {activeTab === "map" && (
-            <div className="pt-4 space-y-4">
-              <QuickMap radarOn={radarOn} />
-              <div className="flex justify-end">
-                <button 
-                  className="border border-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-50 font-medium"
-                  onClick={() => setRadarOn((v) => {
-                    const nv = !v; 
-                    localStorage.setItem("radarOn", nv ? "1" : "0"); 
-                    return nv;
-                  })}
-                >
-                  {radarOn ? "Disable Radar" : "Enable Radar"}
-                </button>
+          <div className="bg-white rounded-b-lg border-x border-b border-gray-200">
+            {activeTab === "map" && (
+              <div className="p-4 space-y-4">
+                <QuickMap radarOn={radarOn} />
+                <div className="flex justify-end">
+                  <button 
+                    className="border border-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-50 font-medium transition-colors"
+                    onClick={() => setRadarOn((v) => {
+                      const nv = !v; 
+                      localStorage.setItem("radarOn", nv ? "1" : "0"); 
+                      return nv;
+                    })}
+                  >
+                    {radarOn ? "🚫 Disable Radar" : "📡 Enable Radar"}
+                  </button>
+                </div>
               </div>
-            </div>
-          )}
-          
-          {activeTab === "help" && (
-            <div className="pt-4">
-              <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
-                <div className="p-4 space-y-4 text-sm leading-relaxed">
-                  <div className="font-semibold">Install dependencies</div>
+            )}
+            
+            {activeTab === "help" && (
+              <div className="p-4">
+                <div className="space-y-4 text-sm leading-relaxed">
+                  <div className="font-semibold text-gray-900">📦 Install dependencies</div>
                   <pre className="bg-gray-900 text-gray-100 p-3 rounded-xl overflow-x-auto">{`# If you use Vite/React in Replit
 npm i react-leaflet leaflet @radix-ui/react-slot class-variance-authority tailwind-merge
-# shadcn/ui base components (already available in this environment per instructions)
-`}</pre>
-                  <div className="font-semibold">Add to your app</div>
+# shadcn/ui base components (already available in this environment per instructions)`}</pre>
+                  
+                  <div className="font-semibold text-gray-900">⚡ Add to your app</div>
                   <pre className="bg-gray-900 text-gray-100 p-3 rounded-xl overflow-x-auto">{`// App.jsx
 import AxonLauncher from './AxonLauncher';
 
 export default function App(){
   return <AxonLauncher />;
 }`}</pre>
-                  <div className="font-semibold">Why link instead of embed?</div>
-                  <p>
+                  
+                  <div className="font-semibold text-gray-900">🔒 Why link instead of embed?</div>
+                  <p className="text-gray-700">
                     Axon/DroneSense video pages require authenticated access and enforce security headers (like X-Frame-Options / CSP), which block third-party iframes. Launching the official pages in a new tab keeps your workflow fast while respecting security.
                   </p>
+
+                  <div className="font-semibold text-gray-900">🚁 Available API Endpoints</div>
+                  <div className="bg-gray-50 p-3 rounded-lg">
+                    <ul className="space-y-1 text-gray-700">
+                      <li><code className="bg-gray-200 px-2 py-1 rounded text-sm">/api/alerts</code> - Tornado warnings across 10 states</li>
+                      <li><code className="bg-gray-200 px-2 py-1 rounded text-sm">/api/live</code> - YouTube live tornado streams</li>
+                      <li><code className="bg-gray-200 px-2 py-1 rounded text-sm">/api/owner</code> - Property owner lookup by address</li>
+                    </ul>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
     </div>
