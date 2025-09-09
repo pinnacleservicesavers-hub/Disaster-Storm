@@ -1,0 +1,589 @@
+// StormOpsProHub.jsx — Frontend Blocks (CustomerCard + ContractorPortal + StormMap)
+// Adds: damage-tag map filters, map markers with geocode, SLA badges & map jump,
+// and previously added features (e‑sign, camera capture, attachments, photo report, etc.)
+
+// NOTE: Install deps for map:
+//   npm i react-leaflet leaflet
+// Add to index.css (or global CSS) once:  @import url('[https://unpkg.com/leaflet@1.9.4/dist/leaflet.css](https://unpkg.com/leaflet@1.9.4/dist/leaflet.css)');
+
+function useNowTick(ms=60000){
+const \[now, setNow] = useState(Date.now());
+useEffect(()=>{ const id = setInterval(()=>setNow(Date.now()), ms); return ()=>clearInterval(id); },\[ms]);
+return now;
+}
+
+function daysSince(ts){ if(!ts) return null; return Math.floor((Date.now()-Number(ts))/86400000); }
+
+function findLastEvent(c, type){
+return (c?.timeline||\[]).slice().reverse().find(e=>e.type===type) || null;
+}
+
+function slaBadges(c){
+const out = \[];
+const claim = findLastEvent(c,'claim\_submitted');
+const work = findLastEvent(c,'work\_completed');
+const lien = findLastEvent(c,'lien\_filed');
+if (claim){
+const d = daysSince(claim.ts);
+if (d!=null){
+let tone='bg-gray-300 text-gray-800', txt=`Claim +${d}d`;
+if (d>=60) tone='bg-red-600 text-white'; else if (d>=30) tone='bg-amber-500 text-black';
+out.push({ key:'claim', tone, txt });
+}
+}
+if (work){
+const d = daysSince(work.ts);
+if (d!=null){
+let tone='bg-gray-300 text-gray-800', txt=`Work +${d}d`;
+if (d>=45) tone='bg-red-600 text-white'; else if (d>=30) tone='bg-amber-500 text-black';
+out.push({ key:'work', tone, txt });
+}
+}
+if (lien){
+const d = daysSince(lien.ts);
+if (d!=null){
+let tone='bg-gray-300 text-gray-800', txt=`Lien +${d}d`;
+if (d>=300) tone='bg-amber-500 text-black'; if (d>=330) tone='bg-red-600 text-white';
+out.push({ key:'lien', tone, txt });
+}
+}
+return out;
+}
+
+function CustomerCard({ c, update, pushMsg, pushDoc, pushEvent }){
+const \[note, setNote] = useState('');
+const \[msg, setMsg] = useState('');
+const nowTick = useNowTick(60000);
+
+// Claim-threaded messages (from backend /api/messages?claim=...)
+const \[thread, setThread] = useState(\[]);
+useEffect(()=>{
+if (!c.claimNumber){ setThread(\[]); return; }
+fetch(`/api/messages?claim=${encodeURIComponent(c.claimNumber)}`)
+.then(r=>r.json()).then(setThread).catch(()=>{});
+}, \[c.claimNumber]);
+
+// Invoice editor
+const \[invoiceItems, setInvoiceItems] = useState(\[{ name:'Emergency service', amount:0, quantity:1 }]);
+const \[taxRate, setTaxRate] = useState(0);
+const subtotal = invoiceItems.reduce((s,it)=> s + (Number(it.amount)||0) \* (Number(it.quantity)||1), 0);
+const tax = subtotal \* (Number(taxRate)||0)/100;
+const total = subtotal + tax;
+
+// E‑Sign status (badge + auto‑attach certificate)
+const \[esign, setEsign] = useState({ status:'unknown', certificate\:null });
+useEffect(()=>{
+let stop = false;
+async function check(){
+const params = new URLSearchParams({});
+if (c.claimNumber) params.set('claim', c.claimNumber);
+if (c.email) params.set('email', c.email);
+if (!\[...params.keys()].length) return;
+const r = await fetch(`/api/esign/status?${params.toString()}`).then(r=>r.json()).catch(()=>null);
+const rec = r?.record || (r?.results && (r.results.find(x=>x.signedAt) || r.results\[0])) || null;
+if (stop || !rec) return;
+const next = { status: rec.signedAt? 'signed':'pending', certificate: rec.certificate || null };
+setEsign(prev=> (prev.status!==next.status || prev.certificate!==next.certificate) ? next : prev);
+if (rec.certificate){
+const already = (c.docs||\[]).some(d => d.url===rec.certificate || d.name==='E-Sign Certificate.pdf');
+if (!already){
+try { pushDoc(c.id, { name:'E-Sign Certificate.pdf', url: rec.certificate }); } catch(*){ }
+try { pushEvent(c.id, { type:'esign\_cert\_added', text: rec.certificate }); } catch(*){ }
+}
+}
+}
+check();
+const id = setInterval(check, 30000);
+return ()=>{ stop = true; clearInterval(id); };
+}, \[c.id, c.claimNumber, c.email]);
+
+// Attachments selection (docs with URL)
+const \[attach, setAttach] = useState({}); // url -> bool
+const toggleAttach = (u) => setAttach(prev=> ({ ...prev, \[u]: !prev\[u] }));
+const selectedAttachments = () => Object.entries(attach).filter((\[,v])=>v).map((\[u])=>u);
+const absUrl = (u) => { try{ return new URL(u, (location?.origin||'')).href; }catch{ return u; } };
+
+// Insurance email
+const \[insEmail, setInsEmail] = useState(c.insurerEmail||'');
+useEffect(()=>{ if (c.insurerEmail && c.insurerEmail!==insEmail) setInsEmail(c.insurerEmail); }, \[c.insurerEmail]);
+
+// Uploads & camera capture
+const \[uploading, setUploading] = useState(false);
+const \[showCam, setShowCam] = useState(false);
+const videoRef = React.useRef(null);
+const canvasRef = React.useRef(null);
+let mediaStreamRef = React.useRef(null);
+
+async function openCamera(){
+try{
+const ms = await navigator.mediaDevices.getUserMedia({ video\:true, audio\:false });
+mediaStreamRef.current = ms;
+setShowCam(true);
+if (videoRef.current){ videoRef.current.srcObject = ms; await videoRef.current.play(); }
+}catch(e){ alert('Camera access failed'); }
+}
+function closeCamera(){
+if (mediaStreamRef.current){ mediaStreamRef.current.getTracks().forEach(t=>t.stop()); mediaStreamRef.current=null; }
+setShowCam(false);
+}
+async function capturePhoto(){
+try{
+const v = videoRef.current; const cv = canvasRef.current; if (!v || !cv) return;
+cv.width = v.videoWidth; cv.height = v.videoHeight; const ctx = cv.getContext('2d'); ctx.drawImage(v,0,0);
+cv.toBlob(async (blob)=>{
+if (!blob) return;
+const file = new File(\[blob], `capture_${Date.now()}.png`, { type:'image/png' });
+const fd = new FormData(); fd.append('file', file, file.name);
+setUploading(true);
+try{
+const r = await fetch('/api/upload', { method:'POST', body: fd }).then(r=>r.json());
+if (r?.ok && r.file?.path){ pushDoc(c.id,{ name\:file.name, size\:file.size, url\:r.file.path }); }
+}finally{ setUploading(false); }
+}, 'image/png');
+}catch(e){ alert('Capture failed'); }
+}
+
+async function sendSMS(){
+await fetch('/api/sms',{method:'POST',headers:{'Content-Type':'application/json'},body\:JSON.stringify({ to\:c.phone, body: msg })});
+pushMsg(c.id,{ dir:'out', type:'sms', to\:c.phone, body\:msg });
+setMsg('');
+}
+async function sendEmail(){
+const atts = selectedAttachments().map(u=>({ path: absUrl(u) }));
+await fetch('/api/email',{
+method:'POST',headers:{'Content-Type':'application/json'},
+body\:JSON.stringify({
+to\:c.email,
+subject:`Storm work update for ${c.address}`,
+html: msg,
+claimNumber: c.claimNumber || undefined,
+attachments: atts
+})
+});
+pushMsg(c.id,{ dir:'out', type:'email', to\:c.email, body\:msg });
+setMsg('');
+}
+
+// Auto-attach latest photos if nothing selected
+function pickImageDocs(){
+const arr = (c.docs||\[]).filter(d=>/.(png|jpe?g|webp|gif|bmp)\$/i.test(d.name||''));
+return arr;
+}
+
+async function sendInsuranceEmail(){
+if (!insEmail){ alert('Enter insurance/adjuster email'); return; }
+update(c.id,{ insurerEmail: insEmail });
+let urls = selectedAttachments();
+if (!urls.length){
+const imgs = pickImageDocs();
+urls = imgs.slice(Math.max(0, imgs.length-10)).map(d=>d.url).filter(Boolean);
+}
+const atts = urls.map(u=>({ path: absUrl(u) }));
+await fetch('/api/email',{
+method:'POST',headers:{'Content-Type':'application/json'},
+body\:JSON.stringify({
+to\:insEmail,
+subject:`Claim ${c.claimNumber||''} — Evidence package for ${c.address}`,
+html: msg || `Attached files regarding claim ${c.claimNumber||''} for ${c.address}.`,
+claimNumber: c.claimNumber || undefined,
+attachments: atts
+})
+});
+pushEvent(c.id,{ type:'email\_insurance', to: insEmail });
+}
+
+// AI captions for selected photos (or auto-picked)
+async function aiCaptionSelected(){
+let photos = selectedAttachments().map(u=>({ url: absUrl(u) }));
+if (!photos.length) photos = pickImageDocs().map(d=>({ url: absUrl(d.url), name: d.name }));
+if (!photos.length){ alert('Select or upload photos first.'); return; }
+const r = await fetch('/api/describe/batch',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ photos }) }).then(r=>r.json()).catch(()=>null);
+if (!r?.results) { alert('AI captions failed.'); return; }
+const byUrl = new Map(r.results.map(x=>\[x.url, x.caption]));
+const docs = (c.docs||\[]).map(d => d.url && byUrl.has(absUrl(d.url)) ? ({ ...d, caption: byUrl.get(absUrl(d.url)) }) : d);
+update(c.id, { docs });
+for (const it of r.results){ pushEvent(c.id, { type:'ai\_caption', text: `${it.url} → ${it.caption}` }); }
+// Signal map to refresh filters/markers
+try{ window\.dispatchEvent(new CustomEvent('storm-docs-updated', { detail:{ id\:c.id } })); }catch{}
+alert('AI captions added to photos.');
+}
+
+async function ownerPrefill(){
+try{
+if(!c.address){ alert('Add service address first'); return; }
+const r = await fetch('/api/owner-lookup',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ address: c.address }) }).then(r=>r.json());
+if (r){
+const patch = { name: r.ownerName || c.name };
+if (r.mailingAddress) patch.mailingAddress = r.mailingAddress;
+update(c.id, patch);
+pushEvent(c.id,{ type:'owner\_prefill', text: r.ownerName || 'unknown' });
+alert('Owner details prefilled');
+}
+}catch(e){ alert('Owner lookup failed'); }
+}
+
+async function sendForESign(){
+try{
+if (!c.email){ alert('Need customer email'); return; }
+const payload = { email: c.email, name: c.name || 'Customer', address: c.address, claimNumber: c.claimNumber };
+let link = null;
+try{
+const r = await fetch('/api/esign/initiate',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) }).then(r=>r.json());
+if (r?.link) link = r.link;
+}catch(\_){}
+if (link){
+await fetch('/api/email',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ to\:c.email, subject:`Please e-sign: Emergency Tree Removal`, html:`Please review and e-sign: <a href="${link}">${link}</a>`, claimNumber\:c.claimNumber||undefined })});
+pushEvent(c.id,{ type:'esign\_sent', text: link });
+alert('E-sign invite sent');
+} else {
+await fetch('/api/email',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ to\:c.email, subject:`Review & approve emergency contract`, html:`Please review the attached contract and reply \"I agree\" to authorize emergency work.<br/><a href=\"/files/contract.pdf\">Open Contract</a>`, claimNumber\:c.claimNumber||undefined, attachments:\[{ path: absUrl('/files/contract.pdf') }] })});
+pushEvent(c.id,{ type:'contract\_sent', text:'/files/contract.pdf' });
+alert('Fallback email sent with contract attached');
+}
+}catch(e){ alert('E-sign send failed'); }
+}
+
+async function requestPayment(){
+const items = invoiceItems.map(it=>({ name: it.name||'Service', amount: Number(it.amount||0), quantity: Number(it.quantity||1) }));
+if (tax > 0) items.push({ name:'Tax', amount: Number(tax.toFixed(2)), quantity: 1 });
+const r = await fetch('/api/invoice/checkout', {
+method:'POST', headers:{'Content-Type':'application/json'},
+body: JSON.stringify({ customer: { email: c.email }, lineItems: items, metadata: { claim: c.claimNumber||'', customerId: c.id } })
+}).then(r=>r.json()).catch(()=>null);
+if (r?.url){
+if (c.phone) await fetch('/api/sms',{method:'POST',headers:{'Content-Type':'application/json'},body\:JSON.stringify({ to\:c.phone, body:`Pay securely for ${c.address}: ${r.url}` })});
+if (c.email) await fetch('/api/email',{method:'POST',headers:{'Content-Type':'application/json'},body\:JSON.stringify({ to\:c.email, subject:`Payment link for ${c.address}`, html:`<a href=\"${r.url}\">Pay securely</a>`, claimNumber\:c.claimNumber||undefined })});
+alert('Payment link sent.');
+} else { alert('Payment link failed.'); }
+}
+
+async function submitClaimPackage(){
+if (!insEmail){ alert('Enter insurance/adjuster email'); return; }
+let urls = selectedAttachments();
+if (!urls.length){ const imgs = pickImageDocs(); urls = imgs.map(d=>d.url).filter(Boolean); }
+const payload = {
+to: insEmail,
+claimNumber: c.claimNumber||'',
+address: c.address||'',
+customerName: c.name||'',
+contractor: { name:'Strategic Land Management LLC', phone:'888-628-2229', website:'[https://www.strategiclandmgmt.com](https://www.strategiclandmgmt.com)' },
+attachments: \[ ...urls.map(absUrl), esign.certificate?absUrl(esign.certificate)\:null, absUrl('/files/contract.pdf') ].filter(Boolean),
+invoice: { items: invoiceItems, taxRate, subtotal, total }
+};
+const r = await fetch('/api/claim/package',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) }).then(r=>r.json()).catch(()=>null);
+if (r?.ok){ pushEvent(c.id,{ type:'claim\_package\_sent', to: insEmail, text: r.summaryPath }); window\.open(r.summaryPath, '\_blank'); alert('Claim package sent.'); }
+else alert('Claim package failed.');
+}
+
+function changeStatus(s){
+update(c.id,{ status\:s });
+pushEvent(c.id,{ type:'status', to\:s });
+// Register SLA watches for certain statuses
+const map = { claim\_submitted:'claim\_submitted', work\_completed:'work\_completed', lien\_filed:'lien\_filed' };
+if (map\[s]){
+fetch('/api/sla/register',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ customerId\:c.id, type: map\[s], ts: Date.now(), address\:c.address, name\:c.name }) });
+}
+}
+
+const badges = slaBadges(c); // recompute every minute via nowTick
+void nowTick;
+
+return ( <Card><CardContent className="p-4 space-y-3"> <div className="flex items-center justify-between"> <div> <div className="text-lg font-semibold">{c.name||'Unknown Owner'}</div> <div className="text-sm text-muted-foreground">{c.address}</div>
+{c.mailingAddress && <div className="text-xs">Mailing: {c.mailingAddress}</div>} <div className="text-xs">{c.insurer || 'Insurer N/A'} • Claim #{c.claimNumber||'—'}</div> </div> <div className="flex items-center gap-2 flex-wrap justify-end">
+{badges.map(b=> (\<span key={b.key} className={`text-xs px-2 py-1 rounded-full ${b.tone}`}>{b.txt}</span>))}
+\<span className={`text-xs px-2 py-1 rounded-full ${esign.status==='signed'?'bg-green-600 text-white':esign.status==='pending'?'bg-amber-500 text-black':'bg-gray-300 text-gray-800'}`}>E‑Sign: {esign.status==='signed'?'Signed'\:esign.status==='pending'?'Pending':'Unknown'}</span> <Button variant="outline" onClick={ownerPrefill}>Owner Prefill</Button>
+\<Button variant="outline" onClick={()=>{ try{ window\.dispatchEvent(new CustomEvent('storm-center',{ detail:{ address\:c.address, name\:c.name } })); }catch{} }}>Open on Map</Button>
+\<select className="border rounded-md px-2 py-1" value={c.status} onChange={(e)=>changeStatus(e.target.value)}>
+{PIPELINE.map(p => <option key={p} value={p}>{p.replaceAll('\_',' ')}</option>)} </select> </div> </div>
+
+```
+  <div className="grid md:grid-cols-3 gap-3">
+    {/* Communications */}
+    <div className="space-y-2">
+      <div className="font-medium">Communications</div>
+      <Input value={msg} onChange={(e)=>setMsg(e.target.value)} placeholder="Write SMS/Email..." />
+      <div className="flex gap-2">
+        {c.phone && <Button onClick={sendSMS}>Send SMS</Button>}
+        {c.email && <Button variant="secondary" onClick={sendEmail}>Send Email</Button>}
+        {c.phone && <a href={`tel:${c.phone.replace(/[^0-9+]/g,'')}`}><Button variant="outline">Call</Button></a>}
+      </div>
+      <div className="flex items-center gap-2 text-xs">
+        <span>Insurance Email</span>
+        <Input style={{width:220}} value={insEmail} onChange={(e)=>setInsEmail(e.target.value)} placeholder="adjuster@insurer.com" />
+        <Button variant="outline" onClick={sendInsuranceEmail}>Email Insurance</Button>
+      </div>
+      <div className="space-y-1 max-h-40 overflow-auto">
+        {c.messages?.map((m,i)=>(<div key={i} className="text-xs">[{new Date(m.ts).toLocaleString()}] {m.type?.toUpperCase()} → {m.to}: {m.body}</div>))}
+      </div>
+      <div className="mt-2 text-xs">
+        <div className="font-medium">Insurance Thread</div>
+        <div className="max-h-40 overflow-auto space-y-1">
+          {thread.map((m,i)=>(
+            <div key={i}>[{new Date(m.ts).toLocaleString()}] {m.dir==='in'?'FROM':'TO'} {m.dir==='in'?m.from:m.to}: <span dangerouslySetInnerHTML={{__html: m.subject||''}} />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+
+    {/* Docs & Media */}
+    <div className="space-y-2">
+      <div className="font-medium">Docs & Media</div>
+      <input type="file" multiple onChange={async (e)=>{
+        const files = Array.from(e.target.files||[]);
+        if (!files.length) return;
+        setUploading(true);
+        for (const f of files){
+          try{
+            const fd = new FormData(); fd.append('file', f, f.name);
+            const r = await fetch('/api/upload', { method:'POST', body: fd }).then(r=>r.json());
+            if (r?.ok && r.file?.path){ pushDoc(c.id,{ name:f.name, size:f.size, url:r.file.path }); }
+            else { pushDoc(c.id,{ name:f.name, size:f.size }); }
+          }catch(_){ pushDoc(c.id,{ name:f.name, size:f.size }); }
+        }
+        setUploading(false);
+      }} />
+      <div className="text-xs text-muted-foreground">Contracts, proof of insurance, photos/videos. {uploading && <b>Uploading…</b>}</div>
+      <div className="text-xs">Select files to attach in emails:</div>
+      <div className="space-y-1 max-h-40 overflow-auto">
+        {c.docs?.map((d,i)=>(
+          <div key={i} className="text-xs flex items-center gap-2">
+            {d.url && <input type="checkbox" checked={!!attach[d.url]} onChange={()=>toggleAttach(d.url)} />}
+            📄 {d.url ? <a href={d.url} target="_blank" rel="noreferrer">{d.name||'file'}</a> : <span>{d.name} {d.size?`(${Math.round((d.size||0)/1024)} KB)`:''}</span>}
+            {d.caption && <span className="ml-2 italic opacity-75">— {d.caption}</span>}
+          </div>
+        ))}
+      </div>
+      <div className="flex gap-2">
+        <Button variant="outline" onClick={aiCaptionSelected}>AI Caption Selected</Button>
+        {!showCam && <Button variant="outline" onClick={openCamera}>Open Camera</Button>}
+      </div>
+      {showCam && (
+        <div className="space-y-2">
+          <video ref={videoRef} autoPlay playsInline style={{width:'100%', maxHeight:240, background:'#000'}} />
+          <canvas ref={canvasRef} style={{display:'none'}} />
+          <div className="flex gap-2">
+            <Button onClick={capturePhoto}>Capture Photo</Button>
+            <Button variant="outline" onClick={closeCamera}>Close</Button>
+          </div>
+        </div>
+      )}
+    </div>
+
+    {/* Notes / Timeline */}
+    <div className="space-y-2">
+      <div className="font-medium">Notes / Timeline</div>
+      <Input value={note} onChange={(e)=>setNote(e.target.value)} placeholder="Add an internal note" />
+      <Button variant="outline" onClick={()=>{ pushEvent(c.id,{ type:'note', text:note }); setNote(''); }}>Add Note</Button>
+      <div className="space-y-1 max-h-40 overflow-auto">
+        {c.timeline?.map((t,i)=>(<div key={i} className="text-xs">[{new Date(t.ts).toLocaleString()}] {t.type} {t.text||t.to||''}</div>))}
+      </div>
+    </div>
+  </div>
+
+  {/* Actions */}
+  <div className="flex flex-wrap gap-2">
+    <Button variant="outline" onClick={()=>changeStatus('contract_signed')}>Mark Contracted</Button>
+    <Button variant="outline" onClick={()=>changeStatus('claim_submitted')}>Mark Claim Submitted</Button>
+    <Button variant="outline" onClick={()=>changeStatus('work_completed')}>Mark Work Completed</Button>
+    <Button variant="outline" onClick={()=>changeStatus('lien_filed')}>Mark Lien Filed</Button>
+    <Button variant="outline" onClick={()=>changeStatus('paid')}>Mark Paid</Button>
+    <Button onClick={sendForESign}>Send for E‑Sign</Button>
+    <Button variant="secondary" onClick={async ()=>{
+      const params = new URLSearchParams({});
+      if (c.claimNumber) params.set('claim', c.claimNumber);
+      if (c.email) params.set('email', c.email);
+      const r = await fetch(`/api/esign/status?${params.toString()}`).then(r=>r.json()).catch(()=>null);
+      const rec = r?.record || (r?.results && (r.results.find(x=>x.signedAt) || r.results[0])) || null;
+      if (rec){ setEsign({ status: rec.signedAt?'signed':'pending', certificate: rec.certificate||null }); if (rec.certificate) pushDoc(c.id,{ name:'E-Sign Certificate.pdf', url: rec.certificate }); }
+    }}>Refresh E‑Sign Status</Button>
+    <Button onClick={requestPayment}>Request Payment</Button>
+    <Button onClick={submitClaimPackage}>Submit Claim Package</Button>
+  </div>
+
+  {/* Photo Report */}
+  <PhotoReportBlock c={c} absUrl={absUrl} pickImageDocs={pickImageDocs} />
+</CardContent></Card>
+```
+
+);
+}
+
+function PhotoReportBlock({ c, absUrl, pickImageDocs }){
+const \[reportNotes, setReportNotes] = useState('');
+const \[insEmail, setInsEmail] = useState(c.insurerEmail||'');
+useEffect(()=>{ if (c.insurerEmail && c.insurerEmail!==insEmail) setInsEmail(c.insurerEmail); }, \[c.insurerEmail]);
+async function makePhotoReport(){
+const imgs = pickImageDocs();
+if (!imgs.length){ alert('Select or upload some photos first.'); return; }
+const payload = {
+claimNumber: c.claimNumber||'', address: c.address||'', customerName: c.name||'',
+contractor: { name:'Strategic Land Management LLC', phone:'888-628-2229', website:'[https://www.strategiclandmgmt.com](https://www.strategiclandmgmt.com)' },
+photos: imgs.map(d=>({ url: absUrl(d.url||''), note: reportNotes||'' })), title: 'Storm Damage Photo Report'
+};
+const r = await fetch('/api/report/photo',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) }).then(r=>r.json()).catch(()=>null);
+if (r?.path){
+window\.open(r.path, '\_blank');
+if (insEmail){
+await fetch('/api/email',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ to\:insEmail, subject:`Claim ${c.claimNumber||''} — Photo Report`, html:`Please see attached report for ${c.address}.`, claimNumber\:c.claimNumber||undefined, attachments:\[{ path: absUrl(r.path) }] }) });
+}
+} else { alert('Photo report failed.'); }
+}
+return ( <div className="mt-3 border rounded-md p-3 space-y-2"> <div className="font-medium">Photo Report</div>
+\<Input value={reportNotes} onChange={(e)=>setReportNotes(e.target.value)} placeholder="Optional caption for selected photos (e.g., Tree on roof — tarp installed)." /> <div className="text-xs text-muted-foreground">We’ll bundle selected photos into a PDF with your note and claim info. If Insurance Email is set, we’ll auto-email it.</div> <Button onClick={makePhotoReport}>Generate Photo Report PDF</Button> </div>
+);
+}
+
+const openNew = (url) => window\.open(url, '\_blank');
+
+function ContractorPortal(){
+const \[insProof, setInsProof] = useState(null);
+return ( <div className="space-y-4"> <Card><CardContent className="p-4 space-y-2"> <div className="text-2xl font-bold">Strategic Land Management LLC</div> <div>Emergency Storm Response Team</div> <div className="text-sm">📞 888-628-2229 • 🌐 <a className="underline" href="https://www.strategiclandmgmt.com" target="_blank" rel="noreferrer">[www.strategiclandmgmt.com](http://www.strategiclandmgmt.com)</a> • ✉️ [strategiclandmgmt@gmail.com](mailto:strategiclandmgmt@gmail.com)</div> <div className="text-xs text-muted-foreground">Veteran-owned & disabled veteran-owned. Certified arborist: John Culpepper.</div> <div className="grid md:grid-cols-3 gap-3 mt-2">
+\<Button variant="secondary" onClick={()=>openNew('[https://disasterloanassistance.sba.gov/')}>SBA](https://disasterloanassistance.sba.gov/'%29}>SBA) Disaster Loans</Button>
+\<Button variant="secondary" onClick={()=>openNew('[https://www.fema.gov/assistance/individual')}>FEMA](https://www.fema.gov/assistance/individual'%29}>FEMA) Individual Assistance</Button>
+\<Button variant="outline" onClick={()=>openNew('[https://www.lienit.com/')}>LienIt](https://www.lienit.com/'%29}>LienIt) (file a lien)</Button>
+\<Button variant="outline" onClick={()=>openNew('[https://www.lienitnow.com/')}>LienItNow](https://www.lienitnow.com/'%29}>LienItNow)</Button> </div> </CardContent></Card>
+
+```
+  <Card><CardContent className="p-4 space-y-2">
+    <div className="font-semibold">Emergency Tree Removal Contract</div>
+    <div className="text-sm text-muted-foreground">Your uploaded contract is available to attach and send from the app.</div>
+    <div className="flex gap-2">
+      <Button variant="outline" onClick={()=>openNew('/files/contract.pdf')}>Open Contract</Button>
+      <Button onClick={()=>fetch('/api/email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ to:'strategiclandmgmt@gmail.com', subject:'Contract (for signature)', html:'Attached contract', attachments:[{ path:'/files/contract.pdf' }] })})}>Email Contract to Customer</Button>
+    </div>
+  </CardContent></Card>
+
+  <Card><CardContent className="p-4 space-y-2">
+    <div className="font-semibold">Upload Proof of Insurance (optional)</div>
+    <input type="file" onChange={async (e)=>{
+      const f = (e.target.files||[])[0]; if(!f) return;
+      const fd = new FormData(); fd.append('file', f, f.name);
+      try{ const r = await fetch('/api/upload', { method:'POST', body: fd }).then(r=>r.json());
+        if (r?.ok && r.file?.path) setInsProof({ name:f.name, url:r.file.path }); else setInsProof({ name:f.name, url:null });
+      }catch(_){ setInsProof({ name:f.name, url:null }); }
+    }} />
+    <div className="text-xs text-muted-foreground">Stored under your Contractor profile; share on request.</div>
+    {insProof && (
+      <div className="text-sm mt-2 flex items-center gap-2">
+        <span>Uploaded:</span>
+        {insProof.url ? <a className="underline" href={insProof.url} target="_blank" rel="noreferrer">{insProof.name}</a> : <span>{insProof.name}</span>}
+        {insProof.url && <Button variant="outline" onClick={()=>navigator.clipboard.writeText((location?.origin||'') + insProof.url)}>Copy Link</Button>}
+        {insProof.url && <Button variant="outline" onClick={()=>fetch('/api/email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ to:'strategiclandmgmt@gmail.com', subject:'Proof of Insurance', html:`Link: <a href=\"${(location?.origin||'') + insProof.url}\">${(location?.origin||'') + insProof.url}</a>` })})}>Email to Me</Button>}
+      </div>
+    )}
+  </CardContent></Card>
+
+  <Card><CardContent className="p-4 space-y-2">
+    <div className="font-semibold">Brochure</div>
+    <div className="text-sm">Generate a tri-fold PDF brochure using your content.</div>
+    <Button onClick={async ()=>{
+      const r = await fetch('/api/brochure/strategic',{ method:'POST' }).then(r=>r.json()).catch(()=>null);
+      if (r?.path) window.open(r.path, '_blank'); else alert('Brochure failed.');
+    }}>Generate Tri-Fold Brochure (PDF)</Button>
+  </CardContent></Card>
+</div>
+```
+
+);
+}
+
+// --- Storm Map with Damage Filters ---
+function StormMap({ customers=\[] }){
+const \[markers, setMarkers] = useState(\[]);
+const \[center, setCenter] = useState(\[27.6648, -81.5158]); // FL center fallback
+const \[zoom, setZoom] = useState(6);
+const \[filters, setFilters] = useState({ tree\_on\_roof\:true, line\_down\:true, structure\_damage\:true, tree\_on\_fence\:true, tree\_on\_car\:true, tree\_on\_barn\:true, tree\_on\_shed\:true, tree\_in\_pool\:true, tree\_on\_playground\:true });
+
+// Listen for map center events from cards
+useEffect(()=>{
+function onCenter(e){
+const { address, name } = e.detail||{}; if (!address) return;
+fetch(`/api/geocode?address=${encodeURIComponent(address)}`).then(r=>r.json()).then(geo=>{
+if (geo?.lat && geo?.lng){ setCenter(\[geo.lat, geo.lng]); setZoom(15); setMarkers(m=>\[...m, { id:`jit-${Date.now()}`, name, address, lat\:geo.lat, lng\:geo.lng, tags:\['jit'] }]); }
+}).catch(()=>{});
+}
+window\.addEventListener('storm-center', onCenter);
+window\.addEventListener('storm-docs-updated', ()=> refresh());
+return ()=>{ window\.removeEventListener('storm-center', onCenter); window\.removeEventListener('storm-docs-updated', ()=>{}); };
+},\[]);
+
+useEffect(()=>{ refresh(); }, \[JSON.stringify(customers)]);
+
+function tagsFromDocs(docs){
+const t = new Set();
+(docs||\[]).forEach(d=>{
+const s = (d.caption||'').toLowerCase();
+if (s.includes('tree\_on\_roof')) t.add('tree\_on\_roof');
+if (s.includes('line\_down')) t.add('line\_down');
+if (s.includes('structure\_damage')) t.add('structure\_damage');
+if (s.includes('tree\_on\_fence')) t.add('tree\_on\_fence');
+if (s.includes('tree\_on\_car')) t.add('tree\_on\_car');
+if (s.includes('tree\_on\_barn')) t.add('tree\_on\_barn');
+if (s.includes('tree\_on\_shed')) t.add('tree\_on\_shed');
+if (s.includes('tree\_in\_pool')) t.add('tree\_in\_pool');
+if (s.includes('tree\_on\_playground')) t.add('tree\_on\_playground');
+});
+return \[...t];
+}
+
+async function geocode(address){
+const r = await fetch(`/api/geocode?address=${encodeURIComponent(address)}`).then(r=>r.json()).catch(()=>null);
+return (r?.lat && r?.lng) ? r : null;
+}
+
+async function refresh(){
+const mk = \[];
+for (const c of (customers||\[])){
+if (!c.address) continue;
+const geo = await geocode(c.address);
+if (!geo) continue;
+mk.push({ id\:c.id, name\:c.name, address\:c.address, lat\:geo.lat, lng\:geo.lng, tags: tagsFromDocs(c.docs) });
+}
+setMarkers(mk);
+}
+
+const active = (tags)=> tags.some(t => filters\[t]);
+
+return ( <div className="border rounded-lg overflow-hidden"> <div className="p-2 flex flex-wrap gap-2 items-center">
+{Object.keys(filters).map(k=> (
+\<label key={k} className={`text-xs px-2 py-1 rounded-full border cursor-pointer ${filters[k]?'bg-emerald-600 text-white border-emerald-700':'bg-white'}`}>
+\<input type="checkbox" checked={!!filters\[k]} onChange={()=>setFilters(f=>({ ...f, \[k]: !f\[k] }))} className="mr-1"/>{k.replaceAll('\_',' ')} </label>
+))} </div>
+\<div style={{height: 420}}>
+\<LeafletShell center={center} zoom={zoom} markers={markers.filter(m=> active(m.tags))} /> </div> </div>
+);
+}
+
+function LeafletShell({ center, zoom, markers }){
+const L = window\.L;
+const \[ready, setReady] = useState(!!(window\.L));
+useEffect(()=>{
+if (!window\.L){
+const s = document.createElement('script');
+s.src = '[https://unpkg.com/leaflet@1.9.4/dist/leaflet.js](https://unpkg.com/leaflet@1.9.4/dist/leaflet.js)';
+s.onload = ()=> setReady(true);
+document.body.appendChild(s);
+}
+},\[]);
+useEffect(()=>{
+if (!ready) return;
+// init map
+let map = LeafletShell.\_\_map;
+if (!map){
+map = LeafletShell.\_\_map = L.map('storm-map-root').setView(center, zoom);
+L.tileLayer('https\://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
+} else { map.setView(center, zoom); }
+// clear & add markers
+if (LeafletShell.\_\_layer){ LeafletShell.\_\_layer.remove(); }
+const layer = L.layerGroup();
+markers.forEach(m=>{
+const mk = L.marker(\[m.lat, m.lng]).bindPopup(`<b>${m.name||''}</b><br/>${m.address||''}<br/>Tags: ${(m.tags||[]).join(', ')}`);
+mk.addTo(layer);
+});
+layer.addTo(map);
+LeafletShell.\_\_layer = layer;
+}, \[ready, JSON.stringify(center), zoom, JSON.stringify(markers)]);
+
+return \<div id="storm-map-root" style={{width:'100%',height:'100%'}} />;
+}
