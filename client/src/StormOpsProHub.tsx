@@ -1003,28 +1003,18 @@ function CustomerCard({ c, update, pushMsg, pushDoc, pushEvent }: any){
   }
   function changeStatus(s: string){ update(c.id,{ status:s }); pushEvent(c.id,{ type:'status', to:s }); }
   
-  // Request payment via Stripe Checkout
-  async function requestPayment() {
-    try {
-      const response = await fetch('/api/invoice/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          customer: { email: c.email },
-          lineItems: [
-            { name: `Storm Damage Removal - ${c.address}`, amount: 2500, quantity: 1 }, // $25.00 example
-            { name: 'Emergency Response Fee', amount: 500, quantity: 1 } // $5.00 example
-          ],
-          metadata: { claimNumber: c.claimNumber, customerId: c.id }
-        })
-      });
-      const data = await response.json();
-      if (data.ok && data.url) {
-        window.open(data.url, '_blank');
-        pushEvent(c.id, { type: 'payment_requested', text: `Stripe checkout created: ${data.id}` });
-      }
-    } catch (e) {
-      console.error('Payment request failed:', e);
+  async function requestPayment(){
+    const lineItems = [{ name: `Emergency tree work — ${c.address}`, amount: 500.00, quantity: 1 }]; // edit as needed
+    const r = await fetch('/api/invoice/checkout', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ customer: { email: c.email }, lineItems, metadata: { claim: c.claimNumber||'' } })
+    }).then(r=>r.json());
+    if (r?.url){
+      // send the link via SMS or Email
+      const link = r.url;
+      if (c.phone) await fetch('/api/sms',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ to:c.phone, body:`Pay securely: ${link}` })});
+      if (c.email) await fetch('/api/email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ to:c.email, subject:`Payment link for ${c.address}`, html:`<a href=\"${link}\">Pay securely</a>`, claimNumber:c.claimNumber||undefined })});
+      alert('Payment link sent.');
     }
   }
   return (
