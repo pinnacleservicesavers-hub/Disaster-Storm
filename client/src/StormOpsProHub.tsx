@@ -871,7 +871,7 @@ export default function StormOpsProHub() {
             {/* Storm Map Tab */}
             {activeTab === "map" && (
               <div className="p-4">
-                <StormMap customers={customers.list} />
+                <StormMap customers={customers} />
               </div>
             )}
 
