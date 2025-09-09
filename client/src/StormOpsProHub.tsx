@@ -797,13 +797,13 @@ export default function StormOpsProHub() {
   return (
     <div className="min-h-screen w-full bg-gradient-to-b from-slate-50 to-slate-100 p-6">
       <div className="mx-auto max-w-7xl space-y-6">
-        <div className="flex justify-between items-center">
+        <header className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Storm Operations Pro Hub</h1>
-            <p className="text-gray-600">Professional emergency response and drone coordination platform</p>
+            <h1 className="text-3xl font-bold">Storm Operations Hub</h1>
+            <p className="text-muted-foreground">Pick a platform, watch live, tag damage, route crews, contact owners, build claims.</p>
           </div>
           <RoleSelector value={role} onChange={setRole} />
-        </div>
+        </header>
 
         <div className="w-full">
           <div className="border-b border-gray-200 bg-white rounded-t-lg">
