@@ -116,11 +116,67 @@ function CompanyCard({ name, site, phone, note }: { name: string; site: string; 
 function FootageInboxSimple() {
   const [items, setItems] = useState<any[]>([]);
   const [text, setText] = useState("");
+  const [isLive, setIsLive] = useState(false);
+  const [filter, setFilter] = useState("all");
+  const [viewMode, setViewMode] = useState("grid"); // grid or multi-view
+
+  // Damage detection keywords for auto-tagging
+  const detectDamage = (notes: string) => {
+    const tags = [];
+    const notesLower = notes?.toLowerCase() || "";
+    
+    if (notesLower.includes("tree") && (notesLower.includes("home") || notesLower.includes("roof") || notesLower.includes("house"))) {
+      tags.push("tree_on_roof");
+    }
+    if (notesLower.includes("power") && notesLower.includes("down")) {
+      tags.push("power_line_down");
+    }
+    if (notesLower.includes("flood") || notesLower.includes("water")) {
+      tags.push("flooded");
+    }
+    if (notesLower.includes("structure") && notesLower.includes("damage")) {
+      tags.push("structure_compromised");
+    }
+    if (notesLower.includes("severe") || notesLower.includes("significant")) {
+      tags.push("severe_damage");
+    }
+    
+    return tags;
+  };
+
+  // Poll /api/inbox every 5 seconds when live mode is enabled
+  useEffect(() => {
+    let interval: number;
+    
+    if (isLive) {
+      interval = window.setInterval(async () => {
+        try {
+          const response = await fetch('/api/inbox');
+          if (response.ok) {
+            const liveItems = await response.json();
+            // Add damage tags to each item
+            const taggedItems = liveItems.map((item: any) => ({
+              ...item,
+              damageTags: detectDamage(item.notes)
+            }));
+            setItems(taggedItems);
+          }
+        } catch (error) {
+          console.error('Failed to fetch live footage:', error);
+        }
+      }, 5000);
+    }
+    
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isLive]);
 
   function addItem() {
     try {
       const obj = JSON.parse(text);
       obj.id = String(Date.now());
+      obj.damageTags = detectDamage(obj.notes);
       setItems([obj, ...items]);
       setText("");
       alert("New footage received.");
@@ -129,28 +185,156 @@ function FootageInboxSimple() {
     }
   }
 
+  // Filter items based on damage tags
+  const filteredItems = filter === "all" ? items : items.filter(item => 
+    item.damageTags && item.damageTags.includes(filter)
+  );
+
+  const getDamageTagBadge = (tag: string) => {
+    const tagStyles = {
+      tree_on_roof: "bg-orange-100 text-orange-800",
+      power_line_down: "bg-red-100 text-red-800", 
+      flooded: "bg-blue-100 text-blue-800",
+      structure_compromised: "bg-purple-100 text-purple-800",
+      severe_damage: "bg-red-100 text-red-900"
+    };
+    
+    const tagLabels = {
+      tree_on_roof: "🌳 Tree on Roof",
+      power_line_down: "⚡ Power Line Down",
+      flooded: "🌊 Flooded",
+      structure_compromised: "🏠 Structure Damage", 
+      severe_damage: "⚠️ Severe Damage"
+    };
+    
+    return (
+      <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${tagStyles[tag] || "bg-gray-100 text-gray-800"}`}>
+        {tagLabels[tag] || tag}
+      </span>
+    );
+  };
+
+  if (viewMode === "multi-view" && filteredItems.length > 0) {
+    return (
+      <div className="space-y-4">
+        <div className="flex gap-2 items-center">
+          <button 
+            className="bg-gray-600 text-white px-3 py-1 rounded-md text-sm"
+            onClick={() => setViewMode("grid")}
+          >
+            ← Back to Grid
+          </button>
+          <span className="text-sm text-gray-600">Multi-View Live Feeds</span>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          {filteredItems.slice(0, 4).map(item => (
+            <div key={item.id} className="bg-black rounded-lg aspect-video relative">
+              <div className="absolute top-2 left-2 bg-black bg-opacity-75 text-white px-2 py-1 rounded text-xs">
+                {item.provider}
+              </div>
+              {item.mediaUrl ? (
+                <iframe 
+                  src={item.mediaUrl} 
+                  className="w-full h-full rounded-lg"
+                  allow="autoplay"
+                />
+              ) : (
+                <div className="flex items-center justify-center h-full text-white">
+                  No Live Feed
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-3">
-      <textarea 
-        className="w-full h-28 border border-gray-300 rounded-xl p-2 focus:outline-none focus:ring-2 focus:ring-blue-500" 
-        value={text} 
-        onChange={(e) => setText(e.target.value)} 
-        placeholder='{"provider":"DroneUp","timestamp":"2025-09-08T23:00:00Z","mediaUrl":"https://.../index.m3u8","lat":32.51,"lon":-84.87,"notes":"Tree on home"}' 
-      />
-      <div className="flex gap-2">
+      {/* Live Mode & Filters */}
+      <div className="flex flex-wrap gap-2 items-center">
         <button 
-          className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 font-medium transition-colors"
-          onClick={addItem}
+          className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
+            isLive ? "bg-green-600 text-white" : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+          }`}
+          onClick={() => setIsLive(!isLive)}
         >
-          Add
+          {isLive ? "🔴 Live" : "▶️ Go Live"}
         </button>
+        
+        <select 
+          className="border border-gray-300 rounded-md px-2 py-1 text-sm"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+        >
+          <option value="all">All Damage</option>
+          <option value="tree_on_roof">Trees on Roofs</option>
+          <option value="power_line_down">Power Lines Down</option>
+          <option value="flooded">Flooded Areas</option>
+          <option value="structure_compromised">Structure Damage</option>
+          <option value="severe_damage">Severe Damage</option>
+        </select>
+
+        {filteredItems.length > 0 && (
+          <button 
+            className="bg-blue-600 text-white px-3 py-1 rounded-md text-sm"
+            onClick={() => setViewMode("multi-view")}
+          >
+            📺 Multi-View ({filteredItems.length})
+          </button>
+        )}
       </div>
+
+      {/* Manual Test Input */}
+      {!isLive && (
+        <>
+          <textarea 
+            className="w-full h-28 border border-gray-300 rounded-xl p-2 focus:outline-none focus:ring-2 focus:ring-blue-500" 
+            value={text} 
+            onChange={(e) => setText(e.target.value)} 
+            placeholder='{"provider":"DroneUp","timestamp":"2025-09-08T23:00:00Z","mediaUrl":"https://.../index.m3u8","lat":32.51,"lon":-84.87,"notes":"Tree on home"}' 
+          />
+          <div className="flex gap-2">
+            <button 
+              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 font-medium transition-colors"
+              onClick={addItem}
+            >
+              Add
+            </button>
+          </div>
+        </>
+      )}
+
+      {/* Live Status */}
+      {isLive && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+          <div className="text-sm text-green-800">
+            🔴 Live polling /api/inbox every 5 seconds • {filteredItems.length} items
+          </div>
+        </div>
+      )}
+
+      {/* Footage Grid */}
       <div className="grid md:grid-cols-2 gap-3">
-        {items.map(it => (
+        {filteredItems.map(it => (
           <div key={it.id} className="bg-white border border-gray-200 rounded-lg shadow-sm">
             <div className="p-3 space-y-2">
               <div className="font-medium text-gray-900">{it.provider} — {it.timestamp}</div>
               <div className="text-sm text-gray-600">📍 GPS: {it.lat}, {it.lon}</div>
+              {it.address && (
+                <div className="text-sm text-gray-500">📍 {it.address}</div>
+              )}
+              
+              {/* Damage Tags */}
+              {it.damageTags && it.damageTags.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {it.damageTags.map((tag: string, idx: number) => (
+                    <span key={idx}>{getDamageTagBadge(tag)}</span>
+                  ))}
+                </div>
+              )}
+              
               {it.mediaUrl && (
                 <a className="inline-block" href={it.mediaUrl} target="_blank" rel="noreferrer">
                   <button className="bg-gray-100 text-gray-700 px-3 py-1.5 rounded-md hover:bg-gray-200 font-medium transition-colors text-sm">
@@ -187,8 +371,8 @@ function DSPDirectory() {
       </div>
       <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
         <div className="p-4 space-y-2">
-          <div className="font-semibold text-gray-900">📥 Footage Inbox (paste test JSON and press Add)</div>
-          <p className="text-sm text-gray-600">In production, you will create a webhook at /api/dsp-ingest and push items into your DB. This UI simulates ingest for now.</p>
+          <div className="font-semibold text-gray-900">📥 Live Footage Inbox</div>
+          <p className="text-sm text-gray-600">Real-time footage from DSP contractors with auto damage detection. Toggle "Go Live" to poll /api/inbox, or manually add test data.</p>
           <FootageInboxSimple />
         </div>
       </div>
