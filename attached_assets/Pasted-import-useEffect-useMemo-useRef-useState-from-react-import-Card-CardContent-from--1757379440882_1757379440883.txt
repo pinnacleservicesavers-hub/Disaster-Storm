@@ -1,0 +1,256 @@
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { MapContainer, TileLayer, useMap } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
+
+/**
+ * Axon Deep-Link + Storm Map Launcher
+ * -----------------------------------
+ * What this gives you:
+ *  - Role-based launcher with secure deep links to Axon/DroneSense (opens in new tab)
+ *  - Simple mission code passthrough (stored locally for convenience)
+ *  - Live storm context map (OSM base + optional RainViewer radar overlay)
+ *  - Clean UI (shadcn/ui + Tailwind). Works nicely in Replit/Vite.
+ *
+ * How to use (quick):
+ *  1) Add this file to your React project and export as default component.
+ *  2) Ensure you have the deps installed (see bottom notes).
+ *  3) Render <AxonLauncher /> somewhere inside your app (e.g., App.jsx).
+ *
+ * Notes:
+ *  - Axon/DroneSense video pages require auth; we are *linking* not embedding.
+ *  - Update the ORG shortcuts below for your team if needed.
+ */
+
+function openNew(url) {
+  window.open(url, "_blank", "noopener,noreferrer");
+}
+
+function PersistedField({ k, label, placeholder }) {
+  const [val, setVal] = useState(localStorage.getItem(k) || "");
+  useEffect(() => {
+    localStorage.setItem(k, val);
+  }, [k, val]);
+  return (
+    <div className="flex flex-col gap-1">
+      <label className="text-sm text-muted-foreground">{label}</label>
+      <Input value={val} onChange={(e) => setVal(e.target.value)} placeholder={placeholder} />
+    </div>
+  );
+}
+
+function RadarToggle() {
+  const [on, setOn] = useState(localStorage.getItem("radarOn") === "1");
+  useEffect(() => {
+    localStorage.setItem("radarOn", on ? "1" : "0");
+  }, [on]);
+  return (
+    <div className="flex items-center justify-between rounded-xl border p-3">
+      <div className="space-y-1">
+        <div className="font-medium">Radar Overlay</div>
+        <div className="text-sm text-muted-foreground">RainViewer global radar tiles (no API key)</div>
+      </div>
+      <Button variant={on ? "default" : "secondary"} onClick={() => setOn(!on)}>
+        {on ? "On" : "Off"}
+      </Button>
+    </div>
+  );
+}
+
+function RadarLayer({ enabled }) {
+  // Simple Leaflet child that adds/removes the RainViewer radar layer.
+  const map = useMap();
+  const layerRef = useRef(null);
+  useEffect(() => {
+    if (!enabled) {
+      if (layerRef.current) {
+        map.removeLayer(layerRef.current);
+        layerRef.current = null;
+      }
+      return;
+    }
+    const L = window.L; // Leaflet global injected by leaflet CSS/JS via bundler
+    if (!L) return;
+    const radar = L.tileLayer(
+      "https://tilecache.rainviewer.com/v2/radar/now/256/{z}/{x}/{y}/2/1_1.png",
+      { opacity: 0.75, attribution: "<a href='https://www.rainviewer.com/'>RainViewer</a>" }
+    );
+    radar.addTo(map);
+    layerRef.current = radar;
+    return () => {
+      if (layerRef.current) {
+        map.removeLayer(layerRef.current);
+        layerRef.current = null;
+      }
+    };
+  }, [enabled, map]);
+  return null;
+}
+
+function QuickMap({ radarOn }) {
+  const [lat, setLat] = useState(() => Number(localStorage.getItem("mapLat")) || 32.5104); // Columbus, GA area default
+  const [lng, setLng] = useState(() => Number(localStorage.getItem("mapLng")) || -84.8766);
+  const [z, setZ] = useState(() => Number(localStorage.getItem("mapZoom")) || 7);
+
+  const position = useMemo(() => [lat, lng], [lat, lng]);
+
+  const handleSetView = () => {
+    localStorage.setItem("mapLat", String(lat));
+    localStorage.setItem("mapLng", String(lng));
+    localStorage.setItem("mapZoom", String(z));
+  };
+
+  return (
+    <Card className="w-full">
+      <CardContent className="p-4 space-y-3">
+        <div className="grid grid-cols-3 gap-2">
+          <Input type="number" step="0.0001" value={lat} onChange={(e) => setLat(Number(e.target.value))} placeholder="Latitude" />
+          <Input type="number" step="0.0001" value={lng} onChange={(e) => setLng(Number(e.target.value))} placeholder="Longitude" />
+          <Input type="number" step="1" min={2} max={12} value={z} onChange={(e) => setZ(Number(e.target.value))} placeholder="Zoom" />
+        </div>
+        <div className="flex justify-end">
+          <Button onClick={handleSetView}>Save View</Button>
+        </div>
+        <div className="h-[420px] rounded-2xl overflow-hidden">
+          <MapContainer center={position} zoom={z} className="h-full w-full">
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            />
+            <RadarLayer enabled={radarOn} />
+          </MapContainer>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+export default function AxonLauncher() {
+  const [role, setRole] = useState(localStorage.getItem("role") || "ops");
+  const [radarOn, setRadarOn] = useState(localStorage.getItem("radarOn") === "1");
+
+  useEffect(() => {
+    localStorage.setItem("role", role);
+  }, [role]);
+
+  const missionCode = localStorage.getItem("missionCode") || "";
+  const orgId = localStorage.getItem("axonOrgId") || "";
+
+  // Helpful shortcuts to Axon/DroneSense portals
+  const links = {
+    opsHub: "https://web.dronesense.com/ops",
+    video: "https://web.dronesense.com/video",
+    evidence: "https://www.evidence.com/", // Respond lives here after auth
+    // For org-specific instances, keep these defaults; Axon routes by auth
+  };
+
+  return (
+    <div className="min-h-screen w-full bg-gradient-to-b from-slate-50 to-slate-100 p-6">
+      <div className="mx-auto max-w-6xl space-y-6">
+        <header className="flex flex-col gap-2">
+          <h1 className="text-3xl font-bold tracking-tight">Operations Hub & Respond Launcher</h1>
+          <p className="text-muted-foreground">Deep-link into Axon/DroneSense with your org login, plus a live storm context map you can keep open in the same window.</p>
+        </header>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <Card className="lg:col-span-2">
+            <CardContent className="p-4 space-y-4">
+              <div className="grid md:grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1">
+                  <label className="text-sm text-muted-foreground">Role</label>
+                  <Select value={role} onValueChange={setRole}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ops">Ops (Dispatcher)</SelectItem>
+                      <SelectItem value="admin">Admin</SelectItem>
+                      <SelectItem value="field">Field (Pilot/Observer)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <PersistedField k="axonOrgId" label="Axon Organization ID (optional)" placeholder="e.g., your-agency-id" />
+                <PersistedField k="missionCode" label="Mission Join Code (optional)" placeholder="Paste code from teammate" />
+                <div className="flex items-end">
+                  <Button className="w-full" onClick={() => openNew(links.opsHub)}>Open Operations Hub</Button>
+                </div>
+              </div>
+
+              <div className="grid md:grid-cols-3 gap-3">
+                <Button variant="secondary" onClick={() => openNew(links.video)}>Open Video View</Button>
+                <Button variant="secondary" onClick={() => openNew(links.evidence)}>Open Axon Respond</Button>
+                <Button variant="outline" onClick={() => alert(`Share this mission code with authorized users: ${missionCode || "(none saved)"}`)}>Show Mission Code</Button>
+              </div>
+
+              <div className="rounded-xl border p-3">
+                <div className="text-sm text-muted-foreground">
+                  Tip: These launchers open secure Axon pages in a new tab. Users will authenticate per your agency settings (SSO/MFA). Embedding is intentionally blocked by CSP for security.
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className="space-y-3">
+            <RadarToggle />
+            <Card>
+              <CardContent className="p-4 space-y-2">
+                <div className="font-medium">Quick Weather Links</div>
+                <div className="grid grid-cols-1 gap-2">
+                  <Button variant="ghost" onClick={() => openNew("https://www.windy.com/?33.0,-85.0,6")}>Open Windy (map)</Button>
+                  <Button variant="ghost" onClick={() => openNew("https://www.spc.noaa.gov/products/outlook/")}>NOAA SPC Outlooks</Button>
+                  <Button variant="ghost" onClick={() => openNew("https://www.nhc.noaa.gov/")}>NHC (Tropical)</Button>
+                  <Button variant="ghost" onClick={() => openNew("https://weather.gov/")}>NWS Local Forecast</Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
+        <Tabs defaultValue="map" className="w-full">
+          <TabsList>
+            <TabsTrigger value="map">Storm Map</TabsTrigger>
+            <TabsTrigger value="help">Setup Help</TabsTrigger>
+          </TabsList>
+          <TabsContent value="map" className="space-y-4">
+            <QuickMap radarOn={radarOn} />
+            <div className="flex justify-end">
+              <Button variant="outline" onClick={() => setRadarOn((v) => {
+                const nv = !v; localStorage.setItem("radarOn", nv ? "1" : "0"); return nv;
+              })}>{radarOn ? "Disable Radar" : "Enable Radar"}</Button>
+            </div>
+          </TabsContent>
+          <TabsContent value="help" className="space-y-3">
+            <Card>
+              <CardContent className="p-4 space-y-2 text-sm leading-relaxed">
+                <div className="font-semibold">Install dependencies</div>
+                <pre className="bg-slate-950 text-slate-50 p-3 rounded-xl overflow-x-auto">{`# If you use Vite/React in Replit
+npm i react-leaflet leaflet @radix-ui/react-slot class-variance-authority tailwind-merge
+# shadcn/ui base components (already available in this environment per instructions)
+`}</pre>
+                <div className="font-semibold">Add to your app</div>
+                <pre className="bg-slate-950 text-slate-50 p-3 rounded-xl overflow-x-auto">{`// App.jsx
+import AxonLauncher from './AxonLauncher';
+
+export default function App(){
+  return (
+    <div className="p-6">
+      <AxonLauncher />
+    </div>
+  );
+}`}</pre>
+                <div className="font-semibold">Why link instead of embed?</div>
+                <p>
+                  Axon/DroneSense video pages require authenticated access and enforce security headers (like X-Frame-Options / CSP), which block third-party iframes. Launching the official pages in a new tab keeps your workflow fast while respecting security.
+                </p>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </div>
+    </div>
+  );
+}
