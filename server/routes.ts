@@ -179,6 +179,40 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
   // ---- inbox history (poll fallback) ----
   app.get("/api/inbox", (req, res) => res.json(inbox.slice(0, 500)));
 
+  // ---- geocoding endpoint for map functionality ----
+  app.get("/api/geocode", async (req, res) => {
+    try {
+      const { address } = req.query;
+      if (!address) {
+        return res.status(400).json({ error: 'Address parameter required' });
+      }
+
+      // Use simple geocoding with fake results for demo (replace with real service)
+      const fakeResults = {
+        'orlando': { lat: 28.5383, lng: -81.3792 },
+        'miami': { lat: 25.7617, lng: -80.1918 },
+        'tampa': { lat: 27.9506, lng: -82.4572 },
+        'jacksonville': { lat: 30.3322, lng: -81.6557 }
+      };
+      
+      const key = String(address).toLowerCase();
+      const found = Object.keys(fakeResults).find(k => key.includes(k));
+      
+      if (found) {
+        res.json(fakeResults[found]);
+      } else {
+        // Default to Orlando area with slight random offset
+        res.json({
+          lat: 28.5383 + (Math.random() - 0.5) * 0.1,
+          lng: -81.3792 + (Math.random() - 0.5) * 0.1
+        });
+      }
+    } catch (error) {
+      console.error('Geocoding error:', error);
+      res.status(500).json({ error: 'Geocoding failed' });
+    }
+  });
+
   // ---- owner lookup seam (plug licensed vendor/county APIs) ----
   app.post("/api/owner-lookup", async (req, res) => {
     const { address, lat, lon } = req.body || {};
@@ -209,6 +243,24 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
   const upload = multer({ dest: UPLOAD_DIR });
   app.post("/api/upload", upload.single("file"), (req, res) => {
     res.json({ ok: true, file: { name: req.file.originalname, path: `/uploads/${req.file.filename}` } });
+  });
+
+  // ---- SLA tracking endpoint ----
+  app.post("/api/sla/register", async (req, res) => {
+    try {
+      const { customerId, type, ts, address, name } = req.body || {};
+      if (!customerId || !type || !ts) {
+        return res.status(400).json({ error: 'customerId, type, and ts required' });
+      }
+      
+      // In a real app, store in database for reminders/alerts
+      console.log(`SLA registered: ${type} for customer ${customerId} (${name}) at ${address} - timestamp: ${ts}`);
+      
+      res.json({ ok: true, message: 'SLA tracking registered' });
+    } catch (error) {
+      console.error('SLA registration error:', error);
+      res.status(500).json({ error: 'SLA registration failed' });
+    }
   });
 
   // ---- serve contract PDF from ./assets/contract.pdf ----

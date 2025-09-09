@@ -4,6 +4,52 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 
+// ===== SLA Helper Functions =====
+function useNowTick(ms=60000){
+  const [now, setNow] = useState(Date.now());
+  useEffect(()=>{ const id = setInterval(()=>setNow(Date.now()), ms); return ()=>clearInterval(id); },[ms]);
+  return now;
+}
+
+function daysSince(ts){ if(!ts) return null; return Math.floor((Date.now()-Number(ts))/86400000); }
+
+function findLastEvent(c, type){
+  return (c?.timeline||[]).slice().reverse().find(e=>e.type===type) || null;
+}
+
+function slaBadges(c){
+  const out = [];
+  const claim = findLastEvent(c,'claim_submitted');
+  const work = findLastEvent(c,'work_completed');
+  const lien = findLastEvent(c,'lien_filed');
+  
+  if (claim){
+    const d = daysSince(claim.ts);
+    if (d!=null){
+      let tone='bg-gray-300 text-gray-800', txt=`Claim +${d}d`;
+      if (d>=60) tone='bg-red-600 text-white'; else if (d>=30) tone='bg-amber-500 text-black';
+      out.push({ key:'claim', tone, txt });
+    }
+  }
+  if (work){
+    const d = daysSince(work.ts);
+    if (d!=null){
+      let tone='bg-gray-300 text-gray-800', txt=`Work +${d}d`;
+      if (d>=45) tone='bg-red-600 text-white'; else if (d>=30) tone='bg-amber-500 text-black';
+      out.push({ key:'work', tone, txt });
+    }
+  }
+  if (lien){
+    const d = daysSince(lien.ts);
+    if (d!=null){
+      let tone='bg-gray-300 text-gray-800', txt=`Lien +${d}d`;
+      if (d>=300) tone='bg-amber-500 text-black'; if (d>=330) tone='bg-red-600 text-white';
+      out.push({ key:'lien', tone, txt });
+    }
+  }
+  return out;
+}
+
 // Define role-based access control
 type UserRole = 'field' | 'ops' | 'admin';
 
@@ -697,6 +743,7 @@ export default function StormOpsProHub() {
   const [alertsEnabled, setAlertsEnabled] = useState(false);
   const [inboxItems, setInboxItems] = useState<any[]>([]);
   const [filters, setFilters] = useState({ search: '', tags: [] });
+  const customers = useCustomers();
 
   // Permission checker
   const allow = (tab: string): boolean => ROLE_TABS[userRole].includes(tab);
@@ -824,7 +871,7 @@ export default function StormOpsProHub() {
             {/* Storm Map Tab */}
             {activeTab === "map" && (
               <div className="p-4">
-                <QuickMap radarOn={radarEnabled} alertsOn={alertsEnabled} />
+                <StormMap customers={customers.list} />
               </div>
             )}
 
@@ -983,6 +1030,7 @@ function CustomersCRM(){
 function CustomerCard({ c, update, pushMsg, pushDoc, pushEvent }){
   const [note, setNote] = useState('');
   const [msg, setMsg] = useState('');
+  const nowTick = useNowTick(60000);
 
   // Claim-threaded messages (from backend /api/messages?claim=...)
   const [thread, setThread] = useState([]);
@@ -1039,9 +1087,9 @@ function CustomerCard({ c, update, pushMsg, pushDoc, pushEvent }){
   // Uploads & camera capture
   const [uploading, setUploading] = useState(false);
   const [showCam, setShowCam] = useState(false);
-  const videoRef = React.useRef(null);
-  const canvasRef = React.useRef(null);
-  let mediaStreamRef = React.useRef(null);
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  let mediaStreamRef = useRef(null);
 
   async function openCamera(){
     try{
@@ -1134,6 +1182,8 @@ function CustomerCard({ c, update, pushMsg, pushDoc, pushEvent }){
     const docs = (c.docs||[]).map(d => d.url && byUrl.has(absUrl(d.url)) ? ({ ...d, caption: byUrl.get(absUrl(d.url)) }) : d);
     update(c.id, { docs });
     for (const it of r.results){ pushEvent(c.id, { type:'ai_caption', text: `${it.url} → ${it.caption}` }); }
+    // Signal map to refresh filters/markers
+    try{ window.dispatchEvent(new CustomEvent('storm-docs-updated', { detail:{ id:c.id } })); }catch{}
     alert('AI captions added to photos.');
   }
 
@@ -1209,7 +1259,18 @@ function CustomerCard({ c, update, pushMsg, pushDoc, pushEvent }){
     else alert('Claim package failed.');
   }
 
-  function changeStatus(s){ update(c.id,{ status:s }); pushEvent(c.id,{ type:'status', to:s }); }
+  function changeStatus(s){
+    update(c.id,{ status:s });
+    pushEvent(c.id,{ type:'status', to:s });
+    // Register SLA watches for certain statuses
+    const map = { claim_submitted:'claim_submitted', work_completed:'work_completed', lien_filed:'lien_filed' };
+    if (map[s]){
+      fetch('/api/sla/register',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ customerId:c.id, type: map[s], ts: Date.now(), address:c.address, name:c.name }) });
+    }
+  }
+
+  const badges = slaBadges(c); // recompute every minute via nowTick
+  void nowTick;
 
   return (
     <Card><CardContent className="p-4 space-y-3">
@@ -1220,10 +1281,11 @@ function CustomerCard({ c, update, pushMsg, pushDoc, pushEvent }){
           {c.mailingAddress && <div className="text-xs">Mailing: {c.mailingAddress}</div>}
           <div className="text-xs">{c.insurer || 'Insurer N/A'} • Claim #{c.claimNumber||'—'}</div>
         </div>
-        <div className="flex items-center gap-2">
-          <span className={`px-2 py-1 text-xs rounded ${esign.status==='signed'?'bg-green-100 text-green-800':'bg-yellow-100 text-yellow-800'}`}>
-            {esign.status==='signed'?'✓ Signed':'⏳ E-Sign '+esign.status}
-          </span>
+        <div className="flex items-center gap-2 flex-wrap justify-end">
+          {badges.map(b=> (<span key={b.key} className={`text-xs px-2 py-1 rounded-full ${b.tone}`}>{b.txt}</span>))}
+          <span className={`text-xs px-2 py-1 rounded-full ${esign.status==='signed'?'bg-green-600 text-white':esign.status==='pending'?'bg-amber-500 text-black':'bg-gray-300 text-gray-800'}`}>E‑Sign: {esign.status==='signed'?'Signed':esign.status==='pending'?'Pending':'Unknown'}</span>
+          <Button variant="outline" onClick={ownerPrefill}>Owner Prefill</Button>
+          <Button variant="outline" onClick={()=>{ try{ window.dispatchEvent(new CustomEvent('storm-center',{ detail:{ address:c.address, name:c.name } })); }catch{} }}>Open on Map</Button>
           <select className="border rounded-md px-2 py-1" value={c.status} onChange={(e)=>changeStatus(e.target.value)}>
             {PIPELINE.map(p => <option key={p} value={p}>{p.replaceAll('_',' ')}</option>)}
           </select>
@@ -1240,9 +1302,10 @@ function CustomerCard({ c, update, pushMsg, pushDoc, pushEvent }){
             {c.email && <Button variant="secondary" onClick={sendEmail}>Send Email</Button>}
             {c.phone && <a href={`tel:${c.phone.replace(/[^0-9+]/g,'')}`}><Button variant="outline">Call</Button></a>}
           </div>
-          <div className="space-y-1">
-            <Input value={insEmail} onChange={(e)=>setInsEmail(e.target.value)} placeholder="Insurance/adjuster email" />
-            <Button onClick={sendInsuranceEmail} variant="outline">Email Insurance</Button>
+          <div className="flex items-center gap-2 text-xs">
+            <span>Insurance Email</span>
+            <Input style={{width:220}} value={insEmail} onChange={(e)=>setInsEmail(e.target.value)} placeholder="adjuster@insurer.com" />
+            <Button variant="outline" onClick={sendInsuranceEmail}>Email Insurance</Button>
           </div>
           <div className="space-y-1 max-h-40 overflow-auto">
             {c.messages?.map((m,i)=>(<div key={i} className="text-xs">[{new Date(m.ts).toLocaleString()}] {m.type?.toUpperCase()} → {m.to}: {m.body}</div>))}
@@ -1261,41 +1324,41 @@ function CustomerCard({ c, update, pushMsg, pushDoc, pushEvent }){
         {/* Docs & Media */}
         <div className="space-y-2">
           <div className="font-medium">Docs & Media</div>
-          <div className="flex gap-2">
-            <input type="file" multiple onChange={async (e)=>{
-              const files = Array.from(e.target.files||[]);
-              setUploading(true);
-              for (const f of files){
-                const fd = new FormData(); fd.append('file', f);
-                try{
-                  const r = await fetch('/api/upload', { method:'POST', body: fd }).then(r=>r.json());
-                  if (r?.ok && r.file?.path){ pushDoc(c.id,{ name:f.name, size:f.size, url:r.file.path }); }
-                }catch(_){}
-              }
-              setUploading(false);
-            }} />
-            <Button variant="outline" onClick={openCamera}>📷 Camera</Button>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={aiCaptionSelected}>AI Caption Selected</Button>
-            <Button variant="outline" onClick={ownerPrefill}>Owner Prefill</Button>
-          </div>
-          {uploading && <div className="text-xs">Uploading...</div>}
+          <input type="file" multiple onChange={async (e)=>{
+            const files = Array.from(e.target.files||[]);
+            if (!files.length) return;
+            setUploading(true);
+            for (const f of files){
+              try{
+                const fd = new FormData(); fd.append('file', f, f.name);
+                const r = await fetch('/api/upload', { method:'POST', body: fd }).then(r=>r.json());
+                if (r?.ok && r.file?.path){ pushDoc(c.id,{ name:f.name, size:f.size, url:r.file.path }); }
+                else { pushDoc(c.id,{ name:f.name, size:f.size }); }
+              }catch(_){ pushDoc(c.id,{ name:f.name, size:f.size }); }
+            }
+            setUploading(false);
+          }} />
+          <div className="text-xs text-muted-foreground">Contracts, proof of insurance, photos/videos. {uploading && <b>Uploading…</b>}</div>
+          <div className="text-xs">Select files to attach in emails:</div>
           <div className="space-y-1 max-h-40 overflow-auto">
-            {(c.docs||[]).map((d,i)=>(
-              <div key={i} className="flex items-center gap-2 text-xs">
-                <input type="checkbox" checked={!!attach[d.url]} onChange={()=>toggleAttach(d.url)} />
-                <span>📄 {d.name} ({Math.round((d.size||0)/1024)} KB)</span>
-                {d.caption && <span className="text-blue-600">• {d.caption}</span>}
+            {c.docs?.map((d,i)=>(
+              <div key={i} className="text-xs flex items-center gap-2">
+                {d.url && <input type="checkbox" checked={!!attach[d.url]} onChange={()=>toggleAttach(d.url)} />}
+                📄 {d.url ? <a href={d.url} target="_blank" rel="noreferrer">{d.name||'file'}</a> : <span>{d.name} {d.size?`(${Math.round((d.size||0)/1024)} KB)`:''}</span>}
+                {d.caption && <span className="ml-2 italic opacity-75">— {d.caption}</span>}
               </div>
             ))}
           </div>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={aiCaptionSelected}>AI Caption Selected</Button>
+            {!showCam && <Button variant="outline" onClick={openCamera}>Open Camera</Button>}
+          </div>
           {showCam && (
-            <div className="border rounded-lg p-2 space-y-2">
-              <video ref={videoRef} className="w-full h-40 bg-black rounded" autoPlay muted />
+            <div className="space-y-2">
+              <video ref={videoRef} autoPlay playsInline style={{width:'100%', maxHeight:240, background:'#000'}} />
               <canvas ref={canvasRef} style={{display:'none'}} />
               <div className="flex gap-2">
-                <Button onClick={capturePhoto}>📸 Capture</Button>
+                <Button onClick={capturePhoto}>Capture Photo</Button>
                 <Button variant="outline" onClick={closeCamera}>Close</Button>
               </div>
             </div>
@@ -1315,38 +1378,59 @@ function CustomerCard({ c, update, pushMsg, pushDoc, pushEvent }){
 
       {/* Actions */}
       <div className="flex flex-wrap gap-2">
-        <Button variant="outline" onClick={sendForESign}>Send E-Sign</Button>
         <Button variant="outline" onClick={()=>changeStatus('contract_signed')}>Mark Contracted</Button>
         <Button variant="outline" onClick={()=>changeStatus('claim_submitted')}>Mark Claim Submitted</Button>
+        <Button variant="outline" onClick={()=>changeStatus('work_completed')}>Mark Work Completed</Button>
+        <Button variant="outline" onClick={()=>changeStatus('lien_filed')}>Mark Lien Filed</Button>
         <Button variant="outline" onClick={()=>changeStatus('paid')}>Mark Paid</Button>
+        <Button onClick={sendForESign}>Send for E‑Sign</Button>
+        <Button variant="secondary" onClick={async ()=>{
+          const params = new URLSearchParams({});
+          if (c.claimNumber) params.set('claim', c.claimNumber);
+          if (c.email) params.set('email', c.email);
+          const r = await fetch(`/api/esign/status?${params.toString()}`).then(r=>r.json()).catch(()=>null);
+          const rec = r?.record || (r?.results && (r.results.find(x=>x.signedAt) || r.results[0])) || null;
+          if (rec){ setEsign({ status: rec.signedAt?'signed':'pending', certificate: rec.certificate||null }); if (rec.certificate) pushDoc(c.id,{ name:'E-Sign Certificate.pdf', url: rec.certificate }); }
+        }}>Refresh E‑Sign Status</Button>
         <Button onClick={requestPayment}>Request Payment</Button>
-        <Button className="bg-red-600 hover:bg-red-700 text-white" onClick={submitClaimPackage}>Submit Claim Package</Button>
+        <Button onClick={submitClaimPackage}>Submit Claim Package</Button>
       </div>
 
-      {/* Invoice editor */}
-      <div className="mt-3 border rounded-md p-3">
-        <div className="font-medium mb-2">Invoice</div>
-        {invoiceItems.map((it, idx)=> (
-          <div key={idx} className="grid md:grid-cols-12 gap-2 items-center mb-2">
-            <Input className="md:col-span-6" value={it.name} onChange={(e)=>setInvoiceItems(invoiceItems.map((x,i)=> i===idx? {...x, name:e.target.value}:x))} placeholder="Item name" />
-            <Input className="md:col-span-2" type="number" step="0.01" value={it.amount} onChange={(e)=>setInvoiceItems(invoiceItems.map((x,i)=> i===idx? {...x, amount:e.target.value}:x))} placeholder="Amount" />
-            <Input className="md:col-span-2" type="number" step="1" value={it.quantity} onChange={(e)=>setInvoiceItems(invoiceItems.map((x,i)=> i===idx? {...x, quantity:e.target.value}:x))} placeholder="Qty" />
-            <Button className="md:col-span-2" variant="outline" onClick={()=>setInvoiceItems(invoiceItems.filter((_,i)=>i!==idx))}>Remove</Button>
-          </div>
-        ))}
-        <div className="flex flex-wrap gap-2 mb-2 items-center">
-          <Button variant="outline" onClick={()=>setInvoiceItems([...invoiceItems, { name:'', amount:0, quantity:1 }])}>+ Add item</Button>
-          <div className="flex items-center gap-2 text-sm">
-            <span>Tax %</span>
-            <Input style={{width:100}} type="number" step="0.01" value={taxRate} onChange={(e)=>setTaxRate(e.target.value)} />
-          </div>
-        </div>
-        <div className="text-sm">Subtotal: ${subtotal.toFixed(2)} • Tax: ${tax.toFixed(2)} • <b>Total: ${total.toFixed(2)}</b></div>
-        <div className="mt-2">
-          <Button onClick={requestPayment}>Send Payment Link</Button>
-        </div>
-      </div>
+      {/* Photo Report */}
+      <PhotoReportBlock c={c} absUrl={absUrl} pickImageDocs={pickImageDocs} />
     </CardContent></Card>
+  );
+}
+
+function PhotoReportBlock({ c, absUrl, pickImageDocs }){
+  const [reportNotes, setReportNotes] = useState('');
+  const [insEmail, setInsEmail] = useState(c.insurerEmail||'');
+  useEffect(()=>{ if (c.insurerEmail && c.insurerEmail!==insEmail) setInsEmail(c.insurerEmail); }, [c.insurerEmail]);
+  
+  async function makePhotoReport(){
+    const imgs = pickImageDocs();
+    if (!imgs.length){ alert('Select or upload some photos first.'); return; }
+    const payload = {
+      claimNumber: c.claimNumber||'', address: c.address||'', customerName: c.name||'',
+      contractor: { name:'Strategic Land Management LLC', phone:'888-628-2229', website:'https://www.strategiclandmgmt.com' },
+      photos: imgs.map(d=>({ url: absUrl(d.url||''), note: reportNotes||'' })), title: 'Storm Damage Photo Report'
+    };
+    const r = await fetch('/api/report/photo',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) }).then(r=>r.json()).catch(()=>null);
+    if (r?.path){
+      window.open(r.path, '_blank');
+      if (insEmail){
+        await fetch('/api/email',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ to:insEmail, subject:`Claim ${c.claimNumber||''} — Photo Report`, html:`Please see attached report for ${c.address}.`, claimNumber:c.claimNumber||undefined, attachments:[{ path: absUrl(r.path) }] }) });
+      }
+    } else { alert('Photo report failed.'); }
+  }
+  
+  return (
+    <div className="mt-3 border rounded-md p-3 space-y-2">
+      <div className="font-medium">Photo Report</div>
+      <Input value={reportNotes} onChange={(e)=>setReportNotes(e.target.value)} placeholder="Optional caption for selected photos (e.g., Tree on roof — tarp installed)." />
+      <div className="text-xs text-muted-foreground">We'll bundle selected photos into a PDF with your note and claim info. If Insurance Email is set, we'll auto-email it.</div>
+      <Button onClick={makePhotoReport}>Generate Photo Report PDF</Button>
+    </div>
   );
 }
 
@@ -1473,4 +1557,131 @@ function ContractorPortal(){
       </CardContent></Card>
     </div>
   );
+}
+
+// --- Storm Map with Damage Filters ---
+function StormMap({ customers=[] }){
+  const [markers, setMarkers] = useState([]);
+  const [center, setCenter] = useState([27.6648, -81.5158]); // FL center fallback
+  const [zoom, setZoom] = useState(6);
+  const [filters, setFilters] = useState({ 
+    tree_on_roof:true, line_down:true, structure_damage:true, tree_on_fence:true, 
+    tree_on_car:true, tree_on_barn:true, tree_on_shed:true, tree_in_pool:true, tree_on_playground:true 
+  });
+
+  // Listen for map center events from cards
+  useEffect(()=>{
+    function onCenter(e){
+      const { address, name } = e.detail||{}; 
+      if (!address) return;
+      fetch(`/api/geocode?address=${encodeURIComponent(address)}`).then(r=>r.json()).then(geo=>{
+        if (geo?.lat && geo?.lng){ 
+          setCenter([geo.lat, geo.lng]); 
+          setZoom(15); 
+          setMarkers(m=>[...m, { id:`jit-${Date.now()}`, name, address, lat:geo.lat, lng:geo.lng, tags:['jit'] }]); 
+        }
+      }).catch(()=>{});
+    }
+    window.addEventListener('storm-center', onCenter);
+    window.addEventListener('storm-docs-updated', ()=> refresh());
+    return ()=>{ 
+      window.removeEventListener('storm-center', onCenter); 
+      window.removeEventListener('storm-docs-updated', ()=>{}); 
+    };
+  },[]);
+
+  useEffect(()=>{ refresh(); }, [JSON.stringify(customers)]);
+
+  function tagsFromDocs(docs){
+    const t = new Set();
+    (docs||[]).forEach(d=>{
+      const s = (d.caption||'').toLowerCase();
+      if (s.includes('tree_on_roof')) t.add('tree_on_roof');
+      if (s.includes('line_down')) t.add('line_down');
+      if (s.includes('structure_damage')) t.add('structure_damage');
+      if (s.includes('tree_on_fence')) t.add('tree_on_fence');
+      if (s.includes('tree_on_car')) t.add('tree_on_car');
+      if (s.includes('tree_on_barn')) t.add('tree_on_barn');
+      if (s.includes('tree_on_shed')) t.add('tree_on_shed');
+      if (s.includes('tree_in_pool')) t.add('tree_in_pool');
+      if (s.includes('tree_on_playground')) t.add('tree_on_playground');
+    });
+    return [...t];
+  }
+
+  async function geocode(address){
+    const r = await fetch(`/api/geocode?address=${encodeURIComponent(address)}`).then(r=>r.json()).catch(()=>null);
+    return (r?.lat && r?.lng) ? r : null;
+  }
+
+  async function refresh(){
+    const mk = [];
+    for (const c of (customers||[])){
+      if (!c.address) continue;
+      const geo = await geocode(c.address);
+      if (!geo) continue;
+      mk.push({ id:c.id, name:c.name, address:c.address, lat:geo.lat, lng:geo.lng, tags: tagsFromDocs(c.docs) });
+    }
+    setMarkers(mk);
+  }
+
+  const active = (tags)=> tags.some(t => filters[t]);
+
+  return (
+    <div className="border rounded-lg overflow-hidden">
+      <div className="p-2 flex flex-wrap gap-2 items-center">
+        {Object.keys(filters).map(k=> (
+          <label key={k} className={`text-xs px-2 py-1 rounded-full border cursor-pointer ${filters[k]?'bg-emerald-600 text-white border-emerald-700':'bg-white'}`}>
+            <input type="checkbox" checked={!!filters[k]} onChange={()=>setFilters(f=>({ ...f, [k]: !f[k] }))} className="mr-1"/>
+            {k.replaceAll('_',' ')}
+          </label>
+        ))}
+      </div>
+      <div style={{height: 420}}>
+        <LeafletShell center={center} zoom={zoom} markers={markers.filter(m=> active(m.tags))} />
+      </div>
+    </div>
+  );
+}
+
+function LeafletShell({ center, zoom, markers }){
+  const [ready, setReady] = useState(!!(window as any).L);
+  
+  useEffect(()=>{
+    if (!(window as any).L){
+      const s = document.createElement('script');
+      s.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+      s.onload = ()=> setReady(true);
+      document.body.appendChild(s);
+    }
+  },[]);
+  
+  useEffect(()=>{
+    if (!ready) return;
+    const L = (window as any).L;
+    // init map
+    let map = (LeafletShell as any).__map;
+    if (!map){
+      map = (LeafletShell as any).__map = L.map('storm-map-root').setView(center, zoom);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { 
+        maxZoom: 19, 
+        attribution: '© OpenStreetMap' 
+      }).addTo(map);
+    } else { 
+      map.setView(center, zoom); 
+    }
+    // clear & add markers
+    if ((LeafletShell as any).__layer){ 
+      (LeafletShell as any).__layer.remove(); 
+    }
+    const layer = L.layerGroup();
+    markers.forEach(m=>{
+      const mk = L.marker([m.lat, m.lng]).bindPopup(`<b>${m.name||''}</b><br/>${m.address||''}<br/>Tags: ${(m.tags||[]).join(', ')}`);
+      mk.addTo(layer);
+    });
+    layer.addTo(map);
+    (LeafletShell as any).__layer = layer;
+  }, [ready, JSON.stringify(center), zoom, JSON.stringify(markers)]);
+
+  return <div id="storm-map-root" style={{width:'100%',height:'100%'}} />;
 }
