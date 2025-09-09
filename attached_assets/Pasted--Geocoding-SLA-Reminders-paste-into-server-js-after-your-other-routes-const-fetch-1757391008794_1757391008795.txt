@@ -1,0 +1,87 @@
+// ---- Geocoding + SLA Reminders (paste into server.js after your other routes) ----
+
+const fetch = require('node-fetch');
+const fs = require('fs');
+const path = require('path');
+const cron = require('node-cron');
+
+const DATA_DIR = path.join(__dirname, 'data');
+if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR);
+const SLA_PATH = path.join(DATA_DIR, 'sla.json');
+if (!fs.existsSync(SLA_PATH)) fs.writeFileSync(SLA_PATH, JSON.stringify({ items: [] }, null, 2));
+
+function readSLA(){ try{ return JSON.parse(fs.readFileSync(SLA_PATH,'utf8')); }catch{ return { items: [] }; } }
+function writeSLA(d){ try{ fs.writeFileSync(SLA_PATH, JSON.stringify(d,null,2)); }catch{} }
+
+// ---- Geocode: OpenStreetMap Nominatim (courtesy, rate-limited) ----
+app.get('/api/geocode', async (req, res)=>{
+  try{
+    const address = (req.query.address||'').trim();
+    if (!address) return res.json({});
+    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`;
+    const r = await fetch(url, { headers: { 'User-Agent': 'StormOps/1.0 (contact: strategiclandmgmt@gmail.com)' }});
+    const arr = await r.json();
+    if (Array.isArray(arr) && arr.length){
+      return res.json({ lat: Number(arr[0].lat), lng: Number(arr[0].lon), raw: arr[0] });
+    }
+    res.json({});
+  }catch(e){ res.json({}); }
+});
+
+// ---- SLA register/list ----
+// Types: claim_submitted → alerts at +30d, +60d; work_completed → lien at +45d; lien_filed → alert at +10mo (~300d, 330d)
+app.post('/api/sla/register', (req,res)=>{
+  try{
+    const { customerId, type, ts = Date.now(), address, name } = req.body||{};
+    if (!customerId || !type) return res.status(400).json({ error:'missing_fields' });
+    const db = readSLA();
+    db.items.push({ id:`${customerId}:${type}:${ts}`, customerId, type, ts:Number(ts), address: address||'', name: name||'' });
+    writeSLA(db);
+    res.json({ ok:true });
+  }catch(e){ res.status(500).json({ error:'sla_register_failed' }); }
+});
+
+app.get('/api/sla/list', (req,res)=>{
+  try{ const db = readSLA(); res.json(db.items||[]); }catch(e){ res.status(500).json([]); }
+});
+
+// ---- Notifier helpers ----
+async function notify({ subject, html, sms }){
+  try{
+    if (typeof transporter !== 'undefined' && transporter){
+      await transporter.sendMail({ from: process.env.SMTP_FROM || process.env.SMTP_USER, to: process.env.ALERT_TO || 'strategiclandmgmt@gmail.com', subject, html });
+    }
+  }catch{}
+  try{
+    if (typeof twilioClient !== 'undefined' && twilioClient && process.env.ALERT_SMS_TO){
+      await twilioClient.messages.create({ to: process.env.ALERT_SMS_TO, from: process.env.TWILIO_FROM, body: sms||subject });
+    }
+  }catch{}
+}
+
+function daysBetween(a,b){ return Math.floor((b-a)/86400000); }
+
+// ---- Daily SLA scan at 09:00 America/New_York ----
+cron.schedule('0 9 * * *', async ()=>{
+  const db = readSLA(); const now = Date.now();
+  for (const it of db.items){
+    const d = daysBetween(Number(it.ts), now);
+    if (it.type==='claim_submitted' && (d===30 || d===60)){
+      await notify({ subject:`[SLA] Claim follow-up ${d} days — ${it.address}`, html:`Claim follow-up at ${d} days for ${it.name||'Customer'}<br/>Address: ${it.address}` });
+    }
+    if (it.type==='work_completed' && (d===45)){
+      await notify({ subject:`[SLA] File lien (45 days) — ${it.address}`, html:`Work completed 45 days ago for ${it.name||'Customer'}. Consider filing lien if unpaid.<br/>Address: ${it.address}` });
+    }
+    if (it.type==='lien_filed' && (d===300 || d===330)){
+      await notify({ subject:`[SLA] Lien age ${d} days — ${it.address}`, html:`Lien filed ${d} days ago for ${it.name||'Customer'}. Check state deadlines.<br/>Address: ${it.address}` });
+    }
+  }
+});
+
+// ---- Quick links to lien services ----
+app.get('/api/lien/links', (req,res)=>{
+  res.json({ links: [
+    { name:'LienIt', url:'https://www.lienit.com/' },
+    { name:'LienItNow', url:'https://www.lienitnow.com/' }
+  ]});
+});

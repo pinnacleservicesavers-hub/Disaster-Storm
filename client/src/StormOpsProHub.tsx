@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { MapContainer, TileLayer } from 'react-leaflet';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 
 // Define role-based access control
 type UserRole = 'field' | 'ops' | 'admin';
@@ -1064,8 +1066,7 @@ function CustomerCard({ c, update, pushMsg, pushDoc, pushEvent }){
             <div className="font-medium">Insurance Thread</div>
             <div className="max-h-40 overflow-auto space-y-1">
               {thread.map((m,i)=>(
-                <div key={i}>
-                  [{new Date(m.ts).toLocaleString()}] {m.dir==='in'?'FROM':'TO'} {m.dir==='in'?m.from:m.to}: <span dangerouslySetInnerHTML={{__html: m.subject||''}} />
+                <div key={i}>[{new Date(m.ts).toLocaleString()}] {m.dir==='in'?'FROM':'TO'} {m.dir==='in'?m.from:m.to}: <span dangerouslySetInnerHTML={{__html: m.subject||''}} />
                 </div>
               ))}
             </div>
@@ -1216,46 +1217,33 @@ function LiensLegal(){
 function ContractorPortal(){
   function openNew(url: string) { window.open(url, '_blank', 'noopener,noreferrer'); }
   
-  async function makeBrochure(){
-    const r = await fetch('/api/brochure/strategic',{ method:'POST' }).then(r=>r.json());
-    if (r?.path) window.open(r.path, '_blank');
-  }
   return (
     <div className="space-y-4">
-      <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
-        <div className="p-4 space-y-2">
-          <div className="text-2xl font-bold">Strategic Land Management LLC</div>
-          <div>Emergency Storm Response Team</div>
-          <div className="text-sm">📞 888-628-2229 • 🌐 <a className="underline" href="https://www.strategiclandmgmt.com" target="_blank" rel="noreferrer">www.strategiclandmgmt.com</a> • ✉️ strategiclandmgmt@gmail.com</div>
-          <div className="text-xs text-gray-500">Veteran-owned (disabled veteran). Certified arborist: John Culpepper.</div>
-          <div className="grid md:grid-cols-2 gap-3 mt-2">
-            <button onClick={()=>openNew('https://disasterloanassistance.sba.gov/')} className="border border-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-50 font-medium transition-colors">SBA Disaster Loans</button>
-            <button onClick={()=>openNew('https://www.fema.gov/assistance/individual')} className="border border-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-50 font-medium transition-colors">FEMA Individual Assistance</button>
-          </div>
+      <Card><CardContent className="p-4 space-y-2">
+        <div className="text-2xl font-bold">Strategic Land Management LLC</div>
+        <div>Emergency Storm Response Team</div>
+        <div className="text-sm">📞 888-628-2229 • 🌐 <a className="underline" href="https://www.strategiclandmgmt.com" target="_blank" rel="noreferrer">www.strategiclandmgmt.com</a> • ✉️ strategiclandmgmt@gmail.com</div>
+        <div className="text-xs text-muted-foreground">Veteran-owned & disabled veteran-owned. Certified arborist: John Culpepper.</div>
+        <div className="grid md:grid-cols-2 gap-3 mt-2">
+          <Button variant="secondary" onClick={()=>openNew('https://disasterloanassistance.sba.gov/')}>SBA Disaster Loans</Button>
+          <Button variant="secondary" onClick={()=>openNew('https://www.fema.gov/assistance/individual')}>FEMA Individual Assistance</Button>
         </div>
-      </div>
+      </CardContent></Card>
 
-      <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
-        <div className="p-4 space-y-2">
-          <div className="font-semibold">Emergency Tree Removal Contract</div>
-          <div className="text-sm text-gray-500">Your uploaded contract is ready to send.</div>
-          <div className="flex gap-2">
-            <button onClick={()=>openNew('/files/contract.pdf')} className="border border-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-50 font-medium transition-colors">Open Contract</button>
-            <button onClick={()=>fetch('/api/email',{
-              method:'POST', headers:{'Content-Type':'application/json'},
-              body: JSON.stringify({ to:'strategiclandmgmt@gmail.com', subject:'Contract (for signature)', html:'Attached contract', attachments:[{ path:'/files/contract.pdf' }] })
-            })} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 font-medium transition-colors">Email Contract to Customer</button>
-          </div>
+      <Card><CardContent className="p-4 space-y-2">
+        <div className="font-semibold">Emergency Tree Removal Contract</div>
+        <div className="text-sm text-muted-foreground">Your uploaded contract is available to attach and send from the app.</div>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={()=>openNew('/files/contract.pdf')}>Open Contract</Button>
+          <Button onClick={()=>fetch('/api/email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ to:'strategiclandmgmt@gmail.com', subject:'Contract (for signature)', html:'Attached contract', attachments:[{ path:'/files/contract.pdf' }] })})}>Email Contract to Customer</Button>
         </div>
-      </div>
+      </CardContent></Card>
 
-      <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
-        <div className="p-4 space-y-2">
-          <div className="font-semibold">Upload Proof of Insurance (optional)</div>
-          <input type="file" onChange={(e)=>{/* POST to /api/upload with contractor profile */}} />
-          <div className="text-xs text-gray-500">Stored in your Contractor profile; share with customers on request.</div>
-        </div>
-      </div>
+      <Card><CardContent className="p-4 space-y-2">
+        <div className="font-semibold">Upload Proof of Insurance (optional)</div>
+        <input type="file" onChange={(e)=>{/* Hook /api/upload */}} />
+        <div className="text-xs text-muted-foreground">Stored under your Contractor profile; share on request.</div>
+      </CardContent></Card>
 
       <Card><CardContent className="p-4 space-y-2">
         <div className="font-semibold">Brochure</div>
