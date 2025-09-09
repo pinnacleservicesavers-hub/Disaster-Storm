@@ -978,118 +978,156 @@ function CustomersCRM(){
     </div>
   );
 }
-function CustomerCard({ c, update, pushMsg, pushDoc, pushEvent }: any){
-  const [note, setNote] = useState(''); const [msg, setMsg] = useState('');
-  
-  // Claim-threaded email messages
+function CustomerCard({ c, update, pushMsg, pushDoc, pushEvent }){
+  const [note, setNote] = useState('');
+  const [msg, setMsg] = useState('');
+
+  // Claim-threaded messages (from backend /api/messages?claim=...)
   const [thread, setThread] = useState([]);
   useEffect(()=>{
-    if (!c.claimNumber) return;
+    if (!c.claimNumber){ setThread([]); return; }
     fetch(`/api/messages?claim=${encodeURIComponent(c.claimNumber)}`)
       .then(r=>r.json()).then(setThread).catch(()=>{});
   }, [c.claimNumber]);
-  async function sendSMS(){ await fetch('/api/sms',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ to:c.phone, body: msg })}); pushMsg(c.id,{ dir:'out', type:'sms', to:c.phone, body:msg }); setMsg(''); }
-  async function sendEmail(){ 
+
+  // Invoice editor
+  const [invoiceItems, setInvoiceItems] = useState([{ name:'Emergency service', amount:0, quantity:1 }]);
+  const [taxRate, setTaxRate] = useState(0);
+  const subtotal = invoiceItems.reduce((s,it)=> s + (Number(it.amount)||0) * (Number(it.quantity)||1), 0);
+  const tax = subtotal * (Number(taxRate)||0)/100;
+  const total = subtotal + tax;
+
+  async function sendSMS(){
+    await fetch('/api/sms',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ to:c.phone, body: msg })});
+    pushMsg(c.id,{ dir:'out', type:'sms', to:c.phone, body:msg });
+    setMsg('');
+  }
+  async function sendEmail(){
     await fetch('/api/email',{
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({
-        to: c.email,
-        subject: `Storm work update for ${c.address}`,
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        to:c.email,
+        subject:`Storm work update for ${c.address}`,
         html: msg,
         claimNumber: c.claimNumber || undefined
       })
     });
-    pushMsg(c.id,{ dir:'out', type:'email', to:c.email, body:msg }); 
-    setMsg(''); 
+    pushMsg(c.id,{ dir:'out', type:'email', to:c.email, body:msg });
+    setMsg('');
   }
-  function changeStatus(s: string){ update(c.id,{ status:s }); pushEvent(c.id,{ type:'status', to:s }); }
-  
+
   async function requestPayment(){
-    const lineItems = [{ name: `Emergency tree work — ${c.address}`, amount: 500.00, quantity: 1 }]; // edit as needed
+    const items = invoiceItems.map(it=>({ name: it.name||'Service', amount: Number(it.amount||0), quantity: Number(it.quantity||1) }));
+    if (tax > 0) items.push({ name:'Tax', amount: Number(tax.toFixed(2)), quantity: 1 });
     const r = await fetch('/api/invoice/checkout', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ customer: { email: c.email }, lineItems, metadata: { claim: c.claimNumber||'' } })
-    }).then(r=>r.json());
+      body: JSON.stringify({ customer: { email: c.email }, lineItems: items, metadata: { claim: c.claimNumber||'', customerId: c.id } })
+    }).then(r=>r.json()).catch(()=>null);
     if (r?.url){
-      // send the link via SMS or Email
-      const link = r.url;
-      if (c.phone) await fetch('/api/sms',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ to:c.phone, body:`Pay securely: ${link}` })});
-      if (c.email) await fetch('/api/email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ to:c.email, subject:`Payment link for ${c.address}`, html:`<a href=\"${link}\">Pay securely</a>`, claimNumber:c.claimNumber||undefined })});
+      if (c.phone) await fetch('/api/sms',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ to:c.phone, body:`Pay securely for ${c.address}: ${r.url}` })});
+      if (c.email) await fetch('/api/email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ to:c.email, subject:`Payment link for ${c.address}`, html:`<a href="${r.url}">Pay securely</a>`, claimNumber:c.claimNumber||undefined })});
       alert('Payment link sent.');
+    } else {
+      alert('Payment link failed.');
     }
   }
+
+  function changeStatus(s){ update(c.id,{ status:s }); pushEvent(c.id,{ type:'status', to:s }); }
+
   return (
-    <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
-      <div className="p-4 space-y-3">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="text-lg font-semibold">{c.name||'Unknown Owner'}</div>
-            <div className="text-sm text-gray-500">{c.address}</div>
-            <div className="text-xs">{c.insurer || 'Insurer N/A'} • Claim #{c.claimNumber||'—'}</div>
-          </div>
-          <select className="border rounded-md px-2 py-1" value={c.status} onChange={(e)=>changeStatus(e.target.value)}>
-            {PIPELINE.map(p => <option key={p} value={p}>{p.replaceAll('_',' ')}</option>)}
-          </select>
+    <Card><CardContent className="p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="text-lg font-semibold">{c.name||'Unknown Owner'}</div>
+          <div className="text-sm text-muted-foreground">{c.address}</div>
+          <div className="text-xs">{c.insurer || 'Insurer N/A'} • Claim #{c.claimNumber||'—'}</div>
         </div>
+        <select className="border rounded-md px-2 py-1" value={c.status} onChange={(e)=>changeStatus(e.target.value)}>
+          {PIPELINE.map(p => <option key={p} value={p}>{p.replaceAll('_',' ')}</option>)}
+        </select>
+      </div>
 
-        <div className="grid md:grid-cols-3 gap-3">
-          <div className="space-y-2">
-            <div className="font-medium">Communications</div>
-            <input value={msg} onChange={(e)=>setMsg(e.target.value)} placeholder="Write SMS/Email..." className="border border-gray-300 rounded-md px-2 py-1 w-full" />
-            <div className="flex gap-2">
-              {c.phone && <button onClick={sendSMS} className="bg-blue-600 text-white px-3 py-1 rounded-md text-sm hover:bg-blue-700">Send SMS</button>}
-              {c.email && <button onClick={sendEmail} className="border border-gray-300 text-gray-700 px-3 py-1 rounded-md text-sm hover:bg-gray-50">Send Email</button>}
-              {c.phone && <a href={`tel:${c.phone.replace(/[^0-9+]/g,'')}`}><button className="border border-gray-300 text-gray-700 px-3 py-1 rounded-md text-sm hover:bg-gray-50">Call</button></a>}
-            </div>
-            <div className="space-y-1 max-h-40 overflow-auto text-xs">
-              {/* Local messages */}
-              {c.messages?.map((m: any,i: number)=>(<div key={i}>[{new Date(m.ts).toLocaleString()}] {m.type?.toUpperCase()} → {m.to}: {m.body}</div>))}
-              
-              {/* Claim-threaded email messages */}
-              {thread.map((t: any,i: number)=>(<div key={`thread-${i}`} className="border-l-2 border-blue-200 pl-2 bg-blue-50">
-                [{new Date(t.ts).toLocaleString()}] EMAIL {t.dir?.toUpperCase()} {t.dir==='out'?'→':'←'} {t.to||t.from}: {t.subject}
-              </div>))}
-            </div>
-            <div className="mt-2 text-xs">
-              <div className="font-medium">Insurance Thread</div>
-              <div className="max-h-40 overflow-auto space-y-1">
-                {thread.map((m,i)=>(
-                  <div key={i}>
-                    [{new Date(m.ts).toLocaleString()}] {m.dir==='in'?'FROM':'TO'} {m.dir==='in'?m.from:m.to}: <span dangerouslySetInnerHTML={{__html: m.subject||''}} />
-                  </div>
-                ))}
-              </div>
-            </div>
+      <div className="grid md:grid-cols-3 gap-3">
+        {/* Communications */}
+        <div className="space-y-2">
+          <div className="font-medium">Communications</div>
+          <Input value={msg} onChange={(e)=>setMsg(e.target.value)} placeholder="Write SMS/Email..." />
+          <div className="flex gap-2">
+            {c.phone && <Button onClick={sendSMS}>Send SMS</Button>}
+            {c.email && <Button variant="secondary" onClick={sendEmail}>Send Email</Button>}
+            {c.phone && <a href={`tel:${c.phone.replace(/[^0-9+]/g,'')}`}><Button variant="outline">Call</Button></a>}
           </div>
-          <div className="space-y-2">
-            <div className="font-medium">Docs & Media</div>
-            <input type="file" multiple onChange={(e)=>{
-              const files = Array.from(e.target.files||[]);
-              files.forEach((f: any)=> pushDoc(c.id,{ name:f.name, size:f.size }));
-            }} className="text-sm" />
-            <div className="text-xs text-gray-500">Contracts, proof of insurance, photos/videos. (Hook to /api/upload for persistence.)</div>
-            <div className="space-y-1 max-h-40 overflow-auto text-xs">
-              {c.docs?.map((d: any,i: number)=>(<div key={i}>📄 {d.name} ({Math.round((d.size||0)/1024)} KB)</div>))}
-            </div>
+          <div className="space-y-1 max-h-40 overflow-auto">
+            {c.messages?.map((m,i)=>(<div key={i} className="text-xs">[{new Date(m.ts).toLocaleString()}] {m.type?.toUpperCase()} → {m.to}: {m.body}</div>))}
           </div>
-          <div className="space-y-2">
-            <div className="font-medium">Notes / Timeline</div>
-            <input value={note} onChange={(e)=>setNote(e.target.value)} placeholder="Add an internal note" className="border border-gray-300 rounded-md px-2 py-1 w-full" />
-            <button onClick={()=>{ pushEvent(c.id,{ type:'note', text:note }); setNote(''); }} className="border border-gray-300 text-gray-700 px-3 py-1 rounded-md text-sm hover:bg-gray-50">Add Note</button>
-            <div className="space-y-1 max-h-40 overflow-auto text-xs">
-              {c.timeline?.map((t: any,i: number)=>(<div key={i}>[{new Date(t.ts).toLocaleString()}] {t.type} {t.text||t.to||''}</div>))}
+          <div className="mt-2 text-xs">
+            <div className="font-medium">Insurance Thread</div>
+            <div className="max-h-40 overflow-auto space-y-1">
+              {thread.map((m,i)=>(
+                <div key={i}>
+                  [{new Date(m.ts).toLocaleString()}] {m.dir==='in'?'FROM':'TO'} {m.dir==='in'?m.from:m.to}: <span dangerouslySetInnerHTML={{__html: m.subject||''}} />
+                </div>
+              ))}
             </div>
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-2">
-          <button onClick={()=>changeStatus('contract_signed')} className="border border-gray-300 text-gray-700 px-3 py-1 rounded-md text-sm hover:bg-gray-50">Mark Contracted</button>
-          <button onClick={()=>changeStatus('claim_submitted')} className="border border-gray-300 text-gray-700 px-3 py-1 rounded-md text-sm hover:bg-gray-50">Mark Claim Submitted</button>
-          <Button variant="outline" onClick={requestPayment}>Request Payment</Button>
-          <button onClick={()=>changeStatus('paid')} className="border border-gray-300 text-gray-700 px-3 py-1 rounded-md text-sm hover:bg-gray-50">Mark Paid</button>
+        {/* Docs & Media */}
+        <div className="space-y-2">
+          <div className="font-medium">Docs & Media</div>
+          <input type="file" multiple onChange={(e)=>{
+            const files = Array.from(e.target.files||[]);
+            files.forEach(f=> pushDoc(c.id,{ name:f.name, size:f.size }));
+          }} />
+          <div className="text-xs text-muted-foreground">Contracts, proof of insurance, photos/videos. (Hook to /api/upload for persistence.)</div>
+          <div className="space-y-1 max-h-40 overflow-auto">
+            {c.docs?.map((d,i)=>(<div key={i} className="text-xs">📄 {d.name} ({Math.round((d.size||0)/1024)} KB)</div>))}
+          </div>
+        </div>
+
+        {/* Notes / Timeline */}
+        <div className="space-y-2">
+          <div className="font-medium">Notes / Timeline</div>
+          <Input value={note} onChange={(e)=>setNote(e.target.value)} placeholder="Add an internal note" />
+          <Button variant="outline" onClick={()=>{ pushEvent(c.id,{ type:'note', text:note }); setNote(''); }}>Add Note</Button>
+          <div className="space-y-1 max-h-40 overflow-auto">
+            {c.timeline?.map((t,i)=>(<div key={i} className="text-xs">[{new Date(t.ts).toLocaleString()}] {t.type} {t.text||t.to||''}</div>))}
+          </div>
         </div>
       </div>
-    </div>
+
+      {/* Actions */}
+      <div className="flex flex-wrap gap-2">
+        <Button variant="outline" onClick={()=>changeStatus('contract_signed')}>Mark Contracted</Button>
+        <Button variant="outline" onClick={()=>changeStatus('claim_submitted')}>Mark Claim Submitted</Button>
+        <Button variant="outline" onClick={()=>changeStatus('paid')}>Mark Paid</Button>
+        <Button onClick={requestPayment}>Request Payment</Button>
+      </div>
+
+      {/* Invoice editor */}
+      <div className="mt-3 border rounded-md p-3">
+        <div className="font-medium mb-2">Invoice</div>
+        {invoiceItems.map((it, idx)=> (
+          <div key={idx} className="grid md:grid-cols-12 gap-2 items-center mb-2">
+            <Input className="md:col-span-6" value={it.name} onChange={(e)=>setInvoiceItems(invoiceItems.map((x,i)=> i===idx? {...x, name:e.target.value}:x))} placeholder="Item name" />
+            <Input className="md:col-span-2" type="number" step="0.01" value={it.amount} onChange={(e)=>setInvoiceItems(invoiceItems.map((x,i)=> i===idx? {...x, amount:e.target.value}:x))} placeholder="Amount" />
+            <Input className="md:col-span-2" type="number" step="1" value={it.quantity} onChange={(e)=>setInvoiceItems(invoiceItems.map((x,i)=> i===idx? {...x, quantity:e.target.value}:x))} placeholder="Qty" />
+            <Button className="md:col-span-2" variant="outline" onClick={()=>setInvoiceItems(invoiceItems.filter((_,i)=>i!==idx))}>Remove</Button>
+          </div>
+        ))}
+        <div className="flex flex-wrap gap-2 mb-2 items-center">
+          <Button variant="outline" onClick={()=>setInvoiceItems([...invoiceItems, { name:'', amount:0, quantity:1 }])}>+ Add item</Button>
+          <div className="flex items-center gap-2 text-sm">
+            <span>Tax %</span>
+            <Input style={{width:100}} type="number" step="0.01" value={taxRate} onChange={(e)=>setTaxRate(e.target.value)} />
+          </div>
+        </div>
+        <div className="text-sm">Subtotal: ${subtotal.toFixed(2)} • Tax: ${tax.toFixed(2)} • <b>Total: ${total.toFixed(2)}</b></div>
+        <div className="mt-2">
+          <Button onClick={requestPayment}>Send Payment Link</Button>
+        </div>
+      </div>
+    </CardContent></Card>
   );
 }
 
