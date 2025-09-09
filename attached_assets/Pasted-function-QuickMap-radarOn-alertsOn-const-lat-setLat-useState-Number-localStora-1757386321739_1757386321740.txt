@@ -1,0 +1,86 @@
+function QuickMap({ radarOn, alertsOn }) {
+  const [lat, setLat] = useState(() => Number(localStorage.getItem("mapLat")) || 32.51);
+  const [lng, setLng] = useState(() => Number(localStorage.getItem("mapLng")) || -84.87);
+  const [z, setZ]   = useState(() => Number(localStorage.getItem("mapZoom")) || 7);
+  const [showMarkers, setShowMarkers] = useState(true);
+  const position = useMemo(() => [lat, lng], [lat, lng]);
+  const mapRef = useRef(null);
+  const markerRef = useRef(null);
+  const markersLayerRef = useRef(null);
+  const save = () => {
+    localStorage.setItem("mapLat", String(lat));
+    localStorage.setItem("mapLng", String(lng));
+    localStorage.setItem("mapZoom", String(z));
+  };
+
+  // focus from Inbox
+  useEffect(() => {
+    function onFocus(e){
+      const d = e.detail || {};
+      if (!mapRef.current || !d.lat || !d.lon) return;
+      mapRef.current.setView([d.lat, d.lon], d.zoom || 18);
+      const L = window.L; if (!L) return;
+      if (markerRef.current) { mapRef.current.removeLayer(markerRef.current); markerRef.current = null; }
+      markerRef.current = L.marker([d.lat, d.lon]).addTo(mapRef.current);
+    }
+    window.addEventListener('focusLocation', onFocus);
+    return () => window.removeEventListener('focusLocation', onFocus);
+  }, []);
+
+  // live markers
+  useEffect(() => {
+    const L = window.L; if (!L || !mapRef.current) return;
+    if (markersLayerRef.current) { mapRef.current.removeLayer(markersLayerRef.current); }
+    markersLayerRef.current = L.layerGroup().addTo(mapRef.current);
+
+    async function addItem(it){
+      if (!it || !it.lat || !it.lon) return;
+      const icon = L.divIcon({ className:'damage-pin',
+        html:`<div style="background:#ef4444;color:#fff;padding:2px 6px;border-radius:8px;">${(it.tags?.[0]||'damage')}</div>` });
+      const m = L.marker([it.lat, it.lon], { icon });
+      m.bindPopup(`<b>${it.address||''}</b><br/>${(it.tags||[]).join(', ')||''}`);
+      markersLayerRef.current.addLayer(m);
+    }
+
+    let pollId;
+    fetch('/api/inbox').then(r=>r.json()).then(arr => (arr||[]).forEach(addItem)).catch(()=>{});
+    const ev = new EventSource('/api/stream');
+    ev.onmessage = m => { try { addItem(JSON.parse(m.data)); } catch {} };
+    ev.onerror   = () => { ev.close(); pollId = setInterval(() => {
+      fetch('/api/inbox').then(r=>r.json()).then(arr => (arr||[]).forEach(addItem)).catch(()=>{});
+    }, 15000); };
+
+    return () => { ev.close(); if (pollId) clearInterval(pollId); if (markersLayerRef.current) mapRef.current.removeLayer(markersLayerRef.current); };
+  }, []);
+
+  return (
+    <Card className="w-full">
+      <CardContent className="p-4 space-y-3">
+        <div className="grid grid-cols-3 gap-2">
+          <Input type="number" step="0.0001" value={lat} onChange={(e)=>setLat(Number(e.target.value))} placeholder="Latitude" />
+          <Input type="number" step="0.0001" value={lng} onChange={(e)=>setLng(Number(e.target.value))} placeholder="Longitude" />
+          <Input type="number" step="1" min={2} max={12} value={z} onChange={(e)=>setZ(Number(e.target.value))} placeholder="Zoom" />
+        </div>
+        <div className="flex items-center gap-3">
+          <label className="text-sm flex items-center gap-2">
+            <input type="checkbox" checked={showMarkers} onChange={(e)=>{
+              setShowMarkers(e.target.checked);
+              if (!mapRef.current || !markersLayerRef.current) return;
+              if (e.target.checked) markersLayerRef.current.addTo(mapRef.current);
+              else mapRef.current.removeLayer(markersLayerRef.current);
+            }} />
+            Show damage markers
+          </label>
+          <Button variant="outline" onClick={save}>Save View</Button>
+        </div>
+        <div className="h-[420px] rounded-2xl overflow-hidden">
+          <MapContainer whenCreated={(m)=>{mapRef.current=m;}} center={position} zoom={z} className="h-full w-full">
+            <TileLayer attribution='&copy; OpenStreetMap contributors' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+            <RadarLayer enabled={radarOn} />
+            <NOAAAlertsLayer enabled={alertsOn} />
+          </MapContainer>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}

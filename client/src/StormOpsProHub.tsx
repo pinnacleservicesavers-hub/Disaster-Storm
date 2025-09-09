@@ -19,13 +19,17 @@ function openNew(url: string) {
 }
 
 // ===== Role selector =====
-function RoleSelector(){
-  const [role, setRole] = useState(localStorage.getItem('role') || 'ops');
-  useEffect(() => { localStorage.setItem('role', role); }, [role]);
+function RoleSelector({ value, onChange }: { value?: string; onChange?: (role: string) => void }) {
+  const [role, setRole] = useState(value || localStorage.getItem('role') || 'ops');
+  useEffect(() => {
+    localStorage.setItem('role', role);
+    window.dispatchEvent(new Event('roleChanged'));
+    if (onChange) onChange(role);
+  }, [role, onChange]);
   return (
     <div className="flex items-center gap-2">
       <span className="text-sm text-gray-600">Role:</span>
-      <select className="border rounded-md px-2 py-1" value={role} onChange={(e) => setRole(e.target.value)}>
+      <select className="border rounded-md px-2 py-1" value={role} onChange={(e)=>setRole(e.target.value)}>
         <option value="ops">Ops</option>
         <option value="field">Field</option>
         <option value="admin">Admin</option>
