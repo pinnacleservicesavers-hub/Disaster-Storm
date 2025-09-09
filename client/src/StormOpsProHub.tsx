@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { MapContainer, TileLayer } from 'react-leaflet';
+import { Button } from '@/components/ui/button';
 
 // Define role-based access control
 type UserRole = 'field' | 'ops' | 'admin';
@@ -1176,6 +1177,24 @@ function LiensLegal(){
 // --- Contractor Portal (Strategic LM) ---
 function ContractorPortal(){
   function openNew(url: string) { window.open(url, '_blank', 'noopener,noreferrer'); }
+  
+  // Generate tri-fold brochure
+  async function generateBrochure() {
+    try {
+      const response = await fetch('/api/brochure/strategic', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      const data = await response.json();
+      if (data.ok && data.path) {
+        window.open(data.path, '_blank');
+        alert('Brochure generated successfully!');
+      }
+    } catch (e) {
+      console.error('Brochure generation failed:', e);
+      alert('Failed to generate brochure');
+    }
+  }
   return (
     <div className="space-y-4">
       <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
@@ -1215,8 +1234,9 @@ function ContractorPortal(){
 
       <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
         <div className="p-4 space-y-2">
-          <div className="font-semibold">Brochure</div>
-          <div className="text-sm">Say "generate brochure" and I'll produce a tri-fold PDF with your content.</div>
+          <div className="font-semibold">Marketing Brochure</div>
+          <div className="text-sm text-gray-500">Generate a tri-fold PDF brochure with Strategic Land Management details.</div>
+          <Button onClick={generateBrochure} className="w-full">Generate Tri-Fold Brochure</Button>
         </div>
       </div>
     </div>
