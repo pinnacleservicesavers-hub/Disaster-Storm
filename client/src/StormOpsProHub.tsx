@@ -1022,6 +1022,16 @@ function CustomerCard({ c, update, pushMsg, pushDoc, pushEvent }: any){
                 [{new Date(t.ts).toLocaleString()}] EMAIL {t.dir?.toUpperCase()} {t.dir==='out'?'→':'←'} {t.to||t.from}: {t.subject}
               </div>))}
             </div>
+            <div className="mt-2 text-xs">
+              <div className="font-medium">Insurance Thread</div>
+              <div className="max-h-40 overflow-auto space-y-1">
+                {thread.map((m,i)=>(
+                  <div key={i}>
+                    [{new Date(m.ts).toLocaleString()}] {m.dir==='in'?'FROM':'TO'} {m.dir==='in'?m.from:m.to}: <span dangerouslySetInnerHTML={{__html: m.subject||''}} />
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
           <div className="space-y-2">
             <div className="font-medium">Docs & Media</div>
