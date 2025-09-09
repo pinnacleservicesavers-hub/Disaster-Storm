@@ -1,99 +1,88 @@
-// @ts-nocheck
-import { useEffect, useMemo, useRef, useState } from "react";
-import { MapContainer, TileLayer, useMap } from "react-leaflet";
-import "leaflet/dist/leaflet.css";
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { MapContainer, TileLayer } from 'react-leaflet';
 
-/**
- * Storm Ops Pro Hub (React)
- * - Role-based ops hub
- * - Storm Map (OSM + Radar + NOAA alerts) with auto-center on incoming items
- * - Inbox with damage-tag filters, badges, sorting, and map centering
- * - Multi-View wall (4 panes) with Pin buttons from provider tabs
- * - Provider tabs: VOTIX / FlytBase / DroneDeploy / DJI FH2 (HLS & iframe)
- * - DSPs tab (hire pilots)
- * - Owner Lookup tab (placeholder backend integration)
- */
+// Define role-based access control
+type UserRole = 'field' | 'ops' | 'admin';
 
-function openNew(url: string) { 
-  if (url) window.open(url, "_blank", "noopener,noreferrer"); 
+interface RoleConfig {
+  field: string[];
+  ops: string[];  
+  admin: string[];
 }
 
-// ===== Role selector =====
-function RoleSelector({ value, onChange }: { value?: string; onChange?: (role: string) => void }) {
-  const [role, setRole] = useState(value || localStorage.getItem('role') || 'ops');
-  useEffect(() => {
-    localStorage.setItem('role', role);
-    window.dispatchEvent(new Event('roleChanged'));
-    if (onChange) onChange(role);
-  }, [role, onChange]);
-  return (
-    <div className="flex items-center gap-2">
-      <span className="text-sm text-gray-600">Role:</span>
-      <select className="border rounded-md px-2 py-1" value={role} onChange={(e)=>setRole(e.target.value)}>
-        <option value="ops">Ops</option>
-        <option value="field">Field</option>
-        <option value="admin">Admin</option>
-      </select>
-    </div>
-  );
-}
+const ROLE_TABS: RoleConfig = {
+  field: ['map', 'inbox', 'multiview', 'owner', 'customers'],
+  ops: ['map', 'inbox', 'multiview', 'votix', 'flyt', 'deploy', 'dji', 'dsps', 'owner', 'customers', 'reports', 'legal', 'contractor'],
+  admin: ['map', 'inbox', 'multiview', 'votix', 'flyt', 'deploy', 'dji', 'dsps', 'owner', 'customers', 'reports', 'legal', 'contractor']
+};
 
-// ===== Map Layers =====
-function RadarLayer({ enabled }: { enabled: boolean }){
-  const map = useMap();
-  const layerRef = useRef<any>(null);
+// Radar Layer Component
+function RadarLayer({ enabled }: { enabled: boolean }) {
   useEffect(() => {
-    if (!enabled){ 
-      if (layerRef.current){ 
-        map.removeLayer(layerRef.current); 
-        layerRef.current = null; 
-      } 
-      return; 
-    }
-    const L = (window as any).L; 
-    if (!L) return;
-    const radar = L.tileLayer("https://tilecache.rainviewer.com/v2/radar/now/256/{z}/{x}/{y}/2/1_1.png", { 
-      opacity: 0.75, 
-      attribution: "<a href='https://www.rainviewer.com/'>RainViewer</a>" 
-    });
-    radar.addTo(map); 
-    layerRef.current = radar;
-    return () => { 
-      if (layerRef.current){ 
-        map.removeLayer(layerRef.current); 
-        layerRef.current = null; 
-      } 
+    if (!enabled || typeof window === 'undefined') return;
+    
+    const script = document.createElement('script');
+    script.src = 'https://api.rainviewer.com/public/weather-maps.js';
+    script.onload = () => {
+      // @ts-ignore
+      if (window.RainViewer) {
+        // @ts-ignore
+        window.RainViewer.showFrame({
+          map: document.querySelector('.leaflet-container'),
+          kind: 'radar',
+          colorScheme: 2,
+          tileSize: 256,
+          smoothAnimation: true
+        });
+      }
     };
-  }, [enabled, map]);
+    document.head.appendChild(script);
+    
+    return () => {
+      document.head.removeChild(script);
+    };
+  }, [enabled]);
+  
   return null;
 }
 
-function NOAAAlertsLayer({ enabled }: { enabled: boolean }){
-  const map = useMap();
-  const layerRef = useRef<any>(null);
+// NOAA Alerts Layer Component  
+function NOAAAlertsLayer({ enabled }: { enabled: boolean }) {
+  const [map, setMap] = useState<any>(null);
+  
   useEffect(() => {
-    if (!enabled){ 
-      if (layerRef.current){ 
-        map.removeLayer(layerRef.current); 
-        layerRef.current = null; 
-      } 
-      return; 
+    const mapContainer = document.querySelector('.leaflet-container');
+    if (mapContainer && !map) {
+      // @ts-ignore
+      setMap(window.L?.map(mapContainer));
     }
-    const L = (window as any).L; 
-    if (!L) return;
-    const noaa = L.tileLayer.wms("https://idpgis.ncep.noaa.gov/arcgis/services/NWS_Watches_Warnings/MapServer/WMSServer", { 
-      layers: "1", 
-      format: "image/png", 
-      transparent: true, 
-      attribution: "NOAA/NWS" 
+  }, []);
+  
+  useEffect(() => {
+    if (!enabled || !map) return;
+    
+    const alertsLayer = (window as any).L?.geoJSON(null, {
+      style: { color: '#ff6b6b', weight: 2, fillOpacity: 0.3 }
     });
-    noaa.addTo(map); 
-    layerRef.current = noaa;
-    return () => { 
-      if (layerRef.current){ 
-        map.removeLayer(layerRef.current); 
-        layerRef.current = null; 
-      } 
+    
+    if (alertsLayer) {
+      alertsLayer.addTo(map);
+      
+      // Fetch NOAA alerts
+      fetch('https://api.weather.gov/alerts/active')
+        .then(res => res.json())
+        .then(data => {
+          if (data.features) {
+            alertsLayer.addData(data.features);
+          }
+        })
+        .catch(console.error);
+    }
+    
+    return () => {
+      if (alertsLayer && map) {
+        map.removeLayer(alertsLayer);
+      }
     };
   }, [enabled, map]);
   return null;
@@ -191,500 +180,301 @@ const TAGS = [
   'tree_on_roof','tree_on_building','tree_on_fence','tree_on_barn','tree_on_shed','tree_on_car','tree_in_pool','tree_on_playground','line_down','structure_damage'
 ];
 
-const KEYWORD_MAP = [
-  ['tree_on_roof', /tree on roof|through roof|roof damage/i],
-  ['tree_on_building', /tree on (house|building|home|structure)/i],
-  ['tree_on_fence', /tree on fence|fence down/i],
-  ['tree_on_barn', /tree on barn/i],
-  ['tree_on_shed', /tree on shed/i],
-  ['tree_on_car', /tree on car|on vehicle|on truck/i],
-  ['tree_in_pool', /tree in pool|pool damage/i],
-  ['tree_on_playground', /tree on playground|playset|swing set/i],
-  ['line_down', /line down|power line|utility line|pole down/i],
-  ['structure_damage', /collapse|compromised|structural|wall down|house split/i]
-];
-
-function addTags(item: any){
-  const text = ((item.notes || '') + ' ' + (item.address || '')).toLowerCase();
-  const tags = [];
-  for (const [tag, rx] of KEYWORD_MAP){ 
-    if (rx.test(text)) tags.push(tag); 
-  }
-  return { ...item, tags };
-}
-
-function TagFilterBar({ tagFilters, setTagFilters }: { tagFilters: any; setTagFilters: (filters: any) => void }){
-  return (
-    <div className="flex flex-wrap gap-2">
-      {TAGS.map(t => (
-        <label key={t} className="text-xs flex items-center gap-1 border rounded-full px-2 py-1">
-          <input 
-            type="checkbox" 
-            checked={!!tagFilters[t]} 
-            onChange={(e) => setTagFilters({ ...tagFilters, [t]: e.target.checked })} 
-          /> 
-          {t}
-        </label>
-      ))}
-    </div>
-  );
-}
-
-// ===== HLS / Player =====
-function HlsPlayer({ src }: { src: string }) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  useEffect(() => {
-    const video = videoRef.current; 
-    if (!video || !src) return;
-    if (video.canPlayType('application/vnd.apple.mpegurl')) { 
-      video.src = src; 
-      video.play().catch(() => {}); 
-      return; 
-    }
-    let hls: any; 
-    (async () => {
-      try {
-        const mod = await import('hls.js'); 
-        const Hls = mod.default;
-        if (Hls?.isSupported()){ 
-          hls = new Hls(); 
-          hls.loadSource(src); 
-          hls.attachMedia(video); 
-          hls.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(() => {})); 
-        }
-        else { 
-          window.open(src,'_blank'); 
-        }
-      } catch(e){ 
-        console.warn('HLS init failed', e); 
-      }
-    })();
-    return () => { 
-      if (hls) hls.destroy(); 
-    };
-  }, [src]);
-  return <video ref={videoRef} controls className="w-full h-full object-contain rounded-xl" />;
-}
-
-function FlexiblePlayer({ url }: { url: string }){
-  if (!url) return <div className="text-sm text-gray-600">No feed set</div>;
-  const lower = url.toLowerCase();
-  if (lower.endsWith('.m3u8')) return <HlsPlayer src={url} />;
-  return <iframe title="Feed" src={url} className="w-full h-full rounded-xl" allow="autoplay; fullscreen" />;
-}
-
-// ===== Multi-View (4 panes) =====
-function pinTo(slot: string, url: string){ 
-  if (!url) return; 
-  localStorage.setItem(slot, url); 
-  window.dispatchEvent(new Event('mvUpdate')); 
-}
-
-function PinButtons({ currentUrl }: { currentUrl: string }){
-  return (
-    <div className="flex flex-wrap gap-2">
-      <button 
-        className="border border-gray-300 text-gray-700 px-3 py-1 rounded-md hover:bg-gray-50 font-medium transition-colors text-sm"
-        onClick={() => pinTo('mv1', currentUrl)}
-      >
-        Pin → Pane 1
-      </button>
-      <button 
-        className="border border-gray-300 text-gray-700 px-3 py-1 rounded-md hover:bg-gray-50 font-medium transition-colors text-sm"
-        onClick={() => pinTo('mv2', currentUrl)}
-      >
-        Pin → Pane 2
-      </button>
-      <button 
-        className="border border-gray-300 text-gray-700 px-3 py-1 rounded-md hover:bg-gray-50 font-medium transition-colors text-sm"
-        onClick={() => pinTo('mv3', currentUrl)}
-      >
-        Pin → Pane 3
-      </button>
-      <button 
-        className="border border-gray-300 text-gray-700 px-3 py-1 rounded-md hover:bg-gray-50 font-medium transition-colors text-sm"
-        onClick={() => pinTo('mv4', currentUrl)}
-      >
-        Pin → Pane 4
-      </button>
-    </div>
-  );
-}
-
-function MultiView(){
-  const [mv1, setMv1] = useState(localStorage.getItem('mv1') || '');
-  const [mv2, setMv2] = useState(localStorage.getItem('mv2') || '');
-  const [mv3, setMv3] = useState(localStorage.getItem('mv3') || '');
-  const [mv4, setMv4] = useState(localStorage.getItem('mv4') || '');
-  
-  useEffect(() => { localStorage.setItem('mv1', mv1); }, [mv1]);
-  useEffect(() => { localStorage.setItem('mv2', mv2); }, [mv2]);
-  useEffect(() => { localStorage.setItem('mv3', mv3); }, [mv3]);
-  useEffect(() => { localStorage.setItem('mv4', mv4); }, [mv4]);
-  
-  useEffect(() => {
-    function onStorage(e: StorageEvent){ 
-      if(['mv1','mv2','mv3','mv4'].includes(e.key || '')){
-        setMv1(localStorage.getItem('mv1') || ''); 
-        setMv2(localStorage.getItem('mv2') || ''); 
-        setMv3(localStorage.getItem('mv3') || ''); 
-        setMv4(localStorage.getItem('mv4') || '');
-      }
-    }
-    function onCustom(){ 
-      setMv1(localStorage.getItem('mv1') || ''); 
-      setMv2(localStorage.getItem('mv2') || ''); 
-      setMv3(localStorage.getItem('mv3') || ''); 
-      setMv4(localStorage.getItem('mv4') || ''); 
-    }
-    window.addEventListener('storage', onStorage); 
-    window.addEventListener('mvUpdate', onCustom);
-    return () => { 
-      window.removeEventListener('storage', onStorage); 
-      window.removeEventListener('mvUpdate', onCustom); 
-    };
-  }, []);
-  
-  return (
-    <div className="space-y-4">
-      <div className="grid md:grid-cols-4 gap-2">
-        <input 
-          value={mv1} 
-          onChange={(e) => setMv1(e.target.value)} 
-          placeholder="Pane 1 URL"
-          className="border border-gray-300 rounded-md px-2 py-1"
-        />
-        <input 
-          value={mv2} 
-          onChange={(e) => setMv2(e.target.value)} 
-          placeholder="Pane 2 URL"
-          className="border border-gray-300 rounded-md px-2 py-1"
-        />
-        <input 
-          value={mv3} 
-          onChange={(e) => setMv3(e.target.value)} 
-          placeholder="Pane 3 URL"
-          className="border border-gray-300 rounded-md px-2 py-1"
-        />
-        <input 
-          value={mv4} 
-          onChange={(e) => setMv4(e.target.value)} 
-          placeholder="Pane 4 URL"
-          className="border border-gray-300 rounded-md px-2 py-1"
-        />
-      </div>
-      <div className="grid md:grid-cols-2 gap-3">
-        <div className="h-[320px] bg-white border border-gray-200 rounded-lg shadow-sm">
-          <div className="p-2 h-full">
-            <FlexiblePlayer url={mv1} />
-          </div>
-        </div>
-        <div className="h-[320px] bg-white border border-gray-200 rounded-lg shadow-sm">
-          <div className="p-2 h-full">
-            <FlexiblePlayer url={mv2} />
-          </div>
-        </div>
-        <div className="h-[320px] bg-white border border-gray-200 rounded-lg shadow-sm">
-          <div className="p-2 h-full">
-            <FlexiblePlayer url={mv3} />
-          </div>
-        </div>
-        <div className="h-[320px] bg-white border border-gray-200 rounded-lg shadow-sm">
-          <div className="p-2 h-full">
-            <FlexiblePlayer url={mv4} />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ===== Provider tabs =====
-function ProviderTab({ name, hlsKey, iframeKey, portal }: { name: string; hlsKey: string; iframeKey: string; portal: string }){
-  const [hls, setHls] = useState(localStorage.getItem(hlsKey) || '');
-  const [ifr, setIfr] = useState(localStorage.getItem(iframeKey) || '');
-  
-  useEffect(() => { localStorage.setItem(hlsKey, hls); }, [hlsKey, hls]);
-  useEffect(() => { localStorage.setItem(iframeKey, ifr); }, [iframeKey, ifr]);
-  
-  const chosen = hls || ifr || '';
-  
-  return (
-    <div className="space-y-3">
-      <div className="grid md:grid-cols-3 gap-3">
-        <div className="space-y-1">
-          <label className="text-sm text-gray-600">{name} HLS (.m3u8)</label>
-          <input 
-            value={hls} 
-            onChange={(e) => setHls(e.target.value)} 
-            placeholder="https://.../index.m3u8"
-            className="w-full border border-gray-300 rounded-md px-2 py-1"
-          />
-        </div>
-        <div className="space-y-1">
-          <label className="text-sm text-gray-600">{name} Share/Embed URL</label>
-          <input 
-            value={ifr} 
-            onChange={(e) => setIfr(e.target.value)} 
-            placeholder="https://..."
-            className="w-full border border-gray-300 rounded-md px-2 py-1"
-          />
-        </div>
-        <div className="flex items-end gap-2">
-          <button 
-            onClick={() => openNew(portal)}
-            className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 font-medium transition-colors"
-          >
-            Open {name}
-          </button>
-          {chosen && <PinButtons currentUrl={chosen} />}
-        </div>
-      </div>
-      <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
-        <div className="p-3">
-          {hls ? (
-            <HlsPlayer src={hls} />
-          ) : (
-            ifr ? (
-              <iframe 
-                title={`${name} Player`} 
-                src={ifr} 
-                className="w-full h-[420px] rounded-xl" 
-                allow="autoplay; fullscreen" 
-              />
-            ) : (
-              <div className="text-sm text-gray-600">Enter an HLS or share URL above.</div>
-            )
-          )}
-        </div>
-      </div>
-      <div className="text-xs text-gray-600">If the embed is blocked by CSP, click Open {name} to launch their portal.</div>
-    </div>
-  );
-}
-
-// ===== DSP Directory & Inbox =====
-function CompanyCard({ name, site, phone, note }: { name: string; site: string; phone?: string; note?: string }){
-  return (
-    <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
-      <div className="p-4 space-y-2">
-        <div className="text-lg font-semibold">{name}</div>
-        <div className="flex flex-wrap gap-2">
-          <button 
-            className="border border-gray-300 text-gray-700 px-3 py-1.5 rounded-md hover:bg-gray-50 font-medium transition-colors text-sm"
-            onClick={() => openNew(site)}
-          >
-            Website
-          </button>
-          {phone && (
-            <a href={`tel:${phone.replace(/[^\d+]/g,'')}`}>
-              <button className="bg-blue-600 text-white px-3 py-1.5 rounded-md hover:bg-blue-700 font-medium transition-colors text-sm">
-                Call {phone}
-              </button>
-            </a>
-          )}
-        </div>
-        {note && <div className="text-sm text-gray-600">{note}</div>}
-      </div>
-    </div>
-  );
-}
-
-function DSPDirectory() {
-  const companies = [
-    { name: "Zeitview (formerly DroneBase)", site: "https://www.zeitview.com/", phone: "310-895-9914", note: "Enterprise inspections & catastrophe response; use site contact for sales." },
-    { name: "DroneUp", site: "https://www.droneup.com/contact", phone: "877-601-1860", note: "Nationwide operator network; disaster staffing." },
-    { name: "Airborne Response", site: "https://airborneresponse.com/", phone: "305-771-1120", note: "Mission Critical Unmanned Solutions; insurance & disaster response." },
-    { name: "SkySkopes", site: "https://www.skyskopes.com/contact/", phone: "701-838-2610", note: "Enterprise UAS ops; energy & utilities; regional teams." }
-  ];
+function InboxTabs({ items, filters, setFilters }: any) {
+  const filteredItems = items.filter((item: any) => {
+    if (filters.search && !item.address?.toLowerCase().includes(filters.search.toLowerCase())) return false;
+    if (filters.tags.length && !filters.tags.some((tag: string) => item.tags?.includes(tag))) return false;
+    return true;
+  });
 
   return (
     <div className="space-y-4">
-      <div className="text-sm text-gray-600">
-        These providers can staff pilots before/after storms. Ask for live HLS (.m3u8) links during ops and post-storm imagery with GPS/addresses plus a data feed (CSV/GeoJSON/API).
-      </div>
-      <div className="grid md:grid-cols-2 gap-4">
-        {companies.map((company, index) => (
-          <CompanyCard key={index} {...company} />
+      <div className="flex gap-2 items-center flex-wrap">
+        <input
+          type="text"
+          placeholder="Search addresses..."
+          value={filters.search}
+          onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+          className="border border-gray-300 rounded-md px-3 py-1 text-sm"
+        />
+        <select
+          value=""
+          onChange={(e) => {
+            const tag = e.target.value;
+            if (tag && !filters.tags.includes(tag)) {
+              setFilters({ ...filters, tags: [...filters.tags, tag] });
+            }
+          }}
+          className="border border-gray-300 rounded-md px-3 py-1 text-sm"
+        >
+          <option value="">Add tag filter...</option>
+          {TAGS.map(tag => (
+            <option key={tag} value={tag}>{tag.replace(/_/g, ' ')}</option>
+          ))}
+        </select>
+        {filters.tags.map((tag: string) => (
+          <span key={tag} className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">
+            {tag.replace(/_/g, ' ')}
+            <button
+              onClick={() => setFilters({ ...filters, tags: filters.tags.filter((t: string) => t !== tag) })}
+              className="ml-1 text-blue-600 hover:text-blue-800"
+            >
+              ×
+            </button>
+          </span>
         ))}
       </div>
+
+      <div className="space-y-2 max-h-96 overflow-y-auto">
+        {filteredItems.map((item: any) => (
+          <InboxCard key={item.id} item={item} />
+        ))}
+        {filteredItems.length === 0 && (
+          <div className="text-center py-8 text-gray-500">
+            No items match your filters
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
-// ===== Inbox with SSE =====
-function InboxStream() {
-  const [items, setItems] = useState<any[]>([]);
-  const [search, setSearch] = useState('');
-  const [tagFilters, setTagFilters] = useState<any>({});
-  const [sort, setSort] = useState('newest');
-  const [useSSE, setUseSSE] = useState(true);
-
-  // SSE connection
-  useEffect(() => {
-    if (!useSSE) return;
-    
-    const eventSource = new EventSource('/api/stream');
-    
-    eventSource.onmessage = (event) => {
-      try {
-        const newItem = JSON.parse(event.data);
-        const taggedItem = addTags(newItem);
-        setItems(prev => [taggedItem, ...prev.filter(item => item.id !== taggedItem.id)]);
-        
-        // Auto-focus on map
-        if (taggedItem.lat && taggedItem.lon) {
-          window.dispatchEvent(new CustomEvent('focusLocation', {
-            detail: { lat: taggedItem.lat, lon: taggedItem.lon, zoom: 16 }
-          }));
-        }
-      } catch (error) {
-        console.error('SSE parse error:', error);
-      }
-    };
-
-    eventSource.onerror = () => {
-      console.log('SSE connection failed, falling back to polling');
-      setUseSSE(false);
-    };
-
-    return () => eventSource.close();
-  }, [useSSE]);
-
-  // Polling fallback
-  useEffect(() => {
-    if (useSSE) return;
-    
-    const interval = setInterval(async () => {
-      try {
-        const response = await fetch('/api/inbox');
-        if (response.ok) {
-          const inboxItems = await response.json();
-          const taggedItems = inboxItems.map(addTags);
-          setItems(taggedItems);
-        }
-      } catch (error) {
-        console.error('Polling error:', error);
-      }
-    }, 10000);
-
-    // Initial fetch
-    fetch('/api/inbox')
-      .then(r => r.json())
-      .then(inboxItems => {
-        const taggedItems = inboxItems.map(addTags);
-        setItems(taggedItems);
-      })
-      .catch(console.error);
-
-    return () => clearInterval(interval);
-  }, [useSSE]);
-
-  // Filter and sort items
-  const filteredItems = items
-    .filter(item => {
-      const matchesSearch = !search || 
-        item.notes?.toLowerCase().includes(search.toLowerCase()) ||
-        item.address?.toLowerCase().includes(search.toLowerCase()) ||
-        item.provider?.toLowerCase().includes(search.toLowerCase());
-      
-      const activeTags = Object.keys(tagFilters).filter(tag => tagFilters[tag]);
-      const matchesTags = activeTags.length === 0 || 
-        activeTags.some(tag => item.tags?.includes(tag));
-      
-      return matchesSearch && matchesTags;
-    })
-    .sort((a, b) => {
-      if (sort === 'newest') return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
-      if (sort === 'address') return (a.address || '').localeCompare(b.address || '');
-      return 0;
+function InboxCard({ item }: { item: any }) {
+  function focusOnMap() {
+    if (!item.lat || !item.lon) return;
+    const event = new CustomEvent('focusLocation', {
+      detail: { lat: item.lat, lon: item.lon, zoom: 18 }
     });
+    window.dispatchEvent(event);
+  }
 
-  const centerOnMap = (item: any) => {
-    if (item.lat && item.lon) {
-      window.dispatchEvent(new CustomEvent('focusLocation', {
-        detail: { lat: item.lat, lon: item.lon, zoom: 18 }
-      }));
-    }
-  };
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg p-3 hover:bg-gray-50 transition-colors">
+      <div className="flex justify-between items-start mb-2">
+        <div className="flex-1">
+          <div className="font-medium text-sm">{item.address || 'Unknown Address'}</div>
+          <div className="text-xs text-gray-500">
+            Provider: {item.provider} • {new Date(item.timestamp).toLocaleString()}
+          </div>
+        </div>
+        {item.lat && item.lon && (
+          <button
+            onClick={focusOnMap}
+            className="text-blue-600 hover:text-blue-800 text-xs underline ml-2"
+          >
+            View on Map
+          </button>
+        )}
+      </div>
+      
+      {item.tags && item.tags.length > 0 && (
+        <div className="flex gap-1 mb-2 flex-wrap">
+          {item.tags.map((tag: string) => (
+            <span key={tag} className="bg-red-100 text-red-700 px-2 py-1 rounded text-xs">
+              {tag.replace(/_/g, ' ')}
+            </span>
+          ))}
+        </div>
+      )}
+      
+      {item.notes && (
+        <div className="text-sm text-gray-700 mt-2">{item.notes}</div>
+      )}
+      
+      {item.mediaUrl && (
+        <div className="mt-2">
+          <a 
+            href={item.mediaUrl} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="text-blue-600 hover:text-blue-800 text-xs underline"
+          >
+            View Media
+          </a>
+        </div>
+      )}
+    </div>
+  );
+}
 
-  const ownerLookup = (item: any) => {
-    if (item.address) {
-      // This would integrate with your owner lookup system
-      window.open(`/owner-lookup?address=${encodeURIComponent(item.address)}`, '_blank');
-    }
-  };
+// ===== Provider Tab Component =====
+function ProviderTab({ name, hlsKey, iframeKey, portal }: {
+  name: string;
+  hlsKey: string;
+  iframeKey: string;
+  portal: string;
+}) {
+  const [mode, setMode] = useState<'iframe' | 'hls'>('iframe');
+  const [hlsUrl, setHlsUrl] = useState(() => localStorage.getItem(hlsKey) || '');
+  const [iframeUrl, setIframeUrl] = useState(() => localStorage.getItem(iframeKey) || '');
+
+  useEffect(() => {
+    localStorage.setItem(hlsKey, hlsUrl);
+  }, [hlsUrl, hlsKey]);
+
+  useEffect(() => {
+    localStorage.setItem(iframeKey, iframeUrl);
+  }, [iframeUrl, iframeKey]);
 
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-4">
-        <div className="flex-1">
-          <input 
-            value={search} 
-            onChange={(e) => setSearch(e.target.value)} 
-            placeholder="Search footage..."
-            className="w-full border border-gray-300 rounded-md px-2 py-1"
-          />
+        <h3 className="text-lg font-semibold">{name}</h3>
+        <div className="flex bg-gray-100 rounded-lg p-1">
+          <button
+            onClick={() => setMode('iframe')}
+            className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
+              mode === 'iframe' 
+                ? 'bg-white text-gray-900 shadow-sm' 
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            Portal
+          </button>
+          <button
+            onClick={() => setMode('hls')}
+            className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
+              mode === 'hls' 
+                ? 'bg-white text-gray-900 shadow-sm' 
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            Live Stream
+          </button>
         </div>
-        <select 
-          className="border rounded-md px-2 py-1" 
-          value={sort} 
-          onChange={(e) => setSort(e.target.value)}
+        <button
+          onClick={() => window.open(portal, '_blank')}
+          className="text-blue-600 hover:text-blue-800 text-sm underline"
         >
-          <option value="newest">Newest</option>
-          <option value="address">Address</option>
-        </select>
-        <div className="text-sm text-gray-600">
-          {useSSE ? '🔴 Live (SSE)' : '🔄 Polling'} • {filteredItems.length} items
-        </div>
+          Open {name} Portal
+        </button>
       </div>
 
-      <TagFilterBar tagFilters={tagFilters} setTagFilters={setTagFilters} />
+      {mode === 'iframe' && (
+        <div className="space-y-2">
+          <input
+            type="text"
+            placeholder={`${name} portal URL...`}
+            value={iframeUrl}
+            onChange={(e) => setIframeUrl(e.target.value)}
+            className="w-full border border-gray-300 rounded-md px-3 py-2"
+          />
+          {iframeUrl && (
+            <div className="h-[500px] border border-gray-200 rounded-lg overflow-hidden">
+              <iframe
+                src={iframeUrl}
+                className="w-full h-full"
+                title={`${name} Portal`}
+              />
+            </div>
+          )}
+        </div>
+      )}
 
-      <div className="grid md:grid-cols-2 gap-3">
-        {filteredItems.map(item => (
-          <div key={item.id} className="bg-white border border-gray-200 rounded-lg shadow-sm">
-            <div className="p-3 space-y-2">
-              <div className="font-medium">{item.provider} — {new Date(item.timestamp).toLocaleString()}</div>
-              <div className="text-sm text-gray-600">📍 {item.lat}, {item.lon}</div>
-              {item.address && (
-                <div className="text-sm text-gray-500">📍 {item.address}</div>
-              )}
-              
-              {/* Damage Tags */}
-              {item.tags && item.tags.length > 0 && (
-                <div className="flex flex-wrap gap-1">
-                  {item.tags.map((tag: string, idx: number) => (
-                    <span key={idx} className="inline-block px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
-                      {tag.replace(/_/g, ' ')}
-                    </span>
-                  ))}
-                </div>
-              )}
-              
-              <div className="flex gap-2">
-                {item.mediaUrl && (
-                  <a href={item.mediaUrl} target="_blank" rel="noreferrer">
-                    <button className="border border-gray-300 text-gray-700 px-3 py-1.5 rounded-md hover:bg-gray-50 font-medium transition-colors text-sm">
-                      Open Media
-                    </button>
-                  </a>
-                )}
-                <button 
-                  className="border border-gray-300 text-gray-700 px-3 py-1.5 rounded-md hover:bg-gray-50 font-medium transition-colors text-sm"
-                  onClick={() => centerOnMap(item)}
-                >
-                  Center on Map
-                </button>
-                <button 
-                  className="border border-gray-300 text-gray-700 px-3 py-1.5 rounded-md hover:bg-gray-50 font-medium transition-colors text-sm"
-                  onClick={() => ownerLookup(item)}
-                >
-                  Owner Lookup
-                </button>
-              </div>
-              
-              {item.notes && <div className="text-sm text-gray-500">{item.notes}</div>}
+      {mode === 'hls' && (
+        <div className="space-y-2">
+          <input
+            type="text"
+            placeholder={`${name} HLS stream URL...`}
+            value={hlsUrl}
+            onChange={(e) => setHlsUrl(e.target.value)}
+            className="w-full border border-gray-300 rounded-md px-3 py-2"
+          />
+          {hlsUrl && (
+            <div className="h-[500px] border border-gray-200 rounded-lg overflow-hidden bg-black">
+              <video
+                controls
+                className="w-full h-full"
+                src={hlsUrl}
+              >
+                Your browser does not support the video tag.
+              </video>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ===== Multi-View Component =====
+function MultiView() {
+  const [streams, setStreams] = useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('multiViewStreams') || '[]');
+    } catch {
+      return [];
+    }
+  });
+  const [newStreamUrl, setNewStreamUrl] = useState('');
+
+  useEffect(() => {
+    localStorage.setItem('multiViewStreams', JSON.stringify(streams));
+  }, [streams]);
+
+  const addStream = () => {
+    if (newStreamUrl && !streams.includes(newStreamUrl)) {
+      setStreams([...streams, newStreamUrl]);
+      setNewStreamUrl('');
+    }
+  };
+
+  const removeStream = (index: number) => {
+    setStreams(streams.filter((_, i) => i !== index));
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-2">
+        <input
+          type="text"
+          placeholder="Add stream URL..."
+          value={newStreamUrl}
+          onChange={(e) => setNewStreamUrl(e.target.value)}
+          className="flex-1 border border-gray-300 rounded-md px-3 py-2"
+          onKeyPress={(e) => e.key === 'Enter' && addStream()}
+        />
+        <button
+          onClick={addStream}
+          className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 font-medium transition-colors"
+        >
+          Add Stream
+        </button>
+      </div>
+
+      {streams.length === 0 && (
+        <div className="text-center py-8 text-gray-500">
+          No streams added yet. Add drone feed URLs to view multiple streams simultaneously.
+        </div>
+      )}
+
+      <div className={`grid gap-4 ${
+        streams.length === 1 ? 'grid-cols-1' :
+        streams.length === 2 ? 'grid-cols-2' :
+        streams.length <= 4 ? 'grid-cols-2' :
+        'grid-cols-3'
+      }`}>
+        {streams.map((streamUrl, index) => (
+          <div key={index} className="relative border border-gray-200 rounded-lg overflow-hidden bg-black">
+            <button
+              onClick={() => removeStream(index)}
+              className="absolute top-2 right-2 z-10 bg-red-600 text-white w-6 h-6 rounded-full text-xs hover:bg-red-700 transition-colors"
+            >
+              ×
+            </button>
+            <div className="aspect-video">
+              <video
+                controls
+                className="w-full h-full object-cover"
+                src={streamUrl}
+                muted
+                autoPlay
+              >
+                Your browser does not support the video tag.
+              </video>
+            </div>
+            <div className="p-2 bg-gray-800 text-white text-xs truncate">
+              {streamUrl}
             </div>
           </div>
         ))}
@@ -693,122 +483,305 @@ function InboxStream() {
   );
 }
 
-// ===== Owner Lookup =====
-function OwnerLookup() {
-  const [address, setAddress] = useState('');
-  const [result, setResult] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
-
-  const lookup = async () => {
-    if (!address) return;
-    setLoading(true);
+// ===== DSP Directory Component =====
+function DSPDirectory() {
+  const [dsps, setDsps] = useState(() => {
     try {
-      const response = await fetch(`/api/owner?address=${encodeURIComponent(address)}`);
-      if (response.ok) {
-        const data = await response.json();
-        setResult(data);
-      }
-    } catch (error) {
-      console.error('Owner lookup error:', error);
+      return JSON.parse(localStorage.getItem('dspDirectory') || '[]');
+    } catch {
+      return [];
     }
-    setLoading(false);
+  });
+  const [newDsp, setNewDsp] = useState({ name: '', contact: '', location: '', rate: '', specialties: '' });
+
+  useEffect(() => {
+    localStorage.setItem('dspDirectory', JSON.stringify(dsps));
+  }, [dsps]);
+
+  const addDsp = () => {
+    if (newDsp.name && newDsp.contact) {
+      setDsps([...dsps, { ...newDsp, id: Date.now() }]);
+      setNewDsp({ name: '', contact: '', location: '', rate: '', specialties: '' });
+    }
+  };
+
+  const removeDsp = (id: number) => {
+    setDsps(dsps.filter((dsp: any) => dsp.id !== id));
   };
 
   return (
     <div className="space-y-4">
-      <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
-        <div className="p-4 space-y-3">
-          <h3 className="font-semibold">Property Owner Lookup</h3>
-          <div className="flex gap-2">
-            <input 
-              value={address} 
-              onChange={(e) => setAddress(e.target.value)} 
-              placeholder="Enter property address..." 
-              className="flex-1 border border-gray-300 rounded-md px-2 py-1"
-            />
-            <button 
-              onClick={lookup} 
-              disabled={loading}
-              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 font-medium transition-colors disabled:opacity-50"
-            >
-              {loading ? 'Looking up...' : 'Lookup'}
-            </button>
-          </div>
+      <div className="bg-white border border-gray-200 rounded-lg p-4">
+        <h3 className="text-lg font-semibold mb-4">Add New DSP</h3>
+        <div className="grid md:grid-cols-2 gap-3">
+          <input
+            type="text"
+            placeholder="DSP Name"
+            value={newDsp.name}
+            onChange={(e) => setNewDsp({ ...newDsp, name: e.target.value })}
+            className="border border-gray-300 rounded-md px-3 py-2"
+          />
+          <input
+            type="text"
+            placeholder="Contact Info"
+            value={newDsp.contact}
+            onChange={(e) => setNewDsp({ ...newDsp, contact: e.target.value })}
+            className="border border-gray-300 rounded-md px-3 py-2"
+          />
+          <input
+            type="text"
+            placeholder="Location/Service Area"
+            value={newDsp.location}
+            onChange={(e) => setNewDsp({ ...newDsp, location: e.target.value })}
+            className="border border-gray-300 rounded-md px-3 py-2"
+          />
+          <input
+            type="text"
+            placeholder="Rate ($/hour)"
+            value={newDsp.rate}
+            onChange={(e) => setNewDsp({ ...newDsp, rate: e.target.value })}
+            className="border border-gray-300 rounded-md px-3 py-2"
+          />
+          <input
+            type="text"
+            placeholder="Specialties"
+            value={newDsp.specialties}
+            onChange={(e) => setNewDsp({ ...newDsp, specialties: e.target.value })}
+            className="border border-gray-300 rounded-md px-3 py-2 md:col-span-2"
+          />
         </div>
+        <button
+          onClick={addDsp}
+          className="mt-3 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 font-medium transition-colors"
+        >
+          Add DSP
+        </button>
       </div>
 
-      {result && (
-        <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
-          <div className="p-4 space-y-3">
-            <h4 className="font-medium">Owner Information</h4>
-            {result.owner ? (
-              <div className="space-y-2">
-                <div><strong>Name:</strong> {result.owner.name}</div>
-                {result.owner.phone && (
-                  <div className="flex gap-2">
-                    <strong>Phone:</strong> {result.owner.phone}
-                    <a href={`tel:${result.owner.phone}`}>
-                      <button className="border border-gray-300 text-gray-700 px-2 py-1 rounded-md hover:bg-gray-50 font-medium transition-colors text-sm">
-                        Call
-                      </button>
-                    </a>
-                    <a href={`sms:${result.owner.phone}`}>
-                      <button className="border border-gray-300 text-gray-700 px-2 py-1 rounded-md hover:bg-gray-50 font-medium transition-colors text-sm">
-                        Text
-                      </button>
-                    </a>
-                  </div>
-                )}
-                {result.owner.email && (
-                  <div className="flex gap-2">
-                    <strong>Email:</strong> {result.owner.email}
-                    <a href={`mailto:${result.owner.email}`}>
-                      <button className="border border-gray-300 text-gray-700 px-2 py-1 rounded-md hover:bg-gray-50 font-medium transition-colors text-sm">
-                        Email
-                      </button>
-                    </a>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div>No owner information found</div>
-            )}
+      <div className="grid md:grid-cols-2 gap-4">
+        {dsps.map((dsp: any) => (
+          <div key={dsp.id} className="bg-white border border-gray-200 rounded-lg p-4">
+            <div className="flex justify-between items-start mb-2">
+              <h4 className="font-semibold">{dsp.name}</h4>
+              <button
+                onClick={() => removeDsp(dsp.id)}
+                className="text-red-600 hover:text-red-800 text-sm"
+              >
+                Remove
+              </button>
+            </div>
+            <div className="space-y-1 text-sm text-gray-600">
+              <div><strong>Contact:</strong> {dsp.contact}</div>
+              {dsp.location && <div><strong>Location:</strong> {dsp.location}</div>}
+              {dsp.rate && <div><strong>Rate:</strong> ${dsp.rate}/hour</div>}
+              {dsp.specialties && <div><strong>Specialties:</strong> {dsp.specialties}</div>}
+            </div>
+            <div className="mt-3 flex gap-2">
+              <button
+                onClick={() => window.open(`tel:${dsp.contact.replace(/[^0-9+]/g, '')}`, '_self')}
+                className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700 transition-colors"
+              >
+                Call
+              </button>
+              <button
+                onClick={() => window.open(`sms:${dsp.contact.replace(/[^0-9+]/g, '')}`, '_self')}
+                className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700 transition-colors"
+              >
+                Text
+              </button>
+            </div>
           </div>
+        ))}
+      </div>
+
+      {dsps.length === 0 && (
+        <div className="text-center py-8 text-gray-500">
+          No DSPs added yet. Add drone service providers to build your network.
         </div>
       )}
     </div>
   );
 }
 
-// ===== Main Component =====
-export default function StormOpsProHub() {
-  const [radarOn, setRadarOn] = useState(true);
-  const [alertsOn, setAlertsOn] = useState(true);
-  const [activeTab, setActiveTab] = useState("map");
-  
-  // Role state management
-  const [role, setRole] = useState(localStorage.getItem('role') || 'ops');
-  useEffect(()=>{ function onRole(){ setRole(localStorage.getItem('role')||'ops'); }
-    window.addEventListener('roleChanged', onRole);
-    return ()=>window.removeEventListener('roleChanged', onRole);
-  }, []);
+// ===== Owner Lookup Component =====
+function OwnerLookup() {
+  const [address, setAddress] = useState('');
+  const [results, setResults] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
 
-  const ROLE_TABS = {
-    ops:   ['map','inbox','multiview','votix','flyt','deploy','dji','dsps','owner','customers','reports','legal','contractor'],
-    field: ['map','inbox','multiview','owner','customers'],
-    admin: ['map','inbox','multiview','votix','flyt','deploy','dji','dsps','owner','customers','reports','legal','contractor'],
+  const lookup = async () => {
+    if (!address.trim()) return;
+    
+    setLoading(true);
+    try {
+      const response = await fetch('/api/owner-lookup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address })
+      });
+      const data = await response.json();
+      setResults(data);
+    } catch (error) {
+      console.error('Lookup failed:', error);
+      setResults({ error: 'Lookup failed. Please try again.' });
+    } finally {
+      setLoading(false);
+    }
   };
-  function allow(t: string){ return (ROLE_TABS[role as keyof typeof ROLE_TABS]||[]).includes(t); }
 
   return (
-    <div className="min-h-screen w-full bg-gradient-to-b from-slate-50 to-slate-100 p-6">
-      <div className="mx-auto max-w-7xl space-y-6">
-        <header className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">Storm Operations Hub</h1>
-            <p className="text-muted-foreground">Pick a platform, watch live, tag damage, route crews, contact owners, build claims.</p>
+    <div className="space-y-4">
+      <div className="bg-white border border-gray-200 rounded-lg p-4">
+        <h3 className="text-lg font-semibold mb-4">Property Owner Lookup</h3>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            placeholder="Enter property address..."
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+            className="flex-1 border border-gray-300 rounded-md px-3 py-2"
+            onKeyPress={(e) => e.key === 'Enter' && lookup()}
+          />
+          <button
+            onClick={lookup}
+            disabled={loading || !address.trim()}
+            className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 font-medium transition-colors disabled:opacity-50"
+          >
+            {loading ? 'Searching...' : 'Lookup'}
+          </button>
+        </div>
+      </div>
+
+      {results && (
+        <div className="bg-white border border-gray-200 rounded-lg p-4">
+          <h4 className="font-semibold mb-3">Lookup Results</h4>
+          {results.error ? (
+            <div className="text-red-600">{results.error}</div>
+          ) : (
+            <div className="space-y-2">
+              {results.owner && (
+                <div><strong>Owner:</strong> {results.owner}</div>
+              )}
+              {results.phone && (
+                <div><strong>Phone:</strong> {results.phone}</div>
+              )}
+              {results.email && (
+                <div><strong>Email:</strong> {results.email}</div>
+              )}
+              {results.mailingAddress && (
+                <div><strong>Mailing Address:</strong> {results.mailingAddress}</div>
+              )}
+              {results.propertyValue && (
+                <div><strong>Property Value:</strong> ${results.propertyValue.toLocaleString()}</div>
+              )}
+              {results.yearBuilt && (
+                <div><strong>Year Built:</strong> {results.yearBuilt}</div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function StormOpsProHub() {
+  const [activeTab, setActiveTab] = useState("map");
+  const [userRole, setUserRole] = useState<UserRole>(() => 
+    (localStorage.getItem('userRole') as UserRole) || 'field'
+  );
+  const [radarEnabled, setRadarEnabled] = useState(false);
+  const [alertsEnabled, setAlertsEnabled] = useState(false);
+  const [inboxItems, setInboxItems] = useState<any[]>([]);
+  const [filters, setFilters] = useState({ search: '', tags: [] });
+
+  // Permission checker
+  const allow = (tab: string): boolean => ROLE_TABS[userRole].includes(tab);
+
+  // Role change handler  
+  const changeRole = (newRole: UserRole) => {
+    setUserRole(newRole);
+    localStorage.setItem('userRole', newRole);
+    // Switch to allowed tab if current tab is not accessible
+    if (!ROLE_TABS[newRole].includes(activeTab)) {
+      setActiveTab('map');
+    }
+  };
+
+  // Load inbox items on mount
+  useEffect(() => {
+    fetch('/api/inbox')
+      .then(res => res.json())
+      .then(data => setInboxItems(data || []))
+      .catch(console.error);
+
+    // Listen for real-time updates
+    const eventSource = new EventSource('/api/stream');
+    eventSource.onmessage = (event) => {
+      try {
+        const newItem = JSON.parse(event.data);
+        setInboxItems(prev => [newItem, ...prev]);
+      } catch (error) {
+        console.error('Failed to parse SSE data:', error);
+      }
+    };
+
+    return () => eventSource.close();
+  }, []);
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <div className="bg-white border-b border-gray-200 shadow-sm">
+        <div className="max-w-full mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <h1 className="text-2xl font-bold text-gray-900">Storm Operations Pro Hub</h1>
+              <div className="flex items-center space-x-2">
+                <span className="text-sm text-gray-600">Role:</span>
+                <select 
+                  value={userRole} 
+                  onChange={(e) => changeRole(e.target.value as UserRole)}
+                  className="border border-gray-300 rounded-md px-2 py-1 text-sm"
+                >
+                  <option value="field">Field</option>
+                  <option value="ops">Ops</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+            </div>
+            
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2">
+                <label className="text-sm flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={radarEnabled}
+                    onChange={(e) => setRadarEnabled(e.target.checked)}
+                  />
+                  Radar
+                </label>
+                <label className="text-sm flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={alertsEnabled}
+                    onChange={(e) => setAlertsEnabled(e.target.checked)}
+                  />
+                  Alerts
+                </label>
+              </div>
+              <div className="text-sm text-gray-600">
+                🌪️ Live Storm Ops • {new Date().toLocaleTimeString()}
+              </div>
+            </div>
           </div>
-          <RoleSelector value={role} onChange={setRole} />
+        </div>
+      </div>
+
+      <div className="max-w-full mx-auto p-4">
+        <header className="mb-6">
+          <p className="text-gray-600 text-sm">
+            Comprehensive storm operations platform with real-time weather monitoring, drone coordination, and incident management.
+          </p>
         </header>
 
         <div className="w-full">
@@ -844,32 +817,18 @@ export default function StormOpsProHub() {
             </nav>
           </div>
 
-          <div className="bg-white rounded-b-lg border-x border-b border-gray-200">
+          <div className="bg-white border-l border-r border-b border-gray-200 rounded-b-lg min-h-[600px]">
             {/* Storm Map Tab */}
             {activeTab === "map" && (
               <div className="p-4">
-                <QuickMap radarOn={radarOn} alertsOn={alertsOn} />
-                <div className="flex gap-2 justify-end mt-2">
-                  <button 
-                    className="border border-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-50 font-medium transition-colors"
-                    onClick={() => setRadarOn(!radarOn)}
-                  >
-                    {radarOn ? "🚫 Disable Radar" : "📡 Enable Radar"}
-                  </button>
-                  <button 
-                    className="border border-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-50 font-medium transition-colors"
-                    onClick={() => setAlertsOn(!alertsOn)}
-                  >
-                    {alertsOn ? "🚫 Disable Alerts" : "⚠️ Enable Alerts"}
-                  </button>
-                </div>
+                <QuickMap radarOn={radarEnabled} alertsOn={alertsEnabled} />
               </div>
             )}
 
             {/* Inbox Tab */}
             {activeTab === "inbox" && (
               <div className="p-4">
-                <InboxStream />
+                <InboxTabs items={inboxItems} filters={filters} setFilters={setFilters} />
               </div>
             )}
 
@@ -945,56 +904,249 @@ export default function StormOpsProHub() {
             {/* CRM Tab */}
             {activeTab === "customers" && (
               <div className="p-4">
-                <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
-                  <div className="p-4">
-                    <h3 className="text-lg font-semibold mb-4">Customer Relationship Management</h3>
-                    <p className="text-gray-600">Manage customer relationships, track interactions, and build your claims pipeline.</p>
-                    <div className="mt-4 text-sm text-gray-500">🚧 CRM features coming soon</div>
-                  </div>
-                </div>
+                <CustomersCRM />
               </div>
             )}
 
             {/* Reports Tab */}
             {activeTab === "reports" && (
               <div className="p-4">
-                <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
-                  <div className="p-4">
-                    <h3 className="text-lg font-semibold mb-4">Photo Reports & AI Analysis</h3>
-                    <p className="text-gray-600">Generate professional reports with AI-powered damage analysis and PDF export.</p>
-                    <div className="mt-4 text-sm text-gray-500">🚧 Reporting features coming soon</div>
-                  </div>
-                </div>
+                <ReportBuilder />
               </div>
             )}
 
             {/* Legal Tab */}
             {activeTab === "legal" && (
               <div className="p-4">
-                <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
-                  <div className="p-4">
-                    <h3 className="text-lg font-semibold mb-4">Liens & Legal Compliance</h3>
-                    <p className="text-gray-600">Track lien deadlines, manage legal requirements, and ensure compliance across all jurisdictions.</p>
-                    <div className="mt-4 text-sm text-gray-500">🚧 Legal features coming soon</div>
-                  </div>
-                </div>
+                <LiensLegal />
               </div>
             )}
 
             {/* Contractor Tab */}
             {activeTab === "contractor" && (
               <div className="p-4">
-                <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
-                  <div className="p-4">
-                    <h3 className="text-lg font-semibold mb-4">Contractor Portal</h3>
-                    <p className="text-gray-600">Strategic Land Management portal with SBA/FEMA links, contract management, and insurance verification.</p>
-                    <div className="mt-4 text-sm text-gray-500">🚧 Contractor features coming soon</div>
-                  </div>
-                </div>
+                <ContractorPortal />
               </div>
             )}
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ===== BUSINESS COMPONENTS =====
+
+// --- Customers CRM (pipeline, comms log, docs) ---
+function useCustomers(){
+  const [list, setList] = useState(()=>{ try{ return JSON.parse(localStorage.getItem('customers')||'[]'); }catch{ return []; } });
+  useEffect(()=>{ localStorage.setItem('customers', JSON.stringify(list)); }, [list]);
+  function add(c: any){ setList((prev: any)=>[ { id: String(Date.now()), status:'new', timeline:[], docs:[], messages:[], ...c }, ...prev ]); }
+  function update(id: string, patch: any){ setList((prev: any)=> prev.map((c: any)=> c.id===id ? { ...c, ...patch } : c)); }
+  function pushMsg(id: string, msg: any){ setList((prev: any)=> prev.map((c: any)=> c.id===id ? { ...c, messages:[...c.messages, { ts: Date.now(), ...msg }] } : c)); }
+  function pushDoc(id: string, doc: any){ setList((prev: any)=> prev.map((c: any)=> c.id===id ? { ...c, docs:[...c.docs, doc] } : c)); }
+  function pushEvent(id: string, evt: any){ setList((prev: any)=> prev.map((c: any)=> c.id===id ? { ...c, timeline:[...c.timeline, { ts: Date.now(), ...evt }] } : c)); }
+  return { list, add, update, pushMsg, pushDoc, pushEvent };
+}
+const PIPELINE = ['new','contacted','contract_signed','scheduled','in_progress','completed','claim_submitted','awaiting_payment','paid'];
+function CustomersCRM(){
+  const { list, add, update, pushMsg, pushDoc, pushEvent } = useCustomers();
+  const [form, setForm] = useState({ name:'', address:'', phone:'', email:'', claimNumber:'', insurer:'' });
+  function create(){ if(!form.name && !form.address) return; add(form); setForm({ name:'', address:'', phone:'', email:'', claimNumber:'', insurer:'' }); }
+  return (
+    <div className="space-y-4">
+      <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+        <div className="p-4 space-y-2">
+          <div className="text-lg font-semibold">Customer Intake</div>
+          <div className="grid md:grid-cols-3 gap-2">
+            <input value={form.name} onChange={(e)=>setForm({...form,name:e.target.value})} placeholder="Owner name" className="border border-gray-300 rounded-md px-2 py-1" />
+            <input value={form.address} onChange={(e)=>setForm({...form,address:e.target.value})} placeholder="Service address" className="border border-gray-300 rounded-md px-2 py-1" />
+            <input value={form.phone} onChange={(e)=>setForm({...form,phone:e.target.value})} placeholder="Phone" className="border border-gray-300 rounded-md px-2 py-1" />
+            <input value={form.email} onChange={(e)=>setForm({...form,email:e.target.value})} placeholder="Email" className="border border-gray-300 rounded-md px-2 py-1" />
+            <input value={form.insurer} onChange={(e)=>setForm({...form,insurer:e.target.value})} placeholder="Insurance company" className="border border-gray-300 rounded-md px-2 py-1" />
+            <input value={form.claimNumber} onChange={(e)=>setForm({...form,claimNumber:e.target.value})} placeholder="Claim #" className="border border-gray-300 rounded-md px-2 py-1" />
+          </div>
+          <div className="flex gap-2"><button onClick={create} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 font-medium transition-colors">Create Customer</button></div>
+          <div className="text-xs text-gray-500">Everything is logged—calls, texts, emails, docs, photos, reports.</div>
+        </div>
+      </div>
+
+      <div className="grid md:grid-cols-2 gap-4">
+        {list.map((c: any) => <CustomerCard key={c.id} c={c} update={update} pushMsg={pushMsg} pushDoc={pushDoc} pushEvent={pushEvent} />)}
+      </div>
+    </div>
+  );
+}
+function CustomerCard({ c, update, pushMsg, pushDoc, pushEvent }: any){
+  const [note, setNote] = useState(''); const [msg, setMsg] = useState('');
+  async function sendSMS(){ await fetch('/api/sms',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ to:c.phone, body: msg })}); pushMsg(c.id,{ dir:'out', type:'sms', to:c.phone, body:msg }); setMsg(''); }
+  async function sendEmail(){ await fetch('/api/email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ to:c.email, subject:`Storm work update for ${c.address}`, html: msg })}); pushMsg(c.id,{ dir:'out', type:'email', to:c.email, body:msg }); setMsg(''); }
+  function changeStatus(s: string){ update(c.id,{ status:s }); pushEvent(c.id,{ type:'status', to:s }); }
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+      <div className="p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-lg font-semibold">{c.name||'Unknown Owner'}</div>
+            <div className="text-sm text-gray-500">{c.address}</div>
+            <div className="text-xs">{c.insurer || 'Insurer N/A'} • Claim #{c.claimNumber||'—'}</div>
+          </div>
+          <select className="border rounded-md px-2 py-1" value={c.status} onChange={(e)=>changeStatus(e.target.value)}>
+            {PIPELINE.map(p => <option key={p} value={p}>{p.replaceAll('_',' ')}</option>)}
+          </select>
+        </div>
+
+        <div className="grid md:grid-cols-3 gap-3">
+          <div className="space-y-2">
+            <div className="font-medium">Communications</div>
+            <input value={msg} onChange={(e)=>setMsg(e.target.value)} placeholder="Write SMS/Email..." className="border border-gray-300 rounded-md px-2 py-1 w-full" />
+            <div className="flex gap-2">
+              {c.phone && <button onClick={sendSMS} className="bg-blue-600 text-white px-3 py-1 rounded-md text-sm hover:bg-blue-700">Send SMS</button>}
+              {c.email && <button onClick={sendEmail} className="border border-gray-300 text-gray-700 px-3 py-1 rounded-md text-sm hover:bg-gray-50">Send Email</button>}
+              {c.phone && <a href={`tel:${c.phone.replace(/[^0-9+]/g,'')}`}><button className="border border-gray-300 text-gray-700 px-3 py-1 rounded-md text-sm hover:bg-gray-50">Call</button></a>}
+            </div>
+            <div className="space-y-1 max-h-40 overflow-auto text-xs">
+              {c.messages?.map((m: any,i: number)=>(<div key={i}>[{new Date(m.ts).toLocaleString()}] {m.type?.toUpperCase()} → {m.to}: {m.body}</div>))}
+            </div>
+          </div>
+          <div className="space-y-2">
+            <div className="font-medium">Docs & Media</div>
+            <input type="file" multiple onChange={(e)=>{
+              const files = Array.from(e.target.files||[]);
+              files.forEach((f: any)=> pushDoc(c.id,{ name:f.name, size:f.size }));
+            }} className="text-sm" />
+            <div className="text-xs text-gray-500">Contracts, proof of insurance, photos/videos. (Hook to /api/upload for persistence.)</div>
+            <div className="space-y-1 max-h-40 overflow-auto text-xs">
+              {c.docs?.map((d: any,i: number)=>(<div key={i}>📄 {d.name} ({Math.round((d.size||0)/1024)} KB)</div>))}
+            </div>
+          </div>
+          <div className="space-y-2">
+            <div className="font-medium">Notes / Timeline</div>
+            <input value={note} onChange={(e)=>setNote(e.target.value)} placeholder="Add an internal note" className="border border-gray-300 rounded-md px-2 py-1 w-full" />
+            <button onClick={()=>{ pushEvent(c.id,{ type:'note', text:note }); setNote(''); }} className="border border-gray-300 text-gray-700 px-3 py-1 rounded-md text-sm hover:bg-gray-50">Add Note</button>
+            <div className="space-y-1 max-h-40 overflow-auto text-xs">
+              {c.timeline?.map((t: any,i: number)=>(<div key={i}>[{new Date(t.ts).toLocaleString()}] {t.type} {t.text||t.to||''}</div>))}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <button onClick={()=>changeStatus('contract_signed')} className="border border-gray-300 text-gray-700 px-3 py-1 rounded-md text-sm hover:bg-gray-50">Mark Contracted</button>
+          <button onClick={()=>changeStatus('claim_submitted')} className="border border-gray-300 text-gray-700 px-3 py-1 rounded-md text-sm hover:bg-gray-50">Mark Claim Submitted</button>
+          <button onClick={()=>changeStatus('paid')} className="border border-gray-300 text-gray-700 px-3 py-1 rounded-md text-sm hover:bg-gray-50">Mark Paid</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// --- Photo Reports (auto captions placeholder + PDF) ---
+function ReportBuilder(){
+  const [items, setItems] = useState<any[]>([]); // {file, caption}
+  const [pdfName, setPdfName] = useState('storm-report.pdf');
+  function onFiles(e: any){ const fs = Array.from(e.target.files||[]); setItems((prev: any)=>[...prev, ...fs.map((f: any)=>({ file:f, caption:'Auto: damage detected (placeholder)' }))]); }
+  async function autoDescribe(){ setItems((prev: any)=> prev.map((x: any)=> ({...x, caption: x.caption.includes('placeholder')? 'Tree on roof; broken ridge; tarp recommended' : x.caption }))); }
+  async function makePDF(){
+    try {
+      const mod = await import('jspdf'); const { jsPDF } = mod; const doc = new jsPDF();
+      for (let i=0;i<items.length;i++){
+        const it = items[i]; const dataUrl: any = await new Promise(res=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.readAsDataURL(it.file); });
+        if (i>0) doc.addPage();
+        doc.setFontSize(14); doc.text(`Photo ${i+1}`, 14, 18);
+        doc.addImage(dataUrl, 'JPEG', 14, 24, 180, 120);
+        doc.setFontSize(12); wrapText(doc, it.caption, 14, 150, 180, 6);
+      }
+      doc.save(pdfName);
+    } catch(e){ alert('Install jspdf: npm i jspdf'); }
+  }
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+      <div className="p-4 space-y-3">
+        <div className="text-lg font-semibold">Photo Reports</div>
+        <input type="file" accept="image/*" multiple onChange={onFiles} />
+        <div className="grid md:grid-cols-3 gap-3">
+          {items.map((it,idx)=> (
+            <div key={idx} className="space-y-1">
+              <img src={URL.createObjectURL(it.file)} className="w-full h-40 object-cover rounded" />
+              <input value={it.caption} onChange={(e)=>setItems(items.map((x,i)=> i===idx?{...x, caption:e.target.value}:x))} className="border border-gray-300 rounded-md px-2 py-1 w-full text-sm" />
+            </div>
+          ))}
+        </div>
+        <div className="grid md:grid-cols-3 gap-2 items-center">
+          <input value={pdfName} onChange={(e)=>setPdfName(e.target.value)} className="border border-gray-300 rounded-md px-2 py-1" />
+          <button onClick={autoDescribe} className="border border-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-50 font-medium transition-colors">AI Describe (placeholder)</button>
+          <button onClick={makePDF} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 font-medium transition-colors">Generate PDF</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+function wrapText(doc: any, text: string, x: number, y: number, maxWidth: number, lineHeight: number){
+  const words = text.split(' '); let line='';
+  for (let n=0;n<words.length;n++){ const test = line + words[n] + ' ';
+    if (doc.getTextWidth(test) > maxWidth){ doc.text(line.trim(), x, y); line = words[n] + ' '; y+=lineHeight; }
+    else line = test;
+  }
+  if (line) doc.text(line.trim(), x, y);
+}
+
+// --- Liens & Legal (reminders + links) ---
+function LiensLegal(){
+  const [claimDate, setClaimDate] = useState('');       // 30 / 60 day reminders
+  const [completeDate, setCompleteDate] = useState(''); // 45 day lien reminder
+  const [lienDate, setLienDate] = useState('');         // 10-month warning
+  function enableReminders(){
+    fetch('/api/reminders', { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ claimDate, completeDate, lienDate })});
+    alert('Reminders scheduled on server (demo).');
+  }
+  function openNew(url: string) { window.open(url, '_blank', 'noopener,noreferrer'); }
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+      <div className="p-4 space-y-3">
+        <div className="text-lg font-semibold">Liens & Legal Tools</div>
+        <div className="grid md:grid-cols-3 gap-2">
+          <div><div className="text-sm">Claim Submitted</div><input type="date" value={claimDate} onChange={(e)=>setClaimDate(e.target.value)} className="border border-gray-300 rounded-md px-2 py-1 w-full" /></div>
+          <div><div className="text-sm">Work Completed</div><input type="date" value={completeDate} onChange={(e)=>setCompleteDate(e.target.value)} className="border border-gray-300 rounded-md px-2 py-1 w-full" /></div>
+          <div><div className="text-sm">Lien Filed</div><input type="date" value={lienDate} onChange={(e)=>setLienDate(e.target.value)} className="border border-gray-300 rounded-md px-2 py-1 w-full" /></div>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={enableReminders} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 font-medium transition-colors">Enable Reminders</button>
+          <button onClick={()=>openNew('https://www.lienit.com/')} className="border border-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-50 font-medium transition-colors">Open LienIt</button>
+          <button onClick={()=>openNew('https://www.lienitnow.com/')} className="border border-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-50 font-medium transition-colors">Open LienItNow</button>
+        </div>
+        <div className="text-xs text-gray-500">State lien laws vary widely. Use this as a reminder system and consult state-specific counsel for deadlines and rights.</div>
+      </div>
+    </div>
+  );
+}
+
+// --- Contractor Portal (Strategic Land Management) ---
+function ContractorPortal(){
+  function openNew(url: string) { window.open(url, '_blank', 'noopener,noreferrer'); }
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+      <div className="p-4 space-y-3">
+        <div className="text-lg font-semibold">Strategic Land Management Portal</div>
+        <div className="grid md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <div className="font-medium">SBA & FEMA Resources</div>
+            <div className="space-y-2">
+              <button onClick={()=>openNew('https://www.sba.gov/funding-programs/disaster-assistance')} className="w-full border border-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-50 font-medium transition-colors text-left">SBA Disaster Assistance</button>
+              <button onClick={()=>openNew('https://www.fema.gov/assistance/public')} className="w-full border border-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-50 font-medium transition-colors text-left">FEMA Public Assistance</button>
+              <button onClick={()=>openNew('https://www.disasterassistance.gov/')} className="w-full border border-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-50 font-medium transition-colors text-left">DisasterAssistance.gov</button>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <div className="font-medium">Contract Management</div>
+            <div className="space-y-2">
+              <button className="w-full border border-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-50 font-medium transition-colors text-left">Insurance Verification Portal</button>
+              <button className="w-full border border-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-50 font-medium transition-colors text-left">Contract Templates</button>
+              <button className="w-full border border-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-50 font-medium transition-colors text-left">Billing & Invoicing</button>
+            </div>
+          </div>
+        </div>
+        <div className="text-xs text-gray-500">🚧 Full contractor portal features coming soon - SBA/FEMA integration, contract management, and insurance verification tools.</div>
       </div>
     </div>
   );
