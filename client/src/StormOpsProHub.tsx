@@ -1084,7 +1084,7 @@ function CustomerCard({ c, update, pushMsg, pushDoc, pushEvent }: any){
         <div className="flex flex-wrap gap-2">
           <button onClick={()=>changeStatus('contract_signed')} className="border border-gray-300 text-gray-700 px-3 py-1 rounded-md text-sm hover:bg-gray-50">Mark Contracted</button>
           <button onClick={()=>changeStatus('claim_submitted')} className="border border-gray-300 text-gray-700 px-3 py-1 rounded-md text-sm hover:bg-gray-50">Mark Claim Submitted</button>
-          <button onClick={requestPayment} className="bg-green-600 text-white px-3 py-1 rounded-md text-sm hover:bg-green-700">Request Payment</button>
+          <Button variant="outline" onClick={requestPayment}>Request Payment</Button>
           <button onClick={()=>changeStatus('paid')} className="border border-gray-300 text-gray-700 px-3 py-1 rounded-md text-sm hover:bg-gray-50">Mark Paid</button>
         </div>
       </div>
