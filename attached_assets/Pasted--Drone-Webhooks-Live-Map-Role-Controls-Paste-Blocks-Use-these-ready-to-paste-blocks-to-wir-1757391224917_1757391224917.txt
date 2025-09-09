@@ -1,0 +1,336 @@
+# Drone Webhooks + Live Map + Role Controls — Paste Blocks
+
+Use these ready-to-paste blocks to wire **incoming drone detections → Storm map** and add **role-based views (Ops / Field / Admin)**.
+
+---
+
+## 1) SERVER — add to `server.js` (after your other routes)
+
+> **Env (optional):**
+>
+> * `DRONE_WEBHOOK_SECRET` — if set, providers must send header `X-Drone-Secret: <value>`.
+>
+> **Dependencies:** `node-fetch` (already used in geocode file), `node-cron` already present. No new deps.
+
+```js
+// ==== Drone Webhooks + SSE Live Feed ====
+const fs = require('fs');
+const path = require('path');
+const fetch = require('node-fetch');
+
+const DATA_DIR = path.join(__dirname, 'data');
+if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR);
+const DRONE_PATH = path.join(DATA_DIR, 'drone_events.json');
+if (!fs.existsSync(DRONE_PATH)) fs.writeFileSync(DRONE_PATH, JSON.stringify({ events: [] }, null, 2));
+
+function readDrone(){ try{ return JSON.parse(fs.readFileSync(DRONE_PATH,'utf8')); }catch{ return { events:[] }; } }
+function writeDrone(d){ try{ fs.writeFileSync(DRONE_PATH, JSON.stringify(d,null,2)); }catch{} }
+
+// Normalizer: accepts payloads from VOTIX, FlytBase, DJI FlightHub2, DroneDeploy (or custom)
+function detectLabelsFromText(text=''){
+  const t = (text||'').toLowerCase();
+  const tags = new Set();
+  if (/tree[^a-z]?on[^a-z]?(roof|home|house|building|structure)/.test(t)) tags.add('tree_on_roof');
+  if (/line[^a-z]?(down|damaged)|power[^a-z]?line|utility[^a-z]?line|pole[^a-z]?down/.test(t)) tags.add('line_down');
+  if (/collapse|structur(al|e)\s?damage|wall\s?down|building\s?damage/.test(t)) tags.add('structure_damage');
+  if (/fence/.test(t)) tags.add('tree_on_fence');
+  if (/car|vehicle|truck/.test(t)) tags.add('tree_on_car');
+  if (/barn/.test(t)) tags.add('tree_on_barn');
+  if (/shed/.test(t)) tags.add('tree_on_shed');
+  if (/pool/.test(t)) tags.add('tree_in_pool');
+  if (/playground|play\s?set/.test(t)) tags.add('tree_on_playground');
+  return [...tags];
+}
+
+async function geocodeAddress(address){
+  try{
+    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`;
+    const r = await fetch(url, { headers: { 'User-Agent': 'StormOps/1.0 (contact: strategiclandmgmt@gmail.com)' } });
+    const arr = await r.json();
+    if (Array.isArray(arr) && arr.length){
+      return { lat: Number(arr[0].lat), lng: Number(arr[0].lon), address: address };
+    }
+  }catch{}
+  return null;
+}
+
+async function normalizeDroneEvent(body){
+  const now = Date.now();
+  const provider = body.provider || body.vendor || body.source || 'unknown';
+  const droneId = body.droneId || body.uav_id || body.aircraft || body.device_id || null;
+  const mission = body.mission || body.mission_id || body.job || body.project || null;
+  const ts = Number(body.ts || body.timestamp || body.time || now);
+  const img = body.image || body.image_url || body.snapshot || null;
+  const stream = body.stream || body.stream_url || body.hls || body.hls_url || body.rtmp || body.rtmp_url || null;
+  let lat = body.lat || body.latitude || body.location?.lat || body.position?.lat || null;
+  let lng = body.lng || body.lon || body.long || body.longitude || body.location?.lng || body.location?.lon || body.position?.lng || body.position?.lon || null;
+  let address = body.address || body.location?.address || body.addr || null;
+
+  // Tags: prefer explicit, else infer from labels/notes
+  let tags = Array.isArray(body.tags) ? body.tags : [];
+  if (!tags.length){
+    const labelText = [body.caption, body.note, body.notes, (body.labels||[]).join(' '), (body.objects||[]).join(' ')].filter(Boolean).join(' ');
+    tags = detectLabelsFromText(labelText);
+  }
+
+  // If we have address but no lat/lng → geocode; if we have lat/lng, keep.
+  if ((!lat || !lng) && address){
+    const geo = await geocodeAddress(address);
+    if (geo){ lat = geo.lat; lng = geo.lng; }
+  }
+
+  // Drop if no coordinates
+  if (!lat || !lng) return null;
+
+  return {
+    id: `drone:${now}:${Math.random().toString(36).slice(2,8)}`,
+    provider, droneId, mission,
+    lat: Number(lat), lng: Number(lng), address: address||null,
+    tags, image: img, stream,
+    ts
+  };
+}
+
+// --- SSE stream for live events ---
+const sseClients = new Set();
+app.get('/api/drone/events', (req,res)=>{
+  res.setHeader('Content-Type','text/event-stream');
+  res.setHeader('Cache-Control','no-cache');
+  res.setHeader('Connection','keep-alive');
+  res.flushHeaders();
+  res.write(`data: ${JSON.stringify({ type:'hello', ts:Date.now() })}\n\n`);
+  sseClients.add(res);
+  req.on('close', ()=>{ try{ sseClients.delete(res); }catch{} });
+});
+function sseBroadcast(evt){
+  const data = `data: ${JSON.stringify(evt)}\n\n`;
+  for (const res of sseClients){ try{ res.write(data); }catch{} }
+}
+
+// --- Webhook receiver ---
+app.post('/api/drone/webhook', express.json({ limit:'5mb' }), async (req,res)=>{
+  try{
+    const secret = process.env.DRONE_WEBHOOK_SECRET;
+    if (secret && req.headers['x-drone-secret'] !== secret) return res.status(401).json({ error:'unauthorized' });
+    const evt = await normalizeDroneEvent(req.body||{});
+    if (!evt) return res.status(400).json({ error:'invalid_payload' });
+    const db = readDrone();
+    db.events.push(evt); writeDrone(db);
+    sseBroadcast({ type:'drone_event', event: evt });
+    res.json({ ok:true });
+  }catch(e){ res.status(500).json({ error:'webhook_failed', detail:String(e) }); }
+});
+
+// Convenience: list recent events
+app.get('/api/drone/recent', (req,res)=>{ const db = readDrone(); res.json(db.events.slice(-100).reverse()); });
+```
+
+**Provider setup (examples):**
+
+* Point your provider’s webhook to: `POST https://<your-app>/api/drone/webhook`
+* Add header if you set a secret: `X-Drone-Secret: <value>`
+* Payload fields accepted (any): `lat/lng`, `address`, `image_url`, `stream_url` (or `hls`, `rtmp`), `tags`, `labels`, `notes`, `droneId`, `mission`, `timestamp`.
+
+**Quick test:**
+
+```bash
+curl -X POST http://localhost:3000/api/drone/webhook \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "provider":"demo","droneId":"N12345","mission":"Hurricane-Rollup",
+    "lat":27.9475, "lng":-82.4584,
+    "labels":["tree on roof","line down"],
+    "image_url":"https://via.placeholder.com/640x360.png?text=Damage",
+    "stream_url":"https://example.com/live.m3u8",
+    "timestamp": 1736180000000
+  }'
+```
+
+---
+
+## 2) FRONTEND — Role controls + Live map (replace/add in your React code)
+
+### 2a) Role Provider + Role Bar (add once)
+
+```jsx
+// RoleContext.js (or at top of your main blocks file)
+const RoleContext = React.createContext({ role:'ops', setRole: ()=>{} });
+export function RoleProvider({ children }){
+  const [role, setRole] = React.useState(localStorage.getItem('storm_role')||'ops');
+  React.useEffect(()=> localStorage.setItem('storm_role', role), [role]);
+  return <RoleContext.Provider value={{role,setRole}}>{children}</RoleContext.Provider>;
+}
+export function useRole(){ return React.useContext(RoleContext); }
+
+export function RoleBar(){
+  const { role, setRole } = useRole();
+  const BTN = (code, label)=> (
+    <button onClick={()=>setRole(code)}
+      className={`px-3 py-1 rounded-full text-xs border ${role===code? 'bg-black text-white':'bg-white'}`}>{label}</button>
+  );
+  return (
+    <div className="flex gap-2 items-center p-2 border rounded-md bg-white">
+      <span className="text-xs">Role:</span>
+      {BTN('ops','Ops')}
+      {BTN('field','Field')}
+      {BTN('admin','Admin')}
+    </div>
+  );
+}
+```
+
+Place `<RoleBar />` somewhere visible (e.g., top of your dashboard) and wrap your app with `<RoleProvider>`.
+
+### 2b) Live Storm Map (replace your `StormMap` with this version)
+
+```jsx
+function StormMap({ customers=[] }){
+  const { role } = useRole();
+  const [markers, setMarkers] = React.useState([]); // from customers
+  const [live, setLive] = React.useState([]);       // from SSE
+  const [center, setCenter] = React.useState([27.6648, -81.5158]); // FL
+  const [zoom, setZoom] = React.useState(6);
+  const [filters, setFilters] = React.useState({
+    tree_on_roof:true, line_down:true, structure_damage:true, tree_on_fence:true,
+    tree_on_car:true, tree_on_barn:true, tree_on_shed:true, tree_in_pool:true, tree_on_playground:true,
+    live:true
+  });
+
+  React.useEffect(()=>{
+    // Geocode customers to markers (server-side endpoint already exists)
+    (async ()=>{
+      const mk = [];
+      for (const c of (customers||[])){
+        if (!c.address) continue;
+        try{
+          const r = await fetch(`/api/geocode?address=${encodeURIComponent(c.address)}`).then(r=>r.json());
+          if (r?.lat && r?.lng){
+            const tags = (c.docs||[]).flatMap(d=> (d.caption||'').split(/\s|,/) ).filter(Boolean);
+            mk.push({ id:c.id, lat:r.lat, lng:r.lng, name:c.name, address:c.address, tags });
+          }
+        }catch{}
+      }
+      setMarkers(mk);
+    })();
+  }, [JSON.stringify(customers)]);
+
+  React.useEffect(()=>{
+    // SSE live feed
+    const es = new EventSource('/api/drone/events');
+    es.onmessage = (ev)=>{
+      try{
+        const data = JSON.parse(ev.data);
+        if (data?.type==='drone_event' && data.event){ setLive(prev=> [...prev.slice(-499), data.event]); }
+      }catch{}
+    };
+    return ()=> es.close();
+  },[]);
+
+  const active = (tags=[])=> tags.some(t=> filters[t]) || (tags.length===0 && filters.live);
+
+  return (
+    <div className="border rounded-lg overflow-hidden">
+      <div className="p-2 flex flex-wrap gap-2 items-center">
+        {Object.keys(filters).filter(k=>k!=='live').map(k=> (
+          <label key={k} className={`text-xs px-2 py-1 rounded-full border cursor-pointer ${filters[k]?'bg-emerald-600 text-white border-emerald-700':'bg-white'}`}>
+            <input type="checkbox" checked={!!filters[k]} onChange={()=>setFilters(f=>({ ...f, [k]: !f[k] }))} className="mr-1"/>{k.replaceAll('_',' ')}
+          </label>
+        ))}
+        <label className={`text-xs px-2 py-1 rounded-full border cursor-pointer ${filters.live?'bg-purple-600 text-white border-purple-700':'bg-white'}`}>
+          <input type="checkbox" checked={!!filters.live} onChange={()=>setFilters(f=>({ ...f, live: !f.live }))} className="mr-1"/>live
+        </label>
+        <div className="ml-auto"><span className="text-xs opacity-70">Role: {role}</span></div>
+      </div>
+      <div style={{height: 420}}>
+        <LeafletLive center={center} zoom={zoom}
+          markers={[...markers.filter(m=>active(m.tags)).map(m=>({ ...m, kind:'case' })),
+                   ...live.filter(e=>active(e.tags)).map(e=>({ id:e.id, lat:e.lat, lng:e.lng, name:e.provider||'drone', address:e.address, tags:e.tags, kind:'live', stream:e.stream, image:e.image }))]} />
+      </div>
+    </div>
+  );
+}
+
+function LeafletLive({ center, zoom, markers }){
+  const L = window.L;
+  const [ready, setReady] = React.useState(!!(window.L));
+  React.useEffect(()=>{
+    if (!window.L){ const s = document.createElement('script'); s.src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'; s.onload=()=>setReady(true); document.body.appendChild(s); }
+  },[]);
+  React.useEffect(()=>{
+    if (!ready) return;
+    let map = LeafletLive.__map;
+    if (!map){
+      map = LeafletLive.__map = L.map('storm-map-root').setView(center, zoom);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{ maxZoom:19, attribution:'&copy; OpenStreetMap' }).addTo(map);
+    } else { map.setView(center, zoom); }
+
+    // clear & add
+    if (LeafletLive.__layer){ LeafletLive.__layer.remove(); }
+    const layer = L.layerGroup();
+    markers.forEach(m=>{
+      const isLive = m.kind==='live';
+      const mk = isLive
+        ? L.circleMarker([m.lat, m.lng], { radius:8, color:'#7c3aed', fillColor:'#7c3aed', fillOpacity:0.8 })
+        : L.circleMarker([m.lat, m.lng], { radius:6, color:'#10b981', fillColor:'#10b981', fillOpacity:0.8 });
+      const media = m.image ? `<br/><img src="${m.image}" style="max-width:220px;max-height:120px;display:block;margin-top:4px;"/>` : '';
+      const stream = m.stream ? `<br/><a href="${m.stream}" target="_blank">Open stream</a>` : '';
+      mk.bindPopup(`<b>${m.name||''}</b><br/>${m.address||''}<br/>Tags: ${(m.tags||[]).join(', ')}${media}${stream}`);
+      mk.addTo(layer);
+    });
+    layer.addTo(map);
+    LeafletLive.__layer = layer;
+  }, [ready, JSON.stringify(center), zoom, JSON.stringify(markers)]);
+
+  return <div id="storm-map-root" style={{width:'100%',height:'100%'}} />;
+}
+```
+
+### 2c) Role gates inside your CustomerCard (minimal changes)
+
+Add near the top of `CustomerCard`:
+
+```jsx
+const { role } = useRole();
+```
+
+Wrap sections:
+
+```jsx
+{/* Actions row */}
+{role!=='ops' && <Button onClick={sendForESign}>Send for E‑Sign</Button>}
+{role==='admin' && <Button onClick={requestPayment}>Request Payment</Button>}
+{role==='admin' && <Button onClick={submitClaimPackage}>Submit Claim Package</Button>}
+
+{/* Invoice editor */}
+{role==='admin' && (
+  <div className="mt-3 border rounded-md p-3"> ...existing invoice UI... </div>
+)}
+```
+
+---
+
+## 3) How providers should send events
+
+Send to your webhook with **lat/lng** (preferred) or an **address** to geocode; include **tags** or **labels/notes** we can infer.
+
+**VOTIX**: configure a webhook action → POST JSON with `{ lat, lng, image_url, stream_url }`.
+
+**FlytBase**: use Cloud Actions → webhook with `{ mission_id, vehicle_id, lat, lng, hls }`.
+
+**DJI FlightHub 2 / Dock**: use custom integration/webhook with `{ aircraft, project, latitude, longitude, snapshot }`.
+
+**DroneDeploy**: use Field Report/Integration webhook with `{ project, latitude, longitude, photoUrl }`.
+
+All can include `labels` like `tree on roof`, `line down`, etc. (We auto-tag if missing.)
+
+---
+
+## 4) Drop-in wiring checklist
+
+1. Paste the **server block** into `server.js`.
+2. Add **RoleProvider** + **RoleBar** to your app shell and swap your map to the **new StormMap**.
+3. (Optional) Set `DRONE_WEBHOOK_SECRET` and configure provider webhooks.
+4. Test with the cURL example; watch pins appear instantly under the **live** filter.
+
+```
+```
