@@ -490,91 +490,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // DSP Footage ingest webhook endpoint
+  // simple in-memory store; swap for a DB later
+  const inbox: any[] = [];
+
+  async function reverseGeocode(lat: number, lon: number) {
+    const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`, {
+      headers: { "User-Agent": "StormOpsHub/1.0" }
+    });
+    const j = await r.json().catch(() => null);
+    return j?.display_name || "";
+  }
+
   app.post("/api/dsp-ingest", async (req, res) => {
-    try {
-      const { provider, timestamp, mediaUrl, thumbnailUrl, lat, lon, notes } = req.body;
-      
-      // Validate required fields
-      if (!provider || !timestamp || !mediaUrl || lat === undefined || lon === undefined) {
-        return res.status(400).json({ 
-          message: "Missing required fields: provider, timestamp, mediaUrl, lat, lon" 
-        });
-      }
+    const item = req.body || {};
+    if (!item.mediaUrl) return res.status(400).json({ error: "mediaUrl required" });
 
-      let address: string | undefined;
-      
-      // Reverse geocode coordinates if needed
-      try {
-        if (lat && lon) {
-          const response = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&addressdetails=1`
-          );
-          if (response.ok) {
-            const geoData = await response.json();
-            address = geoData.display_name;
-          }
-        }
-      } catch (geoError) {
-        console.warn("Reverse geocoding failed:", geoError);
-      }
-
-      // Store the footage
-      const footage = await storage.createDspFootage({
-        provider,
-        timestamp: new Date(timestamp),
-        mediaUrl,
-        thumbnailUrl: thumbnailUrl || null,
-        latitude: lat.toString(),
-        longitude: lon.toString(),
-        address: address || null,
-        notes: notes || null,
-        status: "new",
-        claimId: null,
-        processingMetadata: null,
-      });
-
-      // Emit WebSocket notification to connected clients
-      wss.clients.forEach((client) => {
-        if (client.readyState === WebSocket.OPEN) {
-          client.send(JSON.stringify({
-            type: 'new_dsp_footage',
-            data: footage
-          }));
-        }
-      });
-
-      res.json({ 
-        success: true, 
-        footage,
-        message: `Footage ingested from ${provider}` 
-      });
-    } catch (error: any) {
-      console.error("DSP ingest error:", error);
-      res.status(500).json({ message: error.message });
+    if (!item.address && item.lat && item.lon) {
+      item.address = await reverseGeocode(item.lat, item.lon);
     }
+    item.id = Date.now().toString();
+    inbox.unshift(item);
+
+    // TODO: broadcast to clients via SSE or WebSocket; for now just 200 OK
+    return res.json({ ok: true, item });
   });
 
-  // Get all DSP footage
-  app.get("/api/dsp-footage", async (req, res) => {
-    try {
-      const footage = await storage.getDspFootage();
-      res.json(footage);
-    } catch (error: any) {
-      res.status(500).json({ message: error.message });
-    }
-  });
-
-  // Get DSP footage by provider
-  app.get("/api/dsp-footage/:provider", async (req, res) => {
-    try {
-      const { provider } = req.params;
-      const footage = await storage.getDspFootageByProvider(provider);
-      res.json(footage);
-    } catch (error: any) {
-      res.status(500).json({ message: error.message });
-    }
-  });
+  app.get("/api/inbox", (req, res) => res.json(inbox));
 
   // WebSocket for real-time updates
   const httpServer = createServer(app);
