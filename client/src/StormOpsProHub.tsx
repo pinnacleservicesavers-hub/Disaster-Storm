@@ -1121,32 +1121,51 @@ function LiensLegal(){
   );
 }
 
-// --- Contractor Portal (Strategic Land Management) ---
+// --- Contractor Portal (Strategic LM) ---
 function ContractorPortal(){
   function openNew(url: string) { window.open(url, '_blank', 'noopener,noreferrer'); }
   return (
-    <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
-      <div className="p-4 space-y-3">
-        <div className="text-lg font-semibold">Strategic Land Management Portal</div>
-        <div className="grid md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <div className="font-medium">SBA & FEMA Resources</div>
-            <div className="space-y-2">
-              <button onClick={()=>openNew('https://www.sba.gov/funding-programs/disaster-assistance')} className="w-full border border-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-50 font-medium transition-colors text-left">SBA Disaster Assistance</button>
-              <button onClick={()=>openNew('https://www.fema.gov/assistance/public')} className="w-full border border-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-50 font-medium transition-colors text-left">FEMA Public Assistance</button>
-              <button onClick={()=>openNew('https://www.disasterassistance.gov/')} className="w-full border border-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-50 font-medium transition-colors text-left">DisasterAssistance.gov</button>
-            </div>
-          </div>
-          <div className="space-y-2">
-            <div className="font-medium">Contract Management</div>
-            <div className="space-y-2">
-              <button className="w-full border border-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-50 font-medium transition-colors text-left">Insurance Verification Portal</button>
-              <button className="w-full border border-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-50 font-medium transition-colors text-left">Contract Templates</button>
-              <button className="w-full border border-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-50 font-medium transition-colors text-left">Billing & Invoicing</button>
-            </div>
+    <div className="space-y-4">
+      <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+        <div className="p-4 space-y-2">
+          <div className="text-2xl font-bold">Strategic Land Management LLC</div>
+          <div>Emergency Storm Response Team</div>
+          <div className="text-sm">📞 888-628-2229 • 🌐 <a className="underline" href="https://www.strategiclandmgmt.com" target="_blank" rel="noreferrer">www.strategiclandmgmt.com</a> • ✉️ strategiclandmgmt@gmail.com</div>
+          <div className="text-xs text-gray-500">Veteran-owned (disabled veteran). Certified arborist: John Culpepper.</div>
+          <div className="grid md:grid-cols-2 gap-3 mt-2">
+            <button onClick={()=>openNew('https://disasterloanassistance.sba.gov/')} className="border border-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-50 font-medium transition-colors">SBA Disaster Loans</button>
+            <button onClick={()=>openNew('https://www.fema.gov/assistance/individual')} className="border border-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-50 font-medium transition-colors">FEMA Individual Assistance</button>
           </div>
         </div>
-        <div className="text-xs text-gray-500">🚧 Full contractor portal features coming soon - SBA/FEMA integration, contract management, and insurance verification tools.</div>
+      </div>
+
+      <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+        <div className="p-4 space-y-2">
+          <div className="font-semibold">Emergency Tree Removal Contract</div>
+          <div className="text-sm text-gray-500">Your uploaded contract is ready to send.</div>
+          <div className="flex gap-2">
+            <button onClick={()=>openNew('/files/contract.pdf')} className="border border-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-50 font-medium transition-colors">Open Contract</button>
+            <button onClick={()=>fetch('/api/email',{
+              method:'POST', headers:{'Content-Type':'application/json'},
+              body: JSON.stringify({ to:'strategiclandmgmt@gmail.com', subject:'Contract (for signature)', html:'Attached contract', attachments:[{ path:'/files/contract.pdf' }] })
+            })} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 font-medium transition-colors">Email Contract to Customer</button>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+        <div className="p-4 space-y-2">
+          <div className="font-semibold">Upload Proof of Insurance (optional)</div>
+          <input type="file" onChange={(e)=>{/* POST to /api/upload with contractor profile */}} />
+          <div className="text-xs text-gray-500">Stored in your Contractor profile; share with customers on request.</div>
+        </div>
+      </div>
+
+      <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+        <div className="p-4 space-y-2">
+          <div className="font-semibold">Brochure</div>
+          <div className="text-sm">Say "generate brochure" and I'll produce a tri-fold PDF with your content.</div>
+        </div>
       </div>
     </div>
   );
