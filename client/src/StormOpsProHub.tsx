@@ -1257,13 +1257,14 @@ function ContractorPortal(){
         </div>
       </div>
 
-      <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
-        <div className="p-4 space-y-2">
-          <div className="font-semibold">Marketing Brochure</div>
-          <div className="text-sm text-gray-500">Generate a tri-fold PDF brochure with Strategic Land Management details.</div>
-          <Button onClick={makeBrochure}>Generate Tri-Fold Brochure (PDF)</Button>
-        </div>
-      </div>
+      <Card><CardContent className="p-4 space-y-2">
+        <div className="font-semibold">Brochure</div>
+        <div className="text-sm">Generate a tri-fold PDF brochure using your content.</div>
+        <Button onClick={async ()=>{
+          const r = await fetch('/api/brochure/strategic',{ method:'POST' }).then(r=>r.json()).catch(()=>null);
+          if (r?.path) window.open(r.path, '_blank'); else alert('Brochure failed.');
+        }}>Generate Tri-Fold Brochure (PDF)</Button>
+      </CardContent></Card>
     </div>
   );
 }
