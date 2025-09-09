@@ -1,0 +1,206 @@
+NOAA/NWS MRMS radar via ArcGIS ImageServer/WMS (auto-updates ~every 5 min). Cloud GIS Web Services+1
+
+meteoblue Radar & Satellite tile API (with a tiny helper that fetches the required date-value from their Time API). Meteoblue Documentation+1
+
+Ready slots for MyRadar for Developers (add your tile/overlay URL from their portal when you have it). MyRadar+1MyRadar Business
+
+A Windy map you can embed either with a simple iframe or the Windy Map Forecast JS API. WindyWindy API
+
+index.html (one file)
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Radar Mashup: NOAA + meteoblue + MyRadar + Windy</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- Leaflet -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  />
+  <style>
+    html, body { height: 100%; margin: 0; }
+    #map { height: 60vh; }          /* Leaflet map */
+    #windyWrap { height: 40vh; }    /* Windy section (iframe or API) */
+    .note { font: 14px/1.4 system-ui, sans-serif; padding: 8px 12px; }
+    .apiKey { background:#fff3cd; border:1px solid #ffe08a; padding:6px 10px; border-radius:6px; display:inline-block; }
+  </style>
+</head>
+<body>
+
+<div id="map"></div>
+<div class="note">
+  <strong>Heads-up:</strong>
+  <span class="apiKey">Replace <code>YOUR_METEOBLUE_KEY</code> and <code>YOUR_MYRADAR_KEY</code> with your real keys.</span>
+</div>
+
+<!-- Windy embed (easy mode) -->
+<div id="windyWrap">
+  <iframe
+    id="windyEmbed"
+    title="Windy Embed"
+    width="100%" height="100%"
+    frameborder="0"
+    src="https://embed.windy.com/embed2.html?lat=39.5&lon=-98.35&detailLat=39.5&detailLon=-98.35&zoom=4&level=surface&overlay=radar&product=ecmwf&menu=&message=&marker=&calendar=&pressure=&type=map&location=coordinates&detail=&metricWind=mph&metricTemp=%C2%B0F&radarRange=-1"
+    allowfullscreen>
+  </iframe>
+</div>
+
+<!-- JS -->
+<script
+  src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+  crossorigin="">
+</script>
+
+<script>
+/* =========================
+   1) Base map
+========================= */
+const map = L.map('map', { zoomControl: true }).setView([39.5, -98.35], 4);
+const osm = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '&copy; OpenStreetMap'
+}).addTo(map);
+
+/* =========================================
+   2) NOAA/NWS MRMS WMS (updates ~5 minutes)
+   Service: radar_base_reflectivity_time (ImageServer WMS)
+   Docs/Capabilities: NOAA NWS Cloud GIS
+   ========================================= */
+const noaaMrms = L.tileLayer.wms(
+  'https://mapservices.weather.noaa.gov/eventdriven/services/radar/radar_base_reflectivity_time/ImageServer/WMSServer',
+  {
+    layers: '0',            // latest time slice
+    format: 'image/png',
+    transparent: true,
+    opacity: 0.8
+  }
+).addTo(map);
+
+/* =================================================================================
+   3) meteoblue Radar/Satellite tiles
+      - You MUST request the current `date-value` from the meteoblue Time API.
+      - Then plug it into the Tile URL template.
+      Docs: https://docs.meteoblue.com/en/weather-apis/maps-api/radar-and-satellite-tile-api
+      Time API: https://docs.meteoblue.com/en/weather-apis/maps-api/time-api
+================================================================================= */
+
+// ---- CONFIG ----
+const MB_API_KEY = 'YOUR_METEOBLUE_KEY';       // <-- put your key here
+const MB_TILESET = 'radar_us';                  // others: radar_eup, precipitation_global, satellite_global
+const MB_EXTENSION = 'png';                     // per tileset in docs
+
+// Helper to fetch the latest date-value (timesteps) for meteoblue tiles
+async function getMeteoblueDateValue() {
+  // simplest approach: use "nexthours" mode to get near-term timesteps
+  // NOTE: The real Time API endpoint/params come from your meteoblue account/docs.
+  const url = `https://maps-api.meteoblue.com/v1/time?tileset=${encodeURIComponent(MB_TILESET)}&mode=nexthours&apikey=${MB_API_KEY}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('meteoblue Time API error');
+  const data = await res.json();
+  // The docs say use the value from the response; many responses include e.g. data.timesteps[...].value
+  // To be robust, pick the last available timestep (newest)
+  const steps = (data.timesteps && data.timesteps.length) ? data.timesteps : (data.data && data.data.timesteps) || [];
+  if (!steps.length) throw new Error('No timesteps from meteoblue');
+  return steps[steps.length - 1].value;
+}
+
+let mbLayer;  // will hold the Leaflet tile layer
+
+async function loadMeteoblueLayer() {
+  try {
+    const dateValue = await getMeteoblueDateValue();
+    const template = `https://maps-api.meteoblue.com/v1/tiles/${MB_TILESET}/${dateValue}/{z}/{x}/{y}.${MB_EXTENSION}?apikey=${MB_API_KEY}`;
+    if (mbLayer) map.removeLayer(mbLayer);
+    mbLayer = L.tileLayer(template, {
+      maxZoom: 6,           // meteoblue radar/sat tiles are limited (see docs)
+      opacity: 0.8,
+      attribution: '&copy; meteoblue'
+    }).addTo(map);
+  } catch (err) {
+    console.error('meteoblue error:', err);
+  }
+}
+
+// initial load + refresh every 5 minutes (300k ms)
+loadMeteoblueLayer();
+setInterval(loadMeteoblueLayer, 300000);
+
+/* =====================================================
+   4) MyRadar for Developers (placeholder XYZ layer)
+      - Sign up / get your key in the MyRadar developer portal.
+      - Replace TILE_URL below with the exact template they give you.
+      Docs: https://myradar.com/apidocs/  /  https://business.myradar.com/apis/
+===================================================== */
+
+const MYRADAR_API_KEY = 'YOUR_MYRADAR_KEY'; // <-- your key
+// Example placeholder; replace with the real URL template from MyRadar portal:
+const MYRADAR_TILE_URL = 'https://YOUR_MYRADAR_TILE_HOST/tiles/radar/{z}/{x}/{y}.png?apikey=' + MYRADAR_API_KEY;
+
+let myRadarLayer = L.tileLayer(MYRADAR_TILE_URL, {
+  opacity: 0.8,
+  attribution: 'MyRadar',
+  errorTileUrl: '' // prevent big broken-tile icons if you haven’t replaced the URL yet
+});
+// NOTE: Don’t add to map until you swap in a valid tile URL.
+// myRadarLayer.addTo(map);
+
+/* ==============================================
+   5) Layer controls
+============================================== */
+const baseMaps = { 'OpenStreetMap': osm };
+const overlays = {
+  'NOAA MRMS (WMS)': noaaMrms,
+  'meteoblue Radar': mbLayer || L.layerGroup(),  // will populate after load
+  'MyRadar (add your tile URL)': myRadarLayer
+};
+L.control.layers(baseMaps, overlays, { collapsed: false }).addTo(map);
+</script>
+
+<!-- =======================================================
+     (Optional) Windy Map Forecast JS API (advanced mode)
+     If you prefer JS over the iframe, uncomment below and
+     add your Windy API key. Docs: https://api.windy.com/map-forecast/docs
+======================================================== -->
+<!--
+<script src="https://api.windy.com/assets/map-forecast/libBoot.js"></script>
+<script>
+// Keep the Leaflet map above; Windy renders into its own container.
+const windyDiv = document.getElementById('windyWrap');
+windyDiv.innerHTML = '<div id="windy" style="width:100%;height:100%"></div>';
+
+const options = {
+  key: 'YOUR_WINDY_API_KEY',
+  verbose: false,
+  lat: 39.5, lon: -98.35, zoom: 4,
+  overlay: 'radar',           // or 'wind', 'temp', etc.
+  metricWind: 'mph',
+  metricTemp: '°F'
+};
+
+windyInit(options, windyAPI => {
+  // You can manipulate overlays, units, particles, picker, etc.
+  // Example: windyAPI.map.setView([39.5, -98.35], 5);
+});
+</script>
+-->
+
+</body>
+</html>
+Notes & gotchas
+NOAA MRMS WMS: the radar_base_reflectivity_time image service is time-enabled and advertised as updating every ~5 minutes; using the WMS with layers=0 pulls the latest frame. Cloud GIS Web Services+1
+
+meteoblue: their Radar/Satellite tiles require a date-value obtained from the Time API; don’t hardcode a date. The snippet above fetches the newest timestep and refreshes every 5 minutes. See the exact URL shape and tilesets in their docs. Meteoblue Documentation+1
+
+MyRadar for Developers: log in to their developer portal to get your API key and the exact tile or imagery endpoint you’re entitled to; then replace the placeholder URL. MyRadarMyRadar Business+1
+
+Windy:
+
+Easiest: use the iframe Embed Builder at embed.windy.com (no JS needed). Windy
+
+Advanced: use the Map Forecast API with your API key and the windyInit() pattern (they bundle Leaflet for you). Windy APIGitHub
+
+If you tell me which exact layers you want (e.g., velocity, lightning, satellite IR) and your preferred look (opacity, palette, animation), I’ll wire those into this template for you.

@@ -227,7 +227,6 @@ export default function App() {
       )}
 
       <DroneViewer streamUrl="https://www.youtube.com/embed/21X5lGlDOfg?autoplay=1&mute=1" />
-/>
     </div>
   );
 }
