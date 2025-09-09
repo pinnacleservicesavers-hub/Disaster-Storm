@@ -1,0 +1,376 @@
+import fetchPkg from "node-fetch";
+import Stripe from "stripe";
+import PDFDocument from "pdfkit";
+const fetch = globalThis.fetch || fetchPkg;
+const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;// Storm Ops Backend (Express)
+// --------------------------------------------
+// Provides:
+// - /api/dsp-ingest  : providers/DSPs post live items
+// - /api/stream      : SSE for Inbox + Map markers
+// - /api/inbox       : fetch recent items
+// - /api/owner-lookup: placeholder to plug licensed data vendors
+// - /api/sms, /api/call (Twilio)
+// - /api/email       (Nodemailer)
+// - /api/upload      (multer disk uploads)
+// - /api/describe    (AI caption placeholder)
+// - /api/reminders   (node-cron reminders for claims/liens)
+// - /files/contract.pdf : serve your contract PDF from ./assets/contract.pdf
+//
+// ENV (set in Replit Secrets):
+//   TWILIO_SID, TWILIO_TOKEN, TWILIO_FROM
+//   SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM
+//   PUBLIC_PHONE (optional, used in TwiML message)
+//
+// Install deps:
+//   npm i express cors multer node-cron twilio nodemailer node-fetch
+//   (Node 18+ has global fetch; we still import node-fetch for compatibility)
+
+import express from "express";
+import cors from "cors";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
+import cron from "node-cron";
+import twilio from "twilio";
+import nodemailer from "nodemailer";
+import fetchPkg from "node-fetch";
+const fetch = globalThis.fetch || fetchPkg;
+
+const app = express();
+app.use(cors());
+app.use(express.json({ limit: "12mb" }));
+
+// ---- static assets (uploads + optional assets directory) ----
+const ROOT = process.cwd();
+const UPLOAD_DIR = path.join(ROOT, "uploads");
+const ASSETS_DIR = path.join(ROOT, "assets");
+if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+if (!fs.existsSync(ASSETS_DIR)) fs.mkdirSync(ASSETS_DIR, { recursive: true });
+app.use("/uploads", express.static(UPLOAD_DIR));
+app.use("/assets", express.static(ASSETS_DIR));
+
+// ---- health/version ----
+app.get("/health", (req, res) => res.json({ ok: true }));
+app.get("/api/version", (req, res) => res.json({ name: "storm-ops-backend", version: 1 }));
+
+// ---- in-memory Inbox store (swap for DB in prod) ----
+const inbox = []; // [{ id, provider, timestamp, mediaUrl, thumbnailUrl, lat, lon, address, notes, tags }]
+const sseClients = new Set();
+// ---- simple message store by claim number (for email threads) ----
+const messagesByClaim = new Map(); // claimNumber -> [{ts, dir, from, to, subject, html, text}]
+function addMessage(claimNumber, msg){
+  if(!claimNumber) return;
+  if(!messagesByClaim.has(claimNumber)) messagesByClaim.set(claimNumber, []);
+  messagesByClaim.get(claimNumber).push({ ts: Date.now(), ...msg });
+}
+function extractClaim(text){
+  if(!text) return null;
+  const up = String(text).toUpperCase();
+  const tag = '[CLAIM ';
+  let i = up.indexOf(tag);
+  if (i >= 0){
+    const j = up.indexOf(']', i+tag.length);
+    if (j > i) return String(text).substring(i+tag.length, j).trim();
+  }
+  i = up.indexOf('CLAIM');
+  if (i >= 0){
+    let rest = String(text).substring(i+5).trim();
+    const prefixes = ['#','NO.','NO','NUMBER',':','-'];
+    for (const pre of prefixes){ if (rest.toUpperCase().startsWith(pre)) { rest = rest.slice(pre.length).trim(); break; } }
+    let token = '';
+    for (const ch of rest){ const code = ch.charCodeAt(0); const ok = (code>=48&&code<=57)||(code>=65&&code<=90)||(code>=97&&code<=122)||ch==='-'; if (!ok) break; token+=ch; }
+    if (token) return token;
+  }
+  return null;
+}
+
+// ---- SSE: stream Inbox items live to clients ----
+app.get("/api/stream", (req, res) => {
+  res.set({
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    Connection: "keep-alive",
+  });
+  res.flushHeaders();
+  res.write("retry: 5000\n\n");
+  sseClients.add(res);
+  req.on("close", () => sseClients.delete(res));
+});
+function broadcast(item) {
+  const line = `data: ${JSON.stringify(item)}\n\n`;
+  for (const client of sseClients) client.write(line);
+}
+
+// ---- reverse geocode helper (OSM/Nominatim) ----
+async function reverseGeocode(lat, lon) {
+  try {
+    const r = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`,
+      { headers: { "User-Agent": "StormOpsHub/1.0" } }
+    );
+    const j = await r.json();
+    return j?.display_name || "";
+  } catch (e) {
+    return "";
+  }
+}
+
+// ---- providers/DSPs POST live items here ----
+app.post("/api/dsp-ingest", async (req, res) => {
+  try {
+    const item = req.body || {};
+    if (!item.mediaUrl) return res.status(400).json({ error: "mediaUrl required" });
+    if (!item.timestamp) item.timestamp = new Date().toISOString();
+    if (!item.address && item.lat && item.lon) item.address = await reverseGeocode(item.lat, item.lon);
+    item.id = String(Date.now());
+    // naive tag derive (client also adds)
+    const text = `${item.notes || ""} ${item.address || ""}`.toLowerCase();
+    const tags = [];
+    if (/tree on roof|through roof|roof damage/.test(text)) tags.push("tree_on_roof");
+    if (/tree on (house|building|home|structure)/.test(text)) tags.push("tree_on_building");
+    if (/line down|power line|utility line|pole down/.test(text)) tags.push("line_down");
+    if (/collapse|structural|building damage|wall down/.test(text)) tags.push("structure_damage");
+    item.tags = Array.from(new Set([...(item.tags||[]), ...tags]));
+
+    inbox.unshift(item);
+    broadcast(item);
+    res.json({ ok: true, item });
+  } catch (e) {
+    res.status(500).json({ error: "ingest failed", detail: String(e) });
+  }
+});
+
+// ---- inbox history (poll fallback) ----
+app.get("/api/inbox", (req, res) => res.json(inbox.slice(0, 500)));
+
+// ---- owner lookup seam (plug licensed vendor/county APIs) ----
+app.post("/api/owner-lookup", async (req, res) => {
+  const { address, lat, lon } = req.body || {};
+  try {
+    if (process.env.ESTATED_API_KEY && address) {
+      const url = `https://api.estated.com/property/v4?token=${process.env.ESTATED_API_KEY}&address=${encodeURIComponent(address)}`;
+      const r = await fetch(url);
+      const j = await r.json();
+      const p = j?.data?.properties?.[0] || j?.data || {};
+      const owner = (p?.owner || (p?.owners && p.owners[0])) || {};
+      const contact = p?.mailing_address || p?.mailing || {};
+      return res.json({
+        ownerName: [owner?.first_name, owner?.last_name].filter(Boolean).join(" ") || owner?.name || null,
+        mailingAddress: [contact?.line1, contact?.line2, contact?.city, contact?.state, contact?.zip].filter(Boolean).join(", ") || null,
+        phone: null,
+        email: null,
+        sources: ["Estated"]
+      });
+    }
+    const guessed = address || ((lat && lon) ? await reverseGeocode(lat, lon) : null);
+    res.json({ ownerName: null, mailingAddress: guessed, phone: null, email: null, sources: [] });
+  } catch (e) {
+    res.status(500).json({ error: "lookup_failed", detail: String(e) });
+  }
+});
+});
+
+// ---- uploads (proof of insurance, photos, etc.) ----
+const upload = multer({ dest: UPLOAD_DIR });
+app.post("/api/upload", upload.single("file"), (req, res) => {
+  res.json({ ok: true, file: { name: req.file.originalname, path: `/uploads/${req.file.filename}` } });
+});
+
+// ---- serve contract PDF from ./assets/contract.pdf ----
+app.get("/files/contract.pdf", (req, res) => {
+  const guess = path.join(ASSETS_DIR, "contract.pdf");
+  if (fs.existsSync(guess)) return res.sendFile(guess);
+  return res.status(404).send("Contract file not found — place it at ./assets/contract.pdf");
+});
+
+// ---- Twilio SMS + Voice ----
+// Replit Secrets required: TWILIO_SID, TWILIO_TOKEN, TWILIO_FROM
+const tw = (process.env.TWILIO_SID && process.env.TWILIO_TOKEN)
+  ? twilio(process.env.TWILIO_SID, process.env.TWILIO_TOKEN)
+  : null;
+
+app.post("/api/sms", async (req, res) => {
+  try {
+    const { to, body } = req.body || {};
+    if (!tw) return res.status(500).json({ error: "Twilio not configured" });
+    if (!to || !body) return res.status(400).json({ error: "to and body required" });
+    const r = await tw.messages.create({ to, from: process.env.TWILIO_FROM, body });
+    res.json({ ok: true, sid: r.sid });
+  } catch (e) {
+    res.status(500).json({ error: "SMS failed", detail: String(e) });
+  }
+});
+
+app.post("/api/call", async (req, res) => {
+  try {
+    const { to, twiml } = req.body || {};
+    if (!tw) return res.status(500).json({ error: "Twilio not configured" });
+    if (!to) return res.status(400).json({ error: "to required" });
+    const r = await tw.calls.create({
+      to,
+      from: process.env.TWILIO_FROM,
+      twiml: twiml || `<Response><Say voice="alice">This is Strategic Land Management calling regarding your storm damage. Please call us at ${process.env.PUBLIC_PHONE || '888-628-2229'}.</Say></Response>`
+    });
+    res.json({ ok: true, sid: r.sid });
+  } catch (e) {
+    res.status(500).json({ error: "Call failed", detail: String(e) });
+  }
+});
+
+// ---- Email (Nodemailer SMTP) ----
+// Replit Secrets: SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM
+const transporter = (process.env.SMTP_HOST)
+  ? nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: Number(process.env.SMTP_PORT || 587),
+      secure: false,
+      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+    })
+  : null;
+
+app.post("/api/email", async (req, res) => {
+  try {
+    if (!transporter) return res.status(500).json({ error: "Email transport not configured" });
+    let { to, subject, html, attachments, claimNumber } = req.body || {};
+    if (!to || !subject) return res.status(400).json({ error: "to and subject required" });
+    if (claimNumber && subject.toUpperCase().indexOf('[CLAIM ') === -1) subject = `[CLAIM ${claimNumber}] ` + subject;
+    const info = await transporter.sendMail({ from: process.env.SMTP_FROM || process.env.SMTP_USER, to, subject, html: html || "", attachments });
+    if (claimNumber) addMessage(claimNumber, { dir: 'out', to, subject, html });
+    res.json({ ok: true, id: info.messageId });
+  } catch (e) { res.status(500).json({ error: "Email failed", detail: String(e) }); }
+});
+
+// ---- Inbound email webhook (use SendGrid Inbound Parse, Mailgun Routes, or Gmail relay) ----
+app.post("/api/email/inbound", express.json({limit:'2mb'}), async (req, res) => {
+  try{
+    const { from, to, subject, html, text } = req.body || {};
+    const claimNumber = extractClaim(`${subject}
+${text||''}`) || extractClaim(html||'');
+    if (claimNumber) addMessage(claimNumber, { dir:'in', from, to, subject, html, text });
+    res.json({ ok: true, claimNumber: claimNumber || null });
+  } catch(e){ res.status(500).json({ error:'inbound_failed', detail:String(e) }); }
+});
+
+// ---- Messages fetch by claim number ----
+app.get('/api/messages', (req, res) => {
+  const claim = req.query.claim || req.query.claimNumber;
+  const arr = (claim && messagesByClaim.get(claim)) || [];
+  res.json(arr.slice(-200));
+});
+    const { to, subject, html, attachments } = req.body || {};
+    if (!to || !subject) return res.status(400).json({ error: "to and subject required" });
+    const info = await transporter.sendMail({
+      from: process.env.SMTP_FROM || process.env.SMTP_USER,
+      to,
+      subject,
+      html: html || "",
+      attachments,
+    });
+    res.json({ ok: true, id: info.messageId });
+  } catch (e) {
+    res.status(500).json({ error: "Email failed", detail: String(e) });
+  }
+});
+
+// ---- Stripe invoice/checkout ----
+// Replit Secret: STRIPE_SECRET_KEY. Optional: PAY_SUCCESS_URL, PAY_CANCEL_URL
+app.post('/api/invoice/checkout', async (req, res) => {
+  try{
+    if (!stripe) return res.status(500).json({ error:'Stripe not configured' });
+    const { customer, lineItems, metadata } = req.body || {};
+    const session = await stripe.checkout.sessions.create({
+      mode: 'payment',
+      customer_email: customer?.email,
+      metadata: metadata || {},
+      line_items: (lineItems||[]).map(li => ({
+        price_data: { currency:'usd', product_data:{ name: li.name || 'Service' }, unit_amount: Math.round(Number(li.amount||0)*100) },
+        quantity: li.quantity || 1,
+      })),
+      success_url: process.env.PAY_SUCCESS_URL || 'https://example.com/success?session_id={CHECKOUT_SESSION_ID}',
+      cancel_url: process.env.PAY_CANCEL_URL || 'https://example.com/cancel'
+    });
+    res.json({ ok:true, url: session.url, id: session.id });
+  }catch(e){ res.status(500).json({ error:'stripe_checkout_failed', detail:String(e) }); }
+});
+
+// ---- PDF brochure generator (tri-fold, landscape letter) ----
+app.post('/api/brochure/strategic', async (req, res) => {
+  try{
+    const outPath = path.join(UPLOAD_DIR, `brochure_strategic_${Date.now()}.pdf`);
+    const doc = new PDFDocument({ size: 'LETTER', layout: 'landscape', margin: 36 });
+    const stream = fs.createWriteStream(outPath); doc.pipe(stream);
+    const W = 792 - 72; // width minus margins
+    const H = 612 - 72; // height minus margins
+    const colW = W/3; const x0 = 36, y0 = 36;
+    doc.fontSize(22).text('Strategic Land Management LLC — Emergency Storm Response', x0, y0, { width: W, align: 'center' });
+    doc.moveDown(0.5).fontSize(12).text('📞 888-628-2229    🌐 www.strategiclandmgmt.com    ✉️ strategiclandmgmt@gmail.com', { align: 'center' });
+
+    function col(n){ return x0 + n*colW; }
+    doc.moveDown(1);
+    // Column 1
+    doc.fontSize(14).text('❤️ Our Mission', col(0), 120, { width: colW-12, continued:false });
+    doc.fontSize(11).text('When storms strike, we respond quickly, work compassionately, and restore safety with as little financial burden as possible.');
+    doc.moveDown(0.5).fontSize(14).text('🌳 Who We Are');
+    doc.fontSize(11).text('Veteran-Owned & Disabled-Owned • Led by John Culpepper, certified arborist. Licensed, bonded, insured. CPR & line-clearance certified.');
+    doc.moveDown(0.5).fontSize(12).text('Equipment: 2 Cranes • 10 Bucket Trucks • 3 Skid Steers • Trained Emergency Crew');
+
+    // Column 2
+    doc.fontSize(14).text('🏠 Tree Removal — Little to No Cost', col(1), 120, { width: colW-12 });
+    doc.fontSize(11).text('Scan the QR → Sign digitally → We remove & bill insurance. No surprise costs. You focus on family—we focus on recovery.', { width: colW-12 });
+    doc.moveDown(0.5).fontSize(14).text('💵 Storm Relief Action Plan');
+    doc.fontSize(11).text('Insurance Billing • SBA/FEMA guidance • Flexible payments • Community partners', { width: colW-12 });
+    doc.moveDown(0.25).fontSize(11).text('SBA Disaster Loans: Homeowners up to $500k; Renters up to $100k; Businesses up to $2M; Nonprofits eligible.');
+
+    // Column 3
+    doc.fontSize(14).text('⏱ Recovery Made Simple', col(2), 120, { width: colW-12 });
+    doc.fontSize(11).text('Call 24/7 → We assess → We assist paperwork → We remove trees → You recover.', { width: colW-12 });
+    doc.moveDown(0.5).fontSize(14).text('Why Choose Us?');
+    doc.fontSize(11).text('20+ years • Veteran-owned • Licensed/bonded/insured • Compassionate & cost-conscious.', { width: colW-12 });
+    doc.moveDown(0.5).fontSize(12).text('Scan for Priority Contract');
+    doc.rect(col(2)+10, doc.y+5, 100, 100).stroke();
+
+    doc.end();
+    stream.on('finish', ()=> res.json({ ok:true, path: `/uploads/${path.basename(outPath)}` }));
+  }catch(e){ res.status(500).json({ error:'brochure_failed', detail:String(e) }); }
+});
+
+// ---- AI describe placeholder (hook Vision API later) ----
+app.post("/api/describe", async (req, res) => {
+  // req.body.images = [dataUrl,...] (optional future)
+  res.json({ captions: ["Tree on roof; broken ridge; tarp recommended"] });
+});
+
+// ---- Reminders (claim 30/60d; completion 45d; lien 10mo) ----
+const scheduledJobs = [];
+function scheduleAt(dateISO, label) {
+  const dt = new Date(dateISO);
+  if (isNaN(dt)) return;
+  const cronExp = `${dt.getUTCMinutes()} ${dt.getUTCHours()} ${dt.getUTCDate()} ${dt.getUTCMonth() + 1} *`;
+  const job = cron.schedule(
+    cronExp,
+    () => {
+      console.log("Reminder:", label, new Date().toISOString());
+      // You can notify admins via email/SMS here as needed.
+    },
+    { timezone: "UTC" }
+  );
+  scheduledJobs.push(job);
+}
+app.post("/api/reminders", (req, res) => {
+  const { claimDate, completeDate, lienDate } = req.body || {};
+  const addDays = (start, d) => new Date(new Date(start).getTime() + d * 86400000).toISOString();
+  if (claimDate) {
+    scheduleAt(addDays(claimDate, 30), "30 days since claim submission");
+    scheduleAt(addDays(claimDate, 60), "60 days since claim submission");
+  }
+  if (completeDate) scheduleAt(addDays(completeDate, 45), "45 days since work completion (consider lien)");
+  if (lienDate) {
+    const tenMonthsMs = 1000 * 60 * 60 * 24 * 30 * 10; // approx 10 months
+    scheduleAt(new Date(new Date(lienDate).getTime() + tenMonthsMs).toISOString(), "10 months since lien filed");
+  }
+  res.json({ ok: true });
+});
+
+// ---- Start server ----
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Storm Ops Backend listening on :${PORT}`));

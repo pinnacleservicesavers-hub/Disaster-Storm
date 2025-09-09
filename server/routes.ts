@@ -1,7 +1,14 @@
 import type { Express } from "express";
+import express from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import fetch from "node-fetch";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
+import cron from "node-cron";
+import twilio from "twilio";
+import nodemailer from "nodemailer";
 import { storage } from "./storage";
 import { weatherService } from "./services/weather";
 import { aiService } from "./services/ai";
@@ -619,6 +626,201 @@ export async function registerRoutes(app: Express): Promise<Server> {
     socket.on('close', () => {
       console.log('Client disconnected');
     });
+  });
+
+  // ===== ENHANCED BACKEND FUNCTIONALITY =====
+
+  // --- File uploads setup
+  const UPLOAD_DIR = "./uploads";
+  if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+  app.use("/uploads", express.static(UPLOAD_DIR));
+
+  // --- Upload endpoint (proof of insurance, photos, etc.)
+  const upload = multer({ dest: UPLOAD_DIR });
+  app.post("/api/upload", upload.single("file"), (req, res) => {
+    if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+    res.json({ ok: true, file: { name: req.file.originalname, path: `/uploads/${req.file.filename}` } });
+  });
+
+  // --- Contract PDF serving
+  app.get("/files/contract.pdf", (req, res) => {
+    const contractPath = path.join(process.cwd(), "assets", "contract.pdf");
+    if (fs.existsSync(contractPath)) {
+      return res.sendFile(contractPath);
+    }
+    return res.status(404).send("Contract file not found — place it at ./assets/contract.pdf");
+  });
+
+  // --- Twilio Setup (SMS + Voice)
+  const tw = (process.env.TWILIO_SID && process.env.TWILIO_TOKEN) 
+    ? twilio(process.env.TWILIO_SID, process.env.TWILIO_TOKEN) 
+    : null;
+
+  app.post("/api/sms", async (req, res) => {
+    try {
+      const { to, body } = req.body || {};
+      if (!tw) return res.status(500).json({ error: "Twilio not configured - add TWILIO_SID, TWILIO_TOKEN, TWILIO_FROM" });
+      if (!to || !body) return res.status(400).json({ error: "to and body required" });
+      
+      const message = await tw.messages.create({ 
+        to, 
+        from: process.env.TWILIO_FROM!, 
+        body 
+      });
+      res.json({ ok: true, sid: message.sid });
+    } catch (e) { 
+      console.error("SMS Error:", e);
+      res.status(500).json({ error: "SMS failed", detail: String(e) }); 
+    }
+  });
+
+  app.post("/api/call", async (req, res) => {
+    try {
+      const { to, twiml } = req.body || {};
+      if (!tw) return res.status(500).json({ error: "Twilio not configured" });
+      if (!to) return res.status(400).json({ error: "to required" });
+      
+      const call = await tw.calls.create({
+        to, 
+        from: process.env.TWILIO_FROM!,
+        twiml: twiml || `<Response><Say voice="alice">This is Strategic Land Management calling regarding your storm damage. Please call us at ${process.env.PUBLIC_PHONE||'888-628-2229'}.</Say></Response>`
+      });
+      res.json({ ok: true, sid: call.sid });
+    } catch (e) { 
+      console.error("Call Error:", e);
+      res.status(500).json({ error: "Call failed", detail: String(e) }); 
+    }
+  });
+
+  // --- Email Setup (SMTP via Nodemailer)
+  const emailTransporter = (process.env.SMTP_HOST)
+    ? nodemailer.createTransport({
+        host: process.env.SMTP_HOST,
+        port: Number(process.env.SMTP_PORT || 587),
+        secure: false,
+        auth: { 
+          user: process.env.SMTP_USER!, 
+          pass: process.env.SMTP_PASS! 
+        }
+      })
+    : null;
+
+  app.post("/api/email", async (req, res) => {
+    try {
+      if (!emailTransporter) {
+        return res.status(500).json({ 
+          error: "Email not configured - add SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM" 
+        });
+      }
+      
+      const { to, subject, html, attachments } = req.body || {};
+      if (!to || !subject) return res.status(400).json({ error: "to and subject required" });
+      
+      const info = await emailTransporter.sendMail({
+        from: process.env.SMTP_FROM || process.env.SMTP_USER,
+        to, 
+        subject, 
+        html: html || "", 
+        attachments
+      });
+      res.json({ ok: true, id: info.messageId });
+    } catch (e) { 
+      console.error("Email Error:", e);
+      res.status(500).json({ error: "Email failed", detail: String(e) }); 
+    }
+  });
+
+  // --- AI describe placeholder
+  app.post("/api/describe", async (req, res) => {
+    res.json({ captions: ["Tree on roof; broken ridge; tarp recommended"] });
+  });
+
+  // --- Reminders System (claim 30/60d; completion 45d; lien 10mo)
+  const scheduledJobs: any[] = [];
+  
+  function scheduleReminder(whenISO: string, label: string) {
+    const d = new Date(whenISO);
+    if (isNaN(d.getTime())) return;
+    
+    const cronExp = `${d.getUTCMinutes()} ${d.getUTCHours()} ${d.getUTCDate()} ${d.getUTCMonth()+1} *`;
+    const job = cron.schedule(cronExp, () => {
+      console.log(`⏰ Reminder: ${label} at ${new Date().toISOString()}`);
+      
+      // Send notification via email if configured
+      if (emailTransporter && process.env.ADMIN_EMAIL) {
+        emailTransporter.sendMail({
+          from: process.env.SMTP_FROM || process.env.SMTP_USER,
+          to: process.env.ADMIN_EMAIL,
+          subject: `⏰ Reminder: ${label}`,
+          html: `<p>Time to act: <strong>${label}</strong></p><p>Scheduled for: ${d.toLocaleDateString()}</p>`
+        }).catch(console.error);
+      }
+      
+      // Send SMS if configured
+      if (tw && process.env.ADMIN_PHONE) {
+        tw.messages.create({
+          to: process.env.ADMIN_PHONE,
+          from: process.env.TWILIO_FROM!,
+          body: `⏰ Reminder: ${label}`
+        }).catch(console.error);
+      }
+    }, { timezone: "UTC" });
+    
+    scheduledJobs.push(job);
+  }
+
+  app.post("/api/reminders", (req, res) => {
+    const { claimDate, completeDate, lienDate } = req.body || {};
+    
+    const addDays = (start: string, days: number) => {
+      return new Date(new Date(start).getTime() + days * 86400000).toISOString();
+    };
+    
+    if (claimDate) { 
+      scheduleReminder(addDays(claimDate, 30), "30 days since claim submission"); 
+      scheduleReminder(addDays(claimDate, 60), "60 days since claim submission"); 
+    }
+    
+    if (completeDate) {
+      scheduleReminder(addDays(completeDate, 45), "45 days since work completion (consider lien)");
+    }
+    
+    if (lienDate) { 
+      const tenMonthsMs = 1000 * 60 * 60 * 24 * 30 * 10; 
+      scheduleReminder(
+        new Date(new Date(lienDate).getTime() + tenMonthsMs).toISOString(), 
+        "10 months since lien filed"
+      ); 
+    }
+    
+    res.json({ ok: true, scheduled: { claimDate, completeDate, lienDate } });
+  });
+
+  // --- Owner lookup with enhanced functionality
+  app.post("/api/owner-lookup", async (req, res) => {
+    const { address, lat, lon } = req.body || {};
+    
+    try {
+      // TODO: integrate ATTOM/Estated/CoreLogic or county API
+      // Keep audit logs & comply with TCPA/privacy
+      
+      // For now, return enhanced mock data
+      const mockResult = {
+        owner: null,
+        mailingAddress: address || null,
+        phone: null,
+        email: null,
+        sources: [],
+        propertyValue: null,
+        yearBuilt: null,
+        parcelId: null,
+        message: "Owner lookup service requires integration with licensed property data provider"
+      };
+      
+      res.json(mockResult);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
   });
 
   return httpServer;
