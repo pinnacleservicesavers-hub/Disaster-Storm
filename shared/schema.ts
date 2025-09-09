@@ -147,6 +147,23 @@ export const aiInteractions = pgTable("ai_interactions", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const dspFootage = pgTable("dsp_footage", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  provider: text("provider").notNull(), // DroneUp, Zeitview, SkySkopes, etc.
+  timestamp: timestamp("timestamp").notNull(),
+  mediaUrl: text("media_url").notNull(), // HLS stream or video URL
+  thumbnailUrl: text("thumbnail_url"), // Optional thumbnail
+  latitude: numeric("latitude", { precision: 10, scale: 8 }).notNull(),
+  longitude: numeric("longitude", { precision: 10, scale: 8 }).notNull(),
+  address: text("address"), // Optional geocoded address
+  notes: text("notes"), // Damage description, keywords
+  status: text("status").default("new"), // new, reviewed, processed
+  claimId: varchar("claim_id"), // Optional claim association
+  processingMetadata: jsonb("processing_metadata"), // AI analysis results, etc.
+  createdAt: timestamp("created_at").defaultNow(),
+  processedAt: timestamp("processed_at"),
+});
+
 // Zod schemas for validation
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
@@ -197,6 +214,12 @@ export const insertAiInteractionSchema = createInsertSchema(aiInteractions).omit
   createdAt: true,
 });
 
+export const insertDspFootageSchema = createInsertSchema(dspFootage).omit({
+  id: true,
+  createdAt: true,
+  processedAt: true,
+});
+
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -216,3 +239,5 @@ export type MarketComparable = typeof marketComparables.$inferSelect;
 export type InsertMarketComparable = z.infer<typeof insertMarketComparableSchema>;
 export type AiInteraction = typeof aiInteractions.$inferSelect;
 export type InsertAiInteraction = z.infer<typeof insertAiInteractionSchema>;
+export type DspFootage = typeof dspFootage.$inferSelect;
+export type InsertDspFootage = z.infer<typeof insertDspFootageSchema>;

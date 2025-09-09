@@ -1,5 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import { WebSocketServer, WebSocket } from "ws";
 import fetch from "node-fetch";
 import { storage } from "./storage";
 import { weatherService } from "./services/weather";
@@ -7,7 +8,7 @@ import { aiService } from "./services/ai";
 import { propertyService } from "./services/property";
 import { legalService } from "./services/legal";
 import { translationService } from "./services/translation";
-import { insertClaimSchema, insertFieldReportSchema, insertDroneFootageSchema } from "@shared/schema";
+import { insertClaimSchema, insertFieldReportSchema, insertDroneFootageSchema, insertDspFootageSchema } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Tornado alerts endpoint - get active Tornado Warnings in multiple states
@@ -489,15 +490,123 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // WebSocket for real-time updates would be implemented here
-  const httpServer = createServer(app);
+  // DSP Footage ingest webhook endpoint
+  app.post("/api/dsp-ingest", async (req, res) => {
+    try {
+      const { provider, timestamp, mediaUrl, thumbnailUrl, lat, lon, notes } = req.body;
+      
+      // Validate required fields
+      if (!provider || !timestamp || !mediaUrl || lat === undefined || lon === undefined) {
+        return res.status(400).json({ 
+          message: "Missing required fields: provider, timestamp, mediaUrl, lat, lon" 
+        });
+      }
 
-  // TODO: Implement WebSocket connections for real-time weather and claim updates
-  // const io = new Server(httpServer);
-  // io.on('connection', (socket) => {
-  //   console.log('Client connected');
-  //   // Handle real-time subscriptions
-  // });
+      let address: string | undefined;
+      
+      // Reverse geocode coordinates if needed
+      try {
+        if (lat && lon) {
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&addressdetails=1`
+          );
+          if (response.ok) {
+            const geoData = await response.json();
+            address = geoData.display_name;
+          }
+        }
+      } catch (geoError) {
+        console.warn("Reverse geocoding failed:", geoError);
+      }
+
+      // Store the footage
+      const footage = await storage.createDspFootage({
+        provider,
+        timestamp: new Date(timestamp),
+        mediaUrl,
+        thumbnailUrl: thumbnailUrl || null,
+        latitude: lat.toString(),
+        longitude: lon.toString(),
+        address: address || null,
+        notes: notes || null,
+        status: "new",
+        claimId: null,
+        processingMetadata: null,
+      });
+
+      // Emit WebSocket notification to connected clients
+      wss.clients.forEach((client) => {
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(JSON.stringify({
+            type: 'new_dsp_footage',
+            data: footage
+          }));
+        }
+      });
+
+      res.json({ 
+        success: true, 
+        footage,
+        message: `Footage ingested from ${provider}` 
+      });
+    } catch (error: any) {
+      console.error("DSP ingest error:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Get all DSP footage
+  app.get("/api/dsp-footage", async (req, res) => {
+    try {
+      const footage = await storage.getDspFootage();
+      res.json(footage);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Get DSP footage by provider
+  app.get("/api/dsp-footage/:provider", async (req, res) => {
+    try {
+      const { provider } = req.params;
+      const footage = await storage.getDspFootageByProvider(provider);
+      res.json(footage);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // WebSocket for real-time updates
+  const httpServer = createServer(app);
+  
+  const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
+  
+  wss.on('connection', (socket) => {
+    console.log('Client connected to DSP alerts');
+    
+    socket.send(JSON.stringify({
+      type: 'connection_established',
+      message: 'Connected to StormLead DSP alerts'
+    }));
+
+    socket.on('message', (message) => {
+      try {
+        const data = JSON.parse(message.toString());
+        if (data.type === 'subscribe_to_dsp') {
+          socket.send(JSON.stringify({
+            type: 'subscription_confirmed',
+            message: 'Subscribed to DSP footage alerts'
+          }));
+        }
+      } catch (error) {
+        console.error('WebSocket message error:', error);
+      }
+    });
+
+    socket.on('close', () => {
+      console.log('Client disconnected');
+    });
+  });
 
   return httpServer;
 }

@@ -16,7 +16,9 @@ import {
   type MarketComparable,
   type InsertMarketComparable,
   type AiInteraction,
-  type InsertAiInteraction
+  type InsertAiInteraction,
+  type DspFootage,
+  type InsertDspFootage
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -72,6 +74,12 @@ export interface IStorage {
   // AI Interaction methods
   createAiInteraction(interaction: InsertAiInteraction): Promise<AiInteraction>;
   getAiInteractionsByUser(userId: string): Promise<AiInteraction[]>;
+
+  // DSP Footage methods
+  getDspFootage(): Promise<DspFootage[]>;
+  getDspFootageByProvider(provider: string): Promise<DspFootage[]>;
+  createDspFootage(footage: InsertDspFootage): Promise<DspFootage>;
+  updateDspFootage(id: string, updates: Partial<DspFootage>): Promise<DspFootage>;
 }
 
 export class MemStorage implements IStorage {
@@ -84,6 +92,7 @@ export class MemStorage implements IStorage {
   private droneFootage: Map<string, DroneFootage> = new Map();
   private marketComparables: Map<string, MarketComparable> = new Map();
   private aiInteractions: Map<string, AiInteraction> = new Map();
+  private dspFootage: Map<string, DspFootage> = new Map();
 
   constructor() {
     this.initializeTestData();
@@ -370,6 +379,37 @@ export class MemStorage implements IStorage {
 
   async getAiInteractionsByUser(userId: string): Promise<AiInteraction[]> {
     return Array.from(this.aiInteractions.values()).filter(interaction => interaction.userId === userId);
+  }
+
+  // DSP Footage methods
+  async getDspFootage(): Promise<DspFootage[]> {
+    return Array.from(this.dspFootage.values());
+  }
+
+  async getDspFootageByProvider(provider: string): Promise<DspFootage[]> {
+    return Array.from(this.dspFootage.values()).filter(footage => footage.provider === provider);
+  }
+
+  async createDspFootage(footage: InsertDspFootage): Promise<DspFootage> {
+    const id = randomUUID();
+    const newFootage: DspFootage = {
+      id,
+      ...footage,
+      createdAt: new Date(),
+      processedAt: null,
+    };
+    this.dspFootage.set(id, newFootage);
+    return newFootage;
+  }
+
+  async updateDspFootage(id: string, updates: Partial<DspFootage>): Promise<DspFootage> {
+    const existing = this.dspFootage.get(id);
+    if (!existing) {
+      throw new Error(`DSP footage with id ${id} not found`);
+    }
+    const updated = { ...existing, ...updates };
+    this.dspFootage.set(id, updated);
+    return updated;
   }
 }
 
