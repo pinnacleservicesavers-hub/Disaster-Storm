@@ -254,7 +254,23 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
       let { to, subject, html, attachments, claimNumber } = req.body || {};
       if (!to || !subject) return res.status(400).json({ error: "to and subject required" });
       if (claimNumber && subject.toUpperCase().indexOf('[CLAIM ') === -1) subject = `[CLAIM ${claimNumber}] ` + subject;
-      const info = await transporter.sendMail({ from: process.env.SMTP_FROM || process.env.SMTP_USER, to, subject, html: html || "", attachments });
+
+      // Map public paths to filesystem paths for attachments (uploads/assets),
+      // or accept absolute URLs.
+      const mapAttach = (att) => {
+        if (!att || !att.path) return att;
+        try{
+          let p = att.path;
+          if (p.startsWith('/uploads/')) p = path.join(UPLOAD_DIR, path.basename(p));
+          else if (p.startsWith('uploads/')) p = path.join(UPLOAD_DIR, path.basename(p));
+          else if (p === '/files/contract.pdf') p = path.join(ASSETS_DIR, 'contract.pdf');
+          // otherwise allow absolute URLs or direct fs paths
+          return { ...att, path: p };
+        }catch{ return att; }
+      };
+      const atts = Array.isArray(attachments) ? attachments.map(mapAttach) : undefined;
+
+      const info = await transporter.sendMail({ from: process.env.SMTP_FROM || process.env.SMTP_USER, to, subject, html: html || "", attachments: atts });
       if (claimNumber) addMessage(claimNumber, { dir: 'out', to, subject, html });
       res.json({ ok: true, id: info.messageId });
     } catch (e) { res.status(500).json({ error: "Email failed", detail: String(e) }); }
@@ -335,6 +351,60 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
       doc.end();
       stream.on('finish', ()=> res.json({ ok:true, path: `/uploads/${path.basename(outPath)}` }));
     }catch(e){ res.status(500).json({ error:'brochure_failed', detail:String(e) }); }
+  });
+
+  // ---- Photo Report (PDF) generator ----
+  app.post('/api/report/photo', async (req, res) => {
+    try{
+      const { claimNumber, address, customerName, contractor, photos = [], title } = req.body || {};
+      if (!photos.length) return res.status(400).json({ error:'no_photos' });
+      const outPath = path.join(UPLOAD_DIR, `photo_report_${Date.now()}.pdf`);
+      const doc = new PDFDocument({ size: 'LETTER', margin: 36 });
+      const stream = fs.createWriteStream(outPath); doc.pipe(stream);
+
+      // Header
+      doc.fontSize(18).text(title || 'Storm Damage Photo Report');
+      doc.moveDown(0.3).fontSize(11).text(`Customer: ${customerName||''}`);
+      if (address) doc.fontSize(11).text(`Address: ${address}`);
+      if (claimNumber) doc.fontSize(11).text(`Claim #: ${claimNumber}`);
+      if (contractor) doc.moveDown(0.3).fontSize(10).text(`Prepared by: ${contractor.name||''} • ${contractor.phone||''} • ${contractor.website||''}`);
+      doc.moveDown(0.5);
+
+      // Helper to convert public URL → local fs path or remote fetch
+      const toFs = (u) => {
+        try{
+          if (!u) return null;
+          if (u.startsWith('/uploads/')) return path.join(UPLOAD_DIR, path.basename(u));
+          if (u.startsWith('uploads/')) return path.join(UPLOAD_DIR, path.basename(u));
+          if (/^https?:\/\//i.test(u)) return u; // will fetch
+          return u;
+        }catch{return null;}
+      };
+
+      for (let i=0;i<photos.length;i++){
+        const { url, note } = photos[i];
+        const src = toFs(url);
+        if (i>0) doc.addPage();
+        let placed = false;
+        try{
+          if (/^https?:/i.test(src)){
+            const r = await fetch(src);
+            const buf = Buffer.from(await r.arrayBuffer());
+            doc.image(buf, { fit: [540, 540], align: 'center', valign:'center' });
+            placed = true;
+          } else {
+            doc.image(src, { fit: [540, 540], align: 'center', valign:'center' });
+            placed = true;
+          }
+        }catch{}
+        doc.moveDown(placed?0.5:0);
+        const cap = note || 'Detected: storm damage';
+        doc.fontSize(11).text(cap);
+      }
+
+      doc.end();
+      stream.on('finish', ()=> res.json({ ok:true, path: `/uploads/${path.basename(outPath)}` }));
+    }catch(e){ res.status(500).json({ error:'photo_report_failed', detail:String(e) }); }
   });
 
   // ---- AI describe placeholder (hook Vision API later) ----

@@ -1,0 +1,311 @@
+# VOTIX Mapping + Auto‑Leads — Paste Blocks
+
+This adds:
+
+* **Provider‑aware normalizer** (explicit VOTIX mapping, still works for others)
+* **Reverse geocode** of drone coordinates → address
+* **Auto‑Leads**: when a drone event with damage tags lands, create a lead (deduped), broadcast over SSE, and show in the UI
+* **Lead Inbox** (accept → new customer scaffold) + **Live Map** shows *lead* pins
+
+---
+
+## 1) SERVER — add to `server.js` (after your drone webhook code)
+
+```js
+// ====== Reverse Geocoding ======
+async function reverseGeocode(lat, lng){
+  try{
+    const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`;
+    const r = await fetch(url, { headers: { 'User-Agent': 'StormOps/1.0 (contact: strategiclandmgmt@gmail.com)' } });
+    const j = await r.json();
+    return j?.display_name || null;
+  }catch{ return null; }
+}
+
+// ====== Leads store ======
+const LEADS_PATH = path.join(DATA_DIR, 'leads.json');
+if (!fs.existsSync(LEADS_PATH)) fs.writeFileSync(LEADS_PATH, JSON.stringify({ items: [] }, null, 2));
+function readLeads(){ try{ return JSON.parse(fs.readFileSync(LEADS_PATH,'utf8')); }catch{ return { items: [] }; } }
+function writeLeads(d){ try{ fs.writeFileSync(LEADS_PATH, JSON.stringify(d,null,2)); }catch{} }
+
+function haversine(aLat,aLng,bLat,bLng){
+  const R=6371000; const toRad=(d)=>d*Math.PI/180;
+  const dLat=toRad(bLat-aLat), dLng=toRad(bLng-aLng);
+  const s = Math.sin(dLat/2)**2 + Math.cos(toRad(aLat))*Math.cos(toRad(bLat))*Math.sin(dLng/2)**2;
+  return 2*R*Math.asin(Math.sqrt(s));
+}
+
+// ====== Explicit VOTIX mapping (still falls back to generic) ======
+function fromVotix(body){
+  // Common VOTIX fields seen in webhooks/integrations
+  // Examples: { coordinates:{ lat, lon }, hlsUrl, rtmpUrl, thumbnail, labels:[...], notes, missionId, vehicleId }
+  const c = body.coordinates || body.location || {};
+  const lat = body.lat || c.lat || c.latitude;
+  const lng = body.lng || body.lon || c.lon || c.longitude;
+  const stream = body.hlsUrl || body.hls || body.stream_url || body.rtmpUrl || body.rtmp;
+  const image = body.thumbnail || body.image_url || body.snapshot;
+  const labels = body.labels || body.classifications || [];
+  const address = body.address || body.addr || (body.location && body.location.address) || null;
+  return {
+    provider: 'votix',
+    droneId: body.vehicleId || body.uav_id || body.droneId,
+    mission: body.missionId || body.mission || body.project,
+    lat, lng, address, stream, image,
+    tags: Array.isArray(labels)? labels: [],
+    ts: Number(body.timestamp || body.ts || Date.now())
+  };
+}
+
+async function normalizeDroneEventProviderAware(body){
+  let base;
+  const p = (body.provider||body.vendor||body.source||'').toString().toLowerCase();
+  if (p.includes('votix')) base = fromVotix(body);
+  // Add more: if (p.includes('flyt')) {...} else if (p.includes('dji')) {...}
+  if (!base){
+    // Fall back to existing generic normalizer
+    base = await normalizeDroneEvent(body); // <- from your existing code
+  }
+  // Ensure tags from text if tags empty
+  if (!base.tags || !base.tags.length){
+    const text = [body.caption, body.note, body.notes, (body.labels||[]).join(' '), (body.objects||[]).join(' ')].filter(Boolean).join(' ');
+    base.tags = detectLabelsFromText(text);
+  }
+  // Fill missing address
+  if ((!base.address || base.address==='null') && base.lat && base.lng){
+    base.address = await reverseGeocode(base.lat, base.lng);
+  }
+  return base;
+}
+
+// ====== Auto‑Lead creation on inbound webhooks ======
+async function ensureLeadFromEvent(evt){
+  // Only create leads when we have damage tags
+  if (!evt || !evt.tags || !evt.tags.length) return null;
+  const db = readLeads();
+  const now = Date.now();
+  // Deduplicate near‑duplicates: within 25m and 6 hours
+  const near = (db.items||[]).find(x => haversine(x.lat,x.lng, evt.lat,evt.lng) < 25 && (now - x.createdAt) < 6*3600*1000);
+  if (near) return null;
+  const lead = {
+    id: `lead:${now}:${Math.random().toString(36).slice(2,8)}`,
+    createdAt: now,
+    provider: evt.provider,
+    mission: evt.mission||null,
+    droneId: evt.droneId||null,
+    lat: evt.lat, lng: evt.lng,
+    address: evt.address||null,
+    tags: evt.tags,
+    image: evt.image||null,
+    stream: evt.stream||null
+  };
+  db.items.push(lead); writeLeads(db);
+  // Broadcast
+  sseBroadcast({ type:'lead', lead });
+  // Optional: email alert
+  try{
+    await notify({ subject:`[LEAD] ${lead.tags.join(', ')} — ${lead.address||lead.lat+','+lead.lng}`, html:`New lead from ${lead.provider}.<br/>Tags: ${lead.tags.join(', ')}<br/>${lead.address||''}` });
+  }catch{}
+  return lead;
+}
+
+// Hook auto‑leads into existing webhook handler: after you normalize
+// In your /api/drone/webhook handler, replace normalizeDroneEvent(...) with normalizeDroneEventProviderAware(...)
+// and call ensureLeadFromEvent(evt) after broadcasting the drone_event.
+// Example:
+//   const evt = await normalizeDroneEventProviderAware(req.body||{});
+//   if (!evt) return res.status(400).json({ error:'invalid_payload' });
+//   const db = readDrone(); db.events.push(evt); writeDrone(db);
+//   sseBroadcast({ type:'drone_event', event: evt });
+//   await ensureLeadFromEvent(evt);
+//   return res.json({ ok:true });
+
+// ====== Leads API ======
+app.get('/api/leads', (req,res)=>{ try{ res.json(readLeads().items.slice(-200).reverse()); }catch{ res.json([]); } });
+app.post('/api/leads/accept', express.json(), async (req,res)=>{
+  try{
+    const { id } = req.body||{}; if (!id) return res.status(400).json({ error:'id_required' });
+    const db = readLeads(); const idx = (db.items||[]).findIndex(x=>x.id===id);
+    if (idx<0) return res.status(404).json({ error:'not_found' });
+    const lead = db.items[idx]; db.items.splice(idx,1); writeLeads(db);
+    res.json({ ok:true, lead });
+  }catch(e){ res.status(500).json({ error:'accept_failed' }); }
+});
+app.post('/api/leads/clear', (req,res)=>{ try{ writeLeads({ items: [] }); res.json({ ok:true }); }catch(e){ res.status(500).json({ ok:false }); } });
+```
+
+---
+
+## 2) FRONTEND — Lead Inbox + Map support
+
+### 2a) Update your **StormMap** to show `lead` pins
+
+Add the `leads` array from `/api/leads` and SSE `lead` events, and a **filter chip**:
+
+```jsx
+function StormMap({ customers=[] }){
+  const { role } = useRole();
+  const [markers, setMarkers] = React.useState([]); // customers
+  const [live, setLive] = React.useState([]);       // drone live
+  const [leads, setLeads] = React.useState([]);     // auto‑leads
+  const [center, setCenter] = React.useState([27.6648, -81.5158]);
+  const [zoom, setZoom] = React.useState(6);
+  const [filters, setFilters] = React.useState({
+    tree_on_roof:true, line_down:true, structure_damage:true, tree_on_fence:true,
+    tree_on_car:true, tree_on_barn:true, tree_on_shed:true, tree_in_pool:true, tree_on_playground:true,
+    live:true, lead:true
+  });
+
+  React.useEffect(()=>{ fetch('/api/leads').then(r=>r.json()).then(setLeads).catch(()=>{}); },[]);
+
+  React.useEffect(()=>{
+    const es = new EventSource('/api/drone/events');
+    es.onmessage = (ev)=>{
+      try{
+        const data = JSON.parse(ev.data);
+        if (data?.type==='drone_event' && data.event){ setLive(prev=> [...prev.slice(-499), data.event]); }
+        if (data?.type==='lead' && data.lead){ setLeads(prev=> [data.lead, ...prev].slice(0,500)); }
+      }catch{}
+    };
+    return ()=> es.close();
+  },[]);
+
+  const active = (tags=[])=> tags.some(t=> filters[t]) || (tags.length===0 && (filters.live||filters.lead));
+
+  const merged = [
+    ...markers.filter(m=>active(m.tags)).map(m=>({ ...m, kind:'case' })),
+    ...live.filter(e=>active(e.tags)).map(e=>({ id:e.id, lat:e.lat, lng:e.lng, name:e.provider||'drone', address:e.address, tags:e.tags, kind:'live', stream:e.stream, image:e.image })),
+    ...leads.filter(l=>active(l.tags)).map(l=>({ id:l.id, lat:l.lat, lng:l.lng, name:'lead', address:l.address, tags:l.tags, kind:'lead', stream:l.stream, image:l.image }))
+  ];
+
+  return (
+    <div className="border rounded-lg overflow-hidden">
+      <div className="p-2 flex flex-wrap gap-2 items-center">
+        {Object.keys(filters).filter(k=>!['live','lead'].includes(k)).map(k=> (
+          <label key={k} className={`text-xs px-2 py-1 rounded-full border cursor-pointer ${filters[k]?'bg-emerald-600 text-white border-emerald-700':'bg-white'}`}>
+            <input type="checkbox" checked={!!filters[k]} onChange={()=>setFilters(f=>({ ...f, [k]: !f[k] }))} className="mr-1"/>{k.replaceAll('_',' ')}
+          </label>
+        ))}
+        <label className={`text-xs px-2 py-1 rounded-full border cursor-pointer ${filters.live?'bg-purple-600 text-white border-purple-700':'bg-white'}`}>
+          <input type="checkbox" checked={!!filters.live} onChange={()=>setFilters(f=>({ ...f, live: !f.live }))} className="mr-1"/>live
+        </label>
+        <label className={`text-xs px-2 py-1 rounded-full border cursor-pointer ${filters.lead?'bg-orange-600 text-white border-orange-700':'bg-white'}`}>
+          <input type="checkbox" checked={!!filters.lead} onChange={()=>setFilters(f=>({ ...f, lead: !f.lead }))} className="mr-1"/>lead
+        </label>
+        <div className="ml-auto"><span className="text-xs opacity-70">Role: {role}</span></div>
+      </div>
+      <div style={{height: 420}}>
+        <LeafletLive center={center} zoom={zoom} markers={merged} />
+      </div>
+    </div>
+  );
+}
+
+function LeafletLive({ center, zoom, markers }){
+  const L = window.L;
+  const [ready, setReady] = React.useState(!!(window.L));
+  React.useEffect(()=>{
+    if (!window.L){ const s = document.createElement('script'); s.src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'; s.onload=()=>setReady(true); document.body.appendChild(s); }
+  },[]);
+  React.useEffect(()=>{
+    if (!ready) return;
+    let map = LeafletLive.__map;
+    if (!map){
+      map = LeafletLive.__map = L.map('storm-map-root').setView(center, zoom);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{ maxZoom:19, attribution:'&copy; OpenStreetMap' }).addTo(map);
+    } else { map.setView(center, zoom); }
+
+    if (LeafletLive.__layer){ LeafletLive.__layer.remove(); }
+    const layer = L.layerGroup();
+    markers.forEach(m=>{
+      let mk;
+      if (m.kind==='live') mk = L.circleMarker([m.lat, m.lng], { radius:8, color:'#7c3aed', fillColor:'#7c3aed', fillOpacity:0.8 });
+      else if (m.kind==='lead') mk = L.circleMarker([m.lat, m.lng], { radius:8, color:'#f97316', fillColor:'#f97316', fillOpacity:0.9 });
+      else mk = L.circleMarker([m.lat, m.lng], { radius:6, color:'#10b981', fillColor:'#10b981', fillOpacity:0.8 });
+      const media = m.image ? `<br/><img src="${m.image}" style="max-width:220px;max-height:120px;display:block;margin-top:4px;"/>` : '';
+      const stream = m.stream ? `<br/><a href="${m.stream}" target="_blank">Open stream</a>` : '';
+      mk.bindPopup(`<b>${m.name||''}</b><br/>${m.address||''}<br/>Tags: ${(m.tags||[]).join(', ')}${media}${stream}`);
+      mk.addTo(layer);
+    });
+    layer.addTo(map);
+    LeafletLive.__layer = layer;
+  }, [ready, JSON.stringify(center), zoom, JSON.stringify(markers)]);
+
+  return <div id="storm-map-root" style={{width:'100%',height:'100%'}} />;
+}
+```
+
+### 2b) Lead Inbox (drop anywhere; hook `onCreateCustomer` to your state)
+
+```jsx
+function LeadInbox({ onCreateCustomer }){
+  const [leads, setLeads] = React.useState([]);
+  React.useEffect(()=>{ fetch('/api/leads').then(r=>r.json()).then(setLeads).catch(()=>{}); },[]);
+  React.useEffect(()=>{
+    const es = new EventSource('/api/drone/events');
+    es.onmessage = (ev)=>{ try{ const d = JSON.parse(ev.data); if (d?.type==='lead' && d.lead){ setLeads(prev=> [d.lead, ...prev]); } }catch{} };
+    return ()=> es.close();
+  },[]);
+
+  async function accept(id){
+    const r = await fetch('/api/leads/accept',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id }) }).then(r=>r.json()).catch(()=>null);
+    if (!r?.ok){ alert('Accept failed'); return; }
+    const lead = r.lead; setLeads(ls=> ls.filter(x=>x.id!==id));
+    const c = {
+      id: `c:${Date.now()}`,
+      name: 'Unknown Owner',
+      address: lead.address || `${lead.lat}, ${lead.lng}`,
+      phone: '', email: '',
+      insurer: '', claimNumber: '',
+      status: 'new', docs: [], messages: [], timeline: [{ ts: Date.now(), type:'lead_imported', text: `${lead.provider||'drone'} lead` }]
+    };
+    try{ await onCreateCustomer?.(c); }catch{}
+    // Center the map to the new lead
+    try{ window.dispatchEvent(new CustomEvent('storm-center',{ detail:{ address:c.address, name:c.name } })); }catch{}
+  }
+
+  return (
+    <div className="border rounded-md p-3">
+      <div className="font-semibold mb-2">Lead Inbox</div>
+      <div className="text-xs text-muted-foreground mb-2">Auto‑leads generated from drone detections with damage tags.</div>
+      <div className="space-y-2 max-h-64 overflow-auto">
+        {leads.map(l=> (
+          <div key={l.id} className="border rounded p-2 text-sm flex items-center justify-between">
+            <div>
+              <div className="font-medium">{(l.tags||[]).join(', ')}</div>
+              <div className="text-xs opacity-80">{l.address || `${l.lat}, ${l.lng}`}</div>
+              <div className="text-xs opacity-80">{new Date(l.createdAt).toLocaleString()}</div>
+            </div>
+            <div className="flex gap-2">
+              {l.stream && <a className="underline text-xs" href={l.stream} target="_blank" rel="noreferrer">Open stream</a>}
+              <button className="px-2 py-1 text-xs rounded bg-emerald-600 text-white" onClick={()=>accept(l.id)}>Accept Lead</button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+```
+
+**Hooking it up** — wherever you manage customers, pass a creator:
+
+```jsx
+<LeadInbox onCreateCustomer={(c)=> setCustomers(prev=> [c, ...prev])} />
+```
+
+---
+
+## 3) Provider notes (VOTIX)
+
+* Point VOTIX webhook to `POST /api/drone/webhook` with header `X-Drone-Secret: <your secret>` (if you set one).
+* Include at least one of:
+
+  * `{ coordinates:{ lat, lon }, hlsUrl:"...", thumbnail:"...", labels:["tree on roof", ...] }`
+  * or `{ lat:..., lng:..., rtmpUrl:"..." }`
+* We convert `labels` → tags. If labels are absent, we infer from `notes/caption` text.
+* We reverse‑geocode if no address was provided.
+
+That’s it — paste these blocks and restart your server.
+
+```
+```
