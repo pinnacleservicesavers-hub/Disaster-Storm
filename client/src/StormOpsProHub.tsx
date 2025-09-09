@@ -1002,6 +1002,31 @@ function CustomerCard({ c, update, pushMsg, pushDoc, pushEvent }: any){
     setMsg(''); 
   }
   function changeStatus(s: string){ update(c.id,{ status:s }); pushEvent(c.id,{ type:'status', to:s }); }
+  
+  // Request payment via Stripe Checkout
+  async function requestPayment() {
+    try {
+      const response = await fetch('/api/invoice/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customer: { email: c.email },
+          lineItems: [
+            { name: `Storm Damage Removal - ${c.address}`, amount: 2500, quantity: 1 }, // $25.00 example
+            { name: 'Emergency Response Fee', amount: 500, quantity: 1 } // $5.00 example
+          ],
+          metadata: { claimNumber: c.claimNumber, customerId: c.id }
+        })
+      });
+      const data = await response.json();
+      if (data.ok && data.url) {
+        window.open(data.url, '_blank');
+        pushEvent(c.id, { type: 'payment_requested', text: `Stripe checkout created: ${data.id}` });
+      }
+    } catch (e) {
+      console.error('Payment request failed:', e);
+    }
+  }
   return (
     <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
       <div className="p-4 space-y-3">
@@ -1069,6 +1094,7 @@ function CustomerCard({ c, update, pushMsg, pushDoc, pushEvent }: any){
         <div className="flex flex-wrap gap-2">
           <button onClick={()=>changeStatus('contract_signed')} className="border border-gray-300 text-gray-700 px-3 py-1 rounded-md text-sm hover:bg-gray-50">Mark Contracted</button>
           <button onClick={()=>changeStatus('claim_submitted')} className="border border-gray-300 text-gray-700 px-3 py-1 rounded-md text-sm hover:bg-gray-50">Mark Claim Submitted</button>
+          <button onClick={requestPayment} className="bg-green-600 text-white px-3 py-1 rounded-md text-sm hover:bg-green-700">Request Payment</button>
           <button onClick={()=>changeStatus('paid')} className="border border-gray-300 text-gray-700 px-3 py-1 rounded-md text-sm hover:bg-gray-50">Mark Paid</button>
         </div>
       </div>
