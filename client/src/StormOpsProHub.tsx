@@ -988,7 +988,19 @@ function CustomerCard({ c, update, pushMsg, pushDoc, pushEvent }: any){
       .then(r=>r.json()).then(setThread).catch(()=>{});
   }, [c.claimNumber]);
   async function sendSMS(){ await fetch('/api/sms',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ to:c.phone, body: msg })}); pushMsg(c.id,{ dir:'out', type:'sms', to:c.phone, body:msg }); setMsg(''); }
-  async function sendEmail(){ await fetch('/api/email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ to:c.email, subject:`Storm work update for ${c.address}`, html: msg, claimNumber: c.claimNumber })}); pushMsg(c.id,{ dir:'out', type:'email', to:c.email, body:msg }); setMsg(''); }
+  async function sendEmail(){ 
+    await fetch('/api/email',{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        to: c.email,
+        subject: `Storm work update for ${c.address}`,
+        html: msg,
+        claimNumber: c.claimNumber || undefined
+      })
+    });
+    pushMsg(c.id,{ dir:'out', type:'email', to:c.email, body:msg }); 
+    setMsg(''); 
+  }
   function changeStatus(s: string){ update(c.id,{ status:s }); pushEvent(c.id,{ type:'status', to:s }); }
   return (
     <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
