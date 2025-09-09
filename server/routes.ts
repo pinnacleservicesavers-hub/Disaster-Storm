@@ -3,6 +3,10 @@ import express from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import fetch from "node-fetch";
+import Stripe from "stripe";
+import PDFDocument from "pdfkit";
+
+const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -500,6 +504,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // simple in-memory store; swap for a DB later
   const inbox: any[] = [];
   
+  // ---- simple message store by claim number (for email threads) ----
+  const messagesByClaim = new Map(); // claimNumber -> [{ts, dir, from, to, subject, html, text}]
+  function addMessage(claimNumber: string, msg: any){
+    if(!claimNumber) return;
+    if(!messagesByClaim.has(claimNumber)) messagesByClaim.set(claimNumber, []);
+    messagesByClaim.get(claimNumber).push({ ts: Date.now(), ...msg });
+  }
+  function extractClaim(text: string){
+    if(!text) return null;
+    const up = String(text).toUpperCase();
+    const tag = '[CLAIM ';
+    let i = up.indexOf(tag);
+    if (i >= 0){
+      const j = up.indexOf(']', i+tag.length);
+      if (j > i) return String(text).substring(i+tag.length, j).trim();
+    }
+    i = up.indexOf('CLAIM');
+    if (i >= 0){
+      let rest = String(text).substring(i+5).trim();
+      const prefixes = ['#','NO.','NO','NUMBER',':','-'];
+      for (const pre of prefixes){ if (rest.toUpperCase().startsWith(pre)) { rest = rest.slice(pre.length).trim(); break; } }
+      let token = '';
+      for (const ch of rest){ const code = ch.charCodeAt(0); const ok = (code>=48&&code<=57)||(code>=65&&code<=90)||(code>=97&&code<=122)||ch==='-'; if (!ok) break; token+=ch; }
+      if (token) return token;
+    }
+    return null;
+  }
+  
   // SSE client connections
   const clients = new Set();
 
@@ -541,35 +573,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/inbox", (req, res) => res.json(inbox));
 
-  // Owner lookup endpoint - placeholder for property records integration
-  app.get("/api/owner-lookup", async (req, res) => {
-    const { address } = req.query;
-    if (!address) {
-      return res.status(400).json({ error: "Address parameter required" });
-    }
-
+  // Enhanced Owner lookup with live Estated API integration
+  app.post("/api/owner-lookup", async (req, res) => {
+    const { address, lat, lon } = req.body || {};
     try {
-      // TODO: Wire to real property data provider (ESTATED_KEY, assessor records, etc)
-      // For now, return mock data structure that matches expected format
-      const mockOwner = {
-        name: "John Smith", 
-        phone: "555-123-4567",
-        email: "john.smith@email.com",
-        mailingAddress: address,
-        parcelId: "1234567890",
-        assessedValue: "$285,000",
-        lastSale: "2019-03-15",
-        salePrice: "$265,000"
-      };
-
-      res.json({ 
-        owner: mockOwner,
-        source: "mock_data",
-        address: address,
-        timestamp: new Date().toISOString()
-      });
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      if (process.env.ESTATED_API_KEY && address) {
+        const url = `https://api.estated.com/property/v4?token=${process.env.ESTATED_API_KEY}&address=${encodeURIComponent(address)}`;
+        const r = await fetch(url);
+        const j = await r.json() as any;
+        const p = j?.data?.properties?.[0] || j?.data || {};
+        const owner = (p?.owner || (p?.owners && p.owners[0])) || {};
+        const contact = p?.mailing_address || p?.mailing || {};
+        return res.json({
+          ownerName: [owner?.first_name, owner?.last_name].filter(Boolean).join(" ") || owner?.name || null,
+          mailingAddress: [contact?.line1, contact?.line2, contact?.city, contact?.state, contact?.zip].filter(Boolean).join(", ") || null,
+          phone: null,
+          email: null,
+          sources: ["Estated"]
+        });
+      }
+      
+      async function reverseGeocode(lat: number, lon: number) {
+        try {
+          const r = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`,
+            { headers: { "User-Agent": "StormOpsHub/1.0" } }
+          );
+          const j = await r.json();
+          return j?.display_name || "";
+        } catch (e) {
+          return "";
+        }
+      }
+      
+      const guessed = address || ((lat && lon) ? await reverseGeocode(lat, lon) : null);
+      res.json({ ownerName: null, mailingAddress: guessed, phone: null, email: null, sources: [] });
+    } catch (e) {
+      res.status(500).json({ error: "lookup_failed", detail: String(e) });
     }
   });
 
@@ -728,6 +768,86 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Email Error:", e);
       res.status(500).json({ error: "Email failed", detail: String(e) }); 
     }
+  });
+
+  // ---- NEW ENHANCED FUNCTIONALITY ----
+
+  // Inbound email webhook (use SendGrid Inbound Parse, Mailgun Routes, or Gmail relay)
+  app.post("/api/email/inbound", express.json({limit:'2mb'}), async (req, res) => {
+    try{
+      const { from, to, subject, html, text } = req.body || {};
+      const claimNumber = extractClaim(`${subject}\n${text||''}`) || extractClaim(html||'');
+      if (claimNumber) addMessage(claimNumber, { dir:'in', from, to, subject, html, text });
+      res.json({ ok: true, claimNumber: claimNumber || null });
+    } catch(e){ res.status(500).json({ error:'inbound_failed', detail:String(e) }); }
+  });
+
+  // Messages fetch by claim number
+  app.get('/api/messages', (req, res) => {
+    const claim = req.query.claim || req.query.claimNumber;
+    const arr = (claim && messagesByClaim.get(claim)) || [];
+    res.json(arr.slice(-200));
+  });
+
+  // Stripe invoice/checkout
+  app.post('/api/invoice/checkout', async (req, res) => {
+    try{
+      if (!stripe) return res.status(500).json({ error:'Stripe not configured - add STRIPE_SECRET_KEY' });
+      const { customer, lineItems, metadata } = req.body || {};
+      const session = await stripe.checkout.sessions.create({
+        mode: 'payment',
+        customer_email: customer?.email,
+        metadata: metadata || {},
+        line_items: (lineItems||[]).map((li: any) => ({
+          price_data: { currency:'usd', product_data:{ name: li.name || 'Service' }, unit_amount: Math.round(Number(li.amount||0)*100) },
+          quantity: li.quantity || 1,
+        })),
+        success_url: process.env.PAY_SUCCESS_URL || 'https://example.com/success?session_id={CHECKOUT_SESSION_ID}',
+        cancel_url: process.env.PAY_CANCEL_URL || 'https://example.com/cancel'
+      });
+      res.json({ ok:true, url: session.url, id: session.id });
+    }catch(e){ res.status(500).json({ error:'stripe_checkout_failed', detail:String(e) }); }
+  });
+
+  // PDF brochure generator (tri-fold, landscape letter)
+  app.post('/api/brochure/strategic', async (req, res) => {
+    try{
+      const outPath = path.join("./uploads", `brochure_strategic_${Date.now()}.pdf`);
+      const doc = new PDFDocument({ size: 'LETTER', layout: 'landscape', margin: 36 });
+      const stream = fs.createWriteStream(outPath); doc.pipe(stream);
+      const W = 792 - 72; // width minus margins
+      const H = 612 - 72; // height minus margins
+      const colW = W/3; const x0 = 36, y0 = 36;
+      doc.fontSize(22).text('Strategic Land Management LLC — Emergency Storm Response', x0, y0, { width: W, align: 'center' });
+      doc.moveDown(0.5).fontSize(12).text('📞 888-628-2229    🌐 www.strategiclandmgmt.com    ✉️ strategiclandmgmt@gmail.com', { align: 'center' });
+
+      function col(n: number){ return x0 + n*colW; }
+      doc.moveDown(1);
+      // Column 1
+      doc.fontSize(14).text('❤️ Our Mission', col(0), 120, { width: colW-12, continued:false });
+      doc.fontSize(11).text('When storms strike, we respond quickly, work compassionately, and restore safety with as little financial burden as possible.');
+      doc.moveDown(0.5).fontSize(14).text('🌳 Who We Are');
+      doc.fontSize(11).text('Veteran-Owned & Disabled-Owned • Led by John Culpepper, certified arborist. Licensed, bonded, insured. CPR & line-clearance certified.');
+      doc.moveDown(0.5).fontSize(12).text('Equipment: 2 Cranes • 10 Bucket Trucks • 3 Skid Steers • Trained Emergency Crew');
+
+      // Column 2
+      doc.fontSize(14).text('🏠 Tree Removal — Little to No Cost', col(1), 120, { width: colW-12 });
+      doc.fontSize(11).text('Scan the QR → Sign digitally → We remove & bill insurance. No surprise costs. You focus on family—we focus on recovery.', { width: colW-12 });
+      doc.moveDown(0.5).fontSize(14).text('💵 Storm Relief Action Plan');
+      doc.fontSize(11).text('Insurance Billing • SBA/FEMA guidance • Flexible payments • Community partners', { width: colW-12 });
+      doc.moveDown(0.25).fontSize(11).text('SBA Disaster Loans: Homeowners up to $500k; Renters up to $100k; Businesses up to $2M; Nonprofits eligible.');
+
+      // Column 3
+      doc.fontSize(14).text('⏱ Recovery Made Simple', col(2), 120, { width: colW-12 });
+      doc.fontSize(11).text('Call 24/7 → We assess → We assist paperwork → We remove trees → You recover.', { width: colW-12 });
+      doc.moveDown(0.5).fontSize(14).text('Why Choose Us?');
+      doc.fontSize(11).text('20+ years • Veteran-owned • Licensed/bonded/insured • Compassionate & cost-conscious.', { width: colW-12 });
+      doc.moveDown(0.5).fontSize(12).text('Scan for Priority Contract');
+      doc.rect(col(2)+10, doc.y+5, 100, 100).stroke();
+
+      doc.end();
+      stream.on('finish', ()=> res.json({ ok:true, path: `/uploads/${path.basename(outPath)}` }));
+    }catch(e){ res.status(500).json({ error:'brochure_failed', detail:String(e) }); }
   });
 
   // --- AI describe placeholder
