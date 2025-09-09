@@ -534,6 +534,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/inbox", (req, res) => res.json(inbox));
 
+  // Owner lookup endpoint - placeholder for property records integration
+  app.get("/api/owner-lookup", async (req, res) => {
+    const { address } = req.query;
+    if (!address) {
+      return res.status(400).json({ error: "Address parameter required" });
+    }
+
+    try {
+      // TODO: Wire to real property data provider (ESTATED_KEY, assessor records, etc)
+      // For now, return mock data structure that matches expected format
+      const mockOwner = {
+        name: "John Smith", 
+        phone: "555-123-4567",
+        email: "john.smith@email.com",
+        mailingAddress: address,
+        parcelId: "1234567890",
+        assessedValue: "$285,000",
+        lastSale: "2019-03-15",
+        salePrice: "$265,000"
+      };
+
+      res.json({ 
+        owner: mockOwner,
+        source: "mock_data",
+        address: address,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Server-Sent Events endpoint for real-time updates
   app.get("/api/stream", (req, res) => {
     res.set({

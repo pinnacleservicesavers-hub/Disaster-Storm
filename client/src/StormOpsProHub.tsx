@@ -1,9 +1,5 @@
 // @ts-nocheck
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MapContainer, TileLayer, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 
@@ -130,23 +126,53 @@ function QuickMap({ radarOn, alertsOn }: { radarOn: boolean; alertsOn: boolean }
   }, []);
 
   return (
-    <Card className="w-full">
-      <CardContent className="p-4 space-y-3">
+    <div className="w-full bg-white border border-gray-200 rounded-lg shadow-sm">
+      <div className="p-4 space-y-3">
         <div className="grid grid-cols-3 gap-2">
-          <Input type="number" step="0.0001" value={lat} onChange={(e) => setLat(Number(e.target.value))} placeholder="Latitude" />
-          <Input type="number" step="0.0001" value={lng} onChange={(e) => setLng(Number(e.target.value))} placeholder="Longitude" />
-          <Input type="number" step="1" min={2} max={12} value={z} onChange={(e) => setZ(Number(e.target.value))} placeholder="Zoom" />
+          <input 
+            type="number" 
+            step="0.0001" 
+            value={lat} 
+            onChange={(e) => setLat(Number(e.target.value))} 
+            placeholder="Latitude"
+            className="border border-gray-300 rounded-md px-2 py-1"
+          />
+          <input 
+            type="number" 
+            step="0.0001" 
+            value={lng} 
+            onChange={(e) => setLng(Number(e.target.value))} 
+            placeholder="Longitude"
+            className="border border-gray-300 rounded-md px-2 py-1"
+          />
+          <input 
+            type="number" 
+            step="1" 
+            min={2} 
+            max={12} 
+            value={z} 
+            onChange={(e) => setZ(Number(e.target.value))} 
+            placeholder="Zoom"
+            className="border border-gray-300 rounded-md px-2 py-1"
+          />
         </div>
-        <div className="flex justify-end"><Button onClick={save}>Save View</Button></div>
-        <div className="h-[420px] rounded-2xl overflow-hidden">
+        <div className="flex justify-end">
+          <button 
+            onClick={save}
+            className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 font-medium transition-colors"
+          >
+            Save View
+          </button>
+        </div>
+        <div className="h-[420px] rounded-2xl overflow-hidden border border-gray-200">
           <MapContainer ref={mapRef} center={position} zoom={z} className="h-full w-full">
             <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
             <RadarLayer enabled={radarOn} />
             <NOAAAlertsLayer enabled={alertsOn} />
           </MapContainer>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 
@@ -247,10 +273,30 @@ function pinTo(slot: string, url: string){
 function PinButtons({ currentUrl }: { currentUrl: string }){
   return (
     <div className="flex flex-wrap gap-2">
-      <Button variant="outline" onClick={() => pinTo('mv1', currentUrl)}>Pin → Pane 1</Button>
-      <Button variant="outline" onClick={() => pinTo('mv2', currentUrl)}>Pin → Pane 2</Button>
-      <Button variant="outline" onClick={() => pinTo('mv3', currentUrl)}>Pin → Pane 3</Button>
-      <Button variant="outline" onClick={() => pinTo('mv4', currentUrl)}>Pin → Pane 4</Button>
+      <button 
+        className="border border-gray-300 text-gray-700 px-3 py-1 rounded-md hover:bg-gray-50 font-medium transition-colors text-sm"
+        onClick={() => pinTo('mv1', currentUrl)}
+      >
+        Pin → Pane 1
+      </button>
+      <button 
+        className="border border-gray-300 text-gray-700 px-3 py-1 rounded-md hover:bg-gray-50 font-medium transition-colors text-sm"
+        onClick={() => pinTo('mv2', currentUrl)}
+      >
+        Pin → Pane 2
+      </button>
+      <button 
+        className="border border-gray-300 text-gray-700 px-3 py-1 rounded-md hover:bg-gray-50 font-medium transition-colors text-sm"
+        onClick={() => pinTo('mv3', currentUrl)}
+      >
+        Pin → Pane 3
+      </button>
+      <button 
+        className="border border-gray-300 text-gray-700 px-3 py-1 rounded-md hover:bg-gray-50 font-medium transition-colors text-sm"
+        onClick={() => pinTo('mv4', currentUrl)}
+      >
+        Pin → Pane 4
+      </button>
     </div>
   );
 }
@@ -292,16 +338,52 @@ function MultiView(){
   return (
     <div className="space-y-4">
       <div className="grid md:grid-cols-4 gap-2">
-        <Input value={mv1} onChange={(e) => setMv1(e.target.value)} placeholder="Pane 1 URL" />
-        <Input value={mv2} onChange={(e) => setMv2(e.target.value)} placeholder="Pane 2 URL" />
-        <Input value={mv3} onChange={(e) => setMv3(e.target.value)} placeholder="Pane 3 URL" />
-        <Input value={mv4} onChange={(e) => setMv4(e.target.value)} placeholder="Pane 4 URL" />
+        <input 
+          value={mv1} 
+          onChange={(e) => setMv1(e.target.value)} 
+          placeholder="Pane 1 URL"
+          className="border border-gray-300 rounded-md px-2 py-1"
+        />
+        <input 
+          value={mv2} 
+          onChange={(e) => setMv2(e.target.value)} 
+          placeholder="Pane 2 URL"
+          className="border border-gray-300 rounded-md px-2 py-1"
+        />
+        <input 
+          value={mv3} 
+          onChange={(e) => setMv3(e.target.value)} 
+          placeholder="Pane 3 URL"
+          className="border border-gray-300 rounded-md px-2 py-1"
+        />
+        <input 
+          value={mv4} 
+          onChange={(e) => setMv4(e.target.value)} 
+          placeholder="Pane 4 URL"
+          className="border border-gray-300 rounded-md px-2 py-1"
+        />
       </div>
       <div className="grid md:grid-cols-2 gap-3">
-        <Card className="h-[320px]"><CardContent className="p-2 h-full"><FlexiblePlayer url={mv1} /></CardContent></Card>
-        <Card className="h-[320px]"><CardContent className="p-2 h-full"><FlexiblePlayer url={mv2} /></CardContent></Card>
-        <Card className="h-[320px]"><CardContent className="p-2 h-full"><FlexiblePlayer url={mv3} /></CardContent></Card>
-        <Card className="h-[320px]"><CardContent className="p-2 h-full"><FlexiblePlayer url={mv4} /></CardContent></Card>
+        <div className="h-[320px] bg-white border border-gray-200 rounded-lg shadow-sm">
+          <div className="p-2 h-full">
+            <FlexiblePlayer url={mv1} />
+          </div>
+        </div>
+        <div className="h-[320px] bg-white border border-gray-200 rounded-lg shadow-sm">
+          <div className="p-2 h-full">
+            <FlexiblePlayer url={mv2} />
+          </div>
+        </div>
+        <div className="h-[320px] bg-white border border-gray-200 rounded-lg shadow-sm">
+          <div className="p-2 h-full">
+            <FlexiblePlayer url={mv3} />
+          </div>
+        </div>
+        <div className="h-[320px] bg-white border border-gray-200 rounded-lg shadow-sm">
+          <div className="p-2 h-full">
+            <FlexiblePlayer url={mv4} />
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -322,19 +404,34 @@ function ProviderTab({ name, hlsKey, iframeKey, portal }: { name: string; hlsKey
       <div className="grid md:grid-cols-3 gap-3">
         <div className="space-y-1">
           <label className="text-sm text-gray-600">{name} HLS (.m3u8)</label>
-          <Input value={hls} onChange={(e) => setHls(e.target.value)} placeholder="https://.../index.m3u8" />
+          <input 
+            value={hls} 
+            onChange={(e) => setHls(e.target.value)} 
+            placeholder="https://.../index.m3u8"
+            className="w-full border border-gray-300 rounded-md px-2 py-1"
+          />
         </div>
         <div className="space-y-1">
           <label className="text-sm text-gray-600">{name} Share/Embed URL</label>
-          <Input value={ifr} onChange={(e) => setIfr(e.target.value)} placeholder="https://..." />
+          <input 
+            value={ifr} 
+            onChange={(e) => setIfr(e.target.value)} 
+            placeholder="https://..."
+            className="w-full border border-gray-300 rounded-md px-2 py-1"
+          />
         </div>
         <div className="flex items-end gap-2">
-          <Button onClick={() => openNew(portal)}>Open {name}</Button>
+          <button 
+            onClick={() => openNew(portal)}
+            className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 font-medium transition-colors"
+          >
+            Open {name}
+          </button>
           {chosen && <PinButtons currentUrl={chosen} />}
         </div>
       </div>
-      <Card>
-        <CardContent className="p-3">
+      <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+        <div className="p-3">
           {hls ? (
             <HlsPlayer src={hls} />
           ) : (
@@ -349,8 +446,8 @@ function ProviderTab({ name, hlsKey, iframeKey, portal }: { name: string; hlsKey
               <div className="text-sm text-gray-600">Enter an HLS or share URL above.</div>
             )
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
       <div className="text-xs text-gray-600">If the embed is blocked by CSP, click Open {name} to launch their portal.</div>
     </div>
   );
@@ -359,20 +456,27 @@ function ProviderTab({ name, hlsKey, iframeKey, portal }: { name: string; hlsKey
 // ===== DSP Directory & Inbox =====
 function CompanyCard({ name, site, phone, note }: { name: string; site: string; phone?: string; note?: string }){
   return (
-    <Card>
-      <CardContent className="p-4 space-y-2">
+    <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+      <div className="p-4 space-y-2">
         <div className="text-lg font-semibold">{name}</div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={() => openNew(site)}>Website</Button>
+          <button 
+            className="border border-gray-300 text-gray-700 px-3 py-1.5 rounded-md hover:bg-gray-50 font-medium transition-colors text-sm"
+            onClick={() => openNew(site)}
+          >
+            Website
+          </button>
           {phone && (
             <a href={`tel:${phone.replace(/[^\d+]/g,'')}`}>
-              <Button>Call {phone}</Button>
+              <button className="bg-blue-600 text-white px-3 py-1.5 rounded-md hover:bg-blue-700 font-medium transition-colors text-sm">
+                Call {phone}
+              </button>
             </a>
           )}
         </div>
         {note && <div className="text-sm text-gray-600">{note}</div>}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 
@@ -505,10 +609,11 @@ function InboxStream() {
     <div className="space-y-4">
       <div className="flex items-center gap-4">
         <div className="flex-1">
-          <Input 
+          <input 
             value={search} 
             onChange={(e) => setSearch(e.target.value)} 
-            placeholder="Search footage..." 
+            placeholder="Search footage..."
+            className="w-full border border-gray-300 rounded-md px-2 py-1"
           />
         </div>
         <select 
@@ -528,8 +633,8 @@ function InboxStream() {
 
       <div className="grid md:grid-cols-2 gap-3">
         {filteredItems.map(item => (
-          <Card key={item.id}>
-            <CardContent className="p-3 space-y-2">
+          <div key={item.id} className="bg-white border border-gray-200 rounded-lg shadow-sm">
+            <div className="p-3 space-y-2">
               <div className="font-medium">{item.provider} — {new Date(item.timestamp).toLocaleString()}</div>
               <div className="text-sm text-gray-600">📍 {item.lat}, {item.lon}</div>
               {item.address && (
@@ -550,20 +655,28 @@ function InboxStream() {
               <div className="flex gap-2">
                 {item.mediaUrl && (
                   <a href={item.mediaUrl} target="_blank" rel="noreferrer">
-                    <Button size="sm" variant="outline">Open Media</Button>
+                    <button className="border border-gray-300 text-gray-700 px-3 py-1.5 rounded-md hover:bg-gray-50 font-medium transition-colors text-sm">
+                      Open Media
+                    </button>
                   </a>
                 )}
-                <Button size="sm" variant="outline" onClick={() => centerOnMap(item)}>
+                <button 
+                  className="border border-gray-300 text-gray-700 px-3 py-1.5 rounded-md hover:bg-gray-50 font-medium transition-colors text-sm"
+                  onClick={() => centerOnMap(item)}
+                >
                   Center on Map
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => ownerLookup(item)}>
+                </button>
+                <button 
+                  className="border border-gray-300 text-gray-700 px-3 py-1.5 rounded-md hover:bg-gray-50 font-medium transition-colors text-sm"
+                  onClick={() => ownerLookup(item)}
+                >
                   Owner Lookup
-                </Button>
+                </button>
               </div>
               
               {item.notes && <div className="text-sm text-gray-500">{item.notes}</div>}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         ))}
       </div>
     </div>
@@ -593,26 +706,30 @@ function OwnerLookup() {
 
   return (
     <div className="space-y-4">
-      <Card>
-        <CardContent className="p-4 space-y-3">
+      <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+        <div className="p-4 space-y-3">
           <h3 className="font-semibold">Property Owner Lookup</h3>
           <div className="flex gap-2">
-            <Input 
+            <input 
               value={address} 
               onChange={(e) => setAddress(e.target.value)} 
               placeholder="Enter property address..." 
-              className="flex-1"
+              className="flex-1 border border-gray-300 rounded-md px-2 py-1"
             />
-            <Button onClick={lookup} disabled={loading}>
+            <button 
+              onClick={lookup} 
+              disabled={loading}
+              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 font-medium transition-colors disabled:opacity-50"
+            >
               {loading ? 'Looking up...' : 'Lookup'}
-            </Button>
+            </button>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {result && (
-        <Card>
-          <CardContent className="p-4 space-y-3">
+        <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+          <div className="p-4 space-y-3">
             <h4 className="font-medium">Owner Information</h4>
             {result.owner ? (
               <div className="space-y-2">
@@ -621,10 +738,14 @@ function OwnerLookup() {
                   <div className="flex gap-2">
                     <strong>Phone:</strong> {result.owner.phone}
                     <a href={`tel:${result.owner.phone}`}>
-                      <Button size="sm" variant="outline">Call</Button>
+                      <button className="border border-gray-300 text-gray-700 px-2 py-1 rounded-md hover:bg-gray-50 font-medium transition-colors text-sm">
+                        Call
+                      </button>
                     </a>
                     <a href={`sms:${result.owner.phone}`}>
-                      <Button size="sm" variant="outline">Text</Button>
+                      <button className="border border-gray-300 text-gray-700 px-2 py-1 rounded-md hover:bg-gray-50 font-medium transition-colors text-sm">
+                        Text
+                      </button>
                     </a>
                   </div>
                 )}
@@ -632,7 +753,9 @@ function OwnerLookup() {
                   <div className="flex gap-2">
                     <strong>Email:</strong> {result.owner.email}
                     <a href={`mailto:${result.owner.email}`}>
-                      <Button size="sm" variant="outline">Email</Button>
+                      <button className="border border-gray-300 text-gray-700 px-2 py-1 rounded-md hover:bg-gray-50 font-medium transition-colors text-sm">
+                        Email
+                      </button>
                     </a>
                   </div>
                 )}
@@ -640,8 +763,8 @@ function OwnerLookup() {
             ) : (
               <div>No owner information found</div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -651,6 +774,7 @@ function OwnerLookup() {
 export default function StormOpsProHub() {
   const [radarOn, setRadarOn] = useState(true);
   const [alertsOn, setAlertsOn] = useState(true);
+  const [activeTab, setActiveTab] = useState("map");
 
   return (
     <div className="min-h-screen w-full bg-gradient-to-b from-slate-50 to-slate-100 p-6">
@@ -663,82 +787,126 @@ export default function StormOpsProHub() {
           <RoleSelector />
         </div>
 
-        <Tabs defaultValue="map" className="w-full">
-          <TabsList className="grid w-full grid-cols-8">
-            <TabsTrigger value="map">🗺️ Storm Map</TabsTrigger>
-            <TabsTrigger value="inbox">📥 Inbox</TabsTrigger>
-            <TabsTrigger value="multiview">📺 Multi-View</TabsTrigger>
-            <TabsTrigger value="votix">🔴 VOTIX</TabsTrigger>
-            <TabsTrigger value="flytbase">🚁 FlytBase</TabsTrigger>
-            <TabsTrigger value="dronedeploy">📹 DroneDeploy</TabsTrigger>
-            <TabsTrigger value="dji">🛸 DJI FH2</TabsTrigger>
-            <TabsTrigger value="dsps">👥 Hire Pilots</TabsTrigger>
-          </TabsList>
+        <div className="w-full">
+          <div className="border-b border-gray-200 bg-white rounded-t-lg">
+            <nav className="-mb-px flex space-x-8 px-4 overflow-x-auto">
+              {[
+                { id: "map", label: "🗺️ Storm Map" },
+                { id: "inbox", label: "📥 Inbox" },
+                { id: "multiview", label: "📺 Multi-View" },
+                { id: "votix", label: "🔴 VOTIX" },
+                { id: "flytbase", label: "🚁 FlytBase" },
+                { id: "dronedeploy", label: "📹 DroneDeploy" },
+                { id: "dji", label: "🛸 DJI FH2" },
+                { id: "dsps", label: "👥 Hire Pilots" }
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${
+                    activeTab === tab.id
+                      ? "border-blue-500 text-blue-600"
+                      : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                  }`}
+                  onClick={() => setActiveTab(tab.id)}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </nav>
+          </div>
 
-          <TabsContent value="map">
-            <QuickMap radarOn={radarOn} alertsOn={alertsOn} />
-            <div className="flex gap-2 justify-end mt-2">
-              <Button variant="outline" onClick={() => setRadarOn(!radarOn)}>
-                {radarOn ? "🚫 Disable Radar" : "📡 Enable Radar"}
-              </Button>
-              <Button variant="outline" onClick={() => setAlertsOn(!alertsOn)}>
-                {alertsOn ? "🚫 Disable Alerts" : "⚠️ Enable Alerts"}
-              </Button>
-            </div>
-          </TabsContent>
+          <div className="bg-white rounded-b-lg border-x border-b border-gray-200">
+            {/* Storm Map Tab */}
+            {activeTab === "map" && (
+              <div className="p-4">
+                <QuickMap radarOn={radarOn} alertsOn={alertsOn} />
+                <div className="flex gap-2 justify-end mt-2">
+                  <button 
+                    className="border border-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-50 font-medium transition-colors"
+                    onClick={() => setRadarOn(!radarOn)}
+                  >
+                    {radarOn ? "🚫 Disable Radar" : "📡 Enable Radar"}
+                  </button>
+                  <button 
+                    className="border border-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-50 font-medium transition-colors"
+                    onClick={() => setAlertsOn(!alertsOn)}
+                  >
+                    {alertsOn ? "🚫 Disable Alerts" : "⚠️ Enable Alerts"}
+                  </button>
+                </div>
+              </div>
+            )}
 
-          <TabsContent value="inbox">
-            <InboxStream />
-          </TabsContent>
+            {/* Inbox Tab */}
+            {activeTab === "inbox" && (
+              <div className="p-4">
+                <InboxStream />
+              </div>
+            )}
 
-          <TabsContent value="multiview">
-            <MultiView />
-          </TabsContent>
+            {/* Multi-View Tab */}
+            {activeTab === "multiview" && (
+              <div className="p-4">
+                <MultiView />
+              </div>
+            )}
 
-          <TabsContent value="votix">
-            <ProviderTab 
-              name="VOTIX" 
-              hlsKey="votixHls" 
-              iframeKey="votixIframe" 
-              portal="https://platform.votix.com/" 
-            />
-          </TabsContent>
+            {/* VOTIX Tab */}
+            {activeTab === "votix" && (
+              <div className="p-4">
+                <ProviderTab 
+                  name="VOTIX" 
+                  hlsKey="votixHls" 
+                  iframeKey="votixIframe" 
+                  portal="https://platform.votix.com/" 
+                />
+              </div>
+            )}
 
-          <TabsContent value="flytbase">
-            <ProviderTab 
-              name="FlytBase" 
-              hlsKey="flytHls" 
-              iframeKey="flytIframe" 
-              portal="https://my.flytbase.com/" 
-            />
-          </TabsContent>
+            {/* FlytBase Tab */}
+            {activeTab === "flytbase" && (
+              <div className="p-4">
+                <ProviderTab 
+                  name="FlytBase" 
+                  hlsKey="flytHls" 
+                  iframeKey="flytIframe" 
+                  portal="https://my.flytbase.com/" 
+                />
+              </div>
+            )}
 
-          <TabsContent value="dronedeploy">
-            <ProviderTab 
-              name="DroneDeploy" 
-              hlsKey="ddHls" 
-              iframeKey="ddIframe" 
-              portal="https://www.dronedeploy.com/live/" 
-            />
-          </TabsContent>
+            {/* DroneDeploy Tab */}
+            {activeTab === "dronedeploy" && (
+              <div className="p-4">
+                <ProviderTab 
+                  name="DroneDeploy" 
+                  hlsKey="ddHls" 
+                  iframeKey="ddIframe" 
+                  portal="https://www.dronedeploy.com/live/" 
+                />
+              </div>
+            )}
 
-          <TabsContent value="dji">
-            <ProviderTab 
-              name="DJI FlightHub 2" 
-              hlsKey="fh2Hls" 
-              iframeKey="fh2Iframe" 
-              portal="https://flighthub2.dji.com/" 
-            />
-          </TabsContent>
+            {/* DJI Tab */}
+            {activeTab === "dji" && (
+              <div className="p-4">
+                <ProviderTab 
+                  name="DJI FlightHub 2" 
+                  hlsKey="fh2Hls" 
+                  iframeKey="fh2Iframe" 
+                  portal="https://flighthub2.dji.com/" 
+                />
+              </div>
+            )}
 
-          <TabsContent value="dsps">
-            <DSPDirectory />
-          </TabsContent>
-
-          <TabsContent value="owner">
-            <OwnerLookup />
-          </TabsContent>
-        </Tabs>
+            {/* DSPs Tab */}
+            {activeTab === "dsps" && (
+              <div className="p-4">
+                <DSPDirectory />
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
