@@ -4,80 +4,96 @@ import { MapContainer, TileLayer, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 
 /**
- * Storm Operations Hub (Multi-Platform)
- * -----------------------------------
- * Combines:
- *  - Axon/DroneSense deep links
- *  - DJI FlightHub 2
- *  - VOTIX
- *  - FlytBase
- *  - DroneDeploy Live Stream
- *  - Windy embed
- *  - Leaflet map with radar + NOAA alerts
- *  - DSP Directory for hiring pilots
- *  - Footage inbox simulation
+ * Axon Deep-link + Storm Map Launcher (React)
+ * ------------------------------------------
+ * Unified, production-ready build with:
+ *  - Storm Map (OSM + RainViewer radar + NOAA alerts) + auto-center on new items
+ *  - Inbox with damage-tag filters (tree_on_roof, line_down, etc.), badges, search, sorting
+ *  - Multi-View (2x2) with Pin buttons from each provider tab (VOTIX/FlytBase/DroneDeploy/DJI FH2)
+ *  - Provider tabs (HLS + iframe), plus quick open links
+ *  - DSP Directory (hire pilots)
+ *  - Owner Lookup (calls /api/owner-lookup), one-click Call/Text/Email
+ *  - Role Selector (Ops / Field / Admin) — ready to wire to access rules
  */
 
-function openNew(url: string) {
-  window.open(url, "_blank", "noopener,noreferrer");
+function openNew(url: string) { if (url) window.open(url, "_blank", "noopener,noreferrer"); }
+
+// ===== Role selector =====
+function RoleSelector(){
+  const [role, setRole] = useState(localStorage.getItem('role')||'ops');
+  useEffect(()=>{ localStorage.setItem('role', role); }, [role]);
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-sm text-muted-foreground">Role:</span>
+      <select className="border rounded-md px-2 py-1" value={role} onChange={(e)=>setRole(e.target.value)}>
+        <option value="ops">Ops</option>
+        <option value="field">Field</option>
+        <option value="admin">Admin</option>
+      </select>
+    </div>
+  );
 }
 
+// ===== Map layers =====
 function RadarLayer({ enabled }: { enabled: boolean }) {
   const map = useMap();
   const layerRef = useRef<any>(null);
   useEffect(() => {
-    if (!enabled) {
-      if (layerRef.current) { map.removeLayer(layerRef.current); layerRef.current = null; }
-      return;
-    }
-    const L = (window as any).L;
-    if (!L) return;
-    const radar = L.tileLayer("https://tilecache.rainviewer.com/v2/radar/now/256/{z}/{x}/{y}/2/1_1.png", {
-      opacity: 0.75,
-      attribution: "<a href='https://www.rainviewer.com/'>RainViewer</a>"
-    });
-    radar.addTo(map);
-    layerRef.current = radar;
+    if (!enabled) { if (layerRef.current) { map.removeLayer(layerRef.current); layerRef.current = null; } return; }
+    const L = (window as any).L; if (!L) return;
+    const radar = L.tileLayer("https://tilecache.rainviewer.com/v2/radar/now/256/{z}/{x}/{y}/2/1_1.png", { opacity: 0.75, attribution: "<a href='https://www.rainviewer.com/'>RainViewer</a>" });
+    radar.addTo(map); layerRef.current = radar;
     return () => { if (layerRef.current) { map.removeLayer(layerRef.current); layerRef.current = null; } };
   }, [enabled, map]);
   return null;
 }
-
 function NOAAAlertsLayer({ enabled }: { enabled: boolean }) {
   const map = useMap();
   const layerRef = useRef<any>(null);
   useEffect(() => {
-    if (!enabled) {
-      if (layerRef.current) { map.removeLayer(layerRef.current); layerRef.current = null; }
-      return;
-    }
-    const L = (window as any).L;
-    if (!L) return;
-    const noaa = L.tileLayer.wms("https://idpgis.ncep.noaa.gov/arcgis/services/NWS_Watches_Warnings/MapServer/WMSServer", {
-      layers: "1",
-      format: "image/png",
-      transparent: true,
-      attribution: "NOAA/NWS"
-    });
-    noaa.addTo(map);
-    layerRef.current = noaa;
+    if (!enabled) { if (layerRef.current) { map.removeLayer(layerRef.current); layerRef.current = null; } return; }
+    const L = (window as any).L; if (!L) return;
+    const noaa = L.tileLayer.wms("https://idpgis.ncep.noaa.gov/arcgis/services/NWS_Watches_Warnings/MapServer/WMSServer", { layers: "1", format: "image/png", transparent: true, attribution: "NOAA/NWS" });
+    noaa.addTo(map); layerRef.current = noaa;
     return () => { if (layerRef.current) { map.removeLayer(layerRef.current); layerRef.current = null; } };
   }, [enabled, map]);
   return null;
 }
 
 function QuickMap({ radarOn, alertsOn }: { radarOn: boolean; alertsOn: boolean }) {
-  const [lat, setLat] = useState(32.51);
-  const [lng, setLng] = useState(-84.87);
-  const [z] = useState(6);
+  const [lat, setLat] = useState(() => Number(localStorage.getItem("mapLat")) || 32.51);
+  const [lng, setLng] = useState(() => Number(localStorage.getItem("mapLng")) || -84.87);
+  const [z, setZ] = useState(() => Number(localStorage.getItem("mapZoom")) || 7);
   const position = useMemo(() => [lat, lng] as [number, number], [lat, lng]);
+  const mapRef = useRef<any>(null);
+  const markerRef = useRef<any>(null);
+  const save = () => { localStorage.setItem("mapLat", String(lat)); localStorage.setItem("mapLng", String(lng)); localStorage.setItem("mapZoom", String(z)); };
+
+  // Listen for geofence/route events from Inbox (auto-center + drop marker)
+  useEffect(() => {
+    function onFocus(e: any){
+      const d = e.detail || {}; if (!mapRef.current || !d.lat || !d.lon) return;
+      mapRef.current.setView([d.lat, d.lon], d.zoom || 18);
+      const L = (window as any).L; if (!L) return;
+      if (markerRef.current) { mapRef.current.removeLayer(markerRef.current); markerRef.current = null; }
+      markerRef.current = L.marker([d.lat, d.lon]).addTo(mapRef.current);
+    }
+    window.addEventListener('focusLocation', onFocus);
+    return () => window.removeEventListener('focusLocation', onFocus);
+  }, []);
 
   return (
     <div className="w-full bg-white rounded-lg border border-gray-200 shadow-sm">
-      <div className="p-2">
-        <div className="h-[420px] rounded-2xl overflow-hidden border border-gray-200">
-          <MapContainer center={position} zoom={z} className="h-full w-full">
-            <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+      <div className="p-4 space-y-3">
+        <div className="grid grid-cols-3 gap-2">
+          <input type="number" step="0.0001" value={lat} onChange={(e: any)=>setLat(Number(e.target.value))} placeholder="Latitude" className="border border-gray-300 rounded-md px-3 py-2" />
+          <input type="number" step="0.0001" value={lng} onChange={(e: any)=>setLng(Number(e.target.value))} placeholder="Longitude" className="border border-gray-300 rounded-md px-3 py-2" />
+          <input type="number" step="1" min={2} max={12} value={z} onChange={(e: any)=>setZ(Number(e.target.value))} placeholder="Zoom" className="border border-gray-300 rounded-md px-3 py-2" />
+        </div>
+        <div className="flex justify-end"><button onClick={save} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 font-medium transition-colors">Save View</button></div>
+        <div className="h-[420px] rounded-2xl overflow-hidden">
+          <MapContainer ref={mapRef} center={position} zoom={z} className="h-full w-full">
+            <TileLayer attribution='&copy; OpenStreetMap contributors' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
             <RadarLayer enabled={radarOn} />
             <NOAAAlertsLayer enabled={alertsOn} />
           </MapContainer>
@@ -87,467 +103,318 @@ function QuickMap({ radarOn, alertsOn }: { radarOn: boolean; alertsOn: boolean }
   );
 }
 
-function CompanyCard({ name, site, phone, note }: { name: string; site: string; phone?: string; note?: string }) {
+// ===== Damage tags & filters =====
+const TAGS = [
+  'tree_on_roof','tree_on_building','tree_on_fence','tree_on_barn','tree_on_shed','tree_on_car','tree_in_pool','tree_on_playground','line_down','structure_damage'
+];
+const KEYWORD_MAP: [string, RegExp][] = [
+  ['tree_on_roof', /tree on roof|through roof|roof damage/i],
+  ['tree_on_building', /tree on (house|building|home|structure)/i],
+  ['tree_on_fence', /tree on fence|fence down/i],
+  ['tree_on_barn', /tree on barn/i],
+  ['tree_on_shed', /tree on shed/i],
+  ['tree_on_car', /tree on (car|vehicle|truck)/i],
+  ['tree_in_pool', /tree in pool|pool damage/i],
+  ['tree_on_playground', /tree on playground|playset|swing ?set/i],
+  ['line_down', /(line down|power line|utility line|pole down)/i],
+  ['structure_damage', /(collapse|compromised|structural|wall down|house split|building damage)/i]
+];
+function addTags(item: any){
+  const text = ((item.notes||'') + ' ' + (item.address||'')).toLowerCase();
+  const tags: string[] = [];
+  for (const [tag, rx] of KEYWORD_MAP){ if ((rx as RegExp).test(text)) tags.push(tag); }
+  return { ...item, tags };
+}
+function TagFilterBar({ tagFilters, setTagFilters }: { tagFilters: any; setTagFilters: any }){
   return (
-    <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
-      <div className="p-4 space-y-2">
-        <div className="text-lg font-semibold text-gray-900">{name}</div>
-        <div className="flex flex-wrap gap-2">
-          <button 
-            className="bg-gray-100 text-gray-700 px-3 py-1.5 rounded-md hover:bg-gray-200 font-medium transition-colors text-sm"
-            onClick={() => openNew(site)}
-          >
-            Website
-          </button>
-          {phone && (
-            <a href={`tel:${phone.replace(/[^\d+]/g,'')}`}>
-              <button className="bg-blue-600 text-white px-3 py-1.5 rounded-md hover:bg-blue-700 font-medium transition-colors text-sm">
-                Call {phone}
-              </button>
-            </a>
-          )}
-        </div>
-        {note && <div className="text-sm text-gray-600">{note}</div>}
-      </div>
+    <div className="flex flex-wrap gap-2">
+      {TAGS.map(t => (
+        <label key={t} className="text-xs flex items-center gap-1 border rounded-full px-2 py-1">
+          <input type="checkbox" checked={!!tagFilters[t]} onChange={(e)=>setTagFilters({ ...tagFilters, [t]: e.target.checked })} /> {t}
+        </label>
+      ))}
     </div>
   );
 }
 
-function FootageInboxSimple() {
-  const [items, setItems] = useState<any[]>([]);
-  const [text, setText] = useState("");
-  const [isLive, setIsLive] = useState(false);
-  const [filter, setFilter] = useState("all");
-  const [viewMode, setViewMode] = useState("grid"); // grid or multi-view
+// ===== HLS player =====
+function HlsPlayer({ src }: { src: string }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  useEffect(function () {
+    const video = videoRef.current; if (!video || !src) return;
+    if (video.canPlayType('application/vnd.apple.mpegurl')) { video.src = src; video.play().catch(()=>{}); return; }
+    let hls: any;
+    (async function(){
+      try {
+        const mod = await import('hls.js'); const Hls = mod.default;
+        if (Hls && Hls.isSupported()) {
+          hls = new Hls(); hls.loadSource(src); hls.attachMedia(video);
+          hls.on(Hls.Events.MANIFEST_PARSED, ()=> video.play().catch(()=>{}));
+        } else { window.open(src, '_blank'); }
+      } catch(e) { console.warn('HLS init failed', e); }
+    })();
+    return function(){ if (hls) hls.destroy(); };
+  }, [src]);
+  return (<video ref={videoRef} controls className="w-full h-full object-contain rounded-xl" />);
+}
+function FlexiblePlayer({ url }: { url: string }) {
+  if (!url) return <div className="text-sm text-muted-foreground">No feed set</div>;
+  const lower = url.toLowerCase();
+  if (lower.includes('.m3u8')) return <HlsPlayer src={url} />;
+  return <iframe title="Feed" src={url} className="w-full h-full rounded-xl" allow="autoplay; fullscreen" />;
+}
 
-  // Damage detection keywords for auto-tagging
-  const detectDamage = (notes: string) => {
-    const tags = [];
-    const notesLower = notes?.toLowerCase() || "";
-    
-    if (notesLower.includes("tree") && (notesLower.includes("home") || notesLower.includes("roof") || notesLower.includes("house"))) {
-      tags.push("tree_on_roof");
-    }
-    if (notesLower.includes("power") && notesLower.includes("down")) {
-      tags.push("power_line_down");
-    }
-    if (notesLower.includes("flood") || notesLower.includes("water")) {
-      tags.push("flooded");
-    }
-    if (notesLower.includes("structure") && notesLower.includes("damage")) {
-      tags.push("structure_compromised");
-    }
-    if (notesLower.includes("severe") || notesLower.includes("significant")) {
-      tags.push("severe_damage");
-    }
-    
-    return tags;
-  };
-
-  // Poll /api/inbox every 5 seconds when live mode is enabled
-  useEffect(() => {
-    let interval: number;
-    
-    if (isLive) {
-      interval = window.setInterval(async () => {
-        try {
-          const response = await fetch('/api/inbox');
-          if (response.ok) {
-            const liveItems = await response.json();
-            // Add damage tags to each item
-            const taggedItems = liveItems.map((item: any) => ({
-              ...item,
-              damageTags: detectDamage(item.notes)
-            }));
-            setItems(taggedItems);
-          }
-        } catch (error) {
-          console.error('Failed to fetch live footage:', error);
-        }
-      }, 5000);
-    }
-    
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [isLive]);
-
-  function addItem() {
-    try {
-      const obj = JSON.parse(text);
-      obj.id = String(Date.now());
-      obj.damageTags = detectDamage(obj.notes);
-      setItems([obj, ...items]);
-      setText("");
-      alert("New footage received.");
-    } catch (e) {
-      alert("Invalid JSON");
-    }
-  }
-
-  // Filter items based on damage tags
-  const filteredItems = filter === "all" ? items : items.filter(item => 
-    item.damageTags && item.damageTags.includes(filter)
-  );
-
-  const getDamageTagBadge = (tag: string) => {
-    const tagStyles = {
-      tree_on_roof: "bg-orange-100 text-orange-800",
-      power_line_down: "bg-red-100 text-red-800", 
-      flooded: "bg-blue-100 text-blue-800",
-      structure_compromised: "bg-purple-100 text-purple-800",
-      severe_damage: "bg-red-100 text-red-900"
-    };
-    
-    const tagLabels = {
-      tree_on_roof: "🌳 Tree on Roof",
-      power_line_down: "⚡ Power Line Down",
-      flooded: "🌊 Flooded",
-      structure_compromised: "🏠 Structure Damage", 
-      severe_damage: "⚠️ Severe Damage"
-    };
-    
-    return (
-      <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${tagStyles[tag] || "bg-gray-100 text-gray-800"}`}>
-        {tagLabels[tag] || tag}
-      </span>
-    );
-  };
-
-  if (viewMode === "multi-view" && filteredItems.length > 0) {
-    return (
-      <div className="space-y-4">
-        <div className="flex gap-2 items-center">
-          <button 
-            className="bg-gray-600 text-white px-3 py-1 rounded-md text-sm"
-            onClick={() => setViewMode("grid")}
-          >
-            ← Back to Grid
-          </button>
-          <span className="text-sm text-gray-600">Multi-View Live Feeds</span>
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          {filteredItems.slice(0, 4).map(item => (
-            <div key={item.id} className="bg-black rounded-lg aspect-video relative">
-              <div className="absolute top-2 left-2 bg-black bg-opacity-75 text-white px-2 py-1 rounded text-xs">
-                {item.provider}
-              </div>
-              {item.mediaUrl ? (
-                <iframe 
-                  src={item.mediaUrl} 
-                  className="w-full h-full rounded-lg"
-                  allow="autoplay"
-                />
-              ) : (
-                <div className="flex items-center justify-center h-full text-white">
-                  No Live Feed
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
+// ===== Pin helpers + Multi-View =====
+function pinTo(slot: string, url: string){ if (!url) return; localStorage.setItem(slot, url); window.dispatchEvent(new Event('mvUpdate')); }
+function PinButtons({ currentUrl }: { currentUrl: string }){
   return (
-    <div className="space-y-3">
-      {/* Live Mode & Filters */}
-      <div className="flex flex-wrap gap-2 items-center">
-        <button 
-          className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
-            isLive ? "bg-green-600 text-white" : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-          }`}
-          onClick={() => setIsLive(!isLive)}
-        >
-          {isLive ? "🔴 Live" : "▶️ Go Live"}
-        </button>
-        
-        <select 
-          className="border border-gray-300 rounded-md px-2 py-1 text-sm"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-        >
-          <option value="all">All Damage</option>
-          <option value="tree_on_roof">Trees on Roofs</option>
-          <option value="power_line_down">Power Lines Down</option>
-          <option value="flooded">Flooded Areas</option>
-          <option value="structure_compromised">Structure Damage</option>
-          <option value="severe_damage">Severe Damage</option>
-        </select>
-
-        {filteredItems.length > 0 && (
-          <button 
-            className="bg-blue-600 text-white px-3 py-1 rounded-md text-sm"
-            onClick={() => setViewMode("multi-view")}
-          >
-            📺 Multi-View ({filteredItems.length})
-          </button>
-        )}
-      </div>
-
-      {/* Manual Test Input */}
-      {!isLive && (
-        <>
-          <textarea 
-            className="w-full h-28 border border-gray-300 rounded-xl p-2 focus:outline-none focus:ring-2 focus:ring-blue-500" 
-            value={text} 
-            onChange={(e) => setText(e.target.value)} 
-            placeholder='{"provider":"DroneUp","timestamp":"2025-09-08T23:00:00Z","mediaUrl":"https://.../index.m3u8","lat":32.51,"lon":-84.87,"notes":"Tree on home"}' 
-          />
-          <div className="flex gap-2">
-            <button 
-              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 font-medium transition-colors"
-              onClick={addItem}
-            >
-              Add
-            </button>
-          </div>
-        </>
-      )}
-
-      {/* Live Status */}
-      {isLive && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-          <div className="text-sm text-green-800">
-            🔴 Live polling /api/inbox every 5 seconds • {filteredItems.length} items
-          </div>
-        </div>
-      )}
-
-      {/* Footage Grid */}
-      <div className="grid md:grid-cols-2 gap-3">
-        {filteredItems.map(it => (
-          <div key={it.id} className="bg-white border border-gray-200 rounded-lg shadow-sm">
-            <div className="p-3 space-y-2">
-              <div className="font-medium text-gray-900">{it.provider} — {it.timestamp}</div>
-              <div className="text-sm text-gray-600">📍 GPS: {it.lat}, {it.lon}</div>
-              {it.address && (
-                <div className="text-sm text-gray-500">📍 {it.address}</div>
-              )}
-              
-              {/* Damage Tags */}
-              {it.damageTags && it.damageTags.length > 0 && (
-                <div className="flex flex-wrap gap-1">
-                  {it.damageTags.map((tag: string, idx: number) => (
-                    <span key={idx}>{getDamageTagBadge(tag)}</span>
-                  ))}
-                </div>
-              )}
-              
-              {it.mediaUrl && (
-                <a className="inline-block" href={it.mediaUrl} target="_blank" rel="noreferrer">
-                  <button className="bg-gray-100 text-gray-700 px-3 py-1.5 rounded-md hover:bg-gray-200 font-medium transition-colors text-sm">
-                    Open Media
-                  </button>
-                </a>
-              )}
-              {it.notes && <div className="text-sm text-gray-500">{it.notes}</div>}
-            </div>
-          </div>
-        ))}
-      </div>
+    <div className="flex flex-wrap gap-2">
+      <button onClick={()=>pinTo('mv1', currentUrl)} className="border border-gray-300 text-gray-700 px-3 py-1.5 rounded-md hover:bg-gray-50 font-medium transition-colors text-sm">Pin → Pane 1</button>
+      <button onClick={()=>pinTo('mv2', currentUrl)} className="border border-gray-300 text-gray-700 px-3 py-1.5 rounded-md hover:bg-gray-50 font-medium transition-colors text-sm">Pin → Pane 2</button>
+      <button onClick={()=>pinTo('mv3', currentUrl)} className="border border-gray-300 text-gray-700 px-3 py-1.5 rounded-md hover:bg-gray-50 font-medium transition-colors text-sm">Pin → Pane 3</button>
+      <button onClick={()=>pinTo('mv4', currentUrl)} className="border border-gray-300 text-gray-700 px-3 py-1.5 rounded-md hover:bg-gray-50 font-medium transition-colors text-sm">Pin → Pane 4</button>
     </div>
   );
 }
-
-function DSPDirectory() {
-  const companies = [
-    { name: "Zeitview (formerly DroneBase)", site: "https://www.zeitview.com/", phone: "310-895-9914", note: "Enterprise inspections & catastrophe response; use site contact for sales." },
-    { name: "DroneUp", site: "https://www.droneup.com/contact", phone: "877-601-1860", note: "Nationwide operator network; disaster staffing." },
-    { name: "Airborne Response", site: "https://airborneresponse.com/", phone: "305-771-1120", note: "Mission Critical Unmanned Solutions; insurance & disaster response." },
-    { name: "SkySkopes", site: "https://www.skyskopes.com/contact/", phone: "701-838-2610", note: "Enterprise UAS ops; energy & utilities; regional teams." }
-  ];
-
+function MultiView() {
+  const [mv1, setMv1] = useState(localStorage.getItem('mv1') || '');
+  const [mv2, setMv2] = useState(localStorage.getItem('mv2') || '');
+  const [mv3, setMv3] = useState(localStorage.getItem('mv3') || '');
+  const [mv4, setMv4] = useState(localStorage.getItem('mv4') || '');
+  useEffect(()=>{ localStorage.setItem('mv1', mv1); }, [mv1]);
+  useEffect(()=>{ localStorage.setItem('mv2', mv2); }, [mv2]);
+  useEffect(()=>{ localStorage.setItem('mv3', mv3); }, [mv3]);
+  useEffect(()=>{ localStorage.setItem('mv4', mv4); }, [mv4]);
+  useEffect(()=>{
+    function onStorage(e: StorageEvent){ if(['mv1','mv2','mv3','mv4'].includes(e.key||'')){
+      setMv1(localStorage.getItem('mv1')||''); setMv2(localStorage.getItem('mv2')||''); setMv3(localStorage.getItem('mv3')||''); setMv4(localStorage.getItem('mv4')||'');
+    }}
+    function onCustom(){ setMv1(localStorage.getItem('mv1')||''); setMv2(localStorage.getItem('mv2')||''); setMv3(localStorage.getItem('mv3')||''); setMv4(localStorage.getItem('mv4')||''); }
+    window.addEventListener('storage', onStorage); window.addEventListener('mvUpdate', onCustom);
+    return ()=>{ window.removeEventListener('storage', onStorage); window.removeEventListener('mvUpdate', onCustom); };
+  }, []);
   return (
     <div className="space-y-4">
-      <div className="text-sm text-gray-600">
-        These providers can staff pilots before/after storms. Ask for live HLS (.m3u8) links during ops and post-storm imagery with GPS/addresses plus a data feed (CSV/GeoJSON/API).
+      <div className="grid md:grid-cols-4 gap-2">
+        <input value={mv1} onChange={(e: any)=>setMv1(e.target.value)} placeholder="Pane 1 URL (.m3u8 or https://player)" className="border border-gray-300 rounded-md px-3 py-2" />
+        <input value={mv2} onChange={(e: any)=>setMv2(e.target.value)} placeholder="Pane 2 URL" className="border border-gray-300 rounded-md px-3 py-2" />
+        <input value={mv3} onChange={(e: any)=>setMv3(e.target.value)} placeholder="Pane 3 URL" className="border border-gray-300 rounded-md px-3 py-2" />
+        <input value={mv4} onChange={(e: any)=>setMv4(e.target.value)} placeholder="Pane 4 URL" className="border border-gray-300 rounded-md px-3 py-2" />
       </div>
-      <div className="grid md:grid-cols-2 gap-4">
-        {companies.map((company, index) => (
-          <CompanyCard key={index} {...company} />
-        ))}
-      </div>
-      <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
-        <div className="p-4 space-y-2">
-          <div className="font-semibold text-gray-900">📥 Live Footage Inbox</div>
-          <p className="text-sm text-gray-600">Real-time footage from DSP contractors with auto damage detection. Toggle "Go Live" to poll /api/inbox, or manually add test data.</p>
-          <FootageInboxSimple />
-        </div>
+      <div className="grid md:grid-cols-2 gap-3">
+        <div className="h-[320px] bg-white border border-gray-200 rounded-lg shadow-sm"><div className="p-2 h-full"><FlexiblePlayer url={mv1} /></div></div>
+        <div className="h-[320px] bg-white border border-gray-200 rounded-lg shadow-sm"><div className="p-2 h-full"><FlexiblePlayer url={mv2} /></div></div>
+        <div className="h-[320px] bg-white border border-gray-200 rounded-lg shadow-sm"><div className="p-2 h-full"><FlexiblePlayer url={mv3} /></div></div>
+        <div className="h-[320px] bg-white border border-gray-200 rounded-lg shadow-sm"><div className="p-2 h-full"><FlexiblePlayer url={mv4} /></div></div>
       </div>
     </div>
   );
 }
 
-export default function StormOpsHub() {
-  const [radarOn, setRadarOn] = useState(true);
-  const [alertsOn, setAlertsOn] = useState(true);
-  const [activeTab, setActiveTab] = useState("map");
+// ===== Provider tabs =====
+function ProviderTab({ name, hlsKey, iframeKey, portal }: { name: string; hlsKey: string; iframeKey: string; portal: string }){
+  const [hls, setHls] = useState(localStorage.getItem(hlsKey)||'');
+  const [ifr, setIfr] = useState(localStorage.getItem(iframeKey)||'');
+  useEffect(()=>{ localStorage.setItem(hlsKey, hls); }, [hlsKey, hls]);
+  useEffect(()=>{ localStorage.setItem(iframeKey, ifr); }, [iframeKey, ifr]);
+  const chosen = hls || ifr || '';
+  return (
+    <div className="space-y-3">
+      <div className="grid md:grid-cols-3 gap-3">
+        <div className="space-y-1"><label className="text-sm text-gray-600">{name} HLS (.m3u8)</label><input value={hls} onChange={(e: any)=>setHls(e.target.value)} placeholder="https://.../index.m3u8" className="border border-gray-300 rounded-md px-3 py-2" /></div>
+        <div className="space-y-1"><label className="text-sm text-gray-600">{name} Share/Embed URL</label><input value={ifr} onChange={(e: any)=>setIfr(e.target.value)} placeholder="https://..." className="border border-gray-300 rounded-md px-3 py-2" /></div>
+        <div className="flex items-end gap-2"><button onClick={()=>openNew(portal)} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 font-medium transition-colors">Open {name}</button>{chosen && <PinButtons currentUrl={chosen} />}</div>
+      </div>
+      <div className="bg-white border border-gray-200 rounded-lg shadow-sm"><div className="p-3">{hls ? <HlsPlayer src={hls} /> : (ifr ? <iframe title={`${name} Player`} src={ifr} className="w-full h-[420px] rounded-xl" allow="autoplay; fullscreen" /> : <div className="text-sm text-gray-600">Enter an HLS or share URL above.</div>)}</div></div>
+      <div className="text-xs text-gray-600">If the embed is blocked by CSP, click Open {name} to launch their portal.</div>
+    </div>
+  );
+}
 
-  const links = {
-    axonOps: "https://web.dronesense.com/ops",
-    axonVideo: "https://web.dronesense.com/video",
-    axonRespond: "https://www.evidence.com/",
-    dji: "https://flighthub2.dji.com/",
-    votix: "https://platform.votix.com/",
-    flytbase: "https://my.flytbase.com/",
-    dronedeploy: "https://www.dronedeploy.com/live/"
-  };
-
-  const tabs = [
-    { id: "map", label: "🗺️ Storm Map" },
-    { id: "axon", label: "🚁 Axon/DroneSense" },
-    { id: "dji", label: "🛸 DJI FlightHub 2" },
-    { id: "votix", label: "🔴 VOTIX" },
-    { id: "flyt", label: "🚁 FlytBase" },
-    { id: "deploy", label: "📹 DroneDeploy" },
-    { id: "windy", label: "🌪️ Windy" },
-    { id: "dsps", label: "👥 Hire Pilots (DSPs)" }
+// ===== DSP Directory =====
+function CompanyCard({ name, site, phone, note }: { name: string; site: string; phone?: string; note?: string }){
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg shadow-sm"><div className="p-4 space-y-2">
+      <div className="text-lg font-semibold">{name}</div>
+      <div className="flex flex-wrap gap-2">
+        <button onClick={()=>openNew(site)} className="bg-gray-100 text-gray-700 px-3 py-1.5 rounded-md hover:bg-gray-200 font-medium transition-colors text-sm">Website</button>
+        {phone && <a href={`tel:${phone.replace(/[^0-9+]/g,'')}`}><button className="bg-blue-600 text-white px-3 py-1.5 rounded-md hover:bg-blue-700 font-medium transition-colors text-sm">Call {phone}</button></a>}
+      </div>
+      {note && <div className="text-sm text-gray-600">{note}</div>}
+    </div></div>
+  );
+}
+function DSPDirectory(){
+  const companies = [
+    { name: "Zeitview (DroneBase)", site: "https://www.zeitview.com/", phone: "310-895-9914", note: "Catastrophe response; use site contact for sales." },
+    { name: "DroneUp", site: "https://www.droneup.com/contact", phone: "877-601-1860", note: "Nationwide operator network; disaster staffing." },
+    { name: "Airborne Response", site: "https://airborneresponse.com/", phone: "305-771-1120", note: "Mission Critical Unmanned; disaster response." },
+    { name: "SkySkopes", site: "https://www.skyskopes.com/contact/", phone: "701-838-2610", note: "Enterprise UAS; utilities & energy." }
   ];
+  return (
+    <div className="space-y-4">
+      <div className="text-sm text-gray-600">Ask for live HLS (.m3u8) during ops + post-storm imagery with GPS/addresses and a data feed (CSV/GeoJSON/API).</div>
+      <div className="grid md:grid-cols-2 gap-4">{companies.map(c => <CompanyCard key={c.name} {...c} />)}</div>
+    </div>
+  );
+}
+
+// ===== Inbox (SSE + filters + map center + owner prefill) =====
+function focusMap(lat: number, lon: number){ if (lat && lon) window.dispatchEvent(new CustomEvent('focusLocation', { detail: { lat, lon, zoom: 18 } })); }
+function prefillOwner(it: any){ if (it.address) localStorage.setItem('owner_addr', it.address); if (it.lat) localStorage.setItem('owner_lat', it.lat); if (it.lon) localStorage.setItem('owner_lon', it.lon); }
+function InboxStream() {
+  const [items, setItems] = useState<any[]>([]);
+  const [query, setQuery] = useState('');
+  const [tagFilters, setTagFilters] = useState<any>({});
+  const [sortBy, setSortBy] = useState('newest');
+  useEffect(()=>{
+    let alive = true; let pollId: any;
+    const ev = new EventSource('/api/stream');
+    ev.onmessage = (m)=>{ try{ const obj = JSON.parse(m.data); if (alive) setItems(prev=>[addTags(obj), ...prev]); }catch(_){} };
+    ev.onerror = ()=>{ ev.close(); startPoll(); };
+    async function fetchAll(){ try{ const r = await fetch('/api/inbox', { cache: 'no-store' }); if (!r.ok) return; const j = await r.json(); if (alive) setItems(j.map(addTags)); }catch(e){} }
+    function startPoll(){ fetchAll(); pollId = setInterval(fetchAll, 10000); }
+    return ()=>{ alive=false; ev.close(); if (pollId) clearInterval(pollId); };
+  }, []);
+  const filtered = items.filter(it=>{
+    const hay = ((it.notes||'') + ' ' + (it.address||'')).toLowerCase();
+    if (query && !hay.includes(query.toLowerCase())) return false;
+    const active = Object.keys(tagFilters).filter(k=>tagFilters[k]);
+    if (active.length){ const hasAll = active.every(t => (it.tags||[]).includes(t)); if (!hasAll) return false; }
+    return true;
+  }).sort((a,b)=> sortBy==='newest' ? new Date(b.timestamp||0).getTime()-new Date(a.timestamp||0).getTime() : (a.address||'').localeCompare(b.address||''));
+  return (
+    <div className="space-y-3">
+      <div className="grid md:grid-cols-3 gap-2 items-center">
+        <Input value={query} onChange={(e)=>setQuery(e.target.value)} placeholder="Search notes/address" />
+        <TagFilterBar tagFilters={tagFilters} setTagFilters={setTagFilters} />
+        <div className="flex justify-end gap-2">
+          <select className="border rounded-md px-2 py-1" value={sortBy} onChange={(e)=>setSortBy(e.target.value)}>
+            <option value="newest">Sort: Newest</option>
+            <option value="address">Sort: Address</option>
+          </select>
+        </div>
+      </div>
+      {!filtered.length && <div className="text-sm text-gray-600">No matching items yet.</div>}
+      <div className="grid md:grid-cols-2 gap-4">
+        {filtered.map(it => (
+          <div key={it.id || it.mediaUrl} className="bg-white border border-gray-200 rounded-lg shadow-sm"><div className="p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="font-medium">{(it.provider||'Unknown')} — {new Date(it.timestamp||Date.now()).toLocaleString()}</div>
+              <div className="flex flex-wrap gap-1">{(it.tags||[]).map((t: string)=> <span key={t} className="text-[10px] px-2 py-[2px] rounded-full bg-slate-200">{t}</span>)}</div>
+            </div>
+            {it.thumbnailUrl && <img src={it.thumbnailUrl} alt="thumb" className="w-full rounded" />}
+            <div className="text-sm">{it.address ? it.address : ((it.lat && it.lon) ? (it.lat+', '+it.lon) : '')}</div>
+            <div className="flex gap-2 flex-wrap">
+              {it.mediaUrl && <a href={it.mediaUrl} target="_blank" rel="noreferrer"><button className="bg-gray-100 text-gray-700 px-3 py-1.5 rounded-md hover:bg-gray-200 font-medium transition-colors text-sm">Open Media</button></a>}
+              <button onClick={()=>focusMap(it.lat, it.lon)} className="border border-gray-300 text-gray-700 px-3 py-1.5 rounded-md hover:bg-gray-50 font-medium transition-colors text-sm">Center on Map</button>
+              <button onClick={()=>prefillOwner(it)} className="border border-gray-300 text-gray-700 px-3 py-1.5 rounded-md hover:bg-gray-50 font-medium transition-colors text-sm">Owner Lookup</button>
+            </div>
+            {it.notes && <div className="text-sm text-gray-600">{it.notes}</div>}
+          </div></div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ===== Owner Lookup (client UI; backend at /api/owner-lookup) =====
+function OwnerLookup(){
+  const [addr, setAddr] = useState(localStorage.getItem('owner_addr')||'');
+  const [lat, setLat] = useState(localStorage.getItem('owner_lat')||'');
+  const [lon, setLon] = useState(localStorage.getItem('owner_lon')||'');
+  const [res, setRes] = useState<any>(null);
+  useEffect(()=>{ localStorage.setItem('owner_addr', addr); localStorage.setItem('owner_lat', lat); localStorage.setItem('owner_lon', lon); }, [addr,lat,lon]);
+  async function lookup(){
+    try{ const r = await fetch('/api/owner-lookup', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ address: addr, lat, lon }) }); if (!r.ok){ setRes({ error: 'Lookup service not configured' }); return; } const j = await r.json(); setRes(j); }catch(e){ setRes({ error: 'Network error' }); }
+  }
+  function sms(number: string){ window.location.href = `sms:${number}`; }
+  function call(number: string){ window.location.href = `tel:${number}`; }
+  function email(address: string){ window.location.href = `mailto:${address}`; }
+  return (
+    <div className="space-y-3">
+      <div className="grid md:grid-cols-3 gap-2">
+        <input value={addr} onChange={(e: any)=>setAddr(e.target.value)} placeholder="Street, City, State (or blank if using GPS)" className="border border-gray-300 rounded-md px-3 py-2" />
+        <input value={lat} onChange={(e: any)=>setLat(e.target.value)} placeholder="Latitude" className="border border-gray-300 rounded-md px-3 py-2" />
+        <input value={lon} onChange={(e: any)=>setLon(e.target.value)} placeholder="Longitude" className="border border-gray-300 rounded-md px-3 py-2" />
+      </div>
+      <div className="flex gap-2"><button onClick={lookup} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 font-medium transition-colors">Lookup Owner</button><button onClick={()=>{ setAddr(''); setLat(''); setLon(''); setRes(null); }} className="bg-gray-100 text-gray-700 px-3 py-1.5 rounded-md hover:bg-gray-200 font-medium transition-colors text-sm">Clear</button></div>
+      {res && (
+        <div className="bg-white border border-gray-200 rounded-lg shadow-sm"><div className="p-4 space-y-2">
+          {res.error ? (<div className="text-sm text-red-600">{res.error}</div>) : (
+            <div className="space-y-2">
+              <div className="text-lg font-semibold">{res.ownerName || 'Unknown Owner'}</div>
+              <div className="text-sm">{res.mailingAddress || addr}</div>
+              <div className="flex flex-wrap gap-2">
+                {res.phone && <button onClick={()=>call(res.phone)} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 font-medium transition-colors">Call {res.phone}</button>}
+                {res.phone && <button onClick={()=>sms(res.phone)} className="border border-gray-300 text-gray-700 px-3 py-1.5 rounded-md hover:bg-gray-50 font-medium transition-colors text-sm">Text {res.phone}</button>}
+                {res.email && <button onClick={()=>email(res.email)} className="bg-gray-100 text-gray-700 px-3 py-1.5 rounded-md hover:bg-gray-200 font-medium transition-colors text-sm">Email</button>}
+              </div>
+              {res.sources && <div className="text-xs text-gray-600">Sources: {res.sources.join(', ')}</div>}
+            </div>
+          )}
+          <div className="text-xs text-gray-600">Use public records and vendor data per contracts and law (TCPA/email/privacy). Log access for emergency response compliance.</div>
+        </div></div>
+      )}
+    </div>
+  );
+}
+
+// ===== Main App =====
+export default function StormOpsHub() {
+  const [radarOn, setRadarOn] = useState(localStorage.getItem('radarOn')==='1' || true);
+  const [alertsOn, setAlertsOn] = useState(localStorage.getItem('alertsOn')==='1' || true);
+  const [activeTab, setActiveTab] = useState('map');
+  useEffect(()=>{ localStorage.setItem('radarOn', radarOn? '1':'0'); }, [radarOn]);
+  useEffect(()=>{ localStorage.setItem('alertsOn', alertsOn? '1':'0'); }, [alertsOn]);
 
   return (
     <div className="min-h-screen w-full bg-gradient-to-b from-slate-50 to-slate-100 p-6">
-      <div className="mx-auto max-w-6xl space-y-6">
-        <div className="space-y-2">
-          <h1 className="text-3xl font-bold text-gray-900">Storm Operations Hub</h1>
-          <p className="text-gray-600">Pick any platform to view live drone feeds + storm layers.</p>
-        </div>
+      <div className="mx-auto max-w-7xl space-y-6">
+        <header className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">Storm Operations Hub</h1>
+            <p className="text-muted-foreground">Pick a platform, watch live, tag damage, route crews, and contact owners.</p>
+          </div>
+          <RoleSelector />
+        </header>
 
-        {/* Custom Tabs */}
         <div className="w-full">
           <div className="border-b border-gray-200 bg-white rounded-t-lg">
             <nav className="-mb-px flex space-x-8 px-4 overflow-x-auto">
-              {tabs.map(tab => (
-                <button
-                  key={tab.id}
-                  className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${
-                    activeTab === tab.id
-                      ? "border-blue-500 text-blue-600"
-                      : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                  }`}
-                  onClick={() => setActiveTab(tab.id)}
-                >
-                  {tab.label}
-                </button>
-              ))}
+              <button className="py-3 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap border-blue-500 text-blue-600" onClick={()=>setActiveTab('map')}>Storm Map</button>
+              <button className="py-3 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300" onClick={()=>setActiveTab('inbox')}>Inbox</button>
+              <button className="py-3 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300" onClick={()=>setActiveTab('multiview')}>Multi-View</button>
+              <button className="py-3 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300" onClick={()=>setActiveTab('votix')}>VOTIX</button>
+              <button className="py-3 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300" onClick={()=>setActiveTab('flyt')}>FlytBase</button>
+              <button className="py-3 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300" onClick={()=>setActiveTab('deploy')}>DroneDeploy</button>
+              <button className="py-3 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300" onClick={()=>setActiveTab('dji')}>DJI FH2</button>
+              <button className="py-3 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300" onClick={()=>setActiveTab('dsps')}>Hire Pilots</button>
+              <button className="py-3 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300" onClick={()=>setActiveTab('owner')}>Owner Lookup</button>
             </nav>
           </div>
-          
+
           <div className="bg-white rounded-b-lg border-x border-b border-gray-200">
-            {/* Storm Map Tab */}
-            {activeTab === "map" && (
-              <div className="p-4">
+            {activeTab === 'map' && (
+              <div className="p-4 space-y-4">
                 <QuickMap radarOn={radarOn} alertsOn={alertsOn} />
-                <div className="flex gap-2 justify-end mt-2">
-                  <button 
-                    className="border border-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-50 font-medium transition-colors"
-                    onClick={() => setRadarOn(!radarOn)}
-                  >
-                    {radarOn ? "🚫 Disable Radar" : "📡 Enable Radar"}
-                  </button>
-                  <button 
-                    className="border border-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-50 font-medium transition-colors"
-                    onClick={() => setAlertsOn(!alertsOn)}
-                  >
-                    {alertsOn ? "🚫 Disable Alerts" : "⚠️ Enable Alerts"}
-                  </button>
+                <div className="flex gap-2 justify-end">
+                  <button onClick={()=>setRadarOn(v=>!v)} className="border border-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-50 font-medium transition-colors">{radarOn?"Disable Radar":"Enable Radar"}</button>
+                  <button onClick={()=>setAlertsOn(v=>!v)} className="border border-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-50 font-medium transition-colors">{alertsOn?"Disable Alerts":"Enable Alerts"}</button>
                 </div>
               </div>
             )}
 
-            {/* Axon/DroneSense Tab */}
-            {activeTab === "axon" && (
-              <div className="p-4 space-y-2">
-                <button 
-                  className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 font-medium transition-colors mr-2"
-                  onClick={() => openNew(links.axonOps)}
-                >
-                  🎯 Open Operations Hub
-                </button>
-                <button 
-                  className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 font-medium transition-colors mr-2"
-                  onClick={() => openNew(links.axonVideo)}
-                >
-                  📹 Open Video View
-                </button>
-                <button 
-                  className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 font-medium transition-colors"
-                  onClick={() => openNew(links.axonRespond)}
-                >
-                  📋 Open Axon Respond
-                </button>
-              </div>
-            )}
+            {activeTab === 'inbox' && <div className="p-4 space-y-4"><InboxStream /></div>}
+            {activeTab === 'multiview' && <div className="p-4 space-y-4"><MultiView /></div>}
 
-            {/* DJI FlightHub 2 Tab */}
-            {activeTab === "dji" && (
-              <div className="p-4">
-                <button 
-                  className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 font-medium transition-colors"
-                  onClick={() => openNew(links.dji)}
-                >
-                  🛸 Open DJI FlightHub 2
-                </button>
-              </div>
-            )}
+            {activeTab === 'votix' && <div className="p-4 space-y-4"><ProviderTab name="VOTIX" hlsKey="votixHls" iframeKey="votixIframe" portal="https://platform.votix.com/" /></div>}
+            {activeTab === 'flyt' && <div className="p-4 space-y-4"><ProviderTab name="FlytBase" hlsKey="flytHls" iframeKey="flytIframe" portal="https://my.flytbase.com/" /></div>}
+            {activeTab === 'deploy' && <div className="p-4 space-y-4"><ProviderTab name="DroneDeploy" hlsKey="ddHls" iframeKey="ddIframe" portal="https://www.dronedeploy.com/live/" /></div>}
+            {activeTab === 'dji' && <div className="p-4 space-y-4"><ProviderTab name="DJI FlightHub 2" hlsKey="fh2Hls" iframeKey="fh2Iframe" portal="https://flighthub2.dji.com/" /></div>}
 
-            {/* VOTIX Tab */}
-            {activeTab === "votix" && (
-              <div className="p-4">
-                <button 
-                  className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 font-medium transition-colors"
-                  onClick={() => openNew(links.votix)}
-                >
-                  🔴 Open VOTIX
-                </button>
-              </div>
-            )}
-
-            {/* FlytBase Tab */}
-            {activeTab === "flyt" && (
-              <div className="p-4">
-                <button 
-                  className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 font-medium transition-colors"
-                  onClick={() => openNew(links.flytbase)}
-                >
-                  🚁 Open FlytBase
-                </button>
-              </div>
-            )}
-
-            {/* DroneDeploy Tab */}
-            {activeTab === "deploy" && (
-              <div className="p-4">
-                <button 
-                  className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 font-medium transition-colors"
-                  onClick={() => openNew(links.dronedeploy)}
-                >
-                  📹 Open DroneDeploy Live Stream
-                </button>
-              </div>
-            )}
-
-            {/* Windy Tab */}
-            {activeTab === "windy" && (
-              <div className="p-0">
-                <iframe 
-                  title="Windy Embed" 
-                  width="100%" 
-                  height="500" 
-                  src="https://embed.windy.com/embed2.html?lat=33&lon=-85&zoom=5&level=surface&overlay=wind" 
-                  frameBorder="0"
-                  className="rounded-b-lg"
-                />
-              </div>
-            )}
-
-            {/* DSP Directory Tab */}
-            {activeTab === "dsps" && (
-              <div className="p-4">
-                <DSPDirectory />
-              </div>
-            )}
+            {activeTab === 'dsps' && <div className="p-4 space-y-4"><DSPDirectory /></div>}
+            {activeTab === 'owner' && <div className="p-4 space-y-4"><OwnerLookup /></div>}
           </div>
         </div>
       </div>

@@ -1,0 +1,81 @@
+import express from "express";
+import fetch from "node-fetch";
+import cors from "cors";
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+// --- in-memory inbox (swap for DB later) ---
+const inbox = [];
+const clients = new Set();
+
+// SSE for instant Inbox updates
+app.get("/api/stream", (req, res) => {
+  res.set({
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    "Connection": "keep-alive",
+  });
+  res.flushHeaders();
+  res.write("retry: 5000\n\n");
+  clients.add(res);
+  req.on("close", () => clients.delete(res));
+});
+function pushSSE(item){ const msg = `data: ${JSON.stringify(item)}\n\n`; for (const c of clients) c.write(msg); }
+
+// Reverse geocode for addresses when only GPS is sent
+async function reverseGeocode(lat, lon) {
+  const r = await fetch(
+    `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`,
+    { headers: { "User-Agent": "StormOpsHub/1.0" } }
+  ).catch(()=>null);
+  const j = r && await r.json().catch(()=>null);
+  return j?.display_name || "";
+}
+
+// Providers/DSPs POST footage here
+app.post("/api/dsp-ingest", async (req, res) => {
+  const item = req.body || {};
+  if (!item.mediaUrl) return res.status(400).json({ error: "mediaUrl required" });
+  if (!item.address && item.lat && item.lon) item.address = await reverseGeocode(item.lat, item.lon);
+  item.id = Date.now().toString();
+  inbox.unshift(item);
+  pushSSE(item);     // pushes to UI instantly
+  res.json({ ok: true, item });
+});
+
+// UI polls history here (fallback)
+app.get("/api/inbox", (req, res) => res.json(inbox));
+
+// --- Owner Lookup seam ---
+// Replace with a licensed data source (ATTOM, Estated, CoreLogic/DataTree, or specific county APIs).
+// Keep logs and follow permitted use + privacy/TCPA rules.
+app.post("/api/owner-lookup", async (req, res) => {
+  const { address, lat, lon } = req.body || {};
+  // EXAMPLE passthrough (placeholder)
+  // TODO: integrate your vendor and map fields -> { ownerName, mailingAddress, phone, email, sources }
+  return res.json({
+    ownerName: null,
+    mailingAddress: address || null,
+    phone: null,
+    email: null,
+    sources: [],
+  });
+});
+
+// Optional: SMS/voice/email actions (hook to Twilio/SendGrid/etc.)
+app.post("/api/sms", async (req, res) => {
+  // { to, body } -> Twilio
+  res.json({ ok: true });
+});
+app.post("/api/call", async (req, res) => {
+  // { to, twiml } -> Twilio call
+  res.json({ ok: true });
+});
+app.post("/api/email", async (req, res) => {
+  // { to, subject, html } -> SendGrid/Mailgun
+  res.json({ ok: true });
+});
+
+app.listen(process.env.PORT || 3000, () => console.log("Server running"));
