@@ -497,7 +497,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`, {
       headers: { "User-Agent": "StormOpsHub/1.0" }
     });
-    const j = await r.json().catch(() => null);
+    const j = await r.json().catch(() => null) as any;
     return j?.display_name || "";
   }
 
