@@ -1178,22 +1178,9 @@ function LiensLegal(){
 function ContractorPortal(){
   function openNew(url: string) { window.open(url, '_blank', 'noopener,noreferrer'); }
   
-  // Generate tri-fold brochure
-  async function generateBrochure() {
-    try {
-      const response = await fetch('/api/brochure/strategic', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      });
-      const data = await response.json();
-      if (data.ok && data.path) {
-        window.open(data.path, '_blank');
-        alert('Brochure generated successfully!');
-      }
-    } catch (e) {
-      console.error('Brochure generation failed:', e);
-      alert('Failed to generate brochure');
-    }
+  async function makeBrochure(){
+    const r = await fetch('/api/brochure/strategic',{ method:'POST' }).then(r=>r.json());
+    if (r?.path) window.open(r.path, '_blank');
   }
   return (
     <div className="space-y-4">
@@ -1236,7 +1223,7 @@ function ContractorPortal(){
         <div className="p-4 space-y-2">
           <div className="font-semibold">Marketing Brochure</div>
           <div className="text-sm text-gray-500">Generate a tri-fold PDF brochure with Strategic Land Management details.</div>
-          <Button onClick={generateBrochure} className="w-full">Generate Tri-Fold Brochure</Button>
+          <Button onClick={makeBrochure}>Generate Tri-Fold Brochure (PDF)</Button>
         </div>
       </div>
     </div>
