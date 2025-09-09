@@ -999,23 +999,177 @@ function CustomerCard({ c, update, pushMsg, pushDoc, pushEvent }){
   const tax = subtotal * (Number(taxRate)||0)/100;
   const total = subtotal + tax;
 
+  // E‑Sign status (badge + auto‑attach certificate)
+  const [esign, setEsign] = useState({ status:'unknown', certificate:null });
+  useEffect(()=>{
+    let stop = false;
+    async function check(){
+      const params = new URLSearchParams({});
+      if (c.claimNumber) params.set('claim', c.claimNumber);
+      if (c.email) params.set('email', c.email);
+      if (![...params.keys()].length) return;
+      const r = await fetch(`/api/esign/status?${params.toString()}`).then(r=>r.json()).catch(()=>null);
+      const rec = r?.record || (r?.results && (r.results.find(x=>x.signedAt) || r.results[0])) || null;
+      if (stop || !rec) return;
+      const next = { status: rec.signedAt? 'signed':'pending', certificate: rec.certificate || null };
+      setEsign(prev=> (prev.status!==next.status || prev.certificate!==next.certificate) ? next : prev);
+      if (rec.certificate){
+        const already = (c.docs||[]).some(d => d.url===rec.certificate || d.name==='E-Sign Certificate.pdf');
+        if (!already){
+          try { pushDoc(c.id, { name:'E-Sign Certificate.pdf', url: rec.certificate }); } catch(_){ }
+          try { pushEvent(c.id, { type:'esign_cert_added', text: rec.certificate }); } catch(_){ }
+        }
+      }
+    }
+    check();
+    const id = setInterval(check, 30000);
+    return ()=>{ stop = true; clearInterval(id); };
+  }, [c.id, c.claimNumber, c.email]);
+
+  // Attachments selection (docs with URL)
+  const [attach, setAttach] = useState({}); // url -> bool
+  const toggleAttach = (u) => setAttach(prev=> ({ ...prev, [u]: !prev[u] }));
+  const selectedAttachments = () => Object.entries(attach).filter(([,v])=>v).map(([u])=>u);
+  const absUrl = (u) => { try{ return new URL(u, (location?.origin||'')).href; }catch{ return u; } };
+
+  // Insurance email
+  const [insEmail, setInsEmail] = useState(c.insurerEmail||'');
+  useEffect(()=>{ if (c.insurerEmail && c.insurerEmail!==insEmail) setInsEmail(c.insurerEmail); }, [c.insurerEmail]);
+
+  // Uploads & camera capture
+  const [uploading, setUploading] = useState(false);
+  const [showCam, setShowCam] = useState(false);
+  const videoRef = React.useRef(null);
+  const canvasRef = React.useRef(null);
+  let mediaStreamRef = React.useRef(null);
+
+  async function openCamera(){
+    try{
+      const ms = await navigator.mediaDevices.getUserMedia({ video:true, audio:false });
+      mediaStreamRef.current = ms;
+      setShowCam(true);
+      if (videoRef.current){ videoRef.current.srcObject = ms; await videoRef.current.play(); }
+    }catch(e){ alert('Camera access failed'); }
+  }
+  function closeCamera(){
+    if (mediaStreamRef.current){ mediaStreamRef.current.getTracks().forEach(t=>t.stop()); mediaStreamRef.current=null; }
+    setShowCam(false);
+  }
+  async function capturePhoto(){
+    try{
+      const v = videoRef.current; const cv = canvasRef.current; if (!v || !cv) return;
+      cv.width = v.videoWidth; cv.height = v.videoHeight; const ctx = cv.getContext('2d'); ctx.drawImage(v,0,0);
+      cv.toBlob(async (blob)=>{
+        if (!blob) return;
+        const file = new File([blob], `capture_${Date.now()}.png`, { type:'image/png' });
+        const fd = new FormData(); fd.append('file', file, file.name);
+        setUploading(true);
+        try{
+          const r = await fetch('/api/upload', { method:'POST', body: fd }).then(r=>r.json());
+          if (r?.ok && r.file?.path){ pushDoc(c.id,{ name:file.name, size:file.size, url:r.file.path }); }
+        }finally{ setUploading(false); }
+      }, 'image/png');
+    }catch(e){ alert('Capture failed'); }
+  }
+
   async function sendSMS(){
     await fetch('/api/sms',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ to:c.phone, body: msg })});
     pushMsg(c.id,{ dir:'out', type:'sms', to:c.phone, body:msg });
     setMsg('');
   }
+
   async function sendEmail(){
+    const atts = selectedAttachments().map(u=>({ path: absUrl(u) }));
     await fetch('/api/email',{
       method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
         to:c.email,
         subject:`Storm work update for ${c.address}`,
         html: msg,
-        claimNumber: c.claimNumber || undefined
+        claimNumber: c.claimNumber || undefined,
+        attachments: atts
       })
     });
     pushMsg(c.id,{ dir:'out', type:'email', to:c.email, body:msg });
     setMsg('');
+  }
+
+  // Auto-attach latest photos if nothing selected
+  function pickImageDocs(){
+    const arr = (c.docs||[]).filter(d=>/\.(png|jpe?g|webp|gif|bmp)$/i.test(d.name||''));
+    return arr;
+  }
+
+  async function sendInsuranceEmail(){
+    if (!insEmail){ alert('Enter insurance/adjuster email'); return; }
+    update(c.id,{ insurerEmail: insEmail });
+    let urls = selectedAttachments();
+    if (!urls.length){
+      const imgs = pickImageDocs();
+      urls = imgs.slice(Math.max(0, imgs.length-10)).map(d=>d.url).filter(Boolean); // latest up to 10
+    }
+    const atts = urls.map(u=>({ path: absUrl(u) }));
+    await fetch('/api/email',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        to:insEmail,
+        subject:`Claim ${c.claimNumber||''} — Evidence package for ${c.address}`,
+        html: msg || `Attached files regarding claim ${c.claimNumber||''} for ${c.address}.`,
+        claimNumber: c.claimNumber || undefined,
+        attachments: atts
+      })
+    });
+    pushEvent(c.id,{ type:'email_insurance', to: insEmail });
+  }
+
+  // AI captions for selected photos (or auto-picked)
+  async function aiCaptionSelected(){
+    let photos = selectedAttachments().map(u=>({ url: absUrl(u) }));
+    if (!photos.length) photos = pickImageDocs().map(d=>({ url: absUrl(d.url), name: d.name }));
+    if (!photos.length){ alert('Select or upload photos first.'); return; }
+    const r = await fetch('/api/describe/batch',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ photos }) }).then(r=>r.json()).catch(()=>null);
+    if (!r?.results) { alert('AI captions failed.'); return; }
+    // write captions back onto docs and add to timeline
+    const byUrl = new Map(r.results.map(x=>[x.url, x.caption]));
+    const docs = (c.docs||[]).map(d => d.url && byUrl.has(absUrl(d.url)) ? ({ ...d, caption: byUrl.get(absUrl(d.url)) }) : d);
+    update(c.id, { docs });
+    for (const it of r.results){ pushEvent(c.id, { type:'ai_caption', text: `${it.url} → ${it.caption}` }); }
+    alert('AI captions added to photos.');
+  }
+
+  async function ownerPrefill(){
+    try{
+      if(!c.address){ alert('Add service address first'); return; }
+      const r = await fetch('/api/owner-lookup',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ address: c.address }) }).then(r=>r.json());
+      if (r){
+        const patch = { name: r.ownerName || c.name };
+        if (r.mailingAddress) patch.mailingAddress = r.mailingAddress;
+        update(c.id, patch);
+        pushEvent(c.id,{ type:'owner_prefill', text: r.ownerName || 'unknown' });
+        alert('Owner details prefilled');
+      }
+    }catch(e){ alert('Owner lookup failed'); }
+  }
+
+  async function sendForESign(){
+    try{
+      if (!c.email){ alert('Need customer email'); return; }
+      const payload = { email: c.email, name: c.name || 'Customer', address: c.address, claimNumber: c.claimNumber };
+      let link = null;
+      try{
+        const r = await fetch('/api/esign/initiate',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) }).then(r=>r.json());
+        if (r?.link) link = r.link;
+      }catch(_){}
+      if (link){
+        await fetch('/api/email',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ to:c.email, subject:`Please e-sign: Emergency Tree Removal`, html:`Please review and e-sign: <a href="${link}">${link}</a>`, claimNumber:c.claimNumber||undefined })});
+        pushEvent(c.id,{ type:'esign_sent', text: link });
+        alert('E-sign invite sent');
+      } else {
+        await fetch('/api/email',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ to:c.email, subject:`Review & approve emergency contract`, html:`Please review the attached contract and reply \"I agree\" to authorize emergency work.<br/><a href=\"/files/contract.pdf\">Open Contract</a>`, claimNumber:c.claimNumber||undefined, attachments:[{ path: absUrl('/files/contract.pdf') }] })});
+        pushEvent(c.id,{ type:'contract_sent', text:'/files/contract.pdf' });
+        alert('Fallback email sent with contract attached');
+      }
+    }catch(e){ alert('E-sign send failed'); }
   }
 
   async function requestPayment(){
@@ -1027,11 +1181,32 @@ function CustomerCard({ c, update, pushMsg, pushDoc, pushEvent }){
     }).then(r=>r.json()).catch(()=>null);
     if (r?.url){
       if (c.phone) await fetch('/api/sms',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ to:c.phone, body:`Pay securely for ${c.address}: ${r.url}` })});
-      if (c.email) await fetch('/api/email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ to:c.email, subject:`Payment link for ${c.address}`, html:`<a href="${r.url}">Pay securely</a>`, claimNumber:c.claimNumber||undefined })});
+      if (c.email) await fetch('/api/email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ to:c.email, subject:`Payment link for ${c.address}`, html:`<a href=\"${r.url}\">Pay securely</a>`, claimNumber:c.claimNumber||undefined })});
       alert('Payment link sent.');
     } else {
       alert('Payment link failed.');
     }
+  }
+
+  async function submitClaimPackage(){
+    if (!insEmail){ alert('Enter insurance/adjuster email'); return; }
+    let urls = selectedAttachments();
+    if (!urls.length){
+      const imgs = pickImageDocs();
+      urls = imgs.map(d=>d.url).filter(Boolean);
+    }
+    const payload = {
+      to: insEmail,
+      claimNumber: c.claimNumber||'',
+      address: c.address||'',
+      customerName: c.name||'',
+      contractor: { name:'Strategic Land Management LLC', phone:'888-628-2229', website:'https://www.strategiclandmgmt.com' },
+      attachments: [ ...urls.map(absUrl), esign.certificate?absUrl(esign.certificate):null, absUrl('/files/contract.pdf') ].filter(Boolean),
+      invoice: { items: invoiceItems, taxRate, subtotal, total }
+    };
+    const r = await fetch('/api/claim/package',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) }).then(r=>r.json()).catch(()=>null);
+    if (r?.ok){ pushEvent(c.id,{ type:'claim_package_sent', to: insEmail, text: r.summaryPath }); window.open(r.summaryPath, '_blank'); alert('Claim package sent.'); }
+    else alert('Claim package failed.');
   }
 
   function changeStatus(s){ update(c.id,{ status:s }); pushEvent(c.id,{ type:'status', to:s }); }
@@ -1042,11 +1217,17 @@ function CustomerCard({ c, update, pushMsg, pushDoc, pushEvent }){
         <div>
           <div className="text-lg font-semibold">{c.name||'Unknown Owner'}</div>
           <div className="text-sm text-muted-foreground">{c.address}</div>
+          {c.mailingAddress && <div className="text-xs">Mailing: {c.mailingAddress}</div>}
           <div className="text-xs">{c.insurer || 'Insurer N/A'} • Claim #{c.claimNumber||'—'}</div>
         </div>
-        <select className="border rounded-md px-2 py-1" value={c.status} onChange={(e)=>changeStatus(e.target.value)}>
-          {PIPELINE.map(p => <option key={p} value={p}>{p.replaceAll('_',' ')}</option>)}
-        </select>
+        <div className="flex items-center gap-2">
+          <span className={`px-2 py-1 text-xs rounded ${esign.status==='signed'?'bg-green-100 text-green-800':'bg-yellow-100 text-yellow-800'}`}>
+            {esign.status==='signed'?'✓ Signed':'⏳ E-Sign '+esign.status}
+          </span>
+          <select className="border rounded-md px-2 py-1" value={c.status} onChange={(e)=>changeStatus(e.target.value)}>
+            {PIPELINE.map(p => <option key={p} value={p}>{p.replaceAll('_',' ')}</option>)}
+          </select>
+        </div>
       </div>
 
       <div className="grid md:grid-cols-3 gap-3">
@@ -1058,6 +1239,10 @@ function CustomerCard({ c, update, pushMsg, pushDoc, pushEvent }){
             {c.phone && <Button onClick={sendSMS}>Send SMS</Button>}
             {c.email && <Button variant="secondary" onClick={sendEmail}>Send Email</Button>}
             {c.phone && <a href={`tel:${c.phone.replace(/[^0-9+]/g,'')}`}><Button variant="outline">Call</Button></a>}
+          </div>
+          <div className="space-y-1">
+            <Input value={insEmail} onChange={(e)=>setInsEmail(e.target.value)} placeholder="Insurance/adjuster email" />
+            <Button onClick={sendInsuranceEmail} variant="outline">Email Insurance</Button>
           </div>
           <div className="space-y-1 max-h-40 overflow-auto">
             {c.messages?.map((m,i)=>(<div key={i} className="text-xs">[{new Date(m.ts).toLocaleString()}] {m.type?.toUpperCase()} → {m.to}: {m.body}</div>))}
@@ -1076,14 +1261,45 @@ function CustomerCard({ c, update, pushMsg, pushDoc, pushEvent }){
         {/* Docs & Media */}
         <div className="space-y-2">
           <div className="font-medium">Docs & Media</div>
-          <input type="file" multiple onChange={(e)=>{
-            const files = Array.from(e.target.files||[]);
-            files.forEach(f=> pushDoc(c.id,{ name:f.name, size:f.size }));
-          }} />
-          <div className="text-xs text-muted-foreground">Contracts, proof of insurance, photos/videos. (Hook to /api/upload for persistence.)</div>
-          <div className="space-y-1 max-h-40 overflow-auto">
-            {c.docs?.map((d,i)=>(<div key={i} className="text-xs">📄 {d.name} ({Math.round((d.size||0)/1024)} KB)</div>))}
+          <div className="flex gap-2">
+            <input type="file" multiple onChange={async (e)=>{
+              const files = Array.from(e.target.files||[]);
+              setUploading(true);
+              for (const f of files){
+                const fd = new FormData(); fd.append('file', f);
+                try{
+                  const r = await fetch('/api/upload', { method:'POST', body: fd }).then(r=>r.json());
+                  if (r?.ok && r.file?.path){ pushDoc(c.id,{ name:f.name, size:f.size, url:r.file.path }); }
+                }catch(_){}
+              }
+              setUploading(false);
+            }} />
+            <Button variant="outline" onClick={openCamera}>📷 Camera</Button>
           </div>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={aiCaptionSelected}>AI Caption Selected</Button>
+            <Button variant="outline" onClick={ownerPrefill}>Owner Prefill</Button>
+          </div>
+          {uploading && <div className="text-xs">Uploading...</div>}
+          <div className="space-y-1 max-h-40 overflow-auto">
+            {(c.docs||[]).map((d,i)=>(
+              <div key={i} className="flex items-center gap-2 text-xs">
+                <input type="checkbox" checked={!!attach[d.url]} onChange={()=>toggleAttach(d.url)} />
+                <span>📄 {d.name} ({Math.round((d.size||0)/1024)} KB)</span>
+                {d.caption && <span className="text-blue-600">• {d.caption}</span>}
+              </div>
+            ))}
+          </div>
+          {showCam && (
+            <div className="border rounded-lg p-2 space-y-2">
+              <video ref={videoRef} className="w-full h-40 bg-black rounded" autoPlay muted />
+              <canvas ref={canvasRef} style={{display:'none'}} />
+              <div className="flex gap-2">
+                <Button onClick={capturePhoto}>📸 Capture</Button>
+                <Button variant="outline" onClick={closeCamera}>Close</Button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Notes / Timeline */}
@@ -1099,10 +1315,12 @@ function CustomerCard({ c, update, pushMsg, pushDoc, pushEvent }){
 
       {/* Actions */}
       <div className="flex flex-wrap gap-2">
+        <Button variant="outline" onClick={sendForESign}>Send E-Sign</Button>
         <Button variant="outline" onClick={()=>changeStatus('contract_signed')}>Mark Contracted</Button>
         <Button variant="outline" onClick={()=>changeStatus('claim_submitted')}>Mark Claim Submitted</Button>
         <Button variant="outline" onClick={()=>changeStatus('paid')}>Mark Paid</Button>
         <Button onClick={requestPayment}>Request Payment</Button>
+        <Button className="bg-red-600 hover:bg-red-700 text-white" onClick={submitClaimPackage}>Submit Claim Package</Button>
       </div>
 
       {/* Invoice editor */}

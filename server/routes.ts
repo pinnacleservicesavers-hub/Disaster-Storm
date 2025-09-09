@@ -407,9 +407,97 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
     }catch(e){ res.status(500).json({ error:'photo_report_failed', detail:String(e) }); }
   });
 
-  // ---- AI describe placeholder (hook Vision API later) ----
-  app.post("/api/describe", async (req, res) => {
-    res.json({ captions: ["Tree on roof; broken ridge; tarp recommended"] });
+  // === Simple damage detection heuristics (placeholder AI) ===
+  function detectLabels({ name='', url='', note='' }){
+    const text = `${name} ${url} ${note}`.toLowerCase();
+    const tags = new Set();
+    if (/tree[^a-z]?on[^a-z]?(roof|home|house|building|structure)/.test(text)) tags.add('tree_on_roof');
+    if (/line[^a-z]?(down|damaged)|power[^a-z]?line|utility[^a-z]?line|pole[^a-z]?down/.test(text)) tags.add('line_down');
+    if (/collapse|structur(al|e)\s?damage|wall\s?down|building\s?damage/.test(text)) tags.add('structure_damage');
+    if (/fence/.test(text)) tags.add('tree_on_fence');
+    if (/car|vehicle|truck/.test(text)) tags.add('tree_on_car');
+    if (/barn/.test(text)) tags.add('tree_on_barn');
+    if (/shed/.test(text)) tags.add('tree_on_shed');
+    if (/pool/.test(text)) tags.add('tree_in_pool');
+    if (/playground|play\s?set/.test(text)) tags.add('tree_on_playground');
+    const caption = tags.size ? `Detected: ${[...tags].join(', ')}` : 'Detected: storm damage';
+    return { caption, tags: [...tags] };
+  }
+
+  app.post('/api/describe', async (req, res) => {
+    try{ const out = detectLabels(req.body||{}); return res.json(out); }catch(e){ return res.status(500).json({ error:'describe_failed' }); }
+  });
+
+  app.post('/api/describe/batch', async (req, res) => {
+    try{
+      const photos = req.body?.photos || [];
+      const results = photos.map(p => ({ ...p, ...detectLabels(p) }));
+      res.json({ ok:true, results });
+    }catch(e){ res.status(500).json({ error:'describe_batch_failed' }); }
+  });
+
+  // === Claim Package: build summary PDF + email with attachments ===
+  app.post('/api/claim/package', async (req, res) => {
+    try{
+      if (!transporter) return res.status(500).json({ error:'email_not_configured' });
+      const { to, claimNumber, address, customerName, contractor, attachments = [], invoice } = req.body || {};
+      if (!to) return res.status(400).json({ error:'to_required' });
+
+      const outPath = path.join(UPLOAD_DIR, `claim_package_${Date.now()}.pdf`);
+      const doc = new PDFDocument({ size:'LETTER', margin:36 });
+      const stream = fs.createWriteStream(outPath); doc.pipe(stream);
+
+      doc.fontSize(18).text('Claim Package Summary');
+      if (claimNumber) doc.moveDown(0.3).fontSize(11).text(`Claim #: ${claimNumber}`);
+      if (customerName) doc.fontSize(11).text(`Customer: ${customerName}`);
+      if (address) doc.fontSize(11).text(`Address: ${address}`);
+      if (contractor) doc.moveDown(0.3).fontSize(10).text(`Prepared by: ${contractor.name||''} • ${contractor.phone||''} • ${contractor.website||''}`);
+
+      if (invoice && Array.isArray(invoice.items)){
+        doc.moveDown().fontSize(12).text('Invoice');
+        invoice.items.forEach(it=> doc.fontSize(10).text(`• ${it.name||'Service'} — $${Number(it.amount||0).toFixed(2)} x ${Number(it.quantity||1)} `));
+        doc.moveDown(0.2).fontSize(10).text(`Tax %: ${Number(invoice.taxRate||0)}%`);
+        doc.fontSize(11).text(`Subtotal: $${Number(invoice.subtotal||0).toFixed(2)}  |  Total: $${Number(invoice.total||0).toFixed(2)}`);
+      }
+
+      if (attachments?.length){
+        doc.moveDown().fontSize(12).text('Attachments');
+        attachments.forEach((u,i)=> doc.fontSize(10).text(`${i+1}. ${u}`));
+      }
+
+      doc.end();
+      await new Promise(resolve => stream.on('finish', resolve));
+
+      // Map public paths to FS for attachments; keep URLs as-is
+      const mapAttach = (p) => {
+        try{
+          if (p.startsWith('/uploads/')) return path.join(UPLOAD_DIR, path.basename(p));
+          if (p.startsWith('uploads/')) return path.join(UPLOAD_DIR, path.basename(p));
+          if (p === '/files/contract.pdf') return path.join(ASSETS_DIR, 'contract.pdf');
+          return p; // remote URL or fs path
+        }catch{ return p; }
+      };
+
+      const maxAttach = 10; // avoid huge emails
+      const emailAttachments = [
+        { filename: 'Claim_Package_Summary.pdf', path: outPath },
+        ...attachments.slice(0, maxAttach).map(p => ({ path: mapAttach(p) }))
+      ];
+
+      const subject = `${claimNumber?`[CLAIM ${claimNumber}] `:''}Package for ${address||'property'}`;
+      const html = `Please find attached the claim package summary for ${address||'the property'}. Additional files are listed and attached when possible.`;
+
+      const info = await transporter.sendMail({
+        from: process.env.SMTP_FROM || process.env.SMTP_USER,
+        to,
+        cc: 'strategiclandmgmt@gmail.com',
+        subject,
+        html,
+        attachments: emailAttachments
+      });
+
+      res.json({ ok:true, id: info.messageId, summaryPath: `/uploads/${path.basename(outPath)}` });
+    }catch(e){ res.status(500).json({ error:'claim_package_failed', detail:String(e) }); }
   });
 
   // ---- Reminders (claim 30/60d; completion 45d; lien 10mo) ----
