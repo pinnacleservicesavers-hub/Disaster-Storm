@@ -662,6 +662,13 @@ cron.schedule('5 9 * * *', async ()=>{
   }catch{}
 });
 
-// --- Start
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log('StormOps skeleton running on', PORT));
+// --- Register additional routes and start server
+import { registerRoutes } from './routes.js';
+
+async function startServer() {
+  await registerRoutes(app);
+  const PORT = process.env.PORT || 5000;
+  app.listen(PORT, () => console.log('StormOps skeleton running on', PORT));
+}
+
+startServer().catch(console.error);
