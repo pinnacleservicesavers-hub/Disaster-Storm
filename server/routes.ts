@@ -1011,12 +1011,14 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
     try {
       const secret = process.env.DRONE_WEBHOOK_SECRET;
       if (secret && req.headers['x-drone-secret'] !== secret) return res.status(401).json({ error: 'unauthorized' });
-      const evt = await normalizeDroneEvent(req.body || {});
+      const evt = await normalizeDroneEventProviderAware(req.body || {});
       if (!evt) return res.status(400).json({ error: 'invalid_payload' });
       const db = readDrone();
       db.events.push(evt); 
       writeDrone(db);
       sseBroadcast({ type: 'drone_event', event: evt });
+      // Auto-create lead from drone event
+      await ensureLeadFromEvent(evt);
       res.json({ ok: true });
     } catch (e) { 
       res.status(500).json({ error: 'webhook_failed', detail: String(e) }); 
@@ -1027,6 +1029,165 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
   app.get('/api/drone/recent', (req, res) => { 
     const db = readDrone(); 
     res.json(db.events.slice(-100).reverse()); 
+  });
+
+  // ====== Reverse Geocoding ======
+  async function reverseGeocode(lat: number, lng: number) {
+    try {
+      const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`;
+      const r = await fetch(url, { headers: { 'User-Agent': 'StormOps/1.0 (contact: strategiclandmgmt@gmail.com)' } });
+      const j = await r.json();
+      return j?.display_name || null;
+    } catch (e) {
+      console.error('Reverse geocoding failed:', e);
+      return null;
+    }
+  }
+
+  // ====== Leads store ======
+  const LEADS_PATH = path.join(DATA_DIR, 'leads.json');
+  if (!fs.existsSync(LEADS_PATH)) fs.writeFileSync(LEADS_PATH, JSON.stringify({ items: [] }, null, 2));
+  
+  function readLeads() { 
+    try { 
+      return JSON.parse(fs.readFileSync(LEADS_PATH, 'utf8')); 
+    } catch { 
+      return { items: [] }; 
+    } 
+  }
+  
+  function writeLeads(d: any) { 
+    try { 
+      fs.writeFileSync(LEADS_PATH, JSON.stringify(d, null, 2)); 
+    } catch (e) {
+      console.error('Failed to write leads data:', e);
+    } 
+  }
+
+  function haversine(aLat: number, aLng: number, bLat: number, bLng: number) {
+    const R = 6371000; 
+    const toRad = (d: number) => d * Math.PI / 180;
+    const dLat = toRad(bLat - aLat), dLng = toRad(bLng - aLng);
+    const s = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(aLat)) * Math.cos(toRad(bLat)) * Math.sin(dLng / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(s));
+  }
+
+  // ====== Explicit VOTIX mapping (still falls back to generic) ======
+  function fromVotix(body: any) {
+    // Common VOTIX fields seen in webhooks/integrations
+    // Examples: { coordinates:{ lat, lon }, hlsUrl, rtmpUrl, thumbnail, labels:[...], notes, missionId, vehicleId }
+    const c = body.coordinates || body.location || {};
+    const lat = body.lat || c.lat || c.latitude;
+    const lng = body.lng || body.lon || c.lon || c.longitude;
+    const stream = body.hlsUrl || body.hls || body.stream_url || body.rtmpUrl || body.rtmp;
+    const image = body.thumbnail || body.image_url || body.snapshot;
+    const labels = body.labels || body.classifications || [];
+    const address = body.address || body.addr || (body.location && body.location.address) || null;
+    return {
+      provider: 'votix',
+      droneId: body.vehicleId || body.uav_id || body.droneId,
+      mission: body.missionId || body.mission || body.project,
+      lat, lng, address, stream, image,
+      tags: Array.isArray(labels) ? labels : [],
+      ts: Number(body.timestamp || body.ts || Date.now())
+    };
+  }
+
+  async function normalizeDroneEventProviderAware(body: any) {
+    let base;
+    const p = (body.provider || body.vendor || body.source || '').toString().toLowerCase();
+    if (p.includes('votix')) {
+      base = fromVotix(body);
+    }
+    // Add more: if (p.includes('flyt')) {...} else if (p.includes('dji')) {...}
+    if (!base) {
+      // Fall back to existing generic normalizer
+      base = await normalizeDroneEvent(body);
+    }
+    if (!base) return null;
+    
+    // Ensure tags from text if tags empty
+    if (!base.tags || !base.tags.length) {
+      const text = [body.caption, body.note, body.notes, (body.labels || []).join(' '), (body.objects || []).join(' ')].filter(Boolean).join(' ');
+      base.tags = detectLabelsFromText(text);
+    }
+    // Fill missing address
+    if ((!base.address || base.address === 'null') && base.lat && base.lng) {
+      base.address = await reverseGeocode(base.lat, base.lng);
+    }
+    return base;
+  }
+
+  // ====== Auto‑Lead creation on inbound webhooks ======
+  async function ensureLeadFromEvent(evt: any) {
+    // Only create leads when we have damage tags
+    if (!evt || !evt.tags || !evt.tags.length) return null;
+    const db = readLeads();
+    const now = Date.now();
+    // Deduplicate near‑duplicates: within 25m and 6 hours
+    const near = (db.items || []).find((x: any) => haversine(x.lat, x.lng, evt.lat, evt.lng) < 25 && (now - x.createdAt) < 6 * 3600 * 1000);
+    if (near) return null;
+    const lead = {
+      id: `lead:${now}:${Math.random().toString(36).slice(2, 8)}`,
+      createdAt: now,
+      provider: evt.provider,
+      mission: evt.mission || null,
+      droneId: evt.droneId || null,
+      lat: evt.lat, 
+      lng: evt.lng,
+      address: evt.address || null,
+      tags: evt.tags,
+      image: evt.image || null,
+      stream: evt.stream || null
+    };
+    db.items.push(lead); 
+    writeLeads(db);
+    // Broadcast
+    sseBroadcast({ type: 'lead', lead });
+    // Optional: email alert
+    try {
+      await notify({ 
+        subject: `[LEAD] ${lead.tags.join(', ')} — ${lead.address || lead.lat + ',' + lead.lng}`, 
+        html: `New lead from ${lead.provider}.<br/>Tags: ${lead.tags.join(', ')}<br/>${lead.address || ''}` 
+      });
+    } catch (e) {
+      console.error('Lead notification failed:', e);
+    }
+    return lead;
+  }
+
+  // ====== Leads API ======
+  app.get('/api/leads', (req, res) => { 
+    try { 
+      res.json(readLeads().items.slice(-200).reverse()); 
+    } catch { 
+      res.json([]); 
+    } 
+  });
+  
+  app.post('/api/leads/accept', express.json(), async (req, res) => {
+    try {
+      const { id } = req.body || {}; 
+      if (!id) return res.status(400).json({ error: 'id_required' });
+      const db = readLeads(); 
+      const idx = (db.items || []).findIndex((x: any) => x.id === id);
+      if (idx < 0) return res.status(404).json({ error: 'not_found' });
+      const lead = db.items[idx]; 
+      db.items.splice(idx, 1); 
+      writeLeads(db);
+      res.json({ ok: true, lead });
+    } catch (e) { 
+      res.status(500).json({ error: 'accept_failed' }); 
+    }
+  });
+  
+  app.post('/api/leads/clear', (req, res) => { 
+    try { 
+      writeLeads({ items: [] }); 
+      res.json({ ok: true }); 
+    } catch (e) { 
+      res.status(500).json({ ok: false }); 
+    } 
   });
 
   const httpServer = createServer(app);
