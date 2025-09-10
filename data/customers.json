@@ -58,6 +58,11 @@
           "ts": 1757475804825,
           "type": "work_completed",
           "text": "Marked completed"
+        },
+        {
+          "ts": 1757476096761,
+          "type": "work_completed",
+          "text": "Marked completed"
         }
       ]
     },

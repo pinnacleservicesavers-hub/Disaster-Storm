@@ -1602,7 +1602,7 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
         const lines = items.map((t: any)=> `• ${new Date(t.startTs).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})} — ${t.title}${t.detail? ' — '+t.detail:''}`).join('\n');
         const html = `Today\'s tasks for ${ctr.name}:<br/><pre>${lines}</pre>`;
         if (transporter && ctr.email){ try{ await transporter.sendMail({ from: process.env.SMTP_FROM||process.env.SMTP_USER, to: ctr.email, subject:'Daily Tasks', html }); }catch{} }
-        if (twilioClient && ctr.phone){ try{ await twilioClient.messages.create({ to: ctr.phone, from: process.env.TWILIO_FROM, body: `Daily tasks:\n${lines.slice(0,120)}${lines.length>120?'…':''}` }); }catch{} }
+        // SMS disabled - add Twilio client initialization if needed
       }
     }catch{}
   });

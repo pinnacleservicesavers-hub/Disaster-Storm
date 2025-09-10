@@ -6,6 +6,13 @@
       "ts": 1757475804825,
       "address": "22nd Avenue Southeast, Old Southeast, Saint Petersburg, Pinellas County, Florida, 33705, United States",
       "name": "Unknown Owner"
+    },
+    {
+      "customerId": "c:1757464468680:k35s",
+      "type": "work_completed",
+      "ts": 1757476096761,
+      "address": "22nd Avenue Southeast, Old Southeast, Saint Petersburg, Pinellas County, Florida, 33705, United States",
+      "name": "Unknown Owner"
     }
   ]
 }
