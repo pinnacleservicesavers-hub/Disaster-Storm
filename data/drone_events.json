@@ -61,6 +61,22 @@
       "image": "https://via.placeholder.com/640x360.png?text=Damage",
       "stream": "https://example.com/live.m3u8",
       "ts": 1757464281486
+    },
+    {
+      "id": "drone:1757464452044:h97gix",
+      "provider": "demo",
+      "droneId": null,
+      "mission": null,
+      "lat": 27.7518,
+      "lng": -82.6267,
+      "address": "22nd Avenue Southeast, Old Southeast, Saint Petersburg, Pinellas County, Florida, 33705, United States",
+      "tags": [
+        "tree_on_roof",
+        "structure_damage"
+      ],
+      "image": "https://via.placeholder.com/640x360.png?text=StructureDamage",
+      "stream": "https://example.com/live2.m3u8",
+      "ts": 1757464452044
     }
   ]
 }

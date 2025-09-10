@@ -954,7 +954,13 @@ function StormOpsProHubContent() {
 
             {/* Inbox Tab */}
             {activeTab === "inbox" && (
-              <div className="p-4">
+              <div className="p-4 space-y-4">
+                {/* Auto-Generated Lead Inbox */}
+                <LeadInbox onCreateCustomer={(customer: any) => {
+                  customers.add(customer);
+                }} />
+                
+                {/* Traditional Inbox */}
                 <InboxTabs 
                   items={inboxItems} 
                   filters={filters} 
@@ -1073,6 +1079,106 @@ function StormOpsProHubContent() {
 }
 
 // ===== BUSINESS COMPONENTS =====
+
+// --- Lead Inbox Component ---
+function LeadInbox({ onCreateCustomer }: { onCreateCustomer?: (customer: any) => void }) {
+  const [leads, setLeads] = useState<any[]>([]);
+  
+  useEffect(() => { 
+    fetch('/api/leads').then(r => r.json()).then(setLeads).catch(() => {}); 
+  }, []);
+  
+  useEffect(() => {
+    const es = new EventSource('/api/drone/events');
+    es.onmessage = (ev) => { 
+      try { 
+        const d = JSON.parse(ev.data); 
+        if (d?.type === 'lead' && d.lead) { 
+          setLeads(prev => [d.lead, ...prev]); 
+        } 
+      } catch {} 
+    };
+    return () => es.close();
+  }, []);
+
+  async function accept(id: string) {
+    const r = await fetch('/api/leads/accept', { 
+      method: 'POST', 
+      headers: { 'Content-Type': 'application/json' }, 
+      body: JSON.stringify({ id }) 
+    }).then(r => r.json()).catch(() => null);
+    
+    if (!r?.ok) { 
+      alert('Accept failed'); 
+      return; 
+    }
+    
+    const lead = r.lead; 
+    setLeads(ls => ls.filter(x => x.id !== id));
+    
+    const c = {
+      id: `c:${Date.now()}`,
+      name: 'Unknown Owner',
+      address: lead.address || `${lead.lat}, ${lead.lng}`,
+      phone: '', 
+      email: '',
+      insurer: '', 
+      claimNumber: '',
+      status: 'new', 
+      docs: [], 
+      messages: [], 
+      timeline: [{ 
+        ts: Date.now(), 
+        type: 'lead_imported', 
+        text: `${lead.provider || 'drone'} lead` 
+      }]
+    };
+    
+    try { 
+      await onCreateCustomer?.(c); 
+    } catch {}
+    
+    // Center the map to the new lead
+    try { 
+      window.dispatchEvent(new CustomEvent('storm-center', { 
+        detail: { address: c.address, name: c.name } 
+      })); 
+    } catch {}
+  }
+
+  return (
+    <div className="border rounded-md p-3">
+      <div className="font-semibold mb-2">Lead Inbox</div>
+      <div className="text-xs text-muted-foreground mb-2">Auto‑leads generated from drone detections with damage tags.</div>
+      <div className="space-y-2 max-h-64 overflow-auto">
+        {leads.map(l => (
+          <div key={l.id} className="border rounded p-2 text-sm flex items-center justify-between">
+            <div>
+              <div className="font-medium">{(l.tags || []).join(', ')}</div>
+              <div className="text-xs opacity-80">{l.address || `${l.lat}, ${l.lng}`}</div>
+              <div className="text-xs opacity-80">{new Date(l.createdAt).toLocaleString()}</div>
+            </div>
+            <div className="flex gap-2">
+              {l.stream && <a className="underline text-xs" href={l.stream} target="_blank" rel="noreferrer">Open stream</a>}
+              <Button 
+                size="sm" 
+                className="px-2 py-1 text-xs bg-emerald-600 hover:bg-emerald-700" 
+                onClick={() => accept(l.id)}
+              >
+                Accept Lead
+              </Button>
+            </div>
+          </div>
+        ))}
+        {leads.length === 0 && (
+          <div className="text-xs text-muted-foreground text-center py-4">
+            No leads yet. Leads will appear when drones detect damage.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 // --- Customers CRM (pipeline, comms log, docs) ---
 function useCustomers(){
