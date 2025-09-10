@@ -1,5 +1,78 @@
+import { Route, Switch, Link, useLocation } from 'wouter';
 import StormOpsProHub from "./StormOpsProHub";
+import WeatherCenter from "./pages/WeatherCenter";
+import { Button } from '@/components/ui/button';
+import { Cloud, Home, Menu } from 'lucide-react';
+
+function Navigation() {
+  const [location] = useLocation();
+  
+  return (
+    <nav className="bg-white border-b border-gray-200 px-6 py-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-8">
+          <h1 className="text-xl font-bold text-blue-900">
+            StormLead Master
+          </h1>
+          
+          <div className="flex space-x-4">
+            <Link href="/">
+              <Button 
+                variant={location === '/' ? 'default' : 'ghost'} 
+                size="sm"
+                data-testid="nav-home"
+              >
+                <Home className="w-4 h-4 mr-2" />
+                Dashboard
+              </Button>
+            </Link>
+            
+            <Link href="/weather">
+              <Button 
+                variant={location === '/weather' ? 'default' : 'ghost'} 
+                size="sm"
+                data-testid="nav-weather"
+              >
+                <Cloud className="w-4 h-4 mr-2" />
+                Weather Center
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </div>
+    </nav>
+  );
+}
 
 export default function App() {
-  return <StormOpsProHub />;
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Set page title and meta tags */}
+      <title>StormLead Master - Storm Operations Platform</title>
+      <meta name="description" content="Comprehensive storm operations and claims management platform for contractors and property restoration professionals" />
+      
+      <Navigation />
+      
+      <Switch>
+        <Route path="/weather">
+          <title>Weather Center - StormLead Master</title>
+          <meta name="description" content="Live weather monitoring, alerts, radar data, and hurricane tracking for emergency storm response operations" />
+          <WeatherCenter />
+        </Route>
+        
+        <Route path="/">
+          <StormOpsProHub />
+        </Route>
+        
+        <Route>
+          <div className="container mx-auto p-6 text-center">
+            <h1 className="text-2xl font-bold mb-4">Page Not Found</h1>
+            <Link href="/">
+              <Button data-testid="button-home">Return to Dashboard</Button>
+            </Link>
+          </div>
+        </Route>
+      </Switch>
+    </div>
+  );
 }
