@@ -352,7 +352,12 @@ export class WeatherService {
       const lat = latitude || 33.7490; // Default to Atlanta if no coordinates
       const lon = longitude || -84.3880;
       
-      const response = await fetch(`https://api.weather.gov/alerts?point=${lat},${lon}&status=actual`);
+      const response = await fetch(`https://api.weather.gov/alerts?point=${lat},${lon}&status=actual`, {
+        headers: { 
+          'User-Agent': 'StormOps/1.0 (contact: ops@stormleadmaster.com)',
+          'Accept': 'application/geo+json'
+        }
+      });
       
       if (!response.ok) {
         console.warn(`NWS API response: ${response.status} - falling back to empty alerts`);

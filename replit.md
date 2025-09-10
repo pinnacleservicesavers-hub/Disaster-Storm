@@ -8,6 +8,28 @@ StormLead Master is a comprehensive storm operations and claims management platf
 
 Preferred communication style: Simple, everyday language.
 
+## Production Weather API Best Practices
+
+### Critical Requirements for api.weather.gov:
+- **REQUIRED**: Proper User-Agent header with contact info for rate limiting compliance
+- **REQUIRED**: Respect caching headers to avoid hot-loop requests
+- **Format**: Accept application/geo+json for optimal data structure
+
+### File Format Considerations:
+- **MRMS Data**: GRIB2/NetCDF formats require server-side decoding (not browser-friendly)
+- **Level II Radar**: Needs server-side processing before frontend consumption
+- **Reference**: Project Pythia has example notebooks for MRMS on AWS
+
+### Discovery Resources:
+- **NWS GIS Page**: Lists WMS/WCS endpoints for quick tile integration
+- **OpenGeo Geoserver**: Alternative to custom decoding for visualization
+- **Registry of Open Data**: Monitor for AWS bucket migrations (NEXRAD archive moving)
+
+### Current Implementation:
+- ✅ NWS Alerts: Proper User-Agent and Accept headers implemented
+- ✅ NHC KML: Production-ready headers with contact info
+- ✅ Live streaming with rate limiting and error handling
+
 ## System Architecture
 
 ### Frontend Architecture
