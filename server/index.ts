@@ -288,6 +288,326 @@ app.get('/test', (req, res) => {
 </body></html>`);
 });
 
+// ===== PAYMENTS + FUNDING + REVIEWS AUTOMATIONS =====
+
+// Settings store (review links, templates, AI toggles, lien clause, state law meta)
+const SETTINGS_PATH = path.join(DATA_DIR, 'settings.json');
+if (!fs.existsSync(SETTINGS_PATH)) fs.writeFileSync(SETTINGS_PATH, JSON.stringify({
+  autoAI: true,
+  reviewLinks: [
+    // { label:'Google', url:'https://g.page/your-google-review-link' },
+    // { label:'Website', url:'https://www.strategiclandmgmt.com/reviews' },
+    // { label:'Yelp', url:'https://yelp.com/biz/...'}
+  ],
+  emailTemplates: {
+    insuranceOptIn: `Hi {{name}},<br/><br/>Thank you for choosing Strategic Land Management LLC to handle your storm recovery. You checked that you are filing an insurance claim. We will coordinate directly with your insurer and keep you informed every step of the way.<br/><br/>Address: {{address}}<br/>Claim #: {{claim}}<br/><br/>We appreciate your trust. If you found our team helpful, please consider leaving a review: {{review_links}}<br/><br/>— Strategic Land Management LLC` ,
+    loanOptIn: `Hi {{name}},<br/><br/>You indicated you will apply for disaster assistance. Here are quick links:<br/>• SBA Disaster Loans: <a href="https://disasterloanassistance.sba.gov/">Apply</a><br/>• FEMA Individual Assistance: <a href="https://www.fema.gov/assistance/individual">Apply</a><br/><br/>Per your contract, payment is due upon completion. If a loan delays payment, please keep us updated. {{lien_clause}}<br/><br/>We're here to help. — Strategic Land Management LLC` ,
+    balance30: `Friendly reminder: there is an outstanding balance for {{address}}. Please reply if you have questions or a payment date. {{lien_clause_short}}` ,
+    balance45Demand: `FORMAL NOTICE: Payment for work at {{address}} is {{days}} days past due. Please remit immediately. {{lien_clause}}`
+  },
+  lienClause: "If payment is not made within 45 days of work completion, we may initiate a lien filing as permitted by state law.",
+  lienClauseShort: "Unpaid balances may be subject to a lien per state law.",
+  stateLaw: {
+    // Optional: fill in per state (abbrev): { lienDays: 90, note: "Florida: ..." }
+    // "FL": { lienDays: 90, note: "Example only — please confirm with your attorney." }
+  }
+}, null, 2));
+
+function readSettings(){ 
+  try{ 
+    return JSON.parse(fs.readFileSync(SETTINGS_PATH,'utf8')); 
+  }catch{ 
+    return { autoAI:true, reviewLinks:[], emailTemplates:{}, lienClause:'', lienClauseShort:'', stateLaw:{} }; 
+  } 
+}
+
+function writeSettings(d: any){ 
+  try{ 
+    fs.writeFileSync(SETTINGS_PATH, JSON.stringify(d,null,2)); 
+  }catch{} 
+}
+
+app.get('/api/settings', (req,res)=>{ 
+  try{ 
+    res.json(readSettings()); 
+  }catch(e){ 
+    res.status(500).json({}); 
+  } 
+});
+
+app.post('/api/settings/save', express.json(), (req,res)=>{ 
+  try{ 
+    writeSettings({ ...(readSettings()), ...(req.body||{}) }); 
+    res.json({ ok:true }); 
+  }catch(e){ 
+    res.status(500).json({ ok:false }); 
+  } 
+});
+
+// Payments store inside each customer
+app.post('/api/payments/record', express.json(), (req,res)=>{
+  try{
+    const { customerId, amount, method, note } = req.body||{};
+    if (!customerId || isNaN(Number(amount))) return res.status(400).json({ error:'missing_fields' });
+    const db = readCustomers();
+    const c = (db.items||[]).find((x: any)=>x.id===customerId);
+    if (!c) return res.status(404).json({ error:'customer_not_found' });
+    c.payments = c.payments || [];
+    c.payments.push({ ts: Date.now(), amount: Number(amount), method: method||'unknown', note: note||'' });
+    c.timeline = c.timeline || [];
+    c.timeline.push({ ts: Date.now(), type:'payment_recorded', text:`${amount} via ${method||'unknown'}` });
+    writeCustomers(db);
+    res.json({ ok:true, payments: c.payments });
+  }catch(e){ 
+    res.status(500).json({ error:'record_failed' }); 
+  }
+});
+
+app.get('/api/payments/status', (req,res)=>{
+  try{
+    const id = req.query.customerId; if (!id) return res.status(400).json({});
+    const db = readCustomers(); 
+    const c = (db.items||[]).find((x: any)=>x.id===id); 
+    if (!c) return res.status(404).json({});
+    const paid = (c.payments||[]).reduce((s: number,p: any)=> s + Number(p.amount||0), 0);
+    const invoiceTotal = Number(c.invoiceTotal||0); // set from UI
+    res.json({ paid, invoiceTotal, balance: Math.max(0, invoiceTotal - paid) });
+  }catch(e){ 
+    res.status(500).json({}); 
+  }
+});
+
+// Funding selection + notifications
+function renderTemplate(tpl: string, ctx: any){ 
+  return (tpl||'').replace(/{{(\w+)}}/g, (_,k)=> ctx[k]??''); 
+}
+
+function reviewLinksHTML(){ 
+  const s = readSettings(); 
+  return (s.reviewLinks||[]).map((x: any)=>`<a href="${x.url}">${x.label}</a>`).join(' • '); 
+}
+
+app.post('/api/customer/funding', express.json(), async (req,res)=>{
+  try{
+    const { customerId, paymentMethod, insuranceSelected, loanSelected, notify=true } = req.body||{};
+    if (!customerId) return res.status(400).json({ error:'missing_customer' });
+    const db = readCustomers(); 
+    const c = (db.items||[]).find((x: any)=>x.id===customerId); 
+    if (!c) return res.status(404).json({ error:'customer_not_found' });
+    c.funding = c.funding || {}; 
+    c.funding.paymentMethod = paymentMethod||c.funding.paymentMethod; 
+    c.funding.insuranceSelected = !!insuranceSelected; 
+    c.funding.loanSelected = !!loanSelected;
+    c.timeline = c.timeline||[];
+    if (insuranceSelected) c.timeline.push({ ts: Date.now(), type:'insurance_opt_in' });
+    if (loanSelected) c.timeline.push({ ts: Date.now(), type:'loan_opt_in' });
+    writeCustomers(db);
+
+    if (notify && transporter && c.email){
+      const s = readSettings();
+      const ctx = { 
+        name:c.name||'Customer', 
+        address:c.address||'', 
+        claim:c.claimNumber||'', 
+        review_links: reviewLinksHTML(), 
+        lien_clause: s.lienClause, 
+        lien_clause_short: s.lienClauseShort, 
+        days:45 
+      };
+      if (insuranceSelected){
+        const html = renderTemplate(s.emailTemplates?.insuranceOptIn, ctx);
+        await transporter.sendMail({ 
+          from: process.env.SMTP_FROM||process.env.SMTP_USER, 
+          to:c.email, 
+          subject:`Thanks — We'll process your insurance claim for ${c.address}`, 
+          html 
+        });
+      }
+      if (loanSelected){
+        const html = renderTemplate(s.emailTemplates?.loanOptIn, ctx);
+        await transporter.sendMail({ 
+          from: process.env.SMTP_FROM||process.env.SMTP_USER, 
+          to:c.email, 
+          subject:`Disaster assistance steps for ${c.address}`, 
+          html 
+        });
+      }
+    }
+    if (notify && twilioClient && c.phone && loanSelected){
+      try{ 
+        await twilioClient.messages.create({ 
+          to:c.phone, 
+          from: process.env.TWILIO_FROM, 
+          body: `SBA: https://disasterloanassistance.sba.gov/  | FEMA: https://www.fema.gov/assistance/individual` 
+        }); 
+      }catch{}
+    }
+
+    res.json({ ok:true, funding: c.funding });
+  }catch(e){ 
+    res.status(500).json({ error:'funding_failed' }); 
+  }
+});
+
+// Review request + AI reply (template‑based)
+app.post('/api/reviews/send', express.json(), async (req,res)=>{
+  try{
+    const { customerId } = req.body||{}; 
+    if (!customerId) return res.status(400).json({});
+    const db = readCustomers(); 
+    const c = (db.items||[]).find((x: any)=>x.id===customerId); 
+    if (!c || !c.email) return res.status(404).json({});
+    const links = reviewLinksHTML();
+    const html = `Hi ${c.name||'there'},<br/><br/>Thanks for trusting our emergency team. If we helped, would you mind leaving a review? ${links}<br/><br/>— Strategic Land Management LLC`;
+    if (transporter) await transporter.sendMail({ 
+      from: process.env.SMTP_FROM||process.env.SMTP_USER, 
+      to:c.email, 
+      subject:`Quick favor — your review helps others`, 
+      html 
+    });
+    if (twilioClient && c.phone){ 
+      try{ 
+        await twilioClient.messages.create({ 
+          to:c.phone, 
+          from: process.env.TWILIO_FROM, 
+          body: `We'd value your review: ${links.replace(/<[^>]+>/g,' ')}` 
+        }); 
+      }catch{} 
+    }
+    c.timeline = c.timeline||[]; 
+    c.timeline.push({ ts: Date.now(), type:'review_request_sent' }); 
+    writeCustomers(db);
+    res.json({ ok:true });
+  }catch(e){ 
+    res.status(500).json({ ok:false }); 
+  }
+});
+
+app.post('/api/reviews/reply', express.json(), (req,res)=>{
+  try{
+    const { stars=5, text='' } = req.body||{};
+    const positive = stars>=4;
+    let reply;
+    if (positive){
+      reply = `Thank you for your ${stars}-star review! We're grateful you trusted us during a stressful time and we're glad we could help. If you ever need anything, we're here 24/7.`;
+    } else if (stars===3){
+      reply = `Thank you for the feedback. We're always working to improve. I've shared your comments with our team and I'll reach out directly to learn more.`;
+    } else {
+      reply = `We're sorry your experience wasn't perfect. That's not the standard we aim for. Please DM or call 888-628-2229 so we can make this right immediately.`;
+    }
+    if (text && !positive){ 
+      reply += ` Details noted: "${text.slice(0,140)}${text.length>140?'…':''}".`; 
+    }
+    res.json({ ok:true, reply });
+  }catch(e){ 
+    res.status(500).json({ ok:false }); 
+  }
+});
+
+// Demand letter PDF (45d)
+app.post('/api/letter/demand', express.json(), async (req,res)=>{
+  try{
+    const { customerId, balance=0 } = req.body||{};
+    const db = readCustomers(); 
+    const c = (db.items||[]).find((x: any)=>x.id===customerId); 
+    if (!c) return res.status(404).json({});
+    const s = readSettings();
+    const outPath = path.join(UPLOAD_DIR, `demand_${Date.now()}.pdf`);
+    const doc = new PDFDocument({ size:'LETTER', margin:36 }); 
+    const ws = fs.createWriteStream(outPath); 
+    doc.pipe(ws);
+    doc.fontSize(14).text('FORMAL DEMAND FOR PAYMENT'); 
+    doc.moveDown();
+    doc.fontSize(11).text(`To: ${c.name||'Customer'}`); 
+    if (c.address) doc.text(`Property: ${c.address}`);
+    doc.moveDown().text(`Balance due: $${Number(balance).toFixed(2)}`);
+    const st = (c.address||'').match(/,\s*([A-Z]{2})\s*\d{5}/); 
+    const abbr = st?.[1]||'';
+    const law = s.stateLaw?.[abbr] || {};
+    doc.moveDown().text(s.lienClause);
+    if (law?.lienDays){ 
+      doc.moveDown().text(`Reference: ${abbr} typical lien filing window ~${law.lienDays} days (verify with counsel). ${law.note||''}`); 
+    }
+    doc.moveDown().text('Please remit payment immediately or contact us to discuss.');
+    doc.moveDown().text('Strategic Land Management LLC — 888-628-2229 — strategiclandmgmt@gmail.com');
+    doc.end(); 
+    ws.on('finish', ()=> res.json({ ok:true, path:'/uploads/'+path.basename(outPath) }));
+  }catch(e){ 
+    res.status(500).json({ ok:false }); 
+  }
+});
+
+// Balance calculation helper
+function getBalance(c: any){ 
+  const paid=(c.payments||[]).reduce((s: number,p: any)=>s+Number(p.amount||0),0); 
+  const total=Number(c.invoiceTotal||0); 
+  return Math.max(0, total - paid); 
+}
+
+// Cron: balance reminders (30d/45d)
+cron.schedule('5 9 * * *', async ()=>{
+  try{
+    const settings = readSettings(); 
+    if (!settings.autoAI) return; // global toggle
+    const db = readCustomers();
+    for (const c of (db.items||[])){
+      if (c.autoAI===false) continue; // per-customer toggle
+      // find work_completed
+      const work = (c.timeline||[]).slice().reverse().find((e: any)=>e.type==='work_completed');
+      if (!work) continue;
+      const days = Math.floor((Date.now() - Number(work.ts))/86400000);
+      const bal = getBalance(c);
+      if (bal<=0) continue;
+      const ctx = { 
+        name:c.name||'Customer', 
+        address:c.address||'', 
+        claim:c.claimNumber||'', 
+        review_links: reviewLinksHTML(), 
+        lien_clause: settings.lienClause, 
+        lien_clause_short: settings.lienClauseShort, 
+        days 
+      };
+      if (days===30 && transporter && c.email){
+        const html = renderTemplate(settings.emailTemplates?.balance30, ctx);
+        await transporter.sendMail({ 
+          from: process.env.SMTP_FROM||process.env.SMTP_USER, 
+          to:c.email, 
+          subject:`Reminder: balance for ${c.address}`, 
+          html 
+        });
+        if (twilioClient && c.phone){ 
+          try{ 
+            await twilioClient.messages.create({ 
+              to:c.phone, 
+              from: process.env.TWILIO_FROM, 
+              body: `Reminder: balance for ${c.address}. ${settings.lienClauseShort}` 
+            }); 
+          }catch{} 
+        }
+      }
+      if (days===45){
+        // Generate demand letter + email
+        const r = await (await fetch('http://localhost:'+ (process.env.PORT||5000) +'/api/letter/demand',{ 
+          method:'POST', 
+          headers:{'Content-Type':'application/json'}, 
+          body: JSON.stringify({ customerId: c.id, balance: bal }) 
+        })).json().catch(()=>null);
+        const pdf = r?.path;
+        if (transporter && c.email){
+          const html = renderTemplate(settings.emailTemplates?.balance45Demand, ctx);
+          await transporter.sendMail({ 
+            from: process.env.SMTP_FROM||process.env.SMTP_USER, 
+            to:c.email, 
+            subject:`FORMAL DEMAND — ${c.address}`, 
+            html, 
+            attachments: pdf? [{ path: path.join(UPLOAD_DIR, path.basename(pdf)) }]:[] 
+          });
+        }
+      }
+    }
+  }catch{}
+});
+
 // --- Start
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log('StormOps skeleton running on', PORT));

@@ -1,0 +1,13 @@
+{
+  "autoAI": true,
+  "reviewLinks": [],
+  "emailTemplates": {
+    "insuranceOptIn": "Hi {{name}},<br/><br/>Thank you for choosing Strategic Land Management LLC to handle your storm recovery. You checked that you are filing an insurance claim. We will coordinate directly with your insurer and keep you informed every step of the way.<br/><br/>Address: {{address}}<br/>Claim #: {{claim}}<br/><br/>We appreciate your trust. If you found our team helpful, please consider leaving a review: {{review_links}}<br/><br/>— Strategic Land Management LLC",
+    "loanOptIn": "Hi {{name}},<br/><br/>You indicated you will apply for disaster assistance. Here are quick links:<br/>• SBA Disaster Loans: <a href=\"https://disasterloanassistance.sba.gov/\">Apply</a><br/>• FEMA Individual Assistance: <a href=\"https://www.fema.gov/assistance/individual\">Apply</a><br/><br/>Per your contract, payment is due upon completion. If a loan delays payment, please keep us updated. {{lien_clause}}<br/><br/>We're here to help. — Strategic Land Management LLC",
+    "balance30": "Friendly reminder: there is an outstanding balance for {{address}}. Please reply if you have questions or a payment date. {{lien_clause_short}}",
+    "balance45Demand": "FORMAL NOTICE: Payment for work at {{address}} is {{days}} days past due. Please remit immediately. {{lien_clause}}"
+  },
+  "lienClause": "If payment is not made within 45 days of work completion, we may initiate a lien filing as permitted by state law.",
+  "lienClauseShort": "Unpaid balances may be subject to a lien per state law.",
+  "stateLaw": {}
+}
