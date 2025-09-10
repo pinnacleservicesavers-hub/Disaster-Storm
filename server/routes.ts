@@ -270,6 +270,7 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
       const tags = [];
       if (/tree on roof|through roof|roof damage/.test(text)) tags.push("tree_on_roof");
       if (/tree on (house|building|home|structure)/.test(text)) tags.push("tree_on_building");
+      if (/tree.*across.*driveway|tree.*blocking.*driveway|blocking.*egress|blocking.*ingress|driveway.*blocked/i.test(text)) tags.push("tree_across_driveway");
       if (/line down|power line|utility line|pole down/.test(text)) tags.push("line_down");
       if (/collapse|structural|building damage|wall down/.test(text)) tags.push("structure_damage");
       item.tags = Array.from(new Set([...(item.tags||[]), ...tags]));

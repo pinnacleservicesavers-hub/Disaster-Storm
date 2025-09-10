@@ -706,7 +706,7 @@ function QuickMap({ radarOn, alertsOn }: { radarOn: boolean; alertsOn: boolean }
 
 // ===== Tags & Filters =====
 const TAGS = [
-  'tree_on_roof','tree_on_building','tree_on_fence','tree_on_barn','tree_on_shed','tree_on_car','tree_in_pool','tree_on_playground','line_down','structure_damage'
+  'tree_on_roof','tree_on_building','tree_on_fence','tree_on_barn','tree_on_shed','tree_on_car','tree_in_pool','tree_on_playground','tree_across_driveway','line_down','structure_damage'
 ];
 
 function InboxTabs({ items, filters, setFilters, onAcceptLead }: any) {
@@ -2973,7 +2973,7 @@ function StormMap({ customers = [] }) {
   const [zoom, setZoom] = useState(6);
   const [filters, setFilters] = useState({
     tree_on_roof: true, line_down: true, structure_damage: true, tree_on_fence: true,
-    tree_on_car: true, tree_on_barn: true, tree_on_shed: true, tree_in_pool: true, tree_on_playground: true,
+    tree_on_car: true, tree_on_barn: true, tree_on_shed: true, tree_in_pool: true, tree_on_playground: true, tree_across_driveway: true,
     live: true, lead: true
   });
 
@@ -3040,6 +3040,7 @@ function StormMap({ customers = [] }) {
       if (s.includes('tree_on_shed')) t.add('tree_on_shed');
       if (s.includes('tree_in_pool')) t.add('tree_in_pool');
       if (s.includes('tree_on_playground')) t.add('tree_on_playground');
+      if (s.includes('tree_across_driveway') || s.includes('tree across driveway') || s.includes('blocking driveway') || s.includes('blocking egress') || s.includes('blocking ingress')) t.add('tree_across_driveway');
     });
     return [...t];
   }
