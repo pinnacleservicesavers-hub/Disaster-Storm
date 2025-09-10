@@ -3,15 +3,11 @@
   "reviewLinks": [
     {
       "label": "Google",
-      "url": "https://g.page/strategic-land-management"
+      "url": "https://g.page/your-google-review"
     },
     {
       "label": "Website",
       "url": "https://www.strategiclandmgmt.com/reviews"
-    },
-    {
-      "label": "Yelp",
-      "url": "https://yelp.com/biz/strategic-land-management"
     }
   ],
   "emailTemplates": {
