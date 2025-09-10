@@ -151,10 +151,17 @@ function WeatherCenter() {
   };
 
   const startLiveStream = async (streamType) => {
+    if (!userLocation) return;
+    
     try {
-      await fetch(`/api/weather/stream/start/${streamType}`);
-      setActiveStreams(prev => [...prev, streamType]);
-      setStreamingActive(true);
+      const { lat, lon } = userLocation;
+      const response = await fetch(`/api/weather/stream/start?type=${streamType}&lat=${lat}&lon=${lon}&interval=${refreshInterval * 1000}`);
+      const result = await response.json();
+      
+      if (result.ok) {
+        setActiveStreams(prev => [...prev, result.streamId]);
+        setStreamingActive(true);
+      }
     } catch (error) {
       console.error('Failed to start live stream:', error);
     }
@@ -414,6 +421,322 @@ function WeatherCenter() {
             </div>
           )}
           
+          {/* Radar + Lightning View */}
+          {activeWeatherView === 'radar' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-gray-900">📡 Enhanced Radar + Lightning</h3>
+                <button
+                  onClick={() => startLiveStream('radar')}
+                  className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
+                  data-testid="button-stream-radar"
+                >
+                  📡 Stream Radar
+                </button>
+              </div>
+              
+              {/* Radar Controls */}
+              <div className="bg-gray-50 rounded-lg p-4">
+                <h4 className="font-medium text-gray-900 mb-3">🎛️ Radar Controls</h4>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <button
+                    onClick={() => startLiveStream('lightning')}
+                    className="px-3 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700 text-sm"
+                    data-testid="button-lightning-overlay"
+                  >
+                    ⚡ Lightning Overlay
+                  </button>
+                  <button
+                    onClick={() => window.open(`https://windy.com/${userLocation?.lat || 33.749}/${userLocation?.lon || -84.388}/10?radar`, '_blank')}
+                    className="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
+                    data-testid="button-windy-radar"
+                  >
+                    🌪️ Windy Radar
+                  </button>
+                  <button
+                    onClick={() => window.open('https://www.radaromega.com/', '_blank')}
+                    className="px-3 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 text-sm"
+                    data-testid="button-radaromega-pro"
+                  >
+                    📡 RadarOmega Pro
+                  </button>
+                  <button
+                    onClick={() => window.open('https://weather.gov/radar', '_blank')}
+                    className="px-3 py-2 bg-orange-600 text-white rounded hover:bg-orange-700 text-sm"
+                    data-testid="button-noaa-radar"
+                  >
+                    🚨 NOAA Radar
+                  </button>
+                </div>
+              </div>
+              
+              {/* Lightning Data */}
+              {lightningData && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                  <h4 className="font-medium text-yellow-900 mb-2">⚡ Real-Time Lightning</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <div data-testid="text-lightning-strikes">Strikes: {lightningData.strikes?.length || 0}</div>
+                    <div data-testid="text-lightning-density">Density: {lightningData.density || 0}/km²</div>
+                    <div data-testid="text-lightning-range">Range: {lightningData.range || 100}km</div>
+                    <div data-testid="text-lightning-updated">Updated: {new Date().toLocaleTimeString()}</div>
+                  </div>
+                </div>
+              )}
+              
+              {/* Radar Information */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <h4 className="font-medium text-blue-900 mb-2">📡 Radar Information</h4>
+                <div className="text-sm text-blue-800">
+                  <p>• <strong>Base Reflectivity:</strong> Shows precipitation intensity and storm structure</p>
+                  <p>• <strong>Velocity:</strong> Detects rotation and wind patterns within storms</p>
+                  <p>• <strong>Lightning Integration:</strong> Real-time strike data overlaid on radar</p>
+                  <p>• <strong>GPS Centered:</strong> Automatically focused on your location</p>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {/* Satellite + MRMS View */}
+          {activeWeatherView === 'satellite' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-gray-900">🛰️ Satellite + MRMS Data</h3>
+                <button
+                  onClick={() => startLiveStream('satellite')}
+                  className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700"
+                  data-testid="button-stream-satellite"
+                >
+                  🛰️ Stream Satellite
+                </button>
+              </div>
+              
+              {/* MRMS Data Display */}
+              {mrmsData && (
+                <div className="space-y-4">
+                  {mrmsData.hail && (
+                    <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                      <h4 className="font-medium text-orange-900 mb-2">🧊 MRMS Hail Detection</h4>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                        <div data-testid="text-hail-max-size">Max Size: {mrmsData.hail.maxSize}"</div>
+                        <div data-testid="text-hail-probability">Probability: {mrmsData.hail.probability}%</div>
+                        <div data-testid="text-hail-mesh">MESH: {mrmsData.hail.mesh || 'N/A'}</div>
+                        <div data-testid="text-hail-vcp">VCP: {mrmsData.hail.vcp || 'Unknown'}</div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {mrmsData.rotation && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                      <h4 className="font-medium text-red-900 mb-2">🌪️ Rotation Detection</h4>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                        <div data-testid="text-rotation-mesocyclones">Mesocyclones: {mrmsData.rotation.mesocyclones?.length || 0}</div>
+                        <div data-testid="text-rotation-shear">Shear: {mrmsData.rotation.shear || 0}°</div>
+                        <div data-testid="text-rotation-probability">Probability: {mrmsData.rotation.probability || 0}%</div>
+                        <div data-testid="text-rotation-vorticity">Vorticity: {mrmsData.rotation.vorticity || 'N/A'}</div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              {/* Satellite Controls */}
+              <div className="bg-gray-50 rounded-lg p-4">
+                <h4 className="font-medium text-gray-900 mb-3">🛰️ Satellite Tools</h4>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  <button
+                    onClick={() => window.open('https://zoom.earth/', '_blank')}
+                    className="px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm"
+                    data-testid="button-zoom-earth-satellite"
+                  >
+                    🌍 Zoom Earth Live
+                  </button>
+                  <button
+                    onClick={() => window.open('https://www.goes.noaa.gov/', '_blank')}
+                    className="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
+                    data-testid="button-goes-satellite"
+                  >
+                    🛰️ GOES Satellite
+                  </button>
+                  <button
+                    onClick={() => window.open('https://www.star.nesdis.noaa.gov/GOES/', '_blank')}
+                    className="px-3 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 text-sm"
+                    data-testid="button-goes-archive"
+                  >
+                    📂 GOES Archive
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {/* Forecast Models View */}
+          {activeWeatherView === 'models' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-gray-900">🌐 Forecast Models</h3>
+                <button
+                  onClick={() => startLiveStream('models')}
+                  className="px-3 py-1 bg-indigo-600 text-white rounded text-sm hover:bg-indigo-700"
+                  data-testid="button-stream-models"
+                >
+                  🌐 Stream Models
+                </button>
+              </div>
+              
+              {/* Model Data Display */}
+              {forecastModels && (
+                <div className="space-y-4">
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <h4 className="font-medium text-blue-900 mb-2">🏛️ Available Models</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                      <div data-testid="text-model-gfs">GFS: {forecastModels.gfs ? 'Available' : 'Unavailable'}</div>
+                      <div data-testid="text-model-nam">NAM: {forecastModels.nam ? 'Available' : 'Unavailable'}</div>
+                      <div data-testid="text-model-hrrr">HRRR: {forecastModels.hrrr ? 'Available' : 'Unavailable'}</div>
+                      <div data-testid="text-model-ecmwf">ECMWF: {forecastModels.ecmwf ? 'Available' : 'Unavailable'}</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {/* Model Access Tools */}
+              <div className="bg-gray-50 rounded-lg p-4">
+                <h4 className="font-medium text-gray-900 mb-3">🌐 Model Access</h4>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  <button
+                    onClick={() => window.open(`https://windy.com/${userLocation?.lat || 33.749}/${userLocation?.lon || -84.388}/10?gfs`, '_blank')}
+                    className="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
+                    data-testid="button-windy-gfs"
+                  >
+                    🌐 Windy GFS
+                  </button>
+                  <button
+                    onClick={() => window.open('https://www.tropicaltidbits.com/analysis/models/', '_blank')}
+                    className="px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm"
+                    data-testid="button-tropical-tidbits"
+                  >
+                    🌴 Tropical Tidbits
+                  </button>
+                  <button
+                    onClick={() => window.open('https://www.pivotalweather.com/model.php', '_blank')}
+                    className="px-3 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 text-sm"
+                    data-testid="button-pivotal-weather"
+                  >
+                    📊 Pivotal Weather
+                  </button>
+                </div>
+              </div>
+              
+              {/* Model Information */}
+              <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
+                <h4 className="font-medium text-indigo-900 mb-2">📈 Model Information</h4>
+                <div className="text-sm text-indigo-800 space-y-1">
+                  <p>• <strong>GFS:</strong> Global Forecast System - 13km resolution, 16-day forecast</p>
+                  <p>• <strong>NAM:</strong> North American Mesoscale - 12km resolution, 84-hour forecast</p>
+                  <p>• <strong>HRRR:</strong> High-Resolution Rapid Refresh - 3km resolution, 48-hour forecast</p>
+                  <p>• <strong>ECMWF:</strong> European Centre Medium-Range - 9km resolution, 10-day forecast</p>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {/* Hurricanes + SPC View */}
+          {activeWeatherView === 'nhc' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-gray-900">🌀 Hurricanes + SPC Outlook</h3>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => startLiveStream('nhc')}
+                    className="px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700"
+                    data-testid="button-stream-nhc"
+                  >
+                    🌀 Stream NHC
+                  </button>
+                  <button
+                    onClick={() => startLiveStream('spc')}
+                    className="px-3 py-1 bg-orange-600 text-white rounded text-sm hover:bg-orange-700"
+                    data-testid="button-stream-spc"
+                  >
+                    ⛈️ Stream SPC
+                  </button>
+                </div>
+              </div>
+              
+              {/* Active Hurricanes */}
+              {hurricanes && hurricanes.length > 0 && (
+                <div className="space-y-3">
+                  <h4 className="font-medium text-gray-900">🌀 Active Tropical Systems</h4>
+                  {hurricanes.map((storm, index) => (
+                    <div key={index} className="bg-red-50 border border-red-200 rounded-lg p-4" data-testid={`storm-item-${index}`}>
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <h5 className="font-medium text-red-900" data-testid={`storm-name-${index}`}>
+                            {storm.name} ({storm.id})
+                          </h5>
+                          <div className="text-sm text-red-800 mt-1">
+                            <div data-testid={`storm-category-${index}`}>Category: {storm.category || 'Tropical Storm'}</div>
+                            <div data-testid={`storm-winds-${index}`}>Max Winds: {storm.maxWinds || 'Unknown'} mph</div>
+                            <div data-testid={`storm-pressure-${index}`}>Pressure: {storm.pressure || 'Unknown'} mb</div>
+                          </div>
+                        </div>
+                        <span className="px-2 py-1 text-xs font-medium rounded bg-red-100 text-red-800" data-testid={`storm-status-${index}`}>
+                          {storm.status || 'Active'}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              
+              {/* SPC Outlook Data */}
+              {spcData && (
+                <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                  <h4 className="font-medium text-orange-900 mb-2">⛈️ SPC Convective Outlook</h4>
+                  <div className="text-sm text-orange-800">
+                    <div data-testid="text-spc-day">Outlook Day: {spcData.day || 1}</div>
+                    <div data-testid="text-spc-risk">Risk Level: {spcData.risk || 'Marginal'}</div>
+                    <div data-testid="text-spc-valid">Valid: {spcData.validTime ? new Date(spcData.validTime).toLocaleString() : 'N/A'}</div>
+                  </div>
+                </div>
+              )}
+              
+              {/* Hurricane/SPC Tools */}
+              <div className="bg-gray-50 rounded-lg p-4">
+                <h4 className="font-medium text-gray-900 mb-3">🌀 Hurricane & Storm Tools</h4>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  <button
+                    onClick={() => window.open('https://www.nhc.noaa.gov/', '_blank')}
+                    className="px-3 py-2 bg-red-600 text-white rounded hover:bg-red-700 text-sm"
+                    data-testid="button-nhc-official"
+                  >
+                    🌀 NHC Official
+                  </button>
+                  <button
+                    onClick={() => window.open('https://www.spc.noaa.gov/', '_blank')}
+                    className="px-3 py-2 bg-orange-600 text-white rounded hover:bg-orange-700 text-sm"
+                    data-testid="button-spc-official"
+                  >
+                    ⛈️ SPC Official
+                  </button>
+                  <button
+                    onClick={() => window.open('https://www.hurricanes.gov/', '_blank')}
+                    className="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
+                    data-testid="button-hurricanes-gov"
+                  >
+                    🌊 Hurricanes.gov
+                  </button>
+                </div>
+              </div>
+              
+              {/* No Active Systems */}
+              {(!hurricanes || hurricanes.length === 0) && (
+                <div className="text-center py-8 text-gray-500" data-testid="text-no-storms">
+                  ✅ No active tropical systems in the Atlantic or Pacific basins
+                </div>
+              )}
+            </div>
+          )}
+
           {/* External Tools View */}
           {activeWeatherView === 'external' && (
             <div className="space-y-4">
