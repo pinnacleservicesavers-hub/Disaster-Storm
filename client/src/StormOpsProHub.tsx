@@ -1646,43 +1646,65 @@ function ContractorPortal(){
   );
 }
 
-// --- Storm Map with Damage Filters ---
-function StormMap({ customers=[] }){
-  const [markers, setMarkers] = useState([]);
+// --- Enhanced Storm Map with Live Drone Events & Role-Based Access ---
+function StormMap({ customers = [] }) {
+  const { role } = useRole();
+  const [markers, setMarkers] = useState([]); // from customers
+  const [live, setLive] = useState([]); // from SSE
   const [center, setCenter] = useState([27.6648, -81.5158]); // FL center fallback
   const [zoom, setZoom] = useState(6);
-  const [filters, setFilters] = useState({ 
-    tree_on_roof:true, line_down:true, structure_damage:true, tree_on_fence:true, 
-    tree_on_car:true, tree_on_barn:true, tree_on_shed:true, tree_in_pool:true, tree_on_playground:true 
+  const [filters, setFilters] = useState({
+    tree_on_roof: true, line_down: true, structure_damage: true, tree_on_fence: true,
+    tree_on_car: true, tree_on_barn: true, tree_on_shed: true, tree_in_pool: true, tree_on_playground: true,
+    live: true
   });
 
   // Listen for map center events from cards
-  useEffect(()=>{
-    function onCenter(e){
-      const { address, name } = e.detail||{}; 
+  useEffect(() => {
+    function onCenter(e: any) {
+      const { address, name } = e.detail || {};
       if (!address) return;
-      fetch(`/api/geocode?address=${encodeURIComponent(address)}`).then(r=>r.json()).then(geo=>{
-        if (geo?.lat && geo?.lng){ 
-          setCenter([geo.lat, geo.lng]); 
-          setZoom(15); 
-          setMarkers(m=>[...m, { id:`jit-${Date.now()}`, name, address, lat:geo.lat, lng:geo.lng, tags:['jit'] }]); 
+      fetch(`/api/geocode?address=${encodeURIComponent(address)}`).then(r => r.json()).then(geo => {
+        if (geo?.lat && geo?.lng) {
+          setCenter([geo.lat, geo.lng]);
+          setZoom(15);
+          setMarkers(m => [...m, { id: `jit-${Date.now()}`, name, address, lat: geo.lat, lng: geo.lng, tags: ['jit'] }]);
         }
-      }).catch(()=>{});
+      }).catch(() => { });
     }
     window.addEventListener('storm-center', onCenter);
-    window.addEventListener('storm-docs-updated', ()=> refresh());
-    return ()=>{ 
-      window.removeEventListener('storm-center', onCenter); 
-      window.removeEventListener('storm-docs-updated', ()=>{}); 
+    window.addEventListener('storm-docs-updated', () => refresh());
+    return () => {
+      window.removeEventListener('storm-center', onCenter);
+      window.removeEventListener('storm-docs-updated', () => { });
     };
-  },[]);
+  }, []);
 
-  useEffect(()=>{ refresh(); }, [JSON.stringify(customers)]);
+  // Geocode customers to markers (server-side endpoint already exists)
+  useEffect(() => {
+    refresh();
+  }, [JSON.stringify(customers)]);
 
-  function tagsFromDocs(docs){
-    const t = new Set();
-    (docs||[]).forEach(d=>{
-      const s = (d.caption||'').toLowerCase();
+  // SSE live feed for drone events
+  useEffect(() => {
+    const es = new EventSource('/api/drone/events');
+    es.onmessage = (ev) => {
+      try {
+        const data = JSON.parse(ev.data);
+        if (data?.type === 'drone_event' && data.event) {
+          setLive(prev => [...prev.slice(-499), data.event]);
+        }
+      } catch (e) {
+        console.error('Failed to parse drone SSE data:', e);
+      }
+    };
+    return () => es.close();
+  }, []);
+
+  function tagsFromDocs(docs: any[]) {
+    const t = new Set<string>();
+    (docs || []).forEach(d => {
+      const s = (d.caption || '').toLowerCase();
       if (s.includes('tree_on_roof')) t.add('tree_on_roof');
       if (s.includes('line_down')) t.add('line_down');
       if (s.includes('structure_damage')) t.add('structure_damage');
@@ -1696,81 +1718,87 @@ function StormMap({ customers=[] }){
     return [...t];
   }
 
-  async function geocode(address){
-    const r = await fetch(`/api/geocode?address=${encodeURIComponent(address)}`).then(r=>r.json()).catch(()=>null);
+  async function geocode(address: string) {
+    const r = await fetch(`/api/geocode?address=${encodeURIComponent(address)}`).then(r => r.json()).catch(() => null);
     return (r?.lat && r?.lng) ? r : null;
   }
 
-  async function refresh(){
+  async function refresh() {
     const mk = [];
-    for (const c of (customers||[])){
+    for (const c of (customers || [])) {
       if (!c.address) continue;
       const geo = await geocode(c.address);
       if (!geo) continue;
-      mk.push({ id:c.id, name:c.name, address:c.address, lat:geo.lat, lng:geo.lng, tags: tagsFromDocs(c.docs) });
+      mk.push({ id: c.id, name: c.name, address: c.address, lat: geo.lat, lng: geo.lng, tags: tagsFromDocs(c.docs) });
     }
     setMarkers(mk);
   }
 
-  const active = (tags)=> tags.some(t => filters[t]);
+  const active = (tags: string[] = []) => tags.some(t => filters[t as keyof typeof filters]) || (tags.length === 0 && filters.live);
 
   return (
     <div className="border rounded-lg overflow-hidden">
       <div className="p-2 flex flex-wrap gap-2 items-center">
-        {Object.keys(filters).map(k=> (
-          <label key={k} className={`text-xs px-2 py-1 rounded-full border cursor-pointer ${filters[k]?'bg-emerald-600 text-white border-emerald-700':'bg-white'}`}>
-            <input type="checkbox" checked={!!filters[k]} onChange={()=>setFilters(f=>({ ...f, [k]: !f[k] }))} className="mr-1"/>
-            {k.replaceAll('_',' ')}
+        {Object.keys(filters).filter(k => k !== 'live').map(k => (
+          <label key={k} className={`text-xs px-2 py-1 rounded-full border cursor-pointer ${filters[k as keyof typeof filters] ? 'bg-emerald-600 text-white border-emerald-700' : 'bg-white'}`}>
+            <input type="checkbox" checked={!!filters[k as keyof typeof filters]} onChange={() => setFilters(f => ({ ...f, [k]: !f[k as keyof typeof f] }))} className="mr-1" />
+            {k.replaceAll('_', ' ')}
           </label>
         ))}
+        <label className={`text-xs px-2 py-1 rounded-full border cursor-pointer ${filters.live ? 'bg-purple-600 text-white border-purple-700' : 'bg-white'}`}>
+          <input type="checkbox" checked={!!filters.live} onChange={() => setFilters(f => ({ ...f, live: !f.live }))} className="mr-1" />
+          live
+        </label>
+        <div className="ml-auto"><span className="text-xs opacity-70">Role: {role}</span></div>
       </div>
-      <div style={{height: 420}}>
-        <LeafletShell center={center} zoom={zoom} markers={markers.filter(m=> active(m.tags))} />
+      <div style={{ height: 420 }}>
+        <LeafletLive center={center} zoom={zoom}
+          markers={[...markers.filter(m => active(m.tags)).map(m => ({ ...m, kind: 'case' })),
+          ...live.filter(e => active(e.tags)).map(e => ({ id: e.id, lat: e.lat, lng: e.lng, name: e.provider || 'drone', address: e.address, tags: e.tags, kind: 'live', stream: e.stream, image: e.image }))]} />
       </div>
     </div>
   );
 }
 
-function LeafletShell({ center, zoom, markers }){
+function LeafletLive({ center, zoom, markers }: { center: number[]; zoom: number; markers: any[] }) {
+  const L = (window as any).L;
   const [ready, setReady] = useState(!!(window as any).L);
-  
-  useEffect(()=>{
-    if (!(window as any).L){
+
+  useEffect(() => {
+    if (!(window as any).L) {
       const s = document.createElement('script');
       s.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-      s.onload = ()=> setReady(true);
+      s.onload = () => setReady(true);
       document.body.appendChild(s);
     }
-  },[]);
-  
-  useEffect(()=>{
+  }, []);
+
+  useEffect(() => {
     if (!ready) return;
-    const L = (window as any).L;
-    // init map
-    let map = (LeafletShell as any).__map;
-    if (!map){
-      map = (LeafletShell as any).__map = L.map('storm-map-root').setView(center, zoom);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { 
-        maxZoom: 19, 
-        attribution: '© OpenStreetMap' 
-      }).addTo(map);
-    } else { 
-      map.setView(center, zoom); 
-    }
-    // clear & add markers
-    if ((LeafletShell as any).__layer){ 
-      (LeafletShell as any).__layer.remove(); 
-    }
+    let map = (LeafletLive as any).__map;
+    if (!map) {
+      map = (LeafletLive as any).__map = L.map('storm-map-root').setView(center, zoom);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
+    } else { map.setView(center, zoom); }
+
+    // clear & add
+    if ((LeafletLive as any).__layer) { (LeafletLive as any).__layer.remove(); }
     const layer = L.layerGroup();
-    markers.forEach(m=>{
-      const mk = L.marker([m.lat, m.lng]).bindPopup(`<b>${m.name||''}</b><br/>${m.address||''}<br/>Tags: ${(m.tags||[]).join(', ')}`);
+    markers.forEach(m => {
+      const isLive = m.kind === 'live';
+      const mk = isLive
+        ? L.circleMarker([m.lat, m.lng], { radius: 8, color: '#7c3aed', fillColor: '#7c3aed', fillOpacity: 0.8 })
+        : L.circleMarker([m.lat, m.lng], { radius: 6, color: '#10b981', fillColor: '#10b981', fillOpacity: 0.8 });
+      const media = m.image ? `<br/><img src="${m.image}" style="max-width:220px;max-height:120px;display:block;margin-top:4px;"/>` : '';
+      const stream = m.stream ? `<br/><a href="${m.stream}" target="_blank">Open stream</a>` : '';
+      mk.bindPopup(`<b>${m.name || ''}</b><br/>${m.address || ''}<br/>Tags: ${(m.tags || []).join(', ')}${media}${stream}`);
       mk.addTo(layer);
     });
     layer.addTo(map);
-    (LeafletShell as any).__layer = layer;
+    (LeafletLive as any).__layer = layer;
   }, [ready, JSON.stringify(center), zoom, JSON.stringify(markers)]);
 
-  return <div id="storm-map-root" style={{width:'100%',height:'100%'}} />;
+  return <div id="storm-map-root" style={{ width: '100%', height: '100%' }} />;
 }
 
 // Main export with RoleProvider wrapper
