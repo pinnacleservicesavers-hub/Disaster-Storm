@@ -1,37 +1,34 @@
-// server.js
-import express from "express";
-import fetch from "node-fetch";
-import cors from "cors";
+// server.js - Static server for frontend development
+import express from 'express';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
-app.use(cors());
 app.use(express.json());
 
-async function reverseGeocode(lat, lon) {
-  const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`, {
-    headers: { "User-Agent": "StormOpsHub/1.0" }
-  });
-  const j = await r.json().catch(() => null);
-  return j?.display_name || "";
-}
+// Serve static files from dist (for production mode)
+const DIST_DIR = path.join(__dirname, 'dist', 'public');
+app.use(express.static(DIST_DIR));
 
-// simple in-memory store; swap for a DB later
-const inbox = [];
+// Health check
+app.get('/api/health', (_req, res) => res.json({ ok: true }));
 
-app.post("/api/dsp-ingest", async (req, res) => {
-  const item = req.body || {};
-  if (!item.mediaUrl) return res.status(400).json({ error: "mediaUrl required" });
+// Mock API endpoints for frontend development
+app.get('/api/customers', (_req, res) => res.json([]));
+app.get('/api/contractors', (_req, res) => res.json([]));
+app.get('/api/schedule/list', (_req, res) => res.json([]));
 
-  if (!item.address && item.lat && item.lon) {
-    item.address = await reverseGeocode(item.lat, item.lon);
-  }
-  item.id = Date.now().toString();
-  inbox.unshift(item);
+// Legacy endpoints for compatibility
+app.post("/api/dsp-ingest", (req, res) => res.json({ ok: true, item: req.body }));
+app.get("/api/inbox", (req, res) => res.json([]));
 
-  // TODO: broadcast to clients via SSE or WebSocket; for now just 200 OK
-  return res.json({ ok: true, item });
+// Catch-all for client-side routing
+app.get('*', (_req, res) => {
+  res.sendFile(path.join(DIST_DIR, 'index.html'));
 });
 
-app.get("/api/inbox", (req, res) => res.json(inbox));
-
-app.listen(process.env.PORT || 3000, () => console.log("Server up"));
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Server on ${PORT}`));
