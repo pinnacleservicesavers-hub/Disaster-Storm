@@ -881,7 +881,7 @@ function ProviderTab({ name, hlsKey, iframeKey, portal }: {
 }) {
   const [mode, setMode] = useState<'iframe' | 'hls'>('iframe');
   const [hlsUrl, setHlsUrl] = useState(() => localStorage.getItem(hlsKey) || '');
-  const [iframeUrl, setIframeUrl] = useState(() => localStorage.getItem(iframeKey) || '');
+  const [iframeUrl, setIframeUrl] = useState(() => localStorage.getItem(iframeKey) || portal);
 
   useEffect(() => {
     localStorage.setItem(hlsKey, hlsUrl);
@@ -940,6 +940,9 @@ function ProviderTab({ name, hlsKey, iframeKey, portal }: {
                 src={iframeUrl}
                 className="w-full h-full"
                 title={`${name} Portal`}
+                allow="camera; microphone; geolocation"
+                onError={(e) => console.error(`Error loading ${name} portal:`, e)}
+                onLoad={() => console.log(`${name} portal loaded successfully`)}
               />
             </div>
           )}
