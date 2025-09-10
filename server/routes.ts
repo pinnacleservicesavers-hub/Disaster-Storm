@@ -1614,12 +1614,7 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
   app.post('/api/schedule/add', express.json(), (req,res)=>{ try{ const t = addTask(req.body||{}); res.json({ ok:true, task:t }); }catch(e){ res.status(500).json({ ok:false }); } });
   app.post('/api/schedule/update', express.json(), (req,res)=>{ try{ const { id, patch } = req.body||{}; const db=readTasks(); const it=(db.items||[]).find((x: any)=>x.id===id); if(!it) return res.status(404).json({}); Object.assign(it, patch||{}); writeTasks(db); res.json({ ok:true, task:it }); }catch(e){ res.status(500).json({ ok:false }); } });
 
-  // ===== Lead Management Store =====
-  const LEADS_PATH = path.join(DATA_DIR, 'leads.json');
-  if (!fs.existsSync(LEADS_PATH)) fs.writeFileSync(LEADS_PATH, JSON.stringify({ items: [] }, null, 2));
-  function readLeads(){ try{ return JSON.parse(fs.readFileSync(LEADS_PATH,'utf8')); }catch{ return { items: [] }; } }
-  function writeLeads(d: any){ try{ fs.writeFileSync(LEADS_PATH, JSON.stringify(d,null,2)); }catch{} }
-
+  // ===== Lead Management Store (using existing LEADS_PATH) =====
   app.get('/api/leads', (req,res)=>{ 
     try{ 
       const { contractorId } = req.query;
