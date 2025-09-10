@@ -1,0 +1,85 @@
+https://api.weather.gov/alerts?status=actual&message_type=alert (filter by area=GA, point=lat,lon, etc.). 
+Weather.gov
++1
+
+2) SPC Convective Outlooks – map service/GeoJSON
+ArcGIS REST (polygons for Day 1–8 outlooks).
+Base service: https://mapservices.weather.noaa.gov/vector/rest/services/outlooks/SPC_wx_outlks/MapServer (append ?f=pjson to enumerate layers; query endpoints return GeoJSON). 
+mapservices.weather.noaa.gov
++1
+
+3) NHC (Hurricanes) – KML/KMZ + shapefiles
+Active storms feed (auto-updating KMZ): https://www.nhc.noaa.gov/gis/kml/nhc.kmz. They also publish shapefiles you can convert to GeoJSON. 
+National Hurricane Center
++1
+
+4) Radar imagery (NEXRAD Level II/III) – raw files
+Near-real-time + archives on AWS S3 (open access). You’ll fetch Level II volumes (*.ar2v/*.nc) per site, then decode/render to images/tiles server-side. Buckets + docs via the AWS Open Data registry. 
+Open Data Registry
++3
+Open Data Registry
++3
+NCEI
++3
+
+5) MRMS mosaics (hail, rotation, precip rates, etc.) – GRIB2/NetCDF on AWS
+Great for national composites; needs server-side decode to PNG/tiles. 
+Open Data Registry
++2
+NOAA National Severe Storms Laboratory
++2
+
+6) Satellite & Lightning (GOES)
+
+ABI imagery & GLM lightning are on AWS S3 (open). You can render GLM flashes as points/polygons. 
+Open Data Registry
++1
+
+GLM Level-2 metadata (what the fields mean). 
+NCEI
++2
+Data.gov
++2
+
+7) NWS GIS portal & WMS/WCS
+One directory to discover tile/WMS layers (including individual radar WMS links) if you want a quicker map overlay path. 
+Weather.gov
+
+8) “General weather” (forecasts/conditions)
+
+NWS has forecasts/obs via api.weather.gov (free). 
+Weather.gov
+
+Apple WeatherKit is proprietary (paid Apple dev account) but offers a REST API you can call from your own backend. Not required if you stick to NOAA, but it’s an option. 
+Apple Developer
++2
+Apple Developer
++2
+
+What’s easy vs. what needs a backend
+
+Easy (client only):
+
+Draw alerts/outlooks/hurricane tracks directly on a Leaflet/Mapbox map from GeoJSON/KML (convert KML → GeoJSON in code). Sources: NWS Alerts, SPC, NHC. 
+weather-gov.github.io
++2
+mapservices.weather.noaa.gov
++2
+
+Needs a small Node backend in Replit:
+
+Radar (NEXRAD L2) & MRMS: you’ll pull binary GRIB2/NetCDF/Level II files from AWS, decode with libraries (e.g., pygrib, xarray, metpy if you do a Python microservice; or Node wrappers calling GDAL). Then rasterize to PNG and serve as XYZ tiles to your frontend. 
+Open Data Registry
++2
+Open Data Registry
++2
+
+GOES GLM/ABI: similar flow—read file from S3, parse (NetCDF-4), emit tiles or vector features. 
+Open Data Registry
++1
+
+WeatherKit (optional): must sign JWT on your server; don’t call it straight from the browser. 
+Apple Developer
+
+⚡️Lightning note: Commercial networks (Vaisala, Earth Networks) are not free. Use GOES-GLM for open lightning (total lightning, not CG vs. IC). 
+NCEI

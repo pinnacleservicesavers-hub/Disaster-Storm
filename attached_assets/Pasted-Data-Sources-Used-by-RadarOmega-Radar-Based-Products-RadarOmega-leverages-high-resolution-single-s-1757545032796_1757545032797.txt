@@ -1,0 +1,61 @@
+Data Sources Used by RadarOmega
+
+Radar-Based Products
+RadarOmega leverages high-resolution, single-site radar data from around the world, offering reflectivity, velocity, and dual-polarization radar products. 
+radaromega.com
+
+Official Weather Alerts & Outlooks
+The app integrates a wide range of real-time and forecast products from trusted agencies, including:
+
+Storm Prediction Center (SPC) — convective outlooks, mesoscale discussions
+
+National Hurricane Center (NHC) — tropical outlooks, hurricane hunter data
+
+Weather Prediction Center (WPC) — excessive rainfall outlooks, surface analysis
+
+National Weather Service (NWS) — tornado, severe thunderstorm, flash flood warnings, and other alerts
+
+Fire weather outlooks, winter weather forecasts, drought monitor, CPC temperature/precipitation outlooks, NEXRAD hail history, power outage overlays, METARs, spotter network, and more 
+radaromega.com
+
+Lightning Detection
+RadarOmega features lightning detection and strike data (with animation), giving users insight into electrical storm activity 
+radaromega.com
+.
+
+Satellite, MRMS & Model Data (Subscription Tiers)
+Upgrading to subscription tiers (Alpha, Beta, Gamma) unlocks access to:
+
+Satellite imagery
+
+MRMS (Multi-Radar / Multi-Sensor) data—hail, rotation, lightning, precipitation products
+
+Numerical forecast models—HRRR, NAM (3km & 12km), RAP, GFS, ECMWF, HWRF, HMON
+
+Model overlays, advanced animation capabilities (up to 250 frames), 3D radar/satellite visualization, national digital forecast database, volumetric views, long-range radar history, storm report archives, custom palettes, and more 
+radaromega.com
+
+Apple WeatherKit (General Weather Data)
+Especially on iOS, general “current weather” and forecast info (outside of radar and alerts) are supplied via Apple’s WeatherKit 
+Apple
+.
+
+Summary Table
+Category	Data Sources
+Radar imagery	High-resolution single-site radar (reflectivity, velocity, dual-pol)
+Alerts & Outlooks	SPC, NHC, WPC, NWS, fire/weather outlooks, METARs, NEXRAD, spotter data, etc.
+Lightning	Lightning detection and strikes
+Satellite & MRMS	Satellite layers; MRMS hail, rotation, lightning, precipitation (subscriptions)
+Forecast Models	HRRR, NAM, RAP, GFS, ECMWF, HWRF, HMON with overlays and animations (subscriptions)
+General Forecast (iOS)	Apple WeatherKit for current and future weather conditions
+TL;DR
+
+RadarOmega pulls data from a wide set of reputable and official sources:
+
+Radar data from individual radar sites worldwide.
+
+Alerts and outlooks from federal agencies like SPC, NWS, NHC, WPC, etc.
+
+Lightning data, satellite feeds, MRMS, and forecast models (in higher-tier subscriptions).
+
+General weather conditions pulled from Apple’s WeatherKit, at least on iOS.
