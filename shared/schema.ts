@@ -164,6 +164,19 @@ export const dspFootage = pgTable("dsp_footage", {
   processedAt: timestamp("processed_at"),
 });
 
+export const contractorDocuments = pgTable("contractor_documents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  contractorId: varchar("contractor_id").notNull(),
+  documentType: text("document_type").notNull(), // "contract", "price_sheet"
+  fileName: text("file_name").notNull(),
+  fileUrl: text("file_url").notNull(), // Object storage URL
+  title: text("title").notNull(), // User-friendly name
+  description: text("description"), // Optional description
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Zod schemas for validation
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
@@ -220,6 +233,12 @@ export const insertDspFootageSchema = createInsertSchema(dspFootage).omit({
   processedAt: true,
 });
 
+export const insertContractorDocumentSchema = createInsertSchema(contractorDocuments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -241,3 +260,5 @@ export type AiInteraction = typeof aiInteractions.$inferSelect;
 export type InsertAiInteraction = z.infer<typeof insertAiInteractionSchema>;
 export type DspFootage = typeof dspFootage.$inferSelect;
 export type InsertDspFootage = z.infer<typeof insertDspFootageSchema>;
+export type ContractorDocument = typeof contractorDocuments.$inferSelect;
+export type InsertContractorDocument = z.infer<typeof insertContractorDocumentSchema>;
