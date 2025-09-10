@@ -1,8 +1,55 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, createContext, useContext } from 'react';
 import { MapContainer, TileLayer } from 'react-leaflet';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+
+// ===== Role Context for Role-Based Access =====
+const RoleContext = createContext<{ role: string; setRole: (role: string) => void }>({ role: 'ops', setRole: () => {} });
+
+export function RoleProvider({ children }: { children: React.ReactNode }) {
+  const [role, setRole] = useState(() => localStorage.getItem('storm_role') || 'ops');
+  
+  useEffect(() => {
+    localStorage.setItem('storm_role', role);
+  }, [role]);
+  
+  return (
+    <RoleContext.Provider value={{ role, setRole }}>
+      {children}
+    </RoleContext.Provider>
+  );
+}
+
+export function useRole() {
+  return useContext(RoleContext);
+}
+
+export function RoleBar() {
+  const { role, setRole } = useRole();
+  
+  const BTN = (code: string, label: string) => (
+    <button
+      key={code}
+      onClick={() => setRole(code)}
+      className={`px-3 py-1 rounded-full text-xs border transition-colors ${
+        role === code ? 'bg-black text-white border-black' : 'bg-white text-gray-700 border-gray-300 hover:border-gray-400'
+      }`}
+      data-testid={`button-role-${code}`}
+    >
+      {label}
+    </button>
+  );
+  
+  return (
+    <div className="flex gap-2 items-center p-2 border rounded-md bg-white">
+      <span className="text-xs font-medium text-gray-600">Role:</span>
+      {BTN('ops', 'Ops')}
+      {BTN('field', 'Field')}
+      {BTN('admin', 'Admin')}
+    </div>
+  );
+}
 
 // ===== SLA Helper Functions =====
 function useNowTick(ms=60000){
@@ -780,11 +827,9 @@ function OwnerLookup() {
   );
 }
 
-export default function StormOpsProHub() {
+function StormOpsProHubContent() {
   const [activeTab, setActiveTab] = useState("map");
-  const [userRole, setUserRole] = useState<UserRole>(() => 
-    (localStorage.getItem('userRole') as UserRole) || 'field'
-  );
+  const { role: userRole } = useRole();
   const [radarEnabled, setRadarEnabled] = useState(false);
   const [alertsEnabled, setAlertsEnabled] = useState(false);
   const [inboxItems, setInboxItems] = useState<any[]>([]);
@@ -792,17 +837,14 @@ export default function StormOpsProHub() {
   const customers = useCustomers();
 
   // Permission checker
-  const allow = (tab: string): boolean => ROLE_TABS[userRole].includes(tab);
+  const allow = (tab: string): boolean => ROLE_TABS[userRole as UserRole].includes(tab);
 
-  // Role change handler  
-  const changeRole = (newRole: UserRole) => {
-    setUserRole(newRole);
-    localStorage.setItem('userRole', newRole);
-    // Switch to allowed tab if current tab is not accessible
-    if (!ROLE_TABS[newRole].includes(activeTab)) {
+  // Switch to allowed tab if current tab is not accessible
+  useEffect(() => {
+    if (!ROLE_TABS[userRole as UserRole].includes(activeTab)) {
       setActiveTab('map');
     }
-  };
+  }, [userRole, activeTab]);
 
   // Load inbox items on mount
   useEffect(() => {
@@ -832,18 +874,7 @@ export default function StormOpsProHub() {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <h1 className="text-2xl font-bold text-gray-900">Storm Operations Pro Hub</h1>
-              <div className="flex items-center space-x-2">
-                <span className="text-sm text-gray-600">Role:</span>
-                <select 
-                  value={userRole} 
-                  onChange={(e) => changeRole(e.target.value as UserRole)}
-                  className="border border-gray-300 rounded-md px-2 py-1 text-sm"
-                >
-                  <option value="field">Field</option>
-                  <option value="ops">Ops</option>
-                  <option value="admin">Admin</option>
-                </select>
-              </div>
+              <RoleBar />
             </div>
             
             <div className="flex items-center space-x-4">
@@ -1740,4 +1771,13 @@ function LeafletShell({ center, zoom, markers }){
   }, [ready, JSON.stringify(center), zoom, JSON.stringify(markers)]);
 
   return <div id="storm-map-root" style={{width:'100%',height:'100%'}} />;
+}
+
+// Main export with RoleProvider wrapper
+export default function StormOpsProHub() {
+  return (
+    <RoleProvider>
+      <StormOpsProHubContent />
+    </RoleProvider>
+  );
 }
