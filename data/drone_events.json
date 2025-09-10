@@ -1,0 +1,35 @@
+{
+  "events": [
+    {
+      "id": "drone:1757463766642:2jx3si",
+      "provider": "demo",
+      "droneId": "N12345",
+      "mission": "Hurricane-Rollup",
+      "lat": 27.9475,
+      "lng": -82.4584,
+      "address": null,
+      "tags": [
+        "tree_on_roof",
+        "line_down"
+      ],
+      "image": "https://via.placeholder.com/640x360.png?text=Damage",
+      "stream": "https://example.com/live.m3u8",
+      "ts": 1736180000000
+    },
+    {
+      "id": "drone:1757463779742:vvwml4",
+      "provider": "VOTIX",
+      "droneId": "N5432X",
+      "mission": null,
+      "lat": 27.7518,
+      "lng": -82.6267,
+      "address": null,
+      "tags": [
+        "structure_damage"
+      ],
+      "image": "https://via.placeholder.com/640x360.png?text=StructureDamage",
+      "stream": null,
+      "ts": 1757463779742
+    }
+  ]
+}
