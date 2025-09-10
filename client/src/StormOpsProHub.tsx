@@ -2288,6 +2288,134 @@ function ReviewLinksEditor(){
   );
 }
 
+// --- Calendar Helper Functions ---
+function startOfWeek(d=new Date()){ const x=new Date(d); const day=(x.getDay()+6)%7; x.setDate(x.getDate()-day); x.setHours(0,0,0,0); return x; }
+function endOfWeek(d=new Date()){ const x=startOfWeek(d); x.setDate(x.getDate()+7); return x; }
+
+function ContractorsCalendar({ contractorId='ctr:default' }: { contractorId?: string }){
+  const [weekStart, setWeekStart] = useState(startOfWeek());
+  const [items, setItems] = useState<any[]>([]);
+  const [title, setTitle] = useState('');
+  const [date, setDate] = useState(new Date().toISOString().slice(0,10));
+  const [time, setTime] = useState('09:00');
+  const [dur, setDur] = useState(120);
+
+  async function load(){
+    const startTs = weekStart.getTime(); const endTs = endOfWeek(weekStart).getTime();
+    const r = await fetch(`/api/schedule/list?contractorId=${encodeURIComponent(contractorId)}&startTs=${startTs}&endTs=${endTs}`).then(r=>r.json()).catch(()=>[]);
+    setItems(r||[]);
+  }
+  useEffect(()=>{ load(); }, [weekStart, contractorId]);
+
+  function shift(weeks: number){ const x=new Date(weekStart); x.setDate(x.getDate()+7*weeks); setWeekStart(x); }
+  function dayCol(d: number){ const x=new Date(weekStart); x.setDate(x.getDate()+d); return x; }
+
+  async function add(){
+    if (!title) return alert('Enter a title');
+    const ts = new Date(`${date}T${time}:00`).getTime();
+    const r = await fetch('/api/schedule/add',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ contractorId, title, startTs: ts, endTs: ts + dur*60000, type:'job' }) }).then(r=>r.json());
+    if (r?.ok){ setTitle(''); load(); }
+  }
+
+  const days = Array.from({length:7}, (_,i)=> dayCol(i));
+  const grouped = days.map(d=> ({ date:d, items: items.filter((it: any)=> { const dd=new Date(it.startTs); return dd.getFullYear()===d.getFullYear() && dd.getMonth()===d.getMonth() && dd.getDate()===d.getDate(); }) }));
+
+  return (
+    <div className="border rounded-md p-3 space-y-3">
+      <div className="font-medium text-lg mb-3">Contractors Calendar</div>
+      <div className="flex items-center gap-2 flex-wrap">
+        <Button variant="outline" onClick={()=>shift(-1)} data-testid="button-calendar-prev">&larr; Prev</Button>
+        <div className="font-medium">Week of {weekStart.toLocaleDateString()}</div>
+        <Button variant="outline" onClick={()=>shift(1)} data-testid="button-calendar-next">Next &rarr;</Button>
+        <div className="ml-auto flex items-center gap-2 flex-wrap">
+          <Input 
+            className="w-32" 
+            placeholder="Task title" 
+            value={title} 
+            onChange={(e)=>setTitle(e.target.value)}
+            data-testid="input-task-title"
+          />
+          <Input 
+            className="w-36" 
+            type="date" 
+            value={date} 
+            onChange={(e)=>setDate(e.target.value)}
+            data-testid="input-task-date"
+          />
+          <Input 
+            className="w-24" 
+            type="time" 
+            value={time} 
+            onChange={(e)=>setTime(e.target.value)}
+            data-testid="input-task-time"
+          />
+          <Input 
+            className="w-20" 
+            type="number" 
+            value={dur} 
+            onChange={(e)=>setDur(Number(e.target.value))}
+            placeholder="mins"
+            data-testid="input-task-duration"
+          />
+          <Button onClick={add} data-testid="button-add-task">Add</Button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-7 gap-2 text-sm">
+        {grouped.map((g,i)=> (
+          <div key={i} className="border rounded p-2 min-h-[220px]">
+            <div className="font-semibold text-xs mb-1">{g.date.toLocaleDateString(undefined,{ weekday:'short', month:'short', day:'numeric' })}</div>
+            <div className="space-y-1">
+              {g.items.map((it: any)=> (
+                <div key={it.id} className="border rounded p-2 text-xs">
+                  <div className="opacity-70">{new Date(it.startTs).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</div>
+                  <div className="font-medium">{it.title}</div>
+                  {it.detail && <div className="opacity-60">{it.detail}</div>}
+                  <div className="text-xs opacity-50 mt-1">{it.type}</div>
+                </div>
+              ))}
+              {!g.items.length && <div className="text-xs opacity-50">No items</div>}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <TodayTaskList contractorId={contractorId} />
+    </div>
+  );
+}
+
+function TodayTaskList({ contractorId }: { contractorId: string }){
+  const [items, setItems] = useState<any[]>([]);
+  useEffect(()=>{
+    async function load(){
+      const now = new Date(); now.setHours(0,0,0,0); const start=now.getTime(); const end=start+24*3600*1000;
+      const r = await fetch(`/api/schedule/list?contractorId=${encodeURIComponent(contractorId)}&startTs=${start}&endTs=${end}`).then(r=>r.json()).catch(()=>[]);
+      setItems(r||[]);
+    }
+    load();
+  }, [contractorId]);
+  
+  return (
+    <div className="border rounded p-3">
+      <div className="font-medium mb-1">Today's Tasks</div>
+      <div className="space-y-1">
+        {items.map((it: any)=> (
+          <div key={it.id} className="border rounded p-2 text-sm flex items-center justify-between">
+            <div>
+              <div className="font-medium">{it.title}</div>
+              {it.detail && <div className="text-xs opacity-70">{it.detail}</div>}
+              <div className="text-xs opacity-50">{it.type} • {it.status}</div>
+            </div>
+            <div className="text-xs opacity-70">{new Date(it.startTs).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</div>
+          </div>
+        ))}
+        {!items.length && <div className="text-xs opacity-50">No tasks scheduled today.</div>}
+      </div>
+    </div>
+  );
+}
+
 // --- Contractor Portal (Strategic LM) ---
 function ContractorPortal(){
   function openNew(url: string) { window.open(url, '_blank', 'noopener,noreferrer'); }
@@ -2331,6 +2459,10 @@ function ContractorPortal(){
 
       <Card><CardContent className="p-4">
         <ReviewLinksEditor />
+      </CardContent></Card>
+
+      <Card><CardContent className="p-4">
+        <ContractorsCalendar contractorId="ctr:default" />
       </CardContent></Card>
     </div>
   );
