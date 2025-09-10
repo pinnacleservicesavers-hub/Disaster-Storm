@@ -1,0 +1,153 @@
+<script>
+  // ... your existing map, sidebar, and layers code above ...
+
+  // ─────────────────────────────────────────────────────────
+  // NEW: Cluster group for "Buoys in View"
+  const buoyCluster = L.markerClusterGroup({
+    maxClusterRadius: 50,
+    spiderfyOnMaxZoom: true,
+    showCoverageOnHover: false
+  });
+
+  // NEW: Layer group for surface wind arrows
+  const windLayerGroup = L.layerGroup();
+
+  // Helper: Make a wind arrow marker from speed/dir
+  function windMarker(lat, lon, speed_mps, dir_deg, labelHTML) {
+    // Size the ring by speed (cap at ~30 m/s ~ 58 kt)
+    const size = Math.min(30, Math.max(12, (speed_mps || 0) * 1.2 + 12));
+    const div = document.createElement("div");
+    div.style.position = "relative";
+    div.style.width = div.style.height = `${size}px`;
+
+    const ring = document.createElement("div");
+    ring.className = "wind-speed-ring";
+    ring.style.width = ring.style.height = `${size}px`;
+    ring.style.left = ring.style.top = "0px";
+    ring.style.borderColor = "rgba(0,0,0,0.25)";
+    div.appendChild(ring);
+
+    const arrow = document.createElement("div");
+    arrow.className = "wind-arrow";
+    arrow.style.position = "absolute";
+    arrow.style.left = `${(size/2)-9}px`;
+    arrow.style.top = `${(size/2)-9}px`;
+    arrow.style.transform = `rotate(${(Number(dir_deg)||0)}deg)`;
+    div.appendChild(arrow);
+
+    const icon = L.divIcon({
+      html: div,
+      className: "wind-icon",
+      iconSize: [size, size],
+      iconAnchor: [size/2, size/2]
+    });
+
+    const m = L.marker([lat, lon], { icon });
+    if (labelHTML) m.bindPopup(labelHTML);
+    return m;
+  }
+
+  // ─────────────────────────────────────────────────────────
+  // NEW: Load buoys in current map view (clustered)
+  async function loadBuoysInView(limit = 60) {
+    const b = map.getBounds();
+    const bbox = [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()].join(",");
+    const list = await fetch(`/api/ndbc/stations?bbox=${bbox}`).then(r => r.json());
+
+    // Light limit to avoid hammering NDBC
+    const stations = list.slice(0, limit);
+
+    buoyCluster.clearLayers();
+    for (const s of stations) {
+      try {
+        const data = await fetch(`/api/ndbc/${s.id}`).then(r => r.json());
+        const r = data?.record || {};
+        const html = `
+          <div><strong>${s.name || s.id}</strong> (${s.id})</div>
+          <div>Time (UTC): ${r.timeUTC || "—"}</div>
+          <div>WTMP (°C): ${r.WTMP_C ?? "—"}</div>
+          <div>WVHT (m): ${r.WVHT_m ?? "—"}</div>
+          <div>DPD (s): ${r.DPD_sec ?? "—"}</div>
+          <div>WSPD (m/s): ${r.WSPD_mps ?? "—"} | WDIR (°): ${r.WDIR_deg ?? "—"}</div>
+        `;
+        const marker = L.marker([s.lat, s.lon]).bindPopup(html);
+        buoyCluster.addLayer(marker);
+      } catch (_) {}
+    }
+    if (!map.hasLayer(buoyCluster)) map.addLayer(buoyCluster);
+  }
+
+  // ─────────────────────────────────────────────────────────
+  // NEW: Load surface wind arrows from NDBC in current view
+  async function loadWindsInView(limit = 80) {
+    const b = map.getBounds();
+    const bbox = [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()].join(",");
+    const list = await fetch(`/api/ndbc/stations?bbox=${bbox}`).then(r => r.json());
+    const stations = list.slice(0, limit);
+
+    windLayerGroup.clearLayers();
+
+    for (const s of stations) {
+      try {
+        const data = await fetch(`/api/ndbc/${s.id}`).then(r => r.json());
+        const r = data?.record || {};
+        const spd = Number(r.WSPD_mps);
+        const dir = Number(r.WDIR_deg);
+
+        if (!Number.isFinite(spd) || !Number.isFinite(dir)) continue;
+
+        const html = `
+          <div><strong>${s.name || s.id}</strong> (${s.id})</div>
+          <div>Wind: ${spd} m/s @ ${dir}°</div>
+          <div>Gust: ${r.GST_mps ?? "—"} m/s</div>
+          <div>Wave: ${r.WVHT_m ?? "—"} m | DPD: ${r.DPD_sec ?? "—"} s</div>
+          <div>WTMP: ${r.WTMP_C ?? "—"} °C</div>
+          <div><small>${r.timeUTC || ""}</small></div>
+        `;
+        const m = windMarker(s.lat, s.lon, spd, dir, html);
+        windLayerGroup.addLayer(m);
+      } catch (_) {}
+    }
+    if (!map.hasLayer(windLayerGroup)) map.addLayer(windLayerGroup);
+  }
+
+  // ─────────────────────────────────────────────────────────
+  // NEW: Wire up the two new toggles
+
+  const el = (id) => document.getElementById(id);
+
+  // Existing listeners ... (nhc, alerts, waves, waveperiod, wavedir, sat, buoy, loadBuoy)
+
+  el("toggle-buoys").addEventListener("change", (e) => {
+    if (e.target.checked) {
+      loadBuoysInView();
+      // refresh when map pans/zooms (throttled)
+      map.on("moveend.zoomend", onBuoyViewChange);
+    } else {
+      map.off("moveend.zoomend", onBuoyViewChange);
+      map.removeLayer(buoyCluster);
+    }
+  });
+
+  el("toggle-winds").addEventListener("change", (e) => {
+    if (e.target.checked) {
+      loadWindsInView();
+      map.on("moveend.zoomend", onWindViewChange);
+    } else {
+      map.off("moveend.zoomend", onWindViewChange);
+      map.removeLayer(windLayerGroup);
+    }
+  });
+
+  let buoyTimer = null;
+  function onBuoyViewChange() {
+    clearTimeout(buoyTimer);
+    buoyTimer = setTimeout(() => loadBuoysInView(), 500);
+  }
+
+  let windTimer = null;
+  function onWindViewChange() {
+    clearTimeout(windTimer);
+    windTimer = setTimeout(() => loadWindsInView(), 500);
+  }
+</script>

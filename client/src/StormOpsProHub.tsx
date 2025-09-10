@@ -1,6 +1,8 @@
 import { useState, useContext, createContext, useEffect } from 'react';
 import { useQuery, useMutation, queryClient, apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
+import { MapContainer, TileLayer, GeoJSON } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
 
 // ===== Helper Functions =====
 function dollars(n: number | string): string { 
@@ -482,6 +484,147 @@ function WeatherCenter() {
                   </div>
                 </div>
               )}
+              
+              {/* Interactive Weather Map */}
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                <h4 className="font-medium text-gray-900 mb-3">🗺️ Live Weather Map</h4>
+                <div className="h-96 rounded-lg overflow-hidden border">
+                  {userLocation && (
+                    <MapContainer
+                      center={[userLocation.lat, userLocation.lon]}
+                      zoom={8}
+                      style={{ height: '100%', width: '100%' }}
+                      data-testid="weather-map"
+                    >
+                      <TileLayer
+                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                      />
+                      
+                      {/* NWS Alerts Polygons */}
+                      {noaaAlerts?.map((alert, index) => 
+                        alert.geometry && (
+                          <GeoJSON
+                            key={`alert-${index}`}
+                            data={alert.geometry}
+                            style={{
+                              color: alert.severity === 'Extreme' ? '#dc2626' : 
+                                     alert.severity === 'Severe' ? '#ea580c' : '#ca8a04',
+                              weight: 2,
+                              opacity: 0.8,
+                              fillOpacity: 0.3
+                            }}
+                            onEachFeature={(feature, layer) => {
+                              layer.bindPopup(`
+                                <div class="font-medium">${alert.title}</div>
+                                <div class="text-sm mt-1">${alert.areas?.join(', ')}</div>
+                                <div class="text-xs text-gray-600 mt-1">
+                                  Severity: ${alert.severity} | Until: ${alert.endTime?.toLocaleTimeString()}
+                                </div>
+                              `);
+                            }}
+                          />
+                        )
+                      )}
+                      
+                      {/* SPC Convective Outlooks */}
+                      {spcData?.map((outlook, index) => 
+                        outlook.geometry && (
+                          <GeoJSON
+                            key={`spc-${index}`}
+                            data={outlook.geometry}
+                            style={{
+                              color: outlook.risk === 'high' ? '#dc2626' :
+                                     outlook.risk === 'enhanced' ? '#ea580c' :
+                                     outlook.risk === 'slight' ? '#ca8a04' :
+                                     outlook.risk === 'marginal' ? '#16a34a' : '#6b7280',
+                              weight: 2,
+                              opacity: 0.7,
+                              fillOpacity: 0.2,
+                              dashArray: '5, 5'
+                            }}
+                            onEachFeature={(feature, layer) => {
+                              layer.bindPopup(`
+                                <div class="font-medium">🌪️ SPC Day ${outlook.day} Outlook</div>
+                                <div class="text-sm mt-1">Risk: ${outlook.risk || 'Marginal'}</div>
+                                <div class="text-xs text-gray-600 mt-1">
+                                  Valid: ${new Date(outlook.validTime).toLocaleDateString()}
+                                </div>
+                              `);
+                            }}
+                          />
+                        )
+                      )}
+                      
+                      {/* Lightning Strikes */}
+                      {lightningData?.strikes?.map((strike, index) => (
+                        <GeoJSON
+                          key={`lightning-${index}`}
+                          data={{
+                            type: 'Point',
+                            coordinates: [strike.longitude, strike.latitude]
+                          }}
+                          pointToLayer={(feature, latlng) => {
+                            const L = (window as any).L;
+                            return L.circleMarker(latlng, {
+                              radius: 3,
+                              fillColor: '#fbbf24',
+                              color: '#f59e0b',
+                              weight: 1,
+                              opacity: 1,
+                              fillOpacity: 0.8
+                            });
+                          }}
+                          onEachFeature={(feature, layer) => {
+                            layer.bindPopup(`
+                              <div class="font-medium">⚡ Lightning Strike</div>
+                              <div class="text-xs text-gray-600">
+                                Time: ${new Date(strike.timestamp).toLocaleTimeString()}
+                              </div>
+                            `);
+                          }}
+                        />
+                      ))}
+                    </MapContainer>
+                  )}
+                </div>
+                
+                {/* Map Legend */}
+                <div className="mt-3 flex flex-wrap gap-3 text-xs">
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-3 bg-red-600 opacity-30 border border-red-600"></div>
+                    <span>Extreme Alerts</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-3 bg-orange-600 opacity-30 border border-orange-600"></div>
+                    <span>Severe Alerts</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-3 bg-yellow-600 opacity-30 border border-yellow-600"></div>
+                    <span>Other Alerts</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-3 bg-red-600 opacity-20 border border-red-600 border-dashed"></div>
+                    <span>SPC High Risk</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-3 bg-orange-600 opacity-20 border border-orange-600 border-dashed"></div>
+                    <span>SPC Enhanced</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-3 bg-yellow-600 opacity-20 border border-yellow-600 border-dashed"></div>
+                    <span>SPC Slight</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-3 bg-green-600 opacity-20 border border-green-600 border-dashed"></div>
+                    <span>SPC Marginal</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 bg-yellow-400 rounded-full"></div>
+                    <span>Lightning Strikes</span>
+                  </div>
+                </div>
+              </div>
               
               {/* Radar Information */}
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">

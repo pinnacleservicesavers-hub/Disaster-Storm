@@ -1,3 +1,6 @@
+import { kml } from '@tmcw/togeojson';
+import { DOMParser } from '@xmldom/xmldom';
+
 export interface WeatherData {
   alerts: WeatherAlert[];
   radar: RadarData;
@@ -677,57 +680,61 @@ export class WeatherService {
     }
   }
 
+  private async parseNHCFromKML(kmlUrl: string): Promise<any[]> {
+    try {
+      const response = await fetch(kmlUrl, {
+        headers: { 'User-Agent': 'StormOps/1.0 (contact: ops@stormleadmaster.com)' }
+      });
+      
+      if (!response.ok) return [];
+      
+      const kmlText = await response.text();
+      const doc = new DOMParser().parseFromString(kmlText, 'text/xml');
+      const geoData = kml(doc);
+      
+      return geoData.features?.filter(f => f.geometry?.type === 'Point') || [];
+    } catch (error) {
+      console.error('Error parsing NHC KML:', error);
+      return [];
+    }
+  }
+
   async getNHCData(): Promise<NHCData> {
     try {
-      const mockNHC: NHCData = {
-        storms: [
-          {
-            id: 'AL012025',
-            name: 'Hurricane Example',
-            status: 'Hurricane',
-            latitude: 25.5,
-            longitude: -80.2,
-            maxWinds: 120,
-            minPressure: 960,
-            movement: 'NW at 15 mph',
-            forecast: [
-              {
-                timestamp: new Date(Date.now() + 6 * 60 * 60 * 1000),
-                latitude: 26.0,
-                longitude: -80.8,
-                maxWinds: 125,
-                category: 3
-              }
-            ]
-          }
-        ],
-        outlooks: [
-          {
-            area: 'Eastern Atlantic',
-            probability2day: 20,
-            probability7day: 40,
-            description: 'Tropical wave showing signs of organization'
-          }
-        ],
-        hunterData: [
-          {
-            aircraft: 'NOAA42',
-            mission: 'AL012025',
-            data: [
-              {
-                timestamp: new Date(),
-                latitude: 25.5,
-                longitude: -80.2,
-                altitude: 8500,
-                windSpeed: 125,
-                pressure: 960,
-                temperature: 26.5
-              }
-            ]
-          }
-        ]
+      // Fetch live NHC KML data from Atlantic and Eastern Pacific basins
+      const atlanticUrl = 'https://www.nhc.noaa.gov/gis/activekml/tc_atl_active.kml';
+      const pacificUrl = 'https://www.nhc.noaa.gov/gis/activekml/tc_epac_active.kml';
+      
+      const [atlanticFeatures, pacificFeatures] = await Promise.all([
+        this.parseNHCFromKML(atlanticUrl),
+        this.parseNHCFromKML(pacificUrl)
+      ]);
+      
+      const allFeatures = [...atlanticFeatures, ...pacificFeatures];
+      
+      // Transform GeoJSON features to NHC storm format
+      const storms = allFeatures.map((feature, index) => ({
+        id: feature.properties?.STORMNAME || feature.properties?.name || `nhc-storm-${index}`,
+        name: feature.properties?.STORMNAME || feature.properties?.name || 'Unknown Storm',
+        status: feature.properties?.STORMTYPE || feature.properties?.status || 'Active Storm',
+        latitude: feature.geometry.coordinates[1],
+        longitude: feature.geometry.coordinates[0],
+        maxWinds: parseInt(feature.properties?.INTENSITY) || 0,
+        minPressure: parseInt(feature.properties?.MSLP) || 0,
+        movement: feature.properties?.MOVEMENT || 'Unknown',
+        forecast: [],
+        // Store geometry for map rendering
+        geometry: feature.geometry
+      }));
+      
+      const nhcData: NHCData = {
+        storms,
+        outlooks: [], // KML doesn't contain outlook data
+        hunterData: [] // KML doesn't contain hunter data
       };
-      return mockNHC;
+      
+      console.log(`✅ Fetched ${storms.length} live NHC storms from KML feeds`);
+      return nhcData;
     } catch (error) {
       console.error('Error fetching NHC data:', error);
       throw new Error('Failed to fetch NHC data');
@@ -784,27 +791,41 @@ export class WeatherService {
     }
   }
 
-  async getSPCOutlook(): Promise<SPCOutlook[]> {
+  async getSPCOutlook(): Promise<any[]> {
     try {
-      const mockOutlooks: SPCOutlook[] = [
-        {
-          day: 1,
-          validTime: new Date(),
-          expirationTime: new Date(Date.now() + 24 * 60 * 60 * 1000),
-          areas: [
-            {
-              coordinates: [[33.0, -85.0], [35.0, -82.0], [32.0, -81.0]],
-              risk: 'enhanced',
-              hazards: ['Damaging winds', 'Large hail', 'Isolated tornadoes'],
-              probability: 75
-            }
-          ],
-          discussion: 'A strong low pressure system will move through the region bringing severe weather potential.'
-        }
-      ];
-      return mockOutlooks;
+      // Real SPC Convective Outlooks from NOAA ArcGIS REST service
+      const baseUrl = 'https://mapservices.weather.noaa.gov/vector/rest/services/outlooks/SPC_wx_outlks/MapServer';
+      
+      // Query Day 1 Convective Outlook (Layer 0)
+      const day1Url = `${baseUrl}/0/query?where=1%3D1&outFields=*&outSR=4326&f=geojson`;
+      
+      const response = await fetch(day1Url);
+      if (!response.ok) {
+        console.warn(`SPC API response: ${response.status} - falling back to empty outlooks`);
+        return [];
+      }
+      
+      const geoJsonData = await response.json();
+      
+      // Transform SPC GeoJSON to our format
+      const outlooks = geoJsonData.features?.map((feature: any, index: number) => ({
+        id: `spc-day1-${index}`,
+        day: 1,
+        validTime: feature.properties.VALID || new Date(),
+        expirationTime: feature.properties.EXPIRE || new Date(Date.now() + 24 * 60 * 60 * 1000),
+        risk: feature.properties.DN || feature.properties.LABEL || 'marginal',
+        probability: feature.properties.PROB || 0,
+        discussion: feature.properties.LABEL || 'Convective outlook area',
+        // Store GeoJSON geometry for polygon mapping
+        geometry: feature.geometry,
+        properties: feature.properties
+      })) || [];
+      
+      console.log(`✅ Fetched ${outlooks.length} live SPC outlooks`);
+      return outlooks;
+      
     } catch (error) {
-      console.error('Error fetching SPC outlook:', error);
+      console.error('❌ Error fetching SPC convective outlooks:', error);
       return [];
     }
   }
