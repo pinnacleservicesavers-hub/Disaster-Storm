@@ -1,3 +1,20 @@
 {
-  "items": []
+  "items": [
+    {
+      "id": "lead:1757464282108:pkvo8u",
+      "createdAt": 1757464282108,
+      "provider": "demo",
+      "mission": null,
+      "droneId": null,
+      "lat": 27.9475,
+      "lng": -82.4584,
+      "address": "Robert Sparks Attorneys, 201, Kennedy Boulevard, Riverside, Tampa, Hillsborough County, Florida, 33602, United States",
+      "tags": [
+        "tree_on_roof",
+        "structure_damage"
+      ],
+      "image": "https://via.placeholder.com/640x360.png?text=Damage",
+      "stream": "https://example.com/live.m3u8"
+    }
+  ]
 }
