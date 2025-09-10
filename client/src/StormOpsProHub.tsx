@@ -229,7 +229,7 @@ const TAGS = [
   'tree_on_roof','tree_on_building','tree_on_fence','tree_on_barn','tree_on_shed','tree_on_car','tree_in_pool','tree_on_playground','line_down','structure_damage'
 ];
 
-function InboxTabs({ items, filters, setFilters }: any) {
+function InboxTabs({ items, filters, setFilters, onAcceptLead }: any) {
   const filteredItems = items.filter((item: any) => {
     if (filters.search && !item.address?.toLowerCase().includes(filters.search.toLowerCase())) return false;
     if (filters.tags.length && !filters.tags.some((tag: string) => item.tags?.includes(tag))) return false;
@@ -276,7 +276,7 @@ function InboxTabs({ items, filters, setFilters }: any) {
 
       <div className="space-y-2 max-h-96 overflow-y-auto">
         {filteredItems.map((item: any) => (
-          <InboxCard key={item.id} item={item} />
+          <InboxCard key={item.id} item={item} onAccept={onAcceptLead} />
         ))}
         {filteredItems.length === 0 && (
           <div className="text-center py-8 text-gray-500">
@@ -288,13 +288,50 @@ function InboxTabs({ items, filters, setFilters }: any) {
   );
 }
 
-function InboxCard({ item }: { item: any }) {
+function InboxCard({ item, onAccept }: { item: any; onAccept?: (item: any) => void }) {
   function focusOnMap() {
     if (!item.lat || !item.lon) return;
     const event = new CustomEvent('focusLocation', {
       detail: { lat: item.lat, lon: item.lon, zoom: 18 }
     });
     window.dispatchEvent(event);
+  }
+
+  async function acceptLead() {
+    try {
+      const response = await fetch('/api/leads/accept', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: item.id })
+      });
+      const result = await response.json();
+      
+      if (!result?.ok) {
+        alert('Accept failed');
+        return;
+      }
+      
+      const customer = result.customer;
+      try {
+        onAccept?.(customer);
+      } catch (e) {
+        console.error('Accept callback error:', e);
+      }
+      
+      // Center map on new/merged customer
+      try {
+        window.dispatchEvent(new CustomEvent('storm-center', {
+          detail: { address: customer.address, name: customer.name }
+        }));
+      } catch (e) {
+        console.error('Map center error:', e);
+      }
+      
+      alert(result.merged ? 'Merged into existing customer' : 'Created new customer');
+    } catch (error) {
+      console.error('Accept error:', error);
+      alert('Failed to accept lead');
+    }
   }
 
   return (
@@ -306,14 +343,23 @@ function InboxCard({ item }: { item: any }) {
             Provider: {item.provider} • {new Date(item.timestamp).toLocaleString()}
           </div>
         </div>
-        {item.lat && item.lon && (
+        <div className="flex gap-2 ml-2">
+          {item.lat && item.lon && (
+            <button
+              onClick={focusOnMap}
+              className="text-blue-600 hover:text-blue-800 text-xs underline"
+            >
+              View on Map
+            </button>
+          )}
           <button
-            onClick={focusOnMap}
-            className="text-blue-600 hover:text-blue-800 text-xs underline ml-2"
+            onClick={acceptLead}
+            className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-xs font-medium transition-colors"
+            data-testid={`button-accept-${item.id}`}
           >
-            View on Map
+            Accept Lead
           </button>
-        )}
+        </div>
       </div>
       
       {item.tags && item.tags.length > 0 && (
@@ -878,7 +924,17 @@ export default function StormOpsProHub() {
             {/* Inbox Tab */}
             {activeTab === "inbox" && (
               <div className="p-4">
-                <InboxTabs items={inboxItems} filters={filters} setFilters={setFilters} />
+                <InboxTabs 
+                  items={inboxItems} 
+                  filters={filters} 
+                  setFilters={setFilters}
+                  onAcceptLead={(customer: any) => {
+                    // Remove the accepted item from inbox
+                    setInboxItems(items => items.filter(item => item.id !== customer.fromLead));
+                    // Refresh customers list
+                    customers.refetch?.();
+                  }}
+                />
               </div>
             )}
 
