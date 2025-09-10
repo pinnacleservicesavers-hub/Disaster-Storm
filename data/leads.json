@@ -15,6 +15,22 @@
       ],
       "image": "https://via.placeholder.com/640x360.png?text=Damage",
       "stream": "https://example.com/live.m3u8"
+    },
+    {
+      "id": "lead:1757464675069:hs9oos",
+      "createdAt": 1757464675069,
+      "provider": "votix",
+      "mission": "STORM-2024-002",
+      "droneId": "VOTIX-DRONE-002",
+      "lat": 28.0836,
+      "lng": -82.7309,
+      "address": "3044, Chattan Court, Highland Lakes, Pinellas County, Florida, 34684, United States",
+      "tags": [
+        "roof damage",
+        "debris"
+      ],
+      "image": "https://image.votix.com/roof-damage.jpg",
+      "stream": "https://stream.votix.com/mission2.m3u8"
     }
   ]
 }

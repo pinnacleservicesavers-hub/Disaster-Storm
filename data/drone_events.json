@@ -77,6 +77,36 @@
       "image": "https://via.placeholder.com/640x360.png?text=StructureDamage",
       "stream": "https://example.com/live2.m3u8",
       "ts": 1757464452044
+    },
+    {
+      "provider": "votix",
+      "droneId": "VOTIX-DRONE-001",
+      "mission": "STORM-2024-001",
+      "lat": 27.9475,
+      "lng": -82.4584,
+      "address": "Robert Sparks Attorneys, 201, Kennedy Boulevard, Riverside, Tampa, Hillsborough County, Florida, 33602, United States",
+      "stream": "https://stream.votix.com/live.m3u8",
+      "image": "https://image.votix.com/damage.jpg",
+      "tags": [
+        "tree on roof",
+        "structure damage"
+      ],
+      "ts": 1757464800000
+    },
+    {
+      "provider": "votix",
+      "droneId": "VOTIX-DRONE-002",
+      "mission": "STORM-2024-002",
+      "lat": 28.0836,
+      "lng": -82.7309,
+      "address": "3044, Chattan Court, Highland Lakes, Pinellas County, Florida, 34684, United States",
+      "stream": "https://stream.votix.com/mission2.m3u8",
+      "image": "https://image.votix.com/roof-damage.jpg",
+      "tags": [
+        "roof damage",
+        "debris"
+      ],
+      "ts": 1757464674549
     }
   ]
 }
