@@ -34,6 +34,7 @@ import Stripe from "stripe";
 import PDFDocument from "pdfkit";
 import { createServer, type Server } from "http";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
+import { weatherService, weatherStreamManager } from "./services/weather";
 
 // fetch polyfill if needed
 const fetch = globalThis.fetch || fetchPkg;
@@ -2127,6 +2128,241 @@ Email: strategiclandmgmt@gmail.com
       console.error('Error fetching hurricane data:', error);
       res.status(500).json({ error: 'Failed to fetch hurricane data' });
     }
+  });
+
+  // ===== RADAROMEGA-STYLE COMPREHENSIVE WEATHER API ENDPOINTS =====
+
+  // Lightning detection and strike data
+  app.get('/api/weather/lightning', async (req, res) => {
+    try {
+      const { lat, lon, radius } = req.query;
+      const latitude = Number(lat) || 33.7490;
+      const longitude = Number(lon) || -84.3880;
+      const radiusKm = Number(radius) || 100;
+      
+      const lightningData = await weatherService.getLightningData(latitude, longitude, radiusKm);
+      res.json(lightningData);
+    } catch (error) {
+      console.error('Error fetching lightning data:', error);
+      res.status(500).json({ error: 'Failed to fetch lightning data' });
+    }
+  });
+
+  // High-resolution single-site radar data
+  app.get('/api/weather/radar/site/:siteId', async (req, res) => {
+    try {
+      const { siteId } = req.params;
+      const radarData = await weatherService.getSingleSiteRadar(siteId);
+      res.json(radarData);
+    } catch (error) {
+      console.error('Error fetching single-site radar:', error);
+      res.status(500).json({ error: 'Failed to fetch single-site radar data' });
+    }
+  });
+
+  // Enhanced radar with velocity and dual-pol
+  app.get('/api/weather/radar/enhanced', async (req, res) => {
+    try {
+      const { lat, lon, zoom } = req.query;
+      const latitude = Number(lat) || 33.7490;
+      const longitude = Number(lon) || -84.3880;
+      const zoomLevel = Number(zoom) || 6;
+      
+      const radarData = await weatherService.getRadarData(latitude, longitude, zoomLevel);
+      res.json(radarData);
+    } catch (error) {
+      console.error('Error fetching enhanced radar:', error);
+      res.status(500).json({ error: 'Failed to fetch enhanced radar data' });
+    }
+  });
+
+  // Satellite imagery data
+  app.get('/api/weather/satellite', async (req, res) => {
+    try {
+      const { lat, lon } = req.query;
+      const latitude = Number(lat) || 33.7490;
+      const longitude = Number(lon) || -84.3880;
+      
+      const satelliteData = await weatherService.getSatelliteData(latitude, longitude);
+      res.json(satelliteData);
+    } catch (error) {
+      console.error('Error fetching satellite data:', error);
+      res.status(500).json({ error: 'Failed to fetch satellite data' });
+    }
+  });
+
+  // MRMS (Multi-Radar Multi-Sensor) data
+  app.get('/api/weather/mrms', async (req, res) => {
+    try {
+      const { lat, lon } = req.query;
+      const latitude = Number(lat) || 33.7490;
+      const longitude = Number(lon) || -84.3880;
+      
+      const mrmsData = await weatherService.getMRMSData(latitude, longitude);
+      res.json(mrmsData);
+    } catch (error) {
+      console.error('Error fetching MRMS data:', error);
+      res.status(500).json({ error: 'Failed to fetch MRMS data' });
+    }
+  });
+
+  // Forecast models (HRRR, NAM, RAP, GFS, ECMWF, HWRF, HMON)
+  app.get('/api/weather/models', async (req, res) => {
+    try {
+      const { lat, lon } = req.query;
+      const latitude = Number(lat) || 33.7490;
+      const longitude = Number(lon) || -84.3880;
+      
+      const modelsData = await weatherService.getForecastModels(latitude, longitude);
+      res.json(modelsData);
+    } catch (error) {
+      console.error('Error fetching forecast models:', error);
+      res.status(500).json({ error: 'Failed to fetch forecast models' });
+    }
+  });
+
+  // Storm Prediction Center (SPC) outlooks
+  app.get('/api/weather/spc', async (req, res) => {
+    try {
+      const spcData = await weatherService.getSPCOutlook();
+      res.json(spcData);
+    } catch (error) {
+      console.error('Error fetching SPC data:', error);
+      res.status(500).json({ error: 'Failed to fetch SPC data' });
+    }
+  });
+
+  // National Hurricane Center (NHC) data
+  app.get('/api/weather/nhc', async (req, res) => {
+    try {
+      const nhcData = await weatherService.getNHCData();
+      res.json(nhcData);
+    } catch (error) {
+      console.error('Error fetching NHC data:', error);
+      res.status(500).json({ error: 'Failed to fetch NHC data' });
+    }
+  });
+
+  // Weather Prediction Center (WPC) data
+  app.get('/api/weather/wpc', async (req, res) => {
+    try {
+      const wpcData = await weatherService.getWPCData();
+      res.json(wpcData);
+    } catch (error) {
+      console.error('Error fetching WPC data:', error);
+      res.status(500).json({ error: 'Failed to fetch WPC data' });
+    }
+  });
+
+  // Comprehensive weather data (all sources combined)
+  app.get('/api/weather/comprehensive', async (req, res) => {
+    try {
+      const { lat, lon } = req.query;
+      const latitude = Number(lat) || 33.7490;
+      const longitude = Number(lon) || -84.3880;
+      
+      const comprehensiveData = await weatherService.getComprehensiveWeatherData(latitude, longitude);
+      res.json(comprehensiveData);
+    } catch (error) {
+      console.error('Error fetching comprehensive weather data:', error);
+      res.status(500).json({ error: 'Failed to fetch comprehensive weather data' });
+    }
+  });
+
+  // Live weather streaming endpoints
+  app.get('/api/weather/stream/start', async (req, res) => {
+    try {
+      const { type, lat, lon, radius, zoom, interval } = req.query;
+      const params = {
+        lat: Number(lat) || 33.7490,
+        lon: Number(lon) || -84.3880,
+        radius: Number(radius) || 100,
+        zoom: Number(zoom) || 6
+      };
+      const intervalMs = Number(interval) || 30000;
+      
+      // Start streaming for the requested type
+      const streamId = weatherStreamManager.startLiveStream(
+        type as string,
+        params,
+        (data) => {
+          // Broadcast to all connected SSE clients
+          broadcast({ type: 'weather_update', data, streamType: type, timestamp: new Date().toISOString() });
+        },
+        intervalMs
+      );
+      
+      res.json({ ok: true, streamId, type, params, interval: intervalMs });
+    } catch (error) {
+      console.error('Error starting weather stream:', error);
+      res.status(500).json({ error: 'Failed to start weather stream' });
+    }
+  });
+
+  app.get('/api/weather/stream/stop/:streamId', async (req, res) => {
+    try {
+      const { streamId } = req.params;
+      weatherStreamManager.stopLiveStream(streamId);
+      res.json({ ok: true, stopped: streamId });
+    } catch (error) {
+      console.error('Error stopping weather stream:', error);
+      res.status(500).json({ error: 'Failed to stop weather stream' });
+    }
+  });
+
+  // Real-time weather alerts with severity filtering
+  app.get('/api/weather/alerts/live', async (req, res) => {
+    try {
+      const { lat, lon, severity } = req.query;
+      const latitude = Number(lat) || 33.7490;
+      const longitude = Number(lon) || -84.3880;
+      
+      let alerts = await weatherService.getWeatherAlerts(latitude, longitude);
+      
+      if (severity) {
+        alerts = alerts.filter(alert => 
+          alert.severity.toLowerCase() === (severity as string).toLowerCase()
+        );
+      }
+      
+      res.json({
+        alerts,
+        count: alerts.length,
+        location: { latitude, longitude },
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Error fetching live alerts:', error);
+      res.status(500).json({ error: 'Failed to fetch live weather alerts' });
+    }
+  });
+
+  // Weather streaming SSE endpoint
+  app.get('/api/weather/stream', (req, res) => {
+    res.set({
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'Access-Control-Allow-Origin': '*',
+    });
+    
+    // Add this client to weather stream
+    const clientId = Date.now().toString();
+    res.write(`data: ${JSON.stringify({ type: 'connected', clientId })}\n\n`);
+    
+    // Handle client disconnect
+    req.on('close', () => {
+      console.log(`Weather stream client ${clientId} disconnected`);
+    });
+    
+    // Keep connection alive
+    const keepAlive = setInterval(() => {
+      res.write(`data: ${JSON.stringify({ type: 'heartbeat', timestamp: new Date().toISOString() })}\n\n`);
+    }, 30000);
+    
+    req.on('close', () => {
+      clearInterval(keepAlive);
+    });
   });
 
   // ===== Daily digest (7:00 ET) =====

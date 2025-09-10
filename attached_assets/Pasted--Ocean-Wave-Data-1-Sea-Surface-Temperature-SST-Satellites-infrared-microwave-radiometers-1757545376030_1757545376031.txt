@@ -1,0 +1,79 @@
+🌊 Ocean & Wave Data
+
+1. Sea Surface Temperature (SST)
+
+Satellites (infrared & microwave radiometers):
+NOAA GOES, JPSS (Suomi-NPP, NOAA-20), NASA MODIS/VIIRS provide global SST.
+
+Buoys & Ships: NOAA’s National Data Buoy Center (NDBC) measures water temps at fixed locations.
+
+Argo Floats: A network of 3,000+ drifting floats that measure ocean temp/salinity profiles.
+
+2. Wave Height, Period, and Direction
+
+NDBC Buoys: Direct wave measurements (significant height, period, direction).
+
+Satellite Altimeters: (e.g., Jason-3, Sentinel-6) use radar altimetry to estimate wave height and sea level.
+
+Numerical Models:
+
+NOAA WAVEWATCH III (WW3): a global wave model driven by wind forecasts.
+
+ECMWF WAM model: European equivalent.
+
+3. Wave Strength/Impact
+
+Derived from significant wave height + wave period + direction, often combined with local bathymetry (coastal ocean models).
+
+🌀 Hurricane Strength & Structure
+
+1. Central Pressure & Winds (Intensity)
+
+Aircraft Reconnaissance ("Hurricane Hunters")
+
+Dropsondes measure pressure, temp, humidity, winds inside the storm.
+
+Stepped-frequency microwave radiometers (SFMR) measure surface winds over ocean.
+
+Satellites:
+
+Scatterometers (ASCAT, OSCAT) measure surface wind speeds/direction.
+
+Infrared imagery shows cloud top temps (proxy for convection strength).
+
+Microwave sounders (e.g., AMSU, ATMS) reveal internal storm structure.
+
+GOES geostationary satellites provide rapid scans of storm eye, convection bursts, and cloud motion vectors.
+
+2. Storm Surge & Wave Coupling
+
+Coupled ocean-atmosphere models (like HWRF + MOM6, ADCIRC, SLOSH) simulate surge heights, currents, and wave interaction.
+
+3. Track & Intensity Forecasts
+
+Models:
+
+HWRF, HAFS (NOAA’s new Hurricane Analysis and Forecast System), HMON — high-res hurricane-specific models.
+
+GFS, ECMWF — global models that feed boundary conditions.
+
+Ensembles: show probability of tracks/intensity.
+
+4. Official Products (NHC)
+
+Tropical Cyclone Public Advisories (track, winds, pressure, hazards).
+
+Forecast cones, wind speed probability graphics, surge/wave outlooks.
+
+Data ingested from all the above sources.
+
+⚡ Summary Table
+Parameter	Data Sources
+Ocean temp (SST)	Satellites (GOES, VIIRS, MODIS), buoys, Argo floats
+Wave height/strength	NDBC buoys, satellite altimetry, WAVEWATCH III model
+Hurricane winds/pressure	Hurricane Hunter aircraft, scatterometer satellites, dropsondes, SFMR
+Hurricane structure	Microwave/infrared satellite imagery, radar (land-based & airborne)
+Hurricane forecasts	Models (HWRF, HAFS, HMON, GFS, ECMWF), NHC advisories
+
+✅ So: ocean temps/waves = satellites + buoys + wave models.
+✅ Hurricane strength = aircraft recon + satellites + models, compiled and published by the National Hurricane Center (NHC).

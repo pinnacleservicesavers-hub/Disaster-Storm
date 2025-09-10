@@ -57,14 +57,33 @@ export function RoleBar() {
   );
 }
 
-// ===== WEATHER CENTER COMPONENT =====
+// ===== ENHANCED WEATHER CENTER WITH RADAROMEGA-STYLE FEATURES =====
 function WeatherCenter() {
-  const [activeWeatherView, setActiveWeatherView] = useState('windy');
+  const [activeWeatherView, setActiveWeatherView] = useState('comprehensive');
+  
+  // Core weather data
   const [noaaAlerts, setNoaaAlerts] = useState<any[]>([]);
   const [weatherData, setWeatherData] = useState<any>(null);
   const [hurricanes, setHurricanes] = useState<any[]>([]);
+  
+  // RadarOmega-style enhanced data
+  const [lightningData, setLightningData] = useState<any>(null);
+  const [radarData, setRadarData] = useState<any>(null);
+  const [satelliteData, setSatelliteData] = useState<any>(null);
+  const [mrmsData, setMrmsData] = useState<any>(null);
+  const [forecastModels, setForecastModels] = useState<any>(null);
+  const [spcData, setSpcData] = useState<any>(null);
+  const [nhcData, setNhcData] = useState<any>(null);
+  const [wpcData, setWpcData] = useState<any>(null);
+  const [comprehensiveData, setComprehensiveData] = useState<any>(null);
+  
+  // User location and streaming
   const [userLocation, setUserLocation] = useState<{lat: number, lon: number} | null>(null);
   const [loading, setLoading] = useState(false);
+  const [streamingActive, setStreamingActive] = useState(false);
+  const [activeStreams, setActiveStreams] = useState<string[]>([]);
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [refreshInterval, setRefreshInterval] = useState(30); // seconds
 
   // Get user's GPS location
   useEffect(() => {
@@ -87,347 +106,408 @@ function WeatherCenter() {
     }
   }, []);
 
-  // Fetch NOAA alerts and weather data
+  // Enhanced weather data fetching with all RadarOmega-style sources
+  const fetchAllWeatherData = async () => {
+    if (!userLocation) return;
+    
+    setLoading(true);
+    try {
+      const { lat, lon } = userLocation;
+      
+      // Fetch all weather data sources in parallel for maximum efficiency
+      const [alerts, current, hurricanes, lightning, radar, satellite, mrms, models, spc, nhc, wpc, comprehensive] = await Promise.all([
+        fetch('/api/weather/alerts').then(r => r.json()),
+        fetch('/api/weather/current').then(r => r.json()),
+        fetch('/api/weather/hurricanes').then(r => r.json()),
+        fetch(`/api/weather/lightning?lat=${lat}&lon=${lon}&radius=100`).then(r => r.json()),
+        fetch(`/api/weather/radar/enhanced?lat=${lat}&lon=${lon}&zoom=6`).then(r => r.json()),
+        fetch(`/api/weather/satellite?lat=${lat}&lon=${lon}`).then(r => r.json()),
+        fetch(`/api/weather/mrms?lat=${lat}&lon=${lon}`).then(r => r.json()),
+        fetch(`/api/weather/models?lat=${lat}&lon=${lon}`).then(r => r.json()),
+        fetch('/api/weather/spc').then(r => r.json()),
+        fetch('/api/weather/nhc').then(r => r.json()),
+        fetch('/api/weather/wpc').then(r => r.json()),
+        fetch(`/api/weather/comprehensive?lat=${lat}&lon=${lon}`).then(r => r.json())
+      ]);
+      
+      // Update all state variables
+      setNoaaAlerts(alerts || []);
+      setWeatherData(current);
+      setHurricanes(hurricanes || []);
+      setLightningData(lightning);
+      setRadarData(radar);
+      setSatelliteData(satellite);
+      setMrmsData(mrms);
+      setForecastModels(models);
+      setSpcData(spc);
+      setNhcData(nhc);
+      setWpcData(wpc);
+      setComprehensiveData(comprehensive);
+      
+    } catch (error) {
+      console.error('Failed to fetch weather data:', error);
+    }
+    setLoading(false);
+  };
+
+  // Auto-refresh data when location is available
   useEffect(() => {
-    const fetchWeatherData = async () => {
-      setLoading(true);
-      try {
-        // Fetch NOAA alerts
-        const alertsResponse = await fetch('/api/weather/alerts');
-        const alerts = await alertsResponse.json();
-        setNoaaAlerts(alerts || []);
-
-        // Fetch general weather data
-        const weatherResponse = await fetch('/api/weather/current');
-        const weather = await weatherResponse.json();
-        setWeatherData(weather);
-
-        // Fetch hurricane data
-        const hurricaneResponse = await fetch('/api/weather/hurricanes');
-        const hurricaneData = await hurricaneResponse.json();
-        setHurricanes(hurricaneData || []);
-      } catch (error) {
-        console.error('Failed to fetch weather data:', error);
-      }
-      setLoading(false);
-    };
-
-    fetchWeatherData();
-    const interval = setInterval(fetchWeatherData, 60000); // Refresh every 1 minute for real-time tracking
+    if (!userLocation || !autoRefresh) return;
+    
+    fetchAllWeatherData();
+    const interval = setInterval(fetchAllWeatherData, refreshInterval * 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [userLocation, autoRefresh, refreshInterval]);
+
+  // Live streaming functionality
+  const startLiveStream = async (streamType: string) => {
+    if (!userLocation) return;
+    
+    try {
+      const { lat, lon } = userLocation;
+      const response = await fetch(`/api/weather/stream/start?type=${streamType}&lat=${lat}&lon=${lon}&interval=${refreshInterval * 1000}`);
+      const result = await response.json();
+      
+      if (result.ok) {
+        setActiveStreams(prev => [...prev, result.streamId]);
+        setStreamingActive(true);
+      }
+    } catch (error) {
+      console.error('Failed to start live stream:', error);
+    }
+  };
+
+  const stopLiveStream = async (streamId: string) => {
+    try {
+      await fetch(`/api/weather/stream/stop/${streamId}`);
+      setActiveStreams(prev => prev.filter(id => id !== streamId));
+      if (activeStreams.length <= 1) {
+        setStreamingActive(false);
+      }
+    } catch (error) {
+      console.error('Failed to stop live stream:', error);
+    }
+  };
+
+  const toggleAllStreams = () => {
+    if (streamingActive) {
+      // Stop all streams
+      activeStreams.forEach(streamId => stopLiveStream(streamId));
+    } else {
+      // Start key streams
+      ['lightning', 'radar', 'alerts', 'satellite'].forEach(type => startLiveStream(type));
+    }
+  };
 
   return (
     <div className="space-y-4">
-      {/* Weather Navigation */}
-      <div className="space-y-4">
-        {/* Primary Action Buttons */}
-        <div className="space-y-3">
-          <div className="flex flex-wrap gap-3">
-            <button
-              onClick={() => window.open(`https://windy.com/${userLocation?.lat || 33.749}/${userLocation?.lon || -84.388}/10?wind,${userLocation?.lat || 33.749},${userLocation?.lon || -84.388},8`, '_blank')}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-              data-testid="button-open-windy-app"
-            >
-              🌪️ Open Windy App (GPS-Based)
-            </button>
-            <button
-              onClick={() => window.open('https://www.weather.gov/', '_blank')}
-              className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors font-medium"
-              data-testid="button-open-noaa"
-            >
-              🚨 Open NOAA Weather
-            </button>
-            <button
-              onClick={() => window.open('https://www.nhc.noaa.gov/', '_blank')}
-              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
-              data-testid="button-open-hurricane-center"
-            >
-              🌀 Hurricane Center
-            </button>
-            <button
-              onClick={() => window.open('https://www.radaromega.com/', '_blank')}
-              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium"
-              data-testid="button-open-radaromega"
-            >
-              📡 RadarOmega (Login Available)
-            </button>
-          </div>
-
-          <div className="flex flex-wrap gap-3">
-            <button
-              onClick={() => window.open('https://zoom.earth/', '_blank')}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
-              data-testid="button-open-zoom-earth"
-            >
-              🌍 Zoom.Earth Live Satellite
-            </button>
-            <button
-              onClick={() => window.open('https://www.tornadohq.com/live/', '_blank')}
-              className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors font-medium"
-              data-testid="button-open-tornado-hq"
-            >
-              🌪️ TornadoHQ Live
-            </button>
-            <button
-              onClick={() => window.open('https://livestormchasing.com/', '_blank')}
-              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium"
-              data-testid="button-open-live-storm-chasing"
-            >
-              ⚡ Live Storm Chasing
-            </button>
-            <button
-              onClick={() => window.open('https://tornado.live/', '_blank')}
-              className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-800 transition-colors font-medium"
-              data-testid="button-open-tornado-live"
-            >
-              🌪️ Tornado.Live
-            </button>
-          </div>
-
-          {/* Enhanced Alert Section */}
-          <div className="bg-red-50 border-2 border-red-200 rounded-lg p-4">
-            <h4 className="font-bold text-red-900 text-lg mb-2">🚨 EMERGENCY STORM ALERTS</h4>
-            <div className="text-red-800 text-sm space-y-1">
-              <div>• Real-time tornado warnings and hurricane tracking</div>
-              <div>• Live storm chasing feeds from multiple sources</div>
-              <div>• Professional radar systems for contractors</div>
-              <div>• GPS-centered weather monitoring</div>
-            </div>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <span className="px-2 py-1 bg-red-200 text-red-800 text-xs rounded-full font-medium">
-                Auto-refresh every 60 seconds
+      {/* Enhanced Weather Control Panel */}
+      <div className="bg-white border rounded-lg p-4 space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-gray-900">🌪️ Professional Weather Command Center</h2>
+          <div className="flex items-center gap-3">
+            {userLocation && (
+              <span className="text-xs text-gray-600" data-testid="text-user-location">
+                📍 {userLocation.lat.toFixed(3)}, {userLocation.lon.toFixed(3)}
               </span>
-              <span className="px-2 py-1 bg-yellow-200 text-yellow-800 text-xs rounded-full font-medium">
-                Multi-source verification
-              </span>
-              <span className="px-2 py-1 bg-blue-200 text-blue-800 text-xs rounded-full font-medium">
-                Professional-grade radar
-              </span>
-            </div>
+            )}
+            <button
+              onClick={toggleAllStreams}
+              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                streamingActive 
+                  ? 'bg-red-100 text-red-800 border border-red-200' 
+                  : 'bg-green-100 text-green-800 border border-green-200'
+              }`}
+              data-testid="button-toggle-streaming"
+            >
+              {streamingActive ? '🔴 LIVE STREAMING' : '▶️ START STREAMING'}
+            </button>
+            <button
+              onClick={() => setAutoRefresh(!autoRefresh)}
+              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                autoRefresh 
+                  ? 'bg-blue-100 text-blue-800 border border-blue-200' 
+                  : 'bg-gray-100 text-gray-600 border border-gray-200'
+              }`}
+              data-testid="button-toggle-autorefresh"
+            >
+              {autoRefresh ? '🔄 AUTO REFRESH' : '⏸️ PAUSED'}
+            </button>
           </div>
         </div>
-
-        {/* Location Status */}
-        {userLocation && (
-          <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-            <div className="text-sm font-medium text-green-800">
-              📍 GPS Location: {userLocation.lat.toFixed(4)}, {userLocation.lon.toFixed(4)}
-            </div>
-            <div className="text-xs text-green-600 mt-1">
-              Weather data automatically centered on your location for real-time storm tracking
-            </div>
-          </div>
-        )}
-
-        {/* View Selection */}
-        <div className="flex flex-wrap gap-2 border-b pb-4">
-          <button
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              activeWeatherView === 'windy' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-            onClick={() => setActiveWeatherView('windy')}
-            data-testid="button-weather-windy"
-          >
-            🌪️ Live Radar (Embedded)
-          </button>
-          <button
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              activeWeatherView === 'noaa' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-            onClick={() => setActiveWeatherView('noaa')}
-            data-testid="button-weather-noaa"
-          >
-            🚨 Active Alerts
-          </button>
-          <button
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              activeWeatherView === 'hurricanes' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-            onClick={() => setActiveWeatherView('hurricanes')}
-            data-testid="button-weather-hurricanes"
-          >
-            🌀 Storm Tracker
-          </button>
-          <button
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              activeWeatherView === 'forecast' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-            onClick={() => setActiveWeatherView('forecast')}
-            data-testid="button-weather-forecast"
-          >
-            📊 Live Conditions
-          </button>
-          <button
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              activeWeatherView === 'professional-tools' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-            onClick={() => setActiveWeatherView('professional-tools')}
-            data-testid="button-weather-professional-tools"
-          >
-            🛠️ Professional Storm Tools
-          </button>
+        
+        {/* Streaming Controls */}
+        <div className="flex items-center gap-4">
+          <label className="text-sm text-gray-600">
+            Refresh Rate:
+            <select 
+              value={refreshInterval} 
+              onChange={(e) => setRefreshInterval(Number(e.target.value))}
+              className="ml-2 text-xs border rounded px-2 py-1"
+              data-testid="select-refresh-interval"
+            >
+              <option value={10}>10 seconds</option>
+              <option value={30}>30 seconds</option>
+              <option value={60}>1 minute</option>
+              <option value={300}>5 minutes</option>
+            </select>
+          </label>
+          
+          {activeStreams.length > 0 && (
+            <span className="text-xs text-green-600 font-medium" data-testid="text-active-streams">
+              🟢 {activeStreams.length} streams active
+            </span>
+          )}
+          
+          {loading && (
+            <span className="text-xs text-blue-600 font-medium animate-pulse" data-testid="text-loading">
+              📡 Updating weather data...
+            </span>
+          )}
         </div>
       </div>
 
-      {/* Weather Content */}
-      <div className="bg-white rounded-lg border overflow-hidden">
-        {/* Windy Integration */}
-        {activeWeatherView === 'windy' && (
-          <div className="h-[700px]">
-            <iframe
-              src={`https://embed.windy.com/embed2.html?lat=${userLocation?.lat || 33.749}&lon=${userLocation?.lon || -84.388}&detailLat=${userLocation?.lat || 33.749}&detailLon=${userLocation?.lon || -84.388}&width=800&height=600&zoom=8&level=surface&overlay=wind&product=ecmwf&menu=&message=&marker=&calendar=now&pressure=&type=map&location=coordinates&detail=&metricWind=kt&metricTemp=default&radarRange=-1`}
-              className="w-full h-full border-0"
-              title="GPS-Based Live Weather Radar"
-              data-testid="iframe-windy-weather"
-            />
-            <div className="p-4 bg-gray-50 border-t">
-              <div className="flex justify-between items-center mb-2">
-                <h3 className="font-semibold text-gray-900">🌪️ Live Weather Radar - GPS Centered</h3>
-                <div className="text-sm text-gray-500">
-                  Updates every 60 seconds
+      {/* Weather Data Tabs */}
+      <div className="bg-white border rounded-lg overflow-hidden">
+        <div className="border-b">
+          <nav className="flex overflow-x-auto">
+            {[
+              { id: 'comprehensive', label: '📊 All Data', icon: '📊' },
+              { id: 'alerts', label: '🚨 Live Alerts', icon: '🚨' },
+              { id: 'radar', label: '📡 Radar+Lightning', icon: '📡' },
+              { id: 'satellite', label: '🛰️ Satellite+MRMS', icon: '🛰️' },
+              { id: 'models', label: '🌐 Forecast Models', icon: '🌐' },
+              { id: 'nhc', label: '🌀 Hurricanes+SPC', icon: '🌀' },
+              { id: 'external', label: '🔗 External Tools', icon: '🔗' }
+            ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveWeatherView(tab.id)}
+                className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                  activeWeatherView === tab.id
+                    ? 'border-blue-600 text-blue-600 bg-blue-50'
+                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
+                }`}
+                data-testid={`tab-weather-${tab.id}`}
+              >
+                {tab.icon} {tab.label}
+              </button>
+            ))}
+          </nav>
+        </div>
+        
+        <div className="p-4">
+          {/* Comprehensive Data View */}
+          {activeWeatherView === 'comprehensive' && (
+            <div className="space-y-6">
+              <div className="text-lg font-semibold text-gray-900 mb-4">
+                📊 Comprehensive Weather Overview (RadarOmega Style)
+              </div>
+              
+              {/* Real-time Status Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                  <div className="text-red-800 font-medium text-sm">🚨 Active Alerts</div>
+                  <div className="text-2xl font-bold text-red-900" data-testid="text-alert-count">{noaaAlerts?.length || 0}</div>
+                  <div className="text-xs text-red-600" data-testid="text-alert-status">
+                    {noaaAlerts?.find(a => a.alertType === 'Tornado') ? '🌪️ Tornado Warning' : 'All Clear'}
+                  </div>
+                </div>
+                
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                  <div className="text-yellow-800 font-medium text-sm">⚡ Lightning Strikes</div>
+                  <div className="text-2xl font-bold text-yellow-900" data-testid="text-lightning-count">
+                    {lightningData?.strikes?.length || 0}
+                  </div>
+                  <div className="text-xs text-yellow-600" data-testid="text-lightning-density">
+                    Last {refreshInterval}s: {lightningData?.density || 0}/km²
+                  </div>
+                </div>
+                
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <div className="text-blue-800 font-medium text-sm">🌀 Active Storms</div>
+                  <div className="text-2xl font-bold text-blue-900" data-testid="text-storm-count">{hurricanes?.length || 0}</div>
+                  <div className="text-xs text-blue-600" data-testid="text-storm-name">
+                    {hurricanes?.[0]?.name || 'No active storms'}
+                  </div>
+                </div>
+                
+                <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                  <div className="text-green-800 font-medium text-sm">📡 Data Sources</div>
+                  <div className="text-2xl font-bold text-green-900" data-testid="text-data-sources">9</div>
+                  <div className="text-xs text-green-600">
+                    NWS • SPC • NHC • WPC • MRMS
+                  </div>
                 </div>
               </div>
-              <p className="text-sm text-gray-600">
-                Real-time weather conditions centered on your GPS location. Wind speeds in knots, live radar updates. 
-                Use map controls to switch layers: Rain, Wind, Temperature, Pressure, Waves (coastal areas).
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* NOAA Alerts */}
-        {activeWeatherView === 'noaa' && (
-          <div className="p-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">🚨 NOAA Weather Alerts</h3>
-              {loading && <div className="text-sm text-gray-500">Updating...</div>}
-              <div className="text-sm text-gray-500">
-                Last updated: {new Date().toLocaleTimeString()}
-              </div>
-            </div>
-            
-            {noaaAlerts.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                <div className="text-4xl mb-2">✅</div>
-                <div>No active weather alerts</div>
-                <div className="text-sm mt-1">All clear in monitored areas</div>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {noaaAlerts.map((alert: any, idx: number) => (
-                  <div
-                    key={alert.id || idx}
-                    className={`p-4 rounded-lg border-l-4 ${
-                      alert.severity === 'Extreme' ? 'border-red-500 bg-red-50' :
-                      alert.severity === 'Severe' ? 'border-orange-500 bg-orange-50' :
-                      'border-yellow-500 bg-yellow-50'
-                    }`}
-                    data-testid={`alert-${idx}`}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <h4 className="font-semibold text-gray-900">{alert.title}</h4>
-                        <p className="text-sm text-gray-600 mt-1">{alert.description}</p>
-                        <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
-                          <span>Type: {alert.alertType}</span>
-                          <span>Areas: {alert.areas?.join(', ')}</span>
-                          <span>Until: {new Date(alert.endTime).toLocaleString()}</span>
-                        </div>
-                      </div>
-                      <div className={`px-2 py-1 rounded text-xs font-medium ${
-                        alert.severity === 'Extreme' ? 'bg-red-100 text-red-800' :
-                        alert.severity === 'Severe' ? 'bg-orange-100 text-orange-800' :
-                        'bg-yellow-100 text-yellow-800'
-                      }`}>
-                        {alert.severity}
-                      </div>
-                    </div>
+              
+              {/* Weather Details */}
+              {weatherData && (
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h4 className="font-medium text-gray-900 mb-2">🌡️ Current Conditions</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <div data-testid="text-current-temp">Temp: {weatherData?.temperature || '--'}°F</div>
+                    <div data-testid="text-current-wind">Wind: {weatherData?.windSpeed || '--'} mph {weatherData?.windDirection || ''}</div>
+                    <div data-testid="text-current-humidity">Humidity: {weatherData?.humidity || '--'}%</div>
+                    <div data-testid="text-current-pressure">Pressure: {weatherData?.pressure || '--'} mb</div>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Hurricane Tracker */}
-        {activeWeatherView === 'hurricanes' && (
-          <div className="space-y-4">
-            {/* Live Hurricane Data */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {hurricanes.length > 0 ? hurricanes.map((storm: any, idx: number) => (
-                <div key={storm.id || idx} className="bg-red-50 border border-red-200 rounded-lg p-4">
-                  <div className="flex justify-between items-start mb-3">
-                    <div>
-                      <h4 className="font-bold text-red-900 text-lg">{storm.name}</h4>
-                      <div className="text-sm font-medium text-red-700">
-                        Category {storm.category} {storm.status}
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-2xl font-bold text-red-900">{storm.maxWinds} kt</div>
-                      <div className="text-xs text-red-600">Max winds</div>
-                    </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <div className="font-medium text-gray-700">Position</div>
-                      <div className="text-gray-600">{storm.position.lat}°N, {Math.abs(storm.position.lon)}°W</div>
-                    </div>
-                    <div>
-                      <div className="font-medium text-gray-700">Movement</div>
-                      <div className="text-gray-600">{storm.movement.direction} at {storm.movement.speed} mph</div>
-                    </div>
-                    <div>
-                      <div className="font-medium text-gray-700">Pressure</div>
-                      <div className="text-gray-600">{storm.pressure} mb</div>
-                    </div>
-                    <div>
-                      <div className="font-medium text-gray-700">Last Update</div>
-                      <div className="text-gray-600">{new Date(storm.lastUpdate).toLocaleTimeString()}</div>
-                    </div>
-                  </div>
-                  
-                  <button
-                    onClick={() => window.open(`https://windy.com/${storm.position.lat}/${storm.position.lon}/5?waves,${storm.position.lat},${storm.position.lon},5`, '_blank')}
-                    className="mt-3 px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700 transition-colors"
-                    data-testid={`button-track-storm-${idx}`}
-                  >
-                    🌊 Track with Waves & Wind
-                  </button>
                 </div>
-              )) : (
-                <div className="col-span-2 text-center py-8 text-gray-500">
-                  <div className="text-4xl mb-2">🌤️</div>
-                  <div>No active hurricanes or tropical storms</div>
-                  <div className="text-sm mt-1">Atlantic basin monitoring active</div>
+              )}
+              
+              {/* MRMS Data */}
+              {mrmsData && (
+                <div className="space-y-4">
+                  {mrmsData.hail && (
+                    <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                      <h4 className="font-medium text-orange-900 mb-2">🧊 MRMS Hail Detection</h4>
+                      <div className="text-sm text-orange-800" data-testid="text-hail-data">
+                        Max Size: {mrmsData.hail.maxSize}" • Probability: {mrmsData.hail.probability}%
+                      </div>
+                    </div>
+                  )}
+                  
+                  {mrmsData.rotation && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                      <h4 className="font-medium text-red-900 mb-2">🌪️ Rotation Detection</h4>
+                      <div className="text-sm text-red-800" data-testid="text-rotation-data">
+                        Mesocyclones: {mrmsData.rotation.mesocyclones?.length || 0} • 
+                        Shear: {mrmsData.rotation.shear || 0}° • 
+                        Probability: {mrmsData.rotation.probability || 0}%
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
-
-            {/* Live Hurricane Tracking Map */}
-            <div className="h-[500px]">
-              <iframe
-                src="https://embed.windy.com/embed2.html?lat=25.0&lon=-80.0&detailLat=25.0&detailLon=-80.0&width=800&height=500&zoom=4&level=surface&overlay=waves&product=gfs&menu=&message=&marker=&calendar=now&pressure=&type=map&location=coordinates&detail=&metricWind=kt&metricTemp=default&radarRange=-1"
-                className="w-full h-full border-0"
-                title="Hurricane Tracker with Wave Heights"
-                data-testid="iframe-hurricane-tracker"
-              />
-            </div>
-            
-            <div className="p-4 bg-gray-50 border-t rounded-b-lg">
-              <div className="flex justify-between items-center mb-2">
-                <h3 className="font-semibold text-gray-900">🌀 Live Hurricane & Wave Tracker</h3>
-                <div className="text-sm text-gray-500">Real-time updates</div>
+          )}
+          
+          {/* Live Alerts View */}
+          {activeWeatherView === 'alerts' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-gray-900">🚨 Live Weather Alerts</h3>
+                <button
+                  onClick={() => startLiveStream('alerts')}
+                  className="px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700"
+                  data-testid="button-stream-alerts"
+                >
+                  📡 Stream Alerts
+                </button>
               </div>
-              <p className="text-sm text-gray-600">
-                Live hurricane tracking with wave heights, wind speeds in knots, and storm movement patterns. 
-                Click layer controls to view: Waves, Wind, Pressure, Satellite imagery. Each storm updates every 15 minutes.
-              </p>
+              
+              {noaaAlerts?.length > 0 ? (
+                <div className="space-y-3">
+                  {noaaAlerts.map((alert, index) => (
+                    <div key={index} className={`border rounded-lg p-4 ${
+                      alert.severity === 'Extreme' ? 'bg-red-50 border-red-200' :
+                      alert.severity === 'Severe' ? 'bg-orange-50 border-orange-200' :
+                      'bg-yellow-50 border-yellow-200'
+                    }`} data-testid={`alert-item-${index}`}>
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <h4 className="font-medium text-gray-900" data-testid={`alert-title-${index}`}>{alert.title}</h4>
+                          <p className="text-sm text-gray-600 mt-1" data-testid={`alert-description-${index}`}>{alert.description}</p>
+                          <div className="text-xs text-gray-500 mt-2" data-testid={`alert-details-${index}`}>
+                            Areas: {alert.areas?.join(', ')} • 
+                            Until: {new Date(alert.endTime).toLocaleTimeString()}
+                          </div>
+                        </div>
+                        <span className={`px-2 py-1 text-xs font-medium rounded ${
+                          alert.severity === 'Extreme' ? 'bg-red-100 text-red-800' :
+                          alert.severity === 'Severe' ? 'bg-orange-100 text-orange-800' :
+                          'bg-yellow-100 text-yellow-800'
+                        }`} data-testid={`alert-severity-${index}`}>
+                          {alert.severity}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500" data-testid="text-no-alerts">
+                  ✅ No active weather alerts in your area
+                </div>
+              )}
             </div>
-          </div>
-        )}
+          )}
+          
+          {/* External Tools View */}
+          {activeWeatherView === 'external' && (
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                🔗 External Professional Weather Tools
+              </h3>
+              
+              {/* Primary Action Buttons */}
+              <div className="space-y-3">
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    onClick={() => window.open(`https://windy.com/${userLocation?.lat || 33.749}/${userLocation?.lon || -84.388}/10?wind,${userLocation?.lat || 33.749},${userLocation?.lon || -84.388},8`, '_blank')}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                    data-testid="button-open-windy-app"
+                  >
+                    🌪️ Open Windy App (GPS-Based)
+                  </button>
+                  <button
+                    onClick={() => window.open('https://www.weather.gov/', '_blank')}
+                    className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors font-medium"
+                    data-testid="button-open-noaa"
+                  >
+                    🚨 Open NOAA Weather
+                  </button>
+                  <button
+                    onClick={() => window.open('https://www.nhc.noaa.gov/', '_blank')}
+                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+                    data-testid="button-open-hurricane-center"
+                  >
+                    🌀 Hurricane Center
+                  </button>
+                  <button
+                    onClick={() => window.open('https://www.radaromega.com/', '_blank')}
+                    className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium"
+                    data-testid="button-open-radaromega"
+                  >
+                    📡 RadarOmega (Login Available)
+                  </button>
+                </div>
+
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    onClick={() => window.open('https://zoom.earth/', '_blank')}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+                    data-testid="button-open-zoom-earth"
+                  >
+                    🌍 Zoom.Earth Live Satellite
+                  </button>
+                  <button
+                    onClick={() => window.open('https://www.tornadohq.com/live/', '_blank')}
+                    className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors font-medium"
+                    data-testid="button-open-tornado-hq"
+                  >
+                    🌪️ TornadoHQ Live
+                  </button>
+                  <button
+                    onClick={() => window.open('https://livestormchasing.com/', '_blank')}
+                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium"
+                    data-testid="button-open-live-storm-chasing"
+                  >
+                    ⚡ Live Storm Chasing
+                  </button>
+                  <button
+                    onClick={() => window.open('https://tornado.live/', '_blank')}
+                    className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-800 transition-colors font-medium"
+                    data-testid="button-open-tornado-live"
+                  >
+                    🌪️ Tornado.Live
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 
         {/* Live Conditions Dashboard */}
         {activeWeatherView === 'forecast' && (
