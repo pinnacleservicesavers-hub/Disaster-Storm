@@ -14,13 +14,20 @@
       "status": "new",
       "tags": [
         "tree_on_roof",
-        "structure_damage"
+        "structure_damage",
+        "wind damage",
+        "roof leak"
       ],
       "docs": [
         {
           "name": "lead_1757464468680.jpg",
           "url": "https://via.placeholder.com/640x360.png?text=StructureDamage",
           "caption": "tree_on_roof, structure_damage"
+        },
+        {
+          "name": "lead_1757465354190.jpg",
+          "url": "https://image.votix.com/dup-nearby.jpg",
+          "caption": "wind damage, roof leak"
         }
       ],
       "messages": [],
@@ -29,6 +36,11 @@
           "ts": 1757464468680,
           "type": "lead_accepted",
           "text": "From demo; tags: tree_on_roof, structure_damage"
+        },
+        {
+          "ts": 1757465354190,
+          "type": "lead_merged",
+          "text": "Merged lead lead:1757465344241:8mr01z (wind damage, roof leak)"
         }
       ]
     },

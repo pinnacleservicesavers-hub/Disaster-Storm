@@ -150,6 +150,21 @@
         "hail damage"
       ],
       "ts": 1757465117123
+    },
+    {
+      "provider": "votix",
+      "droneId": "VOTIX-DUP-002",
+      "mission": "DUP-ADDR-001",
+      "lat": 27.7519,
+      "lng": -82.6268,
+      "address": "22nd Avenue Southeast, Old Southeast, Saint Petersburg, Pinellas County, Florida, 33705, United States",
+      "stream": "https://stream.votix.com/dup-address.m3u8",
+      "image": "https://image.votix.com/dup-nearby.jpg",
+      "tags": [
+        "wind damage",
+        "roof leak"
+      ],
+      "ts": 1757465343724
     }
   ]
 }

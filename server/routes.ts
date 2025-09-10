@@ -406,10 +406,18 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
     } 
   }
 
+  // ---- Utility functions for enhanced customers ----
+  function normalizeAddressStr(s=''){
+    return s.toLowerCase()
+      .replace(/\b(ste|unit|apt|suite|#)\b.*$/,'')
+      .replace(/[^a-z0-9]/g,'')
+      .trim();
+  }
+
   // ---- Customers Panel API Extensions ----
   
-  // Search customers with filters
-  app.get('/api/customers/search', (req, res) => {
+  // Search customers with filters (main endpoint)
+  app.get('/api/customers', (req, res) => {
     try {
       const { q, status, tags } = req.query;
       const db = readCustomers();
@@ -601,25 +609,164 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
     }
   });
 
-  // Delete customer
-  app.delete('/api/customers/:id', (req, res) => {
+  // Merge helpers
+  function mergeCustomers(customers, primaryId){
+    const byId = new Map(customers.map(c=>[c.id,c]));
+    const primary = byId.get(primaryId) || customers[0];
+    for (const c of customers){
+      if (c.id===primary.id) continue;
+      primary.docs = [...(primary.docs||[]), ...(c.docs||[])];
+      primary.messages = [...(primary.messages||[]), ...(c.messages||[])];
+      primary.timeline = [...(primary.timeline||[]), ...(c.timeline||[]), { ts: Date.now(), type:'merged', text:`Merged ${c.id}` }].sort((a,b)=>a.ts-b.ts);
+      primary.tags = Array.from(new Set([...(primary.tags||[]), ...(c.tags||[])]));
+      primary.phone = primary.phone || c.phone;
+      primary.email = primary.email || c.email;
+      primary.insurer = primary.insurer || c.insurer;
+      primary.claimNumber = primary.claimNumber || c.claimNumber;
+      primary.mailingAddress = primary.mailingAddress || c.mailingAddress;
+      // Prefer precise lat/lng
+      if (typeof c.lat==='number' && typeof c.lng==='number'){ primary.lat = primary.lat??c.lat; primary.lng = primary.lng??c.lng; }
+    }
+    return primary;
+  }
+
+  // Update customer
+  app.post('/api/customers/update', express.json(), (req, res) => {
     try {
-      const { id } = req.params;
+      const { id, patch } = req.body || {};
+      if (!id || !patch) return res.status(400).json({ error: 'missing' });
+      
       const db = readCustomers();
-      const initialCount = (db.items || []).length;
+      const c = (db.items || []).find(x => x.id === id);
+      if (!c) return res.status(404).json({ error: 'not_found' });
       
-      db.items = (db.items || []).filter(c => c.id !== id);
-      
-      if (db.items.length === initialCount) {
-        return res.status(404).json({ error: 'customer_not_found' });
-      }
+      Object.assign(c, patch);
+      c.timeline = c.timeline || [];
+      c.timeline.push({ ts: Date.now(), type: 'update', text: Object.keys(patch).join(', ') });
       
       writeCustomers(db);
-      sseBroadcast({ type: 'customer_deleted', customerId: id });
+      sseBroadcast({ type: 'customer_updated', customer: c });
+      
+      res.json({ ok: true, customer: c });
+    } catch (e) {
+      res.status(500).json({ ok: false });
+    }
+  });
+
+  // Delete customers (bulk)
+  app.post('/api/customers/delete', express.json(), (req, res) => {
+    try {
+      const ids = req.body?.ids || [];
+      if (!Array.isArray(ids) || !ids.length) return res.status(400).json({ error: 'ids_required' });
+      
+      const db = readCustomers();
+      db.items = (db.items || []).filter(c => !ids.includes(c.id));
+      
+      writeCustomers(db);
+      sseBroadcast({ type: 'customers_deleted', ids });
       
       res.json({ ok: true });
     } catch (e) {
-      res.status(500).json({ error: 'delete_failed' });
+      res.status(500).json({ ok: false });
+    }
+  });
+
+  // Dedupe scan
+  app.get('/api/customers/dedupe-scan', (req, res) => {
+    try {
+      const radius = Number(req.query.radius || 40); // meters
+      const db = readCustomers();
+      const items = db.items || [];
+      
+      // Address groups
+      const byAddr = new Map();
+      for (const c of items) {
+        const k = normalizeAddressStr(c.address || '');
+        if (!k) continue;
+        if (!byAddr.has(k)) byAddr.set(k, []);
+        byAddr.get(k).push(c);
+      }
+      const addrClusters = [...byAddr.values()].filter(g => g.length > 1).map(g => ({ reason: 'address', items: g }));
+      
+      // Proximity clusters
+      const proxClusters = [];
+      const used = new Set();
+      for (let i = 0; i < items.length; i++) {
+        if (used.has(items[i].id)) continue;
+        const cluster = [items[i]];
+        for (let j = i + 1; j < items.length; j++) {
+          if (used.has(items[j].id)) continue;
+          if (typeof items[i].lat === 'number' && typeof items[i].lng === 'number' &&
+              typeof items[j].lat === 'number' && typeof items[j].lng === 'number') {
+            const d = haversine(items[i].lat, items[i].lng, items[j].lat, items[j].lng);
+            if (d <= radius) {
+              cluster.push(items[j]);
+              used.add(items[j].id);
+            }
+          }
+        }
+        if (cluster.length > 1) proxClusters.push({ reason: `radius_${radius}m`, items: cluster });
+      }
+      
+      res.json({ address: addrClusters, proximity: proxClusters });
+    } catch (e) {
+      res.status(500).json({ address: [], proximity: [] });
+    }
+  });
+
+  // Bulk merge
+  app.post('/api/customers/bulk-merge', express.json(), (req, res) => {
+    try {
+      const { strategy = 'address', radius = 40 } = req.body || {};
+      const db = readCustomers();
+      let clusters = [];
+      
+      if (strategy === 'address') {
+        const byAddr = new Map();
+        for (const c of (db.items || [])) {
+          const k = normalizeAddressStr(c.address || '');
+          if (!k) continue;
+          if (!byAddr.has(k)) byAddr.set(k, []);
+          byAddr.get(k).push(c);
+        }
+        clusters = [...byAddr.values()].filter(g => g.length > 1).map(g => ({ items: g }));
+      } else if (strategy === 'radius') {
+        const items = db.items || [];
+        const used = new Set();
+        for (let i = 0; i < items.length; i++) {
+          if (used.has(items[i].id)) continue;
+          const cluster = [items[i]];
+          for (let j = i + 1; j < items.length; j++) {
+            if (used.has(items[j].id)) continue;
+            if (typeof items[i].lat === 'number' && typeof items[i].lng === 'number' &&
+                typeof items[j].lat === 'number' && typeof items[j].lng === 'number') {
+              const d = haversine(items[i].lat, items[i].lng, items[j].lat, items[j].lng);
+              if (d <= Number(radius)) {
+                cluster.push(items[j]);
+                used.add(items[j].id);
+              }
+            }
+          }
+          if (cluster.length > 1) clusters.push({ items: cluster });
+        }
+      }
+      
+      // Perform merges per cluster (choose most complete as primary)
+      const choosePrimary = (arr) => arr.slice().sort((a, b) => (b.docs?.length || 0) - (a.docs?.length || 0) || (b.timeline?.length || 0) - (a.timeline?.length || 0))[0];
+      for (const cl of clusters) {
+        const ids = cl.items.map(x => x.id);
+        if (ids.length < 2) continue;
+        const primaryId = choosePrimary(cl.items).id;
+        const group = (db.items || []).filter(c => ids.includes(c.id));
+        const merged = mergeCustomers(group, primaryId);
+        db.items = [merged, ...db.items.filter(c => !ids.includes(c.id) || c.id === merged.id)]
+          .filter((v, i, a) => a.findIndex(x => x.id === v.id) === i);
+      }
+      
+      writeCustomers(db);
+      res.json({ ok: true, mergedGroups: clusters.length });
+    } catch (e) {
+      res.status(500).json({ ok: false });
     }
   });
 

@@ -1164,230 +1164,208 @@ function LeadInbox({ onCreateCustomer }: { onCreateCustomer?: (customer: any) =>
   );
 }
 
-// --- Enhanced Customers Panel with Search, Export, and Deduplication ---
-function CustomersPanel() {
-  const [customers, setCustomers] = useState<any[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [tagsFilter, setTagsFilter] = useState('');
-  const [duplicates, setDuplicates] = useState<any[]>([]);
-  const [showDuplicates, setShowDuplicates] = useState(false);
-  const [selectedForMerge, setSelectedForMerge] = useState<string[]>([]);
+// --- Enhanced Customers Panel with Advanced Features ---
+function CustomersPanel(){
+  const { role } = useRole();
+  const [list, setList] = useState([]);
+  const [q, setQ] = useState('');
+  const [status, setStatus] = useState('');
+  const [sel, setSel] = useState(new Set());
+  const [dupes, setDupes] = useState({ address:[], proximity:[] });
   const [loading, setLoading] = useState(false);
 
-  // Load customers
-  const loadCustomers = async () => {
-    try {
-      setLoading(true);
-      const params = new URLSearchParams();
-      if (searchQuery) params.append('q', searchQuery);
-      if (statusFilter !== 'all') params.append('status', statusFilter);
-      if (tagsFilter) params.append('tags', tagsFilter);
-      
-      const response = await fetch(`/api/customers/search?${params}`);
-      const data = await response.json();
-      setCustomers(data);
-    } catch (e) {
-      console.error('Failed to load customers:', e);
-    } finally {
-      setLoading(false);
+  async function load(){
+    setLoading(true);
+    try{ 
+      const r = await fetch(`/api/customers?q=${encodeURIComponent(q)}&status=${encodeURIComponent(status)}`).then(r=>r.json()); 
+      setList(r||[]); 
     }
-  };
+    finally{ setLoading(false); }
+  }
+  useEffect(()=>{ load(); }, [q, status]);
 
-  // Load duplicates
-  const loadDuplicates = async () => {
-    try {
-      const response = await fetch('/api/customers/duplicates');
-      const data = await response.json();
-      setDuplicates(data);
-    } catch (e) {
-      console.error('Failed to load duplicates:', e);
-    }
-  };
+  function toggle(id){ 
+    setSel(prev=>{ 
+      const n = new Set(prev); 
+      if (n.has(id)) n.delete(id); 
+      else n.add(id); 
+      return n; 
+    }); 
+  }
+  function clearSel(){ setSel(new Set()); }
 
-  // Bulk merge customers
-  const mergeDuplicates = async (primaryId: string, mergeIds: string[]) => {
-    try {
-      const response = await fetch('/api/customers/merge', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ primaryId, mergeIds })
-      });
-      const result = await response.json();
-      
-      if (result.ok) {
-        alert(`Successfully merged ${result.mergedCount} duplicate customer(s)`);
-        loadCustomers();
-        loadDuplicates();
-        setSelectedForMerge([]);
-      } else {
-        alert('Merge failed: ' + result.error);
-      }
-    } catch (e) {
-      alert('Merge failed: ' + e);
-    }
-  };
+  async function doExport(){ 
+    const r = await fetch('/api/customers/export').then(r=>r.json()).catch(()=>null); 
+    if (r?.path) window.open(r.path, '_blank'); 
+  }
+  
+  async function doDelete(){ 
+    if (!sel.size) return; 
+    if (!confirm(`Delete ${sel.size} record(s)?`)) return; 
+    await fetch('/api/customers/delete',{ 
+      method:'POST', 
+      headers:{'Content-Type':'application/json'}, 
+      body: JSON.stringify({ ids: [...sel] }) 
+    }); 
+    clearSel(); 
+    load(); 
+  }
+  
+  async function doMerge(ids=[...sel]){ 
+    if (ids.length<2) return alert('Select 2+'); 
+    const primaryId = ids[0]; 
+    await fetch('/api/customers/merge',{ 
+      method:'POST', 
+      headers:{'Content-Type':'application/json'}, 
+      body: JSON.stringify({ ids, primaryId }) 
+    }); 
+    clearSel(); 
+    load(); 
+  }
 
-  // Export customers to CSV
-  const exportCustomers = () => {
-    window.open('/api/customers/export', '_blank');
-  };
-
-  useEffect(() => {
-    loadCustomers();
-  }, [searchQuery, statusFilter, tagsFilter]);
-
-  useEffect(() => {
-    if (showDuplicates) {
-      loadDuplicates();
-    }
-  }, [showDuplicates]);
+  async function scanDupes(){ 
+    const r = await fetch('/api/customers/dedupe-scan?radius=40').then(r=>r.json()).catch(()=>({address:[],proximity:[]})); 
+    setDupes(r); 
+  }
+  
+  async function bulkMerge(strategy){ 
+    if (!confirm(`Auto-merge by ${strategy}?`)) return; 
+    await fetch('/api/customers/bulk-merge',{ 
+      method:'POST', 
+      headers:{'Content-Type':'application/json'}, 
+      body: JSON.stringify({ strategy, radius: 40 }) 
+    }); 
+    load(); 
+  }
 
   return (
-    <div className="space-y-4">
-      {/* Search and Filters */}
-      <div className="bg-white border rounded-lg p-4">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-          <input
-            type="text"
-            placeholder="Search customers..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="border rounded px-3 py-2"
-          />
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="border rounded px-3 py-2"
-          >
-            <option value="all">All Statuses</option>
-            <option value="new">New</option>
-            <option value="contacted">Contacted</option>
-            <option value="scheduled">Scheduled</option>
-            <option value="in_progress">In Progress</option>
-            <option value="completed">Completed</option>
-          </select>
-          <input
-            type="text"
-            placeholder="Filter by tags (comma-separated)"
-            value={tagsFilter}
-            onChange={(e) => setTagsFilter(e.target.value)}
-            className="border rounded px-3 py-2"
-          />
-          <div className="flex gap-2">
-            <Button onClick={exportCustomers} variant="outline" size="sm">
-              Export CSV
-            </Button>
-            <Button 
-              onClick={() => setShowDuplicates(!showDuplicates)} 
-              variant={showDuplicates ? "default" : "outline"} 
-              size="sm"
-            >
-              {showDuplicates ? 'Hide' : 'Find'} Duplicates
-            </Button>
-          </div>
-        </div>
-        
-        <div className="text-sm text-gray-600">
-          {loading ? 'Loading...' : `${customers.length} customers found`}
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <Input 
+          style={{width:240}} 
+          value={q} 
+          onChange={(e)=>setQ(e.target.value)} 
+          placeholder="Search name, address, insurer, claim #" 
+        />
+        <select className="border rounded px-2 py-1" value={status} onChange={(e)=>setStatus(e.target.value)}>
+          <option value="">All statuses</option>
+          {PIPELINE.map(p=> <option key={p} value={p}>{p.replaceAll('_',' ')}</option>)}
+        </select>
+        <Button onClick={load}>Search</Button>
+        <div className="ml-auto flex gap-2">
+          <Button variant="outline" onClick={doExport}>Export CSV</Button>
+          {role==='admin' && <Button variant="destructive" onClick={doDelete} disabled={!sel.size}>Delete</Button>}
         </div>
       </div>
 
-      {/* Duplicates Panel */}
-      {showDuplicates && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-          <h3 className="font-semibold mb-3">Duplicate Customers ({duplicates.length})</h3>
-          {duplicates.length === 0 ? (
-            <div className="text-gray-600">No duplicates found</div>
-          ) : (
-            <div className="space-y-4">
-              {duplicates.map((dup, idx) => (
-                <div key={idx} className="border rounded p-3 bg-white">
-                  <div className="font-medium mb-2">
-                    Primary: {dup.customer.name} - {dup.customer.address}
-                  </div>
-                  <div className="space-y-2">
-                    {dup.matches.map((match: any, midx: number) => (
-                      <div key={midx} className="flex items-center justify-between bg-gray-50 p-2 rounded">
-                        <div>
-                          <span className="font-medium">{match.customer.name}</span> - {match.customer.address}
-                          <div className="text-xs text-gray-600">
-                            Reasons: {match.reasons.join(', ')}
-                          </div>
-                        </div>
-                        <Button
-                          size="sm"
-                          onClick={() => mergeDuplicates(dup.customer.id, [match.customer.id])}
-                        >
-                          Merge into Primary
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+      <div className="border rounded">
+        <div className="grid grid-cols-12 p-2 text-xs font-semibold bg-gray-50">
+          <div className="col-span-1">
+            <input 
+              type="checkbox" 
+              onChange={(e)=>{ 
+                if (e.target.checked) setSel(new Set(list.map((x: any)=>x.id))); 
+                else clearSel(); 
+              }} 
+            />
+          </div>
+          <div className="col-span-2">Name</div>
+          <div className="col-span-3">Address</div>
+          <div className="col-span-2">Insurer / Claim</div>
+          <div className="col-span-2">Status</div>
+          <div className="col-span-2 text-right">Actions</div>
         </div>
-      )}
-
-      {/* Customers List */}
-      <div className="bg-white border rounded-lg">
-        <div className="p-4 border-b">
-          <h3 className="font-semibold">Customers</h3>
-        </div>
-        <div className="divide-y max-h-96 overflow-y-auto">
-          {customers.map((customer) => (
-            <div key={customer.id} className="p-4 hover:bg-gray-50">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="font-medium">{customer.name}</span>
-                    <span className={`px-2 py-1 text-xs rounded-full ${
-                      customer.status === 'new' ? 'bg-blue-100 text-blue-700' :
-                      customer.status === 'contacted' ? 'bg-yellow-100 text-yellow-700' :
-                      customer.status === 'completed' ? 'bg-green-100 text-green-700' :
-                      'bg-gray-100 text-gray-700'
-                    }`}>
-                      {customer.status}
-                    </span>
-                  </div>
-                  <div className="text-sm text-gray-600 mb-1">{customer.address}</div>
-                  {customer.phone && (
-                    <div className="text-sm text-gray-600">📞 {customer.phone}</div>
-                  )}
-                  {customer.email && (
-                    <div className="text-sm text-gray-600">✉️ {customer.email}</div>
-                  )}
-                  {customer.tags && customer.tags.length > 0 && (
-                    <div className="flex gap-1 mt-2">
-                      {customer.tags.map((tag: string, idx: number) => (
-                        <span key={idx} className="px-2 py-1 text-xs bg-gray-100 rounded">
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => window.dispatchEvent(new CustomEvent('storm-center', {
-                      detail: { address: customer.address, name: customer.name }
-                    }))}
+        <div className="max-h-96 overflow-auto divide-y">
+          {loading && <div className="p-3 text-sm">Loading…</div>}
+          {!loading && list.map((c: any) => (
+            <div key={c.id} className="grid grid-cols-12 p-2 text-sm items-center">
+              <div className="col-span-1">
+                <input type="checkbox" checked={sel.has(c.id)} onChange={()=>toggle(c.id)} />
+              </div>
+              <div className="col-span-2 truncate">{c.name||'Unknown Owner'}</div>
+              <div className="col-span-3 truncate">{c.address}</div>
+              <div className="col-span-2 truncate">{c.insurer||'—'} / {c.claimNumber||'—'}</div>
+              <div className="col-span-2">
+                <span className="text-xs px-2 py-1 rounded-full bg-gray-200">
+                  {(c.status||'new').replaceAll('_',' ')}
+                </span>
+              </div>
+              <div className="col-span-2 text-right">
+                {role==='admin' && (
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    onClick={()=>doMerge([c.id, ...[...sel].filter((id: any)=>id!==c.id)])} 
+                    disabled={sel.size<1}
+                    className="mr-2"
                   >
-                    Show on Map
+                    Merge
                   </Button>
-                </div>
+                )}
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  onClick={()=>{ 
+                    try{ 
+                      window.dispatchEvent(new CustomEvent('storm-center',{ 
+                        detail:{ address:c.address, name:c.name } 
+                      })); 
+                    }catch{} 
+                  }}
+                >
+                  Map
+                </Button>
               </div>
             </div>
           ))}
-          {customers.length === 0 && !loading && (
+          {!loading && list.length === 0 && (
             <div className="p-8 text-center text-gray-500">
               No customers found. Accepted leads will appear here.
             </div>
           )}
+        </div>
+      </div>
+
+      <div className="border rounded p-3">
+        <div className="flex items-center gap-2">
+          <div className="font-semibold">Duplicate tools</div>
+          <Button variant="outline" onClick={scanDupes}>Find duplicates</Button>
+          {role==='admin' && <Button variant="outline" onClick={()=>bulkMerge('address')}>Bulk merge by address</Button>}
+          {role==='admin' && <Button variant="outline" onClick={()=>bulkMerge('radius')}>Bulk merge by 40m</Button>}
+        </div>
+        <div className="grid md:grid-cols-2 gap-3 mt-2">
+          <div>
+            <div className="text-sm font-medium">Address matches</div>
+            <div className="text-xs text-muted-foreground">Same normalized street address</div>
+            <div className="space-y-2 mt-2 max-h-60 overflow-auto">
+              {dupes.address.map((g: any,idx: number)=> (
+                <div key={idx} className="border rounded p-2 text-xs">
+                  <div className="font-semibold mb-1">Group #{idx+1}</div>
+                  {g.items.map((it: any) => <div key={it.id}>• {it.name||'Unknown'} — {it.address} ({it.id})</div>)}
+                  {role==='admin' && <Button size="sm" className="mt-2" onClick={()=>doMerge(g.items.map((x: any)=>x.id))}>Merge group</Button>}
+                </div>
+              ))}
+              {dupes.address.length === 0 && (
+                <div className="text-xs text-gray-500 p-2">No address duplicates found</div>
+              )}
+            </div>
+          </div>
+          <div>
+            <div className="text-sm font-medium">Proximity matches (≤ 40m)</div>
+            <div className="text-xs text-muted-foreground">Likely duplicates at the same parcel</div>
+            <div className="space-y-2 mt-2 max-h-60 overflow-auto">
+              {dupes.proximity.map((g: any,idx: number)=> (
+                <div key={idx} className="border rounded p-2 text-xs">
+                  <div className="font-semibold mb-1">Cluster #{idx+1}</div>
+                  {g.items.map((it: any) => <div key={it.id}>• {it.name||'Unknown'} — {it.address} ({it.id})</div>)}
+                  {role==='admin' && <Button size="sm" className="mt-2" onClick={()=>doMerge(g.items.map((x: any)=>x.id))}>Merge cluster</Button>}
+                </div>
+              ))}
+              {dupes.proximity.length === 0 && (
+                <div className="text-xs text-gray-500 p-2">No proximity duplicates found</div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>
