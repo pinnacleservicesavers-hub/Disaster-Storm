@@ -16,7 +16,9 @@
         "tree_on_roof",
         "structure_damage",
         "wind damage",
-        "roof leak"
+        "roof leak",
+        "siding damage",
+        "window damage"
       ],
       "docs": [
         {
@@ -28,6 +30,11 @@
           "name": "lead_1757465354190.jpg",
           "url": "https://image.votix.com/dup-nearby.jpg",
           "caption": "wind damage, roof leak"
+        },
+        {
+          "name": "lead_1757465530403.jpg",
+          "url": "https://image.votix.com/same-address.jpg",
+          "caption": "siding damage, window damage"
         }
       ],
       "messages": [],
@@ -41,6 +48,11 @@
           "ts": 1757465354190,
           "type": "lead_merged",
           "text": "Merged lead lead:1757465344241:8mr01z (wind damage, roof leak)"
+        },
+        {
+          "ts": 1757465530403,
+          "type": "lead_merged",
+          "text": "Merged lead lead:1757465516901:qd9tyj (siding damage, window damage)"
         }
       ]
     },

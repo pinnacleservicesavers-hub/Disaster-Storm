@@ -1,0 +1,329 @@
+# Payments + Funding + Reviews Automations — Paste Blocks
+
+This adds **payment method capture**, **Insurance / Loan flows with auto‑emails & texts**, **review request + AI replies**, **balance reminders at 30/45 days**, and **on/off toggles for automation**.
+
+> Paste the **server** block into `server.js` (after your existing routes). Then drop the **frontend** block into your React code (inside `CustomerCard` or as a child component).
+
+---
+
+## 1) SERVER — paste into `server.js`
+
+```js
+// ===== Settings store (review links, templates, AI toggles, lien clause, state law meta) =====
+const SETTINGS_PATH = path.join(DATA_DIR, 'settings.json');
+if (!fs.existsSync(SETTINGS_PATH)) fs.writeFileSync(SETTINGS_PATH, JSON.stringify({
+  autoAI: true,
+  reviewLinks: [
+    // { label:'Google', url:'https://g.page/your-google-review-link' },
+    // { label:'Website', url:'https://www.strategiclandmgmt.com/reviews' },
+    // { label:'Yelp', url:'https://yelp.com/biz/...'}
+  ],
+  emailTemplates: {
+    insuranceOptIn: `Hi {{name}},<br/><br/>Thank you for choosing Strategic Land Management LLC to handle your storm recovery. You checked that you are filing an insurance claim. We will coordinate directly with your insurer and keep you informed every step of the way.<br/><br/>Address: {{address}}<br/>Claim #: {{claim}}<br/><br/>We appreciate your trust. If you found our team helpful, please consider leaving a review: {{review_links}}<br/><br/>— Strategic Land Management LLC` ,
+    loanOptIn: `Hi {{name}},<br/><br/>You indicated you will apply for disaster assistance. Here are quick links:<br/>• SBA Disaster Loans: <a href="https://disasterloanassistance.sba.gov/">Apply</a><br/>• FEMA Individual Assistance: <a href="https://www.fema.gov/assistance/individual">Apply</a><br/><br/>Per your contract, payment is due upon completion. If a loan delays payment, please keep us updated. {{lien_clause}}<br/><br/>We’re here to help. — Strategic Land Management LLC` ,
+    balance30: `Friendly reminder: there is an outstanding balance for {{address}}. Please reply if you have questions or a payment date. {{lien_clause_short}}` ,
+    balance45Demand: `FORMAL NOTICE: Payment for work at {{address}} is {{days}} days past due. Please remit immediately. {{lien_clause}}`
+  },
+  lienClause: "If payment is not made within 45 days of work completion, we may initiate a lien filing as permitted by state law.",
+  lienClauseShort: "Unpaid balances may be subject to a lien per state law.",
+  stateLaw: {
+    // Optional: fill in per state (abbrev): { lienDays: 90, note: "Florida: ..." }
+    // "FL": { lienDays: 90, note: "Example only — please confirm with your attorney." }
+  }
+}, null, 2));
+function readSettings(){ try{ return JSON.parse(fs.readFileSync(SETTINGS_PATH,'utf8')); }catch{ return { autoAI:true, reviewLinks:[], emailTemplates:{}, lienClause:'', lienClauseShort:'', stateLaw:{} }; } }
+function writeSettings(d){ try{ fs.writeFileSync(SETTINGS_PATH, JSON.stringify(d,null,2)); }catch{} }
+
+app.get('/api/settings', (req,res)=>{ try{ res.json(readSettings()); }catch(e){ res.status(500).json({}); } });
+app.post('/api/settings/save', express.json(), (req,res)=>{ try{ writeSettings({ ...(readSettings()), ...(req.body||{}) }); res.json({ ok:true }); }catch(e){ res.status(500).json({ ok:false }); } });
+
+// ===== Payments store inside each customer =====
+app.post('/api/payments/record', express.json(), (req,res)=>{
+  try{
+    const { customerId, amount, method, note } = req.body||{};
+    if (!customerId || isNaN(Number(amount))) return res.status(400).json({ error:'missing_fields' });
+    const db = readCustomers();
+    const c = (db.items||[]).find(x=>x.id===customerId);
+    if (!c) return res.status(404).json({ error:'customer_not_found' });
+    c.payments = c.payments || [];
+    c.payments.push({ ts: Date.now(), amount: Number(amount), method: method||'unknown', note: note||'' });
+    c.timeline = c.timeline || [];
+    c.timeline.push({ ts: Date.now(), type:'payment_recorded', text:`${amount} via ${method||'unknown'}` });
+    writeCustomers(db);
+    res.json({ ok:true, payments: c.payments });
+  }catch(e){ res.status(500).json({ error:'record_failed' }); }
+});
+app.get('/api/payments/status', (req,res)=>{
+  try{
+    const id = req.query.customerId; if (!id) return res.status(400).json({});
+    const db = readCustomers(); const c = (db.items||[]).find(x=>x.id===id); if (!c) return res.status(404).json({});
+    const paid = (c.payments||[]).reduce((s,p)=> s + Number(p.amount||0), 0);
+    const invoiceTotal = Number(c.invoiceTotal||0); // set from UI
+    res.json({ paid, invoiceTotal, balance: Math.max(0, invoiceTotal - paid) });
+  }catch(e){ res.status(500).json({}); }
+});
+
+// ===== Funding selection + notifications =====
+function renderTemplate(tpl, ctx){ return (tpl||'').replace(/{{(\w+)}}/g, (_,k)=> ctx[k]??''); }
+function reviewLinksHTML(){ const s = readSettings(); return (s.reviewLinks||[]).map(x=>`<a href="${x.url}">${x.label}</a>`).join(' • '); }
+
+app.post('/api/customer/funding', express.json(), async (req,res)=>{
+  try{
+    const { customerId, paymentMethod, insuranceSelected, loanSelected, notify=true } = req.body||{};
+    if (!customerId) return res.status(400).json({ error:'missing_customer' });
+    const db = readCustomers(); const c = (db.items||[]).find(x=>x.id===customerId); if (!c) return res.status(404).json({ error:'customer_not_found' });
+    c.funding = c.funding || {}; c.funding.paymentMethod = paymentMethod||c.funding.paymentMethod; c.funding.insuranceSelected = !!insuranceSelected; c.funding.loanSelected = !!loanSelected;
+    c.timeline = c.timeline||[];
+    if (insuranceSelected) c.timeline.push({ ts: Date.now(), type:'insurance_opt_in' });
+    if (loanSelected) c.timeline.push({ ts: Date.now(), type:'loan_opt_in' });
+    writeCustomers(db);
+
+    if (notify && transporter && c.email){
+      const s = readSettings();
+      const ctx = { name:c.name||'Customer', address:c.address||'', claim:c.claimNumber||'', review_links: reviewLinksHTML(), lien_clause: s.lienClause, lien_clause_short: s.lienClauseShort, days:45 };
+      if (insuranceSelected){
+        const html = renderTemplate(s.emailTemplates?.insuranceOptIn, ctx);
+        await transporter.sendMail({ from: process.env.SMTP_FROM||process.env.SMTP_USER, to:c.email, subject:`Thanks — We’ll process your insurance claim for ${c.address}`, html });
+      }
+      if (loanSelected){
+        const html = renderTemplate(s.emailTemplates?.loanOptIn, ctx);
+        await transporter.sendMail({ from: process.env.SMTP_FROM||process.env.SMTP_USER, to:c.email, subject:`Disaster assistance steps for ${c.address}`, html });
+      }
+    }
+    if (notify && twilioClient && c.phone && loanSelected){
+      try{ await twilioClient.messages.create({ to:c.phone, from: process.env.TWILIO_FROM, body: `SBA: https://disasterloanassistance.sba.gov/  | FEMA: https://www.fema.gov/assistance/individual` }); }catch{}
+    }
+
+    res.json({ ok:true, funding: c.funding });
+  }catch(e){ res.status(500).json({ error:'funding_failed' }); }
+});
+
+// ===== Review request + AI reply (template‑based) =====
+app.post('/api/reviews/send', express.json(), async (req,res)=>{
+  try{
+    const { customerId } = req.body||{}; if (!customerId) return res.status(400).json({});
+    const db = readCustomers(); const c = (db.items||[]).find(x=>x.id===customerId); if (!c || !c.email) return res.status(404).json({});
+    const links = reviewLinksHTML();
+    const html = `Hi ${c.name||'there'},<br/><br/>Thanks for trusting our emergency team. If we helped, would you mind leaving a review? ${links}<br/><br/>— Strategic Land Management LLC`;
+    if (transporter) await transporter.sendMail({ from: process.env.SMTP_FROM||process.env.SMTP_USER, to:c.email, subject:`Quick favor — your review helps others`, html });
+    if (twilioClient && c.phone){ try{ await twilioClient.messages.create({ to:c.phone, from: process.env.TWILIO_FROM, body: `We’d value your review: ${links.replace(/<[^>]+>/g,' ')}` }); }catch{} }
+    c.timeline = c.timeline||[]; c.timeline.push({ ts: Date.now(), type:'review_request_sent' }); writeCustomers(db);
+    res.json({ ok:true });
+  }catch(e){ res.status(500).json({ ok:false }); }
+});
+
+app.post('/api/reviews/reply', express.json(), (req,res)=>{
+  try{
+    const { stars=5, text='' } = req.body||{};
+    const positive = stars>=4;
+    let reply;
+    if (positive){
+      reply = `Thank you for your ${stars}-star review! We’re grateful you trusted us during a stressful time and we’re glad we could help. If you ever need anything, we’re here 24/7.`;
+    } else if (stars===3){
+      reply = `Thank you for the feedback. We’re always working to improve. I’ve shared your comments with our team and I’ll reach out directly to learn more.`;
+    } else {
+      reply = `We’re sorry your experience wasn’t perfect. That’s not the standard we aim for. Please DM or call 888-628-2229 so we can make this right immediately.`;
+    }
+    if (text && !positive){ reply += ` Details noted: “${text.slice(0,140)}${text.length>140?'…':''}”.`; }
+    res.json({ ok:true, reply });
+  }catch(e){ res.status(500).json({ ok:false }); }
+});
+
+// ===== Demand letter PDF (45d) =====
+app.post('/api/letter/demand', express.json(), async (req,res)=>{
+  try{
+    const { customerId, balance=0 } = req.body||{};
+    const db = readCustomers(); const c = (db.items||[]).find(x=>x.id===customerId); if (!c) return res.status(404).json({});
+    const s = readSettings();
+    const outPath = path.join(UPLOAD_DIR, `demand_${Date.now()}.pdf`);
+    const doc = new PDFDocument({ size:'LETTER', margin:36 }); const ws = fs.createWriteStream(outPath); doc.pipe(ws);
+    doc.fontSize(14).text('FORMAL DEMAND FOR PAYMENT'); doc.moveDown();
+    doc.fontSize(11).text(`To: ${c.name||'Customer'}`); if (c.address) doc.text(`Property: ${c.address}`);
+    doc.moveDown().text(`Balance due: $${Number(balance).toFixed(2)}`);
+    const st = (c.address||'').match(/,\s*([A-Z]{2})\s*\d{5}/); const abbr = st?.[1]||'';
+    const law = s.stateLaw?.[abbr] || {};
+    doc.moveDown().text(s.lienClause);
+    if (law?.lienDays){ doc.moveDown().text(`Reference: ${abbr} typical lien filing window ~${law.lienDays} days (verify with counsel). ${law.note||''}`); }
+    doc.moveDown().text('Please remit payment immediately or contact us to discuss.');
+    doc.moveDown().text('Strategic Land Management LLC — 888-628-2229 — strategiclandmgmt@gmail.com');
+    doc.end(); ws.on('finish', ()=> res.json({ ok:true, path:'/uploads/'+path.basename(outPath) }));
+  }catch(e){ res.status(500).json({ ok:false }); }
+});
+
+// ===== Cron: balance reminders (30d/45d) =====
+function getBalance(c){ const paid=(c.payments||[]).reduce((s,p)=>s+Number(p.amount||0),0); const total=Number(c.invoiceTotal||0); return Math.max(0, total - paid); }
+cron.schedule('5 9 * * *', async ()=>{
+  try{
+    const settings = readSettings(); if (!settings.autoAI) return; // global toggle
+    const db = readCustomers();
+    for (const c of (db.items||[])){
+      if (c.autoAI===false) continue; // per-customer toggle
+      // find work_completed
+      const work = (c.timeline||[]).slice().reverse().find(e=>e.type==='work_completed');
+      if (!work) continue;
+      const days = Math.floor((Date.now() - Number(work.ts))/86400000);
+      const bal = getBalance(c);
+      if (bal<=0) continue;
+      const ctx = { name:c.name||'Customer', address:c.address||'', claim:c.claimNumber||'', review_links: reviewLinksHTML(), lien_clause: settings.lienClause, lien_clause_short: settings.lienClauseShort, days };
+      if (days===30 && transporter && c.email){
+        const html = renderTemplate(settings.emailTemplates?.balance30, ctx);
+        await transporter.sendMail({ from: process.env.SMTP_FROM||process.env.SMTP_USER, to:c.email, subject:`Reminder: balance for ${c.address}`, html });
+        if (twilioClient && c.phone){ try{ await twilioClient.messages.create({ to:c.phone, from: process.env.TWILIO_FROM, body: `Reminder: balance for ${c.address}. ${settings.lienClauseShort}` }); }catch{} }
+      }
+      if (days===45){
+        // Generate demand letter + email
+        const r = await (await fetch('http://localhost:'+ (process.env.PORT||3000) +'/api/letter/demand',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ customerId: c.id, balance: bal }) })).json().catch(()=>null);
+        const pdf = r?.path;
+        if (transporter && c.email){
+          const html = renderTemplate(settings.emailTemplates?.balance45Demand, ctx);
+          await transporter.sendMail({ from: process.env.SMTP_FROM||process.env.SMTP_USER, to:c.email, subject:`FORMAL DEMAND — ${c.address}`, html, attachments: pdf? [{ path: path.join(UPLOAD_DIR, path.basename(pdf)) }]:[] });
+        }
+      }
+    }
+  }catch{}
+});
+```
+
+---
+
+## 2) FRONTEND — drop‐in block for `CustomerCard`
+
+Add the import (if you’re using shadcn/ui already):
+
+```jsx
+// inside your UI file
+function dollars(n){ return `$${Number(n||0).toFixed(2)}`; }
+```
+
+Place this **Funding & Payments** section inside your `CustomerCard` (anywhere sensible, e.g., under Docs & Media):
+
+```jsx
+function FundingAndReviews({ c, update, pushEvent, invoiceTotal, onPaymentRecorded }){
+  const [method, setMethod] = React.useState(c.funding?.paymentMethod||'');
+  const [insurance, setInsurance] = React.useState(!!c.funding?.insuranceSelected);
+  const [loan, setLoan] = React.useState(!!c.funding?.loanSelected);
+  const [amount, setAmount] = React.useState('');
+  const [status, setStatus] = React.useState({ paid:0, balance: (c.invoiceTotal||0) });
+  const [autoAI, setAutoAI] = React.useState(c.autoAI!==false);
+  const [autoReplies, setAutoReplies] = React.useState(c.autoReplies!==false);
+
+  React.useEffect(()=>{ (async()=>{
+    const r = await fetch(`/api/payments/status?customerId=${encodeURIComponent(c.id)}`).then(r=>r.json()).catch(()=>({}));
+    const inv = Number(invoiceTotal ?? c.invoiceTotal ?? 0);
+    setStatus({ paid: Number(r.paid||0), balance: Math.max(0, inv - Number(r.paid||0)) });
+  })(); }, [c.id, invoiceTotal, c.invoiceTotal]);
+
+  async function saveFunding(next){
+    const body = { customerId:c.id, paymentMethod: next?.method ?? method, insuranceSelected: next?.insurance ?? insurance, loanSelected: next?.loan ?? loan, notify: true };
+    const r = await fetch('/api/customer/funding',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) }).then(r=>r.json()).catch(()=>null);
+    if (r?.ok){ update(c.id,{ funding:r.funding }); pushEvent(c.id,{ type:'funding_update', text: JSON.stringify(r.funding) }); }
+  }
+
+  async function recordPayment(){
+    const amt = Number(amount||0); if (!amt) return alert('Enter amount');
+    const r = await fetch('/api/payments/record',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ customerId:c.id, amount: amt, method: method||'unknown' }) }).then(r=>r.json()).catch(()=>null);
+    if (r?.ok){ onPaymentRecorded?.(amt); setAmount(''); setStatus(s=> ({ ...s, paid: (s.paid||0)+amt, balance: Math.max(0, (invoiceTotal||c.invoiceTotal||0) - ((s.paid||0)+amt) ) })); pushEvent(c.id,{ type:'payment_recorded', text:`${amt} via ${method}` }); }
+  }
+
+  async function sendReviewReq(){ await fetch('/api/reviews/send',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ customerId:c.id }) }); pushEvent(c.id,{ type:'review_request_sent' }); }
+
+  function toggleAI(v){ setAutoAI(v); update(c.id,{ autoAI: v }); }
+  function toggleReplies(v){ setAutoReplies(v); update(c.id,{ autoReplies: v }); }
+
+  return (
+    <div className="mt-3 border rounded-md p-3 space-y-2">
+      <div className="font-medium">Funding & Payments</div>
+      <div className="grid md:grid-cols-3 gap-3">
+        <div className="space-y-2">
+          <div className="text-xs">Payment method</div>
+          <select className="border rounded px-2 py-1 w-full" value={method} onChange={(e)=>{ setMethod(e.target.value); saveFunding({ method:e.target.value }); }}>
+            <option value="">Select…</option>
+            <option>Cash</option>
+            <option>Visa</option>
+            <option>MasterCard</option>
+            <option>American Express</option>
+            <option>Discover</option>
+            <option>Debit</option>
+            <option>Credit</option>
+            <option>Check</option>
+          </select>
+          <div className="text-xs opacity-70">Paid: {dollars(status.paid)} • Balance: {dollars(status.balance)}</div>
+          <div className="flex gap-2 items-center">
+            <input className="border px-2 py-1 w-28" placeholder="Amount" value={amount} onChange={(e)=>setAmount(e.target.value)} />
+            <Button size="sm" onClick={recordPayment}>Record Payment</Button>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <div className="text-xs">Funding path</div>
+          <label className="text-sm flex items-center gap-2"><input type="checkbox" checked={insurance} onChange={(e)=>{ setInsurance(e.target.checked); saveFunding({ insurance:e.target.checked }); }} /> Customer filing insurance</label>
+          <label className="text-sm flex items-center gap-2"><input type="checkbox" checked={loan} onChange={(e)=>{ setLoan(e.target.checked); saveFunding({ loan:e.target.checked }); }} /> SBA/FEMA disaster loan</label>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={()=>saveFunding({ insurance:true })}>Send Insurance Email</Button>
+            <Button size="sm" variant="outline" onClick={()=>saveFunding({ loan:true })}>Send Loan Email & Text</Button>
+          </div>
+          <div className="text-xs opacity-70">Selecting either path sends a thank‑you + instructions (with review links). Loan also sends SBA/FEMA links by SMS (if phone set).</div>
+        </div>
+
+        <div className="space-y-2">
+          <div className="text-xs">Automation</div>
+          <label className="text-sm flex items-center gap-2"><input type="checkbox" checked={autoAI} onChange={(e)=>toggleAI(e.target.checked)} /> Enable AI reminders (30/45‑day)</label>
+          <label className="text-sm flex items-center gap-2"><input type="checkbox" checked={autoReplies} onChange={(e)=>toggleReplies(e.target.checked)} /> Enable auto‑replies</label>
+          <div className="flex gap-2">
+            <Button size="sm" onClick={sendReviewReq}>Send Review Request</Button>
+            <Button size="sm" variant="outline" onClick={async()=>{ const r=await fetch('/api/payments/status?customerId='+encodeURIComponent(c.id)).then(r=>r.json()); alert(`Paid ${dollars(r.paid||0)} — Balance ${dollars(Math.max(0,(c.invoiceTotal||0)-(r.paid||0)))}`); }}>Check Balance</Button>
+          </div>
+          <div className="text-xs opacity-70">At 45 days past work completion (if unpaid), a demand letter PDF is generated and emailed; a printable copy is saved.</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+```
+
+Then render it inside your `CustomerCard` JSX like:
+
+```jsx
+<FundingAndReviews c={c} update={update} pushEvent={pushEvent} invoiceTotal={total} onPaymentRecorded={(amt)=>{/* optional sync */}} />
+```
+
+---
+
+## 3) Contractor Portal — add Review Links editor (optional)
+
+In your existing **ContractorPortal** add this block to let you save Google/Yelp/Website review links:
+
+```jsx
+function ReviewLinksEditor(){
+  const [links, setLinks] = React.useState([]);
+  React.useEffect(()=>{ fetch('/api/settings').then(r=>r.json()).then(s=> setLinks(s.reviewLinks||[])); },[]);
+  function add(){ setLinks(ls=> [...ls, { label:'', url:'' }]); }
+  function save(){ fetch('/api/settings/save',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ reviewLinks: links }) }); }
+  return (
+    <div className="border rounded p-3 space-y-2">
+      <div className="font-semibold">Review Links</div>
+      {links.map((l,i)=> (
+        <div key={i} className="flex gap-2 items-center">
+          <input className="border px-2 py-1" placeholder="Label (Google/Yelp/Website)" value={l.label} onChange={(e)=> setLinks(arr=>{ const n=[...arr]; n[i]={...n[i], label:e.target.value}; return n; })} />
+          <input className="border px-2 py-1 flex-1" placeholder="https://" value={l.url} onChange={(e)=> setLinks(arr=>{ const n=[...arr]; n[i]={...n[i], url:e.target.value}; return n; })} />
+        </div>
+      ))}
+      <div className="flex gap-2">
+        <Button onClick={add}>Add Link</Button>
+        <Button variant="outline" onClick={save}>Save</Button>
+      </div>
+    </div>
+  );
+}
+```
+
+Render inside **ContractorPortal**:
+
+```jsx
+<ReviewLinksEditor />
+```
+
+> **Legal note**: The state‑law block is a **reference store** you maintain. We do **not** ship hard‑coded legal deadlines. Always verify with your attorney. The emails include your lien clause text and, if you add per‑state info in settings, it will be inserted.
+
+```
+```
