@@ -194,6 +194,19 @@
       "image": "https://via.placeholder.com/640x360.png?text=Damage",
       "stream": null,
       "ts": 1757465980832
+    },
+    {
+      "id": "drone:1757466346461",
+      "provider": "generic",
+      "lat": 28.0595,
+      "lng": -82.4139,
+      "address": "University of South Florida, 4202, East Fowler Avenue, Tampa, Hillsborough County, Florida, 33620, United States",
+      "tags": [
+        "tree_on_roof"
+      ],
+      "image": "https://via.placeholder.com/640x360.png?text=Storm+Damage",
+      "stream": null,
+      "ts": 1757466346461
     }
   ]
 }

@@ -4,6 +4,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 
+// Helper function for currency formatting
+function dollars(n: number | string): string { 
+  return `$${Number(n||0).toFixed(2)}`; 
+}
+
 // ===== Role Context for Role-Based Access =====
 const RoleContext = createContext<{ role: string; setRole: (role: string) => void }>({ role: 'ops', setRole: () => {} });
 
@@ -1781,9 +1786,226 @@ function CustomerCard({ c, update, pushMsg, pushDoc, pushEvent }){
         <Button onClick={submitClaimPackage}>Submit Claim Package</Button>
       </div>
 
+      {/* Funding & Payments */}
+      <FundingAndReviews 
+        c={c} 
+        update={update} 
+        pushEvent={pushEvent} 
+        invoiceTotal={total} 
+        onPaymentRecorded={(amt) => {
+          // Optional: sync with invoice state if needed
+        }} 
+      />
+
       {/* Photo Report */}
       <PhotoReportBlock c={c} absUrl={absUrl} pickImageDocs={pickImageDocs} />
     </CardContent></Card>
+  );
+}
+
+function FundingAndReviews({ c, update, pushEvent, invoiceTotal, onPaymentRecorded }: {
+  c: any;
+  update: (id: string, data: any) => void;
+  pushEvent: (id: string, event: any) => void;
+  invoiceTotal?: number;
+  onPaymentRecorded?: (amount: number) => void;
+}){
+  const [method, setMethod] = useState(c.funding?.paymentMethod||'');
+  const [insurance, setInsurance] = useState(!!c.funding?.insuranceSelected);
+  const [loan, setLoan] = useState(!!c.funding?.loanSelected);
+  const [amount, setAmount] = useState('');
+  const [status, setStatus] = useState({ paid:0, balance: (c.invoiceTotal||0) });
+  const [autoAI, setAutoAI] = useState(c.autoAI!==false);
+  const [autoReplies, setAutoReplies] = useState(c.autoReplies!==false);
+
+  useEffect(()=>{ 
+    (async()=>{
+      const r = await fetch(`/api/payments/status?customerId=${encodeURIComponent(c.id)}`).then(r=>r.json()).catch(()=>({}));
+      const inv = Number(invoiceTotal ?? c.invoiceTotal ?? 0);
+      setStatus({ paid: Number(r.paid||0), balance: Math.max(0, inv - Number(r.paid||0)) });
+    })(); 
+  }, [c.id, invoiceTotal, c.invoiceTotal]);
+
+  async function saveFunding(next?: any){
+    const body = { 
+      customerId:c.id, 
+      paymentMethod: next?.method ?? method, 
+      insuranceSelected: next?.insurance ?? insurance, 
+      loanSelected: next?.loan ?? loan, 
+      notify: true 
+    };
+    const r = await fetch('/api/customer/funding',{ 
+      method:'POST', 
+      headers:{'Content-Type':'application/json'}, 
+      body: JSON.stringify(body) 
+    }).then(r=>r.json()).catch(()=>null);
+    if (r?.ok){ 
+      update(c.id,{ funding:r.funding }); 
+      pushEvent(c.id,{ type:'funding_update', text: JSON.stringify(r.funding) }); 
+    }
+  }
+
+  async function recordPayment(){
+    const amt = Number(amount||0); 
+    if (!amt) return alert('Enter amount');
+    const r = await fetch('/api/payments/record',{ 
+      method:'POST', 
+      headers:{'Content-Type':'application/json'}, 
+      body: JSON.stringify({ customerId:c.id, amount: amt, method: method||'unknown' }) 
+    }).then(r=>r.json()).catch(()=>null);
+    if (r?.ok){ 
+      onPaymentRecorded?.(amt); 
+      setAmount(''); 
+      setStatus(s=> ({ 
+        ...s, 
+        paid: (s.paid||0)+amt, 
+        balance: Math.max(0, (invoiceTotal||c.invoiceTotal||0) - ((s.paid||0)+amt) ) 
+      })); 
+      pushEvent(c.id,{ type:'payment_recorded', text:`${amt} via ${method}` }); 
+    }
+  }
+
+  async function sendReviewReq(){ 
+    await fetch('/api/reviews/send',{ 
+      method:'POST', 
+      headers:{'Content-Type':'application/json'}, 
+      body: JSON.stringify({ customerId:c.id }) 
+    }); 
+    pushEvent(c.id,{ type:'review_request_sent' }); 
+  }
+
+  function toggleAI(v: boolean){ 
+    setAutoAI(v); 
+    update(c.id,{ autoAI: v }); 
+  }
+  
+  function toggleReplies(v: boolean){ 
+    setAutoReplies(v); 
+    update(c.id,{ autoReplies: v }); 
+  }
+
+  return (
+    <div className="mt-3 border rounded-md p-3 space-y-2">
+      <div className="font-medium">Funding & Payments</div>
+      <div className="grid md:grid-cols-3 gap-3">
+        <div className="space-y-2">
+          <div className="text-xs">Payment method</div>
+          <select 
+            className="border rounded px-2 py-1 w-full" 
+            value={method} 
+            onChange={(e)=>{ 
+              setMethod(e.target.value); 
+              saveFunding({ method:e.target.value }); 
+            }}
+          >
+            <option value="">Select…</option>
+            <option>Cash</option>
+            <option>Visa</option>
+            <option>MasterCard</option>
+            <option>American Express</option>
+            <option>Discover</option>
+            <option>Debit</option>
+            <option>Credit</option>
+            <option>Check</option>
+          </select>
+          <div className="text-xs opacity-70">
+            Paid: {dollars(status.paid)} • Balance: {dollars(status.balance)}
+          </div>
+          <div className="flex gap-2 items-center">
+            <input 
+              className="border px-2 py-1 w-28" 
+              placeholder="Amount" 
+              value={amount} 
+              onChange={(e)=>setAmount(e.target.value)} 
+            />
+            <Button size="sm" onClick={recordPayment}>Record Payment</Button>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <div className="text-xs">Funding path</div>
+          <label className="text-sm flex items-center gap-2">
+            <input 
+              type="checkbox" 
+              checked={insurance} 
+              onChange={(e)=>{ 
+                setInsurance(e.target.checked); 
+                saveFunding({ insurance:e.target.checked }); 
+              }} 
+            /> 
+            Customer filing insurance
+          </label>
+          <label className="text-sm flex items-center gap-2">
+            <input 
+              type="checkbox" 
+              checked={loan} 
+              onChange={(e)=>{ 
+                setLoan(e.target.checked); 
+                saveFunding({ loan:e.target.checked }); 
+              }} 
+            /> 
+            SBA/FEMA disaster loan
+          </label>
+          <div className="flex gap-2">
+            <Button 
+              size="sm" 
+              variant="outline" 
+              onClick={()=>saveFunding({ insurance:true })}
+            >
+              Send Insurance Email
+            </Button>
+            <Button 
+              size="sm" 
+              variant="outline" 
+              onClick={()=>saveFunding({ loan:true })}
+            >
+              Send Loan Email & Text
+            </Button>
+          </div>
+          <div className="text-xs opacity-70">
+            Selecting either path sends a thank‑you + instructions (with review links). 
+            Loan also sends SBA/FEMA links by SMS (if phone set).
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <div className="text-xs">Automation</div>
+          <label className="text-sm flex items-center gap-2">
+            <input 
+              type="checkbox" 
+              checked={autoAI} 
+              onChange={(e)=>toggleAI(e.target.checked)} 
+            /> 
+            Enable AI reminders (30/45‑day)
+          </label>
+          <label className="text-sm flex items-center gap-2">
+            <input 
+              type="checkbox" 
+              checked={autoReplies} 
+              onChange={(e)=>toggleReplies(e.target.checked)} 
+            /> 
+            Enable auto‑replies
+          </label>
+          <div className="flex gap-2">
+            <Button size="sm" onClick={sendReviewReq}>Send Review Request</Button>
+            <Button 
+              size="sm" 
+              variant="outline" 
+              onClick={async()=>{ 
+                const r=await fetch('/api/payments/status?customerId='+encodeURIComponent(c.id)).then(r=>r.json()); 
+                alert(`Paid ${dollars(r.paid||0)} — Balance ${dollars(Math.max(0,(c.invoiceTotal||0)-(r.paid||0)))}`); 
+              }}
+            >
+              Check Balance
+            </Button>
+          </div>
+          <div className="text-xs opacity-70">
+            At 45 days past work completion (if unpaid), a demand letter PDF is generated and emailed; 
+            a printable copy is saved.
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 

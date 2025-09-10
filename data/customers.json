@@ -125,6 +125,54 @@
           "text": "From drone"
         }
       ]
+    },
+    {
+      "id": "c:1757466364625",
+      "name": "Unknown Owner",
+      "address": "University of South Florida, 4202, East Fowler Avenue, Tampa, Hillsborough County, Florida, 33620, United States",
+      "lat": 28.0595,
+      "lng": -82.4139,
+      "status": "new",
+      "tags": [
+        "tree_on_roof"
+      ],
+      "docs": [
+        {
+          "name": "lead.jpg",
+          "url": "https://via.placeholder.com/640x360.png?text=Storm+Damage",
+          "caption": "tree_on_roof"
+        }
+      ],
+      "messages": [],
+      "timeline": [
+        {
+          "ts": 1757466364625,
+          "type": "lead_accepted",
+          "text": "From drone"
+        },
+        {
+          "ts": 1757466371655,
+          "type": "payment_recorded",
+          "text": "500 via Credit"
+        },
+        {
+          "ts": 1757466383169,
+          "type": "insurance_opt_in"
+        }
+      ],
+      "payments": [
+        {
+          "ts": 1757466371655,
+          "amount": 500,
+          "method": "Credit",
+          "note": "Initial payment for emergency tree removal"
+        }
+      ],
+      "funding": {
+        "paymentMethod": "Credit",
+        "insuranceSelected": true,
+        "loanSelected": false
+      }
     }
   ]
 }
