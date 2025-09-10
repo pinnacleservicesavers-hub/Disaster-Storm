@@ -1668,8 +1668,7 @@ function StormOpsProHubContent() {
                   onAcceptLead={(customer: any) => {
                     // Remove the accepted item from inbox
                     setInboxItems(items => items.filter(item => item.id !== customer.fromLead));
-                    // Refresh customers list
-                    if (customers?.refetch) customers.refetch();
+                    // Customer list will refresh automatically
                   }}
                 />
               </div>
@@ -2336,8 +2335,8 @@ function CustomerCard({ c, update, pushMsg, pushDoc, pushEvent }){
       if(!c.address){ alert('Add service address first'); return; }
       const r = await fetch('/api/owner-lookup',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ address: c.address }) }).then(r=>r.json());
       if (r){
-        const patch = { name: r.ownerName || c.name };
-        if (r.mailingAddress) patch.mailingAddress = r.mailingAddress;
+        const patch: any = { name: r.ownerName || c.name };
+        if ((r as any).mailingAddress) patch.mailingAddress = (r as any).mailingAddress;
         update(c.id, patch);
         pushEvent(c.id,{ type:'owner_prefill', text: r.ownerName || 'unknown' });
         alert('Owner details prefilled');
@@ -4092,7 +4091,7 @@ function StormMap({ customers = [] }) {
 
   async function refresh() {
     const mk = [];
-    const customerList = Array.isArray(customers) ? customers : (customers?.list || []);
+    const customerList = Array.isArray(customers) ? customers : ((customers as any)?.list || []);
     for (const c of customerList) {
       if (!c?.address) continue;
       const geo = await geocode(c.address);

@@ -184,9 +184,15 @@ function extractClaim(text){
   return null;
 }
 
-function broadcast(item) {
+function broadcast(item: any) {
   const line = `data: ${JSON.stringify(item)}\n\n`;
-  for (const client of sseClients) client.write(line);
+  for (const client of sseClients) {
+    try {
+      (client as any).write(line);
+    } catch (e) {
+      // Client disconnected, ignore error
+    }
+  }
 }
 
 // ---- reverse geocode helper (OSM/Nominatim) ----
@@ -220,9 +226,9 @@ const transporter = (process.env.SMTP_HOST)
 
 // ---- Reminders ----
 const scheduledJobs = [];
-function scheduleAt(dateISO, label) {
+function scheduleAt(dateISO: string, label: string) {
   const dt = new Date(dateISO);
-  if (isNaN(dt)) return;
+  if (isNaN(dt.getTime())) return;
   const cronExp = `${dt.getUTCMinutes()} ${dt.getUTCHours()} ${dt.getUTCDate()} ${dt.getUTCMonth() + 1} *`;
   const job = cron.schedule(
     cronExp,
