@@ -1797,6 +1797,12 @@ function CustomerCard({ c, update, pushMsg, pushDoc, pushEvent }){
         }} 
       />
 
+      {/* Work Completed Button */}
+      <WorkCompletedButton c={c} onDone={(customer) => update(c.id, customer)} />
+
+      {/* Claim Package Email */}
+      <ClaimPackageEmail c={c} />
+
       {/* Photo Report */}
       <PhotoReportBlock c={c} absUrl={absUrl} pickImageDocs={pickImageDocs} />
     </CardContent></Card>
@@ -2004,6 +2010,111 @@ function FundingAndReviews({ c, update, pushEvent, invoiceTotal, onPaymentRecord
             a printable copy is saved.
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function WorkCompletedButton({ c, onDone }: { c: any; onDone?: (customer: any) => void }) {
+  async function markDone(){
+    if (!confirm('Mark work completed now? This starts the 30/45‑day clock and adds follow‑ups to the Calendar.')) return;
+    const r = await fetch('/api/customer/work-completed',{ 
+      method:'POST', 
+      headers:{'Content-Type':'application/json'}, 
+      body: JSON.stringify({ customerId:c.id, contractorId:'ctr:default' }) 
+    }).then(r=>r.json()).catch(()=>null);
+    if (r?.ok){ 
+      onDone?.(r.customer); 
+      alert('Marked completed & scheduled follow‑ups.'); 
+    }
+  }
+  return (
+    <div className="mt-3 border rounded-md p-3">
+      <div className="font-medium mb-2">Work Completion</div>
+      <Button size="sm" onClick={markDone} data-testid="button-work-completed">Set Work Completed</Button>
+      <div className="text-xs text-muted-foreground mt-1">
+        This starts the payment countdown and schedules automatic follow-ups.
+      </div>
+    </div>
+  );
+}
+
+function ClaimPackageEmail({ c }: { c: any }) {
+  const [to, setTo] = useState(c.insurerEmail||'');
+  const [cc, setCc] = useState('');
+  const [notes, setNotes] = useState('');
+  const [includeContract, setIncC] = useState(true);
+  const [includeReport, setIncR] = useState(true);
+  
+  async function send(){
+    const body = { 
+      customerId: c.id, 
+      to, 
+      cc: cc? cc.split(',').map((s: string)=>s.trim()):[], 
+      includeContract: includeContract, 
+      includeLatestPhotoReport: includeReport, 
+      extraNotes: notes 
+    };
+    const r = await fetch('/api/claim/package/send',{ 
+      method:'POST', 
+      headers:{'Content-Type':'application/json'}, 
+      body: JSON.stringify(body) 
+    }).then(r=>r.json()).catch(()=>null);
+    if (r?.ok) alert('Claim package sent.'); else alert('Failed to send.');
+  }
+  
+  return (
+    <div className="mt-3 border rounded-md p-3 space-y-2">
+      <div className="font-medium">Claim Package</div>
+      <div className="grid md:grid-cols-2 gap-2">
+        <Input 
+          className="border px-2 py-1" 
+          placeholder="To (insurer email)" 
+          value={to} 
+          onChange={(e)=>setTo(e.target.value)}
+          data-testid="input-claim-package-to"
+        />
+        <Input 
+          className="border px-2 py-1" 
+          placeholder="CC (comma separated)" 
+          value={cc} 
+          onChange={(e)=>setCc(e.target.value)}
+          data-testid="input-claim-package-cc"
+        />
+      </div>
+      <textarea 
+        className="border w-full px-2 py-1 resize-none" 
+        rows={3} 
+        placeholder="Notes to include in summary" 
+        value={notes} 
+        onChange={(e)=>setNotes(e.target.value)}
+        data-testid="textarea-claim-package-notes"
+      />
+      <div className="space-y-1">
+        <label className="text-sm flex items-center gap-2">
+          <input 
+            type="checkbox" 
+            checked={includeContract} 
+            onChange={(e)=>setIncC(e.target.checked)}
+            data-testid="checkbox-include-contract"
+          /> 
+          Attach contract
+        </label>
+        <label className="text-sm flex items-center gap-2">
+          <input 
+            type="checkbox" 
+            checked={includeReport} 
+            onChange={(e)=>setIncR(e.target.checked)}
+            data-testid="checkbox-include-report"
+          /> 
+          Attach latest photo report
+        </label>
+      </div>
+      <div>
+        <Button size="sm" onClick={send} data-testid="button-send-claim-package">Send Claim Package</Button>
+      </div>
+      <div className="text-xs text-muted-foreground">
+        Generates claim summary PDF with photos and sends to insurer with optional attachments.
       </div>
     </div>
   );

@@ -1487,6 +1487,126 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
   });
 
 
+  // ===== Contractors store =====
+  const CONTRACTORS_PATH = path.join(DATA_DIR, 'contractors.json');
+  if (!fs.existsSync(CONTRACTORS_PATH)) fs.writeFileSync(CONTRACTORS_PATH, JSON.stringify({ items: [
+    { id:'ctr:default', name:'Strategic Land Management LLC', email:'strategiclandmgmt@gmail.com', phone:'+18886282229', timezone:'America/New_York', color:'#0ea5e9' }
+  ] }, null, 2));
+  function readContractors(){ try{ return JSON.parse(fs.readFileSync(CONTRACTORS_PATH,'utf8')); }catch{ return { items: [] }; } }
+  function writeContractors(d: any){ try{ fs.writeFileSync(CONTRACTORS_PATH, JSON.stringify(d,null,2)); }catch{} }
+  app.get('/api/contractors', (req,res)=>{ try{ res.json(readContractors().items||[]); }catch{ res.json([]); } });
+  app.post('/api/contractors/save', express.json(), (req,res)=>{ try{ const c=req.body||{}; if(!c.id) c.id=`ctr:${Date.now()}`; const db=readContractors(); const i=(db.items||[]).findIndex((x: any)=>x.id===c.id); if(i>=0) db.items[i]={...db.items[i],...c}; else db.items.push(c); writeContractors(db); res.json({ ok:true, contractor:c }); }catch(e){ res.status(500).json({ ok:false }); } });
+
+  // ===== Tasks / Schedule store =====
+  const TASKS_PATH = path.join(DATA_DIR, 'tasks.json');
+  if (!fs.existsSync(TASKS_PATH)) fs.writeFileSync(TASKS_PATH, JSON.stringify({ items: [] }, null, 2));
+  function readTasks(){ try{ return JSON.parse(fs.readFileSync(TASKS_PATH,'utf8')); }catch{ return { items: [] }; } }
+  function writeTasks(d: any){ try{ fs.writeFileSync(TASKS_PATH, JSON.stringify(d,null,2)); }catch{} }
+
+  function addTask({ contractorId='ctr:default', customerId=null, title, detail='', startTs, endTs=null, type='job', status='open' }: any){
+    const db = readTasks();
+    const t = { id: `t:${Date.now()}:${Math.random().toString(36).slice(2,6)}`, contractorId, customerId, title, detail, startTs:Number(startTs||Date.now()), endTs:endTs?Number(endTs):null, type, status };
+    db.items.push(t); writeTasks(db); return t;
+  }
+
+  app.post('/api/schedule/add', express.json(), (req,res)=>{ try{ const t = addTask(req.body||{}); res.json({ ok:true, task:t }); }catch(e){ res.status(500).json({ ok:false }); } });
+  app.post('/api/schedule/update', express.json(), (req,res)=>{ try{ const { id, patch } = req.body||{}; const db=readTasks(); const it=(db.items||[]).find((x: any)=>x.id===id); if(!it) return res.status(404).json({}); Object.assign(it, patch||{}); writeTasks(db); res.json({ ok:true, task:it }); }catch(e){ res.status(500).json({ ok:false }); } });
+  app.get('/api/schedule/list', (req,res)=>{ try{ const db=readTasks(); const { contractorId, startTs, endTs } = req.query; let items=db.items||[]; if (contractorId) items=items.filter((x: any)=>x.contractorId===contractorId); if (startTs) items=items.filter((x: any)=>x.startTs>=Number(startTs)); if (endTs) items=items.filter((x: any)=>x.startTs<Number(endTs)); res.json(items.sort((a: any,b: any)=>a.startTs-b.startTs)); }catch(e){ res.status(500).json([]); } });
+
+  // ===== Helper: push follow-up tasks for a customer =====
+  function scheduleFollowUpsForCustomer(c: any, contractorId='ctr:default', baseTs=Date.now()){
+    // Next‑day call, 30‑day balance check, 45‑day demand review
+    addTask({ contractorId, customerId:c.id, title:`Call ${c.name||'customer'}`, detail:`Post‑work follow‑up call for ${c.address||''}`, startTs: baseTs + 24*3600*1000, type:'followup' });
+    addTask({ contractorId, customerId:c.id, title:'Balance check (30 days)', detail:`Review balance & send reminder if needed`, startTs: baseTs + 30*24*3600*1000, type:'followup' });
+    addTask({ contractorId, customerId:c.id, title:'Demand letter review (45 days)', detail:`If unpaid, send demand & consider lien`, startTs: baseTs + 45*24*3600*1000, type:'followup' });
+  }
+
+  // ===== Work Completed endpoint =====
+  app.post('/api/customer/work-completed', express.json(), async (req,res)=>{
+    try{
+      const { customerId, completedAt = Date.now(), contractorId='ctr:default' } = req.body||{};
+      const db = readCustomers(); const c = (db.items||[]).find((x: any)=>x.id===customerId); if (!c) return res.status(404).json({ error:'customer_not_found' });
+      c.status = 'work_completed';
+      c.timeline = c.timeline||[]; c.timeline.push({ ts:Number(completedAt), type:'work_completed', text:'Marked completed' });
+      writeCustomers(db);
+      // Register SLA 45d lien reminder
+      try{ await fetch(`http://localhost:${process.env.PORT||3000}/api/sla/register`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ customerId:c.id, type:'work_completed', ts:Number(completedAt), address:c.address||'', name:c.name||'' }) }); }catch{}
+      // Calendar follow‑ups
+      scheduleFollowUpsForCustomer(c, contractorId, Number(completedAt));
+      res.json({ ok:true, customer:c });
+    }catch(e){ res.status(500).json({ ok:false }); }
+  });
+
+  // ===== Claim Package email =====
+  app.post('/api/claim/package/send', express.json(), async (req,res)=>{
+    try{
+      const { customerId, to, cc=[], includeContract=true, includeLatestPhotoReport=true, extraNotes='' } = req.body||{};
+      const db = readCustomers(); const c = (db.items||[]).find((x: any)=>x.id===customerId); if (!c) return res.status(404).json({});
+      if (!transporter) return res.status(500).json({ error:'Email not configured' });
+
+      // Build summary PDF
+      const outPath = path.join(UPLOAD_DIR, `claim_summary_${Date.now()}.pdf`);
+      const doc = new PDFDocument({ size:'LETTER', margin:36 }); const ws = fs.createWriteStream(outPath); doc.pipe(ws);
+      doc.fontSize(16).text('Claim Package Summary'); doc.moveDown();
+      doc.fontSize(11).text(`Insured: ${c.name||''}`); if (c.address) doc.text(`Property: ${c.address}`);
+      if (c.claimNumber) doc.text(`Claim #: ${c.claimNumber}`);
+      if (c.insurer) doc.text(`Insurer: ${c.insurer}`);
+      if (c.invoiceTotal) doc.text(`Invoice Total: $${Number(c.invoiceTotal).toFixed(2)}`);
+      if (extraNotes) { doc.moveDown().text(`Notes: ${extraNotes}`); }
+      const damageTags = (c.tags||[]).join(', '); if (damageTags) { doc.moveDown().text(`Observed Damage: ${damageTags}`); }
+      // Add up to 4 thumbnail photos
+      const photos = (c.docs||[]).filter((d: any)=>/\.(jpg|jpeg|png)$/i.test(d.url||d.name));
+      for (let i=0;i<Math.min(4, photos.length); i++){
+        try{
+          const ph = photos[i];
+          let buf=null; if (/^https?:/i.test(ph.url)) { const r=await fetch(ph.url); buf = Buffer.from(await r.arrayBuffer()); } else { const fp = ph.url.startsWith('/uploads/')? path.join(UPLOAD_DIR, path.basename(ph.url)):ph.url; buf = fs.readFileSync(fp); }
+          doc.moveDown().text(ph.caption||ph.name||'Photo'); doc.image(buf, { fit:[520,360] });
+        }catch{}
+      }
+      doc.end(); await new Promise(r=> ws.on('finish', r));
+
+      // Attachments
+      const atts = [{ filename: path.basename(outPath), path: outPath }];
+      if (includeContract) {
+        const contractPath = path.join(ASSETS_DIR,'contract.pdf');
+        if (fs.existsSync(contractPath)) atts.push({ filename:'contract.pdf', path: contractPath });
+      }
+      if (includeLatestPhotoReport){
+        const latest = fs.readdirSync(UPLOAD_DIR).filter(n=> n.startsWith('photo_report_') && n.endsWith('.pdf')).sort().pop();
+        if (latest) atts.push({ filename: latest, path: path.join(UPLOAD_DIR, latest) });
+      }
+
+      // Send
+      const toAddr = to || c.insurerEmail || 'claims@example.com';
+      const html = `Attached is the claim package for ${c.name||''} at ${c.address||''}. Claim # ${c.claimNumber||''}.`;
+      const info = await transporter.sendMail({ from: process.env.SMTP_FROM||process.env.SMTP_USER, to: toAddr, cc: Array.isArray(cc)? cc.filter(Boolean):[], subject: `Claim package — ${c.address||''} — ${c.claimNumber||''}`, html, attachments: atts });
+
+      // Timeline
+      c.timeline = c.timeline||[]; c.timeline.push({ ts: Date.now(), type:'claim_package_sent', text:`Email ${toAddr} msgId=${info.messageId}` });
+      writeCustomers(db);
+
+      // Calendar task logged
+      addTask({ title:'Follow up with insurer (3 days)', contractorId:'ctr:default', customerId:c.id, startTs: Date.now()+3*24*3600*1000, type:'followup' });
+
+      res.json({ ok:true, messageId: info.messageId });
+    }catch(e){ res.status(500).json({ ok:false, detail:String(e) }); }
+  });
+
+  // ===== Daily digest (7:00 ET) =====
+  cron.schedule('0 7 * * *', async ()=>{
+    try{
+      const cons = readContractors().items||[]; const tasks = readTasks().items||[]; const today = new Date(); today.setHours(0,0,0,0); const start = today.getTime(); const end = start + 24*3600*1000;
+      for (const ctr of cons){
+        const items = tasks.filter((t: any)=> t.contractorId===ctr.id && t.startTs>=start && t.startTs<end).sort((a: any,b: any)=>a.startTs-b.startTs);
+        if (!items.length) continue;
+        const lines = items.map((t: any)=> `• ${new Date(t.startTs).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})} — ${t.title}${t.detail? ' — '+t.detail:''}`).join('\n');
+        const html = `Today\'s tasks for ${ctr.name}:<br/><pre>${lines}</pre>`;
+        if (transporter && ctr.email){ try{ await transporter.sendMail({ from: process.env.SMTP_FROM||process.env.SMTP_USER, to: ctr.email, subject:'Daily Tasks', html }); }catch{} }
+        if (twilioClient && ctr.phone){ try{ await twilioClient.messages.create({ to: ctr.phone, from: process.env.TWILIO_FROM, body: `Daily tasks:\n${lines.slice(0,120)}${lines.length>120?'…':''}` }); }catch{} }
+      }
+    }catch{}
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
