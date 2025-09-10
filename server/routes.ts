@@ -1613,6 +1613,335 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
 
   app.post('/api/schedule/add', express.json(), (req,res)=>{ try{ const t = addTask(req.body||{}); res.json({ ok:true, task:t }); }catch(e){ res.status(500).json({ ok:false }); } });
   app.post('/api/schedule/update', express.json(), (req,res)=>{ try{ const { id, patch } = req.body||{}; const db=readTasks(); const it=(db.items||[]).find((x: any)=>x.id===id); if(!it) return res.status(404).json({}); Object.assign(it, patch||{}); writeTasks(db); res.json({ ok:true, task:it }); }catch(e){ res.status(500).json({ ok:false }); } });
+
+  // ===== Lead Management Store =====
+  const LEADS_PATH = path.join(DATA_DIR, 'leads.json');
+  if (!fs.existsSync(LEADS_PATH)) fs.writeFileSync(LEADS_PATH, JSON.stringify({ items: [] }, null, 2));
+  function readLeads(){ try{ return JSON.parse(fs.readFileSync(LEADS_PATH,'utf8')); }catch{ return { items: [] }; } }
+  function writeLeads(d: any){ try{ fs.writeFileSync(LEADS_PATH, JSON.stringify(d,null,2)); }catch{} }
+
+  app.get('/api/leads', (req,res)=>{ 
+    try{ 
+      const { contractorId } = req.query;
+      const db = readLeads(); 
+      const leads = contractorId ? (db.items||[]).filter((l: any) => l.contractorId === contractorId) : (db.items||[]);
+      res.json({ leads }); 
+    }catch{ 
+      res.json({ leads: [] }); 
+    } 
+  });
+
+  app.post('/api/leads', express.json(), (req,res)=>{ 
+    try{ 
+      const lead = {
+        id: `lead:${Date.now()}:${Math.random().toString(36).slice(2,6)}`,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        ...req.body
+      };
+      const db = readLeads(); 
+      db.items.push(lead); 
+      writeLeads(db); 
+      res.json({ ok: true, lead }); 
+    }catch(e){ 
+      console.error('Error creating lead:', e);
+      res.status(500).json({ ok: false, error: 'Failed to create lead' }); 
+    } 
+  });
+
+  // ===== Invoice Management Store =====
+  const INVOICES_PATH = path.join(DATA_DIR, 'invoices.json');
+  if (!fs.existsSync(INVOICES_PATH)) fs.writeFileSync(INVOICES_PATH, JSON.stringify({ items: [] }, null, 2));
+  function readInvoices(){ try{ return JSON.parse(fs.readFileSync(INVOICES_PATH,'utf8')); }catch{ return { items: [] }; } }
+  function writeInvoices(d: any){ try{ fs.writeFileSync(INVOICES_PATH, JSON.stringify(d,null,2)); }catch{} }
+
+  app.get('/api/invoices', (req,res)=>{ 
+    try{ 
+      const { contractorId } = req.query;
+      const db = readInvoices(); 
+      const invoices = contractorId ? (db.items||[]).filter((i: any) => i.contractorId === contractorId) : (db.items||[]);
+      res.json({ invoices }); 
+    }catch{ 
+      res.json({ invoices: [] }); 
+    } 
+  });
+
+  app.post('/api/invoices', express.json(), (req,res)=>{ 
+    try{ 
+      const invoice = {
+        id: `inv:${Date.now()}:${Math.random().toString(36).slice(2,6)}`,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        ...req.body
+      };
+      const db = readInvoices(); 
+      db.items.push(invoice); 
+      writeInvoices(db); 
+      res.json({ ok: true, invoice }); 
+    }catch(e){ 
+      console.error('Error creating invoice:', e);
+      res.status(500).json({ ok: false, error: 'Failed to create invoice' }); 
+    } 
+  });
+
+  // ===== Photo Management with AI Analysis =====
+  const PHOTOS_PATH = path.join(DATA_DIR, 'photos.json');
+  if (!fs.existsSync(PHOTOS_PATH)) fs.writeFileSync(PHOTOS_PATH, JSON.stringify({ items: [] }, null, 2));
+  function readPhotos(){ try{ return JSON.parse(fs.readFileSync(PHOTOS_PATH,'utf8')); }catch{ return { items: [] }; } }
+  function writePhotos(d: any){ try{ fs.writeFileSync(PHOTOS_PATH, JSON.stringify(d,null,2)); }catch{} }
+
+  app.get('/api/photos', (req,res)=>{ 
+    try{ 
+      const { contractorId } = req.query;
+      const db = readPhotos(); 
+      const photos = contractorId ? (db.items||[]).filter((p: any) => p.contractorId === contractorId) : (db.items||[]);
+      res.json({ photos }); 
+    }catch{ 
+      res.json({ photos: [] }); 
+    } 
+  });
+
+  app.post('/api/photos/analyze', express.json(), async (req,res)=>{ 
+    try{ 
+      const { contractorId, fileName, fileUrl, category } = req.body;
+      
+      // Simulate AI analysis (would integrate with actual AI service)
+      const mockAiAnalysis = {
+        aiDescription: `Analysis: ${category} photo showing potential property damage. Visible structural elements and environmental conditions documented.`,
+        damageType: ['tree_damage', 'roof_damage', 'structural_damage'][Math.floor(Math.random() * 3)],
+        severity: ['minor', 'moderate', 'severe', 'critical'][Math.floor(Math.random() * 4)],
+        latitude: (33.7490 + (Math.random() - 0.5) * 0.1).toString(), // Mock GPS around Atlanta
+        longitude: (-84.3880 + (Math.random() - 0.5) * 0.1).toString(),
+        address: `${Math.floor(Math.random() * 9999)} Sample St, Atlanta, GA 30309`,
+        isProcessed: true,
+        processedAt: new Date().toISOString()
+      };
+      
+      const photo = {
+        id: `photo:${Date.now()}:${Math.random().toString(36).slice(2,6)}`,
+        createdAt: new Date().toISOString(),
+        contractorId,
+        fileName,
+        fileUrl,
+        category,
+        thumbnailUrl: fileUrl, // Would generate thumbnail in real implementation
+        ...mockAiAnalysis
+      };
+      
+      const db = readPhotos(); 
+      db.items.push(photo); 
+      writePhotos(db); 
+      res.json({ ok: true, photo }); 
+    }catch(e){ 
+      console.error('Error analyzing photo:', e);
+      res.status(500).json({ ok: false, error: 'Failed to analyze photo' }); 
+    } 
+  });
+
+  // ===== Insurance Companies Database =====
+  const INSURANCE_PATH = path.join(DATA_DIR, 'insurance-companies.json');
+  if (!fs.existsSync(INSURANCE_PATH)) {
+    const mockInsuranceCompanies = {
+      items: [
+        {
+          id: 'state-farm',
+          name: 'State Farm',
+          code: 'STFM',
+          claimsEmail: 'claims@statefarm.com',
+          claimsPhone: '1-800-STATE-FARM',
+          disasterClaimsEmail: 'disaster.claims@statefarm.com', 
+          disasterClaimsPhone: '1-800-SF-CLAIM',
+          claimSubmissionPortal: 'https://www.statefarm.com/claims/report-claim',
+          states: ['AL', 'FL', 'GA', 'SC', 'NC', 'TN', 'KY', 'VA', 'WV', 'OH', 'IN', 'IL', 'MI', 'WI', 'MN', 'IA', 'MO', 'AR', 'LA', 'MS', 'TX', 'OK', 'KS', 'NE', 'SD', 'ND', 'MT', 'WY', 'CO', 'NM', 'AZ', 'UT', 'NV', 'ID', 'OR', 'WA', 'CA', 'AK', 'HI'],
+          mailingAddress: 'One State Farm Plaza, Bloomington, IL 61710',
+          website: 'https://www.statefarm.com',
+          avgPayout: '$12,450',
+          totalClaims: 2847593,
+          successRate: '94.2%',
+          payoutTrend: 'stable',
+          notes: 'Largest auto insurer in US, generally fast claim processing'
+        },
+        {
+          id: 'allstate',
+          name: 'Allstate',
+          code: 'ALST',
+          claimsEmail: 'claims@allstate.com',
+          claimsPhone: '1-800-ALLSTATE',
+          disasterClaimsEmail: 'catastrophe@allstate.com',
+          disasterClaimsPhone: '1-800-54-STORM',
+          claimSubmissionPortal: 'https://www.allstate.com/tools-and-resources/car-insurance/report-claim.aspx',
+          states: ['AL', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD', 'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ', 'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC', 'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY'],
+          mailingAddress: '2775 Sanders Road, Northbrook, IL 60062',
+          website: 'https://www.allstate.com',
+          avgPayout: '$11,850',
+          totalClaims: 1923847,
+          successRate: '92.8%',
+          payoutTrend: 'increasing',
+          notes: 'Good hands slogan, solid storm damage coverage'
+        },
+        {
+          id: 'farmers',
+          name: 'Farmers Insurance',
+          code: 'FARM',
+          claimsEmail: 'claims@farmers.com',
+          claimsPhone: '1-800-FARMERS',
+          disasterClaimsEmail: 'cat.claims@farmers.com',
+          disasterClaimsPhone: '1-800-435-7764',
+          claimSubmissionPortal: 'https://www.farmers.com/claims/',
+          states: ['AL', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD', 'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ', 'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC', 'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY'],
+          mailingAddress: '6301 Owensmouth Ave, Woodland Hills, CA 91367',
+          website: 'https://www.farmers.com',
+          avgPayout: '$13,200',
+          totalClaims: 1456789,
+          successRate: '91.5%',
+          payoutTrend: 'stable',
+          notes: 'Strong in western states, good storm coverage'
+        },
+        {
+          id: 'usaa',
+          name: 'USAA',
+          code: 'USAA',
+          claimsEmail: 'claims@usaa.com',
+          claimsPhone: '1-800-531-USAA',
+          disasterClaimsEmail: 'catastrophe@usaa.com',
+          disasterClaimsPhone: '1-800-531-8722',
+          claimSubmissionPortal: 'https://www.usaa.com/inet/wc/insurance-claims-center',
+          states: ['All states for military families'],
+          mailingAddress: '9800 Fredericksburg Road, San Antonio, TX 78288',
+          website: 'https://www.usaa.com',
+          avgPayout: '$14,750',
+          totalClaims: 987654,
+          successRate: '96.8%',
+          payoutTrend: 'stable',
+          notes: 'Military families only, excellent customer service and payouts'
+        },
+        {
+          id: 'progressive',
+          name: 'Progressive',
+          code: 'PROG',
+          claimsEmail: 'claims@progressive.com',
+          claimsPhone: '1-800-PROGRESSIVE',
+          disasterClaimsEmail: 'disaster@progressive.com',
+          disasterClaimsPhone: '1-800-274-4499',
+          claimSubmissionPortal: 'https://www.progressive.com/claims/',
+          states: ['All 50 states'],
+          mailingAddress: '6300 Wilson Mills Rd, Mayfield Village, OH 44143',
+          website: 'https://www.progressive.com',
+          avgPayout: '$10,950',
+          totalClaims: 2134567,
+          successRate: '90.2%',
+          payoutTrend: 'stable',
+          notes: 'Technology-focused, quick online claims processing'
+        },
+        {
+          id: 'liberty-mutual',
+          name: 'Liberty Mutual',
+          code: 'LBMU',
+          claimsEmail: 'claims@libertymutual.com',
+          claimsPhone: '1-800-225-2467',
+          disasterClaimsEmail: 'catastrophe@libertymutual.com',
+          disasterClaimsPhone: '1-800-LM-CLAIM',
+          claimSubmissionPortal: 'https://www.libertymutual.com/property-claim',
+          states: ['All 50 states'],
+          mailingAddress: '175 Berkeley Street, Boston, MA 02116',
+          website: 'https://www.libertymutual.com',
+          avgPayout: '$12,100',
+          totalClaims: 1678901,
+          successRate: '93.1%',
+          payoutTrend: 'increasing',
+          notes: 'Strong commercial and homeowners coverage'
+        }
+      ]
+    };
+    fs.writeFileSync(INSURANCE_PATH, JSON.stringify(mockInsuranceCompanies, null, 2));
+  }
+  function readInsuranceCompanies(){ try{ return JSON.parse(fs.readFileSync(INSURANCE_PATH,'utf8')); }catch{ return { items: [] }; } }
+
+  app.get('/api/insurance-companies', (req,res)=>{ 
+    try{ 
+      const db = readInsuranceCompanies(); 
+      res.json({ companies: db.items || [] }); 
+    }catch{ 
+      res.json({ companies: [] }); 
+    } 
+  });
+
+  // ===== Market Comparables & Xactimate Integration =====
+  app.post('/api/market-comparables', express.json(), async (req,res)=>{ 
+    try{ 
+      const { zipCode, radius = 150, lineItem, contractorPrice } = req.body;
+      
+      // Mock Xactimate-style data (would integrate with real Xactimate API)
+      const mockComparables = [
+        {
+          id: `comp:${Date.now()}:1`,
+          description: 'Tree removal service - Large oak tree (36"+ diameter)',
+          zipCode: zipCode,
+          xactimatePrice: '$2,450.00',
+          contractorPrice: contractorPrice,
+          variance: ((parseFloat(contractorPrice.replace('$','').replace(',','')) / 2450) - 1) * 100,
+          emergencyMultiplier: '1.5x',
+          radius: radius,
+          justification: 'Emergency response, OSHA compliance, specialized equipment required',
+          lineItem: lineItem,
+          createdAt: new Date().toISOString()
+        }
+      ];
+      
+      res.json({ ok: true, comparables: mockComparables }); 
+    }catch(e){ 
+      console.error('Error generating market comparables:', e);
+      res.status(500).json({ ok: false, error: 'Failed to generate market comparables' }); 
+    } 
+  });
+
+  // ===== AI Letter Generation =====
+  app.post('/api/ai-letter', express.json(), async (req,res)=>{ 
+    try{ 
+      const { contractorPrice, xactimatePrice, damageType, emergencyConditions } = req.body;
+      
+      // Mock AI-generated letter (would integrate with OpenAI/Claude)
+      const mockLetter = `
+Dear Insurance Adjuster,
+
+RE: Emergency Storm Response Services - Price Justification
+
+This letter provides justification for the pricing variance between our emergency storm response quote and standard Xactimate estimates.
+
+EMERGENCY CONDITIONS:
+Our pricing reflects the following emergency conditions:
+- Immediate response required for public safety
+- ${emergencyConditions || 'Severe weather conditions requiring specialized equipment'}
+- OSHA-compliant safety protocols in hazardous conditions
+
+PRICING BREAKDOWN:
+- Xactimate Standard Rate: ${xactimatePrice}
+- Our Emergency Rate: ${contractorPrice}
+- Emergency Multiplier: Applied due to immediate response requirements
+
+LEGAL JUSTIFICATION:
+Under the Sherman Antitrust Act, contractors have the right to set competitive pricing based on:
+1. Emergency response capabilities
+2. OSHA and ANSI compliance requirements  
+3. Specialized equipment and training costs
+4. Insurance and bonding requirements
+
+Our pricing is justified and competitive within the emergency response market segment.
+
+Thank you for your consideration.
+
+Strategic Land Management LLC
+Emergency Storm Response Team
+Phone: 888-628-2229
+Email: strategiclandmgmt@gmail.com
+      `;
+      
+      res.json({ ok: true, letter: mockLetter.trim() }); 
+    }catch(e){ 
+      console.error('Error generating AI letter:', e);
+      res.status(500).json({ ok: false, error: 'Failed to generate AI letter' }); 
+    } 
+  });
   app.get('/api/schedule/list', (req,res)=>{ try{ const db=readTasks(); const { contractorId, startTs, endTs } = req.query; let items=db.items||[]; if (contractorId) items=items.filter((x: any)=>x.contractorId===contractorId); if (startTs) items=items.filter((x: any)=>x.startTs>=Number(startTs)); if (endTs) items=items.filter((x: any)=>x.startTs<Number(endTs)); res.json(items.sort((a: any,b: any)=>a.startTs-b.startTs)); }catch(e){ res.status(500).json([]); } });
 
   // ===== Helper: push follow-up tasks for a customer =====
