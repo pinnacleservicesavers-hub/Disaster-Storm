@@ -1592,6 +1592,111 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
     }catch(e){ res.status(500).json({ ok:false, detail:String(e) }); }
   });
 
+  // ===== WEATHER API ENDPOINTS =====
+  
+  // Weather alerts from NOAA/NWS
+  app.get('/api/weather/alerts', async (req, res) => {
+    try {
+      // Mock NOAA weather alerts - in production, this would call actual NWS API
+      const mockAlerts = [
+        {
+          id: "nws-alert-001",
+          title: "Tornado Warning",
+          description: "A tornado warning has been issued for the following areas until 11:30 PM EST.",
+          severity: "Extreme",
+          alertType: "Tornado",
+          areas: ["Fulton County", "DeKalb County"],
+          startTime: new Date(),
+          endTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
+          coordinates: { latitude: 33.7490, longitude: -84.3880 }
+        },
+        {
+          id: "nws-alert-002", 
+          title: "Severe Thunderstorm Warning",
+          description: "Severe thunderstorms with damaging winds and large hail are possible.",
+          severity: "Severe",
+          alertType: "Severe Thunderstorm",
+          areas: ["Gwinnett County", "Cobb County"],
+          startTime: new Date(),
+          endTime: new Date(Date.now() + 4 * 60 * 60 * 1000),
+          coordinates: { latitude: 33.9737, longitude: -84.5755 }
+        }
+      ];
+      res.json(mockAlerts);
+    } catch (error) {
+      console.error('Error fetching weather alerts:', error);
+      res.status(500).json({ error: 'Failed to fetch weather alerts' });
+    }
+  });
+
+  // Current weather conditions
+  app.get('/api/weather/current', async (req, res) => {
+    try {
+      const currentWeather = {
+        temperature: 78,
+        humidity: 65,
+        windSpeed: 15,
+        windDirection: 'SW',
+        pressure: 29.92,
+        visibility: 10,
+        conditions: 'Partly Cloudy',
+        dewPoint: 68,
+        uvIndex: 6,
+        timestamp: new Date().toISOString()
+      };
+      res.json(currentWeather);
+    } catch (error) {
+      console.error('Error fetching current weather:', error);
+      res.status(500).json({ error: 'Failed to fetch current weather' });
+    }
+  });
+
+  // Weather forecast data
+  app.get('/api/weather/forecast', async (req, res) => {
+    try {
+      const forecast = {
+        daily: [
+          { date: new Date().toISOString(), high: 82, low: 68, conditions: 'Thunderstorms', precipChance: 70 },
+          { date: new Date(Date.now() + 86400000).toISOString(), high: 78, low: 65, conditions: 'Partly Cloudy', precipChance: 30 },
+          { date: new Date(Date.now() + 172800000).toISOString(), high: 85, low: 72, conditions: 'Sunny', precipChance: 10 }
+        ],
+        hourly: Array.from({ length: 24 }, (_, i) => ({
+          time: new Date(Date.now() + i * 3600000).toISOString(),
+          temp: 75 + Math.sin(i / 4) * 10,
+          precipChance: Math.max(0, 40 + Math.sin(i / 3) * 30),
+          windSpeed: 10 + Math.random() * 15
+        }))
+      };
+      res.json(forecast);
+    } catch (error) {
+      console.error('Error fetching weather forecast:', error);
+      res.status(500).json({ error: 'Failed to fetch weather forecast' });
+    }
+  });
+
+  // Hurricane tracking data
+  app.get('/api/weather/hurricanes', async (req, res) => {
+    try {
+      const hurricanes = [
+        {
+          id: 'AL012024',
+          name: 'Example Storm',
+          status: 'Hurricane',
+          category: 2,
+          maxWinds: 105,
+          position: { lat: 25.5, lon: -79.8 },
+          movement: { direction: 'NNW', speed: 12 },
+          pressure: 965,
+          lastUpdate: new Date().toISOString()
+        }
+      ];
+      res.json(hurricanes);
+    } catch (error) {
+      console.error('Error fetching hurricane data:', error);
+      res.status(500).json({ error: 'Failed to fetch hurricane data' });
+    }
+  });
+
   // ===== Daily digest (7:00 ET) =====
   cron.schedule('0 7 * * *', async ()=>{
     try{
