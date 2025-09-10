@@ -1,0 +1,85 @@
+✅ Option A — Run Vite Dev (fastest)
+1) package.json (add/merge these scripts)
+{
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0 --port 3000",
+    "start": "node server.js"
+  }
+}
+
+2) Replit shell
+npm install
+npm run dev -- --host 0.0.0.0 --port 3000
+
+
+Open the webview → Open in new tab.
+You should now see your React app (no more “Cannot GET /”).
+
+✅ Option B — One Server (Express serves your built app)
+1) Build the frontend
+npm install
+npm run build
+
+2) Create server/index.js (ESM)
+
+Works if your package.json has "type": "module". If not, use the CommonJS version below.
+
+import express from "express";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Serve static assets from Vite build
+const DIST = path.join(__dirname, "..", "dist");
+app.use(express.static(DIST));
+
+// Quick health check
+app.get("/api/health", (_req, res) => res.json({ ok: true }));
+
+// Catch-all for client-side routing
+app.get("*", (_req, res) => {
+  res.sendFile(path.join(DIST, "index.html"));
+});
+
+app.listen(PORT, () => console.log(`Server running on ${PORT}`));
+
+If you’re not using ESM, use CommonJS instead:
+// server/index.cjs (or server.js)
+const express = require("express");
+const path = require("path");
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+const DIST = path.join(__dirname, "..", "dist");
+app.use(express.static(DIST));
+
+app.get("/api/health", (_req, res) => res.json({ ok: true }));
+
+app.get("*", (_req, res) => {
+  res.sendFile(path.join(DIST, "index.html"));
+});
+
+app.listen(PORT, () => console.log(`Server running on ${PORT}`));
+
+3) package.json (merge these scripts)
+{
+  "scripts": {
+    "build": "vite build",
+    "start": "node server/index.js"
+  }
+}
+
+4) Replit shell (or Run button if configured)
+npm run start
+
+
+Open the webview → / should load your app.
+Check /api/health → should return {"ok":true}.
