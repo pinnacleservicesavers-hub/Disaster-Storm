@@ -66,6 +66,91 @@ function writeSLA(data: any) {
   } 
 }
 
+// ---- Customer storage system ----
+const CUSTOMERS_PATH = path.join(DATA_DIR, 'customers.json');
+if (!fs.existsSync(CUSTOMERS_PATH)) fs.writeFileSync(CUSTOMERS_PATH, JSON.stringify({ items: [] }, null, 2));
+
+function readCustomers() { 
+  try { 
+    return JSON.parse(fs.readFileSync(CUSTOMERS_PATH, 'utf8')); 
+  } catch { 
+    return { items: [] }; 
+  } 
+}
+
+function writeCustomers(data: any) { 
+  try { 
+    fs.writeFileSync(CUSTOMERS_PATH, JSON.stringify(data, null, 2)); 
+  } catch (e) {
+    console.error('Failed to write customers data:', e);
+  } 
+}
+
+// ---- Owner lookup providers ----
+async function ownerLookup(address: string) {
+  if (!address) return null;
+  const prov = (process.env.OWNER_PROVIDER || 'none').toLowerCase();
+  
+  try {
+    if (prov === 'estated') {
+      const token = process.env.ESTATED_TOKEN; 
+      if (!token) return null;
+      const url = `https://api.estated.com/property/v3?token=${encodeURIComponent(token)}&combined_address=${encodeURIComponent(address)}`;
+      const r = await fetch(url); 
+      const j = await r.json();
+      const d = j?.data || j?.properties?.[0] || j?.property || null;
+      const owner = d?.owner || d?.owners?.[0] || {};
+      const name = [owner.owner1_first_name, owner.owner1_last_name, owner.name].filter(Boolean).join(' ').trim() || owner.owner1 || owner.owner2;
+      const mail = d?.mailing_address?.formatted || [d?.mailing_address?.street, d?.mailing_address?.city, d?.mailing_address?.state, d?.mailing_address?.zip].filter(Boolean).join(', ');
+      return name || mail ? { ownerName: name || null, mailingAddress: mail || null } : null;
+    }
+    
+    if (prov === 'attom') {
+      const key = process.env.ATTOM_KEY; 
+      if (!key) return null;
+      const url = `https://api.gateway.attomdata.com/propertyapi/v1.0.0/property/basicprofile?address=${encodeURIComponent(address)}`;
+      const r = await fetch(url, { headers: { apikey: key } }); 
+      const j = await r.json();
+      const d = j?.property?.[0] || null;
+      const own = d?.owner?.[0] || {};
+      const name = [own.firstname, own.lastname].filter(Boolean).join(' ').trim() || own.name1 || own.corporationname;
+      const mail = [own.mailingaddress1 || own.mailingaddress, own.mailingcity, own.mailingstate, own.mailingzip].filter(Boolean).join(', ');
+      return name || mail ? { ownerName: name || null, mailingAddress: mail || null } : null;
+    }
+    
+    if (prov === 'propapi') {
+      const key = process.env.PROPAPI_KEY; 
+      if (!key) return null;
+      const url = `https://example-property-api.com/lookup?address=${encodeURIComponent(address)}`; // replace base URL
+      const r = await fetch(url, { headers: { Authorization: `Bearer ${key}` } }); 
+      const j = await r.json();
+      const name = j?.owner?.name || j?.data?.ownerName || null;
+      const mail = j?.owner?.mailing || j?.data?.mailingAddress || null;
+      return name || mail ? { ownerName: name || null, mailingAddress: mail || null } : null;
+    }
+  } catch (e) { 
+    console.error('Owner lookup failed:', e);
+  }
+  return null; // none/unknown
+}
+
+// ---- Address normalization + geo helpers ----
+function normalizeAddressStr(s: string = '') {
+  return s.toLowerCase()
+    .replace(/\b(ste|unit|apt|suite|#)\b.*$/, '') // drop unit tails
+    .replace(/[^a-z0-9]/g, '') // alnum only
+    .trim();
+}
+
+function haversine(aLat: number, aLng: number, bLat: number, bLng: number) {
+  const R = 6371000; // Earth radius in meters
+  const toRad = (d: number) => d * Math.PI / 180;
+  const dLat = toRad(bLat - aLat);
+  const dLng = toRad(bLng - aLng);
+  const s = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(aLat)) * Math.cos(toRad(bLat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(s));
+}
+
 // ---- in-memory Inbox store (swap for DB in prod) ----
 const inbox = []; // [{ id, provider, timestamp, mediaUrl, thumbnailUrl, lat, lon, address, notes, tags }]
 const sseClients = new Set();
@@ -289,6 +374,150 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
     } catch (error) { 
       console.error('SLA list error:', error);
       res.status(500).json([]); 
+    }
+  });
+
+  // ---- Customers API ----
+  app.get('/api/customers', (req, res) => { 
+    try { 
+      res.json(readCustomers().items || []); 
+    } catch { 
+      res.json([]); 
+    } 
+  });
+
+  // ---- Lead storage system ----
+  const LEADS_PATH = path.join(DATA_DIR, 'leads.json');
+  if (!fs.existsSync(LEADS_PATH)) fs.writeFileSync(LEADS_PATH, JSON.stringify({ items: [] }, null, 2));
+
+  function readLeads() { 
+    try { 
+      return JSON.parse(fs.readFileSync(LEADS_PATH, 'utf8')); 
+    } catch { 
+      return { items: [] }; 
+    } 
+  }
+
+  function writeLeads(data: any) { 
+    try { 
+      fs.writeFileSync(LEADS_PATH, JSON.stringify(data, null, 2)); 
+    } catch (e) {
+      console.error('Failed to write leads data:', e);
+    } 
+  }
+
+  // ---- Enhanced leads accept with owner enrichment and auto-merge ----
+  app.post('/api/leads/accept', async (req, res) => {
+    try {
+      const { id } = req.body || {}; 
+      if (!id) return res.status(400).json({ error: 'id_required' });
+      
+      const leadsDb = readLeads(); 
+      const idx = (leadsDb.items || []).findIndex((x: any) => x.id === id);
+      if (idx < 0) return res.status(404).json({ error: 'not_found' });
+      
+      const lead = leadsDb.items[idx]; 
+      leadsDb.items.splice(idx, 1); 
+      writeLeads(leadsDb);
+
+      // Ensure address exists (reverse geocode if needed)
+      let address = lead.address; 
+      if (!address) { 
+        address = await reverseGeocode(lead.lat, lead.lng); 
+      }
+
+      // Owner enrichment
+      const enrich = await ownerLookup(address);
+
+      // Auto-merge check
+      const custDb = readCustomers();
+      const byAddr = (custDb.items || []).find((c: any) => 
+        normalizeAddressStr(c.address || '') === normalizeAddressStr(address || '')
+      );
+      let mergedInto = null;
+      
+      if (byAddr) { 
+        mergedInto = byAddr; 
+      }
+      
+      if (!mergedInto) {
+        const near = (custDb.items || []).find((c: any) => 
+          typeof c.lat === 'number' && typeof c.lng === 'number' && 
+          haversine(c.lat, c.lng, lead.lat, lead.lng) < 40
+        );
+        if (near) mergedInto = near;
+      }
+
+      let finalCustomer = null;
+      
+      if (mergedInto) {
+        // Merge: append tags/image to docs/timeline
+        mergedInto.timeline = mergedInto.timeline || [];
+        mergedInto.timeline.push({ 
+          ts: Date.now(), 
+          type: 'lead_merged', 
+          text: `Merged lead ${lead.id} (${(lead.tags || []).join(', ')})` 
+        });
+        mergedInto.docs = mergedInto.docs || [];
+        if (lead.image) {
+          mergedInto.docs.push({ 
+            name: `lead_${Date.now()}.jpg`, 
+            url: lead.image, 
+            caption: (lead.tags || []).join(', ') 
+          });
+        }
+        mergedInto.tags = Array.from(new Set([...(mergedInto.tags || []), ...(lead.tags || [])]));
+        
+        if (enrich) {
+          mergedInto.name = mergedInto.name && mergedInto.name !== 'Unknown Owner' ? mergedInto.name : (enrich.ownerName || mergedInto.name);
+          if (enrich.mailingAddress) mergedInto.mailingAddress = enrich.mailingAddress;
+        }
+        
+        finalCustomer = mergedInto;
+        writeCustomers(custDb);
+        
+        // Broadcast merge event
+        broadcast({ type: 'customer_merged', customerId: mergedInto.id, fromLead: lead.id });
+        return res.json({ ok: true, merged: true, customer: mergedInto });
+      }
+
+      // Create new customer scaffold
+      const customer = {
+        id: `c:${Date.now()}:${Math.random().toString(36).slice(2, 6)}`,
+        name: enrich?.ownerName || 'Unknown Owner',
+        mailingAddress: enrich?.mailingAddress || null,
+        address: address || `${lead.lat}, ${lead.lng}`,
+        lat: lead.lat, 
+        lng: lead.lng,
+        phone: '', 
+        email: '',
+        insurer: '', 
+        claimNumber: '',
+        status: 'new',
+        tags: lead.tags || [],
+        docs: lead.image ? [{ 
+          name: `lead_${Date.now()}.jpg`, 
+          url: lead.image, 
+          caption: (lead.tags || []).join(', ') 
+        }] : [],
+        messages: [],
+        timeline: [{ 
+          ts: Date.now(), 
+          type: 'lead_accepted', 
+          text: `From ${lead.provider || 'drone'}; tags: ${(lead.tags || []).join(', ')}` 
+        }]
+      };
+      
+      custDb.items.push(customer); 
+      writeCustomers(custDb);
+      finalCustomer = customer;
+
+      // Broadcast new customer
+      broadcast({ type: 'customer_created', customer: finalCustomer });
+
+      return res.json({ ok: true, created: true, customer: finalCustomer });
+    } catch (e) { 
+      res.status(500).json({ error: 'accept_failed', detail: String(e) }); 
     }
   });
 
