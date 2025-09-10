@@ -98,6 +98,33 @@
           "text": "Merged lead lead:1757465117652:5jlz92 (roof damage, hail damage)"
         }
       ]
+    },
+    {
+      "id": "c:1757465994333",
+      "name": "Unknown Owner",
+      "address": "Robert Sparks Attorneys, 201, Kennedy Boulevard, Riverside, Tampa, Hillsborough County, Florida, 33602, United States",
+      "lat": 27.9475,
+      "lng": -82.4584,
+      "status": "new",
+      "tags": [
+        "tree_on_roof",
+        "line_down"
+      ],
+      "docs": [
+        {
+          "name": "lead.jpg",
+          "url": "https://via.placeholder.com/640x360.png?text=Damage",
+          "caption": "tree_on_roof, line_down"
+        }
+      ],
+      "messages": [],
+      "timeline": [
+        {
+          "ts": 1757465994333,
+          "type": "lead_accepted",
+          "text": "From drone"
+        }
+      ]
     }
   ]
 }
