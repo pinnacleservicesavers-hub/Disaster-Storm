@@ -2926,7 +2926,7 @@ function ContractorPortal(){
         <div className="text-sm">📞 888-628-2229 • 🌐 <a className="underline" href="https://www.strategiclandmgmt.com" target="_blank" rel="noreferrer">www.strategiclandmgmt.com</a> • ✉️ strategiclandmgmt@gmail.com</div>
         <div className="text-xs text-muted-foreground">Veteran-owned & disabled veteran-owned. Certified arborist: John Culpepper.</div>
         <div className="grid md:grid-cols-2 gap-3 mt-2">
-          <Button variant="secondary" onClick={()=>openNew('https://disasterloanassistance.sba.gov/')}>SBA Disaster Loans</Button>
+          <Button variant="secondary" onClick={()=>openNew('https://www.sba.gov/funding-programs/disaster-assistance')}>SBA Disaster Loans</Button>
           <Button variant="secondary" onClick={()=>openNew('https://www.fema.gov/assistance/individual')}>FEMA Individual Assistance</Button>
         </div>
       </CardContent></Card>
