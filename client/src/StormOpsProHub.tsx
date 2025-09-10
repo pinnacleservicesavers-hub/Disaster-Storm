@@ -202,18 +202,23 @@ function WeatherCenter() {
       <div className="bg-white rounded-lg border overflow-hidden">
         {/* Windy Integration */}
         {activeWeatherView === 'windy' && (
-          <div className="h-[600px]">
+          <div className="h-[700px]">
             <iframe
-              src="https://embed.windy.com/embed2.html?lat=39.739&lon=-104.987&detailLat=39.739&detailLon=-104.987&width=650&height=450&zoom=8&level=surface&overlay=wind&product=ecmwf&menu=&message=&marker=&calendar=now&pressure=&type=map&location=coordinates&detail=&metricWind=default&metricTemp=default&radarRange=-1"
+              src={`https://embed.windy.com/embed2.html?lat=${userLocation?.lat || 33.749}&lon=${userLocation?.lon || -84.388}&detailLat=${userLocation?.lat || 33.749}&detailLon=${userLocation?.lon || -84.388}&width=800&height=600&zoom=8&level=surface&overlay=wind&product=ecmwf&menu=&message=&marker=&calendar=now&pressure=&type=map&location=coordinates&detail=&metricWind=kt&metricTemp=default&radarRange=-1`}
               className="w-full h-full border-0"
-              title="Windy Weather Map"
+              title="GPS-Based Live Weather Radar"
               data-testid="iframe-windy-weather"
             />
             <div className="p-4 bg-gray-50 border-t">
-              <h3 className="font-semibold text-gray-900 mb-2">🌪️ Live Weather Radar - Windy</h3>
+              <div className="flex justify-between items-center mb-2">
+                <h3 className="font-semibold text-gray-900">🌪️ Live Weather Radar - GPS Centered</h3>
+                <div className="text-sm text-gray-500">
+                  Updates every 60 seconds
+                </div>
+              </div>
               <p className="text-sm text-gray-600">
-                Real-time weather conditions, radar, wind patterns, and storm tracking from Windy.com. 
-                Use controls in the map to change layers (rain, wind, temperature, pressure).
+                Real-time weather conditions centered on your GPS location. Wind speeds in knots, live radar updates. 
+                Use map controls to switch layers: Rain, Wind, Temperature, Pressure, Waves (coastal areas).
               </p>
             </div>
           </div>
@@ -275,18 +280,78 @@ function WeatherCenter() {
 
         {/* Hurricane Tracker */}
         {activeWeatherView === 'hurricanes' && (
-          <div className="h-[600px]">
-            <iframe
-              src="https://embed.windy.com/embed2.html?lat=25.0&lon=-80.0&detailLat=25.0&detailLon=-80.0&width=650&height=450&zoom=5&level=surface&overlay=wind&product=gfs&menu=&message=&marker=&calendar=now&pressure=&type=map&location=coordinates&detail=&metricWind=kt&metricTemp=default&radarRange=-1"
-              className="w-full h-full border-0"
-              title="Hurricane Tracker"
-              data-testid="iframe-hurricane-tracker"
-            />
-            <div className="p-4 bg-gray-50 border-t">
-              <h3 className="font-semibold text-gray-900 mb-2">🌀 Atlantic Hurricane Tracker</h3>
+          <div className="space-y-4">
+            {/* Live Hurricane Data */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {hurricanes.length > 0 ? hurricanes.map((storm: any, idx: number) => (
+                <div key={storm.id || idx} className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <div className="flex justify-between items-start mb-3">
+                    <div>
+                      <h4 className="font-bold text-red-900 text-lg">{storm.name}</h4>
+                      <div className="text-sm font-medium text-red-700">
+                        Category {storm.category} {storm.status}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-2xl font-bold text-red-900">{storm.maxWinds} kt</div>
+                      <div className="text-xs text-red-600">Max winds</div>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <div className="font-medium text-gray-700">Position</div>
+                      <div className="text-gray-600">{storm.position.lat}°N, {Math.abs(storm.position.lon)}°W</div>
+                    </div>
+                    <div>
+                      <div className="font-medium text-gray-700">Movement</div>
+                      <div className="text-gray-600">{storm.movement.direction} at {storm.movement.speed} mph</div>
+                    </div>
+                    <div>
+                      <div className="font-medium text-gray-700">Pressure</div>
+                      <div className="text-gray-600">{storm.pressure} mb</div>
+                    </div>
+                    <div>
+                      <div className="font-medium text-gray-700">Last Update</div>
+                      <div className="text-gray-600">{new Date(storm.lastUpdate).toLocaleTimeString()}</div>
+                    </div>
+                  </div>
+                  
+                  <button
+                    onClick={() => window.open(`https://windy.com/${storm.position.lat}/${storm.position.lon}/5?waves,${storm.position.lat},${storm.position.lon},5`, '_blank')}
+                    className="mt-3 px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700 transition-colors"
+                    data-testid={`button-track-storm-${idx}`}
+                  >
+                    🌊 Track with Waves & Wind
+                  </button>
+                </div>
+              )) : (
+                <div className="col-span-2 text-center py-8 text-gray-500">
+                  <div className="text-4xl mb-2">🌤️</div>
+                  <div>No active hurricanes or tropical storms</div>
+                  <div className="text-sm mt-1">Atlantic basin monitoring active</div>
+                </div>
+              )}
+            </div>
+
+            {/* Live Hurricane Tracking Map */}
+            <div className="h-[500px]">
+              <iframe
+                src="https://embed.windy.com/embed2.html?lat=25.0&lon=-80.0&detailLat=25.0&detailLon=-80.0&width=800&height=500&zoom=4&level=surface&overlay=waves&product=gfs&menu=&message=&marker=&calendar=now&pressure=&type=map&location=coordinates&detail=&metricWind=kt&metricTemp=default&radarRange=-1"
+                className="w-full h-full border-0"
+                title="Hurricane Tracker with Wave Heights"
+                data-testid="iframe-hurricane-tracker"
+              />
+            </div>
+            
+            <div className="p-4 bg-gray-50 border-t rounded-b-lg">
+              <div className="flex justify-between items-center mb-2">
+                <h3 className="font-semibold text-gray-900">🌀 Live Hurricane & Wave Tracker</h3>
+                <div className="text-sm text-gray-500">Real-time updates</div>
+              </div>
               <p className="text-sm text-gray-600">
-                Live hurricane and tropical storm tracking for the Atlantic basin. 
-                Switch to satellite view and wind overlay to track storm intensity and movement.
+                Live hurricane tracking with wave heights, wind speeds in knots, and storm movement patterns. 
+                Click layer controls to view: Waves, Wind, Pressure, Satellite imagery. Each storm updates every 15 minutes.
               </p>
             </div>
           </div>
