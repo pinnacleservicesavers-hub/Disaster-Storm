@@ -18,7 +18,21 @@ import {
   type AiInteraction,
   type InsertAiInteraction,
   type DspFootage,
-  type InsertDspFootage
+  type InsertDspFootage,
+  type Lead,
+  type InsertLead,
+  type Invoice,
+  type InsertInvoice,
+  type JobCost,
+  type InsertJobCost,
+  type Photo,
+  type InsertPhoto,
+  type XactimateComparable,
+  type InsertXactimateComparable,
+  type ClaimSubmission,
+  type InsertClaimSubmission,
+  type ContractorDocument,
+  type InsertContractorDocument
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -80,6 +94,46 @@ export interface IStorage {
   getDspFootageByProvider(provider: string): Promise<DspFootage[]>;
   createDspFootage(footage: InsertDspFootage): Promise<DspFootage>;
   updateDspFootage(id: string, updates: Partial<DspFootage>): Promise<DspFootage>;
+
+  // Lead methods
+  getLeads(): Promise<Lead[]>;
+  getLeadsByContractor(contractorId: string): Promise<Lead[]>;
+  getLead(id: string): Promise<Lead | undefined>;
+  createLead(lead: InsertLead): Promise<Lead>;
+  updateLead(id: string, updates: Partial<Lead>): Promise<Lead>;
+
+  // Invoice methods
+  getInvoices(): Promise<Invoice[]>;
+  getInvoicesByContractor(contractorId: string): Promise<Invoice[]>;
+  getInvoice(id: string): Promise<Invoice | undefined>;
+  createInvoice(invoice: InsertInvoice): Promise<Invoice>;
+  updateInvoice(id: string, updates: Partial<Invoice>): Promise<Invoice>;
+
+  // Job Cost methods
+  getJobCostsByInvoice(invoiceId: string): Promise<JobCost[]>;
+  createJobCost(jobCost: InsertJobCost): Promise<JobCost>;
+
+  // Photo methods
+  getPhotos(): Promise<Photo[]>;
+  getPhotosByContractor(contractorId: string): Promise<Photo[]>;
+  getPhotosByLead(leadId: string): Promise<Photo[]>;
+  getPhotosByInvoice(invoiceId: string): Promise<Photo[]>;
+  createPhoto(photo: InsertPhoto): Promise<Photo>;
+
+  // Xactimate Comparable methods
+  getXactimateComparablesByInvoice(invoiceId: string): Promise<XactimateComparable[]>;
+  createXactimateComparable(comparable: InsertXactimateComparable): Promise<XactimateComparable>;
+
+  // Claim Submission methods
+  getClaimSubmissions(): Promise<ClaimSubmission[]>;
+  getClaimSubmissionsByContractor(contractorId: string): Promise<ClaimSubmission[]>;
+  createClaimSubmission(submission: InsertClaimSubmission): Promise<ClaimSubmission>;
+  updateClaimSubmission(id: string, updates: Partial<ClaimSubmission>): Promise<ClaimSubmission>;
+
+  // Contractor Document methods
+  getContractorDocuments(): Promise<ContractorDocument[]>;
+  getContractorDocumentsByContractor(contractorId: string): Promise<ContractorDocument[]>;
+  createContractorDocument(document: InsertContractorDocument): Promise<ContractorDocument>;
 }
 
 export class MemStorage implements IStorage {
@@ -93,6 +147,13 @@ export class MemStorage implements IStorage {
   private marketComparables: Map<string, MarketComparable> = new Map();
   private aiInteractions: Map<string, AiInteraction> = new Map();
   private dspFootage: Map<string, DspFootage> = new Map();
+  private leads: Map<string, Lead> = new Map();
+  private invoices: Map<string, Invoice> = new Map();
+  private jobCosts: Map<string, JobCost> = new Map();
+  private photos: Map<string, Photo> = new Map();
+  private xactimateComparables: Map<string, XactimateComparable> = new Map();
+  private claimSubmissions: Map<string, ClaimSubmission> = new Map();
+  private contractorDocuments: Map<string, ContractorDocument> = new Map();
 
   constructor() {
     this.initializeTestData();
@@ -117,6 +178,10 @@ export class MemStorage implements IStorage {
         claimsPhone: "1-800-CLAIMS",
         mailingAddress: "Claims Dept, Corporate Office",
         website: `https://www.${company.name.toLowerCase().replace(' ', '')}.com`,
+        disasterClaimsEmail: `disaster@${company.name.toLowerCase().replace(' ', '')}.com`,
+        disasterClaimsPhone: "1-800-DISASTER",
+        claimSubmissionPortal: `https://claims.${company.name.toLowerCase().replace(' ', '')}.com`,
+        states: ["GA", "FL", "AL", "SC", "NC", "TN", "TX"],
         notes: "",
         updatedAt: new Date(),
       });
@@ -410,6 +475,184 @@ export class MemStorage implements IStorage {
     const updated = { ...existing, ...updates };
     this.dspFootage.set(id, updated);
     return updated;
+  }
+
+  // Lead methods
+  async getLeads(): Promise<Lead[]> {
+    return Array.from(this.leads.values());
+  }
+
+  async getLeadsByContractor(contractorId: string): Promise<Lead[]> {
+    return Array.from(this.leads.values()).filter(lead => lead.contractorId === contractorId);
+  }
+
+  async getLead(id: string): Promise<Lead | undefined> {
+    return this.leads.get(id);
+  }
+
+  async createLead(insertLead: InsertLead): Promise<Lead> {
+    const id = randomUUID();
+    const lead: Lead = { 
+      ...insertLead, 
+      id, 
+      createdAt: new Date(), 
+      updatedAt: new Date() 
+    };
+    this.leads.set(id, lead);
+    return lead;
+  }
+
+  async updateLead(id: string, updates: Partial<Lead>): Promise<Lead> {
+    const lead = this.leads.get(id);
+    if (!lead) throw new Error("Lead not found");
+    
+    const updatedLead = { ...lead, ...updates, updatedAt: new Date() };
+    this.leads.set(id, updatedLead);
+    return updatedLead;
+  }
+
+  // Invoice methods
+  async getInvoices(): Promise<Invoice[]> {
+    return Array.from(this.invoices.values());
+  }
+
+  async getInvoicesByContractor(contractorId: string): Promise<Invoice[]> {
+    return Array.from(this.invoices.values()).filter(invoice => invoice.contractorId === contractorId);
+  }
+
+  async getInvoice(id: string): Promise<Invoice | undefined> {
+    return this.invoices.get(id);
+  }
+
+  async createInvoice(insertInvoice: InsertInvoice): Promise<Invoice> {
+    const id = randomUUID();
+    const invoice: Invoice = { 
+      ...insertInvoice, 
+      id, 
+      createdAt: new Date(), 
+      updatedAt: new Date() 
+    };
+    this.invoices.set(id, invoice);
+    return invoice;
+  }
+
+  async updateInvoice(id: string, updates: Partial<Invoice>): Promise<Invoice> {
+    const invoice = this.invoices.get(id);
+    if (!invoice) throw new Error("Invoice not found");
+    
+    const updatedInvoice = { ...invoice, ...updates, updatedAt: new Date() };
+    this.invoices.set(id, updatedInvoice);
+    return updatedInvoice;
+  }
+
+  // Job Cost methods
+  async getJobCostsByInvoice(invoiceId: string): Promise<JobCost[]> {
+    return Array.from(this.jobCosts.values()).filter(cost => cost.invoiceId === invoiceId);
+  }
+
+  async createJobCost(insertJobCost: InsertJobCost): Promise<JobCost> {
+    const id = randomUUID();
+    const jobCost: JobCost = { 
+      ...insertJobCost, 
+      id, 
+      createdAt: new Date() 
+    };
+    this.jobCosts.set(id, jobCost);
+    return jobCost;
+  }
+
+  // Photo methods
+  async getPhotos(): Promise<Photo[]> {
+    return Array.from(this.photos.values());
+  }
+
+  async getPhotosByContractor(contractorId: string): Promise<Photo[]> {
+    return Array.from(this.photos.values()).filter(photo => photo.contractorId === contractorId);
+  }
+
+  async getPhotosByLead(leadId: string): Promise<Photo[]> {
+    return Array.from(this.photos.values()).filter(photo => photo.leadId === leadId);
+  }
+
+  async getPhotosByInvoice(invoiceId: string): Promise<Photo[]> {
+    return Array.from(this.photos.values()).filter(photo => photo.invoiceId === invoiceId);
+  }
+
+  async createPhoto(insertPhoto: InsertPhoto): Promise<Photo> {
+    const id = randomUUID();
+    const photo: Photo = { 
+      ...insertPhoto, 
+      id, 
+      createdAt: new Date() 
+    };
+    this.photos.set(id, photo);
+    return photo;
+  }
+
+  // Xactimate Comparable methods
+  async getXactimateComparablesByInvoice(invoiceId: string): Promise<XactimateComparable[]> {
+    return Array.from(this.xactimateComparables.values()).filter(comp => comp.invoiceId === invoiceId);
+  }
+
+  async createXactimateComparable(insertComparable: InsertXactimateComparable): Promise<XactimateComparable> {
+    const id = randomUUID();
+    const comparable: XactimateComparable = { 
+      ...insertComparable, 
+      id, 
+      createdAt: new Date() 
+    };
+    this.xactimateComparables.set(id, comparable);
+    return comparable;
+  }
+
+  // Claim Submission methods
+  async getClaimSubmissions(): Promise<ClaimSubmission[]> {
+    return Array.from(this.claimSubmissions.values());
+  }
+
+  async getClaimSubmissionsByContractor(contractorId: string): Promise<ClaimSubmission[]> {
+    return Array.from(this.claimSubmissions.values()).filter(submission => submission.contractorId === contractorId);
+  }
+
+  async createClaimSubmission(insertSubmission: InsertClaimSubmission): Promise<ClaimSubmission> {
+    const id = randomUUID();
+    const submission: ClaimSubmission = { 
+      ...insertSubmission, 
+      id, 
+      submittedAt: new Date() 
+    };
+    this.claimSubmissions.set(id, submission);
+    return submission;
+  }
+
+  async updateClaimSubmission(id: string, updates: Partial<ClaimSubmission>): Promise<ClaimSubmission> {
+    const submission = this.claimSubmissions.get(id);
+    if (!submission) throw new Error("Claim submission not found");
+    
+    const updatedSubmission = { ...submission, ...updates };
+    this.claimSubmissions.set(id, updatedSubmission);
+    return updatedSubmission;
+  }
+
+  // Contractor Document methods
+  async getContractorDocuments(): Promise<ContractorDocument[]> {
+    return Array.from(this.contractorDocuments.values());
+  }
+
+  async getContractorDocumentsByContractor(contractorId: string): Promise<ContractorDocument[]> {
+    return Array.from(this.contractorDocuments.values()).filter(doc => doc.contractorId === contractorId);
+  }
+
+  async createContractorDocument(insertDocument: InsertContractorDocument): Promise<ContractorDocument> {
+    const id = randomUUID();
+    const document: ContractorDocument = { 
+      ...insertDocument, 
+      id, 
+      createdAt: new Date(), 
+      updatedAt: new Date() 
+    };
+    this.contractorDocuments.set(id, document);
+    return document;
   }
 }
 

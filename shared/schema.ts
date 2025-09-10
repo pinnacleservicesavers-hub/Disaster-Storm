@@ -301,96 +301,23 @@ export const claimSubmissions = pgTable("claim_submissions", {
 });
 
 // Zod schemas for validation  
-export const insertUserSchema = createInsertSchema(users).omit({
-  id: true,
-  createdAt: true,
-});
-
-export const insertClaimSchema = createInsertSchema(claims).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
-export const insertInsuranceCompanySchema = createInsertSchema(insuranceCompanies).omit({
-  id: true,
-  updatedAt: true,
-});
-
-export const insertLienRuleSchema = createInsertSchema(lienRules).omit({
-  id: true,
-  lastVerified: true,
-});
-
-export const insertWeatherAlertSchema = createInsertSchema(weatherAlerts).omit({
-  id: true,
-  createdAt: true,
-});
-
-export const insertFieldReportSchema = createInsertSchema(fieldReports).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
-export const insertDroneFootageSchema = createInsertSchema(droneFootage).omit({
-  id: true,
-  createdAt: true,
-});
-
-export const insertMarketComparableSchema = createInsertSchema(marketComparables).omit({
-  id: true,
-  lastUpdated: true,
-});
-
-export const insertAiInteractionSchema = createInsertSchema(aiInteractions).omit({
-  id: true,
-  createdAt: true,
-});
-
-export const insertDspFootageSchema = createInsertSchema(dspFootage).omit({
-  id: true,
-  createdAt: true,
-  processedAt: true,
-});
-
-export const insertContractorDocumentSchema = createInsertSchema(contractorDocuments).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
-export const insertLeadSchema = createInsertSchema(leads).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
-export const insertInvoiceSchema = createInsertSchema(invoices).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
-export const insertJobCostSchema = createInsertSchema(jobCosts).omit({
-  id: true,
-  createdAt: true,
-});
-
-export const insertPhotoSchema = createInsertSchema(photos).omit({
-  id: true,
-  createdAt: true,
-});
-
-export const insertXactimateComparableSchema = createInsertSchema(xactimateComparables).omit({
-  id: true,
-  createdAt: true,
-});
-
-export const insertClaimSubmissionSchema = createInsertSchema(claimSubmissions).omit({
-  id: true,
-  submittedAt: true,
-});
+export const insertUserSchema = createInsertSchema(users);
+export const insertClaimSchema = createInsertSchema(claims);
+export const insertInsuranceCompanySchema = createInsertSchema(insuranceCompanies);
+export const insertLienRuleSchema = createInsertSchema(lienRules);
+export const insertWeatherAlertSchema = createInsertSchema(weatherAlerts);
+export const insertFieldReportSchema = createInsertSchema(fieldReports);
+export const insertDroneFootageSchema = createInsertSchema(droneFootage);
+export const insertMarketComparableSchema = createInsertSchema(marketComparables);
+export const insertAiInteractionSchema = createInsertSchema(aiInteractions);
+export const insertDspFootageSchema = createInsertSchema(dspFootage);
+export const insertContractorDocumentSchema = createInsertSchema(contractorDocuments);
+export const insertLeadSchema = createInsertSchema(leads);
+export const insertInvoiceSchema = createInsertSchema(invoices);
+export const insertJobCostSchema = createInsertSchema(jobCosts);
+export const insertPhotoSchema = createInsertSchema(photos);
+export const insertXactimateComparableSchema = createInsertSchema(xactimateComparables);
+export const insertClaimSubmissionSchema = createInsertSchema(claimSubmissions);
 
 // Types
 export type User = typeof users.$inferSelect;

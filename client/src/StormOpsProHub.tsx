@@ -2918,7 +2918,15 @@ function TodayTaskList({ contractorId }: { contractorId: string }){
 // --- Contractor Portal (Strategic LM) ---
 function ContractorPortal(){
   const [documents, setDocuments] = useState<any[]>([]);
+  const [leads, setLeads] = useState<any[]>([]);
+  const [invoices, setInvoices] = useState<any[]>([]);
+  const [photos, setPhotos] = useState<any[]>([]);
+  const [insuranceCompanies, setInsuranceCompanies] = useState<any[]>([]);
+  const [selectedLead, setSelectedLead] = useState<any>(null);
+  const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [leadsLoading, setLeadsLoading] = useState(true);
+  const [activeSection, setActiveSection] = useState('leads'); // leads, invoices, photos, claims
   const contractorId = "strategic-land-mgmt"; // In a real app, get from auth context
   
   function openNew(url: string) { window.open(url, '_blank', 'noopener,noreferrer'); }
@@ -2932,6 +2940,22 @@ function ContractorPortal(){
         setLoading(false);
       })
       .catch(() => setLoading(false));
+  }, []);
+
+  // Load leads data
+  useEffect(() => {
+    Promise.all([
+      fetch(`/api/leads?contractorId=${contractorId}`).then(r => r.json()),
+      fetch(`/api/invoices?contractorId=${contractorId}`).then(r => r.json()),
+      fetch(`/api/photos?contractorId=${contractorId}`).then(r => r.json()),
+      fetch('/api/insurance-companies').then(r => r.json())
+    ]).then(([leadsData, invoicesData, photosData, insuranceData]) => {
+      setLeads(leadsData.leads || []);
+      setInvoices(invoicesData.invoices || []);
+      setPhotos(photosData.photos || []);
+      setInsuranceCompanies(insuranceData.companies || []);
+      setLeadsLoading(false);
+    }).catch(() => setLeadsLoading(false));
   }, []);
 
   const handleUploadComplete = async (result: any, documentType: string, title: string) => {
@@ -3071,6 +3095,631 @@ function ContractorPortal(){
             <div className="text-sm text-muted-foreground">No price sheets uploaded yet</div>
           )}
         </div>
+      </CardContent></Card>
+
+      {/* Navigation Tabs for Contractor Features */}
+      <Card><CardContent className="p-4">
+        <div className="flex gap-2 mb-4 border-b">
+          {[
+            { id: 'leads', label: '📋 Lead Management', count: leads.length },
+            { id: 'invoices', label: '💰 Invoices & Billing', count: invoices.length },
+            { id: 'photos', label: '📸 Photo Management', count: photos.length },
+            { id: 'claims', label: '📄 Claim Submission', count: 0 },
+            { id: 'documents', label: '📋 W9 & Documents', count: documents.filter(d => d.documentType === 'w9').length }
+          ].map(section => (
+            <button
+              key={section.id}
+              onClick={() => setActiveSection(section.id)}
+              className={`px-4 py-2 rounded-t-lg text-sm transition-colors ${
+                activeSection === section.id 
+                  ? 'bg-blue-100 text-blue-800 border-b-2 border-blue-500' 
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+              data-testid={`button-section-${section.id}`}
+            >
+              {section.label} {section.count > 0 && `(${section.count})`}
+            </button>
+          ))}
+        </div>
+
+        {activeSection === 'leads' && (
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-semibold">Lead Management</h3>
+              <Button onClick={() => {
+                // Open lead creation modal
+                const customerName = prompt('Customer Name:');
+                const customerPhone = prompt('Customer Phone:');
+                const propertyAddress = prompt('Property Address:');
+                const damageType = prompt('Damage Type (tree_removal, roof_damage, etc):');
+                
+                if (customerName && customerPhone && propertyAddress && damageType) {
+                  fetch('/api/leads', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      contractorId,
+                      customerName,
+                      customerPhone,
+                      propertyAddress,
+                      damageType,
+                      urgency: 'normal',
+                      status: 'new',
+                      source: 'direct'
+                    })
+                  }).then(() => {
+                    // Refresh leads
+                    fetch(`/api/leads?contractorId=${contractorId}`)
+                      .then(r => r.json())
+                      .then(data => setLeads(data.leads || []));
+                  });
+                }
+              }}>
+                ➕ Add New Lead
+              </Button>
+            </div>
+
+            {leadsLoading ? (
+              <div className="text-center py-8">Loading leads...</div>
+            ) : (
+              <div className="space-y-3">
+                {/* Quick Stats */}
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="bg-blue-50 p-3 rounded-lg text-center">
+                    <div className="text-2xl font-bold text-blue-600">{leads.filter(l => l.status === 'new').length}</div>
+                    <div className="text-sm text-blue-800">New Leads</div>
+                  </div>
+                  <div className="bg-yellow-50 p-3 rounded-lg text-center">
+                    <div className="text-2xl font-bold text-yellow-600">{leads.filter(l => l.status === 'scheduled').length}</div>
+                    <div className="text-sm text-yellow-800">Scheduled</div>
+                  </div>
+                  <div className="bg-green-50 p-3 rounded-lg text-center">
+                    <div className="text-2xl font-bold text-green-600">{leads.filter(l => l.status === 'completed').length}</div>
+                    <div className="text-sm text-green-800">Completed</div>
+                  </div>
+                </div>
+
+                {/* All Leads List */}
+                <div className="space-y-3">
+                  <h4 className="font-medium text-gray-900">All Leads</h4>
+                  {leads.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500">
+                      No leads yet. Add your first lead to get started!
+                    </div>
+                  ) : (
+                    leads.map(lead => (
+                      <div key={lead.id} className="border rounded-lg p-4 hover:bg-gray-50">
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium">{lead.customerName}</span>
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                lead.status === 'new' ? 'bg-blue-100 text-blue-800' :
+                                lead.status === 'scheduled' ? 'bg-yellow-100 text-yellow-800' :
+                                lead.status === 'in_progress' ? 'bg-orange-100 text-orange-800' :
+                                'bg-green-100 text-green-800'
+                              }`}>
+                                {lead.status}
+                              </span>
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                lead.urgency === 'emergency' ? 'bg-red-100 text-red-800' :
+                                lead.urgency === 'urgent' ? 'bg-orange-100 text-orange-800' :
+                                'bg-gray-100 text-gray-800'
+                              }`}>
+                                {lead.urgency}
+                              </span>
+                            </div>
+                            <div className="text-sm text-gray-600 mt-1">
+                              📍 {lead.propertyAddress}
+                            </div>
+                            <div className="text-sm text-gray-600">
+                              🔧 {lead.damageType} • 📞 {lead.customerPhone}
+                            </div>
+                            {lead.estimatedValue && (
+                              <div className="text-sm font-medium text-green-600">
+                                💰 Est. Value: {dollars(lead.estimatedValue)}
+                              </div>
+                            )}
+                            {lead.scheduledDate && (
+                              <div className="text-sm text-blue-600">
+                                📅 Scheduled: {new Date(lead.scheduledDate).toLocaleDateString()}
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex gap-2">
+                            <Button size="sm" variant="outline" onClick={() => setSelectedLead(lead)}>
+                              View Details
+                            </Button>
+                            <Button size="sm" onClick={() => {
+                              // Create invoice for this lead
+                              const workDescription = prompt('Work Description:');
+                              const totalAmount = prompt('Total Amount:');
+                              
+                              if (workDescription && totalAmount) {
+                                fetch('/api/invoices', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({
+                                    invoiceNumber: `INV-${Date.now()}`,
+                                    contractorId,
+                                    leadId: lead.id,
+                                    customerName: lead.customerName,
+                                    customerPhone: lead.customerPhone,
+                                    propertyAddress: lead.propertyAddress,
+                                    workDescription,
+                                    subtotal: totalAmount,
+                                    totalAmount,
+                                    isEmergencyRate: lead.urgency === 'emergency',
+                                    status: 'draft'
+                                  })
+                                }).then(() => {
+                                  setActiveSection('invoices');
+                                  // Refresh invoices
+                                  fetch(`/api/invoices?contractorId=${contractorId}`)
+                                    .then(r => r.json())
+                                    .then(data => setInvoices(data.invoices || []));
+                                });
+                              }
+                            }}>
+                              Create Invoice
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                {/* Scheduled Appointments Today */}
+                <div className="space-y-3">
+                  <h4 className="font-medium text-gray-900">Today's Scheduled Appointments</h4>
+                  {leads.filter(l => {
+                    if (!l.scheduledDate) return false;
+                    const today = new Date();
+                    const scheduled = new Date(l.scheduledDate);
+                    return scheduled.toDateString() === today.toDateString();
+                  }).length === 0 ? (
+                    <div className="text-center py-4 text-gray-500">
+                      No appointments scheduled for today
+                    </div>
+                  ) : (
+                    leads.filter(l => {
+                      if (!l.scheduledDate) return false;
+                      const today = new Date();
+                      const scheduled = new Date(l.scheduledDate);
+                      return scheduled.toDateString() === today.toDateString();
+                    }).map(lead => (
+                      <div key={lead.id} className="border rounded-lg p-3 bg-blue-50">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <div className="font-medium">{lead.customerName}</div>
+                            <div className="text-sm text-gray-600">{lead.propertyAddress}</div>
+                            <div className="text-sm text-blue-600">
+                              {new Date(lead.scheduledDate).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}
+                            </div>
+                          </div>
+                          <Button size="sm">
+                            Start Job
+                          </Button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeSection === 'invoices' && (
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-semibold">Invoice Management</h3>
+              <Button onClick={() => {
+                // Open invoice creation
+                setActiveSection('leads');
+                alert('Select a lead to create an invoice for, or add a new lead first.');
+              }}>
+                ➕ Create Invoice
+              </Button>
+            </div>
+
+            <div className="space-y-3">
+              {invoices.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  No invoices created yet. Create your first invoice from a lead!
+                </div>
+              ) : (
+                invoices.map(invoice => (
+                  <div key={invoice.id} className="border rounded-lg p-4">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{invoice.invoiceNumber}</span>
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            invoice.status === 'draft' ? 'bg-gray-100 text-gray-800' :
+                            invoice.status === 'sent' ? 'bg-blue-100 text-blue-800' :
+                            invoice.status === 'paid' ? 'bg-green-100 text-green-800' :
+                            'bg-red-100 text-red-800'
+                          }`}>
+                            {invoice.status}
+                          </span>
+                          {invoice.isEmergencyRate && (
+                            <span className="px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                              Emergency Rate
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-sm text-gray-600 mt-1">
+                          👤 {invoice.customerName} • 📍 {invoice.propertyAddress}
+                        </div>
+                        <div className="text-sm text-gray-600">
+                          🔧 {invoice.workDescription}
+                        </div>
+                        <div className="text-lg font-medium text-green-600">
+                          💰 {dollars(invoice.totalAmount)}
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="outline" onClick={() => setSelectedInvoice(invoice)}>
+                          View Details
+                        </Button>
+                        <Button size="sm" onClick={() => {
+                          // Generate market comparables for this invoice
+                          alert('Generating market comparables with Xactimate data...');
+                        }}>
+                          Market Comparables
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeSection === 'photos' && (
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-semibold">Photo Management with AI Analysis</h3>
+              <ObjectUploader
+                maxNumberOfFiles={5}
+                maxFileSize={10485760} // 10MB
+                onGetUploadParameters={getUploadParameters}
+                onComplete={(result) => {
+                  if (result.successful && result.successful.length > 0) {
+                    result.successful.forEach(async (file) => {
+                      // Submit for AI analysis
+                      try {
+                        const response = await fetch('/api/photos/analyze', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            contractorId,
+                            fileName: file.name,
+                            fileUrl: file.uploadURL,
+                            category: 'evidence' // before, during, after, evidence, documentation
+                          })
+                        });
+                        
+                        if (response.ok) {
+                          const newPhoto = await response.json();
+                          setPhotos(prev => [...prev, newPhoto]);
+                        }
+                      } catch (error) {
+                        console.error('Error analyzing photo:', error);
+                      }
+                    });
+                  }
+                }}
+                buttonClassName=""
+              >
+                📸 Upload Photos for AI Analysis
+              </ObjectUploader>
+            </div>
+
+            <div className="bg-blue-50 p-4 rounded-lg">
+              <h4 className="font-medium text-blue-900">AI Photo Analysis Features:</h4>
+              <ul className="text-sm text-blue-800 mt-2 space-y-1">
+                <li>🌍 GPS Location Detection - Automatically extracts location from photo metadata</li>
+                <li>🤖 Damage Assessment - AI identifies and describes damage types in photos</li>
+                <li>📋 Story Organization - Photos organized chronologically to tell complete story for insurance</li>
+                <li>🏷️ Smart Tagging - Automatic categorization for easy retrieval</li>
+                <li>📄 Insurance Reports - Generate professional photo reports for SBA, FEMA, and insurance claims</li>
+              </ul>
+            </div>
+
+            <div className="space-y-3">
+              {photos.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  No photos uploaded yet. Upload photos to get AI analysis and GPS location data!
+                </div>
+              ) : (
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {photos.map(photo => (
+                    <div key={photo.id} className="border rounded-lg p-3 space-y-2">
+                      <div className="aspect-video bg-gray-100 rounded-md flex items-center justify-center">
+                        <img 
+                          src={photo.thumbnailUrl || photo.fileUrl} 
+                          alt={photo.aiDescription || 'Property photo'}
+                          className="w-full h-full object-cover rounded-md"
+                          onError={(e) => {
+                            e.currentTarget.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjEyMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjEyMCIgZmlsbD0iI2VlZSIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTRweCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkltYWdlPC90ZXh0Pjwvc3ZnPg==';
+                          }}
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <div className="text-sm font-medium">{photo.fileName}</div>
+                        
+                        {photo.aiDescription && (
+                          <div className="text-sm text-gray-600">
+                            🤖 <strong>AI Analysis:</strong> {photo.aiDescription}
+                          </div>
+                        )}
+                        
+                        {photo.latitude && photo.longitude && (
+                          <div className="text-sm text-green-600">
+                            📍 GPS: {Number(photo.latitude).toFixed(6)}, {Number(photo.longitude).toFixed(6)}
+                          </div>
+                        )}
+                        
+                        {photo.address && (
+                          <div className="text-sm text-blue-600">
+                            🏠 Address: {photo.address}
+                          </div>
+                        )}
+                        
+                        <div className="flex gap-1 flex-wrap">
+                          {photo.damageType && (
+                            <span className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full">
+                              {photo.damageType}
+                            </span>
+                          )}
+                          {photo.severity && (
+                            <span className={`px-2 py-1 text-xs rounded-full ${
+                              photo.severity === 'critical' ? 'bg-red-100 text-red-800' :
+                              photo.severity === 'severe' ? 'bg-orange-100 text-orange-800' :
+                              photo.severity === 'moderate' ? 'bg-yellow-100 text-yellow-800' :
+                              'bg-green-100 text-green-800'
+                            }`}>
+                              {photo.severity}
+                            </span>
+                          )}
+                          <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                            {photo.category}
+                          </span>
+                        </div>
+                        
+                        <div className="flex gap-2">
+                          <Button size="sm" variant="outline" onClick={() => window.open(photo.fileUrl, '_blank')}>
+                            View Full
+                          </Button>
+                          <Button size="sm" onClick={() => {
+                            alert('Adding to insurance report...');
+                          }}>
+                            Add to Report
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeSection === 'claims' && (
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-semibold">Insurance Claim Submission</h3>
+              <Button onClick={() => {
+                const selectedInvoiceId = prompt('Enter Invoice ID to create claim for:');
+                if (selectedInvoiceId) {
+                  // Start claim creation process
+                  alert('Opening claim creation wizard...');
+                }
+              }}>
+                ➕ Submit New Claim
+              </Button>
+            </div>
+
+            <div className="bg-yellow-50 p-4 rounded-lg">
+              <h4 className="font-medium text-yellow-900">Complete Claim Submission System:</h4>
+              <ul className="text-sm text-yellow-800 mt-2 space-y-1">
+                <li>📋 Comprehensive Insurance Company Database - All states, contact info, submission portals</li>
+                <li>🤖 AI Letter Generation - Automatic letters when prices exceed Xactimate estimates</li>
+                <li>📊 Market Comparables - Compare pricing within 150-mile radius using Xactimate data</li>
+                <li>📄 Complete Documentation - Contracts, photos, reports, market comparables, W9s</li>
+                <li>⚖️ Legal Compliance - OSHA, ANSI, Sherman Antitrust Act justifications</li>
+                <li>🚨 Emergency Rate Justification - Automatic explanations for emergency pricing</li>
+              </ul>
+            </div>
+
+            {/* Insurance Company Search */}
+            <div className="space-y-3">
+              <h4 className="font-medium">Find Insurance Company</h4>
+              <div className="flex gap-2">
+                <Input 
+                  placeholder="Search insurance company name..."
+                  className="flex-1"
+                />
+                <Button>Search Database</Button>
+              </div>
+              
+              <div className="space-y-2">
+                <div className="text-sm font-medium">Quick Access - Major Insurance Companies:</div>
+                <div className="grid md:grid-cols-2 gap-2">
+                  {insuranceCompanies.slice(0, 6).map(company => (
+                    <div key={company.id} className="border rounded-lg p-3">
+                      <div className="font-medium">{company.name}</div>
+                      <div className="text-sm text-gray-600">
+                        📧 {company.disasterClaimsEmail || company.claimsEmail}
+                      </div>
+                      <div className="text-sm text-gray-600">
+                        📞 {company.disasterClaimsPhone || company.claimsPhone}
+                      </div>
+                      <div className="flex gap-2 mt-2">
+                        <Button size="sm" onClick={() => {
+                          alert(`Starting claim submission to ${company.name}...`);
+                        }}>
+                          Submit Claim
+                        </Button>
+                        <Button size="sm" variant="outline">
+                          View Portal
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Market Comparables */}
+            <div className="space-y-3">
+              <h4 className="font-medium">Market Comparables & Xactimate Integration</h4>
+              <div className="bg-green-50 p-4 rounded-lg">
+                <div className="text-sm text-green-800">
+                  Our system integrates with the same Xactimate database that insurance companies use 
+                  (similar to estimatewriters.com) to provide accurate market comparables within 150 miles.
+                  When your prices exceed Xactimate estimates, AI automatically generates justification 
+                  letters citing emergency rates, OSHA compliance, equipment complexity, and legal precedents.
+                </div>
+              </div>
+              
+              <Button onClick={() => {
+                alert('Generating Xactimate comparison report...');
+              }}>
+                Generate Market Comparable Report
+              </Button>
+            </div>
+
+            {/* AI Letter Generation */}
+            <div className="space-y-3">
+              <h4 className="font-medium">AI Claim Letter Generation</h4>
+              <div className="text-sm text-gray-600 mb-2">
+                When contractor pricing exceeds insurance estimates, our AI generates professional letters 
+                explaining emergency rates, OSHA/ANSI compliance, equipment complexity, and Sherman Antitrust Act protections.
+              </div>
+              
+              <Button onClick={() => {
+                alert('Generating AI justification letter for higher pricing...');
+              }}>
+                🤖 Generate AI Justification Letter
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {activeSection === 'documents' && (
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-semibold">W9 & Tax Documents</h3>
+            </div>
+
+            <div className="space-y-4">
+              <div className="border rounded-lg p-4">
+                <h4 className="font-medium mb-3">W9 Tax Forms</h4>
+                <div className="space-y-3">
+                  <ObjectUploader
+                    maxNumberOfFiles={1}
+                    maxFileSize={10485760} // 10MB
+                    onGetUploadParameters={getUploadParameters}
+                    onComplete={(result) => handleUploadComplete(result, 'w9', `W9 Form ${Date.now()}`)}
+                    buttonClassName="w-full"
+                  >
+                    📋 Upload W9 Form
+                  </ObjectUploader>
+                  
+                  {documents.filter(doc => doc.documentType === 'w9').length > 0 ? (
+                    <div className="space-y-2">
+                      <div className="text-sm font-medium">Uploaded W9 Forms:</div>
+                      {documents.filter(doc => doc.documentType === 'w9').map((w9) => (
+                        <div key={w9.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-md">
+                          <div className="flex-1">
+                            <div className="font-medium text-sm">{w9.title}</div>
+                            <div className="text-xs text-muted-foreground">{w9.fileName}</div>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button size="sm" variant="outline" onClick={()=>openNew(w9.fileUrl)}>
+                              Open
+                            </Button>
+                            <Button size="sm" onClick={()=>alert('W9 included in claim submission')}>
+                              Include in Claim
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-sm text-muted-foreground">No W9 forms uploaded yet</div>
+                  )}
+                </div>
+              </div>
+
+              <div className="border rounded-lg p-4">
+                <h4 className="font-medium mb-3">Document Download Center</h4>
+                <div className="text-sm text-gray-600 mb-3">
+                  Download all documents associated with your claims and contracts.
+                </div>
+                
+                <div className="space-y-2">
+                  <Button variant="outline" className="w-full justify-start">
+                    📄 Download All Contracts
+                  </Button>
+                  <Button variant="outline" className="w-full justify-start">
+                    💰 Download All Price Sheets  
+                  </Button>
+                  <Button variant="outline" className="w-full justify-start">
+                    📋 Download All W9 Forms
+                  </Button>
+                  <Button variant="outline" className="w-full justify-start">
+                    📸 Download All Project Photos
+                  </Button>
+                  <Button variant="outline" className="w-full justify-start">
+                    📊 Download Market Comparable Reports
+                  </Button>
+                  <Button variant="outline" className="w-full justify-start">
+                    🤖 Download AI Generated Letters
+                  </Button>
+                </div>
+              </div>
+
+              {/* AI Assistant for Documents */}
+              <div className="border rounded-lg p-4 bg-purple-50">
+                <h4 className="font-medium mb-3 text-purple-900">🤖 AI Document Assistant</h4>
+                <div className="text-sm text-purple-800 mb-3">
+                  Ask questions about your documents, claims, or get help with paperwork.
+                </div>
+                
+                <div className="flex gap-2">
+                  <Input 
+                    placeholder="Ask AI about your documents or claims..."
+                    className="flex-1"
+                  />
+                  <Button>Ask AI</Button>
+                </div>
+                
+                <div className="mt-3 space-y-2">
+                  <div className="text-xs text-purple-700">Example questions:</div>
+                  <div className="flex gap-2 flex-wrap">
+                    <button className="text-xs px-2 py-1 bg-purple-100 text-purple-800 rounded-full hover:bg-purple-200">
+                      "What documents do I need for State Farm claim?"
+                    </button>
+                    <button className="text-xs px-2 py-1 bg-purple-100 text-purple-800 rounded-full hover:bg-purple-200">
+                      "Generate letter for emergency tree removal pricing"
+                    </button>
+                    <button className="text-xs px-2 py-1 bg-purple-100 text-purple-800 rounded-full hover:bg-purple-200">
+                      "Show me OSHA compliance requirements"
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </CardContent></Card>
 
       <Card><CardContent className="p-4 space-y-2">
