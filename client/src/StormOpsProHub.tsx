@@ -2122,6 +2122,61 @@ function LiensLegal(){
   );
 }
 
+// --- Review Links Editor Component ---
+function ReviewLinksEditor(){
+  const [links, setLinks] = useState([]);
+  
+  useEffect(()=>{ 
+    fetch('/api/settings').then(r=>r.json()).then(s=> setLinks(s.reviewLinks||[])); 
+  },[]);
+  
+  function add(){ 
+    setLinks(ls=> [...ls, { label:'', url:'' }]); 
+  }
+  
+  function save(){ 
+    fetch('/api/settings/save',{ 
+      method:'POST', 
+      headers:{'Content-Type':'application/json'}, 
+      body: JSON.stringify({ reviewLinks: links }) 
+    }); 
+  }
+  
+  return (
+    <div className="border rounded p-3 space-y-2">
+      <div className="font-semibold">Review Links</div>
+      {links.map((l: any,i: number)=> (
+        <div key={i} className="flex gap-2 items-center">
+          <input 
+            className="border px-2 py-1" 
+            placeholder="Label (Google/Yelp/Website)" 
+            value={l.label} 
+            onChange={(e)=> setLinks(arr=>{ 
+              const n=[...arr]; 
+              n[i]={...n[i], label:e.target.value}; 
+              return n; 
+            })} 
+          />
+          <input 
+            className="border px-2 py-1 flex-1" 
+            placeholder="https://" 
+            value={l.url} 
+            onChange={(e)=> setLinks(arr=>{ 
+              const n=[...arr]; 
+              n[i]={...n[i], url:e.target.value}; 
+              return n; 
+            })} 
+          />
+        </div>
+      ))}
+      <div className="flex gap-2">
+        <Button onClick={add}>Add Link</Button>
+        <Button variant="outline" onClick={save}>Save</Button>
+      </div>
+    </div>
+  );
+}
+
 // --- Contractor Portal (Strategic LM) ---
 function ContractorPortal(){
   function openNew(url: string) { window.open(url, '_blank', 'noopener,noreferrer'); }
@@ -2161,6 +2216,10 @@ function ContractorPortal(){
           const r = await fetch('/api/brochure/strategic',{ method:'POST' }).then(r=>r.json()).catch(()=>null);
           if (r?.path) window.open(r.path, '_blank'); else alert('Brochure failed.');
         }}>Generate Tri-Fold Brochure (PDF)</Button>
+      </CardContent></Card>
+
+      <Card><CardContent className="p-4">
+        <ReviewLinksEditor />
       </CardContent></Card>
     </div>
   );
