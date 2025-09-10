@@ -11,7 +11,7 @@
       "email": "",
       "insurer": "",
       "claimNumber": "",
-      "status": "new",
+      "status": "work_completed",
       "tags": [
         "tree_on_roof",
         "structure_damage",
@@ -53,6 +53,11 @@
           "ts": 1757465530403,
           "type": "lead_merged",
           "text": "Merged lead lead:1757465516901:qd9tyj (siding damage, window damage)"
+        },
+        {
+          "ts": 1757475804825,
+          "type": "work_completed",
+          "text": "Marked completed"
         }
       ]
     },

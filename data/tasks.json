@@ -1,3 +1,37 @@
 {
-  "items": []
+  "items": [
+    {
+      "id": "t:1757475804854:llr6",
+      "contractorId": "ctr:default",
+      "customerId": "c:1757464468680:k35s",
+      "title": "Call Unknown Owner",
+      "detail": "Post‑work follow‑up call for 22nd Avenue Southeast, Old Southeast, Saint Petersburg, Pinellas County, Florida, 33705, United States",
+      "startTs": 1757562204825,
+      "endTs": null,
+      "type": "followup",
+      "status": "open"
+    },
+    {
+      "id": "t:1757475804854:pq04",
+      "contractorId": "ctr:default",
+      "customerId": "c:1757464468680:k35s",
+      "title": "Balance check (30 days)",
+      "detail": "Review balance & send reminder if needed",
+      "startTs": 1760067804825,
+      "endTs": null,
+      "type": "followup",
+      "status": "open"
+    },
+    {
+      "id": "t:1757475804854:ueey",
+      "contractorId": "ctr:default",
+      "customerId": "c:1757464468680:k35s",
+      "title": "Demand letter review (45 days)",
+      "detail": "If unpaid, send demand & consider lien",
+      "startTs": 1761363804825,
+      "endTs": null,
+      "type": "followup",
+      "status": "open"
+    }
+  ]
 }
