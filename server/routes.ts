@@ -902,6 +902,133 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
     res.json({ ok: true });
   });
 
+  // ==== Drone Webhooks + SSE Live Feed ====
+  const DRONE_PATH = path.join(DATA_DIR, 'drone_events.json');
+  if (!fs.existsSync(DRONE_PATH)) fs.writeFileSync(DRONE_PATH, JSON.stringify({ events: [] }, null, 2));
+
+  function readDrone() { 
+    try { 
+      return JSON.parse(fs.readFileSync(DRONE_PATH, 'utf8')); 
+    } catch { 
+      return { events: [] }; 
+    } 
+  }
+  
+  function writeDrone(d: any) { 
+    try { 
+      fs.writeFileSync(DRONE_PATH, JSON.stringify(d, null, 2)); 
+    } catch (e) {
+      console.error('Failed to write drone data:', e);
+    } 
+  }
+
+  // Normalizer: accepts payloads from VOTIX, FlytBase, DJI FlightHub2, DroneDeploy (or custom)
+  function detectLabelsFromText(text = '') {
+    const t = (text || '').toLowerCase();
+    const tags = new Set<string>();
+    if (/tree[^a-z]?on[^a-z]?(roof|home|house|building|structure)/.test(t)) tags.add('tree_on_roof');
+    if (/line[^a-z]?(down|damaged)|power[^a-z]?line|utility[^a-z]?line|pole[^a-z]?down/.test(t)) tags.add('line_down');
+    if (/collapse|structur(al|e)\s?damage|wall\s?down|building\s?damage/.test(t)) tags.add('structure_damage');
+    if (/fence/.test(t)) tags.add('tree_on_fence');
+    if (/car|vehicle|truck/.test(t)) tags.add('tree_on_car');
+    if (/barn/.test(t)) tags.add('tree_on_barn');
+    if (/shed/.test(t)) tags.add('tree_on_shed');
+    if (/pool/.test(t)) tags.add('tree_in_pool');
+    if (/playground|play\s?set/.test(t)) tags.add('tree_on_playground');
+    return [...tags];
+  }
+
+  async function geocodeAddress(address: string) {
+    try {
+      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`;
+      const r = await fetch(url, { headers: { 'User-Agent': 'StormOps/1.0 (contact: strategiclandmgmt@gmail.com)' } });
+      const arr = await r.json();
+      if (Array.isArray(arr) && arr.length) {
+        return { lat: Number(arr[0].lat), lng: Number(arr[0].lon), address: address };
+      }
+    } catch (e) {
+      console.error('Geocoding failed:', e);
+    }
+    return null;
+  }
+
+  async function normalizeDroneEvent(body: any) {
+    const now = Date.now();
+    const provider = body.provider || body.vendor || body.source || 'unknown';
+    const droneId = body.droneId || body.uav_id || body.aircraft || body.device_id || null;
+    const mission = body.mission || body.mission_id || body.job || body.project || null;
+    const ts = Number(body.ts || body.timestamp || body.time || now);
+    const img = body.image || body.image_url || body.snapshot || null;
+    const stream = body.stream || body.stream_url || body.hls || body.hls_url || body.rtmp || body.rtmp_url || null;
+    let lat = body.lat || body.latitude || body.location?.lat || body.position?.lat || null;
+    let lng = body.lng || body.lon || body.long || body.longitude || body.location?.lng || body.location?.lon || body.position?.lng || body.position?.lon || null;
+    let address = body.address || body.location?.address || body.addr || null;
+
+    // Tags: prefer explicit, else infer from labels/notes
+    let tags = Array.isArray(body.tags) ? body.tags : [];
+    if (!tags.length) {
+      const labelText = [body.caption, body.note, body.notes, (body.labels || []).join(' '), (body.objects || []).join(' ')].filter(Boolean).join(' ');
+      tags = detectLabelsFromText(labelText);
+    }
+
+    // If we have address but no lat/lng → geocode; if we have lat/lng, keep.
+    if ((!lat || !lng) && address) {
+      const geo = await geocodeAddress(address);
+      if (geo) { lat = geo.lat; lng = geo.lng; }
+    }
+
+    // Drop if no coordinates
+    if (!lat || !lng) return null;
+
+    return {
+      id: `drone:${now}:${Math.random().toString(36).slice(2, 8)}`,
+      provider, droneId, mission,
+      lat: Number(lat), lng: Number(lng), address: address || null,
+      tags, image: img, stream,
+      ts
+    };
+  }
+
+  // --- SSE stream for live events ---
+  const sseClients = new Set<any>();
+  app.get('/api/drone/events', (req, res) => {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+    res.write(`data: ${JSON.stringify({ type: 'hello', ts: Date.now() })}\n\n`);
+    sseClients.add(res);
+    req.on('close', () => { try { sseClients.delete(res); } catch {} });
+  });
+  
+  function sseBroadcast(evt: any) {
+    const data = `data: ${JSON.stringify(evt)}\n\n`;
+    for (const res of sseClients) { try { res.write(data); } catch {} }
+  }
+
+  // --- Webhook receiver ---
+  app.post('/api/drone/webhook', express.json({ limit: '5mb' }), async (req, res) => {
+    try {
+      const secret = process.env.DRONE_WEBHOOK_SECRET;
+      if (secret && req.headers['x-drone-secret'] !== secret) return res.status(401).json({ error: 'unauthorized' });
+      const evt = await normalizeDroneEvent(req.body || {});
+      if (!evt) return res.status(400).json({ error: 'invalid_payload' });
+      const db = readDrone();
+      db.events.push(evt); 
+      writeDrone(db);
+      sseBroadcast({ type: 'drone_event', event: evt });
+      res.json({ ok: true });
+    } catch (e) { 
+      res.status(500).json({ error: 'webhook_failed', detail: String(e) }); 
+    }
+  });
+
+  // Convenience: list recent events
+  app.get('/api/drone/recent', (req, res) => { 
+    const db = readDrone(); 
+    res.json(db.events.slice(-100).reverse()); 
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

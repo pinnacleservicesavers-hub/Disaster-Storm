@@ -1,0 +1,315 @@
+# Customers Panel + Dedupe + Bulk Merge — Paste Blocks
+
+Use these blocks to add a searchable **Customers** view with CSV export, duplicate detection, and bulk merge tools.
+
+---
+
+## 1) SERVER — extend Customers API (paste into `server.js` after existing customers/leads routes)
+
+```js
+// ===== Utilities (reuse if already defined) =====
+function normalizeAddressStr(s=''){
+  return s.toLowerCase()
+    .replace(/\b(ste|unit|apt|suite|#)\b.*$/,'')
+    .replace(/[^a-z0-9]/g,'')
+    .trim();
+}
+function haversine(aLat,aLng,bLat,bLng){ const R=6371000; const toRad=(d)=>d*Math.PI/180; const dLat=toRad(bLat-aLat), dLng=toRad(bLng-aLng); const s=Math.sin(dLat/2)**2 + Math.cos(toRad(aLat))*Math.cos(toRad(bLat))*Math.sin(dLng/2)**2; return 2*R*Math.asin(Math.sqrt(s)); }
+function readCustomers(){ try{ return JSON.parse(fs.readFileSync(CUSTOMERS_PATH,'utf8')); }catch{ return { items: [] }; } }
+function writeCustomers(d){ try{ fs.writeFileSync(CUSTOMERS_PATH, JSON.stringify(d,null,2)); }catch{} }
+
+// ===== GET /api/customers (list + search) =====
+app.get('/api/customers', (req,res)=>{
+  try{
+    const q = (req.query.q||'').toString().toLowerCase();
+    const status = (req.query.status||'').toString().toLowerCase();
+    const db = readCustomers();
+    let arr = db.items||[];
+    if (q){
+      arr = arr.filter(c => (
+        (c.name||'').toLowerCase().includes(q) ||
+        (c.address||'').toLowerCase().includes(q) ||
+        (c.claimNumber||'').toLowerCase().includes(q) ||
+        (c.insurer||'').toLowerCase().includes(q)
+      ));
+    }
+    if (status){ arr = arr.filter(c => (c.status||'').toLowerCase()===status); }
+    // Sort by recent timeline
+    arr = arr.slice().sort((a,b)=> (b.timeline?.slice(-1)[0]?.ts||0) - (a.timeline?.slice(-1)[0]?.ts||0));
+    res.json(arr);
+  }catch(e){ res.status(500).json([]); }
+});
+
+// ===== CSV export =====
+app.get('/api/customers/export', (req,res)=>{
+  try{
+    const db = readCustomers();
+    const rows = (db.items||[]).map(c=>({
+      id: c.id,
+      name: c.name||'',
+      address: c.address||'',
+      mailingAddress: c.mailingAddress||'',
+      phone: c.phone||'',
+      email: c.email||'',
+      insurer: c.insurer||'',
+      claimNumber: c.claimNumber||'',
+      status: c.status||'',
+      tags: (c.tags||[]).join('|'),
+      lastUpdate: c.timeline?.slice(-1)[0]?.ts || ''
+    }));
+    const header = Object.keys(rows[0]||{ id:'id' });
+    const csv = [header.join(','), ...rows.map(r => header.map(k => JSON.stringify(r[k]??'')).join(','))].join('\n');
+    const outPath = path.join(UPLOAD_DIR, `customers_${Date.now()}.csv`);
+    fs.writeFileSync(outPath, csv);
+    res.json({ ok:true, path: `/uploads/${path.basename(outPath)}` });
+  }catch(e){ res.status(500).json({ ok:false }); }
+});
+
+// ===== Update, Delete =====
+app.post('/api/customers/update', express.json(), (req,res)=>{
+  try{
+    const { id, patch } = req.body||{}; if (!id || !patch) return res.status(400).json({ error:'missing' });
+    const db = readCustomers();
+    const c = (db.items||[]).find(x=>x.id===id); if(!c) return res.status(404).json({ error:'not_found' });
+    Object.assign(c, patch);
+    c.timeline = c.timeline || []; c.timeline.push({ ts: Date.now(), type:'update', text: Object.keys(patch).join(', ') });
+    writeCustomers(db);
+    try{ sseBroadcast({ type:'customer_updated', customer: c }); }catch{}
+    res.json({ ok:true, customer: c });
+  }catch(e){ res.status(500).json({ ok:false }); }
+});
+
+app.post('/api/customers/delete', express.json(), (req,res)=>{
+  try{
+    const ids = req.body?.ids||[]; if (!Array.isArray(ids) || !ids.length) return res.status(400).json({ error:'ids_required' });
+    const db = readCustomers();
+    db.items = (db.items||[]).filter(c => !ids.includes(c.id));
+    writeCustomers(db);
+    try{ sseBroadcast({ type:'customers_deleted', ids }); }catch{}
+    res.json({ ok:true });
+  }catch(e){ res.status(500).json({ ok:false }); }
+});
+
+// ===== Merge helpers =====
+function mergeCustomers(customers, primaryId){
+  const byId = new Map(customers.map(c=>[c.id,c]));
+  const primary = byId.get(primaryId) || customers[0];
+  for (const c of customers){
+    if (c.id===primary.id) continue;
+    primary.docs = [...(primary.docs||[]), ...(c.docs||[])];
+    primary.messages = [...(primary.messages||[]), ...(c.messages||[])];
+    primary.timeline = [...(primary.timeline||[]), ...(c.timeline||[]), { ts: Date.now(), type:'merged', text:`Merged ${c.id}` }].sort((a,b)=>a.ts-b.ts);
+    primary.tags = Array.from(new Set([...(primary.tags||[]), ...(c.tags||[])]));
+    primary.phone = primary.phone || c.phone;
+    primary.email = primary.email || c.email;
+    primary.insurer = primary.insurer || c.insurer;
+    primary.claimNumber = primary.claimNumber || c.claimNumber;
+    primary.mailingAddress = primary.mailingAddress || c.mailingAddress;
+    // Prefer precise lat/lng
+    if (typeof c.lat==='number' && typeof c.lng==='number'){ primary.lat = primary.lat??c.lat; primary.lng = primary.lng??c.lng; }
+  }
+  return primary;
+}
+
+// ===== POST /api/customers/merge =====
+app.post('/api/customers/merge', express.json(), (req,res)=>{
+  try{
+    const { ids=[], primaryId } = req.body||{}; if (!Array.isArray(ids) || ids.length<2) return res.status(400).json({ error:'need_two_ids' });
+    const db = readCustomers();
+    const group = (db.items||[]).filter(c => ids.includes(c.id));
+    if (group.length<2) return res.status(404).json({ error:'not_found' });
+    const primary = mergeCustomers(group, primaryId);
+    db.items = [ primary, ...db.items.filter(c=> !ids.includes(c.id) || c.id===primary.id) ].filter((v,i,a)=> a.findIndex(x=>x.id===v.id)===i);
+    writeCustomers(db);
+    try{ sseBroadcast({ type:'customers_merged', ids, primaryId: primary.id, customer: primary }); }catch{}
+    res.json({ ok:true, customer: primary });
+  }catch(e){ res.status(500).json({ ok:false }); }
+});
+
+// ===== Dedupe scan =====
+app.get('/api/customers/dedupe-scan', (req,res)=>{
+  try{
+    const radius = Number(req.query.radius||40); // meters
+    const db = readCustomers(); const items = db.items||[];
+    // Address groups
+    const byAddr = new Map();
+    for (const c of items){ const k = normalizeAddressStr(c.address||''); if (!k) continue; if (!byAddr.has(k)) byAddr.set(k, []); byAddr.get(k).push(c); }
+    const addrClusters = [...byAddr.values()].filter(g=>g.length>1).map(g=>({ reason:'address', items:g }));
+    // Proximity clusters
+    const proxClusters = [];
+    const used = new Set();
+    for (let i=0;i<items.length;i++){
+      if (used.has(items[i].id)) continue;
+      const cluster = [items[i]];
+      for (let j=i+1;j<items.length;j++){
+        if (used.has(items[j].id)) continue;
+        if (typeof items[i].lat==='number' && typeof items[i].lng==='number' && typeof items[j].lat==='number' && typeof items[j].lng==='number'){
+          const d = haversine(items[i].lat, items[i].lng, items[j].lat, items[j].lng);
+          if (d <= radius){ cluster.push(items[j]); used.add(items[j].id); }
+        }
+      }
+      if (cluster.length>1) proxClusters.push({ reason:`radius_${radius}m`, items: cluster });
+    }
+    res.json({ address: addrClusters, proximity: proxClusters });
+  }catch(e){ res.status(500).json({ address:[], proximity:[] }); }
+});
+
+// ===== Bulk merge =====
+app.post('/api/customers/bulk-merge', express.json(), (req,res)=>{
+  try{
+    const { strategy='address', radius=40 } = req.body||{};
+    const db = readCustomers();
+    let clusters = [];
+    if (strategy==='address'){
+      const byAddr = new Map();
+      for (const c of (db.items||[])){ const k = normalizeAddressStr(c.address||''); if (!k) continue; if (!byAddr.has(k)) byAddr.set(k, []); byAddr.get(k).push(c); }
+      clusters = [...byAddr.values()].filter(g=>g.length>1).map(g=>({ items:g }));
+    } else if (strategy==='radius'){
+      const items = db.items||[]; const used = new Set();
+      for (let i=0;i<items.length;i++){
+        if (used.has(items[i].id)) continue; const cluster=[items[i]];
+        for (let j=i+1;j<items.length;j++){
+          if (used.has(items[j].id)) continue;
+          if (typeof items[i].lat==='number' && typeof items[i].lng==='number' && typeof items[j].lat==='number' && typeof items[j].lng==='number'){
+            const d = haversine(items[i].lat, items[i].lng, items[j].lat, items[j].lng);
+            if (d<=Number(radius)){ cluster.push(items[j]); used.add(items[j].id); }
+          }
+        }
+        if (cluster.length>1) clusters.push({ items:cluster });
+      }
+    }
+    // Perform merges per cluster (choose most complete as primary)
+    const choosePrimary = (arr)=> arr.slice().sort((a,b)=> (b.docs?.length||0) - (a.docs?.length||0) || (b.timeline?.length||0) - (a.timeline?.length||0))[0];
+    for (const cl of clusters){
+      const ids = cl.items.map(x=>x.id); if (ids.length<2) continue;
+      const primaryId = choosePrimary(cl.items).id;
+      const group = (db.items||[]).filter(c=> ids.includes(c.id));
+      const merged = mergeCustomers(group, primaryId);
+      db.items = [ merged, ...db.items.filter(c=> !ids.includes(c.id) || c.id===merged.id) ].filter((v,i,a)=> a.findIndex(x=>x.id===v.id)===i);
+    }
+    writeCustomers(db);
+    res.json({ ok:true, mergedGroups: clusters.length });
+  }catch(e){ res.status(500).json({ ok:false }); }
+});
+```
+
+---
+
+## 2) FRONTEND — Customers Panel (drop-in React component)
+
+```jsx
+function CustomersPanel(){
+  const { role } = useRole();
+  const [list, setList] = React.useState([]);
+  const [q, setQ] = React.useState('');
+  const [status, setStatus] = React.useState('');
+  const [sel, setSel] = React.useState(new Set());
+  const [dupes, setDupes] = React.useState({ address:[], proximity:[] });
+  const [loading, setLoading] = React.useState(false);
+
+  async function load(){
+    setLoading(true);
+    try{ const r = await fetch(`/api/customers?q=${encodeURIComponent(q)}&status=${encodeURIComponent(status)}`).then(r=>r.json()); setList(r||[]); }
+    finally{ setLoading(false); }
+  }
+  React.useEffect(()=>{ load(); }, []);
+
+  function toggle(id){ setSel(prev=>{ const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; }); }
+  function clearSel(){ setSel(new Set()); }
+
+  async function doExport(){ const r = await fetch('/api/customers/export').then(r=>r.json()).catch(()=>null); if (r?.path) window.open(r.path, '_blank'); }
+  async function doDelete(){ if (!sel.size) return; if (!confirm(`Delete ${sel.size} record(s)?`)) return; await fetch('/api/customers/delete',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ ids: [...sel] }) }); clearSel(); load(); }
+  async function doMerge(ids=[...sel]){ if (ids.length<2) return alert('Select 2+'); const primaryId = ids[0]; await fetch('/api/customers/merge',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ ids, primaryId }) }); clearSel(); load(); }
+
+  async function scanDupes(){ const r = await fetch('/api/customers/dedupe-scan?radius=40').then(r=>r.json()).catch(()=>({address:[],proximity:[]})); setDupes(r); }
+  async function bulkMerge(strategy){ if (!confirm(`Auto-merge by ${strategy}?`)) return; await fetch('/api/customers/bulk-merge',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ strategy, radius: 40 }) }); load(); }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <Input style={{width:240}} value={q} onChange={(e)=>setQ(e.target.value)} placeholder="Search name, address, insurer, claim #" />
+        <select className="border rounded px-2 py-1" value={status} onChange={(e)=>setStatus(e.target.value)}>
+          <option value="">All statuses</option>
+          {PIPELINE.map(p=> <option key={p} value={p}>{p.replaceAll('_',' ')}</option>)}
+        </select>
+        <Button onClick={load}>Search</Button>
+        <div className="ml-auto flex gap-2">
+          <Button variant="outline" onClick={doExport}>Export CSV</Button>
+          {role==='admin' && <Button variant="destructive" onClick={doDelete} disabled={!sel.size}>Delete</Button>}
+        </div>
+      </div>
+
+      <div className="border rounded">
+        <div className="grid grid-cols-12 p-2 text-xs font-semibold bg-gray-50">
+          <div className="col-span-1"><input type="checkbox" onChange={(e)=>{ if (e.target.checked) setSel(new Set(list.map(x=>x.id))); else clearSel(); }} /></div>
+          <div className="col-span-2">Name</div>
+          <div className="col-span-3">Address</div>
+          <div className="col-span-2">Insurer / Claim</div>
+          <div className="col-span-2">Status</div>
+          <div className="col-span-2 text-right">Actions</div>
+        </div>
+        <div className="max-h-96 overflow-auto divide-y">
+          {loading && <div className="p-3 text-sm">Loading…</div>}
+          {!loading && list.map(c => (
+            <div key={c.id} className="grid grid-cols-12 p-2 text-sm items-center">
+              <div className="col-span-1"><input type="checkbox" checked={sel.has(c.id)} onChange={()=>toggle(c.id)} /></div>
+              <div className="col-span-2 truncate">{c.name||'Unknown Owner'}</div>
+              <div className="col-span-3 truncate">{c.address}</div>
+              <div className="col-span-2 truncate">{c.insurer||'—'} / {c.claimNumber||'—'}</div>
+              <div className="col-span-2">
+                <span className="text-xs px-2 py-1 rounded-full bg-gray-200">{(c.status||'new').replaceAll('_',' ')}</span>
+              </div>
+              <div className="col-span-2 text-right">
+                {role==='admin' && <Button size="sm" variant="outline" onClick={()=>doMerge([c.id, ...[...sel].filter(id=>id!==c.id)])} disabled={sel.size<2}>Merge</Button>}
+                <Button size="sm" variant="outline" className="ml-2" onClick={()=>{ try{ window.dispatchEvent(new CustomEvent('storm-center',{ detail:{ address:c.address, name:c.name } })); }catch{} }}>Map</Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="border rounded p-3">
+        <div className="flex items-center gap-2">
+          <div className="font-semibold">Duplicate tools</div>
+          <Button variant="outline" onClick={scanDupes}>Find duplicates</Button>
+          {role==='admin' && <Button variant="outline" onClick={()=>bulkMerge('address')}>Bulk merge by address</Button>}
+          {role==='admin' && <Button variant="outline" onClick={()=>bulkMerge('radius')}>Bulk merge by 40m</Button>}
+        </div>
+        <div className="grid md:grid-cols-2 gap-3 mt-2">
+          <div>
+            <div className="text-sm font-medium">Address matches</div>
+            <div className="text-xs text-muted-foreground">Same normalized street address</div>
+            <div className="space-y-2 mt-2 max-h-60 overflow-auto">
+              {dupes.address.map((g,idx)=> (
+                <div key={idx} className="border rounded p-2 text-xs">
+                  <div className="font-semibold mb-1">Group #{idx+1}</div>
+                  {g.items.map(it => <div key={it.id}>• {it.name||'Unknown'} — {it.address} ({it.id})</div>)}
+                  {role==='admin' && <Button size="sm" className="mt-2" onClick={()=>doMerge(g.items.map(x=>x.id))}>Merge group</Button>}
+                </div>
+              ))}
+            </div>
+          </div>
+          <div>
+            <div className="text-sm font-medium">Proximity matches (≤ 40m)</div>
+            <div className="text-xs text-muted-foreground">Likely duplicates at the same parcel</div>
+            <div className="space-y-2 mt-2 max-h-60 overflow-auto">
+              {dupes.proximity.map((g,idx)=> (
+                <div key={idx} className="border rounded p-2 text-xs">
+                  <div className="font-semibold mb-1">Cluster #{idx+1}</div>
+                  {g.items.map(it => <div key={it.id}>• {it.name||'Unknown'} — {it.address} ({it.id})</div>)}
+                  {role==='admin' && <Button size="sm" className="mt-2" onClick={()=>doMerge(g.items.map(x=>x.id))}>Merge cluster</Button>}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+```
+
+**Usage:** add a tab or route and render `<CustomersPanel />`. Admin role can bulk‑merge/delete; everyone can search, map, and export.
+
+```
+```
