@@ -1113,37 +1113,21 @@ function LeadInbox({ onCreateCustomer }: { onCreateCustomer?: (customer: any) =>
       return; 
     }
     
-    const lead = r.lead; 
     setLeads(ls => ls.filter(x => x.id !== id));
-    
-    const c = {
-      id: `c:${Date.now()}`,
-      name: 'Unknown Owner',
-      address: lead.address || `${lead.lat}, ${lead.lng}`,
-      phone: '', 
-      email: '',
-      insurer: '', 
-      claimNumber: '',
-      status: 'new', 
-      docs: [], 
-      messages: [], 
-      timeline: [{ 
-        ts: Date.now(), 
-        type: 'lead_imported', 
-        text: `${lead.provider || 'drone'} lead` 
-      }]
-    };
+    const cust = r.customer;
     
     try { 
-      await onCreateCustomer?.(c); 
+      await onCreateCustomer?.(cust); 
     } catch {}
     
-    // Center the map to the new lead
+    // Center map
     try { 
       window.dispatchEvent(new CustomEvent('storm-center', { 
-        detail: { address: c.address, name: c.name } 
+        detail: { address: cust.address, name: cust.name } 
       })); 
     } catch {}
+    
+    alert(r.merged ? 'Merged into existing customer' : 'Created new customer');
   }
 
   return (
