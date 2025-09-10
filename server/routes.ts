@@ -33,6 +33,7 @@ import fetchPkg from "node-fetch";
 import Stripe from "stripe";
 import PDFDocument from "pdfkit";
 import { createServer, type Server } from "http";
+import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 
 // fetch polyfill if needed
 const fetch = globalThis.fetch || fetchPkg;
@@ -342,6 +343,106 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
   const upload = multer({ dest: UPLOAD_DIR });
   app.post("/api/upload", upload.single("file"), (req, res) => {
     res.json({ ok: true, file: { name: req.file.originalname, path: `/uploads/${req.file.filename}` } });
+  });
+
+  // ---- contractor document management ----
+  // Get upload URL for contractor documents
+  app.post("/api/contractor-documents/upload-url", async (req, res) => {
+    try {
+      const objectStorageService = new ObjectStorageService();
+      const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+      res.json({ uploadURL });
+    } catch (error) {
+      console.error("Error getting upload URL:", error);
+      res.status(500).json({ error: "Failed to get upload URL" });
+    }
+  });
+
+  // Save contractor document metadata after upload
+  app.post("/api/contractor-documents", async (req, res) => {
+    try {
+      const { contractorId, documentType, fileName, fileUrl, title, description } = req.body;
+      
+      if (!contractorId || !documentType || !fileName || !fileUrl || !title) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+
+      const objectStorageService = new ObjectStorageService();
+      const normalizedPath = objectStorageService.normalizeObjectEntityPath(fileUrl);
+
+      // Store in memory for now (would use database in real app)
+      const document = {
+        id: String(Date.now()),
+        contractorId,
+        documentType,
+        fileName,
+        fileUrl: normalizedPath,
+        title,
+        description: description || "",
+        isActive: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      // Read existing documents
+      let documents = [];
+      try {
+        const data = JSON.parse(fs.readFileSync(path.join(DATA_DIR, "contractor-documents.json"), "utf8"));
+        documents = data.documents || [];
+      } catch {
+        // File doesn't exist yet
+      }
+
+      documents.push(document);
+      
+      // Save back to file
+      fs.writeFileSync(
+        path.join(DATA_DIR, "contractor-documents.json"),
+        JSON.stringify({ documents }, null, 2)
+      );
+
+      res.json(document);
+    } catch (error) {
+      console.error("Error saving contractor document:", error);
+      res.status(500).json({ error: "Failed to save document" });
+    }
+  });
+
+  // Get contractor documents
+  app.get("/api/contractor-documents/:contractorId", async (req, res) => {
+    try {
+      const { contractorId } = req.params;
+      
+      let documents = [];
+      try {
+        const data = JSON.parse(fs.readFileSync(path.join(DATA_DIR, "contractor-documents.json"), "utf8"));
+        documents = (data.documents || []).filter(
+          (doc: any) => doc.contractorId === contractorId && doc.isActive
+        );
+      } catch {
+        // File doesn't exist yet
+      }
+
+      res.json({ documents });
+    } catch (error) {
+      console.error("Error getting contractor documents:", error);
+      res.status(500).json({ error: "Failed to get documents" });
+    }
+  });
+
+  // Serve private contractor documents
+  app.get("/objects/:objectPath(*)", async (req, res) => {
+    try {
+      const objectStorageService = new ObjectStorageService();
+      const objectFile = await objectStorageService.getObjectEntityFile(req.path);
+      objectStorageService.downloadObject(objectFile, res);
+    } catch (error) {
+      console.error("Error accessing contractor document:", error);
+      if (error instanceof ObjectNotFoundError) {
+        return res.sendStatus(404);
+      }
+      return res.sendStatus(500);
+    }
   });
 
   // ---- SLA tracking endpoints ----

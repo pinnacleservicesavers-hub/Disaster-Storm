@@ -3,6 +3,7 @@ import { MapContainer, TileLayer } from 'react-leaflet';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { ObjectUploader } from './components/ObjectUploader';
 
 // Helper function for currency formatting
 function dollars(n: number | string): string { 
@@ -2916,7 +2917,62 @@ function TodayTaskList({ contractorId }: { contractorId: string }){
 
 // --- Contractor Portal (Strategic LM) ---
 function ContractorPortal(){
+  const [documents, setDocuments] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const contractorId = "strategic-land-mgmt"; // In a real app, get from auth context
+  
   function openNew(url: string) { window.open(url, '_blank', 'noopener,noreferrer'); }
+  
+  // Load contractor documents
+  useEffect(() => {
+    fetch(`/api/contractor-documents/${contractorId}`)
+      .then(r => r.json())
+      .then(data => {
+        setDocuments(data.documents || []);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, []);
+
+  const handleUploadComplete = async (result: any, documentType: string, title: string) => {
+    if (result.successful && result.successful.length > 0) {
+      const uploadedFile = result.successful[0];
+      
+      try {
+        const response = await fetch('/api/contractor-documents', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contractorId,
+            documentType,
+            fileName: uploadedFile.name,
+            fileUrl: uploadedFile.uploadURL,
+            title,
+            description: `Uploaded ${documentType} document`
+          })
+        });
+        
+        if (response.ok) {
+          const newDoc = await response.json();
+          setDocuments(prev => [...prev, newDoc]);
+        }
+      } catch (error) {
+        console.error('Error saving document:', error);
+      }
+    }
+  };
+
+  const getUploadParameters = async () => {
+    const response = await fetch('/api/contractor-documents/upload-url', { method: 'POST' });
+    const data = await response.json();
+    return {
+      method: 'PUT' as const,
+      url: data.uploadURL
+    };
+  };
+
+  const contracts = documents.filter(doc => doc.documentType === 'contract');
+  const priceSheets = documents.filter(doc => doc.documentType === 'price_sheet');
   
   return (
     <div className="space-y-4">
@@ -2931,12 +2987,89 @@ function ContractorPortal(){
         </div>
       </CardContent></Card>
 
-      <Card><CardContent className="p-4 space-y-2">
-        <div className="font-semibold">Emergency Tree Removal Contract</div>
-        <div className="text-sm text-muted-foreground">Your uploaded contract is available to attach and send from the app.</div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={()=>openNew('/files/contract.pdf')}>Open Contract</Button>
-          <Button onClick={()=>fetch('/api/email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ to:'strategiclandmgmt@gmail.com', subject:'Contract (for signature)', html:'Attached contract', attachments:[{ path:'/files/contract.pdf' }] })})}>Email Contract to Customer</Button>
+      <Card><CardContent className="p-4 space-y-3">
+        <div className="font-semibold">Customer Contracts</div>
+        <div className="text-sm text-muted-foreground">Upload and manage multiple contract templates for customers</div>
+        
+        <div className="space-y-2">
+          <ObjectUploader
+            maxNumberOfFiles={1}
+            maxFileSize={10485760} // 10MB
+            onGetUploadParameters={getUploadParameters}
+            onComplete={(result) => handleUploadComplete(result, 'contract', `Contract ${Date.now()}`)}
+            buttonClassName="w-full"
+          >
+            📄 Upload New Contract
+          </ObjectUploader>
+          
+          {loading ? (
+            <div className="text-sm text-muted-foreground">Loading contracts...</div>
+          ) : contracts.length > 0 ? (
+            <div className="space-y-2">
+              <div className="text-sm font-medium">Uploaded Contracts:</div>
+              {contracts.map((contract) => (
+                <div key={contract.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-md">
+                  <div className="flex-1">
+                    <div className="font-medium text-sm">{contract.title}</div>
+                    <div className="text-xs text-muted-foreground">{contract.fileName}</div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" onClick={()=>openNew(contract.fileUrl)}>
+                      Open
+                    </Button>
+                    <Button size="sm" onClick={()=>console.log('Email contract to customer')}>
+                      Email to Customer
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-sm text-muted-foreground">No contracts uploaded yet</div>
+          )}
+        </div>
+      </CardContent></Card>
+
+      <Card><CardContent className="p-4 space-y-3">
+        <div className="font-semibold">Price Sheets</div>
+        <div className="text-sm text-muted-foreground">Upload and manage pricing documents for customer estimates</div>
+        
+        <div className="space-y-2">
+          <ObjectUploader
+            maxNumberOfFiles={1}
+            maxFileSize={10485760} // 10MB
+            onGetUploadParameters={getUploadParameters}
+            onComplete={(result) => handleUploadComplete(result, 'price_sheet', `Price Sheet ${Date.now()}`)}
+            buttonClassName="w-full"
+          >
+            💰 Upload New Price Sheet
+          </ObjectUploader>
+          
+          {loading ? (
+            <div className="text-sm text-muted-foreground">Loading price sheets...</div>
+          ) : priceSheets.length > 0 ? (
+            <div className="space-y-2">
+              <div className="text-sm font-medium">Uploaded Price Sheets:</div>
+              {priceSheets.map((sheet) => (
+                <div key={sheet.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-md">
+                  <div className="flex-1">
+                    <div className="font-medium text-sm">{sheet.title}</div>
+                    <div className="text-xs text-muted-foreground">{sheet.fileName}</div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" onClick={()=>openNew(sheet.fileUrl)}>
+                      Open
+                    </Button>
+                    <Button size="sm" onClick={()=>console.log('Share price sheet with customer')}>
+                      Share with Customer
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-sm text-muted-foreground">No price sheets uploaded yet</div>
+          )}
         </div>
       </CardContent></Card>
 
