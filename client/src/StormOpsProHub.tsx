@@ -953,7 +953,7 @@ function StormOpsProHubContent() {
             {/* Storm Map Tab */}
             {activeTab === "map" && (
               <div className="p-4">
-                <StormMap customers={customers} />
+                <StormMap customers={Array.isArray(customers) ? customers : (customers?.list || [])} />
               </div>
             )}
 
@@ -974,7 +974,7 @@ function StormOpsProHubContent() {
                     // Remove the accepted item from inbox
                     setInboxItems(items => items.filter(item => item.id !== customer.fromLead));
                     // Refresh customers list
-                    customers.refetch?.();
+                    if (customers?.refetch) customers.refetch();
                   }}
                 />
               </div>
@@ -1254,7 +1254,7 @@ function CustomersPanel(){
         />
         <select className="border rounded px-2 py-1" value={status} onChange={(e)=>setStatus(e.target.value)}>
           <option value="">All statuses</option>
-          {PIPELINE.map(p=> <option key={p} value={p}>{p.replaceAll('_',' ')}</option>)}
+          {PIPELINE.map(p=> <option key={p} value={p}>{p.replace(/_/g,' ')}</option>)}
         </select>
         <Button onClick={load}>Search</Button>
         <div className="ml-auto flex gap-2">
@@ -1292,7 +1292,7 @@ function CustomersPanel(){
               <div className="col-span-2 truncate">{c.insurer||'—'} / {c.claimNumber||'—'}</div>
               <div className="col-span-2">
                 <span className="text-xs px-2 py-1 rounded-full bg-gray-200">
-                  {(c.status||'new').replaceAll('_',' ')}
+                  {(c.status||'new').replace(/_/g,' ')}
                 </span>
               </div>
               <div className="col-span-2 text-right">
@@ -1677,7 +1677,7 @@ function CustomerCard({ c, update, pushMsg, pushDoc, pushEvent }){
           <Button variant="outline" onClick={ownerPrefill}>Owner Prefill</Button>
           <Button variant="outline" onClick={()=>{ try{ window.dispatchEvent(new CustomEvent('storm-center',{ detail:{ address:c.address, name:c.name } })); }catch{} }}>Open on Map</Button>
           <select className="border rounded-md px-2 py-1" value={c.status} onChange={(e)=>changeStatus(e.target.value)}>
-            {PIPELINE.map(p => <option key={p} value={p}>{p.replaceAll('_',' ')}</option>)}
+            {PIPELINE.map(p => <option key={p} value={p}>{p.replace(/_/g,' ')}</option>)}
           </select>
         </div>
       </div>
@@ -2556,8 +2556,9 @@ function StormMap({ customers = [] }) {
 
   async function refresh() {
     const mk = [];
-    for (const c of (customers || [])) {
-      if (!c.address) continue;
+    const customerList = Array.isArray(customers) ? customers : (customers?.list || []);
+    for (const c of customerList) {
+      if (!c?.address) continue;
       const geo = await geocode(c.address);
       if (!geo) continue;
       mk.push({ id: c.id, name: c.name, address: c.address, lat: geo.lat, lng: geo.lng, tags: tagsFromDocs(c.docs) });
@@ -2573,7 +2574,7 @@ function StormMap({ customers = [] }) {
         {Object.keys(filters).filter(k => !['live', 'lead'].includes(k)).map(k => (
           <label key={k} className={`text-xs px-2 py-1 rounded-full border cursor-pointer ${filters[k as keyof typeof filters] ? 'bg-emerald-600 text-white border-emerald-700' : 'bg-white'}`}>
             <input type="checkbox" checked={!!filters[k as keyof typeof filters]} onChange={() => setFilters(f => ({ ...f, [k]: !f[k as keyof typeof f] }))} className="mr-1" />
-            {k.replaceAll('_', ' ')}
+            {k.replace(/_/g, ' ')}
           </label>
         ))}
         <label className={`text-xs px-2 py-1 rounded-full border cursor-pointer ${filters.live ? 'bg-purple-600 text-white border-purple-700' : 'bg-white'}`}>
