@@ -1650,13 +1650,14 @@ function ContractorPortal(){
 function StormMap({ customers = [] }) {
   const { role } = useRole();
   const [markers, setMarkers] = useState([]); // from customers
-  const [live, setLive] = useState([]); // from SSE
+  const [live, setLive] = useState([]); // from SSE drone events
+  const [leads, setLeads] = useState([]); // auto-generated leads
   const [center, setCenter] = useState([27.6648, -81.5158]); // FL center fallback
   const [zoom, setZoom] = useState(6);
   const [filters, setFilters] = useState({
     tree_on_roof: true, line_down: true, structure_damage: true, tree_on_fence: true,
     tree_on_car: true, tree_on_barn: true, tree_on_shed: true, tree_in_pool: true, tree_on_playground: true,
-    live: true
+    live: true, lead: true
   });
 
   // Listen for map center events from cards
@@ -1685,7 +1686,12 @@ function StormMap({ customers = [] }) {
     refresh();
   }, [JSON.stringify(customers)]);
 
-  // SSE live feed for drone events
+  // Load initial leads
+  useEffect(() => {
+    fetch('/api/leads').then(r => r.json()).then(setLeads).catch(() => {});
+  }, []);
+
+  // SSE live feed for drone events and leads
   useEffect(() => {
     const es = new EventSource('/api/drone/events');
     es.onmessage = (ev) => {
@@ -1694,8 +1700,11 @@ function StormMap({ customers = [] }) {
         if (data?.type === 'drone_event' && data.event) {
           setLive(prev => [...prev.slice(-499), data.event]);
         }
+        if (data?.type === 'lead' && data.lead) {
+          setLeads(prev => [data.lead, ...prev].slice(0, 500));
+        }
       } catch (e) {
-        console.error('Failed to parse drone SSE data:', e);
+        console.error('Failed to parse SSE data:', e);
       }
     };
     return () => es.close();
@@ -1734,12 +1743,12 @@ function StormMap({ customers = [] }) {
     setMarkers(mk);
   }
 
-  const active = (tags: string[] = []) => tags.some(t => filters[t as keyof typeof filters]) || (tags.length === 0 && filters.live);
+  const active = (tags: string[] = []) => tags.some(t => filters[t as keyof typeof filters]) || (tags.length === 0 && (filters.live || filters.lead));
 
   return (
     <div className="border rounded-lg overflow-hidden">
       <div className="p-2 flex flex-wrap gap-2 items-center">
-        {Object.keys(filters).filter(k => k !== 'live').map(k => (
+        {Object.keys(filters).filter(k => !['live', 'lead'].includes(k)).map(k => (
           <label key={k} className={`text-xs px-2 py-1 rounded-full border cursor-pointer ${filters[k as keyof typeof filters] ? 'bg-emerald-600 text-white border-emerald-700' : 'bg-white'}`}>
             <input type="checkbox" checked={!!filters[k as keyof typeof filters]} onChange={() => setFilters(f => ({ ...f, [k]: !f[k as keyof typeof f] }))} className="mr-1" />
             {k.replaceAll('_', ' ')}
@@ -1749,12 +1758,19 @@ function StormMap({ customers = [] }) {
           <input type="checkbox" checked={!!filters.live} onChange={() => setFilters(f => ({ ...f, live: !f.live }))} className="mr-1" />
           live
         </label>
+        <label className={`text-xs px-2 py-1 rounded-full border cursor-pointer ${filters.lead ? 'bg-orange-600 text-white border-orange-700' : 'bg-white'}`}>
+          <input type="checkbox" checked={!!filters.lead} onChange={() => setFilters(f => ({ ...f, lead: !f.lead }))} className="mr-1" />
+          lead
+        </label>
         <div className="ml-auto"><span className="text-xs opacity-70">Role: {role}</span></div>
       </div>
       <div style={{ height: 420 }}>
         <LeafletLive center={center} zoom={zoom}
-          markers={[...markers.filter(m => active(m.tags)).map(m => ({ ...m, kind: 'case' })),
-          ...live.filter(e => active(e.tags)).map(e => ({ id: e.id, lat: e.lat, lng: e.lng, name: e.provider || 'drone', address: e.address, tags: e.tags, kind: 'live', stream: e.stream, image: e.image }))]} />
+          markers={[
+            ...markers.filter(m => active(m.tags)).map(m => ({ ...m, kind: 'case' })),
+            ...live.filter(e => active(e.tags)).map(e => ({ id: e.id, lat: e.lat, lng: e.lng, name: e.provider || 'drone', address: e.address, tags: e.tags, kind: 'live', stream: e.stream, image: e.image })),
+            ...leads.filter(l => active(l.tags)).map(l => ({ id: l.id, lat: l.lat, lng: l.lng, name: 'lead', address: l.address, tags: l.tags, kind: 'lead', stream: l.stream, image: l.image }))
+          ]} />
       </div>
     </div>
   );
@@ -1785,10 +1801,14 @@ function LeafletLive({ center, zoom, markers }: { center: number[]; zoom: number
     if ((LeafletLive as any).__layer) { (LeafletLive as any).__layer.remove(); }
     const layer = L.layerGroup();
     markers.forEach(m => {
-      const isLive = m.kind === 'live';
-      const mk = isLive
-        ? L.circleMarker([m.lat, m.lng], { radius: 8, color: '#7c3aed', fillColor: '#7c3aed', fillOpacity: 0.8 })
-        : L.circleMarker([m.lat, m.lng], { radius: 6, color: '#10b981', fillColor: '#10b981', fillOpacity: 0.8 });
+      let mk;
+      if (m.kind === 'live') {
+        mk = L.circleMarker([m.lat, m.lng], { radius: 8, color: '#7c3aed', fillColor: '#7c3aed', fillOpacity: 0.8 });
+      } else if (m.kind === 'lead') {
+        mk = L.circleMarker([m.lat, m.lng], { radius: 8, color: '#f97316', fillColor: '#f97316', fillOpacity: 0.9 });
+      } else {
+        mk = L.circleMarker([m.lat, m.lng], { radius: 6, color: '#10b981', fillColor: '#10b981', fillOpacity: 0.8 });
+      }
       const media = m.image ? `<br/><img src="${m.image}" style="max-width:220px;max-height:120px;display:block;margin-top:4px;"/>` : '';
       const stream = m.stream ? `<br/><a href="${m.stream}" target="_blank">Open stream</a>` : '';
       mk.bindPopup(`<b>${m.name || ''}</b><br/>${m.address || ''}<br/>Tags: ${(m.tags || []).join(', ')}${media}${stream}`);
