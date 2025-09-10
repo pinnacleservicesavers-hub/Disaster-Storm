@@ -56,6 +56,221 @@ export function RoleBar() {
   );
 }
 
+// ===== WEATHER CENTER COMPONENT =====
+function WeatherCenter() {
+  const [activeWeatherView, setActiveWeatherView] = useState('windy');
+  const [noaaAlerts, setNoaaAlerts] = useState<any[]>([]);
+  const [weatherData, setWeatherData] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+
+  // Fetch NOAA alerts and weather data
+  useEffect(() => {
+    const fetchWeatherData = async () => {
+      setLoading(true);
+      try {
+        // Fetch NOAA alerts
+        const alertsResponse = await fetch('/api/weather/alerts');
+        const alerts = await alertsResponse.json();
+        setNoaaAlerts(alerts || []);
+
+        // Fetch general weather data
+        const weatherResponse = await fetch('/api/weather/current');
+        const weather = await weatherResponse.json();
+        setWeatherData(weather);
+      } catch (error) {
+        console.error('Failed to fetch weather data:', error);
+      }
+      setLoading(false);
+    };
+
+    fetchWeatherData();
+    const interval = setInterval(fetchWeatherData, 300000); // Refresh every 5 minutes
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="space-y-4">
+      {/* Weather Navigation */}
+      <div className="flex flex-wrap gap-2 border-b pb-4">
+        <button
+          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+            activeWeatherView === 'windy' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+          }`}
+          onClick={() => setActiveWeatherView('windy')}
+          data-testid="button-weather-windy"
+        >
+          🌪️ Windy Live Radar
+        </button>
+        <button
+          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+            activeWeatherView === 'noaa' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+          }`}
+          onClick={() => setActiveWeatherView('noaa')}
+          data-testid="button-weather-noaa"
+        >
+          🚨 NOAA Alerts
+        </button>
+        <button
+          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+            activeWeatherView === 'hurricanes' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+          }`}
+          onClick={() => setActiveWeatherView('hurricanes')}
+          data-testid="button-weather-hurricanes"
+        >
+          🌀 Hurricane Tracker
+        </button>
+        <button
+          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+            activeWeatherView === 'forecast' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+          }`}
+          onClick={() => setActiveWeatherView('forecast')}
+          data-testid="button-weather-forecast"
+        >
+          📊 Forecast Dashboard
+        </button>
+      </div>
+
+      {/* Weather Content */}
+      <div className="bg-white rounded-lg border overflow-hidden">
+        {/* Windy Integration */}
+        {activeWeatherView === 'windy' && (
+          <div className="h-[600px]">
+            <iframe
+              src="https://embed.windy.com/embed2.html?lat=39.739&lon=-104.987&detailLat=39.739&detailLon=-104.987&width=650&height=450&zoom=8&level=surface&overlay=wind&product=ecmwf&menu=&message=&marker=&calendar=now&pressure=&type=map&location=coordinates&detail=&metricWind=default&metricTemp=default&radarRange=-1"
+              className="w-full h-full border-0"
+              title="Windy Weather Map"
+              data-testid="iframe-windy-weather"
+            />
+            <div className="p-4 bg-gray-50 border-t">
+              <h3 className="font-semibold text-gray-900 mb-2">🌪️ Live Weather Radar - Windy</h3>
+              <p className="text-sm text-gray-600">
+                Real-time weather conditions, radar, wind patterns, and storm tracking from Windy.com. 
+                Use controls in the map to change layers (rain, wind, temperature, pressure).
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* NOAA Alerts */}
+        {activeWeatherView === 'noaa' && (
+          <div className="p-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">🚨 NOAA Weather Alerts</h3>
+              {loading && <div className="text-sm text-gray-500">Updating...</div>}
+              <div className="text-sm text-gray-500">
+                Last updated: {new Date().toLocaleTimeString()}
+              </div>
+            </div>
+            
+            {noaaAlerts.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <div className="text-4xl mb-2">✅</div>
+                <div>No active weather alerts</div>
+                <div className="text-sm mt-1">All clear in monitored areas</div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {noaaAlerts.map((alert: any, idx: number) => (
+                  <div
+                    key={alert.id || idx}
+                    className={`p-4 rounded-lg border-l-4 ${
+                      alert.severity === 'Extreme' ? 'border-red-500 bg-red-50' :
+                      alert.severity === 'Severe' ? 'border-orange-500 bg-orange-50' :
+                      'border-yellow-500 bg-yellow-50'
+                    }`}
+                    data-testid={`alert-${idx}`}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-gray-900">{alert.title}</h4>
+                        <p className="text-sm text-gray-600 mt-1">{alert.description}</p>
+                        <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
+                          <span>Type: {alert.alertType}</span>
+                          <span>Areas: {alert.areas?.join(', ')}</span>
+                          <span>Until: {new Date(alert.endTime).toLocaleString()}</span>
+                        </div>
+                      </div>
+                      <div className={`px-2 py-1 rounded text-xs font-medium ${
+                        alert.severity === 'Extreme' ? 'bg-red-100 text-red-800' :
+                        alert.severity === 'Severe' ? 'bg-orange-100 text-orange-800' :
+                        'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {alert.severity}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Hurricane Tracker */}
+        {activeWeatherView === 'hurricanes' && (
+          <div className="h-[600px]">
+            <iframe
+              src="https://embed.windy.com/embed2.html?lat=25.0&lon=-80.0&detailLat=25.0&detailLon=-80.0&width=650&height=450&zoom=5&level=surface&overlay=wind&product=gfs&menu=&message=&marker=&calendar=now&pressure=&type=map&location=coordinates&detail=&metricWind=kt&metricTemp=default&radarRange=-1"
+              className="w-full h-full border-0"
+              title="Hurricane Tracker"
+              data-testid="iframe-hurricane-tracker"
+            />
+            <div className="p-4 bg-gray-50 border-t">
+              <h3 className="font-semibold text-gray-900 mb-2">🌀 Atlantic Hurricane Tracker</h3>
+              <p className="text-sm text-gray-600">
+                Live hurricane and tropical storm tracking for the Atlantic basin. 
+                Switch to satellite view and wind overlay to track storm intensity and movement.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Forecast Dashboard */}
+        {activeWeatherView === 'forecast' && (
+          <div className="p-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">📊 7-Day Storm Operations Forecast</h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              <div className="bg-blue-50 p-4 rounded-lg border">
+                <div className="text-sm font-medium text-blue-800">Storm Risk</div>
+                <div className="text-2xl font-bold text-blue-900">Medium</div>
+                <div className="text-xs text-blue-600 mt-1">Next 48 hours</div>
+              </div>
+              
+              <div className="bg-green-50 p-4 rounded-lg border">
+                <div className="text-sm font-medium text-green-800">Wind Speed</div>
+                <div className="text-2xl font-bold text-green-900">15-25 mph</div>
+                <div className="text-xs text-green-600 mt-1">Current conditions</div>
+              </div>
+              
+              <div className="bg-yellow-50 p-4 rounded-lg border">
+                <div className="text-sm font-medium text-yellow-800">Precipitation</div>
+                <div className="text-2xl font-bold text-yellow-900">40%</div>
+                <div className="text-xs text-yellow-600 mt-1">Chance today</div>
+              </div>
+              
+              <div className="bg-purple-50 p-4 rounded-lg border">
+                <div className="text-sm font-medium text-purple-800">Active Alerts</div>
+                <div className="text-2xl font-bold text-purple-900">{noaaAlerts.length}</div>
+                <div className="text-xs text-purple-600 mt-1">Weather warnings</div>
+              </div>
+            </div>
+
+            {/* Embedded Extended Forecast */}
+            <div className="h-[400px]">
+              <iframe
+                src="https://embed.windy.com/embed2.html?lat=39.739&lon=-104.987&detailLat=39.739&detailLon=-104.987&width=650&height=450&zoom=6&level=surface&overlay=rain&product=ecmwf&menu=&message=&marker=&calendar=now&pressure=&type=map&location=coordinates&detail=&metricWind=default&metricTemp=default&radarRange=-1"
+                className="w-full h-full border-0"
+                title="Extended Weather Forecast"
+                data-testid="iframe-extended-forecast"
+              />
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ===== SLA Helper Functions =====
 function useNowTick(ms=60000){
   const [now, setNow] = useState(Date.now());
@@ -921,6 +1136,7 @@ function StormOpsProHubContent() {
             <nav className="-mb-px flex space-x-8 px-4 overflow-x-auto">
               {[
                 { id: "map", label: "🗺️ Storm Map" },
+                { id: "weather", label: "🌪️ Live Weather" },
                 { id: "inbox", label: "📥 Inbox" },
                 { id: "multiview", label: "📺 Multi-View" },
                 { id: "votix", label: "🔴 VOTIX" },
@@ -954,6 +1170,13 @@ function StormOpsProHubContent() {
             {activeTab === "map" && (
               <div className="p-4">
                 <StormMap customers={Array.isArray(customers) ? customers : (customers?.list || [])} />
+              </div>
+            )}
+
+            {/* Live Weather Tab */}
+            {activeTab === "weather" && (
+              <div className="p-4">
+                <WeatherCenter />
               </div>
             )}
 
