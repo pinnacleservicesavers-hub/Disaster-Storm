@@ -1,0 +1,171 @@
+/*
+ProcurePro — AI Contractor Bid Manager (Extended Spec + React App)
+===============================================================
+
+WHAT THIS APP DOES (full vision)
+--------------------------------
+- Contractor creates profile: company, owner, employees, job roles, equipment, insurances, bonding capacity.
+- Matches Scope of Work (SOW) with government procurement codes (NAICS/NIGP).
+- Pulls procurement opportunities (county, state, federal, prime portals like SAM.gov).
+- Tracks: submitted bids, unsubmitted bids, awarded/won bids, lost bids.
+- Guides contractor step by step through the bidding process: compliance checks, forms to sign/notarize, attachments, and deadlines.
+- AI suggests pricing structure based on costs (labor, equipment, hotel/per diem, insurance, subcontract portion, overhead, profit margin, risk buffer).
+- AI explains why the contractor has a good chance to win (insurance coverage, experience, competitive pricing, compliance, etc.).
+- Provides historical insights: who won previous bids, average winning price, common requirements.
+- Notifies contractor (in‑app, SMS, email) about: deadlines, site visits, pre‑bid meetings, questions due, award announcements.
+- Auto‑generates: forms, cover letters, bid summaries, COI reminders, notarized affidavits checklist.
+- Integrates with SAM.gov and other portals (auto‑fill and validation of entity status, vendor numbers, W-9, DBE/MBE status).
+- Provides dashboard: counts and details of bids submitted, bids missed, bids won/lost.
+- AI Q&A: contractor can ask any bid-related question (“Am I qualified for this?”, “What are risks?”, “What is profit after expenses?”).
+- Allows subcontracting: AI adjusts bid cost and compliance requirements accordingly.
+- Communications: ability to call, text, or email directly from app.
+
+KEY VALUE
+---------
+- Contractors usually win 1 of every 20 bids. With automation, compliance checks, and AI price suggestions, they can submit more bids faster, reducing errors, and increasing win percentage.
+- Keeps all documents, insurance, compliance forms in one place so each bid is faster.
+- Shows financial projections for each job (net revenue after insurance, labor, equipment, hotel, per diem).
+- Ensures no deadlines are missed — every important date is notified via SMS/email/calendar.
+
+*/
+
+import React, { useState, useMemo, useEffect } from "react";
+
+// --- LocalStorage persistence helpers ---
+const load = (k, f) => { try { const v = localStorage.getItem(k); return v? JSON.parse(v):f; } catch { return f; } };
+const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+
+// --- Utility formatting ---
+const fmt = (n) => (n||0).toLocaleString();
+const money = (n) => isNaN(+n)? 0 : Math.max(0, +n);
+
+// --- Simplified cost calculation ---
+function calcBid(params){
+  const { crewCount, laborRate, laborHours, days, equipDaily, equipCount, hotelPerDiem, perDiemDays, insuranceOH, overheadPct, targetMargin, riskBuffer, subcontractPct } = params;
+  const labor = crewCount*laborRate*laborHours*days;
+  const equipment = equipDaily*equipCount*days;
+  const travel = crewCount*hotelPerDiem*perDiemDays;
+  const subcontract = (labor+equipment)*(subcontractPct/100);
+  const direct = labor+equipment+travel+subcontract;
+  const ins = direct*(insuranceOH/100);
+  const overhead = direct*(overheadPct/100);
+  const subtotal = direct+ins+overhead;
+  const profit = subtotal*(targetMargin/100);
+  const risk = subtotal*(riskBuffer/100);
+  const recommended = Math.round(subtotal+profit+risk);
+  return {labor,equipment,travel,subcontract,ins,overhead,subtotal,profit,risk,recommended};
+}
+
+export default function App(){
+  const [tab,setTab] = useState("dashboard");
+  const [profile,setProfile] = useState(load("profile",{company:"",owner:"",email:"",phone:"",insurance:{glLimit:0,wc:true,auto:true},bonding:{capacity:0},samActive:false,stateRegs:[]}));
+  useEffect(()=>save("profile",profile),[profile]);
+
+  const [opps,setOpps] = useState(load("opps",[]));
+  useEffect(()=>save("opps",opps),[opps]);
+  const [selectedOppId,setSelectedOppId] = useState(opps[0]?.id||"");
+  const selectedOpp = opps.find(o=>o.id===selectedOppId);
+
+  const [bidParams,setBidParams] = useState(load("bidparams",{crewCount:4,laborRate:35,laborHours:10,days:3,equipDaily:500,equipCount:1,hotelPerDiem:180,perDiemDays:3,insuranceOH:5,overheadPct:10,targetMargin:20,riskBuffer:5,subcontractPct:0}));
+  useEffect(()=>save("bidparams",bidParams),[bidParams]);
+  const totals = useMemo(()=>calcBid(bidParams),[bidParams]);
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <header className="bg-white border-b px-4 py-3 flex justify-between">
+        <h1 className="font-bold text-xl">ProcurePro — Contractor Bid Manager</h1>
+        <nav className="flex gap-2">
+          {[{k:"dashboard",t:"Dashboard"},{k:"opps",t:"Opportunities"},{k:"builder",t:"Bid Builder"},{k:"profile",t:"Profile"},{k:"history",t:"History"}].map(({k,t})=>(
+            <button key={k} className={`px-3 py-1 rounded ${tab===k?"bg-black text-white":"bg-gray-100"}`} onClick={()=>setTab(k)}>{t}</button>
+          ))}
+        </nav>
+      </header>
+      <main className="p-4">
+        {tab==="dashboard" && <Dashboard opps={opps} />}
+        {tab==="opps" && <Opportunities opps={opps} setOpps={setOpps} selectedOppId={selectedOppId} setSelectedOppId={setSelectedOppId} />}
+        {tab==="builder" && <BidBuilder selectedOpp={selectedOpp} bidParams={bidParams} setBidParams={setBidParams} totals={totals} />}
+        {tab==="profile" && <Profile profile={profile} setProfile={setProfile} />}
+        {tab==="history" && <History opps={opps} />}
+      </main>
+    </div>
+  );
+}
+
+function Dashboard({opps}){
+  const submitted = opps.filter(o=>o.status==="submitted").length;
+  const won = opps.filter(o=>o.status==="won").length;
+  const missed = opps.filter(o=>o.status==="missed").length;
+  return (
+    <div className="bg-white p-5 rounded-xl shadow">
+      <h2 className="font-semibold mb-2">Bid Performance Overview</h2>
+      <div>Total Opportunities: {opps.length}</div>
+      <div>Submitted: {submitted}</div>
+      <div>Won: {won}</div>
+      <div>Missed: {missed}</div>
+      <p className="text-sm text-gray-600 mt-3">AI Note: Contractors usually win 1 of 20 bids. Submitting more, with strong compliance and pricing, increases win rate.</p>
+    </div>
+  );
+}
+
+function Opportunities({opps,setOpps,selectedOppId,setSelectedOppId}){
+  const [draft,setDraft] = useState({title:"",state:"",county:"",deadline:"",sow:"",status:"new"});
+  const add=()=>{const id=String(Date.now());setOpps([...opps,{...draft,id}]);setDraft({title:"",state:"",county:"",deadline:"",sow:"",status:"new"});};
+  return (
+    <div>
+      <h2 className="font-semibold mb-3">Active Opportunities</h2>
+      <div className="grid md:grid-cols-2 gap-3">
+        {opps.map(o=>(<div key={o.id} className={`p-3 rounded border ${selectedOppId===o.id?"bg-gray-100":"bg-white"}`}>
+          <div className="font-semibold">{o.title}</div>
+          <div className="text-sm">{o.county}, {o.state}</div>
+          <div className="text-xs">Deadline: {o.deadline}</div>
+          <button className="text-blue-600 text-sm" onClick={()=>setSelectedOppId(o.id)}>Select</button>
+        </div>))}
+      </div>
+      <h3 className="mt-4 font-semibold">Add Opportunity</h3>
+      <input className="border p-1 w-full mb-2" placeholder="Title" value={draft.title} onChange={e=>setDraft({...draft,title:e.target.value})}/>
+      <input className="border p-1 w-full mb-2" placeholder="State" value={draft.state} onChange={e=>setDraft({...draft,state:e.target.value})}/>
+      <input className="border p-1 w-full mb-2" placeholder="County" value={draft.county} onChange={e=>setDraft({...draft,county:e.target.value})}/>
+      <input className="border p-1 w-full mb-2" placeholder="Deadline" value={draft.deadline} onChange={e=>setDraft({...draft,deadline:e.target.value})}/>
+      <textarea className="border p-1 w-full mb-2" placeholder="Scope of Work" value={draft.sow} onChange={e=>setDraft({...draft,sow:e.target.value})}/>
+      <button className="bg-black text-white px-3 py-1 rounded" onClick={add}>Save</button>
+    </div>
+  );
+}
+
+function BidBuilder({selectedOpp,bidParams,setBidParams,totals}){
+  if(!selectedOpp) return <div>Select an opportunity.</div>;
+  const set=(k,v)=>setBidParams({...bidParams,[k]:isNaN(+v)?v:+v});
+  return (
+    <div className="bg-white p-4 rounded shadow">
+      <h2 className="font-semibold mb-3">Bid for: {selectedOpp.title}</h2>
+      <label>Crew Count <input value={bidParams.crewCount} onChange={e=>set("crewCount",e.target.value)}/></label>
+      <label>Labor Rate <input value={bidParams.laborRate} onChange={e=>set("laborRate",e.target.value)}/></label>
+      <p className="mt-3">Estimated Bid: ${fmt(totals.recommended)}</p>
+      <p className="text-sm text-gray-600">AI Suggestion: Price competitively but include all direct costs, insurance, and profit buffer. Your past compliance and safety record will improve win chances.</p>
+    </div>
+  );
+}
+
+function Profile({profile,setProfile}){
+  return (
+    <div className="bg-white p-4 rounded shadow">
+      <h2 className="font-semibold mb-3">Company Profile</h2>
+      <input className="border p-1 w-full mb-2" placeholder="Company" value={profile.company} onChange={e=>setProfile({...profile,company:e.target.value})}/>
+      <input className="border p-1 w-full mb-2" placeholder="Owner" value={profile.owner} onChange={e=>setProfile({...profile,owner:e.target.value})}/>
+      <input className="border p-1 w-full mb-2" placeholder="Email" value={profile.email} onChange={e=>setProfile({...profile,email:e.target.value})}/>
+      <input className="border p-1 w-full mb-2" placeholder="Phone" value={profile.phone} onChange={e=>setProfile({...profile,phone:e.target.value})}/>
+      <label><input type="checkbox" checked={profile.samActive} onChange={e=>setProfile({...profile,samActive:e.target.checked})}/> SAM.gov Active</label>
+    </div>
+  );
+}
+
+function History({opps}){
+  return (
+    <div className="bg-white p-4 rounded shadow">
+      <h2 className="font-semibold mb-3">Bid History</h2>
+      <ul>
+        {opps.map(o=>(<li key={o.id}>{o.title} — {o.status}</li>))}
+      </ul>
+    </div>
+  );
+}

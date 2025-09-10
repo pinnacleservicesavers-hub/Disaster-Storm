@@ -1,0 +1,302 @@
+# Work Completed + Claim Package + Calendar — Paste Blocks
+
+This pack gives you:
+
+* **Work Completed button** → stamps timeline, registers SLA (+45d lien reminder), auto‑creates follow‑ups on the **Calendar**.
+* **Claim Package email** → composes claim summary PDF (+ optional contract & photo report), sends to insurer, logs timeline.
+* **Contractors Calendar** (per‑contractor) → jobs + follow‑ups, week view + Today list, daily email/SMS digest at 7:00am ET.
+
+> Paste the **Server** blocks into `server.js` (after your existing routes). Then paste the **Frontend** blocks into your React UI.
+
+---
+
+## 1) SERVER — Scheduling + Contractors + Work Completed + Claim Package
+
+```js
+// ===== Contractors store =====
+const CONTRACTORS_PATH = path.join(DATA_DIR, 'contractors.json');
+if (!fs.existsSync(CONTRACTORS_PATH)) fs.writeFileSync(CONTRACTORS_PATH, JSON.stringify({ items: [
+  { id:'ctr:default', name:'Strategic Land Management LLC', email:'strategiclandmgmt@gmail.com', phone:'+18886282229', timezone:'America/New_York', color:'#0ea5e9' }
+] }, null, 2));
+function readContractors(){ try{ return JSON.parse(fs.readFileSync(CONTRACTORS_PATH,'utf8')); }catch{ return { items: [] }; } }
+function writeContractors(d){ try{ fs.writeFileSync(CONTRACTORS_PATH, JSON.stringify(d,null,2)); }catch{} }
+app.get('/api/contractors', (req,res)=>{ try{ res.json(readContractors().items||[]); }catch{ res.json([]); } });
+app.post('/api/contractors/save', express.json(), (req,res)=>{ try{ const c=req.body||{}; if(!c.id) c.id=`ctr:${Date.now()}`; const db=readContractors(); const i=(db.items||[]).findIndex(x=>x.id===c.id); if(i>=0) db.items[i]={...db.items[i],...c}; else db.items.push(c); writeContractors(db); res.json({ ok:true, contractor:c }); }catch(e){ res.status(500).json({ ok:false }); } });
+
+// ===== Tasks / Schedule store =====
+const TASKS_PATH = path.join(DATA_DIR, 'tasks.json');
+if (!fs.existsSync(TASKS_PATH)) fs.writeFileSync(TASKS_PATH, JSON.stringify({ items: [] }, null, 2));
+function readTasks(){ try{ return JSON.parse(fs.readFileSync(TASKS_PATH,'utf8')); }catch{ return { items: [] }; } }
+function writeTasks(d){ try{ fs.writeFileSync(TASKS_PATH, JSON.stringify(d,null,2)); }catch{} }
+
+function addTask({ contractorId='ctr:default', customerId=null, title, detail='', startTs, endTs=null, type='job', status='open' }){
+  const db = readTasks();
+  const t = { id: `t:${Date.now()}:${Math.random().toString(36).slice(2,6)}`, contractorId, customerId, title, detail, startTs:Number(startTs||Date.now()), endTs:endTs?Number(endTs):null, type, status };
+  db.items.push(t); writeTasks(db); return t;
+}
+
+app.post('/api/schedule/add', express.json(), (req,res)=>{ try{ const t = addTask(req.body||{}); res.json({ ok:true, task:t }); }catch(e){ res.status(500).json({ ok:false }); } });
+app.post('/api/schedule/update', express.json(), (req,res)=>{ try{ const { id, patch } = req.body||{}; const db=readTasks(); const it=(db.items||[]).find(x=>x.id===id); if(!it) return res.status(404).json({}); Object.assign(it, patch||{}); writeTasks(db); res.json({ ok:true, task:it }); }catch(e){ res.status(500).json({ ok:false }); } });
+app.get('/api/schedule/list', (req,res)=>{ try{ const db=readTasks(); const { contractorId, startTs, endTs } = req.query; let items=db.items||[]; if (contractorId) items=items.filter(x=>x.contractorId===contractorId); if (startTs) items=items.filter(x=>x.startTs>=Number(startTs)); if (endTs) items=items.filter(x=>x.startTs<Number(endTs)); res.json(items.sort((a,b)=>a.startTs-b.startTs)); }catch(e){ res.status(500).json([]); } });
+
+// ===== Helper: push follow-up tasks for a customer =====
+function scheduleFollowUpsForCustomer(c, contractorId='ctr:default', baseTs=Date.now()){
+  // Next‑day call, 30‑day balance check, 45‑day demand review
+  addTask({ contractorId, customerId:c.id, title:`Call ${c.name||'customer'}`, detail:`Post‑work follow‑up call for ${c.address||''}`, startTs: baseTs + 24*3600*1000, type:'followup' });
+  addTask({ contractorId, customerId:c.id, title:'Balance check (30 days)', detail:`Review balance & send reminder if needed`, startTs: baseTs + 30*24*3600*1000, type:'followup' });
+  addTask({ contractorId, customerId:c.id, title:'Demand letter review (45 days)', detail:`If unpaid, send demand & consider lien`, startTs: baseTs + 45*24*3600*1000, type:'followup' });
+}
+
+// ===== Work Completed endpoint =====
+app.post('/api/customer/work-completed', express.json(), (req,res)=>{
+  try{
+    const { customerId, completedAt = Date.now(), contractorId='ctr:default' } = req.body||{};
+    const db = readCustomers(); const c = (db.items||[]).find(x=>x.id===customerId); if (!c) return res.status(404).json({ error:'customer_not_found' });
+    c.status = 'work_completed';
+    c.timeline = c.timeline||[]; c.timeline.push({ ts:Number(completedAt), type:'work_completed', text:'Marked completed' });
+    writeCustomers(db);
+    // Register SLA 45d lien reminder
+    try{ await fetch(`http://localhost:${process.env.PORT||3000}/api/sla/register`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ customerId:c.id, type:'work_completed', ts:Number(completedAt), address:c.address||'', name:c.name||'' }) }); }catch{}
+    // Calendar follow‑ups
+    scheduleFollowUpsForCustomer(c, contractorId, Number(completedAt));
+    res.json({ ok:true, customer:c });
+  }catch(e){ res.status(500).json({ ok:false }); }
+});
+
+// ===== Claim Package email =====
+app.post('/api/claim/package/send', express.json(), async (req,res)=>{
+  try{
+    const { customerId, to, cc=[], includeContract=true, includeLatestPhotoReport=true, extraNotes='' } = req.body||{};
+    const db = readCustomers(); const c = (db.items||[]).find(x=>x.id===customerId); if (!c) return res.status(404).json({});
+    if (!transporter) return res.status(500).json({ error:'Email not configured' });
+
+    // Build summary PDF
+    const outPath = path.join(UPLOAD_DIR, `claim_summary_${Date.now()}.pdf`);
+    const doc = new PDFDocument({ size:'LETTER', margin:36 }); const ws = fs.createWriteStream(outPath); doc.pipe(ws);
+    doc.fontSize(16).text('Claim Package Summary'); doc.moveDown();
+    doc.fontSize(11).text(`Insured: ${c.name||''}`); if (c.address) doc.text(`Property: ${c.address}`);
+    if (c.claimNumber) doc.text(`Claim #: ${c.claimNumber}`);
+    if (c.insurer) doc.text(`Insurer: ${c.insurer}`);
+    if (c.invoiceTotal) doc.text(`Invoice Total: $${Number(c.invoiceTotal).toFixed(2)}`);
+    if (extraNotes) { doc.moveDown().text(`Notes: ${extraNotes}`); }
+    const damageTags = (c.tags||[]).join(', '); if (damageTags) { doc.moveDown().text(`Observed Damage: ${damageTags}`); }
+    // Add up to 4 thumbnail photos
+    const photos = (c.docs||[]).filter(d=>/\.(jpg|jpeg|png)$/i.test(d.url||d.name));
+    for (let i=0;i<Math.min(4, photos.length); i++){
+      try{
+        const ph = photos[i];
+        let buf=null; if (/^https?:/i.test(ph.url)) { const r=await fetch(ph.url); buf = Buffer.from(await r.arrayBuffer()); } else { const fp = ph.url.startsWith('/uploads/')? path.join(UPLOAD_DIR, path.basename(ph.url)):ph.url; buf = fs.readFileSync(fp); }
+        doc.moveDown().text(ph.caption||ph.name||'Photo'); doc.image(buf, { fit:[520,360] });
+      }catch{}
+    }
+    doc.end(); await new Promise(r=> ws.on('finish', r));
+
+    // Attachments
+    const atts = [{ filename: path.basename(outPath), path: outPath }];
+    if (includeContract) atts.push({ filename:'contract.pdf', path: path.join(ASSETS_DIR,'contract.pdf') });
+    if (includeLatestPhotoReport){
+      const latest = fs.readdirSync(UPLOAD_DIR).filter(n=> n.startsWith('photo_report_') && n.endsWith('.pdf')).sort().pop();
+      if (latest) atts.push({ filename: latest, path: path.join(UPLOAD_DIR, latest) });
+    }
+
+    // Send
+    const toAddr = to || c.insurerEmail || 'claims@example.com';
+    const html = `Attached is the claim package for ${c.name||''} at ${c.address||''}. Claim # ${c.claimNumber||''}.`;
+    const info = await transporter.sendMail({ from: process.env.SMTP_FROM||process.env.SMTP_USER, to: toAddr, cc: Array.isArray(cc)? cc.filter(Boolean):[], subject: `Claim package — ${c.address||''} — ${c.claimNumber||''}`, html, attachments: atts });
+
+    // Timeline
+    c.timeline = c.timeline||[]; c.timeline.push({ ts: Date.now(), type:'claim_package_sent', text:`Email ${toAddr} msgId=${info.messageId}` });
+    writeCustomers(db);
+
+    // Calendar task logged
+    addTask({ title:'Follow up with insurer (3 days)', contractorId:'ctr:default', customerId:c.id, startTs: Date.now()+3*24*3600*1000, type:'followup' });
+
+    res.json({ ok:true, messageId: info.messageId });
+  }catch(e){ res.status(500).json({ ok:false, detail:String(e) }); }
+});
+
+// ===== Daily digest (7:00 ET) =====
+cron.schedule('0 7 * * *', async ()=>{
+  try{
+    const cons = readContractors().items||[]; const tasks = readTasks().items||[]; const today = new Date(); today.setHours(0,0,0,0); const start = today.getTime(); const end = start + 24*3600*1000;
+    for (const ctr of cons){
+      const items = tasks.filter(t=> t.contractorId===ctr.id && t.startTs>=start && t.startTs<end).sort((a,b)=>a.startTs-b.startTs);
+      if (!items.length) continue;
+      const lines = items.map(t=> `• ${new Date(t.startTs).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})} — ${t.title}${t.detail? ' — '+t.detail:''}`).join('\n');
+      const html = `Today\'s tasks for ${ctr.name}:<br/><pre>${lines}</pre>`;
+      if (transporter && ctr.email){ try{ await transporter.sendMail({ from: process.env.SMTP_FROM||process.env.SMTP_USER, to: ctr.email, subject:'Daily Tasks', html }); }catch{} }
+      if (twilioClient && ctr.phone){ try{ await twilioClient.messages.create({ to: ctr.phone, from: process.env.TWILIO_FROM, body: `Daily tasks:\n${lines.slice(0,120)}${lines.length>120?'…':''}` }); }catch{} }
+    }
+  }catch{}
+});
+```
+
+---
+
+## 2) FRONTEND — Buttons + Calendar UI
+
+> These are drop‑in React components. They use the same style as earlier blocks.
+
+### 2a) Work Completed button (put inside `CustomerCard`)
+
+```jsx
+function WorkCompletedButton({ c, onDone }){
+  async function markDone(){
+    if (!confirm('Mark work completed now? This starts the 30/45‑day clock and adds follow‑ups to the Calendar.')) return;
+    const r = await fetch('/api/customer/work-completed',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ customerId:c.id, contractorId:'ctr:default' }) }).then(r=>r.json()).catch(()=>null);
+    if (r?.ok){ onDone?.(r.customer); alert('Marked completed & scheduled follow‑ups.'); }
+  }
+  return <Button size="sm" onClick={markDone}>Set Work Completed</Button>;
+}
+```
+
+### 2b) Claim Package Email (put inside `CustomerCard`)
+
+```jsx
+function ClaimPackageEmail({ c }){
+  const [to, setTo] = React.useState(c.insurerEmail||'');
+  const [cc, setCc] = React.useState('');
+  const [notes, setNotes] = React.useState('');
+  const [includeContract, setIncC] = React.useState(true);
+  const [includeReport, setIncR] = React.useState(true);
+  async function send(){
+    const body = { customerId: c.id, to, cc: cc? cc.split(',').map(s=>s.trim()):[], includeContract: includeContract, includeLatestPhotoReport: includeReport, extraNotes: notes };
+    const r = await fetch('/api/claim/package/send',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) }).then(r=>r.json()).catch(()=>null);
+    if (r?.ok) alert('Claim package sent.'); else alert('Failed to send.');
+  }
+  return (
+    <div className="border rounded-md p-3 mt-3 space-y-2">
+      <div className="font-medium">Claim Package</div>
+      <div className="grid md:grid-cols-2 gap-2">
+        <input className="border px-2 py-1" placeholder="To (insurer email)" value={to} onChange={(e)=>setTo(e.target.value)} />
+        <input className="border px-2 py-1" placeholder="CC (comma separated)" value={cc} onChange={(e)=>setCc(e.target.value)} />
+      </div>
+      <textarea className="border w-full px-2 py-1" rows={3} placeholder="Notes to include in summary" value={notes} onChange={(e)=>setNotes(e.target.value)} />
+      <label className="text-sm flex items-center gap-2"><input type="checkbox" checked={includeContract} onChange={(e)=>setIncC(e.target.checked)} /> Attach contract</label>
+      <label className="text-sm flex items-center gap-2"><input type="checkbox" checked={includeReport} onChange={(e)=>setIncR(e.target.checked)} /> Attach latest photo report</label>
+      <div><Button size="sm" onClick={send}>Send Claim Package</Button></div>
+    </div>
+  );
+}
+```
+
+### 2c) Contractors Calendar (add to contractor dashboard)
+
+```jsx
+function startOfWeek(d=new Date()){ const x=new Date(d); const day=(x.getDay()+6)%7; x.setDate(x.getDate()-day); x.setHours(0,0,0,0); return x; }
+function endOfWeek(d=new Date()){ const x=startOfWeek(d); x.setDate(x.getDate()+7); return x; }
+
+function ContractorsCalendar({ contractorId='ctr:default', assignToCustomer }){
+  const [weekStart, setWeekStart] = React.useState(startOfWeek());
+  const [items, setItems] = React.useState([]);
+  const [title, setTitle] = React.useState('');
+  const [date, setDate] = React.useState(new Date().toISOString().slice(0,10));
+  const [time, setTime] = React.useState('09:00');
+  const [dur, setDur] = React.useState(120);
+
+  async function load(){
+    const startTs = weekStart.getTime(); const endTs = endOfWeek(weekStart).getTime();
+    const r = await fetch(`/api/schedule/list?contractorId=${encodeURIComponent(contractorId)}&startTs=${startTs}&endTs=${endTs}`).then(r=>r.json()).catch(()=>[]);
+    setItems(r||[]);
+  }
+  React.useEffect(()=>{ load(); }, [weekStart, contractorId]);
+
+  function shift(weeks){ const x=new Date(weekStart); x.setDate(x.getDate()+7*weeks); setWeekStart(x); }
+  function dayCol(d){ const x=new Date(weekStart); x.setDate(x.getDate()+d); return x; }
+
+  async function add(){
+    if (!title) return alert('Enter a title');
+    const ts = new Date(`${date}T${time}:00`).getTime();
+    const r = await fetch('/api/schedule/add',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ contractorId, title, startTs: ts, endTs: ts + dur*60000, type:'job' }) }).then(r=>r.json());
+    if (r?.ok){ setTitle(''); load(); }
+  }
+
+  const days = Array.from({length:7}, (_,i)=> dayCol(i));
+  const grouped = days.map(d=> ({ date:d, items: items.filter(it=> { const dd=new Date(it.startTs); return dd.getFullYear()===d.getFullYear() && dd.getMonth()===d.getMonth() && dd.getDate()===d.getDate(); }) }));
+
+  return (
+    <div className="border rounded-md p-3 space-y-3">
+      <div className="flex items-center gap-2">
+        <Button variant="outline" onClick={()=>shift(-1)}>&larr; Prev</Button>
+        <div className="font-medium">Week of {weekStart.toLocaleDateString()}</div>
+        <Button variant="outline" onClick={()=>shift(1)}>Next &rarr;</Button>
+        <div className="ml-auto flex items-center gap-2">
+          <input className="border px-2 py-1" placeholder="Task title" value={title} onChange={(e)=>setTitle(e.target.value)} />
+          <input className="border px-2 py-1" type="date" value={date} onChange={(e)=>setDate(e.target.value)} />
+          <input className="border px-2 py-1" type="time" value={time} onChange={(e)=>setTime(e.target.value)} />
+          <input className="border px-2 py-1 w-24" type="number" value={dur} onChange={(e)=>setDur(e.target.value)} />
+          <Button onClick={add}>Add</Button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-7 gap-2 text-sm">
+        {grouped.map((g,i)=> (
+          <div key={i} className="border rounded p-2 min-h-[220px]">
+            <div className="font-semibold text-xs mb-1">{g.date.toLocaleDateString(undefined,{ weekday:'short', month:'short', day:'numeric' })}</div>
+            <div className="space-y-1">
+              {g.items.map(it=> (
+                <div key={it.id} className="border rounded p-2">
+                  <div className="text-xs opacity-70">{new Date(it.startTs).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</div>
+                  <div className="font-medium">{it.title}</div>
+                  {it.detail && <div className="text-xs">{it.detail}</div>}
+                </div>
+              ))}
+              {!g.items.length && <div className="text-xs opacity-50">No items</div>}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <TodayTaskList contractorId={contractorId} />
+    </div>
+  );
+}
+
+function TodayTaskList({ contractorId }){
+  const [items, setItems] = React.useState([]);
+  React.useEffect(()=>{
+    async function load(){
+      const now = new Date(); now.setHours(0,0,0,0); const start=now.getTime(); const end=start+24*3600*1000;
+      const r = await fetch(`/api/schedule/list?contractorId=${encodeURIComponent(contractorId)}&startTs=${start}&endTs=${end}`).then(r=>r.json()).catch(()=>[]);
+      setItems(r||[]);
+    }
+    load();
+  }, [contractorId]);
+  return (
+    <div className="border rounded p-3">
+      <div className="font-medium mb-1">Today</div>
+      <div className="space-y-1">
+        {items.map(it=> (
+          <div key={it.id} className="border rounded p-2 text-sm flex items-center justify-between">
+            <div>
+              <div className="font-medium">{it.title}</div>
+              {it.detail && <div className="text-xs opacity-70">{it.detail}</div>}
+            </div>
+            <div className="text-xs opacity-70">{new Date(it.startTs).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</div>
+          </div>
+        ))}
+        {!items.length && <div className="text-xs opacity-50">No tasks scheduled today.</div>}
+      </div>
+    </div>
+  );
+}
+```
+
+**Where to render:**
+
+* Inside **CustomerCard**:
+
+  ```jsx
+  <div className="flex gap-2 mt-2">
+    <WorkCompletedButton c={c} onDone={(nc)=>update(c.id, nc)} />
+    <ClaimPackageEmail c={c} />
+  </div>
+  ```
+* Inside **Contractor Dashboard** tab:
+
+  ```jsx
+  <ContractorsCalendar contractorId="ctr:default" />
+  ```
+
+```
+```
