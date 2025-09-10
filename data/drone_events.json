@@ -30,6 +30,21 @@
       "image": "https://via.placeholder.com/640x360.png?text=StructureDamage",
       "stream": null,
       "ts": 1757463779742
+    },
+    {
+      "id": "drone:1757463856475:bkxqkq",
+      "provider": "demo",
+      "droneId": null,
+      "mission": null,
+      "lat": 27.9475,
+      "lng": -82.4584,
+      "address": null,
+      "tags": [
+        "tree_on_roof"
+      ],
+      "image": "https://via.placeholder.com/640x360.png?text=Damage",
+      "stream": "https://example.com/live.m3u8",
+      "ts": 1757463856475
     }
   ]
 }
