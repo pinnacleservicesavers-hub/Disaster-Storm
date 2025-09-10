@@ -30,9 +30,10 @@ if (!fs.existsSync(CONTRACT_PATH)) {
   doc.end();
 }
 
-// Static
+// Static files
 app.use('/uploads', express.static(UPLOAD_DIR));
 app.use('/files', express.static(ASSETS_DIR));
+
 
 // --- Email (nodemailer)
 let transporter: any = null;
@@ -687,11 +688,36 @@ cron.schedule('5 9 * * *', async ()=>{
 
 // --- Register additional routes and start server
 import { registerRoutes } from './routes.js';
+import { setupVite, serveStatic } from './vite.js';
+import { createServer } from 'http';
 
 async function startServer() {
   await registerRoutes(app);
+  
+  const httpServer = createServer(app);
+  
+  // Set up frontend serving
+  if (process.env.NODE_ENV === 'development') {
+    console.log('🚀 Setting up Vite dev server...');
+    await setupVite(app, httpServer);
+    console.log('✅ Vite dev server integrated');
+  } else {
+    console.log('📦 Serving static build files...');
+    try {
+      serveStatic(app);
+      console.log('✅ Static files served');
+    } catch (error) {
+      console.log('⚠️ Static build not found, development mode fallback');
+      await setupVite(app, httpServer);
+    }
+  }
+  
   const PORT = process.env.PORT || 5000;
-  app.listen(PORT, () => console.log('StormOps skeleton running on', PORT));
+  httpServer.listen(PORT, () => {
+    console.log('🌟 StormLead Master running on port', PORT);
+    console.log('🌐 Frontend available at http://localhost:' + PORT);
+    console.log('🔧 API endpoints available at http://localhost:' + PORT + '/api/*');
+  });
 }
 
 startServer().catch(console.error);
