@@ -135,6 +135,21 @@
         "gutter damage"
       ],
       "ts": 1757464895163
+    },
+    {
+      "provider": "votix",
+      "droneId": "VOTIX-DUP-001",
+      "mission": "DUP-TEST-001",
+      "lat": 28.1235,
+      "lng": -82.5679,
+      "address": "Brown Road, Woodham Farms, Keystone, Hillsborough County, Florida, 33556, United States",
+      "stream": "https://stream.votix.com/duplicate.m3u8",
+      "image": "https://image.votix.com/dup-damage.jpg",
+      "tags": [
+        "roof damage",
+        "hail damage"
+      ],
+      "ts": 1757465117123
     }
   ]
 }

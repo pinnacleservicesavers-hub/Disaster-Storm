@@ -406,6 +406,223 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
     } 
   }
 
+  // ---- Customers Panel API Extensions ----
+  
+  // Search customers with filters
+  app.get('/api/customers/search', (req, res) => {
+    try {
+      const { q, status, tags } = req.query;
+      const db = readCustomers();
+      let results = db.items || [];
+      
+      // Text search across name, address, phone, email
+      if (q) {
+        const query = String(q).toLowerCase();
+        results = results.filter(c => 
+          (c.name || '').toLowerCase().includes(query) ||
+          (c.address || '').toLowerCase().includes(query) ||
+          (c.phone || '').toLowerCase().includes(query) ||
+          (c.email || '').toLowerCase().includes(query)
+        );
+      }
+      
+      // Status filter
+      if (status && status !== 'all') {
+        results = results.filter(c => c.status === status);
+      }
+      
+      // Tags filter
+      if (tags) {
+        const tagArray = String(tags).split(',').map(t => t.trim().toLowerCase());
+        results = results.filter(c => 
+          (c.tags || []).some(tag => tagArray.includes(tag.toLowerCase()))
+        );
+      }
+      
+      res.json(results);
+    } catch (e) {
+      res.status(500).json({ error: 'search_failed' });
+    }
+  });
+
+  // Export customers to CSV
+  app.get('/api/customers/export', (req, res) => {
+    try {
+      const db = readCustomers();
+      const customers = db.items || [];
+      
+      // CSV headers
+      const headers = ['ID', 'Name', 'Address', 'Mailing Address', 'Phone', 'Email', 'Insurer', 'Claim Number', 'Status', 'Tags', 'Created'];
+      
+      // CSV rows
+      const rows = customers.map(c => [
+        c.id || '',
+        c.name || '',
+        c.address || '',
+        c.mailingAddress || '',
+        c.phone || '',
+        c.email || '',
+        c.insurer || '',
+        c.claimNumber || '',
+        c.status || '',
+        (c.tags || []).join('; '),
+        c.timeline?.[0]?.ts ? new Date(c.timeline[0].ts).toISOString() : ''
+      ]);
+      
+      // Generate CSV content
+      const csvContent = [headers, ...rows]
+        .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+        .join('\n');
+      
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename="customers.csv"');
+      res.send(csvContent);
+    } catch (e) {
+      res.status(500).json({ error: 'export_failed' });
+    }
+  });
+
+  // Detect duplicate customers
+  app.get('/api/customers/duplicates', (req, res) => {
+    try {
+      const db = readCustomers();
+      const customers = db.items || [];
+      const duplicates = [];
+      
+      for (let i = 0; i < customers.length; i++) {
+        const customer = customers[i];
+        const matches = [];
+        
+        for (let j = i + 1; j < customers.length; j++) {
+          const other = customers[j];
+          const reasons = [];
+          
+          // Address similarity
+          if (customer.address && other.address && 
+              normalizeAddressStr(customer.address) === normalizeAddressStr(other.address)) {
+            reasons.push('same_address');
+          }
+          
+          // Geospatial proximity (within 25 meters)
+          if (typeof customer.lat === 'number' && typeof customer.lng === 'number' &&
+              typeof other.lat === 'number' && typeof other.lng === 'number' &&
+              haversine(customer.lat, customer.lng, other.lat, other.lng) < 25) {
+            reasons.push('same_location');
+          }
+          
+          // Phone similarity
+          if (customer.phone && other.phone && 
+              customer.phone.replace(/\D/g, '') === other.phone.replace(/\D/g, '')) {
+            reasons.push('same_phone');
+          }
+          
+          // Email similarity
+          if (customer.email && other.email && 
+              customer.email.toLowerCase() === other.email.toLowerCase()) {
+            reasons.push('same_email');
+          }
+          
+          if (reasons.length > 0) {
+            matches.push({ customer: other, reasons });
+          }
+        }
+        
+        if (matches.length > 0) {
+          duplicates.push({ customer, matches });
+        }
+      }
+      
+      res.json(duplicates);
+    } catch (e) {
+      res.status(500).json({ error: 'duplicate_detection_failed' });
+    }
+  });
+
+  // Bulk merge customers
+  app.post('/api/customers/merge', express.json(), async (req, res) => {
+    try {
+      const { primaryId, mergeIds } = req.body;
+      if (!primaryId || !Array.isArray(mergeIds) || mergeIds.length === 0) {
+        return res.status(400).json({ error: 'invalid_merge_request' });
+      }
+      
+      const db = readCustomers();
+      const customers = db.items || [];
+      
+      const primary = customers.find(c => c.id === primaryId);
+      const toMerge = customers.filter(c => mergeIds.includes(c.id));
+      
+      if (!primary || toMerge.length === 0) {
+        return res.status(404).json({ error: 'customers_not_found' });
+      }
+      
+      // Merge data into primary customer
+      for (const customer of toMerge) {
+        // Merge tags
+        primary.tags = Array.from(new Set([...(primary.tags || []), ...(customer.tags || [])]));
+        
+        // Merge docs
+        primary.docs = [...(primary.docs || []), ...(customer.docs || [])];
+        
+        // Merge messages
+        primary.messages = [...(primary.messages || []), ...(customer.messages || [])];
+        
+        // Merge timeline
+        primary.timeline = [...(primary.timeline || []), ...(customer.timeline || [])];
+        primary.timeline.push({
+          ts: Date.now(),
+          type: 'customer_merged',
+          text: `Merged customer ${customer.id} (${customer.name || 'Unknown'})`
+        });
+        
+        // Update contact info if missing
+        if (!primary.phone && customer.phone) primary.phone = customer.phone;
+        if (!primary.email && customer.email) primary.email = customer.email;
+        if (!primary.insurer && customer.insurer) primary.insurer = customer.insurer;
+        if (!primary.claimNumber && customer.claimNumber) primary.claimNumber = customer.claimNumber;
+        if (!primary.mailingAddress && customer.mailingAddress) primary.mailingAddress = customer.mailingAddress;
+      }
+      
+      // Remove merged customers
+      db.items = customers.filter(c => !mergeIds.includes(c.id));
+      writeCustomers(db);
+      
+      // Broadcast merge event
+      sseBroadcast({ 
+        type: 'customers_merged', 
+        primaryId, 
+        mergedIds: mergeIds,
+        customer: primary 
+      });
+      
+      res.json({ ok: true, customer: primary, mergedCount: mergeIds.length });
+    } catch (e) {
+      res.status(500).json({ error: 'merge_failed', detail: String(e) });
+    }
+  });
+
+  // Delete customer
+  app.delete('/api/customers/:id', (req, res) => {
+    try {
+      const { id } = req.params;
+      const db = readCustomers();
+      const initialCount = (db.items || []).length;
+      
+      db.items = (db.items || []).filter(c => c.id !== id);
+      
+      if (db.items.length === initialCount) {
+        return res.status(404).json({ error: 'customer_not_found' });
+      }
+      
+      writeCustomers(db);
+      sseBroadcast({ type: 'customer_deleted', customerId: id });
+      
+      res.json({ ok: true });
+    } catch (e) {
+      res.status(500).json({ error: 'delete_failed' });
+    }
+  });
+
   // ---- Leads API ----
   app.get('/api/leads', (req, res) => { 
     try { 

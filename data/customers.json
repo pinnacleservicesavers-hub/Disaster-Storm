@@ -46,13 +46,19 @@
       "status": "new",
       "tags": [
         "roof damage",
-        "gutter damage"
+        "gutter damage",
+        "hail damage"
       ],
       "docs": [
         {
           "name": "lead_1757464909838.jpg",
           "url": "https://image.votix.com/test-damage.jpg",
           "caption": "roof damage, gutter damage"
+        },
+        {
+          "name": "lead_1757465134712.jpg",
+          "url": "https://image.votix.com/dup-damage.jpg",
+          "caption": "roof damage, hail damage"
         }
       ],
       "messages": [],
@@ -61,6 +67,11 @@
           "ts": 1757464909838,
           "type": "lead_accepted",
           "text": "From votix; tags: roof damage, gutter damage"
+        },
+        {
+          "ts": 1757465134712,
+          "type": "lead_merged",
+          "text": "Merged lead lead:1757465117652:5jlz92 (roof damage, hail damage)"
         }
       ]
     }

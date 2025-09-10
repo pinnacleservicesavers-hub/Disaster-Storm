@@ -1047,7 +1047,7 @@ function StormOpsProHubContent() {
             {/* CRM Tab */}
             {activeTab === "customers" && (
               <div className="p-4">
-                <CustomersCRM />
+                <CustomersPanel />
               </div>
             )}
 
@@ -1159,6 +1159,236 @@ function LeadInbox({ onCreateCustomer }: { onCreateCustomer?: (customer: any) =>
             No leads yet. Leads will appear when drones detect damage.
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+// --- Enhanced Customers Panel with Search, Export, and Deduplication ---
+function CustomersPanel() {
+  const [customers, setCustomers] = useState<any[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [tagsFilter, setTagsFilter] = useState('');
+  const [duplicates, setDuplicates] = useState<any[]>([]);
+  const [showDuplicates, setShowDuplicates] = useState(false);
+  const [selectedForMerge, setSelectedForMerge] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  // Load customers
+  const loadCustomers = async () => {
+    try {
+      setLoading(true);
+      const params = new URLSearchParams();
+      if (searchQuery) params.append('q', searchQuery);
+      if (statusFilter !== 'all') params.append('status', statusFilter);
+      if (tagsFilter) params.append('tags', tagsFilter);
+      
+      const response = await fetch(`/api/customers/search?${params}`);
+      const data = await response.json();
+      setCustomers(data);
+    } catch (e) {
+      console.error('Failed to load customers:', e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Load duplicates
+  const loadDuplicates = async () => {
+    try {
+      const response = await fetch('/api/customers/duplicates');
+      const data = await response.json();
+      setDuplicates(data);
+    } catch (e) {
+      console.error('Failed to load duplicates:', e);
+    }
+  };
+
+  // Bulk merge customers
+  const mergeDuplicates = async (primaryId: string, mergeIds: string[]) => {
+    try {
+      const response = await fetch('/api/customers/merge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ primaryId, mergeIds })
+      });
+      const result = await response.json();
+      
+      if (result.ok) {
+        alert(`Successfully merged ${result.mergedCount} duplicate customer(s)`);
+        loadCustomers();
+        loadDuplicates();
+        setSelectedForMerge([]);
+      } else {
+        alert('Merge failed: ' + result.error);
+      }
+    } catch (e) {
+      alert('Merge failed: ' + e);
+    }
+  };
+
+  // Export customers to CSV
+  const exportCustomers = () => {
+    window.open('/api/customers/export', '_blank');
+  };
+
+  useEffect(() => {
+    loadCustomers();
+  }, [searchQuery, statusFilter, tagsFilter]);
+
+  useEffect(() => {
+    if (showDuplicates) {
+      loadDuplicates();
+    }
+  }, [showDuplicates]);
+
+  return (
+    <div className="space-y-4">
+      {/* Search and Filters */}
+      <div className="bg-white border rounded-lg p-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+          <input
+            type="text"
+            placeholder="Search customers..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="border rounded px-3 py-2"
+          />
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="border rounded px-3 py-2"
+          >
+            <option value="all">All Statuses</option>
+            <option value="new">New</option>
+            <option value="contacted">Contacted</option>
+            <option value="scheduled">Scheduled</option>
+            <option value="in_progress">In Progress</option>
+            <option value="completed">Completed</option>
+          </select>
+          <input
+            type="text"
+            placeholder="Filter by tags (comma-separated)"
+            value={tagsFilter}
+            onChange={(e) => setTagsFilter(e.target.value)}
+            className="border rounded px-3 py-2"
+          />
+          <div className="flex gap-2">
+            <Button onClick={exportCustomers} variant="outline" size="sm">
+              Export CSV
+            </Button>
+            <Button 
+              onClick={() => setShowDuplicates(!showDuplicates)} 
+              variant={showDuplicates ? "default" : "outline"} 
+              size="sm"
+            >
+              {showDuplicates ? 'Hide' : 'Find'} Duplicates
+            </Button>
+          </div>
+        </div>
+        
+        <div className="text-sm text-gray-600">
+          {loading ? 'Loading...' : `${customers.length} customers found`}
+        </div>
+      </div>
+
+      {/* Duplicates Panel */}
+      {showDuplicates && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <h3 className="font-semibold mb-3">Duplicate Customers ({duplicates.length})</h3>
+          {duplicates.length === 0 ? (
+            <div className="text-gray-600">No duplicates found</div>
+          ) : (
+            <div className="space-y-4">
+              {duplicates.map((dup, idx) => (
+                <div key={idx} className="border rounded p-3 bg-white">
+                  <div className="font-medium mb-2">
+                    Primary: {dup.customer.name} - {dup.customer.address}
+                  </div>
+                  <div className="space-y-2">
+                    {dup.matches.map((match: any, midx: number) => (
+                      <div key={midx} className="flex items-center justify-between bg-gray-50 p-2 rounded">
+                        <div>
+                          <span className="font-medium">{match.customer.name}</span> - {match.customer.address}
+                          <div className="text-xs text-gray-600">
+                            Reasons: {match.reasons.join(', ')}
+                          </div>
+                        </div>
+                        <Button
+                          size="sm"
+                          onClick={() => mergeDuplicates(dup.customer.id, [match.customer.id])}
+                        >
+                          Merge into Primary
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Customers List */}
+      <div className="bg-white border rounded-lg">
+        <div className="p-4 border-b">
+          <h3 className="font-semibold">Customers</h3>
+        </div>
+        <div className="divide-y max-h-96 overflow-y-auto">
+          {customers.map((customer) => (
+            <div key={customer.id} className="p-4 hover:bg-gray-50">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="font-medium">{customer.name}</span>
+                    <span className={`px-2 py-1 text-xs rounded-full ${
+                      customer.status === 'new' ? 'bg-blue-100 text-blue-700' :
+                      customer.status === 'contacted' ? 'bg-yellow-100 text-yellow-700' :
+                      customer.status === 'completed' ? 'bg-green-100 text-green-700' :
+                      'bg-gray-100 text-gray-700'
+                    }`}>
+                      {customer.status}
+                    </span>
+                  </div>
+                  <div className="text-sm text-gray-600 mb-1">{customer.address}</div>
+                  {customer.phone && (
+                    <div className="text-sm text-gray-600">📞 {customer.phone}</div>
+                  )}
+                  {customer.email && (
+                    <div className="text-sm text-gray-600">✉️ {customer.email}</div>
+                  )}
+                  {customer.tags && customer.tags.length > 0 && (
+                    <div className="flex gap-1 mt-2">
+                      {customer.tags.map((tag: string, idx: number) => (
+                        <span key={idx} className="px-2 py-1 text-xs bg-gray-100 rounded">
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => window.dispatchEvent(new CustomEvent('storm-center', {
+                      detail: { address: customer.address, name: customer.name }
+                    }))}
+                  >
+                    Show on Map
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ))}
+          {customers.length === 0 && !loading && (
+            <div className="p-8 text-center text-gray-500">
+              No customers found. Accepted leads will appear here.
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
