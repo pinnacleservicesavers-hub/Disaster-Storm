@@ -31,6 +31,38 @@
           "text": "From demo; tags: tree_on_roof, structure_damage"
         }
       ]
+    },
+    {
+      "id": "c:1757464909838:5ewq",
+      "name": "Unknown Owner",
+      "mailingAddress": null,
+      "address": "17408, Brown Road, Woodham Farms, Keystone, Hillsborough County, Florida, 33556, United States",
+      "lat": 28.1234,
+      "lng": -82.5678,
+      "phone": "",
+      "email": "",
+      "insurer": "",
+      "claimNumber": "",
+      "status": "new",
+      "tags": [
+        "roof damage",
+        "gutter damage"
+      ],
+      "docs": [
+        {
+          "name": "lead_1757464909838.jpg",
+          "url": "https://image.votix.com/test-damage.jpg",
+          "caption": "roof damage, gutter damage"
+        }
+      ],
+      "messages": [],
+      "timeline": [
+        {
+          "ts": 1757464909838,
+          "type": "lead_accepted",
+          "text": "From votix; tags: roof damage, gutter damage"
+        }
+      ]
     }
   ]
 }
