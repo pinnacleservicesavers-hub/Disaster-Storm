@@ -21,6 +21,14 @@ export interface WeatherAlert {
     latitude: number;
     longitude: number;
   };
+  // Enhanced NWS fields for professional use
+  geometry?: any; // GeoJSON geometry for polygon mapping
+  urgency?: string;
+  certainty?: string;
+  category?: string;
+  responseType?: string;
+  nwsId?: string;
+  messageType?: string;
 }
 
 export interface RadarData {
@@ -337,42 +345,49 @@ export class WeatherService {
 
   async getWeatherAlerts(latitude?: number, longitude?: number): Promise<WeatherAlert[]> {
     try {
-      // In production, this would call the actual NWS API
-      // For now, return structured data that matches our schema
-      const mockAlerts: WeatherAlert[] = [
-        {
-          id: "nws-alert-001",
-          title: "Tornado Warning",
-          description: "A tornado warning has been issued for the following areas until 11:30 PM EST.",
-          severity: "Extreme",
-          alertType: "Tornado",
-          areas: ["Fulton County", "DeKalb County"],
-          startTime: new Date(),
-          endTime: new Date(Date.now() + 2 * 60 * 60 * 1000), // 2 hours from now
-          coordinates: {
-            latitude: 33.7490,
-            longitude: -84.3880
-          }
-        },
-        {
-          id: "nws-alert-002",
-          title: "Severe Thunderstorm Warning",
-          description: "Severe thunderstorms with damaging winds and large hail are possible.",
-          severity: "Severe",
-          alertType: "Severe Thunderstorm",
-          areas: ["Gwinnett County", "Cobb County"],
-          startTime: new Date(),
-          endTime: new Date(Date.now() + 4 * 60 * 60 * 1000), // 4 hours from now
-          coordinates: {
-            latitude: 33.9737,
-            longitude: -84.5755
-          }
-        }
-      ];
-
-      return mockAlerts;
+      // Real NWS Alerts API - GeoJSON format, no API key required
+      const lat = latitude || 33.7490; // Default to Atlanta if no coordinates
+      const lon = longitude || -84.3880;
+      
+      const response = await fetch(`https://api.weather.gov/alerts?point=${lat},${lon}&status=actual`);
+      
+      if (!response.ok) {
+        console.warn(`NWS API response: ${response.status} - falling back to empty alerts`);
+        return [];
+      }
+      
+      const data = await response.json();
+      
+      // Transform NWS GeoJSON alerts to our format
+      const alerts: WeatherAlert[] = data.features?.map((feature: any) => ({
+        id: feature.properties.id,
+        title: feature.properties.headline || feature.properties.event,
+        description: feature.properties.description || feature.properties.instruction || 'No description available',
+        severity: feature.properties.severity || 'Unknown',
+        alertType: feature.properties.event || 'Weather Alert',
+        areas: feature.properties.areaDesc ? 
+          feature.properties.areaDesc.split(';').map((area: string) => area.trim()) : 
+          [],
+        startTime: new Date(feature.properties.effective || feature.properties.onset || Date.now()),
+        endTime: feature.properties.expires ? new Date(feature.properties.expires) : undefined,
+        coordinates: { latitude: lat, longitude: lon },
+        // Store GeoJSON geometry for polygon mapping
+        geometry: feature.geometry,
+        urgency: feature.properties.urgency,
+        certainty: feature.properties.certainty,
+        category: feature.properties.category,
+        responseType: feature.properties.response,
+        nwsId: feature.properties.id,
+        messageType: feature.properties.messageType
+      })) || [];
+      
+      console.log(`✅ Fetched ${alerts.length} live NWS alerts for ${lat}, ${lon}`);
+      return alerts;
+      
     } catch (error) {
-      console.error('Error fetching weather alerts:', error);
+      console.error('❌ Error fetching live NWS weather alerts:', error);
+      
+      // Fallback to empty array on API failure
       return [];
     }
   }
