@@ -2522,7 +2522,7 @@ Email: strategiclandmgmt@gmail.com
     }
   });
 
-  // nowCOAST layers discovery helper - discover layer IDs for NDFD wind speed & direction (and latest time)
+  // nowCOAST layers discovery helper - discover layer IDs for NDFD wind speed & direction (and time metadata)
   app.get("/api/nowcoast/layers", async (req, res) => {
     try {
       const { service } = req.query;
@@ -2553,16 +2553,40 @@ Email: strategiclandmgmt@gmail.com
         byName(/wind\s*direction/i) ??
         byName(/sfc.*wind.*dir/i);
 
-      // Grab a latest time from the speed layer (fallback to dir layer)
+      // Extract time metadata from the speed layer (fallback to dir layer)
       const layerForTime = layers.find((l: any) => l.id === speedId) || layers.find((l: any) => l.id === dirId);
       let latestTime = null;
+      let startTime = null;
+      let intervalMs = 3600000; // Default: 1 hour in milliseconds
+      
       const ti = layerForTime?.timeInfo;
       if (ti?.timeExtent?.length) {
         // timeExtent is [startMS, endMS]
+        startTime = ti.timeExtent[0];
         latestTime = ti.timeExtent[1];
       }
+      
+      // Extract interval from timeInfo (safe fallbacks)
+      if (ti?.timeInterval) {
+        intervalMs = ti.timeInterval;
+      } else if (ti?.timeIntervalUnits && ti?.defaultTimeInterval) {
+        // Convert to milliseconds based on units
+        const units = String(ti.timeIntervalUnits).toLowerCase();
+        const interval = Number(ti.defaultTimeInterval) || 1;
+        if (units.includes('hour')) intervalMs = interval * 3600000;
+        else if (units.includes('minute')) intervalMs = interval * 60000;
+        else if (units.includes('day')) intervalMs = interval * 86400000;
+      }
 
-      res.json({ service, speedId, dirId, latestTime, rawLayerCount: layers.length });
+      res.json({ 
+        service, 
+        speedId, 
+        dirId, 
+        latestTime, 
+        startTime, 
+        intervalMs, 
+        rawLayerCount: layers.length 
+      });
     } catch (err) {
       res.status(500).json({ error: String(err) });
     }
