@@ -688,6 +688,24 @@
   });
 
   // ─────────────────────────────────────────────────────────────────────────────
+  // WW3 Point Sampling Helper
+  async function sampleWW3AtPoint(lon, lat) {
+    const urls = [
+      `/api/nowcoast/sample?service=ww3_sigwaveheight_time&lon=${lon}&lat=${lat}`,
+      `/api/nowcoast/sample?service=ww3_peakwaveperiod_time&lon=${lon}&lat=${lat}`,
+      `/api/nowcoast/sample?service=ww3_primarywavedir_time&lon=${lon}&lat=${lat}`,
+    ];
+    const [hsig, tpeak, pdir] = await Promise.all(
+      urls.map(u => fetch(u).then(r => r.json()).catch(() => ({})))
+    );
+    return {
+      WW3_Hsig_m: Number(hsig?.value) || "",
+      WW3_Tp_s: Number(tpeak?.value) || "",
+      WW3_PrimaryDir_deg: Number(pdir?.value) || "",
+    };
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
   // NEW: CSV helpers
   function toCsvRow(fields) {
     return fields.map(v => {
