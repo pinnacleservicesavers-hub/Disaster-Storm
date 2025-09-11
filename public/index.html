@@ -31,11 +31,38 @@
       transform-origin: 9px 9px; /* rotate around center */
       border-radius: 2px;
     }
+    .wind-arrow-tiny {
+      width: 10px; height: 10px;
+      border-top: 5px solid transparent;
+      border-bottom: 5px solid transparent;
+      border-left: 8px solid rgba(0,0,0,0.9); /* sharper arrowhead */
+      transform-origin: 5px 5px; /* rotate around center */
+      border-radius: 1px;
+    }
+    .wind-arrow-fast {
+      width: 14px; height: 14px;
+      border-top: 7px solid transparent;
+      border-bottom: 7px solid transparent;
+      border-left: 10px solid rgba(255,0,0,0.8); /* red for high speed */
+      transform-origin: 7px 7px; /* rotate around center */
+      border-radius: 1px;
+      animation: pulse-fast 0.5s infinite alternate;
+    }
     .wind-speed-ring {
       position:absolute; left:-6px; top:-6px;
       width: 30px; height: 30px;
       border-radius: 50%;
       border: 2px solid rgba(0,0,0,0.15);
+    }
+    .wind-speed-ring-tiny {
+      position:absolute; left:-3px; top:-3px;
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      border: 1px solid rgba(0,0,0,0.2);
+    }
+    @keyframes pulse-fast {
+      from { opacity: 0.7; }
+      to { opacity: 1.0; }
     }
   </style>
 </head>
