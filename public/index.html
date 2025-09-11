@@ -134,23 +134,79 @@
       <div class="leaflet-sidebar-pane" id="info">
         <h1 class="leaflet-sidebar-header">Info <span class="leaflet-sidebar-close"></span></h1>
         <div style="padding:8px 4px;">
+          <!-- Alert Status Display -->
+          <div id="alertStatus" style="margin-bottom:12px;padding:8px;background:#f8f9fa;border-radius:4px;border-left:4px solid #28a745;">
+            <div style="font-weight:600;color:#155724;">🎯 Alert Monitoring Status</div>
+            <div id="regionStatus" style="font-size:12px;margin-top:4px;">Region: All Areas</div>
+            <div id="alertCount" style="font-size:12px;">Active Alerts: Loading...</div>
+          </div>
+
           <p><strong>How to use</strong></p>
           <ol>
             <li>Open the 🗺️ tab to toggle layers.</li>
-            <li>Click storm polygons/lines for details.</li>
-            <li>Click the buoy marker popup for live SST & waves.</li>
+            <li>Set your region in ⚙️ Settings for targeted alerts.</li>
+            <li>Click storm polygons/lines for damage details.</li>
+            <li>Use wind arrows to assess field conditions.</li>
+            <li>Export buoy data for crew deployment.</li>
           </ol>
-          <p style="font-size:12px;opacity:.8;">Data: NHC, NWS, NDBC, NOAA nowCOAST, GOES-East</p>
+          
+          <div style="margin-top:12px;padding:8px;background:#fff3cd;border-radius:4px;border-left:4px solid #ffc107;">
+            <div style="font-weight:600;color:#856404;">💼 For Contractors</div>
+            <div style="font-size:12px;margin-top:4px;color:#856404;">
+              • Tornado/severe weather = immediate opportunities<br>
+              • Hurricane paths = multi-day project planning<br>
+              • High wind areas = roofing/siding damage leads
+            </div>
+          </div>
+
+          <p style="font-size:12px;opacity:.8;margin-top:12px;">Data: NHC, NWS, NDBC, NOAA nowCOAST, GOES-East</p>
         </div>
       </div>
 
       <div class="leaflet-sidebar-pane" id="settings">
         <h1 class="leaflet-sidebar-header">Settings <span class="leaflet-sidebar-close"></span></h1>
         <div style="padding:8px 4px;">
-          <label for="buoyId">NDBC Buoy ID:</label>
-          <input id="buoyId" type="text" value="42039" style="width:100%;padding:6px 8px;margin-top:6px;">
-          <button id="loadBuoy" style="margin-top:8px;padding:6px 10px;">Load Buoy</button>
-          <p style="font-size:12px;opacity:.8;margin-top:6px;">Examples: 42001 (Gulf), 41009 (FL East)</p>
+          <!-- Regional Alert Selection -->
+          <div style="margin-bottom:16px;padding:12px;border:1px solid #ddd;border-radius:6px;">
+            <div style="font-weight:600;margin-bottom:8px;">🎯 Your Operational Area</div>
+            <label for="alertRegion" style="font-size:13px;">Get alerts only for your service area:</label>
+            <select id="alertRegion" style="width:100%;padding:6px 8px;margin-top:4px;margin-bottom:8px;">
+              <option value="all">All Regions (Default)</option>
+              <option value="TX">Texas</option>
+              <option value="FL">Florida</option>
+              <option value="LA">Louisiana</option>
+              <option value="MS">Mississippi</option>
+              <option value="AL">Alabama</option>
+              <option value="GA">Georgia</option>
+              <option value="SC">South Carolina</option>
+              <option value="NC">North Carolina</option>
+              <option value="VA">Virginia</option>
+              <option value="TN">Tennessee</option>
+              <option value="KY">Kentucky</option>
+              <option value="AR">Arkansas</option>
+              <option value="OK">Oklahoma</option>
+              <option value="KS">Kansas</option>
+              <option value="MO">Missouri</option>
+            </select>
+            <div style="display:flex;gap:8px;margin-top:8px;">
+              <input type="checkbox" id="enableAlertFilter" checked>
+              <label for="enableAlertFilter" style="font-size:12px;">Filter alerts by selected region</label>
+            </div>
+            <div style="font-size:11px;color:#666;margin-top:4px;">
+              ⚡ Only tornado/severe weather alerts for your area<br>
+              🌀 Hurricane alerts when approaching your region<br>
+              💼 Damage leads and contract opportunities nearby
+            </div>
+          </div>
+
+          <!-- Buoy Settings -->
+          <div style="padding:12px;border:1px solid #ddd;border-radius:6px;">
+            <div style="font-weight:600;margin-bottom:8px;">🌊 Custom Buoy Data</div>
+            <label for="buoyId">NDBC Buoy ID:</label>
+            <input id="buoyId" type="text" value="42039" style="width:100%;padding:6px 8px;margin-top:6px;">
+            <button id="loadBuoy" style="margin-top:8px;padding:6px 10px;width:100%;">Load Buoy Data</button>
+            <p style="font-size:12px;opacity:.8;margin-top:6px;">Examples: 42001 (Gulf), 41009 (FL East)</p>
+          </div>
         </div>
       </div>
     </div>
@@ -288,29 +344,129 @@
 
   function loadAlerts() {
     if (alertsLayer) { map.removeLayer(alertsLayer); alertsLayer = null; }
+    
+    // Get selected region filter
+    const selectedRegion = el("alertRegion").value;
+    const filterEnabled = el("enableAlertFilter").checked;
+    
+    // Build query based on region selection
     const qs = new URLSearchParams({
       status: "actual",
-      message_type: "alert",
-      event: "Hurricane Warning"
+      message_type: "alert"
     });
+    
+    // Add region-specific event types
+    if (filterEnabled && selectedRegion !== "all") {
+      qs.append("area", selectedRegion); // This will filter by state code
+      // Include relevant events for contractors
+      ["Tornado Warning", "Tornado Watch", "Severe Thunderstorm Warning", 
+       "Hurricane Warning", "Hurricane Watch", "Flash Flood Warning", 
+       "High Wind Warning"].forEach(event => qs.append("event", event));
+    } else {
+      qs.append("event", "Hurricane Warning"); // Default behavior
+    }
+    
     fetch(`/api/nws/alerts?${qs.toString()}`)
       .then(r => r.json())
       .then(data => {
         if (!data?.features) return;
-        alertsLayer = L.geoJSON(data, {
-          style: { color: "#337ab7", weight: 2, fillOpacity: 0.1 },
+        
+        let filteredFeatures = data.features;
+        
+        // Additional client-side filtering if region is selected
+        if (filterEnabled && selectedRegion !== "all") {
+          filteredFeatures = data.features.filter(feature => {
+            const areaDesc = feature.properties?.areaDesc || "";
+            const regionName = getRegionName(selectedRegion);
+            return areaDesc.toLowerCase().includes(regionName.toLowerCase());
+          });
+        }
+        
+        // Count alerts for user feedback
+        const alertCount = filteredFeatures.length;
+        console.log(`🎯 Filtered alerts: ${alertCount} for region: ${selectedRegion}`);
+        
+        if (filteredFeatures.length === 0) {
+          // Show info that no alerts in selected region
+          const regionName = selectedRegion === "all" ? "all regions" : getRegionName(selectedRegion);
+          console.log(`ℹ️ No active alerts found for ${regionName}`);
+        }
+        
+        alertsLayer = L.geoJSON({ type: "FeatureCollection", features: filteredFeatures }, {
+          style: (feature) => {
+            // Color code by alert severity
+            const event = feature.properties?.event || "";
+            let color = "#337ab7"; // default blue
+            if (event.includes("Tornado")) color = "#dc3545"; // red for tornado
+            if (event.includes("Hurricane")) color = "#fd7e14"; // orange for hurricane
+            if (event.includes("Flash Flood")) color = "#6f42c1"; // purple for flood
+            return { color, weight: 2, fillOpacity: 0.15 };
+          },
           onEachFeature: (f, layer) => {
             const p = f.properties || {};
+            const urgency = p.urgency === "Immediate" ? "🚨 IMMEDIATE" : p.urgency || "";
+            const severity = p.severity === "Severe" ? "⚠️ SEVERE" : p.severity || "";
+            
             layer.bindPopup(`
-              <div><strong>${p.event || "NWS Alert"}</strong></div>
-              <div>${p.areaDesc || ""}</div>
-              <div>${p.headline || ""}</div>
-              <div><small>${p.effective || ""}</small></div>
+              <div><strong>${p.event || "NWS Alert"}</strong> ${urgency}</div>
+              <div style="color:#666;font-size:12px;">${severity}</div>
+              <div style="margin:6px 0;"><strong>Area:</strong> ${p.areaDesc || ""}</div>
+              <div style="margin:6px 0;">${p.headline || ""}</div>
+              <div style="font-size:11px;color:#888;">Effective: ${p.effective || ""}</div>
+              <div style="font-size:11px;color:#888;">Expires: ${p.expires || ""}</div>
+              ${p.description ? `<div style="margin-top:8px;font-size:11px;max-height:100px;overflow-y:auto;">${p.description.substring(0, 300)}${p.description.length > 300 ? '...' : ''}</div>` : ''}
             `);
           }
         }).addTo(map);
+        
+        // Update info panel with alert count
+        updateAlertCount(alertCount, selectedRegion);
       })
       .catch(console.error);
+  }
+  
+  // Helper function to get full region name from code
+  function getRegionName(code) {
+    const regions = {
+      "TX": "Texas", "FL": "Florida", "LA": "Louisiana", "MS": "Mississippi",
+      "AL": "Alabama", "GA": "Georgia", "SC": "South Carolina", "NC": "North Carolina",
+      "VA": "Virginia", "TN": "Tennessee", "KY": "Kentucky", "AR": "Arkansas",
+      "OK": "Oklahoma", "KS": "Kansas", "MO": "Missouri"
+    };
+    return regions[code] || code;
+  }
+  
+  // Update alert count display
+  function updateAlertCount(count, region) {
+    const regionName = region === "all" ? "all regions" : getRegionName(region);
+    console.log(`📊 Active alerts in ${regionName}: ${count}`);
+    
+    // Update info panel status display
+    const regionStatus = document.getElementById("regionStatus");
+    const alertCountEl = document.getElementById("alertCount");
+    
+    if (regionStatus) {
+      regionStatus.textContent = `Region: ${regionName === "all regions" ? "All Areas" : regionName}`;
+    }
+    
+    if (alertCountEl) {
+      alertCountEl.textContent = `Active Alerts: ${count}`;
+      
+      // Color code based on alert count
+      const alertStatus = document.getElementById("alertStatus");
+      if (alertStatus) {
+        if (count === 0) {
+          alertStatus.style.borderLeftColor = "#28a745"; // green - no alerts
+          alertStatus.style.background = "#d4edda";
+        } else if (count <= 5) {
+          alertStatus.style.borderLeftColor = "#ffc107"; // yellow - few alerts
+          alertStatus.style.background = "#fff3cd";
+        } else {
+          alertStatus.style.borderLeftColor = "#dc3545"; // red - many alerts
+          alertStatus.style.background = "#f8d7da";
+        }
+      }
+    }
   }
 
   // Buoy helpers (quick lat/lon lookup)
@@ -592,6 +748,47 @@
   const exportBtn = document.getElementById("exportBuoysCsv");
   if (exportBtn) {
     exportBtn.addEventListener("click", () => exportBuoysCSV());
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // NEW: Regional Alert Filtering Event Handlers
+  el("alertRegion").addEventListener("change", () => {
+    // Reload alerts when region changes
+    if (el("toggle-alerts").checked) {
+      console.log(`🎯 Switching to region: ${el("alertRegion").value}`);
+      loadAlerts();
+    }
+  });
+
+  el("enableAlertFilter").addEventListener("change", () => {
+    // Reload alerts when filter is toggled
+    if (el("toggle-alerts").checked) {
+      const isEnabled = el("enableAlertFilter").checked;
+      console.log(`🔄 Alert filtering ${isEnabled ? 'enabled' : 'disabled'}`);
+      loadAlerts();
+    }
+  });
+
+  // Save user's region preference to localStorage
+  el("alertRegion").addEventListener("change", () => {
+    localStorage.setItem("stormLead_alertRegion", el("alertRegion").value);
+  });
+
+  el("enableAlertFilter").addEventListener("change", () => {
+    localStorage.setItem("stormLead_enableFilter", el("enableAlertFilter").checked);
+  });
+
+  // Load saved preferences on startup
+  const savedRegion = localStorage.getItem("stormLead_alertRegion");
+  const savedFilter = localStorage.getItem("stormLead_enableFilter");
+  
+  if (savedRegion) {
+    el("alertRegion").value = savedRegion;
+    console.log(`📍 Restored region preference: ${getRegionName(savedRegion)}`);
+  }
+  
+  if (savedFilter !== null) {
+    el("enableAlertFilter").checked = savedFilter === "true";
   }
 
 </script>
