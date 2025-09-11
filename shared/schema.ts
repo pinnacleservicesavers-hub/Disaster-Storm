@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, numeric, boolean, jsonb, integer, uuid } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, numeric, boolean, jsonb, integer, uuid, unique, foreignKey } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -300,6 +300,104 @@ export const claimSubmissions = pgTable("claim_submissions", {
   documents: jsonb("documents"), // Array of submitted document URLs
 });
 
+export const trafficCameras = pgTable("traffic_cameras", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  externalCameraId: text("external_camera_id").notNull().unique(), // External camera system ID
+  name: text("name").notNull(),
+  description: text("description"),
+  provider: text("provider").notNull(), // DOT, city, county
+  feedUrl: text("feed_url").notNull(), // Live stream URL
+  thumbnailUrl: text("thumbnail_url"),
+  latitude: numeric("latitude", { precision: 10, scale: 8 }).notNull(),
+  longitude: numeric("longitude", { precision: 10, scale: 8 }).notNull(),
+  address: text("address").notNull(),
+  city: text("city").notNull(),
+  county: text("county").notNull(),
+  state: text("state").notNull(),
+  highway: text("highway"), // Highway designation if applicable
+  direction: text("direction"), // N, S, E, W, NB, SB, etc.
+  mileMarker: text("mile_marker"),
+  isActive: boolean("is_active").default(true),
+  lastHealthCheck: timestamp("last_health_check"),
+  healthStatus: text("health_status").default("unknown"), // online, offline, error, unknown
+  metadata: jsonb("metadata"), // Additional camera data
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const trafficCamSubscriptions = pgTable("traffic_cam_subscriptions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  contractorId: varchar("contractor_id").notNull(),
+  cameraId: varchar("camera_id").notNull(),
+  notifyTypes: jsonb("notify_types"), // Array of alert types to notify for
+  priority: text("priority").default("normal"), // high, normal, low
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  uniqueSubscription: unique().on(table.contractorId, table.cameraId),
+}));
+
+export const trafficCamAlerts = pgTable("traffic_cam_alerts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  cameraId: varchar("camera_id").notNull(), // FK to traffic_cameras.id
+  externalCameraId: text("external_camera_id").notNull(), // For reference
+  alertType: text("alert_type").notNull(), // structure_damage, tree_down, tree_on_powerline, tree_blocking_road, tree_on_vehicle
+  confidence: numeric("confidence", { precision: 5, scale: 2 }).notNull(), // AI confidence percentage
+  severity: text("severity").notNull(), // minor, moderate, severe, critical
+  description: text("description").notNull(), // AI-generated description
+  detectedAt: timestamp("detected_at").notNull(),
+  screenshotUrl: text("screenshot_url"), // Captured image of incident
+  videoClipUrl: text("video_clip_url"), // Short video clip of incident
+  exactLocation: text("exact_location"), // More specific than camera address
+  estimatedDamage: text("estimated_damage"), // low, medium, high, extensive
+  contractorsNotified: jsonb("contractors_notified"), // Array of notified contractor IDs
+  status: text("status").default("new"), // new, processing, assigned, resolved, false_positive
+  leadGenerated: boolean("lead_generated").default(false),
+  aiAnalysis: jsonb("ai_analysis"), // Detailed AI analysis results
+  verifiedBy: varchar("verified_by"), // User ID who verified alert
+  verifiedAt: timestamp("verified_at"),
+  isVerified: boolean("is_verified").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  uniqueAlert: unique().on(table.cameraId, table.detectedAt, table.alertType),
+}));
+
+export const trafficCamLeads = pgTable("traffic_cam_leads", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  alertId: varchar("alert_id").notNull(), // FK to traffic_cam_alerts.id
+  cameraId: varchar("camera_id").notNull(), // FK to traffic_cameras.id
+  contractorId: varchar("contractor_id").notNull(), // FK to users.id where role=contractor
+  alertType: text("alert_type").notNull(), // From parent alert
+  priority: text("priority").default("high"), // emergency, urgent, high, normal
+  estimatedValue: numeric("estimated_value", { precision: 10, scale: 2 }),
+  responseTime: integer("response_time"), // Minutes from alert to contractor response
+  status: text("status").default("new"), // new, contacted, on_route, arrived, in_progress, completed, declined
+  contactAttempts: integer("contact_attempts").default(0),
+  lastContactedAt: timestamp("last_contacted_at"),
+  arrivalTime: timestamp("arrival_time"),
+  workStarted: timestamp("work_started"),
+  workCompleted: timestamp("work_completed"),
+  customerName: text("customer_name"),
+  customerPhone: text("customer_phone"),
+  customerEmail: text("customer_email"),
+  propertyOwner: text("property_owner"), // If different from customer
+  insuranceCompany: text("insurance_company"),
+  policyNumber: text("policy_number"),
+  actualDamageAssessment: text("actual_damage_assessment"),
+  workPerformed: text("work_performed"),
+  equipmentUsed: jsonb("equipment_used"), // Array of equipment types
+  crewSize: integer("crew_size"),
+  invoiceAmount: numeric("invoice_amount", { precision: 10, scale: 2 }),
+  conversionValue: numeric("conversion_value", { precision: 10, scale: 2 }), // Actual revenue generated
+  declineReason: text("decline_reason"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  uniqueLead: unique().on(table.alertId, table.contractorId),
+}));
+
 // Zod schemas for validation  
 export const insertUserSchema = createInsertSchema(users);
 export const insertClaimSchema = createInsertSchema(claims);
@@ -318,6 +416,10 @@ export const insertJobCostSchema = createInsertSchema(jobCosts);
 export const insertPhotoSchema = createInsertSchema(photos);
 export const insertXactimateComparableSchema = createInsertSchema(xactimateComparables);
 export const insertClaimSubmissionSchema = createInsertSchema(claimSubmissions);
+export const insertTrafficCameraSchema = createInsertSchema(trafficCameras);
+export const insertTrafficCamSubscriptionSchema = createInsertSchema(trafficCamSubscriptions);
+export const insertTrafficCamAlertSchema = createInsertSchema(trafficCamAlerts);
+export const insertTrafficCamLeadSchema = createInsertSchema(trafficCamLeads);
 
 // Types
 export type User = typeof users.$inferSelect;
@@ -354,3 +456,11 @@ export type XactimateComparable = typeof xactimateComparables.$inferSelect;
 export type InsertXactimateComparable = z.infer<typeof insertXactimateComparableSchema>;
 export type ClaimSubmission = typeof claimSubmissions.$inferSelect;
 export type InsertClaimSubmission = z.infer<typeof insertClaimSubmissionSchema>;
+export type TrafficCamera = typeof trafficCameras.$inferSelect;
+export type InsertTrafficCamera = z.infer<typeof insertTrafficCameraSchema>;
+export type TrafficCamSubscription = typeof trafficCamSubscriptions.$inferSelect;
+export type InsertTrafficCamSubscription = z.infer<typeof insertTrafficCamSubscriptionSchema>;
+export type TrafficCamAlert = typeof trafficCamAlerts.$inferSelect;
+export type InsertTrafficCamAlert = z.infer<typeof insertTrafficCamAlertSchema>;
+export type TrafficCamLead = typeof trafficCamLeads.$inferSelect;
+export type InsertTrafficCamLead = z.infer<typeof insertTrafficCamLeadSchema>;
