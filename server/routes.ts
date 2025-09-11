@@ -2371,6 +2371,74 @@ Email: strategiclandmgmt@gmail.com
     }
   });
 
+  // nowCOAST Identify proxy for WW3 services
+  app.get('/api/weather/nowcoast/identify', async (req, res) => {
+    try {
+      const { lon, lat, service } = req.query;
+      
+      if (!lon || !lat || !service) {
+        return res.status(400).json({ error: 'Missing required parameters: lon, lat, service' });
+      }
+      
+      // Whitelist allowed WW3 services only
+      const allowedServices = [
+        'ww3_global',
+        'ww3_atlantic', 
+        'ww3_pacific'
+      ];
+      
+      if (!allowedServices.includes(service as string)) {
+        return res.status(400).json({ error: 'Invalid service. Allowed: ' + allowedServices.join(', ') });
+      }
+      
+      // Map service names to nowCOAST service URLs
+      const serviceMap: Record<string, string> = {
+        'ww3_global': 'https://nowcoast.noaa.gov/arcgis/rest/services/nowcoast/wavewatch_global/MapServer/identify',
+        'ww3_atlantic': 'https://nowcoast.noaa.gov/arcgis/rest/services/nowcoast/wavewatch_atlantic/MapServer/identify',
+        'ww3_pacific': 'https://nowcoast.noaa.gov/arcgis/rest/services/nowcoast/wavewatch_pacific/MapServer/identify'
+      };
+      
+      const serviceUrl = serviceMap[service as string];
+      
+      // Build ArcGIS Identify request
+      const identifyParams = new URLSearchParams({
+        'f': 'json',
+        'geometry': `${lon},${lat}`,
+        'geometryType': 'esriGeometryPoint',
+        'sr': '4326',
+        'mapExtent': `${Number(lon)-1},${Number(lat)-1},${Number(lon)+1},${Number(lat)+1}`,
+        'imageDisplay': '400,400,96',
+        'tolerance': '3',
+        'layers': 'all'
+      });
+      
+      console.log(`🌊 nowCOAST WW3 identify: ${service} at ${lat},${lon}`);
+      
+      const response = await fetch(`${serviceUrl}?${identifyParams}`);
+      
+      if (!response.ok) {
+        throw new Error(`nowCOAST service error: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      // Add metadata
+      const result = {
+        service: service,
+        location: { lat: Number(lat), lon: Number(lon) },
+        timestamp: new Date().toISOString(),
+        source: 'NOAA nowCOAST WW3',
+        data: data
+      };
+      
+      res.json(result);
+      
+    } catch (error) {
+      console.error('nowCOAST identify error:', error);
+      res.status(500).json({ error: 'Failed to query nowCOAST WW3 service' });
+    }
+  });
+
   // Global SST from NOAA CoastWatch ERDDAP
   app.get('/api/weather/sst/global', async (req, res) => {
     try {
