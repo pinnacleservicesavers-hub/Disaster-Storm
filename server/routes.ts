@@ -2522,53 +2522,49 @@ Email: strategiclandmgmt@gmail.com
     }
   });
 
-  // nowCOAST layers discovery helper
-  app.get("/api/nowcoast/layers/:service", async (req, res) => {
+  // nowCOAST layers discovery helper - discover layer IDs for NDFD wind speed & direction (and latest time)
+  app.get("/api/nowcoast/layers", async (req, res) => {
     try {
-      const { service } = req.params;
+      const { service } = req.query;
       const ALLOWED = new Set([
-        "ww3_sigwaveheight_time",
-        "ww3_peakwaveperiod_time", 
-        "ww3_primarywavedir_time",
         "forecast_meteoceanhydro_sfc_ndfd_time",
+        "ww3_sigwaveheight_time",
+        "ww3_peakwaveperiod_time",
+        "ww3_primarywavedir_time",
       ]);
-      
-      if (!ALLOWED.has(service)) {
+      if (!ALLOWED.has(String(service))) {
         return res.status(400).json({ error: "Invalid service" });
       }
+      const url = `https://nowcoast.noaa.gov/arcgis/rest/services/nowcoast/${service}/MapServer?f=pjson`;
+      const resp = await fetch(url, { headers: { "User-Agent": "SLM-StormApp/1.0" } });
+      if (!resp.ok) throw new Error(`Layer list fetch failed: ${resp.status}`);
+      const json = await resp.json();
 
-      const layersUrl = `https://nowcoast.noaa.gov/arcgis/rest/services/nowcoast/${service}/MapServer/layers?f=json`;
-      
-      console.log(`🔍 Discovering layers for nowCOAST service: ${service}`);
-      
-      const response = await fetch(layersUrl, {
-        headers: { "User-Agent": "SLM-StormApp/1.0" },
-      });
-      
-      if (!response.ok) {
-        throw new Error(`nowCOAST layers request failed: ${response.status}`);
+      const layers = json?.layers || [];
+      const byName = (rx: RegExp) => layers.find((l: any) => rx.test(l?.name || ""))?.id;
+
+      // Try several common nowCOAST layer names for NDFD winds
+      const speedId =
+        byName(/wind\s*speed/i) ??
+        byName(/sustained\s*wind/i) ??
+        byName(/sfc.*wind.*speed/i);
+
+      const dirId =
+        byName(/wind\s*direction/i) ??
+        byName(/sfc.*wind.*dir/i);
+
+      // Grab a latest time from the speed layer (fallback to dir layer)
+      const layerForTime = layers.find((l: any) => l.id === speedId) || layers.find((l: any) => l.id === dirId);
+      let latestTime = null;
+      const ti = layerForTime?.timeInfo;
+      if (ti?.timeExtent?.length) {
+        // timeExtent is [startMS, endMS]
+        latestTime = ti.timeExtent[1];
       }
-      
-      const data = await response.json();
-      
-      // Extract useful layer info for wind speed/direction identification
-      const layers = (data.layers || []).map((layer: any) => ({
-        id: layer.id,
-        name: layer.name,
-        description: layer.description || "",
-        type: layer.type
-      }));
-      
-      res.json({
-        service: service,
-        timestamp: new Date().toISOString(),
-        source: 'NOAA nowCOAST',
-        layers: layers
-      });
-      
-    } catch (error) {
-      console.error('nowCOAST layers error:', error);
-      res.status(500).json({ error: 'Failed to fetch nowCOAST layers' });
+
+      res.json({ service, speedId, dirId, latestTime, rawLayerCount: layers.length });
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
     }
   });
 
