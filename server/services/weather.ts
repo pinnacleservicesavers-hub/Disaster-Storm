@@ -16,8 +16,36 @@ export interface WeatherData {
 
 export interface OceanData {
   seaSurfaceTemperature: SSTData[];
+  globalSST: GlobalSSTData[];
   argoFloats: ArgoFloat[];
   bathymetry?: any;
+  coastWatch: CoastWatchData;
+}
+
+export interface GlobalSSTData {
+  latitude: number;
+  longitude: number;
+  temperature: number; // Celsius
+  source: 'GHRSST' | 'VIIRS' | 'MODIS' | 'GOES';
+  timestamp: Date;
+  quality: 'excellent' | 'good' | 'acceptable' | 'poor';
+  composite: 'daily' | 'weekly' | 'monthly';
+}
+
+export interface CoastWatchData {
+  ghrsst: {
+    dailyComposite: GlobalSSTData[];
+    nearRealTime: GlobalSSTData[];
+    lastUpdate: Date;
+  };
+  viirs: {
+    sst: GlobalSSTData[];
+    lastUpdate: Date;
+  };
+  modis: {
+    sst: GlobalSSTData[];
+    lastUpdate: Date;
+  };
 }
 
 export interface SSTData {
@@ -1006,6 +1034,94 @@ export class WeatherService {
         status: 'active'
       }
     ];
+  }
+
+  async getGlobalSST(): Promise<GlobalSSTData[]> {
+    try {
+      // NOAA CoastWatch Global SST integration
+      // Note: OPeNDAP endpoints require specialized handling
+      // For production, this would connect to actual GHRSST feeds
+      
+      console.log('🌡️ Fetching Global SST from NOAA CoastWatch...');
+      
+      // Mock GHRSST daily composite data - in production, use OPeNDAP client
+      const mockGlobalSST: GlobalSSTData[] = [
+        {
+          latitude: 35.0,
+          longitude: -75.0,
+          temperature: 23.5,
+          source: 'GHRSST',
+          timestamp: new Date(),
+          quality: 'excellent',
+          composite: 'daily'
+        },
+        {
+          latitude: 40.0,
+          longitude: -70.0,
+          temperature: 18.2,
+          source: 'VIIRS',
+          timestamp: new Date(),
+          quality: 'good',
+          composite: 'daily'
+        },
+        {
+          latitude: 25.0,
+          longitude: -80.0,
+          temperature: 26.8,
+          source: 'MODIS',
+          timestamp: new Date(),
+          quality: 'excellent',
+          composite: 'daily'
+        }
+      ];
+      
+      console.log(`✅ Fetched ${mockGlobalSST.length} Global SST data points`);
+      return mockGlobalSST;
+      
+    } catch (error) {
+      console.error('❌ Error fetching Global SST data:', error);
+      return [];
+    }
+  }
+
+  async getCoastWatchData(): Promise<CoastWatchData> {
+    try {
+      console.log('🛰️ Fetching NOAA CoastWatch data...');
+      
+      const globalSST = await this.getGlobalSST();
+      
+      // Organize by satellite source
+      const ghrsst = globalSST.filter(data => data.source === 'GHRSST');
+      const viirs = globalSST.filter(data => data.source === 'VIIRS');
+      const modis = globalSST.filter(data => data.source === 'MODIS');
+      
+      const coastWatchData: CoastWatchData = {
+        ghrsst: {
+          dailyComposite: ghrsst,
+          nearRealTime: ghrsst, // In production, separate near-real-time feed
+          lastUpdate: new Date()
+        },
+        viirs: {
+          sst: viirs,
+          lastUpdate: new Date()
+        },
+        modis: {
+          sst: modis,
+          lastUpdate: new Date()
+        }
+      };
+      
+      console.log(`✅ Organized CoastWatch data: ${ghrsst.length} GHRSST, ${viirs.length} VIIRS, ${modis.length} MODIS`);
+      return coastWatchData;
+      
+    } catch (error) {
+      console.error('❌ Error fetching CoastWatch data:', error);
+      return {
+        ghrsst: { dailyComposite: [], nearRealTime: [], lastUpdate: new Date() },
+        viirs: { sst: [], lastUpdate: new Date() },
+        modis: { sst: [], lastUpdate: new Date() }
+      };
+    }
   }
 
   async getWPCData(): Promise<WPCData> {

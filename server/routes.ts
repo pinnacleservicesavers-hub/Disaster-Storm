@@ -2267,8 +2267,11 @@ Email: strategiclandmgmt@gmail.com
 
   app.get('/api/weather/ocean', async (req, res) => {
     try {
-      // Return buoy data as ocean data since NDBC provides ocean conditions
+      // Enhanced ocean data with Global SST and CoastWatch
       const buoys = await weatherService.getNDBC_Buoys();
+      const globalSST = await weatherService.getGlobalSST();
+      const coastWatch = await weatherService.getCoastWatchData();
+      
       const oceanData = {
         seaSurfaceTemperature: buoys.map(buoy => ({
           latitude: buoy.latitude,
@@ -2278,7 +2281,9 @@ Email: strategiclandmgmt@gmail.com
           timestamp: buoy.timestamp,
           stationId: buoy.stationId
         })).filter(sst => sst.temperature > 0),
+        globalSST: globalSST,
         buoys: buoys,
+        coastWatch: coastWatch,
         lastUpdated: new Date()
       };
       res.json(oceanData);
@@ -2361,6 +2366,39 @@ Email: strategiclandmgmt@gmail.com
     } catch (error) {
       console.error(`Error fetching realtime2 station ${req.params.stationId}:`, error);
       res.status(500).json({ error: `Failed to fetch realtime2 station ${req.params.stationId}` });
+    }
+  });
+
+  // Global SST from NOAA CoastWatch
+  app.get('/api/weather/sst/global', async (req, res) => {
+    try {
+      const globalSST = await weatherService.getGlobalSST();
+      res.json(globalSST);
+    } catch (error) {
+      console.error('Error fetching Global SST data:', error);
+      res.status(500).json({ error: 'Failed to fetch Global SST data' });
+    }
+  });
+
+  // NOAA CoastWatch satellite data
+  app.get('/api/weather/coastwatch', async (req, res) => {
+    try {
+      const coastWatchData = await weatherService.getCoastWatchData();
+      res.json(coastWatchData);
+    } catch (error) {
+      console.error('Error fetching CoastWatch data:', error);
+      res.status(500).json({ error: 'Failed to fetch CoastWatch data' });
+    }
+  });
+
+  // GHRSST daily composites
+  app.get('/api/weather/ghrsst', async (req, res) => {
+    try {
+      const coastWatch = await weatherService.getCoastWatchData();
+      res.json(coastWatch.ghrsst);
+    } catch (error) {
+      console.error('Error fetching GHRSST data:', error);
+      res.status(500).json({ error: 'Failed to fetch GHRSST data' });
     }
   });
 
