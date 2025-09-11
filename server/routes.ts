@@ -2439,14 +2439,15 @@ Email: strategiclandmgmt@gmail.com
     }
   });
 
-  // --- nowCOAST WW3 point sampler (Identify) ---
+  // --- nowCOAST point sampler (Identify) - WW3 + NDFD winds ---
   app.get("/api/nowcoast/sample", async (req, res) => {
     try {
-      const { service, lon, lat, layerId = "0" } = req.query;
+      const { service, lon, lat, layerId = "0", time } = req.query;
       const ALLOWED = new Set([
         "ww3_sigwaveheight_time",
         "ww3_peakwaveperiod_time", 
         "ww3_primarywavedir_time",
+        "forecast_meteoceanhydro_sfc_ndfd_time", // NEW: NDFD winds
       ]);
       if (!ALLOWED.has(String(service))) {
         return res.status(400).json({ error: "Invalid service" });
@@ -2468,6 +2469,11 @@ Email: strategiclandmgmt@gmail.com
         imageDisplay: "800,600,96",
         returnGeometry: "false",
       });
+      
+      // Add time parameter if provided (for NDFD forecast times)
+      if (time) {
+        params.append("time", String(time));
+      }
 
       const r = await fetch(`${endpoint}?${params}`, {
         headers: { "User-Agent": "SLM-StormApp/1.0" },
@@ -2507,11 +2513,62 @@ Email: strategiclandmgmt@gmail.com
       const units =
         service === "ww3_sigwaveheight_time" ? "m" :
         service === "ww3_peakwaveperiod_time" ? "s" :
-        service === "ww3_primarywavedir_time" ? "deg" : "";
+        service === "ww3_primarywavedir_time" ? "deg" :
+        service === "forecast_meteoceanhydro_sfc_ndfd_time" ? "varies" : "";
 
       res.json({ service, lon: x, lat: y, value, units, attributes: attrs });
     } catch (err) {
       res.status(500).json({ error: String(err) });
+    }
+  });
+
+  // nowCOAST layers discovery helper
+  app.get("/api/nowcoast/layers/:service", async (req, res) => {
+    try {
+      const { service } = req.params;
+      const ALLOWED = new Set([
+        "ww3_sigwaveheight_time",
+        "ww3_peakwaveperiod_time", 
+        "ww3_primarywavedir_time",
+        "forecast_meteoceanhydro_sfc_ndfd_time",
+      ]);
+      
+      if (!ALLOWED.has(service)) {
+        return res.status(400).json({ error: "Invalid service" });
+      }
+
+      const layersUrl = `https://nowcoast.noaa.gov/arcgis/rest/services/nowcoast/${service}/MapServer/layers?f=json`;
+      
+      console.log(`🔍 Discovering layers for nowCOAST service: ${service}`);
+      
+      const response = await fetch(layersUrl, {
+        headers: { "User-Agent": "SLM-StormApp/1.0" },
+      });
+      
+      if (!response.ok) {
+        throw new Error(`nowCOAST layers request failed: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      // Extract useful layer info for wind speed/direction identification
+      const layers = (data.layers || []).map((layer: any) => ({
+        id: layer.id,
+        name: layer.name,
+        description: layer.description || "",
+        type: layer.type
+      }));
+      
+      res.json({
+        service: service,
+        timestamp: new Date().toISOString(),
+        source: 'NOAA nowCOAST',
+        layers: layers
+      });
+      
+    } catch (error) {
+      console.error('nowCOAST layers error:', error);
+      res.status(500).json({ error: 'Failed to fetch nowCOAST layers' });
     }
   });
 
