@@ -1,0 +1,69 @@
+<script>
+let _ndfdSamplingInFlight = false;
+
+function degStepForZoom(zoom, lat) {
+  // Aim for ~80–100 km spacing; convert to deg
+  // 1° lat ≈ 111 km; 1° lon ≈ 111 km * cos(lat)
+  const targetKm = Math.max(30, 160 - (zoom * 12)); // denser as you zoom in
+  const dLat = targetKm / 111;
+  const dLon = targetKm / (111 * Math.max(0.2, Math.cos(lat * Math.PI/180)));
+  return { dLat, dLon };
+}
+
+async function renderNdfdWindArrows() {
+  if (_ndfdSamplingInFlight) return;
+  _ndfdSamplingInFlight = true;
+
+  try {
+    ndfdArrowLayer.clearLayers();
+
+    const b = map.getBounds();
+    const center = map.getCenter();
+    const { dLat, dLon } = degStepForZoom(map.getZoom(), center.lat);
+
+    const latStart = Math.max(-85, Math.min(85, b.getSouth()));
+    const latEnd   = Math.max(-85, Math.min(85, b.getNorth()));
+    const lonStart = b.getWest();
+    const lonEnd   = b.getEast();
+
+    // Build grid
+    const points = [];
+    for (let lat = latStart; lat <= latEnd; lat += dLat) {
+      for (let lon = lonStart; lon <= lonEnd; lon += dLon) {
+        points.push([+lat.toFixed(3), +lon.toFixed(3)]);
+      }
+    }
+
+    // Limit total to avoid hammering servers
+    const MAX_POINTS = 180; // adjust if you want denser
+    if (points.length > MAX_POINTS) points.length = MAX_POINTS;
+
+    // Concurrency limiter
+    const CONC = 10;
+    let i = 0;
+    async function worker() {
+      while (i < points.length) {
+        const idx = i++;
+        const [lat, lon] = points[idx];
+
+        const { NDFD_WindSpd_kt, NDFD_WindDir_deg } = await sampleNdfdWindAtPoint(lon, lat);
+        const dir = Number(NDFD_WindDir_deg);
+        const spdKt = Number(NDFD_WindSpd_kt);
+        if (!Number.isFinite(dir) || !Number.isFinite(spdKt)) continue;
+
+        const spdMps = spdKt * 0.514444; // kt -> m/s for sizing
+        const html = `
+          <div><strong>Model Wind (NDFD)</strong></div>
+          <div>Speed: ${spdKt} kt (${spdMps.toFixed(1)} m/s)</div>
+          <div>Direction: ${dir}°</div>
+        `;
+        const m = windMarker(lat, lon, spdMps, dir, html);
+        ndfdArrowLayer.addLayer(m);
+      }
+    }
+    await Promise.all(Array.from({ length: CONC }, worker));
+  } finally {
+    _ndfdSamplingInFlight = false;
+  }
+}
+</script>

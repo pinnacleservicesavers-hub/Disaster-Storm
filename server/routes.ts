@@ -2268,8 +2268,18 @@ Email: strategiclandmgmt@gmail.com
   app.get('/api/weather/ocean', async (req, res) => {
     try {
       // Enhanced ocean data with Global SST and CoastWatch
+      const { lat1, lat2, lon1, lon2 } = req.query;
+      
+      // Default bounds for East Coast US
+      const bounds = {
+        lat1: Number(lat1) || 20,
+        lat2: Number(lat2) || 50,
+        lon1: Number(lon1) || -100,
+        lon2: Number(lon2) || -60
+      };
+      
       const buoys = await weatherService.getNDBC_Buoys();
-      const globalSST = await weatherService.getGlobalSST();
+      const globalSST = await weatherService.getGlobalSST(bounds.lat1, bounds.lat2, bounds.lon1, bounds.lon2);
       const coastWatch = await weatherService.getCoastWatchData();
       
       const oceanData = {
@@ -2369,10 +2379,20 @@ Email: strategiclandmgmt@gmail.com
     }
   });
 
-  // Global SST from NOAA CoastWatch
+  // Global SST from NOAA CoastWatch ERDDAP
   app.get('/api/weather/sst/global', async (req, res) => {
     try {
-      const globalSST = await weatherService.getGlobalSST();
+      const { lat1, lat2, lon1, lon2 } = req.query;
+      
+      // Default to East Coast US if no bounds specified
+      const bounds = {
+        lat1: Number(lat1) || 20,
+        lat2: Number(lat2) || 50,
+        lon1: Number(lon1) || -100,
+        lon2: Number(lon2) || -60
+      };
+      
+      const globalSST = await weatherService.getGlobalSST(bounds.lat1, bounds.lat2, bounds.lon1, bounds.lon2);
       res.json(globalSST);
     } catch (error) {
       console.error('Error fetching Global SST data:', error);
