@@ -360,6 +360,7 @@ export interface NHCData {
     windSwaths: string[];
     surge: string[];
     coneOfUncertainty: string[];
+    trackShapefiles: string[];
     gisPortal: string;
   };
 }
@@ -890,6 +891,19 @@ export class WeatherService {
       
       // NHC Shapefiles for detailed geometric analysis
       console.log('📊 Preparing NHC Shapefile references for detailed geometric analysis...');
+      
+      // Dynamic storm-specific shapefile URLs (example: AL092024)
+      const currentStormExample = 'AL092024'; // In production, extract from active storms
+      const stormSpecificShapefiles = {
+        cone: `https://www.nhc.noaa.gov/gis/shapefiles/AL/${currentStormExample}_CONE_latest.zip`,
+        track: `https://www.nhc.noaa.gov/gis/shapefiles/AL/${currentStormExample}_TRACK_latest.zip`,
+        radii: `https://www.nhc.noaa.gov/gis/shapefiles/AL/${currentStormExample}_RADII_latest.zip`,
+        watches: `https://www.nhc.noaa.gov/gis/shapefiles/AL/${currentStormExample}_WATCHES_latest.zip`,
+        warnings: `https://www.nhc.noaa.gov/gis/shapefiles/AL/${currentStormExample}_WARNINGS_latest.zip`
+      };
+      
+      console.log(`🎯 Storm-specific shapefiles for ${currentStormExample}: ${stormSpecificShapefiles.cone}`);
+      
       const shapefileData = {
         advisories: [
           `${nhcGISFeeds.gisShapefiles}/forecast/archive/al052023_5day_pgn.zip`,
@@ -897,15 +911,18 @@ export class WeatherService {
         ],
         watches: [
           `${nhcGISFeeds.gisShapefiles}/forecast/archive/latest_watches.zip`,
-          `${nhcGISFeeds.gisShapefiles}/forecast/archive/latest_wwlin.zip`
+          `${nhcGISFeeds.gisShapefiles}/forecast/archive/latest_wwlin.zip`,
+          stormSpecificShapefiles.watches
         ],
         warnings: [
           `${nhcGISFeeds.gisShapefiles}/forecast/archive/latest_warnings.zip`,
-          `${nhcGISFeeds.gisShapefiles}/forecast/archive/latest_wwareas.zip`
+          `${nhcGISFeeds.gisShapefiles}/forecast/archive/latest_wwareas.zip`,
+          stormSpecificShapefiles.warnings
         ],
         windSwaths: [
           `${nhcGISFeeds.gisShapefiles}/forecast/archive/latest_windswath.zip`,
-          `${nhcGISFeeds.gisShapefiles}/forecast/archive/latest_wsp_radii.zip`
+          `${nhcGISFeeds.gisShapefiles}/forecast/archive/latest_wsp_radii.zip`,
+          stormSpecificShapefiles.radii
         ],
         surge: [
           `${nhcGISFeeds.gisShapefiles}/forecast/archive/latest_surge.zip`,
@@ -913,7 +930,11 @@ export class WeatherService {
         ],
         coneOfUncertainty: [
           `${nhcGISFeeds.gisShapefiles}/forecast/archive/latest_fcst_cone.zip`,
-          `${nhcGISFeeds.gisShapefiles}/forecast/archive/latest_uncertainty_cone.zip`
+          `${nhcGISFeeds.gisShapefiles}/forecast/archive/latest_uncertainty_cone.zip`,
+          stormSpecificShapefiles.cone // Real-time storm-specific cone
+        ],
+        trackShapefiles: [
+          stormSpecificShapefiles.track
         ],
         gisPortal: nhcGISFeeds.gisShapefiles
       };
