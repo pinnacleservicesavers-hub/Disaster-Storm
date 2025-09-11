@@ -806,7 +806,7 @@
 
     const csv = rows.join("\n");
     const now = new Date().toISOString().replace(/[:T]/g, "-").split(".")[0];
-    downloadBlob(csv, `buoys_obs_vs_models_${now}.csv`);
+    downloadBlob(csv, `buoys_with_WW3_NDFD_${now}.csv`);
   }
 
   // Hook up the button
