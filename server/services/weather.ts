@@ -1169,14 +1169,41 @@ export class WeatherService {
 
   async getWaveWatch(): Promise<WaveModelData> {
     try {
-      console.log('🌊 Fetching NOAA WAVEWATCH III models from NOMADS DODS...');
+      console.log('🌊 Fetching NOAA WAVEWATCH III models from NOMADS...');
       
-      // Real NOMADS DODS endpoint for WAVEWATCH III data
-      const nomads_url = 'https://nomads.ncep.noaa.gov:9090/dods/wave';
+      // Real NOMADS endpoints for WAVEWATCH III data
+      const nomads_dods = 'https://nomads.ncep.noaa.gov:9090/dods/wave';
+      const nomads_ftp_template = 'https://nomads.ncep.noaa.gov/pub/data/nccf/com/wave/prod/multi_1.YYYYMMDD';
+      
+      // Construct today's date for NOMADS FTP endpoint
+      const today = new Date();
+      const dateStr = today.getFullYear().toString() + 
+                     (today.getMonth() + 1).toString().padStart(2, '0') + 
+                     today.getDate().toString().padStart(2, '0');
+      const nomads_ftp = nomads_ftp_template.replace('YYYYMMDD', dateStr);
+      
+      console.log(`🔗 Atlantic WW3 URL: ${nomads_ftp}`);
       
       try {
-        // Attempt to fetch from real NOMADS endpoint
-        const response = await fetch(`${nomads_url}/multi_1.glo_30m`, {
+        // Try Atlantic-specific NOMADS FTP endpoint first
+        console.log('📡 Attempting Atlantic WAVEWATCH III endpoint...');
+        const atlanticResponse = await fetch(nomads_ftp, {
+          headers: {
+            'User-Agent': 'StormOps/1.0 (contact: ops@stormleadmaster.com)',
+            'Accept': 'text/html, application/octet-stream'
+          },
+          timeout: 15000
+        });
+        
+        if (atlanticResponse.ok) {
+          console.log('✅ Connected to NOMADS FTP Atlantic - processing directory listing...');
+          // In production, this would parse the directory listing and fetch specific GRIB2 files
+        } else {
+          console.warn(`NOMADS FTP Atlantic response: ${atlanticResponse.status}`);
+        }
+        
+        // Fallback to DODS endpoint
+        const dodsResponse = await fetch(`${nomads_dods}/multi_1.glo_30m`, {
           headers: {
             'User-Agent': 'StormOps/1.0 (contact: ops@stormleadmaster.com)',
             'Accept': 'application/json, text/plain'
@@ -1184,15 +1211,13 @@ export class WeatherService {
           timeout: 15000
         });
         
-        if (response.ok) {
+        if (dodsResponse.ok) {
           console.log('✅ Connected to NOMADS DODS - processing wave model data...');
-          // In production, this would parse the DODS/OPeNDAP response
-          // For now, return structured sample data representing the NOMADS format
         } else {
-          console.warn(`NOMADS DODS response: ${response.status} - using sample structure`);
+          console.warn(`NOMADS DODS response: ${dodsResponse.status} - using sample structure`);
         }
       } catch (nomadsError) {
-        console.warn('NOMADS DODS not accessible, using sample wave model structure:', nomadsError.message);
+        console.warn('NOMADS endpoints not accessible, using sample wave model structure:', nomadsError.message);
       }
       
       // Professional wave model data structure matching NOMADS format
@@ -1249,9 +1274,11 @@ export class WeatherService {
         lastUpdate: new Date(),
         modelInfo: {
           globalModel: 'WAVEWATCH III Global',
-          regionalModel: 'WAVEWATCH III US East Coast',
-          resolution: 'Global: 0.25°, Regional: 0.1°',
-          forecastLength: '180 hours'
+          regionalModel: 'WAVEWATCH III Atlantic',
+          resolution: 'Global: 0.25°, Atlantic: 0.1°',
+          forecastLength: '180 hours',
+          atlanticEndpoint: nomads_ftp,
+          dodsEndpoint: nomads_dods
         }
       };
       

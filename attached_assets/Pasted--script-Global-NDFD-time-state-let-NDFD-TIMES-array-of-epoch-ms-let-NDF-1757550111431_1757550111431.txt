@@ -1,0 +1,95 @@
+<script>
+  // Global NDFD time state
+  let NDFD_TIMES = [];        // array of epoch ms
+  let NDFD_TIME_INDEX = 0;    // index into NDFD_TIMES
+  let NDFD_TIME_MS = null;    // currently-selected time (ms)
+
+  const timeLabel = document.getElementById("ndfdTimeLabel");
+  const timeSlider = document.getElementById("ndfdTimeSlider");
+  const btnPrev = document.getElementById("ndfdPrev");
+  const btnNext = document.getElementById("ndfdNext");
+  const btnNow  = document.getElementById("ndfdNow");
+
+  // You already have these from the last step; we’ll reuse/extend them:
+  // - getNdfdWindLayerInfo()
+  // - sampleNdfdWindAtPoint(lon, lat)
+
+  // Build a compact array of time steps (don’t make it too huge)
+  async function initNdfdTimes() {
+    const info = await getNdfdWindLayerInfo();
+    const start = Number(info.startTime) || (Number(info.latestTime) - 24*info.intervalMs);
+    const end   = Number(info.latestTime) || Date.now();
+    const step  = Math.max(10*60*1000, Number(info.intervalMs) || 60*60*1000); // at least 10 min
+
+    // Build times; cap at ~200 steps to keep UI snappy
+    const times = [];
+    for (let t = start; t <= end; t += step) {
+      times.push(t);
+      if (times.length > 200) break;
+    }
+    if (!times.length) times.push(end);
+
+    NDFD_TIMES = times;
+    NDFD_TIME_INDEX = times.length - 1; // latest
+    NDFD_TIME_MS = times[NDFD_TIME_INDEX];
+
+    // Wire slider
+    timeSlider.min = 0;
+    timeSlider.max = String(times.length - 1);
+    timeSlider.value = String(NDFD_TIME_INDEX);
+
+    updateNdfdTimeLabel();
+    applyNdfdTimeToLayers(); // sync initial time to tile/arrows if toggled on
+  }
+
+  function fmtLocal(ms) {
+    const d = new Date(ms);
+    // show both local & UTC hint
+    return d.toLocaleString() + "  (UTC " + new Date(ms).toUTCString().match(/\d\d:\d\d/) + ")";
+  }
+
+  function updateNdfdTimeLabel() {
+    if (!NDFD_TIMES.length) { timeLabel.textContent = "—"; return; }
+    const ms = NDFD_TIMES[NDFD_TIME_INDEX];
+    NDFD_TIME_MS = ms;
+    timeLabel.textContent = "Forecast valid: " + fmtLocal(ms);
+  }
+
+  // Push selected time to the NDFD wind speed tile + re-render model arrows if active
+  function applyNdfdTimeToLayers() {
+    // Tile layer (Esri dynamic map layer): setTimeOptions expects {from,to}
+    if (map.hasLayer(ndfdWindSpeedLayer)) {
+      ndfdWindSpeedLayer.setTimeOptions({ from: NDFD_TIME_MS, to: NDFD_TIME_MS });
+      ndfdWindSpeedLayer.redraw();
+    }
+    // Arrows: re-render at this time if toggle is on
+    const chk = document.getElementById("toggle-ndfd-arrows");
+    if (chk && chk.checked) renderNdfdWindArrows(); // uses NDFD_TIME_MS internally
+  }
+
+  // Override the sampler to honor selected time
+  async function sampleNdfdWindAtPoint(lon, lat) {
+    const info = await getNdfdWindLayerInfo();
+    const { speedId, dirId } = info;
+    const t = NDFD_TIME_MS || info.latestTime;
+    const timeParam = t ? `&time=${t}` : "";
+
+    const spdUrl = `/api/nowcoast/sample?service=forecast_meteoceanhydro_sfc_ndfd_time&lon=${lon}&lat=${lat}&layerId=${speedId}${timeParam}`;
+    const dirUrl = `/api/nowcoast/sample?service=forecast_meteoceanhydro_sfc_ndfd_time&lon=${lon}&lat=${lat}&layerId=${dirId}${timeParam}`;
+    const [spd, dir] = await Promise.all([
+      fetch(spdUrl).then(r => r.json()).catch(() => ({})),
+      fetch(dirUrl).then(r => r.json()).catch(() => ({})),
+    ]);
+
+    return {
+      NDFD_WindSpd_kt: Number(spd?.value) || "",
+      NDFD_WindDir_deg: Number(dir?.value) || "",
+    };
+  }
+
+  // Make sure your arrows renderer uses NDFD_TIME_MS (we already did in earlier step)
+  // renderNdfdWindArrows() will call sampleNdfdWindAtPoint() which now uses selected time.
+
+  // Init on load
+  initNdfdTimes();
+</script>
