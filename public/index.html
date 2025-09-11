@@ -41,6 +41,8 @@
         <div class="layer-row"><label>Active Hurricanes (NHC)</label><input id="toggle-nhc" type="checkbox"></div>
         <div class="layer-row"><label>Hurricane/Tropical Alerts (NWS)</label><input id="toggle-alerts" type="checkbox"></div>
         <div class="layer-row"><label>Wave Height (WW3 / nowCOAST)</label><input id="toggle-waves" type="checkbox"></div>
+        <div class="layer-row"><label>Wave Period (WW3 Peak)</label><input id="toggle-waveperiod" type="checkbox"></div>
+        <div class="layer-row"><label>Wave Direction (WW3 Primary)</label><input id="toggle-wavedir" type="checkbox"></div>
         <div class="layer-row"><label>Satellite IR (GOES-East)</label><input id="toggle-sat" type="checkbox"></div>
         <div class="layer-row"><label>Buoy 42039 (SST & Waves)</label><input id="toggle-buoy" type="checkbox"></div>
 
@@ -49,6 +51,8 @@
           <div class="legend-item"><span class="legend-color" style="background:#337ab7"></span> NWS alerts polygons</div>
           <div class="legend-item"><span class="legend-color" style="background:#6c757d"></span> GOES IR overlay</div>
           <div class="legend-item"><span class="legend-color" style="background:#4a90e2"></span> Wave height (WW3)</div>
+          <div class="legend-item"><span class="legend-color" style="background:#28a745"></span> Wave period (seconds)</div>
+          <div class="legend-item"><span class="legend-color" style="background:#ffc107"></span> Wave direction (arrows)</div>
         </div>
       </div>
 
@@ -85,140 +89,231 @@
     crossorigin=""></script>
 
   <script>
-    // Base map
-    const map = L.map("map", { zoomControl: true }).setView([27.5, -85], 5);
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 10, attribution: "© OpenStreetMap"
-    }).addTo(map);
+  // Base map
+  const map = L.map("map", { zoomControl: true }).setView([27.5, -85], 5);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 10, attribution: "© OpenStreetMap"
+  }).addTo(map);
 
-    // Sidebar
-    const sidebar = L.control.sidebar({ container: "sidebar", position: "left" }).addTo(map);
-    sidebar.open("layers");
+  // Sidebar
+  const sidebar = L.control.sidebar({ container: "sidebar", position: "left" }).addTo(map);
+  sidebar.open("layers");
 
-    // Layers (define but don't add until toggled)
-    let nhcLayer = null;
-    let alertsLayer = null;
-    let buoyMarker = null;
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Utility: parse a bit of HTML from NHC KML descriptions into a summary object
+  // NHC KML often has a <description> with lines like:
+  // "Advisory #XX", "Maximum sustained winds ... mph", "Present movement ...", "Minimum central pressure ..."
+  // We keep it conservative—best-effort parsing only.
+  function parseNHCDescription(html) {
+    const out = {};
+    if (!html) return out;
 
-    const wavesLayer = L.esri.dynamicMapLayer({
-      url: "https://nowcoast.noaa.gov/arcgis/rest/services/nowcoast/ww3_sigwaveheight_time/MapServer",
-      opacity: 0.6
-    });
+    // Strip tags, keep spacing
+    const text = html
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<\/?[^>]+>/g, "")
+      .replace(/\u00A0/g, " ")
+      .trim();
 
-    const goesIR = L.tileLayer(
-      "https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/goes-east-ir-13/{z}/{x}/{y}.png",
-      { opacity: 0.6, attribution: "GOES-East IR tiles" }
-    );
+    const lines = text.split(/\n+/).map(s => s.trim()).filter(Boolean);
 
-    function loadNHC() {
-      if (nhcLayer) { map.removeLayer(nhcLayer); nhcLayer = null; }
-      fetch("/api/nhc/activeGeoJSON")
-        .then(r => r.json())
-        .then(gj => {
-          nhcLayer = L.geoJSON(gj, {
-            style: () => ({ color: "#d9534f", weight: 2, opacity: 0.9, fillOpacity: 0.15 }),
-            onEachFeature: (f, layer) => {
-              const p = f.properties || {};
-              layer.bindPopup(`<div><strong>NHC</strong><div>${p.name || p.Description || "Storm Feature"}</div></div>`);
+    // Pull common fields
+    const adv = lines.find(l => /Advisory\s*#?\s*\d+/i.test(l));
+    if (adv) out.advisory = adv.match(/#?\s*(\d+)/i)?.[1] || adv;
+
+    const wind = lines.find(l => /(Maximum\s+sustained\s+winds|Max\s+winds)/i.test(l));
+    if (wind) out.maxWinds = wind.match(/(\d+)\s*(kt|kts|mph)/i)?.[0] || wind;
+
+    const motion = lines.find(l => /(Present\s+movement|Moving)/i.test(l));
+    if (motion) out.motion = motion.replace(/^.*?(Present\s+movement|Moving)\s*/i, "");
+
+    const pressure = lines.find(l => /(Minimum\s+central\s+pressure|Min\s+pressure)/i.test(l));
+    if (pressure) out.minPressure = pressure.match(/(\d{3,4})\s*(mb|mbs|hpa)/i)?.[0] || pressure;
+
+    const pos = lines.find(l => /(Position|Center\s+located)/i.test(l));
+    if (pos) out.position = pos.replace(/^.*?(Position|Center\s+located)\s*:\s*/i, "");
+
+    // Try to keep a "more info" link if present in the original HTML
+    const link = (html.match(/<a[^>]+href="([^"]+)"/i) || [])[1];
+    if (link) out.moreInfo = link;
+
+    out._raw = text; // in case you want to inspect later
+    return out;
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Layers (declare refs so we can toggle)
+  let nhcLayer = null;
+  let alertsLayer = null;
+  let buoyMarker = null;
+
+  // nowCOAST WW3 tiles:
+  // - Significant Wave Height (already had)
+  const wavesLayer = L.esri.dynamicMapLayer({
+    url: "https://nowcoast.noaa.gov/arcgis/rest/services/nowcoast/ww3_sigwaveheight_time/MapServer",
+    opacity: 0.6
+  });
+
+  // - NEW: Peak Wave Period (seconds)
+  const wavePeriodLayer = L.esri.dynamicMapLayer({
+    url: "https://nowcoast.noaa.gov/arcgis/rest/services/nowcoast/ww3_peakwaveperiod_time/MapServer",
+    opacity: 0.6
+  });
+
+  // - NEW: Primary Wave Direction (arrows/color ramp)
+  const waveDirLayer = L.esri.dynamicMapLayer({
+    url: "https://nowcoast.noaa.gov/arcgis/rest/services/nowcoast/ww3_primarywavedir_time/MapServer",
+    opacity: 0.7
+  });
+
+  // GOES-East IR overlay
+  const goesIR = L.tileLayer(
+    "https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/goes-east-ir-13/{z}/{x}/{y}.png",
+    { opacity: 0.6, attribution: "GOES-East IR tiles" }
+  );
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Loaders
+
+  function loadNHC() {
+    if (nhcLayer) { map.removeLayer(nhcLayer); nhcLayer = null; }
+    fetch("/api/nhc/activeGeoJSON")
+      .then(r => r.json())
+      .then(gj => {
+        nhcLayer = L.geoJSON(gj, {
+          style: () => ({ color: "#d9534f", weight: 2, opacity: 0.9, fillOpacity: 0.15 }),
+          onEachFeature: (f, layer) => {
+            const p = f.properties || {};
+            const descHTML = p.description || p.Description || "";
+            const parsed = parseNHCDescription(descHTML);
+
+            let body = `<div><strong>${p.name || "NHC Feature"}</strong></div>`;
+            if (parsed.advisory) body += `<div>Advisory: #${parsed.advisory}</div>`;
+            if (parsed.maxWinds) body += `<div>Max Winds: ${parsed.maxWinds}</div>`;
+            if (parsed.motion) body += `<div>Motion: ${parsed.motion}</div>`;
+            if (parsed.minPressure) body += `<div>Min Pressure: ${parsed.minPressure}</div>`;
+            if (parsed.position) body += `<div>Position: ${parsed.position}</div>`;
+            if (parsed.moreInfo) body += `<div><a href="${parsed.moreInfo}" target="_blank" rel="noopener">More details</a></div>`;
+
+            // optional: show raw line if we parsed nothing
+            if (!parsed.advisory && !parsed.maxWinds && !parsed.motion && !parsed.minPressure && !parsed.position) {
+              body += `<div style="margin-top:6px;font-size:11px;opacity:.8;">${descHTML || "No details available."}</div>`;
             }
-          }).addTo(map);
-          try { map.fitBounds(nhcLayer.getBounds(), { padding: [30,30] }); } catch {}
-        })
-        .catch(console.error);
-    }
 
-    function loadAlerts() {
-      if (alertsLayer) { map.removeLayer(alertsLayer); alertsLayer = null; }
-      const qs = new URLSearchParams({
-        status: "actual",
-        message_type: "alert",
-        // show the tropical set; you can widen this to multiple events
-        event: "Hurricane Warning"
-      });
-      fetch(`/api/nws/alerts?${qs.toString()}`)
-        .then(r => r.json())
-        .then(data => {
-          if (!data?.features) return;
-          alertsLayer = L.geoJSON(data, {
-            style: { color: "#337ab7", weight: 2, fillOpacity: 0.1 },
-            onEachFeature: (f, layer) => {
-              const p = f.properties || {};
-              layer.bindPopup(`
-                <div><strong>${p.event || "NWS Alert"}</strong></div>
-                <div>${p.areaDesc || ""}</div>
-                <div>${p.headline || ""}</div>
-                <div><small>${p.effective || ""}</small></div>
-              `);
-            }
-          }).addTo(map);
-        })
-        .catch(console.error);
-    }
+            layer.bindPopup(body);
+          }
+        }).addTo(map);
 
-    // Buoy helpers — note: many realtime2 files don't carry lat/lon in the first row.
-    // We hardcode common stations here; you may load station metadata if needed.
-    const BUOY_LOOKUP = {
-      "42039": [28.79, -86.01],
-      "42001": [25.90, -89.67],
-      "41009": [28.50, -80.18]
-    };
+        try { map.fitBounds(nhcLayer.getBounds(), { padding: [30,30] }); } catch {}
+      })
+      .catch(console.error);
+  }
 
-    function loadBuoy(station) {
-      if (buoyMarker) { map.removeLayer(buoyMarker); buoyMarker = null; }
-      fetch(`/api/ndbc/${station}`)
-        .then(r => r.json())
-        .then(({ record }) => {
-          if (!record) return alert("No buoy record parsed.");
-          const [lat, lon] = BUOY_LOOKUP[station] || [28.79, -86.01]; // default near 42039
-          const html = `
-            <div><strong>NDBC Buoy ${station}</strong></div>
-            <div>Time (UTC): ${record.timeUTC}</div>
-            <div>Sea Temp (°C): ${record.WTMP_C ?? "—"}</div>
-            <div>Wave Height (m): ${record.WVHT_m ?? "—"}</div>
-            <div>Dominant Period (s): ${record.DPD_sec ?? "—"}</div>
-            <div>Mean Wave Dir (°): ${record.MWD_deg ?? "—"}</div>
-            <div>Wind (m/s): ${record.WSPD_mps ?? "—"}</div>
-          `;
-          buoyMarker = L.marker([lat, lon]).addTo(map).bindPopup(html);
-          buoyMarker.openPopup();
-        })
-        .catch(err => alert("Buoy fetch failed: " + err));
-    }
-
-    // UI wiring
-    const el = (id) => document.getElementById(id);
-
-    el("toggle-nhc").addEventListener("change", (e) => {
-      if (e.target.checked) { loadNHC(); }
-      else if (nhcLayer) { map.removeLayer(nhcLayer); nhcLayer = null; }
+  function loadAlerts() {
+    if (alertsLayer) { map.removeLayer(alertsLayer); alertsLayer = null; }
+    const qs = new URLSearchParams({
+      status: "actual",
+      message_type: "alert",
+      event: "Hurricane Warning"
     });
+    fetch(`/api/nws/alerts?${qs.toString()}`)
+      .then(r => r.json())
+      .then(data => {
+        if (!data?.features) return;
+        alertsLayer = L.geoJSON(data, {
+          style: { color: "#337ab7", weight: 2, fillOpacity: 0.1 },
+          onEachFeature: (f, layer) => {
+            const p = f.properties || {};
+            layer.bindPopup(`
+              <div><strong>${p.event || "NWS Alert"}</strong></div>
+              <div>${p.areaDesc || ""}</div>
+              <div>${p.headline || ""}</div>
+              <div><small>${p.effective || ""}</small></div>
+            `);
+          }
+        }).addTo(map);
+      })
+      .catch(console.error);
+  }
 
-    el("toggle-alerts").addEventListener("change", (e) => {
-      if (e.target.checked) { loadAlerts(); }
-      else if (alertsLayer) { map.removeLayer(alertsLayer); alertsLayer = null; }
-    });
+  // Buoy helpers (quick lat/lon lookup)
+  const BUOY_LOOKUP = {
+    "42039": [28.79, -86.01],
+    "42001": [25.90, -89.67],
+    "41009": [28.50, -80.18]
+  };
 
-    el("toggle-waves").addEventListener("change", (e) => {
-      if (e.target.checked) wavesLayer.addTo(map);
-      else map.removeLayer(wavesLayer);
-    });
+  function loadBuoy(station) {
+    if (buoyMarker) { map.removeLayer(buoyMarker); buoyMarker = null; }
+    fetch(`/api/ndbc/${station}`)
+      .then(r => r.json())
+      .then(({ record }) => {
+        if (!record) return alert("No buoy record parsed.");
+        const [lat, lon] = BUOY_LOOKUP[station] || [28.79, -86.01];
+        const html = `
+          <div><strong>NDBC Buoy ${station}</strong></div>
+          <div>Time (UTC): ${record.timeUTC}</div>
+          <div>Sea Temp (°C): ${record.WTMP_C ?? "—"}</div>
+          <div>Wave Height (m): ${record.WVHT_m ?? "—"}</div>
+          <div>Peak/ Dom Period (s): ${record.DPD_sec ?? "—"}</div>
+          <div>Mean Wave Dir (°): ${record.MWD_deg ?? "—"}</div>
+          <div>Wind (m/s): ${record.WSPD_mps ?? "—"}</div>
+        `;
+        buoyMarker = L.marker([lat, lon]).addTo(map).bindPopup(html);
+        buoyMarker.openPopup();
+      })
+      .catch(err => alert("Buoy fetch failed: " + err));
+  }
 
-    el("toggle-sat").addEventListener("change", (e) => {
-      if (e.target.checked) goesIR.addTo(map);
-      else map.removeLayer(goesIR);
-    });
+  // ─────────────────────────────────────────────────────────────────────────────
+  // UI wiring
+  const el = (id) => document.getElementById(id);
 
-    el("toggle-buoy").addEventListener("change", (e) => {
-      if (e.target.checked) loadBuoy(el("buoyId").value.trim() || "42039");
-      else if (buoyMarker) { map.removeLayer(buoyMarker); buoyMarker = null; }
-    });
+  // Ensure the extra toggles exist in your HTML (you'll add two checkboxes):
+  //  - toggle-waveperiod
+  //  - toggle-wavedir
 
-    el("loadBuoy").addEventListener("click", () => {
-      const id = el("buoyId").value.trim();
-      if (!id) return;
-      loadBuoy(id);
-      el("toggle-buoy").checked = true;
-    });
-  </script>
+  el("toggle-nhc").addEventListener("change", (e) => {
+    if (e.target.checked) { loadNHC(); }
+    else if (nhcLayer) { map.removeLayer(nhcLayer); nhcLayer = null; }
+  });
+
+  el("toggle-alerts").addEventListener("change", (e) => {
+    if (e.target.checked) { loadAlerts(); }
+    else if (alertsLayer) { map.removeLayer(alertsLayer); alertsLayer = null; }
+  });
+
+  el("toggle-waves").addEventListener("change", (e) => {
+    if (e.target.checked) wavesLayer.addTo(map);
+    else map.removeLayer(wavesLayer);
+  });
+
+  el("toggle-waveperiod").addEventListener("change", (e) => {
+    if (e.target.checked) wavePeriodLayer.addTo(map);
+    else map.removeLayer(wavePeriodLayer);
+  });
+
+  el("toggle-wavedir").addEventListener("change", (e) => {
+    if (e.target.checked) waveDirLayer.addTo(map);
+    else map.removeLayer(waveDirLayer);
+  });
+
+  el("toggle-sat").addEventListener("change", (e) => {
+    if (e.target.checked) goesIR.addTo(map);
+    else map.removeLayer(goesIR);
+  });
+
+  el("toggle-buoy").addEventListener("change", (e) => {
+    if (e.target.checked) loadBuoy(el("buoyId").value.trim() || "42039");
+    else if (buoyMarker) { map.removeLayer(buoyMarker); buoyMarker = null; }
+  });
+
+  el("loadBuoy").addEventListener("click", () => {
+    const id = el("buoyId").value.trim();
+    if (!id) return;
+    loadBuoy(id);
+    el("toggle-buoy").checked = true;
+  });
+</script>
 </body>
 </html>
