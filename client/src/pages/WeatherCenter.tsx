@@ -16,7 +16,8 @@ import {
   Pause,
   RefreshCw,
   MapPin,
-  AlertTriangle
+  AlertTriangle,
+  Share
 } from 'lucide-react';
 
 interface WeatherAlert {
@@ -196,6 +197,64 @@ export default function WeatherCenter() {
   const isLoading = weatherQueries.some(q => q.isLoading);
   const hasError = weatherQueries.some(q => q.error);
 
+  // Share link functionality
+  const handleShareLink = async () => {
+    const url = makeShareUrl();
+    try {
+      await navigator.clipboard.writeText(url);
+      alert("Share link copied!");
+    } catch {
+      // Fallback if clipboard API blocked
+      prompt("Copy this link:", url);
+    }
+  };
+
+  const makeShareUrl = () => {
+    const url = new URL(window.location.href.split("?")[0]);
+    
+    // Add user location if available
+    if (userLocation) {
+      url.searchParams.set("lat", userLocation.lat.toFixed(4));
+      url.searchParams.set("lon", userLocation.lon.toFixed(4));
+    }
+    
+    // Add refresh settings
+    url.searchParams.set("autoRefresh", autoRefresh.toString());
+    url.searchParams.set("refreshInterval", refreshInterval.toString());
+    
+    return url.toString();
+  };
+
+  const applyStateFromUrl = () => {
+    const params = new URLSearchParams(window.location.search);
+    
+    // Restore location
+    const lat = parseFloat(params.get("lat") || "");
+    const lon = parseFloat(params.get("lon") || "");
+    if (Number.isFinite(lat) && Number.isFinite(lon)) {
+      setUserLocation({ lat, lon });
+    }
+    
+    // Restore refresh settings
+    const autoRefreshParam = params.get("autoRefresh");
+    if (autoRefreshParam !== null) {
+      setAutoRefresh(autoRefreshParam === "true");
+    }
+    
+    const refreshIntervalParam = params.get("refreshInterval");
+    if (refreshIntervalParam) {
+      const interval = parseInt(refreshIntervalParam, 10);
+      if (Number.isFinite(interval)) {
+        setRefreshInterval(interval);
+      }
+    }
+  };
+
+  // Apply URL state on component mount
+  useEffect(() => {
+    applyStateFromUrl();
+  }, []);
+
   // GPS location component for map
   function LocationMarker() {
     const map = useMap();
@@ -233,6 +292,16 @@ export default function WeatherCenter() {
             >
               {autoRefresh ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
               {autoRefresh ? 'Pause' : 'Resume'} Auto-Refresh
+            </Button>
+            
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleShareLink}
+              data-testid="button-share-link"
+            >
+              <Share className="w-4 h-4 mr-2" />
+              Share
             </Button>
             
             <select 
