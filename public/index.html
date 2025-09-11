@@ -1118,30 +1118,39 @@
     return best;
   }
 
-  // CSV selection helpers
-  function getCsvSelectedColumns() {
-    const checkboxes = document.querySelectorAll('.csv-col:checked');
-    return Array.from(checkboxes).map(cb => cb.dataset.col);
+  // Column keys in the order you want by default
+  const CSV_KEYS_DEFAULT = [
+    "station_id","station_name","lat","lon",
+    "time_utc","WTMP_C","WVHT_m","DPD_s","APD_s","MWD_deg",
+    "WSPD_mps","GST_mps","WDIR_deg","PRES_hPa",
+    "WW3_Hsig_m","WW3_Tp_s","WW3_PrimaryDir_deg",
+    "NDFD_WindSpd_kt","NDFD_WindDir_deg",
+    "NDFD_Time_ISO","NDFD_Time_Epoch_ms"
+  ];
+
+  function getSelectedCsvColumns() {
+    const boxes = Array.from(document.querySelectorAll(".csv-col"));
+    const selected = boxes.filter(b => b.checked).map(b => b.dataset.col);
+    // Keep the order stable as per CSV_KEYS_DEFAULT
+    return CSV_KEYS_DEFAULT.filter(k => selected.includes(k));
   }
 
-  function getCsvRowLimit() {
-    const limitEl = document.getElementById('csvLimit');
-    return limitEl ? parseInt(limitEl.value, 10) || 200 : 200;
-  }
-
-  function setCsvColumns(columns) {
-    // Clear all first
-    document.querySelectorAll('.csv-col').forEach(cb => cb.checked = false);
-    // Set selected columns
-    columns.forEach(col => {
-      const cb = document.querySelector(`.csv-col[data-col="${col}"]`);
-      if (cb) cb.checked = true;
+  function setSelectedCsvColumns(keys) {
+    const set = new Set(keys);
+    document.querySelectorAll(".csv-col").forEach(b => {
+      b.checked = set.has(b.dataset.col);
     });
   }
 
-  function setCsvRowLimit(limit) {
-    const limitEl = document.getElementById('csvLimit');
-    if (limitEl) limitEl.value = limit;
+  function getCsvLimit() {
+    const el = document.getElementById("csvLimit");
+    const n = Number(el?.value || 200);
+    return Number.isFinite(n) ? Math.max(1, Math.min(2000, n)) : 200;
+  }
+
+  function setCsvLimit(v) {
+    const el = document.getElementById("csvLimit");
+    if (el) el.value = String(v);
   }
 
   // Build shareable URL from current state
@@ -1169,11 +1178,11 @@
     }
 
     // CSV column selections
-    const csvCols = getCsvSelectedColumns();
+    const csvCols = getSelectedCsvColumns();
     if (csvCols.length) u.searchParams.set("csvCols", csvCols.join(","));
 
     // CSV row limit
-    const csvLimit = getCsvRowLimit();
+    const csvLimit = getCsvLimit();
     if (csvLimit !== 200) u.searchParams.set("csvLimit", String(csvLimit));
 
     return u.toString();
@@ -1221,13 +1230,13 @@
     const csvCols = q.get("csvCols");
     if (csvCols) {
       const columns = csvCols.split(",").filter(Boolean);
-      setCsvColumns(columns);
+      setSelectedCsvColumns(columns);
     }
 
     // CSV row limit
     const csvLimit = parseInt(q.get("csvLimit"), 10);
     if (Number.isFinite(csvLimit)) {
-      setCsvRowLimit(csvLimit);
+      setCsvLimit(csvLimit);
     }
   }
 
@@ -1254,8 +1263,8 @@
 
   async function exportBuoysCSV() {
     // Get user selections
-    const selectedColumns = getCsvSelectedColumns();
-    const rowLimit = getCsvRowLimit();
+    const selectedColumns = getSelectedCsvColumns();
+    const rowLimit = getCsvLimit();
 
     if (!selectedColumns.length) {
       alert("Please select at least one column to export.");
@@ -1360,20 +1369,11 @@
     exportBtn.addEventListener("click", () => exportBuoysCSV());
   }
 
-  // CSV column selection buttons
-  const csvSelectAll = document.getElementById("csvSelectAll");
-  if (csvSelectAll) {
-    csvSelectAll.addEventListener("click", () => {
-      document.querySelectorAll('.csv-col').forEach(cb => cb.checked = true);
-    });
-  }
-
-  const csvClearAll = document.getElementById("csvClearAll");
-  if (csvClearAll) {
-    csvClearAll.addEventListener("click", () => {
-      document.querySelectorAll('.csv-col').forEach(cb => cb.checked = false);
-    });
-  }
+  // Buttons: Select all / Clear
+  const btnAll = document.getElementById("csvSelectAll");
+  const btnClr = document.getElementById("csvClearAll");
+  if (btnAll) btnAll.addEventListener("click", () => setSelectedCsvColumns(CSV_KEYS_DEFAULT));
+  if (btnClr) btnClr.addEventListener("click", () => setSelectedCsvColumns([]));
 
   // ─────────────────────────────────────────────────────────────────────────────
   // NEW: Regional Alert Filtering Event Handlers
