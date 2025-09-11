@@ -560,6 +560,36 @@
   });
 
   // ─────────────────────────────────────────────────────────────────────────────
+  // Helper to create model wind arrow markers (reuses NDBC wind styling)
+  function createModelWindArrow(lat, lon, windSpeed, windDirection, label = "Model Wind") {
+    // Create wind arrow based on speed (same logic as NDBC)
+    let arrowClass = 'wind-arrow';
+    if (windSpeed < 10) arrowClass = 'wind-arrow-tiny';
+    else if (windSpeed > 25) arrowClass = 'wind-arrow-fast';
+    
+    // Create custom icon with wind arrow (same HTML as NDBC)
+    const arrowHTML = `
+      <div class="wind-speed-ring${windSpeed < 10 ? '-tiny' : ''}"></div>
+      <div class="${arrowClass}" style="transform: rotate(${windDirection}deg);"></div>
+    `;
+    
+    const windIcon = L.divIcon({
+      html: arrowHTML,
+      className: 'wind-marker',
+      iconSize: [30, 30],
+      iconAnchor: [15, 15]
+    });
+    
+    const popup = `
+      <div><strong>${label}</strong></div>
+      <div>Wind: ${windSpeed.toFixed(1)} kt @ ${windDirection.toFixed(0)}°</div>
+      <div>Lat/Lon: ${lat.toFixed(3)}, ${lon.toFixed(3)}</div>
+    `;
+    
+    return L.marker([lat, lon], { icon: windIcon }).bindPopup(popup);
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
   // NEW: Surface Winds & Multi-buoy functionality
   let windsLayer = null;
   let multiBuoyCluster = null;
