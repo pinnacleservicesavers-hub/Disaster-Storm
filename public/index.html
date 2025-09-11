@@ -102,6 +102,34 @@
           <div class="legend-item"><span class="legend-color" style="background:#28a745"></span> Wave period (seconds)</div>
           <div class="legend-item"><span class="legend-color" style="background:#ffc107"></span> Wave direction (arrows)</div>
         </div>
+
+        <!-- Wind Arrow Legend -->
+        <div style="margin-top:12px;" class="legend-box">
+          <div style="font-weight:bold;margin-bottom:6px;">Surface Wind Arrows</div>
+          <div class="legend-item" style="display:flex;align-items:center;">
+            <div class="wind-arrow-tiny" style="margin-right:8px;"></div>
+            <span style="font-size:11px;">Light winds (&lt;10 mph)</span>
+          </div>
+          <div class="legend-item" style="display:flex;align-items:center;">
+            <div class="wind-arrow" style="margin-right:8px;"></div>
+            <span style="font-size:11px;">Moderate winds (10-25 mph)</span>
+          </div>
+          <div class="legend-item" style="display:flex;align-items:center;">
+            <div class="wind-arrow-fast" style="margin-right:8px;"></div>
+            <span style="font-size:11px;">Strong winds (&gt;25 mph)</span>
+          </div>
+          <div style="font-size:10px;color:#666;margin-top:4px;">Arrows point in wind direction</div>
+        </div>
+
+        <!-- CSV Download Button -->
+        <div style="margin-top:12px;">
+          <button id="downloadCSV" style="width:100%;padding:8px 12px;background:#28a745;color:white;border:none;border-radius:4px;cursor:pointer;font-size:13px;">
+            📥 Download Buoys in View (CSV)
+          </button>
+          <div style="font-size:10px;color:#666;margin-top:4px;text-align:center;">
+            Exports all visible stations with data
+          </div>
+        </div>
       </div>
 
       <div class="leaflet-sidebar-pane" id="info">
@@ -503,6 +531,79 @@
       setTimeout(loadMultiBuoyPanel, 500);
     }
   });
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // NEW: CSV Download Functionality
+  async function downloadBuoysCSV() {
+    // Get current map bounds for bbox filtering
+    const bounds = map.getBounds();
+    const bbox = `${bounds.getWest()},${bounds.getSouth()},${bounds.getEast()},${bounds.getNorth()}`;
+    
+    try {
+      // Fetch stations in current view
+      const stations = await fetch(`/api/ndbc/stations?bbox=${encodeURIComponent(bbox)}`)
+        .then(r => r.json());
+      
+      if (!stations?.length) {
+        alert('No buoy stations found in current view');
+        return;
+      }
+      
+      // Fetch detailed data for each station
+      const csvRows = ['ID,Name,Latitude,Longitude,Wind_Speed_mph,Wind_Direction_deg,Wave_Height_m,Wave_Period_s,Water_Temp_C,Air_Temp_C,Time_UTC'];
+      
+      for (const station of stations.slice(0, 50)) { // Limit to 50 stations for performance
+        try {
+          const data = await fetch(`/api/ndbc/${station.id}`).then(r => r.json());
+          const record = data?.record || {};
+          
+          // Convert wind speed from m/s to mph (if available)
+          const windSpeedMph = record.WSPD_mps ? (record.WSPD_mps * 2.237).toFixed(1) : '';
+          
+          const row = [
+            station.id || '',
+            `"${(station.name || '').replace(/"/g, '""')}"`, // Escape quotes in name
+            station.lat?.toFixed(6) || '',
+            station.lon?.toFixed(6) || '',
+            windSpeedMph,
+            record.WDIR_deg || '',
+            record.WVHT_m || '',
+            record.DPD_sec || '',
+            record.WTMP_C || '',
+            record.ATMP_C || '',
+            `"${record.timeUTC || ''}"`
+          ].join(',');
+          
+          csvRows.push(row);
+        } catch (err) {
+          // Skip stations with fetch errors
+          console.warn(`Failed to fetch data for station ${station.id}:`, err);
+        }
+      }
+      
+      // Create and download CSV file
+      const csvContent = csvRows.join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      
+      if (link.download !== undefined) {
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', `ndbc_buoys_${new Date().toISOString().slice(0,19).replace(/:/g,'-')}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+      
+    } catch (error) {
+      console.error('CSV download failed:', error);
+      alert('Failed to download CSV. Please try again.');
+    }
+  }
+
+  // NEW: Event handler for CSV download button
+  el("downloadCSV").addEventListener("click", downloadBuoysCSV);
 
 </script>
 </body>
