@@ -63,13 +63,37 @@
         // Add default base layer
         osm.addTo(map);
 
-        // NOAA nowCOAST Wave Height Layer (WW3 Significant Wave Height)
-        const waveHeightLayer = L.esri.dynamicMapLayer({
-            url: 'https://nowcoast.noaa.gov/arcgis/rest/services/nowcoast/analysis_meteoocean_sfc_qpe_time/MapServer',
-            layers: [1], // Wave height layer
-            opacity: 0.7,
-            f: 'image'
+        // --- Wave Height (nowCOAST WW3) ---
+        // Example nowCOAST MapServer for significant wave height (global mosaic).
+        // If you want a different basin/region, swap the URL for the layer you prefer.
+        const WW3_SIGWAVEHEIGHT = L.esri.dynamicMapLayer({
+            url: "https://nowcoast.noaa.gov/arcgis/rest/services/nowcoast/ww3_sigwaveheight_time/MapServer",
+            opacity: 0.6
         });
+
+        // toggle button (simple)
+        const wavesOn = { on: false };
+        const wavesBtn = L.control({ position: "topleft" });
+        wavesBtn.onAdd = function() {
+            const div = L.DomUtil.create("div", "leaflet-bar");
+            const a = L.DomUtil.create("a", "", div);
+            a.href = "#";
+            a.title = "Toggle Wave Height";
+            a.innerHTML = "🌊";
+            a.style.padding = "6px 10px";
+            a.onclick = (e) => {
+                e.preventDefault();
+                if (wavesOn.on) {
+                    map.removeLayer(WW3_SIGWAVEHEIGHT);
+                    wavesOn.on = false;
+                } else {
+                    WW3_SIGWAVEHEIGHT.addTo(map);
+                    wavesOn.on = true;
+                }
+            };
+            return div;
+        };
+        wavesBtn.addTo(map);
 
         // NOAA nowCOAST Sea Surface Temperature
         const sstLayer = L.esri.dynamicMapLayer({
