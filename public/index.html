@@ -248,6 +248,29 @@
   const sidebar = L.control.sidebar({ container: "sidebar", position: "left" }).addTo(map);
   sidebar.open("layers");
 
+  // Map badge showing selected NDFD time (bottom-right)
+  let _timeBadgeDiv = null;
+  const timeBadge = L.control({ position: "bottomright" });
+  timeBadge.onAdd = function() {
+    const div = L.DomUtil.create("div", "legend-box");
+    div.style.margin = "10px";
+    div.style.minWidth = "220px";
+    div.innerHTML = `<div style="font-weight:600;">Forecast Time</div><div id="mapTimeBadge">—</div>`;
+    _timeBadgeDiv = div.querySelector("#mapTimeBadge");
+    return div;
+  };
+  timeBadge.addTo(map);
+
+  // helper to update badge
+  function updateMapTimeBadge(ms) {
+    if (!_timeBadgeDiv) return;
+    if (!ms) { _timeBadgeDiv.textContent = "—"; return; }
+    const d = new Date(ms);
+    const local = d.toLocaleString();
+    const utc = d.toUTCString().replace(",","").replace(" GMT","");
+    _timeBadgeDiv.innerHTML = `${local}<br><span style="opacity:.75;">${utc} (UTC)</span>`;
+  }
+
   // ─────────────────────────────────────────────────────────────────────────────
   // NDFD Time Selector State & Helpers
   // ─────────────────────────────────────────────────────────────────────────────
