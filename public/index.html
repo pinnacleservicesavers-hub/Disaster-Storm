@@ -1297,6 +1297,21 @@
     el("enableAlertFilter").checked = savedFilter === "true";
   }
 
+  // Copy button
+  const copyBtn = document.getElementById("copyShareLink");
+  if (copyBtn) {
+    copyBtn.addEventListener("click", async () => {
+      const url = makeShareUrl();
+      try {
+        await navigator.clipboard.writeText(url);
+        alert("Share link copied!");
+      } catch {
+        // Fallback if clipboard API blocked
+        prompt("Copy this link:", url);
+      }
+    });
+  }
+
   // Boot: init NDFD times first, then apply URL state
   (async function boot() {
     await initNdfdTimes();    // you already have this

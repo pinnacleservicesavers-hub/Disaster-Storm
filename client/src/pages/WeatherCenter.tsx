@@ -495,8 +495,12 @@ export default function WeatherCenter() {
                         <GeoJSON
                           key={`buoy-${index}`}
                           data={{
-                            type: 'Point',
-                            coordinates: [buoy.longitude, buoy.latitude]
+                            type: 'Feature',
+                            geometry: {
+                              type: 'Point',
+                              coordinates: [buoy.longitude, buoy.latitude]
+                            },
+                            properties: {}
                           }}
                           pointToLayer={(feature, latlng) => {
                             const L = (window as any).L;
