@@ -1052,6 +1052,12 @@
   }
 
   async function exportBuoysCSV(limit = 200) {
+    // Determine which NDFD time we're using
+    const info = await getNdfdWindLayerInfo();
+    const ndfdTimeUsed = (typeof NDFD_TIME_MS === "number" && !Number.isNaN(NDFD_TIME_MS))
+      ? NDFD_TIME_MS
+      : (info.latestTime || Date.now());
+
     const b = map.getBounds();
     const bbox = [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()].join(",");
     const stations = await fetch(`/api/ndbc/stations?bbox=${bbox}`).then(r => r.json());
@@ -1061,19 +1067,36 @@
       "station_id","station_name","lat","lon",
       "time_utc","WTMP_C","WVHT_m","DPD_s","APD_s","MWD_deg",
       "WSPD_mps","GST_mps","WDIR_deg","PRES_hPa",
-      // NEW: WW3 fields
       "WW3_Hsig_m","WW3_Tp_s","WW3_PrimaryDir_deg",
-      // NEW: NDFD wind fields
-      "NDFD_WindSpd_kt","NDFD_WindDir_deg"
+      // NDFD model wind sampled at the selected time:
+      "NDFD_WindSpd_kt","NDFD_WindDir_deg",
+      // NEW: explicitly record which forecast time was used
+      "NDFD_Time_ISO","NDFD_Time_Epoch_ms"
     ];
     const rows = [toCsvRow(header)];
+
+    // Local wrapper to sample NDFD at a fixed time
+    async function sampleNdfdAtFixedTime(lon, lat, tMs) {
+      const { speedId, dirId } = await getNdfdWindLayerInfo();
+      const timeParam = tMs ? `&time=${tMs}` : "";
+      const spdUrl = `/api/nowcoast/sample?service=forecast_meteoceanhydro_sfc_ndfd_time&lon=${lon}&lat=${lat}&layerId=${speedId}${timeParam}`;
+      const dirUrl = `/api/nowcoast/sample?service=forecast_meteoceanhydro_sfc_ndfd_time&lon=${lon}&lat=${lat}&layerId=${dirId}${timeParam}`;
+      const [spd, dir] = await Promise.all([
+        fetch(spdUrl).then(r => r.json()).catch(() => ({})),
+        fetch(dirUrl).then(r => r.json()).catch(() => ({})),
+      ]);
+      return {
+        spdKt: Number(spd?.value) || "",
+        dirDeg: Number(dir?.value) || ""
+      };
+    }
 
     for (const s of subset) {
       try {
         const data = await fetch(`/api/ndbc/${s.id}`).then(r => r.json());
         const r = data?.record || {};
-        const ww3 = await sampleWW3AtPoint(s.lon, s.lat);
-        const ndfd = await sampleNdfdWindAtPoint(s.lon, s.lat);
+        const ww3 = await sampleWW3AtPoint(s.lon, s.lat); // unchanged (latest WW3)
+        const ndfd = await sampleNdfdAtFixedTime(s.lon, s.lat, ndfdTimeUsed);
 
         rows.push(toCsvRow([
           s.id, s.name || "", s.lat, s.lon,
@@ -1081,24 +1104,25 @@
           r.WTMP_C ?? "", r.WVHT_m ?? "", r.DPD_sec ?? "", r.APD_sec ?? "", r.MWD_deg ?? "",
           r.WSPD_mps ?? "", r.GST_mps ?? "", r.WDIR_deg ?? "", r.PRES_hPa ?? "",
           ww3.WW3_Hsig_m, ww3.WW3_Tp_s, ww3.WW3_PrimaryDir_deg,
-          ndfd.NDFD_WindSpd_kt, ndfd.NDFD_WindDir_deg
+          ndfd.spdKt, ndfd.dirDeg,
+          new Date(ndfdTimeUsed).toISOString(), String(ndfdTimeUsed)
         ]));
 
-        // Optional tiny throttle to be kind to servers
-        await new Promise(res => setTimeout(res, 40));
-      } catch (e) {
+        await new Promise(res => setTimeout(res, 40)); // gentle throttle
+      } catch {
         rows.push(toCsvRow([
           s.id, s.name || "", s.lat, s.lon,
           "", "", "", "", "", "", "", "", "", "",
           "", "", "",
-          "", ""
+          "", "",
+          new Date(ndfdTimeUsed).toISOString(), String(ndfdTimeUsed)
         ]));
       }
     }
 
     const csv = rows.join("\n");
-    const now = new Date().toISOString().replace(/[:T]/g, "-").split(".")[0];
-    downloadBlob(csv, `buoys_with_WW3_NDFD_${now}.csv`);
+    const stamp = new Date(ndfdTimeUsed).toISOString().slice(0,16).replace(/[:T]/g,"-"); // YYYY-MM-DD-HH-MM
+    downloadBlob(csv, `buoys_WW3_NDFD_${stamp}.csv`);
   }
 
   // Hook up the button
