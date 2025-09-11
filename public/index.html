@@ -1039,7 +1039,109 @@
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
-  // NEW: CSV helpers
+  // NEW: Share Link Helpers
+  // ─────────────────────────────────────────────────────────────────────────────
+  
+  // Map toggle keys ↔ checkbox IDs (keep in sync with your UI)
+  const LAYER_KEYS = {
+    nhc: "toggle-nhc",
+    alerts: "toggle-alerts",
+    waves: "toggle-waves",
+    waveperiod: "toggle-waveperiod",
+    wavedir: "toggle-wavedir",
+    sat: "toggle-sat",
+    buoy: "toggle-buoy",
+    buoys: "toggle-multibuoy",
+    winds: "toggle-winds",
+    ndfdTile: "toggle-ndfd-windtile",
+    ndfdArrows: "toggle-ndfd-arrows",
+  };
+
+  // tiny utils
+  function setToggle(id, checked) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.checked = !!checked;
+    // fire change so your existing handlers load layers
+    el.dispatchEvent(new Event("change"));
+  }
+  function nearestIndex(targetMs, arr) {
+    if (!arr?.length) return 0;
+    let best = 0, bestDiff = Infinity;
+    for (let i = 0; i < arr.length; i++) {
+      const d = Math.abs(arr[i] - targetMs);
+      if (d < bestDiff) { best = i; bestDiff = d; }
+    }
+    return best;
+  }
+
+  // Build shareable URL from current state
+  function makeShareUrl() {
+    const u = new URL(location.href.split("?")[0]); // base without prior params
+    const c = map.getCenter();
+    u.searchParams.set("lat", c.lat.toFixed(4));
+    u.searchParams.set("lon", c.lng.toFixed(4));
+    u.searchParams.set("z", String(map.getZoom()));
+
+    // active layers → comma list
+    const onKeys = Object.entries(LAYER_KEYS)
+      .filter(([key, id]) => document.getElementById(id)?.checked)
+      .map(([key]) => key);
+    if (onKeys.length) u.searchParams.set("l", onKeys.join(","));
+
+    // buoy ID (only if buoy layer is on)
+    const buoyOn = document.getElementById("toggle-buoy")?.checked;
+    const buoyId = document.getElementById("buoyId")?.value.trim();
+    if (buoyOn && buoyId) u.searchParams.set("b", buoyId);
+
+    // selected NDFD time (epoch ms)
+    if (typeof NDFD_TIME_MS === "number" && !Number.isNaN(NDFD_TIME_MS)) {
+      u.searchParams.set("t", String(NDFD_TIME_MS));
+    }
+    return u.toString();
+  }
+
+  // Apply state from URL (center/zoom, toggles, buoy ID, NDFD time)
+  async function applyStateFromUrl() {
+    const q = new URLSearchParams(location.search);
+    // map view
+    const lat = parseFloat(q.get("lat"));
+    const lon = parseFloat(q.get("lon"));
+    const z   = parseInt(q.get("z"), 10);
+    if (Number.isFinite(lat) && Number.isFinite(lon) && Number.isFinite(z)) {
+      map.setView([lat, lon], z);
+    }
+
+    // toggles
+    const layers = (q.get("l") || "").split(",").filter(Boolean);
+    for (const key of layers) {
+      const id = LAYER_KEYS[key];
+      if (id) setToggle(id, true);
+    }
+
+    // buoy ID
+    const b = q.get("b");
+    if (b) {
+      const input = document.getElementById("buoyId");
+      if (input) input.value = b;
+      if (layers.includes("buoy")) {
+        // layer toggle already fired; marker will use the input's value
+      }
+    }
+
+    // NDFD time
+    const t = parseInt(q.get("t"), 10);
+    if (Number.isFinite(t) && NDFD_TIMES?.length) {
+      const idx = nearestIndex(t, NDFD_TIMES);
+      timeSlider.value = String(idx);
+      NDFD_TIME_INDEX = idx;
+      updateNdfdTimeLabel();   // updates label + badge
+      applyNdfdTimeToLayers(); // pushes to tile + arrows
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // CSV helpers
   function toCsvRow(fields) {
     return fields.map(v => {
       if (v === null || v === undefined) return "";
