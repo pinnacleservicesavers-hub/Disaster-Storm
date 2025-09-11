@@ -810,7 +810,10 @@ export class WeatherService {
       
       // Official NHC GIS KML/KMZ feeds for comprehensive hurricane tracking
       const nhcGISFeeds = {
-        // Active storms with tracks, cones, wind radii
+        // Master NHC KMZ - comprehensive hurricane data in one file
+        masterKMZ: 'https://www.nhc.noaa.gov/gis/kml/nhc.kmz',
+        
+        // Individual active storm feeds (fallback)
         atlantic: 'https://www.nhc.noaa.gov/gis/activekml/tc_atl_active.kml',
         pacific: 'https://www.nhc.noaa.gov/gis/activekml/tc_epac_active.kml',
         
@@ -825,16 +828,28 @@ export class WeatherService {
       
       console.log('📡 Accessing NHC GIS feeds for GRIB2-compatible hurricane data...');
       
-      // Primary storm data from active feeds
-      const atlanticUrl = nhcGISFeeds.atlantic;
-      const pacificUrl = nhcGISFeeds.pacific;
+      // Try master KMZ first for comprehensive data
+      let allFeatures: any[] = [];
+      try {
+        console.log('🎯 Fetching master NHC KMZ for comprehensive hurricane data...');
+        const masterFeatures = await this.parseNHCFromKML(nhcGISFeeds.masterKMZ);
+        allFeatures = masterFeatures;
+        console.log(`✅ Master KMZ: ${allFeatures.length} total features`);
+      } catch (masterError) {
+        console.warn('Master KMZ not available, falling back to individual feeds...');
+        // Fallback to individual Atlantic/Pacific feeds
+        const atlanticUrl = nhcGISFeeds.atlantic;
+        const pacificUrl = nhcGISFeeds.pacific;
+        
+        const [atlanticFeatures, pacificFeatures] = await Promise.all([
+          this.parseNHCFromKML(atlanticUrl),
+          this.parseNHCFromKML(pacificUrl)
+        ]);
+        allFeatures = [...atlanticFeatures, ...pacificFeatures];
+        console.log(`🔄 Fallback feeds: ${atlanticFeatures.length} Atlantic + ${pacificFeatures.length} Pacific`);
+      }
       
-      const [atlanticFeatures, pacificFeatures] = await Promise.all([
-        this.parseNHCFromKML(atlanticUrl),
-        this.parseNHCFromKML(pacificUrl)
-      ]);
-      
-      const allFeatures = [...atlanticFeatures, ...pacificFeatures];
+      // allFeatures now contains either master KMZ data or fallback individual feeds
       
       // Fetch enhanced GIS data (tracks, cones, wind radii, watch/warnings) in parallel
       const [trackFeatures, coneFeatures, radiiFeatures, wwFeatures] = await Promise.all([
