@@ -1,0 +1,73 @@
+-- jurisdictions (state/county)
+create table jurisdictions (
+  id uuid primary key default gen_random_uuid(),
+  type text check (type in ('state','county')) not null,
+  code text not null,          -- e.g. "GA", "NY", "FL"; for counties "GA-Harris"
+  name text not null,          -- "Georgia", "Harris County"
+  parent_code text null        -- for counties: "GA"
+);
+
+-- camera_sources: a provider entry per state (or per city system)
+create table camera_sources (
+  id uuid primary key default gen_random_uuid(),
+  jurisdiction_code text not null,     -- "GA"
+  name text not null,                   -- "511 GA Cameras"
+  api type text not null,               -- "511", "CITY", "EARTHCAM"
+  base_url text not null,               -- provider API root or feed URL
+  terms_url text null,
+  enabled boolean default true
+);
+
+-- cameras: normalized catalog (filled by server fetchers)
+create table cameras (
+  id text primary key,             -- provider camera ID
+  jurisdiction_code text not null, -- "GA"
+  name text not null,
+  lat double precision,
+  lon double precision,
+  type text,                       -- "HLS" | "MJPEG" | "JPEG"
+  stream_url text,
+  snapshot_url text,
+  last_seen_at timestamptz,
+  meta jsonb
+);
+
+-- incidents: from 511 Events (road incidents, hazards)
+create table incidents (
+  id text primary key,
+  jurisdiction_code text not null,
+  type text,                 -- "TreeDown", "RoadBlocked", "Crash", etc (mapped)
+  description text,
+  lat double precision,
+  lon double precision,
+  road text,
+  starts_at timestamptz,
+  ends_at timestamptz,
+  source jsonb
+);
+
+-- subscriptions: contractors choose areas or specific cameras
+create table subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  user_id text not null,
+  watch_type text check (watch_type in ('state','county','camera')) not null,
+  code text not null,               -- "GA", "GA-Harris", or camera id
+  notify_sms text,                  -- optional
+  notify_push_token text,           -- optional
+  created_at timestamptz default now()
+);
+
+-- alerts: what you send to users
+create table alerts (
+  id uuid primary key default gen_random_uuid(),
+  jurisdiction_code text not null,
+  camera_id text null,
+  incident_id text null,
+  kind text not null,               -- "Incident", "SnapshotAnomaly", "Corroborated"
+  score numeric,                    -- confidence 0..1
+  message text,
+  lat double precision,
+  lon double precision,
+  snapshot_url text,
+  created_at timestamptz default now()
+);

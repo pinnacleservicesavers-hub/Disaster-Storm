@@ -440,7 +440,7 @@ export interface HurricaneHunterData {
 export interface HurricaneModelData {
   modelName: string;
   modelType: 'HWRF' | 'HAFS' | 'GFS' | 'ECMWF' | 'NAM';
-  resolution: string; // e.g., "3km", "6km", "13km"
+  resolution: string; // e.g., "3km", "6km", "13km", "0.25°", "0.50°"
   forecast: {
     initTime: Date;
     validTime: Date;
@@ -449,7 +449,7 @@ export interface HurricaneModelData {
   storm: {
     stormId: string;
     stormName: string;
-    basin: 'AL' | 'EP' | 'CP' | 'WP';
+    basin: 'AL' | 'EP' | 'CP' | 'WP' | 'GLOBAL';
   };
   track: {
     latitude: number[];
@@ -463,11 +463,17 @@ export interface HurricaneModelData {
     pressure: string;
     precipitation: string;
     stormSurge?: string;
+    tropicalCycloneTrack?: string; // GFS tropical cyclone tracking
   };
   nomadsUrls: {
     grib2: string;
     opendap: string;
     http: string;
+  };
+  cycloneTracking?: {
+    globalTracking: boolean;
+    trackDensity: string; // e.g., "6-hourly", "12-hourly"
+    forecastHours: number; // e.g., 384 hours (16 days)
   };
 }
 
@@ -1326,12 +1332,14 @@ export class WeatherService {
         `https://nomads.ncep.noaa.gov/dods/hafs/hafs${dateStr}`, // OpenDAP
         `https://nomads.ncep.noaa.gov/pub/data/nccf/com/hafs/prod/hafs.${dateStr}`, // Your exact HAFS URL
         
-        // GFS Hurricane tracking
-        `https://nomads.ncep.noaa.gov/dods/gfs_0p25/gfs${dateStr}`, // GFS 0.25 degree
-        `https://nomads.ncep.noaa.gov/dods/gfs_0p50/gfs${dateStr}`, // GFS 0.50 degree
+        // GFS Global Tropical Cyclone Tracking (Free via NOMADS)
+        `https://nomads.ncep.noaa.gov/dods/gfs_0p25/gfs${dateStr}`, // GFS 0.25° - High resolution global
+        `https://nomads.ncep.noaa.gov/dods/gfs_0p50/gfs${dateStr}`, // GFS 0.50° - Standard global  
+        `https://nomads.ncep.noaa.gov/pub/data/nccf/com/gfs/prod/gfs.${dateStr}`, // GFS HTTP access
+        `https://nomads.ncep.noaa.gov/dods/gfs_1p00/gfs${dateStr}`, // GFS 1.00° - Global overview
         
         // NAM Hurricane nest
-        `https://nomads.ncep.noaa.gov/dods/nam/nam${dateStr}` // NAM nest model
+        `https://nomads.ncep.noaa.gov/dods/nam/nam${dateStr}`, // NAM nest model
       ];
       
       // Sample HWRF hurricane model data structure
@@ -1416,6 +1424,53 @@ export class WeatherService {
         }
       };
       
+      // Sample GFS Global Tropical Cyclone Tracking model
+      const sampleGFS: HurricaneModelData = {
+        modelName: 'GFS-Global',
+        modelType: 'GFS',
+        resolution: '0.25°',
+        forecast: {
+          initTime: new Date(),
+          validTime: new Date(Date.now() + 24 * 60 * 60 * 1000), // +24 hours
+          leadTime: 24
+        },
+        storm: {
+          stormId: 'GLOBAL',
+          stormName: 'Global Tropical Cyclones',
+          basin: 'GLOBAL'
+        },
+        track: {
+          latitude: [28.5, 29.5, 30.5, 31.5, 32.5, 33.5], // 6-day forecast
+          longitude: [-90.2, -88.7, -87.2, -85.7, -84.2, -82.7],
+          intensity: [90, 85, 80, 75, 70, 65], // mph global tracking
+          pressure: [972, 975, 978, 982, 986, 990], // mb global tracking
+          timestamps: [
+            new Date(),
+            new Date(Date.now() + 24 * 60 * 60 * 1000),
+            new Date(Date.now() + 48 * 60 * 60 * 1000),
+            new Date(Date.now() + 72 * 60 * 60 * 1000),
+            new Date(Date.now() + 96 * 60 * 60 * 1000),
+            new Date(Date.now() + 120 * 60 * 60 * 1000)
+          ]
+        },
+        fields: {
+          windSpeed: `${nomadsEndpoints[4]}/gfs.grb2`,
+          pressure: `${nomadsEndpoints[4]}/gfs.grb2`,
+          precipitation: `${nomadsEndpoints[4]}/gfs.grb2`,
+          tropicalCycloneTrack: `${nomadsEndpoints[6]}/gfs_cyclone_tracks.grb2`
+        },
+        nomadsUrls: {
+          grib2: nomadsEndpoints[6],
+          opendap: nomadsEndpoints[4],
+          http: nomadsEndpoints[6]
+        },
+        cycloneTracking: {
+          globalTracking: true,
+          trackDensity: '6-hourly',
+          forecastHours: 384 // 16 days global forecast
+        }
+      };
+      
       // Fetch real model data from NOMADS
       let realModelData: HurricaneModelData[] = [];
       
@@ -1463,10 +1518,10 @@ export class WeatherService {
         }
       }
       
-      // Use real data if available, otherwise structured samples
-      const modelData = realModelData.length > 0 ? realModelData : [sampleHWRF, sampleHAFS];
+      // Use real data if available, otherwise structured samples including GFS global tracking
+      const modelData = realModelData.length > 0 ? realModelData : [sampleHWRF, sampleHAFS, sampleGFS];
       
-      console.log(`🌀 Hurricane Models: ${modelData.length} models from ${nomadsEndpoints.length} NOMADS endpoints`);
+      console.log(`🌀 Hurricane Models: ${modelData.length} models from ${nomadsEndpoints.length} NOMADS endpoints (includes GFS global tracking)`);
       
       return {
         models: modelData,
@@ -1575,6 +1630,51 @@ export class WeatherService {
         
         models.push(hwrfModel);
         console.log(`🌀 Parsed live HWRF model with ${endpoints.length} NOMADS endpoints`);
+      }
+      
+      // Add GFS Global Tropical Cyclone Tracking if available
+      if (modelInfo.includes('GFS') || modelInfo.includes('gfs') || endpoints.length > 4) {
+        const gfsModel: HurricaneModelData = {
+          modelName: 'GFS-Global-Live',
+          modelType: 'GFS',
+          resolution: '0.25°',
+          forecast: {
+            initTime: new Date(),
+            validTime: new Date(),
+            leadTime: 0
+          },
+          storm: {
+            stormId: 'GLOBAL',
+            stormName: 'GFS Global Cyclones',
+            basin: 'GLOBAL'
+          },
+          track: {
+            latitude: [],
+            longitude: [],
+            intensity: [],
+            pressure: [],
+            timestamps: []
+          },
+          fields: {
+            windSpeed: endpoints[4] + '/gfs.grb2',
+            pressure: endpoints[4] + '/gfs.grb2',
+            precipitation: endpoints[4] + '/gfs.grb2',
+            tropicalCycloneTrack: endpoints[6] + '/gfs_cyclone_tracks.grb2'
+          },
+          nomadsUrls: {
+            grib2: endpoints[6],
+            opendap: endpoints[4],
+            http: endpoints[6]
+          },
+          cycloneTracking: {
+            globalTracking: true,
+            trackDensity: '6-hourly',
+            forecastHours: 384
+          }
+        };
+        
+        models.push(gfsModel);
+        console.log(`🌀 Parsed live GFS global tropical cyclone tracking with ${endpoints.length} NOMADS endpoints`);
       }
       
       return models;

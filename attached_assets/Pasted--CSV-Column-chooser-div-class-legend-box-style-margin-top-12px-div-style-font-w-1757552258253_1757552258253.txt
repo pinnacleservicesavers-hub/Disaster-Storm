@@ -1,0 +1,42 @@
+<!-- CSV Column chooser -->
+<div class="legend-box" style="margin-top:12px;">
+  <div style="font-weight:600; margin-bottom:6px;">CSV Columns</div>
+
+  <div style="display:flex; gap:6px; margin-bottom:8px;">
+    <button id="csvSelectAll" type="button">Select all</button>
+    <button id="csvClearAll" type="button">Clear</button>
+  </div>
+
+  <div id="csvCols" style="display:grid; grid-template-columns: repeat(2, 1fr); gap:6px; font-size:12px;">
+    <!-- Left -->
+    <label><input class="csv-col" type="checkbox" data-col="station_id" checked> Station ID</label>
+    <label><input class="csv-col" type="checkbox" data-col="station_name" checked> Station Name</label>
+    <label><input class="csv-col" type="checkbox" data-col="lat" checked> Lat</label>
+    <label><input class="csv-col" type="checkbox" data-col="lon" checked> Lon</label>
+    <label><input class="csv-col" type="checkbox" data-col="time_utc" checked> Obs Time (UTC)</label>
+    <label><input class="csv-col" type="checkbox" data-col="WTMP_C" checked> Water Temp (°C)</label>
+    <label><input class="csv-col" type="checkbox" data-col="WVHT_m" checked> Wave Height (m)</label>
+    <label><input class="csv-col" type="checkbox" data-col="DPD_s" checked> Peak/Dominant Period (s)</label>
+    <label><input class="csv-col" type="checkbox" data-col="APD_s"> Avg Period (s)</label>
+    <label><input class="csv-col" type="checkbox" data-col="MWD_deg"> Mean Wave Dir (°)</label>
+    <label><input class="csv-col" type="checkbox" data-col="WSPD_mps" checked> Wind Speed (m/s)</label>
+    <label><input class="csv-col" type="checkbox" data-col="GST_mps"> Gust (m/s)</label>
+    <label><input class="csv-col" type="checkbox" data-col="WDIR_deg" checked> Wind Dir (°)</label>
+    <label><input class="csv-col" type="checkbox" data-col="PRES_hPa"> Pressure (hPa)</label>
+    <!-- WW3 -->
+    <label><input class="csv-col" type="checkbox" data-col="WW3_Hsig_m" checked> WW3 Hsig (m)</label>
+    <label><input class="csv-col" type="checkbox" data-col="WW3_Tp_s" checked> WW3 Tp (s)</label>
+    <label><input class="csv-col" type="checkbox" data-col="WW3_PrimaryDir_deg" checked> WW3 Primary Dir (°)</label>
+    <!-- NDFD -->
+    <label><input class="csv-col" type="checkbox" data-col="NDFD_WindSpd_kt" checked> NDFD Wind (kt)</label>
+    <label><input class="csv-col" type="checkbox" data-col="NDFD_WindDir_deg" checked> NDFD Dir (°)</label>
+    <label><input class="csv-col" type="checkbox" data-col="NDFD_Time_ISO" checked> NDFD Time (ISO)</label>
+    <label><input class="csv-col" type="checkbox" data-col="NDFD_Time_Epoch_ms"> NDFD Time (ms)</label>
+  </div>
+
+  <div style="margin-top:10px;">
+    <label style="font-size:12px;">Row limit:&nbsp;
+      <input id="csvLimit" type="number" min="1" max="2000" value="200" style="width:80px;">
+    </label>
+  </div>
+</div>
