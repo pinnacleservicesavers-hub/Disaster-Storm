@@ -991,7 +991,7 @@ export class WeatherService {
       const dayOfYear = Math.floor((now.getTime() - new Date(now.getUTCFullYear(), 0, 0).getTime()) / 1000 / 60 / 60 / 24);
       const hour = now.getUTCHours();
       
-      // Your AWS S3 ABI sources for Full Disk Cloud and Moisture Imagery
+      // User's specified NOAA GOES S3 bucket: https://noaa-goes16.s3.amazonaws.com/index.html#ABI-L2-CMIPF/
       const abiEndpoints = [
         `https://noaa-goes16.s3.amazonaws.com/ABI-L2-CMIPF/${year}/${dayOfYear.toString().padStart(3, '0')}/${hour.toString().padStart(2, '0')}/`,
         `https://noaa-goes17.s3.amazonaws.com/ABI-L2-CMIPF/${year}/${dayOfYear.toString().padStart(3, '0')}/${hour.toString().padStart(2, '0')}/`,
