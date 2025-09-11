@@ -9,9 +9,9 @@ export interface WeatherData {
   satellite: SatelliteData;
   mrms: MRMSData;
   models: ForecastModels;
-  ocean: OceanData;
-  waves: WaveData;
-  buoys: BuoyData;
+  ocean?: OceanData;
+  waves?: WaveModelData;
+  buoys?: BuoyData[];
 }
 
 export interface OceanData {
@@ -69,7 +69,60 @@ export interface WaveData {
     latitude: number;
     longitude: number;
   };
-  source: 'buoy' | 'satellite' | 'model';
+  source: 'buoy' | 'satellite' | 'model' | 'WAVEWATCH-III-Global' | 'WAVEWATCH-III-Regional';
+  // Additional properties for model data
+  modelRun?: Date;
+  forecastHour?: number;
+  waveHeight?: number;
+  wavePeriod?: number;
+  waveDirection?: number;
+  swellPeriod?: number;
+  swellDirection?: number;
+  latitude?: number;
+  longitude?: number;
+  validTime?: Date;
+}
+
+export interface WaveModelData {
+  global: WaveData[];
+  regional: WaveData[];
+  nearshore: WaveData[];
+  lastUpdate?: Date;
+  modelInfo?: {
+    name: string;
+    resolution: string;
+    coverage: string;
+    updateFrequency: string;
+  };
+}
+
+export interface GOESMeta {
+  satellites: string[];
+  totalFiles: number;
+  endpoints: string[];
+  sectors?: string[];
+  channels?: string[];
+  product?: string;
+  updateTime?: Date;
+  lastUpdate?: Date;
+}
+
+export interface HurricaneAnalysisMetadata {
+  infraredAnalysis?: {
+    purpose: string;
+    keyFeatures: string[];
+    intensityIndicators: string[];
+  };
+  sstProxyAnalysis?: {
+    purpose: string;
+    keyFeatures: string[];
+    fuelAnalysis: string[];
+  };
+  cloudTopAnalysis?: {
+    purpose: string;
+    keyFeatures: string[];
+    intensityIndicators: string[];
+  };
 }
 
 export interface BuoyData {
@@ -193,6 +246,7 @@ export interface LightningData {
   strikes: LightningStrike[];
   density: number;
   range: number;
+  goesData?: GOESMeta;
 }
 
 export interface LightningStrike {
@@ -208,12 +262,28 @@ export interface SatelliteData {
   layers: SatelliteLayer[];
   resolution: string;
   coverage: string;
+  goesData?: GOESMeta;
 }
 
 export interface SatelliteLayer {
   type: 'visible' | 'infrared' | 'water_vapor' | 'enhanced';
   url: string;
   opacity: number;
+  product?: string;
+  sector?: 'FD' | 'CONUS' | 'M1' | 'M2' | 'M3' | 'M4' | 'M5' | 'M6';
+  channel?: string;
+  satellite?: string;
+  file?: string;
+  abiSource?: boolean;
+  band?: string;
+  hurricaneUse?: string;
+  temperatureRange?: string;
+  resolution?: string;
+  sstRange?: string;
+  sstProxy?: boolean;
+  altitudeRange?: string;
+  cloudTops?: boolean;
+  hurricaneMetadata?: HurricaneAnalysisMetadata;
 }
 
 export interface MRMSData {
@@ -553,7 +623,22 @@ export interface WeatherFront {
   strength: number;
 }
 
-export class WeatherService {
+// Helper function for fetch with timeout using AbortController
+const fetchWithTimeout = async (url: string, options: RequestInit = {}, timeout = 15000): Promise<Response> => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+  
+  try {
+    return await fetch(url, {
+      ...options,
+      signal: controller.signal
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+};
+
+class WeatherService {
   private nwsApiKey: string;
   private spcApiKey: string;
   private nhcApiKey: string;
@@ -2449,7 +2534,7 @@ export class WeatherService {
           'User-Agent': 'StormOps/1.0 (contact: ops@stormleadmaster.com)',
           'Accept': 'application/json'
         },
-        timeout: 15000 // 15 second timeout for large datasets
+        // timeout: 15000 // 15 second timeout for large datasets
       });
       
       if (!response.ok) {
@@ -2584,13 +2669,12 @@ export class WeatherService {
       try {
         // Try Atlantic-specific NOMADS FTP endpoint first
         console.log('📡 Attempting Atlantic WAVEWATCH III endpoint...');
-        const atlanticResponse = await fetch(nomads_ftp, {
+        const atlanticResponse = await fetchWithTimeout(nomads_ftp, {
           headers: {
             'User-Agent': 'StormOps/1.0 (contact: ops@stormleadmaster.com)',
             'Accept': 'text/html, application/octet-stream'
-          },
-          timeout: 15000
-        });
+          }
+        }, 15000);
         
         if (atlanticResponse.ok) {
           console.log('✅ Connected to NOMADS FTP Atlantic - processing directory listing...');
@@ -2600,13 +2684,12 @@ export class WeatherService {
         }
         
         // Fallback to DODS endpoint
-        const dodsResponse = await fetch(`${nomads_dods}/multi_1.glo_30m`, {
+        const dodsResponse = await fetchWithTimeout(`${nomads_dods}/multi_1.glo_30m`, {
           headers: {
             'User-Agent': 'StormOps/1.0 (contact: ops@stormleadmaster.com)',
             'Accept': 'application/json, text/plain'
-          },
-          timeout: 15000
-        });
+          }
+        }, 15000);
         
         if (dodsResponse.ok) {
           console.log('✅ Connected to NOMADS DODS - processing wave model data...');
