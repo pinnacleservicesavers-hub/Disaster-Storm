@@ -1155,35 +1155,29 @@
 
   // Build shareable URL from current state
   function makeShareUrl() {
-    const u = new URL(location.href.split("?")[0]); // base without prior params
+    const u = new URL(location.href.split("?")[0]);
     const c = map.getCenter();
     u.searchParams.set("lat", c.lat.toFixed(4));
     u.searchParams.set("lon", c.lng.toFixed(4));
     u.searchParams.set("z", String(map.getZoom()));
 
-    // active layers → comma list
     const onKeys = Object.entries(LAYER_KEYS)
-      .filter(([key, id]) => document.getElementById(id)?.checked)
+      .filter(([_, id]) => document.getElementById(id)?.checked)
       .map(([key]) => key);
     if (onKeys.length) u.searchParams.set("l", onKeys.join(","));
 
-    // buoy ID (only if buoy layer is on)
     const buoyOn = document.getElementById("toggle-buoy")?.checked;
     const buoyId = document.getElementById("buoyId")?.value.trim();
     if (buoyOn && buoyId) u.searchParams.set("b", buoyId);
 
-    // selected NDFD time (epoch ms)
     if (typeof NDFD_TIME_MS === "number" && !Number.isNaN(NDFD_TIME_MS)) {
       u.searchParams.set("t", String(NDFD_TIME_MS));
     }
 
-    // CSV column selections
-    const csvCols = getSelectedCsvColumns();
-    if (csvCols.length) u.searchParams.set("csvCols", csvCols.join(","));
-
-    // CSV row limit
-    const csvLimit = getCsvLimit();
-    if (csvLimit !== 200) u.searchParams.set("csvLimit", String(csvLimit));
+    // NEW: CSV columns + limit
+    const cols = getSelectedCsvColumns();
+    if (cols.length) u.searchParams.set("csv", cols.join(","));
+    u.searchParams.set("csvLimit", String(getCsvLimit()));
 
     return u.toString();
   }
@@ -1227,7 +1221,7 @@
     }
 
     // CSV column selections
-    const csvCols = q.get("csvCols");
+    const csvCols = q.get("csv");
     if (csvCols) {
       const columns = csvCols.split(",").filter(Boolean);
       setSelectedCsvColumns(columns);
