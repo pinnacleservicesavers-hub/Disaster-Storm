@@ -2254,6 +2254,64 @@ Email: strategiclandmgmt@gmail.com
     }
   });
 
+  // Ocean & Wave Data Routes
+  app.get('/api/weather/buoys', async (req, res) => {
+    try {
+      const data = await weatherService.getNDBC_Buoys();
+      res.json(data);
+    } catch (error) {
+      console.error('Error fetching NDBC buoy data:', error);
+      res.status(500).json({ error: 'Failed to fetch NDBC buoy data' });
+    }
+  });
+
+  app.get('/api/weather/ocean', async (req, res) => {
+    try {
+      // Return buoy data as ocean data since NDBC provides ocean conditions
+      const buoys = await weatherService.getNDBC_Buoys();
+      const oceanData = {
+        seaSurfaceTemperature: buoys.map(buoy => ({
+          latitude: buoy.latitude,
+          longitude: buoy.longitude,
+          temperature: buoy.measurements.waterTemperature || 0,
+          source: 'buoy' as const,
+          timestamp: buoy.timestamp,
+          stationId: buoy.stationId
+        })).filter(sst => sst.temperature > 0),
+        buoys: buoys,
+        lastUpdated: new Date()
+      };
+      res.json(oceanData);
+    } catch (error) {
+      console.error('Error fetching ocean data:', error);
+      res.status(500).json({ error: 'Failed to fetch ocean data' });
+    }
+  });
+
+  app.get('/api/weather/waves', async (req, res) => {
+    try {
+      const buoys = await weatherService.getNDBC_Buoys();
+      const waveData = buoys.map(buoy => ({
+        significantHeight: buoy.measurements.significantWaveHeight || 0,
+        peakPeriod: buoy.measurements.peakWavePeriod || 0,
+        direction: buoy.measurements.meanWaveDirection || 0,
+        timestamp: buoy.timestamp,
+        location: {
+          latitude: buoy.latitude,
+          longitude: buoy.longitude
+        },
+        source: 'buoy' as const,
+        stationId: buoy.stationId,
+        stationName: buoy.name
+      })).filter(wave => wave.significantHeight > 0);
+      
+      res.json(waveData);
+    } catch (error) {
+      console.error('Error fetching wave data:', error);
+      res.status(500).json({ error: 'Failed to fetch wave data' });
+    }
+  });
+
   // Comprehensive weather data (all sources combined)
   app.get('/api/weather/comprehensive', async (req, res) => {
     try {
