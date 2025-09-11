@@ -6,6 +6,8 @@ import { DOMParser as XmldomDOMParser } from "xmldom";
 import tj from "togeojson";
 import path from "path";
 import { fileURLToPath } from "url";
+// ADD near the other imports
+import { parseStringPromise } from "xml2js";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -56,6 +58,49 @@ app.get("/api/ndbc/:station", async (req, res) => {
     res.json({ station, columns: cols, record: parsed, raw: text });
   } catch (err) {
     res.status(500).json({ error: String(err), station });
+  }
+});
+
+/**
+ * Active NDBC stations → JSON, optional bbox filter:
+ * GET /api/ndbc/stations?bbox=west,south,east,north
+ * Data source: https://www.ndbc.noaa.gov/activestations.xml
+ */
+app.get("/api/ndbc/stations", async (req, res) => {
+  const bbox = (req.query.bbox || "").toString().split(",").map(Number);
+  const hasBbox = bbox.length === 4 && bbox.every(n => Number.isFinite(n));
+  const [west, south, east, north] = bbox;
+
+  try {
+    const r = await fetch("https://www.ndbc.noaa.gov/activestations.xml", {
+      headers: { "User-Agent": "SLM-StormApp/1.0" }
+    });
+    if (!r.ok) throw new Error(`NDBC stations fetch failed: ${r.status}`);
+    const xml = await r.text();
+    const parsed = await parseStringPromise(xml, { explicitArray: false });
+
+    const items = (parsed?.stations?.station || [])
+      .map(s => ({
+        id: s.$.id,
+        name: s.$.name,
+        lat: Number(s.$.lat),
+        lon: Number(s.$.lng),
+        owner: s.$.owner,
+        pgm: s.$.pgm,   // program
+        type: s.$.type  // "buoy", "fixed", etc.
+      }))
+      .filter(s => Number.isFinite(s.lat) && Number.isFinite(s.lon));
+
+    const filtered = hasBbox
+      ? items.filter(s =>
+          s.lon >= west && s.lon <= east &&
+          s.lat >= south && s.lat <= north)
+      : items;
+
+    // Light trim: we only need id / name / lat / lon client-side
+    res.json(filtered);
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
   }
 });
 
