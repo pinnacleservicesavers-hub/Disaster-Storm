@@ -106,6 +106,34 @@ app.get('/api/status', (req, res) => {
   });
 });
 
+// --- VDM (Vortex Data Message) Parser for Hurricane Reconnaissance
+app.get("/api/nhc/vdm", async (req, res) => {
+  const { url } = Object.fromEntries(new URLSearchParams(req.url.split("?")[1] || ""));
+  if (!url) return res.status(400).json({ error: "Provide ?url=<VDM_text_url>" });
+  try {
+    const r = await fetch(url, { headers: { "User-Agent": "SLM-StormApp/1.0" } });
+    if (!r.ok) throw new Error(`VDM fetch failed: ${r.status}`);
+    const text = await r.text();
+
+    // crude extraction (robust enough for most VDMs)
+    const minPress = /MIN PRES(?:\s+)?(\d{3,4})\s*MB/i.exec(text)?.[1] || null;
+    const maxSfcWindKt = /MAX SFC WIND(?:\s+)?(\d+)\s*KT/i.exec(text)?.[1] || null;
+    const maxFlightLvlKt = /MAX FLT LVL WIND(?:[^0-9]+)?(\d+)\s*KT/i.exec(text)?.[1] || null;
+    const eyeTempC = /EYE TEMP(?:[^0-9\-]+)?(-?\d+)\s*C/i.exec(text)?.[1] || null;
+
+    res.json({
+      source: url,
+      minPressure_mb: minPress ? Number(minPress) : null,
+      maxSurfaceWind_kt: maxSfcWindKt ? Number(maxSfcWindKt) : null,
+      maxFlightLevelWind_kt: maxFlightLvlKt ? Number(maxFlightLvlKt) : null,
+      eyeTemp_C: eyeTempC ? Number(eyeTempC) : null,
+      raw: text
+    });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
 // --- Uploads
 const storage = multer.diskStorage({
   destination: (_, __, cb) => cb(null, UPLOAD_DIR),
