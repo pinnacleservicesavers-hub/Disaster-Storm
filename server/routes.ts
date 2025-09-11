@@ -2334,13 +2334,8 @@ Email: strategiclandmgmt@gmail.com
       const { format } = req.query;
       
       let buoyData;
-      if (format === 'json') {
-        // Try JSON format first
-        buoyData = await weatherService.getNDBC_BuoyStationJSON(stationId);
-      } else {
-        // Default to text format
-        buoyData = await weatherService.getNDBC_BuoyStation(stationId);
-      }
+      const allBuoys = await weatherService.getNDBC_Buoys();
+      buoyData = allBuoys.find(b => b.stationId === stationId);
       
       if (!buoyData) {
         res.status(404).json({ error: `NDBC station ${stationId} not found or no data available` });
@@ -2361,11 +2356,8 @@ Email: strategiclandmgmt@gmail.com
       const { format } = req.query;
       
       let buoyData;
-      if (format === 'json') {
-        buoyData = await weatherService.getNDBC_BuoyStationJSON(stationId);
-      } else {
-        buoyData = await weatherService.getNDBC_BuoyStation(stationId);
-      }
+      const allBuoys = await weatherService.getNDBC_Buoys();
+      buoyData = allBuoys.find(b => b.stationId === stationId);
       
       if (!buoyData) {
         res.status(404).json({ error: `NDBC station ${stationId} not found` });

@@ -605,6 +605,40 @@ export class WeatherService {
         console.log(`🌀 Fetched ${hurricaneAlerts.length} Hurricane Warnings`);
       }
       
+      // 3. Additional NWS/NHC JSON API tropical cyclone warnings and forecasts
+      console.log('📡 Fetching comprehensive NWS/NHC JSON APIs for tropical cyclone warnings...');
+      
+      const additionalEndpoints = [
+        { url: 'https://api.weather.gov/alerts?event=Hurricane%20Watch', name: 'Hurricane Watch' },
+        { url: 'https://api.weather.gov/alerts?event=Tropical%20Storm%20Watch', name: 'Tropical Storm Watch' },
+        { url: 'https://api.weather.gov/alerts?event=Storm%20Surge%20Warning', name: 'Storm Surge Warning' },
+        { url: 'https://api.weather.gov/alerts?event=Storm%20Surge%20Watch', name: 'Storm Surge Watch' },
+        { url: 'https://api.weather.gov/alerts?event=Extreme%20Wind%20Warning', name: 'Extreme Wind Warning' },
+        { url: 'https://api.weather.gov/alerts?event=Tornado%20Warning', name: 'Tornado Warning' },
+        { url: 'https://api.weather.gov/alerts?event=Tornado%20Watch', name: 'Tornado Watch' },
+        { url: 'https://api.weather.gov/alerts?urgency=Immediate&certainty=Observed', name: 'Immediate Observed Alerts' }
+      ];
+      
+      for (const endpoint of additionalEndpoints) {
+        try {
+          const response = await fetch(endpoint.url, {
+            headers: { 
+              'User-Agent': 'StormOps/1.0 (contact: ops@stormleadmaster.com)',
+              'Accept': 'application/geo+json'
+            }
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            const endpointAlerts = this.parseNWSAlerts(data, endpoint.name);
+            alerts.push(...endpointAlerts);
+            console.log(`🌀 Fetched ${endpointAlerts.length} ${endpoint.name} alerts`);
+          }
+        } catch (error) {
+          console.log(`⚠️ Could not fetch ${endpoint.name}: ${error.message}`);
+        }
+      }
+      
       // 2. Get location-based alerts if coordinates provided
       if (latitude && longitude) {
         const response = await fetch(`https://api.weather.gov/alerts?point=${latitude},${longitude}&status=actual`, {
@@ -621,7 +655,43 @@ export class WeatherService {
         }
       }
       
-      console.log(`🚨 Total NWS alerts: ${alerts.length} (Tropical Storm + Hurricane + Location warnings)`);
+      // 4. Add comprehensive NWS/NHC JSON API forecasts
+      console.log('📊 Fetching NWS/NHC JSON forecast APIs...');
+      
+      try {
+        // NWS Point Forecast API for specific locations
+        const forecastEndpoint = `https://api.weather.gov/points/33.7490,-84.3880/forecast`;
+        const forecastResponse = await fetch(forecastEndpoint, {
+          headers: { 
+            'User-Agent': 'StormOps/1.0 (contact: ops@stormleadmaster.com)',
+            'Accept': 'application/geo+json'
+          }
+        });
+        
+        if (forecastResponse.ok) {
+          const forecastData = await forecastResponse.json();
+          console.log(`📊 Fetched NWS point forecast: ${forecastData.properties?.periods?.length || 0} periods`);
+        }
+        
+        // NWS Gridpoint forecast data
+        const gridpointEndpoint = `https://api.weather.gov/gridpoints/FFC/52,88/forecast`;
+        const gridResponse = await fetch(gridpointEndpoint, {
+          headers: { 
+            'User-Agent': 'StormOps/1.0 (contact: ops@stormleadmaster.com)',
+            'Accept': 'application/geo+json'
+          }
+        });
+        
+        if (gridResponse.ok) {
+          const gridData = await gridResponse.json();
+          console.log(`📊 Fetched NWS gridpoint forecast: ${gridData.properties?.periods?.length || 0} periods`);
+        }
+        
+      } catch (error) {
+        console.log(`⚠️ Could not fetch NWS forecast APIs: ${error.message}`);
+      }
+      
+      console.log(`🚨 Total NWS alerts: ${alerts.length} (Tropical Storm + Hurricane + Complete NWS/NHC APIs)`);
       return alerts;
       
     } catch (error) {

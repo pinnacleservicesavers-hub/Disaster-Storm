@@ -1,0 +1,51 @@
+6) Alerts that matter (trees on road / structure hits)
+
+Best signal = 511 “incidents/events”. Many agencies label items like “Tree Down”, “Roadway Debris”, “Lane Blocked”, “Power Lines Down”. Use those immediately for alerts.
+
+Then boost confidence if:
+
+There’s a camera within ~0.25 miles of the incident, and
+
+Recent snapshot anomaly score ≥ 0.55.
+
+When both conditions hit, create an alert of kind "Corroborated" with a confidence score (e.g., (0.7 + 0.3*anomaly)).
+
+Send:
+
+SMS: “GA Harris Co — TREE DOWN US-27 @ Whitesville Rd. Live: [link]. Lat/Lon: …”
+
+Push: Include thumbnail (store a JPEG snapshot in your storage bucket when anomaly triggers).
+
+7) Contractor experience (what they see)
+
+Pick Area: State → Counties (checkboxes) → optional specific routes/intersections (if your data includes them).
+
+Live View: Map pins + camera gallery.
+
+Alert Feed: Only show TreeDown, RoadBlocked, Debris, Structure Damage (your mapped categories).
+
+One-tap Navigation: “Open in Google Maps” to the camera or incident point.
+
+Download Clip: If the stream supports HLS and you’re allowed to, store the last N seconds as evidence (respect terms).
+
+8) Rollout plan (fastest path)
+
+Start with Georgia + Florida (your markets). Implement ga-511.ts and fl-511.ts.
+
+Add Alabama, South Carolina, North Carolina next.
+
+For big tornado states (TX, OK, KS) add their 511 feeds.
+
+As you go, add city systems (some counties/cities publish their own camera lists).
+
+Keep EarthCam and any private feeds in a separate “Tourist/3rd-party” section with permissions.
+
+9) Notes on permissions & stability
+
+Many DOTs allow public viewing but restrict re-hosting. We’re proxying metadata and showing their official stream/image URL inside your app (typical use = OK) — still, read each provider’s terms.
+
+If a stream requires tokens or rotates URLs, stick to the official iframe/embed when provided.
+
+Use a cache (2–5 minutes) for camera lists and incidents to be polite and to load fast.
+
+Want me to generate the actual files for GA + FL right now (server + UI), so you can paste them straight into Replit and hit “Run”? I’ll include stub endpoints you can swap for the real 511 URLs and you’ll be live in minutes.
