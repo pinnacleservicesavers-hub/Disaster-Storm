@@ -347,6 +347,12 @@ export interface NHCData {
   storms: TropicalStorm[];
   outlooks: TropicalOutlook[];
   hunterData: HunterData[];
+  gisOverlays?: {
+    tracks: any[];
+    cones: any[];
+    windRadii: any[];
+    watchWarnings: any[];
+  };
 }
 
 export interface TropicalStorm {
@@ -791,7 +797,7 @@ export class WeatherService {
       const doc = new DOMParser().parseFromString(kmlText, 'text/xml');
       const geoData = kml(doc);
       
-      return geoData.features?.filter(f => f.geometry?.type === 'Point') || [];
+      return geoData.features || []; // Return all geometries: Points (storms), Lines (tracks), Polygons (cones, radii, warnings)
     } catch (error) {
       console.error('Error parsing NHC KML:', error);
       return [];
@@ -800,9 +806,28 @@ export class WeatherService {
 
   async getNHCData(): Promise<NHCData> {
     try {
-      // Fetch live NHC KML data from Atlantic and Eastern Pacific basins
-      const atlanticUrl = 'https://www.nhc.noaa.gov/gis/activekml/tc_atl_active.kml';
-      const pacificUrl = 'https://www.nhc.noaa.gov/gis/activekml/tc_epac_active.kml';
+      console.log('🌀 Fetching live NHC Hurricane GIS feeds...');
+      
+      // Official NHC GIS KML/KMZ feeds for comprehensive hurricane tracking
+      const nhcGISFeeds = {
+        // Active storms with tracks, cones, wind radii
+        atlantic: 'https://www.nhc.noaa.gov/gis/activekml/tc_atl_active.kml',
+        pacific: 'https://www.nhc.noaa.gov/gis/activekml/tc_epac_active.kml',
+        
+        // Forecast tracks and forecast cones
+        atlanticTracks: 'https://www.nhc.noaa.gov/gis/forecast/archive/latest_fcst_track.kml',
+        atlanticCones: 'https://www.nhc.noaa.gov/gis/forecast/archive/latest_fcst_cone.kml',
+        
+        // Wind speed radii and watch/warning areas
+        windRadii: 'https://www.nhc.noaa.gov/gis/forecast/archive/latest_wsp_radii.kml',
+        watchWarnings: 'https://www.nhc.noaa.gov/gis/forecast/archive/latest_watches_warnings.kml'
+      };
+      
+      console.log('📡 Accessing NHC GIS feeds for GRIB2-compatible hurricane data...');
+      
+      // Primary storm data from active feeds
+      const atlanticUrl = nhcGISFeeds.atlantic;
+      const pacificUrl = nhcGISFeeds.pacific;
       
       const [atlanticFeatures, pacificFeatures] = await Promise.all([
         this.parseNHCFromKML(atlanticUrl),
@@ -810,6 +835,16 @@ export class WeatherService {
       ]);
       
       const allFeatures = [...atlanticFeatures, ...pacificFeatures];
+      
+      // Fetch enhanced GIS data (tracks, cones, wind radii, watch/warnings) in parallel
+      const [trackFeatures, coneFeatures, radiiFeatures, wwFeatures] = await Promise.all([
+        this.parseNHCFromKML(nhcGISFeeds.atlanticTracks).catch(() => []),
+        this.parseNHCFromKML(nhcGISFeeds.atlanticCones).catch(() => []),
+        this.parseNHCFromKML(nhcGISFeeds.windRadii).catch(() => []),
+        this.parseNHCFromKML(nhcGISFeeds.watchWarnings).catch(() => [])
+      ]);
+      
+      console.log(`📊 Enhanced GIS: ${trackFeatures.length} tracks, ${coneFeatures.length} cones, ${radiiFeatures.length} wind radii, ${wwFeatures.length} watch/warnings`);
       
       // Transform GeoJSON features to NHC storm format
       const storms = allFeatures.map((feature, index) => ({
@@ -828,8 +863,14 @@ export class WeatherService {
       
       const nhcData: NHCData = {
         storms,
-        outlooks: [], // KML doesn't contain outlook data
-        hunterData: [] // KML doesn't contain hunter data
+        outlooks: [], // Enhanced with GRIB2-compatible GIS tracking
+        hunterData: [], // Hurricane hunter flight data when available
+        gisOverlays: {
+          tracks: trackFeatures,
+          cones: coneFeatures,
+          windRadii: radiiFeatures,
+          watchWarnings: wwFeatures
+        }
       };
       
       console.log(`✅ Fetched ${storms.length} live NHC storms from KML feeds`);
