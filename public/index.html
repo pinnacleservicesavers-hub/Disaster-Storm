@@ -903,37 +903,39 @@
   // NDFD Time Selector UI Event Handlers
   // ─────────────────────────────────────────────────────────────────────────────
   
-  // Previous time step button
+  // Slider drag: live-update label; apply time after you stop dragging (onchange)
+  timeSlider.addEventListener("input", () => {
+    NDFD_TIME_INDEX = Number(timeSlider.value);
+    updateNdfdTimeLabel();
+  });
+  timeSlider.addEventListener("change", () => {
+    NDFD_TIME_INDEX = Number(timeSlider.value);
+    updateNdfdTimeLabel();
+    applyNdfdTimeToLayers();
+  });
+
+  // Step buttons
   btnPrev.addEventListener("click", () => {
-    if (NDFD_TIME_INDEX > 0) {
-      NDFD_TIME_INDEX--;
-      timeSlider.value = String(NDFD_TIME_INDEX);
-      updateNdfdTimeLabel();
-      applyNdfdTimeToLayers();
-    }
-  });
-
-  // Next time step button
-  btnNext.addEventListener("click", () => {
-    if (NDFD_TIME_INDEX < NDFD_TIMES.length - 1) {
-      NDFD_TIME_INDEX++;
-      timeSlider.value = String(NDFD_TIME_INDEX);
-      updateNdfdTimeLabel();
-      applyNdfdTimeToLayers();
-    }
-  });
-
-  // Jump to latest time button
-  btnNow.addEventListener("click", () => {
-    NDFD_TIME_INDEX = NDFD_TIMES.length - 1;
+    if (!NDFD_TIMES.length) return;
+    NDFD_TIME_INDEX = Math.max(0, NDFD_TIME_INDEX - 1);
     timeSlider.value = String(NDFD_TIME_INDEX);
     updateNdfdTimeLabel();
     applyNdfdTimeToLayers();
   });
 
-  // Time slider
-  timeSlider.addEventListener("input", (e) => {
-    NDFD_TIME_INDEX = parseInt(e.target.value);
+  btnNext.addEventListener("click", () => {
+    if (!NDFD_TIMES.length) return;
+    NDFD_TIME_INDEX = Math.min(NDFD_TIMES.length - 1, NDFD_TIME_INDEX + 1);
+    timeSlider.value = String(NDFD_TIME_INDEX);
+    updateNdfdTimeLabel();
+    applyNdfdTimeToLayers();
+  });
+
+  // Jump to latest
+  btnNow.addEventListener("click", () => {
+    if (!NDFD_TIMES.length) return;
+    NDFD_TIME_INDEX = NDFD_TIMES.length - 1;
+    timeSlider.value = String(NDFD_TIME_INDEX);
     updateNdfdTimeLabel();
     applyNdfdTimeToLayers();
   });
