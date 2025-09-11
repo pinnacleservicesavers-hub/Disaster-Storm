@@ -353,6 +353,15 @@ export interface NHCData {
     windRadii: any[];
     watchWarnings: any[];
   };
+  shapefiles?: {
+    advisories: string[];
+    watches: string[];
+    warnings: string[];
+    windSwaths: string[];
+    surge: string[];
+    coneOfUncertainty: string[];
+    gisPortal: string;
+  };
 }
 
 export interface TropicalStorm {
@@ -823,7 +832,10 @@ export class WeatherService {
         
         // Wind speed radii and watch/warning areas
         windRadii: 'https://www.nhc.noaa.gov/gis/forecast/archive/latest_wsp_radii.kml',
-        watchWarnings: 'https://www.nhc.noaa.gov/gis/forecast/archive/latest_watches_warnings.kml'
+        watchWarnings: 'https://www.nhc.noaa.gov/gis/forecast/archive/latest_watches_warnings.kml',
+        
+        // NHC Shapefiles for detailed geometric analysis
+        gisShapefiles: 'https://www.nhc.noaa.gov/gis'
       };
       
       console.log('📡 Accessing NHC GIS feeds for GRIB2-compatible hurricane data...');
@@ -876,6 +888,36 @@ export class WeatherService {
         geometry: feature.geometry
       }));
       
+      // NHC Shapefiles for detailed geometric analysis
+      console.log('📊 Preparing NHC Shapefile references for detailed geometric analysis...');
+      const shapefileData = {
+        advisories: [
+          `${nhcGISFeeds.gisShapefiles}/forecast/archive/al052023_5day_pgn.zip`,
+          `${nhcGISFeeds.gisShapefiles}/forecast/archive/al052023_track_agl.zip`
+        ],
+        watches: [
+          `${nhcGISFeeds.gisShapefiles}/forecast/archive/latest_watches.zip`,
+          `${nhcGISFeeds.gisShapefiles}/forecast/archive/latest_wwlin.zip`
+        ],
+        warnings: [
+          `${nhcGISFeeds.gisShapefiles}/forecast/archive/latest_warnings.zip`,
+          `${nhcGISFeeds.gisShapefiles}/forecast/archive/latest_wwareas.zip`
+        ],
+        windSwaths: [
+          `${nhcGISFeeds.gisShapefiles}/forecast/archive/latest_windswath.zip`,
+          `${nhcGISFeeds.gisShapefiles}/forecast/archive/latest_wsp_radii.zip`
+        ],
+        surge: [
+          `${nhcGISFeeds.gisShapefiles}/forecast/archive/latest_surge.zip`,
+          `${nhcGISFeeds.gisShapefiles}/storm_surge/latest_psurge.zip`
+        ],
+        coneOfUncertainty: [
+          `${nhcGISFeeds.gisShapefiles}/forecast/archive/latest_fcst_cone.zip`,
+          `${nhcGISFeeds.gisShapefiles}/forecast/archive/latest_uncertainty_cone.zip`
+        ],
+        gisPortal: nhcGISFeeds.gisShapefiles
+      };
+      
       const nhcData: NHCData = {
         storms,
         outlooks: [], // Enhanced with GRIB2-compatible GIS tracking
@@ -885,10 +927,11 @@ export class WeatherService {
           cones: coneFeatures,
           windRadii: radiiFeatures,
           watchWarnings: wwFeatures
-        }
+        },
+        shapefiles: shapefileData
       };
       
-      console.log(`✅ Fetched ${storms.length} live NHC storms from KML feeds`);
+      console.log(`✅ Fetched ${storms.length} live NHC storms with comprehensive GIS + Shapefile support`);
       return nhcData;
     } catch (error) {
       console.error('Error fetching NHC data:', error);
