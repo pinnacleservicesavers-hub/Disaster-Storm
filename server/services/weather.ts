@@ -570,54 +570,113 @@ export class WeatherService {
 
   async getWeatherAlerts(latitude?: number, longitude?: number): Promise<WeatherAlert[]> {
     try {
-      // Real NWS Alerts API - GeoJSON format, no API key required
-      const lat = latitude || 33.7490; // Default to Atlanta if no coordinates
-      const lon = longitude || -84.3880;
+      const alerts: WeatherAlert[] = [];
       
-      const response = await fetch(`https://api.weather.gov/alerts?point=${lat},${lon}&status=actual`, {
+      // 1. Get critical hurricane and tropical storm warnings first
+      console.log('🚨 Fetching critical NWS Hurricane & Tropical Storm Warnings...');
+      
+      // Your specific tropical storm warning endpoint
+      const tsWarningResponse = await fetch('https://api.weather.gov/alerts?event=Tropical%20Storm%20Warning', {
         headers: { 
           'User-Agent': 'StormOps/1.0 (contact: ops@stormleadmaster.com)',
           'Accept': 'application/geo+json'
         }
       });
       
-      if (!response.ok) {
-        console.warn(`NWS API response: ${response.status} - falling back to empty alerts`);
-        return [];
+      if (tsWarningResponse.ok) {
+        const tsData = await tsWarningResponse.json();
+        const tsAlerts = this.parseNWSAlerts(tsData, 'Tropical Storm Warning');
+        alerts.push(...tsAlerts);
+        console.log(`🌀 Fetched ${tsAlerts.length} Tropical Storm Warnings`);
       }
       
-      const data = await response.json();
+      // Your specific hurricane warning endpoint  
+      const hurricaneWarningResponse = await fetch('https://api.weather.gov/alerts?event=Hurricane%20Warning', {
+        headers: { 
+          'User-Agent': 'StormOps/1.0 (contact: ops@stormleadmaster.com)',
+          'Accept': 'application/geo+json'
+        }
+      });
       
-      // Transform NWS GeoJSON alerts to our format
-      const alerts: WeatherAlert[] = data.features?.map((feature: any) => ({
-        id: feature.properties.id,
-        title: feature.properties.headline || feature.properties.event,
-        description: feature.properties.description || feature.properties.instruction || 'No description available',
-        severity: feature.properties.severity || 'Unknown',
-        alertType: feature.properties.event || 'Weather Alert',
-        areas: feature.properties.areaDesc ? 
-          feature.properties.areaDesc.split(';').map((area: string) => area.trim()) : 
-          [],
-        startTime: new Date(feature.properties.effective || feature.properties.onset || Date.now()),
-        endTime: feature.properties.expires ? new Date(feature.properties.expires) : undefined,
-        coordinates: { latitude: lat, longitude: lon },
-        // Store GeoJSON geometry for polygon mapping
-        geometry: feature.geometry,
-        urgency: feature.properties.urgency,
-        certainty: feature.properties.certainty,
-        category: feature.properties.category,
-        responseType: feature.properties.response,
-        nwsId: feature.properties.id,
-        messageType: feature.properties.messageType
-      })) || [];
+      if (hurricaneWarningResponse.ok) {
+        const hurricaneData = await hurricaneWarningResponse.json();
+        const hurricaneAlerts = this.parseNWSAlerts(hurricaneData, 'Hurricane Warning');
+        alerts.push(...hurricaneAlerts);
+        console.log(`🌀 Fetched ${hurricaneAlerts.length} Hurricane Warnings`);
+      }
       
-      console.log(`✅ Fetched ${alerts.length} live NWS alerts for ${lat}, ${lon}`);
+      // 2. Get location-based alerts if coordinates provided
+      if (latitude && longitude) {
+        const response = await fetch(`https://api.weather.gov/alerts?point=${latitude},${longitude}&status=actual`, {
+          headers: { 
+            'User-Agent': 'StormOps/1.0 (contact: ops@stormleadmaster.com)',
+            'Accept': 'application/geo+json'
+          }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          const locationAlerts = this.parseNWSAlerts(data, 'Location Alert');
+          alerts.push(...locationAlerts);
+        }
+      }
+      
+      console.log(`🚨 Total NWS alerts: ${alerts.length} (Tropical Storm + Hurricane + Location warnings)`);
       return alerts;
       
     } catch (error) {
       console.error('❌ Error fetching live NWS weather alerts:', error);
+      return [];
+    }
+  }
+  
+  // Helper method to parse NWS alerts data
+  private parseNWSAlerts(data: any, alertSource: string): WeatherAlert[] {
+    try {
+      // Transform NWS GeoJSON alerts to our format
+      const alerts: WeatherAlert[] = data.features?.map((feature: any) => {
+        // Get center coordinates from geometry if available
+        let centerLat = 39.0458; // Default center US
+        let centerLon = -76.6413;
+        
+        if (feature.geometry && feature.geometry.coordinates) {
+          // For polygons, calculate approximate center
+          if (feature.geometry.type === 'Polygon' && feature.geometry.coordinates[0]) {
+            const coords = feature.geometry.coordinates[0];
+            const latSum = coords.reduce((sum: number, coord: number[]) => sum + coord[1], 0);
+            const lonSum = coords.reduce((sum: number, coord: number[]) => sum + coord[0], 0);
+            centerLat = latSum / coords.length;
+            centerLon = lonSum / coords.length;
+          }
+        }
+        
+        return {
+          id: feature.properties.id,
+          title: feature.properties.headline || feature.properties.event,
+          description: feature.properties.description || feature.properties.instruction || 'No description available',
+          severity: feature.properties.severity || 'Unknown',
+          alertType: feature.properties.event || 'Weather Alert',
+          areas: feature.properties.areaDesc ? 
+            feature.properties.areaDesc.split(';').map((area: string) => area.trim()) : 
+            [],
+          startTime: new Date(feature.properties.effective || feature.properties.onset || Date.now()),
+          endTime: feature.properties.expires ? new Date(feature.properties.expires) : undefined,
+          coordinates: { latitude: centerLat, longitude: centerLon },
+          // Store GeoJSON geometry for polygon mapping
+          geometry: feature.geometry,
+          urgency: feature.properties.urgency,
+          certainty: feature.properties.certainty,
+          category: feature.properties.category,
+          responseType: feature.properties.response,
+          nwsId: feature.properties.id,
+          messageType: feature.properties.messageType,
+          source: alertSource
+        };
+      }) || [];
       
-      // Fallback to empty array on API failure
+      return alerts;
+    } catch (error) {
+      console.error(`❌ Error parsing ${alertSource} alerts:`, error);
       return [];
     }
   }

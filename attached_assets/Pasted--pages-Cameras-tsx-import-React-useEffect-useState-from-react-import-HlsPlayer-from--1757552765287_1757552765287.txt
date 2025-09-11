@@ -1,0 +1,53 @@
+// pages/Cameras.tsx
+import React, { useEffect, useState } from "react";
+import HlsPlayer from "../components/HlsPlayer";
+import MjpegView from "../components/MjpegView";
+import SnapshotCam from "../components/SnapshotCam";
+
+type Cam = { id:string; name:string; lat?:number; lon?:number; type?:string; stream_url?:string; snapshot_url?:string; jurisdiction:string };
+
+export default function Cameras() {
+  const [states, setStates] = useState<string[]>([]);
+  const [state, setState] = useState("GA");
+  const [cams, setCams] = useState<Cam[]>([]);
+  const [incidents, setIncidents] = useState<any[]>([]);
+  const [alertsOnly, setAlertsOnly] = useState(false);
+
+  useEffect(()=>{ fetch("/api/states").then(r=>r.json()).then(setStates); },[]);
+  useEffect(()=>{
+    fetch(`/api/cameras/${state}`).then(r=>r.json()).then(setCams);
+    fetch(`/api/incidents/${state}`).then(r=>r.json()).then(setIncidents);
+  },[state]);
+
+  return (
+    <div style={{display:"grid", gap:16}}>
+      <div style={{display:"flex", gap:12, alignItems:"center"}}>
+        <select value={state} onChange={e=>setState(e.target.value)}>
+          {states.map(s=> <option key={s} value={s}>{s}</option>)}
+        </select>
+        <label><input type="checkbox" checked={alertsOnly} onChange={e=>setAlertsOnly(e.target.checked)} /> Damage/Blockage alerts only</label>
+      </div>
+
+      {/* incidents list */}
+      <div>
+        <h3>Incidents</h3>
+        <ul>
+          {incidents.map(x=> <li key={x.id}>{x.type} — {x.description}</li>)}
+        </ul>
+      </div>
+
+      {/* camera grid */}
+      <div style={{display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(320px,1fr))", gap:16}}>
+        {cams.map(c=> (
+          <div key={c.id} style={{border:"1px solid #eee", borderRadius:12, padding:12}}>
+            <div style={{fontWeight:600, marginBottom:8}}>{c.name}</div>
+            {c.type==="HLS" && c.stream_url ? <HlsPlayer src={c.stream_url}/> :
+             c.type==="MJPEG" && c.stream_url ? <MjpegView src={c.stream_url}/> :
+             c.snapshot_url ? <SnapshotCam src={c.snapshot_url}/> :
+             <div>No video available</div>}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
