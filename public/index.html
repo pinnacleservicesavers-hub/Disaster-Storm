@@ -321,22 +321,25 @@
   }
 
   function updateNdfdTimeLabel() {
-    if (!NDFD_TIMES.length) { timeLabel.textContent = "—"; return; }
+    if (!NDFD_TIMES.length) { 
+      timeLabel.textContent = "—"; 
+      updateMapTimeBadge(null);
+      return; 
+    }
     const ms = NDFD_TIMES[NDFD_TIME_INDEX];
     NDFD_TIME_MS = ms;
-    timeLabel.textContent = "Forecast valid: " + fmtLocal(ms);
+    timeLabel.textContent = "Forecast valid: " + new Date(ms).toLocaleString();
+    updateMapTimeBadge(ms);              // <-- update map badge too
   }
 
-  // Push selected time to the NDFD wind speed tile + re-render model arrows if active
   function applyNdfdTimeToLayers() {
-    // Tile layer (Esri dynamic map layer): setTimeOptions expects {from,to}
     if (map.hasLayer(ndfdWindSpeedLayer)) {
       ndfdWindSpeedLayer.setTimeOptions({ from: NDFD_TIME_MS, to: NDFD_TIME_MS });
       ndfdWindSpeedLayer.redraw();
     }
-    // Arrows: re-render at this time if toggle is on
     const chk = document.getElementById("toggle-ndfd-arrows");
-    if (chk && chk.checked) renderNdfdWindArrows(); // uses NDFD_TIME_MS internally
+    if (chk && chk.checked) renderNdfdWindArrows();
+    // badge already handled by updateNdfdTimeLabel()
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
