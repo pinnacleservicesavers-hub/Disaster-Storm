@@ -1246,13 +1246,10 @@
   if (copyBtn) {
     copyBtn.addEventListener("click", async () => {
       const url = makeShareUrl();
-      console.log("🔗 Generated share URL:", url);
       try {
         await navigator.clipboard.writeText(url);
-        console.log("✅ Share link copied to clipboard");
         alert("Share link copied!");
-      } catch (error) {
-        console.log("⚠️ Clipboard failed, using prompt fallback:", error);
+      } catch {
         // Fallback if clipboard API blocked
         prompt("Copy this link:", url);
       }
@@ -1300,18 +1297,10 @@
     el("enableAlertFilter").checked = savedFilter === "true";
   }
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // Boot: init NDFD times first, then apply URL state (robust sequencing)
-  // ─────────────────────────────────────────────────────────────────────────────
-  
+  // Boot: init NDFD times first, then apply URL state
   (async function boot() {
-    console.log("🚀 Boot: Starting NDFD initialization...");
-    await initNdfdTimes();
-    console.log("✅ Boot: NDFD times loaded, applying URL state...");
+    await initNdfdTimes();    // you already have this
     await applyStateFromUrl();
-    console.log("🔗 Boot: URL state applied, syncing layers...");
-    applyNdfdTimeToLayers(); // Ensure layers sync with restored time
-    console.log("✅ Boot: Complete - share links ready!");
   })();
 
 </script>
