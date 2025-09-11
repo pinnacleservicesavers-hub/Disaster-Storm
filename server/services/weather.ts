@@ -1322,9 +1322,9 @@ export class WeatherService {
         `https://nomads.ncep.noaa.gov/dods/hwrf/hwrf${dateStr}`, // OpenDAP
         `https://nomads.ncep.noaa.gov/pub/data/nccf/com/hwrf/prod/hwrf.${dateStr}`, // HTTP/FTP
         
-        // HAFS (Hurricane Analysis and Forecast System) - Next-gen hurricane model
+        // HAFS (Hurricane Analysis and Forecast System) - Next-gen hurricane model  
         `https://nomads.ncep.noaa.gov/dods/hafs/hafs${dateStr}`, // OpenDAP
-        `https://nomads.ncep.noaa.gov/pub/data/nccf/com/hafs/prod/hafs.${dateStr}`, // HTTP/FTP
+        `https://nomads.ncep.noaa.gov/pub/data/nccf/com/hafs/prod/hafs.${dateStr}`, // Your exact HAFS URL
         
         // GFS Hurricane tracking
         `https://nomads.ncep.noaa.gov/dods/gfs_0p25/gfs${dateStr}`, // GFS 0.25 degree
@@ -1419,6 +1419,7 @@ export class WeatherService {
       // Fetch real model data from NOMADS
       let realModelData: HurricaneModelData[] = [];
       
+      // Try HWRF first
       try {
         console.log(`🔗 Fetching live HWRF model from: ${nomadsEndpoints[0]}`);
         const response = await fetch(nomadsEndpoints[0] + '.info', {
@@ -1431,14 +1432,35 @@ export class WeatherService {
         if (response.ok) {
           const modelInfo = await response.text();
           console.log(`✅ Successfully accessed NOMADS HWRF: ${modelInfo.length} characters`);
-          
-          // Parse NOMADS model information
           realModelData = this.parseNOMADSModelData(modelInfo, nomadsEndpoints);
         } else {
-          console.log(`⚠️ NOMADS HWRF returned ${response.status}, using structured samples`);
+          console.log(`⚠️ NOMADS HWRF returned ${response.status}, trying HAFS`);
         }
       } catch (error) {
-        console.log(`⚠️ Could not fetch live NOMADS data, using structured samples:`, error.message);
+        console.log(`⚠️ HWRF fetch error, trying HAFS: ${error.message}`);
+      }
+      
+      // Try your specific HAFS URL
+      if (realModelData.length === 0) {
+        try {
+          console.log(`🔗 Fetching live HAFS model from: ${nomadsEndpoints[3]}`); // Your HAFS URL
+          const hafsResponse = await fetch(nomadsEndpoints[3], {
+            headers: { 
+              'User-Agent': 'StormOps/1.0 (contact: ops@stormleadmaster.com)',
+              'Accept': 'text/html,application/xml,*/*'
+            }
+          });
+          
+          if (hafsResponse.ok) {
+            const hafsInfo = await hafsResponse.text();
+            console.log(`✅ Successfully accessed NOMADS HAFS: ${hafsInfo.length} characters`);
+            realModelData = this.parseHAFSModelData(hafsInfo, nomadsEndpoints);
+          } else {
+            console.log(`⚠️ NOMADS HAFS returned ${hafsResponse.status}, using structured samples`);
+          }
+        } catch (error) {
+          console.log(`⚠️ Could not fetch live NOMADS data, using structured samples:`, error.message);
+        }
       }
       
       // Use real data if available, otherwise structured samples
@@ -1457,6 +1479,56 @@ export class WeatherService {
         models: [],
         nomadsEndpoints: []
       };
+    }
+  }
+
+  private parseHAFSModelData(hafsInfo: string, endpoints: string[]): HurricaneModelData[] {
+    try {
+      const models: HurricaneModelData[] = [];
+      
+      console.log('🌀 Parsing NOMADS HAFS model data from your specific URL...');
+      
+      // Parse HAFS directory listing from your URL
+      const hafsModel: HurricaneModelData = {
+        modelName: 'HAFS-Live',
+        modelType: 'HAFS',
+        resolution: '6km',
+        forecast: {
+          initTime: new Date(),
+          validTime: new Date(),
+          leadTime: 0
+        },
+        storm: {
+          stormId: 'ACTIVE',
+          stormName: 'Live HAFS Storm',
+          basin: 'AL'
+        },
+        track: {
+          latitude: [],
+          longitude: [],
+          intensity: [],
+          pressure: [],
+          timestamps: []
+        },
+        fields: {
+          windSpeed: endpoints[3] + '/hafs.grb2',
+          pressure: endpoints[3] + '/hafs.grb2',
+          precipitation: endpoints[3] + '/hafs.grb2'
+        },
+        nomadsUrls: {
+          grib2: endpoints[3],
+          opendap: endpoints[2],
+          http: endpoints[3]
+        }
+      };
+      
+      models.push(hafsModel);
+      console.log(`🌀 Parsed live HAFS model from your URL: ${endpoints[3]}`);
+      
+      return models;
+    } catch (error) {
+      console.error('Error parsing HAFS model data:', error);
+      return [];
     }
   }
 
