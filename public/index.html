@@ -95,6 +95,37 @@
         };
         wavesBtn.addTo(map);
 
+        // --- GOES-East IR overlay (convection/cloud tops) ---
+        // Time-sensitive imagery; this URL serves the latest available tiles.
+        const GOES_IR = L.tileLayer(
+            "https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/goes-east-ir-13/{z}/{x}/{y}.png",
+            { opacity: 0.6, attribution: "GOES-East IR tiles" }
+        );
+
+        // Toggle button
+        const satOn = { on: false };
+        const satBtn = L.control({ position: "topleft" });
+        satBtn.onAdd = function() {
+            const div = L.DomUtil.create("div", "leaflet-bar");
+            const a = L.DomUtil.create("a", "", div);
+            a.href = "#";
+            a.title = "Toggle Satellite (IR)";
+            a.innerHTML = "🛰️";
+            a.style.padding = "6px 10px";
+            a.onclick = (e) => {
+                e.preventDefault();
+                if (satOn.on) {
+                    map.removeLayer(GOES_IR);
+                    satOn.on = false;
+                } else {
+                    GOES_IR.addTo(map);
+                    satOn.on = true;
+                }
+            };
+            return div;
+        };
+        satBtn.addTo(map);
+
         // NOAA nowCOAST Sea Surface Temperature
         const sstLayer = L.esri.dynamicMapLayer({
             url: 'https://nowcoast.noaa.gov/arcgis/rest/services/nowcoast/sat_meteo_imagery_time/MapServer',
