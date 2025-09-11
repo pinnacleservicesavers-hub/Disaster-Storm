@@ -1235,10 +1235,26 @@
     downloadBlob(csv, `buoys_WW3_NDFD_${stamp}.csv`);
   }
 
-  // Hook up the button
+  // Hook up the buttons
   const exportBtn = document.getElementById("exportBuoysCsv");
   if (exportBtn) {
     exportBtn.addEventListener("click", () => exportBuoysCSV());
+  }
+
+  // Share link button
+  const shareBtn = document.getElementById("copyShareLink");
+  if (shareBtn) {
+    shareBtn.addEventListener("click", async () => {
+      const url = makeShareUrl();
+      try {
+        await navigator.clipboard.writeText(url);
+        shareBtn.textContent = "✅ Copied!";
+        setTimeout(() => { shareBtn.textContent = "🔗 Copy share link"; }, 2000);
+      } catch (e) {
+        console.log("Copy failed, showing URL:", url);
+        alert("Copy to clipboard failed. URL: " + url);
+      }
+    });
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -1288,6 +1304,13 @@
   
   // Init on load
   initNdfdTimes();
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Initialize Share Link State Restoration
+  // ─────────────────────────────────────────────────────────────────────────────
+  
+  // Restore state from URL on page load
+  setTimeout(() => applyStateFromUrl(), 100); // Brief delay to ensure NDFD_TIMES is populated
 
 </script>
 </body>
