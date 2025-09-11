@@ -792,21 +792,28 @@
     else if (multiBuoyCluster) { map.removeLayer(multiBuoyCluster); multiBuoyCluster = null; }
   });
 
-  // NEW: NDFD Wind Tile Layer toggle
+  // Tile overlay toggle
   el("toggle-ndfd-windtile").addEventListener("change", (e) => {
-    if (e.target.checked) { ndfdWindSpeedLayer.addTo(map); }
-    else { map.removeLayer(ndfdWindSpeedLayer); }
+    if (e.target.checked) ndfdWindSpeedLayer.addTo(map);
+    else map.removeLayer(ndfdWindSpeedLayer);
   });
 
-  // NEW: NDFD Wind Arrows toggle
+  // Sampled arrows toggle
+  let _ndfdMoveTimer = null;
+  function onNdfdViewChange() {
+    clearTimeout(_ndfdMoveTimer);
+    _ndfdMoveTimer = setTimeout(() => renderNdfdWindArrows(), 400);
+  }
+
   el("toggle-ndfd-arrows").addEventListener("change", (e) => {
-    if (e.target.checked) { 
-      renderNdfdWindArrows(); 
-      ndfdArrowLayer.addTo(map);
-    }
-    else { 
-      ndfdArrowLayer.clearLayers(); 
-      map.removeLayer(ndfdArrowLayer); 
+    if (e.target.checked) {
+      if (!map.hasLayer(ndfdArrowLayer)) map.addLayer(ndfdArrowLayer);
+      renderNdfdWindArrows();
+      map.on("moveend zoomend", onNdfdViewChange);
+    } else {
+      map.off("moveend zoomend", onNdfdViewChange);
+      map.removeLayer(ndfdArrowLayer);
+      ndfdArrowLayer.clearLayers();
     }
   });
 
@@ -817,9 +824,6 @@
     }
     if (el("toggle-multibuoy").checked && multiBuoyCluster) {
       setTimeout(loadMultiBuoyPanel, 500);
-    }
-    if (el("toggle-ndfd-arrows").checked && ndfdArrowLayer) {
-      setTimeout(renderNdfdWindArrows, 800); // Longer delay for NDFD sampling
     }
   });
 
