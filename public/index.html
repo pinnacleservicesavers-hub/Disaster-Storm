@@ -532,77 +532,67 @@
   });
 
   // ─────────────────────────────────────────────────────────────────────────────
-  // NEW: CSV Download Functionality
-  async function downloadBuoysCSV() {
-    // Get current map bounds for bbox filtering
-    const bounds = map.getBounds();
-    const bbox = `${bounds.getWest()},${bounds.getSouth()},${bounds.getEast()},${bounds.getNorth()}`;
-    
-    try {
-      // Fetch stations in current view
-      const stations = await fetch(`/api/ndbc/stations?bbox=${encodeURIComponent(bbox)}`)
-        .then(r => r.json());
-      
-      if (!stations?.length) {
-        alert('No buoy stations found in current view');
-        return;
-      }
-      
-      // Fetch detailed data for each station
-      const csvRows = ['ID,Name,Latitude,Longitude,Wind_Speed_mph,Wind_Direction_deg,Wave_Height_m,Wave_Period_s,Water_Temp_C,Air_Temp_C,Time_UTC'];
-      
-      for (const station of stations.slice(0, 50)) { // Limit to 50 stations for performance
-        try {
-          const data = await fetch(`/api/ndbc/${station.id}`).then(r => r.json());
-          const record = data?.record || {};
-          
-          // Convert wind speed from m/s to mph (if available)
-          const windSpeedMph = record.WSPD_mps ? (record.WSPD_mps * 2.237).toFixed(1) : '';
-          
-          const row = [
-            station.id || '',
-            `"${(station.name || '').replace(/"/g, '""')}"`, // Escape quotes in name
-            station.lat?.toFixed(6) || '',
-            station.lon?.toFixed(6) || '',
-            windSpeedMph,
-            record.WDIR_deg || '',
-            record.WVHT_m || '',
-            record.DPD_sec || '',
-            record.WTMP_C || '',
-            record.ATMP_C || '',
-            `"${record.timeUTC || ''}"`
-          ].join(',');
-          
-          csvRows.push(row);
-        } catch (err) {
-          // Skip stations with fetch errors
-          console.warn(`Failed to fetch data for station ${station.id}:`, err);
-        }
-      }
-      
-      // Create and download CSV file
-      const csvContent = csvRows.join('\n');
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement('a');
-      
-      if (link.download !== undefined) {
-        const url = URL.createObjectURL(blob);
-        link.setAttribute('href', url);
-        link.setAttribute('download', `ndbc_buoys_${new Date().toISOString().slice(0,19).replace(/:/g,'-')}.csv`);
-        link.style.visibility = 'hidden';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      }
-      
-    } catch (error) {
-      console.error('CSV download failed:', error);
-      alert('Failed to download CSV. Please try again.');
-    }
+  // NEW: CSV helpers
+  function toCsvRow(fields) {
+    return fields.map(v => {
+      if (v === null || v === undefined) return "";
+      const s = String(v);
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    }).join(",");
   }
 
-  // NEW: Event handler for CSV download button
-  el("exportBuoysCsv").addEventListener("click", downloadBuoysCSV);
+  function downloadBlob(text, filename, type = "text/csv;charset=utf-8") {
+    const blob = new Blob([text], { type });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  async function exportBuoysCSV(limit = 200) {
+    // 1) Get stations in current view
+    const b = map.getBounds();
+    const bbox = [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()].join(",");
+    const stations = await fetch(`/api/ndbc/stations?bbox=${bbox}`).then(r => r.json());
+    const subset = stations.slice(0, limit); // keep it reasonable
+
+    // 2) Pull each station's latest observation
+    const header = [
+      "station_id","station_name","lat","lon",
+      "time_utc","WTMP_C","WVHT_m","DPD_s","APD_s","MWD_deg",
+      "WSPD_mps","GST_mps","WDIR_deg","PRES_hPa"
+    ];
+    const rows = [toCsvRow(header)];
+
+    for (const s of subset) {
+      try {
+        const data = await fetch(`/api/ndbc/${s.id}`).then(r => r.json());
+        const r = data?.record || {};
+        rows.push(toCsvRow([
+          s.id, s.name || "", s.lat, s.lon,
+          r.timeUTC || "",
+          r.WTMP_C ?? "", r.WVHT_m ?? "", r.DPD_sec ?? "", r.APD_sec ?? "", r.MWD_deg ?? "",
+          r.WSPD_mps ?? "", r.GST_mps ?? "", r.WDIR_deg ?? "", r.PRES_hPa ?? ""
+        ]));
+      } catch (e) {
+        // still push a minimal row so crews see the station location
+        rows.push(toCsvRow([s.id, s.name || "", s.lat, s.lon, "", "", "", "", "", "", "", "", "", ""]));
+      }
+    }
+
+    const csv = rows.join("\n");
+    const now = new Date().toISOString().replace(/[:T]/g, "-").split(".")[0];
+    downloadBlob(csv, `buoys_in_view_${now}.csv`);
+  }
+
+  // Hook up the button
+  const exportBtn = document.getElementById("exportBuoysCsv");
+  if (exportBtn) {
+    exportBtn.addEventListener("click", () => exportBuoysCSV());
+  }
 
 </script>
 </body>
