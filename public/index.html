@@ -96,24 +96,17 @@
         <div class="layer-row"><label>Multi-buoy Panel</label><input id="toggle-multibuoy" type="checkbox"></div>
         <div class="layer-row"><label>Buoy 42039 (SST & Waves)</label><input id="toggle-buoy" type="checkbox"></div>
 
-        <!-- Time Controls for NDFD Wind Forecasts -->
-        <div style="margin-top:12px; padding:10px; background:#f8f9fa; border-radius:6px; border:1px solid #dee2e6;">
-          <div style="font-weight:bold; font-size:13px; margin-bottom:8px; color:#495057;">Forecast Time</div>
-          
-          <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
-            <button id="time-prev" style="padding:4px 8px; font-size:12px; border:1px solid #ced4da; background:#fff; border-radius:3px; cursor:pointer;">◀</button>
-            <input id="time-slider" type="range" min="0" max="72" value="0" step="1" style="flex:1; height:20px;">
-            <button id="time-next" style="padding:4px 8px; font-size:12px; border:1px solid #ced4da; background:#fff; border-radius:3px; cursor:pointer;">▶</button>
+        <div class="legend-box" style="margin-top:12px;">
+          <div style="font-weight:600; margin-bottom:6px;">NDFD Time Controls</div>
+          <div style="display:flex; gap:6px; margin-bottom:8px;">
+            <button id="ndfdPrev" title="Previous step">◀︎</button>
+            <button id="ndfdNow"  title="Jump to latest">Now</button>
+            <button id="ndfdNext" title="Next step">▶︎</button>
           </div>
-          
-          <div style="display:flex; justify-content:space-between; font-size:11px; color:#6c757d; margin-bottom:6px;">
-            <span>Now</span>
-            <span id="time-display">+0h</span>
-            <span>+72h</span>
-          </div>
-          
-          <div style="font-size:11px; color:#6c757d; text-align:center;">
-            <span id="time-absolute">Loading time range...</span>
+          <input id="ndfdTimeSlider" type="range" min="0" max="0" value="0" style="width:100%;">
+          <div id="ndfdTimeLabel" style="margin-top:6px; font-size:12px; opacity:.85;">—</div>
+          <div style="margin-top:6px; font-size:11px; opacity:.7;">
+            Applies to: NDFD Wind Speed (tile) and NDFD Wind Arrows (sampled)
           </div>
         </div>
 
