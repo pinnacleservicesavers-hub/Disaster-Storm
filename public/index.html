@@ -1,251 +1,224 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Storm Tracking - Wave Heights & Satellite</title>
-    
-    <!-- Leaflet CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    
-    <!-- Esri Leaflet CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/esri-leaflet@3.0.10/dist/esri-leaflet.css" />
-    
-    <style>
-        body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
-        #map { height: 100vh; width: 100vw; }
-        .leaflet-control-layers { max-height: 300px; overflow-y: auto; }
-        .info-box {
-            position: absolute;
-            top: 10px;
-            left: 60px;
-            background: rgba(255,255,255,0.9);
-            padding: 10px;
-            border-radius: 5px;
-            z-index: 1000;
-            font-size: 14px;
-            max-width: 300px;
-        }
-    </style>
+  <meta charset="utf-8" />
+  <title>SLM Storm Ops Map</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <link rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4HxGuE7C2E0bRkG6cGZgK4L3a7W2GmQvG3R8Z8b+5Y=" crossorigin=""/>
+  <link rel="stylesheet"
+    href="https://unpkg.com/leaflet-sidebar-v2/css/leaflet-sidebar.min.css"/>
+  <style>
+    html, body, #map { height: 100%; margin: 0; }
+    .layer-row { display:flex; align-items:center; justify-content:space-between; padding:6px 0; border-bottom:1px solid #eee; }
+    .layer-row:last-child { border-bottom: 0; }
+    .layer-row label { font: 14px/1.2 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+    .legend-box { font: 12px/1.3 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background:#fff; padding:10px; border-radius:8px; box-shadow:0 2px 10px rgba(0,0,0,.1); }
+    .legend-item { margin-bottom:6px; }
+    .legend-color { display:inline-block; width:12px; height:12px; border-radius:2px; margin-right:6px; vertical-align:middle; }
+  </style>
 </head>
 <body>
-    <div id="map"></div>
-    
-    <div class="info-box">
-        <h3>🌊 Storm Operations Center</h3>
-        <p><strong>Wave Heights:</strong> NOAA nowCOAST (Live)</p>
-        <p><strong>Buoys:</strong> NDBC Stations</p>
-        <p><strong>Alerts:</strong> NWS Warnings</p>
-        <p><strong>Storms:</strong> NHC Tracking</p>
+  <div id="map"></div>
+
+  <!-- Sidebar -->
+  <div id="sidebar" class="leaflet-sidebar collapsed">
+    <div class="leaflet-sidebar-tabs">
+      <ul role="tablist">
+        <li><a href="#layers" role="tab" title="Layers">🗺️</a></li>
+        <li><a href="#info" role="tab" title="Info">ℹ️</a></li>
+      </ul>
+      <ul role="tablist">
+        <li><a href="#settings" role="tab" title="Settings">⚙️</a></li>
+      </ul>
     </div>
 
-    <!-- Leaflet JS -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    
-    <!-- Esri Leaflet JS -->
-    <script src="https://unpkg.com/esri-leaflet@3.0.11/dist/esri-leaflet.js"
-      integrity="sha512-qZ5e5k4S3FQY0T0dCszm0B5HfCwqQpB6s5kL2pMcwq4iJ6mCJ1qzY9jq0IYqnt6zJSkqTnqM3wY3QdMXT5yD2w=="
-      crossorigin=""></script>
+    <div class="leaflet-sidebar-content">
+      <div class="leaflet-sidebar-pane" id="layers">
+        <h1 class="leaflet-sidebar-header">Layers <span class="leaflet-sidebar-close"></span></h1>
+        <div class="layer-row"><label>Active Hurricanes (NHC)</label><input id="toggle-nhc" type="checkbox"></div>
+        <div class="layer-row"><label>Hurricane/Tropical Alerts (NWS)</label><input id="toggle-alerts" type="checkbox"></div>
+        <div class="layer-row"><label>Wave Height (WW3 / nowCOAST)</label><input id="toggle-waves" type="checkbox"></div>
+        <div class="layer-row"><label>Satellite IR (GOES-East)</label><input id="toggle-sat" type="checkbox"></div>
+        <div class="layer-row"><label>Buoy 42039 (SST & Waves)</label><input id="toggle-buoy" type="checkbox"></div>
 
-    <script>
-        // Initialize map
-        const map = L.map('map').setView([25.7617, -80.1918], 7); // Miami area
+        <div style="margin-top:12px;" class="legend-box">
+          <div class="legend-item"><span class="legend-color" style="background:#d9534f"></span> NHC tracks/cones</div>
+          <div class="legend-item"><span class="legend-color" style="background:#337ab7"></span> NWS alerts polygons</div>
+          <div class="legend-item"><span class="legend-color" style="background:#6c757d"></span> GOES IR overlay</div>
+          <div class="legend-item"><span class="legend-color" style="background:#4a90e2"></span> Wave height (WW3)</div>
+        </div>
+      </div>
 
-        // Base layers
-        const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap contributors'
-        });
+      <div class="leaflet-sidebar-pane" id="info">
+        <h1 class="leaflet-sidebar-header">Info <span class="leaflet-sidebar-close"></span></h1>
+        <div style="padding:8px 4px;">
+          <p><strong>How to use</strong></p>
+          <ol>
+            <li>Open the 🗺️ tab to toggle layers.</li>
+            <li>Click storm polygons/lines for details.</li>
+            <li>Click the buoy marker popup for live SST & waves.</li>
+          </ol>
+          <p style="font-size:12px;opacity:.8;">Data: NHC, NWS, NDBC, NOAA nowCOAST, GOES-East</p>
+        </div>
+      </div>
 
-        const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-            attribution: '© Esri'
-        });
+      <div class="leaflet-sidebar-pane" id="settings">
+        <h1 class="leaflet-sidebar-header">Settings <span class="leaflet-sidebar-close"></span></h1>
+        <div style="padding:8px 4px;">
+          <label for="buoyId">NDBC Buoy ID:</label>
+          <input id="buoyId" type="text" value="42039" style="width:100%;padding:6px 8px;margin-top:6px;">
+          <button id="loadBuoy" style="margin-top:8px;padding:6px 10px;">Load Buoy</button>
+          <p style="font-size:12px;opacity:.8;margin-top:6px;">Examples: 42001 (Gulf), 41009 (FL East)</p>
+        </div>
+      </div>
+    </div>
+  </div>
 
-        // Add default base layer
-        osm.addTo(map);
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-o9N1j9gLnP0hYgq7Z9uOqQzE7r1p5rHc2Uu1h6C9wY8=" crossorigin=""></script>
+  <script src="https://unpkg.com/leaflet-sidebar-v2/js/leaflet-sidebar.min.js"></script>
+  <script src="https://unpkg.com/esri-leaflet@3.0.11/dist/esri-leaflet.js"
+    integrity="sha512-qZ5e5k4S3FQY0T0dCszm0B5HfCwqQpB6s5kL2pMcwq4iJ6mCJ1qzY9jq0IYqnt6zJSkqTnqM3wY3QdMXT5yD2w=="
+    crossorigin=""></script>
 
-        // --- Wave Height (nowCOAST WW3) ---
-        // Example nowCOAST MapServer for significant wave height (global mosaic).
-        // If you want a different basin/region, swap the URL for the layer you prefer.
-        const WW3_SIGWAVEHEIGHT = L.esri.dynamicMapLayer({
-            url: "https://nowcoast.noaa.gov/arcgis/rest/services/nowcoast/ww3_sigwaveheight_time/MapServer",
-            opacity: 0.6
-        });
+  <script>
+    // Base map
+    const map = L.map("map", { zoomControl: true }).setView([27.5, -85], 5);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 10, attribution: "© OpenStreetMap"
+    }).addTo(map);
 
-        // toggle button (simple)
-        const wavesOn = { on: false };
-        const wavesBtn = L.control({ position: "topleft" });
-        wavesBtn.onAdd = function() {
-            const div = L.DomUtil.create("div", "leaflet-bar");
-            const a = L.DomUtil.create("a", "", div);
-            a.href = "#";
-            a.title = "Toggle Wave Height";
-            a.innerHTML = "🌊";
-            a.style.padding = "6px 10px";
-            a.onclick = (e) => {
-                e.preventDefault();
-                if (wavesOn.on) {
-                    map.removeLayer(WW3_SIGWAVEHEIGHT);
-                    wavesOn.on = false;
-                } else {
-                    WW3_SIGWAVEHEIGHT.addTo(map);
-                    wavesOn.on = true;
-                }
-            };
-            return div;
-        };
-        wavesBtn.addTo(map);
+    // Sidebar
+    const sidebar = L.control.sidebar({ container: "sidebar", position: "left" }).addTo(map);
+    sidebar.open("layers");
 
-        // --- GOES-East IR overlay (convection/cloud tops) ---
-        // Time-sensitive imagery; this URL serves the latest available tiles.
-        const GOES_IR = L.tileLayer(
-            "https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/goes-east-ir-13/{z}/{x}/{y}.png",
-            { opacity: 0.6, attribution: "GOES-East IR tiles" }
-        );
+    // Layers (define but don't add until toggled)
+    let nhcLayer = null;
+    let alertsLayer = null;
+    let buoyMarker = null;
 
-        // Toggle button
-        const satOn = { on: false };
-        const satBtn = L.control({ position: "topleft" });
-        satBtn.onAdd = function() {
-            const div = L.DomUtil.create("div", "leaflet-bar");
-            const a = L.DomUtil.create("a", "", div);
-            a.href = "#";
-            a.title = "Toggle Satellite (IR)";
-            a.innerHTML = "🛰️";
-            a.style.padding = "6px 10px";
-            a.onclick = (e) => {
-                e.preventDefault();
-                if (satOn.on) {
-                    map.removeLayer(GOES_IR);
-                    satOn.on = false;
-                } else {
-                    GOES_IR.addTo(map);
-                    satOn.on = true;
-                }
-            };
-            return div;
-        };
-        satBtn.addTo(map);
+    const wavesLayer = L.esri.dynamicMapLayer({
+      url: "https://nowcoast.noaa.gov/arcgis/rest/services/nowcoast/ww3_sigwaveheight_time/MapServer",
+      opacity: 0.6
+    });
 
-        // NOAA nowCOAST Sea Surface Temperature
-        const sstLayer = L.esri.dynamicMapLayer({
-            url: 'https://nowcoast.noaa.gov/arcgis/rest/services/nowcoast/sat_meteo_imagery_time/MapServer',
-            layers: [1], // SST layer
-            opacity: 0.6,
-            f: 'image'
-        });
+    const goesIR = L.tileLayer(
+      "https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/goes-east-ir-13/{z}/{x}/{y}.png",
+      { opacity: 0.6, attribution: "GOES-East IR tiles" }
+    );
 
-        // GOES Satellite Infrared Overlay
-        const goesIRLayer = L.esri.dynamicMapLayer({
-            url: 'https://nowcoast.noaa.gov/arcgis/rest/services/nowcoast/sat_meteo_imagery_goes_time/MapServer',
-            layers: [1], // GOES IR
-            opacity: 0.5,
-            f: 'image'
-        });
-
-        // Layer control
-        const baseLayers = {
-            "OpenStreetMap": osm,
-            "Satellite": satellite
-        };
-
-        const overlayLayers = {
-            "🌊 Wave Heights (WAVEWATCH III)": waveHeightLayer,
-            "🌡️ Sea Surface Temperature": sstLayer,
-            "🛰️ GOES Infrared": goesIRLayer
-        };
-
-        L.control.layers(baseLayers, overlayLayers).addTo(map);
-
-        // Add wave height layer by default
-        waveHeightLayer.addTo(map);
-
-        // Load live data from your API endpoints
-        async function loadLiveData() {
-            try {
-                // NDBC Buoys
-                const buoyResponse = await fetch('/api/weather/buoys');
-                const buoyData = await buoyResponse.json();
-                
-                buoyData.forEach(buoy => {
-                    if (buoy.lat && buoy.lon) {
-                        const marker = L.marker([buoy.lat, buoy.lon])
-                            .bindPopup(`
-                                <b>🌊 Buoy ${buoy.stationId}</b><br>
-                                Wave Height: ${buoy.measurements?.significantWaveHeight || 'N/A'} m<br>
-                                Wind: ${buoy.measurements?.windSpeed || 'N/A'} mph<br>
-                                Pressure: ${buoy.measurements?.atmosphericPressure || 'N/A'} mb
-                            `);
-                        marker.addTo(map);
-                    }
-                });
-
-                // NWS Alerts
-                const alertResponse = await fetch('/api/weather/alerts');
-                const alertData = await alertResponse.json();
-                
-                alertData.forEach(alert => {
-                    if (alert.geometry) {
-                        const alertLayer = L.geoJSON(alert.geometry, {
-                            style: {
-                                color: alert.severity === 'extreme' ? '#dc2626' : 
-                                       alert.severity === 'severe' ? '#ea580c' : '#2563eb',
-                                weight: 2,
-                                fillOpacity: 0.2
-                            }
-                        }).bindPopup(`
-                            <b>🚨 ${alert.title}</b><br>
-                            ${alert.description}<br>
-                            <i>Severity: ${alert.severity}</i>
-                        `);
-                        alertLayer.addTo(map);
-                    }
-                });
-
-                // Hurricane Data
-                const nhcResponse = await fetch('/api/weather/nhc');
-                const nhcData = await nhcResponse.json();
-                
-                if (nhcData.storms) {
-                    nhcData.storms.forEach(storm => {
-                        if (storm.geometry) {
-                            const stormLayer = L.geoJSON(storm.geometry, {
-                                style: {
-                                    color: '#dc2626',
-                                    weight: 3,
-                                    fillOpacity: 0.3
-                                }
-                            }).bindPopup(`
-                                <b>🌀 ${storm.name || 'Active Storm'}</b><br>
-                                ${storm.advisory || 'Hurricane tracking data'}
-                            `);
-                            stormLayer.addTo(map);
-                        }
-                    });
-                }
-
-            } catch (error) {
-                console.log('Note: Live data loading failed, map tiles still work:', error.message);
+    function loadNHC() {
+      if (nhcLayer) { map.removeLayer(nhcLayer); nhcLayer = null; }
+      fetch("/api/nhc/activeGeoJSON")
+        .then(r => r.json())
+        .then(gj => {
+          nhcLayer = L.geoJSON(gj, {
+            style: () => ({ color: "#d9534f", weight: 2, opacity: 0.9, fillOpacity: 0.15 }),
+            onEachFeature: (f, layer) => {
+              const p = f.properties || {};
+              layer.bindPopup(`<div><strong>NHC</strong><div>${p.name || p.Description || "Storm Feature"}</div></div>`);
             }
-        }
+          }).addTo(map);
+          try { map.fitBounds(nhcLayer.getBounds(), { padding: [30,30] }); } catch {}
+        })
+        .catch(console.error);
+    }
 
-        // Load live data on map ready
-        map.whenReady(() => {
-            loadLiveData();
-            
-            // Refresh data every 5 minutes
-            setInterval(loadLiveData, 5 * 60 * 1000);
-        });
+    function loadAlerts() {
+      if (alertsLayer) { map.removeLayer(alertsLayer); alertsLayer = null; }
+      const qs = new URLSearchParams({
+        status: "actual",
+        message_type: "alert",
+        // show the tropical set; you can widen this to multiple events
+        event: "Hurricane Warning"
+      });
+      fetch(`/api/nws/alerts?${qs.toString()}`)
+        .then(r => r.json())
+        .then(data => {
+          if (!data?.features) return;
+          alertsLayer = L.geoJSON(data, {
+            style: { color: "#337ab7", weight: 2, fillOpacity: 0.1 },
+            onEachFeature: (f, layer) => {
+              const p = f.properties || {};
+              layer.bindPopup(`
+                <div><strong>${p.event || "NWS Alert"}</strong></div>
+                <div>${p.areaDesc || ""}</div>
+                <div>${p.headline || ""}</div>
+                <div><small>${p.effective || ""}</small></div>
+              `);
+            }
+          }).addTo(map);
+        })
+        .catch(console.error);
+    }
 
-        // Map click handler for coordinates
-        map.on('click', function(e) {
-            console.log('Coordinates:', e.latlng.lat, e.latlng.lng);
-        });
+    // Buoy helpers — note: many realtime2 files don't carry lat/lon in the first row.
+    // We hardcode common stations here; you may load station metadata if needed.
+    const BUOY_LOOKUP = {
+      "42039": [28.79, -86.01],
+      "42001": [25.90, -89.67],
+      "41009": [28.50, -80.18]
+    };
 
-        // VDM (Vortex Data Message) Hurricane Reconnaissance Integration
-        // Example usage (replace with the current VDM text URL from NHC's Recon page)
-        // fetch('/api/nhc/vdm?url=https://www.nhc.noaa.gov/recon/2025/URNT12KNHC.txt')
-        //   .then(r => r.json())
-        //   .then(vdm => console.log('VDM parsed:', vdm));
-    </script>
+    function loadBuoy(station) {
+      if (buoyMarker) { map.removeLayer(buoyMarker); buoyMarker = null; }
+      fetch(`/api/ndbc/${station}`)
+        .then(r => r.json())
+        .then(({ record }) => {
+          if (!record) return alert("No buoy record parsed.");
+          const [lat, lon] = BUOY_LOOKUP[station] || [28.79, -86.01]; // default near 42039
+          const html = `
+            <div><strong>NDBC Buoy ${station}</strong></div>
+            <div>Time (UTC): ${record.timeUTC}</div>
+            <div>Sea Temp (°C): ${record.WTMP_C ?? "—"}</div>
+            <div>Wave Height (m): ${record.WVHT_m ?? "—"}</div>
+            <div>Dominant Period (s): ${record.DPD_sec ?? "—"}</div>
+            <div>Mean Wave Dir (°): ${record.MWD_deg ?? "—"}</div>
+            <div>Wind (m/s): ${record.WSPD_mps ?? "—"}</div>
+          `;
+          buoyMarker = L.marker([lat, lon]).addTo(map).bindPopup(html);
+          buoyMarker.openPopup();
+        })
+        .catch(err => alert("Buoy fetch failed: " + err));
+    }
+
+    // UI wiring
+    const el = (id) => document.getElementById(id);
+
+    el("toggle-nhc").addEventListener("change", (e) => {
+      if (e.target.checked) { loadNHC(); }
+      else if (nhcLayer) { map.removeLayer(nhcLayer); nhcLayer = null; }
+    });
+
+    el("toggle-alerts").addEventListener("change", (e) => {
+      if (e.target.checked) { loadAlerts(); }
+      else if (alertsLayer) { map.removeLayer(alertsLayer); alertsLayer = null; }
+    });
+
+    el("toggle-waves").addEventListener("change", (e) => {
+      if (e.target.checked) wavesLayer.addTo(map);
+      else map.removeLayer(wavesLayer);
+    });
+
+    el("toggle-sat").addEventListener("change", (e) => {
+      if (e.target.checked) goesIR.addTo(map);
+      else map.removeLayer(goesIR);
+    });
+
+    el("toggle-buoy").addEventListener("change", (e) => {
+      if (e.target.checked) loadBuoy(el("buoyId").value.trim() || "42039");
+      else if (buoyMarker) { map.removeLayer(buoyMarker); buoyMarker = null; }
+    });
+
+    el("loadBuoy").addEventListener("click", () => {
+      const id = el("buoyId").value.trim();
+      if (!id) return;
+      loadBuoy(id);
+      el("toggle-buoy").checked = true;
+    });
+  </script>
 </body>
 </html>
