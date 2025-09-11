@@ -560,33 +560,38 @@
   });
 
   // ─────────────────────────────────────────────────────────────────────────────
-  // Helper to create model wind arrow markers (reuses NDBC wind styling)
-  function createModelWindArrow(lat, lon, windSpeed, windDirection, label = "Model Wind") {
-    // Create wind arrow based on speed (same logic as NDBC)
-    let arrowClass = 'wind-arrow';
-    if (windSpeed < 10) arrowClass = 'wind-arrow-tiny';
-    else if (windSpeed > 25) arrowClass = 'wind-arrow-fast';
-    
-    // Create custom icon with wind arrow (same HTML as NDBC)
-    const arrowHTML = `
-      <div class="wind-speed-ring${windSpeed < 10 ? '-tiny' : ''}"></div>
-      <div class="${arrowClass}" style="transform: rotate(${windDirection}deg);"></div>
-    `;
-    
-    const windIcon = L.divIcon({
-      html: arrowHTML,
-      className: 'wind-marker',
-      iconSize: [30, 30],
-      iconAnchor: [15, 15]
+  // Reuse your windMarker() if it exists; otherwise include this:
+  function windMarker(lat, lon, speed_mps, dir_deg, labelHTML) {
+    const size = Math.min(30, Math.max(12, (speed_mps || 0) * 1.2 + 12));
+    const div = document.createElement("div");
+    div.style.position = "relative";
+    div.style.width = div.style.height = `${size}px`;
+
+    const ring = document.createElement("div");
+    ring.className = "wind-speed-ring";
+    ring.style.width = ring.style.height = `${size}px`;
+    ring.style.left = ring.style.top = "0px";
+    ring.style.borderColor = "rgba(0,0,0,0.25)";
+    div.appendChild(ring);
+
+    const arrow = document.createElement("div");
+    arrow.className = "wind-arrow";
+    arrow.style.position = "absolute";
+    arrow.style.left = `${(size/2)-9}px`;
+    arrow.style.top = `${(size/2)-9}px`;
+    arrow.style.transform = `rotate(${(Number(dir_deg)||0)}deg)`;
+    div.appendChild(arrow);
+
+    const icon = L.divIcon({
+      html: div,
+      className: "wind-icon",
+      iconSize: [size, size],
+      iconAnchor: [size/2, size/2]
     });
-    
-    const popup = `
-      <div><strong>${label}</strong></div>
-      <div>Wind: ${windSpeed.toFixed(1)} kt @ ${windDirection.toFixed(0)}°</div>
-      <div>Lat/Lon: ${lat.toFixed(3)}, ${lon.toFixed(3)}</div>
-    `;
-    
-    return L.marker([lat, lon], { icon: windIcon }).bindPopup(popup);
+
+    const m = L.marker([lat, lon], { icon });
+    if (labelHTML) m.bindPopup(labelHTML);
+    return m;
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
