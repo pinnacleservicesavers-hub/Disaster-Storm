@@ -96,6 +96,27 @@
         <div class="layer-row"><label>Multi-buoy Panel</label><input id="toggle-multibuoy" type="checkbox"></div>
         <div class="layer-row"><label>Buoy 42039 (SST & Waves)</label><input id="toggle-buoy" type="checkbox"></div>
 
+        <!-- Time Controls for NDFD Wind Forecasts -->
+        <div style="margin-top:12px; padding:10px; background:#f8f9fa; border-radius:6px; border:1px solid #dee2e6;">
+          <div style="font-weight:bold; font-size:13px; margin-bottom:8px; color:#495057;">Forecast Time</div>
+          
+          <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+            <button id="time-prev" style="padding:4px 8px; font-size:12px; border:1px solid #ced4da; background:#fff; border-radius:3px; cursor:pointer;">◀</button>
+            <input id="time-slider" type="range" min="0" max="72" value="0" step="1" style="flex:1; height:20px;">
+            <button id="time-next" style="padding:4px 8px; font-size:12px; border:1px solid #ced4da; background:#fff; border-radius:3px; cursor:pointer;">▶</button>
+          </div>
+          
+          <div style="display:flex; justify-content:space-between; font-size:11px; color:#6c757d; margin-bottom:6px;">
+            <span>Now</span>
+            <span id="time-display">+0h</span>
+            <span>+72h</span>
+          </div>
+          
+          <div style="font-size:11px; color:#6c757d; text-align:center;">
+            <span id="time-absolute">Loading time range...</span>
+          </div>
+        </div>
+
         <div style="margin-top:12px;" class="legend-box">
           <div class="legend-item"><span class="legend-color" style="background:#d9534f"></span> NHC tracks/cones</div>
           <div class="legend-item"><span class="legend-color" style="background:#337ab7"></span> NWS alerts polygons</div>
