@@ -706,47 +706,36 @@
   }
 
   // NDFD Wind Sampling Helper
-  let ndfdLayerCache = null; // Cache layer IDs to avoid repeated discovery
-  
-  async function sampleNDFDWindAtPoint(lon, lat) {
-    try {
-      // Auto-discover layer IDs if not cached
-      if (!ndfdLayerCache) {
-        const layersResp = await fetch('/api/nowcoast/layers?service=forecast_meteoceanhydro_sfc_ndfd_time');
-        if (layersResp.ok) {
-          ndfdLayerCache = await layersResp.json();
-        } else {
-          console.warn('🌬️ Failed to discover NDFD layers, using fallback IDs');
-          ndfdLayerCache = { speedId: 0, dirId: 1, latestTime: null }; // fallback
-        }
-      }
+  // Cache for layer IDs + latest time
+  let _NDFD_CACHE = null;
 
-      const { speedId, dirId, latestTime } = ndfdLayerCache;
-      if (speedId == null || dirId == null) {
-        return { NDFD_WindSpeed_kt: "", NDFD_WindDir_deg: "" };
-      }
-
-      // Build sampling URLs with discovered layer IDs
-      const baseUrl = '/api/nowcoast/sample?service=forecast_meteoceanhydro_sfc_ndfd_time';
-      const timeParam = latestTime ? `&time=${latestTime}` : '';
-      
-      const urls = [
-        `${baseUrl}&lon=${lon}&lat=${lat}&layerId=${speedId}${timeParam}`,
-        `${baseUrl}&lon=${lon}&lat=${lat}&layerId=${dirId}${timeParam}`,
-      ];
-
-      const [speedData, dirData] = await Promise.all(
-        urls.map(u => fetch(u).then(r => r.json()).catch(() => ({ value: null })))
-      );
-
-      return {
-        NDFD_WindSpeed_kt: Number(speedData?.value) || "",
-        NDFD_WindDir_deg: Number(dirData?.value) || "",
-      };
-    } catch (error) {
-      console.warn('🌬️ NDFD wind sampling failed:', error);
-      return { NDFD_WindSpeed_kt: "", NDFD_WindDir_deg: "" };
+  async function getNdfdWindLayerInfo() {
+    if (_NDFD_CACHE) return _NDFD_CACHE;
+    const info = await fetch("/api/nowcoast/layers?service=forecast_meteoceanhydro_sfc_ndfd_time").then(r => r.json());
+    // Fallback if discovery ever fails
+    if (!Number.isFinite(info?.speedId) || !Number.isFinite(info?.dirId)) {
+      _NDFD_CACHE = { speedId: 0, dirId: 0, latestTime: undefined };
+    } else {
+      _NDFD_CACHE = info;
     }
+    return _NDFD_CACHE;
+  }
+
+  async function sampleNdfdWindAtPoint(lon, lat) {
+    const { speedId, dirId, latestTime } = await getNdfdWindLayerInfo();
+    const timeParam = latestTime ? `&time=${latestTime}` : "";
+    const spdUrl = `/api/nowcoast/sample?service=forecast_meteoceanhydro_sfc_ndfd_time&lon=${lon}&lat=${lat}&layerId=${speedId}${timeParam}`;
+    const dirUrl = `/api/nowcoast/sample?service=forecast_meteoceanhydro_sfc_ndfd_time&lon=${lon}&lat=${lat}&layerId=${dirId}${timeParam}`;
+    const [spd, dir] = await Promise.all([
+      fetch(spdUrl).then(r => r.json()).catch(() => ({})),
+      fetch(dirUrl).then(r => r.json()).catch(() => ({})),
+    ]);
+
+    // nowCOAST NDFD speed is in knots; direction in degrees
+    return {
+      NDFD_WindSpd_kt: Number(spd?.value) || "",
+      NDFD_WindDir_deg: Number(dir?.value) || "",
+    };
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -783,7 +772,7 @@
       // NEW: WW3 fields
       "WW3_Hsig_m","WW3_Tp_s","WW3_PrimaryDir_deg",
       // NEW: NDFD wind fields
-      "NDFD_WindSpeed_kt","NDFD_WindDir_deg"
+      "NDFD_WindSpd_kt","NDFD_WindDir_deg"
     ];
     const rows = [toCsvRow(header)];
 
@@ -792,7 +781,7 @@
         const data = await fetch(`/api/ndbc/${s.id}`).then(r => r.json());
         const r = data?.record || {};
         const ww3 = await sampleWW3AtPoint(s.lon, s.lat);
-        const ndfd = await sampleNDFDWindAtPoint(s.lon, s.lat);
+        const ndfd = await sampleNdfdWindAtPoint(s.lon, s.lat);
 
         rows.push(toCsvRow([
           s.id, s.name || "", s.lat, s.lon,
@@ -800,7 +789,7 @@
           r.WTMP_C ?? "", r.WVHT_m ?? "", r.DPD_sec ?? "", r.APD_sec ?? "", r.MWD_deg ?? "",
           r.WSPD_mps ?? "", r.GST_mps ?? "", r.WDIR_deg ?? "", r.PRES_hPa ?? "",
           ww3.WW3_Hsig_m, ww3.WW3_Tp_s, ww3.WW3_PrimaryDir_deg,
-          ndfd.NDFD_WindSpeed_kt, ndfd.NDFD_WindDir_deg
+          ndfd.NDFD_WindSpd_kt, ndfd.NDFD_WindDir_deg
         ]));
 
         // Optional tiny throttle to be kind to servers
