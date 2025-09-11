@@ -1241,18 +1241,17 @@
     exportBtn.addEventListener("click", () => exportBuoysCSV());
   }
 
-  // Share link button
-  const shareBtn = document.getElementById("copyShareLink");
-  if (shareBtn) {
-    shareBtn.addEventListener("click", async () => {
+  // Copy button
+  const copyBtn = document.getElementById("copyShareLink");
+  if (copyBtn) {
+    copyBtn.addEventListener("click", async () => {
       const url = makeShareUrl();
       try {
         await navigator.clipboard.writeText(url);
-        shareBtn.textContent = "✅ Copied!";
-        setTimeout(() => { shareBtn.textContent = "🔗 Copy share link"; }, 2000);
-      } catch (e) {
-        console.log("Copy failed, showing URL:", url);
-        alert("Copy to clipboard failed. URL: " + url);
+        alert("Share link copied!");
+      } catch {
+        // Fallback if clipboard API blocked
+        prompt("Copy this link:", url);
       }
     });
   }
@@ -1299,18 +1298,13 @@
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
-  // Initialize NDFD Time Selector
+  // Boot: init NDFD times first, then apply URL state
   // ─────────────────────────────────────────────────────────────────────────────
   
-  // Init on load
-  initNdfdTimes();
-
-  // ─────────────────────────────────────────────────────────────────────────────
-  // Initialize Share Link State Restoration
-  // ─────────────────────────────────────────────────────────────────────────────
-  
-  // Restore state from URL on page load
-  setTimeout(() => applyStateFromUrl(), 100); // Brief delay to ensure NDFD_TIMES is populated
+  (async function boot() {
+    await initNdfdTimes();    // you already have this
+    await applyStateFromUrl();
+  })();
 
 </script>
 </body>
