@@ -2422,6 +2422,39 @@ Email: strategiclandmgmt@gmail.com
     }
   });
 
+  // WAVEWATCH III wave models
+  app.get('/api/weather/wavewatch', async (req, res) => {
+    try {
+      const waveWatch = await weatherService.getWaveWatch();
+      res.json(waveWatch);
+    } catch (error) {
+      console.error('Error fetching WAVEWATCH III data:', error);
+      res.status(500).json({ error: 'Failed to fetch WAVEWATCH III data' });
+    }
+  });
+
+  // WAVEWATCH III global model
+  app.get('/api/weather/wavewatch/global', async (req, res) => {
+    try {
+      const waveWatch = await weatherService.getWaveWatch();
+      res.json(waveWatch.global);
+    } catch (error) {
+      console.error('Error fetching WAVEWATCH III global data:', error);
+      res.status(500).json({ error: 'Failed to fetch WAVEWATCH III global data' });
+    }
+  });
+
+  // WAVEWATCH III regional model
+  app.get('/api/weather/wavewatch/regional', async (req, res) => {
+    try {
+      const waveWatch = await weatherService.getWaveWatch();
+      res.json(waveWatch.regional);
+    } catch (error) {
+      console.error('Error fetching WAVEWATCH III regional data:', error);
+      res.status(500).json({ error: 'Failed to fetch WAVEWATCH III regional data' });
+    }
+  });
+
   // Comprehensive weather data (all sources combined)
   app.get('/api/weather/comprehensive', async (req, res) => {
     try {
