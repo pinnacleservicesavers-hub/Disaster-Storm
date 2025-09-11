@@ -307,6 +307,15 @@
     { opacity: 0.6, attribution: "GOES-East IR tiles" }
   );
 
+  // NDFD Wind Speed tile overlay (nowCOAST)
+  const ndfdWindTileLayer = L.tileLayer("", {
+    opacity: 0.6,
+    attribution: "NDFD Wind Speed (NOAA nowCOAST)"
+  });
+
+  // NDFD Wind Arrows layer group (sampled points)
+  let ndfdArrowsLayer = L.layerGroup();
+
   // ─────────────────────────────────────────────────────────────────────────────
   // Loaders
 
