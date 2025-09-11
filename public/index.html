@@ -240,6 +240,12 @@
         map.on('click', function(e) {
             console.log('Coordinates:', e.latlng.lat, e.latlng.lng);
         });
+
+        // VDM (Vortex Data Message) Hurricane Reconnaissance Integration
+        // Example usage (replace with the current VDM text URL from NHC's Recon page)
+        // fetch('/api/nhc/vdm?url=https://www.nhc.noaa.gov/recon/2025/URNT12KNHC.txt')
+        //   .then(r => r.json())
+        //   .then(vdm => console.log('VDM parsed:', vdm));
     </script>
 </body>
 </html>
