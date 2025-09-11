@@ -3,6 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import multer from 'multer';
 import nodemailer from 'nodemailer';
 import cron from 'node-cron';
@@ -12,6 +13,10 @@ import fetch from 'node-fetch';
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
+
+// ES6 modules setup for static file serving
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // --- Dirs
 const ROOT = process.cwd();
@@ -33,6 +38,9 @@ if (!fs.existsSync(CONTRACT_PATH)) {
 // Static files
 app.use('/uploads', express.static(UPLOAD_DIR));
 app.use('/files', express.static(ASSETS_DIR));
+
+// Public directory static serving
+app.use(express.static(path.join(__dirname, "public")));
 
 
 // --- Email (nodemailer)
