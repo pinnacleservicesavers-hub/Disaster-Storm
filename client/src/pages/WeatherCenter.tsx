@@ -501,7 +501,7 @@ export default function WeatherCenter() {
                               coordinates: [buoy.longitude, buoy.latitude]
                             },
                             properties: {}
-                          }}
+                          } as any}
                           pointToLayer={(feature, latlng) => {
                             const L = (window as any).L;
                             return L.circleMarker(latlng, {
