@@ -35,6 +35,7 @@ import PDFDocument from "pdfkit";
 import { createServer, type Server } from "http";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { weatherService, weatherStreamManager } from "./services/weather";
+import { trafficCameraService } from "./services/trafficCameras";
 
 // fetch polyfill if needed
 const fetch = globalThis.fetch || fetchPkg;
@@ -2777,6 +2778,240 @@ Email: strategiclandmgmt@gmail.com
     req.on('close', () => {
       clearInterval(keepAlive);
     });
+  });
+
+  // ===== TRAFFIC CAMERA WATCHER ENDPOINTS =====
+  
+  // Get all available traffic cameras
+  app.get('/api/traffic-cameras', async (req, res) => {
+    try {
+      const { state, lat, lon, radius } = req.query;
+      
+      let cameras;
+      if (state) {
+        cameras = await trafficCameraService.getCamerasByState(state as string);
+      } else if (lat && lon) {
+        const radiusKm = Number(radius) || 50;
+        cameras = await trafficCameraService.getCamerasByLocation(
+          Number(lat), 
+          Number(lon), 
+          radiusKm
+        );
+      } else {
+        cameras = await trafficCameraService.getAllCameras();
+      }
+      
+      res.json({
+        cameras,
+        count: cameras.length,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Error fetching traffic cameras:', error);
+      res.status(500).json({ error: 'Failed to fetch traffic cameras' });
+    }
+  });
+
+  // Get specific camera details
+  app.get('/api/traffic-cameras/:cameraId', async (req, res) => {
+    try {
+      const { cameraId } = req.params;
+      const allCameras = await trafficCameraService.getAllCameras();
+      const camera = allCameras.find(c => c.id === cameraId);
+      
+      if (!camera) {
+        return res.status(404).json({ error: 'Camera not found' });
+      }
+      
+      res.json(camera);
+    } catch (error) {
+      console.error('Error fetching camera details:', error);
+      res.status(500).json({ error: 'Failed to fetch camera details' });
+    }
+  });
+
+  // Get current image from a specific camera
+  app.get('/api/traffic-cameras/:cameraId/image', async (req, res) => {
+    try {
+      const { cameraId } = req.params;
+      const imageUrl = await trafficCameraService.getCameraImage(cameraId);
+      
+      if (!imageUrl) {
+        return res.status(404).json({ error: 'Camera image not available' });
+      }
+      
+      res.json({ imageUrl, timestamp: new Date().toISOString() });
+    } catch (error) {
+      console.error('Error fetching camera image:', error);
+      res.status(500).json({ error: 'Failed to fetch camera image' });
+    }
+  });
+
+  // Get current image bytes from a specific camera for AI analysis
+  app.get('/api/traffic-cameras/:cameraId/image-bytes', async (req, res) => {
+    try {
+      const { cameraId } = req.params;
+      console.log(`🤖 Fetching image bytes for AI analysis: ${cameraId}`);
+      
+      const imageResult = await trafficCameraService.fetchImageBytes(cameraId);
+      
+      if (!imageResult) {
+        return res.status(404).json({ error: 'Camera image bytes not available' });
+      }
+      
+      // Set appropriate headers for image data
+      res.set({
+        'Content-Type': imageResult.contentType,
+        'Content-Length': imageResult.imageData.length.toString(),
+        'Cache-Control': 'public, max-age=120', // Cache for 2 minutes
+        'X-Image-Timestamp': imageResult.timestamp.toISOString(),
+        'X-Camera-Id': cameraId
+      });
+      
+      // Return raw image bytes
+      res.send(imageResult.imageData);
+    } catch (error) {
+      console.error('Error fetching camera image bytes:', error);
+      res.status(500).json({ error: 'Failed to fetch camera image bytes' });
+    }
+  });
+
+  // Subscribe to camera alerts (requires contractor authentication)
+  app.post('/api/traffic-cameras/:cameraId/subscribe', express.json(), async (req, res) => {
+    try {
+      const { cameraId } = req.params;
+      const { contractorId, notifyTypes, priority } = req.body;
+      
+      if (!contractorId) {
+        return res.status(400).json({ error: 'Contractor ID required' });
+      }
+      
+      // Check if camera exists
+      const allCameras = await trafficCameraService.getAllCameras();
+      const camera = allCameras.find(c => c.id === cameraId);
+      
+      if (!camera) {
+        return res.status(404).json({ error: 'Camera not found' });
+      }
+      
+      // Store subscription in database
+      const subscription = await trafficCameraService.subscribeToCamera(
+        contractorId,
+        cameraId,
+        notifyTypes || ['structure_damage', 'tree_on_powerline'],
+        priority || 'normal'
+      );
+      
+      res.json({
+        subscription,
+        camera: {
+          id: camera.id,
+          name: camera.name,
+          location: `${camera.city}, ${camera.state}`
+        }
+      });
+    } catch (error) {
+      console.error('Error creating camera subscription:', error);
+      res.status(500).json({ error: 'Failed to create camera subscription' });
+    }
+  });
+
+  // Get contractor's camera subscriptions
+  app.get('/api/contractors/:contractorId/camera-subscriptions', async (req, res) => {
+    try {
+      const { contractorId } = req.params;
+      
+      // Query database for actual subscriptions
+      const subscriptions = await trafficCameraService.getContractorSubscriptions(contractorId);
+      
+      res.json({
+        subscriptions,
+        contractorId,
+        count: subscriptions.length
+      });
+    } catch (error) {
+      console.error('Error fetching camera subscriptions:', error);
+      res.status(500).json({ error: 'Failed to fetch camera subscriptions' });
+    }
+  });
+
+  // Get traffic camera alerts for a contractor
+  app.get('/api/contractors/:contractorId/camera-alerts', async (req, res) => {
+    try {
+      const { contractorId } = req.params;
+      const { status, alertType, limit } = req.query;
+      
+      // TODO: Query database for actual alerts
+      // For now, return empty array
+      const alerts = [];
+      
+      res.json({
+        alerts,
+        contractorId,
+        count: alerts.length,
+        filters: { status, alertType, limit }
+      });
+    } catch (error) {
+      console.error('Error fetching camera alerts:', error);
+      res.status(500).json({ error: 'Failed to fetch camera alerts' });
+    }
+  });
+
+  // Generate job lead from traffic camera alert
+  app.post('/api/traffic-camera-alerts/:alertId/generate-lead', express.json(), async (req, res) => {
+    try {
+      const { alertId } = req.params;
+      const { contractorId } = req.body;
+      
+      if (!contractorId) {
+        return res.status(400).json({ error: 'Contractor ID required' });
+      }
+      
+      // TODO: Query alert from database and generate lead
+      // For now, return mock lead
+      const lead = {
+        id: `lead_${Date.now()}`,
+        alertId,
+        contractorId,
+        alertType: 'structure_damage',
+        priority: 'high',
+        estimatedValue: 5000,
+        status: 'new',
+        location: 'Highway 75 @ Exit 245',
+        description: 'Tree damage to roadside structure detected by AI',
+        createdAt: new Date().toISOString()
+      };
+      
+      res.json({
+        lead,
+        message: 'Job lead generated successfully'
+      });
+    } catch (error) {
+      console.error('Error generating job lead:', error);
+      res.status(500).json({ error: 'Failed to generate job lead' });
+    }
+  });
+
+  // Get contractor's job leads from traffic cameras
+  app.get('/api/contractors/:contractorId/camera-leads', async (req, res) => {
+    try {
+      const { contractorId } = req.params;
+      const { status, priority, limit } = req.query;
+      
+      // TODO: Query database for actual leads
+      // For now, return empty array
+      const leads = [];
+      
+      res.json({
+        leads,
+        contractorId,
+        count: leads.length,
+        filters: { status, priority, limit }
+      });
+    } catch (error) {
+      console.error('Error fetching camera leads:', error);
+      res.status(500).json({ error: 'Failed to fetch camera leads' });
+    }
   });
 
   // ===== Daily digest (7:00 ET) =====
