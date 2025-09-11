@@ -1042,9 +1042,12 @@ export class WeatherService {
     try {
       console.log('✈️ Fetching Hurricane Hunter Aircraft Recon Data...');
       
-      // NOAA Hurricane Reconnaissance feeds
+      // NOAA Hurricane Reconnaissance feeds - Production format
+      const currentYear = new Date().getFullYear();
       const reconFeeds = [
         'https://www.nhc.noaa.gov/recon.php', // Main recon page
+        `https://www.nhc.noaa.gov/recon/${currentYear}/URNT12KNHC.txt`, // Your specific recon data format
+        `https://www.nhc.noaa.gov/recon/${currentYear}/`, // Year-specific recon directory
         'https://www.nhc.noaa.gov/data/recon/', // Raw recon data directory
         'https://www.nhc.noaa.gov/archive/recon/', // Archive recon data
         'https://www.aoml.noaa.gov/hrd/Storm_pages/reconnaissance.html' // NOAA HRD page
@@ -1084,23 +1087,38 @@ export class WeatherService {
       // Fetch real reconnaissance data
       let realReconData: HurricaneHunterData[] = [];
       
+      // Try the specific URNT12KNHC.txt format first (your URL)
       try {
-        console.log(`🔗 Fetching live Hurricane Hunter data from: ${reconFeeds[0]}`);
-        const response = await fetch(reconFeeds[0], {
+        console.log(`🔗 Fetching live Hurricane Hunter data from: ${reconFeeds[1]}`); // URNT12KNHC.txt
+        const response = await fetch(reconFeeds[1], {
           headers: { 
             'User-Agent': 'StormOps/1.0 (contact: ops@stormleadmaster.com)',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+            'Accept': 'text/plain,text/html,*/*'
           }
         });
         
         if (response.ok) {
-          const htmlText = await response.text();
-          console.log(`✅ Successfully fetched ${htmlText.length} characters of recon data`);
+          const textData = await response.text();
+          console.log(`✅ Successfully fetched ${textData.length} characters from URNT12KNHC.txt`);
           
-          // Parse Hurricane Hunter mission data from HTML
-          realReconData = this.parseHurricaneHunterHTML(htmlText);
+          // Parse URNT12KNHC text format for recon data
+          realReconData = this.parseURNT12Format(textData);
         } else {
-          console.log(`⚠️ Recon URL returned ${response.status}, using structured sample`);
+          console.log(`⚠️ URNT12KNHC.txt returned ${response.status}, trying main recon page`);
+          
+          // Fallback to main recon page
+          const fallbackResponse = await fetch(reconFeeds[0], {
+            headers: { 
+              'User-Agent': 'StormOps/1.0 (contact: ops@stormleadmaster.com)',
+              'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+            }
+          });
+          
+          if (fallbackResponse.ok) {
+            const htmlText = await fallbackResponse.text();
+            console.log(`✅ Fallback: fetched ${htmlText.length} characters of recon data`);
+            realReconData = this.parseHurricaneHunterHTML(htmlText);
+          }
         }
       } catch (error) {
         console.log(`⚠️ Could not fetch live recon data, using structured sample:`, error.message);
@@ -1122,6 +1140,79 @@ export class WeatherService {
         missions: [],
         feeds: []
       };
+    }
+  }
+
+  private parseURNT12Format(textData: string): HurricaneHunterData[] {
+    try {
+      const missions: HurricaneHunterData[] = [];
+      
+      console.log('📄 Parsing URNT12KNHC.txt format for Hurricane Hunter data...');
+      
+      // URNT12KNHC format contains standardized reconnaissance data
+      // Look for mission headers, vortex messages, and dropsonde data
+      
+      const lines = textData.split('\n');
+      let currentMission: Partial<HurricaneHunterData> = {};
+      
+      for (const line of lines) {
+        // Look for mission identifier patterns
+        if (line.includes('URNT12') || line.includes('KNHC')) {
+          if (currentMission.missionId) {
+            // Complete previous mission and start new one
+            missions.push(currentMission as HurricaneHunterData);
+          }
+          
+          currentMission = {
+            missionId: `URNT12-${Date.now()}`,
+            aircraft: 'Hurricane Hunter',
+            stormName: 'Active Storm',
+            stormId: 'ACTIVE',
+            flightTime: new Date(),
+            vortexData: {
+              centralPressure: 0,
+              eyeTemperature: 0,
+              maxWinds: 0,
+              windDirection: 0,
+              position: { latitude: 0, longitude: 0, altitude: 0 }
+            },
+            dropsondes: { count: 0, winds: [], pressures: [], temperatures: [] },
+            recon: { eyePassages: 0, lastUpdate: new Date(), quality: 'good' }
+          };
+        }
+        
+        // Parse vortex data patterns from URNT12 format
+        const pressureMatch = line.match(/(\d{3,4})\s*MB/i);
+        if (pressureMatch && currentMission.vortexData) {
+          currentMission.vortexData.centralPressure = parseInt(pressureMatch[1]);
+        }
+        
+        const windMatch = line.match(/(\d{2,3})\s*KT/i);
+        if (windMatch && currentMission.vortexData) {
+          currentMission.vortexData.maxWinds = Math.round(parseInt(windMatch[1]) * 1.15); // Convert knots to mph
+        }
+        
+        // Parse position data
+        const positionMatch = line.match(/(\d{2}\.\d)N\s+(\d{2,3}\.\d)W/i);
+        if (positionMatch && currentMission.vortexData) {
+          currentMission.vortexData.position.latitude = parseFloat(positionMatch[1]);
+          currentMission.vortexData.position.longitude = -parseFloat(positionMatch[2]);
+        }
+      }
+      
+      // Add final mission if exists
+      if (currentMission.missionId) {
+        missions.push(currentMission as HurricaneHunterData);
+      }
+      
+      missions.forEach(mission => {
+        console.log(`📄 Parsed URNT12: ${mission.missionId} pressure=${mission.vortexData.centralPressure}mb winds=${mission.vortexData.maxWinds}mph`);
+      });
+      
+      return missions;
+    } catch (error) {
+      console.error('Error parsing URNT12KNHC format:', error);
+      return [];
     }
   }
 
