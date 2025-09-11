@@ -104,31 +104,30 @@
         </div>
 
         <!-- Wind Arrow Legend -->
-        <div style="margin-top:12px;" class="legend-box">
-          <div style="font-weight:bold;margin-bottom:6px;">Surface Wind Arrows</div>
-          <div class="legend-item" style="display:flex;align-items:center;">
-            <div class="wind-arrow-tiny" style="margin-right:8px;"></div>
-            <span style="font-size:11px;">Light winds (&lt;10 mph)</span>
+        <div class="legend-box" style="margin-top:12px;">
+          <div style="font-weight:600; margin-bottom:6px;">Wind Arrow Legend</div>
+          <div class="legend-item"><span class="legend-color" style="background:#999"></span> Arrow points **to** wind direction (°)</div>
+          <div class="legend-item">Ring size ~ wind speed:
+            <div style="display:flex; gap:10px; margin-top:6px; align-items:center;">
+              <div style="position:relative; width:18px; height:18px;">
+                <div class="wind-speed-ring" style="width:18px;height:18px;border-color:rgba(0,0,0,.25)"></div>
+              </div><span style="font-size:12px;">~5 m/s (10 kt)</span>
+              <div style="position:relative; width:24px; height:24px;">
+                <div class="wind-speed-ring" style="width:24px;height:24px;border-color:rgba(0,0,0,.25)"></div>
+              </div><span style="font-size:12px;">~10 m/s (20 kt)</span>
+              <div style="position:relative; width:30px; height:30px;">
+                <div class="wind-speed-ring" style="width:30px;height:30px;border-color:rgba(0,0,0,.25)"></div>
+              </div><span style="font-size:12px;">~15+ m/s (30+ kt)</span>
+            </div>
           </div>
-          <div class="legend-item" style="display:flex;align-items:center;">
-            <div class="wind-arrow" style="margin-right:8px;"></div>
-            <span style="font-size:11px;">Moderate winds (10-25 mph)</span>
-          </div>
-          <div class="legend-item" style="display:flex;align-items:center;">
-            <div class="wind-arrow-fast" style="margin-right:8px;"></div>
-            <span style="font-size:11px;">Strong winds (&gt;25 mph)</span>
-          </div>
-          <div style="font-size:10px;color:#666;margin-top:4px;">Arrows point in wind direction</div>
         </div>
 
-        <!-- CSV Download Button -->
+        <!-- Export CSV -->
         <div style="margin-top:12px;">
-          <button id="downloadCSV" style="width:100%;padding:8px 12px;background:#28a745;color:white;border:none;border-radius:4px;cursor:pointer;font-size:13px;">
-            📥 Download Buoys in View (CSV)
-          </button>
-          <div style="font-size:10px;color:#666;margin-top:4px;text-align:center;">
-            Exports all visible stations with data
-          </div>
+          <button id="exportBuoysCsv" style="padding:8px 10px; width:100%;">⬇️ Download buoys in view (CSV)</button>
+          <p style="font-size:12px;opacity:.8;margin-top:6px;">
+            Exports stations visible on the map (ID, name, lat, lon, WTMP, WVHT, DPD, WSPD, WDIR, time UTC).
+          </p>
         </div>
       </div>
 
@@ -603,7 +602,7 @@
   }
 
   // NEW: Event handler for CSV download button
-  el("downloadCSV").addEventListener("click", downloadBuoysCSV);
+  el("exportBuoysCsv").addEventListener("click", downloadBuoysCSV);
 
 </script>
 </body>
