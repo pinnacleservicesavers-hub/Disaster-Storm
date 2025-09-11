@@ -364,6 +364,146 @@
     loadBuoy(id);
     el("toggle-buoy").checked = true;
   });
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // NEW: Surface Winds & Multi-buoy functionality
+  let windsLayer = null;
+  let multiBuoyCluster = null;
+
+  // NEW: Load Surface Winds from NDBC stations
+  function loadSurfaceWinds() {
+    if (windsLayer) { map.removeLayer(windsLayer); windsLayer = null; }
+    
+    // Get current map bounds for bbox filtering
+    const bounds = map.getBounds();
+    const bbox = `${bounds.getWest()},${bounds.getSouth()},${bounds.getEast()},${bounds.getNorth()}`;
+    
+    fetch(`/api/ndbc/stations?bbox=${encodeURIComponent(bbox)}`)
+      .then(r => r.json())
+      .then(stations => {
+        if (!stations?.length) return;
+        
+        windsLayer = L.layerGroup();
+        
+        stations.forEach(station => {
+          if (!station.lat || !station.lon || !station.windSpeed || !station.windDirection) return;
+          
+          // Create wind arrow based on speed
+          let arrowClass = 'wind-arrow';
+          if (station.windSpeed < 10) arrowClass = 'wind-arrow-tiny';
+          else if (station.windSpeed > 25) arrowClass = 'wind-arrow-fast';
+          
+          // Create custom icon with wind arrow
+          const arrowHTML = `
+            <div class="wind-speed-ring${station.windSpeed < 10 ? '-tiny' : ''}"></div>
+            <div class="${arrowClass}" style="transform: rotate(${station.windDirection}deg);"></div>
+          `;
+          
+          const windIcon = L.divIcon({
+            html: arrowHTML,
+            className: 'wind-marker',
+            iconSize: [30, 30],
+            iconAnchor: [15, 15]
+          });
+          
+          const popup = `
+            <div><strong>NDBC ${station.id}</strong></div>
+            <div>Wind: ${station.windSpeed} mph @ ${station.windDirection}°</div>
+            <div>Lat/Lon: ${station.lat.toFixed(3)}, ${station.lon.toFixed(3)}</div>
+            ${station.waveHeight ? `<div>Wave Height: ${station.waveHeight}m</div>` : ''}
+            ${station.waterTemp ? `<div>Water Temp: ${station.waterTemp}°C</div>` : ''}
+          `;
+          
+          L.marker([station.lat, station.lon], { icon: windIcon })
+            .bindPopup(popup)
+            .addTo(windsLayer);
+        });
+        
+        windsLayer.addTo(map);
+      })
+      .catch(console.error);
+  }
+
+  // NEW: Load Multi-buoy Cluster Panel
+  function loadMultiBuoyPanel() {
+    if (multiBuoyCluster) { map.removeLayer(multiBuoyCluster); multiBuoyCluster = null; }
+    
+    // Get current map bounds for regional stations
+    const bounds = map.getBounds();
+    const bbox = `${bounds.getWest()},${bounds.getSouth()},${bounds.getEast()},${bounds.getNorth()}`;
+    
+    fetch(`/api/ndbc/stations?bbox=${encodeURIComponent(bbox)}`)
+      .then(r => r.json())
+      .then(stations => {
+        if (!stations?.length) return;
+        
+        // Create MarkerCluster group
+        multiBuoyCluster = L.markerClusterGroup({
+          maxClusterRadius: 80,
+          spiderfyOnMaxZoom: true,
+          showCoverageOnHover: false,
+          zoomToBoundsOnClick: true
+        });
+        
+        stations.forEach(station => {
+          if (!station.lat || !station.lon) return;
+          
+          // Color-code by data availability
+          let color = '#666666'; // gray for minimal data
+          if (station.windSpeed && station.waveHeight) color = '#28a745'; // green for full data
+          else if (station.windSpeed || station.waveHeight) color = '#ffc107'; // yellow for partial data
+          
+          const buoyIcon = L.divIcon({
+            html: `<div style="background:${color};width:12px;height:12px;border-radius:50%;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.3);"></div>`,
+            className: 'buoy-cluster-marker',
+            iconSize: [16, 16],
+            iconAnchor: [8, 8]
+          });
+          
+          const popup = `
+            <div><strong>NDBC Station ${station.id}</strong></div>
+            <div>Location: ${station.lat.toFixed(3)}, ${station.lon.toFixed(3)}</div>
+            ${station.windSpeed ? `<div>Wind Speed: ${station.windSpeed} mph</div>` : ''}
+            ${station.windDirection ? `<div>Wind Direction: ${station.windDirection}°</div>` : ''}
+            ${station.waveHeight ? `<div>Wave Height: ${station.waveHeight}m</div>` : ''}
+            ${station.wavePeriod ? `<div>Wave Period: ${station.wavePeriod}s</div>` : ''}
+            ${station.waterTemp ? `<div>Water Temperature: ${station.waterTemp}°C</div>` : ''}
+            ${station.airTemp ? `<div>Air Temperature: ${station.airTemp}°C</div>` : ''}
+            <div style="margin-top:8px;"><button onclick="loadBuoy('${station.id}')">Load Full Data</button></div>
+          `;
+          
+          const marker = L.marker([station.lat, station.lon], { icon: buoyIcon })
+            .bindPopup(popup);
+            
+          multiBuoyCluster.addLayer(marker);
+        });
+        
+        map.addLayer(multiBuoyCluster);
+      })
+      .catch(console.error);
+  }
+
+  // NEW: Event handlers for wind arrows and multi-buoy panel
+  el("toggle-winds").addEventListener("change", (e) => {
+    if (e.target.checked) { loadSurfaceWinds(); }
+    else if (windsLayer) { map.removeLayer(windsLayer); windsLayer = null; }
+  });
+
+  el("toggle-multibuoy").addEventListener("change", (e) => {
+    if (e.target.checked) { loadMultiBuoyPanel(); }
+    else if (multiBuoyCluster) { map.removeLayer(multiBuoyCluster); multiBuoyCluster = null; }
+  });
+
+  // NEW: Auto-refresh winds and buoys when map bounds change (optional)
+  map.on('moveend', () => {
+    if (el("toggle-winds").checked && windsLayer) {
+      setTimeout(loadSurfaceWinds, 500); // Small delay for performance
+    }
+    if (el("toggle-multibuoy").checked && multiBuoyCluster) {
+      setTimeout(loadMultiBuoyPanel, 500);
+    }
+  });
+
 </script>
 </body>
 </html>
