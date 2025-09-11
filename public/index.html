@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Storm Tracking - Wave Heights & Satellite</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <!-- Esri Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/esri-leaflet@3.0.10/dist/esri-leaflet.css" />
+    
+    <style>
+        body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
+        #map { height: 100vh; width: 100vw; }
+        .leaflet-control-layers { max-height: 300px; overflow-y: auto; }
+        .info-box {
+            position: absolute;
+            top: 10px;
+            left: 60px;
+            background: rgba(255,255,255,0.9);
+            padding: 10px;
+            border-radius: 5px;
+            z-index: 1000;
+            font-size: 14px;
+            max-width: 300px;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    
+    <div class="info-box">
+        <h3>🌊 Storm Operations Center</h3>
+        <p><strong>Wave Heights:</strong> NOAA nowCOAST (Live)</p>
+        <p><strong>Buoys:</strong> NDBC Stations</p>
+        <p><strong>Alerts:</strong> NWS Warnings</p>
+        <p><strong>Storms:</strong> NHC Tracking</p>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <!-- Esri Leaflet JS -->
+    <script src="https://unpkg.com/esri-leaflet@3.0.10/dist/esri-leaflet.js"></script>
+
+    <script>
+        // Initialize map
+        const map = L.map('map').setView([25.7617, -80.1918], 7); // Miami area
+
+        // Base layers
+        const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        });
+
+        const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: '© Esri'
+        });
+
+        // Add default base layer
+        osm.addTo(map);
+
+        // NOAA nowCOAST Wave Height Layer (WW3 Significant Wave Height)
+        const waveHeightLayer = L.esri.dynamicMapLayer({
+            url: 'https://nowcoast.noaa.gov/arcgis/rest/services/nowcoast/analysis_meteoocean_sfc_qpe_time/MapServer',
+            layers: [1], // Wave height layer
+            opacity: 0.7,
+            f: 'image'
+        });
+
+        // NOAA nowCOAST Sea Surface Temperature
+        const sstLayer = L.esri.dynamicMapLayer({
+            url: 'https://nowcoast.noaa.gov/arcgis/rest/services/nowcoast/sat_meteo_imagery_time/MapServer',
+            layers: [1], // SST layer
+            opacity: 0.6,
+            f: 'image'
+        });
+
+        // GOES Satellite Infrared Overlay
+        const goesIRLayer = L.esri.dynamicMapLayer({
+            url: 'https://nowcoast.noaa.gov/arcgis/rest/services/nowcoast/sat_meteo_imagery_goes_time/MapServer',
+            layers: [1], // GOES IR
+            opacity: 0.5,
+            f: 'image'
+        });
+
+        // Layer control
+        const baseLayers = {
+            "OpenStreetMap": osm,
+            "Satellite": satellite
+        };
+
+        const overlayLayers = {
+            "🌊 Wave Heights (WAVEWATCH III)": waveHeightLayer,
+            "🌡️ Sea Surface Temperature": sstLayer,
+            "🛰️ GOES Infrared": goesIRLayer
+        };
+
+        L.control.layers(baseLayers, overlayLayers).addTo(map);
+
+        // Add wave height layer by default
+        waveHeightLayer.addTo(map);
+
+        // Load live data from your API endpoints
+        async function loadLiveData() {
+            try {
+                // NDBC Buoys
+                const buoyResponse = await fetch('/api/weather/buoys');
+                const buoyData = await buoyResponse.json();
+                
+                buoyData.forEach(buoy => {
+                    if (buoy.lat && buoy.lon) {
+                        const marker = L.marker([buoy.lat, buoy.lon])
+                            .bindPopup(`
+                                <b>🌊 Buoy ${buoy.stationId}</b><br>
+                                Wave Height: ${buoy.measurements?.significantWaveHeight || 'N/A'} m<br>
+                                Wind: ${buoy.measurements?.windSpeed || 'N/A'} mph<br>
+                                Pressure: ${buoy.measurements?.atmosphericPressure || 'N/A'} mb
+                            `);
+                        marker.addTo(map);
+                    }
+                });
+
+                // NWS Alerts
+                const alertResponse = await fetch('/api/weather/alerts');
+                const alertData = await alertResponse.json();
+                
+                alertData.forEach(alert => {
+                    if (alert.geometry) {
+                        const alertLayer = L.geoJSON(alert.geometry, {
+                            style: {
+                                color: alert.severity === 'extreme' ? '#dc2626' : 
+                                       alert.severity === 'severe' ? '#ea580c' : '#2563eb',
+                                weight: 2,
+                                fillOpacity: 0.2
+                            }
+                        }).bindPopup(`
+                            <b>🚨 ${alert.title}</b><br>
+                            ${alert.description}<br>
+                            <i>Severity: ${alert.severity}</i>
+                        `);
+                        alertLayer.addTo(map);
+                    }
+                });
+
+                // Hurricane Data
+                const nhcResponse = await fetch('/api/weather/nhc');
+                const nhcData = await nhcResponse.json();
+                
+                if (nhcData.storms) {
+                    nhcData.storms.forEach(storm => {
+                        if (storm.geometry) {
+                            const stormLayer = L.geoJSON(storm.geometry, {
+                                style: {
+                                    color: '#dc2626',
+                                    weight: 3,
+                                    fillOpacity: 0.3
+                                }
+                            }).bindPopup(`
+                                <b>🌀 ${storm.name || 'Active Storm'}</b><br>
+                                ${storm.advisory || 'Hurricane tracking data'}
+                            `);
+                            stormLayer.addTo(map);
+                        }
+                    });
+                }
+
+            } catch (error) {
+                console.log('Note: Live data loading failed, map tiles still work:', error.message);
+            }
+        }
+
+        // Load live data on map ready
+        map.whenReady(() => {
+            loadLiveData();
+            
+            // Refresh data every 5 minutes
+            setInterval(loadLiveData, 5 * 60 * 1000);
+        });
+
+        // Map click handler for coordinates
+        map.on('click', function(e) {
+            console.log('Coordinates:', e.latlng.lat, e.latlng.lng);
+        });
+    </script>
+</body>
+</html>
