@@ -2312,6 +2312,58 @@ Email: strategiclandmgmt@gmail.com
     }
   });
 
+  // Individual NDBC Buoy Station Data
+  app.get('/api/weather/buoys/:stationId', async (req, res) => {
+    try {
+      const { stationId } = req.params;
+      const { format } = req.query;
+      
+      let buoyData;
+      if (format === 'json') {
+        // Try JSON format first
+        buoyData = await weatherService.getNDBC_BuoyStationJSON(stationId);
+      } else {
+        // Default to text format
+        buoyData = await weatherService.getNDBC_BuoyStation(stationId);
+      }
+      
+      if (!buoyData) {
+        res.status(404).json({ error: `NDBC station ${stationId} not found or no data available` });
+        return;
+      }
+      
+      res.json(buoyData);
+    } catch (error) {
+      console.error(`Error fetching NDBC station ${req.params.stationId}:`, error);
+      res.status(500).json({ error: `Failed to fetch NDBC station ${req.params.stationId}` });
+    }
+  });
+
+  // Realtime2 format endpoints (matching NDBC structure)
+  app.get('/api/weather/realtime2/:stationId', async (req, res) => {
+    try {
+      const { stationId } = req.params;
+      const { format } = req.query;
+      
+      let buoyData;
+      if (format === 'json') {
+        buoyData = await weatherService.getNDBC_BuoyStationJSON(stationId);
+      } else {
+        buoyData = await weatherService.getNDBC_BuoyStation(stationId);
+      }
+      
+      if (!buoyData) {
+        res.status(404).json({ error: `NDBC station ${stationId} not found` });
+        return;
+      }
+      
+      res.json(buoyData);
+    } catch (error) {
+      console.error(`Error fetching realtime2 station ${req.params.stationId}:`, error);
+      res.status(500).json({ error: `Failed to fetch realtime2 station ${req.params.stationId}` });
+    }
+  });
+
   // Comprehensive weather data (all sources combined)
   app.get('/api/weather/comprehensive', async (req, res) => {
     try {

@@ -1,0 +1,119 @@
+// 1A) UPDATE your existing /api/nowcoast/sample route's whitelist + support ?time=
+app.get("/api/nowcoast/sample", async (req, res) => {
+  try {
+    const { service, lon, lat, layerId = "0", time } = req.query;
+    const ALLOWED = new Set([
+      "ww3_sigwaveheight_time",
+      "ww3_peakwaveperiod_time",
+      "ww3_primarywavedir_time",
+      // NEW: NDFD surface winds (time-enabled)
+      "forecast_meteoceanhydro_sfc_ndfd_time",
+    ]);
+    if (!ALLOWED.has(String(service))) {
+      return res.status(400).json({ error: "Invalid service" });
+    }
+    const x = Number(lon), y = Number(lat);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) {
+      return res.status(400).json({ error: "Provide lon,lat as numbers" });
+    }
+
+    const endpoint = `https://nowcoast.noaa.gov/arcgis/rest/services/nowcoast/${service}/MapServer/identify`;
+    const params = new URLSearchParams({
+      f: "json",
+      geometry: JSON.stringify({ x, y, spatialReference: { wkid: 4326 } }),
+      geometryType: "esriGeometryPoint",
+      sr: "4326",
+      layers: `all:${layerId}`,
+      tolerance: "1",
+      mapExtent: "-180,-90,180,90",
+      imageDisplay: "800,600,96",
+      returnGeometry: "false",
+    });
+
+    if (time) params.set("time", String(time)); // <-- NEW
+
+    const r = await fetch(`${endpoint}?${params}`, {
+      headers: { "User-Agent": "SLM-StormApp/1.0" },
+    });
+    if (!r.ok) throw new Error(`nowCOAST identify failed: ${r.status}`);
+    const data = await r.json();
+
+    let value = null, attrs = {};
+    if (Array.isArray(data.results) && data.results.length) {
+      attrs = data.results[0].attributes || {};
+      const keys = ["value","Pixel Value","Pixel_Value","Raster.ServicePixelValue","GRAY_INDEX","Band_1"];
+      for (const k of keys) {
+        if (k in attrs) {
+          const v = Number(String(attrs[k]).replace(/[^0-9.\-]/g, ""));
+          if (Number.isFinite(v)) { value = v; break; }
+        }
+      }
+      if (value === null) {
+        for (const v of Object.values(attrs)) {
+          const num = Number(String(v).replace(/[^0-9.\-]/g, ""));
+          if (Number.isFinite(num)) { value = num; break; }
+        }
+      }
+    }
+
+    // Units hint
+    let units = "";
+    if (service === "forecast_meteoceanhydro_sfc_ndfd_time") {
+      // Speed is in knots; direction in degrees per NDFD wind products
+      // (Direction vs Speed depends on chosen layerId; we just echo value here.)
+      units = "NDFD(kt/deg)";
+    } else if (service === "ww3_sigwaveheight_time") units = "m";
+    else if (service === "ww3_peakwaveperiod_time") units = "s";
+    else if (service === "ww3_primarywavedir_time") units = "deg";
+
+    res.json({ service, lon: x, lat: y, value, units, attributes: attrs, layerId: Number(layerId) });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+// 1B) NEW: discover layer IDs for NDFD wind speed & direction (and latest time)
+app.get("/api/nowcoast/layers", async (req, res) => {
+  try {
+    const { service } = req.query;
+    const ALLOWED = new Set([
+      "forecast_meteoceanhydro_sfc_ndfd_time",
+      "ww3_sigwaveheight_time",
+      "ww3_peakwaveperiod_time",
+      "ww3_primarywavedir_time",
+    ]);
+    if (!ALLOWED.has(String(service))) {
+      return res.status(400).json({ error: "Invalid service" });
+    }
+    const url = `https://nowcoast.noaa.gov/arcgis/rest/services/nowcoast/${service}/MapServer?f=pjson`;
+    const resp = await fetch(url, { headers: { "User-Agent": "SLM-StormApp/1.0" } });
+    if (!resp.ok) throw new Error(`Layer list fetch failed: ${resp.status}`);
+    const json = await resp.json();
+
+    const layers = json?.layers || [];
+    const byName = (rx) => layers.find(l => rx.test(l?.name || ""))?.id;
+
+    // Try several common nowCOAST layer names for NDFD winds
+    const speedId =
+      byName(/wind\s*speed/i) ??
+      byName(/sustained\s*wind/i) ??
+      byName(/sfc.*wind.*speed/i);
+
+    const dirId =
+      byName(/wind\s*direction/i) ??
+      byName(/sfc.*wind.*dir/i);
+
+    // Grab a latest time from the speed layer (fallback to dir layer)
+    const layerForTime = layers.find(l => l.id === speedId) || layers.find(l => l.id === dirId);
+    let latestTime = null;
+    const ti = layerForTime?.timeInfo;
+    if (ti?.timeExtent?.length) {
+      // timeExtent is [startMS, endMS]
+      latestTime = ti.timeExtent[1];
+    }
+
+    res.json({ service, speedId, dirId, latestTime, rawLayerCount: layers.length });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});

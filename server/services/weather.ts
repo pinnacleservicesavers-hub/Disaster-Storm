@@ -882,6 +882,89 @@ export class WeatherService {
     }
   }
 
+  private parseNDBCSingleStation(textData: string, stationId: string): BuoyData | null {
+    try {
+      const lines = textData.split('\n');
+      if (lines.length < 3) return null;
+      
+      // Parse header to understand data format
+      const headerLine = lines[0].trim();
+      const unitsLine = lines[1].trim();
+      const dataLine = lines[2].trim(); // Most recent observation
+      
+      const headers = headerLine.split(/\s+/);
+      const data = dataLine.split(/\s+/);
+      
+      if (data.length < headers.length) return null;
+      
+      // Map headers to data values
+      const observation: any = {};
+      headers.forEach((header, index) => {
+        const value = data[index];
+        if (value && value !== 'MM') { // MM means missing data
+          observation[header] = parseFloat(value) || value;
+        }
+      });
+      
+      // Extract standard measurements
+      const buoyData: BuoyData = {
+        stationId,
+        name: `NDBC Station ${stationId}`,
+        latitude: 0, // Will be looked up separately
+        longitude: 0,
+        waterDepth: 0,
+        measurements: {
+          waterTemperature: observation.WTMP,
+          airTemperature: observation.ATMP,
+          significantWaveHeight: observation.WVHT,
+          peakWavePeriod: observation.DPD,
+          meanWaveDirection: observation.MWD,
+          windSpeed: observation.WSPD,
+          windDirection: observation.WDIR,
+          atmosphericPressure: observation.PRES
+        },
+        timestamp: new Date(),
+        status: 'active'
+      };
+      
+      return buoyData;
+    } catch (error) {
+      console.error(`Error parsing single station ${stationId}:`, error);
+      return null;
+    }
+  }
+
+  private parseNDBCJSON(jsonData: any, stationId: string): BuoyData | null {
+    try {
+      // Handle JSON format (if NDBC provides it)
+      // This is a placeholder for when JSON format becomes available
+      const buoyData: BuoyData = {
+        stationId,
+        name: jsonData.name || `NDBC Station ${stationId}`,
+        latitude: jsonData.latitude || 0,
+        longitude: jsonData.longitude || 0,
+        waterDepth: jsonData.waterDepth || 0,
+        measurements: {
+          waterTemperature: jsonData.measurements?.waterTemperature,
+          airTemperature: jsonData.measurements?.airTemperature,
+          significantWaveHeight: jsonData.measurements?.significantWaveHeight,
+          peakWavePeriod: jsonData.measurements?.peakWavePeriod,
+          meanWaveDirection: jsonData.measurements?.meanWaveDirection,
+          windSpeed: jsonData.measurements?.windSpeed,
+          windDirection: jsonData.measurements?.windDirection,
+          atmosphericPressure: jsonData.measurements?.atmosphericPressure
+        },
+        timestamp: new Date(jsonData.timestamp || Date.now()),
+        status: jsonData.status || 'active'
+      };
+      
+      return buoyData;
+    } catch (error) {
+      console.error(`Error parsing JSON for station ${stationId}:`, error);
+      return null;
+    }
+  }
+
   private getSampleBuoyData(): BuoyData[] {
     return [
       {
