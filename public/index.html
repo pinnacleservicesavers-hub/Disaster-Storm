@@ -1241,21 +1241,6 @@
     exportBtn.addEventListener("click", () => exportBuoysCSV());
   }
 
-  // Copy button
-  const copyBtn = document.getElementById("copyShareLink");
-  if (copyBtn) {
-    copyBtn.addEventListener("click", async () => {
-      const url = makeShareUrl();
-      try {
-        await navigator.clipboard.writeText(url);
-        alert("Share link copied!");
-      } catch {
-        // Fallback if clipboard API blocked
-        prompt("Copy this link:", url);
-      }
-    });
-  }
-
   // ─────────────────────────────────────────────────────────────────────────────
   // NEW: Regional Alert Filtering Event Handlers
   el("alertRegion").addEventListener("change", () => {
