@@ -1182,10 +1182,9 @@
     return u.toString();
   }
 
-  // Apply state from URL (center/zoom, toggles, buoy ID, NDFD time)
   async function applyStateFromUrl() {
     const q = new URLSearchParams(location.search);
-    // map view
+
     const lat = parseFloat(q.get("lat"));
     const lon = parseFloat(q.get("lon"));
     const z   = parseInt(q.get("z"), 10);
@@ -1193,20 +1192,18 @@
       map.setView([lat, lon], z);
     }
 
-    // toggles
     const layers = (q.get("l") || "").split(",").filter(Boolean);
     for (const key of layers) {
       const id = LAYER_KEYS[key];
       if (id) setToggle(id, true);
     }
 
-    // buoy ID
     const b = q.get("b");
     if (b) {
       const input = document.getElementById("buoyId");
       if (input) input.value = b;
       if (layers.includes("buoy")) {
-        // layer toggle already fired; marker will use the input's value
+        // toggle handler will load the marker using the current input value
       }
     }
 
@@ -1216,22 +1213,15 @@
       const idx = nearestIndex(t, NDFD_TIMES);
       timeSlider.value = String(idx);
       NDFD_TIME_INDEX = idx;
-      updateNdfdTimeLabel();   // updates label + badge
-      applyNdfdTimeToLayers(); // pushes to tile + arrows
+      updateNdfdTimeLabel();
+      applyNdfdTimeToLayers();
     }
 
-    // CSV column selections
-    const csvCols = q.get("csv");
-    if (csvCols) {
-      const columns = csvCols.split(",").filter(Boolean);
-      setSelectedCsvColumns(columns);
-    }
-
-    // CSV row limit
+    // NEW: CSV column selection + limit
+    const csv = (q.get("csv") || "").split(",").filter(Boolean);
+    if (csv.length) setSelectedCsvColumns(csv);
     const csvLimit = parseInt(q.get("csvLimit"), 10);
-    if (Number.isFinite(csvLimit)) {
-      setCsvLimit(csvLimit);
-    }
+    if (Number.isFinite(csvLimit)) setCsvLimit(csvLimit);
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
