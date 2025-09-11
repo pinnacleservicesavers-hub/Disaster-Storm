@@ -715,33 +715,46 @@
     const stations = await fetch(`/api/ndbc/stations?bbox=${bbox}`).then(r => r.json());
     const subset = stations.slice(0, limit); // keep it reasonable
 
-    // 2) Pull each station's latest observation
+    // 2) Pull each station's latest observation + WW3 model data
     const header = [
       "station_id","station_name","lat","lon",
       "time_utc","WTMP_C","WVHT_m","DPD_s","APD_s","MWD_deg",
-      "WSPD_mps","GST_mps","WDIR_deg","PRES_hPa"
+      "WSPD_mps","GST_mps","WDIR_deg","PRES_hPa",
+      "WW3_SigWaveHeight_m","WW3_PeakWavePeriod_s","WW3_PrimaryWaveDir_deg"
     ];
     const rows = [toCsvRow(header)];
 
     for (const s of subset) {
       try {
+        // Get buoy observation data
         const data = await fetch(`/api/ndbc/${s.id}`).then(r => r.json());
         const r = data?.record || {};
+        
+        // Get WW3 model data at buoy location
+        const ww3Promises = [
+          fetch(`/api/nowcoast/sample?service=ww3_sigwaveheight_time&lon=${s.lon}&lat=${s.lat}`).then(r => r.json()).catch(() => ({ value: null })),
+          fetch(`/api/nowcoast/sample?service=ww3_peakwaveperiod_time&lon=${s.lon}&lat=${s.lat}`).then(r => r.json()).catch(() => ({ value: null })),
+          fetch(`/api/nowcoast/sample?service=ww3_primarywavedir_time&lon=${s.lon}&lat=${s.lat}`).then(r => r.json()).catch(() => ({ value: null }))
+        ];
+        
+        const [ww3Height, ww3Period, ww3Dir] = await Promise.all(ww3Promises);
+        
         rows.push(toCsvRow([
           s.id, s.name || "", s.lat, s.lon,
           r.timeUTC || "",
           r.WTMP_C ?? "", r.WVHT_m ?? "", r.DPD_sec ?? "", r.APD_sec ?? "", r.MWD_deg ?? "",
-          r.WSPD_mps ?? "", r.GST_mps ?? "", r.WDIR_deg ?? "", r.PRES_hPa ?? ""
+          r.WSPD_mps ?? "", r.GST_mps ?? "", r.WDIR_deg ?? "", r.PRES_hPa ?? "",
+          ww3Height.value ?? "", ww3Period.value ?? "", ww3Dir.value ?? ""
         ]));
       } catch (e) {
         // still push a minimal row so crews see the station location
-        rows.push(toCsvRow([s.id, s.name || "", s.lat, s.lon, "", "", "", "", "", "", "", "", "", ""]));
+        rows.push(toCsvRow([s.id, s.name || "", s.lat, s.lon, "", "", "", "", "", "", "", "", "", "", "", "", ""]));
       }
     }
 
     const csv = rows.join("\n");
     const now = new Date().toISOString().replace(/[:T]/g, "-").split(".")[0];
-    downloadBlob(csv, `buoys_in_view_${now}.csv`);
+    downloadBlob(csv, `buoys_obs_vs_ww3_${now}.csv`);
   }
 
   // Hook up the button
