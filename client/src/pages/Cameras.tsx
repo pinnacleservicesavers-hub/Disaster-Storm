@@ -8,7 +8,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MapPin, Camera, AlertTriangle, DollarSign, Bell, Heart, Eye } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
-import { TrafficCameraMap } from '@/components/TrafficCameraMap';
+import { MapView } from '@/components/MapView';
 import { CameraViewer } from '@/components/CameraViewer';
 import type { ContractorWatchlist, InsertContractorWatchlist } from '@shared/schema';
 
@@ -341,10 +341,12 @@ export function TrafficCameras() {
 
         <TabsContent value="map" className="space-y-4">
           <div className="h-[600px] rounded-lg border">
-            <TrafficCameraMap 
+            <MapView 
               selectedState={selectedState}
               selectedCounty={selectedCounty}
-              alertsOnly={alertsOnly}
+              showIncidentsOnly={alertsOnly}
+              showCamerasOnly={false}
+              className="h-full"
             />
           </div>
         </TabsContent>
