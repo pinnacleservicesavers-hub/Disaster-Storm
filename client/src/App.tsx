@@ -1,8 +1,9 @@
 import { Route, Switch, Link, useLocation } from 'wouter';
 import StormOpsProHub from "./StormOpsProHub";
 import WeatherCenter from "./pages/WeatherCenter";
+import { TrafficCameras } from "./pages/TrafficCameras";
 import { Button } from '@/components/ui/button';
-import { Cloud, Home, Menu } from 'lucide-react';
+import { Cloud, Home, Menu, Camera } from 'lucide-react';
 
 function Navigation() {
   const [location] = useLocation();
@@ -37,6 +38,17 @@ function Navigation() {
                 Weather Center
               </Button>
             </Link>
+            
+            <Link href="/traffic-cameras">
+              <Button 
+                variant={location === '/traffic-cameras' ? 'default' : 'ghost'} 
+                size="sm"
+                data-testid="nav-traffic-cameras"
+              >
+                <Camera className="w-4 h-4 mr-2" />
+                TrafficCamWatcher
+              </Button>
+            </Link>
           </div>
         </div>
       </div>
@@ -58,6 +70,12 @@ export default function App() {
           <title>Weather Center - StormLead Master</title>
           <meta name="description" content="Live weather monitoring, alerts, radar data, and hurricane tracking for emergency storm response operations" />
           <WeatherCenter />
+        </Route>
+        
+        <Route path="/traffic-cameras">
+          <title>TrafficCamWatcher - StormLead Master</title>
+          <meta name="description" content="Monitor live traffic cameras and incidents across multiple states with AI-powered damage detection and contractor opportunity identification" />
+          <TrafficCameras />
         </Route>
         
         <Route path="/">
