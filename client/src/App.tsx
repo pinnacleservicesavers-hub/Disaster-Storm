@@ -1,7 +1,7 @@
 import { Route, Switch, Link, useLocation } from 'wouter';
 import StormOpsProHub from "./StormOpsProHub";
 import WeatherCenter from "./pages/WeatherCenter";
-import { TrafficCameras } from "./pages/TrafficCameras";
+import { TrafficCameras } from "./pages/Cameras";
 import { Button } from '@/components/ui/button';
 import { Cloud, Home, Menu, Camera } from 'lucide-react';
 

@@ -1,5 +1,6 @@
 import { kml } from '@tmcw/togeojson';
 import { DOMParser } from '@xmldom/xmldom';
+import AdmZip from 'adm-zip';
 
 export interface WeatherData {
   alerts: WeatherAlert[];
@@ -86,13 +87,18 @@ export interface WaveData {
 export interface WaveModelData {
   global: WaveData[];
   regional: WaveData[];
-  nearshore: WaveData[];
+  nearshore?: WaveData[];
   lastUpdate?: Date;
   modelInfo?: {
-    name: string;
+    name?: string;
     resolution: string;
-    coverage: string;
-    updateFrequency: string;
+    coverage?: string;
+    updateFrequency?: string;
+    globalModel?: string;
+    regionalModel?: string;
+    forecastLength?: string;
+    atlanticEndpoint?: string;
+    dodsEndpoint?: string;
   };
 }
 
@@ -1392,21 +1398,201 @@ class WeatherService {
     }
   }
 
+  /**
+   * Helper function to validate and sanitize XML content before parsing
+   */
+  private isValidXmlContent(content: string): boolean {
+    if (!content || typeof content !== 'string') return false;
+    
+    // Check for basic XML structure indicators
+    const xmlStartPattern = /^\s*<[?!]?[a-zA-Z]/;
+    if (!xmlStartPattern.test(content)) return false;
+    
+    // Check for obvious binary content indicators
+    const binaryIndicators = /[\x00-\x08\x0B\x0C\x0E-\x1F]/;
+    if (binaryIndicators.test(content)) return false;
+    
+    // Check for basic XML tag structure
+    const tagPattern = /<\/?[a-zA-Z][^>]*>/;
+    if (!tagPattern.test(content)) return false;
+    
+    return true;
+  }
+
+  /**
+   * Helper function to sanitize XML content by removing problematic characters
+   */
+  private sanitizeXmlContent(content: string): string {
+    if (!content) return '';
+    
+    // Remove null bytes and other problematic control characters
+    let sanitized = content.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '');
+    
+    // Remove any potential BOM characters
+    sanitized = sanitized.replace(/^\uFEFF/, '');
+    
+    // Trim whitespace
+    sanitized = sanitized.trim();
+    
+    return sanitized;
+  }
+
+  /**
+   * Helper function to safely parse individual KML content with error handling
+   */
+  private parseKMLContent(kmlContent: string, source: string): any[] {
+    try {
+      // Validate XML content before processing
+      if (!this.isValidXmlContent(kmlContent)) {
+        console.log(`❌ Invalid XML content in: ${source}`);
+        return [];
+      }
+      
+      // Sanitize the content
+      const sanitizedContent = this.sanitizeXmlContent(kmlContent);
+      
+      if (!sanitizedContent) {
+        console.log(`⚠️  No content after sanitization: ${source}`);
+        return [];
+      }
+      
+      // Create a custom error handler for xmldom
+      const errorHandler = {
+        warning: (msg: string) => {
+          console.log(`⚠️  XML Warning in ${source}: ${msg}`);
+        },
+        error: (msg: string) => {
+          console.log(`❌ XML Error in ${source}: ${msg}`);
+          throw new Error(`XML parsing error: ${msg}`);
+        },
+        fatalError: (msg: string) => {
+          console.log(`💥 XML Fatal Error in ${source}: ${msg}`);
+          throw new Error(`XML fatal error: ${msg}`);
+        }
+      };
+      
+      // Try to parse the XML with error handling
+      const doc = new DOMParser({ errorHandler }).parseFromString(sanitizedContent, 'text/xml');
+      
+      // Check if parsing resulted in a valid document
+      if (!doc || !doc.documentElement) {
+        console.log(`❌ Failed to create valid DOM for: ${source}`);
+        return [];
+      }
+      
+      // Convert to GeoJSON
+      const geoData = kml(doc);
+      
+      if (geoData?.type === "FeatureCollection" && Array.isArray(geoData.features)) {
+        console.log(`✅ Successfully processed ${source}: ${geoData.features.length} features`);
+        return geoData.features;
+      } else {
+        console.log(`⚠️  No valid GeoJSON features in: ${source}`);
+        return [];
+      }
+      
+    } catch (error) {
+      console.log(`❌ Failed to process KML content from ${source}: ${error.message}`);
+      return [];
+    }
+  }
+
   private async parseNHCFromKML(kmlUrl: string): Promise<any[]> {
     try {
+      console.log(`🔍 Processing: ${kmlUrl}`);
+      
       const response = await fetch(kmlUrl, {
         headers: { 'User-Agent': 'StormOps/1.0 (contact: ops@stormleadmaster.com)' }
       });
       
-      if (!response.ok) return [];
+      if (!response.ok) {
+        console.log(`❌ HTTP ${response.status} for ${kmlUrl}`);
+        return [];
+      }
       
-      const kmlText = await response.text();
-      const doc = new DOMParser().parseFromString(kmlText, 'text/xml');
-      const geoData = kml(doc);
+      // Check if this is a KMZ file (ZIP archive) or plain KML
+      const isKMZ = kmlUrl.toLowerCase().includes('.kmz');
       
-      return geoData.features || []; // Return all geometries: Points (storms), Lines (tracks), Polygons (cones, radii, warnings)
+      if (isKMZ) {
+        console.log(`📦 Processing KMZ archive: ${kmlUrl}`);
+        return await this.processKMZArchive(response, kmlUrl);
+      } else {
+        console.log(`📄 Processing KML file: ${kmlUrl}`);
+        const kmlContent = await response.text();
+        return this.parseKMLContent(kmlContent, kmlUrl);
+      }
+      
     } catch (error) {
-      console.error('Error parsing NHC KML:', error);
+      console.error(`💥 Critical error processing ${kmlUrl}:`, error.message);
+      return [];
+    }
+  }
+
+  /**
+   * Process KMZ archive and extract KML files
+   */
+  private async processKMZArchive(response: Response, sourceUrl: string): Promise<any[]> {
+    try {
+      const buffer = Buffer.from(await response.arrayBuffer());
+      const zip = new AdmZip(buffer);
+      const entries = zip.getEntries();
+      
+      const allFeatures: any[] = [];
+      const processingStats = {
+        totalKmlFiles: 0,
+        successfullyParsed: 0,
+        failedParsing: 0,
+        emptyFiles: 0,
+        invalidXml: 0
+      };
+
+      for (const entry of entries) {
+        if (!entry.entryName.toLowerCase().endsWith(".kml")) continue;
+        
+        processingStats.totalKmlFiles++;
+        console.log(`🔍 Processing KML file: ${entry.entryName}`);
+        
+        try {
+          // Get raw content
+          const rawContent = entry.getData().toString("utf8");
+          
+          // Check if file is empty
+          if (!rawContent.trim()) {
+            console.log(`⚠️  Empty KML file: ${entry.entryName}`);
+            processingStats.emptyFiles++;
+            continue;
+          }
+          
+          // Parse the KML content
+          const features = this.parseKMLContent(rawContent, `${sourceUrl}:${entry.entryName}`);
+          
+          if (features.length > 0) {
+            allFeatures.push(...features);
+            processingStats.successfullyParsed++;
+          } else {
+            processingStats.failedParsing++;
+          }
+          
+        } catch (kmlError) {
+          // Individual KML file processing failed, but continue with others
+          console.log(`❌ Failed to process ${entry.entryName}: ${kmlError.message}`);
+          processingStats.failedParsing++;
+          continue;
+        }
+      }
+      
+      console.log(`📊 KMZ Processing Summary for ${sourceUrl}:
+      - Total KML files: ${processingStats.totalKmlFiles}
+      - Successfully parsed: ${processingStats.successfullyParsed}
+      - Failed parsing: ${processingStats.failedParsing}
+      - Empty files: ${processingStats.emptyFiles}
+      - Invalid XML: ${processingStats.invalidXml}
+      - Total features extracted: ${allFeatures.length}`);
+      
+      return allFeatures;
+      
+    } catch (error) {
+      console.error(`💥 Failed to process KMZ archive ${sourceUrl}:`, error.message);
       return [];
     }
   }
@@ -2704,6 +2890,15 @@ class WeatherService {
       const waveModelData: WaveModelData = {
         global: [
           {
+            significantHeight: 2.5,
+            peakPeriod: 8.0,
+            direction: 225,
+            timestamp: new Date(),
+            location: {
+              latitude: 35.0,
+              longitude: -75.0
+            },
+            source: 'WAVEWATCH-III-Global',
             modelRun: new Date(),
             forecastHour: 0,
             waveHeight: 2.5,
@@ -2713,12 +2908,18 @@ class WeatherService {
             swellHeight: 1.2,
             swellPeriod: 12.0,
             swellDirection: 240,
-            latitude: 35.0,
-            longitude: -75.0,
-            validTime: new Date(),
-            source: 'WAVEWATCH-III-Global'
+            validTime: new Date()
           },
           {
+            significantHeight: 2.8,
+            peakPeriod: 8.5,
+            direction: 230,
+            timestamp: new Date(),
+            location: {
+              latitude: 40.0,
+              longitude: -70.0
+            },
+            source: 'WAVEWATCH-III-Global',
             modelRun: new Date(),
             forecastHour: 6,
             waveHeight: 2.8,
@@ -2728,14 +2929,20 @@ class WeatherService {
             swellHeight: 1.3,
             swellPeriod: 12.5,
             swellDirection: 245,
-            latitude: 40.0,
-            longitude: -70.0,
-            validTime: new Date(),
-            source: 'WAVEWATCH-III-Global'
+            validTime: new Date()
           }
         ],
         regional: [
           {
+            significantHeight: 1.8,
+            peakPeriod: 7.2,
+            direction: 180,
+            timestamp: new Date(),
+            location: {
+              latitude: 32.0,
+              longitude: -80.0
+            },
+            source: 'WAVEWATCH-III-Regional',
             modelRun: new Date(),
             forecastHour: 0,
             waveHeight: 1.8,
@@ -2745,12 +2952,10 @@ class WeatherService {
             swellHeight: 0.8,
             swellPeriod: 10.0,
             swellDirection: 190,
-            latitude: 32.0,
-            longitude: -80.0,
-            validTime: new Date(),
-            source: 'WAVEWATCH-III-Regional'
+            validTime: new Date()
           }
         ],
+        nearshore: [],
         lastUpdate: new Date(),
         modelInfo: {
           globalModel: 'WAVEWATCH III Global',
@@ -2770,6 +2975,7 @@ class WeatherService {
       return {
         global: [],
         regional: [],
+        nearshore: [],
         lastUpdate: new Date(),
         modelInfo: {
           globalModel: 'WAVEWATCH III Global',
@@ -2822,6 +3028,7 @@ class WeatherService {
         waveWatch: {
           global: [],
           regional: [],
+          nearshore: [],
           lastUpdate: new Date(),
           modelInfo: {
             globalModel: 'WAVEWATCH III Global',

@@ -92,7 +92,7 @@ export function TrafficCameras() {
     mutationFn: async (data: InsertContractorWatchlist) => {
       return apiRequest('/api/contractor/watchlist', {
         method: 'POST',
-        body: data,
+        body: JSON.stringify(data),
       });
     },
     onSuccess: () => {
@@ -407,18 +407,18 @@ export function TrafficCameras() {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {watchlist.map(stateCode => {
-                  const stateData = directory?.directory.find(d => d.state === stateCode);
+                {watchlist.map(watchlistItem => {
+                  const stateData = directory?.directory.find(d => d.state === watchlistItem.state);
                   return stateData ? (
-                    <Card key={stateCode}>
+                    <Card key={watchlistItem.id}>
                       <CardHeader>
                         <div className="flex justify-between items-center">
                           <CardTitle>{stateData.name}</CardTitle>
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => removeFromWatchlist(stateCode)}
-                            data-testid={`button-remove-watchlist-${stateCode}`}
+                            onClick={() => removeFromWatchlist(watchlistItem.state)}
+                            data-testid={`button-remove-watchlist-${watchlistItem.state}`}
                           >
                             <Heart className="h-4 w-4 fill-red-500 text-red-500" />
                           </Button>

@@ -104,6 +104,45 @@ app.get("/api/ndbc/stations", async (req, res) => {
   }
 });
 
+/**
+ * Helper function to validate and sanitize XML content before parsing
+ */
+function isValidXmlContent(content) {
+  if (!content || typeof content !== 'string') return false;
+  
+  // Check for basic XML structure indicators
+  const xmlStartPattern = /^\s*<[?!]?[a-zA-Z]/;
+  if (!xmlStartPattern.test(content)) return false;
+  
+  // Check for obvious binary content indicators
+  const binaryIndicators = /[\x00-\x08\x0B\x0C\x0E-\x1F]/;
+  if (binaryIndicators.test(content)) return false;
+  
+  // Check for basic XML tag structure
+  const tagPattern = /<\/?[a-zA-Z][^>]*>/;
+  if (!tagPattern.test(content)) return false;
+  
+  return true;
+}
+
+/**
+ * Helper function to sanitize XML content by removing problematic characters
+ */
+function sanitizeXmlContent(content) {
+  if (!content) return '';
+  
+  // Remove null bytes and other problematic control characters
+  let sanitized = content.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '');
+  
+  // Remove any potential BOM characters
+  sanitized = sanitized.replace(/^\uFEFF/, '');
+  
+  // Trim whitespace
+  sanitized = sanitized.trim();
+  
+  return sanitized;
+}
+
 /** NHC active storms KMZ -> merged GeoJSON */
 app.get("/api/nhc/activeGeoJSON", async (_req, res) => {
   const kmzUrl = "https://www.nhc.noaa.gov/gis/kml/nhc.kmz";
@@ -115,18 +154,125 @@ app.get("/api/nhc/activeGeoJSON", async (_req, res) => {
     const entries = zip.getEntries();
 
     const allFeatures = [];
-    for (const e of entries) {
-      if (!e.entryName.toLowerCase().endsWith(".kml")) continue;
-      const kmlText = e.getData().toString("utf8");
-      const kmlDom = new XmldomDOMParser().parseFromString(kmlText, "text/xml");
-      const gj = tj.kml(kmlDom, { styles: true });
-      if (gj?.type === "FeatureCollection" && Array.isArray(gj.features)) {
-        allFeatures.push(...gj.features);
+    const processingStats = {
+      totalKmlFiles: 0,
+      successfullyParsed: 0,
+      failedParsing: 0,
+      emptyFiles: 0,
+      invalidXml: 0
+    };
+
+    for (const entry of entries) {
+      if (!entry.entryName.toLowerCase().endsWith(".kml")) continue;
+      
+      processingStats.totalKmlFiles++;
+      console.log(`🔍 Processing KML file: ${entry.entryName}`);
+      
+      try {
+        // Get raw content
+        const rawContent = entry.getData().toString("utf8");
+        
+        // Check if file is empty
+        if (!rawContent.trim()) {
+          console.log(`⚠️  Empty KML file: ${entry.entryName}`);
+          processingStats.emptyFiles++;
+          continue;
+        }
+        
+        // Validate XML content before processing
+        if (!isValidXmlContent(rawContent)) {
+          console.log(`❌ Invalid XML content in: ${entry.entryName}`);
+          processingStats.invalidXml++;
+          continue;
+        }
+        
+        // Sanitize the content
+        const sanitizedContent = sanitizeXmlContent(rawContent);
+        
+        if (!sanitizedContent) {
+          console.log(`⚠️  No content after sanitization: ${entry.entryName}`);
+          processingStats.emptyFiles++;
+          continue;
+        }
+        
+        // Create a custom error handler for xmldom
+        const errorHandler = {
+          warning: (msg) => {
+            console.log(`⚠️  XML Warning in ${entry.entryName}: ${msg}`);
+          },
+          error: (msg) => {
+            console.log(`❌ XML Error in ${entry.entryName}: ${msg}`);
+            throw new Error(`XML parsing error: ${msg}`);
+          },
+          fatalError: (msg) => {
+            console.log(`💥 XML Fatal Error in ${entry.entryName}: ${msg}`);
+            throw new Error(`XML fatal error: ${msg}`);
+          }
+        };
+        
+        // Try to parse the XML with error handling
+        const kmlDom = new XmldomDOMParser({ errorHandler }).parseFromString(sanitizedContent, "text/xml");
+        
+        // Check if parsing resulted in a valid document
+        if (!kmlDom || !kmlDom.documentElement) {
+          console.log(`❌ Failed to create valid DOM for: ${entry.entryName}`);
+          processingStats.failedParsing++;
+          continue;
+        }
+        
+        // Convert to GeoJSON
+        const geoJson = tj.kml(kmlDom, { styles: true });
+        
+        if (geoJson?.type === "FeatureCollection" && Array.isArray(geoJson.features)) {
+          allFeatures.push(...geoJson.features);
+          processingStats.successfullyParsed++;
+          console.log(`✅ Successfully processed ${entry.entryName}: ${geoJson.features.length} features`);
+        } else {
+          console.log(`⚠️  No valid GeoJSON features in: ${entry.entryName}`);
+          processingStats.successfullyParsed++; // Still counts as successful parsing
+        }
+        
+      } catch (kmlError) {
+        // Individual KML file processing failed, but continue with others
+        console.log(`❌ Failed to process ${entry.entryName}: ${kmlError.message}`);
+        processingStats.failedParsing++;
+        continue;
       }
     }
-    res.json({ type: "FeatureCollection", features: allFeatures });
+    
+    console.log(`📊 KML Processing Summary:
+    - Total KML files: ${processingStats.totalKmlFiles}
+    - Successfully parsed: ${processingStats.successfullyParsed}
+    - Failed parsing: ${processingStats.failedParsing}
+    - Empty files: ${processingStats.emptyFiles}
+    - Invalid XML: ${processingStats.invalidXml}
+    - Total features extracted: ${allFeatures.length}`);
+    
+    res.json({ 
+      type: "FeatureCollection", 
+      features: allFeatures,
+      metadata: {
+        processingStats,
+        totalFeatures: allFeatures.length,
+        source: kmzUrl,
+        processedAt: new Date().toISOString()
+      }
+    });
+    
   } catch (err) {
-    res.status(500).json({ error: String(err) });
+    console.error(`💥 Critical error in NHC KMZ processing: ${err.message}`);
+    res.status(500).json({ 
+      error: String(err),
+      message: "Failed to process NHC KMZ data",
+      fallback: {
+        type: "FeatureCollection",
+        features: [],
+        metadata: {
+          error: true,
+          errorMessage: err.message
+        }
+      }
+    });
   }
 });
 
