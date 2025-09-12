@@ -2420,19 +2420,21 @@ class WeatherService {
       console.log(`📊 Enhanced GIS: ${trackFeatures.length} tracks, ${coneFeatures.length} cones, ${radiiFeatures.length} wind radii, ${wwFeatures.length} watch/warnings`);
       
       // Transform GeoJSON features to NHC storm format
-      const storms = allFeatures.map((feature, index) => ({
-        id: feature.properties?.STORMNAME || feature.properties?.name || `nhc-storm-${index}`,
-        name: feature.properties?.STORMNAME || feature.properties?.name || 'Unknown Storm',
-        status: feature.properties?.STORMTYPE || feature.properties?.status || 'Active Storm',
-        latitude: feature.geometry.coordinates[1],
-        longitude: feature.geometry.coordinates[0],
-        maxWinds: parseInt(feature.properties?.INTENSITY) || 0,
-        minPressure: parseInt(feature.properties?.MSLP) || 0,
-        movement: feature.properties?.MOVEMENT || 'Unknown',
-        forecast: [],
-        // Store geometry for map rendering
-        geometry: feature.geometry
-      }));
+      const storms = allFeatures
+        .filter(feature => feature.geometry && feature.geometry.coordinates)
+        .map((feature, index) => ({
+          id: feature.properties?.STORMNAME || feature.properties?.name || `nhc-storm-${index}`,
+          name: feature.properties?.STORMNAME || feature.properties?.name || 'Unknown Storm',
+          status: feature.properties?.STORMTYPE || feature.properties?.status || 'Active Storm',
+          latitude: feature.geometry.coordinates[1],
+          longitude: feature.geometry.coordinates[0],
+          maxWinds: parseInt(feature.properties?.INTENSITY) || 0,
+          minPressure: parseInt(feature.properties?.MSLP) || 0,
+          movement: feature.properties?.MOVEMENT || 'Unknown',
+          forecast: [],
+          // Store geometry for map rendering
+          geometry: feature.geometry
+        }));
       
       // NHC Shapefiles for detailed geometric analysis
       console.log('📊 Preparing NHC Shapefile references for detailed geometric analysis...');
