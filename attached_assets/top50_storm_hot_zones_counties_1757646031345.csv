@@ -1,0 +1,79 @@
+State,County_Parish,StormTypes,RiskLevel,Notes,StateCode,FEMA_Filter_Example,RiskScoreSeed
+Florida,Miami-Dade County,Hurricane,Very High,"Dense coastal exposure; Andrew (1992), Irma (2017), Ian impacts",FL,state eq 'FL' and declaredCountyArea eq 'Miami-Dade' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),90
+Florida,Broward County,Hurricane,Very High,Ft. Lauderdale area; frequent tropical impacts,FL,state eq 'FL' and declaredCountyArea eq 'Broward' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),90
+Florida,Palm Beach County,Hurricane,Very High,Multiple coastal landfalls; surge + wind,FL,state eq 'FL' and declaredCountyArea eq 'Palm Beach' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),90
+Florida,Monroe County,Hurricane,Very High,Florida Keys; direct landfall risk,FL,state eq 'FL' and declaredCountyArea eq 'Monroe' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),90
+Florida,Lee County,Hurricane,Very High,Fort Myers/Cape Coral; Ian (2022) severe surge,FL,state eq 'FL' and declaredCountyArea eq 'Lee' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),90
+Florida,Collier County,Hurricane,High,Naples/Marco Island; surge + wind,FL,state eq 'FL' and declaredCountyArea eq 'Collier' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),70
+Florida,Charlotte County,Hurricane,High,Punta Gorda; Charley (2004),FL,state eq 'FL' and declaredCountyArea eq 'Charlotte' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),70
+Florida,Sarasota County,Hurricane,High,Barrier islands; surge exposure,FL,state eq 'FL' and declaredCountyArea eq 'Sarasota' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),70
+Florida,Pinellas County,Hurricane,High,St. Petersburg/Clearwater; surge-prone,FL,state eq 'FL' and declaredCountyArea eq 'Pinellas' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),70
+Florida,Hillsborough County,Hurricane,High,Tampa metro; bay surge risk,FL,state eq 'FL' and declaredCountyArea eq 'Hillsborough' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),70
+Florida,Pasco County,Hurricane,High,Tampa North; surge + riverine flooding,FL,state eq 'FL' and declaredCountyArea eq 'Pasco' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),70
+Florida,Duval County,Hurricane,High,Jacksonville; coastal + river flooding,FL,state eq 'FL' and declaredCountyArea eq 'Duval' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),70
+Florida,St. Johns County,Hurricane,High,St. Augustine; oceanfront exposure,FL,state eq 'FL' and declaredCountyArea eq 'St. Johns' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),70
+Florida,Volusia County,Hurricane,High,Daytona; beach erosion/surge,FL,state eq 'FL' and declaredCountyArea eq 'Volusia' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),70
+Florida,Brevard County,Hurricane,High,Space Coast; Cape Canaveral exposure,FL,state eq 'FL' and declaredCountyArea eq 'Brevard' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),70
+Florida,Bay County,Hurricane,High,Panama City; Michael (2018),FL,state eq 'FL' and declaredCountyArea eq 'Bay' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),70
+Florida,Escambia County,Hurricane,High,Pensacola; Sally (2020),FL,state eq 'FL' and declaredCountyArea eq 'Escambia' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),70
+Florida,Okaloosa County,Hurricane,High,Destin/FWB; surge + wind,FL,state eq 'FL' and declaredCountyArea eq 'Okaloosa' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),70
+Florida,Santa Rosa County,Hurricane,High,Gulf Breeze/Navarre; surge + wind,FL,state eq 'FL' and declaredCountyArea eq 'Santa Rosa' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),70
+Texas,Harris County,"Hurricane,Tornado",Very High,Houston metro; Harvey (2017) flooding,TX,state eq 'TX' and declaredCountyArea eq 'Harris' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),90
+Texas,Galveston County,Hurricane,Very High,"Barrier island; Ike (2008), surge",TX,state eq 'TX' and declaredCountyArea eq 'Galveston' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),90
+Texas,Jefferson County,Hurricane,High,Beaumont/Port Arthur; surge + wind,TX,state eq 'TX' and declaredCountyArea eq 'Jefferson' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),70
+Texas,Orange County,Hurricane,High,Sabine area; surge/flood,TX,state eq 'TX' and declaredCountyArea eq 'Orange' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),70
+Texas,Chambers County,Hurricane,High,Trinity Bay; surge,TX,state eq 'TX' and declaredCountyArea eq 'Chambers' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),70
+Texas,Brazoria County,Hurricane,High,Freeport area; Gulf exposure,TX,state eq 'TX' and declaredCountyArea eq 'Brazoria' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),70
+Texas,Matagorda County,Hurricane,High,Matagorda Bay; surge,TX,state eq 'TX' and declaredCountyArea eq 'Matagorda' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),70
+Texas,Nueces County,Hurricane,High,Corpus Christi; wind + surge,TX,state eq 'TX' and declaredCountyArea eq 'Nueces' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),70
+Texas,San Patricio County,Hurricane,High,Portland/Aransas Pass,TX,state eq 'TX' and declaredCountyArea eq 'San Patricio' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),70
+Texas,Aransas County,Hurricane,High,Rockport; Harvey landfall region,TX,state eq 'TX' and declaredCountyArea eq 'Aransas' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),70
+Texas,Cameron County,Hurricane,High,Brownsville/SPI; Gulf surge,TX,state eq 'TX' and declaredCountyArea eq 'Cameron' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),70
+Texas,Willacy County,Hurricane,High,Laguna Madre; surge,TX,state eq 'TX' and declaredCountyArea eq 'Willacy' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),70
+Texas,Dallas County,Tornado,High,DFW corridor severe convective risk,TX,state eq 'TX' and declaredCountyArea eq 'Dallas' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),70
+Texas,Potter County,Tornado,High,Amarillo; Panhandle severe risk,TX,state eq 'TX' and declaredCountyArea eq 'Potter' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),70
+Texas,Randall County,Tornado,High,Canyon/Amarillo area,TX,state eq 'TX' and declaredCountyArea eq 'Randall' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),70
+Louisiana,Orleans Parish,Hurricane,Very High,"Katrina (2005), Ida (2021); levee/surge risk",LA,state eq 'LA' and declaredCountyArea eq 'Orleans' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),90
+Louisiana,Jefferson Parish,Hurricane,Very High,Suburban NOLA; surge + wind,LA,state eq 'LA' and declaredCountyArea eq 'Jefferson' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),90
+Louisiana,St. Bernard Parish,Hurricane,Very High,Lower delta; surge extreme,LA,state eq 'LA' and declaredCountyArea eq 'St. Bernard' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),90
+Louisiana,Plaquemines Parish,Hurricane,Very High,Mouth of Mississippi; direct hits,LA,state eq 'LA' and declaredCountyArea eq 'Plaquemines' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),90
+Louisiana,Lafourche Parish,Hurricane,Very High,Bayou/port areas; Ida (2021),LA,state eq 'LA' and declaredCountyArea eq 'Lafourche' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),90
+Louisiana,Terrebonne Parish,Hurricane,Very High,Houma; repeated storm impacts,LA,state eq 'LA' and declaredCountyArea eq 'Terrebonne' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),90
+Louisiana,Calcasieu Parish,Hurricane,High,Lake Charles; Laura (2020),LA,state eq 'LA' and declaredCountyArea eq 'Calcasieu' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),70
+Louisiana,Cameron Parish,Hurricane,High,Gulf marshland; surge extreme,LA,state eq 'LA' and declaredCountyArea eq 'Cameron' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),70
+Louisiana,St. Tammany Parish,Hurricane,High,Northshore; wind + inland surge,LA,state eq 'LA' and declaredCountyArea eq 'St. Tammany' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),70
+North Carolina,Dare County,Hurricane,Very High,Outer Banks/Cape Hatteras; frequent landfalls,NC,state eq 'NC' and declaredCountyArea eq 'Dare' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),90
+North Carolina,Carteret County,Hurricane,Very High,Morehead/Beaufort; surge + wind,NC,state eq 'NC' and declaredCountyArea eq 'Carteret' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),90
+North Carolina,New Hanover County,Hurricane,High,Wilmington; surge + river flooding,NC,state eq 'NC' and declaredCountyArea eq 'New Hanover' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),70
+North Carolina,Brunswick County,Hurricane,High,Southport/shallotte; surge,NC,state eq 'NC' and declaredCountyArea eq 'Brunswick' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),70
+North Carolina,Onslow County,Hurricane,High,Jacksonville/Onslow Bay; surge,NC,state eq 'NC' and declaredCountyArea eq 'Onslow' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),70
+South Carolina,Horry County,Hurricane,High,Myrtle Beach; surge + wind,SC,state eq 'SC' and declaredCountyArea eq 'Horry' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),70
+South Carolina,Charleston County,Hurricane,Very High,Historic storm surge; Hugo (1989),SC,state eq 'SC' and declaredCountyArea eq 'Charleston' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),90
+South Carolina,Beaufort County,Hurricane,High,Hilton Head/Beaufort; surge,SC,state eq 'SC' and declaredCountyArea eq 'Beaufort' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),70
+Georgia,Chatham County,"Hurricane,Tornado",High,Savannah; coastal surge and wind,GA,state eq 'GA' and declaredCountyArea eq 'Chatham' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),70
+Georgia,Glynn County,Hurricane,High,Brunswick/SSI; coastal exposure,GA,state eq 'GA' and declaredCountyArea eq 'Glynn' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),70
+Georgia,Camden County,Hurricane,High,St. Marys/Cumberland; surge,GA,state eq 'GA' and declaredCountyArea eq 'Camden' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),70
+Georgia,Liberty County,Hurricane,Moderate-High,Midway/Hinesville; coastal fringe,GA,state eq 'GA' and declaredCountyArea eq 'Liberty' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),55
+Georgia,Muscogee County,Tornado,Moderate-High,Columbus metro; EF events documented,GA,state eq 'GA' and declaredCountyArea eq 'Muscogee' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),55
+Georgia,Harris County,Tornado,Moderate-High,Pine Mountain; EF3 track areas,GA,state eq 'GA' and declaredCountyArea eq 'Harris' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),55
+Alabama,Mobile County,"Hurricane,Tornado",High,Mobile Bay/Gulf Shores corridor,AL,state eq 'AL' and declaredCountyArea eq 'Mobile' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),70
+Alabama,Baldwin County,"Hurricane,Tornado",High,Orange Beach/Foley; surge + wind,AL,state eq 'AL' and declaredCountyArea eq 'Baldwin' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),70
+Alabama,Jefferson County,Tornado,High,Birmingham; historic tornado events,AL,state eq 'AL' and declaredCountyArea eq 'Jefferson' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),70
+Alabama,Tuscaloosa County,Tornado,High,Tuscaloosa; EF4 (2011) corridor,AL,state eq 'AL' and declaredCountyArea eq 'Tuscaloosa' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),70
+Alabama,Madison County,Tornado,High,Huntsville; frequent severe storms,AL,state eq 'AL' and declaredCountyArea eq 'Madison' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),70
+Mississippi,Harrison County,"Hurricane,Tornado",High,Gulfport/Biloxi; Katrina surge,MS,state eq 'MS' and declaredCountyArea eq 'Harrison' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),70
+Mississippi,Jackson County,"Hurricane,Tornado",High,Pascagoula; coastal exposure,MS,state eq 'MS' and declaredCountyArea eq 'Jackson' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),70
+Mississippi,Hancock County,"Hurricane,Tornado",High,Bay St. Louis; extreme surge (2005),MS,state eq 'MS' and declaredCountyArea eq 'Hancock' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),70
+Mississippi,Hinds County,Tornado,High,Jackson metro; EF3/EF4 events,MS,state eq 'MS' and declaredCountyArea eq 'Hinds' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),70
+Oklahoma,Oklahoma County,Tornado,Very High,Oklahoma City; EF5 corridors,OK,state eq 'OK' and declaredCountyArea eq 'Oklahoma' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),90
+Oklahoma,Cleveland County,Tornado,Very High,Moore/Norman; repeated violent tornadoes,OK,state eq 'OK' and declaredCountyArea eq 'Cleveland' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),90
+Oklahoma,Canadian County,Tornado,Very High,El Reno/Yukon; large tornado tracks,OK,state eq 'OK' and declaredCountyArea eq 'Canadian' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),90
+Oklahoma,Tulsa County,Tornado,High,Tulsa metro; severe convective risk,OK,state eq 'OK' and declaredCountyArea eq 'Tulsa' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),70
+Kansas,Sedgwick County,Tornado,Very High,Wichita; Tornado Alley core,KS,state eq 'KS' and declaredCountyArea eq 'Sedgwick' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),90
+Kansas,Johnson County,Tornado,High,Kansas City KS suburbs; severe convective risk,KS,state eq 'KS' and declaredCountyArea eq 'Johnson' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),70
+Arkansas,Pulaski County,Tornado,High,Little Rock; EF3/EF4 events,AR,state eq 'AR' and declaredCountyArea eq 'Pulaski' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),70
+Arkansas,Faulkner County,Tornado,High,Conway/Vilonia; strong tornado history,AR,state eq 'AR' and declaredCountyArea eq 'Faulkner' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),70
+Tennessee,Davidson County,Tornado,Moderate-High,Nashville; EF3 corridors,TN,state eq 'TN' and declaredCountyArea eq 'Davidson' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),55
+Tennessee,Wilson County,Tornado,High,Mt. Juliet/Lebanon; 2020 EF3 tracks,TN,state eq 'TN' and declaredCountyArea eq 'Wilson' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),70
+Missouri,Greene County,Tornado,High,Springfield area; severe storm corridor,MO,state eq 'MO' and declaredCountyArea eq 'Greene' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),70
+Missouri,Jasper County,Tornado,High,Joplin; catastrophic EF5 (2011),MO,state eq 'MO' and declaredCountyArea eq 'Jasper' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado'),70

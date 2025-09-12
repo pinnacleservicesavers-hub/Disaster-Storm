@@ -1,0 +1,782 @@
+[
+  {
+    "State":"Florida",
+    "County_Parish":"Miami-Dade County",
+    "StormTypes":"Hurricane",
+    "RiskLevel":"Very High",
+    "Notes":"Dense coastal exposure; Andrew (1992), Irma (2017), Ian impacts",
+    "StateCode":"FL",
+    "FEMA_Filter_Example":"state eq 'FL' and declaredCountyArea eq 'Miami-Dade' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":90
+  },
+  {
+    "State":"Florida",
+    "County_Parish":"Broward County",
+    "StormTypes":"Hurricane",
+    "RiskLevel":"Very High",
+    "Notes":"Ft. Lauderdale area; frequent tropical impacts",
+    "StateCode":"FL",
+    "FEMA_Filter_Example":"state eq 'FL' and declaredCountyArea eq 'Broward' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":90
+  },
+  {
+    "State":"Florida",
+    "County_Parish":"Palm Beach County",
+    "StormTypes":"Hurricane",
+    "RiskLevel":"Very High",
+    "Notes":"Multiple coastal landfalls; surge + wind",
+    "StateCode":"FL",
+    "FEMA_Filter_Example":"state eq 'FL' and declaredCountyArea eq 'Palm Beach' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":90
+  },
+  {
+    "State":"Florida",
+    "County_Parish":"Monroe County",
+    "StormTypes":"Hurricane",
+    "RiskLevel":"Very High",
+    "Notes":"Florida Keys; direct landfall risk",
+    "StateCode":"FL",
+    "FEMA_Filter_Example":"state eq 'FL' and declaredCountyArea eq 'Monroe' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":90
+  },
+  {
+    "State":"Florida",
+    "County_Parish":"Lee County",
+    "StormTypes":"Hurricane",
+    "RiskLevel":"Very High",
+    "Notes":"Fort Myers\/Cape Coral; Ian (2022) severe surge",
+    "StateCode":"FL",
+    "FEMA_Filter_Example":"state eq 'FL' and declaredCountyArea eq 'Lee' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":90
+  },
+  {
+    "State":"Florida",
+    "County_Parish":"Collier County",
+    "StormTypes":"Hurricane",
+    "RiskLevel":"High",
+    "Notes":"Naples\/Marco Island; surge + wind",
+    "StateCode":"FL",
+    "FEMA_Filter_Example":"state eq 'FL' and declaredCountyArea eq 'Collier' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":70
+  },
+  {
+    "State":"Florida",
+    "County_Parish":"Charlotte County",
+    "StormTypes":"Hurricane",
+    "RiskLevel":"High",
+    "Notes":"Punta Gorda; Charley (2004)",
+    "StateCode":"FL",
+    "FEMA_Filter_Example":"state eq 'FL' and declaredCountyArea eq 'Charlotte' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":70
+  },
+  {
+    "State":"Florida",
+    "County_Parish":"Sarasota County",
+    "StormTypes":"Hurricane",
+    "RiskLevel":"High",
+    "Notes":"Barrier islands; surge exposure",
+    "StateCode":"FL",
+    "FEMA_Filter_Example":"state eq 'FL' and declaredCountyArea eq 'Sarasota' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":70
+  },
+  {
+    "State":"Florida",
+    "County_Parish":"Pinellas County",
+    "StormTypes":"Hurricane",
+    "RiskLevel":"High",
+    "Notes":"St. Petersburg\/Clearwater; surge-prone",
+    "StateCode":"FL",
+    "FEMA_Filter_Example":"state eq 'FL' and declaredCountyArea eq 'Pinellas' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":70
+  },
+  {
+    "State":"Florida",
+    "County_Parish":"Hillsborough County",
+    "StormTypes":"Hurricane",
+    "RiskLevel":"High",
+    "Notes":"Tampa metro; bay surge risk",
+    "StateCode":"FL",
+    "FEMA_Filter_Example":"state eq 'FL' and declaredCountyArea eq 'Hillsborough' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":70
+  },
+  {
+    "State":"Florida",
+    "County_Parish":"Pasco County",
+    "StormTypes":"Hurricane",
+    "RiskLevel":"High",
+    "Notes":"Tampa North; surge + riverine flooding",
+    "StateCode":"FL",
+    "FEMA_Filter_Example":"state eq 'FL' and declaredCountyArea eq 'Pasco' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":70
+  },
+  {
+    "State":"Florida",
+    "County_Parish":"Duval County",
+    "StormTypes":"Hurricane",
+    "RiskLevel":"High",
+    "Notes":"Jacksonville; coastal + river flooding",
+    "StateCode":"FL",
+    "FEMA_Filter_Example":"state eq 'FL' and declaredCountyArea eq 'Duval' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":70
+  },
+  {
+    "State":"Florida",
+    "County_Parish":"St. Johns County",
+    "StormTypes":"Hurricane",
+    "RiskLevel":"High",
+    "Notes":"St. Augustine; oceanfront exposure",
+    "StateCode":"FL",
+    "FEMA_Filter_Example":"state eq 'FL' and declaredCountyArea eq 'St. Johns' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":70
+  },
+  {
+    "State":"Florida",
+    "County_Parish":"Volusia County",
+    "StormTypes":"Hurricane",
+    "RiskLevel":"High",
+    "Notes":"Daytona; beach erosion\/surge",
+    "StateCode":"FL",
+    "FEMA_Filter_Example":"state eq 'FL' and declaredCountyArea eq 'Volusia' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":70
+  },
+  {
+    "State":"Florida",
+    "County_Parish":"Brevard County",
+    "StormTypes":"Hurricane",
+    "RiskLevel":"High",
+    "Notes":"Space Coast; Cape Canaveral exposure",
+    "StateCode":"FL",
+    "FEMA_Filter_Example":"state eq 'FL' and declaredCountyArea eq 'Brevard' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":70
+  },
+  {
+    "State":"Florida",
+    "County_Parish":"Bay County",
+    "StormTypes":"Hurricane",
+    "RiskLevel":"High",
+    "Notes":"Panama City; Michael (2018)",
+    "StateCode":"FL",
+    "FEMA_Filter_Example":"state eq 'FL' and declaredCountyArea eq 'Bay' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":70
+  },
+  {
+    "State":"Florida",
+    "County_Parish":"Escambia County",
+    "StormTypes":"Hurricane",
+    "RiskLevel":"High",
+    "Notes":"Pensacola; Sally (2020)",
+    "StateCode":"FL",
+    "FEMA_Filter_Example":"state eq 'FL' and declaredCountyArea eq 'Escambia' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":70
+  },
+  {
+    "State":"Florida",
+    "County_Parish":"Okaloosa County",
+    "StormTypes":"Hurricane",
+    "RiskLevel":"High",
+    "Notes":"Destin\/FWB; surge + wind",
+    "StateCode":"FL",
+    "FEMA_Filter_Example":"state eq 'FL' and declaredCountyArea eq 'Okaloosa' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":70
+  },
+  {
+    "State":"Florida",
+    "County_Parish":"Santa Rosa County",
+    "StormTypes":"Hurricane",
+    "RiskLevel":"High",
+    "Notes":"Gulf Breeze\/Navarre; surge + wind",
+    "StateCode":"FL",
+    "FEMA_Filter_Example":"state eq 'FL' and declaredCountyArea eq 'Santa Rosa' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":70
+  },
+  {
+    "State":"Texas",
+    "County_Parish":"Harris County",
+    "StormTypes":"Hurricane,Tornado",
+    "RiskLevel":"Very High",
+    "Notes":"Houston metro; Harvey (2017) flooding",
+    "StateCode":"TX",
+    "FEMA_Filter_Example":"state eq 'TX' and declaredCountyArea eq 'Harris' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":90
+  },
+  {
+    "State":"Texas",
+    "County_Parish":"Galveston County",
+    "StormTypes":"Hurricane",
+    "RiskLevel":"Very High",
+    "Notes":"Barrier island; Ike (2008), surge",
+    "StateCode":"TX",
+    "FEMA_Filter_Example":"state eq 'TX' and declaredCountyArea eq 'Galveston' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":90
+  },
+  {
+    "State":"Texas",
+    "County_Parish":"Jefferson County",
+    "StormTypes":"Hurricane",
+    "RiskLevel":"High",
+    "Notes":"Beaumont\/Port Arthur; surge + wind",
+    "StateCode":"TX",
+    "FEMA_Filter_Example":"state eq 'TX' and declaredCountyArea eq 'Jefferson' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":70
+  },
+  {
+    "State":"Texas",
+    "County_Parish":"Orange County",
+    "StormTypes":"Hurricane",
+    "RiskLevel":"High",
+    "Notes":"Sabine area; surge\/flood",
+    "StateCode":"TX",
+    "FEMA_Filter_Example":"state eq 'TX' and declaredCountyArea eq 'Orange' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":70
+  },
+  {
+    "State":"Texas",
+    "County_Parish":"Chambers County",
+    "StormTypes":"Hurricane",
+    "RiskLevel":"High",
+    "Notes":"Trinity Bay; surge",
+    "StateCode":"TX",
+    "FEMA_Filter_Example":"state eq 'TX' and declaredCountyArea eq 'Chambers' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":70
+  },
+  {
+    "State":"Texas",
+    "County_Parish":"Brazoria County",
+    "StormTypes":"Hurricane",
+    "RiskLevel":"High",
+    "Notes":"Freeport area; Gulf exposure",
+    "StateCode":"TX",
+    "FEMA_Filter_Example":"state eq 'TX' and declaredCountyArea eq 'Brazoria' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":70
+  },
+  {
+    "State":"Texas",
+    "County_Parish":"Matagorda County",
+    "StormTypes":"Hurricane",
+    "RiskLevel":"High",
+    "Notes":"Matagorda Bay; surge",
+    "StateCode":"TX",
+    "FEMA_Filter_Example":"state eq 'TX' and declaredCountyArea eq 'Matagorda' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":70
+  },
+  {
+    "State":"Texas",
+    "County_Parish":"Nueces County",
+    "StormTypes":"Hurricane",
+    "RiskLevel":"High",
+    "Notes":"Corpus Christi; wind + surge",
+    "StateCode":"TX",
+    "FEMA_Filter_Example":"state eq 'TX' and declaredCountyArea eq 'Nueces' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":70
+  },
+  {
+    "State":"Texas",
+    "County_Parish":"San Patricio County",
+    "StormTypes":"Hurricane",
+    "RiskLevel":"High",
+    "Notes":"Portland\/Aransas Pass",
+    "StateCode":"TX",
+    "FEMA_Filter_Example":"state eq 'TX' and declaredCountyArea eq 'San Patricio' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":70
+  },
+  {
+    "State":"Texas",
+    "County_Parish":"Aransas County",
+    "StormTypes":"Hurricane",
+    "RiskLevel":"High",
+    "Notes":"Rockport; Harvey landfall region",
+    "StateCode":"TX",
+    "FEMA_Filter_Example":"state eq 'TX' and declaredCountyArea eq 'Aransas' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":70
+  },
+  {
+    "State":"Texas",
+    "County_Parish":"Cameron County",
+    "StormTypes":"Hurricane",
+    "RiskLevel":"High",
+    "Notes":"Brownsville\/SPI; Gulf surge",
+    "StateCode":"TX",
+    "FEMA_Filter_Example":"state eq 'TX' and declaredCountyArea eq 'Cameron' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":70
+  },
+  {
+    "State":"Texas",
+    "County_Parish":"Willacy County",
+    "StormTypes":"Hurricane",
+    "RiskLevel":"High",
+    "Notes":"Laguna Madre; surge",
+    "StateCode":"TX",
+    "FEMA_Filter_Example":"state eq 'TX' and declaredCountyArea eq 'Willacy' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":70
+  },
+  {
+    "State":"Texas",
+    "County_Parish":"Dallas County",
+    "StormTypes":"Tornado",
+    "RiskLevel":"High",
+    "Notes":"DFW corridor severe convective risk",
+    "StateCode":"TX",
+    "FEMA_Filter_Example":"state eq 'TX' and declaredCountyArea eq 'Dallas' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":70
+  },
+  {
+    "State":"Texas",
+    "County_Parish":"Potter County",
+    "StormTypes":"Tornado",
+    "RiskLevel":"High",
+    "Notes":"Amarillo; Panhandle severe risk",
+    "StateCode":"TX",
+    "FEMA_Filter_Example":"state eq 'TX' and declaredCountyArea eq 'Potter' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":70
+  },
+  {
+    "State":"Texas",
+    "County_Parish":"Randall County",
+    "StormTypes":"Tornado",
+    "RiskLevel":"High",
+    "Notes":"Canyon\/Amarillo area",
+    "StateCode":"TX",
+    "FEMA_Filter_Example":"state eq 'TX' and declaredCountyArea eq 'Randall' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":70
+  },
+  {
+    "State":"Louisiana",
+    "County_Parish":"Orleans Parish",
+    "StormTypes":"Hurricane",
+    "RiskLevel":"Very High",
+    "Notes":"Katrina (2005), Ida (2021); levee\/surge risk",
+    "StateCode":"LA",
+    "FEMA_Filter_Example":"state eq 'LA' and declaredCountyArea eq 'Orleans' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":90
+  },
+  {
+    "State":"Louisiana",
+    "County_Parish":"Jefferson Parish",
+    "StormTypes":"Hurricane",
+    "RiskLevel":"Very High",
+    "Notes":"Suburban NOLA; surge + wind",
+    "StateCode":"LA",
+    "FEMA_Filter_Example":"state eq 'LA' and declaredCountyArea eq 'Jefferson' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":90
+  },
+  {
+    "State":"Louisiana",
+    "County_Parish":"St. Bernard Parish",
+    "StormTypes":"Hurricane",
+    "RiskLevel":"Very High",
+    "Notes":"Lower delta; surge extreme",
+    "StateCode":"LA",
+    "FEMA_Filter_Example":"state eq 'LA' and declaredCountyArea eq 'St. Bernard' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":90
+  },
+  {
+    "State":"Louisiana",
+    "County_Parish":"Plaquemines Parish",
+    "StormTypes":"Hurricane",
+    "RiskLevel":"Very High",
+    "Notes":"Mouth of Mississippi; direct hits",
+    "StateCode":"LA",
+    "FEMA_Filter_Example":"state eq 'LA' and declaredCountyArea eq 'Plaquemines' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":90
+  },
+  {
+    "State":"Louisiana",
+    "County_Parish":"Lafourche Parish",
+    "StormTypes":"Hurricane",
+    "RiskLevel":"Very High",
+    "Notes":"Bayou\/port areas; Ida (2021)",
+    "StateCode":"LA",
+    "FEMA_Filter_Example":"state eq 'LA' and declaredCountyArea eq 'Lafourche' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":90
+  },
+  {
+    "State":"Louisiana",
+    "County_Parish":"Terrebonne Parish",
+    "StormTypes":"Hurricane",
+    "RiskLevel":"Very High",
+    "Notes":"Houma; repeated storm impacts",
+    "StateCode":"LA",
+    "FEMA_Filter_Example":"state eq 'LA' and declaredCountyArea eq 'Terrebonne' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":90
+  },
+  {
+    "State":"Louisiana",
+    "County_Parish":"Calcasieu Parish",
+    "StormTypes":"Hurricane",
+    "RiskLevel":"High",
+    "Notes":"Lake Charles; Laura (2020)",
+    "StateCode":"LA",
+    "FEMA_Filter_Example":"state eq 'LA' and declaredCountyArea eq 'Calcasieu' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":70
+  },
+  {
+    "State":"Louisiana",
+    "County_Parish":"Cameron Parish",
+    "StormTypes":"Hurricane",
+    "RiskLevel":"High",
+    "Notes":"Gulf marshland; surge extreme",
+    "StateCode":"LA",
+    "FEMA_Filter_Example":"state eq 'LA' and declaredCountyArea eq 'Cameron' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":70
+  },
+  {
+    "State":"Louisiana",
+    "County_Parish":"St. Tammany Parish",
+    "StormTypes":"Hurricane",
+    "RiskLevel":"High",
+    "Notes":"Northshore; wind + inland surge",
+    "StateCode":"LA",
+    "FEMA_Filter_Example":"state eq 'LA' and declaredCountyArea eq 'St. Tammany' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":70
+  },
+  {
+    "State":"North Carolina",
+    "County_Parish":"Dare County",
+    "StormTypes":"Hurricane",
+    "RiskLevel":"Very High",
+    "Notes":"Outer Banks\/Cape Hatteras; frequent landfalls",
+    "StateCode":"NC",
+    "FEMA_Filter_Example":"state eq 'NC' and declaredCountyArea eq 'Dare' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":90
+  },
+  {
+    "State":"North Carolina",
+    "County_Parish":"Carteret County",
+    "StormTypes":"Hurricane",
+    "RiskLevel":"Very High",
+    "Notes":"Morehead\/Beaufort; surge + wind",
+    "StateCode":"NC",
+    "FEMA_Filter_Example":"state eq 'NC' and declaredCountyArea eq 'Carteret' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":90
+  },
+  {
+    "State":"North Carolina",
+    "County_Parish":"New Hanover County",
+    "StormTypes":"Hurricane",
+    "RiskLevel":"High",
+    "Notes":"Wilmington; surge + river flooding",
+    "StateCode":"NC",
+    "FEMA_Filter_Example":"state eq 'NC' and declaredCountyArea eq 'New Hanover' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":70
+  },
+  {
+    "State":"North Carolina",
+    "County_Parish":"Brunswick County",
+    "StormTypes":"Hurricane",
+    "RiskLevel":"High",
+    "Notes":"Southport\/shallotte; surge",
+    "StateCode":"NC",
+    "FEMA_Filter_Example":"state eq 'NC' and declaredCountyArea eq 'Brunswick' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":70
+  },
+  {
+    "State":"North Carolina",
+    "County_Parish":"Onslow County",
+    "StormTypes":"Hurricane",
+    "RiskLevel":"High",
+    "Notes":"Jacksonville\/Onslow Bay; surge",
+    "StateCode":"NC",
+    "FEMA_Filter_Example":"state eq 'NC' and declaredCountyArea eq 'Onslow' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":70
+  },
+  {
+    "State":"South Carolina",
+    "County_Parish":"Horry County",
+    "StormTypes":"Hurricane",
+    "RiskLevel":"High",
+    "Notes":"Myrtle Beach; surge + wind",
+    "StateCode":"SC",
+    "FEMA_Filter_Example":"state eq 'SC' and declaredCountyArea eq 'Horry' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":70
+  },
+  {
+    "State":"South Carolina",
+    "County_Parish":"Charleston County",
+    "StormTypes":"Hurricane",
+    "RiskLevel":"Very High",
+    "Notes":"Historic storm surge; Hugo (1989)",
+    "StateCode":"SC",
+    "FEMA_Filter_Example":"state eq 'SC' and declaredCountyArea eq 'Charleston' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":90
+  },
+  {
+    "State":"South Carolina",
+    "County_Parish":"Beaufort County",
+    "StormTypes":"Hurricane",
+    "RiskLevel":"High",
+    "Notes":"Hilton Head\/Beaufort; surge",
+    "StateCode":"SC",
+    "FEMA_Filter_Example":"state eq 'SC' and declaredCountyArea eq 'Beaufort' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":70
+  },
+  {
+    "State":"Georgia",
+    "County_Parish":"Chatham County",
+    "StormTypes":"Hurricane,Tornado",
+    "RiskLevel":"High",
+    "Notes":"Savannah; coastal surge and wind",
+    "StateCode":"GA",
+    "FEMA_Filter_Example":"state eq 'GA' and declaredCountyArea eq 'Chatham' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":70
+  },
+  {
+    "State":"Georgia",
+    "County_Parish":"Glynn County",
+    "StormTypes":"Hurricane",
+    "RiskLevel":"High",
+    "Notes":"Brunswick\/SSI; coastal exposure",
+    "StateCode":"GA",
+    "FEMA_Filter_Example":"state eq 'GA' and declaredCountyArea eq 'Glynn' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":70
+  },
+  {
+    "State":"Georgia",
+    "County_Parish":"Camden County",
+    "StormTypes":"Hurricane",
+    "RiskLevel":"High",
+    "Notes":"St. Marys\/Cumberland; surge",
+    "StateCode":"GA",
+    "FEMA_Filter_Example":"state eq 'GA' and declaredCountyArea eq 'Camden' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":70
+  },
+  {
+    "State":"Georgia",
+    "County_Parish":"Liberty County",
+    "StormTypes":"Hurricane",
+    "RiskLevel":"Moderate-High",
+    "Notes":"Midway\/Hinesville; coastal fringe",
+    "StateCode":"GA",
+    "FEMA_Filter_Example":"state eq 'GA' and declaredCountyArea eq 'Liberty' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":55
+  },
+  {
+    "State":"Georgia",
+    "County_Parish":"Muscogee County",
+    "StormTypes":"Tornado",
+    "RiskLevel":"Moderate-High",
+    "Notes":"Columbus metro; EF events documented",
+    "StateCode":"GA",
+    "FEMA_Filter_Example":"state eq 'GA' and declaredCountyArea eq 'Muscogee' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":55
+  },
+  {
+    "State":"Georgia",
+    "County_Parish":"Harris County",
+    "StormTypes":"Tornado",
+    "RiskLevel":"Moderate-High",
+    "Notes":"Pine Mountain; EF3 track areas",
+    "StateCode":"GA",
+    "FEMA_Filter_Example":"state eq 'GA' and declaredCountyArea eq 'Harris' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":55
+  },
+  {
+    "State":"Alabama",
+    "County_Parish":"Mobile County",
+    "StormTypes":"Hurricane,Tornado",
+    "RiskLevel":"High",
+    "Notes":"Mobile Bay\/Gulf Shores corridor",
+    "StateCode":"AL",
+    "FEMA_Filter_Example":"state eq 'AL' and declaredCountyArea eq 'Mobile' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":70
+  },
+  {
+    "State":"Alabama",
+    "County_Parish":"Baldwin County",
+    "StormTypes":"Hurricane,Tornado",
+    "RiskLevel":"High",
+    "Notes":"Orange Beach\/Foley; surge + wind",
+    "StateCode":"AL",
+    "FEMA_Filter_Example":"state eq 'AL' and declaredCountyArea eq 'Baldwin' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":70
+  },
+  {
+    "State":"Alabama",
+    "County_Parish":"Jefferson County",
+    "StormTypes":"Tornado",
+    "RiskLevel":"High",
+    "Notes":"Birmingham; historic tornado events",
+    "StateCode":"AL",
+    "FEMA_Filter_Example":"state eq 'AL' and declaredCountyArea eq 'Jefferson' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":70
+  },
+  {
+    "State":"Alabama",
+    "County_Parish":"Tuscaloosa County",
+    "StormTypes":"Tornado",
+    "RiskLevel":"High",
+    "Notes":"Tuscaloosa; EF4 (2011) corridor",
+    "StateCode":"AL",
+    "FEMA_Filter_Example":"state eq 'AL' and declaredCountyArea eq 'Tuscaloosa' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":70
+  },
+  {
+    "State":"Alabama",
+    "County_Parish":"Madison County",
+    "StormTypes":"Tornado",
+    "RiskLevel":"High",
+    "Notes":"Huntsville; frequent severe storms",
+    "StateCode":"AL",
+    "FEMA_Filter_Example":"state eq 'AL' and declaredCountyArea eq 'Madison' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":70
+  },
+  {
+    "State":"Mississippi",
+    "County_Parish":"Harrison County",
+    "StormTypes":"Hurricane,Tornado",
+    "RiskLevel":"High",
+    "Notes":"Gulfport\/Biloxi; Katrina surge",
+    "StateCode":"MS",
+    "FEMA_Filter_Example":"state eq 'MS' and declaredCountyArea eq 'Harrison' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":70
+  },
+  {
+    "State":"Mississippi",
+    "County_Parish":"Jackson County",
+    "StormTypes":"Hurricane,Tornado",
+    "RiskLevel":"High",
+    "Notes":"Pascagoula; coastal exposure",
+    "StateCode":"MS",
+    "FEMA_Filter_Example":"state eq 'MS' and declaredCountyArea eq 'Jackson' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":70
+  },
+  {
+    "State":"Mississippi",
+    "County_Parish":"Hancock County",
+    "StormTypes":"Hurricane,Tornado",
+    "RiskLevel":"High",
+    "Notes":"Bay St. Louis; extreme surge (2005)",
+    "StateCode":"MS",
+    "FEMA_Filter_Example":"state eq 'MS' and declaredCountyArea eq 'Hancock' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":70
+  },
+  {
+    "State":"Mississippi",
+    "County_Parish":"Hinds County",
+    "StormTypes":"Tornado",
+    "RiskLevel":"High",
+    "Notes":"Jackson metro; EF3\/EF4 events",
+    "StateCode":"MS",
+    "FEMA_Filter_Example":"state eq 'MS' and declaredCountyArea eq 'Hinds' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":70
+  },
+  {
+    "State":"Oklahoma",
+    "County_Parish":"Oklahoma County",
+    "StormTypes":"Tornado",
+    "RiskLevel":"Very High",
+    "Notes":"Oklahoma City; EF5 corridors",
+    "StateCode":"OK",
+    "FEMA_Filter_Example":"state eq 'OK' and declaredCountyArea eq 'Oklahoma' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":90
+  },
+  {
+    "State":"Oklahoma",
+    "County_Parish":"Cleveland County",
+    "StormTypes":"Tornado",
+    "RiskLevel":"Very High",
+    "Notes":"Moore\/Norman; repeated violent tornadoes",
+    "StateCode":"OK",
+    "FEMA_Filter_Example":"state eq 'OK' and declaredCountyArea eq 'Cleveland' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":90
+  },
+  {
+    "State":"Oklahoma",
+    "County_Parish":"Canadian County",
+    "StormTypes":"Tornado",
+    "RiskLevel":"Very High",
+    "Notes":"El Reno\/Yukon; large tornado tracks",
+    "StateCode":"OK",
+    "FEMA_Filter_Example":"state eq 'OK' and declaredCountyArea eq 'Canadian' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":90
+  },
+  {
+    "State":"Oklahoma",
+    "County_Parish":"Tulsa County",
+    "StormTypes":"Tornado",
+    "RiskLevel":"High",
+    "Notes":"Tulsa metro; severe convective risk",
+    "StateCode":"OK",
+    "FEMA_Filter_Example":"state eq 'OK' and declaredCountyArea eq 'Tulsa' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":70
+  },
+  {
+    "State":"Kansas",
+    "County_Parish":"Sedgwick County",
+    "StormTypes":"Tornado",
+    "RiskLevel":"Very High",
+    "Notes":"Wichita; Tornado Alley core",
+    "StateCode":"KS",
+    "FEMA_Filter_Example":"state eq 'KS' and declaredCountyArea eq 'Sedgwick' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":90
+  },
+  {
+    "State":"Kansas",
+    "County_Parish":"Johnson County",
+    "StormTypes":"Tornado",
+    "RiskLevel":"High",
+    "Notes":"Kansas City KS suburbs; severe convective risk",
+    "StateCode":"KS",
+    "FEMA_Filter_Example":"state eq 'KS' and declaredCountyArea eq 'Johnson' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":70
+  },
+  {
+    "State":"Arkansas",
+    "County_Parish":"Pulaski County",
+    "StormTypes":"Tornado",
+    "RiskLevel":"High",
+    "Notes":"Little Rock; EF3\/EF4 events",
+    "StateCode":"AR",
+    "FEMA_Filter_Example":"state eq 'AR' and declaredCountyArea eq 'Pulaski' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":70
+  },
+  {
+    "State":"Arkansas",
+    "County_Parish":"Faulkner County",
+    "StormTypes":"Tornado",
+    "RiskLevel":"High",
+    "Notes":"Conway\/Vilonia; strong tornado history",
+    "StateCode":"AR",
+    "FEMA_Filter_Example":"state eq 'AR' and declaredCountyArea eq 'Faulkner' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":70
+  },
+  {
+    "State":"Tennessee",
+    "County_Parish":"Davidson County",
+    "StormTypes":"Tornado",
+    "RiskLevel":"Moderate-High",
+    "Notes":"Nashville; EF3 corridors",
+    "StateCode":"TN",
+    "FEMA_Filter_Example":"state eq 'TN' and declaredCountyArea eq 'Davidson' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":55
+  },
+  {
+    "State":"Tennessee",
+    "County_Parish":"Wilson County",
+    "StormTypes":"Tornado",
+    "RiskLevel":"High",
+    "Notes":"Mt. Juliet\/Lebanon; 2020 EF3 tracks",
+    "StateCode":"TN",
+    "FEMA_Filter_Example":"state eq 'TN' and declaredCountyArea eq 'Wilson' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":70
+  },
+  {
+    "State":"Missouri",
+    "County_Parish":"Greene County",
+    "StormTypes":"Tornado",
+    "RiskLevel":"High",
+    "Notes":"Springfield area; severe storm corridor",
+    "StateCode":"MO",
+    "FEMA_Filter_Example":"state eq 'MO' and declaredCountyArea eq 'Greene' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":70
+  },
+  {
+    "State":"Missouri",
+    "County_Parish":"Jasper County",
+    "StormTypes":"Tornado",
+    "RiskLevel":"High",
+    "Notes":"Joplin; catastrophic EF5 (2011)",
+    "StateCode":"MO",
+    "FEMA_Filter_Example":"state eq 'MO' and declaredCountyArea eq 'Jasper' and (incidentType eq 'Hurricane' or incidentType eq 'Tornado')",
+    "RiskScoreSeed":70
+  }
+]
