@@ -38,11 +38,13 @@ import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { weatherService, weatherStreamManager } from "./services/weather";
 import { trafficCameraService } from "./services/trafficCameras";
 import { damageDetectionService } from "./services/damageDetection";
+import { LeadGenerationService } from "./services/leadGenerationService";
 import { unified511Directory } from "./services/unified511Directory";
 import { NotificationService } from "./services/notificationService";
 import { IncidentCorrelationService } from "./services/incidentCorrelationService";
 import { femaDisasterService } from "./services/femaDisasterService";
 import { femaMonitoringService } from "./services/femaMonitoringService";
+import { predictiveStormService } from "./services/predictiveStormService";
 import { storage } from "./storage";
 import { 
   insertContractorWatchlistSchema, 
@@ -180,6 +182,7 @@ const sseClients = new Set();
 // ---- Alert System Services ----
 let notificationService: NotificationService;
 let incidentCorrelationService: IncidentCorrelationService;
+let leadGenerationService: LeadGenerationService;
 
 // ---- simple message store by claim number (for email threads) ----
 const messagesByClaim = new Map(); // claimNumber -> [{ts, dir, from, to, subject, html, text}]
@@ -275,6 +278,7 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
     damageDetectionService,
     notificationService
   );
+  leadGenerationService = new LeadGenerationService(notificationService);
   
   console.log('🔔 Alert system services initialized');
   
@@ -3549,14 +3553,15 @@ Email: strategiclandmgmt@gmail.com
   app.get('/api/contractors/:contractorId/camera-alerts', async (req, res) => {
     try {
       const { contractorId } = req.params;
-      const { status, alertType, limit } = req.query;
+      const { status, alertType, limit = 50 } = req.query;
       
-      // TODO: Query database for actual alerts
-      // For now, return empty array
-      const alerts = [];
+      console.log(`📋 Fetching camera alerts for contractor ${contractorId}`);
+      
+      // Get all alerts and filter by contractor's watchlist/region if available
+      const alerts = await storage.getTrafficCamAlerts();
       
       res.json({
-        alerts,
+        alerts: alerts.slice(0, Number(limit)),
         contractorId,
         count: alerts.length,
         filters: { status, alertType, limit }
@@ -3577,20 +3582,27 @@ Email: strategiclandmgmt@gmail.com
         return res.status(400).json({ error: 'Contractor ID required' });
       }
       
-      // TODO: Query alert from database and generate lead
-      // For now, return mock lead
-      const lead = {
-        id: `lead_${Date.now()}`,
+      console.log(`💼 Generating lead for alert ${alertId} and contractor ${contractorId}`);
+      
+      // Get the alert from storage
+      const alert = await storage.getTrafficCamAlert(alertId);
+      if (!alert) {
+        return res.status(404).json({ error: 'Alert not found' });
+      }
+      
+      // Create lead based on alert data
+      const leadData = {
         alertId,
+        cameraId: alert.cameraId,
         contractorId,
-        alertType: 'structure_damage',
-        priority: 'high',
-        estimatedValue: 5000,
-        status: 'new',
-        location: 'Highway 75 @ Exit 245',
-        description: 'Tree damage to roadside structure detected by AI',
-        createdAt: new Date().toISOString()
+        alertType: alert.alertType,
+        priority: alert.leadPriority,
+        estimatedValue: alert.estimatedCost ? (alert.estimatedCost.min + alert.estimatedCost.max) / 2 : 0,
+        status: 'new' as const,
+        contactAttempts: 0
       };
+      
+      const lead = await storage.createTrafficCamLead(leadData);
       
       res.json({
         lead,
@@ -3606,16 +3618,26 @@ Email: strategiclandmgmt@gmail.com
   app.get('/api/contractors/:contractorId/camera-leads', async (req, res) => {
     try {
       const { contractorId } = req.params;
-      const { status, priority, limit } = req.query;
+      const { status, priority, limit = 50 } = req.query;
       
-      // TODO: Query database for actual leads
-      // For now, return empty array
-      const leads = [];
+      console.log(`💼 Fetching camera leads for contractor ${contractorId}`);
+      
+      // Get leads for this contractor
+      const leads = await storage.getTrafficCamLeadsByContractor(contractorId);
+      
+      // Apply additional filters if specified
+      let filteredLeads = leads;
+      if (status) {
+        filteredLeads = filteredLeads.filter(lead => lead.status === status);
+      }
+      if (priority) {
+        filteredLeads = filteredLeads.filter(lead => lead.priority === priority);
+      }
       
       res.json({
-        leads,
+        leads: filteredLeads.slice(0, Number(limit)),
         contractorId,
-        count: leads.length,
+        count: filteredLeads.length,
         filters: { status, priority, limit }
       });
     } catch (error) {
@@ -5167,6 +5189,954 @@ Email: strategiclandmgmt@gmail.com
     } catch (error) {
       console.error("Service requests fetch error:", error);
       res.status(500).json({ error: "Failed to fetch service requests" });
+    }
+  });
+
+  // ===== AI DAMAGE DETECTION API ROUTES =====
+  
+  // Analyze image for damage detection
+  app.post("/api/analyze-damage", express.json(), async (req, res) => {
+    try {
+      const { cameraId, imageData, location } = req.body;
+
+      if (!imageData) {
+        return res.status(400).json({ error: 'Image data is required' });
+      }
+
+      // Convert base64 image to buffer
+      const imageBuffer = Buffer.from(imageData.replace(/^data:image\/[a-z]+;base64,/, ''), 'base64');
+      
+      console.log(`🔍 Analyzing damage for camera ${cameraId} (${imageBuffer.length} bytes)`);
+
+      // Perform damage analysis
+      const analysisResult = await damageDetectionService.analyzeImageForDamage(
+        imageBuffer, 
+        location || `Camera ${cameraId}`
+      );
+
+      // If damage is detected, persist alerts and generate leads
+      if (analysisResult.hasDetection && analysisResult.detections.length > 0) {
+        console.log(`🚨 Damage detected, persisting ${analysisResult.detections.length} alerts to storage`);
+        
+        const persistedAlerts = [];
+        const persistedLeads = [];
+        
+        try {
+          // Create alerts for each detection
+          for (const detection of analysisResult.detections) {
+            const alertData = {
+              cameraId: cameraId || 'unknown',
+              alertType: detection.alertType,
+              severity: detection.severity,
+              severityScore: detection.severityScore || 5,
+              profitabilityScore: detection.profitabilityScore || 5,
+              description: detection.description,
+              detectedAt: new Date(),
+              resolvedAddress: location || `Camera ${cameraId}`,
+              estimatedCost: detection.estimatedCost || { min: 1000, max: 5000, currency: 'USD' },
+              status: 'new' as const,
+              leadGenerated: detection.profitabilityScore >= 4,
+              emergencyResponse: detection.urgencyLevel === 'emergency',
+              confidence: detection.confidence,
+              contractorTypes: detection.contractorTypes || ['general_contractor'],
+              accessibilityScore: detection.accessibilityScore || 7,
+              insuranceLikelihood: detection.insuranceLikelihood || 6,
+              leadPriority: detection.urgencyLevel === 'emergency' ? 'critical' : 
+                            detection.profitabilityScore >= 7 ? 'high' : 'medium'
+            };
+
+            const persistedAlert = await storage.createTrafficCamAlert(alertData);
+            persistedAlerts.push(persistedAlert);
+
+            // Generate leads for profitable detections
+            if (detection.profitabilityScore >= 4) {
+              console.log(`💼 Generating lead for profitable damage (score: ${detection.profitabilityScore})`);
+              
+              // Generate lead for contractor matching - in production this would use real contractor IDs
+              // For now, create a deterministic ID based on location and damage type for consistency
+              const contractorId = req.body.contractorId || 
+                `auto_${detection.alertType}_${cameraId}_${Date.now()}`.replace(/[^a-zA-Z0-9_]/g, '_');
+
+              const leadData = {
+                alertId: persistedAlert.id,
+                cameraId: persistedAlert.cameraId,
+                contractorId,
+                alertType: persistedAlert.alertType,
+                priority: persistedAlert.leadPriority,
+                estimatedValue: persistedAlert.estimatedCost ? 
+                  (persistedAlert.estimatedCost.min + persistedAlert.estimatedCost.max) / 2 : 2500,
+                status: 'new' as const,
+                contactAttempts: 0
+              };
+
+              const persistedLead = await storage.createTrafficCamLead(leadData);
+              persistedLeads.push(persistedLead);
+            }
+          }
+
+          console.log(`✅ Successfully persisted ${persistedAlerts.length} alerts and ${persistedLeads.length} leads`);
+
+          // Return analysis result with persistence information
+          res.json({
+            ...analysisResult,
+            persistence: {
+              alertsCreated: persistedAlerts.length,
+              leadsGenerated: persistedLeads.length,
+              alerts: persistedAlerts,
+              leads: persistedLeads
+            }
+          });
+
+        } catch (persistenceError) {
+          console.error('Failed to persist damage detection results:', persistenceError);
+          // Still return analysis results even if persistence fails
+          res.json({
+            ...analysisResult,
+            persistence: {
+              error: 'Failed to persist results',
+              details: persistenceError instanceof Error ? persistenceError.message : 'Unknown error'
+            }
+          });
+        }
+      } else {
+        // No damage detected, just return analysis result
+        res.json(analysisResult);
+      }
+
+    } catch (error) {
+      console.error('Damage analysis failed:', error);
+      
+      // Handle AI service unavailable errors
+      if (error.name === 'AI_FEATURE_DISABLED' || error.message?.includes('AI_FEATURE_DISABLED')) {
+        return res.status(503).json({ 
+          error: 'AI damage detection service unavailable',
+          details: 'ANTHROPIC_API_KEY not configured or Anthropic SDK initialization failed',
+          code: 'AI_FEATURE_DISABLED',
+          message: 'Set ANTHROPIC_API_KEY environment variable to enable AI damage detection'
+        });
+      }
+      
+      // Handle AI analysis failures (API errors, rate limits, network issues)
+      if (error.name === 'AI_ANALYSIS_FAILED' || error.message?.includes('AI_ANALYSIS_FAILED')) {
+        return res.status(502).json({ 
+          error: 'AI damage analysis failed',
+          details: error.message?.replace('AI_ANALYSIS_FAILED: ', '') || 'External AI service error',
+          code: 'AI_ANALYSIS_FAILED',
+          message: 'The AI service encountered an error during analysis. Please try again.'
+        });
+      }
+      
+      // Handle other errors as 500
+      res.status(500).json({ 
+        error: 'Analysis failed',
+        details: error instanceof Error ? error.message : 'Unknown error',
+        code: 'INTERNAL_ERROR'
+      });
+    }
+  });
+
+  // Get all traffic camera alerts
+  app.get("/api/traffic-cam-alerts", async (req, res) => {
+    try {
+      const { 
+        cameraId,
+        minSeverityScore = 1, 
+        minProfitabilityScore = 1,
+        emergencyOnly,
+        limit = 50 
+      } = req.query;
+
+      console.log(`📋 Fetching traffic cam alerts with filters`);
+
+      let alerts = await storage.getTrafficCamAlerts();
+
+      // Apply filters
+      if (cameraId) {
+        alerts = alerts.filter(alert => alert.cameraId === cameraId);
+      }
+      if (Number(minSeverityScore) > 1) {
+        alerts = alerts.filter(alert => alert.severityScore >= Number(minSeverityScore));
+      }
+      if (Number(minProfitabilityScore) > 1) {
+        alerts = alerts.filter(alert => alert.profitabilityScore >= Number(minProfitabilityScore));
+      }
+      if (emergencyOnly === 'true') {
+        alerts = alerts.filter(alert => alert.emergencyResponse);
+      }
+
+      res.json({
+        alerts: alerts.slice(0, Number(limit)),
+        totalCount: alerts.length,
+        filters: { cameraId, minSeverityScore, minProfitabilityScore, emergencyOnly, limit }
+      });
+    } catch (error) {
+      console.error('Error fetching traffic cam alerts:', error);
+      res.status(500).json({ error: 'Failed to fetch traffic cam alerts' });
+    }
+  });
+
+  // Get all traffic camera leads
+  app.get("/api/traffic-cam-leads", async (req, res) => {
+    try {
+      const { 
+        contractorId,
+        alertId,
+        status,
+        priority,
+        limit = 50 
+      } = req.query;
+
+      console.log(`💼 Fetching traffic cam leads with filters`);
+
+      let leads = await storage.getTrafficCamLeads();
+
+      // Apply filters
+      if (contractorId) {
+        leads = leads.filter(lead => lead.contractorId === contractorId);
+      }
+      if (alertId) {
+        leads = leads.filter(lead => lead.alertId === alertId);
+      }
+      if (status) {
+        leads = leads.filter(lead => lead.status === status);
+      }
+      if (priority) {
+        leads = leads.filter(lead => lead.priority === priority);
+      }
+
+      res.json({
+        leads: leads.slice(0, Number(limit)),
+        totalCount: leads.length,
+        filters: { contractorId, alertId, status, priority, limit }
+      });
+    } catch (error) {
+      console.error('Error fetching traffic cam leads:', error);
+      res.status(500).json({ error: 'Failed to fetch traffic cam leads' });
+    }
+  });
+
+  // Get damage alerts with enhanced filtering (backward compatibility)
+  app.get("/api/damage-alerts", async (req, res) => {
+    try {
+      const { 
+        state, 
+        severity, 
+        minSeverityScore = 1, 
+        minProfitabilityScore = 1,
+        alertType,
+        status = 'new',
+        limit = 50,
+        emergencyOnly
+      } = req.query;
+
+      console.log(`📋 Fetching traffic cam alerts with filters: severity≥${minSeverityScore}, profit≥${minProfitabilityScore}`);
+
+      // Use real storage to get alerts with filtering
+      const alerts = await storage.getTrafficCamAlertsFiltered({
+        minSeverityScore: Number(minSeverityScore),
+        minProfitabilityScore: Number(minProfitabilityScore),
+        emergencyOnly: emergencyOnly === 'true',
+        limit: Number(limit)
+      });
+
+      res.json({
+        alerts,
+        totalCount: alerts.length,
+        filters: {
+          minSeverityScore: Number(minSeverityScore),
+          minProfitabilityScore: Number(minProfitabilityScore),
+          emergencyOnly,
+          limit: Number(limit)
+        }
+      });
+    } catch (error) {
+      console.error('Error fetching damage alerts:', error);
+      res.status(500).json({ error: 'Failed to fetch damage alerts' });
+    }
+  });
+
+  // AI Service Status and Test Endpoint
+  app.get("/api/ai-damage-detection/status", async (req, res) => {
+    try {
+      const status = damageDetectionService.getStatus();
+      const connectionTest = await damageDetectionService.testConnection();
+      
+      res.json({
+        status: {
+          ...status,
+          environment: process.env.NODE_ENV || 'development',
+          disableMocks: process.env.DISABLE_MOCKS === 'true'
+        },
+        connection: connectionTest,
+        endpoints: {
+          analyze: '/api/analyze-damage',
+          alerts: '/api/damage-alerts',
+          stats: '/api/lead-generation-stats'
+        },
+        message: status.available 
+          ? 'AI damage detection is fully operational'
+          : 'AI damage detection disabled - ANTHROPIC_API_KEY required'
+      });
+    } catch (error) {
+      console.error('Error checking AI service status:', error);
+      res.status(500).json({ 
+        error: 'Failed to check AI service status',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Get lead generation statistics
+  app.get("/api/lead-generation-stats", async (req, res) => {
+    try {
+      const { timeframe = '24h' } = req.query;
+
+      console.log(`📊 Fetching lead generation stats for timeframe: ${timeframe}`);
+
+      // Get real data from storage
+      const allAlerts = await storage.getTrafficCamAlerts();
+      const allLeads = await storage.getTrafficCamLeads();
+
+      // Calculate timeframe cutoff
+      const timeframeCutoff = new Date();
+      if (timeframe === '1h') {
+        timeframeCutoff.setHours(timeframeCutoff.getHours() - 1);
+      } else if (timeframe === '24h') {
+        timeframeCutoff.setHours(timeframeCutoff.getHours() - 24);
+      } else if (timeframe === '7d') {
+        timeframeCutoff.setDate(timeframeCutoff.getDate() - 7);
+      } else if (timeframe === '30d') {
+        timeframeCutoff.setDate(timeframeCutoff.getDate() - 30);
+      }
+
+      // Filter by timeframe
+      const recentAlerts = allAlerts.filter(alert => new Date(alert.detectedAt) >= timeframeCutoff);
+      const recentLeads = allLeads.filter(lead => new Date(lead.createdAt) >= timeframeCutoff);
+
+      // Calculate stats
+      const emergencyAlerts = recentAlerts.filter(alert => alert.emergencyResponse).length;
+      const totalPotentialValue = recentLeads.reduce((sum, lead) => sum + Number(lead.estimatedValue || 0), 0);
+      const averageSeverityScore = recentAlerts.length > 0 
+        ? recentAlerts.reduce((sum, alert) => sum + alert.severityScore, 0) / recentAlerts.length 
+        : 0;
+      const averageProfitabilityScore = recentAlerts.length > 0 
+        ? recentAlerts.reduce((sum, alert) => sum + alert.profitabilityScore, 0) / recentAlerts.length 
+        : 0;
+
+      // Group by alert type
+      const alertTypeStats = recentAlerts.reduce((acc, alert) => {
+        if (!acc[alert.alertType]) {
+          acc[alert.alertType] = { count: 0, totalValue: 0 };
+        }
+        acc[alert.alertType].count++;
+        
+        // Find related leads for this alert
+        const relatedLeads = recentLeads.filter(lead => lead.alertId === alert.id);
+        const alertValue = relatedLeads.reduce((sum, lead) => sum + Number(lead.estimatedValue || 0), 0);
+        acc[alert.alertType].totalValue += alertValue;
+        
+        return acc;
+      }, {} as Record<string, { count: number; totalValue: number }>);
+
+      const topAlertTypes = Object.entries(alertTypeStats)
+        .map(([alertType, stats]) => ({
+          alertType,
+          count: stats.count,
+          averageValue: stats.count > 0 ? Math.round(stats.totalValue / stats.count) : 0
+        }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5);
+
+      const stats = {
+        timeframe,
+        alertsGenerated: recentAlerts.length,
+        leadsGenerated: recentLeads.length,
+        contractorsNotified: recentLeads.length, // Assuming each lead means a contractor was notified
+        totalPotentialValue: Math.round(totalPotentialValue),
+        conversionRate: recentAlerts.length > 0 ? Math.round((recentLeads.length / recentAlerts.length) * 100) : 0,
+        averageSeverityScore: Math.round(averageSeverityScore * 10) / 10,
+        averageProfitabilityScore: Math.round(averageProfitabilityScore * 10) / 10,
+        topAlertTypes,
+        emergencyAlerts,
+        highValueLeads: recentLeads.filter(lead => Number(lead.estimatedValue || 0) > 10000).length,
+        systemHealth: {
+          apiKeyConfigured: !!process.env.ANTHROPIC_API_KEY,
+          damageDetectionActive: true,
+          leadGenerationActive: true,
+          storageOperational: true
+        }
+      };
+
+      res.json(stats);
+    } catch (error) {
+      console.error('Failed to fetch lead generation stats:', error);
+      res.status(500).json({ 
+        error: 'Failed to fetch stats',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Test damage detection system with mock data
+  app.post("/api/test-damage-detection", express.json(), async (req, res) => {
+    try {
+      console.log('🧪 Testing AI damage detection system');
+      
+      const testResult = await damageDetectionService.testWithSampleImage();
+      
+      res.json({
+        success: true,
+        testResult,
+        message: 'Damage detection test completed',
+        systemStatus: {
+          apiKeyConfigured: !!process.env.ANTHROPIC_API_KEY,
+          damageDetectionService: 'operational',
+          leadGenerationService: 'operational'
+        }
+      });
+    } catch (error) {
+      console.error('Damage detection test failed:', error);
+      res.status(500).json({
+        error: 'Test failed',
+        details: error instanceof Error ? error.message : 'Unknown error',
+        systemStatus: {
+          apiKeyConfigured: !!process.env.ANTHROPIC_API_KEY,
+          damageDetectionService: 'error',
+          leadGenerationService: 'unknown'
+        }
+      });
+    }
+  });
+
+  // Test end-to-end damage detection with lead generation (development mode)
+  app.post("/api/test-damage-detection-e2e", express.json(), async (req, res) => {
+    try {
+      console.log('🧪 Testing end-to-end damage detection with lead generation');
+      
+      // Get test damage analysis result
+      const analysisResult = await damageDetectionService.testWithSampleImage();
+      
+      // Test lead generation using the mock damage data
+      if (analysisResult.leadGenerated && analysisResult.maxProfitabilityScore >= 4) {
+        console.log('💼 Processing lead generation for test damage scenario');
+        
+        const leadResult = await leadGenerationService.processDamageAnalysis(
+          'test-cam-e2e-001',
+          'E2E-TEST-CAM-001',
+          analysisResult,
+          {
+            lat: 33.7490,
+            lng: -84.3880,
+            address: '123 Test Street, Atlanta, GA 30309'
+          }
+        );
+
+        console.log(`✅ E2E test completed: ${leadResult.alertsGenerated} alerts, ${leadResult.leadsGenerated} leads, ${leadResult.contractorsNotified} contractors notified`);
+        
+        res.json({
+          success: true,
+          analysisResult,
+          leadGenerationResult: leadResult,
+          message: 'End-to-end test completed with lead generation',
+          systemStatus: {
+            apiKeyConfigured: !!process.env.ANTHROPIC_API_KEY,
+            damageDetectionService: 'operational',
+            leadGenerationService: 'operational',
+            alertsCreated: leadResult.alertsGenerated,
+            leadsCreated: leadResult.leadsGenerated,
+            contractorsNotified: leadResult.contractorsNotified
+          }
+        });
+      } else {
+        res.json({
+          success: true,
+          analysisResult,
+          leadGenerationResult: { alertsGenerated: 0, leadsGenerated: 0, contractorsNotified: 0 },
+          message: 'Test completed - no leads generated (below profitability threshold)',
+          systemStatus: {
+            apiKeyConfigured: !!process.env.ANTHROPIC_API_KEY,
+            damageDetectionService: 'operational',
+            leadGenerationService: 'operational'
+          }
+        });
+      }
+    } catch (error) {
+      console.error('E2E damage detection test failed:', error);
+      res.status(500).json({
+        error: 'E2E test failed',
+        details: error instanceof Error ? error.message : 'Unknown error',
+        systemStatus: {
+          apiKeyConfigured: !!process.env.ANTHROPIC_API_KEY,
+          damageDetectionService: 'error',
+          leadGenerationService: 'error'
+        }
+      });
+    }
+  });
+
+  // ===== PREDICTIVE STORM DAMAGE AI API ROUTES =====
+  
+  // Generate storm prediction from current conditions
+  app.post("/api/predict-storm", express.json(), async (req, res) => {
+    try {
+      console.log('🌪️ Generating storm prediction...');
+      
+      const { 
+        stormId, 
+        stormName, 
+        stormType, 
+        currentPosition, 
+        currentIntensity,
+        currentPressure,
+        currentDirection,
+        currentSpeed,
+        forecastHours = 24,
+        targetStates,
+        targetCounties,
+        useNexradData = true,
+        useHistoricalData = true,
+        useSSTData = true,
+        useWaveData = true
+      } = req.body;
+
+      // Validate required fields
+      if (!stormId || !stormType || !currentPosition || !currentIntensity || !currentDirection || !currentSpeed) {
+        return res.status(400).json({ 
+          error: 'Missing required fields',
+          required: ['stormId', 'stormType', 'currentPosition', 'currentIntensity', 'currentDirection', 'currentSpeed']
+        });
+      }
+
+      const prediction = await predictiveStormService.generateStormPrediction({
+        stormId,
+        stormName,
+        stormType,
+        currentPosition,
+        currentIntensity,
+        currentPressure,
+        currentDirection,
+        currentSpeed,
+        forecastHours,
+        targetStates,
+        targetCounties,
+        useNexradData,
+        useHistoricalData,
+        useSSTData,
+        useWaveData
+      });
+
+      console.log(`✅ Storm prediction generated: ${prediction.damageForecasts.length} forecasts, ${prediction.contractorOpportunities.length} opportunities`);
+      
+      res.json({
+        success: true,
+        prediction,
+        message: `Generated ${forecastHours}-hour prediction for ${stormName || stormId}`
+      });
+
+    } catch (error) {
+      console.error('❌ Storm prediction failed:', error);
+      res.status(500).json({
+        error: 'Prediction generation failed',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Get all active storm predictions
+  app.get("/api/storm-predictions", async (req, res) => {
+    try {
+      const predictions = await storage.getActiveStormPredictions();
+      res.json({
+        success: true,
+        predictions,
+        count: predictions.length
+      });
+    } catch (error) {
+      console.error('Error fetching storm predictions:', error);
+      res.status(500).json({
+        error: 'Failed to fetch predictions',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Get damage forecasts
+  app.get("/api/damage-forecasts", async (req, res) => {
+    try {
+      const { state, county, riskLevel, limit = 50 } = req.query;
+      let forecasts;
+
+      if (state && county) {
+        forecasts = await storage.getDamageForecastsByCounty(state as string, county as string);
+      } else if (state) {
+        forecasts = await storage.getDamageForecastsByState(state as string);
+      } else if (riskLevel) {
+        forecasts = await storage.getDamageForecastsByRiskLevel(riskLevel as string);
+      } else {
+        forecasts = await storage.getActiveDamageForecasts();
+      }
+
+      const limitedForecasts = forecasts.slice(0, parseInt(limit as string));
+
+      res.json({
+        success: true,
+        forecasts: limitedForecasts,
+        count: limitedForecasts.length,
+        total: forecasts.length,
+        filters: { state, county, riskLevel, limit }
+      });
+    } catch (error) {
+      console.error('Error fetching damage forecasts:', error);
+      res.status(500).json({
+        error: 'Failed to fetch forecasts',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Get contractor opportunities
+  app.get("/api/contractor-opportunities", async (req, res) => {
+    try {
+      const { state, marketPotential, minScore = 50, limit = 100 } = req.query;
+      let opportunities;
+
+      const minOpportunityScore = parseFloat(minScore as string);
+
+      if (state) {
+        opportunities = await storage.getContractorOpportunitiesByState(state as string);
+      } else if (marketPotential) {
+        opportunities = await storage.getContractorOpportunitiesByMarketPotential(marketPotential as string);
+      } else {
+        opportunities = await storage.getHighOpportunityPredictions(minOpportunityScore);
+      }
+
+      const limitedOpportunities = opportunities.slice(0, parseInt(limit as string));
+
+      res.json({
+        success: true,
+        opportunities: limitedOpportunities,
+        count: limitedOpportunities.length,
+        total: opportunities.length,
+        filters: { state, marketPotential, minScore, limit }
+      });
+    } catch (error) {
+      console.error('Error fetching contractor opportunities:', error);
+      res.status(500).json({
+        error: 'Failed to fetch opportunities',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Get prediction dashboard data
+  app.get("/api/prediction-dashboard", async (req, res) => {
+    try {
+      const { state, forecastHours = 48 } = req.query;
+      
+      const activePredictions = await storage.getActiveStormPredictions();
+      
+      let damageForecasts;
+      if (state) {
+        damageForecasts = await storage.getDamageForecastsByState(state as string);
+      } else {
+        damageForecasts = await storage.getActiveDamageForecasts();
+      }
+
+      const hoursAhead = parseInt(forecastHours as string);
+      const cutoffTime = new Date(Date.now() + hoursAhead * 60 * 60 * 1000);
+      damageForecasts = damageForecasts.filter(f => 
+        new Date(f.expectedArrivalTime) <= cutoffTime
+      );
+
+      const contractorOpportunities = await storage.getHighOpportunityPredictions(60);
+      
+      const riskSummary = {
+        extreme: damageForecasts.filter(f => f.riskLevel === 'extreme').length,
+        high: damageForecasts.filter(f => f.riskLevel === 'high').length,
+        moderate: damageForecasts.filter(f => f.riskLevel === 'moderate').length,
+        low: damageForecasts.filter(f => f.riskLevel === 'low').length,
+        minimal: damageForecasts.filter(f => f.riskLevel === 'minimal').length
+      };
+
+      const totalRevenue = contractorOpportunities.reduce((sum, opp) => 
+        sum + parseFloat(String(opp.estimatedRevenueOpportunity)), 0
+      );
+
+      res.json({
+        success: true,
+        dashboard: {
+          activePredictions: activePredictions.length,
+          damageForecasts: damageForecasts.length,
+          contractorOpportunities: contractorOpportunities.length,
+          riskSummary,
+          totalEstimatedRevenue: totalRevenue,
+          forecastHours: hoursAhead,
+          lastUpdated: new Date().toISOString()
+        },
+        data: {
+          predictions: activePredictions.slice(0, 10),
+          forecasts: damageForecasts.slice(0, 20),
+          opportunities: contractorOpportunities.slice(0, 15)
+        }
+      });
+    } catch (error) {
+      console.error('Error fetching prediction dashboard:', error);
+      res.status(500).json({
+        error: 'Failed to fetch dashboard data',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Test predictive storm system
+  app.post("/api/test-predictive-storm", express.json(), async (req, res) => {
+    try {
+      console.log('🧪 Testing predictive storm AI system...');
+      
+      const testStorm = {
+        stormId: 'TEST-HURRICANE-001',
+        stormName: 'Test Hurricane Alpha',
+        stormType: 'hurricane' as const,
+        currentPosition: { latitude: 25.7617, longitude: -80.1918 },
+        currentIntensity: 120,
+        currentPressure: 945,
+        currentDirection: 310,
+        currentSpeed: 12,
+        forecastHours: 48,
+        targetStates: ['FL', 'GA', 'SC'],
+        useNexradData: true,
+        useHistoricalData: true,
+        useSSTData: true,
+        useWaveData: true
+      };
+
+      const prediction = await predictiveStormService.generateStormPrediction(testStorm);
+
+      console.log(`✅ Test prediction completed: ${prediction.damageForecasts.length} forecasts, ${prediction.contractorOpportunities.length} opportunities`);
+      
+      res.json({
+        success: true,
+        testResult: prediction,
+        message: 'Predictive storm system test completed successfully',
+        systemStatus: {
+          predictiveStormService: 'operational',
+          confidenceScore: prediction.confidence.overall,
+          forecastsGenerated: prediction.damageForecasts.length,
+          opportunitiesIdentified: prediction.contractorOpportunities.length,
+          processingTime: prediction.analysisMetadata.processingTimeMs
+        }
+      });
+
+    } catch (error) {
+      console.error('❌ Predictive storm test failed:', error);
+      res.status(500).json({
+        error: 'Predictive storm test failed',
+        details: error instanceof Error ? error.message : 'Unknown error',
+        systemStatus: {
+          predictiveStormService: 'error'
+        }
+      });
+    }
+  });
+
+  // ===== PREDICTIVE STORM AI API ENDPOINTS =====
+  
+  // POST /api/predict - Generate storm prediction
+  app.post("/api/predict", express.json(), async (req, res) => {
+    try {
+      // Validate request body
+      const stormAnalysisInput = req.body;
+      
+      // Basic validation for required fields
+      if (!stormAnalysisInput.stormId || !stormAnalysisInput.stormType || !stormAnalysisInput.currentPosition) {
+        return res.status(400).json({
+          error: 'Invalid storm analysis input',
+          details: 'Required fields: stormId, stormType, currentPosition'
+        });
+      }
+
+      if (!stormAnalysisInput.currentPosition.latitude || !stormAnalysisInput.currentPosition.longitude) {
+        return res.status(400).json({
+          error: 'Invalid current position',
+          details: 'latitude and longitude are required'
+        });
+      }
+
+      if (!['hurricane', 'tornado', 'severe_thunderstorm', 'winter_storm'].includes(stormAnalysisInput.stormType)) {
+        return res.status(400).json({
+          error: 'Invalid storm type',
+          details: 'Must be one of: hurricane, tornado, severe_thunderstorm, winter_storm'
+        });
+      }
+
+      console.log(`🌪️ Generating prediction for storm ${stormAnalysisInput.stormId}`);
+
+      // Generate prediction using AI service
+      const predictionResult = await predictiveStormService.generateStormPrediction(stormAnalysisInput);
+
+      // Store the prediction, forecasts, and opportunities in storage
+      const storedPrediction = await storage.createStormPrediction({
+        stormId: predictionResult.stormPrediction.stormId,
+        stormName: predictionResult.stormPrediction.stormName,
+        stormType: predictionResult.stormPrediction.stormType,
+        currentLatitude: predictionResult.stormPrediction.currentLatitude,
+        currentLongitude: predictionResult.stormPrediction.currentLongitude,
+        currentIntensity: predictionResult.stormPrediction.currentIntensity,
+        currentPressure: predictionResult.stormPrediction.currentPressure,
+        currentDirection: predictionResult.stormPrediction.currentDirection,
+        currentSpeed: predictionResult.stormPrediction.currentSpeed,
+        forecastHours: predictionResult.stormPrediction.forecastHours,
+        predictedPath: predictionResult.stormPrediction.predictedPath,
+        intensityForecast: predictionResult.stormPrediction.intensityForecast,
+        maxWindSpeed: predictionResult.stormPrediction.maxWindSpeed,
+        maxWindRadius: predictionResult.stormPrediction.maxWindRadius,
+        stormSurgeHeight: predictionResult.stormPrediction.stormSurgeHeight,
+        stormSurgeRadius: predictionResult.stormPrediction.stormSurgeRadius,
+        precipitationForecast: predictionResult.stormPrediction.precipitationForecast,
+        confidenceScore: predictionResult.stormPrediction.confidenceScore,
+        uncertaintyRadius: predictionResult.stormPrediction.uncertaintyRadius,
+        isActive: predictionResult.stormPrediction.isActive
+      });
+
+      // Store damage forecasts
+      const storedForecasts = await Promise.all(
+        predictionResult.damageForecasts.map(forecast => 
+          storage.createDamageForecast({
+            stormPredictionId: storedPrediction.id,
+            state: forecast.state,
+            county: forecast.county,
+            riskLevel: forecast.riskLevel,
+            affectedPopulation: forecast.affectedPopulation,
+            estimatedPropertyDamage: forecast.estimatedPropertyDamage,
+            estimatedBusinessLoss: forecast.estimatedBusinessLoss,
+            primaryDamageTypes: forecast.primaryDamageTypes,
+            vulnerableInfrastructure: forecast.vulnerableInfrastructure,
+            evacuationZones: forecast.evacuationZones,
+            timeToImpact: forecast.timeToImpact,
+            forecastConfidence: forecast.forecastConfidence,
+            lastUpdated: forecast.lastUpdated
+          })
+        )
+      );
+
+      // Store contractor opportunities
+      const storedOpportunities = await Promise.all(
+        predictionResult.contractorOpportunities.map(opportunity => 
+          storage.createContractorOpportunityPrediction({
+            damageForecastId: storedForecasts.find(f => f.state === opportunity.state && f.county === opportunity.county)?.id || '',
+            state: opportunity.state,
+            county: opportunity.county,
+            marketPotential: opportunity.marketPotential,
+            estimatedJobValue: opportunity.estimatedJobValue,
+            competitionLevel: opportunity.competitionLevel,
+            timeToMarket: opportunity.timeToMarket,
+            primaryServiceTypes: opportunity.primaryServiceTypes,
+            opportunityScore: opportunity.opportunityScore,
+            urgencyFactor: opportunity.urgencyFactor,
+            accessibilityRating: opportunity.accessibilityRating,
+            regulatoryComplexity: opportunity.regulatoryComplexity,
+            equipmentRequirements: opportunity.equipmentRequirements,
+            crewSizeRecommendation: opportunity.crewSizeRecommendation,
+            lastUpdated: opportunity.lastUpdated
+          })
+        )
+      );
+
+      res.json({
+        success: true,
+        predictionId: storedPrediction.id,
+        prediction: predictionResult,
+        stored: {
+          prediction: storedPrediction,
+          forecasts: storedForecasts,
+          opportunities: storedOpportunities
+        },
+        systemStatus: {
+          processingTime: predictionResult.analysisMetadata.processingTimeMs,
+          confidence: predictionResult.confidence.overall,
+          forecastsGenerated: storedForecasts.length,
+          opportunitiesIdentified: storedOpportunities.length
+        }
+      });
+
+    } catch (error) {
+      console.error('❌ Prediction generation failed:', error);
+      res.status(500).json({
+        error: 'Prediction generation failed',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // GET /api/predictions/:id - Retrieve stored prediction
+  app.get("/api/predictions/:id", async (req, res) => {
+    try {
+      const predictionId = req.params.id;
+
+      if (!predictionId) {
+        return res.status(400).json({
+          error: 'Prediction ID is required'
+        });
+      }
+
+      // Get the main prediction
+      const prediction = await storage.getStormPrediction(predictionId);
+      if (!prediction) {
+        return res.status(404).json({
+          error: 'Prediction not found',
+          predictionId
+        });
+      }
+
+      // Get associated damage forecasts
+      const damageForecasts = await storage.getDamageForecastsByStormPrediction(predictionId);
+
+      // Get contractor opportunities for each forecast
+      const contractorOpportunities = await Promise.all(
+        damageForecasts.map(forecast => 
+          storage.getContractorOpportunitiesByDamageForecast(forecast.id)
+        )
+      ).then(results => results.flat());
+
+      res.json({
+        success: true,
+        prediction,
+        damageForecasts,
+        contractorOpportunities,
+        metadata: {
+          retrievedAt: new Date(),
+          forecastCount: damageForecasts.length,
+          opportunityCount: contractorOpportunities.length
+        }
+      });
+
+    } catch (error) {
+      console.error('❌ Failed to retrieve prediction:', error);
+      res.status(500).json({
+        error: 'Failed to retrieve prediction',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // GET /api/predictions - List all active predictions
+  app.get("/api/predictions", async (req, res) => {
+    try {
+      const predictions = await storage.getActiveStormPredictions();
+      
+      res.json({
+        success: true,
+        predictions,
+        count: predictions.length,
+        retrievedAt: new Date()
+      });
+
+    } catch (error) {
+      console.error('❌ Failed to list predictions:', error);
+      res.status(500).json({
+        error: 'Failed to list predictions',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   });
 

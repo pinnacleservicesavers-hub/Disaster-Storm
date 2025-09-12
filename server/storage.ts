@@ -44,7 +44,21 @@ import {
   type ServiceRequest,
   type InsertServiceRequest,
   type EmergencyContact,
-  type InsertEmergencyContact
+  type InsertEmergencyContact,
+  type TrafficCamAlert,
+  type InsertTrafficCamAlert,
+  type TrafficCamLead,
+  type InsertTrafficCamLead,
+  type StormPrediction,
+  type InsertStormPrediction,
+  type DamageForecast,
+  type InsertDamageForecast,
+  type ContractorOpportunityPrediction,
+  type InsertContractorOpportunityPrediction,
+  type HistoricalDamagePattern,
+  type InsertHistoricalDamagePattern,
+  type RadarAnalysisCache,
+  type InsertRadarAnalysisCache
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import fs from "fs";
@@ -201,6 +215,87 @@ export interface IStorage {
   updateEmergencyContact(id: string, updates: Partial<EmergencyContact>): Promise<EmergencyContact>;
   deleteEmergencyContact(id: string): Promise<boolean>;
   getPrimaryEmergencyContact(homeownerId: string): Promise<EmergencyContact | undefined>;
+
+  // Traffic Camera Alert methods
+  getTrafficCamAlerts(): Promise<TrafficCamAlert[]>;
+  getTrafficCamAlert(id: string): Promise<TrafficCamAlert | undefined>;
+  getTrafficCamAlertsByCamera(cameraId: string): Promise<TrafficCamAlert[]>;
+  getTrafficCamAlertsBySeverity(minSeverityScore: number): Promise<TrafficCamAlert[]>;
+  getTrafficCamAlertsByProfitability(minProfitabilityScore: number): Promise<TrafficCamAlert[]>;
+  getTrafficCamAlertsFiltered(filters: { 
+    minSeverityScore?: number; 
+    minProfitabilityScore?: number; 
+    emergencyOnly?: boolean; 
+    limit?: number; 
+  }): Promise<TrafficCamAlert[]>;
+  createTrafficCamAlert(alert: InsertTrafficCamAlert): Promise<TrafficCamAlert>;
+  updateTrafficCamAlert(id: string, updates: Partial<TrafficCamAlert>): Promise<TrafficCamAlert>;
+  deleteTrafficCamAlert(id: string): Promise<boolean>;
+
+  // Traffic Camera Lead methods
+  getTrafficCamLeads(): Promise<TrafficCamLead[]>;
+  getTrafficCamLead(id: string): Promise<TrafficCamLead | undefined>;
+  getTrafficCamLeadsByAlert(alertId: string): Promise<TrafficCamLead[]>;
+  getTrafficCamLeadsByContractor(contractorId: string): Promise<TrafficCamLead[]>;
+  getTrafficCamLeadsByStatus(status: string): Promise<TrafficCamLead[]>;
+  createTrafficCamLead(lead: InsertTrafficCamLead): Promise<TrafficCamLead>;
+  updateTrafficCamLead(id: string, updates: Partial<TrafficCamLead>): Promise<TrafficCamLead>;
+  deleteTrafficCamLead(id: string): Promise<boolean>;
+  
+  // Predictive Storm AI methods
+  // Storm Predictions
+  getStormPredictions(): Promise<StormPrediction[]>;
+  getActiveStormPredictions(): Promise<StormPrediction[]>;
+  getStormPrediction(id: string): Promise<StormPrediction | undefined>;
+  getStormPredictionByStormId(stormId: string): Promise<StormPrediction[]>;
+  createStormPrediction(prediction: InsertStormPrediction): Promise<StormPrediction>;
+  updateStormPrediction(id: string, updates: Partial<StormPrediction>): Promise<StormPrediction>;
+  deleteStormPrediction(id: string): Promise<boolean>;
+  
+  // Damage Forecasts
+  getDamageForecasts(): Promise<DamageForecast[]>;
+  getActiveDamageForecasts(): Promise<DamageForecast[]>;
+  getDamageForecast(id: string): Promise<DamageForecast | undefined>;
+  getDamageForecastsByStormPrediction(stormPredictionId: string): Promise<DamageForecast[]>;
+  getDamageForecastsByState(state: string): Promise<DamageForecast[]>;
+  getDamageForecastsByCounty(state: string, county: string): Promise<DamageForecast[]>;
+  getDamageForecastsByRiskLevel(riskLevel: string): Promise<DamageForecast[]>;
+  createDamageForecast(forecast: InsertDamageForecast): Promise<DamageForecast>;
+  updateDamageForecast(id: string, updates: Partial<DamageForecast>): Promise<DamageForecast>;
+  deleteDamageForecast(id: string): Promise<boolean>;
+  
+  // Contractor Opportunity Predictions
+  getContractorOpportunityPredictions(): Promise<ContractorOpportunityPrediction[]>;
+  getContractorOpportunityPrediction(id: string): Promise<ContractorOpportunityPrediction | undefined>;
+  getContractorOpportunitiesByDamageForecast(damageForecastId: string): Promise<ContractorOpportunityPrediction[]>;
+  getContractorOpportunitiesByState(state: string): Promise<ContractorOpportunityPrediction[]>;
+  getContractorOpportunitiesByMarketPotential(marketPotential: string): Promise<ContractorOpportunityPrediction[]>;
+  getHighOpportunityPredictions(minOpportunityScore: number): Promise<ContractorOpportunityPrediction[]>;
+  createContractorOpportunityPrediction(prediction: InsertContractorOpportunityPrediction): Promise<ContractorOpportunityPrediction>;
+  updateContractorOpportunityPrediction(id: string, updates: Partial<ContractorOpportunityPrediction>): Promise<ContractorOpportunityPrediction>;
+  deleteContractorOpportunityPrediction(id: string): Promise<boolean>;
+  
+  // Historical Damage Patterns
+  getHistoricalDamagePatterns(): Promise<HistoricalDamagePattern[]>;
+  getHistoricalDamagePattern(id: string): Promise<HistoricalDamagePattern | undefined>;
+  getHistoricalDamagePatternsByEventType(eventType: string): Promise<HistoricalDamagePattern[]>;
+  getHistoricalDamagePatternsByState(state: string): Promise<HistoricalDamagePattern[]>;
+  getHistoricalDamagePatternsByIntensity(minIntensity: number, maxIntensity: number): Promise<HistoricalDamagePattern[]>;
+  getSimilarHistoricalEvents(eventType: string, intensity: number, state: string): Promise<HistoricalDamagePattern[]>;
+  createHistoricalDamagePattern(pattern: InsertHistoricalDamagePattern): Promise<HistoricalDamagePattern>;
+  updateHistoricalDamagePattern(id: string, updates: Partial<HistoricalDamagePattern>): Promise<HistoricalDamagePattern>;
+  deleteHistoricalDamagePattern(id: string): Promise<boolean>;
+  
+  // Radar Analysis Cache
+  getRadarAnalysisCache(): Promise<RadarAnalysisCache[]>;
+  getRadarAnalysisCacheEntry(id: string): Promise<RadarAnalysisCache | undefined>;
+  getRadarAnalysisBySite(radarSiteId: string): Promise<RadarAnalysisCache[]>;
+  getRadarAnalysisByTimeRange(startTime: Date, endTime: Date): Promise<RadarAnalysisCache[]>;
+  getLatestRadarAnalysis(radarSiteId: string): Promise<RadarAnalysisCache | undefined>;
+  createRadarAnalysisCache(analysis: InsertRadarAnalysisCache): Promise<RadarAnalysisCache>;
+  updateRadarAnalysisCache(id: string, updates: Partial<RadarAnalysisCache>): Promise<RadarAnalysisCache>;
+  deleteRadarAnalysisCache(id: string): Promise<boolean>;
+  cleanupExpiredRadarCache(): Promise<number>; // Returns number of entries deleted
 }
 
 export class MemStorage implements IStorage {
@@ -229,6 +324,17 @@ export class MemStorage implements IStorage {
   private damageReports: Map<string, DamageReport> = new Map();
   private serviceRequests: Map<string, ServiceRequest> = new Map();
   private emergencyContacts: Map<string, EmergencyContact> = new Map();
+  
+  // Traffic Camera System Storage
+  private trafficCamAlerts: Map<string, TrafficCamAlert> = new Map();
+  private trafficCamLeads: Map<string, TrafficCamLead> = new Map();
+  
+  // Predictive Storm AI Storage
+  private stormPredictions: Map<string, StormPrediction> = new Map();
+  private damageForecasts: Map<string, DamageForecast> = new Map();
+  private contractorOpportunityPredictions: Map<string, ContractorOpportunityPrediction> = new Map();
+  private historicalDamagePatterns: Map<string, HistoricalDamagePattern> = new Map();
+  private radarAnalysisCache: Map<string, RadarAnalysisCache> = new Map();
 
   constructor() {
     console.log('🏗️ Initializing MemStorage...');
@@ -1135,6 +1241,470 @@ export class MemStorage implements IStorage {
   async getPrimaryEmergencyContact(homeownerId: string): Promise<EmergencyContact | undefined> {
     return Array.from(this.emergencyContacts.values())
       .find(contact => contact.homeownerId === homeownerId && contact.isPrimary);
+  }
+
+  // Traffic Camera Alert methods
+  async getTrafficCamAlerts(): Promise<TrafficCamAlert[]> {
+    return Array.from(this.trafficCamAlerts.values())
+      .sort((a, b) => new Date(b.detectedAt).getTime() - new Date(a.detectedAt).getTime());
+  }
+
+  async getTrafficCamAlert(id: string): Promise<TrafficCamAlert | undefined> {
+    return this.trafficCamAlerts.get(id);
+  }
+
+  async getTrafficCamAlertsByCamera(cameraId: string): Promise<TrafficCamAlert[]> {
+    return Array.from(this.trafficCamAlerts.values())
+      .filter(alert => alert.cameraId === cameraId)
+      .sort((a, b) => new Date(b.detectedAt).getTime() - new Date(a.detectedAt).getTime());
+  }
+
+  async getTrafficCamAlertsBySeverity(minSeverityScore: number): Promise<TrafficCamAlert[]> {
+    return Array.from(this.trafficCamAlerts.values())
+      .filter(alert => alert.severityScore >= minSeverityScore)
+      .sort((a, b) => b.severityScore - a.severityScore);
+  }
+
+  async getTrafficCamAlertsByProfitability(minProfitabilityScore: number): Promise<TrafficCamAlert[]> {
+    return Array.from(this.trafficCamAlerts.values())
+      .filter(alert => alert.profitabilityScore >= minProfitabilityScore)
+      .sort((a, b) => b.profitabilityScore - a.profitabilityScore);
+  }
+
+  async getTrafficCamAlertsFiltered(filters: { 
+    minSeverityScore?: number; 
+    minProfitabilityScore?: number; 
+    emergencyOnly?: boolean; 
+    limit?: number; 
+  }): Promise<TrafficCamAlert[]> {
+    let alerts = Array.from(this.trafficCamAlerts.values());
+
+    if (filters.minSeverityScore !== undefined) {
+      alerts = alerts.filter(alert => alert.severityScore >= filters.minSeverityScore!);
+    }
+
+    if (filters.minProfitabilityScore !== undefined) {
+      alerts = alerts.filter(alert => alert.profitabilityScore >= filters.minProfitabilityScore!);
+    }
+
+    if (filters.emergencyOnly) {
+      alerts = alerts.filter(alert => alert.emergencyResponse);
+    }
+
+    // Sort by detection time (newest first)
+    alerts.sort((a, b) => new Date(b.detectedAt).getTime() - new Date(a.detectedAt).getTime());
+
+    if (filters.limit) {
+      alerts = alerts.slice(0, filters.limit);
+    }
+
+    return alerts;
+  }
+
+  async createTrafficCamAlert(insertAlert: InsertTrafficCamAlert): Promise<TrafficCamAlert> {
+    const id = randomUUID();
+    const alert: TrafficCamAlert = { 
+      ...insertAlert, 
+      id, 
+      createdAt: new Date(), 
+      updatedAt: new Date() 
+    };
+    this.trafficCamAlerts.set(id, alert);
+    console.log(`💾 Stored traffic cam alert: ${alert.alertType} (Severity: ${alert.severityScore}/10, Profit: ${alert.profitabilityScore}/10)`);
+    return alert;
+  }
+
+  async updateTrafficCamAlert(id: string, updates: Partial<TrafficCamAlert>): Promise<TrafficCamAlert> {
+    const alert = this.trafficCamAlerts.get(id);
+    if (!alert) throw new Error("Traffic camera alert not found");
+    
+    const updatedAlert = { ...alert, ...updates, updatedAt: new Date() };
+    this.trafficCamAlerts.set(id, updatedAlert);
+    return updatedAlert;
+  }
+
+  async deleteTrafficCamAlert(id: string): Promise<boolean> {
+    return this.trafficCamAlerts.delete(id);
+  }
+
+  // Traffic Camera Lead methods
+  async getTrafficCamLeads(): Promise<TrafficCamLead[]> {
+    return Array.from(this.trafficCamLeads.values())
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+
+  async getTrafficCamLead(id: string): Promise<TrafficCamLead | undefined> {
+    return this.trafficCamLeads.get(id);
+  }
+
+  async getTrafficCamLeadsByAlert(alertId: string): Promise<TrafficCamLead[]> {
+    return Array.from(this.trafficCamLeads.values())
+      .filter(lead => lead.alertId === alertId)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+
+  async getTrafficCamLeadsByContractor(contractorId: string): Promise<TrafficCamLead[]> {
+    return Array.from(this.trafficCamLeads.values())
+      .filter(lead => lead.contractorId === contractorId)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+
+  async getTrafficCamLeadsByStatus(status: string): Promise<TrafficCamLead[]> {
+    return Array.from(this.trafficCamLeads.values())
+      .filter(lead => lead.status === status)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+
+  async createTrafficCamLead(insertLead: InsertTrafficCamLead): Promise<TrafficCamLead> {
+    const id = randomUUID();
+    const lead: TrafficCamLead = { 
+      ...insertLead, 
+      id, 
+      createdAt: new Date(), 
+      updatedAt: new Date() 
+    };
+    this.trafficCamLeads.set(id, lead);
+    console.log(`💼 Generated traffic cam lead: ${lead.alertType} for contractor ${lead.contractorId} (Value: $${lead.estimatedValue})`);
+    return lead;
+  }
+
+  async updateTrafficCamLead(id: string, updates: Partial<TrafficCamLead>): Promise<TrafficCamLead> {
+    const lead = this.trafficCamLeads.get(id);
+    if (!lead) throw new Error("Traffic camera lead not found");
+    
+    const updatedLead = { ...lead, ...updates, updatedAt: new Date() };
+    this.trafficCamLeads.set(id, updatedLead);
+    return updatedLead;
+  }
+
+  async deleteTrafficCamLead(id: string): Promise<boolean> {
+    return this.trafficCamLeads.delete(id);
+  }
+
+  // ===== PREDICTIVE STORM AI STORAGE METHODS =====
+
+  // Storm Predictions methods
+  async getStormPredictions(): Promise<StormPrediction[]> {
+    return Array.from(this.stormPredictions.values())
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+
+  async getActiveStormPredictions(): Promise<StormPrediction[]> {
+    const now = new Date();
+    return Array.from(this.stormPredictions.values())
+      .filter(prediction => 
+        prediction.status === 'active' && 
+        new Date(prediction.predictionEndTime) > now
+      )
+      .sort((a, b) => new Date(a.predictionStartTime).getTime() - new Date(b.predictionStartTime).getTime());
+  }
+
+  async getStormPrediction(id: string): Promise<StormPrediction | undefined> {
+    return this.stormPredictions.get(id);
+  }
+
+  async getStormPredictionByStormId(stormId: string): Promise<StormPrediction[]> {
+    return Array.from(this.stormPredictions.values())
+      .filter(prediction => prediction.stormId === stormId)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+
+  async createStormPrediction(insertPrediction: InsertStormPrediction): Promise<StormPrediction> {
+    const id = randomUUID();
+    const prediction: StormPrediction = {
+      ...insertPrediction,
+      id,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.stormPredictions.set(id, prediction);
+    console.log(`🌪️ Created storm prediction for ${prediction.stormName || prediction.stormId} (${prediction.forecastHours}h forecast)`);
+    return prediction;
+  }
+
+  async updateStormPrediction(id: string, updates: Partial<StormPrediction>): Promise<StormPrediction> {
+    const prediction = this.stormPredictions.get(id);
+    if (!prediction) throw new Error("Storm prediction not found");
+    
+    const updatedPrediction = { ...prediction, ...updates, updatedAt: new Date() };
+    this.stormPredictions.set(id, updatedPrediction);
+    return updatedPrediction;
+  }
+
+  async deleteStormPrediction(id: string): Promise<boolean> {
+    return this.stormPredictions.delete(id);
+  }
+
+  // Damage Forecasts methods
+  async getDamageForecasts(): Promise<DamageForecast[]> {
+    return Array.from(this.damageForecasts.values())
+      .sort((a, b) => new Date(a.expectedArrivalTime).getTime() - new Date(b.expectedArrivalTime).getTime());
+  }
+
+  async getActiveDamageForecasts(): Promise<DamageForecast[]> {
+    const now = new Date();
+    return Array.from(this.damageForecasts.values())
+      .filter(forecast => 
+        forecast.status === 'active' && 
+        new Date(forecast.validUntilTime) > now
+      )
+      .sort((a, b) => new Date(a.expectedArrivalTime).getTime() - new Date(b.expectedArrivalTime).getTime());
+  }
+
+  async getDamageForecast(id: string): Promise<DamageForecast | undefined> {
+    return this.damageForecasts.get(id);
+  }
+
+  async getDamageForecastsByStormPrediction(stormPredictionId: string): Promise<DamageForecast[]> {
+    return Array.from(this.damageForecasts.values())
+      .filter(forecast => forecast.stormPredictionId === stormPredictionId)
+      .sort((a, b) => new Date(a.expectedArrivalTime).getTime() - new Date(b.expectedArrivalTime).getTime());
+  }
+
+  async getDamageForecastsByState(state: string): Promise<DamageForecast[]> {
+    return Array.from(this.damageForecasts.values())
+      .filter(forecast => forecast.state === state)
+      .sort((a, b) => parseFloat(String(b.overallDamageRisk)) - parseFloat(String(a.overallDamageRisk)));
+  }
+
+  async getDamageForecastsByCounty(state: string, county: string): Promise<DamageForecast[]> {
+    return Array.from(this.damageForecasts.values())
+      .filter(forecast => forecast.state === state && forecast.county === county)
+      .sort((a, b) => new Date(a.expectedArrivalTime).getTime() - new Date(b.expectedArrivalTime).getTime());
+  }
+
+  async getDamageForecastsByRiskLevel(riskLevel: string): Promise<DamageForecast[]> {
+    return Array.from(this.damageForecasts.values())
+      .filter(forecast => forecast.riskLevel === riskLevel)
+      .sort((a, b) => parseFloat(String(b.overallDamageRisk)) - parseFloat(String(a.overallDamageRisk)));
+  }
+
+  async createDamageForecast(insertForecast: InsertDamageForecast): Promise<DamageForecast> {
+    const id = randomUUID();
+    const forecast: DamageForecast = {
+      ...insertForecast,
+      id,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.damageForecasts.set(id, forecast);
+    console.log(`📊 Created damage forecast for ${forecast.county}, ${forecast.state} (Risk: ${forecast.riskLevel})`);
+    return forecast;
+  }
+
+  async updateDamageForecast(id: string, updates: Partial<DamageForecast>): Promise<DamageForecast> {
+    const forecast = this.damageForecasts.get(id);
+    if (!forecast) throw new Error("Damage forecast not found");
+    
+    const updatedForecast = { ...forecast, ...updates, updatedAt: new Date() };
+    this.damageForecasts.set(id, updatedForecast);
+    return updatedForecast;
+  }
+
+  async deleteDamageForecast(id: string): Promise<boolean> {
+    return this.damageForecasts.delete(id);
+  }
+
+  // Contractor Opportunity Predictions methods
+  async getContractorOpportunityPredictions(): Promise<ContractorOpportunityPrediction[]> {
+    return Array.from(this.contractorOpportunityPredictions.values())
+      .sort((a, b) => parseFloat(String(b.opportunityScore)) - parseFloat(String(a.opportunityScore)));
+  }
+
+  async getContractorOpportunityPrediction(id: string): Promise<ContractorOpportunityPrediction | undefined> {
+    return this.contractorOpportunityPredictions.get(id);
+  }
+
+  async getContractorOpportunitiesByDamageForecast(damageForecastId: string): Promise<ContractorOpportunityPrediction[]> {
+    return Array.from(this.contractorOpportunityPredictions.values())
+      .filter(opportunity => opportunity.damageForecastId === damageForecastId)
+      .sort((a, b) => parseFloat(String(b.opportunityScore)) - parseFloat(String(a.opportunityScore)));
+  }
+
+  async getContractorOpportunitiesByState(state: string): Promise<ContractorOpportunityPrediction[]> {
+    return Array.from(this.contractorOpportunityPredictions.values())
+      .filter(opportunity => opportunity.state === state)
+      .sort((a, b) => parseFloat(String(b.opportunityScore)) - parseFloat(String(a.opportunityScore)));
+  }
+
+  async getContractorOpportunitiesByMarketPotential(marketPotential: string): Promise<ContractorOpportunityPrediction[]> {
+    return Array.from(this.contractorOpportunityPredictions.values())
+      .filter(opportunity => opportunity.marketPotential === marketPotential)
+      .sort((a, b) => parseFloat(String(b.opportunityScore)) - parseFloat(String(a.opportunityScore)));
+  }
+
+  async getHighOpportunityPredictions(minOpportunityScore: number): Promise<ContractorOpportunityPrediction[]> {
+    return Array.from(this.contractorOpportunityPredictions.values())
+      .filter(opportunity => parseFloat(String(opportunity.opportunityScore)) >= minOpportunityScore)
+      .sort((a, b) => parseFloat(String(b.opportunityScore)) - parseFloat(String(a.opportunityScore)));
+  }
+
+  async createContractorOpportunityPrediction(insertPrediction: InsertContractorOpportunityPrediction): Promise<ContractorOpportunityPrediction> {
+    const id = randomUUID();
+    const prediction: ContractorOpportunityPrediction = {
+      ...insertPrediction,
+      id,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.contractorOpportunityPredictions.set(id, prediction);
+    console.log(`💰 Created contractor opportunity: ${prediction.county}, ${prediction.state} (Score: ${prediction.opportunityScore})`);
+    return prediction;
+  }
+
+  async updateContractorOpportunityPrediction(id: string, updates: Partial<ContractorOpportunityPrediction>): Promise<ContractorOpportunityPrediction> {
+    const prediction = this.contractorOpportunityPredictions.get(id);
+    if (!prediction) throw new Error("Contractor opportunity prediction not found");
+    
+    const updatedPrediction = { ...prediction, ...updates, updatedAt: new Date() };
+    this.contractorOpportunityPredictions.set(id, updatedPrediction);
+    return updatedPrediction;
+  }
+
+  async deleteContractorOpportunityPrediction(id: string): Promise<boolean> {
+    return this.contractorOpportunityPredictions.delete(id);
+  }
+
+  // Historical Damage Patterns methods
+  async getHistoricalDamagePatterns(): Promise<HistoricalDamagePattern[]> {
+    return Array.from(this.historicalDamagePatterns.values())
+      .sort((a, b) => new Date(b.eventDate).getTime() - new Date(a.eventDate).getTime());
+  }
+
+  async getHistoricalDamagePattern(id: string): Promise<HistoricalDamagePattern | undefined> {
+    return this.historicalDamagePatterns.get(id);
+  }
+
+  async getHistoricalDamagePatternsByEventType(eventType: string): Promise<HistoricalDamagePattern[]> {
+    return Array.from(this.historicalDamagePatterns.values())
+      .filter(pattern => pattern.eventType === eventType)
+      .sort((a, b) => new Date(b.eventDate).getTime() - new Date(a.eventDate).getTime());
+  }
+
+  async getHistoricalDamagePatternsByState(state: string): Promise<HistoricalDamagePattern[]> {
+    return Array.from(this.historicalDamagePatterns.values())
+      .filter(pattern => pattern.state === state)
+      .sort((a, b) => new Date(b.eventDate).getTime() - new Date(a.eventDate).getTime());
+  }
+
+  async getHistoricalDamagePatternsByIntensity(minIntensity: number, maxIntensity: number): Promise<HistoricalDamagePattern[]> {
+    return Array.from(this.historicalDamagePatterns.values())
+      .filter(pattern => 
+        pattern.impactIntensity >= minIntensity && 
+        pattern.impactIntensity <= maxIntensity
+      )
+      .sort((a, b) => new Date(b.eventDate).getTime() - new Date(a.eventDate).getTime());
+  }
+
+  async getSimilarHistoricalEvents(eventType: string, intensity: number, state: string): Promise<HistoricalDamagePattern[]> {
+    const intensityTolerance = eventType === 'hurricane' ? 20 : 10; // mph tolerance
+    
+    return Array.from(this.historicalDamagePatterns.values())
+      .filter(pattern => 
+        pattern.eventType === eventType &&
+        pattern.state === state &&
+        Math.abs(pattern.impactIntensity - intensity) <= intensityTolerance
+      )
+      .sort((a, b) => new Date(b.eventDate).getTime() - new Date(a.eventDate).getTime());
+  }
+
+  async createHistoricalDamagePattern(insertPattern: InsertHistoricalDamagePattern): Promise<HistoricalDamagePattern> {
+    const id = randomUUID();
+    const pattern: HistoricalDamagePattern = {
+      ...insertPattern,
+      id,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.historicalDamagePatterns.set(id, pattern);
+    console.log(`📚 Created historical pattern: ${pattern.eventName} (${pattern.eventType})`);
+    return pattern;
+  }
+
+  async updateHistoricalDamagePattern(id: string, updates: Partial<HistoricalDamagePattern>): Promise<HistoricalDamagePattern> {
+    const pattern = this.historicalDamagePatterns.get(id);
+    if (!pattern) throw new Error("Historical damage pattern not found");
+    
+    const updatedPattern = { ...pattern, ...updates, updatedAt: new Date() };
+    this.historicalDamagePatterns.set(id, updatedPattern);
+    return updatedPattern;
+  }
+
+  async deleteHistoricalDamagePattern(id: string): Promise<boolean> {
+    return this.historicalDamagePatterns.delete(id);
+  }
+
+  // Radar Analysis Cache methods
+  async getRadarAnalysisCache(): Promise<RadarAnalysisCache[]> {
+    return Array.from(this.radarAnalysisCache.values())
+      .sort((a, b) => new Date(b.scanTimestamp).getTime() - new Date(a.scanTimestamp).getTime());
+  }
+
+  async getRadarAnalysisCacheEntry(id: string): Promise<RadarAnalysisCache | undefined> {
+    return this.radarAnalysisCache.get(id);
+  }
+
+  async getRadarAnalysisBySite(radarSiteId: string): Promise<RadarAnalysisCache[]> {
+    return Array.from(this.radarAnalysisCache.values())
+      .filter(analysis => analysis.radarSiteId === radarSiteId)
+      .sort((a, b) => new Date(b.scanTimestamp).getTime() - new Date(a.scanTimestamp).getTime());
+  }
+
+  async getRadarAnalysisByTimeRange(startTime: Date, endTime: Date): Promise<RadarAnalysisCache[]> {
+    return Array.from(this.radarAnalysisCache.values())
+      .filter(analysis => {
+        const scanTime = new Date(analysis.scanTimestamp);
+        return scanTime >= startTime && scanTime <= endTime;
+      })
+      .sort((a, b) => new Date(a.scanTimestamp).getTime() - new Date(b.scanTimestamp).getTime());
+  }
+
+  async getLatestRadarAnalysis(radarSiteId: string): Promise<RadarAnalysisCache | undefined> {
+    return Array.from(this.radarAnalysisCache.values())
+      .filter(analysis => analysis.radarSiteId === radarSiteId)
+      .sort((a, b) => new Date(b.scanTimestamp).getTime() - new Date(a.scanTimestamp).getTime())[0];
+  }
+
+  async createRadarAnalysisCache(insertAnalysis: InsertRadarAnalysisCache): Promise<RadarAnalysisCache> {
+    const id = randomUUID();
+    const analysis: RadarAnalysisCache = {
+      ...insertAnalysis,
+      id,
+      createdAt: new Date()
+    };
+    this.radarAnalysisCache.set(id, analysis);
+    return analysis;
+  }
+
+  async updateRadarAnalysisCache(id: string, updates: Partial<RadarAnalysisCache>): Promise<RadarAnalysisCache> {
+    const analysis = this.radarAnalysisCache.get(id);
+    if (!analysis) throw new Error("Radar analysis cache entry not found");
+    
+    const updatedAnalysis = { ...analysis, ...updates };
+    this.radarAnalysisCache.set(id, updatedAnalysis);
+    return updatedAnalysis;
+  }
+
+  async deleteRadarAnalysisCache(id: string): Promise<boolean> {
+    return this.radarAnalysisCache.delete(id);
+  }
+
+  async cleanupExpiredRadarCache(): Promise<number> {
+    const now = new Date();
+    let deletedCount = 0;
+    
+    for (const [id, analysis] of this.radarAnalysisCache.entries()) {
+      if (new Date(analysis.cacheExpiry) <= now) {
+        this.radarAnalysisCache.delete(id);
+        deletedCount++;
+      }
+    }
+    
+    if (deletedCount > 0) {
+      console.log(`🧹 Cleaned up ${deletedCount} expired radar cache entries`);
+    }
+    
+    return deletedCount;
   }
 }
 

@@ -546,19 +546,36 @@ export const trafficCamAlerts = pgTable("traffic_cam_alerts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   cameraId: varchar("camera_id").notNull(), // FK to traffic_cameras.id
   externalCameraId: text("external_camera_id").notNull(), // For reference
-  alertType: text("alert_type").notNull(), // structure_damage, tree_down, tree_on_powerline, tree_blocking_road, tree_on_vehicle
+  alertType: text("alert_type").notNull(), // roof_damage, siding_damage, window_damage, structure_damage, tree_down, tree_on_powerline, tree_blocking_road, tree_on_vehicle, flood_damage, debris_blockage
   confidence: numeric("confidence", { precision: 5, scale: 2 }).notNull(), // AI confidence percentage
   severity: text("severity").notNull(), // minor, moderate, severe, critical
+  severityScore: integer("severity_score").notNull(), // 1-10 scale for precise ranking
+  profitabilityScore: integer("profitability_score").notNull(), // 1-10 scale for contractor lead value
   description: text("description").notNull(), // AI-generated description
   detectedAt: timestamp("detected_at").notNull(),
   screenshotUrl: text("screenshot_url"), // Captured image of incident
   videoClipUrl: text("video_clip_url"), // Short video clip of incident
   exactLocation: text("exact_location"), // More specific than camera address
+  resolvedAddress: text("resolved_address"), // Geocoded address from coordinates
   estimatedDamage: text("estimated_damage"), // low, medium, high, extensive
+  urgencyLevel: text("urgency_level").notNull(), // low, normal, high, emergency
+  contractorTypes: jsonb("contractor_types"), // Array of contractor types needed
+  contractorSpecializations: jsonb("contractor_specializations"), // Array of specific specializations required
+  estimatedCost: jsonb("estimated_cost"), // {min: number, max: number, currency: string}
+  workScope: jsonb("work_scope"), // Array of specific contractor tasks
+  safetyHazards: jsonb("safety_hazards"), // Array of safety concerns for workers
+  equipmentNeeded: jsonb("equipment_needed"), // Array of specialized equipment required
+  accessibilityScore: integer("accessibility_score").default(5), // 1-10 how easy to access for contractors
+  leadPriority: text("lead_priority").default("medium"), // low, medium, high, critical
+  emergencyResponse: boolean("emergency_response").default(false), // True if needs immediate response
+  insuranceLikelihood: integer("insurance_likelihood").default(5), // 1-10 likelihood of insurance claim
+  competitionLevel: text("competition_level").default("medium"), // low, medium, high expected contractor competition
+  riskAssessment: jsonb("risk_assessment"), // {publicSafety: number, propertyDamage: number, businessDisruption: number}
+  weatherCorrelation: jsonb("weather_correlation"), // Storm type, intensity, time elapsed data
   contractorsNotified: jsonb("contractors_notified"), // Array of notified contractor IDs
   status: text("status").default("new"), // new, processing, assigned, resolved, false_positive
   leadGenerated: boolean("lead_generated").default(false),
-  aiAnalysis: jsonb("ai_analysis"), // Detailed AI analysis results
+  aiAnalysis: jsonb("ai_analysis"), // Complete AI analysis results
   verifiedBy: varchar("verified_by"), // User ID who verified alert
   verifiedAt: timestamp("verified_at"),
   isVerified: boolean("is_verified").default(false),
@@ -784,6 +801,313 @@ export const emergencyContacts = pgTable("emergency_contacts", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// ===== PREDICTIVE STORM DAMAGE AI SCHEMAS =====
+
+// Storm Predictions table for AI-generated storm damage predictions
+export const stormPredictions = pgTable("storm_predictions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Storm Identification
+  stormId: text("storm_id").notNull(), // NHC ID or generated ID
+  stormName: text("storm_name"), // Hurricane Ida, Severe Thunderstorms, etc.
+  stormType: text("storm_type").notNull(), // hurricane, tornado, severe_thunderstorm, winter_storm
+  
+  // Current Storm Characteristics
+  currentLatitude: numeric("current_latitude", { precision: 10, scale: 8 }).notNull(),
+  currentLongitude: numeric("current_longitude", { precision: 10, scale: 8 }).notNull(),
+  currentIntensity: integer("current_intensity").notNull(), // mph for wind, scale for other types
+  currentPressure: integer("current_pressure"), // mb for hurricanes
+  currentDirection: integer("current_direction").notNull(), // degrees
+  currentSpeed: integer("current_speed").notNull(), // mph forward motion
+  
+  // Prediction Timeframe
+  predictionStartTime: timestamp("prediction_start_time").notNull(),
+  predictionEndTime: timestamp("prediction_end_time").notNull(),
+  forecastHours: integer("forecast_hours").notNull(), // 12, 24, 48, 72 hours
+  
+  // Predicted Path and Intensity
+  predictedPath: jsonb("predicted_path").notNull(), // Array of {time, lat, lng, intensity, confidence}
+  maxPredictedIntensity: integer("max_predicted_intensity").notNull(),
+  
+  // Confidence and Risk Assessment
+  overallConfidence: numeric("overall_confidence", { precision: 3, scale: 2 }).notNull(), // 0.0 to 1.0
+  pathConfidence: numeric("path_confidence", { precision: 3, scale: 2 }).notNull(),
+  intensityConfidence: numeric("intensity_confidence", { precision: 3, scale: 2 }).notNull(),
+  
+  // Data Sources Used
+  modelsSources: jsonb("models_sources").notNull(), // ["GFS", "ECMWF", "HRRR", "NAM"]
+  radarSources: jsonb("radar_sources").notNull(), // ["NEXRAD", "GOES", "Lightning"]
+  lastRadarUpdate: timestamp("last_radar_update").notNull(),
+  
+  // AI Analysis Metadata
+  aiModelVersion: text("ai_model_version").default("v1.0"),
+  processingTimeMs: integer("processing_time_ms").notNull(),
+  analysisComplexity: text("analysis_complexity").default("standard"), // simple, standard, complex
+  
+  // Status and Lifecycle
+  status: text("status").default("active"), // active, expired, superseded, cancelled
+  supersededBy: varchar("superseded_by"), // ID of newer prediction that replaces this one
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  uniqueStormForecast: unique().on(table.stormId, table.predictionStartTime, table.forecastHours),
+}));
+
+// Damage Forecasts table for specific geographic damage predictions
+export const damageForecast = pgTable("damage_forecast", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Associated Storm Prediction
+  stormPredictionId: varchar("storm_prediction_id").notNull().references(() => stormPredictions.id),
+  stormId: text("storm_id").notNull(),
+  
+  // Geographic Area
+  state: text("state").notNull(),
+  stateCode: text("state_code").notNull(),
+  county: text("county").notNull(),
+  countyFips: text("county_fips"),
+  
+  // Center point of damage area
+  centerLatitude: numeric("center_latitude", { precision: 10, scale: 8 }).notNull(),
+  centerLongitude: numeric("center_longitude", { precision: 10, scale: 8 }).notNull(),
+  impactRadius: numeric("impact_radius", { precision: 8, scale: 2 }).notNull(), // miles
+  
+  // Damage Predictions
+  expectedArrivalTime: timestamp("expected_arrival_time").notNull(),
+  peakIntensityTime: timestamp("peak_intensity_time").notNull(),
+  expectedExitTime: timestamp("expected_exit_time").notNull(),
+  
+  // Damage Types and Severity (0-10 scale)
+  windDamageRisk: numeric("wind_damage_risk", { precision: 3, scale: 1 }).notNull(),
+  floodingRisk: numeric("flooding_risk", { precision: 3, scale: 1 }).notNull(),
+  stormSurgeRisk: numeric("storm_surge_risk", { precision: 3, scale: 1 }).default("0.0"),
+  hailRisk: numeric("hail_risk", { precision: 3, scale: 1 }).default("0.0"),
+  tornadoRisk: numeric("tornado_risk", { precision: 3, scale: 1 }).default("0.0"),
+  lightningRisk: numeric("lightning_risk", { precision: 3, scale: 1 }).default("0.0"),
+  
+  // Overall Risk Assessment
+  overallDamageRisk: numeric("overall_damage_risk", { precision: 3, scale: 1 }).notNull(), // Composite score
+  riskLevel: text("risk_level").notNull(), // minimal, low, moderate, high, extreme
+  confidenceScore: numeric("confidence_score", { precision: 3, scale: 2 }).notNull(),
+  
+  // Infrastructure Vulnerability Assessment
+  powerOutageRisk: numeric("power_outage_risk", { precision: 3, scale: 1 }).notNull(),
+  roadBlockageRisk: numeric("road_blockage_risk", { precision: 3, scale: 1 }).notNull(),
+  structuralDamageRisk: numeric("structural_damage_risk", { precision: 3, scale: 1 }).notNull(),
+  treeFallRisk: numeric("tree_fall_risk", { precision: 3, scale: 1 }).notNull(),
+  
+  // Economic Impact Predictions
+  estimatedPropertyDamage: numeric("estimated_property_damage", { precision: 12, scale: 2 }), // USD
+  estimatedClaimVolume: integer("estimated_claim_volume"), // Number of expected insurance claims
+  estimatedRestorationJobs: integer("estimated_restoration_jobs"), // Number of contractor jobs
+  averageJobValue: numeric("average_job_value", { precision: 10, scale: 2 }), // USD per job
+  
+  // Historical Correlation Data
+  historicalSimilarity: numeric("historical_similarity", { precision: 3, scale: 2 }), // 0.0 to 1.0
+  similarHistoricalEvents: jsonb("similar_historical_events"), // Array of similar past storms
+  femaHistoryFactor: numeric("fema_history_factor", { precision: 3, scale: 2 }).default("1.0"),
+  
+  // Population and Exposure Data
+  populationExposed: integer("population_exposed"),
+  buildingsExposed: integer("buildings_exposed"),
+  highValueTargets: jsonb("high_value_targets"), // Hospitals, schools, critical infrastructure
+  
+  // Timing and Status
+  validFromTime: timestamp("valid_from_time").notNull(),
+  validUntilTime: timestamp("valid_until_time").notNull(),
+  status: text("status").default("active"), // active, expired, verified, invalid
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  uniqueForecastArea: unique().on(table.stormPredictionId, table.countyFips, table.expectedArrivalTime),
+}));
+
+// Contractor Opportunity Predictions table
+export const contractorOpportunityPredictions = pgTable("contractor_opportunity_predictions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Associated Damage Forecast
+  damageForecastId: varchar("damage_forecast_id").notNull().references(() => damageForecast.id),
+  stormPredictionId: varchar("storm_prediction_id").notNull().references(() => stormPredictions.id),
+  
+  // Geographic Opportunity Zone
+  state: text("state").notNull(),
+  county: text("county").notNull(),
+  city: text("city"),
+  zipCode: text("zip_code"),
+  
+  // Opportunity Assessment
+  opportunityScore: numeric("opportunity_score", { precision: 5, scale: 2 }).notNull(), // 0-100 composite score
+  marketPotential: text("market_potential").notNull(), // low, moderate, high, excellent
+  competitionLevel: text("competition_level").default("moderate"), // low, moderate, high
+  
+  // Job Type Predictions
+  treeRemovalDemand: numeric("tree_removal_demand", { precision: 5, scale: 2 }).notNull(), // 0-100 score
+  roofingDemand: numeric("roofing_demand", { precision: 5, scale: 2 }).notNull(),
+  sidingDemand: numeric("siding_demand", { precision: 5, scale: 2 }).notNull(),
+  windowDemand: numeric("window_demand", { precision: 5, scale: 2 }).notNull(),
+  gutterDemand: numeric("gutter_demand", { precision: 5, scale: 2 }).notNull(),
+  fencingDemand: numeric("fencing_demand", { precision: 5, scale: 2 }).notNull(),
+  emergencyTarpingDemand: numeric("emergency_tarping_demand", { precision: 5, scale: 2 }).notNull(),
+  waterDamageDemand: numeric("water_damage_demand", { precision: 5, scale: 2 }).notNull(),
+  
+  // Financial Predictions
+  estimatedRevenueOpportunity: numeric("estimated_revenue_opportunity", { precision: 12, scale: 2 }).notNull(),
+  expectedJobCount: integer("expected_job_count").notNull(),
+  averageJobValue: numeric("average_job_value", { precision: 10, scale: 2 }).notNull(),
+  emergencyPremiumFactor: numeric("emergency_premium_factor", { precision: 3, scale: 2 }).default("1.0"), // 1.0 = normal, 1.5 = 50% premium
+  
+  // Market Factors
+  insurancePayoutLikelihood: numeric("insurance_payout_likelihood", { precision: 3, scale: 2 }).notNull(),
+  averageClaimAmount: numeric("average_claim_amount", { precision: 10, scale: 2 }),
+  historicalPayoutRatio: numeric("historical_payout_ratio", { precision: 3, scale: 2 }),
+  
+  // Timing and Logistics
+  optimalPrePositionTime: timestamp("optimal_preposition_time"), // When to move equipment to area
+  workAvailableFromTime: timestamp("work_available_from_time").notNull(),
+  peakDemandTime: timestamp("peak_demand_time").notNull(),
+  demandDeclineTime: timestamp("demand_decline_time").notNull(),
+  
+  // Resource Requirements
+  recommendedCrewSize: integer("recommended_crew_size"),
+  requiredEquipment: jsonb("required_equipment"), // Array of equipment types needed
+  estimatedDurationDays: integer("estimated_duration_days"),
+  accommodationNeeds: jsonb("accommodation_needs"), // Hotels, RV parks, etc.
+  
+  // Confidence and Validation
+  predictionConfidence: numeric("prediction_confidence", { precision: 3, scale: 2 }).notNull(),
+  validatedAgainstHistorical: boolean("validated_against_historical").default(false),
+  lastUpdated: timestamp("last_updated").defaultNow(),
+  
+  // Status and Alerting
+  alertLevel: text("alert_level").default("watch"), // watch, advisory, warning, emergency
+  contractorsNotified: jsonb("contractors_notified"), // Array of contractor IDs who have been alerted
+  notificationsSent: integer("notifications_sent").default(0),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Historical Damage Patterns table for AI training data
+export const historicalDamagePatterns = pgTable("historical_damage_patterns", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Storm Event Identification
+  eventName: text("event_name").notNull(), // "Hurricane Ian 2022", "April 27, 2011 Tornado Outbreak"
+  eventId: text("event_id"), // FEMA disaster ID or other official ID
+  eventType: text("event_type").notNull(), // hurricane, tornado, severe_thunderstorm, winter_storm
+  eventDate: timestamp("event_date").notNull(),
+  
+  // Storm Characteristics at Impact
+  impactIntensity: integer("impact_intensity").notNull(), // Category/EF scale or wind speed
+  stormPressure: integer("storm_pressure"), // mb for hurricanes
+  forwardSpeed: integer("forward_speed"), // mph
+  stormSize: integer("storm_size"), // miles diameter or tornado width
+  
+  // Geographic Impact Data
+  state: text("state").notNull(),
+  stateCode: text("state_code").notNull(),
+  affectedCounties: jsonb("affected_counties").notNull(), // Array of county names/FIPS
+  primaryImpactLat: numeric("primary_impact_lat", { precision: 10, scale: 8 }),
+  primaryImpactLng: numeric("primary_impact_lng", { precision: 10, scale: 8 }),
+  impactSwathMiles: numeric("impact_swath_miles", { precision: 6, scale: 1 }),
+  
+  // Damage Metrics
+  totalPropertyDamage: numeric("total_property_damage", { precision: 15, scale: 2 }), // USD
+  totalInsuranceClaims: integer("total_insurance_claims"),
+  averageClaimAmount: numeric("average_claim_amount", { precision: 10, scale: 2 }),
+  
+  // Damage Type Breakdown (percentages)
+  roofDamagePercent: numeric("roof_damage_percent", { precision: 5, scale: 2 }),
+  treeDamagePercent: numeric("tree_damage_percent", { precision: 5, scale: 2 }),
+  sidingDamagePercent: numeric("siding_damage_percent", { precision: 5, scale: 2 }),
+  windowDamagePercent: numeric("window_damage_percent", { precision: 5, scale: 2 }),
+  floodingPercent: numeric("flooding_percent", { precision: 5, scale: 2 }),
+  structuralPercent: numeric("structural_percent", { precision: 5, scale: 2 }),
+  
+  // Infrastructure Impact
+  powerOutagesCount: integer("power_outages_count"),
+  powerRestorationDays: integer("power_restoration_days"),
+  roadsBlockedCount: integer("roads_blocked_count"),
+  bridgesClosed: integer("bridges_closed"),
+  
+  // Economic and Restoration Data
+  contractorJobsGenerated: integer("contractor_jobs_generated"),
+  averageJobValue: numeric("average_job_value", { precision: 10, scale: 2 }),
+  restorationDurationDays: integer("restoration_duration_days"),
+  emergencyPremiumObserved: numeric("emergency_premium_observed", { precision: 3, scale: 2 }),
+  
+  // Population and Exposure
+  populationAffected: integer("population_affected"),
+  buildingsDamaged: integer("buildings_damaged"),
+  buildingsDestroyed: integer("buildings_destroyed"),
+  evacuationOrdered: boolean("evacuation_ordered").default(false),
+  
+  // Data Sources and Quality
+  dataSources: jsonb("data_sources").notNull(), // ["FEMA", "NOAA", "Insurance Institute", "NHC Post-Storm Report"]
+  dataQuality: text("data_quality").default("verified"), // estimated, verified, comprehensive
+  confidenceLevel: numeric("confidence_level", { precision: 3, scale: 2 }).default("0.80"),
+  
+  // Analysis Metadata
+  analyzedBy: text("analyzed_by"), // "NOAA Post-Storm Analysis", "FEMA Damage Assessment"
+  analysisDate: timestamp("analysis_date"),
+  lastValidated: timestamp("last_validated"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  uniqueEvent: unique().on(table.eventName, table.eventDate, table.state),
+}));
+
+// Radar Analysis Cache table for processed NOAA radar data
+export const radarAnalysisCache = pgTable("radar_analysis_cache", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Radar Data Identification
+  radarSiteId: text("radar_site_id").notNull(), // NEXRAD site ID (KFFC, KTBW, etc.)
+  scanTimestamp: timestamp("scan_timestamp").notNull(),
+  scanType: text("scan_type").default("reflectivity"), // reflectivity, velocity, dual_pol
+  elevationAngle: numeric("elevation_angle", { precision: 4, scale: 2 }),
+  
+  // Geographic Coverage
+  centerLatitude: numeric("center_latitude", { precision: 10, scale: 8 }).notNull(),
+  centerLongitude: numeric("center_longitude", { precision: 10, scale: 8 }).notNull(),
+  radiusKm: numeric("radius_km", { precision: 6, scale: 2 }).notNull(),
+  
+  // Processed Analysis Results
+  maxReflectivity: numeric("max_reflectivity", { precision: 5, scale: 1 }), // dBZ
+  maxVelocity: numeric("max_velocity", { precision: 6, scale: 2 }), // m/s
+  mesocycloneDetections: jsonb("mesocyclone_detections"), // Array of detected mesocyclones
+  hailMarkers: jsonb("hail_markers"), // Hail detection markers
+  
+  // Storm Motion Analysis
+  stormMotionDirection: integer("storm_motion_direction"), // degrees
+  stormMotionSpeed: numeric("storm_motion_speed", { precision: 5, scale: 2 }), // m/s
+  stormIntensityTrend: text("storm_intensity_trend"), // strengthening, weakening, steady
+  
+  // Threat Assessment
+  tornadoRisk: numeric("tornado_risk", { precision: 3, scale: 1 }), // 0-10 scale
+  hailRisk: numeric("hail_risk", { precision: 3, scale: 1 }),
+  windRisk: numeric("wind_risk", { precision: 3, scale: 1 }),
+  floodRisk: numeric("flood_risk", { precision: 3, scale: 1 }),
+  
+  // Processing Metadata
+  processingAlgorithm: text("processing_algorithm").default("v1.0"),
+  processingTime: timestamp("processing_time").defaultNow(),
+  qualityScore: numeric("quality_score", { precision: 3, scale: 2 }), // 0.0 to 1.0
+  
+  // Caching and Performance
+  cacheExpiry: timestamp("cache_expiry").notNull(),
+  rawDataUrl: text("raw_data_url"), // URL to original NEXRAD data
+  processedDataUrl: text("processed_data_url"), // URL to processed analysis
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  uniqueRadarScan: unique().on(table.radarSiteId, table.scanTimestamp, table.scanType),
+}));
+
 // Zod schemas for validation  
 export const insertUserSchema = createInsertSchema(users);
 export const insertClaimSchema = createInsertSchema(claims);
@@ -812,6 +1136,13 @@ export const insertHomeownerSchema = createInsertSchema(homeowners).omit({ id: t
 export const insertDamageReportSchema = createInsertSchema(damageReports).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertServiceRequestSchema = createInsertSchema(serviceRequests).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertEmergencyContactSchema = createInsertSchema(emergencyContacts).omit({ id: true, createdAt: true, updatedAt: true });
+
+// Predictive Storm AI schemas
+export const insertStormPredictionSchema = createInsertSchema(stormPredictions).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertDamageForecastSchema = createInsertSchema(damageForecast).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertContractorOpportunityPredictionSchema = createInsertSchema(contractorOpportunityPredictions).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertHistoricalDamagePatternSchema = createInsertSchema(historicalDamagePatterns).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertRadarAnalysisCacheSchema = createInsertSchema(radarAnalysisCache).omit({ id: true, createdAt: true });
 
 // Types
 export type User = typeof users.$inferSelect;
@@ -868,3 +1199,15 @@ export type ServiceRequest = typeof serviceRequests.$inferSelect;
 export type InsertServiceRequest = z.infer<typeof insertServiceRequestSchema>;
 export type EmergencyContact = typeof emergencyContacts.$inferSelect;
 export type InsertEmergencyContact = z.infer<typeof insertEmergencyContactSchema>;
+
+// Predictive Storm AI types
+export type StormPrediction = typeof stormPredictions.$inferSelect;
+export type InsertStormPrediction = z.infer<typeof insertStormPredictionSchema>;
+export type DamageForecast = typeof damageForecast.$inferSelect;
+export type InsertDamageForecast = z.infer<typeof insertDamageForecastSchema>;
+export type ContractorOpportunityPrediction = typeof contractorOpportunityPredictions.$inferSelect;
+export type InsertContractorOpportunityPrediction = z.infer<typeof insertContractorOpportunityPredictionSchema>;
+export type HistoricalDamagePattern = typeof historicalDamagePatterns.$inferSelect;
+export type InsertHistoricalDamagePattern = z.infer<typeof insertHistoricalDamagePatternSchema>;
+export type RadarAnalysisCache = typeof radarAnalysisCache.$inferSelect;
+export type InsertRadarAnalysisCache = z.infer<typeof insertRadarAnalysisCacheSchema>;

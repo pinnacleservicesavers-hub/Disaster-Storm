@@ -1,0 +1,122 @@
+{
+  "items": [
+    {
+      "id": "test-contractor-1",
+      "contractorId": "ATLANTA_ROOFING_PROS_001",
+      "itemType": "alert_types",
+      "itemId": "roof_damage",
+      "displayName": "Atlanta Roofing Professionals - Roof Damage Alerts",
+      "state": "GA",
+      "county": "Fulton",
+      "alertsEnabled": true,
+      "alertTypes": ["roof_damage", "structure_damage", "siding_damage"],
+      "metadata": {
+        "lat": 33.7490,
+        "lng": -84.3880,
+        "alertRadius": 30,
+        "minSeverityLevel": "moderate",
+        "company": "Atlanta Roofing Professionals",
+        "phone": "(404) 555-0101",
+        "email": "leads@atlantaroofingpros.com",
+        "specializations": ["storm_damage", "insurance_claims", "residential_roofing"],
+        "license": "GA-ROOF-2024-001"
+      },
+      "createdAt": "2024-01-15T10:00:00.000Z"
+    },
+    {
+      "id": "test-contractor-2", 
+      "contractorId": "STORM_RESPONSE_GA_002",
+      "itemType": "alert_types",
+      "itemId": "emergency_response",
+      "displayName": "Georgia Storm Response - Emergency Services",
+      "state": "GA",
+      "county": "DeKalb",
+      "alertsEnabled": true,
+      "alertTypes": ["tree_on_powerline", "tree_blocking_road", "electrical_damage", "emergency_response"],
+      "metadata": {
+        "lat": 33.7590,
+        "lng": -84.3720,
+        "alertRadius": 50,
+        "minSeverityLevel": "minor",
+        "company": "Georgia Storm Response",
+        "phone": "(404) 555-0202",
+        "email": "emergency@gastormresponse.com",
+        "specializations": ["emergency_response", "tree_removal", "electrical_repair"],
+        "license": "GA-TREE-2024-002",
+        "emergency24h": true
+      },
+      "createdAt": "2024-01-20T08:30:00.000Z"
+    },
+    {
+      "id": "test-contractor-3",
+      "contractorId": "METRO_CONSTRUCTION_003", 
+      "itemType": "alert_types",
+      "itemId": "structure_damage",
+      "displayName": "Metro Atlanta Construction - General Damage",
+      "state": "GA",
+      "county": "Gwinnett",
+      "alertsEnabled": true,
+      "alertTypes": ["structure_damage", "flood_damage", "window_damage", "siding_damage"],
+      "metadata": {
+        "lat": 33.9500,
+        "lng": -84.0700,
+        "alertRadius": 25,
+        "minSeverityLevel": "moderate",
+        "company": "Metro Atlanta Construction",
+        "phone": "(678) 555-0303",
+        "email": "jobs@metroatlantaconstruction.com",
+        "specializations": ["general_contractor", "storm_damage", "water_damage"],
+        "license": "GA-CONST-2024-003"
+      },
+      "createdAt": "2024-02-01T14:15:00.000Z"
+    },
+    {
+      "id": "test-contractor-4",
+      "contractorId": "WATER_DAMAGE_EXPERTS_004",
+      "itemType": "alert_types", 
+      "itemId": "flood_damage",
+      "displayName": "Water Damage Experts - Flood & Water Restoration",
+      "state": "GA",
+      "county": "Cobb",
+      "alertsEnabled": true,
+      "alertTypes": ["flood_damage", "basement_flooding", "water_damage"],
+      "metadata": {
+        "lat": 33.9137,
+        "lng": -84.5497,
+        "alertRadius": 35,
+        "minSeverityLevel": "minor",
+        "company": "Water Damage Experts",
+        "phone": "(770) 555-0404",
+        "email": "urgent@waterdamageexperts.com",
+        "specializations": ["water_damage", "flood_restoration", "emergency_drying"],
+        "license": "GA-WATER-2024-004",
+        "emergency24h": true
+      },
+      "createdAt": "2024-02-10T09:45:00.000Z"
+    },
+    {
+      "id": "test-contractor-5",
+      "contractorId": "ALL_TYPES_CONTRACTOR_005",
+      "itemType": "alert_types",
+      "itemId": "all_damage_types", 
+      "displayName": "All Types Contractor - Any Damage Specialist",
+      "state": "GA",
+      "county": "Fulton",
+      "alertsEnabled": true,
+      "alertTypes": [],
+      "metadata": {
+        "lat": 33.7200,
+        "lng": -84.4000,
+        "alertRadius": 20,
+        "minSeverityLevel": "severe",
+        "company": "All Types Contractor",
+        "phone": "(404) 555-0505",
+        "email": "bigprjects@alltypescontractor.com",
+        "specializations": ["general_contractor", "large_projects", "insurance_claims"],
+        "license": "GA-GEN-2024-005",
+        "minProjectValue": 5000
+      },
+      "createdAt": "2024-02-15T11:20:00.000Z"
+    }
+  ]
+}

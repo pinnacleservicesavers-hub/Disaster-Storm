@@ -110,11 +110,16 @@ export function CameraViewer({
         return (
           <HlsPlayer
             src={camera.streamUrl!}
+            cameraId={camera.id}
             title={camera.name}
+            location={location}
             autoPlay={false}
             muted={true}
             controls={true}
+            enableDamageDetection={enableDamageDetection}
+            damageAnalysisInterval={refreshInterval}
             onError={handleError}
+            onDamageDetected={handleDamageDetected}
             className="w-full"
           />
         );
@@ -123,10 +128,14 @@ export function CameraViewer({
         return (
           <MjpegView
             src={camera.streamUrl!}
+            cameraId={camera.id}
             title={camera.name}
+            location={location}
             refreshInterval={refreshInterval}
             autoRefresh={autoRefresh}
+            enableDamageDetection={enableDamageDetection}
             onError={handleError}
+            onDamageDetected={handleDamageDetected}
             className="w-full"
           />
         );

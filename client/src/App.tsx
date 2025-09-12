@@ -8,8 +8,10 @@ import VictimDashboard from "./pages/VictimDashboard";
 import DamageReport from "./pages/DamageReport";
 import ServiceRequest from "./pages/ServiceRequest";
 import MyRequests from "./pages/MyRequests";
+import { DamageDetectionDashboard } from "./components/DamageDetectionDashboard";
+import PredictionDashboard from "./pages/PredictionDashboard";
 import { Button } from '@/components/ui/button';
-import { Cloud, Home, Menu, Camera, Heart } from 'lucide-react';
+import { Cloud, Home, Menu, Camera, Heart, Eye, Zap } from 'lucide-react';
 
 function Navigation() {
   const [location] = useLocation();
@@ -56,6 +58,28 @@ function Navigation() {
               </Button>
             </Link>
             
+            <Link href="/damage-detection">
+              <Button 
+                variant={location === '/damage-detection' ? 'default' : 'ghost'} 
+                size="sm"
+                data-testid="nav-damage-detection"
+              >
+                <Eye className="w-4 h-4 mr-2" />
+                AI Damage Detection
+              </Button>
+            </Link>
+            
+            <Link href="/prediction-dashboard">
+              <Button 
+                variant={location === '/prediction-dashboard' ? 'default' : 'ghost'} 
+                size="sm"
+                data-testid="nav-prediction-dashboard"
+              >
+                <Zap className="w-4 h-4 mr-2" />
+                Storm Predictions
+              </Button>
+            </Link>
+            
             <Link href="/victim/login">
               <Button 
                 variant={location.startsWith('/victim') ? 'default' : 'ghost'} 
@@ -93,6 +117,18 @@ export default function App() {
           <title>TrafficCamWatcher - StormLead Master</title>
           <meta name="description" content="Monitor live traffic cameras and incidents across multiple states with AI-powered damage detection and contractor opportunity identification" />
           <TrafficCameras />
+        </Route>
+        
+        <Route path="/damage-detection">
+          <title>AI Damage Detection - StormLead Master</title>
+          <meta name="description" content="Real-time AI-powered damage detection system analyzing traffic camera feeds to identify storm damage and generate contractor leads automatically" />
+          <DamageDetectionDashboard />
+        </Route>
+        
+        <Route path="/prediction-dashboard">
+          <title>Storm Predictions - StormLead Master</title>
+          <meta name="description" content="AI-powered predictive storm damage analysis with 24-48 hour forecasts, contractor deployment recommendations, and real-time risk assessment using NOAA radar and historical FEMA data" />
+          <PredictionDashboard />
         </Route>
         
         <Route path="/victim/login">
