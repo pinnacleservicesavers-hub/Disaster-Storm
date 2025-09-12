@@ -6,9 +6,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { MapPin, Camera, AlertTriangle, DollarSign, Bell, Heart } from 'lucide-react';
+import { MapPin, Camera, AlertTriangle, DollarSign, Bell, Heart, Eye } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { TrafficCameraMap } from '@/components/TrafficCameraMap';
+import { CameraViewer } from '@/components/CameraViewer';
 import type { ContractorWatchlist, InsertContractorWatchlist } from '@shared/schema';
 
 interface CameraDirectory {
@@ -62,6 +63,7 @@ export function TrafficCameras() {
   const [selectedState, setSelectedState] = useState<string>('');
   const [selectedCounty, setSelectedCounty] = useState<string>('');
   const [alertsOnly, setAlertsOnly] = useState(false);
+  const [viewerCameraId, setViewerCameraId] = useState<string | null>(null);
   
   // For now, using a hardcoded contractor ID since there's no authentication system
   const contractorId = 'contractor-demo-001';
@@ -438,6 +440,15 @@ export function TrafficCameras() {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Camera Viewer Modal */}
+      <CameraViewer 
+        cameraId={viewerCameraId}
+        onClose={() => setViewerCameraId(null)}
+        enableDamageDetection={true}
+        autoRefresh={true}
+        refreshInterval={30000}
+      />
     </div>
   );
 }

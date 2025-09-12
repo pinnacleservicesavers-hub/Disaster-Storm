@@ -3,7 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Camera, AlertTriangle, MapPin, ExternalLink } from 'lucide-react';
+import { Camera, AlertTriangle, MapPin, ExternalLink, Eye, Bell } from 'lucide-react';
+import { CameraViewer } from './CameraViewer';
 
 // Leaflet types and imports
 interface LatLng {
@@ -71,6 +72,7 @@ export function TrafficCameraMap({ selectedState, selectedCounty, alertsOnly }: 
   const mapInstanceRef = useRef<LeafletMap | null>(null);
   const [selectedCamera, setSelectedCamera] = useState<TrafficCamera | null>(null);
   const [selectedIncident, setSelectedIncident] = useState<TrafficIncident | null>(null);
+  const [viewerCameraId, setViewerCameraId] = useState<string | null>(null);
 
   // Fetch cameras for selected state
   const { data: cameras } = useQuery<{ cameras: TrafficCamera[] }>({
@@ -141,6 +143,12 @@ export function TrafficCameraMap({ selectedState, selectedCounty, alertsOnly }: 
                 <p class="text-sm text-gray-600">${camera.jurisdiction.provider}</p>
                 <p class="text-xs">${camera.type} • ${camera.isActive ? 'Active' : 'Inactive'}</p>
                 ${camera.snapshotUrl ? `<img src="${camera.snapshotUrl}" class="w-32 h-24 object-cover rounded mt-2" onerror="this.style.display='none'"/>` : ''}
+                <button 
+                  class="mt-2 px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 w-full"
+                  onclick="window.openCameraViewer('${camera.id}')"
+                >
+                  View Live Feed
+                </button>
               </div>
             `)
             .on('click', () => {
@@ -216,6 +224,16 @@ export function TrafficCameraMap({ selectedState, selectedCounty, alertsOnly }: 
     }
   }, [cameras, incidents, selectedState, selectedCounty, alertsOnly]);
 
+  // Set up global function for camera viewer
+  useEffect(() => {
+    (window as any).openCameraViewer = (cameraId: string) => {
+      setViewerCameraId(cameraId);
+    };
+    return () => {
+      delete (window as any).openCameraViewer;
+    };
+  }, []);
+
   if (!selectedState) {
     return (
       <div className="h-full flex items-center justify-center text-gray-500">
@@ -287,12 +305,29 @@ export function TrafficCameraMap({ selectedState, selectedCounty, alertsOnly }: 
                     </div>
                   )}
                   
-                  {selectedCamera.streamUrl && (
-                    <Button size="sm" className="w-full" data-testid="button-view-live-feed">
-                      <ExternalLink className="h-4 w-4 mr-2" />
+                  <div className="space-y-2">
+                    <Button 
+                      size="sm" 
+                      className="w-full" 
+                      onClick={() => setViewerCameraId(selectedCamera.id)}
+                      data-testid="button-view-live-feed"
+                    >
+                      <Eye className="h-4 w-4 mr-2" />
                       View Live Feed
                     </Button>
-                  )}
+                    {selectedCamera.streamUrl && (
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="w-full"
+                        onClick={() => window.open(selectedCamera.streamUrl, '_blank')}
+                        data-testid="button-external-stream"
+                      >
+                        <ExternalLink className="h-4 w-4 mr-2" />
+                        External Stream
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
@@ -372,6 +407,15 @@ export function TrafficCameraMap({ selectedState, selectedCounty, alertsOnly }: 
           </div>
         </CardContent>
       </Card>
+
+      {/* Camera Viewer Modal */}
+      <CameraViewer 
+        cameraId={viewerCameraId}
+        onClose={() => setViewerCameraId(null)}
+        enableDamageDetection={true}
+        autoRefresh={true}
+        refreshInterval={30000}
+      />
     </div>
   );
 }
