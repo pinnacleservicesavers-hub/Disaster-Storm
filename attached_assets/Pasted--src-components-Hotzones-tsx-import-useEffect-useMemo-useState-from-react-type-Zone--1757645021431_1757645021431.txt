@@ -1,0 +1,79 @@
+// src/components/Hotzones.tsx
+import { useEffect, useMemo, useState } from "react";
+
+type Zone = {
+  hazard: "Hurricane" | "Tornado";
+  state: string;
+  city: string;
+  source: string;
+  lat?: number | string;
+  lon?: number | string;
+  county?: string;
+  county_fips?: string;
+  risk_level?: string;
+};
+
+export default function Hotzones() {
+  const [zones, setZones] = useState<Zone[]>([]);
+  const [hazard, setHazard] = useState<"" | "Hurricane" | "Tornado">("");
+  const [stateFilter, setStateFilter] = useState("");
+  const [riskFilter, setRiskFilter] = useState("");
+
+  useEffect(() => {
+    fetch("/storm_hotzones_enhanced.json").then(r => r.json()).then(setZones).catch(console.error);
+  }, []);
+
+  const filtered = useMemo(() => {
+    return zones.filter(z =>
+      (hazard ? z.hazard === hazard : true) &&
+      (stateFilter ? z.state.toLowerCase().includes(stateFilter.toLowerCase()) : true) &&
+      (riskFilter ? (z.risk_level || "").toLowerCase().includes(riskFilter.toLowerCase()) : true)
+    );
+  }, [zones, hazard, stateFilter, riskFilter]);
+
+  const states = useMemo(() => Array.from(new Set(zones.map(z => z.state))).sort(), [zones]);
+
+  return (
+    <div className="p-4 max-w-4xl mx-auto">
+      <h2 className="text-2xl font-bold mb-4">Storm Hotzones</h2>
+
+      <div className="flex flex-wrap gap-3 mb-4">
+        <select className="border rounded px-2 py-1" value={hazard} onChange={e => setHazard(e.target.value as any)}>
+          <option value="">All Hazards</option>
+          <option value="Hurricane">Hurricane</option>
+          <option value="Tornado">Tornado</option>
+        </select>
+
+        <input
+          className="border rounded px-2 py-1"
+          placeholder="Filter by state (e.g., Florida)"
+          value={stateFilter}
+          onChange={e => setStateFilter(e.target.value)}
+        />
+        <input
+          className="border rounded px-2 py-1"
+          placeholder="Filter by risk (e.g., High)"
+          value={riskFilter}
+          onChange={e => setRiskFilter(e.target.value)}
+        />
+      </div>
+
+      <ul className="divide-y">
+        {filtered.map((z, i) => (
+          <li key={i} className="py-3">
+            <div className="font-medium">
+              {z.city ? `${z.city}, ${z.state}` : z.state} — {z.hazard}
+            </div>
+            <div className="text-sm text-gray-700">
+              County: {z.county || "—"} • FIPS: {z.county_fips || "—"} • Risk: {z.risk_level || "—"}
+            </div>
+            {(z.lat && z.lon) ? (
+              <div className="text-xs text-gray-500">Lat/Lon: {z.lat}, {z.lon}</div>
+            ) : null}
+            <div className="text-xs text-gray-500">Source: {z.source}</div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}

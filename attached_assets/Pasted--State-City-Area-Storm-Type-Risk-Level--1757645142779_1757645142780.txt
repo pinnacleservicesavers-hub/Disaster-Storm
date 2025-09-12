@@ -1,0 +1,25 @@
+| **State**      | **City / Area**                 | **Storm Type** | **Risk Level** |
+| -------------- | ------------------------------- | -------------- | -------------- |
+| Florida        | Miami                           | Hurricane      | Very High      |
+| Florida        | Cape Canaveral                  | Hurricane      | Very High      |
+| Florida        | Palm Beach                      | Hurricane      | Very High      |
+| Florida        | St. Augustine                   | Hurricane      | High           |
+| Florida        | Fernandina Beach                | Hurricane      | High           |
+| Texas          | Gulf Coast (Houston, Galveston) | Hurricane      | Very High      |
+| Louisiana      | New Orleans                     | Hurricane      | Very High      |
+| Louisiana      | Lake Charles                    | Hurricane      | High           |
+| North Carolina | Cape Hatteras                   | Hurricane      | Very High      |
+| North Carolina | Morehead City                   | Hurricane      | High           |
+| North Carolina | Wilmington                      | Hurricane      | High           |
+| South Carolina | Myrtle Beach                    | Hurricane      | High           |
+| Georgia        | Savannah                        | Hurricane      | High           |
+| Alabama        | Gulf Shores, Mobile             | Hurricane      | High           |
+| Texas          | Dallas                          | Tornado        | Very High      |
+| Oklahoma       | Oklahoma City                   | Tornado        | Very High      |
+| Oklahoma       | Moore                           | Tornado        | Very High      |
+| Kansas         | Wichita                         | Tornado        | Very High      |
+| Arkansas       | Little Rock                     | Tornado        | High           |
+| Mississippi    | Jackson                         | Tornado        | High           |
+| Alabama        | Birmingham / Tuscaloosa         | Tornado        | High           |
+| Georgia        | Columbus / Atlanta Corridor     | Tornado        | Moderate–High  |
+| Tennessee      | Nashville Area                  | Tornado        | Moderate–High  |

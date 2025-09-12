@@ -1,0 +1,47 @@
+Got it 👍 Let’s expand this into county-level “Storm Hot Zones” based on FEMA + NOAA disaster history. This will give you much more precision than just state/city names — perfect for building county-level subscriptions inside your app.
+
+🌪 County-Level Storm Hot Zones (Sample Build-Out)
+State	County	Storm Type(s)	Risk Level	Notes
+Florida	Miami-Dade County	Hurricanes	Very High	Direct hits (Andrew 1992, Irma 2017), dense population.
+Florida	Palm Beach County	Hurricanes	Very High	Multiple landfalls; coastal surge zones.
+Florida	Duval County	Hurricanes	High	Jacksonville coastal exposure.
+Texas	Harris County	Hurricanes, Tornadoes	Very High	Houston metro, storm surge + inland flooding.
+Texas	Galveston County	Hurricanes	Very High	Repeated hurricane landfalls.
+Louisiana	Orleans Parish	Hurricanes	Very High	Katrina 2005, Ida 2021; extreme vulnerability.
+Louisiana	Calcasieu Parish	Hurricanes	High	Lake Charles area; Laura 2020.
+North Carolina	Dare County	Hurricanes	Very High	Outer Banks (Cape Hatteras).
+North Carolina	New Hanover County	Hurricanes	High	Wilmington exposure.
+South Carolina	Horry County	Hurricanes	High	Myrtle Beach corridor.
+Georgia	Chatham County	Hurricanes, Tornadoes	High	Savannah + coastal surge zone.
+Alabama	Mobile County	Hurricanes, Tornadoes	High	Gulf Shores/Mobile Bay.
+Oklahoma	Cleveland County	Tornadoes	Very High	Moore/Norman, EF4–EF5 strikes.
+Oklahoma	Oklahoma County	Tornadoes	Very High	Oklahoma City metro.
+Kansas	Sedgwick County	Tornadoes	Very High	Wichita, “Tornado Alley” hotspot.
+Arkansas	Pulaski County	Tornadoes	High	Little Rock metro.
+Mississippi	Hinds County	Tornadoes	High	Jackson area.
+Tennessee	Davidson County	Tornadoes	Moderate–High	Nashville corridor.
+Georgia	Muscogee County	Tornadoes	Moderate–High	Columbus GA corridor (urban risk).
+Georgia	Harris County	Tornadoes	Moderate–High	Pine Mountain region, recent EF3/EF4 history.
+✅ How You Can Use This in Your App
+
+Contractor Filters:
+
+Contractors choose counties instead of just states.
+
+Example: “Alert me for Chatham (GA) + Harris (GA) + Muscogee (GA).”
+
+Risk Tiers:
+
+High/Very High → Push notifications immediately.
+
+Moderate → Store but don’t push unless severe warning overlaps.
+
+Disaster History Tagging:
+
+Each county row can have a FEMA Disaster ID history link.
+
+Lets contractors/insurers click and see past hurricanes/tornadoes in that county.
+
+Map Layer:
+
+You can shade counties by risk level in a live storm-tracking view.

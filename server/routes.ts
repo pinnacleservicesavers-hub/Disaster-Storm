@@ -38,6 +38,8 @@ import { weatherService, weatherStreamManager } from "./services/weather";
 import { trafficCameraService } from "./services/trafficCameras";
 import { damageDetectionService } from "./services/damageDetection";
 import { unified511Directory } from "./services/unified511Directory";
+import { NotificationService } from "./services/notificationService";
+import { IncidentCorrelationService } from "./services/incidentCorrelationService";
 import { storage } from "./storage";
 import { insertContractorWatchlistSchema } from "@shared/schema";
 
@@ -162,6 +164,10 @@ function haversine(aLat: number, aLng: number, bLat: number, bLng: number) {
 const inbox = []; // [{ id, provider, timestamp, mediaUrl, thumbnailUrl, lat, lon, address, notes, tags }]
 const sseClients = new Set();
 
+// ---- Alert System Services ----
+let notificationService: NotificationService;
+let incidentCorrelationService: IncidentCorrelationService;
+
 // ---- simple message store by claim number (for email threads) ----
 const messagesByClaim = new Map(); // claimNumber -> [{ts, dir, from, to, subject, html, text}]
 function addMessage(claimNumber, msg){
@@ -248,6 +254,16 @@ function scheduleAt(dateISO: string, label: string) {
 }
 
 export async function registerRoutes(app: express.Application): Promise<Server> {
+  
+  // ---- Initialize Alert System Services ----
+  notificationService = new NotificationService(sseClients);
+  incidentCorrelationService = new IncidentCorrelationService(
+    unified511Directory,
+    damageDetectionService,
+    notificationService
+  );
+  
+  console.log('🔔 Alert system services initialized');
   
   // ---- static assets setup ----
   app.use("/uploads", express.static(UPLOAD_DIR));
@@ -1477,20 +1493,20 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
   }
 
   // --- SSE stream for live events ---
-  const sseClients = new Set<any>();
+  const droneSSEClients = new Set<any>();
   app.get('/api/drone/events', (req, res) => {
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
     res.flushHeaders();
     res.write(`data: ${JSON.stringify({ type: 'hello', ts: Date.now() })}\n\n`);
-    sseClients.add(res);
-    req.on('close', () => { try { sseClients.delete(res); } catch {} });
+    droneSSEClients.add(res);
+    req.on('close', () => { try { droneSSEClients.delete(res); } catch {} });
   });
   
   function sseBroadcast(evt: any) {
     const data = `data: ${JSON.stringify(evt)}\n\n`;
-    for (const res of sseClients) { try { res.write(data); } catch {} }
+    for (const res of droneSSEClients) { try { res.write(data); } catch {} }
   }
 
   // ====== Haversine distance calculation ======
@@ -2028,6 +2044,187 @@ Email: strategiclandmgmt@gmail.com
 
       res.json({ ok:true, messageId: info.messageId });
     }catch(e){ res.status(500).json({ ok:false, detail:String(e) }); }
+  });
+
+  // ===== ALERT SYSTEM ENDPOINTS =====
+  
+  // Update watchlist item with alert preferences
+  app.patch('/api/contractor/:contractorId/watchlist/:itemId/alerts', async (req, res) => {
+    try {
+      const { contractorId, itemId } = req.params;
+      
+      // Validate using Zod schema per project guidelines
+      const alertPreferencesSchema = insertContractorWatchlistSchema.pick({
+        emailAlertsEnabled: true,
+        smsAlertsEnabled: true,
+        browserAlertsEnabled: true,
+        alertEmail: true,
+        alertPhone: true,
+        minSeverityLevel: true,
+        alertTypes: true,
+        alertRadius: true,
+        quietHoursStart: true,
+        quietHoursEnd: true,
+        timezone: true,
+        immediateAlertTypes: true,
+        maxAlertsPerHour: true
+      }).partial();
+      
+      const validatedUpdates = alertPreferencesSchema.parse(req.body);
+      
+      const updated = await storage.updateWatchlistItem(itemId, validatedUpdates);
+      if (!updated) {
+        return res.status(404).json({ error: 'Watchlist item not found' });
+      }
+      
+      res.json({ success: true, watchlistItem: updated });
+    } catch (error) {
+      console.error('Update alert preferences error:', error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ error: 'Invalid alert preferences', details: error.errors });
+      }
+      res.status(500).json({ error: 'Failed to update alert preferences' });
+    }
+  });
+  
+  // Get contractor opportunities in their watchlist areas
+  app.get('/api/contractor/:contractorId/opportunities', async (req, res) => {
+    try {
+      const { contractorId } = req.params;
+      const { state } = req.query;
+      
+      // Get contractor watchlist
+      const watchlist = await storage.getContractorWatchlist(contractorId);
+      
+      // Get opportunities in watchlisted areas
+      let opportunities = incidentCorrelationService.getAllOpportunities();
+      
+      if (state) {
+        opportunities = opportunities.filter(opp => opp.location.state === state);
+      }
+      
+      // Filter opportunities based on watchlist preferences
+      const filteredOpportunities = opportunities.filter(opportunity => {
+        return watchlist.some(watchItem => {
+          const stateMatch = watchItem.state === opportunity.location.state;
+          const countyMatch = !watchItem.county || watchItem.county === opportunity.location.county;
+          return stateMatch && countyMatch && watchItem.alertsEnabled;
+        });
+      });
+      
+      res.json({ opportunities: filteredOpportunities });
+    } catch (error) {
+      console.error('Get opportunities error:', error);
+      res.status(500).json({ error: 'Failed to fetch opportunities' });
+    }
+  });
+  
+  // Test alert dispatch endpoint (development only)
+  app.post('/api/test/alert', async (req, res) => {
+    try {
+      const { contractorId, alertType = 'tree_down', severity = 'moderate' } = req.body;
+      
+      // Create a test alert
+      const testAlert = {
+        id: `test_${Date.now()}`,
+        type: 'contractor_opportunity' as const,
+        severity: severity as 'minor' | 'moderate' | 'severe' | 'critical',
+        title: `Test Alert: ${alertType.replace(/_/g, ' ').toUpperCase()}`,
+        description: 'This is a test alert to verify the notification system is working properly.',
+        location: {
+          address: '123 Test Street, Atlanta, GA',
+          lat: 33.7490,
+          lng: -84.3880,
+          state: 'GA',
+          county: 'Fulton'
+        },
+        alertTypes: [alertType],
+        urgencyLevel: 'normal' as const,
+        estimatedValue: { min: 500, max: 2000, currency: 'USD' as const },
+        contractorTypes: ['tree_service', 'emergency_cleanup'],
+        createdAt: new Date()
+      };
+      
+      // Get watchlist for contractor
+      const watchlist = contractorId 
+        ? await storage.getContractorWatchlist(contractorId)
+        : await storage.getContractorWatchlist('demo_contractor_1'); // Fallback
+      
+      if (watchlist.length === 0) {
+        return res.status(404).json({ error: 'No watchlist items found for contractor' });
+      }
+      
+      // Dispatch the test alert
+      const results = await notificationService.dispatchAlert(testAlert, watchlist);
+      
+      res.json({ 
+        success: true, 
+        testAlert, 
+        dispatchResults: results,
+        watchlistItemsChecked: watchlist.length
+      });
+    } catch (error) {
+      console.error('Test alert error:', error);
+      res.status(500).json({ error: 'Failed to send test alert', detail: String(error) });
+    }
+  });
+  
+  // Get notification statistics
+  app.get('/api/alerts/stats', async (req, res) => {
+    try {
+      const stats = notificationService.getNotificationStats();
+      const opportunities = incidentCorrelationService.getAllOpportunities();
+      
+      res.json({
+        notifications: stats,
+        opportunities: {
+          total: opportunities.length,
+          byState: opportunities.reduce((acc, opp) => {
+            acc[opp.location.state] = (acc[opp.location.state] || 0) + 1;
+            return acc;
+          }, {} as Record<string, number>),
+          bySeverity: opportunities.reduce((acc, opp) => {
+            acc[opp.severity] = (acc[opp.severity] || 0) + 1;
+            return acc;
+          }, {} as Record<string, number>)
+        }
+      });
+    } catch (error) {
+      console.error('Get alert stats error:', error);
+      res.status(500).json({ error: 'Failed to get alert statistics' });
+    }
+  });
+  
+  // Manual trigger for incident correlation (development/testing)
+  app.post('/api/alerts/correlate', async (req, res) => {
+    try {
+      const { state = 'GA' } = req.body;
+      
+      console.log(`🔗 Manual correlation triggered for state: ${state}`);
+      
+      // Correlate traffic incidents
+      const trafficOpportunities = await incidentCorrelationService.correlateTrafficIncidents(state);
+      
+      // Get all contractor watchlists for this state
+      const allWatchlists = await storage.getContractorWatchlist('*'); // Get all contractors
+      const stateWatchlists = allWatchlists.filter(w => w.state === state && w.alertsEnabled);
+      
+      // Dispatch alerts for new opportunities
+      if (trafficOpportunities.length > 0 && stateWatchlists.length > 0) {
+        await incidentCorrelationService.dispatchOpportunityAlerts(trafficOpportunities, stateWatchlists);
+      }
+      
+      res.json({
+        success: true,
+        state,
+        trafficOpportunities: trafficOpportunities.length,
+        watchlistItems: stateWatchlists.length,
+        message: `Correlated ${trafficOpportunities.length} opportunities and checked ${stateWatchlists.length} watchlist items`
+      });
+    } catch (error) {
+      console.error('Manual correlation error:', error);
+      res.status(500).json({ error: 'Failed to correlate incidents', detail: String(error) });
+    }
   });
 
   // ===== WEATHER API ENDPOINTS =====
@@ -3433,18 +3630,29 @@ Email: strategiclandmgmt@gmail.com
   app.patch('/api/contractor/watchlist/:watchlistId', async (req, res) => {
     try {
       const { watchlistId } = req.params;
-      const updates = req.body;
       
       if (!watchlistId) {
         return res.status(400).json({ error: 'Watchlist ID is required' });
       }
       
-      console.log(`📝 Updating watchlist item ${watchlistId}:`, updates);
-      const updatedItem = await storage.updateWatchlistItem(watchlistId, updates);
+      // Validate using Zod schema per project guidelines
+      const watchlistUpdateSchema = insertContractorWatchlistSchema.partial().omit({ 
+        contractorId: true,
+        itemType: true,
+        itemId: true 
+      });
+      
+      const validatedUpdates = watchlistUpdateSchema.parse(req.body);
+      
+      console.log(`📝 Updating watchlist item ${watchlistId}:`, validatedUpdates);
+      const updatedItem = await storage.updateWatchlistItem(watchlistId, validatedUpdates);
       
       res.json({ success: true, item: updatedItem });
     } catch (error) {
       console.error('❌ Error updating watchlist:', error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ error: 'Invalid watchlist data', details: error.errors });
+      }
       if (error.message === 'Watchlist item not found') {
         return res.status(404).json({ error: 'Watchlist item not found' });
       }

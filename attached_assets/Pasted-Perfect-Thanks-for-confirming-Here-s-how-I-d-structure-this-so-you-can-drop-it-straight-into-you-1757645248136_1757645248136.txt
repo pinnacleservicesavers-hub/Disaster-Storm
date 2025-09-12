@@ -1,0 +1,38 @@
+Perfect 👍 Thanks for confirming. Here’s how I’d structure this so you can drop it straight into your database (Supabase / Glide / Replit app).
+
+🌪 County-Level FEMA/NOAA Risk Dataset
+Table Columns
+
+| State | County/Parish | Storm Type(s) | Risk Level | FEMA Disaster History (IDs) | Notes |
+
+Example Build-Out (Starter 20 Counties)
+State	County/Parish	Storm Type(s)	Risk Level	FEMA Disaster IDs	Notes
+Florida	Miami-Dade	Hurricanes	Very High	4557, 4337, 4068, 3310	Direct hits: Andrew (1992), Irma (2017), Ian impact zone.
+Florida	Palm Beach	Hurricanes	Very High	4337, 4283, 4068	Multiple coastal landfalls.
+Florida	Duval	Hurricanes	High	4337, 4283	Jacksonville metro, surge + wind.
+Texas	Harris	Hurricanes, Tornadoes	Very High	4586, 4332, 1791	Houston flooding, Harvey (2017).
+Texas	Galveston	Hurricanes	Very High	1791, 4332	Ike (2008), Harvey surge.
+Louisiana	Orleans Parish	Hurricanes	Very High	4606, 4277, 1603	Katrina (2005), Ida (2021).
+Louisiana	Calcasieu Parish	Hurricanes	High	4559, 1603	Laura (2020), Rita (2005).
+North Carolina	Dare	Hurricanes	Very High	4393, 1871	Outer Banks direct hits.
+North Carolina	New Hanover	Hurricanes	High	4393, 1871	Wilmington surge zone.
+South Carolina	Horry	Hurricanes	High	4394, 4286	Myrtle Beach corridor.
+Georgia	Chatham	Hurricanes, Tornadoes	High	4338	Savannah + coast.
+Alabama	Mobile	Hurricanes, Tornadoes	High	4573, 1605	Gulf Shores/Mobile Bay.
+Oklahoma	Cleveland	Tornadoes	Very High	4222, 1917	Moore EF5 tornado corridor.
+Oklahoma	Oklahoma	Tornadoes	Very High	4222, 1917	Oklahoma City metro.
+Kansas	Sedgwick	Tornadoes	Very High	4230, 1870	Wichita “Tornado Alley.”
+Arkansas	Pulaski	Tornadoes	High	4429, 1972	Little Rock metro risk.
+Mississippi	Hinds	Tornadoes	High	4416	Jackson metro EF3/EF4 events.
+Tennessee	Davidson	Tornadoes	Moderate–High	4476	Nashville corridor.
+Georgia	Muscogee	Tornadoes	Moderate–High	4382	Columbus metro EF3 events.
+Georgia	Harris	Tornadoes	Moderate–High	4382	Pine Mountain EF3 (2019).
+✅ How You Can Use This
+
+Import: Copy into a CSV → Supabase table → API endpoint for your app.
+
+Filter/Alerts: Contractors subscribe to counties; app only pushes alerts when event intersects that polygon.
+
+Risk Layer: Color-code counties by Risk Level.
+
+FEMA ID Link: Each disaster ID can be clickable → FEMA.gov incident page (proof of disaster history).

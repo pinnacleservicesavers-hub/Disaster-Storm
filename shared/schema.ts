@@ -136,8 +136,33 @@ export const contractorWatchlist = pgTable("contractor_watchlist", {
   state: text("state").notNull(),
   county: text("county"),
   alertsEnabled: boolean("alerts_enabled").default(true),
+  
+  // Alert Preferences Configuration
+  emailAlertsEnabled: boolean("email_alerts_enabled").default(true),
+  smsAlertsEnabled: boolean("sms_alerts_enabled").default(false),
+  browserAlertsEnabled: boolean("browser_alerts_enabled").default(true),
+  
+  // Contact Information for Alerts
+  alertEmail: text("alert_email"), // Override default user email
+  alertPhone: text("alert_phone"), // Phone number for SMS alerts
+  
+  // Severity Level Filtering
+  minSeverityLevel: text("min_severity_level").default("moderate"), // minor, moderate, severe, critical
+  alertTypes: jsonb("alert_types"), // Array of alert types to monitor: ['tree_down', 'structure_damage', 'debris', 'flooding']
+  
+  // Geographic and Timing Preferences
+  alertRadius: numeric("alert_radius", { precision: 5, scale: 2 }).default("25.00"), // Miles from watch location
+  quietHoursStart: text("quiet_hours_start"), // "22:00" format
+  quietHoursEnd: text("quiet_hours_end"), // "06:00" format
+  timezone: text("timezone").default("America/New_York"),
+  
+  // Response Time Preferences
+  immediateAlertTypes: jsonb("immediate_alert_types"), // Alert types that bypass quiet hours
+  maxAlertsPerHour: integer("max_alerts_per_hour").default(5), // Rate limiting
+  
   metadata: jsonb("metadata"), // Additional configuration per watch item
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => ({
   uniq: unique().on(table.contractorId, table.itemType, table.itemId),
 }));

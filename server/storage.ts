@@ -703,6 +703,12 @@ export class MemStorage implements IStorage {
 
   async getContractorWatchlist(contractorId: string): Promise<ContractorWatchlist[]> {
     this.loadWatchlistFromFile();
+    
+    // Support getting all watchlists with '*' parameter
+    if (contractorId === '*') {
+      return Array.from(this.contractorWatchlist.values());
+    }
+    
     return Array.from(this.contractorWatchlist.values())
       .filter(item => item.contractorId === contractorId);
   }

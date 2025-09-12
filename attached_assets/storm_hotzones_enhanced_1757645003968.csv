@@ -1,0 +1,33 @@
+hazard,state,city,source,lat,lon,county,county_fips,risk_level
+Hurricane,Florida,,universalproperty.com / World Population Review,,,,,High (state-level)
+Hurricane,Texas,,universalproperty.com,,,,,High (state-level)
+Hurricane,Louisiana,,World Population Review,,,,,High (state-level)
+Hurricane,North Carolina,,universalproperty.com,,,,,High (state-level)
+Hurricane,South Carolina,,universalproperty.com,,,,,High (state-level)
+Hurricane,Alabama,,universalproperty.com,,,,,High (state-level)
+Hurricane,Georgia,,universalproperty.com,,,,,High (state-level)
+Hurricane,North Carolina,Cape Hatteras,Groundworks,35.251,-75.528,Dare County,37055,High
+Hurricane,North Carolina,Morehead City,Groundworks,34.7229,-76.726,Carteret County,37031,High
+Hurricane,North Carolina,Wilmington,Groundworks,34.2257,-77.9447,New Hanover County,37129,High
+Hurricane,Georgia,Savannah,Groundworks,32.0809,-81.0912,Chatham County,13051,High
+Hurricane,South Carolina,Myrtle Beach,Groundworks,33.6891,-78.8867,Horry County,45051,High
+Hurricane,Florida,Miami,Groundworks,25.7617,-80.1918,Miami-Dade County,12086,High
+Hurricane,Florida,Cape Canaveral,Groundworks,28.3922,-80.6077,Brevard County,12009,High
+Hurricane,Florida,Fernandina Beach,Groundworks,30.6697,-81.4626,Nassau County,12089,High
+Hurricane,Florida,St. Augustine,Groundworks,29.9012,-81.3124,St. Johns County,12109,High
+Hurricane,Florida,Palm Beach,Groundworks,26.7056,-80.0364,Palm Beach County,12099,High
+Tornado,Texas,,HowStuffWorks,,,,,High (state-level)
+Tornado,Florida,,HowStuffWorks,,,,,High (state-level)
+Tornado,Kansas,,HowStuffWorks,,,,,High (state-level)
+Tornado,Oklahoma,,HowStuffWorks,,,,,High (state-level)
+Tornado,Alabama,,Spire / Wikipedia,,,,,High (state-level)
+Tornado,Mississippi,,Spire / Wikipedia,,,,,High (state-level)
+Tornado,Georgia,,Spire / Wikipedia,,,,,High (state-level)
+Tornado,Tennessee,,Spire / Wikipedia,,,,,High (state-level)
+Tornado,Arkansas,,Spire / Wikipedia,,,,,High (state-level)
+Tornado,Oklahoma,Moore,Wikipedia,35.3395,-97.4867,Cleveland County,40027,High
+Tornado,Oklahoma,Oklahoma City,Service Master Restore,35.4676,-97.5164,Oklahoma County,40109,High
+Tornado,Kansas,Wichita,The Travel,37.6872,-97.3301,Sedgwick County,20173,High
+Tornado,Texas,Dallas,The Travel,32.7767,-96.797,Dallas County,48113,High
+Tornado,Mississippi,Jackson,Service Master Restore,32.2988,-90.1848,Hinds County,28049,High
+Tornado,Arkansas,Little Rock,Service Master Restore,34.7465,-92.2896,Pulaski County,05119,High
