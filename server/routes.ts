@@ -33,6 +33,7 @@ import fetchPkg from "node-fetch";
 import Stripe from "stripe";
 import PDFDocument from "pdfkit";
 import bcrypt from "bcryptjs";
+import { randomUUID } from "crypto";
 import { createServer, type Server } from "http";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { weatherService, weatherStreamManager } from "./services/weather";
