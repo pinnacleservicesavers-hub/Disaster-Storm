@@ -4,12 +4,17 @@ import * as cron from 'node-cron';
 import { snapshotChecker, type SnapshotBatchResult } from './detectors/snapshot-check.js';
 import { providerRegistry } from './providers/index.js';
 import { getConfig } from './config.js';
+import { femaDisasterService, type FemaSyncResult } from './services/femaDisasterService.js';
 
 interface SchedulerStats {
   lastDamageCheck: Date | null;
   lastSnapshotCapture: Date | null;
+  lastFemaSync: Date | null;
   totalDamageDetections: number;
   totalSnapshotsCaptured: number;
+  totalFemaSyncs: number;
+  femaCountiesUpdated: number;
+  femaCountiesAdded: number;
   isRunning: boolean;
   scheduledTasks: string[];
 }
@@ -20,8 +25,12 @@ export class DamageMonitoringScheduler {
   private stats: SchedulerStats = {
     lastDamageCheck: null,
     lastSnapshotCapture: null,
+    lastFemaSync: null,
     totalDamageDetections: 0,
     totalSnapshotsCaptured: 0,
+    totalFemaSyncs: 0,
+    femaCountiesUpdated: 0,
+    femaCountiesAdded: 0,
     isRunning: false,
     scheduledTasks: []
   };
@@ -65,17 +74,37 @@ export class DamageMonitoringScheduler {
       this.processHighPriorityAlerts();
     }, { start: false });
 
+    // Schedule FEMA disaster sync (every N hours based on config)
+    let femaSyncJob: cron.ScheduledTask | null = null;
+    if (this.config.schedulerConfig.femaSyncEnabled) {
+      const femaSyncCron = `0 */${this.config.schedulerConfig.femaSyncInterval} * * *`;
+      femaSyncJob = cron.schedule(femaSyncCron, () => {
+        this.runFemaSync();
+      }, { start: false });
+    }
+
     // Start all jobs
     damageCheckJob.start();
     snapshotJob.start();
     alertJob.start();
+    if (femaSyncJob) {
+      femaSyncJob.start();
+    }
 
     this.cronJobs = [damageCheckJob, snapshotJob, alertJob];
+    if (femaSyncJob) {
+      this.cronJobs.push(femaSyncJob);
+    }
+
     this.stats.scheduledTasks = [
       `Damage Check: every ${this.config.schedulerConfig.damageCheckInterval} minutes`,
       `Snapshot Capture: every ${this.config.schedulerConfig.snapshotCaptureInterval} minutes`,
       `Alert Processing: every ${this.config.schedulerConfig.alertProcessingInterval} minute(s)`
     ];
+    
+    if (this.config.schedulerConfig.femaSyncEnabled) {
+      this.stats.scheduledTasks.push(`FEMA Sync: every ${this.config.schedulerConfig.femaSyncInterval} hours`);
+    }
 
     console.log('✅ Scheduler started with the following tasks:');
     this.stats.scheduledTasks.forEach(task => console.log(`   📅 ${task}`));
@@ -182,6 +211,45 @@ export class DamageMonitoringScheduler {
     // 2. Send notifications to contractors
     // 3. Update alert statuses
     // 4. Trigger additional monitoring for critical areas
+  }
+
+  async runFemaSync() {
+    if (!this.config.schedulerConfig.femaSyncEnabled) {
+      console.log('🏛️ FEMA sync skipped - disabled in configuration');
+      return;
+    }
+
+    console.log('🌪️ Running scheduled FEMA disaster data sync...');
+    
+    try {
+      // Determine lookback period based on sync interval
+      // If syncing every 12 hours, look back 1 day to ensure we catch everything
+      const lookbackDays = Math.max(1, Math.ceil(this.config.schedulerConfig.femaSyncInterval / 12));
+      
+      const startTime = Date.now();
+      const syncResult: FemaSyncResult = await femaDisasterService.syncDisasterData(lookbackDays);
+      const processingTime = Date.now() - startTime;
+
+      // Update stats
+      this.stats.lastFemaSync = new Date();
+      this.stats.totalFemaSyncs++;
+      this.stats.femaCountiesUpdated += syncResult.updatedCounties;
+      this.stats.femaCountiesAdded += syncResult.newCounties;
+
+      if (syncResult.success) {
+        console.log(`✅ FEMA sync complete: ${syncResult.newCounties} new counties, ${syncResult.updatedCounties} updated counties (${processingTime}ms)`);
+        
+        if (syncResult.newCounties > 0 || syncResult.updatedCounties > 0) {
+          console.log(`📊 FEMA sync impact: ${syncResult.disastersProcessed} disasters processed`);
+        }
+      } else {
+        console.error(`❌ FEMA sync completed with errors: ${syncResult.errors.length} errors`);
+        syncResult.errors.forEach(error => console.error(`   ❌ ${error}`));
+      }
+
+    } catch (error) {
+      console.error('❌ Error in scheduled FEMA sync:', error);
+    }
   }
 
   private async storeSnapshotResults(batchResult: SnapshotBatchResult) {

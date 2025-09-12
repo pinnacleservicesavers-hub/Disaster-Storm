@@ -40,6 +40,8 @@ import { damageDetectionService } from "./services/damageDetection";
 import { unified511Directory } from "./services/unified511Directory";
 import { NotificationService } from "./services/notificationService";
 import { IncidentCorrelationService } from "./services/incidentCorrelationService";
+import { femaDisasterService } from "./services/femaDisasterService";
+import { femaMonitoringService } from "./services/femaMonitoringService";
 import { storage } from "./storage";
 import { insertContractorWatchlistSchema, insertStormHotZoneSchema } from "@shared/schema";
 
@@ -3878,6 +3880,320 @@ Email: strategiclandmgmt@gmail.com
     } catch (error) {
       console.error('❌ Error fetching contractor targets:', error);
       res.status(500).json({ error: 'Failed to fetch contractor targets' });
+    }
+  });
+
+  // ===== FEMA Live Sync API Endpoints =====
+  
+  // FEMA sync status and statistics
+  app.get('/api/fema/sync-status', async (req, res) => {
+    try {
+      const syncStats = femaDisasterService.getSyncStats();
+      console.log('📊 Retrieved FEMA sync status');
+      res.json(syncStats);
+    } catch (error) {
+      console.error('❌ Error fetching FEMA sync status:', error);
+      res.status(500).json({ error: 'Failed to fetch FEMA sync status' });
+    }
+  });
+
+  // Manual FEMA sync trigger (for testing/admin use)
+  app.post('/api/fema/sync', async (req, res) => {
+    try {
+      const { daysSinceLastSync = 7 } = req.body;
+      
+      console.log(`🔄 Manual FEMA sync triggered (${daysSinceLastSync} days lookback)`);
+      const syncResult = await femaDisasterService.triggerManualSync(daysSinceLastSync);
+      
+      res.json({
+        success: syncResult.success,
+        result: syncResult,
+        message: syncResult.success 
+          ? `Sync completed: ${syncResult.newCounties} new, ${syncResult.updatedCounties} updated` 
+          : `Sync failed with ${syncResult.errors.length} errors`
+      });
+    } catch (error) {
+      console.error('❌ Error in manual FEMA sync:', error);
+      res.status(500).json({ error: 'Failed to trigger FEMA sync' });
+    }
+  });
+
+  // Recent FEMA disasters by state
+  app.get('/api/fema/disasters/:stateCode', async (req, res) => {
+    try {
+      const { stateCode } = req.params;
+      const { days = 90 } = req.query;
+      
+      if (!stateCode || stateCode.length !== 2) {
+        return res.status(400).json({ error: 'Valid 2-letter state code required' });
+      }
+
+      const disasters = await femaDisasterService.getRecentDisastersForState(
+        stateCode.toUpperCase(), 
+        Number(days)
+      );
+      
+      console.log(`🌪️ Retrieved ${disasters.length} recent disasters for ${stateCode}`);
+      
+      res.json({
+        stateCode: stateCode.toUpperCase(),
+        disasters,
+        count: disasters.length,
+        daysLookback: Number(days)
+      });
+    } catch (error) {
+      console.error(`❌ Error fetching disasters for ${req.params.stateCode}:`, error);
+      res.status(500).json({ error: 'Failed to fetch recent disasters' });
+    }
+  });
+
+  // Enhanced storm hot zones with recent FEMA data
+  app.get('/api/fema/enhanced-hot-zones', async (req, res) => {
+    try {
+      const { 
+        stateCode, 
+        riskLevel, 
+        recentDisastersOnly = 'false',
+        limit = 50 
+      } = req.query;
+      
+      let zones = await storage.getStormHotZones();
+      
+      // Filter by state if provided
+      if (stateCode) {
+        zones = zones.filter(zone => zone.stateCode === String(stateCode).toUpperCase());
+      }
+      
+      // Filter by risk level if provided
+      if (riskLevel) {
+        zones = zones.filter(zone => zone.riskLevel === riskLevel);
+      }
+      
+      // Filter for zones with recent FEMA disasters (last 2 years) if requested
+      if (String(recentDisastersOnly).toLowerCase() === 'true') {
+        const twoYearsAgo = new Date();
+        twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
+        
+        zones = zones.filter(zone => {
+          if (!zone.majorStorms || !Array.isArray(zone.majorStorms)) return false;
+          return (zone.majorStorms as any[]).some(storm => storm.year >= twoYearsAgo.getFullYear());
+        });
+      }
+      
+      // Sort by data freshness (recently updated first), then by risk score
+      zones.sort((a, b) => {
+        const aUpdated = new Date(a.lastUpdated).getTime();
+        const bUpdated = new Date(b.lastUpdated).getTime();
+        
+        // Prioritize recently updated zones (within last 30 days)
+        const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
+        const aRecent = aUpdated > thirtyDaysAgo;
+        const bRecent = bUpdated > thirtyDaysAgo;
+        
+        if (aRecent && !bRecent) return -1;
+        if (bRecent && !aRecent) return 1;
+        
+        // Then by last updated date (newest first)
+        if (bUpdated !== aUpdated) return bUpdated - aUpdated;
+        
+        // Finally by risk score
+        return b.riskScore - a.riskScore;
+      });
+      
+      // Limit results
+      zones = zones.slice(0, Number(limit));
+      
+      console.log(`🏛️ Retrieved ${zones.length} enhanced FEMA hot zones with filters:`, { 
+        stateCode, riskLevel, recentDisastersOnly, limit 
+      });
+      
+      res.json({
+        hotZones: zones,
+        count: zones.length,
+        filters: { stateCode, riskLevel, recentDisastersOnly, limit },
+        lastSyncAttempt: femaDisasterService.getSyncStats().lastSyncAttempt,
+        lastSuccessfulSync: femaDisasterService.getSyncStats().lastSuccessfulSync
+      });
+    } catch (error) {
+      console.error('❌ Error fetching enhanced FEMA hot zones:', error);
+      res.status(500).json({ error: 'Failed to fetch enhanced hot zones' });
+    }
+  });
+
+  // Real-time disaster opportunities for contractors
+  app.get('/api/fema/contractor-opportunities', async (req, res) => {
+    try {
+      const { 
+        stateCode,
+        minRiskScore = 70,
+        contractorTypes,
+        radius = 100, // miles
+        lat,
+        lon,
+        limit = 20
+      } = req.query;
+      
+      let zones = await storage.getStormHotZones();
+      
+      // Filter by minimum risk score
+      zones = zones.filter(zone => zone.riskScore >= Number(minRiskScore));
+      
+      // Filter by state if provided
+      if (stateCode) {
+        zones = zones.filter(zone => zone.stateCode === String(stateCode).toUpperCase());
+      }
+      
+      // Geographic filtering if lat/lon provided
+      if (lat && lon) {
+        const centerLat = Number(lat);
+        const centerLon = Number(lon);
+        const radiusMiles = Number(radius);
+        
+        zones = zones.filter(zone => {
+          if (!zone.latitude || !zone.longitude) return true; // Include zones without coordinates
+          
+          const distance = haversine(centerLat, centerLon, Number(zone.latitude), Number(zone.longitude));
+          return distance <= (radiusMiles * 1609.34); // Convert miles to meters
+        });
+      }
+      
+      // Prioritize zones with recent FEMA updates and high market potential
+      zones.sort((a, b) => {
+        const aFresh = new Date(a.lastUpdated).getTime() > (Date.now() - 30 * 24 * 60 * 60 * 1000);
+        const bFresh = new Date(b.lastUpdated).getTime() > (Date.now() - 30 * 24 * 60 * 60 * 1000);
+        
+        if (aFresh && !bFresh) return -1;
+        if (bFresh && !aFresh) return 1;
+        
+        // Then by market potential
+        if (a.marketPotential === 'High' && b.marketPotential !== 'High') return -1;
+        if (b.marketPotential === 'High' && a.marketPotential !== 'High') return 1;
+        
+        // Finally by risk score
+        return b.riskScore - a.riskScore;
+      });
+      
+      // Limit results
+      zones = zones.slice(0, Number(limit));
+      
+      // Add opportunity scoring
+      const opportunities = zones.map(zone => ({
+        ...zone,
+        opportunityScore: calculateOpportunityScore(zone),
+        estimatedJobsPerMonth: Math.ceil(zone.riskScore / 10) * (zone.marketPotential === 'High' ? 2 : 1),
+        competitionLevel: zone.riskScore >= 85 ? 'High' : zone.riskScore >= 70 ? 'Medium' : 'Low'
+      }));
+      
+      console.log(`💼 Retrieved ${opportunities.length} contractor opportunities with filters:`, { 
+        stateCode, minRiskScore, radius: lat && lon ? radius : 'N/A', limit 
+      });
+      
+      res.json({
+        opportunities,
+        count: opportunities.length,
+        filters: { stateCode, minRiskScore, radius, lat, lon, limit },
+        syncStatus: femaDisasterService.getSyncStats()
+      });
+    } catch (error) {
+      console.error('❌ Error fetching contractor opportunities:', error);
+      res.status(500).json({ error: 'Failed to fetch contractor opportunities' });
+    }
+  });
+
+  // Helper function to calculate opportunity score
+  function calculateOpportunityScore(zone: any): number {
+    let score = zone.riskScore; // Base score
+    
+    // Market potential bonus
+    if (zone.marketPotential === 'High') score += 15;
+    else if (zone.marketPotential === 'Medium') score += 8;
+    
+    // Claim amount bonus (higher amounts = higher scores)
+    if (zone.avgClaimAmount) {
+      if (zone.avgClaimAmount >= 80000) score += 10;
+      else if (zone.avgClaimAmount >= 60000) score += 7;
+      else if (zone.avgClaimAmount >= 40000) score += 4;
+    }
+    
+    // Recent activity bonus (updated within last 30 days)
+    const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
+    if (new Date(zone.lastUpdated).getTime() > thirtyDaysAgo) {
+      score += 12;
+    }
+    
+    // FEMA disaster count bonus
+    if (zone.femaDisasterIds && Array.isArray(zone.femaDisasterIds)) {
+      score += Math.min(zone.femaDisasterIds.length * 2, 15);
+    }
+    
+    return Math.min(score, 150); // Cap at 150
+  }
+
+  // FEMA monitoring and logging endpoints
+  app.get('/api/fema/monitoring/stats', async (req, res) => {
+    try {
+      const monitoringStats = await femaMonitoringService.getMonitoringStats();
+      console.log('📊 Retrieved FEMA monitoring statistics');
+      res.json(monitoringStats);
+    } catch (error) {
+      console.error('❌ Error fetching FEMA monitoring stats:', error);
+      res.status(500).json({ error: 'Failed to fetch monitoring statistics' });
+    }
+  });
+
+  app.get('/api/fema/monitoring/logs', async (req, res) => {
+    try {
+      const { limit = 50 } = req.query;
+      const recentLogs = await femaMonitoringService.getRecentLogs(Number(limit));
+      console.log(`📋 Retrieved ${recentLogs.length} recent FEMA logs`);
+      res.json({
+        logs: recentLogs,
+        count: recentLogs.length,
+        limit: Number(limit)
+      });
+    } catch (error) {
+      console.error('❌ Error fetching FEMA logs:', error);
+      res.status(500).json({ error: 'Failed to fetch recent logs' });
+    }
+  });
+
+  app.get('/api/fema/monitoring/export', async (req, res) => {
+    try {
+      const { startDate, endDate } = req.query;
+      
+      const start = startDate ? new Date(String(startDate)) : undefined;
+      const end = endDate ? new Date(String(endDate)) : undefined;
+      
+      const exportedLogs = await femaMonitoringService.exportLogs(start, end);
+      
+      console.log(`📦 Exported ${exportedLogs.length} FEMA logs for analysis`);
+      
+      res.json({
+        logs: exportedLogs,
+        count: exportedLogs.length,
+        filters: { startDate, endDate },
+        exportedAt: new Date()
+      });
+    } catch (error) {
+      console.error('❌ Error exporting FEMA logs:', error);
+      res.status(500).json({ error: 'Failed to export logs' });
+    }
+  });
+
+  app.post('/api/fema/monitoring/cleanup', async (req, res) => {
+    try {
+      const { keepEntries = 1000 } = req.body;
+      await femaMonitoringService.cleanupLogs(Number(keepEntries));
+      
+      console.log(`🧹 Cleaned up FEMA logs (kept ${keepEntries} entries)`);
+      res.json({
+        success: true,
+        message: `Log cleanup completed, kept ${keepEntries} entries`,
+        cleanedAt: new Date()
+      });
+    } catch (error) {
+      console.error('❌ Error cleaning up FEMA logs:', error);
+      res.status(500).json({ error: 'Failed to cleanup logs' });
     }
   });
 

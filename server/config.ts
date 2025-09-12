@@ -10,6 +10,8 @@ export interface MonitoringConfig {
     damageCheckInterval: number; // minutes
     snapshotCaptureInterval: number; // minutes
     alertProcessingInterval: number; // minutes
+    femaSyncInterval: number; // hours
+    femaSyncEnabled: boolean;
   };
   
   detectionConfig: {
@@ -36,7 +38,9 @@ export const DEFAULT_CONFIG: MonitoringConfig = {
   schedulerConfig: {
     damageCheckInterval: 10, // 10 minutes
     snapshotCaptureInterval: 5, // 5 minutes  
-    alertProcessingInterval: 1 // 1 minute
+    alertProcessingInterval: 1, // 1 minute
+    femaSyncInterval: 12, // 12 hours (twice daily)
+    femaSyncEnabled: true
   },
   
   detectionConfig: {
@@ -68,7 +72,13 @@ export const getConfig = (): MonitoringConfig => {
       ...DEFAULT_CONFIG.schedulerConfig,
       damageCheckInterval: process.env.DAMAGE_CHECK_INTERVAL_MINUTES
         ? parseInt(process.env.DAMAGE_CHECK_INTERVAL_MINUTES)
-        : DEFAULT_CONFIG.schedulerConfig.damageCheckInterval
+        : DEFAULT_CONFIG.schedulerConfig.damageCheckInterval,
+      femaSyncInterval: process.env.FEMA_SYNC_INTERVAL_HOURS
+        ? parseInt(process.env.FEMA_SYNC_INTERVAL_HOURS)
+        : DEFAULT_CONFIG.schedulerConfig.femaSyncInterval,
+      femaSyncEnabled: process.env.FEMA_SYNC_ENABLED
+        ? process.env.FEMA_SYNC_ENABLED.toLowerCase() === 'true'
+        : DEFAULT_CONFIG.schedulerConfig.femaSyncEnabled
     }
   };
 };
