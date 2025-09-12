@@ -36,6 +36,8 @@ import { createServer, type Server } from "http";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { weatherService, weatherStreamManager } from "./services/weather";
 import { trafficCameraService } from "./services/trafficCameras";
+import { damageDetectionService } from "./services/damageDetection";
+import { unified511Directory } from "./services/unified511Directory";
 
 // fetch polyfill if needed
 const fetch = globalThis.fetch || fetchPkg;
@@ -3013,6 +3015,341 @@ Email: strategiclandmgmt@gmail.com
       res.status(500).json({ error: 'Failed to fetch camera leads' });
     }
   });
+
+  // AI-powered damage detection on traffic camera image
+  app.post('/api/traffic-cameras/:cameraId/analyze-damage', async (req, res) => {
+    try {
+      const { cameraId } = req.params;
+      
+      console.log(`🤖 Starting AI damage analysis for camera ${cameraId}`);
+      
+      // Get camera details for location context
+      const allCameras = await trafficCameraService.getAllCameras();
+      const camera = allCameras.find(c => c.id === cameraId);
+      
+      if (!camera) {
+        return res.status(404).json({ error: 'Camera not found' });
+      }
+      
+      // Fetch current image bytes
+      const imageBytesResult = await trafficCameraService.fetchImageBytes(cameraId);
+      
+      if (!imageBytesResult || !imageBytesResult.imageData) {
+        return res.status(404).json({ error: 'Camera image not available' });
+      }
+      
+      // Analyze image for damage using AI
+      const cameraLocation = `${camera.name} (${camera.city}, ${camera.state})${camera.highway ? ` - ${camera.highway}` : ''}`;
+      const analysisResult = await damageDetectionService.analyzeImageForDamage(imageBytesResult.imageData, cameraLocation);
+      
+      res.json({
+        camera: {
+          id: camera.id,
+          name: camera.name,
+          location: cameraLocation
+        },
+        analysis: analysisResult,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Error analyzing camera for damage:', error);
+      res.status(500).json({ error: 'Failed to analyze camera for damage' });
+    }
+  });
+
+  // Test damage detection with sample data
+  app.post('/api/damage-detection/test', async (req, res) => {
+    try {
+      console.log('🧪 Running damage detection test...');
+      
+      const testResult = await damageDetectionService.testWithSampleImage();
+      
+      res.json({
+        test: true,
+        result: testResult,
+        message: 'Damage detection test completed successfully'
+      });
+    } catch (error) {
+      console.error('Error running damage detection test:', error);
+      res.status(500).json({ error: 'Failed to run damage detection test' });
+    }
+  });
+
+  // ===== UNIFIED 511 DIRECTORY ENDPOINTS =====
+  
+  // Get state directory with camera and incident counts per state
+  app.get('/api/511/directory', async (req, res) => {
+    try {
+      console.log('📋 Fetching unified 511 state directory...');
+      
+      const directory = await unified511Directory.getStateDirectory();
+      
+      res.json({
+        directory,
+        totalStates: directory.length,
+        totalCameras: directory.reduce((sum, state) => sum + state.cameraCount, 0),
+        totalIncidents: directory.reduce((sum, state) => sum + state.incidentCount, 0),
+        contractorOpportunities: directory.reduce((sum, state) => sum + state.contractorOpportunities, 0),
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Error fetching 511 directory:', error);
+      res.status(500).json({ error: 'Failed to fetch 511 directory' });
+    }
+  });
+
+  // Get cameras by state with optional county filtering
+  app.get('/api/511/cameras/:state', async (req, res) => {
+    try {
+      const { state } = req.params;
+      const { county } = req.query;
+      
+      console.log(`🎥 Fetching 511 cameras for ${state}${county ? ` / ${county}` : ''}...`);
+      
+      let cameras;
+      if (county) {
+        cameras = await unified511Directory.getCamerasByCounty(state, county as string);
+      } else {
+        cameras = await unified511Directory.getCamerasByState(state);
+      }
+      
+      // Group cameras by type and jurisdiction
+      const camerasByType = cameras.reduce((acc, camera) => {
+        if (!acc[camera.type]) acc[camera.type] = [];
+        acc[camera.type].push(camera);
+        return acc;
+      }, {} as Record<string, typeof cameras>);
+      
+      const camerasByCounty = cameras.reduce((acc, camera) => {
+        const countyName = camera.jurisdiction.county || 'Unknown';
+        if (!acc[countyName]) acc[countyName] = [];
+        acc[countyName].push(camera);
+        return acc;
+      }, {} as Record<string, typeof cameras>);
+      
+      res.json({
+        state: state.toUpperCase(),
+        county: county || null,
+        cameras,
+        count: cameras.length,
+        breakdown: {
+          byType: Object.keys(camerasByType).map(type => ({
+            type,
+            count: camerasByType[type].length,
+            cameras: camerasByType[type]
+          })),
+          byCounty: Object.keys(camerasByCounty).map(county => ({
+            county,
+            count: camerasByCounty[county].length
+          }))
+        },
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Error fetching cameras by state:', error);
+      res.status(500).json({ error: 'Failed to fetch cameras by state' });
+    }
+  });
+
+  // Get incidents/events by state (tree down, road blocked, etc.)
+  app.get('/api/511/incidents/:state', async (req, res) => {
+    try {
+      const { state } = req.params;
+      const { contractorOnly } = req.query;
+      
+      console.log(`🚨 Fetching 511 incidents for ${state}...`);
+      
+      let incidents = await unified511Directory.getIncidentsByState(state);
+      
+      if (contractorOnly === 'true') {
+        incidents = incidents.filter(incident => incident.isContractorOpportunity);
+      }
+      
+      // Group incidents by type and severity
+      const incidentsByType = incidents.reduce((acc, incident) => {
+        if (!acc[incident.type]) acc[incident.type] = [];
+        acc[incident.type].push(incident);
+        return acc;
+      }, {} as Record<string, typeof incidents>);
+      
+      const incidentsBySeverity = incidents.reduce((acc, incident) => {
+        if (!acc[incident.severity]) acc[incident.severity] = [];
+        acc[incident.severity].push(incident);
+        return acc;
+      }, {} as Record<string, typeof incidents>);
+      
+      res.json({
+        state: state.toUpperCase(),
+        incidents,
+        count: incidents.length,
+        contractorOpportunities: incidents.filter(i => i.isContractorOpportunity).length,
+        breakdown: {
+          byType: Object.keys(incidentsByType).map(type => ({
+            type,
+            count: incidentsByType[type].length,
+            contractorOpportunities: incidentsByType[type].filter(i => i.isContractorOpportunity).length
+          })),
+          bySeverity: Object.keys(incidentsBySeverity).map(severity => ({
+            severity,
+            count: incidentsBySeverity[severity].length
+          }))
+        },
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Error fetching incidents by state:', error);
+      res.status(500).json({ error: 'Failed to fetch incidents by state' });
+    }
+  });
+
+  // Get contractor opportunities across all states or specific state
+  app.get('/api/511/contractor-opportunities', async (req, res) => {
+    try {
+      const { state, severity, type, limit } = req.query;
+      
+      console.log(`💼 Fetching contractor opportunities${state ? ` for ${state}` : ' (all states)'}...`);
+      
+      let opportunities = await unified511Directory.getContractorOpportunities(state as string);
+      
+      // Apply filters
+      if (severity) {
+        opportunities = opportunities.filter(opp => opp.severity === severity);
+      }
+      
+      if (type) {
+        opportunities = opportunities.filter(opp => opp.type === type);
+      }
+      
+      if (limit) {
+        opportunities = opportunities.slice(0, Number(limit));
+      }
+      
+      // Calculate estimated revenue potential
+      const revenueEstimates = opportunities.map(opp => {
+        let estimatedValue = 500; // Base value
+        
+        switch (opp.type) {
+          case 'tree_down':
+            estimatedValue = opp.severity === 'critical' ? 3000 : 1500;
+            break;
+          case 'power_lines_down':
+            estimatedValue = 5000; // Emergency work
+            break;
+          case 'debris':
+            estimatedValue = opp.severity === 'severe' ? 2000 : 800;
+            break;
+          case 'flooding':
+            estimatedValue = 2500;
+            break;
+        }
+        
+        return { ...opp, estimatedValue };
+      });
+      
+      res.json({
+        opportunities: revenueEstimates,
+        count: opportunities.length,
+        totalEstimatedRevenue: revenueEstimates.reduce((sum, opp) => sum + opp.estimatedValue, 0),
+        breakdown: {
+          bySeverity: ['critical', 'severe', 'moderate', 'minor'].map(sev => ({
+            severity: sev,
+            count: opportunities.filter(opp => opp.severity === sev).length
+          })),
+          byType: ['tree_down', 'power_lines_down', 'debris', 'flooding', 'road_blocked'].map(type => ({
+            type,
+            count: opportunities.filter(opp => opp.type === type).length
+          }))
+        },
+        filters: { state, severity, type, limit },
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Error fetching contractor opportunities:', error);
+      res.status(500).json({ error: 'Failed to fetch contractor opportunities' });
+    }
+  });
+
+  // Advanced camera search with multiple filters
+  app.get('/api/511/cameras/search', async (req, res) => {
+    try {
+      const { 
+        states, // comma-separated list
+        type, 
+        lat, 
+        lng, 
+        radius, // in km
+        includeInactive,
+        limit 
+      } = req.query;
+      
+      console.log('🔍 Performing advanced camera search...');
+      
+      const stateList = states ? (states as string).split(',') : ['CA', 'NY', 'TX', 'FL', 'WA'];
+      let allCameras: any[] = [];
+      
+      // Fetch cameras from multiple states
+      for (const state of stateList) {
+        const stateCameras = await unified511Directory.getCamerasByState(state.trim());
+        allCameras.push(...stateCameras);
+      }
+      
+      // Apply filters
+      let filteredCameras = allCameras;
+      
+      if (type) {
+        filteredCameras = filteredCameras.filter(camera => camera.type === type);
+      }
+      
+      if (includeInactive !== 'true') {
+        filteredCameras = filteredCameras.filter(camera => camera.isActive);
+      }
+      
+      // Geographic filtering
+      if (lat && lng && radius) {
+        const centerLat = Number(lat);
+        const centerLng = Number(lng);
+        const radiusKm = Number(radius);
+        
+        filteredCameras = filteredCameras.filter(camera => {
+          const distance = calculateDistance(centerLat, centerLng, camera.lat, camera.lng);
+          return distance <= radiusKm;
+        });
+      }
+      
+      if (limit) {
+        filteredCameras = filteredCameras.slice(0, Number(limit));
+      }
+      
+      res.json({
+        cameras: filteredCameras,
+        count: filteredCameras.length,
+        searchParams: {
+          states: stateList,
+          type,
+          centerPoint: lat && lng ? { lat: Number(lat), lng: Number(lng) } : null,
+          radius: radius ? Number(radius) : null,
+          includeInactive: includeInactive === 'true',
+          limit: limit ? Number(limit) : null
+        },
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Error performing camera search:', error);
+      res.status(500).json({ error: 'Failed to perform camera search' });
+    }
+  });
+
+  // Helper function for distance calculation
+  function calculateDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
+    const R = 6371; // Earth's radius in km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLng/2) * Math.sin(dLng/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+  }
 
   // ===== Daily digest (7:00 ET) =====
   cron.schedule('0 7 * * *', async ()=>{

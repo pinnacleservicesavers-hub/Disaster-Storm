@@ -706,7 +706,7 @@ cron.schedule('5 9 * * *', async ()=>{
           headers:{'Content-Type':'application/json'}, 
           body: JSON.stringify({ customerId: c.id, balance: bal }) 
         })).json().catch(()=>null);
-        const pdf = r?.path;
+        const pdf = (r as any)?.path;
         if (transporter && c.email){
           const html = renderTemplate(settings.emailTemplates?.balance45Demand, ctx);
           await transporter.sendMail({ 
