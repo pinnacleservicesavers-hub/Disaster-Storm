@@ -32,9 +32,13 @@ import {
   type ClaimSubmission,
   type InsertClaimSubmission,
   type ContractorDocument,
-  type InsertContractorDocument
+  type InsertContractorDocument,
+  type ContractorWatchlist,
+  type InsertContractorWatchlist
 } from "@shared/schema";
 import { randomUUID } from "crypto";
+import fs from "fs";
+import path from "path";
 
 export interface IStorage {
   // User methods
@@ -134,6 +138,12 @@ export interface IStorage {
   getContractorDocuments(): Promise<ContractorDocument[]>;
   getContractorDocumentsByContractor(contractorId: string): Promise<ContractorDocument[]>;
   createContractorDocument(document: InsertContractorDocument): Promise<ContractorDocument>;
+
+  // Contractor Watchlist methods
+  getContractorWatchlist(contractorId: string): Promise<ContractorWatchlist[]>;
+  addWatchlistItem(item: InsertContractorWatchlist): Promise<ContractorWatchlist>;
+  removeWatchlistItem(contractorId: string, itemType: string, itemId: string): Promise<boolean>;
+  updateWatchlistItem(id: string, updates: Partial<ContractorWatchlist>): Promise<ContractorWatchlist>;
 }
 
 export class MemStorage implements IStorage {
@@ -154,6 +164,7 @@ export class MemStorage implements IStorage {
   private xactimateComparables: Map<string, XactimateComparable> = new Map();
   private claimSubmissions: Map<string, ClaimSubmission> = new Map();
   private contractorDocuments: Map<string, ContractorDocument> = new Map();
+  private contractorWatchlist: Map<string, ContractorWatchlist> = new Map();
 
   constructor() {
     this.initializeTestData();
@@ -653,6 +664,114 @@ export class MemStorage implements IStorage {
     };
     this.contractorDocuments.set(id, document);
     return document;
+  }
+
+  // Contractor Watchlist methods with JSON file persistence
+  private getWatchlistFilePath(): string {
+    const dataDir = path.join(process.cwd(), "data");
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
+    return path.join(dataDir, "contractor-watchlist.json");
+  }
+
+  private loadWatchlistFromFile(): void {
+    try {
+      const filePath = this.getWatchlistFilePath();
+      if (fs.existsSync(filePath)) {
+        const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+        const items = data.items || [];
+        this.contractorWatchlist.clear();
+        items.forEach((item: ContractorWatchlist) => {
+          this.contractorWatchlist.set(item.id, item);
+        });
+      }
+    } catch (error) {
+      console.error('Error loading watchlist from file:', error);
+    }
+  }
+
+  private saveWatchlistToFile(): void {
+    try {
+      const filePath = this.getWatchlistFilePath();
+      const items = Array.from(this.contractorWatchlist.values());
+      fs.writeFileSync(filePath, JSON.stringify({ items }, null, 2));
+    } catch (error) {
+      console.error('Error saving watchlist to file:', error);
+    }
+  }
+
+  async getContractorWatchlist(contractorId: string): Promise<ContractorWatchlist[]> {
+    this.loadWatchlistFromFile();
+    return Array.from(this.contractorWatchlist.values())
+      .filter(item => item.contractorId === contractorId);
+  }
+
+  async addWatchlistItem(insertItem: InsertContractorWatchlist): Promise<ContractorWatchlist> {
+    this.loadWatchlistFromFile();
+    
+    // Check if item already exists
+    const existing = Array.from(this.contractorWatchlist.values())
+      .find(item => 
+        item.contractorId === insertItem.contractorId &&
+        item.itemType === insertItem.itemType &&
+        item.itemId === insertItem.itemId
+      );
+    
+    if (existing) {
+      return existing;
+    }
+
+    const id = randomUUID();
+    const item: ContractorWatchlist = {
+      id,
+      contractorId: insertItem.contractorId,
+      itemType: insertItem.itemType,
+      itemId: insertItem.itemId,
+      displayName: insertItem.displayName,
+      state: insertItem.state,
+      county: insertItem.county || null,
+      alertsEnabled: insertItem.alertsEnabled ?? true,
+      metadata: insertItem.metadata || null,
+      createdAt: new Date()
+    };
+    
+    this.contractorWatchlist.set(id, item);
+    this.saveWatchlistToFile();
+    return item;
+  }
+
+  async removeWatchlistItem(contractorId: string, itemType: string, itemId: string): Promise<boolean> {
+    this.loadWatchlistFromFile();
+    
+    const existing = Array.from(this.contractorWatchlist.values())
+      .find(item => 
+        item.contractorId === contractorId &&
+        item.itemType === itemType &&
+        item.itemId === itemId
+      );
+    
+    if (existing) {
+      this.contractorWatchlist.delete(existing.id);
+      this.saveWatchlistToFile();
+      return true;
+    }
+    
+    return false;
+  }
+
+  async updateWatchlistItem(id: string, updates: Partial<ContractorWatchlist>): Promise<ContractorWatchlist> {
+    this.loadWatchlistFromFile();
+    
+    const existing = this.contractorWatchlist.get(id);
+    if (!existing) {
+      throw new Error("Watchlist item not found");
+    }
+    
+    const updated = { ...existing, ...updates };
+    this.contractorWatchlist.set(id, updated);
+    this.saveWatchlistToFile();
+    return updated;
   }
 }
 

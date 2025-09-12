@@ -126,6 +126,22 @@ export const droneFootage = pgTable("drone_footage", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// TrafficCamWatcher contractor watchlist for preferred monitoring regions
+export const contractorWatchlist = pgTable("contractor_watchlist", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  contractorId: varchar("contractor_id").notNull(),
+  itemType: text("item_type").notNull(), // 'state', 'county', 'camera'
+  itemId: text("item_id").notNull(), // state code, county name, or camera id
+  displayName: text("display_name").notNull(),
+  state: text("state").notNull(),
+  county: text("county"),
+  alertsEnabled: boolean("alerts_enabled").default(true),
+  metadata: jsonb("metadata"), // Additional configuration per watch item
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  uniq: unique().on(table.contractorId, table.itemType, table.itemId),
+}));
+
 export const marketComparables = pgTable("market_comparables", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   claimType: text("claim_type").notNull(),
@@ -420,6 +436,7 @@ export const insertTrafficCameraSchema = createInsertSchema(trafficCameras);
 export const insertTrafficCamSubscriptionSchema = createInsertSchema(trafficCamSubscriptions);
 export const insertTrafficCamAlertSchema = createInsertSchema(trafficCamAlerts);
 export const insertTrafficCamLeadSchema = createInsertSchema(trafficCamLeads);
+export const insertContractorWatchlistSchema = createInsertSchema(contractorWatchlist).omit({ id: true, createdAt: true });
 
 // Types
 export type User = typeof users.$inferSelect;
@@ -464,3 +481,5 @@ export type TrafficCamAlert = typeof trafficCamAlerts.$inferSelect;
 export type InsertTrafficCamAlert = z.infer<typeof insertTrafficCamAlertSchema>;
 export type TrafficCamLead = typeof trafficCamLeads.$inferSelect;
 export type InsertTrafficCamLead = z.infer<typeof insertTrafficCamLeadSchema>;
+export type ContractorWatchlist = typeof contractorWatchlist.$inferSelect;
+export type InsertContractorWatchlist = z.infer<typeof insertContractorWatchlistSchema>;

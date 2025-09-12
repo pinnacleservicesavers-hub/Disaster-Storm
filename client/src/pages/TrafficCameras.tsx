@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MapPin, Camera, AlertTriangle, DollarSign, Bell, Heart } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { TrafficCameraMap } from '@/components/TrafficCameraMap';
+import type { ContractorWatchlist, InsertContractorWatchlist } from '@shared/schema';
 
 interface CameraDirectory {
   directory: Array<{
@@ -61,7 +62,10 @@ export function TrafficCameras() {
   const [selectedState, setSelectedState] = useState<string>('');
   const [selectedCounty, setSelectedCounty] = useState<string>('');
   const [alertsOnly, setAlertsOnly] = useState(false);
-  const [watchlist, setWatchlist] = useState<string[]>([]);
+  
+  // For now, using a hardcoded contractor ID since there's no authentication system
+  const contractorId = 'contractor-demo-001';
+  const queryClient = useQueryClient();
 
   // Fetch directory
   const { data: directory, isLoading: directoryLoading } = useQuery<CameraDirectory>({
@@ -73,14 +77,73 @@ export function TrafficCameras() {
     queryKey: ['/api/511/contractor-opportunities'],
   });
 
+  // Fetch contractor watchlist
+  const { data: watchlistData, isLoading: watchlistLoading } = useQuery<{watchlist: ContractorWatchlist[], contractorId: string, count: number}>({
+    queryKey: ['/api/contractor/watchlist', contractorId],
+    enabled: !!contractorId,
+  });
+  
+  const watchlist = watchlistData?.watchlist || [];
+
   const selectedStateData = directory?.directory.find(d => d.state === selectedState);
 
-  const addToWatchlist = (stateCounty: string) => {
-    setWatchlist(prev => [...prev, stateCounty]);
+  // Add to watchlist mutation
+  const addWatchlistMutation = useMutation({
+    mutationFn: async (data: InsertContractorWatchlist) => {
+      return apiRequest('/api/contractor/watchlist', {
+        method: 'POST',
+        body: data,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/contractor/watchlist', contractorId] });
+      console.log('Successfully added to watchlist');
+    },
+    onError: (error) => {
+      console.error('Error adding to watchlist:', error);
+    },
+  });
+
+  // Remove from watchlist mutation
+  const removeWatchlistMutation = useMutation({
+    mutationFn: async ({ contractorId, itemType, itemId }: { contractorId: string, itemType: string, itemId: string }) => {
+      return apiRequest(`/api/contractor/${contractorId}/watchlist/${itemType}/${itemId}`, {
+        method: 'DELETE',
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/contractor/watchlist', contractorId] });
+      console.log('Successfully removed from watchlist');
+    },
+    onError: (error) => {
+      console.error('Error removing from watchlist:', error);
+    },
+  });
+
+  const addToWatchlist = (state: string, stateName: string) => {
+    const watchlistItem: InsertContractorWatchlist = {
+      contractorId,
+      itemType: 'state',
+      itemId: state,
+      displayName: `${stateName} Traffic Cameras`,
+      state,
+      county: null,
+      alertsEnabled: true,
+      metadata: null,
+    };
+    addWatchlistMutation.mutate(watchlistItem);
   };
 
-  const removeFromWatchlist = (stateCounty: string) => {
-    setWatchlist(prev => prev.filter(item => item !== stateCounty));
+  const removeFromWatchlist = (state: string) => {
+    removeWatchlistMutation.mutate({
+      contractorId,
+      itemType: 'state',
+      itemId: state,
+    });
+  };
+  
+  const isInWatchlist = (state: string) => {
+    return watchlist.some(item => item.itemType === 'state' && item.itemId === state);
   };
 
   if (directoryLoading) {
@@ -159,7 +222,7 @@ export function TrafficCameras() {
                 <SelectValue placeholder="Select State" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All States</SelectItem>
+                <SelectItem value="all">All States</SelectItem>
                 {directory?.directory.map(state => (
                   <SelectItem key={state.state} value={state.state}>
                     {state.name} ({state.cameraCount} cameras)
@@ -174,7 +237,7 @@ export function TrafficCameras() {
                   <SelectValue placeholder="Select County" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Counties</SelectItem>
+                  <SelectItem value="all">All Counties</SelectItem>
                   {selectedStateData.counties.map(county => (
                     <SelectItem key={county} value={county}>
                       {county}
@@ -197,7 +260,7 @@ export function TrafficCameras() {
           {/* State Directory Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {directory?.directory
-              .filter(state => !selectedState || state.state === selectedState)
+              .filter(state => !selectedState || selectedState === 'all' || state.state === selectedState)
               .filter(state => !alertsOnly || state.contractorOpportunities > 0)
               .map(state => (
                 <Card key={state.state} className="hover:shadow-lg transition-shadow">
@@ -208,15 +271,16 @@ export function TrafficCameras() {
                         variant="ghost"
                         size="sm"
                         onClick={() => 
-                          watchlist.includes(state.state)
+                          isInWatchlist(state.state)
                             ? removeFromWatchlist(state.state)
-                            : addToWatchlist(state.state)
+                            : addToWatchlist(state.state, state.name)
                         }
+                        disabled={addWatchlistMutation.isPending || removeWatchlistMutation.isPending}
                         data-testid={`button-watchlist-${state.state}`}
                       >
                         <Heart 
                           className={`h-4 w-4 ${
-                            watchlist.includes(state.state) 
+                            isInWatchlist(state.state) 
                               ? 'fill-red-500 text-red-500' 
                               : 'text-gray-400'
                           }`} 

@@ -38,6 +38,8 @@ import { weatherService, weatherStreamManager } from "./services/weather";
 import { trafficCameraService } from "./services/trafficCameras";
 import { damageDetectionService } from "./services/damageDetection";
 import { unified511Directory } from "./services/unified511Directory";
+import { storage } from "./storage";
+import { insertContractorWatchlistSchema } from "@shared/schema";
 
 // fetch polyfill if needed
 const fetch = globalThis.fetch || fetchPkg;
@@ -3350,6 +3352,105 @@ Email: strategiclandmgmt@gmail.com
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
     return R * c;
   }
+
+  // ===== CONTRACTOR WATCHLIST ENDPOINTS =====
+  
+  // Get contractor's watchlist
+  app.get('/api/contractor/watchlist/:contractorId', async (req, res) => {
+    try {
+      const { contractorId } = req.params;
+      
+      if (!contractorId) {
+        return res.status(400).json({ error: 'Contractor ID is required' });
+      }
+      
+      console.log(`📋 Fetching watchlist for contractor: ${contractorId}`);
+      const watchlist = await storage.getContractorWatchlist(contractorId);
+      
+      res.json({ 
+        watchlist, 
+        contractorId,
+        count: watchlist.length 
+      });
+    } catch (error) {
+      console.error('❌ Error fetching contractor watchlist:', error);
+      res.status(500).json({ error: 'Failed to fetch watchlist' });
+    }
+  });
+  
+  // Add item to contractor's watchlist  
+  app.post('/api/contractor/watchlist', async (req, res) => {
+    try {
+      // Validate request body with Zod
+      const validatedData = insertContractorWatchlistSchema.parse(req.body);
+      
+      console.log(`✅ Adding to watchlist: ${validatedData.displayName} for contractor ${validatedData.contractorId}`);
+      const watchlistItem = await storage.addWatchlistItem(validatedData);
+      
+      res.status(201).json({ success: true, item: watchlistItem });
+    } catch (error) {
+      console.error('❌ Error adding to watchlist:', error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ error: 'Invalid request data', details: error.errors });
+      }
+      res.status(500).json({ error: 'Failed to add to watchlist' });
+    }
+  });
+  
+  // Remove item from contractor's watchlist by ID
+  app.delete('/api/contractor/watchlist/:watchlistId', async (req, res) => {
+    try {
+      const { watchlistId } = req.params;
+      
+      if (!watchlistId) {
+        return res.status(400).json({ error: 'Watchlist ID is required' });
+      }
+      
+      console.log(`🗑️ Removing from watchlist: ${watchlistId}`);
+      
+      // Get the item first to extract contractor, itemType, and itemId
+      const watchlistItems = await storage.getContractorWatchlist('*'); // Get all items
+      const item = watchlistItems.find(w => w.id === watchlistId);
+      
+      if (!item) {
+        return res.status(404).json({ error: 'Watchlist item not found' });
+      }
+      
+      const removed = await storage.removeWatchlistItem(item.contractorId, item.itemType, item.itemId);
+      
+      if (removed) {
+        res.json({ success: true, message: 'Item removed from watchlist' });
+      } else {
+        res.status(404).json({ error: 'Watchlist item not found' });
+      }
+    } catch (error) {
+      console.error('❌ Error removing from watchlist:', error);
+      res.status(500).json({ error: 'Failed to remove from watchlist' });
+    }
+  });
+  
+  // Update watchlist item (toggle alerts, etc.)
+  app.patch('/api/contractor/watchlist/:watchlistId', async (req, res) => {
+    try {
+      const { watchlistId } = req.params;
+      const updates = req.body;
+      
+      if (!watchlistId) {
+        return res.status(400).json({ error: 'Watchlist ID is required' });
+      }
+      
+      console.log(`📝 Updating watchlist item ${watchlistId}:`, updates);
+      const updatedItem = await storage.updateWatchlistItem(watchlistId, updates);
+      
+      res.json({ success: true, item: updatedItem });
+    } catch (error) {
+      console.error('❌ Error updating watchlist:', error);
+      if (error.message === 'Watchlist item not found') {
+        return res.status(404).json({ error: 'Watchlist item not found' });
+      }
+      res.status(500).json({ error: 'Failed to update watchlist item' });
+    }
+  });
 
   // ===== Daily digest (7:00 ET) =====
   cron.schedule('0 7 * * *', async ()=>{

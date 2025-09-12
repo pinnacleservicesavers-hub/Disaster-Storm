@@ -1,0 +1,71 @@
+Getting access to a 911 / CAD API is a process — it involves legal, technical, and organizational steps. I can lay out the steps + what to ask / prepare. If you tell me which county/PSAP or CAD vendor you’re dealing with (in Georgia or where you want to operate), I can make the steps more specific. But here’s the general playbook:
+
+What you’ll need to do
+
+Figure out who owns/manages the CAD data in your target jurisdiction
+
+Identify the PSAP (Public Safety Answering Point) or Dispatch Center responsible.
+
+Find which CAD vendor they use (e.g. Mark43, Motorola (Spillman or PremierOne), Tyler/New World, Superion, etc.).
+
+Find whether that PSAP has a policy or precedent for sharing CAD data externally (via API, feed, data sharing agreement).
+
+Check for vendor-oriented APIs / integration options
+
+Many CAD vendors have partner programs, documented or semi-private APIs, or data export features.
+
+For example, Mark43 has an open API framework and integrates with RapidSOS for enhanced location data. 
+Mark43
+
+RapidSOS provides APIs for integrating third-party data, sending data to 911 (for certain partner categories), and sharing 911 call/incident data through partner programs. 
+developer.rapidsos.com
++1
+
+Engage RapidSOS (if applicable)
+
+RapidSOS has a Developer Portal that you can apply to / request access. 
+developer.rapidsos.com
++1
+
+They have a “Data Share” program for partners who want to receive 911 call data when a telecommunicator shares it. That involves a Webhook interface, signing, etc. 
+developer.rapidsos.com
+
+Negotiate or arrange legal agreements
+
+You’ll likely need Data Use Agreements (DUAs), Memoranda of Understanding (MOUs), or Contract amendments with the PSAP and perhaps the vendor.
+
+Ensure compliance with privacy, security, and any regulatory requirements (CJIS, state laws, etc.)
+
+Define what data you’ll receive (caller location, incident type, unit status, etc.), how often, how fresh, how it will be authenticated, who can see it, how to protect it.
+
+Technical integration
+
+Once legal and vendor approvals are in place, you implement the API or feed. Could be via REST API, Webhooks, CAD‐exported data feed, or vendor’s partner API.
+
+You’ll need to do testing (development environment), ensure secure transport (TLS, authentication tokens, IP allowlisting), and plan for scale, error handling.
+
+Operational / support aspects
+
+Make sure dispatchers and downstream users understand how the data is used.
+
+Get buy-in from the PSAP side. Sometimes they want oversight, auditing, or control over usage.
+
+Plan for updates, changes in CAD vendor versions, or jurisdictional changes.
+
+Where to start right now
+
+If I were doing this for your emergency tree removal services:
+
+Pick one county or city you want coverage in.
+
+Find out who dispatches in that area. Call or email that PSAP and ask:
+
+“What CAD vendor do you use, and do you provide an external API or data feed for incident and dispatch data to approved partners?”
+
+Parallel: Reach out to RapidSOS via their Developer Portal and see if your service qualifies to become a partner (either to send data or receive CAD/911‐incident info). 
+RapidSOS
++1
+
+Also check whether there are existing public incident feeds in your region (PulsePoint, local government open data) which might serve as a fallback or MVP.
+
+If you tell me which county / state you want the CAD API for, I can try to find whether that specific PSAP has an API and what vendor, and even get contact info. Do you want me to do that for your area?
