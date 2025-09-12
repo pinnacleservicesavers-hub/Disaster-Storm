@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Camera, AlertTriangle, MapPin, Filter, Layers, Download, Droplets, Globe, Map as MapIcon, Satellite, Mountain } from 'lucide-react';
+import { StormHeatmap } from './StormHeatmap';
 
 // Leaflet types and imports
 interface LatLng {
@@ -103,12 +104,14 @@ export function MapView({
   const mapInstanceRef = useRef<LeafletMap | null>(null);
   const [selectedCamera, setSelectedCamera] = useState<TrafficCamera | null>(null);
   const [selectedIncident, setSelectedIncident] = useState<TrafficIncident | null>(null);
+  const [selectedStormZone, setSelectedStormZone] = useState<any>(null);
   const [mapStyle, setMapStyle] = useState('streets-v11');
   const [mapboxToken] = useState<string | null>(import.meta.env.VITE_MAPBOX_TOKEN || null);
   const [layerVisibility, setLayerVisibility] = useState({
     cameras: !showIncidentsOnly,
     incidents: !showCamerasOnly,
     heatmap: false,
+    stormHeatmap: true,
     soilMoisture: false
   });
   const [geojsonData, setGeojsonData] = useState<any>(null);
@@ -580,6 +583,15 @@ export function MapView({
               </Button>
               <Button
                 size="sm"
+                variant={layerVisibility.stormHeatmap ? "default" : "outline"}
+                onClick={() => toggleLayer('stormHeatmap')}
+                data-testid="button-toggle-storm-heatmap"
+                title="Toggle Storm Risk Heatmap"
+              >
+                <Layers className="h-4 w-4" />
+              </Button>
+              <Button
+                size="sm"
                 variant={layerVisibility.soilMoisture ? "default" : "outline"}
                 onClick={() => toggleLayer('soilMoisture')}
                 data-testid="button-toggle-soil-moisture"
@@ -651,11 +663,28 @@ export function MapView({
       </CardHeader>
       
       <CardContent className="p-0">
-        <div 
-          ref={mapRef} 
-          className="w-full h-96 bg-gray-100"
-          data-testid="map-container"
-        />
+        <div className="flex">
+          {/* Map Container */}
+          <div className="flex-1">
+            <div 
+              ref={mapRef} 
+              className="w-full h-96 bg-gray-100"
+              data-testid="map-container"
+            />
+          </div>
+          
+          {/* Storm Heatmap Controls Panel */}
+          {layerVisibility.stormHeatmap && (
+            <div className="w-80 h-96 overflow-y-auto">
+              <StormHeatmap
+                mapInstance={mapInstanceRef.current}
+                selectedState={selectedState}
+                onZoneSelect={(zone) => setSelectedStormZone(zone)}
+                className="h-full"
+              />
+            </div>
+          )}
+        </div>
         
         {/* Loading Overlay */}
         {(camerasLoading || incidentsLoading) && (
@@ -693,6 +722,22 @@ export function MapView({
                 <div className="flex items-center">
                   <div className="w-4 h-4 bg-yellow-500 rounded-full mr-2"></div>
                   Moderate Incidents
+                </div>
+              </>
+            )}
+            {layerVisibility.stormHeatmap && (
+              <>
+                <div className="flex items-center">
+                  <div className="w-4 h-4 bg-red-600 rounded-full mr-2"></div>
+                  Very High Risk
+                </div>
+                <div className="flex items-center">
+                  <div className="w-4 h-4 bg-orange-500 rounded-full mr-2"></div>
+                  High Risk
+                </div>
+                <div className="flex items-center">
+                  <div className="w-4 h-4 bg-yellow-500 rounded-full mr-2"></div>
+                  Moderate Risk
                 </div>
               </>
             )}
