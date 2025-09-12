@@ -34,11 +34,14 @@ import {
   type ContractorDocument,
   type InsertContractorDocument,
   type ContractorWatchlist,
-  type InsertContractorWatchlist
+  type InsertContractorWatchlist,
+  type StormHotZone,
+  type InsertStormHotZone
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
 
 export interface IStorage {
   // User methods
@@ -144,6 +147,16 @@ export interface IStorage {
   addWatchlistItem(item: InsertContractorWatchlist): Promise<ContractorWatchlist>;
   removeWatchlistItem(contractorId: string, itemType: string, itemId: string): Promise<boolean>;
   updateWatchlistItem(id: string, updates: Partial<ContractorWatchlist>): Promise<ContractorWatchlist>;
+
+  // Storm Hot Zones methods
+  getStormHotZones(): Promise<StormHotZone[]>;
+  getStormHotZonesByState(stateCode: string): Promise<StormHotZone[]>;
+  getStormHotZonesByRiskLevel(riskLevel: string): Promise<StormHotZone[]>;
+  getStormHotZonesByStormType(stormType: string): Promise<StormHotZone[]>;
+  getStormHotZonesWithFemaId(femaId: string): Promise<StormHotZone[]>;
+  getStormHotZone(id: string): Promise<StormHotZone | undefined>;
+  createStormHotZone(zone: InsertStormHotZone): Promise<StormHotZone>;
+  updateStormHotZone(id: string, updates: Partial<StormHotZone>): Promise<StormHotZone>;
 }
 
 export class MemStorage implements IStorage {
@@ -165,9 +178,14 @@ export class MemStorage implements IStorage {
   private claimSubmissions: Map<string, ClaimSubmission> = new Map();
   private contractorDocuments: Map<string, ContractorDocument> = new Map();
   private contractorWatchlist: Map<string, ContractorWatchlist> = new Map();
+  private stormHotZones: Map<string, StormHotZone> = new Map();
 
   constructor() {
+    console.log('🏗️ Initializing MemStorage...');
     this.initializeTestData();
+    console.log('📍 Loading storm hot zones...');
+    this.loadStormHotZones();
+    console.log('✅ MemStorage initialization complete');
   }
 
   private initializeTestData() {
@@ -777,6 +795,111 @@ export class MemStorage implements IStorage {
     const updated = { ...existing, ...updates };
     this.contractorWatchlist.set(id, updated);
     this.saveWatchlistToFile();
+    return updated;
+  }
+
+  // Storm Hot Zones methods implementation
+  private loadStormHotZones() {
+    try {
+      const __filename = fileURLToPath(import.meta.url);
+      const __dirname = path.dirname(__filename);
+      const filePath = path.join(__dirname, '../data/storm-hot-zones-seed.json');
+      console.log(`📍 Loading storm hot zones from: ${filePath}`);
+      
+      const data = fs.readFileSync(filePath, 'utf8');
+      const zones = JSON.parse(data);
+      console.log(`📍 Found ${zones.length} storm hot zones in seed data`);
+      
+      zones.forEach((zoneData: any) => {
+        const id = randomUUID();
+        const zone: StormHotZone = {
+          id,
+          state: zoneData.state,
+          stateCode: zoneData.stateCode,
+          countyParish: zoneData.countyParish,
+          countyFips: zoneData.countyFips || null,
+          stormTypes: zoneData.stormTypes,
+          riskLevel: zoneData.riskLevel,
+          riskScore: zoneData.riskScore,
+          femaDisasterIds: zoneData.femaDisasterIds || null,
+          majorStorms: zoneData.majorStorms || null,
+          notes: zoneData.notes || null,
+          primaryCities: zoneData.primaryCities || null,
+          latitude: zoneData.latitude || null,
+          longitude: zoneData.longitude || null,
+          avgClaimAmount: zoneData.avgClaimAmount || null,
+          marketPotential: zoneData.marketPotential || null,
+          seasonalPeak: zoneData.seasonalPeak || null,
+          dataSource: zoneData.dataSource || "FEMA Historical Analysis",
+          lastUpdated: new Date(),
+          isActive: zoneData.isActive !== undefined ? zoneData.isActive : true,
+          createdAt: new Date()
+        };
+        this.stormHotZones.set(id, zone);
+      });
+    } catch (error) {
+      console.error('Error loading storm hot zones data:', error);
+    }
+  }
+
+  async getStormHotZones(): Promise<StormHotZone[]> {
+    return Array.from(this.stormHotZones.values()).filter(zone => zone.isActive);
+  }
+
+  async getStormHotZonesByState(stateCode: string): Promise<StormHotZone[]> {
+    return Array.from(this.stormHotZones.values())
+      .filter(zone => zone.isActive && zone.stateCode === stateCode);
+  }
+
+  async getStormHotZonesByRiskLevel(riskLevel: string): Promise<StormHotZone[]> {
+    return Array.from(this.stormHotZones.values())
+      .filter(zone => zone.isActive && zone.riskLevel === riskLevel);
+  }
+
+  async getStormHotZonesByStormType(stormType: string): Promise<StormHotZone[]> {
+    return Array.from(this.stormHotZones.values())
+      .filter(zone => zone.isActive && zone.stormTypes.includes(stormType));
+  }
+
+  async getStormHotZonesWithFemaId(femaId: string): Promise<StormHotZone[]> {
+    return Array.from(this.stormHotZones.values())
+      .filter(zone => {
+        if (!zone.isActive || !zone.femaDisasterIds) return false;
+        const ids = Array.isArray(zone.femaDisasterIds) ? zone.femaDisasterIds : [];
+        return ids.includes(femaId);
+      });
+  }
+
+  async getStormHotZone(id: string): Promise<StormHotZone | undefined> {
+    const zone = this.stormHotZones.get(id);
+    return zone && zone.isActive ? zone : undefined;
+  }
+
+  async createStormHotZone(insertZone: InsertStormHotZone): Promise<StormHotZone> {
+    const id = randomUUID();
+    const zone: StormHotZone = {
+      ...insertZone,
+      id,
+      lastUpdated: new Date(),
+      isActive: insertZone.isActive !== undefined ? insertZone.isActive : true,
+      createdAt: new Date()
+    };
+    this.stormHotZones.set(id, zone);
+    return zone;
+  }
+
+  async updateStormHotZone(id: string, updates: Partial<StormHotZone>): Promise<StormHotZone> {
+    const existing = this.stormHotZones.get(id);
+    if (!existing) {
+      throw new Error("Storm hot zone not found");
+    }
+    
+    const updated = { 
+      ...existing, 
+      ...updates, 
+      lastUpdated: new Date() 
+    };
+    this.stormHotZones.set(id, updated);
     return updated;
   }
 }

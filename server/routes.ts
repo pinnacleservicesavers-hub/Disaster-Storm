@@ -41,7 +41,7 @@ import { unified511Directory } from "./services/unified511Directory";
 import { NotificationService } from "./services/notificationService";
 import { IncidentCorrelationService } from "./services/incidentCorrelationService";
 import { storage } from "./storage";
-import { insertContractorWatchlistSchema } from "@shared/schema";
+import { insertContractorWatchlistSchema, insertStormHotZoneSchema } from "@shared/schema";
 
 // fetch polyfill if needed
 const fetch = globalThis.fetch || fetchPkg;
@@ -3657,6 +3657,227 @@ Email: strategiclandmgmt@gmail.com
         return res.status(404).json({ error: 'Watchlist item not found' });
       }
       res.status(500).json({ error: 'Failed to update watchlist item' });
+    }
+  });
+
+  // ===== Storm Hot Zones API =====
+  
+  // Get all storm hot zones with optional filters
+  app.get('/api/storm-hot-zones', async (req, res) => {
+    try {
+      const { state, riskLevel, stormType, femaId, marketPotential } = req.query;
+      
+      let zones;
+      
+      if (state) {
+        zones = await storage.getStormHotZonesByState(String(state));
+      } else if (riskLevel) {
+        zones = await storage.getStormHotZonesByRiskLevel(String(riskLevel));
+      } else if (stormType) {
+        zones = await storage.getStormHotZonesByStormType(String(stormType));
+      } else if (femaId) {
+        zones = await storage.getStormHotZonesWithFemaId(String(femaId));
+      } else {
+        zones = await storage.getStormHotZones();
+      }
+      
+      // Additional client-side filtering if multiple parameters provided
+      if (marketPotential && marketPotential !== 'all') {
+        zones = zones.filter(zone => zone.marketPotential === marketPotential);
+      }
+      
+      // Sort by risk score (highest first) and then by avg claim amount
+      zones.sort((a, b) => {
+        if (b.riskScore !== a.riskScore) {
+          return b.riskScore - a.riskScore;
+        }
+        return (b.avgClaimAmount || 0) - (a.avgClaimAmount || 0);
+      });
+      
+      console.log(`📍 Retrieved ${zones.length} storm hot zones with filters:`, { state, riskLevel, stormType, femaId, marketPotential });
+      res.json({ zones, total: zones.length });
+    } catch (error) {
+      console.error('❌ Error fetching storm hot zones:', error);
+      res.status(500).json({ error: 'Failed to fetch storm hot zones' });
+    }
+  });
+  
+  // Get storm hot zones summary stats
+  app.get('/api/storm-hot-zones/stats', async (req, res) => {
+    try {
+      const allZones = await storage.getStormHotZones();
+      
+      const stats = {
+        totalZones: allZones.length,
+        byState: {},
+        byRiskLevel: {},
+        byStormType: {},
+        avgClaimAmountRange: {
+          min: Math.min(...allZones.map(z => z.avgClaimAmount || 0)),
+          max: Math.max(...allZones.map(z => z.avgClaimAmount || 0)),
+          avg: allZones.reduce((sum, z) => sum + (z.avgClaimAmount || 0), 0) / allZones.length
+        },
+        topStates: [],
+        topCounties: allZones
+          .sort((a, b) => b.riskScore - a.riskScore)
+          .slice(0, 10)
+          .map(z => ({ 
+            county: z.countyParish, 
+            state: z.stateCode, 
+            riskScore: z.riskScore,
+            avgClaimAmount: z.avgClaimAmount 
+          }))
+      };
+      
+      // Count by state
+      allZones.forEach(zone => {
+        stats.byState[zone.stateCode] = (stats.byState[zone.stateCode] || 0) + 1;
+      });
+      
+      // Count by risk level
+      allZones.forEach(zone => {
+        stats.byRiskLevel[zone.riskLevel] = (stats.byRiskLevel[zone.riskLevel] || 0) + 1;
+      });
+      
+      // Count by storm type (handling comma-separated types)
+      allZones.forEach(zone => {
+        const types = zone.stormTypes.split(',').map(t => t.trim());
+        types.forEach(type => {
+          stats.byStormType[type] = (stats.byStormType[type] || 0) + 1;
+        });
+      });
+      
+      // Top states by zone count
+      stats.topStates = Object.entries(stats.byState)
+        .sort(([,a], [,b]) => (b as number) - (a as number))
+        .slice(0, 10)
+        .map(([state, count]) => ({ state, count }));
+      
+      res.json(stats);
+    } catch (error) {
+      console.error('❌ Error fetching storm hot zones stats:', error);
+      res.status(500).json({ error: 'Failed to fetch storm hot zones stats' });
+    }
+  });
+  
+  // Get specific storm hot zone by ID
+  app.get('/api/storm-hot-zones/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const zone = await storage.getStormHotZone(id);
+      
+      if (!zone) {
+        return res.status(404).json({ error: 'Storm hot zone not found' });
+      }
+      
+      res.json(zone);
+    } catch (error) {
+      console.error('❌ Error fetching storm hot zone:', error);
+      res.status(500).json({ error: 'Failed to fetch storm hot zone' });
+    }
+  });
+  
+  // Create new storm hot zone (admin only)
+  app.post('/api/storm-hot-zones', async (req, res) => {
+    try {
+      const validatedZone = insertStormHotZoneSchema.parse(req.body);
+      const newZone = await storage.createStormHotZone(validatedZone);
+      
+      console.log(`✅ Created new storm hot zone: ${newZone.countyParish}, ${newZone.stateCode}`);
+      res.status(201).json(newZone);
+    } catch (error) {
+      console.error('❌ Error creating storm hot zone:', error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ error: 'Invalid storm hot zone data', details: error.errors });
+      }
+      res.status(500).json({ error: 'Failed to create storm hot zone' });
+    }
+  });
+  
+  // Update storm hot zone (admin only)
+  app.patch('/api/storm-hot-zones/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updateSchema = insertStormHotZoneSchema.partial();
+      const validatedUpdates = updateSchema.parse(req.body);
+      
+      const updatedZone = await storage.updateStormHotZone(id, validatedUpdates);
+      
+      console.log(`✅ Updated storm hot zone: ${updatedZone.countyParish}, ${updatedZone.stateCode}`);
+      res.json(updatedZone);
+    } catch (error) {
+      console.error('❌ Error updating storm hot zone:', error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ error: 'Invalid storm hot zone data', details: error.errors });
+      }
+      if (error.message === 'Storm hot zone not found') {
+        return res.status(404).json({ error: 'Storm hot zone not found' });
+      }
+      res.status(500).json({ error: 'Failed to update storm hot zone' });
+    }
+  });
+  
+  // Get storm hot zones for contractor targeting (specialized endpoint)
+  app.get('/api/storm-hot-zones/contractor-targets', async (req, res) => {
+    try {
+      const { 
+        minRiskScore = 70, 
+        minClaimAmount = 50000, 
+        stormTypes = 'Hurricane,Tornado',
+        states,
+        limit = 25 
+      } = req.query;
+      
+      let zones = await storage.getStormHotZones();
+      
+      // Filter by minimum risk score
+      zones = zones.filter(zone => zone.riskScore >= Number(minRiskScore));
+      
+      // Filter by minimum claim amount
+      zones = zones.filter(zone => (zone.avgClaimAmount || 0) >= Number(minClaimAmount));
+      
+      // Filter by storm types
+      if (stormTypes && stormTypes !== 'all') {
+        const targetTypes = String(stormTypes).split(',').map(t => t.trim());
+        zones = zones.filter(zone => 
+          targetTypes.some(type => zone.stormTypes.includes(type))
+        );
+      }
+      
+      // Filter by states if provided
+      if (states && states !== 'all') {
+        const targetStates = String(states).split(',').map(s => s.trim().toUpperCase());
+        zones = zones.filter(zone => targetStates.includes(zone.stateCode));
+      }
+      
+      // Sort by market potential and risk score
+      zones.sort((a, b) => {
+        // Prioritize "High" market potential
+        if (a.marketPotential === 'High' && b.marketPotential !== 'High') return -1;
+        if (b.marketPotential === 'High' && a.marketPotential !== 'High') return 1;
+        
+        // Then by risk score
+        if (b.riskScore !== a.riskScore) return b.riskScore - a.riskScore;
+        
+        // Finally by claim amount
+        return (b.avgClaimAmount || 0) - (a.avgClaimAmount || 0);
+      });
+      
+      // Limit results
+      zones = zones.slice(0, Number(limit));
+      
+      console.log(`🎯 Retrieved ${zones.length} contractor target zones with filters:`, { 
+        minRiskScore, minClaimAmount, stormTypes, states, limit 
+      });
+      
+      res.json({ 
+        targets: zones, 
+        total: zones.length,
+        filters: { minRiskScore, minClaimAmount, stormTypes, states, limit }
+      });
+    } catch (error) {
+      console.error('❌ Error fetching contractor targets:', error);
+      res.status(500).json({ error: 'Failed to fetch contractor targets' });
     }
   });
 

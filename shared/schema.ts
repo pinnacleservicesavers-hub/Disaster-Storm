@@ -439,6 +439,42 @@ export const trafficCamLeads = pgTable("traffic_cam_leads", {
   uniqueLead: unique().on(table.alertId, table.contractorId),
 }));
 
+export const stormHotZones = pgTable("storm_hot_zones", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  state: text("state").notNull(),
+  stateCode: text("state_code").notNull(), // Two-letter state code (FL, TX, etc.)
+  countyParish: text("county_parish").notNull(), // Full county/parish name
+  countyFips: text("county_fips"), // FIPS county code
+  stormTypes: text("storm_types").notNull(), // "Hurricane", "Tornado", or "Hurricane,Tornado"
+  riskLevel: text("risk_level").notNull(), // "Very High", "High", "Moderate", "Moderate-High"
+  riskScore: integer("risk_score").notNull(), // Numeric risk score (90 = Very High, 70 = High, 55 = Moderate)
+  
+  // Historical FEMA Disaster Declaration IDs
+  femaDisasterIds: jsonb("fema_disaster_ids"), // Array of historical FEMA disaster IDs for this county
+  majorStorms: jsonb("major_storms"), // Array of major storm events with years and names
+  
+  // Descriptive information
+  notes: text("notes"), // Historical context and major storm impacts
+  primaryCities: text("primary_cities"), // Major cities/areas in the county
+  
+  // Geographic data
+  latitude: numeric("latitude", { precision: 10, scale: 8 }),
+  longitude: numeric("longitude", { precision: 10, scale: 8 }),
+  
+  // Market data for contractors
+  avgClaimAmount: numeric("avg_claim_amount", { precision: 10, scale: 2 }), // Average claim amount in USD
+  marketPotential: text("market_potential"), // "High", "Medium", "Low" - contractor market opportunity
+  seasonalPeak: text("seasonal_peak"), // Peak season months (e.g., "Jun-Nov", "Mar-Jun")
+  
+  // Metadata
+  dataSource: text("data_source").default("FEMA Historical Analysis"),
+  lastUpdated: timestamp("last_updated").defaultNow(),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  uniqueCounty: unique().on(table.stateCode, table.countyParish),
+}));
+
 // Zod schemas for validation  
 export const insertUserSchema = createInsertSchema(users);
 export const insertClaimSchema = createInsertSchema(claims);
@@ -462,6 +498,7 @@ export const insertTrafficCamSubscriptionSchema = createInsertSchema(trafficCamS
 export const insertTrafficCamAlertSchema = createInsertSchema(trafficCamAlerts);
 export const insertTrafficCamLeadSchema = createInsertSchema(trafficCamLeads);
 export const insertContractorWatchlistSchema = createInsertSchema(contractorWatchlist).omit({ id: true, createdAt: true });
+export const insertStormHotZoneSchema = createInsertSchema(stormHotZones).omit({ id: true, createdAt: true, lastUpdated: true });
 
 // Types
 export type User = typeof users.$inferSelect;
@@ -508,3 +545,5 @@ export type TrafficCamLead = typeof trafficCamLeads.$inferSelect;
 export type InsertTrafficCamLead = z.infer<typeof insertTrafficCamLeadSchema>;
 export type ContractorWatchlist = typeof contractorWatchlist.$inferSelect;
 export type InsertContractorWatchlist = z.infer<typeof insertContractorWatchlistSchema>;
+export type StormHotZone = typeof stormHotZones.$inferSelect;
+export type InsertStormHotZone = z.infer<typeof insertStormHotZoneSchema>;

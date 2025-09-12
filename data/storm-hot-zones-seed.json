@@ -1,0 +1,951 @@
+[
+  {
+    "state": "Florida",
+    "stateCode": "FL",
+    "countyParish": "Miami-Dade County",
+    "countyFips": "12086",
+    "stormTypes": "Hurricane",
+    "riskLevel": "Very High",
+    "riskScore": 90,
+    "femaDisasterIds": ["DR-4673-FL", "DR-4337-FL", "DR-1561-FL"],
+    "majorStorms": [
+      { "name": "Hurricane Ian", "year": 2022, "category": "Cat 3" },
+      { "name": "Hurricane Irma", "year": 2017, "category": "Cat 4" },
+      { "name": "Hurricane Andrew", "year": 1992, "category": "Cat 5" }
+    ],
+    "notes": "Dense coastal exposure; Andrew (1992), Irma (2017), Ian impacts. Highest storm surge risk in state.",
+    "primaryCities": "Miami, Homestead, Kendall",
+    "avgClaimAmount": 75000,
+    "marketPotential": "High",
+    "seasonalPeak": "Jun-Nov"
+  },
+  {
+    "state": "Florida",
+    "stateCode": "FL",
+    "countyParish": "Lee County",
+    "countyFips": "12071",
+    "stormTypes": "Hurricane",
+    "riskLevel": "Very High",
+    "riskScore": 90,
+    "femaDisasterIds": ["DR-4673-FL", "DR-4399-FL"],
+    "majorStorms": [
+      { "name": "Hurricane Ian", "year": 2022, "category": "Cat 4" },
+      { "name": "Hurricane Charley", "year": 2004, "category": "Cat 4" }
+    ],
+    "notes": "Fort Myers/Cape Coral; Ian (2022) severe surge and wind damage. Direct landfall area.",
+    "primaryCities": "Fort Myers, Cape Coral, Bonita Springs",
+    "avgClaimAmount": 85000,
+    "marketPotential": "High",
+    "seasonalPeak": "Jun-Nov"
+  },
+  {
+    "state": "Florida",
+    "stateCode": "FL",
+    "countyParish": "Bay County",
+    "countyFips": "12005",
+    "stormTypes": "Hurricane",
+    "riskLevel": "High",
+    "riskScore": 70,
+    "femaDisasterIds": ["DR-4399-FL"],
+    "majorStorms": [
+      { "name": "Hurricane Michael", "year": 2018, "category": "Cat 5" }
+    ],
+    "notes": "Panama City; Michael (2018) was first Cat 5 landfall in decades. Massive reconstruction market.",
+    "primaryCities": "Panama City, Lynn Haven, Callaway",
+    "avgClaimAmount": 95000,
+    "marketPotential": "High",
+    "seasonalPeak": "Jun-Nov"
+  },
+  {
+    "state": "Texas",
+    "stateCode": "TX",
+    "countyParish": "Harris County",
+    "countyFips": "48201",
+    "stormTypes": "Hurricane,Tornado",
+    "riskLevel": "Very High",
+    "riskScore": 90,
+    "femaDisasterIds": ["DR-4332-TX", "DR-4269-TX", "DR-4272-TX"],
+    "majorStorms": [
+      { "name": "Hurricane Harvey", "year": 2017, "category": "Cat 4" },
+      { "name": "Hurricane Ike", "year": 2008, "category": "Cat 2" }
+    ],
+    "notes": "Houston metro; Harvey (2017) flooding devastated region. Largest urban market for storm damage.",
+    "primaryCities": "Houston, Pasadena, Baytown",
+    "avgClaimAmount": 65000,
+    "marketPotential": "High",
+    "seasonalPeak": "Jun-Nov"
+  },
+  {
+    "state": "Texas",
+    "stateCode": "TX",
+    "countyParish": "Galveston County",
+    "countyFips": "48167",
+    "stormTypes": "Hurricane",
+    "riskLevel": "Very High",
+    "riskScore": 90,
+    "femaDisasterIds": ["DR-4332-TX", "DR-1791-TX"],
+    "majorStorms": [
+      { "name": "Hurricane Harvey", "year": 2017, "category": "Cat 4" },
+      { "name": "Hurricane Ike", "year": 2008, "category": "Cat 2" }
+    ],
+    "notes": "Barrier island; Ike (2008), Harvey (2017) surge. Historic Great Storm of 1900 site.",
+    "primaryCities": "Galveston, League City, Texas City",
+    "avgClaimAmount": 70000,
+    "marketPotential": "High",
+    "seasonalPeak": "Jun-Nov"
+  },
+  {
+    "state": "Louisiana",
+    "stateCode": "LA",
+    "countyParish": "Orleans Parish",
+    "countyFips": "22071",
+    "stormTypes": "Hurricane",
+    "riskLevel": "Very High",
+    "riskScore": 90,
+    "femaDisasterIds": ["DR-4611-LA", "DR-1603-LA", "DR-4559-LA"],
+    "majorStorms": [
+      { "name": "Hurricane Ida", "year": 2021, "category": "Cat 4" },
+      { "name": "Hurricane Katrina", "year": 2005, "category": "Cat 3" }
+    ],
+    "notes": "New Orleans; Katrina (2005), Ida (2021); levee/surge risk. Below sea level vulnerability.",
+    "primaryCities": "New Orleans",
+    "avgClaimAmount": 80000,
+    "marketPotential": "High",
+    "seasonalPeak": "Jun-Nov"
+  },
+  {
+    "state": "Louisiana",
+    "stateCode": "LA",
+    "countyParish": "Jefferson Parish",
+    "countyFips": "22051",
+    "stormTypes": "Hurricane",
+    "riskLevel": "Very High",
+    "riskScore": 90,
+    "femaDisasterIds": ["DR-4611-LA", "DR-1603-LA"],
+    "majorStorms": [
+      { "name": "Hurricane Ida", "year": 2021, "category": "Cat 4" },
+      { "name": "Hurricane Katrina", "year": 2005, "category": "Cat 3" }
+    ],
+    "notes": "Suburban New Orleans; surge + wind. Major population center with high claim volumes.",
+    "primaryCities": "Metairie, Kenner, Westwego",
+    "avgClaimAmount": 75000,
+    "marketPotential": "High",
+    "seasonalPeak": "Jun-Nov"
+  },
+  {
+    "state": "Louisiana",
+    "stateCode": "LA",
+    "countyParish": "Calcasieu Parish",
+    "countyFips": "22019",
+    "stormTypes": "Hurricane",
+    "riskLevel": "High",
+    "riskScore": 70,
+    "femaDisasterIds": ["DR-4559-LA", "DR-4570-LA"],
+    "majorStorms": [
+      { "name": "Hurricane Laura", "year": 2020, "category": "Cat 4" },
+      { "name": "Hurricane Delta", "year": 2020, "category": "Cat 2" }
+    ],
+    "notes": "Lake Charles; Laura (2020), Delta (2020). Back-to-back major hurricanes created massive demand.",
+    "primaryCities": "Lake Charles, Sulphur, Westlake",
+    "avgClaimAmount": 85000,
+    "marketPotential": "High",
+    "seasonalPeak": "Jun-Nov"
+  },
+  {
+    "state": "North Carolina",
+    "stateCode": "NC",
+    "countyParish": "Dare County",
+    "countyFips": "37055",
+    "stormTypes": "Hurricane",
+    "riskLevel": "Very High",
+    "riskScore": 90,
+    "femaDisasterIds": ["DR-4393-NC", "DR-4285-NC", "DR-4387-NC"],
+    "majorStorms": [
+      { "name": "Hurricane Florence", "year": 2018, "category": "Cat 1" },
+      { "name": "Hurricane Matthew", "year": 2016, "category": "Cat 1" },
+      { "name": "Hurricane Dorian", "year": 2019, "category": "Cat 1" }
+    ],
+    "notes": "Outer Banks/Cape Hatteras; frequent landfalls. First impact zone for East Coast storms.",
+    "primaryCities": "Nags Head, Kill Devil Hills, Manteo",
+    "avgClaimAmount": 60000,
+    "marketPotential": "High",
+    "seasonalPeak": "Jun-Nov"
+  },
+  {
+    "state": "South Carolina",
+    "stateCode": "SC",
+    "countyParish": "Charleston County",
+    "countyFips": "45019",
+    "stormTypes": "Hurricane",
+    "riskLevel": "Very High",
+    "riskScore": 90,
+    "femaDisasterIds": ["DR-4393-SC", "DR-4286-SC"],
+    "majorStorms": [
+      { "name": "Hurricane Florence", "year": 2018, "category": "Cat 1" },
+      { "name": "Hurricane Matthew", "year": 2016, "category": "Cat 1" },
+      { "name": "Hurricane Hugo", "year": 1989, "category": "Cat 4" }
+    ],
+    "notes": "Charleston; historic storm surge; Hugo (1989) benchmark event. Premium tourism market.",
+    "primaryCities": "Charleston, Mount Pleasant, Summerville",
+    "avgClaimAmount": 70000,
+    "marketPotential": "High",
+    "seasonalPeak": "Jun-Nov"
+  },
+  {
+    "state": "Alabama",
+    "stateCode": "AL",
+    "countyParish": "Jefferson County",
+    "countyFips": "01073",
+    "stormTypes": "Tornado",
+    "riskLevel": "High",
+    "riskScore": 70,
+    "femaDisasterIds": ["DR-1971-AL", "DR-4684-AL"],
+    "majorStorms": [
+      { "name": "Super Outbreak Tornadoes", "year": 2011, "category": "EF4-EF5" },
+      { "name": "Tornadoes", "year": 2022, "category": "EF3" }
+    ],
+    "notes": "Birmingham; historic tornado events including 2011 Super Outbreak. Major urban tornado risk.",
+    "primaryCities": "Birmingham, Hoover, Vestavia Hills",
+    "avgClaimAmount": 55000,
+    "marketPotential": "High",
+    "seasonalPeak": "Mar-Jun"
+  },
+  {
+    "state": "Alabama",
+    "stateCode": "AL",
+    "countyParish": "Tuscaloosa County",
+    "countyFips": "01125",
+    "stormTypes": "Tornado",
+    "riskLevel": "High",
+    "riskScore": 70,
+    "femaDisasterIds": ["DR-1971-AL"],
+    "majorStorms": [
+      { "name": "Tuscaloosa-Birmingham Tornado", "year": 2011, "category": "EF4" }
+    ],
+    "notes": "Tuscaloosa; EF4 (2011) corridor through city. University town with high reconstruction value.",
+    "primaryCities": "Tuscaloosa, Northport",
+    "avgClaimAmount": 65000,
+    "marketPotential": "High",
+    "seasonalPeak": "Mar-Jun"
+  },
+  {
+    "state": "Oklahoma",
+    "stateCode": "OK",
+    "countyParish": "Oklahoma County",
+    "countyFips": "40109",
+    "stormTypes": "Tornado",
+    "riskLevel": "Very High",
+    "riskScore": 90,
+    "femaDisasterIds": ["DR-4438-OK", "DR-4222-OK", "DR-1978-OK"],
+    "majorStorms": [
+      { "name": "Moore Tornado", "year": 2013, "category": "EF5" },
+      { "name": "Moore Tornado", "year": 1999, "category": "EF5" },
+      { "name": "Oklahoma City Tornado", "year": 2011, "category": "EF5" }
+    ],
+    "notes": "Oklahoma City; EF5 corridors including Moore. Tornado Alley epicenter with repeat events.",
+    "primaryCities": "Oklahoma City, Edmond, Moore",
+    "avgClaimAmount": 65000,
+    "marketPotential": "High",
+    "seasonalPeak": "Apr-Jun"
+  },
+  {
+    "state": "Oklahoma",
+    "stateCode": "OK",
+    "countyParish": "Cleveland County",
+    "countyFips": "40027",
+    "stormTypes": "Tornado",
+    "riskLevel": "Very High",
+    "riskScore": 90,
+    "femaDisasterIds": ["DR-4438-OK", "DR-4222-OK"],
+    "majorStorms": [
+      { "name": "Moore Tornado", "year": 2013, "category": "EF5" },
+      { "name": "Moore Tornado", "year": 1999, "category": "EF5" }
+    ],
+    "notes": "Moore/Norman; repeated violent tornadoes in same corridors. Highest tornado risk in US.",
+    "primaryCities": "Norman, Moore, Noble",
+    "avgClaimAmount": 70000,
+    "marketPotential": "High",
+    "seasonalPeak": "Apr-Jun"
+  },
+  {
+    "state": "Kansas",
+    "stateCode": "KS",
+    "countyParish": "Sedgwick County",
+    "countyFips": "20173",
+    "stormTypes": "Tornado",
+    "riskLevel": "Very High",
+    "riskScore": 90,
+    "femaDisasterIds": ["DR-4488-KS", "DR-4245-KS"],
+    "majorStorms": [
+      { "name": "Andover Tornado", "year": 2022, "category": "EF3" },
+      { "name": "Wichita Area Tornadoes", "year": 2016, "category": "EF2-EF3" }
+    ],
+    "notes": "Wichita; Tornado Alley core. Aircraft manufacturing center with high-value infrastructure.",
+    "primaryCities": "Wichita, Derby, Andover",
+    "avgClaimAmount": 55000,
+    "marketPotential": "High",
+    "seasonalPeak": "Apr-Jun"
+  },
+  {
+    "state": "Missouri",
+    "stateCode": "MO",
+    "countyParish": "Jasper County",
+    "countyFips": "29097",
+    "stormTypes": "Tornado",
+    "riskLevel": "High",
+    "riskScore": 70,
+    "femaDisasterIds": ["DR-1980-MO"],
+    "majorStorms": [
+      { "name": "Joplin Tornado", "year": 2011, "category": "EF5" }
+    ],
+    "notes": "Joplin; catastrophic EF5 (2011) benchmark event. Complete city rebuild created massive market.",
+    "primaryCities": "Joplin, Carthage, Webb City",
+    "avgClaimAmount": 75000,
+    "marketPotential": "High",
+    "seasonalPeak": "Mar-Jun"
+  },
+  {
+    "state": "Mississippi",
+    "stateCode": "MS",
+    "countyParish": "Harrison County",
+    "countyFips": "28047",
+    "stormTypes": "Hurricane,Tornado",
+    "riskLevel": "High",
+    "riskScore": 70,
+    "femaDisasterIds": ["DR-1604-MS", "DR-4684-MS"],
+    "majorStorms": [
+      { "name": "Hurricane Katrina", "year": 2005, "category": "Cat 3" },
+      { "name": "Tornadoes", "year": 2022, "category": "EF2-EF3" }
+    ],
+    "notes": "Gulfport/Biloxi; Katrina surge devastation. Casino and tourism infrastructure rebuilding.",
+    "primaryCities": "Gulfport, Biloxi, Long Beach",
+    "avgClaimAmount": 65000,
+    "marketPotential": "High",
+    "seasonalPeak": "Jun-Nov"
+  },
+  {
+    "state": "Georgia",
+    "stateCode": "GA",
+    "countyParish": "Chatham County",
+    "countyFips": "13051",
+    "stormTypes": "Hurricane,Tornado",
+    "riskLevel": "High",
+    "riskScore": 70,
+    "femaDisasterIds": ["DR-4393-GA", "DR-4286-GA"],
+    "majorStorms": [
+      { "name": "Hurricane Florence", "year": 2018, "category": "Cat 1" },
+      { "name": "Hurricane Matthew", "year": 2016, "category": "Cat 1" }
+    ],
+    "notes": "Savannah; coastal surge and wind. Historic district creates unique restoration challenges.",
+    "primaryCities": "Savannah, Pooler, Tybee Island",
+    "avgClaimAmount": 60000,
+    "marketPotential": "High",
+    "seasonalPeak": "Jun-Nov"
+  },
+  {
+    "state": "Arkansas",
+    "stateCode": "AR",
+    "countyParish": "Pulaski County",
+    "countyFips": "05119",
+    "stormTypes": "Tornado",
+    "riskLevel": "High",
+    "riskScore": 70,
+    "femaDisasterIds": ["DR-4684-AR", "DR-4438-AR"],
+    "majorStorms": [
+      { "name": "Little Rock Tornadoes", "year": 2022, "category": "EF2-EF3" },
+      { "name": "Vilonia-Mayflower Tornado", "year": 2014, "category": "EF4" }
+    ],
+    "notes": "Little Rock; EF3/EF4 events through metro area. State capital with significant infrastructure.",
+    "primaryCities": "Little Rock, North Little Rock, Jacksonville",
+    "avgClaimAmount": 55000,
+    "marketPotential": "High",
+    "seasonalPeak": "Mar-Jun"
+  },
+  {
+    "state": "Tennessee",
+    "stateCode": "TN",
+    "countyParish": "Wilson County",
+    "countyFips": "47189",
+    "stormTypes": "Tornado",
+    "riskLevel": "High",
+    "riskScore": 70,
+    "femaDisasterIds": ["DR-4476-TN"],
+    "majorStorms": [
+      { "name": "Nashville Area Tornadoes", "year": 2020, "category": "EF3-EF4" }
+    ],
+    "notes": "Mt. Juliet/Lebanon; 2020 EF3 tracks through growing suburban areas. High-value homes.",
+    "primaryCities": "Lebanon, Mt. Juliet, Watertown",
+    "avgClaimAmount": 65000,
+    "marketPotential": "High",
+    "seasonalPeak": "Mar-Jun"
+  },
+  {
+    "state": "Florida",
+    "stateCode": "FL",
+    "countyParish": "Collier County",
+    "countyFips": "12021",
+    "stormTypes": "Hurricane",
+    "riskLevel": "Very High",
+    "riskScore": 90,
+    "femaDisasterIds": ["DR-4673-FL", "DR-1545-FL"],
+    "majorStorms": [
+      { "name": "Hurricane Ian", "year": 2022, "category": "Cat 4" },
+      { "name": "Hurricane Wilma", "year": 2005, "category": "Cat 3" }
+    ],
+    "notes": "Naples; Ian (2022) devastating surge. Luxury coastal properties create high-value reconstruction market.",
+    "primaryCities": "Naples, Marco Island, Immokalee",
+    "avgClaimAmount": 95000,
+    "marketPotential": "High",
+    "seasonalPeak": "Jun-Nov"
+  },
+  {
+    "state": "Florida",
+    "stateCode": "FL",
+    "countyParish": "Charlotte County",
+    "countyFips": "12015",
+    "stormTypes": "Hurricane",
+    "riskLevel": "Very High",
+    "riskScore": 90,
+    "femaDisasterIds": ["DR-4673-FL", "DR-1578-FL"],
+    "majorStorms": [
+      { "name": "Hurricane Ian", "year": 2022, "category": "Cat 4" },
+      { "name": "Hurricane Charley", "year": 2004, "category": "Cat 4" }
+    ],
+    "notes": "Punta Gorda; Charley (2004) direct hit, Ian (2022) severe impacts. Repeat devastation area.",
+    "primaryCities": "Punta Gorda, Port Charlotte, Englewood",
+    "avgClaimAmount": 85000,
+    "marketPotential": "High",
+    "seasonalPeak": "Jun-Nov"
+  },
+  {
+    "state": "Florida",
+    "stateCode": "FL",
+    "countyParish": "Sarasota County",
+    "countyFips": "12115",
+    "stormTypes": "Hurricane",
+    "riskLevel": "High",
+    "riskScore": 75,
+    "femaDisasterIds": ["DR-4673-FL", "DR-1545-FL"],
+    "majorStorms": [
+      { "name": "Hurricane Ian", "year": 2022, "category": "Cat 2" },
+      { "name": "Hurricane Wilma", "year": 2005, "category": "Cat 2" }
+    ],
+    "notes": "Sarasota; premium coastal market with high property values. Tourist and retirement destination.",
+    "primaryCities": "Sarasota, Venice, North Port",
+    "avgClaimAmount": 75000,
+    "marketPotential": "High",
+    "seasonalPeak": "Jun-Nov"
+  },
+  {
+    "state": "Florida",
+    "stateCode": "FL",
+    "countyParish": "Pinellas County",
+    "countyFips": "12103",
+    "stormTypes": "Hurricane",
+    "riskLevel": "High",
+    "riskScore": 75,
+    "femaDisasterIds": ["DR-4673-FL", "DR-1561-FL"],
+    "majorStorms": [
+      { "name": "Hurricane Ian", "year": 2022, "category": "Cat 1" },
+      { "name": "Hurricane Irma", "year": 2017, "category": "Cat 1" }
+    ],
+    "notes": "St. Petersburg/Clearwater; dense coastal population. Major metropolitan area with high claim volumes.",
+    "primaryCities": "St. Petersburg, Clearwater, Largo",
+    "avgClaimAmount": 70000,
+    "marketPotential": "High",
+    "seasonalPeak": "Jun-Nov"
+  },
+  {
+    "state": "Florida",
+    "stateCode": "FL",
+    "countyParish": "Hillsborough County",
+    "countyFips": "12057",
+    "stormTypes": "Hurricane",
+    "riskLevel": "High",
+    "riskScore": 75,
+    "femaDisasterIds": ["DR-4673-FL", "DR-1561-FL"],
+    "majorStorms": [
+      { "name": "Hurricane Ian", "year": 2022, "category": "Cat 1" },
+      { "name": "Hurricane Irma", "year": 2017, "category": "Cat 1" }
+    ],
+    "notes": "Tampa; major urban center with storm surge exposure. Extensive commercial and residential markets.",
+    "primaryCities": "Tampa, Plant City, Temple Terrace",
+    "avgClaimAmount": 65000,
+    "marketPotential": "High",
+    "seasonalPeak": "Jun-Nov"
+  },
+  {
+    "state": "Texas",
+    "stateCode": "TX",
+    "countyParish": "Jefferson County",
+    "countyFips": "48245",
+    "stormTypes": "Hurricane",
+    "riskLevel": "Very High",
+    "riskScore": 90,
+    "femaDisasterIds": ["DR-4332-TX", "DR-1791-TX"],
+    "majorStorms": [
+      { "name": "Hurricane Harvey", "year": 2017, "category": "Cat 4" },
+      { "name": "Hurricane Ike", "year": 2008, "category": "Cat 2" }
+    ],
+    "notes": "Beaumont/Port Arthur; petrochemical corridor with high-value industrial claims. Harvey flooding.",
+    "primaryCities": "Beaumont, Port Arthur, Nederland",
+    "avgClaimAmount": 75000,
+    "marketPotential": "High",
+    "seasonalPeak": "Jun-Nov"
+  },
+  {
+    "state": "Texas",
+    "stateCode": "TX",
+    "countyParish": "Orange County",
+    "countyFips": "48361",
+    "stormTypes": "Hurricane",
+    "riskLevel": "Very High",
+    "riskScore": 90,
+    "femaDisasterIds": ["DR-4332-TX", "DR-1791-TX"],
+    "majorStorms": [
+      { "name": "Hurricane Harvey", "year": 2017, "category": "Cat 4" },
+      { "name": "Hurricane Ike", "year": 2008, "category": "Cat 2" }
+    ],
+    "notes": "Orange; Louisiana border area hit by multiple major hurricanes. Repeat damage zone.",
+    "primaryCities": "Orange, Vidor, Bridge City",
+    "avgClaimAmount": 70000,
+    "marketPotential": "High",
+    "seasonalPeak": "Jun-Nov"
+  },
+  {
+    "state": "Texas",
+    "stateCode": "TX",
+    "countyParish": "Brazoria County",
+    "countyFips": "48039",
+    "stormTypes": "Hurricane",
+    "riskLevel": "High",
+    "riskScore": 75,
+    "femaDisasterIds": ["DR-4332-TX", "DR-1791-TX"],
+    "majorStorms": [
+      { "name": "Hurricane Harvey", "year": 2017, "category": "Cat 4" },
+      { "name": "Hurricane Ike", "year": 2008, "category": "Cat 2" }
+    ],
+    "notes": "Pearland/Lake Jackson; Houston metro extension with petrochemical industry. Hurricane surge exposure.",
+    "primaryCities": "Pearland, Lake Jackson, Clute",
+    "avgClaimAmount": 65000,
+    "marketPotential": "High",
+    "seasonalPeak": "Jun-Nov"
+  },
+  {
+    "state": "Texas",
+    "stateCode": "TX",
+    "countyParish": "Chambers County",
+    "countyFips": "48071",
+    "stormTypes": "Hurricane",
+    "riskLevel": "High",
+    "riskScore": 75,
+    "femaDisasterIds": ["DR-4332-TX", "DR-1791-TX"],
+    "majorStorms": [
+      { "name": "Hurricane Harvey", "year": 2017, "category": "Cat 4" },
+      { "name": "Hurricane Ike", "year": 2008, "category": "Cat 2" }
+    ],
+    "notes": "Anahuac/Baytown area; industrial and residential storm surge damage. Houston metro spillover.",
+    "primaryCities": "Anahuac, Mont Belvieu, Beach City",
+    "avgClaimAmount": 60000,
+    "marketPotential": "Medium",
+    "seasonalPeak": "Jun-Nov"
+  },
+  {
+    "state": "Louisiana",
+    "stateCode": "LA",
+    "countyParish": "St. Tammany Parish",
+    "countyFips": "22103",
+    "stormTypes": "Hurricane",
+    "riskLevel": "High",
+    "riskScore": 75,
+    "femaDisasterIds": ["DR-4611-LA", "DR-1603-LA"],
+    "majorStorms": [
+      { "name": "Hurricane Ida", "year": 2021, "category": "Cat 4" },
+      { "name": "Hurricane Katrina", "year": 2005, "category": "Cat 3" }
+    ],
+    "notes": "Mandeville/Covington; North Shore growth area. Wind and tree damage from major hurricanes.",
+    "primaryCities": "Mandeville, Covington, Slidell",
+    "avgClaimAmount": 65000,
+    "marketPotential": "High",
+    "seasonalPeak": "Jun-Nov"
+  },
+  {
+    "state": "Louisiana",
+    "stateCode": "LA",
+    "countyParish": "Lafayette Parish",
+    "countyFips": "22055",
+    "stormTypes": "Hurricane",
+    "riskLevel": "High",
+    "riskScore": 75,
+    "femaDisasterIds": ["DR-4611-LA", "DR-4559-LA"],
+    "majorStorms": [
+      { "name": "Hurricane Ida", "year": 2021, "category": "Cat 2" },
+      { "name": "Hurricane Laura", "year": 2020, "category": "Cat 1" }
+    ],
+    "notes": "Lafayette; Acadiana hub with oil and gas industry. Interior hurricane wind damage.",
+    "primaryCities": "Lafayette, Broussard, Youngsville",
+    "avgClaimAmount": 60000,
+    "marketPotential": "High",
+    "seasonalPeak": "Jun-Nov"
+  },
+  {
+    "state": "Louisiana",
+    "stateCode": "LA",
+    "countyParish": "Terrebonne Parish",
+    "countyFips": "22109",
+    "stormTypes": "Hurricane",
+    "riskLevel": "Very High",
+    "riskScore": 85,
+    "femaDisasterIds": ["DR-4611-LA", "DR-4559-LA"],
+    "majorStorms": [
+      { "name": "Hurricane Ida", "year": 2021, "category": "Cat 4" },
+      { "name": "Hurricane Laura", "year": 2020, "category": "Cat 2" }
+    ],
+    "notes": "Houma; coastal exposure with oil industry infrastructure. Direct hurricane landfall zone.",
+    "primaryCities": "Houma, Thibodaux, Gray",
+    "avgClaimAmount": 70000,
+    "marketPotential": "High",
+    "seasonalPeak": "Jun-Nov"
+  },
+  {
+    "state": "North Carolina",
+    "stateCode": "NC",
+    "countyParish": "New Hanover County",
+    "countyFips": "37129",
+    "stormTypes": "Hurricane",
+    "riskLevel": "Very High",
+    "riskScore": 85,
+    "femaDisasterIds": ["DR-4393-NC", "DR-4285-NC"],
+    "majorStorms": [
+      { "name": "Hurricane Florence", "year": 2018, "category": "Cat 1" },
+      { "name": "Hurricane Matthew", "year": 2016, "category": "Cat 1" }
+    ],
+    "notes": "Wilmington; major port city with frequent hurricane impacts. Coastal surge and inland flooding.",
+    "primaryCities": "Wilmington, Carolina Beach, Wrightsville Beach",
+    "avgClaimAmount": 65000,
+    "marketPotential": "High",
+    "seasonalPeak": "Jun-Nov"
+  },
+  {
+    "state": "North Carolina",
+    "stateCode": "NC",
+    "countyParish": "Brunswick County",
+    "countyFips": "37019",
+    "stormTypes": "Hurricane",
+    "riskLevel": "Very High",
+    "riskScore": 85,
+    "femaDisasterIds": ["DR-4393-NC", "DR-4285-NC"],
+    "majorStorms": [
+      { "name": "Hurricane Florence", "year": 2018, "category": "Cat 1" },
+      { "name": "Hurricane Matthew", "year": 2016, "category": "Cat 1" }
+    ],
+    "notes": "Southport/Oak Island; coastal resort development with high property values. Direct hurricane exposure.",
+    "primaryCities": "Southport, Oak Island, Shallotte",
+    "avgClaimAmount": 70000,
+    "marketPotential": "High",
+    "seasonalPeak": "Jun-Nov"
+  },
+  {
+    "state": "North Carolina",
+    "stateCode": "NC",
+    "countyParish": "Carteret County",
+    "countyFips": "37031",
+    "stormTypes": "Hurricane",
+    "riskLevel": "Very High",
+    "riskScore": 85,
+    "femaDisasterIds": ["DR-4393-NC", "DR-4285-NC"],
+    "majorStorms": [
+      { "name": "Hurricane Florence", "year": 2018, "category": "Cat 1" },
+      { "name": "Hurricane Matthew", "year": 2016, "category": "Cat 1" }
+    ],
+    "notes": "Morehead City/Atlantic Beach; Outer Banks fishing and tourism. Barrier island vulnerability.",
+    "primaryCities": "Morehead City, Atlantic Beach, Emerald Isle",
+    "avgClaimAmount": 65000,
+    "marketPotential": "High",
+    "seasonalPeak": "Jun-Nov"
+  },
+  {
+    "state": "Virginia",
+    "stateCode": "VA",
+    "countyParish": "Virginia Beach City",
+    "countyFips": "51810",
+    "stormTypes": "Hurricane",
+    "riskLevel": "High",
+    "riskScore": 75,
+    "femaDisasterIds": ["DR-4393-VA", "DR-4285-VA"],
+    "majorStorms": [
+      { "name": "Hurricane Florence", "year": 2018, "category": "Tropical Storm" },
+      { "name": "Hurricane Matthew", "year": 2016, "category": "Tropical Storm" }
+    ],
+    "notes": "Virginia Beach; major resort city with extensive coastal development. Hurricane and nor'easter damage.",
+    "primaryCities": "Virginia Beach, Chesapeake, Norfolk",
+    "avgClaimAmount": 55000,
+    "marketPotential": "High",
+    "seasonalPeak": "Jun-Nov"
+  },
+  {
+    "state": "Virginia",
+    "stateCode": "VA",
+    "countyParish": "Norfolk City",
+    "countyFips": "51710",
+    "stormTypes": "Hurricane",
+    "riskLevel": "High",
+    "riskScore": 75,
+    "femaDisasterIds": ["DR-4393-VA", "DR-4285-VA"],
+    "majorStorms": [
+      { "name": "Hurricane Florence", "year": 2018, "category": "Tropical Storm" },
+      { "name": "Hurricane Matthew", "year": 2016, "category": "Tropical Storm" }
+    ],
+    "notes": "Norfolk; naval base and port city. Sea level rise and storm surge flooding challenges.",
+    "primaryCities": "Norfolk, Portsmouth, Suffolk",
+    "avgClaimAmount": 50000,
+    "marketPotential": "Medium",
+    "seasonalPeak": "Jun-Nov"
+  },
+  {
+    "state": "Alabama",
+    "stateCode": "AL",
+    "countyParish": "Mobile County",
+    "countyFips": "01097",
+    "stormTypes": "Hurricane,Tornado",
+    "riskLevel": "High",
+    "riskScore": 75,
+    "femaDisasterIds": ["DR-1604-AL", "DR-4684-AL"],
+    "majorStorms": [
+      { "name": "Hurricane Katrina", "year": 2005, "category": "Cat 3" },
+      { "name": "Tornadoes", "year": 2022, "category": "EF2-EF3" }
+    ],
+    "notes": "Mobile; Gulf Coast port city. Hurricane surge and tornado risk combination.",
+    "primaryCities": "Mobile, Prichard, Saraland",
+    "avgClaimAmount": 55000,
+    "marketPotential": "High",
+    "seasonalPeak": "Jun-Nov"
+  },
+  {
+    "state": "Alabama",
+    "stateCode": "AL",
+    "countyParish": "Baldwin County",
+    "countyFips": "01003",
+    "stormTypes": "Hurricane",
+    "riskLevel": "High",
+    "riskScore": 75,
+    "femaDisasterIds": ["DR-1604-AL", "DR-4684-AL"],
+    "majorStorms": [
+      { "name": "Hurricane Katrina", "year": 2005, "category": "Cat 3" },
+      { "name": "Hurricane Sally", "year": 2020, "category": "Cat 2" }
+    ],
+    "notes": "Gulf Shores/Orange Beach; coastal tourism development. Barrier island hurricane exposure.",
+    "primaryCities": "Gulf Shores, Orange Beach, Foley",
+    "avgClaimAmount": 65000,
+    "marketPotential": "High",
+    "seasonalPeak": "Jun-Nov"
+  },
+  {
+    "state": "Oklahoma",
+    "stateCode": "OK",
+    "countyParish": "Cleveland County",
+    "countyFips": "40027",
+    "stormTypes": "Tornado",
+    "riskLevel": "Very High",
+    "riskScore": 90,
+    "femaDisasterIds": ["DR-4438-OK", "DR-1978-OK"],
+    "majorStorms": [
+      { "name": "Moore Tornado", "year": 2013, "category": "EF5" },
+      { "name": "Moore Tornado", "year": 1999, "category": "EF5" }
+    ],
+    "notes": "Moore; multiple EF5 direct hits. Tornado Alley epicenter with complete rebuilds after disasters.",
+    "primaryCities": "Moore, Norman, Noble",
+    "avgClaimAmount": 75000,
+    "marketPotential": "High",
+    "seasonalPeak": "Mar-Jun"
+  },
+  {
+    "state": "Oklahoma",
+    "stateCode": "OK",
+    "countyParish": "Canadian County",
+    "countyFips": "40017",
+    "stormTypes": "Tornado",
+    "riskLevel": "High",
+    "riskScore": 75,
+    "femaDisasterIds": ["DR-4438-OK", "DR-4222-OK"],
+    "majorStorms": [
+      { "name": "El Reno Tornado", "year": 2013, "category": "EF5" },
+      { "name": "Yukon Tornado", "year": 2010, "category": "EF4" }
+    ],
+    "notes": "El Reno/Yukon; record-width tornadoes. Oklahoma City metro growth area with new construction.",
+    "primaryCities": "Yukon, El Reno, Mustang",
+    "avgClaimAmount": 65000,
+    "marketPotential": "High",
+    "seasonalPeak": "Mar-Jun"
+  },
+  {
+    "state": "Kansas",
+    "stateCode": "KS",
+    "countyParish": "Johnson County",
+    "countyFips": "20091",
+    "stormTypes": "Tornado",
+    "riskLevel": "High",
+    "riskScore": 75,
+    "femaDisasterIds": ["DR-4488-KS", "DR-4245-KS"],
+    "majorStorms": [
+      { "name": "Overland Park Tornadoes", "year": 2019, "category": "EF2-EF3" },
+      { "name": "Kansas City Metro Tornadoes", "year": 2016, "category": "EF2" }
+    ],
+    "notes": "Overland Park; Kansas City metro area with high property values. Tornado Alley suburban market.",
+    "primaryCities": "Overland Park, Olathe, Shawnee",
+    "avgClaimAmount": 60000,
+    "marketPotential": "High",
+    "seasonalPeak": "Apr-Jun"
+  },
+  {
+    "state": "Kansas",
+    "stateCode": "KS",
+    "countyParish": "Wyandotte County",
+    "countyFips": "20209",
+    "stormTypes": "Tornado",
+    "riskLevel": "High",
+    "riskScore": 70,
+    "femaDisasterIds": ["DR-4488-KS", "DR-4245-KS"],
+    "majorStorms": [
+      { "name": "Kansas City Tornadoes", "year": 2019, "category": "EF2" },
+      { "name": "Wyandotte County Tornadoes", "year": 2016, "category": "EF1-EF2" }
+    ],
+    "notes": "Kansas City KS; urban tornado corridor with industrial and residential mix.",
+    "primaryCities": "Kansas City, Bonner Springs, Edwardsville",
+    "avgClaimAmount": 50000,
+    "marketPotential": "Medium",
+    "seasonalPeak": "Apr-Jun"
+  },
+  {
+    "state": "Nebraska",
+    "stateCode": "NE",
+    "countyParish": "Douglas County",
+    "countyFips": "31055",
+    "stormTypes": "Tornado",
+    "riskLevel": "High",
+    "riskScore": 70,
+    "femaDisasterIds": ["DR-4684-NE", "DR-4420-NE"],
+    "majorStorms": [
+      { "name": "Omaha Area Tornadoes", "year": 2022, "category": "EF2-EF3" },
+      { "name": "Elkhorn Tornado", "year": 2014, "category": "EF4" }
+    ],
+    "notes": "Omaha; major urban center in Tornado Alley. EF4 Elkhorn event showcased suburban vulnerability.",
+    "primaryCities": "Omaha, Elkhorn, Bennington",
+    "avgClaimAmount": 55000,
+    "marketPotential": "High",
+    "seasonalPeak": "Apr-Jun"
+  },
+  {
+    "state": "Iowa",
+    "stateCode": "IA",
+    "countyParish": "Polk County",
+    "countyFips": "19153",
+    "stormTypes": "Tornado",
+    "riskLevel": "High",
+    "riskScore": 70,
+    "femaDisasterIds": ["DR-4684-IA", "DR-4557-IA"],
+    "majorStorms": [
+      { "name": "Des Moines Derecho", "year": 2020, "category": "Derecho" },
+      { "name": "Des Moines Area Tornadoes", "year": 2018, "category": "EF2-EF3" }
+    ],
+    "notes": "Des Moines; state capital hit by derecho and tornado events. Insurance center with high claims expertise.",
+    "primaryCities": "Des Moines, West Des Moines, Urbandale",
+    "avgClaimAmount": 55000,
+    "marketPotential": "High",
+    "seasonalPeak": "Apr-Jun"
+  },
+  {
+    "state": "Mississippi",
+    "stateCode": "MS",
+    "countyParish": "Hancock County",
+    "countyFips": "28045",
+    "stormTypes": "Hurricane",
+    "riskLevel": "Very High",
+    "riskScore": 85,
+    "femaDisasterIds": ["DR-1604-MS", "DR-4684-MS"],
+    "majorStorms": [
+      { "name": "Hurricane Katrina", "year": 2005, "category": "Cat 3" },
+      { "name": "Hurricane Camille", "year": 1969, "category": "Cat 5" }
+    ],
+    "notes": "Bay St. Louis; ground zero for Katrina surge. Camille (1969) benchmark. Coastal premium market.",
+    "primaryCities": "Bay St. Louis, Waveland, Pass Christian",
+    "avgClaimAmount": 75000,
+    "marketPotential": "High",
+    "seasonalPeak": "Jun-Nov"
+  },
+  {
+    "state": "South Carolina",
+    "stateCode": "SC",
+    "countyParish": "Horry County",
+    "countyFips": "45051",
+    "stormTypes": "Hurricane",
+    "riskLevel": "Very High",
+    "riskScore": 85,
+    "femaDisasterIds": ["DR-4393-SC", "DR-4286-SC"],
+    "majorStorms": [
+      { "name": "Hurricane Florence", "year": 2018, "category": "Cat 1" },
+      { "name": "Hurricane Matthew", "year": 2016, "category": "Cat 1" }
+    ],
+    "notes": "Myrtle Beach; major tourism corridor with extensive coastal development. Hurricane surge and wind risk.",
+    "primaryCities": "Myrtle Beach, Conway, North Myrtle Beach",
+    "avgClaimAmount": 65000,
+    "marketPotential": "High",
+    "seasonalPeak": "Jun-Nov"
+  },
+  {
+    "state": "Tennessee",
+    "stateCode": "TN",
+    "countyParish": "Davidson County",
+    "countyFips": "47037",
+    "stormTypes": "Tornado",
+    "riskLevel": "High",
+    "riskScore": 75,
+    "femaDisasterIds": ["DR-4476-TN"],
+    "majorStorms": [
+      { "name": "Nashville Tornadoes", "year": 2020, "category": "EF3-EF4" }
+    ],
+    "notes": "Nashville; state capital and music industry hub. 2020 tornado outbreak caused extensive damage.",
+    "primaryCities": "Nashville, Belle Meade, Forest Hills",
+    "avgClaimAmount": 65000,
+    "marketPotential": "High",
+    "seasonalPeak": "Mar-Jun"
+  },
+  {
+    "state": "Georgia",
+    "stateCode": "GA",
+    "countyParish": "Fulton County",
+    "countyFips": "13121",
+    "stormTypes": "Tornado",
+    "riskLevel": "High",
+    "riskScore": 70,
+    "femaDisasterIds": ["DR-4684-GA", "DR-4393-GA"],
+    "majorStorms": [
+      { "name": "Atlanta Area Tornadoes", "year": 2022, "category": "EF2-EF3" },
+      { "name": "Downtown Atlanta Tornado", "year": 2008, "category": "EF2" }
+    ],
+    "notes": "Atlanta; major metropolitan area with downtown tornado history. High-rise and commercial vulnerability.",
+    "primaryCities": "Atlanta, Sandy Springs, East Point",
+    "avgClaimAmount": 60000,
+    "marketPotential": "High",
+    "seasonalPeak": "Mar-Jun"
+  },
+  {
+    "state": "Missouri",
+    "stateCode": "MO",
+    "countyParish": "St. Louis County",
+    "countyFips": "29189",
+    "stormTypes": "Tornado",
+    "riskLevel": "High",
+    "riskScore": 70,
+    "femaDisasterIds": ["DR-4684-MO", "DR-1980-MO"],
+    "majorStorms": [
+      { "name": "St. Louis Area Tornadoes", "year": 2022, "category": "EF2-EF3" },
+      { "name": "Lambert Airport Tornado", "year": 2011, "category": "EF4" }
+    ],
+    "notes": "St. Louis; major urban tornado corridor. Airport tornado (2011) showed infrastructure vulnerability.",
+    "primaryCities": "St. Louis, Florissant, University City",
+    "avgClaimAmount": 55000,
+    "marketPotential": "High",
+    "seasonalPeak": "Mar-Jun"
+  }
+]
