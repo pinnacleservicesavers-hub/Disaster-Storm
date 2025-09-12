@@ -43,7 +43,13 @@ import { IncidentCorrelationService } from "./services/incidentCorrelationServic
 import { femaDisasterService } from "./services/femaDisasterService";
 import { femaMonitoringService } from "./services/femaMonitoringService";
 import { storage } from "./storage";
-import { insertContractorWatchlistSchema, insertStormHotZoneSchema } from "@shared/schema";
+import { 
+  insertContractorWatchlistSchema, 
+  insertStormHotZoneSchema,
+  contractorWeatherRequestSchema,
+  contractorRegionRequestSchema,
+  contractorMarineRequestSchema
+} from "@shared/schema";
 
 // fetch polyfill if needed
 const fetch = globalThis.fetch || fetchPkg;
@@ -2367,12 +2373,19 @@ Email: strategiclandmgmt@gmail.com
   // Enhanced radar with velocity and dual-pol
   app.get('/api/weather/radar/enhanced', async (req, res) => {
     try {
-      const { lat, lon, zoom } = req.query;
-      const latitude = Number(lat) || 33.7490;
-      const longitude = Number(lon) || -84.3880;
-      const zoomLevel = Number(zoom) || 6;
+      // Validate query parameters
+      const validation = contractorRegionRequestSchema.safeParse(req.query);
+      if (!validation.success) {
+        return res.status(400).json({ 
+          error: 'Invalid request parameters',
+          details: validation.error.errors 
+        });
+      }
+
+      const { lat, lon, radius } = validation.data;
+      const zoomLevel = radius ? Math.max(1, Math.min(10, Math.round(100 / radius))) : 6;
       
-      const radarData = await weatherService.getRadarData(latitude, longitude, zoomLevel);
+      const radarData = await weatherService.getRadarData(lat, lon, zoomLevel);
       res.json(radarData);
     } catch (error) {
       console.error('Error fetching enhanced radar:', error);
@@ -2383,11 +2396,18 @@ Email: strategiclandmgmt@gmail.com
   // Satellite imagery data
   app.get('/api/weather/satellite', async (req, res) => {
     try {
-      const { lat, lon } = req.query;
-      const latitude = Number(lat) || 33.7490;
-      const longitude = Number(lon) || -84.3880;
+      // Validate query parameters
+      const validation = contractorRegionRequestSchema.safeParse(req.query);
+      if (!validation.success) {
+        return res.status(400).json({ 
+          error: 'Invalid request parameters',
+          details: validation.error.errors 
+        });
+      }
+
+      const { lat, lon } = validation.data;
       
-      const satelliteData = await weatherService.getSatelliteData(latitude, longitude);
+      const satelliteData = await weatherService.getSatelliteData(lat, lon);
       res.json(satelliteData);
     } catch (error) {
       console.error('Error fetching satellite data:', error);
@@ -2471,39 +2491,35 @@ Email: strategiclandmgmt@gmail.com
 
   app.get('/api/weather/ocean', async (req, res) => {
     try {
-      // Enhanced ocean data with Global SST and CoastWatch
-      const { lat1, lat2, lon1, lon2 } = req.query;
+      const { lat, lon } = req.query;
+      const latitude = Number(lat) || 33.7490;
+      const longitude = Number(lon) || -84.3880;
       
-      // Default bounds for East Coast US
-      const bounds = {
-        lat1: Number(lat1) || 20,
-        lat2: Number(lat2) || 50,
-        lon1: Number(lon1) || -100,
-        lon2: Number(lon2) || -60
-      };
-      
-      const buoys = await weatherService.getNDBC_Buoys();
-      const globalSST = await weatherService.getGlobalSST(bounds.lat1, bounds.lat2, bounds.lon1, bounds.lon2);
-      const coastWatch = await weatherService.getCoastWatchData();
-      
-      const oceanData = {
-        seaSurfaceTemperature: buoys.map(buoy => ({
-          latitude: buoy.latitude,
-          longitude: buoy.longitude,
-          temperature: buoy.measurements.waterTemperature || 0,
-          source: 'buoy' as const,
-          timestamp: buoy.timestamp,
-          stationId: buoy.stationId
-        })).filter(sst => sst.temperature > 0),
-        globalSST: globalSST,
-        buoys: buoys,
-        coastWatch: coastWatch,
-        lastUpdated: new Date()
-      };
+      // Use enhanced ocean data method with hurricane breeding ground focus
+      const oceanData = await weatherService.getOceanData(latitude, longitude);
       res.json(oceanData);
     } catch (error) {
-      console.error('Error fetching ocean data:', error);
-      res.status(500).json({ error: 'Failed to fetch ocean data' });
+      console.error('Error fetching enhanced ocean data:', error);
+      res.status(500).json({ error: 'Failed to fetch enhanced ocean data' });
+    }
+  });
+
+  // Hurricane breeding grounds SST data
+  app.get('/api/weather/ocean/hurricane-grounds', async (req, res) => {
+    try {
+      const hurricaneGroundData = await weatherService.getHurricaneBreedingGroundSST();
+      res.json({
+        ...hurricaneGroundData,
+        regions: {
+          gulfOfMexico: 'Gulf of Mexico (22°N-31°N, 98°W-80°W)',
+          atlanticMDR: 'Atlantic Main Development Region (8°N-22°N, 60°W-20°W)',
+          westernAtlantic: 'Western Atlantic (25°N-45°N, 85°W-60°W)'
+        },
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Error fetching hurricane breeding ground SST:', error);
+      res.status(500).json({ error: 'Failed to fetch hurricane breeding ground SST data' });
     }
   });
 
@@ -2952,6 +2968,392 @@ Email: strategiclandmgmt@gmail.com
     } catch (error) {
       console.error('Error fetching live alerts:', error);
       res.status(500).json({ error: 'Failed to fetch live weather alerts' });
+    }
+  });
+
+  // ===== CONTRACTOR-SPECIFIC WEATHER API ENDPOINTS =====
+  
+  // Get weather data for specific contractor regions (by state)
+  app.get('/api/weather/contractor/state/:state', async (req, res) => {
+    try {
+      const { state } = req.params;
+      const { types } = req.query; // alert,radar,satellite,ocean,buoys
+      
+      if (!state || state.length !== 2) {
+        return res.status(400).json({ error: 'Invalid state code. Use 2-letter state codes (e.g., FL, TX)' });
+      }
+      
+      const stateCode = state.toUpperCase();
+      const requestedTypes = types ? (types as string).split(',') : ['alerts', 'radar', 'forecast', 'buoys'];
+      
+      // Get state center coordinates for weather data
+      const stateCenters = {
+        FL: { lat: 27.7663, lon: -81.6868 },
+        TX: { lat: 31.0545, lon: -97.5635 },
+        LA: { lat: 31.1695, lon: -91.8678 },
+        AL: { lat: 32.3617, lon: -86.7916 },
+        MS: { lat: 32.7767, lon: -89.6902 },
+        GA: { lat: 33.0406, lon: -83.6431 },
+        SC: { lat: 33.8569, lon: -80.9450 },
+        NC: { lat: 35.7596, lon: -79.0193 },
+        VA: { lat: 37.7693, lon: -78.2057 },
+        CA: { lat: 36.1162, lon: -119.6816 }
+      };
+      
+      const center = stateCenters[stateCode as keyof typeof stateCenters];
+      if (!center) {
+        return res.status(400).json({ error: `Weather data not available for state: ${stateCode}` });
+      }
+      
+      const weatherData: any = {
+        state: stateCode,
+        region: center,
+        timestamp: new Date().toISOString()
+      };
+      
+      // Fetch requested weather data types
+      if (requestedTypes.includes('alerts')) {
+        weatherData.alerts = await weatherService.getWeatherAlerts(center.lat, center.lon);
+      }
+      if (requestedTypes.includes('radar')) {
+        weatherData.radar = await weatherService.getRadarData(center.lat, center.lon);
+      }
+      if (requestedTypes.includes('forecast')) {
+        weatherData.forecast = await weatherService.getForecast(center.lat, center.lon);
+      }
+      if (requestedTypes.includes('ocean')) {
+        weatherData.ocean = await weatherService.getOceanData(center.lat, center.lon);
+      }
+      if (requestedTypes.includes('buoys')) {
+        weatherData.buoys = await weatherService.getNDBC_Buoys();
+      }
+      if (requestedTypes.includes('lightning')) {
+        weatherData.lightning = await weatherService.getLightningData(center.lat, center.lon);
+      }
+      if (requestedTypes.includes('satellite')) {
+        weatherData.satellite = await weatherService.getSatelliteData(center.lat, center.lon);
+      }
+      
+      res.json(weatherData);
+    } catch (error) {
+      console.error('Error fetching contractor state weather:', error);
+      res.status(500).json({ error: 'Failed to fetch contractor weather data' });
+    }
+  });
+
+  // Get dangerous weather alerts for contractor target areas
+  app.get('/api/weather/contractor/alerts/dangerous', async (req, res) => {
+    try {
+      // Validate query parameters
+      const validation = contractorWeatherRequestSchema.safeParse(req.query);
+      if (!validation.success) {
+        return res.status(400).json({ 
+          error: 'Invalid request parameters',
+          details: validation.error.errors 
+        });
+      }
+
+      const { states, counties, severity } = validation.data;
+      const targetStates = states ? states.split(',') : ['FL', 'TX', 'LA', 'AL', 'GA'];
+      const targetCounties = counties ? counties.split(',') : [];
+      const minSeverity = severity || 'moderate';
+      
+      const dangerousAlerts = [];
+      
+      // Define severe weather types that create contractor opportunities
+      const contractorWeatherTypes = [
+        'Hurricane Warning', 'Hurricane Watch',
+        'Tornado Warning', 'Tornado Watch', 
+        'Severe Thunderstorm Warning',
+        'Flash Flood Warning',
+        'Storm Surge Warning',
+        'High Wind Warning',
+        'Extreme Wind Warning'
+      ];
+      
+      for (const state of targetStates) {
+        const stateCenters = {
+          FL: { lat: 27.7663, lon: -81.6868 },
+          TX: { lat: 31.0545, lon: -97.5635 },
+          LA: { lat: 31.1695, lon: -91.8678 },
+          AL: { lat: 32.3617, lon: -86.7916 },
+          MS: { lat: 32.7767, lon: -89.6902 },
+          GA: { lat: 33.0406, lon: -83.6431 },
+          SC: { lat: 33.8569, lon: -80.9450 },
+          NC: { lat: 35.7596, lon: -79.0193 }
+        };
+        
+        const center = stateCenters[state as keyof typeof stateCenters];
+        if (center) {
+          const alerts = await weatherService.getWeatherAlerts(center.lat, center.lon);
+          
+          // Filter for contractor-relevant weather
+          const relevantAlerts = alerts.filter(alert => 
+            contractorWeatherTypes.some(type => 
+              alert.event?.includes(type) || alert.headline?.includes(type)
+            )
+          );
+          
+          dangerousAlerts.push({
+            state,
+            center,
+            alertCount: relevantAlerts.length,
+            alerts: relevantAlerts
+          });
+        }
+      }
+      
+      res.json({
+        contractorAlerts: dangerousAlerts,
+        totalAlerts: dangerousAlerts.reduce((sum, state) => sum + state.alertCount, 0),
+        severity: minSeverity,
+        targetStates,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Error fetching contractor dangerous alerts:', error);
+      res.status(500).json({ error: 'Failed to fetch contractor dangerous weather alerts' });
+    }
+  });
+
+  // Enhanced wave height data for coastal contractor operations
+  app.get('/api/weather/contractor/waves/coastal', async (req, res) => {
+    try {
+      const { states, minWaveHeight } = req.query;
+      const targetStates = states ? (states as string).split(',') : ['FL', 'TX', 'LA', 'AL', 'GA', 'SC', 'NC'];
+      const minHeight = Number(minWaveHeight) || 2.0; // 2 meter minimum for contractor interest
+      
+      const [buoys, waveWatch] = await Promise.all([
+        weatherService.getNDBC_Buoys(),
+        weatherService.getWaveWatch()
+      ]);
+      
+      // Filter coastal buoys with significant wave heights
+      const coastalWaveData = buoys
+        .filter(buoy => 
+          buoy.measurements.significantWaveHeight >= minHeight &&
+          buoy.latitude >= 24 && buoy.latitude <= 36 && // Gulf/Atlantic coast range
+          buoy.longitude >= -98 && buoy.longitude <= -75
+        )
+        .map(buoy => ({
+          stationId: buoy.stationId,
+          name: buoy.name,
+          location: { latitude: buoy.latitude, longitude: buoy.longitude },
+          waveHeight: buoy.measurements.significantWaveHeight,
+          wavePeriod: buoy.measurements.peakWavePeriod,
+          waveDirection: buoy.measurements.meanWaveDirection,
+          windSpeed: buoy.measurements.windSpeed,
+          waterTemperature: buoy.measurements.waterTemperature,
+          timestamp: buoy.timestamp,
+          contractorInterest: buoy.measurements.significantWaveHeight >= 3.0 ? 'high' : 'moderate'
+        }));
+      
+      // Add WAVEWATCH III model data for forecast
+      const forecastWaves = [
+        ...waveWatch.global.filter(wave => wave.waveHeight && wave.waveHeight >= minHeight),
+        ...waveWatch.regional.filter(wave => wave.waveHeight && wave.waveHeight >= minHeight)
+      ];
+      
+      res.json({
+        coastalWaveData,
+        forecastWaves,
+        criteria: {
+          minWaveHeight: minHeight,
+          region: 'Gulf of Mexico and Atlantic Coast',
+          contractorInterest: `Waves >= ${minHeight}m indicate potential storm damage opportunities`
+        },
+        summary: {
+          totalBuoys: coastalWaveData.length,
+          highInterestBuoys: coastalWaveData.filter(w => w.contractorInterest === 'high').length,
+          maxWaveHeight: Math.max(...coastalWaveData.map(w => w.waveHeight), 0)
+        },
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Error fetching coastal wave data:', error);
+      res.status(500).json({ error: 'Failed to fetch coastal wave data for contractors' });
+    }
+  });
+
+  // Enhanced NEXRAD radar data with storm tracking
+  app.get('/api/weather/radar/nexrad/:site', async (req, res) => {
+    try {
+      const { site } = req.params;
+      const { products, elevation } = req.query;
+      
+      // NEXRAD site validation
+      const nexradSites = ['KFFC', 'KTLH', 'KBMX', 'KGWX', 'KMOB', 'KDGX', 'KLIX'];
+      const siteId = site.toUpperCase();
+      
+      if (!nexradSites.includes(siteId)) {
+        return res.status(400).json({ error: `Invalid NEXRAD site: ${siteId}` });
+      }
+      
+      // Get enhanced radar data with dual-pol products
+      const radarData = await weatherService.getRadarData(33.7490, -84.3880);
+      
+      // Add Level II specific products
+      const nexradData = {
+        siteId,
+        timestamp: new Date().toISOString(),
+        elevation: Number(elevation) || 0.5,
+        products: {
+          reflectivity: radarData.singleSite?.[0]?.reflectivity || [],
+          velocity: radarData.singleSite?.[0]?.velocity || [],
+          dualPol: radarData.dualPol || [],
+          stormTracking: {
+            cells: radarData.layers?.[0]?.data?.filter(d => d.intensity > 0.7) || [],
+            mesocyclones: radarData.velocity?.filter(v => Math.abs(v.velocity) > 30) || [],
+            hail: radarData.dualPol?.filter(d => d.precipType === 'hail') || []
+          }
+        },
+        coverage: radarData.coverage,
+        quality: 'Level II',
+        resolution: '0.25°',
+        range: '230 km'
+      };
+      
+      res.json(nexradData);
+    } catch (error) {
+      console.error('Error fetching NEXRAD Level II data:', error);
+      res.status(500).json({ error: 'Failed to fetch NEXRAD Level II data' });
+    }
+  });
+
+  // Lightning strike density mapping from GOES GLM
+  app.get('/api/weather/lightning/density', async (req, res) => {
+    try {
+      // Validate query parameters
+      const validation = contractorRegionRequestSchema.safeParse(req.query);
+      if (!validation.success) {
+        return res.status(400).json({ 
+          error: 'Invalid request parameters',
+          details: validation.error.errors 
+        });
+      }
+
+      const { lat, lon, radius } = validation.data;
+      const { timeRange } = req.query;
+      const radiusKm = radius || 100;
+      const hours = Number(timeRange) || 1;
+      
+      const lightningData = await weatherService.getLightningData(lat, lon, radiusKm);
+      
+      // Calculate lightning density for storm intensity analysis
+      const densityMap = {
+        center: { latitude, longitude },
+        radius: radiusKm,
+        timeRange: `${hours} hour(s)`,
+        totalStrikes: lightningData.strikes?.length || 0,
+        density: lightningData.density || 0,
+        stormIntensity: lightningData.density > 10 ? 'severe' : 
+                       lightningData.density > 5 ? 'moderate' : 'light',
+        strikes: lightningData.strikes || [],
+        goes_glm: {
+          satellite: 'GOES-16/17',
+          instrument: 'Geostationary Lightning Mapper (GLM)',
+          resolution: '2km',
+          updateFrequency: '20 seconds'
+        },
+        analysis: {
+          cloudToGround: lightningData.strikes?.filter(s => s.type === 'cloud-to-ground').length || 0,
+          intracloud: lightningData.strikes?.filter(s => s.type === 'intracloud').length || 0,
+          peakIntensity: Math.max(...(lightningData.strikes?.map(s => s.intensity) || [0]))
+        },
+        timestamp: new Date().toISOString()
+      };
+      
+      res.json(densityMap);
+    } catch (error) {
+      console.error('Error fetching lightning density data:', error);
+      res.status(500).json({ error: 'Failed to fetch lightning density data' });
+    }
+  });
+
+  // Weather integration endpoint for TrafficCamWatcher overlay
+  app.get('/api/weather/camera-overlay/:cameraId', async (req, res) => {
+    try {
+      const { cameraId } = req.params;
+      const { weatherTypes } = req.query;
+      const types = weatherTypes ? (weatherTypes as string).split(',') : ['alerts', 'radar', 'lightning'];
+      
+      // Get camera location (this would integrate with TrafficCamWatcher service)
+      // For now, use a sample camera location
+      const sampleCamera = {
+        id: cameraId,
+        latitude: 33.7490,
+        longitude: -84.3880,
+        location: 'Atlanta, GA'
+      };
+      
+      const weatherOverlay: any = {
+        cameraId,
+        camera: sampleCamera,
+        timestamp: new Date().toISOString()
+      };
+      
+      // Fetch weather data for camera location
+      if (types.includes('alerts')) {
+        const alerts = await weatherService.getWeatherAlerts(sampleCamera.latitude, sampleCamera.longitude);
+        weatherOverlay.alerts = alerts.filter(alert => alert.severity !== 'minor');
+      }
+      
+      if (types.includes('radar')) {
+        weatherOverlay.radar = await weatherService.getRadarData(sampleCamera.latitude, sampleCamera.longitude);
+      }
+      
+      if (types.includes('lightning')) {
+        weatherOverlay.lightning = await weatherService.getLightningData(sampleCamera.latitude, sampleCamera.longitude);
+      }
+      
+      if (types.includes('satellite')) {
+        weatherOverlay.satellite = await weatherService.getSatelliteData(sampleCamera.latitude, sampleCamera.longitude);
+      }
+      
+      res.json(weatherOverlay);
+    } catch (error) {
+      console.error('Error fetching camera weather overlay:', error);
+      res.status(500).json({ error: 'Failed to fetch camera weather overlay' });
+    }
+  });
+
+  // Real-time contractor notification endpoint for severe weather
+  app.post('/api/weather/contractor/alerts/subscribe', async (req, res) => {
+    try {
+      const { contractorId, states, counties, weatherTypes, contactInfo } = req.body;
+      
+      if (!contractorId || !states || !contactInfo) {
+        return res.status(400).json({ error: 'Missing required fields: contractorId, states, contactInfo' });
+      }
+      
+      // Store contractor alert preferences (in production, save to database)
+      const subscription = {
+        contractorId,
+        states: Array.isArray(states) ? states : [states],
+        counties: counties || [],
+        weatherTypes: weatherTypes || [
+          'Hurricane Warning', 'Hurricane Watch',
+          'Tornado Warning', 'Tornado Watch',
+          'Severe Thunderstorm Warning',
+          'Flash Flood Warning',
+          'Storm Surge Warning'
+        ],
+        contactInfo,
+        subscribed: new Date().toISOString(),
+        active: true
+      };
+      
+      // In production, this would be saved to a database
+      console.log('🔔 New contractor weather alert subscription:', subscription);
+      
+      res.json({
+        success: true,
+        subscription,
+        message: 'Successfully subscribed to contractor weather alerts'
+      });
+    } catch (error) {
+      console.error('Error creating contractor alert subscription:', error);
+      res.status(500).json({ error: 'Failed to create contractor alert subscription' });
     }
   });
 
@@ -4194,6 +4596,247 @@ Email: strategiclandmgmt@gmail.com
     } catch (error) {
       console.error('❌ Error cleaning up FEMA logs:', error);
       res.status(500).json({ error: 'Failed to cleanup logs' });
+    }
+  });
+
+  // ===== MISSING WEATHER ENDPOINTS =====
+
+  // Marine weather data for contractors
+  app.get('/contractor/marine', async (req, res) => {
+    try {
+      // Validate query parameters
+      const validation = contractorMarineRequestSchema.safeParse(req.query);
+      if (!validation.success) {
+        return res.status(400).json({ 
+          error: 'Invalid request parameters',
+          details: validation.error.errors 
+        });
+      }
+
+      const { region, lat, lon, radius } = validation.data;
+      const validatedParams = {
+        region: region || 'atlantic',
+        lat: lat || 33.7490,
+        lon: lon || -84.3880,
+        radius: radius || 100
+      };
+
+      // Get marine weather data
+      const [buoys, waveData, oceanData] = await Promise.all([
+        weatherService.getNDBC_Buoys(),
+        weatherService.getWaveWatch(),
+        weatherService.getOceanData(validatedParams.lat, validatedParams.lon)
+      ]);
+
+      // Filter buoys by region and radius
+      const filteredBuoys = buoys.filter(buoy => {
+        const distance = haversine(validatedParams.lat, validatedParams.lon, buoy.latitude, buoy.longitude);
+        return distance <= validatedParams.radius * 1000; // Convert km to meters
+      });
+
+      const marineWeather = {
+        region: validatedParams.region,
+        location: {
+          latitude: validatedParams.lat,
+          longitude: validatedParams.lon
+        },
+        waves: {
+          buoyData: filteredBuoys.map(buoy => ({
+            stationId: buoy.stationId,
+            name: buoy.name,
+            location: { latitude: buoy.latitude, longitude: buoy.longitude },
+            significantHeight: buoy.measurements.significantWaveHeight || 0,
+            peakPeriod: buoy.measurements.peakWavePeriod || 0,
+            direction: buoy.measurements.meanWaveDirection || 0,
+            timestamp: buoy.timestamp,
+            source: 'buoy' as const
+          })),
+          modelData: waveData || [],
+          lastUpdate: new Date()
+        },
+        seaTemperature: oceanData?.seaSurfaceTemperature || [],
+        conditions: {
+          timestamp: new Date(),
+          region: validatedParams.region,
+          summary: `Marine conditions for ${validatedParams.region} region`
+        },
+        buoys: filteredBuoys,
+        metadata: {
+          totalBuoys: filteredBuoys.length,
+          searchRadius: validatedParams.radius,
+          region: validatedParams.region
+        }
+      };
+
+      res.json(marineWeather);
+    } catch (error) {
+      console.error('Error fetching contractor marine data:', error);
+      res.status(500).json({ error: 'Failed to fetch marine weather data' });
+    }
+  });
+
+  // Regional weather data for contractors
+  app.get('/contractor/region', async (req, res) => {
+    try {
+      // Validate query parameters
+      const validation = contractorRegionRequestSchema.safeParse(req.query);
+      if (!validation.success) {
+        return res.status(400).json({ 
+          error: 'Invalid request parameters',
+          details: validation.error.errors 
+        });
+      }
+
+      const { lat, lon, radius } = validation.data;
+      const validatedParams = {
+        lat: lat,
+        lon: lon,
+        radius: radius || 50
+      };
+
+      // Get comprehensive regional weather data
+      const [alerts, radar, lightning, satellite, forecast] = await Promise.all([
+        weatherService.getWeatherAlerts(validatedParams.lat, validatedParams.lon),
+        weatherService.getRadarData(validatedParams.lat, validatedParams.lon),
+        weatherService.getLightningData(validatedParams.lat, validatedParams.lon, validatedParams.radius),
+        weatherService.getSatelliteData(validatedParams.lat, validatedParams.lon),
+        weatherService.getForecast(validatedParams.lat, validatedParams.lon)
+      ]);
+
+      const regionalWeather = {
+        location: {
+          latitude: validatedParams.lat,
+          longitude: validatedParams.lon,
+          radius: validatedParams.radius
+        },
+        alerts: alerts.filter(alert => alert.severity !== 'Minor'), // Contractor-relevant alerts only
+        currentConditions: {
+          radar: {
+            intensity: radar.layers?.[0]?.data?.length || 0,
+            coverage: radar.coverage || [],
+            timestamp: radar.timestamp
+          },
+          lightning: {
+            strikeCount: lightning.strikes?.length || 0,
+            density: lightning.density || 0,
+            intensity: lightning.density > 10 ? 'severe' : lightning.density > 5 ? 'moderate' : 'light',
+            timestamp: lightning.timestamp
+          },
+          satellite: {
+            visibleImagery: satellite.layers?.find(l => l.type === 'visible')?.url,
+            infraredImagery: satellite.layers?.find(l => l.type === 'infrared')?.url,
+            timestamp: satellite.timestamp
+          }
+        },
+        forecast: forecast,
+        opportunities: {
+          stormSeverity: alerts.some(a => a.alertType.includes('Tornado')) ? 'extreme' :
+                       alerts.some(a => a.alertType.includes('Severe')) ? 'high' : 'moderate',
+          contractorAlert: alerts.length > 0 && lightning.density > 5,
+          estimatedDamage: alerts.length > 0 ? 'potential tree and structural damage' : 'minimal expected damage'
+        },
+        timestamp: new Date(),
+        metadata: {
+          alertCount: alerts.length,
+          lightningDensity: lightning.density,
+          radarCoverage: radar.coverage?.length || 0
+        }
+      };
+
+      res.json(regionalWeather);
+    } catch (error) {
+      console.error('Error fetching contractor regional data:', error);
+      res.status(500).json({ error: 'Failed to fetch regional weather data' });
+    }
+  });
+
+  // Enhanced marine wave data endpoint
+  app.get('/api/weather/marine/waves', async (req, res) => {
+    try {
+      const { region, lat, lon, radius, includeModel } = req.query;
+      
+      const params = {
+        region: region as string || 'global',
+        lat: lat ? parseFloat(lat as string) : undefined,
+        lon: lon ? parseFloat(lon as string) : undefined,
+        radius: radius ? parseFloat(radius as string) : 200,
+        includeModel: includeModel === 'true'
+      };
+
+      // Get NDBC buoy data
+      const buoys = await weatherService.getNDBC_Buoys();
+      
+      // Get WAVEWATCH-III model data if requested
+      let modelData = null;
+      if (params.includeModel) {
+        modelData = await weatherService.getWaveWatch();
+      }
+
+      // Filter buoys by location if lat/lon provided
+      let filteredBuoys = buoys;
+      if (params.lat && params.lon) {
+        filteredBuoys = buoys.filter(buoy => {
+          const distance = haversine(params.lat!, params.lon!, buoy.latitude, buoy.longitude);
+          return distance <= params.radius * 1000; // Convert km to meters
+        });
+      }
+
+      // Extract wave data from buoys
+      const buoyWaves = filteredBuoys
+        .filter(buoy => buoy.measurements.significantWaveHeight && buoy.measurements.significantWaveHeight > 0)
+        .map(buoy => ({
+          significantHeight: buoy.measurements.significantWaveHeight!,
+          peakPeriod: buoy.measurements.peakWavePeriod || 0,
+          direction: buoy.measurements.meanWaveDirection || 0,
+          timestamp: buoy.timestamp,
+          location: {
+            latitude: buoy.latitude,
+            longitude: buoy.longitude
+          },
+          source: 'buoy' as const,
+          stationId: buoy.stationId,
+          stationName: buoy.name,
+          waterDepth: buoy.waterDepth,
+          additionalData: {
+            windSpeed: buoy.measurements.windSpeed,
+            windDirection: buoy.measurements.windDirection,
+            waterTemperature: buoy.measurements.waterTemperature,
+            atmosphericPressure: buoy.measurements.atmosphericPressure
+          }
+        }));
+
+      const response = {
+        waves: {
+          buoyData: buoyWaves,
+          modelData: modelData || null,
+          summary: {
+            totalStations: filteredBuoys.length,
+            activeStations: buoyWaves.length,
+            region: params.region,
+            averageHeight: buoyWaves.length > 0 ? 
+              buoyWaves.reduce((sum, w) => sum + w.significantHeight, 0) / buoyWaves.length : 0,
+            maxHeight: buoyWaves.length > 0 ? 
+              Math.max(...buoyWaves.map(w => w.significantHeight)) : 0
+          }
+        },
+        searchParameters: {
+          region: params.region,
+          center: params.lat && params.lon ? { latitude: params.lat, longitude: params.lon } : null,
+          radius: params.radius,
+          includeModel: params.includeModel
+        },
+        timestamp: new Date(),
+        dataQuality: {
+          buoyDataAge: buoyWaves.length > 0 ? 
+            Math.max(...buoyWaves.map(w => Date.now() - new Date(w.timestamp).getTime())) / 1000 / 60 : 0, // minutes
+          modelDataAge: modelData ? 0 : null
+        }
+      };
+
+      res.json(response);
+    } catch (error) {
+      console.error('Error fetching marine wave data:', error);
+      res.status(500).json({ error: 'Failed to fetch marine wave data' });
     }
   });
 

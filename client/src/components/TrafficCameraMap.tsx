@@ -74,6 +74,57 @@ export function TrafficCameraMap({ selectedState, selectedCounty, alertsOnly }: 
   const [selectedIncident, setSelectedIncident] = useState<TrafficIncident | null>(null);
   const [viewerCameraId, setViewerCameraId] = useState<string | null>(null);
 
+  // Function to fetch and display weather context for a camera
+  const fetchWeatherContext = async (camera: TrafficCamera) => {
+    try {
+      const response = await fetch(`/api/weather/camera-overlay/${camera.id}?weatherTypes=alerts,radar,lightning`);
+      const weatherData = await response.json();
+      
+      const weatherElement = document.getElementById(`weather-${camera.id}`);
+      if (weatherElement && weatherData) {
+        let weatherHtml = '';
+        
+        // Add alerts if present
+        if (weatherData.alerts && weatherData.alerts.length > 0) {
+          const severityBadge = weatherData.alerts[0].severity === 'Extreme' ? 'bg-red-100 text-red-800' :
+                               weatherData.alerts[0].severity === 'Severe' ? 'bg-orange-100 text-orange-800' :
+                               'bg-yellow-100 text-yellow-800';
+          weatherHtml += `<div class="mb-1"><span class="px-1 py-0.5 text-xs rounded ${severityBadge}">${weatherData.alerts[0].alertType}</span></div>`;
+        }
+        
+        // Add radar intensity
+        if (weatherData.radar && weatherData.radar.layers && weatherData.radar.layers[0]) {
+          const intensity = weatherData.radar.layers[0].data?.length || 0;
+          const intensityLevel = intensity > 50 ? 'High' : intensity > 20 ? 'Moderate' : intensity > 0 ? 'Light' : 'None';
+          const intensityColor = intensity > 50 ? 'text-red-600' : intensity > 20 ? 'text-orange-600' : intensity > 0 ? 'text-yellow-600' : 'text-green-600';
+          weatherHtml += `<div class="flex justify-between"><span>Radar:</span><span class="${intensityColor}">${intensityLevel}</span></div>`;
+        }
+        
+        // Add lightning density
+        if (weatherData.lightning) {
+          const density = weatherData.lightning.density || 0;
+          const lightningLevel = density > 10 ? 'High' : density > 5 ? 'Moderate' : density > 0 ? 'Light' : 'None';
+          const lightningColor = density > 10 ? 'text-red-600' : density > 5 ? 'text-orange-600' : density > 0 ? 'text-yellow-600' : 'text-green-600';
+          weatherHtml += `<div class="flex justify-between"><span>Lightning:</span><span class="${lightningColor}">${lightningLevel}</span></div>`;
+        }
+        
+        // Add marine conditions if near coast
+        if (weatherData.marine) {
+          const waveHeight = weatherData.marine.waves?.significantHeight || 0;
+          weatherHtml += `<div class="flex justify-between"><span>Waves:</span><span>${waveHeight.toFixed(1)}m</span></div>`;
+        }
+        
+        weatherElement.innerHTML = weatherHtml || '<div class="text-gray-500">No weather alerts</div>';
+      }
+    } catch (error) {
+      console.error('Failed to fetch weather context:', error);
+      const weatherElement = document.getElementById(`weather-${camera.id}`);
+      if (weatherElement) {
+        weatherElement.innerHTML = '<div class="text-gray-500">Weather data unavailable</div>';
+      }
+    }
+  };
+
   // Fetch cameras for selected state
   const { data: cameras } = useQuery<{ cameras: TrafficCamera[] }>({
     queryKey: ['/api/511/cameras/search', { state: selectedState, provider: selectedState ? `${selectedState} DOT` : undefined }],
@@ -84,6 +135,13 @@ export function TrafficCameraMap({ selectedState, selectedCounty, alertsOnly }: 
   const { data: incidents } = useQuery<{ incidents: TrafficIncident[] }>({
     queryKey: ['/api/511/incidents', { state: selectedState }],
     enabled: !!selectedState,
+  });
+
+  // Fetch weather overlay data for camera context
+  const { data: weatherOverlay } = useQuery({
+    queryKey: ['/api/weather/camera-overlay/', selectedCamera?.id, { weatherTypes: 'alerts,radar,lightning' }],
+    enabled: !!selectedCamera,
+    refetchInterval: 300000, // Refetch every 5 minutes
   });
 
   useEffect(() => {
@@ -143,6 +201,14 @@ export function TrafficCameraMap({ selectedState, selectedCounty, alertsOnly }: 
                 <p class="text-sm text-gray-600">${camera.jurisdiction.provider}</p>
                 <p class="text-xs">${camera.type} • ${camera.isActive ? 'Active' : 'Inactive'}</p>
                 ${camera.snapshotUrl ? `<img src="${camera.snapshotUrl}" class="w-32 h-24 object-cover rounded mt-2" onerror="this.style.display='none'"/>` : ''}
+                <div class="weather-context mt-2 text-xs bg-gray-50 p-2 rounded" id="weather-${camera.id}">
+                  <div class="flex items-center text-gray-500">
+                    <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3z"/>
+                    </svg>
+                    Loading weather...
+                  </div>
+                </div>
                 <button 
                   class="mt-2 px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 w-full"
                   onclick="window.openCameraViewer('${camera.id}')"
@@ -154,6 +220,9 @@ export function TrafficCameraMap({ selectedState, selectedCounty, alertsOnly }: 
             .on('click', () => {
               setSelectedCamera(camera);
               setSelectedIncident(null);
+              
+              // Fetch and update weather context for this camera
+              fetchWeatherContext(camera);
             });
 
           marker.addTo(map);

@@ -112,12 +112,19 @@ export function MapView({
     incidents: !showCamerasOnly,
     heatmap: false,
     stormHeatmap: true,
-    soilMoisture: false
+    soilMoisture: false,
+    weatherRadar: false,
+    weatherLightning: false,
+    weatherAlerts: true,
+    oceanSST: false,
+    weatherSatellite: false
   });
   const [geojsonData, setGeojsonData] = useState<any>(null);
   const [isExporting, setIsExporting] = useState(false);
   const soilMoistureLayerRef = useRef<any>(null);
   const [mapError, setMapError] = useState<string | null>(null);
+  const weatherLayersRef = useRef<{[key: string]: any}>({});
+  const [selectedWeatherCamera, setSelectedWeatherCamera] = useState<string | null>(null);
 
   // Fetch cameras for selected state
   const { data: cameras, isLoading: camerasLoading } = useQuery<{ cameras: TrafficCamera[] }>({
@@ -129,6 +136,51 @@ export function MapView({
   const { data: incidents, isLoading: incidentsLoading } = useQuery<{ incidents: TrafficIncident[] }>({
     queryKey: ['/api/511/incidents', { state: selectedState }],
     enabled: !!selectedState && layerVisibility.incidents,
+  });
+
+  // Fetch weather data for selected state
+  const { data: weatherAlerts, isLoading: weatherLoading } = useQuery({
+    queryKey: ['/api/weather/contractor/alerts/dangerous', { states: selectedState }],
+    enabled: !!selectedState && layerVisibility.weatherAlerts,
+    refetchInterval: 300000, // Refetch every 5 minutes
+  });
+
+  // Fetch radar data for weather overlay
+  const { data: radarData } = useQuery({
+    queryKey: ['/api/weather/radar/enhanced', { 
+      lat: centerLat, 
+      lon: centerLng 
+    }],
+    enabled: layerVisibility.weatherRadar,
+    refetchInterval: 120000, // Refetch every 2 minutes
+  });
+
+  // Fetch lightning data for weather overlay
+  const { data: lightningData } = useQuery({
+    queryKey: ['/api/weather/lightning/density', { 
+      lat: centerLat, 
+      lon: centerLng, 
+      radius: 200 
+    }],
+    enabled: layerVisibility.weatherLightning,
+    refetchInterval: 60000, // Refetch every minute
+  });
+
+  // Fetch ocean SST data
+  const { data: oceanData } = useQuery({
+    queryKey: ['/api/weather/ocean/hurricane-grounds'],
+    enabled: layerVisibility.oceanSST,
+    refetchInterval: 1800000, // Refetch every 30 minutes
+  });
+
+  // Fetch satellite data
+  const { data: satelliteData } = useQuery({
+    queryKey: ['/api/weather/satellite', { 
+      lat: centerLat, 
+      lon: centerLng 
+    }],
+    enabled: layerVisibility.weatherSatellite,
+    refetchInterval: 600000, // Refetch every 10 minutes
   });
 
   // Initialize map
@@ -255,6 +307,157 @@ export function MapView({
   };
 
   // Manage soil moisture layer declaratively based on layerVisibility state
+  // Weather layer management functions
+  const manageWeatherLayers = () => {
+    if (!mapInstanceRef.current) return;
+    
+    const map = mapInstanceRef.current;
+    
+    // Manage weather radar layer
+    if (layerVisibility.weatherRadar && !weatherLayersRef.current.radar) {
+      // Add NEXRAD radar overlay
+      const radarLayer = window.L.tileLayer(
+        'https://mesonet.agron.iastate.edu/cgi-bin/wms/nexrad/n0r.cgi?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS=nexrad-n0r-900913&STYLES=&SRS=EPSG:900913&BBOX={bbox-epsg-3857}&WIDTH=256&HEIGHT=256&FORMAT=image/png&TRANSPARENT=TRUE',
+        {
+          attribution: '© Iowa Environmental Mesonet',
+          opacity: 0.7,
+          maxZoom: 18,
+          isOverlay: true
+        }
+      );
+      radarLayer.addTo(map);
+      weatherLayersRef.current.radar = radarLayer;
+    } else if (!layerVisibility.weatherRadar && weatherLayersRef.current.radar) {
+      map.removeLayer(weatherLayersRef.current.radar);
+      delete weatherLayersRef.current.radar;
+    }
+    
+    // Manage lightning layer
+    if (layerVisibility.weatherLightning && lightningData?.strikes && !weatherLayersRef.current.lightning) {
+      const lightningMarkers = lightningData.strikes.map((strike: any) => {
+        const icon = window.L.divIcon({
+          className: 'lightning-marker',
+          html: `<div class="bg-yellow-400 text-black rounded-full p-1 border border-yellow-600 animate-pulse">
+                   <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                     <path d="M13 8V2H7v6H2l8 8 8-8h-5z"/>
+                   </svg>
+                 </div>`,
+          iconSize: [16, 16],
+          iconAnchor: [8, 8]
+        });
+        
+        return window.L.marker([strike.latitude, strike.longitude], { icon })
+          .bindPopup(`
+            <div class="p-2">
+              <h4 class="font-semibold text-sm">Lightning Strike</h4>
+              <p class="text-xs">Type: ${strike.type}</p>
+              <p class="text-xs">Intensity: ${strike.intensity}</p>
+              <p class="text-xs">Time: ${new Date(strike.timestamp).toLocaleTimeString()}</p>
+            </div>
+          `);
+      });
+      
+      const lightningGroup = window.L.layerGroup(lightningMarkers);
+      lightningGroup.addTo(map);
+      weatherLayersRef.current.lightning = lightningGroup;
+    } else if (!layerVisibility.weatherLightning && weatherLayersRef.current.lightning) {
+      map.removeLayer(weatherLayersRef.current.lightning);
+      delete weatherLayersRef.current.lightning;
+    }
+    
+    // Manage ocean SST layer
+    if (layerVisibility.oceanSST && oceanData?.globalSST && !weatherLayersRef.current.oceanSST) {
+      const sstMarkers = oceanData.globalSST.slice(0, 200).map((sst: any) => { // Limit for performance
+        const tempColor = sst.temperature > 28 ? 'red' : sst.temperature > 26 ? 'orange' : sst.temperature > 24 ? 'yellow' : 'blue';
+        
+        const icon = window.L.divIcon({
+          className: 'sst-marker',
+          html: `<div class="bg-${tempColor}-500 text-white rounded-full p-1 border border-white text-xs font-bold" style="min-width: 20px; text-align: center;">
+                   ${Math.round(sst.temperature)}°
+                 </div>`,
+          iconSize: [24, 24],
+          iconAnchor: [12, 12]
+        });
+        
+        return window.L.marker([sst.latitude, sst.longitude], { icon })
+          .bindPopup(`
+            <div class="p-2">
+              <h4 class="font-semibold text-sm">Sea Surface Temperature</h4>
+              <p class="text-xs">Temperature: ${sst.temperature.toFixed(1)}°C</p>
+              <p class="text-xs">Source: ${sst.source}</p>
+              <p class="text-xs">Quality: ${sst.quality}</p>
+            </div>
+          `);
+      });
+      
+      const sstGroup = window.L.layerGroup(sstMarkers);
+      sstGroup.addTo(map);
+      weatherLayersRef.current.oceanSST = sstGroup;
+    } else if (!layerVisibility.oceanSST && weatherLayersRef.current.oceanSST) {
+      map.removeLayer(weatherLayersRef.current.oceanSST);
+      delete weatherLayersRef.current.oceanSST;
+    }
+    
+    // Manage weather alerts layer
+    if (layerVisibility.weatherAlerts && weatherAlerts?.contractorAlerts && !weatherLayersRef.current.alerts) {
+      const alertMarkers = weatherAlerts.contractorAlerts.flatMap((stateData: any) =>
+        stateData.alerts.map((alert: any) => {
+          const severityColor = alert.severity === 'extreme' ? 'red' : 
+                               alert.severity === 'severe' ? 'orange' : 
+                               alert.severity === 'moderate' ? 'yellow' : 'blue';
+          
+          const icon = window.L.divIcon({
+            className: 'alert-marker',
+            html: `<div class="bg-${severityColor}-500 text-white rounded-full p-2 border-2 border-white shadow-lg animate-pulse">
+                     <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                       <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                     </svg>
+                   </div>`,
+            iconSize: [32, 32],
+            iconAnchor: [16, 16]
+          });
+          
+          // Use state center as approximate location for alerts
+          return window.L.marker([stateData.center.lat, stateData.center.lon], { icon })
+            .bindPopup(`
+              <div class="p-3 max-w-64">
+                <h4 class="font-semibold text-sm mb-2">${alert.event || 'Weather Alert'}</h4>
+                <p class="text-xs mb-1"><strong>Severity:</strong> ${alert.severity}</p>
+                <p class="text-xs mb-1"><strong>State:</strong> ${stateData.state}</p>
+                <p class="text-xs mb-2">${alert.headline?.substring(0, 100)}...</p>
+                <div class="text-xs text-orange-600 font-semibold">⚠️ Contractor Opportunity</div>
+              </div>
+            `);
+        })
+      );
+      
+      const alertsGroup = window.L.layerGroup(alertMarkers);
+      alertsGroup.addTo(map);
+      weatherLayersRef.current.alerts = alertsGroup;
+    } else if (!layerVisibility.weatherAlerts && weatherLayersRef.current.alerts) {
+      map.removeLayer(weatherLayersRef.current.alerts);
+      delete weatherLayersRef.current.alerts;
+    }
+    
+    // Manage satellite layer
+    if (layerVisibility.weatherSatellite && !weatherLayersRef.current.satellite) {
+      const satelliteLayer = window.L.tileLayer(
+        'https://mapservices.weather.noaa.gov/vector/rest/services/obs/goes_conus_geocolor/MapServer/tile/{z}/{y}/{x}',
+        {
+          attribution: '© NOAA/GOES Satellite',
+          opacity: 0.6,
+          maxZoom: 16,
+          isOverlay: true
+        }
+      );
+      satelliteLayer.addTo(map);
+      weatherLayersRef.current.satellite = satelliteLayer;
+    } else if (!layerVisibility.weatherSatellite && weatherLayersRef.current.satellite) {
+      map.removeLayer(weatherLayersRef.current.satellite);
+      delete weatherLayersRef.current.satellite;
+    }
+  };
+
   const manageSoilMoistureLayer = (shouldShow: boolean) => {
     if (!mapInstanceRef.current) return;
     
@@ -503,7 +706,10 @@ export function MapView({
         map.fitBounds(group.getBounds().pad(0.1));
       }
     }
-  }, [cameras, incidents, layerVisibility, selectedCounty]);
+    
+    // Manage weather layers
+    manageWeatherLayers();
+  }, [cameras, incidents, layerVisibility, selectedCounty, weatherAlerts, lightningData, oceanData, satelliteData]);
 
   const toggleLayer = (layer: keyof typeof layerVisibility) => {
     setLayerVisibility(prev => ({
@@ -581,6 +787,55 @@ export function MapView({
               >
                 <AlertTriangle className="h-4 w-4" />
               </Button>
+              
+              {/* Weather Layer Controls */}
+              <div className="flex items-center space-x-1 pl-2 border-l border-gray-300">
+                <Button
+                  size="sm"
+                  variant={layerVisibility.weatherAlerts ? "default" : "outline"}
+                  onClick={() => toggleLayer('weatherAlerts')}
+                  data-testid="button-toggle-weather-alerts"
+                  title="Toggle Weather Alerts"
+                >
+                  <AlertTriangle className="h-3 w-3" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant={layerVisibility.weatherRadar ? "default" : "outline"}
+                  onClick={() => toggleLayer('weatherRadar')}
+                  data-testid="button-toggle-weather-radar"
+                  title="Toggle Weather Radar"
+                >
+                  <Droplets className="h-3 w-3" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant={layerVisibility.weatherLightning ? "default" : "outline"}
+                  onClick={() => toggleLayer('weatherLightning')}
+                  data-testid="button-toggle-lightning"
+                  title="Toggle Lightning Strikes"
+                >
+                  ⚡
+                </Button>
+                <Button
+                  size="sm"
+                  variant={layerVisibility.oceanSST ? "default" : "outline"}
+                  onClick={() => toggleLayer('oceanSST')}
+                  data-testid="button-toggle-ocean-sst"
+                  title="Toggle Sea Surface Temperature"
+                >
+                  🌊
+                </Button>
+                <Button
+                  size="sm"
+                  variant={layerVisibility.weatherSatellite ? "default" : "outline"}
+                  onClick={() => toggleLayer('weatherSatellite')}
+                  data-testid="button-toggle-weather-satellite"
+                  title="Toggle Weather Satellite"
+                >
+                  <Satellite className="h-3 w-3" />
+                </Button>
+              </div>
               <Button
                 size="sm"
                 variant={layerVisibility.stormHeatmap ? "default" : "outline"}
@@ -719,11 +974,37 @@ export function MapView({
                   <div className="w-4 h-4 bg-orange-500 rounded-full mr-2"></div>
                   Severe Incidents
                 </div>
-                <div className="flex items-center">
-                  <div className="w-4 h-4 bg-yellow-500 rounded-full mr-2"></div>
-                  Moderate Incidents
-                </div>
               </>
+            )}
+            {layerVisibility.weatherAlerts && (
+              <div className="flex items-center">
+                <div className="w-4 h-4 bg-red-500 rounded-full mr-2 animate-pulse"></div>
+                Weather Alerts
+              </div>
+            )}
+            {layerVisibility.weatherRadar && (
+              <div className="flex items-center">
+                <div className="w-4 h-4 bg-blue-500 opacity-70 mr-2"></div>
+                Weather Radar
+              </div>
+            )}
+            {layerVisibility.weatherLightning && (
+              <div className="flex items-center">
+                <div className="w-4 h-4 bg-yellow-400 rounded-full mr-2 animate-pulse"></div>
+                Lightning Strikes
+              </div>
+            )}
+            {layerVisibility.oceanSST && (
+              <div className="flex items-center">
+                <div className="w-4 h-4 rounded-full mr-2" style={{background: 'linear-gradient(to right, blue, yellow, orange, red)'}}></div>
+                Sea Surface Temperature
+              </div>
+            )}
+            {layerVisibility.weatherSatellite && (
+              <div className="flex items-center">
+                <div className="w-4 h-4 bg-gray-400 rounded-full mr-2"></div>
+                Weather Satellite
+              </div>
             )}
             {layerVisibility.stormHeatmap && (
               <>

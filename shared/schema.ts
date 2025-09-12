@@ -3,6 +3,170 @@ import { pgTable, text, varchar, timestamp, numeric, boolean, jsonb, integer, uu
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// ===== WEATHER VALIDATION SCHEMAS =====
+
+// Weather Alert Schema
+export const weatherAlertSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  description: z.string(),
+  severity: z.enum(['Extreme', 'Severe', 'Moderate', 'Minor']),
+  alertType: z.string(),
+  areas: z.array(z.string()),
+  startTime: z.date(),
+  endTime: z.date().optional(),
+  coordinates: z.object({
+    latitude: z.number(),
+    longitude: z.number()
+  }),
+  geometry: z.any().optional(),
+  urgency: z.string().optional(),
+  certainty: z.string().optional(),
+  category: z.string().optional(),
+  responseType: z.string().optional(),
+  nwsId: z.string().optional(),
+  messageType: z.string().optional()
+});
+
+// Lightning Data Schema
+export const lightningStrikeSchema = z.object({
+  latitude: z.number(),
+  longitude: z.number(),
+  timestamp: z.date(),
+  intensity: z.number(),
+  type: z.enum(['cloud-to-ground', 'cloud-to-cloud', 'intracloud'])
+});
+
+export const lightningDataSchema = z.object({
+  timestamp: z.date(),
+  strikes: z.array(lightningStrikeSchema),
+  density: z.number(),
+  range: z.number(),
+  goesData: z.any().optional()
+});
+
+// Wave Data Schema
+export const waveDataSchema = z.object({
+  significantHeight: z.number(),
+  peakPeriod: z.number(),
+  direction: z.number(),
+  windWaveHeight: z.number().optional(),
+  swellHeight: z.number().optional(),
+  timestamp: z.date(),
+  location: z.object({
+    latitude: z.number(),
+    longitude: z.number()
+  }),
+  source: z.enum(['buoy', 'satellite', 'model', 'WAVEWATCH-III-Global', 'WAVEWATCH-III-Regional']),
+  modelRun: z.date().optional(),
+  forecastHour: z.number().optional(),
+  waveHeight: z.number().optional(),
+  wavePeriod: z.number().optional(),
+  waveDirection: z.number().optional(),
+  swellPeriod: z.number().optional(),
+  swellDirection: z.number().optional(),
+  validTime: z.date().optional()
+});
+
+// Buoy Data Schema
+export const buoyDataSchema = z.object({
+  stationId: z.string(),
+  name: z.string(),
+  latitude: z.number(),
+  longitude: z.number(),
+  waterDepth: z.number(),
+  measurements: z.object({
+    waterTemperature: z.number().optional(),
+    airTemperature: z.number().optional(),
+    windSpeed: z.number().optional(),
+    windDirection: z.number().optional(),
+    significantWaveHeight: z.number().optional(),
+    peakWavePeriod: z.number().optional(),
+    meanWaveDirection: z.number().optional(),
+    atmosphericPressure: z.number().optional()
+  }),
+  timestamp: z.date(),
+  status: z.enum(['active', 'inactive', 'maintenance'])
+});
+
+// Radar Data Schema
+export const radarDataSchema = z.object({
+  timestamp: z.date(),
+  layers: z.array(z.object({
+    type: z.string(),
+    data: z.array(z.object({
+      latitude: z.number(),
+      longitude: z.number(),
+      intensity: z.number(),
+      type: z.string()
+    }))
+  })),
+  coverage: z.array(z.object({
+    state: z.string(),
+    counties: z.array(z.string()),
+    isActive: z.boolean()
+  })),
+  singleSite: z.array(z.any()).optional(),
+  velocity: z.array(z.any()).optional(),
+  dualPol: z.array(z.any()).optional()
+});
+
+// Satellite Data Schema
+export const satelliteDataSchema = z.object({
+  timestamp: z.date(),
+  layers: z.array(z.object({
+    type: z.enum(['visible', 'infrared', 'water_vapor', 'enhanced']),
+    url: z.string(),
+    opacity: z.number(),
+    product: z.string().optional(),
+    sector: z.enum(['FD', 'CONUS', 'M1', 'M2', 'M3', 'M4', 'M5', 'M6']).optional(),
+    channel: z.string().optional(),
+    satellite: z.string().optional(),
+    file: z.string().optional(),
+    abiSource: z.boolean().optional()
+  })),
+  resolution: z.string(),
+  coverage: z.string(),
+  goesData: z.any().optional()
+});
+
+// Marine Weather Schema
+export const marineWeatherSchema = z.object({
+  waves: z.array(waveDataSchema),
+  buoys: z.array(buoyDataSchema),
+  seaTemperature: z.array(z.object({
+    latitude: z.number(),
+    longitude: z.number(),
+    temperature: z.number(),
+    source: z.enum(['satellite', 'buoy', 'ship']),
+    timestamp: z.date(),
+    satellite: z.string().optional()
+  })),
+  timestamp: z.date(),
+  region: z.string()
+});
+
+// Contractor Weather Request Schemas
+export const contractorWeatherRequestSchema = z.object({
+  states: z.string().optional(),
+  counties: z.string().optional(),
+  severity: z.enum(['all', 'moderate', 'severe', 'extreme']).optional(),
+  types: z.string().optional()
+});
+
+export const contractorRegionRequestSchema = z.object({
+  lat: z.string().transform(Number),
+  lon: z.string().transform(Number),
+  radius: z.string().transform(Number).optional()
+});
+
+export const contractorMarineRequestSchema = z.object({
+  region: z.enum(['atlantic', 'gulf', 'pacific']).optional(),
+  lat: z.string().transform(Number).optional(),
+  lon: z.string().transform(Number).optional(),
+  radius: z.string().transform(Number).optional()
+});
+
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   username: text("username").notNull().unique(),

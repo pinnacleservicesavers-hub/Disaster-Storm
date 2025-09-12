@@ -13,7 +13,10 @@ import {
   Settings, 
   Eye,
   AlertTriangle,
-  ExternalLink 
+  ExternalLink,
+  Cloud,
+  Zap,
+  Waves
 } from 'lucide-react';
 import { HlsPlayer } from './HlsPlayer';
 import { MjpegView } from './MjpegView';
@@ -61,6 +64,13 @@ export function CameraViewer({
     queryKey: ['/api/traffic-cameras', cameraId],
     enabled: !!cameraId,
     refetchInterval: autoRefresh ? 60000 : false, // Refresh camera details every minute
+  });
+
+  // Fetch weather context for camera location
+  const { data: weatherContext } = useQuery({
+    queryKey: ['/api/weather/camera-overlay', cameraId, { weatherTypes: 'alerts,radar,lightning,satellite' }],
+    enabled: !!cameraId && !!camera,
+    refetchInterval: 300000, // Refetch every 5 minutes
   });
 
   const handleDamageDetected = (detections: any[]) => {
@@ -300,6 +310,93 @@ export function CameraViewer({
                       <div><strong>Coordinates:</strong> {camera?.lat.toFixed(4)}, {camera?.lng.toFixed(4)}</div>
                     </div>
                   </div>
+                  
+                  {/* Weather Context */}
+                  {weatherContext && (
+                    <div>
+                      <h4 className="font-semibold mb-2 flex items-center">
+                        <Cloud className="w-4 h-4 mr-2" />
+                        Weather Context
+                      </h4>
+                      <div className="space-y-2">
+                        {/* Weather Alerts */}
+                        {weatherContext.alerts && weatherContext.alerts.length > 0 && (
+                          <div className="bg-orange-50 border border-orange-200 rounded p-3">
+                            <div className="flex items-center space-x-2 mb-2">
+                              <AlertTriangle className="w-4 h-4 text-orange-500" />
+                              <Badge variant={weatherContext.alerts[0].severity === 'Extreme' ? 'destructive' : 'secondary'}>
+                                {weatherContext.alerts[0].alertType}
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-gray-600">{weatherContext.alerts[0].description?.slice(0, 150)}...</p>
+                          </div>
+                        )}
+
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                          {/* Radar Intensity */}
+                          {weatherContext.radar && (
+                            <div className="bg-gray-50 rounded p-2">
+                              <div className="flex items-center justify-between">
+                                <span className="text-gray-600">Radar:</span>
+                                <span className="font-medium">
+                                  {weatherContext.radar.layers?.[0]?.data?.length > 50 ? 'High' :
+                                   weatherContext.radar.layers?.[0]?.data?.length > 20 ? 'Moderate' :
+                                   weatherContext.radar.layers?.[0]?.data?.length > 0 ? 'Light' : 'None'}
+                                </span>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Lightning Activity */}
+                          {weatherContext.lightning && (
+                            <div className="bg-gray-50 rounded p-2">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center">
+                                  <Zap className="w-3 h-3 text-yellow-500 mr-1" />
+                                  <span className="text-gray-600">Lightning:</span>
+                                </div>
+                                <span className="font-medium">
+                                  {(weatherContext.lightning.density || 0) > 10 ? 'High' :
+                                   (weatherContext.lightning.density || 0) > 5 ? 'Moderate' :
+                                   (weatherContext.lightning.density || 0) > 0 ? 'Light' : 'None'}
+                                </span>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Marine Conditions */}
+                          {weatherContext.marine && (
+                            <div className="bg-gray-50 rounded p-2">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center">
+                                  <Waves className="w-3 h-3 text-blue-500 mr-1" />
+                                  <span className="text-gray-600">Waves:</span>
+                                </div>
+                                <span className="font-medium">
+                                  {(weatherContext.marine.waves?.significantHeight || 0).toFixed(1)}m
+                                </span>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Satellite Info */}
+                          {weatherContext.satellite && (
+                            <div className="bg-gray-50 rounded p-2">
+                              <div className="flex items-center justify-between">
+                                <span className="text-gray-600">Satellite:</span>
+                                <span className="font-medium text-green-600">Active</span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="text-xs text-gray-500 flex items-center mt-2">
+                          <Clock className="w-3 h-3 mr-1" />
+                          Updated: {new Date(weatherContext.timestamp || Date.now()).toLocaleTimeString()}
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   <div>
                     <h4 className="font-semibold mb-2">Technical Details</h4>
