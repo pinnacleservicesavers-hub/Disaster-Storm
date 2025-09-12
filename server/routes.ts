@@ -32,6 +32,7 @@ import nodemailer from "nodemailer";
 import fetchPkg from "node-fetch";
 import Stripe from "stripe";
 import PDFDocument from "pdfkit";
+import bcrypt from "bcryptjs";
 import { createServer, type Server } from "http";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { weatherService, weatherStreamManager } from "./services/weather";
@@ -48,7 +49,11 @@ import {
   insertStormHotZoneSchema,
   contractorWeatherRequestSchema,
   contractorRegionRequestSchema,
-  contractorMarineRequestSchema
+  contractorMarineRequestSchema,
+  insertHomeownerSchema,
+  insertDamageReportSchema,
+  insertServiceRequestSchema,
+  insertEmergencyContactSchema
 } from "@shared/schema";
 
 // fetch polyfill if needed
@@ -4853,6 +4858,316 @@ Email: strategiclandmgmt@gmail.com
         // SMS disabled - add Twilio client initialization if needed
       }
     }catch{}
+  });
+
+  // ===== VICTIM PORTAL AUTHENTICATION =====
+
+  // Victim Registration
+  app.post("/api/victim/register", express.json(), async (req, res) => {
+    try {
+      const validatedData = insertHomeownerSchema.parse(req.body);
+      
+      // Check if email already exists
+      const existingHomeowner = await storage.getHomeownerByEmail(validatedData.email);
+      if (existingHomeowner) {
+        return res.status(409).json({ error: "Email already registered" });
+      }
+
+      // Hash password
+      const saltRounds = 10;
+      const hashedPassword = await bcrypt.hash(validatedData.passwordHash, saltRounds);
+
+      // Create homeowner
+      const homeowner = await storage.createHomeowner({
+        ...validatedData,
+        passwordHash: hashedPassword,
+        verificationToken: randomUUID() // For email verification if needed
+      });
+
+      // Remove sensitive data from response
+      const { passwordHash, verificationToken, ...safeHomeowner } = homeowner;
+
+      res.status(201).json({ 
+        ok: true, 
+        homeowner: safeHomeowner,
+        message: "Registration successful" 
+      });
+    } catch (error) {
+      console.error("Registration error:", error);
+      if (error.name === "ZodError") {
+        return res.status(400).json({ 
+          error: "Validation failed", 
+          details: error.errors 
+        });
+      }
+      res.status(500).json({ error: "Registration failed" });
+    }
+  });
+
+  // Victim Login
+  app.post("/api/victim/login", express.json(), async (req, res) => {
+    try {
+      const { email, password } = req.body;
+
+      if (!email || !password) {
+        return res.status(400).json({ error: "Email and password required" });
+      }
+
+      // Find homeowner by email
+      const homeowner = await storage.getHomeownerByEmail(email);
+      if (!homeowner) {
+        return res.status(401).json({ error: "Invalid email or password" });
+      }
+
+      // Verify password
+      const isValidPassword = await bcrypt.compare(password, homeowner.passwordHash);
+      if (!isValidPassword) {
+        return res.status(401).json({ error: "Invalid email or password" });
+      }
+
+      // Remove sensitive data from response
+      const { passwordHash, verificationToken, ...safeHomeowner } = homeowner;
+
+      res.json({ 
+        ok: true, 
+        homeowner: safeHomeowner,
+        message: "Login successful" 
+      });
+    } catch (error) {
+      console.error("Login error:", error);
+      res.status(500).json({ error: "Login failed" });
+    }
+  });
+
+  // Get Victim Profile
+  app.get("/api/victim/profile/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const homeowner = await storage.getHomeowner(id);
+      
+      if (!homeowner) {
+        return res.status(404).json({ error: "Homeowner not found" });
+      }
+
+      // Remove sensitive data from response
+      const { passwordHash, verificationToken, ...safeHomeowner } = homeowner;
+
+      res.json({ homeowner: safeHomeowner });
+    } catch (error) {
+      console.error("Profile fetch error:", error);
+      res.status(500).json({ error: "Failed to fetch profile" });
+    }
+  });
+
+  // Update Victim Profile
+  app.put("/api/victim/profile/:id", express.json(), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+
+      // Remove sensitive fields that shouldn't be updated via this endpoint
+      const { passwordHash, verificationToken, id: bodyId, createdAt, ...allowedUpdates } = updates;
+
+      const updatedHomeowner = await storage.updateHomeowner(id, {
+        ...allowedUpdates,
+        updatedAt: new Date()
+      });
+
+      // Remove sensitive data from response
+      const { passwordHash: hash, verificationToken: token, ...safeHomeowner } = updatedHomeowner;
+
+      res.json({ 
+        ok: true, 
+        homeowner: safeHomeowner,
+        message: "Profile updated successfully" 
+      });
+    } catch (error) {
+      console.error("Profile update error:", error);
+      if (error.message === "Homeowner not found") {
+        return res.status(404).json({ error: "Homeowner not found" });
+      }
+      res.status(500).json({ error: "Failed to update profile" });
+    }
+  });
+
+  // Change Password
+  app.post("/api/victim/change-password", express.json(), async (req, res) => {
+    try {
+      const { homeownerId, currentPassword, newPassword } = req.body;
+
+      if (!homeownerId || !currentPassword || !newPassword) {
+        return res.status(400).json({ 
+          error: "Homeowner ID, current password, and new password required" 
+        });
+      }
+
+      // Find homeowner
+      const homeowner = await storage.getHomeowner(homeownerId);
+      if (!homeowner) {
+        return res.status(404).json({ error: "Homeowner not found" });
+      }
+
+      // Verify current password
+      const isValidPassword = await bcrypt.compare(currentPassword, homeowner.passwordHash);
+      if (!isValidPassword) {
+        return res.status(401).json({ error: "Current password is incorrect" });
+      }
+
+      // Hash new password
+      const saltRounds = 10;
+      const hashedNewPassword = await bcrypt.hash(newPassword, saltRounds);
+
+      // Update password
+      await storage.updateHomeowner(homeownerId, {
+        passwordHash: hashedNewPassword,
+        updatedAt: new Date()
+      });
+
+      res.json({ 
+        ok: true, 
+        message: "Password changed successfully" 
+      });
+    } catch (error) {
+      console.error("Password change error:", error);
+      res.status(500).json({ error: "Failed to change password" });
+    }
+  });
+
+  // ===== DAMAGE REPORT API ROUTES =====
+
+  // Create Damage Report with File Upload
+  app.post("/api/victim/damage-reports", upload.array('files', 10), async (req, res) => {
+    try {
+      const { data } = req.body;
+      const files = req.files as Express.Multer.File[];
+      
+      if (!data) {
+        return res.status(400).json({ error: "Damage report data is required" });
+      }
+
+      const damageReportData = JSON.parse(data);
+      const validatedData = insertDamageReportSchema.parse(damageReportData);
+
+      // Process uploaded files
+      const photos: any[] = [];
+      const videos: any[] = [];
+
+      if (files && files.length > 0) {
+        files.forEach(file => {
+          const fileData = {
+            filename: file.filename,
+            originalName: file.originalname,
+            size: file.size,
+            mimetype: file.mimetype,
+            path: file.path,
+            uploadDate: new Date().toISOString()
+          };
+
+          if (file.mimetype.startsWith('image/')) {
+            photos.push(fileData);
+          } else if (file.mimetype.startsWith('video/')) {
+            videos.push(fileData);
+          }
+        });
+      }
+
+      // Create damage report
+      const damageReport = await storage.createDamageReport({
+        ...validatedData,
+        photos: photos.length > 0 ? photos : null,
+        videos: videos.length > 0 ? videos : null,
+        photoCount: photos.length,
+        videoCount: videos.length,
+        gpsFromExif: false, // Could be enhanced to extract GPS from EXIF
+        isEmergency: validatedData.severity === 'emergency'
+      });
+
+      res.status(201).json({ 
+        ok: true, 
+        damageReport,
+        message: "Damage report created successfully" 
+      });
+    } catch (error) {
+      console.error("Damage report creation error:", error);
+      if (error.name === "ZodError") {
+        return res.status(400).json({ 
+          error: "Validation failed", 
+          details: error.errors 
+        });
+      }
+      res.status(500).json({ error: "Failed to create damage report" });
+    }
+  });
+
+  // Get Damage Reports for Homeowner
+  app.get("/api/victim/damage-reports/:homeownerId", async (req, res) => {
+    try {
+      const { homeownerId } = req.params;
+      const damageReports = await storage.getDamageReportsByHomeowner(homeownerId);
+      res.json({ damageReports });
+    } catch (error) {
+      console.error("Damage reports fetch error:", error);
+      res.status(500).json({ error: "Failed to fetch damage reports" });
+    }
+  });
+
+  // Get Single Damage Report
+  app.get("/api/victim/damage-report/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const damageReport = await storage.getDamageReport(id);
+      
+      if (!damageReport) {
+        return res.status(404).json({ error: "Damage report not found" });
+      }
+
+      res.json({ damageReport });
+    } catch (error) {
+      console.error("Damage report fetch error:", error);
+      res.status(500).json({ error: "Failed to fetch damage report" });
+    }
+  });
+
+  // ===== SERVICE REQUEST API ROUTES =====
+
+  // Create Service Request
+  app.post("/api/victim/service-requests", express.json(), async (req, res) => {
+    try {
+      const validatedData = insertServiceRequestSchema.parse(req.body);
+
+      const serviceRequest = await storage.createServiceRequest({
+        ...validatedData,
+        matchedContractors: null, // Will be populated by matching system
+        assignedContractorId: null
+      });
+
+      res.status(201).json({ 
+        ok: true, 
+        serviceRequest,
+        message: "Service request created successfully" 
+      });
+    } catch (error) {
+      console.error("Service request creation error:", error);
+      if (error.name === "ZodError") {
+        return res.status(400).json({ 
+          error: "Validation failed", 
+          details: error.errors 
+        });
+      }
+      res.status(500).json({ error: "Failed to create service request" });
+    }
+  });
+
+  // Get Service Requests for Homeowner
+  app.get("/api/victim/service-requests/:homeownerId", async (req, res) => {
+    try {
+      const { homeownerId } = req.params;
+      const serviceRequests = await storage.getServiceRequestsByHomeowner(homeownerId);
+      res.json({ serviceRequests });
+    } catch (error) {
+      console.error("Service requests fetch error:", error);
+      res.status(500).json({ error: "Failed to fetch service requests" });
+    }
   });
 
   const httpServer = createServer(app);

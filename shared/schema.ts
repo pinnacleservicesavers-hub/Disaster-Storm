@@ -639,6 +639,151 @@ export const stormHotZones = pgTable("storm_hot_zones", {
   uniqueCounty: unique().on(table.stateCode, table.countyParish),
 }));
 
+// ===== VICTIM PORTAL SCHEMAS =====
+
+// Homeowners/Victims table for portal users
+export const homeowners = pgTable("homeowners", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  firstName: text("first_name").notNull(),
+  lastName: text("last_name").notNull(),
+  email: text("email").notNull().unique(),
+  phone: text("phone").notNull(),
+  
+  // Property Information
+  propertyAddress: text("property_address").notNull(),
+  city: text("city").notNull(),
+  state: text("state").notNull(),
+  zipCode: text("zip_code").notNull(),
+  latitude: numeric("latitude", { precision: 10, scale: 8 }),
+  longitude: numeric("longitude", { precision: 10, scale: 8 }),
+  
+  // Property Details
+  propertyType: text("property_type").notNull(), // "residential", "commercial"
+  squareFootage: numeric("square_footage", { precision: 8, scale: 2 }),
+  yearBuilt: integer("year_built"),
+  
+  // Insurance Information
+  insuranceCarrier: text("insurance_carrier"),
+  policyNumber: text("policy_number"),
+  
+  // Contact Preferences
+  preferredContactMethod: text("preferred_contact_method").default("phone"), // phone, email, sms
+  languagePreference: text("language_preference").default("en"), // en, es
+  
+  // Emergency Status
+  hasActiveEmergency: boolean("has_active_emergency").default(false),
+  
+  // Authentication
+  passwordHash: text("password_hash").notNull(),
+  isVerified: boolean("is_verified").default(false),
+  verificationToken: text("verification_token"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Damage Reports table for victim submissions
+export const damageReports = pgTable("damage_reports", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  homeownerId: varchar("homeowner_id").notNull().references(() => homeowners.id),
+  
+  // Damage Information
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  damageType: text("damage_type").notNull(), // "roof_damage", "tree_removal", "flooding", "window_damage", "structural", "electrical", "siding"
+  severity: text("severity").notNull(), // "emergency", "urgent", "moderate", "minor"
+  
+  // Location Data
+  damageLocation: text("damage_location"), // "front_yard", "roof", "living_room", etc.
+  latitude: numeric("latitude", { precision: 10, scale: 8 }),
+  longitude: numeric("longitude", { precision: 10, scale: 8 }),
+  addressOverride: text("address_override"), // If damage is at different address than homeowner
+  
+  // Media Attachments
+  photos: jsonb("photos"), // Array of photo URLs with metadata
+  videos: jsonb("videos"), // Array of video URLs with metadata
+  photoCount: integer("photo_count").default(0),
+  videoCount: integer("video_count").default(0),
+  
+  // GPS and EXIF Data
+  gpsFromExif: boolean("gps_from_exif").default(false), // Whether GPS came from EXIF data
+  exifData: jsonb("exif_data"), // Stored EXIF metadata
+  
+  // Status and Timeline
+  status: text("status").default("submitted"), // submitted, reviewed, contractor_assigned, in_progress, completed
+  isEmergency: boolean("is_emergency").default(false),
+  
+  // Weather Context
+  weatherConditions: text("weather_conditions"), // Weather at time of damage
+  stormEventId: varchar("storm_event_id"), // Link to weather event if applicable
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Service Requests table for specific help needed
+export const serviceRequests = pgTable("service_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  homeownerId: varchar("homeowner_id").notNull().references(() => homeowners.id),
+  damageReportId: varchar("damage_report_id").references(() => damageReports.id),
+  
+  // Service Information
+  serviceType: text("service_type").notNull(), // "roofing", "siding", "windows", "flooding", "electrical", "tree_removal", "general_contractor"
+  urgency: text("urgency").notNull(), // "immediate", "urgent", "normal", "when_convenient"
+  description: text("description").notNull(),
+  
+  // Scope and Budget
+  estimatedScope: text("estimated_scope"), // "small", "medium", "large", "full_restoration"
+  budgetRange: text("budget_range"), // "under_5k", "5k_15k", "15k_50k", "over_50k", "insurance_covered"
+  preferredTimeframe: text("preferred_timeframe"), // "asap", "within_week", "within_month", "flexible"
+  
+  // Contractor Preferences
+  contractorPreferences: jsonb("contractor_preferences"), // Array of preferences like "licensed", "insured", "local"
+  maxDistance: numeric("max_distance", { precision: 5, scale: 2 }).default("25.00"), // Miles from property
+  
+  // Matching and Assignment
+  matchedContractors: jsonb("matched_contractors"), // Array of matched contractor IDs
+  assignedContractorId: varchar("assigned_contractor_id"),
+  
+  // Status Tracking
+  status: text("status").default("open"), // open, contractor_assigned, estimate_received, work_scheduled, in_progress, completed, cancelled
+  
+  // Communication
+  allowContactOutsideHours: boolean("allow_contact_outside_hours").default(false),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Emergency Contacts table for prioritization
+export const emergencyContacts = pgTable("emergency_contacts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  homeownerId: varchar("homeowner_id").notNull().references(() => homeowners.id),
+  
+  // Contact Information
+  name: text("name").notNull(),
+  relationship: text("relationship").notNull(), // "family", "friend", "neighbor", "insurance_agent", "property_manager"
+  phone: text("phone").notNull(),
+  email: text("email"),
+  
+  // Contact Preferences
+  isPrimary: boolean("is_primary").default(false),
+  contactOrder: integer("contact_order").default(1), // Order of contact priority
+  availableHours: text("available_hours"), // "24/7", "business_hours", "custom"
+  customHours: text("custom_hours"), // Custom availability if not standard
+  
+  // Emergency Settings
+  contactForEmergencies: boolean("contact_for_emergencies").default(true),
+  contactForUpdates: boolean("contact_for_updates").default(false),
+  hasPropertyAccess: boolean("has_property_access").default(false), // Can meet contractors if homeowner unavailable
+  
+  // Notes
+  notes: text("notes"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Zod schemas for validation  
 export const insertUserSchema = createInsertSchema(users);
 export const insertClaimSchema = createInsertSchema(claims);
@@ -663,6 +808,10 @@ export const insertTrafficCamAlertSchema = createInsertSchema(trafficCamAlerts);
 export const insertTrafficCamLeadSchema = createInsertSchema(trafficCamLeads);
 export const insertContractorWatchlistSchema = createInsertSchema(contractorWatchlist).omit({ id: true, createdAt: true });
 export const insertStormHotZoneSchema = createInsertSchema(stormHotZones).omit({ id: true, createdAt: true, lastUpdated: true });
+export const insertHomeownerSchema = createInsertSchema(homeowners).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertDamageReportSchema = createInsertSchema(damageReports).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertServiceRequestSchema = createInsertSchema(serviceRequests).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertEmergencyContactSchema = createInsertSchema(emergencyContacts).omit({ id: true, createdAt: true, updatedAt: true });
 
 // Types
 export type User = typeof users.$inferSelect;
@@ -711,3 +860,11 @@ export type ContractorWatchlist = typeof contractorWatchlist.$inferSelect;
 export type InsertContractorWatchlist = z.infer<typeof insertContractorWatchlistSchema>;
 export type StormHotZone = typeof stormHotZones.$inferSelect;
 export type InsertStormHotZone = z.infer<typeof insertStormHotZoneSchema>;
+export type Homeowner = typeof homeowners.$inferSelect;
+export type InsertHomeowner = z.infer<typeof insertHomeownerSchema>;
+export type DamageReport = typeof damageReports.$inferSelect;
+export type InsertDamageReport = z.infer<typeof insertDamageReportSchema>;
+export type ServiceRequest = typeof serviceRequests.$inferSelect;
+export type InsertServiceRequest = z.infer<typeof insertServiceRequestSchema>;
+export type EmergencyContact = typeof emergencyContacts.$inferSelect;
+export type InsertEmergencyContact = z.infer<typeof insertEmergencyContactSchema>;

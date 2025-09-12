@@ -36,7 +36,15 @@ import {
   type ContractorWatchlist,
   type InsertContractorWatchlist,
   type StormHotZone,
-  type InsertStormHotZone
+  type InsertStormHotZone,
+  type Homeowner,
+  type InsertHomeowner,
+  type DamageReport,
+  type InsertDamageReport,
+  type ServiceRequest,
+  type InsertServiceRequest,
+  type EmergencyContact,
+  type InsertEmergencyContact
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import fs from "fs";
@@ -157,6 +165,42 @@ export interface IStorage {
   getStormHotZone(id: string): Promise<StormHotZone | undefined>;
   createStormHotZone(zone: InsertStormHotZone): Promise<StormHotZone>;
   updateStormHotZone(id: string, updates: Partial<StormHotZone>): Promise<StormHotZone>;
+
+  // Victim Portal - Homeowner methods
+  getHomeowners(): Promise<Homeowner[]>;
+  getHomeowner(id: string): Promise<Homeowner | undefined>;
+  getHomeownerByEmail(email: string): Promise<Homeowner | undefined>;
+  createHomeowner(homeowner: InsertHomeowner): Promise<Homeowner>;
+  updateHomeowner(id: string, updates: Partial<Homeowner>): Promise<Homeowner>;
+  getHomeownersByState(state: string): Promise<Homeowner[]>;
+
+  // Victim Portal - Damage Report methods
+  getDamageReports(): Promise<DamageReport[]>;
+  getDamageReport(id: string): Promise<DamageReport | undefined>;
+  getDamageReportsByHomeowner(homeownerId: string): Promise<DamageReport[]>;
+  createDamageReport(report: InsertDamageReport): Promise<DamageReport>;
+  updateDamageReport(id: string, updates: Partial<DamageReport>): Promise<DamageReport>;
+  getEmergencyDamageReports(): Promise<DamageReport[]>;
+  getDamageReportsByType(damageType: string): Promise<DamageReport[]>;
+
+  // Victim Portal - Service Request methods
+  getServiceRequests(): Promise<ServiceRequest[]>;
+  getServiceRequest(id: string): Promise<ServiceRequest | undefined>;
+  getServiceRequestsByHomeowner(homeownerId: string): Promise<ServiceRequest[]>;
+  createServiceRequest(request: InsertServiceRequest): Promise<ServiceRequest>;
+  updateServiceRequest(id: string, updates: Partial<ServiceRequest>): Promise<ServiceRequest>;
+  getServiceRequestsByType(serviceType: string): Promise<ServiceRequest[]>;
+  getOpenServiceRequests(): Promise<ServiceRequest[]>;
+  getServiceRequestsByLocation(lat: number, lng: number, radius: number): Promise<ServiceRequest[]>;
+
+  // Victim Portal - Emergency Contact methods
+  getEmergencyContacts(): Promise<EmergencyContact[]>;
+  getEmergencyContact(id: string): Promise<EmergencyContact | undefined>;
+  getEmergencyContactsByHomeowner(homeownerId: string): Promise<EmergencyContact[]>;
+  createEmergencyContact(contact: InsertEmergencyContact): Promise<EmergencyContact>;
+  updateEmergencyContact(id: string, updates: Partial<EmergencyContact>): Promise<EmergencyContact>;
+  deleteEmergencyContact(id: string): Promise<boolean>;
+  getPrimaryEmergencyContact(homeownerId: string): Promise<EmergencyContact | undefined>;
 }
 
 export class MemStorage implements IStorage {
@@ -179,6 +223,12 @@ export class MemStorage implements IStorage {
   private contractorDocuments: Map<string, ContractorDocument> = new Map();
   private contractorWatchlist: Map<string, ContractorWatchlist> = new Map();
   private stormHotZones: Map<string, StormHotZone> = new Map();
+  
+  // Victim Portal Storage
+  private homeowners: Map<string, Homeowner> = new Map();
+  private damageReports: Map<string, DamageReport> = new Map();
+  private serviceRequests: Map<string, ServiceRequest> = new Map();
+  private emergencyContacts: Map<string, EmergencyContact> = new Map();
 
   constructor() {
     console.log('🏗️ Initializing MemStorage...');
@@ -901,6 +951,190 @@ export class MemStorage implements IStorage {
     };
     this.stormHotZones.set(id, updated);
     return updated;
+  }
+
+  // ===== VICTIM PORTAL METHODS =====
+
+  // Homeowner methods
+  async getHomeowners(): Promise<Homeowner[]> {
+    return Array.from(this.homeowners.values());
+  }
+
+  async getHomeowner(id: string): Promise<Homeowner | undefined> {
+    return this.homeowners.get(id);
+  }
+
+  async getHomeownerByEmail(email: string): Promise<Homeowner | undefined> {
+    return Array.from(this.homeowners.values()).find(homeowner => homeowner.email === email);
+  }
+
+  async createHomeowner(insertHomeowner: InsertHomeowner): Promise<Homeowner> {
+    const id = randomUUID();
+    const homeowner: Homeowner = { 
+      ...insertHomeowner, 
+      id, 
+      createdAt: new Date(), 
+      updatedAt: new Date() 
+    };
+    this.homeowners.set(id, homeowner);
+    return homeowner;
+  }
+
+  async updateHomeowner(id: string, updates: Partial<Homeowner>): Promise<Homeowner> {
+    const homeowner = this.homeowners.get(id);
+    if (!homeowner) throw new Error("Homeowner not found");
+    
+    const updatedHomeowner = { ...homeowner, ...updates, updatedAt: new Date() };
+    this.homeowners.set(id, updatedHomeowner);
+    return updatedHomeowner;
+  }
+
+  async getHomeownersByState(state: string): Promise<Homeowner[]> {
+    return Array.from(this.homeowners.values()).filter(homeowner => homeowner.state === state);
+  }
+
+  // Damage Report methods
+  async getDamageReports(): Promise<DamageReport[]> {
+    return Array.from(this.damageReports.values());
+  }
+
+  async getDamageReport(id: string): Promise<DamageReport | undefined> {
+    return this.damageReports.get(id);
+  }
+
+  async getDamageReportsByHomeowner(homeownerId: string): Promise<DamageReport[]> {
+    return Array.from(this.damageReports.values()).filter(report => report.homeownerId === homeownerId);
+  }
+
+  async createDamageReport(insertReport: InsertDamageReport): Promise<DamageReport> {
+    const id = randomUUID();
+    const report: DamageReport = { 
+      ...insertReport, 
+      id, 
+      createdAt: new Date(), 
+      updatedAt: new Date() 
+    };
+    this.damageReports.set(id, report);
+    return report;
+  }
+
+  async updateDamageReport(id: string, updates: Partial<DamageReport>): Promise<DamageReport> {
+    const report = this.damageReports.get(id);
+    if (!report) throw new Error("Damage report not found");
+    
+    const updatedReport = { ...report, ...updates, updatedAt: new Date() };
+    this.damageReports.set(id, updatedReport);
+    return updatedReport;
+  }
+
+  async getEmergencyDamageReports(): Promise<DamageReport[]> {
+    return Array.from(this.damageReports.values()).filter(report => report.isEmergency || report.severity === 'emergency');
+  }
+
+  async getDamageReportsByType(damageType: string): Promise<DamageReport[]> {
+    return Array.from(this.damageReports.values()).filter(report => report.damageType === damageType);
+  }
+
+  // Service Request methods
+  async getServiceRequests(): Promise<ServiceRequest[]> {
+    return Array.from(this.serviceRequests.values());
+  }
+
+  async getServiceRequest(id: string): Promise<ServiceRequest | undefined> {
+    return this.serviceRequests.get(id);
+  }
+
+  async getServiceRequestsByHomeowner(homeownerId: string): Promise<ServiceRequest[]> {
+    return Array.from(this.serviceRequests.values()).filter(request => request.homeownerId === homeownerId);
+  }
+
+  async createServiceRequest(insertRequest: InsertServiceRequest): Promise<ServiceRequest> {
+    const id = randomUUID();
+    const request: ServiceRequest = { 
+      ...insertRequest, 
+      id, 
+      createdAt: new Date(), 
+      updatedAt: new Date() 
+    };
+    this.serviceRequests.set(id, request);
+    return request;
+  }
+
+  async updateServiceRequest(id: string, updates: Partial<ServiceRequest>): Promise<ServiceRequest> {
+    const request = this.serviceRequests.get(id);
+    if (!request) throw new Error("Service request not found");
+    
+    const updatedRequest = { ...request, ...updates, updatedAt: new Date() };
+    this.serviceRequests.set(id, updatedRequest);
+    return updatedRequest;
+  }
+
+  async getServiceRequestsByType(serviceType: string): Promise<ServiceRequest[]> {
+    return Array.from(this.serviceRequests.values()).filter(request => request.serviceType === serviceType);
+  }
+
+  async getOpenServiceRequests(): Promise<ServiceRequest[]> {
+    return Array.from(this.serviceRequests.values()).filter(request => request.status === 'open');
+  }
+
+  async getServiceRequestsByLocation(lat: number, lng: number, radius: number): Promise<ServiceRequest[]> {
+    return Array.from(this.serviceRequests.values()).filter(request => {
+      // Get homeowner to check location
+      const homeowner = this.homeowners.get(request.homeownerId);
+      if (!homeowner || !homeowner.latitude || !homeowner.longitude) return false;
+      
+      // Simple distance calculation (could be improved with proper haversine formula)
+      const latDiff = Math.abs(Number(homeowner.latitude) - lat);
+      const lngDiff = Math.abs(Number(homeowner.longitude) - lng);
+      const distance = Math.sqrt(latDiff * latDiff + lngDiff * lngDiff) * 69; // Rough miles conversion
+      
+      return distance <= radius;
+    });
+  }
+
+  // Emergency Contact methods
+  async getEmergencyContacts(): Promise<EmergencyContact[]> {
+    return Array.from(this.emergencyContacts.values());
+  }
+
+  async getEmergencyContact(id: string): Promise<EmergencyContact | undefined> {
+    return this.emergencyContacts.get(id);
+  }
+
+  async getEmergencyContactsByHomeowner(homeownerId: string): Promise<EmergencyContact[]> {
+    return Array.from(this.emergencyContacts.values())
+      .filter(contact => contact.homeownerId === homeownerId)
+      .sort((a, b) => a.contactOrder - b.contactOrder);
+  }
+
+  async createEmergencyContact(insertContact: InsertEmergencyContact): Promise<EmergencyContact> {
+    const id = randomUUID();
+    const contact: EmergencyContact = { 
+      ...insertContact, 
+      id, 
+      createdAt: new Date(), 
+      updatedAt: new Date() 
+    };
+    this.emergencyContacts.set(id, contact);
+    return contact;
+  }
+
+  async updateEmergencyContact(id: string, updates: Partial<EmergencyContact>): Promise<EmergencyContact> {
+    const contact = this.emergencyContacts.get(id);
+    if (!contact) throw new Error("Emergency contact not found");
+    
+    const updatedContact = { ...contact, ...updates, updatedAt: new Date() };
+    this.emergencyContacts.set(id, updatedContact);
+    return updatedContact;
+  }
+
+  async deleteEmergencyContact(id: string): Promise<boolean> {
+    return this.emergencyContacts.delete(id);
+  }
+
+  async getPrimaryEmergencyContact(homeownerId: string): Promise<EmergencyContact | undefined> {
+    return Array.from(this.emergencyContacts.values())
+      .find(contact => contact.homeownerId === homeownerId && contact.isPrimary);
   }
 }
 

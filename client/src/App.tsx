@@ -2,8 +2,14 @@ import { Route, Switch, Link, useLocation } from 'wouter';
 import StormOpsProHub from "./StormOpsProHub";
 import WeatherCenter from "./pages/WeatherCenter";
 import { TrafficCameras } from "./pages/Cameras";
+import VictimLogin from "./pages/VictimLogin";
+import VictimRegister from "./pages/VictimRegister";
+import VictimDashboard from "./pages/VictimDashboard";
+import DamageReport from "./pages/DamageReport";
+import ServiceRequest from "./pages/ServiceRequest";
+import MyRequests from "./pages/MyRequests";
 import { Button } from '@/components/ui/button';
-import { Cloud, Home, Menu, Camera } from 'lucide-react';
+import { Cloud, Home, Menu, Camera, Heart } from 'lucide-react';
 
 function Navigation() {
   const [location] = useLocation();
@@ -49,6 +55,17 @@ function Navigation() {
                 TrafficCamWatcher
               </Button>
             </Link>
+            
+            <Link href="/victim/login">
+              <Button 
+                variant={location.startsWith('/victim') ? 'default' : 'ghost'} 
+                size="sm"
+                data-testid="nav-victim-portal"
+              >
+                <Heart className="w-4 h-4 mr-2" />
+                Victim Portal
+              </Button>
+            </Link>
           </div>
         </div>
       </div>
@@ -76,6 +93,30 @@ export default function App() {
           <title>TrafficCamWatcher - StormLead Master</title>
           <meta name="description" content="Monitor live traffic cameras and incidents across multiple states with AI-powered damage detection and contractor opportunity identification" />
           <TrafficCameras />
+        </Route>
+        
+        <Route path="/victim/login">
+          <VictimLogin />
+        </Route>
+        
+        <Route path="/victim/register">
+          <VictimRegister />
+        </Route>
+        
+        <Route path="/victim/dashboard">
+          <VictimDashboard />
+        </Route>
+        
+        <Route path="/victim/report-damage">
+          <DamageReport />
+        </Route>
+        
+        <Route path="/victim/request-help">
+          <ServiceRequest />
+        </Route>
+        
+        <Route path="/victim/my-requests">
+          <MyRequests />
         </Route>
         
         <Route path="/">
