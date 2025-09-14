@@ -1,8 +1,15 @@
 import { useState, useContext, createContext, useEffect } from 'react';
-import { useQuery, useMutation, queryClient, apiRequest } from '@/lib/queryClient';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { queryClient, apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import { MapContainer, TileLayer, GeoJSON } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
+
+// Import all module components
+import { TrafficCameras } from './pages/Cameras';
+import { DamageDetectionDashboard } from './components/DamageDetectionDashboard';
+import PredictionDashboard from './pages/PredictionDashboard';
+import VictimDashboard from './pages/VictimDashboard';
 
 // ===== Helper Functions =====
 function dollars(n: number | string): string { 
@@ -1005,11 +1012,122 @@ function slaBadges(c){
   return out;
 }
 
+// ===== Module Wrapper Components =====
+
+function TrafficCamWatcherModule() {
+  return (
+    <div className="h-full">
+      <TrafficCameras />
+    </div>
+  );
+}
+
+function DamageDetectionModule() {
+  return (
+    <div className="h-full">
+      <DamageDetectionDashboard />
+    </div>
+  );
+}
+
+function StormPredictionsModule() {
+  return (
+    <div className="h-full">
+      <PredictionDashboard />
+    </div>
+  );
+}
+
+function VictimPortalModule() {
+  return (
+    <div className="h-full">
+      <VictimDashboard />
+    </div>
+  );
+}
+
 // ===== Main Component =====
 export default function StormOpsProHub() {
   return (
-    <div className="p-4">
-      <WeatherCenter />
+    <div className="h-screen overflow-y-auto bg-gray-50">
+      {/* Dashboard Modules - Scrollable Layout */}
+      <div className="space-y-8">
+        {/* Weather Center Module */}
+        <section id="weather-center" className="min-h-screen p-6 bg-white border-b-4 border-blue-500">
+          <div className="max-w-7xl mx-auto">
+            <div className="mb-6">
+              <h2 className="text-3xl font-bold text-gray-900 mb-2" data-testid="heading-weather-center">
+                ☁️ Weather Center
+              </h2>
+              <p className="text-gray-600">Live weather monitoring, alerts, and radar data for storm operations</p>
+            </div>
+            <WeatherCenter />
+          </div>
+        </section>
+
+        {/* TrafficCamWatcher Module */}
+        <section id="traffic-cam-watcher" className="min-h-screen p-6 bg-white border-b-4 border-green-500">
+          <div className="max-w-7xl mx-auto">
+            <div className="mb-6">
+              <h2 className="text-3xl font-bold text-gray-900 mb-2" data-testid="heading-traffic-cam-watcher">
+                📹 TrafficCamWatcher
+              </h2>
+              <p className="text-gray-600">Live traffic camera monitoring with AI-powered damage detection across multiple states</p>
+            </div>
+            <TrafficCamWatcherModule />
+          </div>
+        </section>
+
+        {/* AI Damage Detection Module */}
+        <section id="ai-damage-detection" className="min-h-screen p-6 bg-white border-b-4 border-orange-500">
+          <div className="max-w-7xl mx-auto">
+            <div className="mb-6">
+              <h2 className="text-3xl font-bold text-gray-900 mb-2" data-testid="heading-ai-damage-detection">
+                🤖 AI Damage Detection
+              </h2>
+              <p className="text-gray-600">Real-time AI analysis of camera feeds to identify storm damage and generate contractor leads</p>
+            </div>
+            <DamageDetectionModule />
+          </div>
+        </section>
+
+        {/* Storm Predictions Module */}
+        <section id="storm-predictions" className="min-h-screen p-6 bg-white border-b-4 border-purple-500">
+          <div className="max-w-7xl mx-auto">
+            <div className="mb-6">
+              <h2 className="text-3xl font-bold text-gray-900 mb-2" data-testid="heading-storm-predictions">
+                ⚡ Storm Predictions
+              </h2>
+              <p className="text-gray-600">AI-powered predictive storm damage analysis with 24-48 hour forecasts and contractor deployment recommendations</p>
+            </div>
+            <StormPredictionsModule />
+          </div>
+        </section>
+
+        {/* Victim Portal Module */}
+        <section id="victim-portal" className="min-h-screen p-6 bg-white border-b-4 border-red-500">
+          <div className="max-w-7xl mx-auto">
+            <div className="mb-6">
+              <h2 className="text-3xl font-bold text-gray-900 mb-2" data-testid="heading-victim-portal">
+                🏠 Victim Portal
+              </h2>
+              <p className="text-gray-600">Storm victim assistance portal for damage reporting and contractor connection</p>
+            </div>
+            <VictimPortalModule />
+          </div>
+        </section>
+      </div>
+
+      {/* Scroll Navigation Indicator */}
+      <div className="fixed right-4 top-1/2 transform -translate-y-1/2 bg-white rounded-lg shadow-lg p-2 z-50">
+        <div className="space-y-2">
+          <a href="#weather-center" className="block w-3 h-3 bg-blue-500 rounded-full hover:bg-blue-600 transition-colors" title="Weather Center" data-testid="scroll-nav-weather"></a>
+          <a href="#traffic-cam-watcher" className="block w-3 h-3 bg-green-500 rounded-full hover:bg-green-600 transition-colors" title="TrafficCamWatcher" data-testid="scroll-nav-traffic"></a>
+          <a href="#ai-damage-detection" className="block w-3 h-3 bg-orange-500 rounded-full hover:bg-orange-600 transition-colors" title="AI Damage Detection" data-testid="scroll-nav-ai"></a>
+          <a href="#storm-predictions" className="block w-3 h-3 bg-purple-500 rounded-full hover:bg-purple-600 transition-colors" title="Storm Predictions" data-testid="scroll-nav-predictions"></a>
+          <a href="#victim-portal" className="block w-3 h-3 bg-red-500 rounded-full hover:bg-red-600 transition-colors" title="Victim Portal" data-testid="scroll-nav-victim"></a>
+        </div>
+      </div>
     </div>
   );
 }
