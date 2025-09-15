@@ -10,8 +10,13 @@ import ServiceRequest from "./pages/ServiceRequest";
 import MyRequests from "./pages/MyRequests";
 import { DamageDetectionDashboard } from "./components/DamageDetectionDashboard";
 import PredictionDashboard from "./pages/PredictionDashboard";
+import Contractors from "./pages/Contractors";
+import Claims from "./pages/Claims";
+import Customers from "./pages/Customers";
+import Drones from "./pages/Drones";
+import Legal from "./pages/Legal";
 import { Button } from '@/components/ui/button';
-import { Cloud, Home, Menu, Camera, Heart, Eye, Zap } from 'lucide-react';
+import { Cloud, Home, Menu, Camera, Heart, Eye, Zap, Users, FileText, User, Plane, Scale } from 'lucide-react';
 
 function Navigation() {
   const [location] = useLocation();
@@ -80,6 +85,61 @@ function Navigation() {
               </Button>
             </Link>
             
+            <Link href="/contractors">
+              <Button 
+                variant={location === '/contractors' ? 'default' : 'ghost'} 
+                size="sm"
+                data-testid="nav-contractors"
+              >
+                <Users className="w-4 h-4 mr-2" />
+                Contractors
+              </Button>
+            </Link>
+            
+            <Link href="/claims">
+              <Button 
+                variant={location === '/claims' ? 'default' : 'ghost'} 
+                size="sm"
+                data-testid="nav-claims"
+              >
+                <FileText className="w-4 h-4 mr-2" />
+                Claims
+              </Button>
+            </Link>
+            
+            <Link href="/customers">
+              <Button 
+                variant={location === '/customers' ? 'default' : 'ghost'} 
+                size="sm"
+                data-testid="nav-customers"
+              >
+                <User className="w-4 h-4 mr-2" />
+                Customers
+              </Button>
+            </Link>
+            
+            <Link href="/drones">
+              <Button 
+                variant={location === '/drones' ? 'default' : 'ghost'} 
+                size="sm"
+                data-testid="nav-drones"
+              >
+                <Plane className="w-4 h-4 mr-2" />
+                Drones
+              </Button>
+            </Link>
+            
+            <Link href="/legal">
+              <Button 
+                variant={location === '/legal' ? 'default' : 'ghost'} 
+                size="sm"
+                data-testid="nav-legal"
+              >
+                <Scale className="w-4 h-4 mr-2" />
+                Legal
+              </Button>
+            </Link>
+            
             <Link href="/victim/login">
               <Button 
                 variant={location.startsWith('/victim') ? 'default' : 'ghost'} 
@@ -129,6 +189,36 @@ export default function App() {
           <title>Storm Predictions - StormLead Master</title>
           <meta name="description" content="AI-powered predictive storm damage analysis with 24-48 hour forecasts, contractor deployment recommendations, and real-time risk assessment using NOAA radar and historical FEMA data" />
           <PredictionDashboard />
+        </Route>
+        
+        <Route path="/contractors">
+          <title>Contractor Management - StormLead Master</title>
+          <meta name="description" content="Manage your contractor network, qualifications, assignments, and performance tracking for storm restoration projects" />
+          <Contractors />
+        </Route>
+        
+        <Route path="/claims">
+          <title>Claims Management - StormLead Master</title>
+          <meta name="description" content="Process insurance claims, track settlements, manage documentation and communicate with insurance carriers" />
+          <Claims />
+        </Route>
+        
+        <Route path="/customers">
+          <title>Customer Management - StormLead Master</title>
+          <meta name="description" content="Manage customer relationships, communications, service history and project tracking for property restoration services" />
+          <Customers />
+        </Route>
+        
+        <Route path="/drones">
+          <title>Drone Operations - StormLead Master</title>
+          <meta name="description" content="Manage drone fleet, aerial inspections, automated damage assessment and real-time monitoring for storm response" />
+          <Drones />
+        </Route>
+        
+        <Route path="/legal">
+          <title>Legal Compliance - StormLead Master</title>
+          <meta name="description" content="Manage legal compliance, contracts, liens, regulatory requirements and documentation for storm restoration business" />
+          <Legal />
         </Route>
         
         <Route path="/victim/login">

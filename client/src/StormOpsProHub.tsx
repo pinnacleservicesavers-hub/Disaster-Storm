@@ -1,6 +1,6 @@
 import { useState, useContext, createContext } from 'react';
 import { Link } from 'wouter';
-import { Cloud, Camera, Bot, Zap, Users, ArrowRight } from 'lucide-react';
+import { Cloud, Camera, Bot, Zap, Users, ArrowRight, Plane, HardHat, Scale, FileText, UserCheck, Phone } from 'lucide-react';
 
 // ===== Role Context =====
 const RoleContext = createContext<{ role: string; setRole: (role: string) => void }>({ role: 'ops', setRole: () => {} });
@@ -54,6 +54,7 @@ export default function StormOpsProHub() {
   const victimPortalLink = victimUser ? '/victim/dashboard' : '/victim/login';
 
   const portals = [
+    // Core Operations
     {
       id: 'weather-center',
       title: 'Weather Center',
@@ -98,6 +99,63 @@ export default function StormOpsProHub() {
       borderClass: 'border-purple-200',
       testId: 'portal-predictions'
     },
+    // Business Operations
+    {
+      id: 'contractors',
+      title: 'Contractors',
+      description: 'Contractor management, crew dispatch, and project tracking for storm response operations',
+      icon: HardHat,
+      link: '/contractors',
+      color: 'cyan',
+      bgClass: 'from-cyan-500 to-cyan-600',
+      borderClass: 'border-cyan-200',
+      testId: 'portal-contractors'
+    },
+    {
+      id: 'claims',
+      title: 'Claims Management',
+      description: 'Insurance claims processing, documentation, and tracking with automated letter generation',
+      icon: FileText,
+      link: '/claims',
+      color: 'indigo',
+      bgClass: 'from-indigo-500 to-indigo-600',
+      borderClass: 'border-indigo-200',
+      testId: 'portal-claims'
+    },
+    {
+      id: 'customers',
+      title: 'Customers',
+      description: 'Customer relationship management, project history, and communication tracking',
+      icon: UserCheck,
+      link: '/customers',
+      color: 'teal',
+      bgClass: 'from-teal-500 to-teal-600',
+      borderClass: 'border-teal-200',
+      testId: 'portal-customers'
+    },
+    {
+      id: 'drones',
+      title: 'Drone Operations',
+      description: 'Drone fleet management, aerial footage analysis, and damage assessment workflows',
+      icon: Plane,
+      link: '/drones',
+      color: 'emerald',
+      bgClass: 'from-emerald-500 to-emerald-600',
+      borderClass: 'border-emerald-200',
+      testId: 'portal-drones'
+    },
+    {
+      id: 'legal',
+      title: 'Legal Compliance',
+      description: 'State lien deadlines, attorney directories, and legal compliance tracking tools',
+      icon: Scale,
+      link: '/legal',
+      color: 'slate',
+      bgClass: 'from-slate-500 to-slate-600',
+      borderClass: 'border-slate-200',
+      testId: 'portal-legal'
+    },
+    // Customer Facing
     {
       id: 'victim-portal',
       title: 'Victim Portal',
