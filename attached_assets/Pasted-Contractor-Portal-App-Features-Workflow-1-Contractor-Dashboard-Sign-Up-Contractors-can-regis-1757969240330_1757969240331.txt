@@ -1,0 +1,111 @@
+Contractor Portal – App Features & Workflow
+1. Contractor Dashboard & Sign-Up
+
+Contractors can register directly through the portal.
+
+Monthly subscription required (pricing TBD).
+
+Dashboard provides easy access to tools, documents, and leads.
+
+2. Contractor Profile & Compliance
+
+Add company information and list services offered.
+
+Upload insurance, business license, and compliance documents (shareable with customers).
+
+Upload pricing sheets and contracts for quick access.
+
+3. AI Support & Assistance
+
+Built-in AI in each contractor portal for Q&A and guidance.
+
+AI helps with compliance, contracts, pricing recommendations, and claims processes.
+
+4. Leads & Contracts
+
+Contractors can send contracts to leads for e-signature.
+
+Signed contracts are automatically saved in the customer’s file.
+
+Full communication system: text, email, and call integration with customers.
+
+5. Photo & Evidence Management
+
+Contractors can upload job photos/videos.
+
+AI overlays descriptions and damage assessments directly on photos.
+
+AI measures tree height, estimated weight, and severity of damage.
+
+Generates insurance-ready photo reports with context, reducing claim denials.
+
+6. Invoicing & Job Costing
+
+Contractors can invoice customers or insurance companies directly.
+
+AI job cost breakdowns with Xactimate-style market comparables (within 150-mile radius).
+
+Reports explain cost differences to insurance companies, preventing denials.
+
+7. Insurance & Claim Integration
+
+Automatic weather data integration (wind speed, hurricane category, etc.) with photo evidence.
+
+AI prepares complete claim documentation.
+
+Automated emails sent to insurance companies and customers when claims are filed.
+
+SBA & FEMA links available for customers to file disaster relief claims (renters, homeowners, business owners).
+
+8. Lien Protection & Legal Alerts
+
+State-specific lien law tracking.
+
+Automated alerts:
+
+30 days before lien deadline.
+
+15 days before lien deadline.
+
+AI step-by-step lien filing guidance via LienItNow.com integration.
+
+System reminders: follow-up legal steps (e.g., at 10 months).
+
+9. Customer Portal
+
+Each customer assigned a unique ID number.
+
+Customers can log in, view claims, contracts, invoices, and updates.
+
+Payment portal available for customers to pay invoices securely.
+
+Leads and customers can be tracked by ID, name, phone number, or address.
+
+10. Drone Services & Storm Mapping
+
+Dedicated Drone Portal on the dashboard.
+
+Live storm footage and archived videos available.
+
+Integrated drone service providers (pay-per-use or subscription).
+
+AI tags damage in real-time (tree on house, car, fence, building, shed, ingress/egress blocked).
+
+Automatic homeowner data pull:
+
+Tax Assessor API → Homeowner name/address.
+
+TruthFinder API → Phone number/email for direct contact.
+
+Damages filed into location-based folders with owner details.
+
+Contractors can claim leads by converting them into customers (removes from public lead pool).
+
+11. Victim Access
+
+Storm victims can log in to share their information directly.
+
+Enables faster emergency response for trapped or stranded individuals.
+
+⚡ Overall Goal:
+This app becomes the all-in-one storm response and contractor management tool—combining AI, compliance, insurance claims, invoicing, lien protection, drone mapping, and customer communication to speed up response times, maximize contractor payouts, and ensure victims get help fast.
