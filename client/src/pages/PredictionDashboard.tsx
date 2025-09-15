@@ -305,13 +305,48 @@ export default function PredictionDashboard() {
               data-testid="select-state-filter"
             >
               <option value="">All States</option>
-              <option value="FL">Florida</option>
-              <option value="GA">Georgia</option>
-              <option value="SC">South Carolina</option>
-              <option value="NC">North Carolina</option>
-              <option value="AL">Alabama</option>
-              <option value="TX">Texas</option>
-              <option value="LA">Louisiana</option>
+              {/* Hurricane States (Atlantic/Gulf Coast) */}
+              <optgroup label="🌀 Hurricane States">
+                <option value="FL">Florida</option>
+                <option value="TX">Texas</option>
+                <option value="LA">Louisiana</option>
+                <option value="NC">North Carolina</option>
+                <option value="SC">South Carolina</option>
+                <option value="GA">Georgia</option>
+                <option value="AL">Alabama</option>
+                <option value="MS">Mississippi</option>
+                <option value="VA">Virginia</option>
+                <option value="MD">Maryland</option>
+                <option value="DE">Delaware</option>
+                <option value="PA">Pennsylvania</option>
+                <option value="NJ">New Jersey</option>
+                <option value="NY">New York</option>
+                <option value="CT">Connecticut</option>
+                <option value="RI">Rhode Island</option>
+                <option value="MA">Massachusetts</option>
+                <option value="NH">New Hampshire</option>
+                <option value="ME">Maine</option>
+              </optgroup>
+              {/* Tornado States (Tornado Alley & Dixie Alley) */}
+              <optgroup label="🌪️ Tornado States">
+                <option value="KS">Kansas</option>
+                <option value="OK">Oklahoma</option>
+                <option value="NE">Nebraska</option>
+                <option value="SD">South Dakota</option>
+                <option value="IA">Iowa</option>
+                <option value="MO">Missouri</option>
+                <option value="AR">Arkansas</option>
+                <option value="TN">Tennessee</option>
+                <option value="KY">Kentucky</option>
+                <option value="IL">Illinois</option>
+                <option value="IN">Indiana</option>
+                <option value="OH">Ohio</option>
+                <option value="MI">Michigan</option>
+                <option value="WI">Wisconsin</option>
+                <option value="MN">Minnesota</option>
+                <option value="CO">Colorado</option>
+                <option value="WY">Wyoming</option>
+              </optgroup>
             </select>
             
             <select

@@ -6141,6 +6141,89 @@ Email: strategiclandmgmt@gmail.com
     }
   });
 
+  // GET /api/storm-predictions - Frontend compatible endpoint
+  app.get("/api/storm-predictions", async (req, res) => {
+    try {
+      const predictions = await storage.getActiveStormPredictions();
+      
+      res.json({
+        predictions,
+        count: predictions.length,
+        retrievedAt: new Date()
+      });
+
+    } catch (error) {
+      console.error('❌ Failed to list storm predictions:', error);
+      res.status(500).json({
+        error: 'Failed to list storm predictions',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // GET /api/prediction-dashboard - Aggregate dashboard data
+  app.get("/api/prediction-dashboard", async (req, res) => {
+    try {
+      const { state, forecastHours = '48' } = req.query;
+      
+      // Get all active predictions
+      const predictions = await storage.getActiveStormPredictions();
+      
+      // Get damage forecasts with optional state filter
+      const forecasts = await storage.getDamageForecasts();
+      const filteredForecasts = state ? 
+        forecasts.filter(f => f.state === state) : 
+        forecasts;
+      
+      // Get contractor opportunities with optional state filter  
+      const opportunities = await storage.getContractorOpportunityPredictions();
+      const filteredOpportunities = state ?
+        opportunities.filter(o => o.state === state) :
+        opportunities;
+      
+      // Calculate risk summary
+      const riskSummary = {
+        extreme: filteredForecasts.filter(f => f.riskLevel === 'extreme').length,
+        high: filteredForecasts.filter(f => f.riskLevel === 'high').length,
+        moderate: filteredForecasts.filter(f => f.riskLevel === 'moderate').length,
+        low: filteredForecasts.filter(f => f.riskLevel === 'low').length,
+        minimal: filteredForecasts.filter(f => f.riskLevel === 'minimal').length,
+      };
+      
+      // Calculate total estimated revenue
+      const totalEstimatedRevenue = filteredOpportunities.reduce((sum, opp) => {
+        const revenue = parseFloat(opp.estimatedRevenueOpportunity || '0');
+        return sum + revenue;
+      }, 0);
+      
+      const dashboardData = {
+        dashboard: {
+          activePredictions: predictions.length,
+          damageForecasts: filteredForecasts.length,
+          contractorOpportunities: filteredOpportunities.length,
+          riskSummary,
+          totalEstimatedRevenue,
+          forecastHours: parseInt(forecastHours.toString()),
+          lastUpdated: new Date().toISOString()
+        },
+        data: {
+          predictions: predictions.slice(0, 10), // Limit for performance
+          forecasts: filteredForecasts.slice(0, 20),
+          opportunities: filteredOpportunities.slice(0, 15)
+        }
+      };
+      
+      res.json(dashboardData);
+
+    } catch (error) {
+      console.error('❌ Failed to get prediction dashboard:', error);
+      res.status(500).json({
+        error: 'Failed to get prediction dashboard',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
