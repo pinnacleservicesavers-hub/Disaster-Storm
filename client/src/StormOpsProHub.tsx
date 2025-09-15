@@ -101,15 +101,15 @@ export default function StormOpsProHub() {
     },
     // Business Operations
     {
-      id: 'contractors',
-      title: 'Contractors',
-      description: 'Contractor management, crew dispatch, and project tracking for storm response operations',
+      id: 'contractor-management',
+      title: 'Contractor Management',
+      description: 'Internal contractor management, crew dispatch, and project tracking for storm response operations',
       icon: HardHat,
-      link: '/contractors',
+      link: '/contractor-management',
       color: 'cyan',
       bgClass: 'from-cyan-500 to-cyan-600',
       borderClass: 'border-cyan-200',
-      testId: 'portal-contractors'
+      testId: 'portal-contractor-management'
     },
     {
       id: 'claims',
@@ -156,6 +156,17 @@ export default function StormOpsProHub() {
       testId: 'portal-legal'
     },
     // Customer Facing
+    {
+      id: 'contractors',
+      title: 'Contractors',
+      description: 'Contractor sign-up portal with AI support, leads management, invoicing, and compliance tools',
+      icon: UserCheck,
+      link: '/contractors',
+      color: 'amber',
+      bgClass: 'from-amber-500 to-amber-600',
+      borderClass: 'border-amber-200',
+      testId: 'portal-contractors'
+    },
     {
       id: 'victim-portal',
       title: 'Victim Portal',

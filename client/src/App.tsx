@@ -10,13 +10,14 @@ import ServiceRequest from "./pages/ServiceRequest";
 import MyRequests from "./pages/MyRequests";
 import { DamageDetectionDashboard } from "./components/DamageDetectionDashboard";
 import PredictionDashboard from "./pages/PredictionDashboard";
-import Contractors from "./pages/Contractors";
+import ContractorPortal from "./pages/ContractorPortal";
+import ContractorManagement from "./pages/ContractorManagement";
 import Claims from "./pages/Claims";
 import Customers from "./pages/Customers";
 import Drones from "./pages/Drones";
 import Legal from "./pages/Legal";
 import { Button } from '@/components/ui/button';
-import { Cloud, Home, Menu, Camera, Heart, Eye, Zap, Users, FileText, User, Plane, Scale } from 'lucide-react';
+import { Cloud, Home, Menu, Camera, Heart, Eye, Zap, Users, FileText, User, Plane, Scale, Settings, Briefcase } from 'lucide-react';
 
 function Navigation() {
   const [location] = useLocation();
@@ -89,10 +90,21 @@ function Navigation() {
               <Button 
                 variant={location === '/contractors' ? 'default' : 'ghost'} 
                 size="sm"
-                data-testid="nav-contractors"
+                data-testid="nav-contractor-portal"
               >
-                <Users className="w-4 h-4 mr-2" />
-                Contractors
+                <Briefcase className="w-4 h-4 mr-2" />
+                Contractor Portal
+              </Button>
+            </Link>
+            
+            <Link href="/contractor-management">
+              <Button 
+                variant={location === '/contractor-management' ? 'default' : 'ghost'} 
+                size="sm"
+                data-testid="nav-contractor-management"
+              >
+                <Settings className="w-4 h-4 mr-2" />
+                Contractor Management
               </Button>
             </Link>
             
@@ -192,9 +204,15 @@ export default function App() {
         </Route>
         
         <Route path="/contractors">
+          <title>Contractor Portal - StormLead Master</title>
+          <meta name="description" content="Professional contractor portal with AI-powered tools, lead management, photo documentation, invoicing, insurance claims, and compliance tracking for storm restoration professionals" />
+          <ContractorPortal />
+        </Route>
+        
+        <Route path="/contractor-management">
           <title>Contractor Management - StormLead Master</title>
-          <meta name="description" content="Manage your contractor network, qualifications, assignments, and performance tracking for storm restoration projects" />
-          <Contractors />
+          <meta name="description" content="Administrative oversight and management of contractor network, qualifications, assignments, and performance tracking for storm restoration projects" />
+          <ContractorManagement />
         </Route>
         
         <Route path="/claims">
