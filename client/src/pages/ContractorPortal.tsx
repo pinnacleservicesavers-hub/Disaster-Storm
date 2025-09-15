@@ -31,17 +31,96 @@ import {
   Settings,
   Plus,
   Eye,
-  CreditCard
+  CreditCard,
+  Loader2
 } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { apiRequest, queryClient } from '@/lib/queryClient';
+import { useToast } from '@/hooks/use-toast';
 
 export default function ContractorPortal() {
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [notifications, setNotifications] = useState([
-    { id: 1, type: 'lien', message: 'Lien deadline in 15 days for Project #CH-2024-089', urgent: true },
-    { id: 2, type: 'payment', message: 'Payment received: $4,250 for Storm Cleanup - Miami', urgent: false },
-    { id: 3, type: 'lead', message: '3 new storm damage leads in your area', urgent: false }
-  ]);
+  const { toast } = useToast();
+  
+  // Quick actions for dashboard
+  const handleClaimLead = () => {
+    setActiveTab('leads');
+  };
+  
+  const handleUploadPhotos = () => {
+    setActiveTab('photos');
+  };
+  
+  const handleCreateInvoice = () => {
+    setActiveTab('invoices');
+  };
+  
+  const handleContactCustomer = () => {
+    setActiveTab('customers');
+  };
+  
+  // Contractor ID - In a real app, this would come from auth context
+  const contractorId = 'contractor-1';
+
+  // Main data queries
+  const { data: leads = [], isLoading: leadsLoading } = useQuery({
+    queryKey: ['leads'],
+    queryFn: () => fetch('/api/leads').then(r => r.json()),
+  });
+
+  const { data: invoices = [], isLoading: invoicesLoading } = useQuery({
+    queryKey: ['invoices'],
+    queryFn: () => fetch('/api/invoices').then(r => r.json()),
+  });
+
+  const { data: photos = [], isLoading: photosLoading } = useQuery({
+    queryKey: ['photos'],
+    queryFn: () => fetch('/api/photos').then(r => r.json()),
+  });
+
+  const { data: customers = [], isLoading: customersLoading } = useQuery({
+    queryKey: ['customers'],
+    queryFn: () => fetch('/api/customers').then(r => r.json()),
+  });
+
+  const { data: slaItems = [], isLoading: slaLoading } = useQuery({
+    queryKey: ['sla'],
+    queryFn: () => fetch('/api/sla/list').then(r => r.json()),
+  });
+
+  // Calculate dashboard stats from real data
+  const activeProjects = invoices.filter(inv => inv.status === 'sent' || inv.status === 'draft').length;
+  const monthlyRevenue = invoices
+    .filter(inv => {
+      const invDate = new Date(inv.createdAt);
+      const now = new Date();
+      return invDate.getMonth() === now.getMonth() && invDate.getFullYear() === now.getFullYear();
+    })
+    .reduce((sum, inv) => sum + parseFloat(inv.totalAmount || '0'), 0);
+  const newLeads = leads.filter(lead => lead.status === 'new').length;
+  
+  // Generate notifications from real data
+  const notifications = [
+    ...slaItems
+      .filter(item => {
+        const daysSince = Math.floor((Date.now() - item.ts) / (1000 * 60 * 60 * 24));
+        return (item.type === 'work_completed' && daysSince >= 40) || 
+               (item.type === 'lien_filed' && daysSince >= 290);
+      })
+      .slice(0, 3)
+      .map(item => ({
+        id: item.id,
+        type: 'lien',
+        message: `Lien deadline approaching for ${item.address}`,
+        urgent: true
+      })),
+    ...(newLeads > 0 ? [{
+      id: 'leads-available',
+      type: 'lead',
+      message: `${newLeads} new storm damage leads in your area`,
+      urgent: false
+    }] : [])
+  ];
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -138,8 +217,14 @@ export default function ContractorPortal() {
                   <CardTitle className="text-sm font-medium text-gray-600">Active Projects</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold" data-testid="text-active-projects">12</div>
-                  <p className="text-xs text-gray-500">+3 this week</p>
+                  {invoicesLoading ? (
+                    <Loader2 className="w-6 h-6 animate-spin" />
+                  ) : (
+                    <>
+                      <div className="text-2xl font-bold" data-testid="text-active-projects">{activeProjects}</div>
+                      <p className="text-xs text-gray-500">In progress</p>
+                    </>
+                  )}
                 </CardContent>
               </Card>
               <Card>
@@ -147,8 +232,16 @@ export default function ContractorPortal() {
                   <CardTitle className="text-sm font-medium text-gray-600">Revenue (Month)</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-green-600" data-testid="text-monthly-revenue">$48,250</div>
-                  <p className="text-xs text-gray-500">+18% from last month</p>
+                  {invoicesLoading ? (
+                    <Loader2 className="w-6 h-6 animate-spin" />
+                  ) : (
+                    <>
+                      <div className="text-2xl font-bold text-green-600" data-testid="text-monthly-revenue">
+                        ${monthlyRevenue.toLocaleString()}
+                      </div>
+                      <p className="text-xs text-gray-500">Current month</p>
+                    </>
+                  )}
                 </CardContent>
               </Card>
               <Card>
@@ -156,20 +249,29 @@ export default function ContractorPortal() {
                   <CardTitle className="text-sm font-medium text-gray-600">New Leads</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-blue-600" data-testid="text-new-leads">7</div>
-                  <p className="text-xs text-gray-500">In your coverage area</p>
+                  {leadsLoading ? (
+                    <Loader2 className="w-6 h-6 animate-spin" />
+                  ) : (
+                    <>
+                      <div className="text-2xl font-bold text-blue-600" data-testid="text-new-leads">{newLeads}</div>
+                      <p className="text-xs text-gray-500">Available to claim</p>
+                    </>
+                  )}
                 </CardContent>
               </Card>
               <Card>
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium text-gray-600">Customer Rating</CardTitle>
+                  <CardTitle className="text-sm font-medium text-gray-600">Photos Uploaded</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex items-center">
-                    <div className="text-2xl font-bold mr-2" data-testid="text-customer-rating">4.8</div>
-                    <Star className="w-5 h-5 text-yellow-500 fill-current" />
-                  </div>
-                  <p className="text-xs text-gray-500">Based on 24 reviews</p>
+                  {photosLoading ? (
+                    <Loader2 className="w-6 h-6 animate-spin" />
+                  ) : (
+                    <>
+                      <div className="text-2xl font-bold text-purple-600" data-testid="text-photos-count">{photos.length}</div>
+                      <p className="text-xs text-gray-500">This month</p>
+                    </>
+                  )}
                 </CardContent>
               </Card>
             </div>
@@ -208,27 +310,66 @@ export default function ContractorPortal() {
                   <CardTitle>Recent Activity</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="flex items-center space-x-3">
-                    <CheckCircle className="w-5 h-5 text-green-600" />
-                    <div>
-                      <p className="text-sm font-medium">Invoice #INV-2024-089 paid</p>
-                      <p className="text-xs text-gray-500">2 hours ago</p>
+                  {invoicesLoading || photosLoading || leadsLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="w-6 h-6 animate-spin" />
                     </div>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <Camera className="w-5 h-5 text-blue-600" />
-                    <div>
-                      <p className="text-sm font-medium">Photos uploaded for Storm Cleanup Miami</p>
-                      <p className="text-xs text-gray-500">4 hours ago</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <Target className="w-5 h-5 text-purple-600" />
-                    <div>
-                      <p className="text-sm font-medium">New lead claimed: Tree Removal - Coral Gables</p>
-                      <p className="text-xs text-gray-500">1 day ago</p>
-                    </div>
-                  </div>
+                  ) : (
+                    <>
+                      {/* Recent Paid Invoices */}
+                      {invoices
+                        .filter(inv => inv.status === 'paid')
+                        .slice(0, 2)
+                        .map(invoice => (
+                          <div key={invoice.id} className="flex items-center space-x-3">
+                            <CheckCircle className="w-5 h-5 text-green-600" />
+                            <div>
+                              <p className="text-sm font-medium">Invoice #{invoice.invoiceNumber} paid</p>
+                              <p className="text-xs text-gray-500">
+                                {new Date(invoice.paidDate || invoice.updatedAt).toLocaleDateString()}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      
+                      {/* Recent Photos */}
+                      {photos.slice(0, 1).map(photo => (
+                        <div key={photo.id} className="flex items-center space-x-3">
+                          <Camera className="w-5 h-5 text-blue-600" />
+                          <div>
+                            <p className="text-sm font-medium">Photo uploaded: {photo.fileName}</p>
+                            <p className="text-xs text-gray-500">
+                              {new Date(photo.createdAt).toLocaleDateString()}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                      
+                      {/* Recent Leads */}
+                      {leads
+                        .filter(lead => lead.status === 'contacted' || lead.status === 'in_progress')
+                        .slice(0, 1)
+                        .map(lead => (
+                          <div key={lead.id} className="flex items-center space-x-3">
+                            <Target className="w-5 h-5 text-purple-600" />
+                            <div>
+                              <p className="text-sm font-medium">
+                                Lead claimed: {lead.damageType} - {lead.propertyAddress}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                {new Date(lead.updatedAt).toLocaleDateString()}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      
+                      {invoices.length === 0 && photos.length === 0 && leads.length === 0 && (
+                        <p className="text-sm text-gray-500 text-center py-4">
+                          No recent activity
+                        </p>
+                      )}
+                    </>
+                  )}
                 </CardContent>
               </Card>
 
@@ -240,20 +381,30 @@ export default function ContractorPortal() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  {notifications.map((notification) => (
-                    <div 
-                      key={notification.id}
-                      className={`p-3 rounded-lg border-l-4 ${
-                        notification.urgent 
-                          ? 'bg-red-50 border-red-400' 
-                          : 'bg-blue-50 border-blue-400'
-                      }`}
-                    >
-                      <p className={`text-sm ${notification.urgent ? 'text-red-800' : 'text-blue-800'}`}>
-                        {notification.message}
-                      </p>
+                  {slaLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="w-6 h-6 animate-spin" />
                     </div>
-                  ))}
+                  ) : notifications.length > 0 ? (
+                    notifications.map((notification) => (
+                      <div 
+                        key={notification.id}
+                        className={`p-3 rounded-lg border-l-4 ${
+                          notification.urgent 
+                            ? 'bg-red-50 border-red-400' 
+                            : 'bg-blue-50 border-blue-400'
+                        }`}
+                      >
+                        <p className={`text-sm ${notification.urgent ? 'text-red-800' : 'text-blue-800'}`}>
+                          {notification.message}
+                        </p>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-gray-500 text-center py-4">
+                      No critical alerts
+                    </p>
+                  )}
                 </CardContent>
               </Card>
             </div>
@@ -338,41 +489,27 @@ export default function ContractorPortal() {
               </Button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[1, 2, 3].map((lead) => (
-                <Card key={lead}>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Storm Damage - Tree on House</CardTitle>
-                    <div className="flex items-center text-sm text-gray-600">
-                      <MapPin className="w-4 h-4 mr-1" />
-                      Miami, FL • 2.3 miles away
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm">Estimated Value:</span>
-                      <span className="font-semibold text-green-600">$8,500</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm">Urgency:</span>
-                      <Badge className="bg-red-100 text-red-800">High</Badge>
-                    </div>
-                    <p className="text-sm text-gray-600">
-                      Large oak tree fell on roof during Hurricane Ian. Need immediate removal and roof assessment.
-                    </p>
-                    <div className="flex space-x-2">
-                      <Button className="flex-1" data-testid={`button-claim-lead-${lead}`}>
-                        <Target className="w-4 h-4 mr-2" />
-                        Claim Lead
-                      </Button>
-                      <Button variant="outline" data-testid={`button-view-details-${lead}`}>
-                        <Eye className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+            {leadsLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin" />
+              </div>
+            ) : leads.length === 0 ? (
+              <Card>
+                <CardContent className="text-center py-12">
+                  <Target className="w-12 h-12 mx-auto text-gray-400 mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Leads Available</h3>
+                  <p className="text-gray-500">Check back later for new storm damage leads in your area.</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {leads
+                  .filter(lead => lead.status === 'new')
+                  .map((lead) => (
+                    <LeadCard key={lead.id} lead={lead} />
+                  ))}
+              </div>
+            )}
           </TabsContent>
 
           {/* Photo & Evidence Management Tab */}
@@ -900,5 +1037,310 @@ export default function ContractorPortal() {
         </Tabs>
       </div>
     </div>
+  );
+}
+
+// LeadCard Component
+function LeadCard({ lead }: { lead: any }) {
+  const { toast } = useToast();
+  
+  const acceptLeadMutation = useMutation({
+    mutationFn: async (leadId: string) => {
+      const response = await apiRequest(`/api/leads/accept`, {
+        method: 'POST',
+        body: JSON.stringify({ leadId })
+      });
+      return response;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['leads'] });
+      queryClient.invalidateQueries({ queryKey: ['customers'] });
+      toast({
+        title: "Lead Accepted",
+        description: "Lead has been successfully converted to a customer.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error?.message || "Failed to accept lead. Please try again.",
+        variant: "destructive",
+      });
+    }
+  });
+
+  const handleAcceptLead = () => {
+    acceptLeadMutation.mutate(lead.id);
+  };
+
+  const getUrgencyColor = (urgency: string) => {
+    switch (urgency) {
+      case 'emergency': return 'bg-red-100 text-red-800';
+      case 'urgent': return 'bg-orange-100 text-orange-800';
+      default: return 'bg-blue-100 text-blue-800';
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-lg">{lead.damageType}</CardTitle>
+        <div className="flex items-center text-sm text-gray-600">
+          <MapPin className="w-4 h-4 mr-1" />
+          {lead.propertyAddress}
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="flex items-center justify-between">
+          <span className="text-sm">Estimated Value:</span>
+          <span className="font-semibold text-green-600">
+            ${parseFloat(lead.estimatedValue || '0').toLocaleString()}
+          </span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-sm">Urgency:</span>
+          <Badge className={getUrgencyColor(lead.urgency)}>
+            {lead.urgency}
+          </Badge>
+        </div>
+        {lead.notes && (
+          <p className="text-sm text-gray-600">
+            {lead.notes}
+          </p>
+        )}
+        <div className="flex space-x-2">
+          <Button 
+            className="flex-1" 
+            onClick={handleAcceptLead}
+            disabled={acceptLeadMutation.isPending}
+            data-testid={`button-claim-lead-${lead.id}`}
+          >
+            {acceptLeadMutation.isPending ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Target className="w-4 h-4 mr-2" />
+            )}
+            Claim Lead
+          </Button>
+          <Button variant="outline" data-testid={`button-view-details-${lead.id}`}>
+            <Eye className="w-4 h-4" />
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// PhotoCard Component
+function PhotoCard({ photo }: { photo: any }) {
+  return (
+    <Card className="overflow-hidden">
+      <div className="aspect-square relative">
+        <img 
+          src={photo.thumbnailUrl || photo.fileUrl} 
+          alt={photo.fileName}
+          className="w-full h-full object-cover"
+        />
+        {photo.aiDescription && (
+          <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white p-2">
+            <p className="text-xs truncate">{photo.aiDescription}</p>
+          </div>
+        )}
+      </div>
+      <CardContent className="p-3">
+        <p className="text-sm font-medium truncate">{photo.fileName}</p>
+        <p className="text-xs text-gray-500">
+          {new Date(photo.createdAt).toLocaleDateString()}
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+// PhotoUploadSection Component
+function PhotoUploadSection() {
+  const { toast } = useToast();
+  
+  const uploadPhotoMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const uploadResponse = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData
+      });
+      
+      if (!uploadResponse.ok) {
+        throw new Error('Upload failed');
+      }
+      
+      const uploadResult = await uploadResponse.json();
+      
+      // Analyze photo with AI
+      const analysisResponse = await apiRequest('/api/describe', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: file.name,
+          url: uploadResult.file.path,
+          note: ''
+        })
+      });
+      
+      return { uploadResult, analysisResponse };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['photos'] });
+      toast({
+        title: "Photo Uploaded",
+        description: "Photo uploaded and analyzed successfully.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Upload Failed",
+        description: error?.message || "Failed to upload photo. Please try again.",
+        variant: "destructive",
+      });
+    }
+  });
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      uploadPhotoMutation.mutate(file);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center">
+          <Camera className="w-5 h-5 mr-2" />
+          AI-Powered Photo Management
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+          <Camera className="w-12 h-12 mx-auto text-gray-400 mb-4" />
+          <p className="text-lg font-medium mb-2">Upload Job Photos</p>
+          <p className="text-sm text-gray-600 mb-4">
+            AI will automatically analyze damage, measure dimensions, and generate insurance-ready reports
+          </p>
+          <div className="relative">
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleFileUpload}
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              data-testid="photo-upload-input"
+            />
+            <Button disabled={uploadPhotoMutation.isPending} data-testid="button-upload-photos-main">
+              {uploadPhotoMutation.isPending ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Upload className="w-4 h-4 mr-2" />
+              )}
+              Select Photos
+            </Button>
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="bg-blue-50 p-4 rounded-lg">
+            <h4 className="font-semibold text-blue-900 mb-2">AI Features</h4>
+            <ul className="text-sm text-blue-700 space-y-1">
+              <li>• Automatic damage assessment</li>
+              <li>• Tree height & weight estimation</li>
+              <li>• Insurance-ready descriptions</li>
+              <li>• Measurement overlays</li>
+            </ul>
+          </div>
+          <div className="bg-green-50 p-4 rounded-lg">
+            <h4 className="font-semibold text-green-900 mb-2">Benefits</h4>
+            <ul className="text-sm text-green-700 space-y-1">
+              <li>• Reduce claim denials</li>
+              <li>• Professional documentation</li>
+              <li>• Faster claim processing</li>
+              <li>• Higher approval rates</li>
+            </ul>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// JobCostingSection Component
+function JobCostingSection() {
+  const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
+  
+  const { data: jobCosts = [], isLoading: jobCostsLoading } = useQuery({
+    queryKey: ['job-costs', selectedInvoiceId],
+    queryFn: () => selectedInvoiceId ? fetch(`/api/job-costs/${selectedInvoiceId}`).then(r => r.json()) : [],
+    enabled: !!selectedInvoiceId
+  });
+  
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center">
+          <FileText className="w-5 h-5 mr-2" />
+          AI Job Costing
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="bg-purple-50 p-4 rounded-lg">
+          <h4 className="font-semibold text-purple-900 mb-2">Xactimate-Style Analysis</h4>
+          <p className="text-sm text-purple-700">
+            AI analyzes market rates within 150-mile radius and provides detailed cost breakdowns
+          </p>
+        </div>
+        
+        {selectedInvoiceId && (
+          <div className="space-y-2">
+            {jobCostsLoading ? (
+              <Loader2 className="w-6 h-6 animate-spin mx-auto" />
+            ) : jobCosts.length > 0 ? (
+              jobCosts.map((cost: any) => (
+                <div key={cost.id} className="flex justify-between">
+                  <span className="text-sm">{cost.itemDescription}:</span>
+                  <span className="font-medium">${parseFloat(cost.totalCost || '0').toFixed(2)}</span>
+                </div>
+              ))
+            ) : (
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-sm">Labor (Storm Cleanup):</span>
+                  <span className="font-medium">$2,400</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm">Equipment & Materials:</span>
+                  <span className="font-medium">$1,850</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm">Disposal Fees:</span>
+                  <span className="font-medium">$650</span>
+                </div>
+              </div>
+            )}
+            <div className="border-t pt-2 flex justify-between font-semibold">
+              <span>Total Estimate:</span>
+              <span className="text-green-600">
+                ${jobCosts.length > 0 
+                  ? jobCosts.reduce((sum: number, cost: any) => sum + parseFloat(cost.totalCost || '0'), 0).toFixed(2)
+                  : '4,900'
+                }
+              </span>
+            </div>
+          </div>
+        )}
+        
+        <Button variant="outline" className="w-full" data-testid="button-generate-estimate">
+          <Bot className="w-4 h-4 mr-2" />
+          Generate AI Estimate
+        </Button>
+      </CardContent>
+    </Card>
   );
 }
