@@ -1,0 +1,278 @@
+// =====================================
+// XACTIMATE COMPARABLES — SERVER BLOCKS
+// =====================================
+// Paste into server.js (after your other routes)
+// Requires: npm i csv-parse fuse.js
+
+const { parse: csvParse } = require('csv-parse/sync');
+const Fuse = require('fuse.js');
+
+const XACT_PATH = path.join(DATA_DIR, 'xact_catalogs.json');
+if (!fs.existsSync(XACT_PATH)) fs.writeFileSync(XACT_PATH, JSON.stringify({ catalogs: [] }, null, 2));
+function readXact(){ try{ return JSON.parse(fs.readFileSync(XACT_PATH,'utf8')); }catch{ return { catalogs: [] }; } }
+function writeXact(d){ fs.writeFileSync(XACT_PATH, JSON.stringify(d,null,2)); }
+
+// Helper: find catalog by id
+function getCatalog(db, id){ return (db.catalogs||[]).find(c=>c.id===id); }
+
+// ---- Catalog CRUD
+app.get('/api/xact/catalogs', (req,res)=>{ try{ const db=readXact(); res.json(db.catalogs||[]); }catch{ res.json([]); } });
+app.post('/api/xact/catalogs/create', express.json(), (req,res)=>{
+  try{
+    const { name, region, effective } = req.body||{};
+    if (!name) return res.status(400).json({ error:'name_required' });
+    const db=readXact();
+    const cat = { id:'xcat:'+Date.now(), name, region:region||'', effective:effective||'', items:[] };
+    db.catalogs.push(cat); writeXact(db);
+    res.json({ ok:true, catalog: cat });
+  }catch(e){ res.status(500).json({ ok:false }); }
+});
+app.post('/api/xact/catalogs/delete', express.json(), (req,res)=>{
+  try{ const { id } = req.body||{}; const db=readXact(); db.catalogs = (db.catalogs||[]).filter(c=>c.id!==id); writeXact(db); res.json({ ok:true }); }catch(e){ res.status(500).json({ ok:false }); }
+});
+
+// ---- Import items (CSV)
+// CSV columns (case-insensitive): code,name,unit,unit_price,notes
+app.post('/api/xact/catalog/import', express.json({limit:'10mb'}), async (req,res)=>{
+  try{
+    const { catalogId, csvText, filePath, csvUrl } = req.body||{};
+    const db=readXact(); const cat = getCatalog(db, catalogId);
+    if (!cat) return res.status(404).json({ error:'catalog_not_found' });
+    let csv = csvText||'';
+    if (!csv && filePath){ csv = fs.readFileSync(filePath.startsWith('/uploads/')? path.join(UPLOAD_DIR, path.basename(filePath)) : filePath, 'utf8'); }
+    if (!csv && csvUrl){ const r = await fetch(csvUrl); csv = await r.text(); }
+    if (!csv) return res.status(400).json({ error:'no_csv' });
+    const rows = csvParse(csv, { columns:true, skip_empty_lines:true });
+    const items = rows.map(r=>({
+      code: String(r.code||r.CODE||'').trim(),
+      name: String(r.name||r.NAME||'').trim(),
+      unit: String(r.unit||r.UNIT||'').trim()||'EA',
+      unit_price: Number(r.unit_price||r.price||r.UNIT_PRICE||0),
+      notes: String(r.notes||r.NOTES||'').trim()
+    })).filter(x=> x.code && x.name);
+    cat.items = items; writeXact(db);
+    res.json({ ok:true, count: items.length });
+  }catch(e){ res.status(500).json({ ok:false, detail:String(e) }); }
+});
+
+// ---- List/search items
+app.get('/api/xact/items', (req,res)=>{
+  try{ const db=readXact(); const cat = getCatalog(db, req.query.catalogId); if(!cat) return res.status(404).json([]); res.json(cat.items||[]); }catch{ res.json([]); }
+});
+app.get('/api/xact/search', (req,res)=>{
+  try{
+    const db=readXact(); const cat = getCatalog(db, req.query.catalogId); if(!cat) return res.status(404).json([]);
+    const items = cat.items||[]; const q = (req.query.q||'').toString(); if (!q) return res.json(items.slice(0,20));
+    const fuse = new Fuse(items, { keys:['code','name','notes'], threshold:0.35 });
+    res.json(fuse.search(q).slice(0,25).map(r=>r.item));
+  }catch{ res.json([]); }
+});
+
+// ---- Compare invoice lines to catalog
+// body: { catalogId, invoice: [{ desc, qty, unit, unit_price }], mappings?: [{ idx, code }] }
+app.post('/api/xact/compare', express.json({limit:'1mb'}), (req,res)=>{
+  try{
+    const { catalogId, invoice=[], mappings=[] } = req.body||{};
+    const db=readXact(); const cat = getCatalog(db, catalogId); if(!cat) return res.status(404).json({ error:'catalog_not_found' });
+    const items = cat.items||[]; const index = Object.fromEntries(items.map(i=>[i.code,i]));
+
+    // Build suggestions if no explicit mapping
+    let mapped = invoice.map((ln, i)=>{
+      const m = mappings.find(x=>Number(x.idx)===i);
+      let item = m? index[m.code] : null;
+      if (!item){
+        // simple string match on code presence or best name match
+        const fuse = new Fuse(items, { keys:['code','name'], threshold:0.3 });
+        const q = (ln.code||'') + ' ' + (ln.desc||'');
+        const guess = fuse.search(q)[0]?.item; if (guess) item = guess;
+      }
+      const qty = Number(ln.qty||1); const unitPrice = Number(item?.unit_price||0);
+      const comparable = qty*unitPrice;
+      const proposed = Number(ln.unit_price||0)*qty;
+      return {
+        idx: i,
+        desc: ln.desc||'',
+        qty, unit: ln.unit||item?.unit||'EA',
+        contractor_unit: Number(ln.unit_price||0),
+        contractor_total: proposed,
+        code: item?.code||'', name: item?.name||'', x_unit: unitPrice,
+        x_total: comparable,
+        variance: proposed - comparable,
+        variance_pct: comparable? (proposed-comparable)/comparable : null
+      };
+    });
+
+    const totals = mapped.reduce((a,r)=>({ contractor:a.contractor+r.contractor_total, x:a.x+r.x_total }), { contractor:0, x:0 });
+    res.json({ ok:true, rows: mapped, totals });
+  }catch(e){ res.status(500).json({ ok:false }); }
+});
+
+// ---- PDF report (side-by-side) and Email
+app.post('/api/xact/report', express.json({limit:'1mb'}), (req,res)=>{
+  try{
+    const { customerId, compare } = req.body||{}; // compare is the result of /compare
+    const dbCust = readCustomers(); const c = (dbCust.items||[]).find(x=>x.id===customerId);
+    const outPath = path.join(UPLOAD_DIR, `xact_compare_${Date.now()}.pdf`);
+    const doc = new PDFDocument({ size:'LETTER', margin:24 }); const ws=fs.createWriteStream(outPath); doc.pipe(ws);
+    doc.fontSize(14).text('Xactimate Comparables — Side by Side');
+    if (c){ doc.moveDown(0.2).fontSize(10).text(`${c.name||''} — ${c.address||''}${c.claimNumber? ' — Claim # '+c.claimNumber:''}`); }
+    doc.moveDown(0.4);
+
+    // Table header
+    doc.fontSize(9).text('Desc', 24, doc.y, { continued:true, width:180 });
+    doc.text('Code', 204, undefined, { width:60, continued:true });
+    doc.text('Qty', 264, undefined, { width:30, continued:true, align:'right' });
+    doc.text('Unit', 294, undefined, { width:30, continued:true, align:'center' });
+    doc.text('Contractor', 324, undefined, { width:72, continued:true, align:'right' });
+    doc.text('Xactimate', 396, undefined, { width:72, continued:true, align:'right' });
+    doc.text('Δ', 468, undefined, { width:72, align:'right' });
+    doc.moveDown(0.2); doc.moveTo(24, doc.y).lineTo(540, doc.y).stroke();
+
+    (compare.rows||[]).forEach(r=>{
+      doc.fontSize(8);
+      doc.text(r.desc||'', 24, doc.y, { width:180, continued:true });
+      doc.text(r.code||'', 204, undefined, { width:60, continued:true });
+      doc.text(String(r.qty||''), 264, undefined, { width:30, align:'right', continued:true });
+      doc.text(r.unit||'', 294, undefined, { width:30, align:'center', continued:true });
+      doc.text((r.contractor_total||0).toFixed(2), 324, undefined, { width:72, align:'right', continued:true });
+      doc.text((r.x_total||0).toFixed(2), 396, undefined, { width:72, align:'right', continued:true });
+      doc.text((r.variance||0).toFixed(2), 468, undefined, { width:72, align:'right' });
+    });
+
+    doc.moveDown(0.3); doc.moveTo(24, doc.y).lineTo(540, doc.y).stroke();
+    const tot = compare.totals||{ contractor:0, x:0 };
+    doc.fontSize(9).text('TOTALS', 24, doc.y+2, { width:180, continued:true });
+    doc.text('', 204, undefined, { width:60, continued:true });
+    doc.text('', 264, undefined, { width:30, continued:true });
+    doc.text('', 294, undefined, { width:30, continued:true });
+    doc.text(tot.contractor.toFixed(2), 324, undefined, { width:72, align:'right', continued:true });
+    doc.text(tot.x.toFixed(2), 396, undefined, { width:72, align:'right', continued:true });
+    doc.text((tot.contractor - tot.x).toFixed(2), 468, undefined, { width:72, align:'right' });
+
+    doc.end(); ws.on('finish', ()=> res.json({ ok:true, path:'/uploads/'+path.basename(outPath) }));
+  }catch(e){ res.status(500).json({ ok:false }); }
+});
+
+app.post('/api/xact/email', express.json({limit:'1mb'}), async (req,res)=>{
+  try{
+    const { to, customerId, reportPath, subject='Xactimate Comparables', body='See attached.' } = req.body||{};
+    if (!transporter) return res.status(500).json({ error:'email_not_configured' });
+    const atts = reportPath? [{ path: reportPath.startsWith('/uploads/')? path.join(UPLOAD_DIR, path.basename(reportPath)) : reportPath }] : [];
+    const info = await transporter.sendMail({ from: process.env.SMTP_FROM||process.env.SMTP_USER, to, subject, html: body, attachments: atts });
+    res.json({ ok:true, id: info.messageId });
+  }catch(e){ res.status(500).json({ ok:false }); }
+});
+
+// =====================================
+// XACTIMATE COMPARABLES — FRONTEND BLOCK
+// =====================================
+// Drop into a new file, e.g., components/XactimateComparables.jsx
+// and render inside CustomerCard: <XactimateComparables c={c} />
+
+import React from 'react';
+
+export function XactimateComparables({ c }){
+  const [cats, setCats] = React.useState([]);
+  const [catalogId, setCatalogId] = React.useState('');
+  const [items, setItems] = React.useState([]);
+  const [invoice, setInvoice] = React.useState((c.invoiceItems||[]).map(x=>({...x})) || []);
+  const [rows, setRows] = React.useState([]);
+  const [totals, setTotals] = React.useState({ contractor:0, x:0 });
+
+  React.useEffect(()=>{ fetch('/api/xact/catalogs').then(r=>r.json()).then(setCats); },[]);
+  React.useEffect(()=>{ if(!catalogId) return; fetch('/api/xact/items?catalogId='+catalogId).then(r=>r.json()).then(setItems); },[catalogId]);
+
+  function addLine(){ setInvoice(ls=> [...ls, { desc:'', qty:1, unit:'EA', unit_price:0 }]); }
+  function upd(i, patch){ setInvoice(ls=> { const n=[...ls]; n[i]={...n[i], ...patch}; return n; }); }
+
+  async function compare(){
+    const r = await fetch('/api/xact/compare',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ catalogId, invoice }) }).then(r=>r.json());
+    if (r?.ok){ setRows(r.rows||[]); setTotals(r.totals||{ contractor:0, x:0 }); }
+  }
+
+  async function exportPDF(){
+    const r = await fetch('/api/xact/report',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ customerId: c.id, compare: { rows, totals } }) }).then(r=>r.json());
+    if (r?.ok) window.open(r.path, '_blank'); else alert('Failed to create PDF');
+  }
+
+  return (
+    <div className="border rounded-md p-3 mt-3 space-y-3">
+      <div className="font-medium">Xactimate Comparables</div>
+
+      <div className="grid md:grid-cols-3 gap-2">
+        <div>
+          <div className="text-xs">Catalog</div>
+          <select className="border rounded px-2 py-1 w-full" value={catalogId} onChange={(e)=> setCatalogId(e.target.value)}>
+            <option value="">Select…</option>
+            {cats.map(c=> <option key={c.id} value={c.id}>{c.name} {c.region?`• ${c.region}`:''} {c.effective?`(${c.effective})`:''}</option>)}
+          </select>
+        </div>
+        <div className="md:col-span-2 text-xs opacity-70">
+          Tip: Import a CSV of Xactimate line items you are licensed to use (code, name, unit, unit_price, notes).
+        </div>
+      </div>
+
+      <div className="border rounded p-2">
+        <div className="flex items-center justify-between mb-2">
+          <div className="font-medium text-sm">Invoice Lines</div>
+          <button className="border rounded px-2 py-1" onClick={addLine}>Add line</button>
+        </div>
+        <div className="grid grid-cols-12 gap-1 text-xs font-semibold">
+          <div className="col-span-6">Description</div>
+          <div className="col-span-2 text-right">Qty</div>
+          <div className="col-span-2 text-center">Unit</div>
+          <div className="col-span-2 text-right">Unit $</div>
+        </div>
+        {(invoice||[]).map((ln,i)=> (
+          <div key={i} className="grid grid-cols-12 gap-1 text-xs items-center">
+            <input className="border px-2 py-1 col-span-6" value={ln.desc} onChange={e=>upd(i,{desc:e.target.value})} placeholder="e.g., Remove tree from roof, 24" DBH" />
+            <input className="border px-2 py-1 col-span-2 text-right" value={ln.qty} onChange={e=>upd(i,{qty:e.target.value})} />
+            <input className="border px-2 py-1 col-span-2 text-center" value={ln.unit} onChange={e=>upd(i,{unit:e.target.value})} />
+            <input className="border px-2 py-1 col-span-2 text-right" value={ln.unit_price} onChange={e=>upd(i,{unit_price:e.target.value})} />
+          </div>
+        ))}
+      </div>
+
+      <div className="flex gap-2">
+        <button className="border rounded px-3 py-1" onClick={compare} disabled={!catalogId}>Compare</button>
+        <button className="border rounded px-3 py-1" onClick={exportPDF} disabled={!rows.length}>Export PDF</button>
+      </div>
+
+      {!!rows.length && (
+        <div className="border rounded p-2">
+          <div className="grid grid-cols-12 gap-1 text-xs font-semibold">
+            <div className="col-span-5">Desc</div>
+            <div className="col-span-2">Code</div>
+            <div className="col-span-1 text-right">Qty</div>
+            <div className="col-span-1 text-center">Unit</div>
+            <div className="col-span-1 text-right">Contractor</div>
+            <div className="col-span-1 text-right">Xact</div>
+            <div className="col-span-1 text-right">Δ</div>
+          </div>
+          {rows.map((r,i)=> (
+            <div key={i} className="grid grid-cols-12 gap-1 text-xs">
+              <div className="col-span-5">{r.desc}</div>
+              <div className="col-span-2">{r.code} {r.name?`— ${r.name}`:''}</div>
+              <div className="col-span-1 text-right">{r.qty}</div>
+              <div className="col-span-1 text-center">{r.unit}</div>
+              <div className="col-span-1 text-right">{r.contractor_total.toFixed(2)}</div>
+              <div className="col-span-1 text-right">{r.x_total.toFixed(2)}</div>
+              <div className="col-span-1 text-right">{r.variance.toFixed(2)}</div>
+            </div>
+          ))}
+          <div className="grid grid-cols-12 gap-1 text-xs font-semibold mt-2">
+            <div className="col-span-9 text-right">TOTALS</div>
+            <div className="col-span-1 text-right">{(totals.contractor||0).toFixed(2)}</div>
+            <div className="col-span-1 text-right">{(totals.x||0).toFixed(2)}</div>
+            <div className="col-span-1 text-right">{((totals.contractor||0)-(totals.x||0)).toFixed(2)}</div>
+          </div>
+        </div>
+      )}
+
+      <div className="text-[11px] opacity-60">
+        Note: Xactimate pricing and catalogs are proprietary to Xactware. Only import price lists you are licensed to use. This tool compares your
+        invoice lines to your uploaded catalog to produce an apples‑to‑apples side‑by‑side for adjusters.
+      </div>
+    </div>
+  );
+}
