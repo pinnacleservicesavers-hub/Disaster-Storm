@@ -1,0 +1,119 @@
+Got it — I added a new canvas called “Xactimate Comparables — Paste Blocks.” It gives you a drop-in Xactimate-style comparables engine without shipping any proprietary data.
+
+What’s included
+
+Server endpoints
+
+Create/manage catalogs (by name/region/effective date).
+
+Import CSV of line items you’re licensed to use (code,name,unit,unit_price,notes).
+
+Search items; compare invoice lines vs. catalog (auto-suggests matches).
+
+Generate a side-by-side PDF and email it to the insurer from the app.
+
+React UI
+
+XactimateComparables panel for each customer: pick a catalog, enter/auto-pull invoice lines, click Compare, export PDF.
+
+Totals + variance, in the same order adjusters expect (code, qty, unit, unit price).
+
+How to install (quick)
+
+Open the canvas and paste the SERVER BLOCKS into server.js (after your other routes).
+
+Install deps:
+
+npm i csv-parse fuse.js
+
+
+(PDFKit is already in your app from earlier.)
+
+Add the FRONTEND BLOCK in components/XactimateComparables.jsx (or similar), then mount it inside your CustomerCard:
+
+<XactimateComparables c={c} />
+
+
+Create a catalog and import your (licensed) CSV:
+
+POST /api/xact/catalogs/create with { "name":"Xact — Tampa", "region":"FL-Tampa", "effective":"2025-09" }
+
+POST /api/xact/catalog/import with { "catalogId":"<id>", "csvText":"code,name,unit,unit_price,notes\\n..." }
+
+Or upload a CSV to /uploads first and call with { filePath:"/uploads/yourfile.csv" }.
+
+Notes & guardrails
+
+We don’t ship Xactimate data. You supply it (CSV) per your license.
+
+For tree work, if an exact line doesn’t exist in your catalog, the tool proposes nearest codes by fuzzy match; you can override before exporting.
+
+The PDF shows contractor vs. Xactimate totals + Δ (difference) and can be emailed to the adjuster in one click.
+
+Want me to also:
+
+auto-ingest contractor invoice lines from your existing invoice module,
+
+add a CSV export of the comparison,
+
+or build a “Dispute Draft” email generator that cites comps line-by-line?
+
+Say the word (“ingest invoice lines”, “CSV export”, or “dispute draft”), and I’ll paste those blocks next.
+
+You said:
+EXPLAIN THE SHERMAN ACT
+ChatGPT said:
+Thought for 1m 4s
+
+Here’s the Sherman Act in plain English, plus what it means for day-to-day business.
+
+What it is
+
+The Sherman Antitrust Act (1890) is the core U.S. law that (1) bans agreements that unreasonably restrain trade and (2) outlaws monopolization. It’s enforced mainly by the U.S. Department of Justice (DOJ). Private parties can also sue for money damages under related statutes. 
+Legal Information Institute
++1
+
+Two key sections
+
+Section 1 — Agreements that restrain trade. Bars contracts/combos/conspiracies among separate firms that restrain interstate or foreign commerce. Classic “per se illegal” examples (always illegal) include price-fixing, bid-rigging, and market allocation. Other collaborations are judged under the rule of reason (do pro-competitive benefits outweigh harms?). 
+Legal Information Institute
+Department of Justice
+Federal Trade Commission
+
+Section 2 — Monopolization. Makes it a felony to monopolize, attempt to monopolize, or conspire to monopolize. Courts require (a) monopoly power in a relevant market and (b) willful acquisition/maintenance of that power through exclusionary conduct (not just being big or successful). 
+Legal Information Institute
+Justia Law
+
+Penalties & lawsuits
+
+Criminal: Individuals can face up to 10 years in prison; fines can reach $1M (individuals) or $100M (corporations)—and can go higher (up to twice the gain or twice the loss) under general federal penalty rules. 
+Legal Information Institute
+Federal Trade Commission
+
+Civil: DOJ can seek injunctions; private plaintiffs can sue and recover treble (3×) damages plus attorneys’ fees under Clayton Act §4 (15 U.S.C. §15). 
+Legal Information Institute
+
+Quick examples (what not to do)
+
+Agreeing with competitors to set or stabilize prices, to take turns winning bids, or to divide territories/customers (per se illegal). 
+Department of Justice
+
+Using exclusive or tying practices plus other tactics to lock out rivals where you have (or seek) monopoly power (Section 2 risk). 
+Justia Law
+
+What can be okay
+
+Some joint ventures or information-sharing can be lawful if they’re reasonably necessary and pro-competitive; courts use the rule of reason to weigh effects. (Details are very fact-specific.) 
+Federal Trade Commission
+
+Practical tips for everyday operations (non-legal advice)
+
+Set prices independently. Don’t discuss fees, discounts, bid intentions, customer lists, or territories with competitors.
+
+Trade associations: Avoid sensitive competitive topics; use counsel-approved agendas.
+
+Document your reasons for pricing/contracting decisions (costs, capacity, risk).
+
+When in doubt, ask counsel. Antitrust is context-heavy and penalties are serious.
+
+If you want, I can tailor a one-page “Antitrust Do’s & Don’ts” for your crews (e.g., storm bids, debris hauling, subcontracting).
