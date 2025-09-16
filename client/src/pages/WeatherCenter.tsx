@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
 import { 
   CloudRain, 
   Zap, 
@@ -17,24 +18,37 @@ import {
   RefreshCw,
   MapPin,
   AlertTriangle,
-  Share
+  Share,
+  ThermometerSun,
+  Waves,
+  Gauge,
+  Activity,
+  TrendingUp,
+  Clock,
+  Globe,
+  Database,
+  Signal,
+  CloudSnow,
+  Sun,
+  CloudLightning
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  FadeIn, 
+  SlideIn, 
+  StaggerContainer, 
+  StaggerItem, 
+  HoverLift, 
+  PulseAlert,
+  LoadingSpinner,
+  AnimatedProgress,
+  CountUp,
+  RainEffect,
+  LightningFlash
+} from '@/components/ui/animations';
+import type { WeatherAlert } from '@shared/schema';
 
-interface WeatherAlert {
-  id: string;
-  title: string;
-  description: string;
-  severity: string;
-  alertType: string;
-  areas: string[];
-  startTime: Date;
-  endTime?: Date;
-  geometry?: any;
-  urgency?: string;
-  certainty?: string;
-  category?: string;
-}
-
+// API response interfaces that extend shared schema types
 interface SPCData {
   day: number;
   risk: string;
@@ -54,24 +68,35 @@ interface NHCStorm {
   geometry?: any;
 }
 
-interface BuoyData {
-  stationId: string;
-  name: string;
-  latitude: number;
-  longitude: number;
-  waterDepth: number;
-  measurements: {
-    waterTemperature?: number;
-    airTemperature?: number;
-    windSpeed?: number;
-    windDirection?: number;
-    significantWaveHeight?: number;
-    peakWavePeriod?: number;
-    meanWaveDirection?: number;
-    atmosphericPressure?: number;
-  };
-  timestamp: Date;
-  status: 'active' | 'inactive' | 'maintenance';
+interface OceanData {
+  seaSurfaceTemperature: Array<{
+    latitude: number;
+    longitude: number;
+    temperature: number;
+    source: 'satellite' | 'buoy' | 'ship';
+    timestamp: Date;
+    stationId: string;
+  }>;
+  buoys: Array<{
+    stationId: string;
+    name: string;
+    latitude: number;
+    longitude: number;
+    waterDepth: number;
+    measurements: {
+      waterTemperature?: number;
+      airTemperature?: number;
+      windSpeed?: number;
+      windDirection?: number;
+      significantWaveHeight?: number;
+      peakWavePeriod?: number;
+      meanWaveDirection?: number;
+      atmosphericPressure?: number;
+    };
+    timestamp: Date;
+    status: 'active' | 'inactive' | 'maintenance';
+  }>;
+  lastUpdated: Date;
 }
 
 interface WaveData {
@@ -86,19 +111,6 @@ interface WaveData {
   source: 'buoy' | 'satellite' | 'model';
   stationId: string;
   stationName: string;
-}
-
-interface OceanData {
-  seaSurfaceTemperature: Array<{
-    latitude: number;
-    longitude: number;
-    temperature: number;
-    source: 'satellite' | 'buoy' | 'ship';
-    timestamp: Date;
-    stationId: string;
-  }>;
-  buoys: BuoyData[];
-  lastUpdated: Date;
 }
 
 export default function WeatherCenter() {
@@ -190,7 +202,7 @@ export default function WeatherCenter() {
   const alerts: WeatherAlert[] = alertsQuery.data || [];
   const spcData: SPCData[] = spcQuery.data || [];
   const nhcData: { storms: NHCStorm[] } = nhcQuery.data || { storms: [] };
-  const buoyData: BuoyData[] = buoysQuery.data || [];
+  const buoyData: OceanData['buoys'] = buoysQuery.data || [];
   const waveData: WaveData[] = wavesQuery.data || [];
   const oceanData: OceanData = oceanQuery.data || { seaSurfaceTemperature: [], buoys: [], lastUpdated: new Date() };
 
@@ -268,139 +280,330 @@ export default function WeatherCenter() {
     return null;
   }
 
+  // Weather effects based on current conditions
+  const hasActiveStorms = nhcData.storms.length > 0;
+  const hasAlerts = alerts.length > 0;
+  const hasSevereAlerts = alerts.some(alert => alert.severity === 'severe' || alert.severity === 'extreme');
+
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold" data-testid="weather-center-title">
-            🌩️ Weather Operations Center
-          </h1>
-          <p className="text-muted-foreground">
-            Live government weather data and emergency monitoring
-          </p>
-        </div>
-        
-        {/* Controls */}
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <Button
-              variant={autoRefresh ? "default" : "outline"}
-              size="sm"
-              onClick={() => setAutoRefresh(!autoRefresh)}
-              data-testid="button-auto-refresh"
-            >
-              {autoRefresh ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-              {autoRefresh ? 'Pause' : 'Resume'} Auto-Refresh
-            </Button>
-            
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleShareLink}
-              data-testid="button-share-link"
-            >
-              <Share className="w-4 h-4 mr-2" />
-              Share
-            </Button>
-            
-            <select 
-              value={refreshInterval} 
-              onChange={(e) => setRefreshInterval(Number(e.target.value))}
-              className="px-3 py-1 border rounded"
-              data-testid="select-refresh-interval"
-            >
-              <option value={10000}>10s</option>
-              <option value={30000}>30s</option>
-              <option value={60000}>1m</option>
-              <option value={300000}>5m</option>
-            </select>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-100 relative overflow-hidden">
+      {/* Weather effects */}
+      {hasActiveStorms && <RainEffect intensity="normal" />}
+      {hasSevereAlerts && <LightningFlash />}
+      
+      <div className="container mx-auto p-6 space-y-8 relative z-10">
+        {/* Enhanced Header */}
+        <FadeIn>
+          <div className="storm-card rounded-xl p-6 backdrop-blur-sm border border-blue-200/50">
+            <div className="flex items-center justify-between">
+              <motion.div
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.6 }}
+              >
+                <div className="flex items-center space-x-4">
+                  <motion.div
+                    animate={{ 
+                      rotate: hasActiveStorms ? [0, 360] : 0,
+                      scale: hasAlerts ? [1, 1.1, 1] : 1
+                    }}
+                    transition={{ 
+                      rotate: { duration: 4, repeat: hasActiveStorms ? Infinity : 0 },
+                      scale: { duration: 2, repeat: Infinity }
+                    }}
+                    className="relative"
+                  >
+                    <div className="p-3 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg shadow-lg">
+                      <CloudLightning className="w-8 h-8 text-white" />
+                    </div>
+                    {hasAlerts && (
+                      <motion.div
+                        animate={{ scale: [1, 1.2, 1] }}
+                        transition={{ duration: 1, repeat: Infinity }}
+                        className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-white"
+                      />
+                    )}
+                  </motion.div>
+                  
+                  <div>
+                    <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent" data-testid="weather-center-title">
+                      Weather Operations Center
+                    </h1>
+                    <motion.p 
+                      className="text-blue-600/80 text-lg font-medium flex items-center mt-1"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 0.3 }}
+                    >
+                      <Signal className="w-4 h-4 mr-2 animate-pulse" />
+                      Live government weather data and emergency monitoring
+                    </motion.p>
+                  </div>
+                </div>
+              </motion.div>
+              
+              {/* Enhanced Controls */}
+              <SlideIn direction="right" delay={0.2}>
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2 bg-white/50 backdrop-blur-sm rounded-lg p-2 border border-white/30">
+                    <HoverLift>
+                      <Button
+                        variant={autoRefresh ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setAutoRefresh(!autoRefresh)}
+                        data-testid="button-auto-refresh"
+                        className={`transition-all duration-300 ${
+                          autoRefresh 
+                            ? 'bg-green-500 hover:bg-green-600 text-white shadow-lg' 
+                            : 'hover:bg-white/80'
+                        }`}
+                      >
+                        <motion.div
+                          animate={{ rotate: autoRefresh ? 360 : 0 }}
+                          transition={{ duration: 2, repeat: autoRefresh ? Infinity : 0 }}
+                        >
+                          {autoRefresh ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+                        </motion.div>
+                        <span className="ml-2">{autoRefresh ? 'Live' : 'Paused'}</span>
+                      </Button>
+                    </HoverLift>
+                    
+                    <HoverLift>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleShareLink}
+                        data-testid="button-share-link"
+                        className="hover:bg-blue-50 border-blue-200"
+                      >
+                        <Share className="w-4 h-4 mr-2" />
+                        Share
+                      </Button>
+                    </HoverLift>
+                    
+                    <select 
+                      value={refreshInterval} 
+                      onChange={(e) => setRefreshInterval(Number(e.target.value))}
+                      className="px-3 py-1.5 border border-blue-200 rounded-lg bg-white/80 backdrop-blur-sm hover:bg-white transition-colors text-sm font-medium"
+                      data-testid="select-refresh-interval"
+                    >
+                      <option value={10000}>10s</option>
+                      <option value={30000}>30s</option>
+                      <option value={60000}>1m</option>
+                      <option value={300000}>5m</option>
+                    </select>
+                  </div>
+                  
+                  {userLocation && (
+                    <motion.div
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{ delay: 0.4, type: "spring" }}
+                    >
+                      <Badge 
+                        variant="outline" 
+                        data-testid="badge-location"
+                        className="bg-white/60 backdrop-blur-sm border-blue-200 text-blue-700 px-3 py-1"
+                      >
+                        <MapPin className="w-3 h-3 mr-1 animate-pulse" />
+                        {userLocation.lat.toFixed(2)}, {userLocation.lon.toFixed(2)}
+                      </Badge>
+                    </motion.div>
+                  )}
+                </div>
+              </SlideIn>
+            </div>
           </div>
+        </FadeIn>
+
+        {/* Enhanced Status indicators */}
+        <StaggerContainer className="flex flex-wrap gap-3">
+          <StaggerItem>
+            <motion.div
+              whileHover={{ scale: 1.05, y: -2 }}
+              className="hover-lift"
+            >
+              <Badge 
+                variant={isLoading ? "secondary" : "default"} 
+                data-testid="badge-status"
+                className={`px-4 py-2 text-sm font-medium ${
+                  isLoading 
+                    ? 'bg-yellow-100 text-yellow-800 border-yellow-200' 
+                    : 'bg-green-100 text-green-800 border-green-200 animate-pulse'
+                }`}
+              >
+                <motion.div
+                  animate={{ rotate: isLoading ? 360 : 0 }}
+                  transition={{ duration: 1, repeat: isLoading ? Infinity : 0 }}
+                  className="mr-2"
+                >
+                  <RefreshCw className="w-3 h-3" />
+                </motion.div>
+                {isLoading ? 'Syncing Data...' : 'Live Data'}
+              </Badge>
+            </motion.div>
+          </StaggerItem>
           
-          {userLocation && (
-            <Badge variant="outline" data-testid="badge-location">
-              <MapPin className="w-3 h-3 mr-1" />
-              {userLocation.lat.toFixed(2)}, {userLocation.lon.toFixed(2)}
-            </Badge>
+          {hasError && (
+            <StaggerItem>
+              <PulseAlert intensity="strong">
+                <Badge 
+                  variant="destructive" 
+                  data-testid="badge-error"
+                  className="px-4 py-2 text-sm font-medium bg-red-100 text-red-800 border-red-200"
+                >
+                  <AlertTriangle className="w-3 h-3 mr-2" />
+                  Connection Issues
+                </Badge>
+              </PulseAlert>
+            </StaggerItem>
           )}
-        </div>
-      </div>
+          
+          <StaggerItem>
+            <HoverLift>
+              <Badge 
+                variant="outline" 
+                data-testid="badge-alerts-count"
+                className={`px-4 py-2 text-sm font-medium ${
+                  alerts.length > 0 
+                    ? 'bg-orange-50 text-orange-700 border-orange-200' 
+                    : 'bg-gray-50 text-gray-600 border-gray-200'
+                }`}
+              >
+                <AlertTriangle className={`w-3 h-3 mr-2 ${alerts.length > 0 ? 'animate-pulse' : ''}`} />
+                <CountUp end={alerts.length} /> Active Alerts
+              </Badge>
+            </HoverLift>
+          </StaggerItem>
+          
+          <StaggerItem>
+            <HoverLift>
+              <Badge 
+                variant="outline" 
+                data-testid="badge-storms-count"
+                className={`px-4 py-2 text-sm font-medium ${
+                  nhcData.storms.length > 0 
+                    ? 'bg-red-50 text-red-700 border-red-200 animate-pulse' 
+                    : 'bg-gray-50 text-gray-600 border-gray-200'
+                }`}
+              >
+                <Wind className={`w-3 h-3 mr-2 ${nhcData.storms.length > 0 ? 'animate-spin' : ''}`} />
+                <CountUp end={nhcData.storms.length} /> Active Storms
+              </Badge>
+            </HoverLift>
+          </StaggerItem>
+          
+          <StaggerItem>
+            <HoverLift>
+              <Badge 
+                variant="outline" 
+                data-testid="badge-buoys-count"
+                className="px-4 py-2 text-sm font-medium bg-blue-50 text-blue-700 border-blue-200"
+              >
+                <Waves className="w-3 h-3 mr-2" />
+                <CountUp end={buoyData.length} /> Live Buoys
+              </Badge>
+            </HoverLift>
+          </StaggerItem>
+          
+          <StaggerItem>
+            <HoverLift>
+              <Badge 
+                variant="outline" 
+                data-testid="badge-waves-count"
+                className="px-4 py-2 text-sm font-medium bg-cyan-50 text-cyan-700 border-cyan-200"
+              >
+                <Activity className="w-3 h-3 mr-2" />
+                <CountUp end={waveData.length} /> Wave Stations
+              </Badge>
+            </HoverLift>
+          </StaggerItem>
 
-      {/* Status indicators */}
-      <div className="flex gap-4">
-        <Badge variant={isLoading ? "secondary" : "default"} data-testid="badge-status">
-          <RefreshCw className={`w-3 h-3 mr-1 ${isLoading ? 'animate-spin' : ''}`} />
-          {isLoading ? 'Loading...' : 'Live Data'}
-        </Badge>
-        
-        {hasError && (
-          <Badge variant="destructive" data-testid="badge-error">
-            <AlertTriangle className="w-3 h-3 mr-1" />
-            Connection Issues
-          </Badge>
-        )}
-        
-        <Badge variant="outline" data-testid="badge-alerts-count">
-          {alerts.length} Active Alerts
-        </Badge>
-        
-        <Badge variant="outline" data-testid="badge-storms-count">
-          {nhcData.storms.length} Active Storms
-        </Badge>
-        
-        <Badge variant="outline" data-testid="badge-buoys-count">
-          {buoyData.length} Live Buoys
-        </Badge>
-        
-        <Badge variant="outline" data-testid="badge-waves-count">
-          {waveData.length} Wave Stations
-        </Badge>
-      </div>
+          {/* System status indicator */}
+          <StaggerItem>
+            <HoverLift>
+              <Badge 
+                variant="outline" 
+                data-testid="badge-system-status"
+                className="px-4 py-2 text-sm font-medium bg-green-50 text-green-700 border-green-200"
+              >
+                <div className="w-2 h-2 bg-green-400 rounded-full mr-2 animate-pulse" />
+                All Systems Operational
+              </Badge>
+            </HoverLift>
+          </StaggerItem>
+        </StaggerContainer>
 
-      {/* Main Weather Tabs */}
-      <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-8" data-testid="tabs-weather">
-          <TabsTrigger value="overview" data-testid="tab-overview">
-            <Eye className="w-4 h-4 mr-2" />
-            Overview
-          </TabsTrigger>
-          <TabsTrigger value="alerts" data-testid="tab-alerts">
-            <AlertTriangle className="w-4 h-4 mr-2" />
-            Alerts
-          </TabsTrigger>
-          <TabsTrigger value="radar" data-testid="tab-radar">
-            <Radar className="w-4 h-4 mr-2" />
-            Radar+Lightning
-          </TabsTrigger>
-          <TabsTrigger value="satellite" data-testid="tab-satellite">
-            <Satellite className="w-4 h-4 mr-2" />
-            Satellite+MRMS
-          </TabsTrigger>
-          <TabsTrigger value="hurricanes" data-testid="tab-hurricanes">
-            <Wind className="w-4 h-4 mr-2" />
-            Hurricanes+SPC
-          </TabsTrigger>
-          <TabsTrigger value="models" data-testid="tab-models">
-            <CloudRain className="w-4 h-4 mr-2" />
-            Models+External
-          </TabsTrigger>
-          <button
-            onClick={() => window.open('https://www.radaromega.com/', '_blank')}
-            className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm hover:bg-muted hover:text-muted-foreground"
-            data-testid="tab-omega-radar"
-          >
-            <Radar className="w-4 h-4 mr-2" />
-            Omega Radar
-          </button>
-          <button
-            onClick={() => window.open('https://www.windy.com/?32.607,-84.937,5', '_blank')}
-            className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm hover:bg-muted hover:text-muted-foreground"
-            data-testid="tab-windy"
-          >
-            <Wind className="w-4 h-4 mr-2" />
-            Windy
-          </button>
-        </TabsList>
+        {/* Enhanced Main Weather Tabs */}
+        <FadeIn delay={0.4}>
+          <Tabs defaultValue="overview" className="space-y-6">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.6 }}
+            >
+              <TabsList 
+                className="grid w-full grid-cols-8 bg-white/70 backdrop-blur-sm border border-blue-200/50 p-1 rounded-xl" 
+                data-testid="tabs-weather"
+              >
+                <HoverLift>
+                  <TabsTrigger value="overview" data-testid="tab-overview" className="rounded-lg transition-all duration-300">
+                    <Eye className="w-4 h-4 mr-2" />
+                    Overview
+                  </TabsTrigger>
+                </HoverLift>
+                <HoverLift>
+                  <TabsTrigger value="alerts" data-testid="tab-alerts" className="rounded-lg transition-all duration-300">
+                    <AlertTriangle className="w-4 h-4 mr-2" />
+                    Alerts
+                  </TabsTrigger>
+                </HoverLift>
+                <HoverLift>
+                  <TabsTrigger value="radar" data-testid="tab-radar" className="rounded-lg transition-all duration-300">
+                    <Radar className="w-4 h-4 mr-2" />
+                    Radar+Lightning
+                  </TabsTrigger>
+                </HoverLift>
+                <HoverLift>
+                  <TabsTrigger value="satellite" data-testid="tab-satellite" className="rounded-lg transition-all duration-300">
+                    <Satellite className="w-4 h-4 mr-2" />
+                    Satellite+MRMS
+                  </TabsTrigger>
+                </HoverLift>
+                <HoverLift>
+                  <TabsTrigger value="hurricanes" data-testid="tab-hurricanes" className="rounded-lg transition-all duration-300">
+                    <Wind className="w-4 h-4 mr-2" />
+                    Hurricanes+SPC
+                  </TabsTrigger>
+                </HoverLift>
+                <HoverLift>
+                  <TabsTrigger value="models" data-testid="tab-models" className="rounded-lg transition-all duration-300">
+                    <CloudRain className="w-4 h-4 mr-2" />
+                    Models+External
+                  </TabsTrigger>
+                </HoverLift>
+                <HoverLift>
+                  <button
+                    onClick={() => window.open('https://www.radaromega.com/', '_blank')}
+                    className="inline-flex items-center justify-center whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition-all duration-300 hover:bg-blue-100 hover:text-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                    data-testid="tab-omega-radar"
+                  >
+                    <Radar className="w-4 h-4 mr-2" />
+                    Omega Radar
+                  </button>
+                </HoverLift>
+                <HoverLift>
+                  <button
+                    onClick={() => window.open('https://www.windy.com/?32.607,-84.937,5', '_blank')}
+                    className="inline-flex items-center justify-center whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition-all duration-300 hover:bg-blue-100 hover:text-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                    data-testid="tab-windy"
+                  >
+                    <Wind className="w-4 h-4 mr-2" />
+                    Windy
+                  </button>
+                </HoverLift>
+              </TabsList>
+            </motion.div>
 
         {/* Overview Tab */}
         <TabsContent value="overview" className="space-y-6">
@@ -872,7 +1075,9 @@ export default function WeatherCenter() {
             </CardContent>
           </Card>
         </TabsContent>
-      </Tabs>
+          </Tabs>
+        </FadeIn>
+      </div>
     </div>
   );
 }

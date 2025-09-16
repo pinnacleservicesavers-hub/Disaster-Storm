@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'wouter';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -24,16 +25,65 @@ import {
   Wrench,
   Cloud,
   Zap,
-  Shield
+  Shield,
+  Heart,
+  Activity
 } from 'lucide-react';
+import { DashboardSection } from '@/components/DashboardSection';
+import { FadeIn, PulseAlert, StaggerContainer, StaggerItem, HoverLift } from '@/components/ui/animations';
 
 type VictimUser = typeof homeowners.$inferSelect;
+
+interface NextStep {
+  id: string;
+  title: string;
+  description: string;
+  status: 'pending' | 'in_progress' | 'completed';
+  priority: 'high' | 'medium' | 'low';
+  icon: any;
+}
 
 export default function VictimDashboard() {
   const [user, setUser] = useState<VictimUser | null>(null);
 
+  // Mock next steps checklist
+  const [nextSteps] = useState<NextStep[]>([
+    {
+      id: '1',
+      title: 'Document Property Damage',
+      description: 'Take photos of all visible damage to your property',
+      status: 'completed',
+      priority: 'high',
+      icon: Camera
+    },
+    {
+      id: '2', 
+      title: 'Contact Insurance Company',
+      description: 'File initial claim with your insurance provider',
+      status: 'in_progress',
+      priority: 'high',
+      icon: Phone
+    },
+    {
+      id: '3',
+      title: 'Find Contractors',
+      description: 'Get estimates from verified contractors in your area',
+      status: 'pending',
+      priority: 'medium',
+      icon: Users
+    },
+    {
+      id: '4',
+      title: 'Review Settlement',
+      description: 'Review and approve insurance settlement offer',
+      status: 'pending',
+      priority: 'medium',
+      icon: FileText
+    }
+  ]);
+
   // Fetch weather alerts for user's area
-  const { data: weatherAlerts } = useQuery({
+  const { data: weatherAlerts = [] } = useQuery({
     queryKey: ['weather-alerts', user?.state],
     queryFn: async () => {
       if (!user?.state) return [];
@@ -46,7 +96,7 @@ export default function VictimDashboard() {
   });
 
   // Fetch storm hot zones for user's area
-  const { data: hotZones } = useQuery({
+  const { data: hotZones = [] } = useQuery({
     queryKey: ['hot-zones', user?.state],
     queryFn: async () => {
       if (!user?.state) return [];
@@ -59,7 +109,7 @@ export default function VictimDashboard() {
   });
 
   // Fetch FEMA incidents for user's area
-  const { data: femaIncidents } = useQuery({
+  const { data: femaIncidents = [] } = useQuery({
     queryKey: ['fema-incidents', user?.state],
     queryFn: async () => {
       if (!user?.state) return [];
@@ -72,13 +122,28 @@ export default function VictimDashboard() {
   });
 
   useEffect(() => {
-    // Get user data from localStorage
+    // Get user data from localStorage or set mock data
     const userData = localStorage.getItem('victimUser');
     if (userData) {
       setUser(JSON.parse(userData));
     } else {
-      // Redirect to login if no user data
-      window.location.href = '/victim/login';
+      // Set mock user data for demo
+      const mockUser: VictimUser = {
+        id: 'demo-user-1',
+        firstName: 'Sarah',
+        lastName: 'Johnson',
+        email: 'sarah.johnson@email.com',
+        phone: '(813) 555-0123',
+        propertyAddress: '123 Oak Street',
+        city: 'Tampa',
+        state: 'FL',
+        zipCode: '33602',
+        propertyType: 'single-family',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+      setUser(mockUser);
+      localStorage.setItem('victimUser', JSON.stringify(mockUser));
     }
   }, []);
 
@@ -87,11 +152,23 @@ export default function VictimDashboard() {
     window.location.href = '/victim/login';
   };
 
+  const getStepStatusBadge = (status: string) => {
+    switch (status) {
+      case 'completed': return { text: 'DONE', variant: 'default' as const, color: 'text-green-600' };
+      case 'in_progress': return { text: 'IN PROGRESS', variant: 'secondary' as const, color: 'text-blue-600' };
+      default: return { text: 'TODO', variant: 'outline' as const, color: 'text-gray-600' };
+    }
+  };
+
   if (!user) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+            className="h-12 w-12 border-4 border-blue-600 border-t-transparent rounded-full mx-auto"
+          />
           <p className="mt-4 text-gray-600">Loading dashboard...</p>
         </div>
       </div>
@@ -102,357 +179,282 @@ export default function VictimDashboard() {
     .toUpperCase()
     .slice(0, 2) || 'U';
 
+  const completedSteps = nextSteps.filter(step => step.status === 'completed').length;
+  const inProgressSteps = nextSteps.filter(step => step.status === 'in_progress').length;
+  
   return (
-    <div className="min-h-screen bg-gray-50">
-      <title>Victim Dashboard - StormLead Master</title>
-      <meta name="description" content="Storm victim dashboard for reporting damage, tracking requests, and connecting with contractors" />
-      
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center space-x-4">
-              <Home className="w-8 h-8 text-blue-600" />
-              <div>
-                <h1 className="text-xl font-bold text-gray-900">Storm Victim Portal</h1>
-                <p className="text-sm text-gray-600">Emergency Assistance & Damage Reporting</p>
+    <DashboardSection
+      title="Storm Victim Portal"
+      description="Emergency assistance, damage reporting, and contractor connections for storm victims"
+      icon={Heart}
+      badge={{ text: 'EMERGENCY SUPPORT', variant: 'destructive' }}
+      kpis={[
+        { label: 'Steps Completed', value: completedSteps, change: `${Math.round((completedSteps / nextSteps.length) * 100)}% progress`, color: 'green', suffix: `/${nextSteps.length}`, testId: 'text-steps-completed' },
+        { label: 'Active Requests', value: inProgressSteps, change: 'Currently processing', color: 'blue', testId: 'text-active-requests' },
+        { label: 'Weather Alerts', value: weatherAlerts.length, change: 'For your area', color: weatherAlerts.length > 0 ? 'red' : 'green', testId: 'text-weather-alerts' },
+        { label: 'Available Contractors', value: 47, change: 'In your area', color: 'amber', testId: 'text-available-contractors' }
+      ]}
+      actions={[
+        { icon: Camera, label: 'Report Damage', variant: 'default', testId: 'button-report-damage' },
+        { icon: Users, label: 'Find Help', variant: 'outline', testId: 'button-find-help' },
+        { icon: LogOut, label: 'Logout', onClick: handleLogout, variant: 'outline', testId: 'button-logout' }
+      ]}
+      testId="victim-dashboard"
+    >
+      {/* Header with User Info */}
+      <div className="mb-8 p-4 bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-lg border border-white/20 dark:border-gray-700/20">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <div className="relative">
+              <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 text-white rounded-full flex items-center justify-center text-xl font-bold shadow-lg">
+                {userInitials}
               </div>
+              <motion.div
+                animate={{ scale: [1, 1.2, 1] }}
+                transition={{ duration: 2, repeat: Infinity }}
+                className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full border-2 border-white dark:border-gray-800"
+              />
             </div>
-            
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-sm font-medium">
-                  {userInitials}
-                </div>
-                <div className="hidden md:block">
-                  <p className="text-sm font-medium text-gray-900" data-testid="text-username">
-                    {user.firstName} {user.lastName}
-                  </p>
-                  <p className="text-xs text-gray-600">{user.email}</p>
-                </div>
+            <div>
+              <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100" data-testid="text-username">
+                Welcome, {user.firstName} {user.lastName}
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">{user.email}</p>
+              <div className="flex items-center space-x-2 mt-1">
+                <MapPin className="w-4 h-4 text-gray-400" />
+                <span className="text-sm text-gray-600 dark:text-gray-400" data-testid="text-property-address">
+                  {user.propertyAddress}, {user.city}, {user.state} {user.zipCode}
+                </span>
               </div>
-              
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={handleLogout}
-                data-testid="button-logout"
-              >
-                <LogOut className="w-4 h-4 mr-2" />
-                Logout
-              </Button>
             </div>
           </div>
         </div>
-      </header>
+      </div>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Emergency Alert */}
-        <Alert className="mb-6 bg-red-50 border-red-200">
-          <AlertTriangle className="h-4 w-4 text-red-600" />
-          <AlertDescription className="text-red-800">
-            <strong>Emergency Notice:</strong> If you're in immediate danger or have urgent safety concerns, 
-            call 911 immediately. This portal is for property damage reporting and contractor assistance.
-          </AlertDescription>
-        </Alert>
+      {/* Emergency Alert */}
+      <Alert className="mb-6 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800">
+        <AlertTriangle className="h-4 w-4 text-red-600" />
+        <AlertDescription className="text-red-800 dark:text-red-200">
+          <strong>Emergency Notice:</strong> If you're in immediate danger or have urgent safety concerns, 
+          call 911 immediately. This portal is for property damage reporting and contractor assistance.
+        </AlertDescription>
+      </Alert>
 
-        {/* Quick Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card className="hover:shadow-lg transition-shadow cursor-pointer">
-            <Link href="/victim/report-damage">
-              <CardContent className="p-6 text-center">
-                <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Camera className="w-6 h-6 text-red-600" />
-                </div>
-                <h3 className="font-semibold text-gray-900 mb-2">Report Damage</h3>
-                <p className="text-sm text-gray-600">Upload photos and document property damage</p>
-              </CardContent>
-            </Link>
-          </Card>
-
-          <Card className="hover:shadow-lg transition-shadow cursor-pointer">
-            <Link href="/victim/request-help">
-              <CardContent className="p-6 text-center">
-                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Wrench className="w-6 h-6 text-blue-600" />
-                </div>
-                <h3 className="font-semibold text-gray-900 mb-2">Request Help</h3>
-                <p className="text-sm text-gray-600">Find contractors for repairs and restoration</p>
-              </CardContent>
-            </Link>
-          </Card>
-
-          <Card className="hover:shadow-lg transition-shadow cursor-pointer">
-            <Link href="/victim/my-requests">
-              <CardContent className="p-6 text-center">
-                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <FileText className="w-6 h-6 text-green-600" />
-                </div>
-                <h3 className="font-semibold text-gray-900 mb-2">My Requests</h3>
-                <p className="text-sm text-gray-600">Track your service requests and status</p>
-              </CardContent>
-            </Link>
-          </Card>
-
-          <Card className="hover:shadow-lg transition-shadow cursor-pointer">
-            <Link href="/victim/contractors">
-              <CardContent className="p-6 text-center">
-                <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Users className="w-6 h-6 text-purple-600" />
-                </div>
-                <h3 className="font-semibold text-gray-900 mb-2">Find Contractors</h3>
-                <p className="text-sm text-gray-600">Browse verified contractors in your area</p>
-              </CardContent>
-            </Link>
-          </Card>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Property Information */}
-          <div className="lg:col-span-2">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Home className="w-5 h-5 mr-2" />
-                  Property Information
-                </CardTitle>
-                <CardDescription>
-                  Your registered property details for damage reporting
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-start space-x-3">
-                  <MapPin className="w-5 h-5 text-gray-400 mt-0.5" />
-                  <div>
-                    <p className="font-medium text-gray-900" data-testid="text-property-address">
-                      {user.propertyAddress}
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      {user.city}, {user.state} {user.zipCode}
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="flex items-center space-x-3">
-                  <Home className="w-5 h-5 text-gray-400" />
-                  <div>
-                    <p className="font-medium text-gray-900">Property Type</p>
-                    <Badge variant="secondary" className="mt-1">
-                      {user.propertyType.charAt(0).toUpperCase() + user.propertyType.slice(1)}
-                    </Badge>
-                  </div>
-                </div>
-
-                <div className="pt-4 border-t">
-                  <Link href="/victim/profile">
-                    <Button variant="outline" size="sm" data-testid="button-edit-profile">
-                      <User className="w-4 h-4 mr-2" />
-                      Edit Profile
-                    </Button>
-                  </Link>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Recent Activity */}
-            <Card className="mt-6">
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Clock className="w-5 h-5 mr-2" />
-                  Recent Activity
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-8 text-gray-500">
-                  <FileText className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                  <p>No recent activity yet</p>
-                  <p className="text-sm mt-2">Start by reporting damage or requesting help</p>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Sidebar */}
-          <div className="space-y-6">
-            {/* Contact Information */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Contact Information</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex items-center space-x-3">
-                  <Phone className="w-4 h-4 text-gray-400" />
-                  <span className="text-sm" data-testid="text-phone">{user.phone}</span>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <Mail className="w-4 h-4 text-gray-400" />
-                  <span className="text-sm" data-testid="text-email">{user.email}</span>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Weather Alert */}
-            <Card className={`${
-              weatherAlerts && weatherAlerts.length > 0 
-                ? 'bg-red-50 border-red-200' 
-                : 'bg-yellow-50 border-yellow-200'
-            }`}>
-              <CardHeader>
-                <CardTitle className={`text-lg flex items-center ${
-                  weatherAlerts && weatherAlerts.length > 0 
-                    ? 'text-red-800' 
-                    : 'text-yellow-800'
-                }`}>
-                  {weatherAlerts && weatherAlerts.length > 0 ? (
-                    <AlertTriangle className="w-5 h-5 mr-2" />
-                  ) : (
-                    <Cloud className="w-5 h-5 mr-2" />
-                  )}
-                  {weatherAlerts && weatherAlerts.length > 0 ? 'Active Weather Alerts' : 'Weather Monitoring'}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {weatherAlerts && weatherAlerts.length > 0 ? (
-                  <div className="space-y-3">
-                    {weatherAlerts.slice(0, 2).map((alert: any, index: number) => (
-                      <div key={index} className="bg-white p-3 rounded border border-red-200">
-                        <div className="flex items-center justify-between mb-2">
-                          <Badge className="bg-red-100 text-red-800 border-0">
-                            {alert.severity || 'Alert'}
-                          </Badge>
-                          <span className="text-xs text-red-600">
-                            {alert.areas ? alert.areas.slice(0, 2).join(', ') : user?.state}
-                          </span>
-                        </div>
-                        <p className="text-sm text-red-700 font-medium">{alert.title || alert.event}</p>
-                        {alert.description && (
-                          <p className="text-xs text-red-600 mt-1 line-clamp-2">{alert.description}</p>
-                        )}
-                      </div>
-                    ))}
-                    {weatherAlerts.length > 2 && (
-                      <p className="text-xs text-red-600">
-                        +{weatherAlerts.length - 2} more alerts
-                      </p>
-                    )}
-                  </div>
-                ) : (
-                  <p className="text-sm text-yellow-700">
-                    No active weather alerts for your area. Monitor conditions and stay prepared.
-                  </p>
-                )}
-                <Link href="/weather">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className={`mt-3 ${
-                      weatherAlerts && weatherAlerts.length > 0
-                        ? 'border-red-300 text-red-700 hover:bg-red-100'
-                        : 'border-yellow-300 text-yellow-700 hover:bg-yellow-100'
-                    }`}
-                  >
-                    View Weather Center
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
-
-            {/* Storm Hot Zones */}
-            {hotZones && hotZones.length > 0 && (
-              <Card className="bg-orange-50 border-orange-200">
-                <CardHeader>
-                  <CardTitle className="text-lg flex items-center text-orange-800">
-                    <Zap className="w-5 h-5 mr-2" />
-                    Storm Hot Zones
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    {hotZones.slice(0, 3).map((zone: any, index: number) => (
-                      <div key={index} className="flex items-center justify-between bg-white p-2 rounded border border-orange-200">
-                        <div>
-                          <p className="text-sm font-medium text-orange-900">{zone.county || zone.name}</p>
-                          <p className="text-xs text-orange-700">Risk Level: {zone.riskLevel || zone.severity}</p>
-                        </div>
-                        <Badge className="bg-orange-100 text-orange-800 border-0 text-xs">
-                          {zone.type || 'Storm Risk'}
+      {/* Weather Alert Cards */}
+      {weatherAlerts.length > 0 && (
+        <div className="mb-8">
+          <h3 className="text-lg font-semibold mb-4 flex items-center">
+            <AlertTriangle className="h-5 w-5 text-red-500 mr-2" />
+            Active Weather Alerts
+          </h3>
+          <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {weatherAlerts.slice(0, 4).map((alert: any, index: number) => (
+              <StaggerItem key={index}>
+                <motion.div
+                  className="relative"
+                  animate={{
+                    boxShadow: [
+                      '0 0 0 0 rgba(239, 68, 68, 0.4)',
+                      '0 0 0 10px rgba(239, 68, 68, 0)',
+                      '0 0 0 0 rgba(239, 68, 68, 0)'
+                    ]
+                  }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                >
+                  <Card className="bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800">
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between mb-2">
+                        <Badge className="bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 border-0">
+                          {alert.severity || 'Alert'}
                         </Badge>
+                        <span className="text-xs text-red-600 dark:text-red-400">
+                          {alert.areas ? alert.areas.slice(0, 2).join(', ') : user?.state}
+                        </span>
                       </div>
-                    ))}
-                    {hotZones.length > 3 && (
-                      <p className="text-xs text-orange-600">
-                        +{hotZones.length - 3} more zones
-                      </p>
-                    )}
-                  </div>
-                  <p className="text-xs text-orange-700 mt-3">
-                    High-risk areas for storm activity in your region
-                  </p>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* FEMA Incidents */}
-            {femaIncidents && femaIncidents.length > 0 && (
-              <Card className="bg-blue-50 border-blue-200">
-                <CardHeader>
-                  <CardTitle className="text-lg flex items-center text-blue-800">
-                    <Shield className="w-5 h-5 mr-2" />
-                    FEMA Incidents
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    {femaIncidents.slice(0, 2).map((incident: any, index: number) => (
-                      <div key={index} className="bg-white p-3 rounded border border-blue-200">
-                        <div className="flex items-center justify-between mb-2">
-                          <Badge className="bg-blue-100 text-blue-800 border-0">
-                            {incident.incidentType || 'Disaster'}
-                          </Badge>
-                          <span className="text-xs text-blue-600">
-                            {incident.declaredDate ? new Date(incident.declaredDate).toLocaleDateString() : 'Recent'}
-                          </span>
-                        </div>
-                        <p className="text-sm text-blue-700 font-medium">{incident.title || incident.incidentDescription}</p>
-                        <p className="text-xs text-blue-600 mt-1">{incident.designatedArea || user?.state}</p>
-                      </div>
-                    ))}
-                    {femaIncidents.length > 2 && (
-                      <p className="text-xs text-blue-600">
-                        +{femaIncidents.length - 2} more incidents
-                      </p>
-                    )}
-                  </div>
-                  <p className="text-xs text-blue-700 mt-3">
-                    Federal disaster declarations and emergency incidents
-                  </p>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Emergency Contacts */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Emergency Contacts</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="text-sm">
-                  <p className="font-medium">Emergency Services</p>
-                  <p className="text-red-600 font-bold">911</p>
-                </div>
-                <div className="text-sm">
-                  <p className="font-medium">Poison Control</p>
-                  <p className="text-blue-600">1-800-222-1222</p>
-                </div>
-                <div className="text-sm">
-                  <p className="font-medium">Red Cross</p>
-                  <p className="text-blue-600">1-800-733-2767</p>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+                      <h4 className="font-semibold text-red-900 dark:text-red-100 mb-2">
+                        {alert.title || alert.event}
+                      </h4>
+                      {alert.description && (
+                        <p className="text-sm text-red-700 dark:text-red-300 line-clamp-2">
+                          {alert.description}
+                        </p>
+                      )}
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              </StaggerItem>
+            ))}
+          </StaggerContainer>
         </div>
-      </main>
-    </div>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Next Steps Checklist */}
+        <div>
+          <h3 className="text-xl font-semibold mb-4 flex items-center">
+            <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
+            Recovery Checklist
+          </h3>
+          <StaggerContainer className="space-y-3">
+            {nextSteps.map((step, index) => {
+              const statusBadge = getStepStatusBadge(step.status);
+              const IconComponent = step.icon;
+              
+              return (
+                <StaggerItem key={step.id}>
+                  <HoverLift>
+                    <Card className={`relative overflow-hidden transition-all duration-300 ${
+                      step.status === 'completed' ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' :
+                      step.status === 'in_progress' ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800' :
+                      'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+                    }`}>
+                      <CardContent className="p-4">
+                        <div className="flex items-start space-x-4">
+                          <div className={`p-2 rounded-lg ${
+                            step.status === 'completed' ? 'bg-green-100 dark:bg-green-900' :
+                            step.status === 'in_progress' ? 'bg-blue-100 dark:bg-blue-900' :
+                            'bg-gray-100 dark:bg-gray-700'
+                          }`}>
+                            <IconComponent className={`h-5 w-5 ${statusBadge.color}`} />
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between mb-2">
+                              <h4 className="font-semibold text-gray-900 dark:text-gray-100">
+                                {step.title}
+                              </h4>
+                              <motion.div
+                                initial={{ opacity: 0, scale: 0.8 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                transition={{ delay: index * 0.1 }}
+                              >
+                                <Badge {...statusBadge} />
+                              </motion.div>
+                            </div>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                              {step.description}
+                            </p>
+                            {step.status === 'completed' && (
+                              <motion.div
+                                initial={{ width: 0 }}
+                                animate={{ width: '100%' }}
+                                transition={{ duration: 0.5, delay: index * 0.1 }}
+                                className="mt-2 h-1 bg-green-500 rounded-full"
+                              />
+                            )}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </HoverLift>
+                </StaggerItem>
+              );
+            })}
+          </StaggerContainer>
+        </div>
+
+        {/* Quick Actions & Status */}
+        <div className="space-y-6">
+          {/* Quick Actions */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <Zap className="h-5 w-5 mr-2 text-yellow-500" />
+                Quick Actions
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="grid grid-cols-2 gap-4">
+              <Link href="/victim/report-damage">
+                <HoverLift className="w-full">
+                  <Card className="cursor-pointer hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                    <CardContent className="p-4 text-center">
+                      <Camera className="h-8 w-8 text-red-500 mx-auto mb-2" />
+                      <h4 className="font-medium text-gray-900 dark:text-gray-100">Report Damage</h4>
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Upload photos & documentation</p>
+                    </CardContent>
+                  </Card>
+                </HoverLift>
+              </Link>
+              
+              <Link href="/victim/request-help">
+                <HoverLift className="w-full">
+                  <Card className="cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
+                    <CardContent className="p-4 text-center">
+                      <Wrench className="h-8 w-8 text-blue-500 mx-auto mb-2" />
+                      <h4 className="font-medium text-gray-900 dark:text-gray-100">Get Help</h4>
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Find contractors</p>
+                    </CardContent>
+                  </Card>
+                </HoverLift>
+              </Link>
+              
+              <Link href="/victim/my-requests">
+                <HoverLift className="w-full">
+                  <Card className="cursor-pointer hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors">
+                    <CardContent className="p-4 text-center">
+                      <FileText className="h-8 w-8 text-green-500 mx-auto mb-2" />
+                      <h4 className="font-medium text-gray-900 dark:text-gray-100">Track Status</h4>
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Monitor requests</p>
+                    </CardContent>
+                  </Card>
+                </HoverLift>
+              </Link>
+              
+              <Link href="/victim/contractors">
+                <HoverLift className="w-full">
+                  <Card className="cursor-pointer hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors">
+                    <CardContent className="p-4 text-center">
+                      <Users className="h-8 w-8 text-purple-500 mx-auto mb-2" />
+                      <h4 className="font-medium text-gray-900 dark:text-gray-100">Contractors</h4>
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Browse verified pros</p>
+                    </CardContent>
+                  </Card>
+                </HoverLift>
+              </Link>
+            </CardContent>
+          </Card>
+
+          {/* Contact Info */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Contact Information</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-center space-x-3">
+                <Phone className="w-4 h-4 text-gray-400" />
+                <span className="text-sm" data-testid="text-phone">{user.phone}</span>
+              </div>
+              <div className="flex items-center space-x-3">
+                <Mail className="w-4 h-4 text-gray-400" />
+                <span className="text-sm" data-testid="text-email">{user.email}</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Emergency Contacts */}
+          <Card className="bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800">
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center text-yellow-800 dark:text-yellow-200">
+                <Shield className="w-5 h-5 mr-2" />
+                Emergency Contacts
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="text-sm">
+                <p className="font-medium text-yellow-900 dark:text-yellow-100">Emergency Services</p>
+                <p className="text-red-600 font-bold text-lg">911</p>
+              </div>
+              <div className="text-sm">
+                <p className="font-medium text-yellow-900 dark:text-yellow-100">Poison Control</p>
+                <p className="text-blue-600 dark:text-blue-400">1-800-222-1222</p>
+              </div>
+              <div className="text-sm">
+                <p className="font-medium text-yellow-900 dark:text-yellow-100">Red Cross</p>
+                <p className="text-blue-600 dark:text-blue-400">1-800-733-2767</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </DashboardSection>
   );
 }

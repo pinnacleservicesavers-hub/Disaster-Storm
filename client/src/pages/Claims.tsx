@@ -1,136 +1,360 @@
+import { useState } from 'react';
+import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { FileText, Plus, Search, Settings, DollarSign } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { useQuery } from '@tanstack/react-query';
+import { FileText, Plus, Search, Settings, DollarSign, Clock, CheckCircle, AlertTriangle, TrendingUp, Eye } from 'lucide-react';
+import { DashboardSection } from '@/components/DashboardSection';
+import { FadeIn, PulseAlert, StaggerContainer, StaggerItem, HoverLift, CountUp } from '@/components/ui/animations';
 import { XactimateComparables } from '@/components/XactimateComparables';
 
+interface Claim {
+  id: string;
+  claimNumber: string;
+  customerName: string;
+  damageType: string;
+  status: 'open' | 'pending' | 'approved' | 'closed';
+  value: number;
+  adjuster: string;
+  dateSubmitted: string;
+  lastUpdate: string;
+  priority: 'low' | 'medium' | 'high' | 'urgent';
+  progress: number;
+}
+
 export default function Claims() {
+  const [selectedStatus, setSelectedStatus] = useState('all');
+
+  // Mock claims data with React Query
+  const { data: claims = [], isLoading } = useQuery({
+    queryKey: ['claims', selectedStatus],
+    queryFn: async (): Promise<Claim[]> => {
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      const allClaims = [
+        { id: '1', claimNumber: 'CLM-2024-001', customerName: 'Sarah Johnson', damageType: 'Storm Damage', status: 'open' as const, value: 25000, adjuster: 'Mike Chen', dateSubmitted: '2024-01-15', lastUpdate: '2 hours ago', priority: 'high' as const, progress: 75 },
+        { id: '2', claimNumber: 'CLM-2024-002', customerName: 'Robert Smith', damageType: 'Water Damage', status: 'pending' as const, value: 18500, adjuster: 'Lisa Wang', dateSubmitted: '2024-01-14', lastUpdate: '1 day ago', priority: 'medium' as const, progress: 45 },
+        { id: '3', claimNumber: 'CLM-2024-003', customerName: 'Maria Garcia', damageType: 'Wind Damage', status: 'approved' as const, value: 32000, adjuster: 'John Davis', dateSubmitted: '2024-01-13', lastUpdate: '3 hours ago', priority: 'urgent' as const, progress: 100 },
+        { id: '4', claimNumber: 'CLM-2024-004', customerName: 'David Wilson', damageType: 'Hail Damage', status: 'closed' as const, value: 12000, adjuster: 'Emma Lee', dateSubmitted: '2024-01-12', lastUpdate: '5 days ago', priority: 'low' as const, progress: 100 },
+        { id: '5', claimNumber: 'CLM-2024-005', customerName: 'Jennifer Brown', damageType: 'Tree Damage', status: 'open' as const, value: 45000, adjuster: 'Alex Rivera', dateSubmitted: '2024-01-11', lastUpdate: '1 hour ago', priority: 'urgent' as const, progress: 30 },
+      ];
+
+      return selectedStatus === 'all' ? allClaims : allClaims.filter(claim => claim.status === selectedStatus);
+    },
+    refetchInterval: 30000,
+  });
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'open': return { text: 'OPEN', variant: 'default' as const };
+      case 'pending': return { text: 'PENDING', variant: 'secondary' as const };
+      case 'approved': return { text: 'APPROVED', variant: 'default' as const };
+      case 'closed': return { text: 'CLOSED', variant: 'outline' as const };
+      default: return { text: 'UNKNOWN', variant: 'outline' as const };
+    }
+  };
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'urgent': return 'text-red-600';
+      case 'high': return 'text-orange-600';
+      case 'medium': return 'text-blue-600';
+      case 'low': return 'text-green-600';
+      default: return 'text-gray-600';
+    }
+  };
+
+  const getProgressColor = (progress: number) => {
+    if (progress >= 90) return 'bg-green-500';
+    if (progress >= 70) return 'bg-blue-500';
+    if (progress >= 50) return 'bg-yellow-500';
+    return 'bg-red-500';
+  };
+
+  // Calculate metrics
+  const openClaims = claims.filter(c => c.status === 'open').length;
+  const pendingClaims = claims.filter(c => c.status === 'pending').length;
+  const approvedClaims = claims.filter(c => c.status === 'approved').length;
+  const totalValue = claims.reduce((sum, c) => sum + c.value, 0);
+  const avgProcessingTime = 4.2; // Mock average
+
   return (
-    <div className="container mx-auto p-6">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900" data-testid="text-page-title">
-          Claims Management
-        </h1>
-        <p className="text-gray-600 mt-2">
-          Process insurance claims, track settlements, and manage documentation
-        </p>
+    <DashboardSection
+      title="Claims Management"
+      description="Process insurance claims, track settlements, and manage documentation with real-time status updates"
+      icon={FileText}
+      badge={{ text: `${claims.length} ACTIVE`, variant: 'default' }}
+      kpis={[
+        { label: 'Open Claims', value: 1247, change: '+87 this week', color: 'blue', testId: 'text-open-claims' },
+        { label: 'Pending Review', value: pendingClaims, change: 'Awaiting adjuster', color: 'amber', testId: 'text-pending-claims' },
+        { label: 'Approval Rate', value: 94, change: 'Last 30 days', color: 'green', suffix: '%', testId: 'text-approval-rate' },
+        { label: 'Total Value', value: 12.4, change: 'This quarter', color: 'default', suffix: 'M', testId: 'text-claims-value' }
+      ]}
+      actions={[
+        { icon: Plus, label: 'New Claim', variant: 'default', testId: 'button-new-claim' },
+        { icon: Search, label: 'Search Claims', variant: 'outline', testId: 'button-search-claims' },
+        { icon: TrendingUp, label: 'Analytics', variant: 'outline', testId: 'button-claims-analytics' }
+      ]}
+      testId="claims-section"
+    >
+      {/* Real-time Processing Pipeline */}
+      <div className="mb-8">
+        <h3 className="text-xl font-semibold mb-4 flex items-center">
+          <Clock className="h-5 w-5 text-blue-500 mr-2" />
+          Claims Processing Pipeline
+          <motion.div
+            animate={{ scale: [1, 1.2, 1] }}
+            transition={{ duration: 2, repeat: Infinity }}
+            className="ml-2 h-2 w-2 bg-blue-500 rounded-full"
+          />
+        </h3>
+        
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {[
+            { stage: 'Submitted', count: 47, color: 'bg-blue-500', percentage: 100 },
+            { stage: 'Under Review', count: 32, color: 'bg-yellow-500', percentage: 68 },
+            { stage: 'Approved', count: 28, color: 'bg-green-500', percentage: 60 },
+            { stage: 'Paid Out', count: 23, color: 'bg-purple-500', percentage: 49 },
+          ].map((stage, index) => (
+            <HoverLift key={stage.stage}>
+              <Card className="relative overflow-hidden">
+                <CardContent className="p-4">
+                  <div className="text-center">
+                    <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-2">{stage.stage}</h4>
+                    <div className="relative w-16 h-16 mx-auto mb-3">
+                      <svg className="w-16 h-16 transform -rotate-90">
+                        <circle
+                          cx="32"
+                          cy="32"
+                          r="28"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                          fill="transparent"
+                          className="text-gray-200 dark:text-gray-700"
+                        />
+                        <motion.circle
+                          cx="32"
+                          cy="32"
+                          r="28"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                          fill="transparent"
+                          strokeLinecap="round"
+                          strokeDasharray={`${2 * Math.PI * 28}`}
+                          initial={{ strokeDashoffset: 2 * Math.PI * 28 }}
+                          animate={{ strokeDashoffset: 2 * Math.PI * 28 * (1 - stage.percentage / 100) }}
+                          transition={{ duration: 1.5, ease: "easeOut", delay: index * 0.3 }}
+                          className={stage.color.replace('bg-', 'text-')}
+                        />
+                      </svg>
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <CountUp end={stage.count} className="text-lg font-bold text-gray-700 dark:text-gray-300" />
+                      </div>
+                    </div>
+                    <Badge variant="outline" className="text-xs">
+                      {stage.percentage}% conversion
+                    </Badge>
+                  </div>
+                </CardContent>
+              </Card>
+            </HoverLift>
+          ))}
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-gray-600">Open Claims</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold" data-testid="text-open-claims">1,247</div>
-            <p className="text-xs text-gray-500">+87 this week</p>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-gray-600">Pending Review</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold" data-testid="text-pending-claims">312</div>
-            <p className="text-xs text-gray-500">Awaiting adjuster</p>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-gray-600">Approved Claims</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold" data-testid="text-approved-claims">935</div>
-            <p className="text-xs text-gray-500">Ready for work</p>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-gray-600">Total Value</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold" data-testid="text-claims-value">$12.4M</div>
-            <p className="text-xs text-gray-500">This quarter</p>
-          </CardContent>
-        </Card>
+      {/* Status Filter */}
+      <div className="flex space-x-4 mb-6">
+        {[
+          { key: 'all', label: 'All Claims' },
+          { key: 'open', label: 'Open' },
+          { key: 'pending', label: 'Pending' },
+          { key: 'approved', label: 'Approved' },
+          { key: 'closed', label: 'Closed' }
+        ].map((filter) => (
+          <Button
+            key={filter.key}
+            variant={selectedStatus === filter.key ? 'default' : 'outline'}
+            onClick={() => setSelectedStatus(filter.key)}
+            data-testid={`button-filter-${filter.key}`}
+          >
+            {filter.label}
+          </Button>
+        ))}
       </div>
 
-      <div className="flex gap-4 mb-6">
-        <Button data-testid="button-new-claim">
-          <Plus className="w-4 h-4 mr-2" />
-          New Claim
-        </Button>
-        <Button variant="outline" data-testid="button-search-claims">
-          <Search className="w-4 h-4 mr-2" />
-          Search Claims
-        </Button>
-        <Button variant="outline" data-testid="button-claims-settings">
-          <Settings className="w-4 h-4 mr-2" />
-          Settings
-        </Button>
+      {/* Claims Timeline */}
+      <div className="mb-8">
+        <h3 className="text-xl font-semibold mb-4">Active Claims Timeline</h3>
+        
+        {isLoading ? (
+          <div className="space-y-4">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="h-24 bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse" />
+            ))}
+          </div>
+        ) : (
+          <StaggerContainer className="space-y-4">
+            {claims.slice(0, 5).map((claim, index) => (
+              <StaggerItem key={claim.id}>
+                <HoverLift>
+                  <Card className="relative overflow-hidden">
+                    <div className="absolute inset-0 bg-gradient-to-r from-blue-50/30 to-indigo-50/30 dark:from-blue-900/10 dark:to-indigo-900/10" />
+                    <CardContent className="relative p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-4">
+                          <div className="relative">
+                            <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold ${
+                              claim.priority === 'urgent' ? 'bg-red-500' :
+                              claim.priority === 'high' ? 'bg-orange-500' :
+                              claim.priority === 'medium' ? 'bg-blue-500' : 'bg-green-500'
+                            }`}>
+                              <FileText className="h-6 w-6" />
+                            </div>
+                            {claim.priority === 'urgent' && (
+                              <PulseAlert intensity="strong">
+                                <AlertTriangle className="absolute -top-1 -right-1 h-3 w-3 text-red-500" />
+                              </PulseAlert>
+                            )}
+                          </div>
+                          <div>
+                            <div className="flex items-center space-x-2">
+                              <h4 className="font-semibold text-gray-900 dark:text-gray-100" data-testid={`claim-number-${claim.id}`}>
+                                {claim.claimNumber}
+                              </h4>
+                              <Badge {...getStatusBadge(claim.status)} />
+                            </div>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">{claim.customerName} • {claim.damageType}</p>
+                            <div className="flex items-center space-x-4 mt-1">
+                              <span className="text-xs text-gray-500 dark:text-gray-400">Adjuster: {claim.adjuster}</span>
+                              <span className="text-xs text-gray-500 dark:text-gray-400">Updated: {claim.lastUpdate}</span>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center space-x-6">
+                          <div className="text-center">
+                            <div className="text-lg font-bold text-green-600 dark:text-green-400">
+                              ${claim.value.toLocaleString()}
+                            </div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400">Claim Value</div>
+                          </div>
+                          
+                          <div className="text-center w-24">
+                            <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Progress</div>
+                            <div className="relative">
+                              <Progress value={claim.progress} className="h-3" />
+                              <motion.div
+                                initial={{ width: 0 }}
+                                animate={{ width: `${claim.progress}%` }}
+                                transition={{ duration: 1.5, ease: "easeOut", delay: index * 0.2 }}
+                                className={`absolute top-0 left-0 h-3 rounded-full ${getProgressColor(claim.progress)}`}
+                              />
+                            </div>
+                            <div className="text-xs font-medium text-gray-700 dark:text-gray-300 mt-1">
+                              {claim.progress}%
+                            </div>
+                          </div>
+                          
+                          <div className="flex space-x-2">
+                            <Button size="sm" variant="outline" data-testid={`button-view-${claim.id}`}>
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button size="sm" variant="outline" data-testid={`button-update-${claim.id}`}>
+                              Update
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </HoverLift>
+              </StaggerItem>
+            ))}
+          </StaggerContainer>
+        )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        {/* Financial Overview with Animated Counters */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center">
-              <FileText className="w-5 h-5 mr-2" />
-              Claims Features
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="p-3 bg-blue-50 rounded-lg">
-              <h4 className="font-semibold text-blue-900">Automated Intake</h4>
-              <p className="text-sm text-blue-700">AI-powered claim processing from photos, reports, and customer submissions</p>
-            </div>
-            <div className="p-3 bg-green-50 rounded-lg">
-              <h4 className="font-semibold text-green-900">Insurance Integration</h4>
-              <p className="text-sm text-green-700">Direct API connections with major insurance carriers for seamless processing</p>
-            </div>
-            <div className="p-3 bg-purple-50 rounded-lg">
-              <h4 className="font-semibold text-purple-900">Document Management</h4>
-              <p className="text-sm text-purple-700">Secure cloud storage for photos, estimates, contracts, and completion certificates</p>
-            </div>
-            <div className="p-3 bg-orange-50 rounded-lg">
-              <h4 className="font-semibold text-orange-900">Settlement Tracking</h4>
-              <p className="text-sm text-orange-700">Monitor payment status, supplement negotiations, and final settlements</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <DollarSign className="w-5 h-5 mr-2" />
+              <DollarSign className="w-5 h-5 mr-2 text-green-500" />
               Financial Overview
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-              <span className="text-sm font-medium">Pending Settlements</span>
-              <span className="text-lg font-bold" data-testid="text-pending-settlements">$8.2M</span>
+          <CardContent className="space-y-4">
+            {[
+              { label: 'Pending Settlements', value: 8200000, format: 'currency' },
+              { label: 'Supplements Requested', value: 1800000, format: 'currency' },
+              { label: 'Average Claim Value', value: 9950, format: 'currency' },
+              { label: 'Processing Time', value: avgProcessingTime, format: 'days' },
+            ].map((metric, index) => (
+              <div key={metric.label} className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{metric.label}</span>
+                <div className="text-lg font-bold text-gray-900 dark:text-gray-100">
+                  {metric.format === 'currency' ? (
+                    <>$<CountUp end={metric.value} duration={2000} delay={index * 200} /></>
+                  ) : (
+                    <>
+                      <CountUp end={metric.value} duration={2000} delay={index * 200} decimals={1} />
+                      {metric.format === 'days' ? ' days' : ''}
+                    </>
+                  )}
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+
+        {/* Status Distribution */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <TrendingUp className="w-5 h-5 mr-2 text-blue-500" />
+              Status Distribution
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {[
+                { status: 'Open', count: openClaims, total: claims.length, color: 'bg-blue-500' },
+                { status: 'Pending', count: pendingClaims, total: claims.length, color: 'bg-yellow-500' },
+                { status: 'Approved', count: approvedClaims, total: claims.length, color: 'bg-green-500' },
+                { status: 'Closed', count: claims.filter(c => c.status === 'closed').length, total: claims.length, color: 'bg-gray-500' },
+              ].map((item, index) => {
+                const percentage = claims.length > 0 ? (item.count / item.total) * 100 : 0;
+                
+                return (
+                  <div key={item.status} className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{item.status}</span>
+                      <span className="text-sm font-bold text-gray-900 dark:text-gray-100">{item.count}</span>
+                    </div>
+                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
+                      <motion.div
+                        className={`h-2 rounded-full ${item.color}`}
+                        initial={{ width: 0 }}
+                        animate={{ width: `${percentage}%` }}
+                        transition={{ 
+                          duration: 1.5, 
+                          ease: "easeOut",
+                          delay: index * 0.2
+                        }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-            <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-              <span className="text-sm font-medium">Supplements Requested</span>
-              <span className="text-lg font-bold" data-testid="text-supplements">$1.8M</span>
-            </div>
-            <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-              <span className="text-sm font-medium">Average Claim Value</span>
-              <span className="text-lg font-bold" data-testid="text-avg-claim">$9,950</span>
-            </div>
-            <Button className="w-full mt-4" data-testid="button-financial-report">
-              Generate Financial Report
-            </Button>
           </CardContent>
         </Card>
       </div>
 
       {/* Xactimate Comparables Section */}
-      <div className="mt-8">
-        <XactimateComparables />
-      </div>
-    </div>
+      <XactimateComparables />
+    </DashboardSection>
   );
 }

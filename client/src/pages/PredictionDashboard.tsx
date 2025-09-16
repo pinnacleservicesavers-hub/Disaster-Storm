@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { motion } from 'framer-motion';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
+import { FadeIn, CountUp, StaggerContainer, StaggerItem, HoverLift } from '@/components/ui/animations';
 import { 
   Cloud, 
   Zap, 
@@ -250,50 +252,107 @@ export default function PredictionDashboard() {
 
   if (dashboardLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600 dark:text-gray-400">Loading prediction dashboard...</p>
-        </div>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-indigo-900 flex items-center justify-center">
+        <FadeIn>
+          <div className="text-center">
+            <motion.div
+              className="relative"
+              animate={{ rotate: 360 }}
+              transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+            >
+              <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full mx-auto"></div>
+              <motion.div
+                className="absolute inset-0 w-16 h-16 border-4 border-transparent border-r-purple-400 rounded-full mx-auto"
+                animate={{ rotate: -360 }}
+                transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
+              />
+            </motion.div>
+            <motion.p
+              className="mt-6 text-lg font-medium bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"
+              animate={{ opacity: [0.5, 1, 0.5] }}
+              transition={{ duration: 2, repeat: Infinity }}
+            >
+              🌪️ Analyzing Storm Patterns...
+            </motion.p>
+            <p className="mt-2 text-gray-600 dark:text-gray-400">Loading predictive intelligence dashboard</p>
+          </div>
+        </FadeIn>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-indigo-900 p-6">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2" data-testid="title-prediction-dashboard">
-                🌪️ Predictive Storm Damage AI Dashboard
-              </h1>
-              <p className="text-gray-600 dark:text-gray-400" data-testid="text-dashboard-description">
-                AI-powered {forecastHours}-hour damage predictions with contractor deployment recommendations
-              </p>
-            </div>
-            <div className="flex items-center space-x-4">
-              <Button
-                onClick={refreshData}
-                variant="outline"
-                size="sm"
-                data-testid="button-refresh-data"
+        {/* Enhanced Header */}
+        <FadeIn>
+          <div className="mb-8">
+            <div className="flex items-center justify-between">
+              <motion.div
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.6 }}
               >
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Refresh
-              </Button>
-              <div className="flex items-center space-x-2">
-                <label className="text-sm font-medium" data-testid="label-auto-refresh">Auto Refresh</label>
-                <input
-                  type="checkbox"
-                  checked={autoRefresh}
-                  onChange={(e) => setAutoRefresh(e.target.checked)}
-                  className="rounded"
-                  data-testid="checkbox-auto-refresh"
-                />
-              </div>
-            </div>
+                <div className="relative">
+                  <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent mb-3" data-testid="title-prediction-dashboard">
+                    🌪️ Predictive Storm Intelligence
+                  </h1>
+                  <motion.div
+                    className="absolute -top-2 -left-2 w-2 h-2 bg-blue-400 rounded-full"
+                    animate={{ 
+                      scale: [1, 1.5, 1],
+                      opacity: [0.5, 1, 0.5]
+                    }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                  />
+                </div>
+                <p className="text-lg text-slate-600 dark:text-slate-300 font-medium" data-testid="text-dashboard-description">
+                  AI-powered <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg font-semibold">{forecastHours}h</span> damage predictions with deployment intelligence
+                </p>
+              </motion.div>
+              <motion.div
+                className="flex items-center space-x-4"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.6, delay: 0.2 }}
+              >
+                <HoverLift>
+                  <Button
+                    onClick={refreshData}
+                    variant="outline"
+                    size="sm"
+                    data-testid="button-refresh-data"
+                    className="bg-white/80 hover:bg-white border-blue-200 hover:border-blue-300 text-blue-700 hover:text-blue-800 backdrop-blur-sm transition-all duration-300 shadow-lg hover:shadow-xl"
+                  >
+                    <motion.div
+                      animate={{ rotate: autoRefresh ? 360 : 0 }}
+                      transition={{ duration: 1, repeat: autoRefresh ? Infinity : 0, ease: "linear" }}
+                    >
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                    </motion.div>
+                    Refresh
+                  </Button>
+                </HoverLift>
+                <div className="flex items-center space-x-3 bg-white/70 backdrop-blur-sm rounded-lg px-4 py-2 border border-blue-200/50">
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300" data-testid="label-auto-refresh">Auto Refresh</label>
+                  <motion.input
+                    type="checkbox"
+                    checked={autoRefresh}
+                    onChange={(e) => setAutoRefresh(e.target.checked)}
+                    className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 transition-all duration-200"
+                    data-testid="checkbox-auto-refresh"
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.9 }}
+                  />
+                  {autoRefresh && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="w-2 h-2 bg-green-400 rounded-full animate-pulse"
+                    />
+                  )}
+                </div>
+              </motion.div>
           </div>
           
           {/* Filters */}
@@ -363,118 +422,246 @@ export default function PredictionDashboard() {
           </div>
         </div>
 
-        {/* Key Metrics */}
+        {/* Enhanced Key Metrics */}
         {dashboardData && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <Card data-testid="card-active-predictions">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Active Predictions</CardTitle>
-                <Activity className="h-4 w-4 text-blue-600" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold" data-testid="stat-active-predictions">
-                  {dashboardData.dashboard.activePredictions}
-                </div>
-                <p className="text-xs text-gray-600 dark:text-gray-400">
-                  Storm systems tracked
-                </p>
-              </CardContent>
-            </Card>
+          <FadeIn delay={0.6}>
+            <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+              <StaggerItem>
+                <HoverLift>
+                  <Card data-testid="card-active-predictions" className="bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-blue-900/20 dark:to-indigo-900/20 border-blue-200 dark:border-blue-800 hover:shadow-xl transition-all duration-300">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium text-blue-700 dark:text-blue-300">Active Predictions</CardTitle>
+                      <motion.div
+                        animate={{ 
+                          scale: [1, 1.2, 1],
+                          rotate: [0, 10, -10, 0]
+                        }}
+                        transition={{ duration: 2, repeat: Infinity }}
+                      >
+                        <Activity className="h-5 w-5 text-blue-600" />
+                      </motion.div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-3xl font-bold text-blue-800 dark:text-blue-200" data-testid="stat-active-predictions">
+                        <CountUp end={dashboardData.dashboard.activePredictions} />
+                      </div>
+                      <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">
+                        🌀 Storm systems tracked
+                      </p>
+                    </CardContent>
+                  </Card>
+                </HoverLift>
+              </StaggerItem>
 
-            <Card data-testid="card-damage-forecasts">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Damage Forecasts</CardTitle>
-                <AlertTriangle className="h-4 w-4 text-orange-600" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold" data-testid="stat-damage-forecasts">
-                  {dashboardData.dashboard.damageForecasts}
-                </div>
-                <p className="text-xs text-gray-600 dark:text-gray-400">
-                  Geographic areas at risk
-                </p>
-              </CardContent>
-            </Card>
+              <StaggerItem>
+                <HoverLift>
+                  <Card data-testid="card-damage-forecasts" className="bg-gradient-to-br from-orange-50 to-red-100 dark:from-orange-900/20 dark:to-red-900/20 border-orange-200 dark:border-orange-800 hover:shadow-xl transition-all duration-300">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium text-orange-700 dark:text-orange-300">Damage Forecasts</CardTitle>
+                      <motion.div
+                        animate={{ 
+                          scale: [1, 1.1, 1],
+                          opacity: [0.7, 1, 0.7]
+                        }}
+                        transition={{ duration: 1.5, repeat: Infinity }}
+                      >
+                        <AlertTriangle className="h-5 w-5 text-orange-600" />
+                      </motion.div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-3xl font-bold text-orange-800 dark:text-orange-200" data-testid="stat-damage-forecasts">
+                        <CountUp end={dashboardData.dashboard.damageForecasts} />
+                      </div>
+                      <p className="text-sm text-orange-600 dark:text-orange-400 font-medium">
+                        ⚠️ Geographic areas at risk
+                      </p>
+                    </CardContent>
+                  </Card>
+                </HoverLift>
+              </StaggerItem>
 
-            <Card data-testid="card-contractor-opportunities">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Opportunities</CardTitle>
-                <DollarSign className="h-4 w-4 text-green-600" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold" data-testid="stat-contractor-opportunities">
-                  {dashboardData.dashboard.contractorOpportunities}
-                </div>
-                <p className="text-xs text-gray-600 dark:text-gray-400">
-                  Contractor opportunities
-                </p>
-              </CardContent>
-            </Card>
+              <StaggerItem>
+                <HoverLift>
+                  <Card data-testid="card-contractor-opportunities" className="bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-900/20 dark:to-emerald-900/20 border-green-200 dark:border-green-800 hover:shadow-xl transition-all duration-300">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium text-green-700 dark:text-green-300">Opportunities</CardTitle>
+                      <motion.div
+                        animate={{ 
+                          y: [0, -3, 0],
+                          scale: [1, 1.1, 1]
+                        }}
+                        transition={{ duration: 2, repeat: Infinity }}
+                      >
+                        <DollarSign className="h-5 w-5 text-green-600" />
+                      </motion.div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-3xl font-bold text-green-800 dark:text-green-200" data-testid="stat-contractor-opportunities">
+                        <CountUp end={dashboardData.dashboard.contractorOpportunities} />
+                      </div>
+                      <p className="text-sm text-green-600 dark:text-green-400 font-medium">
+                        💼 Contractor opportunities
+                      </p>
+                    </CardContent>
+                  </Card>
+                </HoverLift>
+              </StaggerItem>
 
-            <Card data-testid="card-total-revenue">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Revenue Potential</CardTitle>
-                <TrendingUp className="h-4 w-4 text-purple-600" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold" data-testid="stat-total-revenue">
-                  {formatCurrency(dashboardData.dashboard.totalEstimatedRevenue)}
-                </div>
-                <p className="text-xs text-gray-600 dark:text-gray-400">
-                  Estimated opportunities
-                </p>
-              </CardContent>
-            </Card>
-          </div>
+              <StaggerItem>
+                <HoverLift>
+                  <Card data-testid="card-total-revenue" className="bg-gradient-to-br from-purple-50 to-indigo-100 dark:from-purple-900/20 dark:to-indigo-900/20 border-purple-200 dark:border-purple-800 hover:shadow-xl transition-all duration-300">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium text-purple-700 dark:text-purple-300">Revenue Potential</CardTitle>
+                      <motion.div
+                        animate={{ 
+                          y: [0, -5, 0],
+                          rotate: [0, 15, 0]
+                        }}
+                        transition={{ duration: 2.5, repeat: Infinity }}
+                      >
+                        <TrendingUp className="h-5 w-5 text-purple-600" />
+                      </motion.div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-3xl font-bold text-purple-800 dark:text-purple-200" data-testid="stat-total-revenue">
+                        {formatCurrency(dashboardData.dashboard.totalEstimatedRevenue)}
+                      </div>
+                      <p className="text-sm text-purple-600 dark:text-purple-400 font-medium">
+                        📈 Estimated opportunities
+                      </p>
+                    </CardContent>
+                  </Card>
+                </HoverLift>
+              </StaggerItem>
+            </StaggerContainer>
+          </FadeIn>
         )}
 
-        {/* Risk Level Summary */}
+        {/* Enhanced Risk Level Summary */}
         {dashboardData && (
-          <Card className="mb-8" data-testid="card-risk-summary">
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Shield className="h-5 w-5 mr-2" />
-                Risk Level Distribution
-              </CardTitle>
-              <CardDescription>
-                Geographic areas by damage risk level ({forecastHours}-hour forecast)
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-5 gap-4">
-                {Object.entries(dashboardData.dashboard.riskSummary).map(([level, count]) => (
-                  <div key={level} className="text-center" data-testid={`risk-summary-${level}`}>
-                    <div className={`rounded-lg p-4 ${getRiskColor(level)}`}>
-                      <div className="text-2xl font-bold">{count}</div>
-                      <div className="text-sm capitalize">{level}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+          <FadeIn delay={0.8}>
+            <Card className="mb-8 bg-gradient-to-r from-white via-slate-50 to-white dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 border-slate-200 dark:border-slate-700 shadow-xl" data-testid="card-risk-summary">
+              <CardHeader>
+                <CardTitle className="flex items-center text-xl">
+                  <motion.div
+                    animate={{ 
+                      rotate: [0, 10, -10, 0],
+                      scale: [1, 1.1, 1]
+                    }}
+                    transition={{ duration: 3, repeat: Infinity }}
+                  >
+                    <Shield className="h-6 w-6 mr-3 text-blue-600" />
+                  </motion.div>
+                  <span className="bg-gradient-to-r from-slate-700 to-blue-600 bg-clip-text text-transparent font-bold">
+                    Risk Level Distribution
+                  </span>
+                </CardTitle>
+                <CardDescription className="text-base">
+                  🎯 Geographic areas by damage risk level • <span className="font-semibold text-blue-600">{forecastHours}h</span> forecast window
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <StaggerContainer className="grid grid-cols-5 gap-4">
+                  {Object.entries(dashboardData.dashboard.riskSummary).map(([level, count], index) => (
+                    <StaggerItem key={level}>
+                      <HoverLift>
+                        <motion.div 
+                          className="text-center" 
+                          data-testid={`risk-summary-${level}`}
+                          whileHover={{ y: -5 }}
+                          transition={{ type: "spring", stiffness: 300 }}
+                        >
+                          <div className={`rounded-xl p-6 ${getRiskColor(level)} shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105`}>
+                            <motion.div 
+                              className="text-3xl font-bold mb-2"
+                              initial={{ scale: 0 }}
+                              animate={{ scale: 1 }}
+                              transition={{ delay: 0.1 * index, type: "spring" }}
+                            >
+                              <CountUp end={count} />
+                            </motion.div>
+                            <div className="text-sm capitalize font-semibold tracking-wide">
+                              {level === 'extreme' && '🔴'}
+                              {level === 'high' && '🟠'}
+                              {level === 'moderate' && '🟡'}
+                              {level === 'low' && '🟢'}
+                              {level === 'minimal' && '⚪'}
+                              {' '}{level}
+                            </div>
+                            {level === 'extreme' && count > 0 && (
+                              <motion.div
+                                className="mt-2 text-xs font-medium opacity-90"
+                                animate={{ opacity: [0.5, 1, 0.5] }}
+                                transition={{ duration: 2, repeat: Infinity }}
+                              >
+                                ⚠️ CRITICAL
+                              </motion.div>
+                            )}
+                          </div>
+                        </motion.div>
+                      </HoverLift>
+                    </StaggerItem>
+                  ))}
+                </StaggerContainer>
+              </CardContent>
+            </Card>
+          </FadeIn>
         )}
 
-        {/* Main Content Tabs */}
-        <Tabs defaultValue="predictions" className="w-full">
-          <TabsList className="grid w-full grid-cols-4" data-testid="tabs-prediction-dashboard">
-            <TabsTrigger value="predictions" data-testid="tab-storm-predictions">
-              <Cloud className="h-4 w-4 mr-2" />
-              Storm Predictions
-            </TabsTrigger>
-            <TabsTrigger value="damage" data-testid="tab-damage-forecasts">
-              <AlertTriangle className="h-4 w-4 mr-2" />
-              Damage Forecasts
-            </TabsTrigger>
-            <TabsTrigger value="opportunities" data-testid="tab-contractor-opportunities">
-              <Wrench className="h-4 w-4 mr-2" />
-              Opportunities
-            </TabsTrigger>
-            <TabsTrigger value="deployment" data-testid="tab-deployment-recommendations">
-              <Target className="h-4 w-4 mr-2" />
-              Deployment
-            </TabsTrigger>
-          </TabsList>
+        {/* Enhanced Main Content Tabs */}
+        <FadeIn delay={1.0}>
+          <Tabs defaultValue="predictions" className="w-full">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 1.2 }}
+            >
+              <TabsList 
+                className="grid w-full grid-cols-4 bg-white/80 backdrop-blur-sm border border-slate-200/50 p-1 rounded-xl shadow-lg" 
+                data-testid="tabs-prediction-dashboard"
+              >
+                <HoverLift>
+                  <TabsTrigger 
+                    value="predictions" 
+                    data-testid="tab-storm-predictions"
+                    className="rounded-lg transition-all duration-300 data-[state=active]:bg-blue-500 data-[state=active]:text-white data-[state=active]:shadow-lg"
+                  >
+                    <Cloud className="h-4 w-4 mr-2" />
+                    🌀 Storm Predictions
+                  </TabsTrigger>
+                </HoverLift>
+                <HoverLift>
+                  <TabsTrigger 
+                    value="damage" 
+                    data-testid="tab-damage-forecasts"
+                    className="rounded-lg transition-all duration-300 data-[state=active]:bg-orange-500 data-[state=active]:text-white data-[state=active]:shadow-lg"
+                  >
+                    <AlertTriangle className="h-4 w-4 mr-2" />
+                    ⚠️ Damage Forecasts
+                  </TabsTrigger>
+                </HoverLift>
+                <HoverLift>
+                  <TabsTrigger 
+                    value="opportunities" 
+                    data-testid="tab-contractor-opportunities"
+                    className="rounded-lg transition-all duration-300 data-[state=active]:bg-green-500 data-[state=active]:text-white data-[state=active]:shadow-lg"
+                  >
+                    <Wrench className="h-4 w-4 mr-2" />
+                    💼 Opportunities
+                  </TabsTrigger>
+                </HoverLift>
+                <HoverLift>
+                  <TabsTrigger 
+                    value="deployment" 
+                    data-testid="tab-deployment-recommendations"
+                    className="rounded-lg transition-all duration-300 data-[state=active]:bg-purple-500 data-[state=active]:text-white data-[state=active]:shadow-lg"
+                  >
+                    <Target className="h-4 w-4 mr-2" />
+                    🎯 Deployment
+                  </TabsTrigger>
+                </HoverLift>
+              </TabsList>
+            </motion.div>
 
           {/* Storm Predictions Tab */}
           <TabsContent value="predictions" data-testid="content-storm-predictions">
@@ -969,6 +1156,7 @@ export default function PredictionDashboard() {
             </div>
           </TabsContent>
         </Tabs>
+        </FadeIn>
 
         {/* Footer */}
         <div className="mt-8 text-center text-sm text-gray-500 dark:text-gray-400" data-testid="text-dashboard-footer">
@@ -976,6 +1164,7 @@ export default function PredictionDashboard() {
           <br />
           Predictive Storm Damage AI System v1.0 • Powered by NOAA, NEXRAD, and Historical FEMA Data
         </div>
+        </FadeIn>
       </div>
     </div>
   );

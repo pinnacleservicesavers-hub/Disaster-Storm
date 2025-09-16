@@ -1,4 +1,334 @@
 @import url('https://unpkg.com/leaflet@1.9.4/dist/leaflet.css');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Storm-themed CSS Variables */
+:root {
+  --background: 240 15% 97%;
+  --foreground: 222 84% 5%;
+  --card: 0 0% 100%;
+  --card-foreground: 222 84% 5%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 84% 5%;
+  --primary: 217 91% 35%;
+  --primary-dark: 217 91% 25%;
+  --primary-foreground: 210 40% 98%;
+  --secondary: 210 40% 95%;
+  --secondary-foreground: 222 47% 11%;
+  --muted: 210 40% 96%;
+  --muted-foreground: 215 16% 45%;
+  --accent: 210 40% 92%;
+  --accent-foreground: 222 47% 11%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 214 32% 91%;
+  --input: 214 32% 91%;
+  --ring: 217 91% 35%;
+  --chart-1: 12 76% 61%;
+  --chart-2: 173 58% 39%;
+  --chart-3: 197 37% 24%;
+  --chart-4: 43 74% 66%;
+  --chart-5: 27 87% 67%;
+  --radius: 0.75rem;
+
+  /* Storm-specific colors */
+  --storm-blue: 217 91% 35%;
+  --storm-blue-light: 217 71% 53%;
+  --storm-blue-dark: 217 91% 25%;
+  --storm-gray: 215 16% 45%;
+  --storm-gray-light: 215 16% 65%;
+  --storm-gray-dark: 215 25% 25%;
+  --warning-orange: 25 95% 53%;
+  --warning-red: 0 84% 60%;
+  --success-green: 142 76% 36%;
+  --surface: 220 17% 98%;
+  --surface-dark: 220 17% 90%;
+  
+  /* Weather status colors */
+  --weather-clear: 194 100% 85%;
+  --weather-cloudy: 215 16% 45%;
+  --weather-rain: 217 91% 35%;
+  --weather-storm: 0 84% 60%;
+  --weather-severe: 25 95% 53%;
+  
+  /* Storm gradient backgrounds */
+  --storm-gradient: linear-gradient(135deg, hsl(217, 91%, 35%) 0%, hsl(217, 71%, 53%) 50%, hsl(194, 100%, 85%) 100%);
+  --danger-gradient: linear-gradient(135deg, hsl(0, 84%, 60%) 0%, hsl(25, 95%, 53%) 100%);
+  --success-gradient: linear-gradient(135deg, hsl(142, 76%, 36%) 0%, hsl(142, 76%, 46%) 100%);
+  
+  /* Glass morphism effects */
+  --glass-bg: rgba(255, 255, 255, 0.1);
+  --glass-border: rgba(255, 255, 255, 0.2);
+  --glass-backdrop: blur(10px);
+}
+
+.dark {
+  --background: 222 84% 5%;
+  --foreground: 210 40% 98%;
+  --card: 222 84% 5%;
+  --card-foreground: 210 40% 98%;
+  --popover: 222 84% 5%;
+  --popover-foreground: 210 40% 98%;
+  --primary: 217 91% 60%;
+  --primary-dark: 217 91% 50%;
+  --primary-foreground: 222 47% 11%;
+  --secondary: 217 33% 17%;
+  --secondary-foreground: 210 40% 98%;
+  --muted: 217 33% 17%;
+  --muted-foreground: 215 20% 65%;
+  --accent: 217 33% 17%;
+  --accent-foreground: 210 40% 98%;
+  --destructive: 0 63% 31%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 217 33% 17%;
+  --input: 217 33% 17%;
+  --ring: 217 91% 60%;
+  
+  /* Dark mode storm adjustments */
+  --surface: 222 84% 7%;
+  --surface-dark: 222 84% 4%;
+  --glass-bg: rgba(0, 0, 0, 0.3);
+  --glass-border: rgba(255, 255, 255, 0.1);
+}
+
+/* Global Typography */
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  scroll-behavior: smooth;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+
+.font-mono {
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+}
+
+/* Storm-themed animations */
+@keyframes storm-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.8; transform: scale(1.05); }
+}
+
+@keyframes lightning-flash {
+  0%, 90%, 100% { opacity: 0; }
+  5%, 85% { opacity: 1; }
+}
+
+@keyframes rain-fall {
+  0% { transform: translateY(-100vh); opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { transform: translateY(100vh); opacity: 0; }
+}
+
+@keyframes wind-sway {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(2deg); }
+}
+
+@keyframes data-flow {
+  0% { transform: translateX(-100%); opacity: 0; }
+  50% { opacity: 1; }
+  100% { transform: translateX(100%); opacity: 0; }
+}
+
+@keyframes alert-glow {
+  0%, 100% { box-shadow: 0 0 5px hsl(var(--warning-red)); }
+  50% { box-shadow: 0 0 20px hsl(var(--warning-red)), 0 0 30px hsl(var(--warning-red)); }
+}
+
+@keyframes success-glow {
+  0%, 100% { box-shadow: 0 0 5px hsl(var(--success-green)); }
+  50% { box-shadow: 0 0 15px hsl(var(--success-green)); }
+}
+
+/* Utility classes for storm theming */
+.storm-gradient-bg {
+  background: var(--storm-gradient);
+}
+
+.danger-gradient-bg {
+  background: var(--danger-gradient);
+}
+
+.success-gradient-bg {
+  background: var(--success-gradient);
+}
+
+.glass-morphism {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: var(--glass-backdrop);
+  -webkit-backdrop-filter: var(--glass-backdrop);
+}
+
+.animate-storm-pulse {
+  animation: storm-pulse 2s ease-in-out infinite;
+}
+
+.animate-lightning-flash {
+  animation: lightning-flash 3s ease-in-out infinite;
+}
+
+.animate-rain-fall {
+  animation: rain-fall 1s linear infinite;
+}
+
+.animate-wind-sway {
+  animation: wind-sway 3s ease-in-out infinite;
+}
+
+.animate-data-flow {
+  animation: data-flow 2s linear infinite;
+}
+
+.animate-alert-glow {
+  animation: alert-glow 2s ease-in-out infinite;
+}
+
+.animate-success-glow {
+  animation: success-glow 2s ease-in-out infinite;
+}
+
+/* Enhanced hover effects */
+.hover-lift {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hover-lift:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+}
+
+.hover-glow:hover {
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
+}
+
+/* Status indicators */
+.status-active {
+  position: relative;
+}
+
+.status-active::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  border-radius: inherit;
+  background: var(--storm-gradient);
+  z-index: -1;
+  animation: storm-pulse 2s ease-in-out infinite;
+}
+
+.status-critical {
+  animation: alert-glow 2s ease-in-out infinite;
+}
+
+.status-success {
+  animation: success-glow 2s ease-in-out infinite;
+}
+
+/* Loading skeletons */
+.skeleton {
+  background: linear-gradient(90deg, 
+    hsl(var(--muted)) 25%, 
+    hsl(var(--muted-foreground) / 0.1) 50%, 
+    hsl(var(--muted)) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* Navigation enhancements */
+.nav-item {
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.nav-item::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s;
+}
+
+.nav-item:hover::before {
+  left: 100%;
+}
+
+/* Card enhancements */
+.storm-card {
+  background: linear-gradient(135deg, 
+    rgba(255, 255, 255, 0.95) 0%, 
+    rgba(255, 255, 255, 0.9) 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.storm-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  border-color: hsl(var(--primary) / 0.3);
+}
+
+/* Data visualization enhancements */
+.chart-container {
+  position: relative;
+  background: linear-gradient(135deg, 
+    rgba(255, 255, 255, 0.8) 0%, 
+    rgba(255, 255, 255, 0.4) 100%
+  );
+  border-radius: 12px;
+  padding: 1rem;
+  backdrop-filter: blur(10px);
+}
+
+/* Weather-specific styling */
+.weather-severe {
+  background: var(--danger-gradient);
+  color: white;
+  animation: alert-glow 2s ease-in-out infinite;
+}
+
+.weather-warning {
+  background: hsl(var(--warning-orange));
+  color: white;
+  animation: storm-pulse 2s ease-in-out infinite;
+}
+
+.weather-watch {
+  background: hsl(var(--warning-orange) / 0.8);
+  color: white;
+}
+
+.weather-clear {
+  background: hsl(var(--weather-clear));
+  color: hsl(var(--foreground));
+}
+
+/* Responsive typography */
+@media (max-width: 768px) {
+  h1 { font-size: 1.875rem; }
+  h2 { font-size: 1.5rem; }
+  h3 { font-size: 1.25rem; }
+}

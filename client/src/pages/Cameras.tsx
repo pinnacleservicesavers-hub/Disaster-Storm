@@ -1,15 +1,17 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { motion } from 'framer-motion';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { MapPin, Camera, AlertTriangle, DollarSign, Bell, Heart, Eye } from 'lucide-react';
+import { MapPin, Camera, AlertTriangle, DollarSign, Bell, Heart, Eye, Activity, Monitor } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { MapView } from '@/components/MapView';
 import { CameraViewer } from '@/components/CameraViewer';
+import { FadeIn, CountUp, StaggerContainer, StaggerItem, HoverLift } from '@/components/ui/animations';
 import type { ContractorWatchlist, InsertContractorWatchlist } from '@shared/schema';
 
 interface CameraDirectory {
@@ -124,7 +126,6 @@ export function TrafficCameras() {
 
   const addToWatchlist = (state: string, stateName: string) => {
     const watchlistItem: InsertContractorWatchlist = {
-      contractorId,
       itemType: 'state',
       itemId: state,
       displayName: `${stateName} Traffic Cameras`,
@@ -150,63 +151,202 @@ export function TrafficCameras() {
 
   if (directoryLoading) {
     return (
-      <div className="p-6">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-gray-200 rounded w-1/3"></div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="h-32 bg-gray-200 rounded"></div>
-            ))}
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-indigo-900 p-6">
+        <FadeIn>
+          <div className="max-w-7xl mx-auto">
+            <div className="text-center mb-8">
+              <motion.div
+                className="relative inline-block"
+                animate={{ rotate: [0, 360] }}
+                transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+              >
+                <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full mx-auto mb-4"></div>
+                <motion.div
+                  className="absolute inset-0 w-16 h-16 border-4 border-transparent border-r-green-400 rounded-full mx-auto"
+                  animate={{ rotate: -360 }}
+                  transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                />
+              </motion.div>
+              <motion.h2
+                className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent"
+                animate={{ opacity: [0.5, 1, 0.5] }}
+                transition={{ duration: 2, repeat: Infinity }}
+              >
+                📹 Connecting to Traffic Camera Network...
+              </motion.h2>
+              <p className="mt-2 text-gray-600 dark:text-gray-400">Scanning live feeds across multiple states</p>
+            </div>
+            <StaggerContainer className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              {[1, 2, 3, 4].map(i => (
+                <StaggerItem key={i}>
+                  <div className="h-32 bg-gradient-to-br from-white to-gray-100 dark:from-gray-800 dark:to-gray-900 rounded-xl shadow-lg animate-pulse">
+                    <div className="p-4 space-y-3">
+                      <div className="h-4 bg-gray-300 dark:bg-gray-600 rounded w-3/4"></div>
+                      <div className="h-8 bg-gray-300 dark:bg-gray-600 rounded w-1/2"></div>
+                      <div className="h-3 bg-gray-300 dark:bg-gray-600 rounded w-5/6"></div>
+                    </div>
+                  </div>
+                </StaggerItem>
+              ))}
+            </StaggerContainer>
           </div>
-        </div>
+        </FadeIn>
       </div>
     );
   }
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-4 flex items-center space-x-2">
-            <Camera className="h-8 w-8 text-blue-600" />
-            <div>
-              <div className="text-2xl font-bold">{directory?.totalCameras}</div>
-              <div className="text-sm text-gray-600">Total Cameras</div>
-            </div>
-          </CardContent>
-        </Card>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-indigo-900 p-6">
+      <div className="max-w-7xl mx-auto space-y-8">
+        {/* Enhanced Header */}
+        <FadeIn>
+          <div className="text-center mb-8">
+            <motion.h1
+              className="text-4xl font-bold bg-gradient-to-r from-blue-600 via-green-600 to-indigo-600 bg-clip-text text-transparent mb-4"
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+            >
+              📹 Traffic Camera Network
+            </motion.h1>
+            <motion.p
+              className="text-lg text-slate-600 dark:text-slate-300 font-medium"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+            >
+              Real-time monitoring • Live incident detection • Contractor opportunities
+            </motion.p>
+          </div>
+        </FadeIn>
+
+        {/* Enhanced Header Stats */}
+        <FadeIn delay={0.4}>
+          <StaggerContainer className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <StaggerItem>
+              <HoverLift>
+                <Card className="bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-blue-900/20 dark:to-indigo-900/20 border-blue-200 dark:border-blue-800 hover:shadow-xl transition-all duration-300" data-testid="card-total-cameras">
+                  <CardContent className="p-6">
+                    <div className="flex items-center space-x-4">
+                      <motion.div
+                        className="p-3 bg-blue-500 rounded-xl text-white"
+                        animate={{ 
+                          scale: [1, 1.1, 1],
+                          rotate: [0, 5, -5, 0]
+                        }}
+                        transition={{ duration: 3, repeat: Infinity }}
+                      >
+                        <Camera className="h-8 w-8" />
+                      </motion.div>
+                      <div>
+                        <div className="text-3xl font-bold text-blue-800 dark:text-blue-200" data-testid="text-total-cameras">
+                          <CountUp end={directory?.totalCameras || 0} />
+                        </div>
+                        <div className="text-sm font-medium text-blue-600 dark:text-blue-400">
+                          📹 Live Cameras
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </HoverLift>
+            </StaggerItem>
         
-        <Card>
-          <CardContent className="p-4 flex items-center space-x-2">
-            <MapPin className="h-8 w-8 text-green-600" />
-            <div>
-              <div className="text-2xl font-bold">{directory?.totalStates}</div>
-              <div className="text-sm text-gray-600">States Covered</div>
-            </div>
-          </CardContent>
-        </Card>
+            <StaggerItem>
+              <HoverLift>
+                <Card className="bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-900/20 dark:to-emerald-900/20 border-green-200 dark:border-green-800 hover:shadow-xl transition-all duration-300" data-testid="card-states-covered">
+                  <CardContent className="p-6">
+                    <div className="flex items-center space-x-4">
+                      <motion.div
+                        className="p-3 bg-green-500 rounded-xl text-white"
+                        animate={{ 
+                          y: [0, -3, 0],
+                          scale: [1, 1.05, 1]
+                        }}
+                        transition={{ duration: 2.5, repeat: Infinity }}
+                      >
+                        <MapPin className="h-8 w-8" />
+                      </motion.div>
+                      <div>
+                        <div className="text-3xl font-bold text-green-800 dark:text-green-200" data-testid="text-total-states">
+                          <CountUp end={directory?.totalStates || 0} />
+                        </div>
+                        <div className="text-sm font-medium text-green-600 dark:text-green-400">
+                          🗺️ States Covered
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </HoverLift>
+            </StaggerItem>
         
-        <Card>
-          <CardContent className="p-4 flex items-center space-x-2">
-            <AlertTriangle className="h-8 w-8 text-orange-600" />
-            <div>
-              <div className="text-2xl font-bold">{directory?.contractorOpportunities}</div>
-              <div className="text-sm text-gray-600">Active Opportunities</div>
-            </div>
-          </CardContent>
-        </Card>
+            <StaggerItem>
+              <HoverLift>
+                <Card className="bg-gradient-to-br from-orange-50 to-red-100 dark:from-orange-900/20 dark:to-red-900/20 border-orange-200 dark:border-orange-800 hover:shadow-xl transition-all duration-300" data-testid="card-active-opportunities">
+                  <CardContent className="p-6">
+                    <div className="flex items-center space-x-4">
+                      <motion.div
+                        className="p-3 bg-orange-500 rounded-xl text-white relative"
+                        animate={{ 
+                          scale: [1, 1.1, 1],
+                          opacity: [1, 0.8, 1]
+                        }}
+                        transition={{ duration: 1.5, repeat: Infinity }}
+                      >
+                        <AlertTriangle className="h-8 w-8" />
+                        {(directory?.contractorOpportunities || 0) > 0 && (
+                          <motion.div
+                            className="absolute -top-1 -right-1 w-3 h-3 bg-red-400 rounded-full"
+                            animate={{ scale: [1, 1.3, 1] }}
+                            transition={{ duration: 1, repeat: Infinity }}
+                          />
+                        )}
+                      </motion.div>
+                      <div>
+                        <div className="text-3xl font-bold text-orange-800 dark:text-orange-200" data-testid="text-contractor-opportunities">
+                          <CountUp end={directory?.contractorOpportunities || 0} />
+                        </div>
+                        <div className="text-sm font-medium text-orange-600 dark:text-orange-400">
+                          ⚠️ Active Opportunities
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </HoverLift>
+            </StaggerItem>
         
-        <Card>
-          <CardContent className="p-4 flex items-center space-x-2">
-            <DollarSign className="h-8 w-8 text-green-600" />
-            <div>
-              <div className="text-2xl font-bold">${opportunities?.totalEstimatedRevenue?.toLocaleString()}</div>
-              <div className="text-sm text-gray-600">Estimated Revenue</div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+            <StaggerItem>
+              <HoverLift>
+                <Card className="bg-gradient-to-br from-purple-50 to-indigo-100 dark:from-purple-900/20 dark:to-indigo-900/20 border-purple-200 dark:border-purple-800 hover:shadow-xl transition-all duration-300" data-testid="card-estimated-revenue">
+                  <CardContent className="p-6">
+                    <div className="flex items-center space-x-4">
+                      <motion.div
+                        className="p-3 bg-purple-500 rounded-xl text-white"
+                        animate={{ 
+                          y: [0, -5, 0],
+                          rotate: [0, 15, 0]
+                        }}
+                        transition={{ duration: 2.5, repeat: Infinity }}
+                      >
+                        <DollarSign className="h-8 w-8" />
+                      </motion.div>
+                      <div>
+                        <div className="text-3xl font-bold text-purple-800 dark:text-purple-200" data-testid="text-estimated-revenue">
+                          ${(opportunities?.totalEstimatedRevenue || 0).toLocaleString()}
+                        </div>
+                        <div className="text-sm font-medium text-purple-600 dark:text-purple-400">
+                          💰 Revenue Potential
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </HoverLift>
+            </StaggerItem>
+          </StaggerContainer>
+        </FadeIn>
 
       <Tabs defaultValue="browse" className="w-full">
         <TabsList className="grid w-full grid-cols-4">
@@ -443,14 +583,15 @@ export function TrafficCameras() {
         </TabsContent>
       </Tabs>
 
-      {/* Camera Viewer Modal */}
-      <CameraViewer 
-        cameraId={viewerCameraId}
-        onClose={() => setViewerCameraId(null)}
-        enableDamageDetection={true}
-        autoRefresh={true}
-        refreshInterval={30000}
-      />
+        {/* Camera Viewer Modal */}
+        <CameraViewer 
+          cameraId={viewerCameraId}
+          onClose={() => setViewerCameraId(null)}
+          enableDamageDetection={true}
+          autoRefresh={true}
+          refreshInterval={30000}
+        />
+      </div>
     </div>
   );
 }

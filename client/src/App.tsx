@@ -20,191 +20,323 @@ import EyesInSky from "./pages/EyesInSky";
 import Leads from "./pages/Leads";
 import StormShareCam from "./pages/StormShareCam";
 import { Button } from '@/components/ui/button';
-import { Cloud, Home, Menu, Camera, Heart, Eye, Zap, Users, FileText, User, Plane, Scale, Settings, Briefcase, Video, Target, Share2, Shield } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Cloud, Home, Menu, Camera, Heart, Eye, Zap, Users, FileText, User, Plane, Scale, Settings, Briefcase, Video, Target, Share2, Shield, Bell, Search, TrendingUp } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { useState } from 'react';
+import { FadeIn } from '@/components/ui/animations';
 
 function Navigation() {
   const [location] = useLocation();
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   
+  // Navigation sections with grouping
+  const navSections = [
+    {
+      title: "Monitoring",
+      items: [
+        { 
+          href: "/weather", 
+          label: "Weather Center", 
+          icon: Cloud, 
+          testId: "nav-weather",
+          badge: "Live",
+          badgeColor: "bg-green-500"
+        },
+        { 
+          href: "/prediction-dashboard", 
+          label: "Storm Predictions", 
+          icon: Zap, 
+          testId: "nav-prediction-dashboard",
+          badge: "AI",
+          badgeColor: "bg-blue-500"
+        },
+        { 
+          href: "/traffic-cameras", 
+          label: "Traffic Cam Watcher", 
+          icon: Camera, 
+          testId: "nav-traffic-cameras",
+          badge: "247",
+          badgeColor: "bg-yellow-500"
+        },
+        { 
+          href: "/eyes-in-sky", 
+          label: "Eyes in the Sky", 
+          icon: Video, 
+          testId: "nav-eyes-in-sky",
+          badge: "8",
+          badgeColor: "bg-red-500"
+        }
+      ]
+    },
+    {
+      title: "Operations",
+      items: [
+        { 
+          href: "/drones", 
+          label: "Drone Operations", 
+          icon: Plane, 
+          testId: "nav-drones",
+          badge: "24",
+          badgeColor: "bg-blue-500"
+        },
+        { 
+          href: "/damage-detection", 
+          label: "AI Damage Detection", 
+          icon: Eye, 
+          testId: "nav-damage-detection",
+          badge: "New",
+          badgeColor: "bg-emerald-500"
+        },
+        { 
+          href: "/leads", 
+          label: "Leads", 
+          icon: Target, 
+          testId: "nav-leads",
+          badge: "157",
+          badgeColor: "bg-orange-500"
+        }
+      ]
+    },
+    {
+      title: "People",
+      items: [
+        { 
+          href: "/victim/login", 
+          label: "Victim Portal", 
+          icon: Heart, 
+          testId: "nav-victim-portal",
+          isVictimPortal: true
+        },
+        { 
+          href: "/contractor-management", 
+          label: "Contractors Management", 
+          icon: Settings, 
+          testId: "nav-contractor-management"
+        },
+        { 
+          href: "/contractors", 
+          label: "Contractors", 
+          icon: Briefcase, 
+          testId: "nav-contractor-portal",
+          badge: "89",
+          badgeColor: "bg-green-500"
+        },
+        { 
+          href: "/customers", 
+          label: "Customers", 
+          icon: User, 
+          testId: "nav-customers"
+        }
+      ]
+    },
+    {
+      title: "Business",
+      items: [
+        { 
+          href: "/claims", 
+          label: "Claims Management", 
+          icon: FileText, 
+          testId: "nav-claims",
+          badge: "1.2k",
+          badgeColor: "bg-blue-500"
+        },
+        { 
+          href: "/legal", 
+          label: "Legal Compliance", 
+          icon: Scale, 
+          testId: "nav-legal",
+          badge: "3",
+          badgeColor: "bg-red-500"
+        },
+        { 
+          href: "/stormshare", 
+          label: "StormShareCam", 
+          icon: Share2, 
+          testId: "nav-stormshare",
+          badge: "Hot",
+          badgeColor: "bg-pink-500"
+        }
+      ]
+    }
+  ];
+
+  const isActiveRoute = (href: string, isVictimPortal = false) => {
+    if (isVictimPortal) {
+      return location.startsWith('/victim');
+    }
+    return location === href;
+  };
+
   return (
-    <nav className="bg-white border-b border-gray-200 px-6 py-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-8">
-          <h1 className="text-xl font-bold text-blue-900">
-            StormLead Master
-          </h1>
-          
-          <div className="flex space-x-4 overflow-x-auto">
-            {/* 1. Weather Center */}
-            <Link href="/weather">
-              <Button 
-                variant={location === '/weather' ? 'default' : 'ghost'} 
-                size="sm"
-                data-testid="nav-weather"
+    <FadeIn>
+      <nav className="storm-gradient-bg text-white shadow-lg border-b border-white/20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            {/* Logo and Brand */}
+            <motion.div 
+              className="flex items-center space-x-4"
+              whileHover={{ scale: 1.02 }}
+            >
+              <div className="flex items-center space-x-2">
+                <motion.div
+                  animate={{ 
+                    rotate: [0, 5, -5, 0],
+                    scale: [1, 1.1, 1]
+                  }}
+                  transition={{ 
+                    duration: 3,
+                    repeat: Infinity,
+                    ease: "easeInOut"
+                  }}
+                  className="p-2 bg-white/20 rounded-lg backdrop-blur-sm"
+                >
+                  <Zap className="w-6 h-6 text-yellow-300" />
+                </motion.div>
+                <div>
+                  <h1 className="text-xl font-bold tracking-tight">
+                    StormLead Master
+                  </h1>
+                  <p className="text-xs text-white/80 hidden sm:block">
+                    Storm Operations Platform
+                  </p>
+                </div>
+              </div>
+            </motion.div>
+
+            {/* Navigation Items */}
+            <div className="hidden lg:flex items-center space-x-1">
+              {navSections.map((section, sectionIndex) => (
+                <div key={section.title} className="flex items-center">
+                  {sectionIndex > 0 && (
+                    <div className="h-6 w-px bg-white/20 mx-2" />
+                  )}
+                  <div className="flex space-x-1">
+                    {section.items.map((item) => {
+                      const Icon = item.icon;
+                      const isActive = isActiveRoute(item.href, item.isVictimPortal);
+                      
+                      return (
+                        <Link key={item.href} href={item.href}>
+                          <motion.div
+                            whileHover={{ 
+                              scale: 1.05,
+                              y: -2
+                            }}
+                            whileTap={{ scale: 0.98 }}
+                            className={`
+                              nav-item relative px-3 py-2 rounded-lg text-sm font-medium
+                              transition-all duration-300 cursor-pointer group
+                              ${isActive 
+                                ? 'bg-white/20 text-white shadow-lg backdrop-blur-sm' 
+                                : 'text-white/90 hover:bg-white/10 hover:text-white'
+                              }
+                            `}
+                            data-testid={item.testId}
+                          >
+                            <div className="flex items-center space-x-2">
+                              <Icon className={`w-4 h-4 ${isActive ? 'animate-storm-pulse' : ''}`} />
+                              <span className="hidden xl:block">{item.label}</span>
+                              {item.badge && (
+                                <motion.div
+                                  initial={{ scale: 0 }}
+                                  animate={{ scale: 1 }}
+                                  className={`
+                                    px-1.5 py-0.5 text-xs font-bold text-white rounded-full
+                                    ${item.badgeColor} ${item.badge === 'Live' ? 'animate-storm-pulse' : ''}
+                                  `}
+                                >
+                                  {item.badge}
+                                </motion.div>
+                              )}
+                            </div>
+                            
+                            {/* Active indicator */}
+                            {isActive && (
+                              <motion.div
+                                layoutId="activeTab"
+                                className="absolute inset-0 bg-white/10 rounded-lg border border-white/30"
+                                initial={false}
+                                transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                              />
+                            )}
+                          </motion.div>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Right side actions */}
+            <div className="flex items-center space-x-4">
+              {/* Search */}
+              <motion.button
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={() => setIsSearchOpen(!isSearchOpen)}
+                className="p-2 text-white/90 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                data-testid="button-search"
               >
-                <Cloud className="w-4 h-4 mr-2" />
-                Weather Center
-              </Button>
-            </Link>
-            
-            {/* 2. Storm Predictions */}
-            <Link href="/prediction-dashboard">
-              <Button 
-                variant={location === '/prediction-dashboard' ? 'default' : 'ghost'} 
-                size="sm"
-                data-testid="nav-prediction-dashboard"
+                <Search className="w-5 h-5" />
+              </motion.button>
+
+              {/* Notifications */}
+              <motion.button
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                className="relative p-2 text-white/90 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                data-testid="button-notifications"
               >
-                <Zap className="w-4 h-4 mr-2" />
-                Storm Predictions
-              </Button>
-            </Link>
-            
-            {/* 3. Traffic Cam Watcher */}
-            <Link href="/traffic-cameras">
-              <Button 
-                variant={location === '/traffic-cameras' ? 'default' : 'ghost'} 
-                size="sm"
-                data-testid="nav-traffic-cameras"
-              >
-                <Camera className="w-4 h-4 mr-2" />
-                Traffic Cam Watcher
-              </Button>
-            </Link>
-            
-            {/* 4. Eyes in the Sky - NEW */}
-            <Link href="/eyes-in-sky">
-              <Button 
-                variant={location === '/eyes-in-sky' ? 'default' : 'ghost'} 
-                size="sm"
-                data-testid="nav-eyes-in-sky"
-              >
-                <Video className="w-4 h-4 mr-2" />
-                Eyes in the Sky
-              </Button>
-            </Link>
-            
-            {/* 5. Drone Operations */}
-            <Link href="/drones">
-              <Button 
-                variant={location === '/drones' ? 'default' : 'ghost'} 
-                size="sm"
-                data-testid="nav-drones"
-              >
-                <Plane className="w-4 h-4 mr-2" />
-                Drone Operations
-              </Button>
-            </Link>
-            
-            {/* 6. AI Damage Detection */}
-            <Link href="/damage-detection">
-              <Button 
-                variant={location === '/damage-detection' ? 'default' : 'ghost'} 
-                size="sm"
-                data-testid="nav-damage-detection"
-              >
-                <Eye className="w-4 h-4 mr-2" />
-                AI Damage Detection
-              </Button>
-            </Link>
-            
-            {/* 7. Leads - NEW */}
-            <Link href="/leads">
-              <Button 
-                variant={location === '/leads' ? 'default' : 'ghost'} 
-                size="sm"
-                data-testid="nav-leads"
-              >
-                <Target className="w-4 h-4 mr-2" />
-                Leads
-              </Button>
-            </Link>
-            
-            {/* 8. Victim Portal */}
-            <Link href="/victim/login">
-              <Button 
-                variant={location.startsWith('/victim') ? 'default' : 'ghost'} 
-                size="sm"
-                data-testid="nav-victim-portal"
-              >
-                <Heart className="w-4 h-4 mr-2" />
-                Victim Portal
-              </Button>
-            </Link>
-            
-            {/* 9. Contractors Management */}
-            <Link href="/contractor-management">
-              <Button 
-                variant={location === '/contractor-management' ? 'default' : 'ghost'} 
-                size="sm"
-                data-testid="nav-contractor-management"
-              >
-                <Settings className="w-4 h-4 mr-2" />
-                Contractors Management
-              </Button>
-            </Link>
-            
-            {/* 10. Contractors */}
-            <Link href="/contractors">
-              <Button 
-                variant={location === '/contractors' ? 'default' : 'ghost'} 
-                size="sm"
-                data-testid="nav-contractor-portal"
-              >
-                <Briefcase className="w-4 h-4 mr-2" />
-                Contractors
-              </Button>
-            </Link>
-            
-            {/* 11. Customers */}
-            <Link href="/customers">
-              <Button 
-                variant={location === '/customers' ? 'default' : 'ghost'} 
-                size="sm"
-                data-testid="nav-customers"
-              >
-                <User className="w-4 h-4 mr-2" />
-                Customers
-              </Button>
-            </Link>
-            
-            {/* 12. Claims Management */}
-            <Link href="/claims">
-              <Button 
-                variant={location === '/claims' ? 'default' : 'ghost'} 
-                size="sm"
-                data-testid="nav-claims"
-              >
-                <FileText className="w-4 h-4 mr-2" />
-                Claims Management
-              </Button>
-            </Link>
-            
-            {/* 13. Legal Compliance */}
-            <Link href="/legal">
-              <Button 
-                variant={location === '/legal' ? 'default' : 'ghost'} 
-                size="sm"
-                data-testid="nav-legal"
-              >
-                <Scale className="w-4 h-4 mr-2" />
-                Legal Compliance
-              </Button>
-            </Link>
-            
-            {/* 14. StormShareCam - Social Platform */}
-            <Link href="/stormshare">
-              <Button 
-                variant={location === '/stormshare' ? 'default' : 'ghost'} 
-                size="sm"
-                data-testid="nav-stormshare"
-              >
-                <Share2 className="w-4 h-4 mr-2" />
-                StormShareCam
-              </Button>
-            </Link>
+                <Bell className="w-5 h-5" />
+                <motion.div
+                  animate={{ scale: [1, 1.2, 1] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                  className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white"
+                />
+              </motion.button>
+
+              {/* Status indicator */}
+              <div className="hidden sm:flex items-center space-x-2">
+                <motion.div
+                  animate={{ scale: [1, 1.1, 1] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                  className="w-2 h-2 bg-green-400 rounded-full"
+                />
+                <span className="text-xs text-white/80">All Systems Operational</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Mobile menu - you can expand this later */}
+          <div className="lg:hidden">
+            {/* Mobile navigation can be added here if needed */}
           </div>
         </div>
-      </div>
-    </nav>
+
+        {/* Search overlay */}
+        {isSearchOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="absolute top-full left-0 right-0 bg-white/95 backdrop-blur-lg border-b border-gray-200 p-4 z-50"
+          >
+            <div className="max-w-2xl mx-auto">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <input
+                  type="text"
+                  placeholder="Search storm operations, alerts, contractors..."
+                  className="w-full pl-10 pr-4 py-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
+                  data-testid="input-search"
+                />
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </nav>
+    </FadeIn>
   );
 }
 
