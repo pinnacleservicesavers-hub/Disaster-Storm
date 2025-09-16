@@ -3,6 +3,10 @@ import { pgTable, text, varchar, timestamp, numeric, boolean, jsonb, integer, uu
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// JSON type aliases for consistent typing
+type JsonObject = Record<string, unknown>;
+type JsonArray<T = unknown> = T[];
+
 // ===== WEATHER VALIDATION SCHEMAS =====
 
 // Weather Alert Schema
@@ -195,7 +199,7 @@ export const claims = pgTable("claims", {
   longitude: numeric("longitude", { precision: 10, scale: 8 }),
   assignedCrew: varchar("assigned_crew"),
   notes: text("notes"),
-  metadata: jsonb("metadata"), // Additional claim data
+  metadata: jsonb("metadata").$type<JsonObject>(), // Additional claim data
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -215,7 +219,7 @@ export const insuranceCompanies = pgTable("insurance_companies", {
   disasterClaimsEmail: text("disaster_claims_email"), // Special disaster claims email
   disasterClaimsPhone: text("disaster_claims_phone"), // Special disaster claims phone
   claimSubmissionPortal: text("claim_submission_portal"), // Online portal URL
-  states: jsonb("states"), // Array of states they operate in
+  states: text("states").array(), // Array of states they operate in
   notes: text("notes"),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -240,7 +244,7 @@ export const weatherAlerts = pgTable("weather_alerts", {
   description: text("description").notNull(),
   severity: text("severity").notNull(), // Extreme, Severe, Moderate, Minor
   alertType: text("alert_type").notNull(), // Tornado, Severe Thunderstorm, etc.
-  areas: jsonb("areas"), // Affected areas
+  areas: text("areas").array(), // Affected areas
   startTime: timestamp("start_time").notNull(),
   endTime: timestamp("end_time"),
   isActive: boolean("is_active").default(true),
@@ -263,7 +267,7 @@ export const fieldReports = pgTable("field_reports", {
   videoCount: integer("video_count").default(0),
   audioCount: integer("audio_count").default(0),
   estimatedHours: numeric("estimated_hours", { precision: 5, scale: 2 }),
-  equipmentNeeded: jsonb("equipment_needed"),
+  equipmentNeeded: text("equipment_needed").array(),
   safetyNotes: text("safety_notes"),
   claimId: varchar("claim_id"),
   status: text("status").default("pending"), // pending, in_progress, completed
@@ -312,7 +316,7 @@ export const contractorWatchlist = pgTable("contractor_watchlist", {
   
   // Severity Level Filtering
   minSeverityLevel: text("min_severity_level").default("moderate"), // minor, moderate, severe, critical
-  alertTypes: jsonb("alert_types"), // Array of alert types to monitor: ['tree_down', 'structure_damage', 'debris', 'flooding']
+  alertTypes: text("alert_types").array(), // Array of alert types to monitor: ['tree_down', 'structure_damage', 'debris', 'flooding']
   
   // Geographic and Timing Preferences
   alertRadius: numeric("alert_radius", { precision: 5, scale: 2 }).default("25.00"), // Miles from watch location
@@ -321,10 +325,10 @@ export const contractorWatchlist = pgTable("contractor_watchlist", {
   timezone: text("timezone").default("America/New_York"),
   
   // Response Time Preferences
-  immediateAlertTypes: jsonb("immediate_alert_types"), // Alert types that bypass quiet hours
+  immediateAlertTypes: text("immediate_alert_types").array(), // Alert types that bypass quiet hours
   maxAlertsPerHour: integer("max_alerts_per_hour").default(5), // Rate limiting
   
-  metadata: jsonb("metadata"), // Additional configuration per watch item
+  metadata: jsonb("metadata").$type<JsonObject>(), // Additional configuration per watch item
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => ({
@@ -341,15 +345,15 @@ export const marketComparables = pgTable("market_comparables", {
   confidenceLevel: numeric("confidence_level", { precision: 5, scale: 2 }),
   trend: numeric("trend", { precision: 5, scale: 2 }), // percentage change
   lastUpdated: timestamp("last_updated").defaultNow(),
-  metadata: jsonb("metadata"), // Additional comparable data
+  metadata: jsonb("metadata").$type<JsonObject>(), // Additional comparable data
 });
 
 export const aiInteractions = pgTable("ai_interactions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull(),
   interactionType: text("interaction_type").notNull(), // letter_generation, market_analysis, translation, etc.
-  input: jsonb("input").notNull(),
-  output: jsonb("output").notNull(),
+  input: jsonb("input").$type<JsonObject>().notNull(),
+  output: jsonb("output").$type<JsonObject>().notNull(),
   language: text("language").default("en"),
   claimId: varchar("claim_id"),
   tokensUsed: integer("tokens_used"),
@@ -368,7 +372,7 @@ export const dspFootage = pgTable("dsp_footage", {
   notes: text("notes"), // Damage description, keywords
   status: text("status").default("new"), // new, reviewed, processed
   claimId: varchar("claim_id"), // Optional claim association
-  processingMetadata: jsonb("processing_metadata"), // AI analysis results, etc.
+  processingMetadata: jsonb("processing_metadata").$type<JsonObject>(), // AI analysis results, etc.
   createdAt: timestamp("created_at").defaultNow(),
   processedAt: timestamp("processed_at"),
 });
@@ -465,8 +469,8 @@ export const photos = pgTable("photos", {
   severity: text("severity"), // minor, moderate, severe, critical
   category: text("category"), // before, during, after, evidence, documentation
   sequence: integer("sequence").default(1), // For ordering photos in story
-  tags: jsonb("tags"), // Array of descriptive tags
-  metadata: jsonb("metadata"), // EXIF data and other metadata
+  tags: jsonb("tags").$type<string[]>(), // Array of descriptive tags
+  metadata: jsonb("metadata").$type<JsonObject>(), // EXIF data and other metadata
   isProcessed: boolean("is_processed").default(false),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -502,7 +506,7 @@ export const claimSubmissions = pgTable("claim_submissions", {
   adjusterPhone: text("adjuster_phone"),
   adjusterEmail: text("adjuster_email"),
   notes: text("notes"),
-  documents: jsonb("documents"), // Array of submitted document URLs
+  documents: jsonb("documents").$type<string[]>(), // Array of submitted document URLs
 });
 
 export const trafficCameras = pgTable("traffic_cameras", {
@@ -525,7 +529,7 @@ export const trafficCameras = pgTable("traffic_cameras", {
   isActive: boolean("is_active").default(true),
   lastHealthCheck: timestamp("last_health_check"),
   healthStatus: text("health_status").default("unknown"), // online, offline, error, unknown
-  metadata: jsonb("metadata"), // Additional camera data
+  metadata: jsonb("metadata").$type<JsonObject>(), // Additional camera data
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -534,7 +538,7 @@ export const trafficCamSubscriptions = pgTable("traffic_cam_subscriptions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   contractorId: varchar("contractor_id").notNull(),
   cameraId: varchar("camera_id").notNull(),
-  notifyTypes: jsonb("notify_types"), // Array of alert types to notify for
+  notifyTypes: jsonb("notify_types").$type<string[]>(), // Array of alert types to notify for
   priority: text("priority").default("normal"), // high, normal, low
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
@@ -559,23 +563,23 @@ export const trafficCamAlerts = pgTable("traffic_cam_alerts", {
   resolvedAddress: text("resolved_address"), // Geocoded address from coordinates
   estimatedDamage: text("estimated_damage"), // low, medium, high, extensive
   urgencyLevel: text("urgency_level").notNull(), // low, normal, high, emergency
-  contractorTypes: jsonb("contractor_types"), // Array of contractor types needed
-  contractorSpecializations: jsonb("contractor_specializations"), // Array of specific specializations required
-  estimatedCost: jsonb("estimated_cost"), // {min: number, max: number, currency: string}
-  workScope: jsonb("work_scope"), // Array of specific contractor tasks
-  safetyHazards: jsonb("safety_hazards"), // Array of safety concerns for workers
-  equipmentNeeded: jsonb("equipment_needed"), // Array of specialized equipment required
+  contractorTypes: jsonb("contractor_types").$type<string[]>(), // Array of contractor types needed
+  contractorSpecializations: jsonb("contractor_specializations").$type<string[]>(), // Array of specific specializations required
+  estimatedCost: jsonb("estimated_cost").$type<JsonObject>(), // {min: number, max: number, currency: string}
+  workScope: jsonb("work_scope").$type<string[]>(), // Array of specific contractor tasks
+  safetyHazards: jsonb("safety_hazards").$type<string[]>(), // Array of safety concerns for workers
+  equipmentNeeded: jsonb("equipment_needed").$type<string[]>(), // Array of specialized equipment required
   accessibilityScore: integer("accessibility_score").default(5), // 1-10 how easy to access for contractors
   leadPriority: text("lead_priority").default("medium"), // low, medium, high, critical
   emergencyResponse: boolean("emergency_response").default(false), // True if needs immediate response
   insuranceLikelihood: integer("insurance_likelihood").default(5), // 1-10 likelihood of insurance claim
   competitionLevel: text("competition_level").default("medium"), // low, medium, high expected contractor competition
-  riskAssessment: jsonb("risk_assessment"), // {publicSafety: number, propertyDamage: number, businessDisruption: number}
-  weatherCorrelation: jsonb("weather_correlation"), // Storm type, intensity, time elapsed data
-  contractorsNotified: jsonb("contractors_notified"), // Array of notified contractor IDs
+  riskAssessment: jsonb("risk_assessment").$type<JsonObject>(), // {publicSafety: number, propertyDamage: number, businessDisruption: number}
+  weatherCorrelation: jsonb("weather_correlation").$type<JsonObject>(), // Storm type, intensity, time elapsed data
+  contractorsNotified: jsonb("contractors_notified").$type<string[]>(), // Array of notified contractor IDs
   status: text("status").default("new"), // new, processing, assigned, resolved, false_positive
   leadGenerated: boolean("lead_generated").default(false),
-  aiAnalysis: jsonb("ai_analysis"), // Complete AI analysis results
+  aiAnalysis: jsonb("ai_analysis").$type<JsonObject>(), // Complete AI analysis results
   verifiedBy: varchar("verified_by"), // User ID who verified alert
   verifiedAt: timestamp("verified_at"),
   isVerified: boolean("is_verified").default(false),
@@ -608,7 +612,7 @@ export const trafficCamLeads = pgTable("traffic_cam_leads", {
   policyNumber: text("policy_number"),
   actualDamageAssessment: text("actual_damage_assessment"),
   workPerformed: text("work_performed"),
-  equipmentUsed: jsonb("equipment_used"), // Array of equipment types
+  equipmentUsed: jsonb("equipment_used").$type<string[]>(), // Array of equipment types
   crewSize: integer("crew_size"),
   invoiceAmount: numeric("invoice_amount", { precision: 10, scale: 2 }),
   conversionValue: numeric("conversion_value", { precision: 10, scale: 2 }), // Actual revenue generated
@@ -631,8 +635,8 @@ export const stormHotZones = pgTable("storm_hot_zones", {
   riskScore: integer("risk_score").notNull(), // Numeric risk score (90 = Very High, 70 = High, 55 = Moderate)
   
   // Historical FEMA Disaster Declaration IDs
-  femaDisasterIds: jsonb("fema_disaster_ids"), // Array of historical FEMA disaster IDs for this county
-  majorStorms: jsonb("major_storms"), // Array of major storm events with years and names
+  femaDisasterIds: jsonb("fema_disaster_ids").$type<string[]>(), // Array of historical FEMA disaster IDs for this county
+  majorStorms: jsonb("major_storms").$type<JsonArray<JsonObject>>(), // Array of major storm events with years and names
   
   // Descriptive information
   notes: text("notes"), // Historical context and major storm impacts
@@ -717,14 +721,14 @@ export const damageReports = pgTable("damage_reports", {
   addressOverride: text("address_override"), // If damage is at different address than homeowner
   
   // Media Attachments
-  photos: jsonb("photos"), // Array of photo URLs with metadata
-  videos: jsonb("videos"), // Array of video URLs with metadata
+  photos: jsonb("photos").$type<JsonArray<JsonObject>>(), // Array of photo URLs with metadata
+  videos: jsonb("videos").$type<JsonArray<JsonObject>>(), // Array of video URLs with metadata
   photoCount: integer("photo_count").default(0),
   videoCount: integer("video_count").default(0),
   
   // GPS and EXIF Data
   gpsFromExif: boolean("gps_from_exif").default(false), // Whether GPS came from EXIF data
-  exifData: jsonb("exif_data"), // Stored EXIF metadata
+  exifData: jsonb("exif_data").$type<JsonObject>(), // Stored EXIF metadata
   
   // Status and Timeline
   status: text("status").default("submitted"), // submitted, reviewed, contractor_assigned, in_progress, completed
@@ -755,11 +759,11 @@ export const serviceRequests = pgTable("service_requests", {
   preferredTimeframe: text("preferred_timeframe"), // "asap", "within_week", "within_month", "flexible"
   
   // Contractor Preferences
-  contractorPreferences: jsonb("contractor_preferences"), // Array of preferences like "licensed", "insured", "local"
+  contractorPreferences: jsonb("contractor_preferences").$type<string[]>(), // Array of preferences like "licensed", "insured", "local"
   maxDistance: numeric("max_distance", { precision: 5, scale: 2 }).default("25.00"), // Miles from property
   
   // Matching and Assignment
-  matchedContractors: jsonb("matched_contractors"), // Array of matched contractor IDs
+  matchedContractors: jsonb("matched_contractors").$type<string[]>(), // Array of matched contractor IDs
   assignedContractorId: varchar("assigned_contractor_id"),
   
   // Status Tracking
@@ -826,7 +830,7 @@ export const stormPredictions = pgTable("storm_predictions", {
   forecastHours: integer("forecast_hours").notNull(), // 12, 24, 48, 72 hours
   
   // Predicted Path and Intensity
-  predictedPath: jsonb("predicted_path").notNull(), // Array of {time, lat, lng, intensity, confidence}
+  predictedPath: jsonb("predicted_path").$type<JsonArray<JsonObject>>().notNull(), // Array of {time, lat, lng, intensity, confidence}
   maxPredictedIntensity: integer("max_predicted_intensity").notNull(),
   
   // Confidence and Risk Assessment
@@ -835,8 +839,8 @@ export const stormPredictions = pgTable("storm_predictions", {
   intensityConfidence: numeric("intensity_confidence", { precision: 3, scale: 2 }).notNull(),
   
   // Data Sources Used
-  modelsSources: jsonb("models_sources").notNull(), // ["GFS", "ECMWF", "HRRR", "NAM"]
-  radarSources: jsonb("radar_sources").notNull(), // ["NEXRAD", "GOES", "Lightning"]
+  modelsSources: jsonb("models_sources").$type<string[]>().notNull(), // ["GFS", "ECMWF", "HRRR", "NAM"]
+  radarSources: jsonb("radar_sources").$type<string[]>().notNull(), // ["NEXRAD", "GOES", "Lightning"]
   lastRadarUpdate: timestamp("last_radar_update").notNull(),
   
   // AI Analysis Metadata
@@ -905,13 +909,13 @@ export const damageForecast = pgTable("damage_forecast", {
   
   // Historical Correlation Data
   historicalSimilarity: numeric("historical_similarity", { precision: 3, scale: 2 }), // 0.0 to 1.0
-  similarHistoricalEvents: jsonb("similar_historical_events"), // Array of similar past storms
+  similarHistoricalEvents: jsonb("similar_historical_events").$type<JsonArray<JsonObject>>(), // Array of similar past storms
   femaHistoryFactor: numeric("fema_history_factor", { precision: 3, scale: 2 }).default("1.0"),
   
   // Population and Exposure Data
   populationExposed: integer("population_exposed"),
   buildingsExposed: integer("buildings_exposed"),
-  highValueTargets: jsonb("high_value_targets"), // Hospitals, schools, critical infrastructure
+  highValueTargets: jsonb("high_value_targets").$type<JsonArray<JsonObject>>(), // Hospitals, schools, critical infrastructure
   
   // Timing and Status
   validFromTime: timestamp("valid_from_time").notNull(),
@@ -972,9 +976,9 @@ export const contractorOpportunityPredictions = pgTable("contractor_opportunity_
   
   // Resource Requirements
   recommendedCrewSize: integer("recommended_crew_size"),
-  requiredEquipment: jsonb("required_equipment"), // Array of equipment types needed
+  requiredEquipment: jsonb("required_equipment").$type<string[]>(), // Array of equipment types needed
   estimatedDurationDays: integer("estimated_duration_days"),
-  accommodationNeeds: jsonb("accommodation_needs"), // Hotels, RV parks, etc.
+  accommodationNeeds: jsonb("accommodation_needs").$type<JsonArray<JsonObject>>(), // Hotels, RV parks, etc.
   
   // Confidence and Validation
   predictionConfidence: numeric("prediction_confidence", { precision: 3, scale: 2 }).notNull(),
@@ -983,7 +987,7 @@ export const contractorOpportunityPredictions = pgTable("contractor_opportunity_
   
   // Status and Alerting
   alertLevel: text("alert_level").default("watch"), // watch, advisory, warning, emergency
-  contractorsNotified: jsonb("contractors_notified"), // Array of contractor IDs who have been alerted
+  contractorsNotified: jsonb("contractors_notified").$type<string[]>(), // Array of contractor IDs who have been alerted
   notificationsSent: integer("notifications_sent").default(0),
   
   createdAt: timestamp("created_at").defaultNow(),
@@ -1009,7 +1013,7 @@ export const historicalDamagePatterns = pgTable("historical_damage_patterns", {
   // Geographic Impact Data
   state: text("state").notNull(),
   stateCode: text("state_code").notNull(),
-  affectedCounties: jsonb("affected_counties").notNull(), // Array of county names/FIPS
+  affectedCounties: jsonb("affected_counties").$type<string[]>().notNull(), // Array of county names/FIPS
   primaryImpactLat: numeric("primary_impact_lat", { precision: 10, scale: 8 }),
   primaryImpactLng: numeric("primary_impact_lng", { precision: 10, scale: 8 }),
   impactSwathMiles: numeric("impact_swath_miles", { precision: 6, scale: 1 }),
@@ -1046,7 +1050,7 @@ export const historicalDamagePatterns = pgTable("historical_damage_patterns", {
   evacuationOrdered: boolean("evacuation_ordered").default(false),
   
   // Data Sources and Quality
-  dataSources: jsonb("data_sources").notNull(), // ["FEMA", "NOAA", "Insurance Institute", "NHC Post-Storm Report"]
+  dataSources: jsonb("data_sources").$type<string[]>().notNull(), // ["FEMA", "NOAA", "Insurance Institute", "NHC Post-Storm Report"]
   dataQuality: text("data_quality").default("verified"), // estimated, verified, comprehensive
   confidenceLevel: numeric("confidence_level", { precision: 3, scale: 2 }).default("0.80"),
   
@@ -1079,8 +1083,8 @@ export const radarAnalysisCache = pgTable("radar_analysis_cache", {
   // Processed Analysis Results
   maxReflectivity: numeric("max_reflectivity", { precision: 5, scale: 1 }), // dBZ
   maxVelocity: numeric("max_velocity", { precision: 6, scale: 2 }), // m/s
-  mesocycloneDetections: jsonb("mesocyclone_detections"), // Array of detected mesocyclones
-  hailMarkers: jsonb("hail_markers"), // Hail detection markers
+  mesocycloneDetections: jsonb("mesocyclone_detections").$type<JsonArray<JsonObject>>(), // Array of detected mesocyclones
+  hailMarkers: jsonb("hail_markers").$type<JsonArray<JsonObject>>(), // Hail detection markers
   
   // Storm Motion Analysis
   stormMotionDirection: integer("storm_motion_direction"), // degrees
@@ -1109,28 +1113,28 @@ export const radarAnalysisCache = pgTable("radar_analysis_cache", {
 }));
 
 // Zod schemas for validation  
-export const insertUserSchema = createInsertSchema(users);
-export const insertClaimSchema = createInsertSchema(claims);
-export const insertInsuranceCompanySchema = createInsertSchema(insuranceCompanies);
-export const insertLienRuleSchema = createInsertSchema(lienRules);
-export const insertWeatherAlertSchema = createInsertSchema(weatherAlerts);
-export const insertFieldReportSchema = createInsertSchema(fieldReports);
-export const insertDroneFootageSchema = createInsertSchema(droneFootage);
-export const insertMarketComparableSchema = createInsertSchema(marketComparables);
-export const insertAiInteractionSchema = createInsertSchema(aiInteractions);
-export const insertDspFootageSchema = createInsertSchema(dspFootage);
-export const insertContractorDocumentSchema = createInsertSchema(contractorDocuments);
-export const insertLeadSchema = createInsertSchema(leads);
-export const insertInvoiceSchema = createInsertSchema(invoices);
-export const insertJobCostSchema = createInsertSchema(jobCosts);
-export const insertPhotoSchema = createInsertSchema(photos);
-export const insertXactimateComparableSchema = createInsertSchema(xactimateComparables);
-export const insertClaimSubmissionSchema = createInsertSchema(claimSubmissions);
-export const insertTrafficCameraSchema = createInsertSchema(trafficCameras);
-export const insertTrafficCamSubscriptionSchema = createInsertSchema(trafficCamSubscriptions);
-export const insertTrafficCamAlertSchema = createInsertSchema(trafficCamAlerts);
-export const insertTrafficCamLeadSchema = createInsertSchema(trafficCamLeads);
-export const insertContractorWatchlistSchema = createInsertSchema(contractorWatchlist).omit({ id: true, createdAt: true });
+export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
+export const insertClaimSchema = createInsertSchema(claims).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertInsuranceCompanySchema = createInsertSchema(insuranceCompanies).omit({ id: true, updatedAt: true });
+export const insertLienRuleSchema = createInsertSchema(lienRules).omit({ id: true, lastVerified: true }).extend({ prelimNoticeRequired: z.boolean().optional() });
+export const insertWeatherAlertSchema = createInsertSchema(weatherAlerts).omit({ id: true, createdAt: true }).extend({ isActive: z.boolean().optional() });
+export const insertFieldReportSchema = createInsertSchema(fieldReports).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertDroneFootageSchema = createInsertSchema(droneFootage).omit({ id: true, createdAt: true }).extend({ isLive: z.boolean().optional() });
+export const insertMarketComparableSchema = createInsertSchema(marketComparables).omit({ id: true, lastUpdated: true });
+export const insertAiInteractionSchema = createInsertSchema(aiInteractions).omit({ id: true, createdAt: true });
+export const insertDspFootageSchema = createInsertSchema(dspFootage).omit({ id: true, createdAt: true, processedAt: true });
+export const insertContractorDocumentSchema = createInsertSchema(contractorDocuments).omit({ id: true, createdAt: true, updatedAt: true }).extend({ isActive: z.boolean().optional() });
+export const insertLeadSchema = createInsertSchema(leads).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertInvoiceSchema = createInsertSchema(invoices).omit({ id: true, createdAt: true, updatedAt: true }).extend({ isEmergencyRate: z.boolean().optional() });
+export const insertJobCostSchema = createInsertSchema(jobCosts).omit({ id: true, createdAt: true }).extend({ oshaCompliance: z.boolean().optional(), ansiCompliance: z.boolean().optional() });
+export const insertPhotoSchema = createInsertSchema(photos).omit({ id: true, createdAt: true }).extend({ isProcessed: z.boolean().optional() });
+export const insertXactimateComparableSchema = createInsertSchema(xactimateComparables).omit({ id: true, createdAt: true });
+export const insertClaimSubmissionSchema = createInsertSchema(claimSubmissions).omit({ id: true, submittedAt: true, acknowledgedAt: true, responseReceived: true });
+export const insertTrafficCameraSchema = createInsertSchema(trafficCameras).omit({ id: true, createdAt: true, updatedAt: true, lastHealthCheck: true }).extend({ isActive: z.boolean().optional() });
+export const insertTrafficCamSubscriptionSchema = createInsertSchema(trafficCamSubscriptions).omit({ id: true, createdAt: true }).extend({ isActive: z.boolean().optional() });
+export const insertTrafficCamAlertSchema = createInsertSchema(trafficCamAlerts).omit({ id: true, createdAt: true, updatedAt: true, verifiedAt: true }).extend({ emergencyResponse: z.boolean().optional(), leadGenerated: z.boolean().optional(), isVerified: z.boolean().optional() });
+export const insertTrafficCamLeadSchema = createInsertSchema(trafficCamLeads).omit({ id: true, createdAt: true, updatedAt: true, lastContactedAt: true, arrivalTime: true, workStarted: true, workCompleted: true });
+export const insertContractorWatchlistSchema = createInsertSchema(contractorWatchlist).omit({ id: true, createdAt: true, updatedAt: true }).extend({ alertsEnabled: z.boolean().optional(), emailAlertsEnabled: z.boolean().optional(), smsAlertsEnabled: z.boolean().optional(), browserAlertsEnabled: z.boolean().optional() });
 export const insertStormHotZoneSchema = createInsertSchema(stormHotZones).omit({ id: true, createdAt: true, lastUpdated: true });
 export const insertHomeownerSchema = createInsertSchema(homeowners).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertDamageReportSchema = createInsertSchema(damageReports).omit({ id: true, createdAt: true, updatedAt: true });
@@ -1138,11 +1142,11 @@ export const insertServiceRequestSchema = createInsertSchema(serviceRequests).om
 export const insertEmergencyContactSchema = createInsertSchema(emergencyContacts).omit({ id: true, createdAt: true, updatedAt: true });
 
 // Predictive Storm AI schemas
-export const insertStormPredictionSchema = createInsertSchema(stormPredictions).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertStormPredictionSchema = createInsertSchema(stormPredictions).omit({ id: true, createdAt: true, updatedAt: true }).extend({ validatedAgainstHistorical: z.boolean().optional() });
 export const insertDamageForecastSchema = createInsertSchema(damageForecast).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertContractorOpportunityPredictionSchema = createInsertSchema(contractorOpportunityPredictions).omit({ id: true, createdAt: true, updatedAt: true });
-export const insertHistoricalDamagePatternSchema = createInsertSchema(historicalDamagePatterns).omit({ id: true, createdAt: true, updatedAt: true });
-export const insertRadarAnalysisCacheSchema = createInsertSchema(radarAnalysisCache).omit({ id: true, createdAt: true });
+export const insertHistoricalDamagePatternSchema = createInsertSchema(historicalDamagePatterns).omit({ id: true, createdAt: true, updatedAt: true }).extend({ evacuationOrdered: z.boolean().optional() });
+export const insertRadarAnalysisCacheSchema = createInsertSchema(radarAnalysisCache).omit({ id: true, createdAt: true, processingTime: true, cacheExpiry: true });
 
 // Types
 export type User = typeof users.$inferSelect;
@@ -1211,3 +1215,249 @@ export type HistoricalDamagePattern = typeof historicalDamagePatterns.$inferSele
 export type InsertHistoricalDamagePattern = z.infer<typeof insertHistoricalDamagePatternSchema>;
 export type RadarAnalysisCache = typeof radarAnalysisCache.$inferSelect;
 export type InsertRadarAnalysisCache = z.infer<typeof insertRadarAnalysisCacheSchema>;
+
+// ===== NEW AI DAMAGE DETECTION & SOCIAL PLATFORM SCHEMAS =====
+
+// AI-detected damage leads from live footage analysis
+export const aiDamageLeads = pgTable("ai_damage_leads", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  // Source information
+  sourceType: text("source_type").notNull(), // traffic_cam, drone, social_media, live_stream
+  sourceId: text("source_id").notNull(), // ID of the source (camera ID, drone ID, etc.)
+  sourceUrl: text("source_url"), // URL to the source footage
+  
+  // Location data
+  latitude: numeric("latitude", { precision: 10, scale: 8 }).notNull(),
+  longitude: numeric("longitude", { precision: 10, scale: 8 }).notNull(),
+  address: text("address").notNull(),
+  city: text("city").notNull(),
+  county: text("county").notNull(),
+  state: text("state").notNull(),
+  zipCode: text("zip_code"),
+  
+  // Damage analysis
+  damageType: text("damage_type").notNull(), // tree_on_house, tree_on_car, tree_blocking_road, roof_damage, etc.
+  damageDescription: text("damage_description").notNull(),
+  severity: text("severity").notNull(), // emergency, urgent, high, moderate, low
+  aiConfidence: numeric("ai_confidence", { precision: 5, scale: 2 }).notNull(), // 0-100 percentage
+  
+  // Property information (when available)
+  propertyOwnerName: text("property_owner_name"),
+  propertyOwnerPhone: text("property_owner_phone"),
+  propertyOwnerEmail: text("property_owner_email"),
+  insuranceCompany: text("insurance_company"),
+  policyNumber: text("policy_number"),
+  coverageType: text("coverage_type"), // Coverage A (dwelling), Coverage B (personal property), etc.
+  
+  // Lead management
+  status: text("status").default("new"), // new, assigned, contacted, in_progress, completed, closed
+  priority: text("priority").default("normal"), // emergency, urgent, high, normal, low
+  estimatedValue: numeric("estimated_value", { precision: 10, scale: 2 }),
+  contractorsNeeded: jsonb("contractors_needed").$type<string[]>(), // Array of contractor types: ['tree_services', 'roofing', 'general_contractor']
+  
+  // Media and documentation
+  imageCount: integer("image_count").default(0),
+  videoCount: integer("video_count").default(0),
+  mediaUrls: jsonb("media_urls").$type<string[]>(), // Array of image/video URLs
+  
+  // AI processing metadata
+  processingMetadata: jsonb("processing_metadata").$type<Record<string, any>>(), // AI analysis details, confidence scores, etc.
+  verificationStatus: text("verification_status").default("pending"), // pending, verified, rejected
+  verifiedBy: varchar("verified_by"), // User ID who verified the lead
+  verifiedAt: timestamp("verified_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Contractor assignments for AI-detected leads
+export const aiLeadAssignments = pgTable("ai_lead_assignments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  aiLeadId: varchar("ai_lead_id").notNull(),
+  contractorId: varchar("contractor_id").notNull(),
+  contractorType: text("contractor_type").notNull(), // tree_services, roofing, cleanup, etc.
+  
+  // Assignment details
+  assignmentStatus: text("assignment_status").default("assigned"), // assigned, accepted, declined, completed
+  assignedBy: varchar("assigned_by"), // User ID who made the assignment
+  assignedAt: timestamp("assigned_at").defaultNow(),
+  acceptedAt: timestamp("accepted_at"),
+  completedAt: timestamp("completed_at"),
+  
+  // Communication tracking
+  contactAttempts: integer("contact_attempts").default(0),
+  lastContactAt: timestamp("last_contact_at"),
+  contactMethod: text("contact_method"), // sms, email, phone, app
+  responseReceived: boolean("response_received").default(false),
+  
+  // Notes and updates
+  notes: text("notes"),
+  contractorNotes: text("contractor_notes"),
+  estimatedResponseTime: text("estimated_response_time"), // 30min, 2hrs, same_day, next_day
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  // Ensure one assignment per contractor per lead
+  uniq: unique().on(table.aiLeadId, table.contractorId),
+}));
+
+// Live streaming sources for Eyes in the Sky
+export const liveStreamSources = pgTable("live_stream_sources", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  url: text("url").notNull().unique(),
+  description: text("description"),
+  category: text("category").notNull(), // live_chasing, youtube_channel, weather_intelligence, etc.
+  
+  // Source details
+  provider: text("provider"), // Severe Studios, Live Storm Chasers, etc.
+  isActive: boolean("is_active").default(true),
+  requiresSubscription: boolean("requires_subscription").default(false),
+  subscriptionCost: numeric("subscription_cost", { precision: 8, scale: 2 }),
+  subscriptionPeriod: text("subscription_period"), // monthly, yearly
+  
+  // Access and monitoring
+  lastChecked: timestamp("last_checked"),
+  status: text("status").default("unknown"), // online, offline, requires_payment, error
+  averageViewers: integer("average_viewers"),
+  
+  // Metadata
+  tags: jsonb("tags").$type<string[]>(), // Array of descriptive tags
+  region: text("region"), // Geographic region covered
+  emergencyAccess: boolean("emergency_access").default(false), // Free during emergencies
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// StormShareCam social platform posts
+export const stormSharePosts = pgTable("storm_share_posts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  
+  // Post content
+  content: text("content").notNull(),
+  postType: text("post_type").notNull(), // text, image, video, live_stream, help_request, donation_request
+  
+  // Location information
+  location: text("location"),
+  latitude: numeric("latitude", { precision: 10, scale: 8 }),
+  longitude: numeric("longitude", { precision: 10, scale: 8 }),
+  
+  // Media attachments
+  mediaUrls: jsonb("media_urls").$type<string[]>(), // Array of image/video URLs
+  mediaCount: integer("media_count").default(0),
+  liveStreamUrl: text("live_stream_url"), // For live streams
+  isLive: boolean("is_live").default(false),
+  
+  // Help/donation requests
+  isHelpRequest: boolean("is_help_request").default(false),
+  isDonationRequest: boolean("is_donation_request").default(false),
+  helpType: text("help_type"), // emergency_services, contractor_needed, supplies, transportation
+  urgencyLevel: text("urgency_level"), // emergency, urgent, high, normal
+  donationGoal: numeric("donation_goal", { precision: 10, scale: 2 }),
+  donationRaised: numeric("donation_raised", { precision: 10, scale: 2 }).default("0"),
+  donationPlatform: text("donation_platform"), // venmo, paypal, gofundme, etc.
+  donationHandle: text("donation_handle"), // @username for donation platform
+  
+  // Social engagement
+  likes: integer("likes").default(0),
+  comments: integer("comments").default(0),
+  shares: integer("shares").default(0),
+  views: integer("views").default(0),
+  
+  // Moderation and status
+  status: text("status").default("active"), // active, flagged, removed, archived
+  flagCount: integer("flag_count").default(0),
+  isVerified: boolean("is_verified").default(false), // Verified user/organization
+  isFeatured: boolean("is_featured").default(false),
+  
+  // Categories and tags
+  category: text("category"), // damage_report, help_request, donation, update, live_coverage
+  tags: jsonb("tags").$type<string[]>(), // Array of hashtags and descriptive tags
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Post interactions (likes, comments, shares)
+export const stormShareInteractions = pgTable("storm_share_interactions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  postId: varchar("post_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  interactionType: text("interaction_type").notNull(), // like, comment, share, view
+  
+  // For comments
+  commentText: text("comment_text"),
+  parentCommentId: varchar("parent_comment_id"), // For replies
+  
+  // For shares
+  shareText: text("share_text"), // Optional text when sharing
+  sharePlatform: text("share_platform"), // internal, facebook, twitter, etc.
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  // Prevent duplicate likes/reactions
+  uniq: unique().on(table.postId, table.userId, table.interactionType),
+}));
+
+// ===== MINIMAL AI DAMAGE DETECTION FOUNDATION =====
+
+// Detection Jobs table - minimal foundation for AI damage detection
+export const detectionJobs = pgTable("detection_jobs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sourceType: text("source_type").notNull(), // 'photo', 'video', 'traffic_cam'
+  sourceId: text("source_id").notNull(), // ID referencing the source (photo ID, video ID, camera ID)
+  status: text("status").default("pending"), // 'pending', 'processing', 'completed', 'failed'
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Detection Results table - stores AI analysis results
+export const detectionResults = pgTable("detection_results", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  jobId: varchar("job_id").notNull().references(() => detectionJobs.id),
+  label: text("label").notNull(), // 'tree_damage', 'roof_damage', 'vehicle_damage', 'flooding', 'debris', 'structure_damage'
+  confidence: numeric("confidence", { precision: 5, scale: 2 }).notNull(), // 0-100 percentage
+  bbox: jsonb("bbox").$type<{x: number, y: number, width: number, height: number}>(), // Bounding box coordinates
+  geometry: jsonb("geometry").$type<JsonObject>(), // GeoJSON geometry for geographic features
+  severityScore: numeric("severity_score", { precision: 3, scale: 1 }).notNull(), // 0-10 scale
+  metadata: jsonb("metadata").$type<JsonObject>(), // Additional analysis metadata
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Insert schemas for the new tables
+export const insertAiDamageLeadSchema = createInsertSchema(aiDamageLeads).omit({ id: true, createdAt: true, updatedAt: true, verifiedAt: true });
+
+export const insertAiLeadAssignmentSchema = createInsertSchema(aiLeadAssignments).omit({ id: true, createdAt: true, updatedAt: true, assignedAt: true, acceptedAt: true, completedAt: true, lastContactAt: true }).extend({ responseReceived: z.boolean().optional() });
+
+export const insertLiveStreamSourceSchema = createInsertSchema(liveStreamSources).omit({ id: true, createdAt: true, updatedAt: true, lastChecked: true }).extend({ isActive: z.boolean().optional(), requiresSubscription: z.boolean().optional(), emergencyAccess: z.boolean().optional() });
+
+export const insertStormSharePostSchema = createInsertSchema(stormSharePosts).omit({ id: true, createdAt: true, updatedAt: true }).extend({ isLive: z.boolean().optional(), isHelpRequest: z.boolean().optional(), isDonationRequest: z.boolean().optional(), isVerified: z.boolean().optional(), isFeatured: z.boolean().optional() });
+
+export const insertStormShareInteractionSchema = createInsertSchema(stormShareInteractions).omit({ id: true, createdAt: true });
+
+// Detection foundation insert schemas
+export const insertDetectionJobSchema = createInsertSchema(detectionJobs).omit({ id: true, createdAt: true });
+export const insertDetectionResultSchema = createInsertSchema(detectionResults).omit({ id: true, createdAt: true }).extend({
+  confidence: z.number().min(0).max(100), // Numeric 0-100 percentage
+  severityScore: z.number().min(0).max(10), // Numeric 0-10 scale
+});
+
+// Export types for the new schemas
+export type AiDamageLead = typeof aiDamageLeads.$inferSelect;
+export type InsertAiDamageLead = z.infer<typeof insertAiDamageLeadSchema>;
+export type AiLeadAssignment = typeof aiLeadAssignments.$inferSelect;
+export type InsertAiLeadAssignment = z.infer<typeof insertAiLeadAssignmentSchema>;
+export type LiveStreamSource = typeof liveStreamSources.$inferSelect;
+export type InsertLiveStreamSource = z.infer<typeof insertLiveStreamSourceSchema>;
+export type StormSharePost = typeof stormSharePosts.$inferSelect;
+export type InsertStormSharePost = z.infer<typeof insertStormSharePostSchema>;
+export type StormShareInteraction = typeof stormShareInteractions.$inferSelect;
+export type InsertStormShareInteraction = z.infer<typeof insertStormShareInteractionSchema>;
+
+// Detection foundation types
+export type DetectionJob = typeof detectionJobs.$inferSelect;
+export type InsertDetectionJob = z.infer<typeof insertDetectionJobSchema>;
+export type DetectionResult = typeof detectionResults.$inferSelect;
+export type InsertDetectionResult = z.infer<typeof insertDetectionResultSchema>;

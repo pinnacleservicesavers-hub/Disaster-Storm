@@ -16,8 +16,11 @@ import Claims from "./pages/Claims";
 import Customers from "./pages/Customers";
 import Drones from "./pages/Drones";
 import Legal from "./pages/Legal";
+import EyesInSky from "./pages/EyesInSky";
+import Leads from "./pages/Leads";
+import StormShareCam from "./pages/StormShareCam";
 import { Button } from '@/components/ui/button';
-import { Cloud, Home, Menu, Camera, Heart, Eye, Zap, Users, FileText, User, Plane, Scale, Settings, Briefcase } from 'lucide-react';
+import { Cloud, Home, Menu, Camera, Heart, Eye, Zap, Users, FileText, User, Plane, Scale, Settings, Briefcase, Video, Target, Share2, Shield } from 'lucide-react';
 
 function Navigation() {
   const [location] = useLocation();
@@ -30,18 +33,8 @@ function Navigation() {
             StormLead Master
           </h1>
           
-          <div className="flex space-x-4">
-            <Link href="/">
-              <Button 
-                variant={location === '/' ? 'default' : 'ghost'} 
-                size="sm"
-                data-testid="nav-home"
-              >
-                <Home className="w-4 h-4 mr-2" />
-                Dashboard
-              </Button>
-            </Link>
-            
+          <div className="flex space-x-4 overflow-x-auto">
+            {/* 1. Weather Center */}
             <Link href="/weather">
               <Button 
                 variant={location === '/weather' ? 'default' : 'ghost'} 
@@ -53,28 +46,7 @@ function Navigation() {
               </Button>
             </Link>
             
-            <Link href="/traffic-cameras">
-              <Button 
-                variant={location === '/traffic-cameras' ? 'default' : 'ghost'} 
-                size="sm"
-                data-testid="nav-traffic-cameras"
-              >
-                <Camera className="w-4 h-4 mr-2" />
-                TrafficCamWatcher
-              </Button>
-            </Link>
-            
-            <Link href="/damage-detection">
-              <Button 
-                variant={location === '/damage-detection' ? 'default' : 'ghost'} 
-                size="sm"
-                data-testid="nav-damage-detection"
-              >
-                <Eye className="w-4 h-4 mr-2" />
-                AI Damage Detection
-              </Button>
-            </Link>
-            
+            {/* 2. Storm Predictions */}
             <Link href="/prediction-dashboard">
               <Button 
                 variant={location === '/prediction-dashboard' ? 'default' : 'ghost'} 
@@ -86,17 +58,79 @@ function Navigation() {
               </Button>
             </Link>
             
-            <Link href="/contractors">
+            {/* 3. Traffic Cam Watcher */}
+            <Link href="/traffic-cameras">
               <Button 
-                variant={location === '/contractors' ? 'default' : 'ghost'} 
+                variant={location === '/traffic-cameras' ? 'default' : 'ghost'} 
                 size="sm"
-                data-testid="nav-contractor-portal"
+                data-testid="nav-traffic-cameras"
               >
-                <Briefcase className="w-4 h-4 mr-2" />
-                Contractor Portal
+                <Camera className="w-4 h-4 mr-2" />
+                Traffic Cam Watcher
               </Button>
             </Link>
             
+            {/* 4. Eyes in the Sky - NEW */}
+            <Link href="/eyes-in-sky">
+              <Button 
+                variant={location === '/eyes-in-sky' ? 'default' : 'ghost'} 
+                size="sm"
+                data-testid="nav-eyes-in-sky"
+              >
+                <Video className="w-4 h-4 mr-2" />
+                Eyes in the Sky
+              </Button>
+            </Link>
+            
+            {/* 5. Drone Operations */}
+            <Link href="/drones">
+              <Button 
+                variant={location === '/drones' ? 'default' : 'ghost'} 
+                size="sm"
+                data-testid="nav-drones"
+              >
+                <Plane className="w-4 h-4 mr-2" />
+                Drone Operations
+              </Button>
+            </Link>
+            
+            {/* 6. AI Damage Detection */}
+            <Link href="/damage-detection">
+              <Button 
+                variant={location === '/damage-detection' ? 'default' : 'ghost'} 
+                size="sm"
+                data-testid="nav-damage-detection"
+              >
+                <Eye className="w-4 h-4 mr-2" />
+                AI Damage Detection
+              </Button>
+            </Link>
+            
+            {/* 7. Leads - NEW */}
+            <Link href="/leads">
+              <Button 
+                variant={location === '/leads' ? 'default' : 'ghost'} 
+                size="sm"
+                data-testid="nav-leads"
+              >
+                <Target className="w-4 h-4 mr-2" />
+                Leads
+              </Button>
+            </Link>
+            
+            {/* 8. Victim Portal */}
+            <Link href="/victim/login">
+              <Button 
+                variant={location.startsWith('/victim') ? 'default' : 'ghost'} 
+                size="sm"
+                data-testid="nav-victim-portal"
+              >
+                <Heart className="w-4 h-4 mr-2" />
+                Victim Portal
+              </Button>
+            </Link>
+            
+            {/* 9. Contractors Management */}
             <Link href="/contractor-management">
               <Button 
                 variant={location === '/contractor-management' ? 'default' : 'ghost'} 
@@ -104,21 +138,23 @@ function Navigation() {
                 data-testid="nav-contractor-management"
               >
                 <Settings className="w-4 h-4 mr-2" />
-                Contractor Management
+                Contractors Management
               </Button>
             </Link>
             
-            <Link href="/claims">
+            {/* 10. Contractors */}
+            <Link href="/contractors">
               <Button 
-                variant={location === '/claims' ? 'default' : 'ghost'} 
+                variant={location === '/contractors' ? 'default' : 'ghost'} 
                 size="sm"
-                data-testid="nav-claims"
+                data-testid="nav-contractor-portal"
               >
-                <FileText className="w-4 h-4 mr-2" />
-                Claims
+                <Briefcase className="w-4 h-4 mr-2" />
+                Contractors
               </Button>
             </Link>
             
+            {/* 11. Customers */}
             <Link href="/customers">
               <Button 
                 variant={location === '/customers' ? 'default' : 'ghost'} 
@@ -130,17 +166,19 @@ function Navigation() {
               </Button>
             </Link>
             
-            <Link href="/drones">
+            {/* 12. Claims Management */}
+            <Link href="/claims">
               <Button 
-                variant={location === '/drones' ? 'default' : 'ghost'} 
+                variant={location === '/claims' ? 'default' : 'ghost'} 
                 size="sm"
-                data-testid="nav-drones"
+                data-testid="nav-claims"
               >
-                <Plane className="w-4 h-4 mr-2" />
-                Drones
+                <FileText className="w-4 h-4 mr-2" />
+                Claims Management
               </Button>
             </Link>
             
+            {/* 13. Legal Compliance */}
             <Link href="/legal">
               <Button 
                 variant={location === '/legal' ? 'default' : 'ghost'} 
@@ -148,18 +186,19 @@ function Navigation() {
                 data-testid="nav-legal"
               >
                 <Scale className="w-4 h-4 mr-2" />
-                Legal
+                Legal Compliance
               </Button>
             </Link>
             
-            <Link href="/victim/login">
+            {/* 14. StormShareCam - Social Platform */}
+            <Link href="/stormshare">
               <Button 
-                variant={location.startsWith('/victim') ? 'default' : 'ghost'} 
+                variant={location === '/stormshare' ? 'default' : 'ghost'} 
                 size="sm"
-                data-testid="nav-victim-portal"
+                data-testid="nav-stormshare"
               >
-                <Heart className="w-4 h-4 mr-2" />
-                Victim Portal
+                <Share2 className="w-4 h-4 mr-2" />
+                StormShareCam
               </Button>
             </Link>
           </div>
@@ -231,6 +270,24 @@ export default function App() {
           <title>Drone Operations - StormLead Master</title>
           <meta name="description" content="Manage drone fleet, aerial inspections, automated damage assessment and real-time monitoring for storm response" />
           <Drones />
+        </Route>
+        
+        <Route path="/eyes-in-sky">
+          <title>Eyes in the Sky - StormLead Master</title>
+          <meta name="description" content="Watch live storm chasing footage and streaming feeds from professional storm chasers and weather services" />
+          <EyesInSky />
+        </Route>
+        
+        <Route path="/leads">
+          <title>Damage Leads - StormLead Master</title>
+          <meta name="description" content="AI-powered damage detection leads from live footage with property owner information and contractor assignments" />
+          <Leads />
+        </Route>
+        
+        <Route path="/stormshare">
+          <title>StormShareCam - StormLead Master</title>
+          <meta name="description" content="Social platform for storm victims and contractors to share videos, photos, go live, and request help or donations" />
+          <StormShareCam />
         </Route>
         
         <Route path="/legal">

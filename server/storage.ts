@@ -58,7 +58,11 @@ import {
   type HistoricalDamagePattern,
   type InsertHistoricalDamagePattern,
   type RadarAnalysisCache,
-  type InsertRadarAnalysisCache
+  type InsertRadarAnalysisCache,
+  type DetectionJob,
+  type InsertDetectionJob,
+  type DetectionResult,
+  type InsertDetectionResult
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import fs from "fs";
@@ -296,6 +300,26 @@ export interface IStorage {
   updateRadarAnalysisCache(id: string, updates: Partial<RadarAnalysisCache>): Promise<RadarAnalysisCache>;
   deleteRadarAnalysisCache(id: string): Promise<boolean>;
   cleanupExpiredRadarCache(): Promise<number>; // Returns number of entries deleted
+
+  // AI Damage Detection Foundation
+  // Detection Jobs methods
+  getDetectionJobs(): Promise<DetectionJob[]>;
+  getDetectionJob(id: string): Promise<DetectionJob | undefined>;
+  getDetectionJobsByStatus(status: string): Promise<DetectionJob[]>;
+  getDetectionJobsBySourceType(sourceType: string): Promise<DetectionJob[]>;
+  createDetectionJob(job: InsertDetectionJob): Promise<DetectionJob>;
+  updateDetectionJob(id: string, updates: Partial<DetectionJob>): Promise<DetectionJob>;
+  deleteDetectionJob(id: string): Promise<boolean>;
+
+  // Detection Results methods
+  getDetectionResults(): Promise<DetectionResult[]>;
+  getDetectionResult(id: string): Promise<DetectionResult | undefined>;
+  getDetectionResultsByJobId(jobId: string): Promise<DetectionResult[]>;
+  getDetectionResultsByLabel(label: string): Promise<DetectionResult[]>;
+  getDetectionResultsByConfidence(minConfidence: number): Promise<DetectionResult[]>;
+  createDetectionResult(result: InsertDetectionResult): Promise<DetectionResult>;
+  updateDetectionResult(id: string, updates: Partial<DetectionResult>): Promise<DetectionResult>;
+  deleteDetectionResult(id: string): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
@@ -335,6 +359,10 @@ export class MemStorage implements IStorage {
   private contractorOpportunityPredictions: Map<string, ContractorOpportunityPrediction> = new Map();
   private historicalDamagePatterns: Map<string, HistoricalDamagePattern> = new Map();
   private radarAnalysisCache: Map<string, RadarAnalysisCache> = new Map();
+
+  // AI Damage Detection Foundation Storage
+  private detectionJobs: Map<string, DetectionJob> = new Map();
+  private detectionResults: Map<string, DetectionResult> = new Map();
 
   constructor() {
     console.log('🏗️ Initializing MemStorage...');
@@ -1705,6 +1733,96 @@ export class MemStorage implements IStorage {
     }
     
     return deletedCount;
+  }
+
+  // ===== AI DAMAGE DETECTION FOUNDATION METHODS =====
+
+  // Detection Jobs methods
+  async getDetectionJobs(): Promise<DetectionJob[]> {
+    return Array.from(this.detectionJobs.values());
+  }
+
+  async getDetectionJob(id: string): Promise<DetectionJob | undefined> {
+    return this.detectionJobs.get(id);
+  }
+
+  async getDetectionJobsByStatus(status: string): Promise<DetectionJob[]> {
+    return Array.from(this.detectionJobs.values()).filter(job => job.status === status);
+  }
+
+  async getDetectionJobsBySourceType(sourceType: string): Promise<DetectionJob[]> {
+    return Array.from(this.detectionJobs.values()).filter(job => job.sourceType === sourceType);
+  }
+
+  async createDetectionJob(insertJob: InsertDetectionJob): Promise<DetectionJob> {
+    const id = randomUUID();
+    const job: DetectionJob = {
+      ...insertJob,
+      id,
+      createdAt: new Date()
+    };
+    this.detectionJobs.set(id, job);
+    return job;
+  }
+
+  async updateDetectionJob(id: string, updates: Partial<DetectionJob>): Promise<DetectionJob> {
+    const job = this.detectionJobs.get(id);
+    if (!job) throw new Error("Detection job not found");
+    
+    const updatedJob = { ...job, ...updates };
+    this.detectionJobs.set(id, updatedJob);
+    return updatedJob;
+  }
+
+  async deleteDetectionJob(id: string): Promise<boolean> {
+    return this.detectionJobs.delete(id);
+  }
+
+  // Detection Results methods
+  async getDetectionResults(): Promise<DetectionResult[]> {
+    return Array.from(this.detectionResults.values());
+  }
+
+  async getDetectionResult(id: string): Promise<DetectionResult | undefined> {
+    return this.detectionResults.get(id);
+  }
+
+  async getDetectionResultsByJobId(jobId: string): Promise<DetectionResult[]> {
+    return Array.from(this.detectionResults.values()).filter(result => result.jobId === jobId);
+  }
+
+  async getDetectionResultsByLabel(label: string): Promise<DetectionResult[]> {
+    return Array.from(this.detectionResults.values()).filter(result => result.label === label);
+  }
+
+  async getDetectionResultsByConfidence(minConfidence: number): Promise<DetectionResult[]> {
+    return Array.from(this.detectionResults.values()).filter(result => 
+      parseFloat(result.confidence.toString()) >= minConfidence
+    );
+  }
+
+  async createDetectionResult(insertResult: InsertDetectionResult): Promise<DetectionResult> {
+    const id = randomUUID();
+    const result: DetectionResult = {
+      ...insertResult,
+      id,
+      createdAt: new Date()
+    };
+    this.detectionResults.set(id, result);
+    return result;
+  }
+
+  async updateDetectionResult(id: string, updates: Partial<DetectionResult>): Promise<DetectionResult> {
+    const result = this.detectionResults.get(id);
+    if (!result) throw new Error("Detection result not found");
+    
+    const updatedResult = { ...result, ...updates };
+    this.detectionResults.set(id, updatedResult);
+    return updatedResult;
+  }
+
+  async deleteDetectionResult(id: string): Promise<boolean> {
+    return this.detectionResults.delete(id);
   }
 }
 

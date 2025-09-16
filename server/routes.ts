@@ -58,7 +58,9 @@ import {
   insertHomeownerSchema,
   insertDamageReportSchema,
   insertServiceRequestSchema,
-  insertEmergencyContactSchema
+  insertEmergencyContactSchema,
+  insertDetectionJobSchema,
+  insertDetectionResultSchema
 } from "@shared/schema";
 
 // fetch polyfill if needed
@@ -6482,6 +6484,160 @@ Email: strategiclandmgmt@gmail.com
       );
     } catch (e) { 
       res.status(500).json({ ok: false }); 
+    }
+  });
+
+  // ===== AI DAMAGE DETECTION FOUNDATION API ROUTES =====
+
+  // Detection Jobs routes
+  app.get("/api/detections/jobs", async (req, res) => {
+    try {
+      const { status, sourceType } = req.query;
+      let jobs;
+      
+      if (status) {
+        jobs = await storage.getDetectionJobsByStatus(status as string);
+      } else if (sourceType) {
+        jobs = await storage.getDetectionJobsBySourceType(sourceType as string);
+      } else {
+        jobs = await storage.getDetectionJobs();
+      }
+      
+      res.json({ jobs });
+    } catch (error) {
+      console.error('Error fetching detection jobs:', error);
+      res.status(500).json({ error: 'Failed to fetch detection jobs' });
+    }
+  });
+
+  app.get("/api/detections/jobs/:id", async (req, res) => {
+    try {
+      const job = await storage.getDetectionJob(req.params.id);
+      if (!job) {
+        return res.status(404).json({ error: 'Detection job not found' });
+      }
+      res.json({ job });
+    } catch (error) {
+      console.error('Error fetching detection job:', error);
+      res.status(500).json({ error: 'Failed to fetch detection job' });
+    }
+  });
+
+  app.post("/api/detections/jobs", express.json(), async (req, res) => {
+    try {
+      const jobData = insertDetectionJobSchema.parse(req.body);
+      const job = await storage.createDetectionJob(jobData);
+      res.status(201).json({ job });
+    } catch (error) {
+      console.error('Error creating detection job:', error);
+      if (error instanceof Error && error.name === 'ZodError') {
+        return res.status(400).json({ error: 'Invalid job data', details: error.message });
+      }
+      res.status(500).json({ error: 'Failed to create detection job' });
+    }
+  });
+
+  app.put("/api/detections/jobs/:id", express.json(), async (req, res) => {
+    try {
+      const updates = req.body;
+      const job = await storage.updateDetectionJob(req.params.id, updates);
+      res.json({ job });
+    } catch (error) {
+      console.error('Error updating detection job:', error);
+      if (error instanceof Error && error.message === 'Detection job not found') {
+        return res.status(404).json({ error: 'Detection job not found' });
+      }
+      res.status(500).json({ error: 'Failed to update detection job' });
+    }
+  });
+
+  app.delete("/api/detections/jobs/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteDetectionJob(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: 'Detection job not found' });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error deleting detection job:', error);
+      res.status(500).json({ error: 'Failed to delete detection job' });
+    }
+  });
+
+  // Detection Results routes
+  app.get("/api/detections/results", async (req, res) => {
+    try {
+      const { jobId, label, minConfidence } = req.query;
+      let results;
+      
+      if (jobId) {
+        results = await storage.getDetectionResultsByJobId(jobId as string);
+      } else if (label) {
+        results = await storage.getDetectionResultsByLabel(label as string);
+      } else if (minConfidence) {
+        results = await storage.getDetectionResultsByConfidence(parseFloat(minConfidence as string));
+      } else {
+        results = await storage.getDetectionResults();
+      }
+      
+      res.json({ results });
+    } catch (error) {
+      console.error('Error fetching detection results:', error);
+      res.status(500).json({ error: 'Failed to fetch detection results' });
+    }
+  });
+
+  app.get("/api/detections/results/:id", async (req, res) => {
+    try {
+      const result = await storage.getDetectionResult(req.params.id);
+      if (!result) {
+        return res.status(404).json({ error: 'Detection result not found' });
+      }
+      res.json({ result });
+    } catch (error) {
+      console.error('Error fetching detection result:', error);
+      res.status(500).json({ error: 'Failed to fetch detection result' });
+    }
+  });
+
+  app.post("/api/detections/results", express.json(), async (req, res) => {
+    try {
+      const resultData = insertDetectionResultSchema.parse(req.body);
+      const result = await storage.createDetectionResult(resultData);
+      res.status(201).json({ result });
+    } catch (error) {
+      console.error('Error creating detection result:', error);
+      if (error instanceof Error && error.name === 'ZodError') {
+        return res.status(400).json({ error: 'Invalid result data', details: error.message });
+      }
+      res.status(500).json({ error: 'Failed to create detection result' });
+    }
+  });
+
+  app.put("/api/detections/results/:id", express.json(), async (req, res) => {
+    try {
+      const updates = req.body;
+      const result = await storage.updateDetectionResult(req.params.id, updates);
+      res.json({ result });
+    } catch (error) {
+      console.error('Error updating detection result:', error);
+      if (error instanceof Error && error.message === 'Detection result not found') {
+        return res.status(404).json({ error: 'Detection result not found' });
+      }
+      res.status(500).json({ error: 'Failed to update detection result' });
+    }
+  });
+
+  app.delete("/api/detections/results/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteDetectionResult(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: 'Detection result not found' });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error deleting detection result:', error);
+      res.status(500).json({ error: 'Failed to delete detection result' });
     }
   });
 

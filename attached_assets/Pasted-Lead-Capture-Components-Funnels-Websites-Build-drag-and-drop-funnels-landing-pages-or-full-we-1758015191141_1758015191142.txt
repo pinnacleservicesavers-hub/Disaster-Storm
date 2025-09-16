@@ -1,0 +1,79 @@
+Lead Capture Components
+
+Funnels & Websites – Build drag-and-drop funnels, landing pages, or full websites to capture leads.
+
+Forms – Create multi-step forms, surveys, and applications that can be embedded or shared.
+
+Calendars – Let prospects book appointments directly (integrated with Google/Outlook).
+
+Surveys – Collect customer feedback and qualify leads with logic-based questions.
+
+Chat Widgets – Website live chat pop-ups that capture leads and push them into pipelines.
+
+SMS/MMS Opt-Ins – Keyword campaigns (e.g., “Text TREE to 55555”) for storm/emergency sign-ups.
+
+Inbound Call Tracking Numbers – Track and route phone calls while capturing lead details.
+
+🔹 Lead Nurture Components
+
+Automated Workflows – Multi-channel nurturing via SMS, email, voicemail drops, calls, and DMs.
+
+Email Marketing – Broadcast emails, drip campaigns, and AI-assisted copywriting.
+
+SMS & MMS Campaigns – Personalized two-way texting and bulk campaigns.
+
+Ringless Voicemails – Pre-recorded messages dropped into leads’ voicemail inbox.
+
+Social DMs – Facebook Messenger, Instagram DM, and Google My Business message integration.
+
+AI Chatbots – Automated replies for leads 24/7 until a human steps in.
+
+🔹 CRM & Pipeline Components
+
+Smart CRM – Centralized hub for all leads, tagged, segmented, and prioritized.
+
+Pipelines & Stages – Drag-and-drop Kanban boards (e.g., New Lead → Estimate → Contract → Paid).
+
+Opportunities Dashboard – See every lead, where they are in the funnel, and potential value.
+
+Task & Reminder System – Assign tasks, set reminders, and track follow-ups.
+
+🔹 Marketing & Advertising Components
+
+Landing Page A/B Testing – Optimize lead conversion rates.
+
+Google Ads & Facebook Ads Integration – Capture leads directly from ad campaigns.
+
+Reputation Management – Automate review requests via text/email.
+
+Social Media Posting – Schedule and automate social posts across multiple platforms.
+
+🔹 Communication Components
+
+Unified Inbox – Email, SMS, calls, Messenger, Instagram, and GMB messages all in one inbox.
+
+Call Tracking & Recording – Track ROI on campaigns and record conversations for training.
+
+Power Dialer – Rapid call campaigns for following up on new leads.
+
+2-Way Texting on Desktop & Mobile App – Real-time engagement with prospects.
+
+🔹 Analytics & Reporting Components
+
+Funnel/Website Analytics – Conversion rates, drop-off points, ROI tracking.
+
+Call & SMS Analytics – Track cost per lead and attribution.
+
+Ad Spend ROI – Connects to Google & Facebook Ads for real cost-per-lead analysis.
+
+Pipeline Value & Forecasting – Project revenue from current leads in the system.
+
+🔹 Automation & AI Add-Ons
+
+AI Lead Response – Automatically respond to new leads within seconds.
+
+Workflow Triggers – Automations based on actions (form filled, call missed, contract signed).
+
+Document E-Signatures – Send contracts, proposals, and agreements for signature.
+
+Payment Links & Invoicing – Collect deposits or payments directly.
