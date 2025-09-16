@@ -34,6 +34,8 @@ import Stripe from "stripe";
 import PDFDocument from "pdfkit";
 import bcrypt from "bcryptjs";
 import { randomUUID } from "crypto";
+import { parse as csvParse } from "csv-parse/sync";
+import Fuse from "fuse.js";
 import { createServer, type Server } from "http";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { weatherService, weatherStreamManager } from "./services/weather";
@@ -6221,6 +6223,265 @@ Email: strategiclandmgmt@gmail.com
         error: 'Failed to get prediction dashboard',
         details: error instanceof Error ? error.message : 'Unknown error'
       });
+    }
+  });
+
+  // =====================================
+  // XACTIMATE COMPARABLES API ENDPOINTS
+  // =====================================
+
+  // Setup file paths for Xactimate catalogs
+  const XACT_PATH = path.join(DATA_DIR, 'xact_catalogs.json');
+  if (!fs.existsSync(XACT_PATH)) {
+    fs.writeFileSync(XACT_PATH, JSON.stringify({ catalogs: [] }, null, 2));
+  }
+
+  function readXact() { 
+    try { 
+      return JSON.parse(fs.readFileSync(XACT_PATH, 'utf8')); 
+    } catch { 
+      return { catalogs: [] }; 
+    } 
+  }
+
+  function writeXact(data: any) { 
+    fs.writeFileSync(XACT_PATH, JSON.stringify(data, null, 2)); 
+  }
+
+  function getCatalog(db: any, id: string) { 
+    return (db.catalogs || []).find((c: any) => c.id === id); 
+  }
+
+  // ---- Catalog CRUD ----
+  app.get('/api/xact/catalogs', (req, res) => { 
+    try { 
+      const db = readXact(); 
+      res.json(db.catalogs || []); 
+    } catch { 
+      res.json([]); 
+    } 
+  });
+
+  app.post('/api/xact/catalogs/create', (req, res) => {
+    try {
+      const { name, region, effective } = req.body || {};
+      if (!name) return res.status(400).json({ error: 'name_required' });
+      
+      const db = readXact();
+      const catalog = { 
+        id: 'xcat:' + Date.now(), 
+        name, 
+        region: region || '', 
+        effective: effective || '', 
+        items: [] 
+      };
+      
+      db.catalogs.push(catalog); 
+      writeXact(db);
+      res.json({ ok: true, catalog });
+    } catch (e) { 
+      res.status(500).json({ ok: false }); 
+    }
+  });
+
+  app.post('/api/xact/catalogs/delete', (req, res) => {
+    try { 
+      const { id } = req.body || {};
+      const db = readXact(); 
+      db.catalogs = (db.catalogs || []).filter((c: any) => c.id !== id); 
+      writeXact(db); 
+      res.json({ ok: true }); 
+    } catch (e) { 
+      res.status(500).json({ ok: false }); 
+    }
+  });
+
+  // ---- Import items (CSV) ----
+  app.post('/api/xact/catalog/import', async (req, res) => {
+    try {
+      const { catalogId, csvText, filePath, csvUrl } = req.body || {};
+      const db = readXact(); 
+      const catalog = getCatalog(db, catalogId);
+      
+      if (!catalog) return res.status(404).json({ error: 'catalog_not_found' });
+      
+      let csv = csvText || '';
+      if (!csv && filePath) { 
+        const fullPath = filePath.startsWith('/uploads/') ? 
+          path.join(UPLOAD_DIR, path.basename(filePath)) : filePath;
+        csv = fs.readFileSync(fullPath, 'utf8'); 
+      }
+      if (!csv && csvUrl) { 
+        const response = await fetch(csvUrl); 
+        csv = await response.text(); 
+      }
+      if (!csv) return res.status(400).json({ error: 'no_csv' });
+      
+      const rows = csvParse(csv, { columns: true, skip_empty_lines: true });
+      const items = rows.map((r: any) => ({
+        code: String(r.code || r.CODE || '').trim(),
+        name: String(r.name || r.NAME || '').trim(),
+        unit: String(r.unit || r.UNIT || '').trim() || 'EA',
+        unit_price: Number(r.unit_price || r.price || r.UNIT_PRICE || 0),
+        notes: String(r.notes || r.NOTES || '').trim()
+      })).filter((x: any) => x.code && x.name);
+      
+      catalog.items = items; 
+      writeXact(db);
+      res.json({ ok: true, count: items.length });
+    } catch (e) { 
+      res.status(500).json({ ok: false, detail: String(e) }); 
+    }
+  });
+
+  // ---- List/search items ----
+  app.get('/api/xact/items', (req, res) => {
+    try { 
+      const db = readXact(); 
+      const catalog = getCatalog(db, req.query.catalogId as string); 
+      if (!catalog) return res.status(404).json([]); 
+      res.json(catalog.items || []); 
+    } catch { 
+      res.json([]); 
+    }
+  });
+
+  app.get('/api/xact/search', (req, res) => {
+    try {
+      const db = readXact(); 
+      const catalog = getCatalog(db, req.query.catalogId as string); 
+      if (!catalog) return res.status(404).json([]);
+      
+      const items = catalog.items || []; 
+      const query = (req.query.q || '').toString(); 
+      if (!query) return res.json(items.slice(0, 20));
+      
+      const fuse = new Fuse(items, { keys: ['code', 'name', 'notes'], threshold: 0.35 });
+      res.json(fuse.search(query).slice(0, 25).map((r: any) => r.item));
+    } catch { 
+      res.json([]); 
+    }
+  });
+
+  // ---- Compare invoice lines to catalog ----
+  app.post('/api/xact/compare', (req, res) => {
+    try {
+      const { catalogId, invoice = [], mappings = [] } = req.body || {};
+      const db = readXact(); 
+      const catalog = getCatalog(db, catalogId); 
+      if (!catalog) return res.status(404).json({ error: 'catalog_not_found' });
+      
+      const items = catalog.items || []; 
+      const index = Object.fromEntries(items.map((i: any) => [i.code, i]));
+
+      // Build suggestions if no explicit mapping
+      const mapped = invoice.map((line: any, i: number) => {
+        const mapping = mappings.find((x: any) => Number(x.idx) === i);
+        let item = mapping ? index[mapping.code] : null;
+        
+        if (!item) {
+          // Simple string match on code presence or best name match
+          const fuse = new Fuse(items, { keys: ['code', 'name'], threshold: 0.3 });
+          const query = (line.code || '') + ' ' + (line.desc || '');
+          const guess = fuse.search(query)[0]?.item; 
+          if (guess) item = guess;
+        }
+        
+        const qty = Number(line.qty || 1); 
+        const unitPrice = Number(item?.unit_price || 0);
+        const comparable = qty * unitPrice;
+        const proposed = Number(line.unit_price || 0) * qty;
+        
+        return {
+          idx: i,
+          desc: line.desc || '',
+          qty, 
+          unit: line.unit || item?.unit || 'EA',
+          contractor_unit: Number(line.unit_price || 0),
+          contractor_total: proposed,
+          code: item?.code || '', 
+          name: item?.name || '', 
+          x_unit: unitPrice,
+          x_total: comparable,
+          variance: proposed - comparable,
+          variance_pct: comparable ? (proposed - comparable) / comparable : null
+        };
+      });
+
+      const totals = mapped.reduce((acc: any, row: any) => ({ 
+        contractor: acc.contractor + row.contractor_total, 
+        x: acc.x + row.x_total 
+      }), { contractor: 0, x: 0 });
+      
+      res.json({ ok: true, rows: mapped, totals });
+    } catch (e) { 
+      res.status(500).json({ ok: false }); 
+    }
+  });
+
+  // ---- PDF report (side-by-side) ----
+  app.post('/api/xact/report', async (req, res) => {
+    try {
+      const { customerId, compare } = req.body || {};
+      const outPath = path.join(UPLOAD_DIR, `xact_compare_${Date.now()}.pdf`);
+      
+      // Create PDF document
+      const doc = new PDFDocument({ size: 'LETTER', margin: 24 });
+      const writeStream = fs.createWriteStream(outPath);
+      doc.pipe(writeStream);
+      
+      // Header
+      doc.fontSize(14).text('Xactimate Comparables — Side by Side');
+      if (customerId) {
+        doc.moveDown(0.2).fontSize(10).text(`Customer ID: ${customerId}`);
+      }
+      doc.moveDown(0.4);
+
+      // Table header
+      doc.fontSize(9)
+        .text('Desc', 24, doc.y, { continued: true, width: 180 })
+        .text('Code', 204, undefined, { width: 60, continued: true })
+        .text('Qty', 264, undefined, { width: 30, continued: true, align: 'right' })
+        .text('Unit', 294, undefined, { width: 30, continued: true, align: 'center' })
+        .text('Contractor', 324, undefined, { width: 72, continued: true, align: 'right' })
+        .text('Xactimate', 396, undefined, { width: 72, continued: true, align: 'right' })
+        .text('Δ', 468, undefined, { width: 72, align: 'right' });
+      
+      doc.moveDown(0.2);
+      doc.moveTo(24, doc.y).lineTo(540, doc.y).stroke();
+
+      // Table rows
+      (compare.rows || []).forEach((row: any) => {
+        doc.fontSize(8)
+          .text(row.desc || '', 24, doc.y, { width: 180, continued: true })
+          .text(row.code || '', 204, undefined, { width: 60, continued: true })
+          .text(String(row.qty || ''), 264, undefined, { width: 30, align: 'right', continued: true })
+          .text(row.unit || '', 294, undefined, { width: 30, align: 'center', continued: true })
+          .text((row.contractor_total || 0).toFixed(2), 324, undefined, { width: 72, align: 'right', continued: true })
+          .text((row.x_total || 0).toFixed(2), 396, undefined, { width: 72, align: 'right', continued: true })
+          .text((row.variance || 0).toFixed(2), 468, undefined, { width: 72, align: 'right' });
+      });
+
+      // Totals
+      doc.moveDown(0.3);
+      doc.moveTo(24, doc.y).lineTo(540, doc.y).stroke();
+      const totals = compare.totals || { contractor: 0, x: 0 };
+      doc.fontSize(9)
+        .text('TOTALS', 24, doc.y + 2, { width: 180, continued: true })
+        .text('', 204, undefined, { width: 60, continued: true })
+        .text('', 264, undefined, { width: 30, continued: true })
+        .text('', 294, undefined, { width: 30, continued: true })
+        .text(totals.contractor.toFixed(2), 324, undefined, { width: 72, align: 'right', continued: true })
+        .text(totals.x.toFixed(2), 396, undefined, { width: 72, align: 'right', continued: true })
+        .text((totals.contractor - totals.x).toFixed(2), 468, undefined, { width: 72, align: 'right' });
+
+      doc.end();
+      
+      writeStream.on('finish', () => 
+        res.json({ ok: true, path: '/uploads/' + path.basename(outPath) })
+      );
+    } catch (e) { 
+      res.status(500).json({ ok: false }); 
     }
   });
 
