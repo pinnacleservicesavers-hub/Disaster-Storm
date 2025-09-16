@@ -359,7 +359,7 @@ export default function WeatherCenter() {
 
       {/* Main Weather Tabs */}
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-6" data-testid="tabs-weather">
+        <TabsList className="grid w-full grid-cols-8" data-testid="tabs-weather">
           <TabsTrigger value="overview" data-testid="tab-overview">
             <Eye className="w-4 h-4 mr-2" />
             Overview
@@ -384,6 +384,22 @@ export default function WeatherCenter() {
             <CloudRain className="w-4 h-4 mr-2" />
             Models+External
           </TabsTrigger>
+          <button
+            onClick={() => window.open('https://www.radaromega.com/', '_blank')}
+            className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm hover:bg-muted hover:text-muted-foreground"
+            data-testid="tab-omega-radar"
+          >
+            <Radar className="w-4 h-4 mr-2" />
+            Omega Radar
+          </button>
+          <button
+            onClick={() => window.open('https://www.windy.com/?32.607,-84.937,5', '_blank')}
+            className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm hover:bg-muted hover:text-muted-foreground"
+            data-testid="tab-windy"
+          >
+            <Wind className="w-4 h-4 mr-2" />
+            Windy
+          </button>
         </TabsList>
 
         {/* Overview Tab */}
