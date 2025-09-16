@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { FileText, Plus, Search, Settings, DollarSign } from 'lucide-react';
+import { XactimateComparables } from '@/components/XactimateComparables';
 
 export default function Claims() {
   return (
@@ -124,6 +125,11 @@ export default function Claims() {
             </Button>
           </CardContent>
         </Card>
+      </div>
+
+      {/* Xactimate Comparables Section */}
+      <div className="mt-8">
+        <XactimateComparables />
       </div>
     </div>
   );
