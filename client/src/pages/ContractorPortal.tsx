@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   User, 
   Shield, 
@@ -32,14 +33,34 @@ import {
   Plus,
   Eye,
   CreditCard,
-  Loader2
+  Loader2,
+  TrendingUp,
+  Activity,
+  Globe,
+  BarChart3,
+  Maximize2,
+  ArrowUpRight,
+  Timer,
+  Award,
+  Briefcase
 } from 'lucide-react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
+import {
+  FadeIn,
+  SlideIn,
+  StaggerContainer,
+  StaggerItem,
+  HoverLift,
+  CountUp,
+  PulseAlert
+} from '@/components/ui/animations';
 
 export default function ContractorPortal() {
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showCalendar, setShowCalendar] = useState(false);
   const { toast } = useToast();
   
   // Quick actions for dashboard
@@ -123,42 +144,240 @@ export default function ContractorPortal() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b">
+    <div className={`min-h-screen transition-all duration-500 ${
+      isFullscreen 
+        ? 'fixed inset-0 z-50 bg-gradient-to-br from-blue-900 via-indigo-900 to-purple-900' 
+        : 'bg-gradient-to-br from-blue-50 via-white to-indigo-50'
+    } relative overflow-hidden`}>
+      {/* Enhanced Background Effects */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden">
+        {Array.from({ length: 15 }).map((_, i) => (
+          <motion.div
+            key={i}
+            className="absolute w-1 h-1 bg-blue-400/20 rounded-full"
+            style={{
+              left: `${Math.random() * 100}%`,
+              top: `${Math.random() * 100}%`,
+            }}
+            animate={{
+              y: [-10, 10],
+              opacity: [0.2, 0.6, 0.2],
+              scale: [0.5, 1, 0.5],
+            }}
+            transition={{
+              duration: 4 + Math.random() * 2,
+              repeat: Infinity,
+              delay: Math.random() * 2,
+            }}
+          />
+        ))}
+      </div>
+      {/* Enhanced Header */}
+      <motion.div 
+        className="bg-white/80 backdrop-blur-sm border-b border-blue-200/50 shadow-lg relative z-20"
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6 }}
+      >
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <h1 className="text-2xl font-bold text-blue-900" data-testid="text-portal-title">
-                Contractor Portal
-              </h1>
-              <Badge className="bg-green-100 text-green-800">Pro Subscription Active</Badge>
-            </div>
-            <div className="flex items-center space-x-4">
-              <Button variant="outline" size="sm" data-testid="button-ai-assistant">
-                <Bot className="w-4 h-4 mr-2" />
-                AI Assistant
-              </Button>
-              <div className="relative">
-                <Button variant="outline" size="sm" data-testid="button-notifications">
-                  <Bell className="w-4 h-4" />
-                  {notifications.filter(n => n.urgent).length > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full text-xs w-5 h-5 flex items-center justify-center">
-                      {notifications.filter(n => n.urgent).length}
-                    </span>
-                  )}
-                </Button>
+            <motion.div 
+              className="flex items-center space-x-4"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+            >
+              <div className="flex items-center space-x-3">
+                <motion.div
+                  className="p-3 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl shadow-lg"
+                  animate={{ 
+                    scale: [1, 1.05, 1],
+                    boxShadow: [
+                      '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                      '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                      '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                    ]
+                  }}
+                  transition={{ duration: 3, repeat: Infinity }}
+                >
+                  <Briefcase className="w-6 h-6 text-white" />
+                </motion.div>
+                <div>
+                  <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-800 bg-clip-text text-transparent" data-testid="text-portal-title">
+                    Contractor Portal
+                  </h1>
+                  <motion.p 
+                    className="text-blue-600/80 text-sm font-medium flex items-center"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.4 }}
+                  >
+                    <Activity className="w-3 h-3 mr-1 animate-pulse" />
+                    Professional storm damage services
+                  </motion.p>
+                </div>
               </div>
-              <Button variant="outline" size="sm" data-testid="button-profile-settings">
-                <User className="w-4 h-4 mr-2" />
-                Profile
-              </Button>
-            </div>
+              <motion.div
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                <Badge className="bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 border-green-200 px-3 py-1 shadow-sm">
+                  <Award className="w-3 h-3 mr-1" />
+                  Pro Subscription Active
+                </Badge>
+              </motion.div>
+            </motion.div>
+            <motion.div 
+              className="flex items-center space-x-4"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.6, delay: 0.3 }}
+            >
+              {/* Fullscreen Toggle */}
+              <HoverLift>
+                <motion.button
+                  onClick={() => setIsFullscreen(!isFullscreen)}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="p-2 bg-gradient-to-r from-purple-500 to-blue-500 text-white rounded-lg shadow-lg hover:shadow-xl transition-all duration-300"
+                  data-testid="button-fullscreen-toggle"
+                >
+                  <Maximize2 className="w-4 h-4" />
+                </motion.button>
+              </HoverLift>
+              
+              <HoverLift>
+                <Button variant="outline" size="sm" data-testid="button-ai-assistant">
+                  <Bot className="w-4 h-4 mr-2" />
+                  AI Assistant
+                </Button>
+              </HoverLift>
+              
+              <div className="relative">
+                <HoverLift>
+                  <Button variant="outline" size="sm" data-testid="button-notifications">
+                    <Bell className="w-4 h-4" />
+                    {notifications.filter(n => n.urgent).length > 0 && (
+                      <motion.span 
+                        animate={{ scale: [1, 1.2, 1] }}
+                        transition={{ duration: 2, repeat: Infinity }}
+                        className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full text-xs w-5 h-5 flex items-center justify-center"
+                      >
+                        {notifications.filter(n => n.urgent).length}
+                      </motion.span>
+                    )}
+                  </Button>
+                </HoverLift>
+              </div>
+              
+              <HoverLift>
+                <Button variant="outline" size="sm" data-testid="button-profile-settings">
+                  <User className="w-4 h-4 mr-2" />
+                  Profile
+                </Button>
+              </HoverLift>
+            </motion.div>
           </div>
         </div>
-      </div>
+      </motion.div>
 
-      <div className="container mx-auto px-6 py-6">
+      <div className="container mx-auto px-6 py-6 relative z-10">
+        {/* Enhanced KPI Dashboard */}
+        <motion.div 
+          className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5, staggerChildren: 0.1 }}
+        >
+          <motion.div 
+            variants={{ hidden: { opacity: 0, scale: 0.8 }, visible: { opacity: 1, scale: 1 } }}
+            className="relative overflow-hidden"
+          >
+            <Card className="h-full bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200 hover:shadow-lg transition-all duration-300">
+              <CardContent className="p-4 text-center">
+                <Briefcase className="w-8 h-8 mx-auto mb-2 text-blue-500" />
+                <div className="text-2xl font-bold text-blue-600" data-testid="kpi-active-projects">
+                  <CountUp end={activeProjects} duration={1.5} />
+                </div>
+                <div className="text-xs text-blue-600/80 font-medium">Active Projects</div>
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          <motion.div variants={{ hidden: { opacity: 0, scale: 0.8 }, visible: { opacity: 1, scale: 1 } }}>
+            <Card className="h-full bg-gradient-to-br from-green-50 to-green-100 border-green-200 hover:shadow-lg transition-all duration-300">
+              <CardContent className="p-4 text-center">
+                <DollarSign className="w-8 h-8 mx-auto mb-2 text-green-500" />
+                <div className="text-2xl font-bold text-green-600" data-testid="kpi-monthly-revenue">
+                  <CountUp end={monthlyRevenue} duration={2} prefix="$" separator="," />
+                </div>
+                <div className="text-xs text-green-600/80 font-medium">Monthly Revenue</div>
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          <motion.div variants={{ hidden: { opacity: 0, scale: 0.8 }, visible: { opacity: 1, scale: 1 } }}>
+            <Card className="h-full bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200 hover:shadow-lg transition-all duration-300">
+              <CardContent className="p-4 text-center">
+                <Target className={`w-8 h-8 mx-auto mb-2 ${newLeads > 0 ? 'text-purple-500 animate-pulse' : 'text-purple-400'}`} />
+                <div className="text-2xl font-bold text-purple-600" data-testid="kpi-new-leads">
+                  <CountUp end={newLeads} duration={1.5} />
+                </div>
+                <div className="text-xs text-purple-600/80 font-medium">New Leads</div>
+                {newLeads > 0 && (
+                  <motion.div 
+                    animate={{ scale: [1, 1.1, 1] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                    className="absolute -top-1 -right-1 w-3 h-3 bg-purple-500 rounded-full"
+                  />
+                )}
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          <motion.div variants={{ hidden: { opacity: 0, scale: 0.8 }, visible: { opacity: 1, scale: 1 } }}>
+            <Card className="h-full bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200 hover:shadow-lg transition-all duration-300">
+              <CardContent className="p-4 text-center">
+                <Camera className="w-8 h-8 mx-auto mb-2 text-orange-500" />
+                <div className="text-2xl font-bold text-orange-600" data-testid="kpi-photos-uploaded">
+                  <CountUp end={photos.length} duration={1.5} />
+                </div>
+                <div className="text-xs text-orange-600/80 font-medium">Photos Uploaded</div>
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          <motion.div variants={{ hidden: { opacity: 0, scale: 0.8 }, visible: { opacity: 1, scale: 1 } }}>
+            <Card className="h-full bg-gradient-to-br from-red-50 to-red-100 border-red-200 hover:shadow-lg transition-all duration-300">
+              <CardContent className="p-4 text-center">
+                <AlertTriangle className={`w-8 h-8 mx-auto mb-2 ${notifications.filter(n => n.urgent).length > 0 ? 'text-red-500 animate-bounce' : 'text-red-400'}`} />
+                <div className="text-2xl font-bold text-red-600" data-testid="kpi-critical-alerts">
+                  <CountUp end={notifications.filter(n => n.urgent).length} duration={1.5} />
+                </div>
+                <div className="text-xs text-red-600/80 font-medium">Critical Alerts</div>
+                {notifications.filter(n => n.urgent).length > 0 && (
+                  <motion.div 
+                    animate={{ scale: [1, 1.1, 1] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                    className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"
+                  />
+                )}
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          <motion.div variants={{ hidden: { opacity: 0, scale: 0.8 }, visible: { opacity: 1, scale: 1 } }}>
+            <Card className="h-full bg-gradient-to-br from-cyan-50 to-cyan-100 border-cyan-200 hover:shadow-lg transition-all duration-300">
+              <CardContent className="p-4 text-center">
+                <TrendingUp className="w-8 h-8 mx-auto mb-2 text-cyan-500 animate-pulse" />
+                <div className="text-2xl font-bold text-cyan-600" data-testid="kpi-success-rate">
+                  <CountUp end={94} duration={1.5} suffix="%" />
+                </div>
+                <div className="text-xs text-cyan-600/80 font-medium">Success Rate</div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        </motion.div>
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           {/* Navigation Tabs */}
           <TabsList className="grid w-full grid-cols-6 lg:grid-cols-11">

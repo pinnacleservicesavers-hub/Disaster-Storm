@@ -117,6 +117,8 @@ export default function WeatherCenter() {
   const [userLocation, setUserLocation] = useState<{ lat: number; lon: number } | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [refreshInterval, setRefreshInterval] = useState(30000); // 30 seconds
+  const [selectedTab, setSelectedTab] = useState('overview');
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Get user's GPS location
   useEffect(() => {
@@ -285,11 +287,49 @@ export default function WeatherCenter() {
   const hasAlerts = alerts.length > 0;
   const hasSevereAlerts = alerts.some(alert => alert.severity === 'severe' || alert.severity === 'extreme');
 
+  // Enhanced metrics for KPI display
+  const totalAlerts = alerts.length;
+  const severeAlerts = alerts.filter(a => a.severity === 'severe' || a.severity === 'extreme').length;
+  const activeStorms = nhcData.storms.length;
+  const activeBuoys = buoyData.filter(b => b.status === 'active').length;
+  const avgWaveHeight = waveData.length > 0 ? waveData.reduce((sum, w) => sum + w.significantHeight, 0) / waveData.length : 0;
+  const avgSeaTemp = oceanData.seaSurfaceTemperature.length > 0 
+    ? oceanData.seaSurfaceTemperature.reduce((sum, sst) => sum + sst.temperature, 0) / oceanData.seaSurfaceTemperature.length 
+    : 0;
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-100 relative overflow-hidden">
-      {/* Weather effects */}
-      {hasActiveStorms && <RainEffect intensity="normal" />}
+    <div className={`min-h-screen transition-all duration-500 ${
+      isFullscreen 
+        ? 'fixed inset-0 z-50 bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900' 
+        : 'bg-gradient-to-br from-blue-50 via-white to-blue-100'
+    } relative overflow-hidden`}>
+      {/* Enhanced Weather Effects */}
+      {hasActiveStorms && <RainEffect intensity={hasSevereAlerts ? "heavy" : "normal"} />}
       {hasSevereAlerts && <LightningFlash />}
+      
+      {/* Atmospheric Particles */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden">
+        {Array.from({ length: 20 }).map((_, i) => (
+          <motion.div
+            key={i}
+            className="absolute w-1 h-1 bg-blue-300/30 rounded-full"
+            style={{
+              left: `${Math.random() * 100}%`,
+              top: `${Math.random() * 100}%`,
+            }}
+            animate={{
+              y: [-20, 20],
+              opacity: [0.3, 0.7, 0.3],
+              scale: [0.5, 1, 0.5],
+            }}
+            transition={{
+              duration: 3 + Math.random() * 2,
+              repeat: Infinity,
+              delay: Math.random() * 2,
+            }}
+          />
+        ))}
+      </div>
       
       <div className="container mx-auto p-6 space-y-8 relative z-10">
         {/* Enhanced Header */}
@@ -345,6 +385,19 @@ export default function WeatherCenter() {
               {/* Enhanced Controls */}
               <SlideIn direction="right" delay={0.2}>
                 <div className="flex items-center gap-4">
+                  {/* Fullscreen Toggle */}
+                  <HoverLift>
+                    <motion.button
+                      onClick={() => setIsFullscreen(!isFullscreen)}
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      className="p-3 bg-gradient-to-r from-purple-500 to-blue-500 text-white rounded-lg shadow-lg hover:shadow-xl transition-all duration-300"
+                      data-testid="button-fullscreen-toggle"
+                    >
+                      <Globe className="w-5 h-5" />
+                    </motion.button>
+                  </HoverLift>
+                  
                   <div className="flex items-center gap-2 bg-white/50 backdrop-blur-sm rounded-lg p-2 border border-white/30">
                     <HoverLift>
                       <Button
@@ -415,6 +468,96 @@ export default function WeatherCenter() {
             </div>
           </div>
         </FadeIn>
+
+        {/* Enhanced KPI Dashboard */}
+        <motion.div 
+          className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4, staggerChildren: 0.1 }}
+        >
+          <motion.div 
+            variants={{ hidden: { opacity: 0, scale: 0.8 }, visible: { opacity: 1, scale: 1 } }}
+            className="relative overflow-hidden"
+          >
+            <Card className="h-full bg-gradient-to-br from-red-50 to-red-100 border-red-200 hover:shadow-lg transition-all duration-300">
+              <CardContent className="p-4 text-center">
+                <AlertTriangle className={`w-8 h-8 mx-auto mb-2 ${severeAlerts > 0 ? 'text-red-500 animate-bounce' : 'text-red-400'}`} />
+                <div className="text-2xl font-bold text-red-600" data-testid="kpi-total-alerts">
+                  <CountUp end={totalAlerts} duration={1.5} />
+                </div>
+                <div className="text-xs text-red-600/80 font-medium">Active Alerts</div>
+                {severeAlerts > 0 && (
+                  <motion.div 
+                    animate={{ scale: [1, 1.1, 1] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                    className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"
+                  />
+                )}
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          <motion.div variants={{ hidden: { opacity: 0, scale: 0.8 }, visible: { opacity: 1, scale: 1 } }}>
+            <Card className="h-full bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200 hover:shadow-lg transition-all duration-300">
+              <CardContent className="p-4 text-center">
+                <Eye className={`w-8 h-8 mx-auto mb-2 ${activeStorms > 0 ? 'text-purple-500 animate-spin' : 'text-purple-400'}`} style={{ animationDuration: '3s' }} />
+                <div className="text-2xl font-bold text-purple-600" data-testid="kpi-active-storms">
+                  <CountUp end={activeStorms} duration={1.5} />
+                </div>
+                <div className="text-xs text-purple-600/80 font-medium">Storm Systems</div>
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          <motion.div variants={{ hidden: { opacity: 0, scale: 0.8 }, visible: { opacity: 1, scale: 1 } }}>
+            <Card className="h-full bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200 hover:shadow-lg transition-all duration-300">
+              <CardContent className="p-4 text-center">
+                <Waves className="w-8 h-8 mx-auto mb-2 text-blue-500" />
+                <div className="text-2xl font-bold text-blue-600" data-testid="kpi-avg-wave-height">
+                  <CountUp end={avgWaveHeight} duration={1.5} suffix="m" />
+                </div>
+                <div className="text-xs text-blue-600/80 font-medium">Avg Wave Height</div>
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          <motion.div variants={{ hidden: { opacity: 0, scale: 0.8 }, visible: { opacity: 1, scale: 1 } }}>
+            <Card className="h-full bg-gradient-to-br from-cyan-50 to-cyan-100 border-cyan-200 hover:shadow-lg transition-all duration-300">
+              <CardContent className="p-4 text-center">
+                <ThermometerSun className="w-8 h-8 mx-auto mb-2 text-cyan-500" />
+                <div className="text-2xl font-bold text-cyan-600" data-testid="kpi-avg-sea-temp">
+                  <CountUp end={avgSeaTemp} duration={1.5} suffix="°C" />
+                </div>
+                <div className="text-xs text-cyan-600/80 font-medium">Sea Temperature</div>
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          <motion.div variants={{ hidden: { opacity: 0, scale: 0.8 }, visible: { opacity: 1, scale: 1 } }}>
+            <Card className="h-full bg-gradient-to-br from-green-50 to-green-100 border-green-200 hover:shadow-lg transition-all duration-300">
+              <CardContent className="p-4 text-center">
+                <Activity className={`w-8 h-8 mx-auto mb-2 ${activeBuoys > 0 ? 'text-green-500 animate-pulse' : 'text-green-400'}`} />
+                <div className="text-2xl font-bold text-green-600" data-testid="kpi-active-buoys">
+                  <CountUp end={activeBuoys} duration={1.5} />
+                </div>
+                <div className="text-xs text-green-600/80 font-medium">Active Buoys</div>
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          <motion.div variants={{ hidden: { opacity: 0, scale: 0.8 }, visible: { opacity: 1, scale: 1 } }}>
+            <Card className="h-full bg-gradient-to-br from-yellow-50 to-yellow-100 border-yellow-200 hover:shadow-lg transition-all duration-300">
+              <CardContent className="p-4 text-center">
+                <Signal className="w-8 h-8 mx-auto mb-2 text-yellow-500 animate-ping" style={{ animationDuration: '2s' }} />
+                <div className="text-2xl font-bold text-yellow-600" data-testid="kpi-data-quality">
+                  <CountUp end={97} duration={1.5} suffix="%" />
+                </div>
+                <div className="text-xs text-yellow-600/80 font-medium">Data Quality</div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        </motion.div>
 
         {/* Enhanced Status indicators */}
         <StaggerContainer className="flex flex-wrap gap-3">

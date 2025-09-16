@@ -1,8 +1,35 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Video, ExternalLink, AlertCircle, DollarSign } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { FadeIn, ScaleIn, SlideIn } from '@/components/ui/animations';
+import { Video, ExternalLink, AlertCircle, DollarSign, Play, Users, Signal, Zap, Heart, Filter, Search, Clock } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useState, useEffect } from 'react';
 
 export default function EyesInSky() {
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [viewMode, setViewMode] = useState('grid');
+  const [favorites, setFavorites] = useState<string[]>([]);
+  const [liveStatus, setLiveStatus] = useState<{[key: string]: 'live' | 'offline' | 'scheduled'}>({});
+
+  // Simulate live status updates
+  useEffect(() => {
+    const updateLiveStatus = () => {
+      const statuses = ['live', 'offline', 'scheduled'] as const;
+      const newStatus: {[key: string]: 'live' | 'offline' | 'scheduled'} = {};
+      streamingSources.forEach((source, index) => {
+        newStatus[index] = statuses[Math.floor(Math.random() * 3)];
+      });
+      setLiveStatus(newStatus);
+    };
+    
+    updateLiveStatus();
+    const interval = setInterval(updateLiveStatus, 10000);
+    return () => clearInterval(interval);
+  }, []);
+
   const streamingSources = [
     {
       name: "Severe Studios LiveChase",
@@ -54,44 +81,239 @@ export default function EyesInSky() {
     }
   ];
 
+  const categories = ['all', 'Live Chasing', 'YouTube Channel', 'Weather Intelligence', 'Damage Tracking', 'Emergency Response', 'Satellite', 'Storm Documentation'];
+
+  const filteredSources = streamingSources.filter(source => {
+    const matchesCategory = selectedCategory === 'all' || source.category === selectedCategory;
+    const matchesSearch = source.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                         source.description.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesCategory && matchesSearch;
+  });
+
+  const featuredSources = streamingSources.filter((_, index) => liveStatus[index] === 'live').slice(0, 3);
+
   const openStream = (url: string, name: string) => {
     window.open(url, '_blank', 'noopener,noreferrer');
   };
 
+  const toggleFavorite = (index: number) => {
+    setFavorites(prev => 
+      prev.includes(index.toString()) 
+        ? prev.filter(f => f !== index.toString())
+        : [...prev, index.toString()]
+    );
+  };
+
+  const getStatusColor = (status: 'live' | 'offline' | 'scheduled') => {
+    switch (status) {
+      case 'live': return 'bg-red-500';
+      case 'offline': return 'bg-gray-400';
+      case 'scheduled': return 'bg-yellow-500';
+    }
+  };
+
+  const getStatusText = (status: 'live' | 'offline' | 'scheduled') => {
+    switch (status) {
+      case 'live': return 'LIVE';
+      case 'offline': return 'Offline';
+      case 'scheduled': return 'Scheduled';
+    }
+  };
+
   return (
-    <div className="container mx-auto p-6">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2" data-testid="title-eyes-in-sky">
-          👁️ Eyes in the Sky - Live Storm Coverage
-        </h1>
-        <p className="text-gray-600">
-          Watch live storm chasing footage and professional weather coverage from across the United States
-        </p>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-blue-900 dark:to-indigo-900">
+      {/* Animated Background Effects */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <motion.div
+          className="absolute inset-0 opacity-30"
+          animate={{
+            background: [
+              'radial-gradient(circle at 20% 80%, rgba(59, 130, 246, 0.3) 0%, transparent 50%)',
+              'radial-gradient(circle at 80% 20%, rgba(139, 92, 246, 0.3) 0%, transparent 50%)',
+              'radial-gradient(circle at 40% 40%, rgba(59, 130, 246, 0.3) 0%, transparent 50%)'
+            ]
+          }}
+          transition={{ duration: 8, repeat: Infinity, repeatType: 'reverse' }}
+        />
+        <motion.div
+          className="absolute top-10 left-10 w-72 h-72 bg-blue-400 rounded-full mix-blend-multiply filter blur-xl opacity-20"
+          animate={{
+            x: [0, 100, 0],
+            y: [0, -100, 0],
+          }}
+          transition={{ duration: 20, repeat: Infinity }}
+        />
+        <motion.div
+          className="absolute top-40 right-10 w-72 h-72 bg-purple-400 rounded-full mix-blend-multiply filter blur-xl opacity-20"
+          animate={{
+            x: [0, -100, 0],
+            y: [0, 100, 0],
+          }}
+          transition={{ duration: 25, repeat: Infinity }}
+        />
       </div>
 
-      {/* Membership Alert */}
-      <Card className="mb-6 border-orange-200 bg-orange-50">
-        <CardHeader>
-          <CardTitle className="flex items-center text-orange-800">
-            <DollarSign className="w-5 h-5 mr-2" />
-            Premium Access Required
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-start space-x-3">
-            <AlertCircle className="w-5 h-5 text-orange-600 mt-0.5" />
-            <div>
-              <p className="text-orange-700 mb-2">
-                Some streaming services require premium memberships or subscriptions. 
-                StormLead Master will alert you when payment is needed for full access.
+      <div className="relative z-10 container mx-auto p-6">
+        <FadeIn>
+          <div className="mb-8">
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              className="text-center mb-6"
+            >
+              <h1 className="text-4xl lg:text-5xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-blue-800 bg-clip-text text-transparent mb-4" data-testid="title-eyes-in-sky">
+                👁️ Eyes in the Sky
+              </h1>
+              <p className="text-xl text-slate-600 dark:text-slate-300 max-w-3xl mx-auto">
+                Real-time storm chasing coverage and professional weather monitoring from across the United States
               </p>
-              <Button variant="outline" size="sm" className="text-orange-700 border-orange-300">
-                Manage Subscriptions
-              </Button>
-            </div>
+            </motion.div>
+
+            {/* Live Stats Bar */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.2, duration: 0.5 }}
+              className="bg-white/70 dark:bg-slate-800/70 backdrop-blur-md rounded-2xl p-6 mb-8 shadow-xl border border-white/20"
+            >
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="text-center">
+                  <div className="flex items-center justify-center mb-2">
+                    <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse mr-2" />
+                    <span className="text-2xl font-bold text-slate-800 dark:text-white">
+                      {Object.values(liveStatus).filter(s => s === 'live').length}
+                    </span>
+                  </div>
+                  <p className="text-sm text-slate-600 dark:text-slate-300">Live Streams</p>
+                </div>
+                <div className="text-center">
+                  <div className="flex items-center justify-center mb-2">
+                    <Users className="w-4 h-4 mr-2 text-blue-500" />
+                    <span className="text-2xl font-bold text-slate-800 dark:text-white">{streamingSources.length}</span>
+                  </div>
+                  <p className="text-sm text-slate-600 dark:text-slate-300">Total Sources</p>
+                </div>
+                <div className="text-center">
+                  <div className="flex items-center justify-center mb-2">
+                    <Signal className="w-4 h-4 mr-2 text-green-500" />
+                    <span className="text-2xl font-bold text-slate-800 dark:text-white">
+                      {Math.round((Object.values(liveStatus).filter(s => s === 'live').length / streamingSources.length) * 100)}%
+                    </span>
+                  </div>
+                  <p className="text-sm text-slate-600 dark:text-slate-300">Availability</p>
+                </div>
+                <div className="text-center">
+                  <div className="flex items-center justify-center mb-2">
+                    <Clock className="w-4 h-4 mr-2 text-purple-500" />
+                    <span className="text-2xl font-bold text-slate-800 dark:text-white">
+                      {Object.values(liveStatus).filter(s => s === 'scheduled').length}
+                    </span>
+                  </div>
+                  <p className="text-sm text-slate-600 dark:text-slate-300">Scheduled</p>
+                </div>
+              </div>
+            </motion.div>
           </div>
-        </CardContent>
-      </Card>
+        </FadeIn>
+
+        {/* Featured Live Streams */}
+        {featuredSources.length > 0 && (
+          <SlideIn direction="up" delay={0.3}>
+            <div className="mb-8">
+              <h2 className="text-2xl font-bold text-slate-800 dark:text-white mb-4 flex items-center">
+                <Zap className="w-6 h-6 mr-2 text-red-500" />
+                Featured Live Streams
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {featuredSources.map((source, originalIndex) => {
+                  const sourceIndex = streamingSources.findIndex(s => s.name === source.name);
+                  return (
+                    <motion.div
+                      key={sourceIndex}
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      className="relative"
+                    >
+                      <Card className="bg-gradient-to-br from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20 border-red-200 dark:border-red-800 shadow-lg hover:shadow-xl transition-all duration-300">
+                        <CardHeader className="pb-3">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center">
+                              <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse mr-2" />
+                              <Badge className="bg-red-500 text-white text-xs font-semibold px-2 py-1">
+                                LIVE
+                              </Badge>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => toggleFavorite(sourceIndex)}
+                              data-testid={`button-favorite-${sourceIndex}`}
+                            >
+                              <Heart className={`w-4 h-4 ${
+                                favorites.includes(sourceIndex.toString()) 
+                                  ? 'fill-red-500 text-red-500' 
+                                  : 'text-gray-400'
+                              }`} />
+                            </Button>
+                          </div>
+                          <CardTitle className="text-lg flex items-center">
+                            <Video className="w-5 h-5 mr-2 text-red-600" />
+                            {source.name}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <p className="text-sm text-slate-600 dark:text-slate-300 mb-4">
+                            {source.description}
+                          </p>
+                          <Button 
+                            onClick={() => openStream(source.url, source.name)}
+                            className="w-full bg-red-600 hover:bg-red-700 text-white"
+                            data-testid={`button-featured-stream-${sourceIndex}`}
+                          >
+                            <Play className="w-4 h-4 mr-2" />
+                            Watch Live
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            </div>
+          </SlideIn>
+        )}
+
+        {/* Premium Access Alert */}
+        <SlideIn direction="up" delay={0.4}>
+          <Card className="mb-8 bg-gradient-to-r from-orange-50 to-yellow-50 dark:from-orange-900/20 dark:to-yellow-900/20 border-orange-200 dark:border-orange-800 shadow-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center text-orange-800 dark:text-orange-300">
+                <DollarSign className="w-5 h-5 mr-2" />
+                Premium Access Management
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-start space-x-3">
+                <AlertCircle className="w-5 h-5 text-orange-600 mt-0.5" />
+                <div>
+                  <p className="text-orange-700 dark:text-orange-300 mb-4">
+                    Some streaming services require premium memberships. StormLead Master monitors 
+                    subscription status and provides automated alerts for service renewals.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="outline" size="sm" className="text-orange-700 border-orange-300 hover:bg-orange-100">
+                      Manage Subscriptions
+                    </Button>
+                    <Button variant="outline" size="sm" className="text-orange-700 border-orange-300 hover:bg-orange-100">
+                      View Access Status
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </SlideIn>
 
       {/* Live Streams Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -137,6 +359,7 @@ export default function EyesInSky() {
           </p>
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }

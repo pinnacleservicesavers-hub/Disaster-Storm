@@ -1,17 +1,19 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { MapPin, Camera, AlertTriangle, DollarSign, Bell, Heart, Eye, Activity, Monitor } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
+import { MapPin, Camera, AlertTriangle, DollarSign, Bell, Heart, Eye, Activity, Monitor, Search, Filter, Grid, List, Play, Pause, Maximize2, Signal, Wifi, WifiOff, Zap, TrendingUp, Users, Clock, RefreshCw } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { MapView } from '@/components/MapView';
 import { CameraViewer } from '@/components/CameraViewer';
-import { FadeIn, CountUp, StaggerContainer, StaggerItem, HoverLift } from '@/components/ui/animations';
+import { FadeIn, CountUp, StaggerContainer, StaggerItem, HoverLift, ScaleIn, SlideIn, PulseAlert } from '@/components/ui/animations';
 import type { ContractorWatchlist, InsertContractorWatchlist } from '@shared/schema';
 
 interface CameraDirectory {
@@ -66,6 +68,11 @@ export function TrafficCameras() {
   const [selectedCounty, setSelectedCounty] = useState<string>('');
   const [alertsOnly, setAlertsOnly] = useState(false);
   const [viewerCameraId, setViewerCameraId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [showLiveOnly, setShowLiveOnly] = useState(false);
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [selectedOpportunity, setSelectedOpportunity] = useState<string | null>(null);
   
   // For now, using a hardcoded contractor ID since there's no authentication system
   const contractorId = 'contractor-demo-001';
@@ -151,41 +158,174 @@ export function TrafficCameras() {
 
   if (directoryLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-indigo-900 p-6">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-indigo-900 p-6 relative overflow-hidden">
+        {/* Animated background elements */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <motion.div
+            className="absolute top-10 right-10 w-32 h-32 bg-blue-400/10 rounded-full blur-3xl"
+            animate={{
+              x: [0, 30, 0],
+              y: [0, -20, 0],
+              scale: [1, 1.2, 1]
+            }}
+            transition={{ duration: 6, repeat: Infinity }}
+          />
+          <motion.div
+            className="absolute bottom-20 left-20 w-40 h-40 bg-green-400/10 rounded-full blur-3xl"
+            animate={{
+              x: [0, -25, 0],
+              y: [0, 15, 0],
+              scale: [1, 0.8, 1]
+            }}
+            transition={{ duration: 8, repeat: Infinity, delay: 1 }}
+          />
+        </div>
+        
         <FadeIn>
-          <div className="max-w-7xl mx-auto">
+          <div className="max-w-7xl mx-auto relative z-10">
             <div className="text-center mb-8">
               <motion.div
-                className="relative inline-block"
-                animate={{ rotate: [0, 360] }}
-                transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+                className="relative inline-block mb-6"
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ duration: 0.8, type: "spring" }}
               >
-                <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full mx-auto mb-4"></div>
-                <motion.div
-                  className="absolute inset-0 w-16 h-16 border-4 border-transparent border-r-green-400 rounded-full mx-auto"
-                  animate={{ rotate: -360 }}
-                  transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                />
+                <div className="relative">
+                  <motion.div
+                    className="w-20 h-20 border-4 border-blue-200 border-t-blue-600 rounded-full mx-auto"
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                  />
+                  <motion.div
+                    className="absolute inset-2 w-16 h-16 border-4 border-transparent border-r-green-400 rounded-full"
+                    animate={{ rotate: -360 }}
+                    transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
+                  />
+                  <motion.div
+                    className="absolute inset-4 w-12 h-12 border-2 border-transparent border-b-purple-300 rounded-full"
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                  />
+                  {/* Center camera icon */}
+                  <motion.div
+                    className="absolute inset-0 flex items-center justify-center"
+                    animate={{ 
+                      scale: [0.8, 1.2, 0.8],
+                      rotate: [0, 5, -5, 0]
+                    }}
+                    transition={{ duration: 3, repeat: Infinity }}
+                  >
+                    <Camera className="w-8 h-8 text-blue-600" />
+                  </motion.div>
+                </div>
               </motion.div>
-              <motion.h2
-                className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent"
-                animate={{ opacity: [0.5, 1, 0.5] }}
-                transition={{ duration: 2, repeat: Infinity }}
+              
+              <motion.div
+                className="space-y-4"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5 }}
               >
-                📹 Connecting to Traffic Camera Network...
-              </motion.h2>
-              <p className="mt-2 text-gray-600 dark:text-gray-400">Scanning live feeds across multiple states</p>
+                <motion.h2
+                  className="text-3xl font-bold mb-4"
+                  style={{
+                    background: 'linear-gradient(45deg, #3b82f6, #10b981, #6366f1, #06b6d4)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    backgroundSize: '300% 300%'
+                  }}
+                  animate={{ 
+                    backgroundPosition: ['0% 50%', '100% 50%', '0% 50%']
+                  }}
+                  transition={{ duration: 4, repeat: Infinity }}
+                >
+                  📹 Connecting to Traffic Camera Network...
+                </motion.h2>
+                
+                <div className="space-y-2">
+                  <motion.p
+                    className="text-gray-600 dark:text-gray-400 font-medium"
+                    animate={{ opacity: [0.5, 1, 0.5] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                  >
+                    Scanning live feeds across multiple states
+                  </motion.p>
+                  <motion.p
+                    className="text-gray-500 dark:text-gray-500 text-sm"
+                    animate={{ opacity: [0.3, 0.8, 0.3] }}
+                    transition={{ duration: 2.5, repeat: Infinity, delay: 0.5 }}
+                  >
+                    Detecting contractor opportunities
+                  </motion.p>
+                  <motion.p
+                    className="text-gray-400 dark:text-gray-600 text-xs"
+                    animate={{ opacity: [0.2, 0.6, 0.2] }}
+                    transition={{ duration: 3, repeat: Infinity, delay: 1 }}
+                  >
+                    Processing AI damage detection
+                  </motion.p>
+                </div>
+                
+                {/* Enhanced loading progress */}
+                <motion.div
+                  className="w-80 h-2 bg-gray-200 dark:bg-gray-700 rounded-full mx-auto overflow-hidden"
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 1 }}
+                >
+                  <motion.div
+                    className="h-full bg-gradient-to-r from-blue-500 via-green-500 to-purple-500 rounded-full"
+                    initial={{ width: '0%' }}
+                    animate={{ width: '100%' }}
+                    transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                  />
+                </motion.div>
+              </motion.div>
             </div>
-            <StaggerContainer className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              {[1, 2, 3, 4].map(i => (
+            
+            {/* Enhanced loading skeleton */}
+            <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
                 <StaggerItem key={i}>
-                  <div className="h-32 bg-gradient-to-br from-white to-gray-100 dark:from-gray-800 dark:to-gray-900 rounded-xl shadow-lg animate-pulse">
-                    <div className="p-4 space-y-3">
-                      <div className="h-4 bg-gray-300 dark:bg-gray-600 rounded w-3/4"></div>
-                      <div className="h-8 bg-gray-300 dark:bg-gray-600 rounded w-1/2"></div>
-                      <div className="h-3 bg-gray-300 dark:bg-gray-600 rounded w-5/6"></div>
+                  <motion.div 
+                    className="h-40 bg-gradient-to-br from-white/80 to-gray-100/80 dark:from-gray-800/80 dark:to-gray-900/80 rounded-xl shadow-lg backdrop-blur-sm border border-white/20 overflow-hidden"
+                    initial={{ scale: 0.8, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ delay: i * 0.1 }}
+                  >
+                    <div className="p-4 space-y-3 h-full">
+                      <motion.div 
+                        className="h-4 bg-gradient-to-r from-gray-300 to-gray-400 dark:from-gray-600 dark:to-gray-500 rounded w-3/4"
+                        animate={{ opacity: [0.3, 0.7, 0.3] }}
+                        transition={{ duration: 2, repeat: Infinity, delay: i * 0.2 }}
+                      />
+                      <motion.div 
+                        className="h-20 bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-600 rounded-lg flex items-center justify-center"
+                        animate={{ opacity: [0.4, 0.8, 0.4] }}
+                        transition={{ duration: 2.5, repeat: Infinity, delay: i * 0.15 }}
+                      >
+                        <Camera className="w-8 h-8 text-gray-400" />
+                      </motion.div>
+                      <motion.div 
+                        className="h-3 bg-gradient-to-r from-gray-300 to-gray-400 dark:from-gray-600 dark:to-gray-500 rounded w-5/6"
+                        animate={{ opacity: [0.2, 0.6, 0.2] }}
+                        transition={{ duration: 1.8, repeat: Infinity, delay: i * 0.25 }}
+                      />
                     </div>
-                  </div>
+                    
+                    {/* Scanning line effect */}
+                    <motion.div
+                      className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
+                      initial={{ x: '-100%' }}
+                      animate={{ x: '100%' }}
+                      transition={{ 
+                        duration: 2, 
+                        repeat: Infinity, 
+                        delay: i * 0.3,
+                        ease: "easeInOut"
+                      }}
+                    />
+                  </motion.div>
                 </StaggerItem>
               ))}
             </StaggerContainer>
@@ -196,27 +336,178 @@ export function TrafficCameras() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-indigo-900 p-6">
-      <div className="max-w-7xl mx-auto space-y-8">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-indigo-900 p-6 relative overflow-hidden">
+      {/* Dynamic background elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <motion.div
+          className="absolute -top-10 -right-10 w-40 h-40 bg-blue-400/10 rounded-full blur-3xl"
+          animate={{
+            x: [0, 50, 0],
+            y: [0, -30, 0],
+            scale: [1, 1.2, 1]
+          }}
+          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+        />
+        <motion.div
+          className="absolute top-1/4 -left-20 w-60 h-60 bg-green-400/10 rounded-full blur-3xl"
+          animate={{
+            x: [0, -40, 0],
+            y: [0, 50, 0],
+            scale: [1, 0.8, 1]
+          }}
+          transition={{ duration: 12, repeat: Infinity, ease: "easeInOut", delay: 2 }}
+        />
+        <motion.div
+          className="absolute bottom-1/4 right-1/4 w-32 h-32 bg-purple-400/10 rounded-full blur-2xl"
+          animate={{
+            rotate: [0, 360],
+            scale: [1, 1.5, 1]
+          }}
+          transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
+        />
+      </div>
+      
+      <div className="max-w-7xl mx-auto space-y-8 relative z-10">
         {/* Enhanced Header */}
         <FadeIn>
           <div className="text-center mb-8">
-            <motion.h1
-              className="text-4xl font-bold bg-gradient-to-r from-blue-600 via-green-600 to-indigo-600 bg-clip-text text-transparent mb-4"
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
-            >
-              📹 Traffic Camera Network
-            </motion.h1>
-            <motion.p
-              className="text-lg text-slate-600 dark:text-slate-300 font-medium"
+            <motion.div className="relative inline-block">
+              <motion.h1
+                className="text-5xl font-bold mb-4"
+                initial={{ opacity: 0, y: -20, backgroundSize: '200% 200%' }}
+                animate={{ 
+                  opacity: 1, 
+                  y: 0,
+                  backgroundPosition: ['0% 50%', '100% 50%', '0% 50%']
+                }}
+                transition={{ duration: 0.6, backgroundPosition: { duration: 4, repeat: Infinity } }}
+                style={{
+                  background: 'linear-gradient(45deg, #3b82f6, #10b981, #6366f1, #06b6d4, #8b5cf6)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text'
+                }}
+              >
+                📹 Traffic Camera Network
+              </motion.h1>
+              
+              {/* Live indicator */}
+              <motion.div
+                className="absolute -top-2 -right-16 flex items-center space-x-2 px-3 py-1 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-full text-xs font-bold shadow-lg"
+                initial={{ opacity: 0, scale: 0 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.8 }}
+              >
+                <motion.div
+                  className="w-2 h-2 bg-red-500 rounded-full"
+                  animate={{ scale: [1, 1.5, 1], opacity: [1, 0.5, 1] }}
+                  transition={{ duration: 1, repeat: Infinity }}
+                />
+                <span>LIVE</span>
+              </motion.div>
+            </motion.div>
+            
+            <motion.div
+              className="space-y-3"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.2 }}
             >
-              Real-time monitoring • Live incident detection • Contractor opportunities
-            </motion.p>
+              <p className="text-lg text-slate-600 dark:text-slate-300 font-medium">
+                Real-time monitoring • Live incident detection • Contractor opportunities
+              </p>
+              
+              {/* Enhanced subtitle with stats */}
+              {directory && (
+                <motion.div
+                  className="flex items-center justify-center space-x-6 text-sm text-slate-500 dark:text-slate-400"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.5 }}
+                >
+                  <div className="flex items-center space-x-1">
+                    <Camera className="w-3 h-3" />
+                    <span>{directory.totalCameras.toLocaleString()} cameras active</span>
+                  </div>
+                  <div className="flex items-center space-x-1">
+                    <AlertTriangle className="w-3 h-3" />
+                    <span>{directory.contractorOpportunities} opportunities</span>
+                  </div>
+                  <div className="flex items-center space-x-1">
+                    <Signal className="w-3 h-3" />
+                    <span>{directory.totalStates} states covered</span>
+                  </div>
+                  {autoRefresh && (
+                    <div className="flex items-center space-x-1 text-green-600">
+                      <motion.div
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                      >
+                        <RefreshCw className="w-3 h-3" />
+                      </motion.div>
+                      <span>Auto-refresh</span>
+                    </div>
+                  )}
+                </motion.div>
+              )}
+              
+              {/* Search and Controls */}
+              <motion.div
+                className="flex items-center justify-center space-x-4 max-w-2xl mx-auto mt-6"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.7 }}
+              >
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <Input
+                    type="text"
+                    placeholder="Search states, counties, or routes..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10 pr-4 py-2 bg-white/80 backdrop-blur-sm border-gray-200 hover:border-blue-300 focus:border-blue-500 transition-colors"
+                    data-testid="input-search-cameras"
+                  />
+                </div>
+                
+                <div className="flex items-center space-x-2">
+                  <Button
+                    variant={viewMode === 'grid' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setViewMode('grid')}
+                    data-testid="button-grid-view"
+                    className="transition-all duration-200"
+                  >
+                    <Grid className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant={viewMode === 'list' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setViewMode('list')}
+                    data-testid="button-list-view"
+                    className="transition-all duration-200"
+                  >
+                    <List className="w-4 h-4" />
+                  </Button>
+                </div>
+                
+                <Button
+                  variant={showLiveOnly ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setShowLiveOnly(!showLiveOnly)}
+                  data-testid="button-live-only"
+                  className="transition-all duration-200"
+                >
+                  <motion.div
+                    animate={showLiveOnly ? { scale: [1, 1.2, 1] } : {}}
+                    transition={{ duration: 0.5, repeat: showLiveOnly ? Infinity : 0 }}
+                  >
+                    <Wifi className="w-4 h-4 mr-2" />
+                  </motion.div>
+                  Live Only
+                </Button>
+              </motion.div>
+            </motion.div>
           </div>
         </FadeIn>
 
@@ -348,59 +639,164 @@ export function TrafficCameras() {
           </StaggerContainer>
         </FadeIn>
 
-      <Tabs defaultValue="browse" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="browse" data-testid="tab-browse">Browse Cameras</TabsTrigger>
-          <TabsTrigger value="map" data-testid="tab-map">Map View</TabsTrigger>
-          <TabsTrigger value="opportunities" data-testid="tab-opportunities">Opportunities</TabsTrigger>
-          <TabsTrigger value="watchlist" data-testid="tab-watchlist">Watchlist</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="browse" className="space-y-4">
-          {/* Filters */}
-          <div className="flex flex-wrap gap-4 items-center">
-            <Select value={selectedState} onValueChange={setSelectedState}>
-              <SelectTrigger className="w-48" data-testid="select-state">
-                <SelectValue placeholder="Select State" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All States</SelectItem>
-                {directory?.directory.map(state => (
-                  <SelectItem key={state.state} value={state.state}>
-                    {state.name} ({state.cameraCount} cameras)
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {selectedStateData && (
-              <Select value={selectedCounty} onValueChange={setSelectedCounty}>
-                <SelectTrigger className="w-48" data-testid="select-county">
-                  <SelectValue placeholder="Select County" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Counties</SelectItem>
-                  {selectedStateData.counties.map(county => (
-                    <SelectItem key={county} value={county}>
-                      {county}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-
-            <Button
-              variant={alertsOnly ? "default" : "outline"}
-              onClick={() => setAlertsOnly(!alertsOnly)}
-              data-testid="button-alerts-only"
+      <FadeIn delay={1.0}>
+        <Tabs defaultValue="browse" className="w-full">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 1.2 }}
+          >
+            <TabsList 
+              className="grid w-full grid-cols-4 bg-white/80 backdrop-blur-sm border border-slate-200/50 p-1 rounded-xl shadow-lg" 
+              data-testid="tabs-camera-dashboard"
             >
-              <Bell className="h-4 w-4 mr-2" />
-              {alertsOnly ? 'All Cameras' : 'Alerts Only'}
-            </Button>
-          </div>
+              <HoverLift>
+                <TabsTrigger 
+                  value="browse" 
+                  data-testid="tab-browse"
+                  className="rounded-lg transition-all duration-300 data-[state=active]:bg-blue-500 data-[state=active]:text-white data-[state=active]:shadow-lg flex items-center space-x-2"
+                >
+                  <Grid className="h-4 w-4" />
+                  <span>📹 Browse Cameras</span>
+                </TabsTrigger>
+              </HoverLift>
+              <HoverLift>
+                <TabsTrigger 
+                  value="map" 
+                  data-testid="tab-map"
+                  className="rounded-lg transition-all duration-300 data-[state=active]:bg-green-500 data-[state=active]:text-white data-[state=active]:shadow-lg flex items-center space-x-2"
+                >
+                  <MapPin className="h-4 w-4" />
+                  <span>🗺️ Map View</span>
+                </TabsTrigger>
+              </HoverLift>
+              <HoverLift>
+                <TabsTrigger 
+                  value="opportunities" 
+                  data-testid="tab-opportunities"
+                  className="rounded-lg transition-all duration-300 data-[state=active]:bg-orange-500 data-[state=active]:text-white data-[state=active]:shadow-lg flex items-center space-x-2"
+                >
+                  <DollarSign className="h-4 w-4" />
+                  <span>💰 Opportunities</span>
+                  {(directory?.contractorOpportunities || 0) > 0 && (
+                    <motion.div
+                      className="w-2 h-2 bg-red-400 rounded-full ml-1"
+                      animate={{ scale: [1, 1.3, 1] }}
+                      transition={{ duration: 1, repeat: Infinity }}
+                    />
+                  )}
+                </TabsTrigger>
+              </HoverLift>
+              <HoverLift>
+                <TabsTrigger 
+                  value="watchlist" 
+                  data-testid="tab-watchlist"
+                  className="rounded-lg transition-all duration-300 data-[state=active]:bg-purple-500 data-[state=active]:text-white data-[state=active]:shadow-lg flex items-center space-x-2"
+                >
+                  <Heart className="h-4 w-4" />
+                  <span>❤️ Watchlist</span>
+                  {watchlist.length > 0 && (
+                    <Badge variant="secondary" className="ml-1 text-xs">
+                      {watchlist.length}
+                    </Badge>
+                  )}
+                </TabsTrigger>
+              </HoverLift>
+            </TabsList>
+          </motion.div>
 
-          {/* State Directory Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <TabsContent value="browse" className="space-y-6">
+          {/* Enhanced Filters */}
+          <motion.div
+            className="bg-white/60 backdrop-blur-sm rounded-xl p-4 border border-white/20 shadow-lg"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+          >
+            <div className="flex flex-wrap gap-4 items-center justify-between">
+              <div className="flex flex-wrap gap-4 items-center">
+                <div className="relative">
+                  <Select value={selectedState} onValueChange={setSelectedState}>
+                    <SelectTrigger className="w-56 bg-white/80 hover:bg-white transition-colors" data-testid="select-state">
+                      <SelectValue placeholder="🗺️ Select State" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">🌎 All States</SelectItem>
+                      {directory?.directory.map(state => (
+                        <SelectItem key={state.state} value={state.state}>
+                          {state.name} ({state.cameraCount} cameras)
+                          {state.contractorOpportunities > 0 && (
+                            <span className="ml-2 text-orange-600 font-semibold">
+                              • {state.contractorOpportunities} ops
+                            </span>
+                          )}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <AnimatePresence>
+                  {selectedStateData && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.8 }}
+                    >
+                      <Select value={selectedCounty} onValueChange={setSelectedCounty}>
+                        <SelectTrigger className="w-48 bg-white/80 hover:bg-white transition-colors" data-testid="select-county">
+                          <SelectValue placeholder="🏢 Select County" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">🏘️ All Counties</SelectItem>
+                          {selectedStateData.counties.map(county => (
+                            <SelectItem key={county} value={county}>
+                              {county}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                  <Button
+                    variant={alertsOnly ? "default" : "outline"}
+                    onClick={() => setAlertsOnly(!alertsOnly)}
+                    data-testid="button-alerts-only"
+                    className="transition-all duration-300 shadow-md hover:shadow-lg"
+                  >
+                    <motion.div
+                      animate={alertsOnly ? { scale: [1, 1.2, 1] } : {}}
+                      transition={{ duration: 0.5, repeat: alertsOnly ? Infinity : 0 }}
+                    >
+                      <Bell className="h-4 w-4 mr-2" />
+                    </motion.div>
+                    {alertsOnly ? '📋 Show All' : '🚨 Alerts Only'}
+                  </Button>
+                </motion.div>
+              </div>
+              
+              {/* Quick stats */}
+              <div className="flex items-center space-x-4 text-sm text-slate-600 dark:text-slate-400">
+                <div className="flex items-center space-x-1">
+                  <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+                  <span>Live feeds active</span>
+                </div>
+                <div className="flex items-center space-x-1">
+                  <Clock className="w-3 h-3" />
+                  <span>Updated {new Date().toLocaleTimeString()}</span>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Enhanced State Directory Grid */}
+          <motion.div 
+            className={`gap-6 ${viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3' : 'space-y-4'}`}
+            layout
+          >
             {directory?.directory
               .filter(state => !selectedState || selectedState === 'all' || state.state === selectedState)
               .filter(state => !alertsOnly || state.contractorOpportunities > 0)
@@ -476,7 +872,7 @@ export function TrafficCameras() {
                   </CardContent>
                 </Card>
               ))}
-          </div>
+          </motion.div>
         </TabsContent>
 
         <TabsContent value="map" className="space-y-4">
@@ -581,7 +977,8 @@ export function TrafficCameras() {
             )}
           </div>
         </TabsContent>
-      </Tabs>
+        </Tabs>
+        </FadeIn>
 
         {/* Camera Viewer Modal */}
         <CameraViewer 
@@ -595,3 +992,5 @@ export function TrafficCameras() {
     </div>
   );
 }
+
+export default TrafficCameras;

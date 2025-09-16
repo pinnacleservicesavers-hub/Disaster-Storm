@@ -5,9 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { useQuery } from '@tanstack/react-query';
-import { Users, Plus, Search, Settings, Shield, AlertTriangle, CheckCircle, TrendingUp, Star, MapPin, Calendar } from 'lucide-react';
+import { Users, Plus, Search, Settings, Shield, AlertTriangle, CheckCircle, TrendingUp, Star, MapPin, Calendar, Clock, Zap, Award, Target, ChevronRight, Briefcase, UserPlus, Phone, Mail, MessageSquare, Filter } from 'lucide-react';
 import { DashboardSection } from '@/components/DashboardSection';
-import { FadeIn, PulseAlert, StaggerContainer, StaggerItem, HoverLift } from '@/components/ui/animations';
+import { FadeIn, PulseAlert, StaggerContainer, StaggerItem, HoverLift, CountUp, ScaleIn, SlideIn } from '@/components/ui/animations';
 
 interface ContractorStatus {
   id: string;
@@ -19,10 +19,34 @@ interface ContractorStatus {
   completedJobs: number;
   responseTime: string;
   lastActive: string;
+  skills: string[];
+  certifications: string[];
+  availability: 'full-time' | 'part-time' | 'weekends';
+  hourlyRate: number;
+  profileImage?: string;
+  phoneNumber: string;
+  email: string;
+  joinDate: string;
+}
+
+interface Job {
+  id: string;
+  title: string;
+  customer: string;
+  priority: 'low' | 'medium' | 'high' | 'urgent';
+  estimatedDuration: string;
+  value: number;
+  skills: string[];
+  location: string;
+  status: 'pending' | 'assigned' | 'in_progress';
+  dueDate: string;
 }
 
 export default function ContractorManagement() {
   const [selectedRegion, setSelectedRegion] = useState('all');
+  const [selectedView, setSelectedView] = useState('overview');
+  const [draggedJob, setDraggedJob] = useState<Job | null>(null);
+  const [showScheduler, setShowScheduler] = useState(false);
 
   // Mock contractor data with React Query
   const { data: contractors = [], isLoading } = useQuery({
@@ -32,14 +56,30 @@ export default function ContractorManagement() {
       await new Promise(resolve => setTimeout(resolve, 500));
       
       return [
-        { id: '1', name: 'Mike\'s Tree Service', specialty: 'Tree Removal', status: 'available', location: 'Tampa, FL', rating: 4.8, completedJobs: 45, responseTime: '15 min', lastActive: '2 min ago' },
-        { id: '2', name: 'Roof Masters Inc', specialty: 'Roofing', status: 'busy', location: 'Orlando, FL', rating: 4.9, completedJobs: 67, responseTime: '22 min', lastActive: '1 hour ago' },
-        { id: '3', name: 'Emergency Cleanup Pro', specialty: 'Debris Removal', status: 'available', location: 'Jacksonville, FL', rating: 4.7, completedJobs: 38, responseTime: '18 min', lastActive: '5 min ago' },
-        { id: '4', name: 'Storm Restoration LLC', specialty: 'Water Damage', status: 'offline', location: 'Miami, FL', rating: 4.6, completedJobs: 29, responseTime: '35 min', lastActive: '2 hours ago' },
-        { id: '5', name: 'Lightning Fast Repairs', specialty: 'Electrical', status: 'available', location: 'Fort Myers, FL', rating: 4.9, completedJobs: 52, responseTime: '12 min', lastActive: '1 min ago' },
+        { id: '1', name: 'Mike\'s Tree Service', specialty: 'Tree Removal', status: 'available', location: 'Tampa, FL', rating: 4.8, completedJobs: 45, responseTime: '15 min', lastActive: '2 min ago', skills: ['Tree Removal', 'Emergency Response', 'Storm Cleanup'], certifications: ['ISA Certified', 'OSHA 30'], availability: 'full-time', hourlyRate: 85, phoneNumber: '(813) 555-0123', email: 'mike@treeservice.com', joinDate: '2023-01-15' },
+        { id: '2', name: 'Roof Masters Inc', specialty: 'Roofing', status: 'busy', location: 'Orlando, FL', rating: 4.9, completedJobs: 67, responseTime: '22 min', lastActive: '1 hour ago', skills: ['Roofing', 'Storm Damage', 'Insurance Claims'], certifications: ['GAF Master Elite', 'HAAG Certified'], availability: 'full-time', hourlyRate: 95, phoneNumber: '(407) 555-0456', email: 'info@roofmasters.com', joinDate: '2022-08-20' },
+        { id: '3', name: 'Emergency Cleanup Pro', specialty: 'Debris Removal', status: 'available', location: 'Jacksonville, FL', rating: 4.7, completedJobs: 38, responseTime: '18 min', lastActive: '5 min ago', skills: ['Debris Removal', 'Emergency Response', 'Heavy Equipment'], certifications: ['Commercial Driver License', 'Heavy Equipment Operator'], availability: 'full-time', hourlyRate: 75, phoneNumber: '(904) 555-0789', email: 'emergency@cleanup.com', joinDate: '2023-03-10' },
+        { id: '4', name: 'Storm Restoration LLC', specialty: 'Water Damage', status: 'offline', location: 'Miami, FL', rating: 4.6, completedJobs: 29, responseTime: '35 min', lastActive: '2 hours ago', skills: ['Water Damage', 'Mold Remediation', 'Structural Drying'], certifications: ['IICRC Water Damage', 'Mold Remediation'], availability: 'part-time', hourlyRate: 70, phoneNumber: '(305) 555-0321', email: 'restore@storm.com', joinDate: '2023-05-15' },
+        { id: '5', name: 'Lightning Fast Repairs', specialty: 'Electrical', status: 'available', location: 'Fort Myers, FL', rating: 4.9, completedJobs: 52, responseTime: '12 min', lastActive: '1 min ago', skills: ['Electrical', 'Generator Installation', 'Emergency Repairs'], certifications: ['Master Electrician', 'NECA Certified'], availability: 'full-time', hourlyRate: 110, phoneNumber: '(239) 555-0654', email: 'fast@electrical.com', joinDate: '2022-11-05' },
       ];
     },
     refetchInterval: 30000, // Refetch every 30 seconds for live status
+  });
+
+  // Mock pending jobs data
+  const { data: pendingJobs = [] } = useQuery({
+    queryKey: ['pending-jobs'],
+    queryFn: async (): Promise<Job[]> => {
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      return [
+        { id: 'job-1', title: 'Emergency Tree Removal', customer: 'Sarah Johnson', priority: 'urgent', estimatedDuration: '3 hours', value: 1200, skills: ['Tree Removal', 'Emergency Response'], location: 'Tampa, FL', status: 'pending', dueDate: '2024-01-16' },
+        { id: 'job-2', title: 'Roof Inspection & Repair', customer: 'Mike Chen', priority: 'high', estimatedDuration: '5 hours', value: 2800, skills: ['Roofing', 'Insurance Claims'], location: 'Orlando, FL', status: 'pending', dueDate: '2024-01-17' },
+        { id: 'job-3', title: 'Water Damage Cleanup', customer: 'Emily Rodriguez', priority: 'medium', estimatedDuration: '8 hours', value: 4500, skills: ['Water Damage', 'Mold Remediation'], location: 'Miami, FL', status: 'pending', dueDate: '2024-01-18' },
+        { id: 'job-4', title: 'Debris Removal Service', customer: 'David Wilson', priority: 'low', estimatedDuration: '4 hours', value: 800, skills: ['Debris Removal', 'Heavy Equipment'], location: 'Jacksonville, FL', status: 'pending', dueDate: '2024-01-19' },
+      ];
+    },
+    refetchInterval: 60000,
   });
 
   const getStatusColor = (status: string) => {
@@ -65,6 +105,41 @@ export default function ContractorManagement() {
   const offlineCount = contractors.filter(c => c.status === 'offline').length;
   const avgRating = contractors.reduce((sum, c) => sum + c.rating, 0) / contractors.length || 0;
 
+  const handleDragStart = (job: Job) => {
+    setDraggedJob(job);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedJob(null);
+  };
+
+  const handleDrop = (contractorId: string) => {
+    if (draggedJob) {
+      console.log(`Assigning job ${draggedJob.id} to contractor ${contractorId}`);
+      setDraggedJob(null);
+    }
+  };
+
+  const getJobPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'urgent': return 'border-red-500 bg-red-50 dark:bg-red-900/20';
+      case 'high': return 'border-orange-500 bg-orange-50 dark:bg-orange-900/20';
+      case 'medium': return 'border-blue-500 bg-blue-50 dark:bg-blue-900/20';
+      case 'low': return 'border-green-500 bg-green-50 dark:bg-green-900/20';
+      default: return 'border-gray-500 bg-gray-50 dark:bg-gray-900/20';
+    }
+  };
+
+  const getJobPriorityBadge = (priority: string) => {
+    switch (priority) {
+      case 'urgent': return { text: 'URGENT', variant: 'destructive' as const };
+      case 'high': return { text: 'HIGH', variant: 'secondary' as const };
+      case 'medium': return { text: 'MEDIUM', variant: 'default' as const };
+      case 'low': return { text: 'LOW', variant: 'outline' as const };
+      default: return { text: 'UNKNOWN', variant: 'outline' as const };
+    }
+  };
+
   return (
     <DashboardSection
       title="Contractor Management"
@@ -79,13 +154,36 @@ export default function ContractorManagement() {
       ]}
       actions={[
         { icon: Plus, label: 'Add Contractor', variant: 'default', testId: 'button-add-contractor' },
-        { icon: Search, label: 'Search Network', variant: 'outline', testId: 'button-search-contractors' },
+        { icon: Calendar, label: 'Schedule', variant: 'outline', testId: 'button-schedule-contractors', onClick: () => setShowScheduler(!showScheduler) },
+        { icon: Briefcase, label: 'Jobs', variant: 'outline', testId: 'button-view-jobs' },
         { icon: TrendingUp, label: 'Analytics', variant: 'outline', testId: 'button-contractor-analytics' }
       ]}
       testId="contractor-management"
     >
-      {/* Availability Heatmap */}
-      <div className="mb-8">
+      {/* View Toggle */}
+      <div className="flex space-x-4 mb-6">
+        {[
+          { key: 'overview', label: 'Overview', icon: TrendingUp },
+          { key: 'assignment', label: 'Job Assignment', icon: Briefcase },
+          { key: 'performance', label: 'Performance', icon: Award },
+          { key: 'onboarding', label: 'Onboarding', icon: UserPlus }
+        ].map((view) => (
+          <Button
+            key={view.key}
+            variant={selectedView === view.key ? 'default' : 'outline'}
+            onClick={() => setSelectedView(view.key)}
+            data-testid={`button-view-${view.key}`}
+          >
+            <view.icon className="w-4 h-4 mr-2" />
+            {view.label}
+          </Button>
+        ))}
+      </div>
+
+      {selectedView === 'overview' && (
+        <>
+          {/* Availability Heatmap */}
+          <div className="mb-8">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
             <MapPin className="h-5 w-5 text-blue-500 mr-2" />
@@ -346,6 +444,8 @@ export default function ContractorManagement() {
           </CardContent>
         </Card>
       </div>
+        </>
+      )}
     </DashboardSection>
   );
 }

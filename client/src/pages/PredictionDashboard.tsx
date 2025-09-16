@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
-import { FadeIn, CountUp, StaggerContainer, StaggerItem, HoverLift } from '@/components/ui/animations';
+import { FadeIn, CountUp, StaggerContainer, StaggerItem, HoverLift, ScaleIn, SlideIn, PulseAlert, RainEffect, LightningFlash } from '@/components/ui/animations';
 import { 
   Cloud, 
   Zap, 
@@ -26,7 +26,14 @@ import {
   Activity,
   Target,
   Shield,
-  Wrench
+  Wrench,
+  Gauge,
+  Navigation,
+  Thermometer,
+  Droplets,
+  CloudRain,
+  Tornado,
+  Sun
 } from 'lucide-react';
 
 // ===== INTERFACES =====
@@ -250,31 +257,121 @@ export default function PredictionDashboard() {
     return `${Math.floor(diffHours / 24)}d ${diffHours % 24}h`;
   };
 
+  // Weather effects state
+  const [showWeatherEffects, setShowWeatherEffects] = useState(false);
+  const [isStormActive, setIsStormActive] = useState(false);
+
+  // Check for active severe weather to show effects
+  useEffect(() => {
+    if (dashboardData) {
+      const hasExtremeRisk = dashboardData.dashboard.riskSummary.extreme > 0;
+      const hasHighRisk = dashboardData.dashboard.riskSummary.high > 2;
+      setIsStormActive(hasExtremeRisk || hasHighRisk);
+      setShowWeatherEffects(hasExtremeRisk);
+    }
+  }, [dashboardData]);
+
   if (dashboardLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-indigo-900 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-indigo-900 flex items-center justify-center relative overflow-hidden">
+        {/* Weather effects during loading */}
+        {Math.random() > 0.7 && <RainEffect intensity="light" />}
+        
         <FadeIn>
-          <div className="text-center">
+          <div className="text-center relative z-10">
             <motion.div
-              className="relative"
-              animate={{ rotate: 360 }}
-              transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+              className="relative mb-6"
+              animate={{ 
+                scale: [1, 1.1, 1],
+                filter: ['hue-rotate(0deg)', 'hue-rotate(180deg)', 'hue-rotate(360deg)']
+              }}
+              transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
             >
-              <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full mx-auto"></div>
-              <motion.div
-                className="absolute inset-0 w-16 h-16 border-4 border-transparent border-r-purple-400 rounded-full mx-auto"
-                animate={{ rotate: -360 }}
-                transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
-              />
+              <div className="w-20 h-20 mx-auto relative">
+                <motion.div
+                  className="absolute inset-0 w-20 h-20 border-4 border-blue-200 border-t-blue-600 rounded-full"
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                />
+                <motion.div
+                  className="absolute inset-2 w-16 h-16 border-4 border-transparent border-r-purple-400 rounded-full"
+                  animate={{ rotate: -360 }}
+                  transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
+                />
+                <motion.div
+                  className="absolute inset-4 w-12 h-12 border-2 border-transparent border-b-indigo-300 rounded-full"
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                />
+                {/* Center storm icon */}
+                <motion.div
+                  className="absolute inset-0 flex items-center justify-center"
+                  animate={{ 
+                    scale: [0.8, 1.2, 0.8],
+                    rotate: [0, 10, -10, 0]
+                  }}
+                  transition={{ duration: 3, repeat: Infinity }}
+                >
+                  <Tornado className="w-6 h-6 text-blue-600" />
+                </motion.div>
+              </div>
             </motion.div>
-            <motion.p
-              className="mt-6 text-lg font-medium bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"
-              animate={{ opacity: [0.5, 1, 0.5] }}
-              transition={{ duration: 2, repeat: Infinity }}
+            
+            <motion.div
+              className="space-y-4"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5 }}
             >
-              🌪️ Analyzing Storm Patterns...
-            </motion.p>
-            <p className="mt-2 text-gray-600 dark:text-gray-400">Loading predictive intelligence dashboard</p>
+              <motion.h2
+                className="text-2xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent"
+                animate={{ 
+                  backgroundPosition: ['0% 50%', '100% 50%', '0% 50%']
+                }}
+                transition={{ duration: 3, repeat: Infinity }}
+              >
+                🌪️ Analyzing Storm Patterns...
+              </motion.h2>
+              
+              <div className="space-y-2">
+                <motion.p
+                  className="text-gray-600 dark:text-gray-400 font-medium"
+                  animate={{ opacity: [0.5, 1, 0.5] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                >
+                  Processing NOAA radar data
+                </motion.p>
+                <motion.p
+                  className="text-gray-500 dark:text-gray-500 text-sm"
+                  animate={{ opacity: [0.3, 0.8, 0.3] }}
+                  transition={{ duration: 2.5, repeat: Infinity, delay: 0.5 }}
+                >
+                  Correlating historical FEMA damage patterns
+                </motion.p>
+                <motion.p
+                  className="text-gray-400 dark:text-gray-600 text-xs"
+                  animate={{ opacity: [0.2, 0.6, 0.2] }}
+                  transition={{ duration: 3, repeat: Infinity, delay: 1 }}
+                >
+                  Calculating contractor opportunity scores
+                </motion.p>
+              </div>
+              
+              {/* Loading progress indicator */}
+              <motion.div
+                className="w-64 h-1 bg-gray-200 dark:bg-gray-700 rounded-full mx-auto overflow-hidden"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 1 }}
+              >
+                <motion.div
+                  className="h-full bg-gradient-to-r from-blue-500 via-purple-500 to-indigo-500 rounded-full"
+                  initial={{ width: '0%' }}
+                  animate={{ width: '100%' }}
+                  transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                />
+              </motion.div>
+            </motion.div>
           </div>
         </FadeIn>
       </div>
@@ -282,8 +379,43 @@ export default function PredictionDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-indigo-900 p-6">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-indigo-900 p-6 relative overflow-hidden">
+      {/* Dynamic Weather Effects */}
+      <AnimatePresence>
+        {showWeatherEffects && <RainEffect intensity="normal" />}
+        {isStormActive && Math.random() > 0.8 && <LightningFlash />}
+      </AnimatePresence>
+      
+      {/* Background animated elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <motion.div
+          className="absolute -top-10 -right-10 w-40 h-40 bg-blue-400/10 rounded-full blur-3xl"
+          animate={{
+            x: [0, 50, 0],
+            y: [0, -30, 0],
+            scale: [1, 1.2, 1]
+          }}
+          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+        />
+        <motion.div
+          className="absolute top-1/4 -left-20 w-60 h-60 bg-purple-400/10 rounded-full blur-3xl"
+          animate={{
+            x: [0, -40, 0],
+            y: [0, 50, 0],
+            scale: [1, 0.8, 1]
+          }}
+          transition={{ duration: 12, repeat: Infinity, ease: "easeInOut", delay: 2 }}
+        />
+        <motion.div
+          className="absolute bottom-1/4 right-1/4 w-32 h-32 bg-indigo-400/10 rounded-full blur-2xl"
+          animate={{
+            rotate: [0, 360],
+            scale: [1, 1.5, 1]
+          }}
+          transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
+        />
+      </div>
+      <div className="max-w-7xl mx-auto relative z-10">
         {/* Enhanced Header */}
         <FadeIn>
           <div className="mb-8">
@@ -294,21 +426,126 @@ export default function PredictionDashboard() {
                 transition={{ duration: 0.6 }}
               >
                 <div className="relative">
-                  <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent mb-3" data-testid="title-prediction-dashboard">
-                    🌪️ Predictive Storm Intelligence
-                  </h1>
-                  <motion.div
-                    className="absolute -top-2 -left-2 w-2 h-2 bg-blue-400 rounded-full"
+                  <motion.h1 
+                    className="text-5xl font-bold mb-3" 
+                    data-testid="title-prediction-dashboard"
+                    initial={{ backgroundSize: '200% 200%' }}
                     animate={{ 
-                      scale: [1, 1.5, 1],
-                      opacity: [0.5, 1, 0.5]
+                      backgroundPosition: ['0% 50%', '100% 50%', '0% 50%']
                     }}
-                    transition={{ duration: 2, repeat: Infinity }}
-                  />
+                    transition={{ duration: 4, repeat: Infinity }}
+                    style={{
+                      background: 'linear-gradient(45deg, #3b82f6, #8b5cf6, #6366f1, #06b6d4, #3b82f6)',
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent',
+                      backgroundClip: 'text'
+                    }}
+                  >
+                    {isStormActive ? '⚡' : '🌪️'} Predictive Storm Intelligence
+                  </motion.h1>
+                  
+                  {/* Dynamic status indicators */}
+                  <div className="absolute -top-3 -left-3 flex space-x-1">
+                    <motion.div
+                      className="w-3 h-3 bg-blue-400 rounded-full"
+                      animate={{ 
+                        scale: [1, 1.5, 1],
+                        opacity: [0.5, 1, 0.5]
+                      }}
+                      transition={{ duration: 2, repeat: Infinity }}
+                    />
+                    {isStormActive && (
+                      <motion.div
+                        className="w-3 h-3 bg-red-400 rounded-full"
+                        animate={{ 
+                          scale: [1, 2, 1],
+                          opacity: [0.3, 1, 0.3]
+                        }}
+                        transition={{ duration: 1, repeat: Infinity }}
+                      />
+                    )}
+                    <motion.div
+                      className="w-3 h-3 bg-green-400 rounded-full"
+                      animate={{ 
+                        scale: [1, 1.3, 1],
+                        opacity: [0.4, 0.9, 0.4]
+                      }}
+                      transition={{ duration: 2.5, repeat: Infinity, delay: 0.5 }}
+                    />
+                  </div>
+                  
+                  {/* Live update indicator */}
+                  {autoRefresh && (
+                    <motion.div
+                      className="absolute -top-1 -right-16 flex items-center space-x-2 px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full text-xs font-medium"
+                      initial={{ opacity: 0, scale: 0 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0 }}
+                    >
+                      <motion.div
+                        className="w-2 h-2 bg-green-500 rounded-full"
+                        animate={{ scale: [1, 1.5, 1] }}
+                        transition={{ duration: 1, repeat: Infinity }}
+                      />
+                      <span>Live</span>
+                    </motion.div>
+                  )}
                 </div>
-                <p className="text-lg text-slate-600 dark:text-slate-300 font-medium" data-testid="text-dashboard-description">
-                  AI-powered <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg font-semibold">{forecastHours}h</span> damage predictions with deployment intelligence
-                </p>
+                <motion.div
+                  className="space-y-2"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3 }}
+                >
+                  <p className="text-lg text-slate-600 dark:text-slate-300 font-medium" data-testid="text-dashboard-description">
+                    AI-powered <motion.span 
+                      className="px-3 py-1 bg-gradient-to-r from-blue-100 to-purple-100 dark:from-blue-900/30 dark:to-purple-900/30 text-blue-700 dark:text-blue-300 rounded-lg font-semibold shadow-sm"
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                    >
+                      {forecastHours}h
+                    </motion.span> damage predictions with deployment intelligence
+                  </p>
+                  
+                  {/* Dynamic subtitle based on conditions */}
+                  <AnimatePresence>
+                    {isStormActive && (
+                      <motion.p
+                        className="text-sm text-red-600 dark:text-red-400 font-medium flex items-center space-x-2"
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.8 }}
+                      >
+                        <PulseAlert intensity="strong">
+                          <AlertTriangle className="w-4 h-4" />
+                        </PulseAlert>
+                        <span>ACTIVE SEVERE WEATHER - Monitor for rapid deployment</span>
+                      </motion.p>
+                    )}
+                  </AnimatePresence>
+                  
+                  {dashboardData && (
+                    <motion.div
+                      className="flex items-center space-x-4 text-sm text-slate-500 dark:text-slate-400"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 0.5 }}
+                    >
+                      <div className="flex items-center space-x-1">
+                        <Activity className="w-3 h-3" />
+                        <span>{dashboardData.dashboard.activePredictions} active systems</span>
+                      </div>
+                      <div className="flex items-center space-x-1">
+                        <DollarSign className="w-3 h-3" />
+                        <span>{formatCurrency(dashboardData.dashboard.totalEstimatedRevenue)} potential</span>
+                      </div>
+                      <div className="flex items-center space-x-1">
+                        <Clock className="w-3 h-3" />
+                        <span>Updated {new Date(dashboardData.dashboard.lastUpdated).toLocaleTimeString()}</span>
+                      </div>
+                    </motion.div>
+                  )}
+                </motion.div>
               </motion.div>
               <motion.div
                 className="flex items-center space-x-4"

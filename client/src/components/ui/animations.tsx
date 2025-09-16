@@ -255,29 +255,24 @@ export const CountUp = ({
   prefix?: string;
   suffix?: string;
   className?: string;
-}) => (
-  <motion.span
-    initial={{ opacity: 0 }}
-    animate={{ opacity: 1 }}
-    transition={{ duration: 0.5 }}
-    className={className}
-  >
+}) => {
+  return (
     <motion.span
-      initial={{ textContent: 0 }}
-      animate={{ textContent: end }}
-      transition={{ duration, ease: "easeOut" }}
-      onUpdate={(latest) => {
-        if (typeof latest.textContent === 'number') {
-          const element = document.querySelector('.count-up') as HTMLElement;
-          if (element) {
-            element.textContent = `${prefix}${Math.floor(latest.textContent)}${suffix}`;
-          }
-        }
-      }}
-      className="count-up"
-    />
-  </motion.span>
-);
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.5 }}
+      className={className}
+    >
+      <motion.span
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration }}
+      >
+        {prefix}{end}{suffix}
+      </motion.span>
+    </motion.span>
+  );
+};
 
 // Slide up panel
 export const SlideUpPanel = ({ 
@@ -329,12 +324,12 @@ export const RainEffect = ({ intensity = 'normal' }: { intensity?: 'light' | 'no
           key={i}
           initial={{ 
             y: -10, 
-            x: Math.random() * window.innerWidth,
+            x: Math.random() * (typeof window !== 'undefined' ? window.innerWidth : 1000),
             opacity: 0.3 + Math.random() * 0.7
           }}
           animate={{ 
-            y: window.innerHeight + 10,
-            x: Math.random() * window.innerWidth - 50
+            y: (typeof window !== 'undefined' ? window.innerHeight : 800) + 10,
+            x: Math.random() * (typeof window !== 'undefined' ? window.innerWidth : 1000) - 50
           }}
           transition={{
             duration: 1 + Math.random() * 2,
