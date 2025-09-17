@@ -304,7 +304,9 @@ export default function ContractorManagement() {
                               <h4 className="font-semibold text-gray-900 dark:text-gray-100" data-testid={`contractor-name-${contractor.id}`}>
                                 {contractor.name}
                               </h4>
-                              <Badge {...getStatusBadge(contractor.status)} />
+                              <Badge variant={getStatusBadge(contractor.status).variant}>
+                                {getStatusBadge(contractor.status).text}
+                              </Badge>
                             </div>
                             <p className="text-sm text-gray-600 dark:text-gray-400">{contractor.specialty} • {contractor.location}</p>
                             <div className="flex items-center space-x-4 mt-1">
@@ -444,6 +446,668 @@ export default function ContractorManagement() {
           </CardContent>
         </Card>
       </div>
+        </>
+      )}
+
+      {selectedView === 'assignment' && (
+        <>
+          {/* Job Assignment Dashboard */}
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-8">
+            {/* Pending Jobs Queue */}
+            <div className="xl:col-span-1">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <Briefcase className="w-5 h-5 mr-2 text-blue-600" />
+                    Pending Jobs Queue
+                    <Badge variant="secondary" className="ml-2">
+                      {pendingJobs.length}
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3 max-h-96 overflow-y-auto">
+                  {pendingJobs.map((job, index) => (
+                    <motion.div
+                      key={job.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.1 }}
+                      draggable
+                      onDragStart={() => handleDragStart(job)}
+                      onDragEnd={handleDragEnd}
+                      className={`p-4 border-2 border-dashed rounded-lg cursor-move transition-all hover:shadow-lg ${getJobPriorityColor(job.priority)}`}
+                      data-testid={`job-${job.id}`}
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <h4 className="font-semibold text-sm text-gray-900 dark:text-gray-100">
+                          {job.title}
+                        </h4>
+                        <Badge variant={getJobPriorityBadge(job.priority).variant} className="text-xs">
+                          {getJobPriorityBadge(job.priority).text}
+                        </Badge>
+                      </div>
+                      
+                      <div className="space-y-2 text-xs text-gray-600 dark:text-gray-400">
+                        <div className="flex items-center space-x-1">
+                          <Users className="h-3 w-3" />
+                          <span>{job.customer}</span>
+                        </div>
+                        <div className="flex items-center space-x-1">
+                          <MapPin className="h-3 w-3" />
+                          <span>{job.location}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-1">
+                            <Clock className="h-3 w-3" />
+                            <span>{job.estimatedDuration}</span>
+                          </div>
+                          <span className="font-semibold text-green-600">
+                            ${job.value.toLocaleString()}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {job.skills.slice(0, 2).map((skill) => (
+                          <Badge key={skill} variant="outline" className="text-xs px-1 py-0">
+                            {skill}
+                          </Badge>
+                        ))}
+                        {job.skills.length > 2 && (
+                          <Badge variant="outline" className="text-xs px-1 py-0">
+                            +{job.skills.length - 2}
+                          </Badge>
+                        )}
+                      </div>
+                    </motion.div>
+                  ))}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Available Contractors - Drop Zones */}
+            <div className="xl:col-span-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <Users className="w-5 h-5 mr-2 text-green-600" />
+                    Available Contractors
+                    <Badge variant="default" className="ml-2">
+                      {availableCount} Ready
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-96 overflow-y-auto">
+                    {contractors
+                      .filter(c => c.status === 'available')
+                      .map((contractor, index) => (
+                        <motion.div
+                          key={contractor.id}
+                          initial={{ opacity: 0, scale: 0.95 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{ delay: index * 0.1 }}
+                          onDragOver={(e) => e.preventDefault()}
+                          onDrop={() => handleDrop(contractor.id)}
+                          className={`p-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg transition-all hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 ${
+                            draggedJob ? 'border-blue-400 bg-blue-50 dark:bg-blue-900/20' : ''
+                          }`}
+                          data-testid={`contractor-dropzone-${contractor.id}`}
+                        >
+                          <div className="flex items-start space-x-3">
+                            <div className="relative">
+                              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                                {contractor.name.charAt(0)}
+                              </div>
+                              <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-white dark:border-gray-800" />
+                            </div>
+                            
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-semibold text-sm text-gray-900 dark:text-gray-100 truncate">
+                                {contractor.name}
+                              </h4>
+                              <p className="text-xs text-gray-600 dark:text-gray-400">
+                                {contractor.specialty}
+                              </p>
+                              <div className="flex items-center justify-between mt-2">
+                                <div className="flex items-center space-x-1">
+                                  <Star className="h-3 w-3 text-yellow-500 fill-current" />
+                                  <span className="text-xs text-gray-600 dark:text-gray-400">
+                                    {contractor.rating}
+                                  </span>
+                                </div>
+                                <span className="text-xs text-gray-500 dark:text-gray-400">
+                                  ${contractor.hourlyRate}/hr
+                                </span>
+                              </div>
+                              
+                              <div className="mt-2 flex flex-wrap gap-1">
+                                {contractor.skills.slice(0, 2).map((skill) => (
+                                  <Badge key={skill} variant="secondary" className="text-xs px-1 py-0">
+                                    {skill}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        </motion.div>
+                      ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+
+          {/* Assignment Analytics */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {[
+              { label: 'Pending Jobs', value: pendingJobs.length, icon: Briefcase, color: 'blue' },
+              { label: 'Available Contractors', value: availableCount, icon: Users, color: 'green' },
+              { label: 'Avg Response Time', value: '18 min', icon: Clock, color: 'amber' },
+              { label: 'Match Success Rate', value: '87%', icon: Target, color: 'purple' }
+            ].map((stat, index) => (
+              <motion.div
+                key={stat.label}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1 }}
+              >
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center space-x-3">
+                      <div className={`p-2 rounded-lg bg-${stat.color}-100 dark:bg-${stat.color}-900/20`}>
+                        <stat.icon className={`h-4 w-4 text-${stat.color}-600 dark:text-${stat.color}-400`} />
+                      </div>
+                      <div>
+                        <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                          {stat.value}
+                        </p>
+                        <p className="text-xs text-gray-600 dark:text-gray-400">
+                          {stat.label}
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {selectedView === 'performance' && (
+        <>
+          {/* Performance Overview Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            {[
+              { title: 'Top Performer', value: 'Mike\'s Tree Service', subtitle: '4.9★ rating', color: 'gold', icon: Award },
+              { title: 'Fastest Response', value: 'Lightning Fast Repairs', subtitle: '12 min avg', color: 'blue', icon: Zap },
+              { title: 'Most Jobs', value: 'Roof Masters Inc', subtitle: '67 completed', color: 'green', icon: Target },
+              { title: 'Newest Star', value: 'Emergency Cleanup Pro', subtitle: 'Rising talent', color: 'purple', icon: TrendingUp }
+            ].map((card, index) => (
+              <motion.div
+                key={card.title}
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: index * 0.1 }}
+              >
+                <HoverLift>
+                  <Card className="relative overflow-hidden">
+                    <div className={`absolute inset-0 bg-gradient-to-br from-${card.color}-50/50 to-${card.color}-100/50 dark:from-${card.color}-900/20 dark:to-${card.color}-800/20`} />
+                    <CardContent className="relative p-4">
+                      <div className="flex items-center space-x-3">
+                        <div className={`p-2 rounded-lg bg-${card.color}-500/20`}>
+                          <card.icon className={`h-5 w-5 text-${card.color}-600`} />
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">{card.title}</p>
+                          <p className="font-semibold text-gray-900 dark:text-gray-100 truncate">
+                            {card.value}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">{card.subtitle}</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </HoverLift>
+              </motion.div>
+            ))}
+          </div>
+
+          {/* Contractor Performance Ranking */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Award className="w-5 h-5 mr-2 text-gold-600" />
+                  Performance Leaderboard
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {contractors
+                    .sort((a, b) => b.rating - a.rating)
+                    .slice(0, 5)
+                    .map((contractor, index) => (
+                      <motion.div
+                        key={contractor.id}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: index * 0.1 }}
+                        className="flex items-center space-x-4 p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50"
+                        data-testid={`performance-rank-${index + 1}`}
+                      >
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${
+                          index === 0 ? 'bg-yellow-500 text-white' :
+                          index === 1 ? 'bg-gray-400 text-white' :
+                          index === 2 ? 'bg-amber-600 text-white' :
+                          'bg-blue-500 text-white'
+                        }`}>
+                          {index + 1}
+                        </div>
+                        
+                        <div className="flex-1">
+                          <h4 className="font-semibold text-gray-900 dark:text-gray-100">
+                            {contractor.name}
+                          </h4>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                            {contractor.specialty} • {contractor.completedJobs} jobs
+                          </p>
+                        </div>
+                        
+                        <div className="flex items-center space-x-2">
+                          <div className="flex items-center space-x-1">
+                            <Star className="h-4 w-4 text-yellow-500 fill-current" />
+                            <span className="font-semibold text-gray-900 dark:text-gray-100">
+                              {contractor.rating}
+                            </span>
+                          </div>
+                        </div>
+                      </motion.div>
+                    ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <TrendingUp className="w-5 h-5 mr-2 text-blue-600" />
+                  Performance Trends
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  {[
+                    { metric: 'Customer Satisfaction', current: 4.7, previous: 4.5, trend: 'up' },
+                    { metric: 'Average Response Time', current: 18, previous: 22, unit: 'min', trend: 'down' },
+                    { metric: 'Job Completion Rate', current: 94, previous: 91, unit: '%', trend: 'up' },
+                    { metric: 'On-Time Delivery', current: 88, previous: 85, unit: '%', trend: 'up' },
+                  ].map((trend, index) => (
+                    <motion.div
+                      key={trend.metric}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.1 }}
+                      className="flex items-center justify-between"
+                    >
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        {trend.metric}
+                      </span>
+                      <div className="flex items-center space-x-3">
+                        <span className="text-lg font-bold text-gray-900 dark:text-gray-100">
+                          {trend.current}{trend.unit || ''}
+                        </span>
+                        <div className="flex items-center space-x-1">
+                          <motion.div
+                            animate={{ y: trend.trend === 'up' ? [-2, 0, -2] : [2, 0, 2] }}
+                            transition={{ duration: 2, repeat: Infinity }}
+                          >
+                            <TrendingUp className={`w-4 h-4 ${
+                              trend.trend === 'up' 
+                                ? 'text-green-500 rotate-0' 
+                                : 'text-red-500 rotate-180'
+                            }`} />
+                          </motion.div>
+                          <span className={`text-xs ${
+                            trend.trend === 'up' 
+                              ? 'text-green-600 dark:text-green-400' 
+                              : 'text-red-600 dark:text-red-400'
+                          }`}>
+                            {Math.abs(trend.current - trend.previous)}{trend.unit || ''}
+                          </span>
+                        </div>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Detailed Performance Analysis */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Clock className="w-5 h-5 mr-2 text-amber-600" />
+                  Response Time Analysis
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {contractors.map((contractor, index) => (
+                    <div key={contractor.id} className="flex items-center justify-between">
+                      <span className="text-sm text-gray-600 dark:text-gray-400 truncate flex-1">
+                        {contractor.name}
+                      </span>
+                      <div className="flex items-center space-x-2">
+                        <div className="w-16 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                          <motion.div
+                            initial={{ width: 0 }}
+                            animate={{ width: `${100 - parseInt(contractor.responseTime)}%` }}
+                            transition={{ duration: 1, delay: index * 0.1 }}
+                            className="bg-amber-500 h-2 rounded-full"
+                          />
+                        </div>
+                        <span className="text-sm font-medium text-gray-900 dark:text-gray-100 w-12">
+                          {contractor.responseTime}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Briefcase className="w-5 h-5 mr-2 text-green-600" />
+                  Job Completion Stats
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {contractors.map((contractor, index) => (
+                    <div key={contractor.id} className="flex items-center justify-between">
+                      <span className="text-sm text-gray-600 dark:text-gray-400 truncate flex-1">
+                        {contractor.name}
+                      </span>
+                      <div className="flex items-center space-x-2">
+                        <Progress 
+                          value={(contractor.completedJobs / 70) * 100} 
+                          className="w-16 h-2" 
+                        />
+                        <span className="text-sm font-medium text-gray-900 dark:text-gray-100 w-8">
+                          {contractor.completedJobs}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Star className="w-5 h-5 mr-2 text-yellow-600" />
+                  Rating Distribution
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {contractors.map((contractor, index) => (
+                    <div key={contractor.id} className="flex items-center justify-between">
+                      <span className="text-sm text-gray-600 dark:text-gray-400 truncate flex-1">
+                        {contractor.name}
+                      </span>
+                      <div className="flex items-center space-x-2">
+                        <div className="flex">
+                          {[...Array(5)].map((_, i) => (
+                            <Star
+                              key={i}
+                              className={`w-3 h-3 ${
+                                i < Math.floor(contractor.rating)
+                                  ? 'text-yellow-500 fill-current'
+                                  : 'text-gray-300 dark:text-gray-600'
+                              }`}
+                            />
+                          ))}
+                        </div>
+                        <span className="text-sm font-medium text-gray-900 dark:text-gray-100 w-8">
+                          {contractor.rating}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </>
+      )}
+
+      {selectedView === 'onboarding' && (
+        <>
+          {/* Onboarding Pipeline Overview */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+            {[
+              { stage: 'Applications', count: 12, color: 'blue', icon: UserPlus },
+              { stage: 'Under Review', count: 8, color: 'amber', icon: Search },
+              { stage: 'Background Check', count: 5, color: 'purple', icon: Shield },
+              { stage: 'Training', count: 3, color: 'green', icon: Award }
+            ].map((stage, index) => (
+              <motion.div
+                key={stage.stage}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1 }}
+              >
+                <HoverLift>
+                  <Card>
+                    <CardContent className="p-4">
+                      <div className="flex items-center space-x-3">
+                        <div className={`p-2 rounded-lg bg-${stage.color}-100 dark:bg-${stage.color}-900/20`}>
+                          <stage.icon className={`h-4 w-4 text-${stage.color}-600 dark:text-${stage.color}-400`} />
+                        </div>
+                        <div>
+                          <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                            {stage.count}
+                          </p>
+                          <p className="text-xs text-gray-600 dark:text-gray-400">
+                            {stage.stage}
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </HoverLift>
+              </motion.div>
+            ))}
+          </div>
+
+          {/* Recent Applications */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <UserPlus className="w-5 h-5 mr-2 text-blue-600" />
+                  Recent Applications
+                  <Badge variant="secondary" className="ml-2">5 New</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {[
+                    { name: 'Alex Rodriguez', specialty: 'Electrical', date: '2 hours ago', status: 'pending', priority: 'high' },
+                    { name: 'Sarah Mitchell', specialty: 'Plumbing', date: '5 hours ago', status: 'review', priority: 'medium' },
+                    { name: 'David Kim', specialty: 'HVAC', date: '1 day ago', status: 'background', priority: 'low' },
+                    { name: 'Maria Santos', specialty: 'Roofing', date: '2 days ago', status: 'training', priority: 'high' },
+                    { name: 'John Parker', specialty: 'General Repair', date: '3 days ago', status: 'pending', priority: 'medium' }
+                  ].map((applicant, index) => (
+                    <motion.div
+                      key={applicant.name}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: index * 0.1 }}
+                      className="flex items-center justify-between p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                      data-testid={`applicant-${index}`}
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                          {applicant.name.charAt(0)}
+                        </div>
+                        <div>
+                          <h4 className="font-semibold text-gray-900 dark:text-gray-100">
+                            {applicant.name}
+                          </h4>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                            {applicant.specialty} • {applicant.date}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Badge
+                          variant={
+                            applicant.status === 'pending' ? 'secondary' :
+                            applicant.status === 'review' ? 'default' :
+                            applicant.status === 'background' ? 'outline' :
+                            'default'
+                          }
+                        >
+                          {applicant.status.toUpperCase()}
+                        </Badge>
+                        <Button size="sm" variant="outline" data-testid={`button-review-${index}`}>
+                          Review
+                        </Button>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Settings className="w-5 h-5 mr-2 text-purple-600" />
+                  Onboarding Checklist
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {[
+                    { task: 'Application Review', completed: 95, total: 100 },
+                    { task: 'Document Verification', completed: 87, total: 100 },
+                    { task: 'Background Checks', completed: 78, total: 100 },
+                    { task: 'Insurance Verification', completed: 92, total: 100 },
+                    { task: 'Training Modules', completed: 65, total: 100 },
+                    { task: 'Field Assessment', completed: 45, total: 100 }
+                  ].map((task, index) => (
+                    <motion.div
+                      key={task.task}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.1 }}
+                      className="space-y-2"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                          {task.task}
+                        </span>
+                        <span className="text-sm text-gray-600 dark:text-gray-400">
+                          {task.completed}%
+                        </span>
+                      </div>
+                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{ width: `${task.completed}%` }}
+                          transition={{ duration: 1, delay: index * 0.2 }}
+                          className={`h-2 rounded-full ${
+                            task.completed >= 90 ? 'bg-green-500' :
+                            task.completed >= 70 ? 'bg-yellow-500' :
+                            'bg-red-500'
+                          }`}
+                        />
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Training Progress */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <Award className="w-5 h-5 mr-2 text-green-600" />
+                Training & Certification Progress
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {[
+                  { name: 'Maria Santos', course: 'Storm Response Safety', progress: 85, status: 'In Progress' },
+                  { name: 'David Kim', course: 'HVAC Fundamentals', progress: 100, status: 'Completed' },
+                  { name: 'Alex Rodriguez', course: 'Electrical Code Updates', progress: 45, status: 'In Progress' },
+                  { name: 'Sarah Mitchell', course: 'Plumbing Basics', progress: 70, status: 'In Progress' },
+                  { name: 'John Parker', course: 'Customer Service', progress: 100, status: 'Completed' },
+                  { name: 'Lisa Wang', course: 'Safety Protocols', progress: 30, status: 'Started' }
+                ].map((trainee, index) => (
+                  <motion.div
+                    key={trainee.name}
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: index * 0.1 }}
+                  >
+                    <Card className="h-full">
+                      <CardContent className="p-4">
+                        <div className="flex items-start space-x-3 mb-3">
+                          <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-blue-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                            {trainee.name.charAt(0)}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-semibold text-gray-900 dark:text-gray-100 truncate">
+                              {trainee.name}
+                            </h4>
+                            <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
+                              {trainee.course}
+                            </p>
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-gray-500 dark:text-gray-400">
+                              Progress
+                            </span>
+                            <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                              {trainee.progress}%
+                            </span>
+                          </div>
+                          <Progress value={trainee.progress} className="h-2" />
+                          <Badge 
+                            variant={
+                              trainee.status === 'Completed' ? 'default' :
+                              trainee.status === 'In Progress' ? 'secondary' :
+                              'outline'
+                            }
+                            className="text-xs"
+                          >
+                            {trainee.status}
+                          </Badge>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         </>
       )}
     </DashboardSection>
