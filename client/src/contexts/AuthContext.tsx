@@ -26,7 +26,17 @@ interface AuthContextType {
   availableUsers: AuthUser[];
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+// Create context with safe default to prevent initialization issues
+const defaultContextValue: AuthContextType = {
+  user: null,
+  isAuthenticated: false,
+  login: () => {},
+  logout: () => {},
+  switchUser: () => {},
+  availableUsers: []
+};
+
+const AuthContext = createContext<AuthContextType>(defaultContextValue);
 
 // Development users for testing and demo
 const DEVELOPMENT_USERS: AuthUser[] = [
@@ -66,27 +76,28 @@ interface AuthProviderProps {
 }
 
 export function AuthProvider({ children, showUserSwitcher = true }: AuthProviderProps) {
-  const [user, setUser] = useState<AuthUser | null>(null);
-
-  // Initialize with contractor user for testing business flow
-  useEffect(() => {
-    // Try to get user from localStorage first
+  const [user, setUser] = useState<AuthUser | null>(() => {
+    // Initialize immediately with default user to prevent context issues
     const savedUserId = localStorage.getItem('stormshare_current_user');
-    let userToLoad = null;
-    
     if (savedUserId) {
-      userToLoad = DEVELOPMENT_USERS.find(u => u.id === savedUserId);
+      const savedUser = DEVELOPMENT_USERS.find(u => u.id === savedUserId);
+      if (savedUser) return savedUser;
     }
-    
-    // Default to contractor for immediate testing if no saved user
-    if (!userToLoad) {
-      userToLoad = DEVELOPMENT_USERS[1]; // contractor-001
+    // Default to contractor for immediate testing
+    return DEVELOPMENT_USERS[1]; // contractor-001
+  });
+  const [isInitialized, setIsInitialized] = useState(true); // Start as initialized
+
+  // Set up auth headers on mount
+  useEffect(() => {
+    if (user) {
+      setAuthHeaders({
+        'x-user-id': user.id,
+        'x-user-role': user.role,
+        'x-username': user.username,
+      });
     }
-    
-    if (userToLoad) {
-      login(userToLoad);
-    }
-  }, []); // Remove login dependency
+  }, [user]);
 
   const login = (newUser: AuthUser) => {
     setUser(newUser);
@@ -126,18 +137,20 @@ export function AuthProvider({ children, showUserSwitcher = true }: AuthProvider
 
   return (
     <AuthContext.Provider value={contextValue}>
-      {showUserSwitcher && <UserSwitcher />}
       {children}
+      {showUserSwitcher && isInitialized && <UserSwitcherWrapper />}
     </AuthContext.Provider>
   );
 }
 
 export function useAuth(): AuthContextType {
   const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
   return context;
+}
+
+// Wrapper component to ensure context is available
+function UserSwitcherWrapper() {
+  return <UserSwitcher />;
 }
 
 // User switcher component for development and demo

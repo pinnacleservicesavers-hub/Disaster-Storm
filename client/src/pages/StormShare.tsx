@@ -121,7 +121,7 @@ export default function StormShare() {
   const createHelpRequestMutation = useMutation({
     mutationFn: (data: HelpRequestForm) => apiRequest('/api/stormshare/help', {
       method: 'POST',
-      body: { ...data, userId: currentUserId }
+      body: JSON.stringify({ ...data, userId: currentUserId })
     }),
     onSuccess: () => {
       toast({ title: 'Help request posted successfully!' });
@@ -136,7 +136,7 @@ export default function StormShare() {
   const sendMessageMutation = useMutation({
     mutationFn: (data: MessageForm) => apiRequest('/api/stormshare/messages', {
       method: 'POST',
-      body: data
+      body: JSON.stringify(data)
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/stormshare/messages'] });
@@ -150,7 +150,7 @@ export default function StormShare() {
     mutationFn: ({ helpRequestId, contractorId }: { helpRequestId: string, contractorId: string }) => 
       apiRequest(`/api/stormshare/help/${helpRequestId}/convert`, {
         method: 'POST',
-        body: { contractorId }
+        body: JSON.stringify({ contractorId })
       }),
     onSuccess: () => {
       toast({ title: 'Help request claimed and converted to lead!' });
@@ -234,7 +234,7 @@ export default function StormShare() {
         { label: 'Active Members', value: totalMembers, change: 'Online now', color: 'blue', testId: 'text-active-members' },
         { label: 'Help Requests', value: openHelpRequests, change: 'Need assistance', color: 'red', testId: 'text-help-requests' },
         { label: 'Contractor Groups', value: contractorGroups, change: 'Available', color: 'green', testId: 'text-contractor-groups' },
-        { label: 'Weekly Helps', value: 127, change: 'People assisted', color: 'purple', testId: 'text-weekly-helps' }
+        { label: 'Weekly Helps', value: 127, change: 'People assisted', color: 'amber', testId: 'text-weekly-helps' }
       ]}
       actions={[
         { icon: Heart, label: 'Request Help', variant: 'default', testId: 'button-request-help' },
