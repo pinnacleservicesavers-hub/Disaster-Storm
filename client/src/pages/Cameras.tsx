@@ -133,11 +133,11 @@ export function TrafficCameras() {
 
   const addToWatchlist = (state: string, stateName: string) => {
     const watchlistItem: InsertContractorWatchlist = {
+      contractorId,
       itemType: 'state',
       itemId: state,
       displayName: `${stateName} Traffic Cameras`,
       state,
-      county: null,
       alertsEnabled: true,
       metadata: null,
     };
@@ -717,16 +717,16 @@ export function TrafficCameras() {
               <div className="flex flex-wrap gap-4 items-center">
                 <div className="relative">
                   <Select value={selectedState} onValueChange={setSelectedState}>
-                    <SelectTrigger className="w-56 bg-white/80 hover:bg-white transition-colors" data-testid="select-state">
+                    <SelectTrigger className="w-56 bg-white/80 hover:bg-white text-slate-900 dark:bg-slate-800 dark:text-slate-100 transition-colors" data-testid="select-state">
                       <SelectValue placeholder="🗺️ Select State" />
                     </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">🌎 All States</SelectItem>
+                    <SelectContent className="z-50 bg-white text-slate-900 dark:bg-slate-800 dark:text-slate-100 border border-slate-200 dark:border-slate-700 shadow-lg">
+                      <SelectItem value="all" className="text-slate-900 dark:text-slate-100 data-[highlighted]:bg-slate-100 data-[highlighted]:text-slate-900 dark:data-[highlighted]:bg-slate-700 dark:data-[highlighted]:text-slate-100">🌎 All States</SelectItem>
                       {directory?.directory.map(state => (
-                        <SelectItem key={state.state} value={state.state}>
+                        <SelectItem key={state.state} value={state.state} className="text-slate-900 dark:text-slate-100 data-[highlighted]:bg-slate-100 data-[highlighted]:text-slate-900 dark:data-[highlighted]:bg-slate-700 dark:data-[highlighted]:text-slate-100">
                           {state.name} ({state.cameraCount} cameras)
                           {state.contractorOpportunities > 0 && (
-                            <span className="ml-2 text-orange-600 font-semibold">
+                            <span className="ml-2 text-orange-600 dark:text-orange-300 font-semibold">
                               • {state.contractorOpportunities} ops
                             </span>
                           )}
@@ -744,13 +744,13 @@ export function TrafficCameras() {
                       exit={{ opacity: 0, scale: 0.8 }}
                     >
                       <Select value={selectedCounty} onValueChange={setSelectedCounty}>
-                        <SelectTrigger className="w-48 bg-white/80 hover:bg-white transition-colors" data-testid="select-county">
+                        <SelectTrigger className="w-48 bg-white/80 hover:bg-white text-slate-900 dark:bg-slate-800 dark:text-slate-100 transition-colors" data-testid="select-county">
                           <SelectValue placeholder="🏢 Select County" />
                         </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">🏘️ All Counties</SelectItem>
+                        <SelectContent className="z-50 bg-white text-slate-900 dark:bg-slate-800 dark:text-slate-100 border border-slate-200 dark:border-slate-700 shadow-lg">
+                          <SelectItem value="all" className="text-slate-900 dark:text-slate-100 data-[highlighted]:bg-slate-100 data-[highlighted]:text-slate-900 dark:data-[highlighted]:bg-slate-700 dark:data-[highlighted]:text-slate-100">🏘️ All Counties</SelectItem>
                           {selectedStateData.counties.map(county => (
-                            <SelectItem key={county} value={county}>
+                            <SelectItem key={county} value={county} className="text-slate-900 dark:text-slate-100 data-[highlighted]:bg-slate-100 data-[highlighted]:text-slate-900 dark:data-[highlighted]:bg-slate-700 dark:data-[highlighted]:text-slate-100">
                               {county}
                             </SelectItem>
                           ))}
