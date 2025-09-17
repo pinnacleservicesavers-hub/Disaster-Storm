@@ -1,0 +1,151 @@
+🌪️ Disaster Essentials Marketplace (DEM)
+
+Real-time pricing, resources, and shelter info for every storm state.
+
+This section is a one-stop resource hub for both contractors and disaster victims. It provides live updates, vendor information, directions, and direct call functionality to help users stay supplied, safe, and connected.
+
+🔹 Features
+🏨 Hotels & Campgrounds
+
+State-by-state discounts and real-time vacancy status.
+
+Shows:
+
+Name of hotel/campground
+
+Location
+
+Miles from user’s current position
+
+Open/closed status
+
+Pricing per night
+
+Vacancy/Booked-up status
+
+One-click directions + call feature to book directly from the app.
+
+⛽ Gas & Fuel Prices (State by State)
+
+Pulls live gas price feeds (e.g., GasBuddy API).
+
+Displays cheapest, closest, and average prices in each state.
+
+Shows open/closed stations with real-time availability.
+
+🏘 FEMA Contractor Housing / Registration
+
+FEMA-approved contractor lodging and registration portal.
+
+Direct link for sign-up:
+👉 FEMA Vendor Profile Form
+
+Step-by-step FEMA housing registration instructions for contractors built into the app.
+
+🛠️ Hardware & Supplies (State by State)
+
+Chainsaw chains, bar oil, tarps, generators, fuel cans, safety gear.
+
+Shows:
+
+Nearest hardware store (Home Depot, Lowe’s, Tractor Supply, local vendors)
+
+Real-time stock/pricing info
+
+Open/closed status
+
+Click-to-call + map directions.
+
+🍲 Local Resources for Victims (State by State)
+
+Verified shelters, food distribution centers, and aid stations.
+
+Displays availability, address, directions, and contact info.
+
+Pulls FEMA and Red Cross feeds for accuracy.
+
+🚨 Critical Awareness Alerts (State by State)
+
+AI-powered alerts for:
+
+Price gouging scams
+
+Curfew enforcement
+
+Road closures & traffic restrictions
+
+Public health/safety hazards (contaminated water, downed power lines)
+
+Push notifications available.
+
+📡 Satellite Phones & Emergency Internet
+
+Vendors & Providers (Direct Access in App):
+
+Specialty Satellite / Comms Retailers
+
+Satellite Phone Store — satellitephonestore.com
+
+OSAT (Orbital SatCom) — osat.com
+
+Outfitter Satellite — outfittersatellite.com
+
+Electronics / Online
+
+Best Buy
+
+Walmart
+
+Amazon (verified sellers only)
+
+Telecom / Network Providers
+
+Iridium Satellite — iridium.com
+
+Verizon Satellite
+
+Rental Options
+
+Globalcom Satellite Phone Rentals — globalcomsatphone.com
+
+📱 Example Satellite Phones to Feature in App (with Pricing)
+
+Iridium Extreme 9575 — $1,680 (Walmart, Satellite Phone Store)
+
+Iridium 9555 Kit — $1,470.99 (Satellite Phone Store)
+
+Inmarsat IsatPhone 2 — $789 (BlueCosmo, others)
+
+Inmarsat Pro 2 — $649 (Globalcom)
+
+Thuraya XT-Lite — $548.47 (BuyNav)
+
+Thuraya SkPhone Smart — $1,063 (Outfitter Satellite)
+
+Iridium 9575 PTT Rugged — $1,740 (Satellite Phone Store)
+
+IsatPhone 2 Rugged Field Model — $874.99 (Satmodo)
+
+⚠️ What to Check Before Buying Satellite Devices
+
+Coverage: Iridium = global, Inmarsat/Thuraya = regional.
+
+Costs: Device + monthly/usage fees.
+
+Durability: Waterproof, rugged, storm-proof.
+
+Emergency Features: GPS, SOS buttons, push-to-talk.
+
+Accessories: Solar chargers, extra batteries, vehicle adapters.
+
+Regulations: Some states/countries restrict satellite phone usage.
+
+🔑 Extra Value for Contractors & Victims
+
+Directions to Starlink purchase points & installation info: starlink.com
+
+Emergency generator & fuel delivery partners (optional vendor marketplace).
+
+“Verified Vendors Only” badge for trustworthy sellers and suppliers.
+
+⚡This DEM section becomes the survival and logistics backbone of your app, keeping both contractors and victims informed, supplied, and safe in real-time.

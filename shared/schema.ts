@@ -3086,6 +3086,192 @@ export type InsertStormShareMediaAsset = z.infer<typeof insertStormShareMediaAss
 export type StormShareAdCampaign = typeof stormShareAdCampaigns.$inferSelect;
 export type InsertStormShareAdCampaign = z.infer<typeof insertStormShareAdCampaignSchema>;
 
+// ===== DISASTER ESSENTIALS MARKETPLACE (DEM) SCHEMAS =====
+
+// Hotels & Campgrounds
+export const demHotels = pgTable("dem_hotels", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  type: text("type").notNull(), // 'hotel', 'motel', 'campground', 'rv_park'
+  address: text("address").notNull(),
+  city: text("city").notNull(),
+  state: text("state").notNull(),
+  zipCode: text("zip_code").notNull(),
+  latitude: numeric("latitude", { precision: 10, scale: 8 }),
+  longitude: numeric("longitude", { precision: 10, scale: 8 }),
+  phone: text("phone"),
+  website: text("website"),
+  pricePerNight: numeric("price_per_night", { precision: 10, scale: 2 }),
+  discountRate: numeric("discount_rate", { precision: 5, scale: 2 }), // Percentage discount
+  availableRooms: integer("available_rooms"),
+  totalRooms: integer("total_rooms"),
+  isOpen: boolean("is_open").default(true),
+  amenities: jsonb("amenities").$type<string[]>(),
+  lastUpdated: timestamp("last_updated").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Gas Stations & Fuel Prices
+export const demGasStations = pgTable("dem_gas_stations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  brand: text("brand"), // 'Shell', 'Exxon', 'BP', etc.
+  address: text("address").notNull(),
+  city: text("city").notNull(),
+  state: text("state").notNull(),
+  zipCode: text("zip_code").notNull(),
+  latitude: numeric("latitude", { precision: 10, scale: 8 }),
+  longitude: numeric("longitude", { precision: 10, scale: 8 }),
+  phone: text("phone"),
+  regularPrice: numeric("regular_price", { precision: 5, scale: 3 }),
+  premiumPrice: numeric("premium_price", { precision: 5, scale: 3 }),
+  dieselPrice: numeric("diesel_price", { precision: 5, scale: 3 }),
+  isOpen: boolean("is_open").default(true),
+  hasAvailability: boolean("has_availability").default(true),
+  hours: text("hours"),
+  lastUpdated: timestamp("last_updated").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Hardware Stores & Supplies
+export const demHardwareStores = pgTable("dem_hardware_stores", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  chain: text("chain"), // 'Home Depot', 'Lowe's', 'Tractor Supply', 'Local'
+  address: text("address").notNull(),
+  city: text("city").notNull(),
+  state: text("state").notNull(),
+  zipCode: text("zip_code").notNull(),
+  latitude: numeric("latitude", { precision: 10, scale: 8 }),
+  longitude: numeric("longitude", { precision: 10, scale: 8 }),
+  phone: text("phone"),
+  website: text("website"),
+  isOpen: boolean("is_open").default(true),
+  inventory: jsonb("inventory").$type<{
+    chainsawChains: { available: boolean; price?: number };
+    barOil: { available: boolean; price?: number };
+    tarps: { available: boolean; price?: number };
+    generators: { available: boolean; price?: number };
+    fuelCans: { available: boolean; price?: number };
+    safetyGear: { available: boolean; price?: number };
+  }>(),
+  hours: text("hours"),
+  lastUpdated: timestamp("last_updated").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Shelters & Resources for Victims
+export const demShelters = pgTable("dem_shelters", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  type: text("type").notNull(), // 'shelter', 'food_distribution', 'aid_station', 'medical'
+  organization: text("organization"), // 'Red Cross', 'FEMA', 'Local Govt'
+  address: text("address").notNull(),
+  city: text("city").notNull(),
+  state: text("state").notNull(),
+  zipCode: text("zip_code").notNull(),
+  latitude: numeric("latitude", { precision: 10, scale: 8 }),
+  longitude: numeric("longitude", { precision: 10, scale: 8 }),
+  phone: text("phone"),
+  capacity: integer("capacity"),
+  currentOccupancy: integer("current_occupancy"),
+  isOpen: boolean("is_open").default(true),
+  acceptingIntake: boolean("accepting_intake").default(true),
+  services: jsonb("services").$type<string[]>(), // ['food', 'shelter', 'medical', 'supplies']
+  requirements: text("requirements"),
+  hours: text("hours"),
+  lastUpdated: timestamp("last_updated").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Critical Alerts
+export const demAlerts = pgTable("dem_alerts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: text("title").notNull(),
+  message: text("message").notNull(),
+  alertType: text("alert_type").notNull(), // 'price_gouging', 'curfew', 'road_closure', 'health_hazard'
+  severity: text("severity").default("medium"), // 'low', 'medium', 'high', 'critical'
+  state: text("state").notNull(),
+  county: text("county"),
+  city: text("city"),
+  isActive: boolean("is_active").default(true),
+  expiresAt: timestamp("expires_at"),
+  source: text("source"), // 'AI', 'FEMA', 'Local Govt', 'User Report'
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Satellite Phone Vendors & Products
+export const demSatelliteProducts = pgTable("dem_satellite_products", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  model: text("model").notNull(),
+  vendor: text("vendor").notNull(), // 'Satellite Phone Store', 'Best Buy', etc.
+  category: text("category").notNull(), // 'satellite_phone', 'emergency_internet', 'accessories'
+  price: numeric("price", { precision: 10, scale: 2 }),
+  coverage: text("coverage"), // 'global', 'regional', 'local'
+  features: jsonb("features").$type<string[]>(),
+  isInStock: boolean("is_in_stock").default(true),
+  vendorUrl: text("vendor_url"),
+  vendorPhone: text("vendor_phone"),
+  specifications: jsonb("specifications").$type<{
+    durability?: string;
+    batteryLife?: string;
+    gpsEnabled?: boolean;
+    sosFeatures?: boolean;
+    waterproof?: boolean;
+  }>(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Create insert schemas
+export const insertDemHotelSchema = createInsertSchema(demHotels).omit({
+  id: true,
+  lastUpdated: true,
+  createdAt: true,
+});
+
+export const insertDemGasStationSchema = createInsertSchema(demGasStations).omit({
+  id: true,
+  lastUpdated: true,
+  createdAt: true,
+});
+
+export const insertDemHardwareStoreSchema = createInsertSchema(demHardwareStores).omit({
+  id: true,
+  lastUpdated: true,
+  createdAt: true,
+});
+
+export const insertDemShelterSchema = createInsertSchema(demShelters).omit({
+  id: true,
+  lastUpdated: true,
+  createdAt: true,
+});
+
+export const insertDemAlertSchema = createInsertSchema(demAlerts).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertDemSatelliteProductSchema = createInsertSchema(demSatelliteProducts).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Export DEM types
+export type DemHotel = typeof demHotels.$inferSelect;
+export type InsertDemHotel = z.infer<typeof insertDemHotelSchema>;
+export type DemGasStation = typeof demGasStations.$inferSelect;
+export type InsertDemGasStation = z.infer<typeof insertDemGasStationSchema>;
+export type DemHardwareStore = typeof demHardwareStores.$inferSelect;
+export type InsertDemHardwareStore = z.infer<typeof insertDemHardwareStoreSchema>;
+export type DemShelter = typeof demShelters.$inferSelect;
+export type InsertDemShelter = z.infer<typeof insertDemShelterSchema>;
+export type DemAlert = typeof demAlerts.$inferSelect;
+export type InsertDemAlert = z.infer<typeof insertDemAlertSchema>;
+export type DemSatelliteProduct = typeof demSatelliteProducts.$inferSelect;
+export type InsertDemSatelliteProduct = z.infer<typeof insertDemSatelliteProductSchema>;
+
 // Detection foundation types
 export type DetectionJob = typeof detectionJobs.$inferSelect;
 export type InsertDetectionJob = z.infer<typeof insertDetectionJobSchema>;
