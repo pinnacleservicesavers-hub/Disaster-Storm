@@ -18,6 +18,10 @@ import Drones from "./pages/Drones";
 import Legal from "./pages/Legal";
 import EyesInSky from "./pages/EyesInSky";
 import Leads from "./pages/Leads";
+import FunnelBuilder from "./pages/FunnelBuilder";
+import FormBuilder from "./pages/FormBuilder";
+import CalendarBooking from "./pages/CalendarBooking";
+import WorkflowBuilder from "./pages/WorkflowBuilder";
 import StormShareCam from "./pages/StormShareCam";
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -414,6 +418,30 @@ export default function App() {
           <title>Damage Leads - StormLead Master</title>
           <meta name="description" content="AI-powered damage detection leads from live footage with property owner information and contractor assignments" />
           <Leads />
+        </Route>
+        
+        <Route path="/funnel-builder">
+          <title>Funnel Builder - StormLead Master</title>
+          <meta name="description" content="Create high-converting lead capture funnels with drag-and-drop simplicity for storm damage restoration leads" />
+          <FunnelBuilder />
+        </Route>
+        
+        <Route path="/form-builder">
+          <title>Form Builder - StormLead Master</title>
+          <meta name="description" content="Build intelligent forms with conditional logic and automated workflows for lead capture and qualification" />
+          <FormBuilder />
+        </Route>
+        
+        <Route path="/calendar-booking">
+          <title>Calendar Booking - StormLead Master</title>
+          <meta name="description" content="Manage appointments, consultations, and property inspections with advanced calendar booking system" />
+          <CalendarBooking />
+        </Route>
+        
+        <Route path="/workflow-builder">
+          <title>Workflow Builder - StormLead Master</title>
+          <meta name="description" content="Create automated sequences to nurture leads and streamline communication across multiple channels" />
+          <WorkflowBuilder />
         </Route>
         
         <Route path="/stormshare">

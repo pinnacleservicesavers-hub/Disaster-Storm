@@ -60,7 +60,14 @@ import {
   insertServiceRequestSchema,
   insertEmergencyContactSchema,
   insertDetectionJobSchema,
-  insertDetectionResultSchema
+  insertDetectionResultSchema,
+  insertFunnelSchema,
+  insertFunnelStepSchema,
+  insertFormSchema,
+  insertFormFieldSchema,
+  insertCalendarBookingSchema,
+  insertWorkflowSchema,
+  insertWorkflowStepSchema
 } from "@shared/schema";
 
 // fetch polyfill if needed
@@ -3104,7 +3111,7 @@ Email: strategiclandmgmt@gmail.com
           // Filter for contractor-relevant weather
           const relevantAlerts = alerts.filter(alert => 
             contractorWeatherTypes.some(type => 
-              alert.event?.includes(type) || alert.headline?.includes(type)
+              alert.title?.includes(type) || alert.description?.includes(type)
             )
           );
           
@@ -3255,7 +3262,7 @@ Email: strategiclandmgmt@gmail.com
       
       // Calculate lightning density for storm intensity analysis
       const densityMap = {
-        center: { latitude, longitude },
+        center: { latitude: lat, longitude: lon },
         radius: radiusKm,
         timeRange: `${hours} hour(s)`,
         totalStrikes: lightningData.strikes?.length || 0,
@@ -3602,7 +3609,7 @@ Email: strategiclandmgmt@gmail.com
         contractorId,
         alertType: alert.alertType,
         priority: alert.leadPriority,
-        estimatedValue: alert.estimatedCost ? (alert.estimatedCost.min + alert.estimatedCost.max) / 2 : 0,
+        estimatedValue: alert.estimatedCost ? (Number(alert.estimatedCost.min || 0) + Number(alert.estimatedCost.max || 0)) / 2 : 0,
         status: 'new' as const,
         contactAttempts: 0
       };
@@ -4127,7 +4134,7 @@ Email: strategiclandmgmt@gmail.com
         if (b.riskScore !== a.riskScore) {
           return b.riskScore - a.riskScore;
         }
-        return (b.avgClaimAmount || 0) - (a.avgClaimAmount || 0);
+        return (Number(b.avgClaimAmount) || 0) - (Number(a.avgClaimAmount) || 0);
       });
       
       console.log(`📍 Retrieved ${zones.length} storm hot zones with filters:`, { state, riskLevel, stormType, femaId, marketPotential });
@@ -4149,9 +4156,9 @@ Email: strategiclandmgmt@gmail.com
         byRiskLevel: {},
         byStormType: {},
         avgClaimAmountRange: {
-          min: Math.min(...allZones.map(z => z.avgClaimAmount || 0)),
-          max: Math.max(...allZones.map(z => z.avgClaimAmount || 0)),
-          avg: allZones.reduce((sum, z) => sum + (z.avgClaimAmount || 0), 0) / allZones.length
+          min: Math.min(...allZones.map(z => Number(z.avgClaimAmount) || 0)),
+          max: Math.max(...allZones.map(z => Number(z.avgClaimAmount) || 0)),
+          avg: allZones.reduce((sum, z) => sum + (Number(z.avgClaimAmount) || 0), 0) / allZones.length
         },
         topStates: [],
         topCounties: allZones
@@ -4267,10 +4274,10 @@ Email: strategiclandmgmt@gmail.com
       let zones = await storage.getStormHotZones();
       
       // Filter by minimum risk score
-      zones = zones.filter(zone => zone.riskScore >= Number(minRiskScore));
+      zones = zones.filter(zone => Number(zone.riskScore) >= Number(minRiskScore));
       
       // Filter by minimum claim amount
-      zones = zones.filter(zone => (zone.avgClaimAmount || 0) >= Number(minClaimAmount));
+      zones = zones.filter(zone => (Number(zone.avgClaimAmount) || 0) >= Number(minClaimAmount));
       
       // Filter by storm types
       if (stormTypes && stormTypes !== 'all') {
@@ -4296,7 +4303,7 @@ Email: strategiclandmgmt@gmail.com
         if (b.riskScore !== a.riskScore) return b.riskScore - a.riskScore;
         
         // Finally by claim amount
-        return (b.avgClaimAmount || 0) - (a.avgClaimAmount || 0);
+        return (Number(b.avgClaimAmount) || 0) - (Number(a.avgClaimAmount) || 0);
       });
       
       // Limit results
@@ -4470,7 +4477,7 @@ Email: strategiclandmgmt@gmail.com
       let zones = await storage.getStormHotZones();
       
       // Filter by minimum risk score
-      zones = zones.filter(zone => zone.riskScore >= Number(minRiskScore));
+      zones = zones.filter(zone => Number(zone.riskScore) >= Number(minRiskScore));
       
       // Filter by state if provided
       if (stateCode) {
@@ -6638,6 +6645,565 @@ Email: strategiclandmgmt@gmail.com
     } catch (error) {
       console.error('Error deleting detection result:', error);
       res.status(500).json({ error: 'Failed to delete detection result' });
+    }
+  });
+
+  // ===== LEAD CAPTURE SYSTEM API ROUTES =====
+
+  // FUNNEL ROUTES
+  app.get("/api/funnels", async (req, res) => {
+    try {
+      const funnels = await storage.getFunnels();
+      res.json({ funnels });
+    } catch (error) {
+      console.error('Error fetching funnels:', error);
+      res.status(500).json({ error: 'Failed to fetch funnels' });
+    }
+  });
+
+  app.get("/api/funnels/:id", async (req, res) => {
+    try {
+      const funnel = await storage.getFunnel(req.params.id);
+      if (!funnel) {
+        return res.status(404).json({ error: 'Funnel not found' });
+      }
+      res.json({ funnel });
+    } catch (error) {
+      console.error('Error fetching funnel:', error);
+      res.status(500).json({ error: 'Failed to fetch funnel' });
+    }
+  });
+
+  app.get("/api/funnels/slug/:slug", async (req, res) => {
+    try {
+      const funnel = await storage.getFunnelBySlug(req.params.slug);
+      if (!funnel) {
+        return res.status(404).json({ error: 'Funnel not found' });
+      }
+      res.json({ funnel });
+    } catch (error) {
+      console.error('Error fetching funnel by slug:', error);
+      res.status(500).json({ error: 'Failed to fetch funnel' });
+    }
+  });
+
+  app.post("/api/funnels", express.json(), async (req, res) => {
+    try {
+      const funnelData = insertFunnelSchema.parse(req.body);
+      const funnel = await storage.createFunnel(funnelData);
+      res.status(201).json({ funnel });
+    } catch (error) {
+      console.error('Error creating funnel:', error);
+      if (error instanceof Error && error.name === 'ZodError') {
+        return res.status(400).json({ error: 'Invalid funnel data', details: error.message });
+      }
+      res.status(500).json({ error: 'Failed to create funnel' });
+    }
+  });
+
+  app.put("/api/funnels/:id", express.json(), async (req, res) => {
+    try {
+      const updates = req.body;
+      const funnel = await storage.updateFunnel(req.params.id, updates);
+      res.json({ funnel });
+    } catch (error) {
+      console.error('Error updating funnel:', error);
+      if (error instanceof Error && error.message === 'Funnel not found') {
+        return res.status(404).json({ error: 'Funnel not found' });
+      }
+      res.status(500).json({ error: 'Failed to update funnel' });
+    }
+  });
+
+  app.delete("/api/funnels/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteFunnel(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: 'Funnel not found' });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error deleting funnel:', error);
+      res.status(500).json({ error: 'Failed to delete funnel' });
+    }
+  });
+
+  // FUNNEL STEP ROUTES
+  app.get("/api/funnels/:funnelId/steps", async (req, res) => {
+    try {
+      const steps = await storage.getFunnelSteps(req.params.funnelId);
+      res.json({ steps });
+    } catch (error) {
+      console.error('Error fetching funnel steps:', error);
+      res.status(500).json({ error: 'Failed to fetch funnel steps' });
+    }
+  });
+
+  app.get("/api/funnel-steps/:id", async (req, res) => {
+    try {
+      const step = await storage.getFunnelStep(req.params.id);
+      if (!step) {
+        return res.status(404).json({ error: 'Funnel step not found' });
+      }
+      res.json({ step });
+    } catch (error) {
+      console.error('Error fetching funnel step:', error);
+      res.status(500).json({ error: 'Failed to fetch funnel step' });
+    }
+  });
+
+  app.post("/api/funnel-steps", express.json(), async (req, res) => {
+    try {
+      const stepData = insertFunnelStepSchema.parse(req.body);
+      const step = await storage.createFunnelStep(stepData);
+      res.status(201).json({ step });
+    } catch (error) {
+      console.error('Error creating funnel step:', error);
+      if (error instanceof Error && error.name === 'ZodError') {
+        return res.status(400).json({ error: 'Invalid step data', details: error.message });
+      }
+      res.status(500).json({ error: 'Failed to create funnel step' });
+    }
+  });
+
+  app.put("/api/funnel-steps/:id", express.json(), async (req, res) => {
+    try {
+      const updates = req.body;
+      const step = await storage.updateFunnelStep(req.params.id, updates);
+      res.json({ step });
+    } catch (error) {
+      console.error('Error updating funnel step:', error);
+      if (error instanceof Error && error.message === 'Funnel step not found') {
+        return res.status(404).json({ error: 'Funnel step not found' });
+      }
+      res.status(500).json({ error: 'Failed to update funnel step' });
+    }
+  });
+
+  app.delete("/api/funnel-steps/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteFunnelStep(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: 'Funnel step not found' });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error deleting funnel step:', error);
+      res.status(500).json({ error: 'Failed to delete funnel step' });
+    }
+  });
+
+  app.post("/api/funnels/:funnelId/steps/reorder", express.json(), async (req, res) => {
+    try {
+      const { stepIds } = req.body;
+      if (!Array.isArray(stepIds)) {
+        return res.status(400).json({ error: 'stepIds must be an array' });
+      }
+      const success = await storage.reorderFunnelSteps(req.params.funnelId, stepIds);
+      res.json({ success });
+    } catch (error) {
+      console.error('Error reordering funnel steps:', error);
+      res.status(500).json({ error: 'Failed to reorder funnel steps' });
+    }
+  });
+
+  // FORM ROUTES
+  app.get("/api/forms", async (req, res) => {
+    try {
+      const { funnelStepId } = req.query;
+      let forms;
+      
+      if (funnelStepId) {
+        forms = await storage.getFormsByFunnelStep(funnelStepId as string);
+      } else {
+        forms = await storage.getForms();
+      }
+      
+      res.json({ forms });
+    } catch (error) {
+      console.error('Error fetching forms:', error);
+      res.status(500).json({ error: 'Failed to fetch forms' });
+    }
+  });
+
+  app.get("/api/forms/:id", async (req, res) => {
+    try {
+      const form = await storage.getForm(req.params.id);
+      if (!form) {
+        return res.status(404).json({ error: 'Form not found' });
+      }
+      res.json({ form });
+    } catch (error) {
+      console.error('Error fetching form:', error);
+      res.status(500).json({ error: 'Failed to fetch form' });
+    }
+  });
+
+  app.post("/api/forms", express.json(), async (req, res) => {
+    try {
+      const formData = insertFormSchema.parse(req.body);
+      const form = await storage.createForm(formData);
+      res.status(201).json({ form });
+    } catch (error) {
+      console.error('Error creating form:', error);
+      if (error instanceof Error && error.name === 'ZodError') {
+        return res.status(400).json({ error: 'Invalid form data', details: error.message });
+      }
+      res.status(500).json({ error: 'Failed to create form' });
+    }
+  });
+
+  app.put("/api/forms/:id", express.json(), async (req, res) => {
+    try {
+      const updates = req.body;
+      const form = await storage.updateForm(req.params.id, updates);
+      res.json({ form });
+    } catch (error) {
+      console.error('Error updating form:', error);
+      if (error instanceof Error && error.message === 'Form not found') {
+        return res.status(404).json({ error: 'Form not found' });
+      }
+      res.status(500).json({ error: 'Failed to update form' });
+    }
+  });
+
+  app.delete("/api/forms/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteForm(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: 'Form not found' });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error deleting form:', error);
+      res.status(500).json({ error: 'Failed to delete form' });
+    }
+  });
+
+  // FORM FIELD ROUTES
+  app.get("/api/forms/:formId/fields", async (req, res) => {
+    try {
+      const fields = await storage.getFormFields(req.params.formId);
+      res.json({ fields });
+    } catch (error) {
+      console.error('Error fetching form fields:', error);
+      res.status(500).json({ error: 'Failed to fetch form fields' });
+    }
+  });
+
+  app.get("/api/form-fields/:id", async (req, res) => {
+    try {
+      const field = await storage.getFormField(req.params.id);
+      if (!field) {
+        return res.status(404).json({ error: 'Form field not found' });
+      }
+      res.json({ field });
+    } catch (error) {
+      console.error('Error fetching form field:', error);
+      res.status(500).json({ error: 'Failed to fetch form field' });
+    }
+  });
+
+  app.post("/api/form-fields", express.json(), async (req, res) => {
+    try {
+      const fieldData = insertFormFieldSchema.parse(req.body);
+      const field = await storage.createFormField(fieldData);
+      res.status(201).json({ field });
+    } catch (error) {
+      console.error('Error creating form field:', error);
+      if (error instanceof Error && error.name === 'ZodError') {
+        return res.status(400).json({ error: 'Invalid field data', details: error.message });
+      }
+      res.status(500).json({ error: 'Failed to create form field' });
+    }
+  });
+
+  app.put("/api/form-fields/:id", express.json(), async (req, res) => {
+    try {
+      const updates = req.body;
+      const field = await storage.updateFormField(req.params.id, updates);
+      res.json({ field });
+    } catch (error) {
+      console.error('Error updating form field:', error);
+      if (error instanceof Error && error.message === 'Form field not found') {
+        return res.status(404).json({ error: 'Form field not found' });
+      }
+      res.status(500).json({ error: 'Failed to update form field' });
+    }
+  });
+
+  app.delete("/api/form-fields/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteFormField(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: 'Form field not found' });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error deleting form field:', error);
+      res.status(500).json({ error: 'Failed to delete form field' });
+    }
+  });
+
+  app.post("/api/forms/:formId/fields/reorder", express.json(), async (req, res) => {
+    try {
+      const { fieldIds } = req.body;
+      if (!Array.isArray(fieldIds)) {
+        return res.status(400).json({ error: 'fieldIds must be an array' });
+      }
+      const success = await storage.reorderFormFields(req.params.formId, fieldIds);
+      res.json({ success });
+    } catch (error) {
+      console.error('Error reordering form fields:', error);
+      res.status(500).json({ error: 'Failed to reorder form fields' });
+    }
+  });
+
+  // CALENDAR BOOKING ROUTES
+  app.get("/api/calendar-bookings", async (req, res) => {
+    try {
+      const { homeownerId, date, appointmentType, status } = req.query;
+      let bookings;
+      
+      if (homeownerId) {
+        bookings = await storage.getCalendarBookingsByHomeowner(homeownerId as string);
+      } else if (date) {
+        bookings = await storage.getCalendarBookingsByDate(new Date(date as string));
+      } else if (appointmentType) {
+        bookings = await storage.getCalendarBookingsByType(appointmentType as string);
+      } else if (status) {
+        bookings = await storage.getCalendarBookingsByStatus(status as string);
+      } else {
+        bookings = await storage.getCalendarBookings();
+      }
+      
+      res.json({ bookings });
+    } catch (error) {
+      console.error('Error fetching calendar bookings:', error);
+      res.status(500).json({ error: 'Failed to fetch calendar bookings' });
+    }
+  });
+
+  app.get("/api/calendar-bookings/:id", async (req, res) => {
+    try {
+      const booking = await storage.getCalendarBooking(req.params.id);
+      if (!booking) {
+        return res.status(404).json({ error: 'Calendar booking not found' });
+      }
+      res.json({ booking });
+    } catch (error) {
+      console.error('Error fetching calendar booking:', error);
+      res.status(500).json({ error: 'Failed to fetch calendar booking' });
+    }
+  });
+
+  app.get("/api/calendar/available-slots", async (req, res) => {
+    try {
+      const { date, duration = '60' } = req.query;
+      if (!date) {
+        return res.status(400).json({ error: 'Date parameter is required' });
+      }
+      
+      const slots = await storage.getAvailableTimeSlots(new Date(date as string), parseInt(duration as string));
+      res.json({ slots });
+    } catch (error) {
+      console.error('Error fetching available time slots:', error);
+      res.status(500).json({ error: 'Failed to fetch available time slots' });
+    }
+  });
+
+  app.post("/api/calendar-bookings", express.json(), async (req, res) => {
+    try {
+      const bookingData = insertCalendarBookingSchema.parse(req.body);
+      const booking = await storage.createCalendarBooking(bookingData);
+      res.status(201).json({ booking });
+    } catch (error) {
+      console.error('Error creating calendar booking:', error);
+      if (error instanceof Error && error.name === 'ZodError') {
+        return res.status(400).json({ error: 'Invalid booking data', details: error.message });
+      }
+      res.status(500).json({ error: 'Failed to create calendar booking' });
+    }
+  });
+
+  app.put("/api/calendar-bookings/:id", express.json(), async (req, res) => {
+    try {
+      const updates = req.body;
+      const booking = await storage.updateCalendarBooking(req.params.id, updates);
+      res.json({ booking });
+    } catch (error) {
+      console.error('Error updating calendar booking:', error);
+      if (error instanceof Error && error.message === 'Calendar booking not found') {
+        return res.status(404).json({ error: 'Calendar booking not found' });
+      }
+      res.status(500).json({ error: 'Failed to update calendar booking' });
+    }
+  });
+
+  app.delete("/api/calendar-bookings/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteCalendarBooking(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: 'Calendar booking not found' });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error deleting calendar booking:', error);
+      res.status(500).json({ error: 'Failed to delete calendar booking' });
+    }
+  });
+
+  // WORKFLOW ROUTES
+  app.get("/api/workflows", async (req, res) => {
+    try {
+      const { active, triggerType } = req.query;
+      let workflows;
+      
+      if (active === 'true') {
+        workflows = await storage.getActiveWorkflows();
+      } else if (triggerType) {
+        workflows = await storage.getWorkflowsByTriggerType(triggerType as string);
+      } else {
+        workflows = await storage.getWorkflows();
+      }
+      
+      res.json({ workflows });
+    } catch (error) {
+      console.error('Error fetching workflows:', error);
+      res.status(500).json({ error: 'Failed to fetch workflows' });
+    }
+  });
+
+  app.get("/api/workflows/:id", async (req, res) => {
+    try {
+      const workflow = await storage.getWorkflow(req.params.id);
+      if (!workflow) {
+        return res.status(404).json({ error: 'Workflow not found' });
+      }
+      res.json({ workflow });
+    } catch (error) {
+      console.error('Error fetching workflow:', error);
+      res.status(500).json({ error: 'Failed to fetch workflow' });
+    }
+  });
+
+  app.post("/api/workflows", express.json(), async (req, res) => {
+    try {
+      const workflowData = insertWorkflowSchema.parse(req.body);
+      const workflow = await storage.createWorkflow(workflowData);
+      res.status(201).json({ workflow });
+    } catch (error) {
+      console.error('Error creating workflow:', error);
+      if (error instanceof Error && error.name === 'ZodError') {
+        return res.status(400).json({ error: 'Invalid workflow data', details: error.message });
+      }
+      res.status(500).json({ error: 'Failed to create workflow' });
+    }
+  });
+
+  app.put("/api/workflows/:id", express.json(), async (req, res) => {
+    try {
+      const updates = req.body;
+      const workflow = await storage.updateWorkflow(req.params.id, updates);
+      res.json({ workflow });
+    } catch (error) {
+      console.error('Error updating workflow:', error);
+      if (error instanceof Error && error.message === 'Workflow not found') {
+        return res.status(404).json({ error: 'Workflow not found' });
+      }
+      res.status(500).json({ error: 'Failed to update workflow' });
+    }
+  });
+
+  app.delete("/api/workflows/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteWorkflow(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: 'Workflow not found' });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error deleting workflow:', error);
+      res.status(500).json({ error: 'Failed to delete workflow' });
+    }
+  });
+
+  // WORKFLOW STEP ROUTES
+  app.get("/api/workflows/:workflowId/steps", async (req, res) => {
+    try {
+      const steps = await storage.getWorkflowSteps(req.params.workflowId);
+      res.json({ steps });
+    } catch (error) {
+      console.error('Error fetching workflow steps:', error);
+      res.status(500).json({ error: 'Failed to fetch workflow steps' });
+    }
+  });
+
+  app.get("/api/workflow-steps/:id", async (req, res) => {
+    try {
+      const step = await storage.getWorkflowStep(req.params.id);
+      if (!step) {
+        return res.status(404).json({ error: 'Workflow step not found' });
+      }
+      res.json({ step });
+    } catch (error) {
+      console.error('Error fetching workflow step:', error);
+      res.status(500).json({ error: 'Failed to fetch workflow step' });
+    }
+  });
+
+  app.post("/api/workflow-steps", express.json(), async (req, res) => {
+    try {
+      const stepData = insertWorkflowStepSchema.parse(req.body);
+      const step = await storage.createWorkflowStep(stepData);
+      res.status(201).json({ step });
+    } catch (error) {
+      console.error('Error creating workflow step:', error);
+      if (error instanceof Error && error.name === 'ZodError') {
+        return res.status(400).json({ error: 'Invalid step data', details: error.message });
+      }
+      res.status(500).json({ error: 'Failed to create workflow step' });
+    }
+  });
+
+  app.put("/api/workflow-steps/:id", express.json(), async (req, res) => {
+    try {
+      const updates = req.body;
+      const step = await storage.updateWorkflowStep(req.params.id, updates);
+      res.json({ step });
+    } catch (error) {
+      console.error('Error updating workflow step:', error);
+      if (error instanceof Error && error.message === 'Workflow step not found') {
+        return res.status(404).json({ error: 'Workflow step not found' });
+      }
+      res.status(500).json({ error: 'Failed to update workflow step' });
+    }
+  });
+
+  app.delete("/api/workflow-steps/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteWorkflowStep(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: 'Workflow step not found' });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error deleting workflow step:', error);
+      res.status(500).json({ error: 'Failed to delete workflow step' });
+    }
+  });
+
+  app.post("/api/workflows/:workflowId/steps/reorder", express.json(), async (req, res) => {
+    try {
+      const { stepIds } = req.body;
+      if (!Array.isArray(stepIds)) {
+        return res.status(400).json({ error: 'stepIds must be an array' });
+      }
+      const success = await storage.reorderWorkflowSteps(req.params.workflowId, stepIds);
+      res.json({ success });
+    } catch (error) {
+      console.error('Error reordering workflow steps:', error);
+      res.status(500).json({ error: 'Failed to reorder workflow steps' });
     }
   });
 

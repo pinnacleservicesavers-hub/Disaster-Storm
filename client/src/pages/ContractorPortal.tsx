@@ -83,42 +83,50 @@ export default function ContractorPortal() {
   // Contractor ID - In a real app, this would come from auth context
   const contractorId = 'contractor-1';
 
-  // Main data queries
-  const { data: leads = [], isLoading: leadsLoading } = useQuery({
+  // Main data queries with robust error handling
+  const { data: leadsData = [], isLoading: leadsLoading } = useQuery({
     queryKey: ['leads'],
-    queryFn: () => fetch('/api/leads').then(r => r.json()),
+    queryFn: () => fetch('/api/leads').then(r => r.json()).catch(() => []),
   });
 
-  const { data: invoices = [], isLoading: invoicesLoading } = useQuery({
+  const { data: invoicesData = [], isLoading: invoicesLoading } = useQuery({
     queryKey: ['invoices'],
-    queryFn: () => fetch('/api/invoices').then(r => r.json()),
+    queryFn: () => fetch('/api/invoices').then(r => r.json()).catch(() => []),
   });
 
-  const { data: photos = [], isLoading: photosLoading } = useQuery({
+  const { data: photosData = [], isLoading: photosLoading } = useQuery({
     queryKey: ['photos'],
-    queryFn: () => fetch('/api/photos').then(r => r.json()),
+    queryFn: () => fetch('/api/photos').then(r => r.json()).catch(() => []),
   });
 
-  const { data: customers = [], isLoading: customersLoading } = useQuery({
+  const { data: customersData = [], isLoading: customersLoading } = useQuery({
     queryKey: ['customers'],
-    queryFn: () => fetch('/api/customers').then(r => r.json()),
+    queryFn: () => fetch('/api/customers').then(r => r.json()).catch(() => []),
   });
 
-  const { data: slaItems = [], isLoading: slaLoading } = useQuery({
+  const { data: slaData = [], isLoading: slaLoading } = useQuery({
     queryKey: ['sla'],
-    queryFn: () => fetch('/api/sla/list').then(r => r.json()),
+    queryFn: () => fetch('/api/sla/list').then(r => r.json()).catch(() => []),
   });
+
+  // Ensure data is always arrays with defensive programming
+  const leads = Array.isArray(leadsData) ? leadsData : [];
+  const invoices = Array.isArray(invoicesData) ? invoicesData : [];
+  const photos = Array.isArray(photosData) ? photosData : [];
+  const customers = Array.isArray(customersData) ? customersData : [];
+  const slaItems = Array.isArray(slaData) ? slaData : [];
 
   // Calculate dashboard stats from real data
-  const activeProjects = invoices.filter(inv => inv.status === 'sent' || inv.status === 'draft').length;
+  const activeProjects = invoices.filter(inv => inv && (inv.status === 'sent' || inv.status === 'draft')).length;
   const monthlyRevenue = invoices
     .filter(inv => {
+      if (!inv || !inv.createdAt) return false;
       const invDate = new Date(inv.createdAt);
       const now = new Date();
       return invDate.getMonth() === now.getMonth() && invDate.getFullYear() === now.getFullYear();
     })
     .reduce((sum, inv) => sum + parseFloat(inv.totalAmount || '0'), 0);
-  const newLeads = leads.filter(lead => lead.status === 'new').length;
+  const newLeads = leads.filter(lead => lead && lead.status === 'new').length;
   
   // Generate notifications from real data
   const notifications = [

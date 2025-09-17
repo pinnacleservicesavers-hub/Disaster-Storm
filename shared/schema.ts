@@ -1578,6 +1578,1092 @@ export const detectionResults = pgTable("detection_results", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// ===== COMPREHENSIVE LEAD CAPTURE & MANAGEMENT SYSTEM =====
+
+// 1. LEAD CAPTURE COMPONENTS
+
+// Funnels for multi-step lead capture
+export const funnels = pgTable("funnels", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description"),
+  slug: text("slug").notNull().unique(),
+  status: text("status").default("draft"), // draft, active, paused, archived
+  
+  // Configuration
+  theme: text("theme").default("storm"), // storm, modern, classic
+  primaryColor: text("primary_color").default("#1e40af"),
+  backgroundColor: text("background_color").default("#ffffff"),
+  fontFamily: text("font_family").default("Inter"),
+  
+  // SEO and Meta
+  metaTitle: text("meta_title"),
+  metaDescription: text("meta_description"),
+  ogImage: text("og_image"),
+  
+  // Analytics
+  views: integer("views").default(0),
+  uniqueVisitors: integer("unique_visitors").default(0),
+  conversionRate: numeric("conversion_rate", { precision: 5, scale: 2 }).default("0"),
+  
+  // Behavior settings
+  pixelId: text("pixel_id"), // Facebook pixel ID
+  gtmId: text("gtm_id"), // Google Tag Manager ID
+  redirectUrl: text("redirect_url"), // Post-completion redirect
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Individual steps in a funnel
+export const funnelSteps = pgTable("funnel_steps", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  funnelId: varchar("funnel_id").notNull().references(() => funnels.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  slug: text("slug").notNull(),
+  stepOrder: integer("step_order").notNull(),
+  stepType: text("step_type").notNull(), // landing, form, survey, calendar, video, thank_you
+  
+  // Content
+  headline: text("headline"),
+  subheadline: text("subheadline"),
+  bodyContent: text("body_content"),
+  mediaUrl: text("media_url"), // Image or video
+  buttonText: text("button_text").default("Next"),
+  
+  // Behavior
+  autoAdvance: boolean("auto_advance").default(false),
+  advanceDelay: integer("advance_delay").default(0), // seconds
+  exitIntentPopup: boolean("exit_intent_popup").default(false),
+  
+  // Analytics
+  views: integer("views").default(0),
+  completions: integer("completions").default(0),
+  dropOffs: integer("drop_offs").default(0),
+  avgTimeOnStep: integer("avg_time_on_step").default(0), // seconds
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  uniqueStepOrder: unique().on(table.funnelId, table.stepOrder),
+  uniqueSlug: unique().on(table.funnelId, table.slug),
+}));
+
+// Dynamic form builder
+export const forms = pgTable("forms", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description"),
+  funnelStepId: varchar("funnel_step_id").references(() => funnelSteps.id),
+  
+  // Form behavior
+  allowMultipleSubmissions: boolean("allow_multiple_submissions").default(false),
+  requiresApproval: boolean("requires_approval").default(false),
+  
+  // Notifications
+  notificationEmails: jsonb("notification_emails").$type<string[]>(),
+  sendConfirmationEmail: boolean("send_confirmation_email").default(true),
+  confirmationEmailTemplate: text("confirmation_email_template"),
+  
+  // Integration
+  webhookUrl: text("webhook_url"),
+  crmIntegration: text("crm_integration"), // pipedrive, hubspot, salesforce
+  crmMappings: jsonb("crm_mappings").$type<JsonObject>(),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Individual form fields
+export const formFields = pgTable("form_fields", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  formId: varchar("form_id").notNull().references(() => forms.id, { onDelete: "cascade" }),
+  fieldName: text("field_name").notNull(),
+  fieldLabel: text("field_label").notNull(),
+  fieldType: text("field_type").notNull(), // text, email, phone, select, radio, checkbox, file, signature
+  fieldOrder: integer("field_order").notNull(),
+  
+  // Validation
+  isRequired: boolean("is_required").default(false),
+  validationRules: jsonb("validation_rules").$type<JsonObject>(), // regex, min/max length, etc.
+  
+  // Options for select/radio/checkbox
+  fieldOptions: jsonb("field_options").$type<string[]>(),
+  
+  // Conditional logic
+  conditionalLogic: jsonb("conditional_logic").$type<JsonObject>(), // Show/hide based on other fields
+  
+  // Styling
+  placeholder: text("placeholder"),
+  helpText: text("help_text"),
+  cssClasses: text("css_classes"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  uniqueFieldOrder: unique().on(table.formId, table.fieldOrder),
+}));
+
+// Calendar booking system
+export const calendarBookings = pgTable("calendar_bookings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  funnelStepId: varchar("funnel_step_id").references(() => funnelSteps.id),
+  
+  // Booking details
+  customerName: text("customer_name").notNull(),
+  customerEmail: text("customer_email").notNull(),
+  customerPhone: text("customer_phone"),
+  
+  // Appointment
+  scheduledDate: timestamp("scheduled_date").notNull(),
+  duration: integer("duration").default(30), // minutes
+  timeZone: text("time_zone").notNull(),
+  appointmentType: text("appointment_type").notNull(), // consultation, estimate, inspection
+  
+  // Status
+  status: text("status").default("scheduled"), // scheduled, confirmed, cancelled, completed, no_show
+  
+  // Integration
+  googleCalendarEventId: text("google_calendar_event_id"),
+  outlookCalendarEventId: text("outlook_calendar_event_id"),
+  zoomMeetingUrl: text("zoom_meeting_url"),
+  
+  // Notes
+  customerNotes: text("customer_notes"),
+  internalNotes: text("internal_notes"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Survey builder with conditional logic
+export const surveys = pgTable("surveys", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description"),
+  funnelStepId: varchar("funnel_step_id").references(() => funnelSteps.id),
+  
+  // Survey behavior
+  allowMultipleResponses: boolean("allow_multiple_responses").default(false),
+  showProgressBar: boolean("show_progress_bar").default(true),
+  randomizeQuestions: boolean("randomize_questions").default(false),
+  
+  // Completion
+  thankyouMessage: text("thankyou_message"),
+  redirectUrl: text("redirect_url"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Individual survey questions
+export const surveyQuestions = pgTable("survey_questions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  surveyId: varchar("survey_id").notNull().references(() => surveys.id, { onDelete: "cascade" }),
+  questionText: text("question_text").notNull(),
+  questionType: text("question_type").notNull(), // multiple_choice, single_choice, text, rating, yes_no
+  questionOrder: integer("question_order").notNull(),
+  
+  // Options for choice questions
+  options: jsonb("options").$type<string[]>(),
+  
+  // Validation
+  isRequired: boolean("is_required").default(false),
+  
+  // Conditional logic
+  conditionalLogic: jsonb("conditional_logic").$type<JsonObject>(),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  uniqueQuestionOrder: unique().on(table.surveyId, table.questionOrder),
+}));
+
+// Chat widget configuration
+export const chatWidgets = pgTable("chat_widgets", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  
+  // Appearance
+  primaryColor: text("primary_color").default("#1e40af"),
+  position: text("position").default("bottom-right"), // bottom-right, bottom-left, etc.
+  widgetTheme: text("widget_theme").default("modern"),
+  
+  // Behavior
+  welcomeMessage: text("welcome_message").default("Hi! How can we help you?"),
+  autoOpenDelay: integer("auto_open_delay").default(0), // seconds, 0 = no auto open
+  showOnPages: jsonb("show_on_pages").$type<string[]>(), // URL patterns
+  hideOnPages: jsonb("hide_on_pages").$type<string[]>(),
+  
+  // Business hours
+  operatingHours: jsonb("operating_hours").$type<JsonObject>(),
+  offlineMessage: text("offline_message"),
+  
+  // Integration
+  slackWebhook: text("slack_webhook"),
+  emailNotifications: jsonb("email_notifications").$type<string[]>(),
+  
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// SMS/MMS campaigns
+export const smsCampaigns = pgTable("sms_campaigns", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description"),
+  campaignType: text("campaign_type").notNull(), // opt_in, drip, broadcast, automated
+  
+  // Content
+  messageContent: text("message_content").notNull(),
+  mediaUrls: jsonb("media_urls").$type<string[]>(), // For MMS
+  
+  // Targeting
+  keywords: jsonb("keywords").$type<string[]>(), // Keywords that trigger opt-in
+  audienceSegment: text("audience_segment"), // all, new_leads, existing_customers, etc.
+  
+  // Scheduling
+  scheduleType: text("schedule_type").default("immediate"), // immediate, scheduled, drip
+  scheduledDate: timestamp("scheduled_date"),
+  dripDelay: integer("drip_delay"), // hours between messages
+  
+  // Status
+  status: text("status").default("draft"), // draft, scheduled, sending, sent, cancelled
+  
+  // Analytics
+  messagesSent: integer("messages_sent").default(0),
+  delivered: integer("delivered").default(0),
+  replied: integer("replied").default(0),
+  optOuts: integer("opt_outs").default(0),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Call tracking numbers
+export const callTrackingNumbers = pgTable("call_tracking_numbers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  phoneNumber: text("phone_number").notNull().unique(),
+  friendlyName: text("friendly_name").notNull(),
+  
+  // Routing
+  forwardToNumber: text("forward_to_number").notNull(),
+  businessHours: jsonb("business_hours").$type<JsonObject>(),
+  afterHoursAction: text("after_hours_action").default("voicemail"), // voicemail, forward, disconnect
+  afterHoursNumber: text("after_hours_number"),
+  
+  // Features
+  recordCalls: boolean("record_calls").default(true),
+  transcribeCalls: boolean("transcribe_calls").default(true),
+  smsEnabled: boolean("sms_enabled").default(true),
+  
+  // Analytics
+  callsReceived: integer("calls_received").default(0),
+  missedCalls: integer("missed_calls").default(0),
+  avgCallDuration: integer("avg_call_duration").default(0), // seconds
+  
+  // Attribution
+  source: text("source"), // google_ads, facebook_ads, organic, direct
+  campaign: text("campaign"),
+  
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// 2. LEAD NURTURE COMPONENTS
+
+// Automated workflow builder
+export const workflows = pgTable("workflows", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description"),
+  triggerType: text("trigger_type").notNull(), // form_submit, tag_added, date_based, behavior_based
+  triggerConditions: jsonb("trigger_conditions").$type<JsonObject>(),
+  
+  // Behavior
+  isActive: boolean("is_active").default(true),
+  runOnWeekends: boolean("run_on_weekends").default(true),
+  respectBusinessHours: boolean("respect_business_hours").default(false),
+  
+  // Analytics
+  totalEnrollments: integer("total_enrollments").default(0),
+  completedRuns: integer("completed_runs").default(0),
+  currentlyActive: integer("currently_active").default(0),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Individual steps in workflows
+export const workflowSteps = pgTable("workflow_steps", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  workflowId: varchar("workflow_id").notNull().references(() => workflows.id, { onDelete: "cascade" }),
+  stepName: text("step_name").notNull(),
+  stepType: text("step_type").notNull(), // email, sms, call, wait, condition, tag_action
+  stepOrder: integer("step_order").notNull(),
+  
+  // Action configuration
+  actionConfig: jsonb("action_config").$type<JsonObject>(), // Step-specific settings
+  
+  // Conditional logic
+  conditions: jsonb("conditions").$type<JsonObject>(), // For branching logic
+  
+  // Timing
+  delayAmount: integer("delay_amount").default(0),
+  delayUnit: text("delay_unit").default("minutes"), // minutes, hours, days
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  uniqueStepOrder: unique().on(table.workflowId, table.stepOrder),
+}));
+
+// Email campaign templates
+export const emailTemplates = pgTable("email_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  subject: text("subject").notNull(),
+  htmlContent: text("html_content").notNull(),
+  textContent: text("text_content"),
+  
+  // Template type
+  templateType: text("template_type").default("marketing"), // marketing, transactional, notification
+  
+  // Design
+  template: text("template").default("default"), // default, newsletter, promotional
+  
+  // Variables
+  variables: jsonb("variables").$type<string[]>(), // {{firstName}}, {{companyName}}, etc.
+  
+  // Testing
+  testVersion: text("test_version"), // A/B testing
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Email campaigns
+export const emailCampaigns = pgTable("email_campaigns", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  templateId: varchar("template_id").references(() => emailTemplates.id),
+  campaignType: text("campaign_type").notNull(), // broadcast, drip, automated
+  
+  // Targeting
+  audienceSegment: text("audience_segment"),
+  audienceSize: integer("audience_size").default(0),
+  
+  // Scheduling
+  scheduleType: text("schedule_type").default("immediate"), // immediate, scheduled
+  scheduledDate: timestamp("scheduled_date"),
+  
+  // Status
+  status: text("status").default("draft"), // draft, scheduled, sending, sent, cancelled
+  
+  // Analytics
+  emailsSent: integer("emails_sent").default(0),
+  delivered: integer("delivered").default(0),
+  opened: integer("opened").default(0),
+  clicked: integer("clicked").default(0),
+  unsubscribed: integer("unsubscribed").default(0),
+  bounced: integer("bounced").default(0),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Voicemail drops
+export const voicemailDrops = pgTable("voicemail_drops", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  audioFileUrl: text("audio_file_url").notNull(),
+  
+  // Campaign settings
+  campaignType: text("campaign_type").default("broadcast"), // broadcast, drip, automated
+  audienceSegment: text("audience_segment"),
+  
+  // Scheduling
+  scheduleType: text("schedule_type").default("immediate"),
+  scheduledDate: timestamp("scheduled_date"),
+  
+  // Analytics
+  dropsSent: integer("drops_sent").default(0),
+  delivered: integer("delivered").default(0),
+  listened: integer("listened").default(0),
+  callBacks: integer("call_backs").default(0),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Social DM campaigns
+export const socialCampaigns = pgTable("social_campaigns", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  platform: text("platform").notNull(), // facebook, instagram, gmb, linkedin
+  messageContent: text("message_content").notNull(),
+  
+  // Targeting
+  audienceSegment: text("audience_segment"),
+  
+  // Scheduling
+  scheduleType: text("schedule_type").default("immediate"),
+  scheduledDate: timestamp("scheduled_date"),
+  
+  // Status
+  status: text("status").default("draft"),
+  
+  // Analytics
+  messagesSent: integer("messages_sent").default(0),
+  delivered: integer("delivered").default(0),
+  replied: integer("replied").default(0),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// AI Chatbot configuration
+export const chatbots = pgTable("chatbots", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  
+  // AI Configuration
+  aiModel: text("ai_model").default("gpt-3.5-turbo"), // gpt-3.5-turbo, gpt-4, claude
+  systemPrompt: text("system_prompt").notNull(),
+  temperature: numeric("temperature", { precision: 3, scale: 2 }).default("0.7"),
+  maxTokens: integer("max_tokens").default(150),
+  
+  // Knowledge Base
+  knowledgeBase: text("knowledge_base"), // URL to knowledge base or training data
+  fallbackMessage: text("fallback_message").default("I'm not sure about that. Let me connect you with a human."),
+  
+  // Integration
+  channels: jsonb("channels").$type<string[]>(), // website, facebook, sms
+  
+  // Analytics
+  totalInteractions: integer("total_interactions").default(0),
+  resolvedQueries: integer("resolved_queries").default(0),
+  escalatedToHuman: integer("escalated_to_human").default(0),
+  avgSatisfactionScore: numeric("avg_satisfaction_score", { precision: 3, scale: 2 }),
+  
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// 3. CRM & PIPELINE COMPONENTS
+
+// Lead tags for segmentation
+export const leadTags = pgTable("lead_tags", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  leadId: varchar("lead_id").notNull().references(() => leads.id, { onDelete: "cascade" }),
+  tagName: text("tag_name").notNull(),
+  tagColor: text("tag_color").default("#blue"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  uniqueLeadTag: unique().on(table.leadId, table.tagName),
+}));
+
+// Pipeline stages
+export const pipelineStages = pgTable("pipeline_stages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description"),
+  stageOrder: integer("stage_order").notNull(),
+  stageColor: text("stage_color").default("#gray"),
+  
+  // Behavior
+  isClosedWon: boolean("is_closed_won").default(false),
+  isClosedLost: boolean("is_closed_lost").default(false),
+  requiresApproval: boolean("requires_approval").default(false),
+  
+  // Analytics
+  avgTimeInStage: integer("avg_time_in_stage").default(0), // days
+  conversionRate: numeric("conversion_rate", { precision: 5, scale: 2 }).default("0"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  uniqueStageOrder: unique().on(table.stageOrder),
+}));
+
+// Business opportunities/deals
+export const opportunities = pgTable("opportunities", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  leadId: varchar("lead_id").references(() => leads.id),
+  name: text("name").notNull(),
+  
+  // Value and probability
+  value: numeric("value", { precision: 10, scale: 2 }).notNull(),
+  probability: integer("probability").default(50), // percentage 0-100
+  expectedCloseDate: timestamp("expected_close_date"),
+  
+  // Pipeline
+  stageId: varchar("stage_id").references(() => pipelineStages.id),
+  
+  // Details
+  source: text("source"), // referral, website, advertising
+  competitorInfo: text("competitor_info"),
+  decisionMakers: jsonb("decision_makers").$type<string[]>(),
+  
+  // Status
+  status: text("status").default("open"), // open, closed_won, closed_lost
+  closeReason: text("close_reason"),
+  
+  // Analytics
+  daysInPipeline: integer("days_in_pipeline").default(0),
+  lastActivityDate: timestamp("last_activity_date"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Task and reminder system
+export const tasks = pgTable("tasks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: text("title").notNull(),
+  description: text("description"),
+  
+  // Assignment
+  assignedTo: varchar("assigned_to"), // User ID
+  leadId: varchar("lead_id").references(() => leads.id),
+  opportunityId: varchar("opportunity_id").references(() => opportunities.id),
+  
+  // Scheduling
+  dueDate: timestamp("due_date"),
+  priority: text("priority").default("medium"), // low, medium, high, urgent
+  
+  // Status
+  status: text("status").default("pending"), // pending, in_progress, completed, cancelled
+  completedAt: timestamp("completed_at"),
+  
+  // Reminders
+  reminderType: text("reminder_type"), // email, sms, push
+  reminderTime: timestamp("reminder_time"),
+  reminderSent: boolean("reminder_sent").default(false),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// 4. COMMUNICATION COMPONENTS
+
+// Unified inbox messages
+export const messages = pgTable("messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Message details
+  channel: text("channel").notNull(), // email, sms, chat, social, phone
+  direction: text("direction").notNull(), // inbound, outbound
+  
+  // Sender/Recipient
+  fromContact: text("from_contact").notNull(),
+  toContact: text("to_contact").notNull(),
+  leadId: varchar("lead_id").references(() => leads.id),
+  
+  // Content
+  subject: text("subject"), // For email
+  content: text("content").notNull(),
+  attachments: jsonb("attachments").$type<string[]>(),
+  
+  // Status
+  status: text("status").default("unread"), // unread, read, replied, archived
+  isImportant: boolean("is_important").default(false),
+  
+  // Integration IDs
+  externalId: text("external_id"), // Third-party message ID
+  threadId: text("thread_id"), // For grouping messages
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Call logs and recordings
+export const callLogs = pgTable("call_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Call details
+  phoneNumber: text("phone_number").notNull(),
+  direction: text("direction").notNull(), // inbound, outbound
+  duration: integer("duration").default(0), // seconds
+  
+  // Associated records
+  leadId: varchar("lead_id").references(() => leads.id),
+  opportunityId: varchar("opportunity_id").references(() => opportunities.id),
+  trackingNumberId: varchar("tracking_number_id").references(() => callTrackingNumbers.id),
+  
+  // Call outcome
+  outcome: text("outcome"), // answered, voicemail, busy, no_answer, failed
+  disposition: text("disposition"), // interested, not_interested, callback, appointment_set
+  notes: text("notes"),
+  
+  // Recording
+  recordingUrl: text("recording_url"),
+  transcription: text("transcription"),
+  transcriptionConfidence: numeric("transcription_confidence", { precision: 3, scale: 2 }),
+  
+  // Analytics
+  callCost: numeric("call_cost", { precision: 8, scale: 4 }),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Power dialer campaigns
+export const dialerCampaigns = pgTable("dialer_campaigns", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description"),
+  
+  // Campaign settings
+  dialMode: text("dial_mode").default("progressive"), // preview, progressive, predictive
+  maxDialAttempts: integer("max_dial_attempts").default(3),
+  callInterval: integer("call_interval").default(15), // seconds between calls
+  
+  // Lists and targeting
+  contactLists: jsonb("contact_lists").$type<string[]>(),
+  audienceSegment: text("audience_segment"),
+  
+  // Scheduling
+  scheduleType: text("schedule_type").default("immediate"),
+  scheduledDate: timestamp("scheduled_date"),
+  businessHoursOnly: boolean("business_hours_only").default(true),
+  
+  // Voicemail settings
+  dropVoicemail: boolean("drop_voicemail").default(true),
+  voicemailAudioUrl: text("voicemail_audio_url"),
+  
+  // Status
+  status: text("status").default("draft"), // draft, scheduled, active, paused, completed
+  
+  // Analytics
+  totalCalls: integer("total_calls").default(0),
+  connectedCalls: integer("connected_calls").default(0),
+  voicemails: integer("voicemails").default(0),
+  appointments: integer("appointments").default(0),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Two-way text conversations
+export const textConversations = pgTable("text_conversations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Participants
+  leadPhoneNumber: text("lead_phone_number").notNull(),
+  businessPhoneNumber: text("business_phone_number").notNull(),
+  leadId: varchar("lead_id").references(() => leads.id),
+  
+  // Conversation details
+  lastMessage: text("last_message"),
+  lastMessageAt: timestamp("last_message_at"),
+  messageCount: integer("message_count").default(0),
+  
+  // Status
+  status: text("status").default("active"), // active, archived, blocked
+  isUnread: boolean("is_unread").default(false),
+  
+  // Assignment
+  assignedTo: varchar("assigned_to"), // User ID
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// 5. ANALYTICS & REPORTING COMPONENTS
+
+// Analytics events tracking
+export const analyticsEvents = pgTable("analytics_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Event details
+  eventType: text("event_type").notNull(), // page_view, form_submit, email_open, call_start, etc.
+  eventCategory: text("event_category").notNull(), // funnel, email, call, sms
+  
+  // Associated records
+  leadId: varchar("lead_id").references(() => leads.id),
+  funnelId: varchar("funnel_id").references(() => funnels.id),
+  campaignId: text("campaign_id"), // Generic campaign reference
+  
+  // Event data
+  eventData: jsonb("event_data").$type<JsonObject>(),
+  eventValue: numeric("event_value", { precision: 10, scale: 2 }),
+  
+  // Session/user tracking
+  sessionId: text("session_id"),
+  userId: text("user_id"),
+  anonymousId: text("anonymous_id"),
+  
+  // Technical details
+  userAgent: text("user_agent"),
+  ipAddress: text("ip_address"),
+  referrer: text("referrer"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Performance metrics aggregation
+export const performanceMetrics = pgTable("performance_metrics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Time period
+  date: timestamp("date").notNull(),
+  granularity: text("granularity").notNull(), // hourly, daily, weekly, monthly
+  
+  // Metric category
+  category: text("category").notNull(), // leads, calls, emails, sms, revenue
+  
+  // Metrics
+  metrics: jsonb("metrics").$type<JsonObject>(), // Flexible metric storage
+  
+  // Aggregation metadata
+  recordCount: integer("record_count").default(0),
+  lastCalculated: timestamp("last_calculated").defaultNow(),
+}, (table) => ({
+  uniqueMetric: unique().on(table.date, table.granularity, table.category),
+}));
+
+// Revenue forecasting
+export const revenueForecasts = pgTable("revenue_forecasts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Forecast period
+  forecastMonth: text("forecast_month").notNull(), // YYYY-MM format
+  forecastYear: integer("forecast_year").notNull(),
+  
+  // Forecast data
+  pipelineValue: numeric("pipeline_value", { precision: 12, scale: 2 }).notNull(),
+  weightedValue: numeric("weighted_value", { precision: 12, scale: 2 }).notNull(),
+  conservativeEstimate: numeric("conservative_estimate", { precision: 12, scale: 2 }).notNull(),
+  optimisticEstimate: numeric("optimistic_estimate", { precision: 12, scale: 2 }).notNull(),
+  
+  // Confidence and methodology
+  confidenceLevel: integer("confidence_level").default(80), // percentage
+  modelUsed: text("model_used").default("linear_regression"),
+  
+  // Actual results (filled in later)
+  actualRevenue: numeric("actual_revenue", { precision: 12, scale: 2 }),
+  accuracyScore: numeric("accuracy_score", { precision: 5, scale: 2 }),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  uniqueForecast: unique().on(table.forecastMonth, table.forecastYear),
+}));
+
+// 6. AUTOMATION & AI ADD-ONS
+
+// AI configuration and responses
+export const aiConfigurations = pgTable("ai_configurations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  configType: text("config_type").notNull(), // lead_scoring, response_generation, content_optimization
+  
+  // AI model settings
+  provider: text("provider").default("openai"), // openai, anthropic, cohere
+  model: text("model").default("gpt-3.5-turbo"),
+  apiKey: text("api_key"), // Encrypted
+  
+  // Configuration
+  systemPrompt: text("system_prompt"),
+  temperature: numeric("temperature", { precision: 3, scale: 2 }).default("0.7"),
+  maxTokens: integer("max_tokens").default(300),
+  
+  // Usage tracking
+  requestsThisMonth: integer("requests_this_month").default(0),
+  tokensUsedThisMonth: integer("tokens_used_this_month").default(0),
+  estimatedCostThisMonth: numeric("estimated_cost_this_month", { precision: 8, scale: 4 }).default("0"),
+  
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Workflow trigger definitions
+export const workflowTriggers = pgTable("workflow_triggers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  
+  // Trigger definition
+  triggerType: text("trigger_type").notNull(), // event_based, time_based, behavior_based
+  eventType: text("event_type"), // form_submit, email_open, call_end, etc.
+  conditions: jsonb("conditions").$type<JsonObject>(),
+  
+  // Associated workflow
+  workflowId: varchar("workflow_id").references(() => workflows.id),
+  
+  // Status
+  isActive: boolean("is_active").default(true),
+  
+  // Analytics
+  totalTriggers: integer("total_triggers").default(0),
+  successfulRuns: integer("successful_runs").default(0),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// E-signature documents and tracking
+export const signatures = pgTable("signatures", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Document details
+  documentName: text("document_name").notNull(),
+  documentUrl: text("document_url").notNull(),
+  templateId: text("template_id"), // DocuSign, HelloSign template ID
+  
+  // Associated records
+  leadId: varchar("lead_id").references(() => leads.id),
+  opportunityId: varchar("opportunity_id").references(() => opportunities.id),
+  
+  // Signers
+  signerEmail: text("signer_email").notNull(),
+  signerName: text("signer_name").notNull(),
+  
+  // Status
+  status: text("status").default("sent"), // sent, viewed, signed, completed, declined, expired
+  sentDate: timestamp("sent_date").defaultNow(),
+  viewedDate: timestamp("viewed_date"),
+  signedDate: timestamp("signed_date"),
+  expirationDate: timestamp("expiration_date"),
+  
+  // Integration
+  externalSignatureId: text("external_signature_id"), // Third-party service ID
+  signedDocumentUrl: text("signed_document_url"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Payment links and invoice tracking
+export const paymentLinks = pgTable("payment_links", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Link details
+  linkName: text("link_name").notNull(),
+  amount: numeric("amount", { precision: 10, scale: 2 }).notNull(),
+  currency: text("currency").default("USD"),
+  description: text("description"),
+  
+  // Associated records
+  leadId: varchar("lead_id").references(() => leads.id),
+  opportunityId: varchar("opportunity_id").references(() => opportunities.id),
+  invoiceId: varchar("invoice_id").references(() => invoices.id),
+  
+  // Link configuration
+  linkUrl: text("link_url").notNull(),
+  isRecurring: boolean("is_recurring").default(false),
+  recurringInterval: text("recurring_interval"), // monthly, yearly
+  
+  // Status
+  status: text("status").default("active"), // active, paid, expired, cancelled
+  
+  // Payment details
+  stripePaymentIntentId: text("stripe_payment_intent_id"),
+  paidAmount: numeric("paid_amount", { precision: 10, scale: 2 }),
+  paidDate: timestamp("paid_date"),
+  
+  // Expiration
+  expirationDate: timestamp("expiration_date"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// ===== INSERT SCHEMAS FOR COMPREHENSIVE LEAD CAPTURE SYSTEM =====
+
+// 1. Lead Capture Component Insert Schemas
+export const insertFunnelSchema = createInsertSchema(funnels).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertFunnelStepSchema = createInsertSchema(funnelSteps).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertFormSchema = createInsertSchema(forms).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertFormFieldSchema = createInsertSchema(formFields).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertCalendarBookingSchema = createInsertSchema(calendarBookings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertSurveySchema = createInsertSchema(surveys).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertSurveyQuestionSchema = createInsertSchema(surveyQuestions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertChatWidgetSchema = createInsertSchema(chatWidgets).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertSmsCampaignSchema = createInsertSchema(smsCampaigns).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertCallTrackingNumberSchema = createInsertSchema(callTrackingNumbers).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// 2. Lead Nurture Component Insert Schemas
+export const insertWorkflowSchema = createInsertSchema(workflows).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertWorkflowStepSchema = createInsertSchema(workflowSteps).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertEmailTemplateSchema = createInsertSchema(emailTemplates).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertEmailCampaignSchema = createInsertSchema(emailCampaigns).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertVoicemailDropSchema = createInsertSchema(voicemailDrops).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertSocialCampaignSchema = createInsertSchema(socialCampaigns).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertChatbotSchema = createInsertSchema(chatbots).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// 3. CRM & Pipeline Component Insert Schemas
+export const insertLeadTagSchema = createInsertSchema(leadTags).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertPipelineStageSchema = createInsertSchema(pipelineStages).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertOpportunitySchema = createInsertSchema(opportunities).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertTaskSchema = createInsertSchema(tasks).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  completedAt: true,
+});
+
+// 4. Communication Component Insert Schemas
+export const insertMessageSchema = createInsertSchema(messages).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertCallLogSchema = createInsertSchema(callLogs).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertDialerCampaignSchema = createInsertSchema(dialerCampaigns).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertTextConversationSchema = createInsertSchema(textConversations).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// 5. Analytics & Reporting Component Insert Schemas
+export const insertAnalyticsEventSchema = createInsertSchema(analyticsEvents).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertPerformanceMetricSchema = createInsertSchema(performanceMetrics).omit({
+  id: true,
+});
+
+export const insertRevenueForecastSchema = createInsertSchema(revenueForecasts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// 6. Automation & AI Add-On Insert Schemas
+export const insertAiConfigurationSchema = createInsertSchema(aiConfigurations).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertWorkflowTriggerSchema = createInsertSchema(workflowTriggers).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertSignatureSchema = createInsertSchema(signatures).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  sentDate: true,
+});
+
+export const insertPaymentLinkSchema = createInsertSchema(paymentLinks).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Insert schemas for the new tables
 export const insertAiDamageLeadSchema = createInsertSchema(aiDamageLeads, {
   id: false,
@@ -1638,6 +2724,84 @@ export const insertDetectionResultSchema = createInsertSchema(detectionResults).
   confidence: z.number().min(0).max(100), // Numeric 0-100 percentage
   severityScore: z.number().min(0).max(10), // Numeric 0-10 scale
 });
+
+// ===== TYPE EXPORTS FOR COMPREHENSIVE LEAD CAPTURE SYSTEM =====
+
+// 1. Lead Capture Component Types
+export type Funnel = typeof funnels.$inferSelect;
+export type InsertFunnel = z.infer<typeof insertFunnelSchema>;
+export type FunnelStep = typeof funnelSteps.$inferSelect;
+export type InsertFunnelStep = z.infer<typeof insertFunnelStepSchema>;
+export type Form = typeof forms.$inferSelect;
+export type InsertForm = z.infer<typeof insertFormSchema>;
+export type FormField = typeof formFields.$inferSelect;
+export type InsertFormField = z.infer<typeof insertFormFieldSchema>;
+export type CalendarBooking = typeof calendarBookings.$inferSelect;
+export type InsertCalendarBooking = z.infer<typeof insertCalendarBookingSchema>;
+export type Survey = typeof surveys.$inferSelect;
+export type InsertSurvey = z.infer<typeof insertSurveySchema>;
+export type SurveyQuestion = typeof surveyQuestions.$inferSelect;
+export type InsertSurveyQuestion = z.infer<typeof insertSurveyQuestionSchema>;
+export type ChatWidget = typeof chatWidgets.$inferSelect;
+export type InsertChatWidget = z.infer<typeof insertChatWidgetSchema>;
+export type SmsCampaign = typeof smsCampaigns.$inferSelect;
+export type InsertSmsCampaign = z.infer<typeof insertSmsCampaignSchema>;
+export type CallTrackingNumber = typeof callTrackingNumbers.$inferSelect;
+export type InsertCallTrackingNumber = z.infer<typeof insertCallTrackingNumberSchema>;
+
+// 2. Lead Nurture Component Types
+export type Workflow = typeof workflows.$inferSelect;
+export type InsertWorkflow = z.infer<typeof insertWorkflowSchema>;
+export type WorkflowStep = typeof workflowSteps.$inferSelect;
+export type InsertWorkflowStep = z.infer<typeof insertWorkflowStepSchema>;
+export type EmailTemplate = typeof emailTemplates.$inferSelect;
+export type InsertEmailTemplate = z.infer<typeof insertEmailTemplateSchema>;
+export type EmailCampaign = typeof emailCampaigns.$inferSelect;
+export type InsertEmailCampaign = z.infer<typeof insertEmailCampaignSchema>;
+export type VoicemailDrop = typeof voicemailDrops.$inferSelect;
+export type InsertVoicemailDrop = z.infer<typeof insertVoicemailDropSchema>;
+export type SocialCampaign = typeof socialCampaigns.$inferSelect;
+export type InsertSocialCampaign = z.infer<typeof insertSocialCampaignSchema>;
+export type Chatbot = typeof chatbots.$inferSelect;
+export type InsertChatbot = z.infer<typeof insertChatbotSchema>;
+
+// 3. CRM & Pipeline Component Types
+export type LeadTag = typeof leadTags.$inferSelect;
+export type InsertLeadTag = z.infer<typeof insertLeadTagSchema>;
+export type PipelineStage = typeof pipelineStages.$inferSelect;
+export type InsertPipelineStage = z.infer<typeof insertPipelineStageSchema>;
+export type Opportunity = typeof opportunities.$inferSelect;
+export type InsertOpportunity = z.infer<typeof insertOpportunitySchema>;
+export type Task = typeof tasks.$inferSelect;
+export type InsertTask = z.infer<typeof insertTaskSchema>;
+
+// 4. Communication Component Types
+export type Message = typeof messages.$inferSelect;
+export type InsertMessage = z.infer<typeof insertMessageSchema>;
+export type CallLog = typeof callLogs.$inferSelect;
+export type InsertCallLog = z.infer<typeof insertCallLogSchema>;
+export type DialerCampaign = typeof dialerCampaigns.$inferSelect;
+export type InsertDialerCampaign = z.infer<typeof insertDialerCampaignSchema>;
+export type TextConversation = typeof textConversations.$inferSelect;
+export type InsertTextConversation = z.infer<typeof insertTextConversationSchema>;
+
+// 5. Analytics & Reporting Component Types
+export type AnalyticsEvent = typeof analyticsEvents.$inferSelect;
+export type InsertAnalyticsEvent = z.infer<typeof insertAnalyticsEventSchema>;
+export type PerformanceMetric = typeof performanceMetrics.$inferSelect;
+export type InsertPerformanceMetric = z.infer<typeof insertPerformanceMetricSchema>;
+export type RevenueForecast = typeof revenueForecasts.$inferSelect;
+export type InsertRevenueForecast = z.infer<typeof insertRevenueForecastSchema>;
+
+// 6. Automation & AI Add-On Component Types
+export type AiConfiguration = typeof aiConfigurations.$inferSelect;
+export type InsertAiConfiguration = z.infer<typeof insertAiConfigurationSchema>;
+export type WorkflowTrigger = typeof workflowTriggers.$inferSelect;
+export type InsertWorkflowTrigger = z.infer<typeof insertWorkflowTriggerSchema>;
+export type Signature = typeof signatures.$inferSelect;
+export type InsertSignature = z.infer<typeof insertSignatureSchema>;
+export type PaymentLink = typeof paymentLinks.$inferSelect;
+export type InsertPaymentLink = z.infer<typeof insertPaymentLinkSchema>;
 
 // Export types for the new schemas
 export type AiDamageLead = typeof aiDamageLeads.$inferSelect;

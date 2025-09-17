@@ -62,7 +62,21 @@ import {
   type DetectionJob,
   type InsertDetectionJob,
   type DetectionResult,
-  type InsertDetectionResult
+  type InsertDetectionResult,
+  type Funnel,
+  type InsertFunnel,
+  type FunnelStep,
+  type InsertFunnelStep,
+  type Form,
+  type InsertForm,
+  type FormField,
+  type InsertFormField,
+  type CalendarBooking,
+  type InsertCalendarBooking,
+  type Workflow,
+  type InsertWorkflow,
+  type WorkflowStep,
+  type InsertWorkflowStep
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import fs from "fs";
@@ -320,6 +334,67 @@ export interface IStorage {
   createDetectionResult(result: InsertDetectionResult): Promise<DetectionResult>;
   updateDetectionResult(id: string, updates: Partial<DetectionResult>): Promise<DetectionResult>;
   deleteDetectionResult(id: string): Promise<boolean>;
+
+  // Lead Capture System - Funnel methods
+  getFunnels(): Promise<Funnel[]>;
+  getFunnel(id: string): Promise<Funnel | undefined>;
+  getFunnelBySlug(slug: string): Promise<Funnel | undefined>;
+  createFunnel(funnel: InsertFunnel): Promise<Funnel>;
+  updateFunnel(id: string, updates: Partial<Funnel>): Promise<Funnel>;
+  deleteFunnel(id: string): Promise<boolean>;
+
+  // Funnel Step methods
+  getFunnelSteps(funnelId: string): Promise<FunnelStep[]>;
+  getFunnelStep(id: string): Promise<FunnelStep | undefined>;
+  createFunnelStep(step: InsertFunnelStep): Promise<FunnelStep>;
+  updateFunnelStep(id: string, updates: Partial<FunnelStep>): Promise<FunnelStep>;
+  deleteFunnelStep(id: string): Promise<boolean>;
+  reorderFunnelSteps(funnelId: string, stepIds: string[]): Promise<boolean>;
+
+  // Form methods
+  getForms(): Promise<Form[]>;
+  getForm(id: string): Promise<Form | undefined>;
+  getFormsByFunnelStep(funnelStepId: string): Promise<Form[]>;
+  createForm(form: InsertForm): Promise<Form>;
+  updateForm(id: string, updates: Partial<Form>): Promise<Form>;
+  deleteForm(id: string): Promise<boolean>;
+
+  // Form Field methods
+  getFormFields(formId: string): Promise<FormField[]>;
+  getFormField(id: string): Promise<FormField | undefined>;
+  createFormField(field: InsertFormField): Promise<FormField>;
+  updateFormField(id: string, updates: Partial<FormField>): Promise<FormField>;
+  deleteFormField(id: string): Promise<boolean>;
+  reorderFormFields(formId: string, fieldIds: string[]): Promise<boolean>;
+
+  // Calendar Booking methods
+  getCalendarBookings(): Promise<CalendarBooking[]>;
+  getCalendarBooking(id: string): Promise<CalendarBooking | undefined>;
+  getCalendarBookingsByHomeowner(homeownerId: string): Promise<CalendarBooking[]>;
+  getCalendarBookingsByDate(date: Date): Promise<CalendarBooking[]>;
+  getCalendarBookingsByType(appointmentType: string): Promise<CalendarBooking[]>;
+  getCalendarBookingsByStatus(status: string): Promise<CalendarBooking[]>;
+  createCalendarBooking(booking: InsertCalendarBooking): Promise<CalendarBooking>;
+  updateCalendarBooking(id: string, updates: Partial<CalendarBooking>): Promise<CalendarBooking>;
+  deleteCalendarBooking(id: string): Promise<boolean>;
+  getAvailableTimeSlots(date: Date, duration: number): Promise<string[]>;
+
+  // Workflow methods
+  getWorkflows(): Promise<Workflow[]>;
+  getWorkflow(id: string): Promise<Workflow | undefined>;
+  getActiveWorkflows(): Promise<Workflow[]>;
+  getWorkflowsByTriggerType(triggerType: string): Promise<Workflow[]>;
+  createWorkflow(workflow: InsertWorkflow): Promise<Workflow>;
+  updateWorkflow(id: string, updates: Partial<Workflow>): Promise<Workflow>;
+  deleteWorkflow(id: string): Promise<boolean>;
+
+  // Workflow Step methods
+  getWorkflowSteps(workflowId: string): Promise<WorkflowStep[]>;
+  getWorkflowStep(id: string): Promise<WorkflowStep | undefined>;
+  createWorkflowStep(step: InsertWorkflowStep): Promise<WorkflowStep>;
+  updateWorkflowStep(id: string, updates: Partial<WorkflowStep>): Promise<WorkflowStep>;
+  deleteWorkflowStep(id: string): Promise<boolean>;
+  reorderWorkflowSteps(workflowId: string, stepIds: string[]): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
@@ -363,6 +438,15 @@ export class MemStorage implements IStorage {
   // AI Damage Detection Foundation Storage
   private detectionJobs: Map<string, DetectionJob> = new Map();
   private detectionResults: Map<string, DetectionResult> = new Map();
+
+  // Lead Capture System Storage
+  private funnels: Map<string, Funnel> = new Map();
+  private funnelSteps: Map<string, FunnelStep> = new Map();
+  private forms: Map<string, Form> = new Map();
+  private formFields: Map<string, FormField> = new Map();
+  private calendarBookings: Map<string, CalendarBooking> = new Map();
+  private workflows: Map<string, Workflow> = new Map();
+  private workflowSteps: Map<string, WorkflowStep> = new Map();
 
   constructor() {
     console.log('🏗️ Initializing MemStorage...');
@@ -1823,6 +1907,353 @@ export class MemStorage implements IStorage {
 
   async deleteDetectionResult(id: string): Promise<boolean> {
     return this.detectionResults.delete(id);
+  }
+
+  // ===== LEAD CAPTURE SYSTEM METHODS =====
+
+  // Funnel methods
+  async getFunnels(): Promise<Funnel[]> {
+    return Array.from(this.funnels.values());
+  }
+
+  async getFunnel(id: string): Promise<Funnel | undefined> {
+    return this.funnels.get(id);
+  }
+
+  async getFunnelBySlug(slug: string): Promise<Funnel | undefined> {
+    return Array.from(this.funnels.values()).find(funnel => funnel.slug === slug);
+  }
+
+  async createFunnel(insertFunnel: InsertFunnel): Promise<Funnel> {
+    const id = randomUUID();
+    const funnel: Funnel = {
+      ...insertFunnel,
+      id,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.funnels.set(id, funnel);
+    return funnel;
+  }
+
+  async updateFunnel(id: string, updates: Partial<Funnel>): Promise<Funnel> {
+    const funnel = this.funnels.get(id);
+    if (!funnel) throw new Error("Funnel not found");
+    
+    const updatedFunnel = { ...funnel, ...updates, updatedAt: new Date() };
+    this.funnels.set(id, updatedFunnel);
+    return updatedFunnel;
+  }
+
+  async deleteFunnel(id: string): Promise<boolean> {
+    // Also delete associated funnel steps
+    const steps = Array.from(this.funnelSteps.values()).filter(step => step.funnelId === id);
+    steps.forEach(step => this.funnelSteps.delete(step.id));
+    return this.funnels.delete(id);
+  }
+
+  // Funnel Step methods
+  async getFunnelSteps(funnelId: string): Promise<FunnelStep[]> {
+    return Array.from(this.funnelSteps.values())
+      .filter(step => step.funnelId === funnelId)
+      .sort((a, b) => a.stepOrder - b.stepOrder);
+  }
+
+  async getFunnelStep(id: string): Promise<FunnelStep | undefined> {
+    return this.funnelSteps.get(id);
+  }
+
+  async createFunnelStep(insertStep: InsertFunnelStep): Promise<FunnelStep> {
+    const id = randomUUID();
+    const step: FunnelStep = {
+      ...insertStep,
+      id,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.funnelSteps.set(id, step);
+    return step;
+  }
+
+  async updateFunnelStep(id: string, updates: Partial<FunnelStep>): Promise<FunnelStep> {
+    const step = this.funnelSteps.get(id);
+    if (!step) throw new Error("Funnel step not found");
+    
+    const updatedStep = { ...step, ...updates, updatedAt: new Date() };
+    this.funnelSteps.set(id, updatedStep);
+    return updatedStep;
+  }
+
+  async deleteFunnelStep(id: string): Promise<boolean> {
+    return this.funnelSteps.delete(id);
+  }
+
+  async reorderFunnelSteps(funnelId: string, stepIds: string[]): Promise<boolean> {
+    try {
+      stepIds.forEach((stepId, index) => {
+        const step = this.funnelSteps.get(stepId);
+        if (step && step.funnelId === funnelId) {
+          this.funnelSteps.set(stepId, { ...step, stepOrder: index + 1, updatedAt: new Date() });
+        }
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  // Form methods
+  async getForms(): Promise<Form[]> {
+    return Array.from(this.forms.values());
+  }
+
+  async getForm(id: string): Promise<Form | undefined> {
+    return this.forms.get(id);
+  }
+
+  async getFormsByFunnelStep(funnelStepId: string): Promise<Form[]> {
+    return Array.from(this.forms.values()).filter(form => form.funnelStepId === funnelStepId);
+  }
+
+  async createForm(insertForm: InsertForm): Promise<Form> {
+    const id = randomUUID();
+    const form: Form = {
+      ...insertForm,
+      id,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.forms.set(id, form);
+    return form;
+  }
+
+  async updateForm(id: string, updates: Partial<Form>): Promise<Form> {
+    const form = this.forms.get(id);
+    if (!form) throw new Error("Form not found");
+    
+    const updatedForm = { ...form, ...updates, updatedAt: new Date() };
+    this.forms.set(id, updatedForm);
+    return updatedForm;
+  }
+
+  async deleteForm(id: string): Promise<boolean> {
+    // Also delete associated form fields
+    const fields = Array.from(this.formFields.values()).filter(field => field.formId === id);
+    fields.forEach(field => this.formFields.delete(field.id));
+    return this.forms.delete(id);
+  }
+
+  // Form Field methods
+  async getFormFields(formId: string): Promise<FormField[]> {
+    return Array.from(this.formFields.values())
+      .filter(field => field.formId === formId)
+      .sort((a, b) => a.fieldOrder - b.fieldOrder);
+  }
+
+  async getFormField(id: string): Promise<FormField | undefined> {
+    return this.formFields.get(id);
+  }
+
+  async createFormField(insertField: InsertFormField): Promise<FormField> {
+    const id = randomUUID();
+    const field: FormField = {
+      ...insertField,
+      id,
+      createdAt: new Date()
+    };
+    this.formFields.set(id, field);
+    return field;
+  }
+
+  async updateFormField(id: string, updates: Partial<FormField>): Promise<FormField> {
+    const field = this.formFields.get(id);
+    if (!field) throw new Error("Form field not found");
+    
+    const updatedField = { ...field, ...updates };
+    this.formFields.set(id, updatedField);
+    return updatedField;
+  }
+
+  async deleteFormField(id: string): Promise<boolean> {
+    return this.formFields.delete(id);
+  }
+
+  async reorderFormFields(formId: string, fieldIds: string[]): Promise<boolean> {
+    try {
+      fieldIds.forEach((fieldId, index) => {
+        const field = this.formFields.get(fieldId);
+        if (field && field.formId === formId) {
+          this.formFields.set(fieldId, { ...field, fieldOrder: index + 1 });
+        }
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  // Calendar Booking methods
+  async getCalendarBookings(): Promise<CalendarBooking[]> {
+    return Array.from(this.calendarBookings.values());
+  }
+
+  async getCalendarBooking(id: string): Promise<CalendarBooking | undefined> {
+    return this.calendarBookings.get(id);
+  }
+
+  async getCalendarBookingsByHomeowner(homeownerId: string): Promise<CalendarBooking[]> {
+    return Array.from(this.calendarBookings.values()).filter(booking => booking.homeownerId === homeownerId);
+  }
+
+  async getCalendarBookingsByDate(date: Date): Promise<CalendarBooking[]> {
+    const targetDate = date.toISOString().split('T')[0];
+    return Array.from(this.calendarBookings.values()).filter(booking => 
+      booking.appointmentDate.toISOString().split('T')[0] === targetDate
+    );
+  }
+
+  async getCalendarBookingsByType(appointmentType: string): Promise<CalendarBooking[]> {
+    return Array.from(this.calendarBookings.values()).filter(booking => booking.appointmentType === appointmentType);
+  }
+
+  async getCalendarBookingsByStatus(status: string): Promise<CalendarBooking[]> {
+    return Array.from(this.calendarBookings.values()).filter(booking => booking.status === status);
+  }
+
+  async createCalendarBooking(insertBooking: InsertCalendarBooking): Promise<CalendarBooking> {
+    const id = randomUUID();
+    const booking: CalendarBooking = {
+      ...insertBooking,
+      id,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.calendarBookings.set(id, booking);
+    return booking;
+  }
+
+  async updateCalendarBooking(id: string, updates: Partial<CalendarBooking>): Promise<CalendarBooking> {
+    const booking = this.calendarBookings.get(id);
+    if (!booking) throw new Error("Calendar booking not found");
+    
+    const updatedBooking = { ...booking, ...updates, updatedAt: new Date() };
+    this.calendarBookings.set(id, updatedBooking);
+    return updatedBooking;
+  }
+
+  async deleteCalendarBooking(id: string): Promise<boolean> {
+    return this.calendarBookings.delete(id);
+  }
+
+  async getAvailableTimeSlots(date: Date, duration: number): Promise<string[]> {
+    // Simple implementation - return available slots for a day
+    const allSlots = [
+      '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
+      '12:00', '12:30', '13:00', '13:30', '14:00', '14:30',
+      '15:00', '15:30', '16:00', '16:30', '17:00', '17:30'
+    ];
+    
+    const bookedSlots = await this.getCalendarBookingsByDate(date);
+    const bookedTimes = bookedSlots.map(booking => 
+      booking.appointmentDate.toTimeString().substring(0, 5)
+    );
+    
+    return allSlots.filter(slot => !bookedTimes.includes(slot));
+  }
+
+  // Workflow methods
+  async getWorkflows(): Promise<Workflow[]> {
+    return Array.from(this.workflows.values());
+  }
+
+  async getWorkflow(id: string): Promise<Workflow | undefined> {
+    return this.workflows.get(id);
+  }
+
+  async getActiveWorkflows(): Promise<Workflow[]> {
+    return Array.from(this.workflows.values()).filter(workflow => workflow.isActive);
+  }
+
+  async getWorkflowsByTriggerType(triggerType: string): Promise<Workflow[]> {
+    return Array.from(this.workflows.values()).filter(workflow => workflow.triggerType === triggerType);
+  }
+
+  async createWorkflow(insertWorkflow: InsertWorkflow): Promise<Workflow> {
+    const id = randomUUID();
+    const workflow: Workflow = {
+      ...insertWorkflow,
+      id,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.workflows.set(id, workflow);
+    return workflow;
+  }
+
+  async updateWorkflow(id: string, updates: Partial<Workflow>): Promise<Workflow> {
+    const workflow = this.workflows.get(id);
+    if (!workflow) throw new Error("Workflow not found");
+    
+    const updatedWorkflow = { ...workflow, ...updates, updatedAt: new Date() };
+    this.workflows.set(id, updatedWorkflow);
+    return updatedWorkflow;
+  }
+
+  async deleteWorkflow(id: string): Promise<boolean> {
+    // Also delete associated workflow steps
+    const steps = Array.from(this.workflowSteps.values()).filter(step => step.workflowId === id);
+    steps.forEach(step => this.workflowSteps.delete(step.id));
+    return this.workflows.delete(id);
+  }
+
+  // Workflow Step methods
+  async getWorkflowSteps(workflowId: string): Promise<WorkflowStep[]> {
+    return Array.from(this.workflowSteps.values())
+      .filter(step => step.workflowId === workflowId)
+      .sort((a, b) => a.stepOrder - b.stepOrder);
+  }
+
+  async getWorkflowStep(id: string): Promise<WorkflowStep | undefined> {
+    return this.workflowSteps.get(id);
+  }
+
+  async createWorkflowStep(insertStep: InsertWorkflowStep): Promise<WorkflowStep> {
+    const id = randomUUID();
+    const step: WorkflowStep = {
+      ...insertStep,
+      id,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.workflowSteps.set(id, step);
+    return step;
+  }
+
+  async updateWorkflowStep(id: string, updates: Partial<WorkflowStep>): Promise<WorkflowStep> {
+    const step = this.workflowSteps.get(id);
+    if (!step) throw new Error("Workflow step not found");
+    
+    const updatedStep = { ...step, ...updates, updatedAt: new Date() };
+    this.workflowSteps.set(id, updatedStep);
+    return updatedStep;
+  }
+
+  async deleteWorkflowStep(id: string): Promise<boolean> {
+    return this.workflowSteps.delete(id);
+  }
+
+  async reorderWorkflowSteps(workflowId: string, stepIds: string[]): Promise<boolean> {
+    try {
+      stepIds.forEach((stepId, index) => {
+        const step = this.workflowSteps.get(stepId);
+        if (step && step.workflowId === workflowId) {
+          this.workflowSteps.set(stepId, { ...step, stepOrder: index + 1, updatedAt: new Date() });
+        }
+      });
+      return true;
+    } catch {
+      return false;
+    }
   }
 }
 
