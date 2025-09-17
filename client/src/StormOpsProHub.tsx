@@ -637,7 +637,7 @@ export default function StormOpsProHub() {
                 <SlideIn direction="up" delay={0.3} duration={0.8}>
                   <div className="flex flex-col items-center gap-4 mb-8">
                     <p className="text-2xl text-blue-100 max-w-4xl mx-auto leading-relaxed">
-                      The Ultimate Storm Operations Platform - Monitor Weather, Detect Damage, Generate Leads
+                      The Ultimate Storm Operations Platform - Monitor Weather, Detect Damage, Generate Leads, Victims Resources & Help
                     </p>
                     <div className="flex flex-wrap items-center justify-center gap-4">
                       <LiveDataStream showEffects={showEffects} />
