@@ -1,5 +1,25 @@
 import { QueryClient } from '@tanstack/react-query';
 
+// Global auth headers state - this will be updated by the AuthProvider
+let authHeaders: Record<string, string> = {};
+
+// Function to set authentication headers globally
+export const setAuthHeaders = (headers: Record<string, string>) => {
+  authHeaders = headers;
+};
+
+// Function to get current auth headers
+export const getAuthHeaders = () => ({ ...authHeaders });
+
+// Helper to get authenticated headers
+const getAuthenticatedHeaders = (additionalHeaders: Record<string, string> = {}) => {
+  return {
+    'Content-Type': 'application/json',
+    ...authHeaders,
+    ...additionalHeaders,
+  };
+};
+
 // Create the query client instance (this will be used by components that need direct access)
 export const queryClient = new QueryClient({
   defaultOptions: {
@@ -18,7 +38,10 @@ export const queryClient = new QueryClient({
           });
         }
         
-        const response = await fetch(urlObj.toString());
+        const response = await fetch(urlObj.toString(), {
+          headers: getAuthenticatedHeaders(),
+        });
+        
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -31,10 +54,7 @@ export const queryClient = new QueryClient({
 // API request helper for mutations
 export const apiRequest = async (url: string, options: RequestInit = {}) => {
   const response = await fetch(url, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
+    headers: getAuthenticatedHeaders(options.headers as Record<string, string>),
     ...options,
   });
 

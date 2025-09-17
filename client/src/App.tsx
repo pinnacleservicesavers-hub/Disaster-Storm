@@ -22,7 +22,7 @@ import FunnelBuilder from "./pages/FunnelBuilder";
 import FormBuilder from "./pages/FormBuilder";
 import CalendarBooking from "./pages/CalendarBooking";
 import WorkflowBuilder from "./pages/WorkflowBuilder";
-import StormShareCam from "./pages/StormShareCam";
+import StormShare from "./pages/StormShare";
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Cloud, Home, Menu, Camera, Heart, Eye, Zap, Users, FileText, User, Plane, Scale, Settings, Briefcase, Video, Target, Share2, Shield, Bell, Search, TrendingUp } from 'lucide-react';
@@ -155,7 +155,7 @@ function Navigation() {
         },
         { 
           href: "/stormshare", 
-          label: "StormShareCam", 
+          label: "StormShare Community", 
           icon: Share2, 
           testId: "nav-stormshare",
           badge: "Hot",
@@ -445,9 +445,9 @@ export default function App() {
         </Route>
         
         <Route path="/stormshare">
-          <title>StormShareCam - StormLead Master</title>
-          <meta name="description" content="Social platform for storm victims and contractors to share videos, photos, go live, and request help or donations" />
-          <StormShareCam />
+          <title>StormShare Community - StormLead Master</title>
+          <meta name="description" content="Community platform for storm victims and contractors to share stories, request help, connect with local assistance, and access resources" />
+          <StormShare />
         </Route>
         
         <Route path="/legal">

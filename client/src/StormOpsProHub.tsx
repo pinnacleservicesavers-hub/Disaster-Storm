@@ -515,13 +515,13 @@ export default function StormOpsProHub() {
       priority: 'medium',
       liveData: false
     },
-    // 9. StormShareCam - NEW MODULE  
+    // 9. StormShare Community - UPDATED MODULE  
     {
-      id: 'storm-share-cam',
-      title: 'StormShareCam',
-      description: 'Community-driven storm documentation platform with social features and real-time damage sharing',
+      id: 'storm-share',
+      title: 'StormShare',
+      description: 'Community platform where victims get help, contractors network, and businesses advertise - the heart of your storm operations',
       icon: Video,
-      link: '/storm-share-cam',
+      link: '/stormshare',
       color: 'violet',
       bgClass: 'from-violet-500 to-violet-600',
       borderClass: 'border-violet-200',

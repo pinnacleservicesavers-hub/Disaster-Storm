@@ -50,6 +50,104 @@ import { femaMonitoringService } from "./services/femaMonitoringService";
 import { predictiveStormService } from "./services/predictiveStormService";
 import { storage } from "./storage";
 import { z } from "zod";
+
+// ===== AUTHORIZATION MIDDLEWARE =====
+
+interface AuthenticatedRequest extends express.Request {
+  user?: {
+    id: string;
+    username: string;
+    role: string;
+    email?: string;
+  };
+}
+
+// Authentication middleware - extracts user info from request
+const authenticate = async (req: AuthenticatedRequest, res: express.Response, next: express.NextFunction) => {
+  try {
+    // For now, get user info from headers (can be upgraded to JWT later)
+    const userId = req.headers['x-user-id'] as string;
+    const userRole = req.headers['x-user-role'] as string;
+    const username = req.headers['x-username'] as string;
+
+    if (!userId || !userRole || !username) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    // For development mode, trust the headers from AuthContext
+    // In production, this should verify against JWT or session store
+    const isDevelopmentUser = [
+      'victim-001', 'contractor-001', 'business-001', 'admin-001'
+    ].includes(userId);
+
+    if (isDevelopmentUser) {
+      // Trust development users from AuthContext
+      req.user = {
+        id: userId,
+        username: username,
+        role: userRole,
+        email: username.includes('@') ? username : undefined
+      };
+    } else {
+      // For other users, verify they exist in storage
+      try {
+        const user = await storage.getUser(userId);
+        if (!user) {
+          return res.status(401).json({ error: 'Invalid user' });
+        }
+        req.user = {
+          id: user.id,
+          username: user.username,
+          role: user.role || userRole,
+          email: user.email || undefined
+        };
+      } catch (storageError) {
+        // If storage fails, but we have valid headers, continue for dev mode
+        console.warn('Storage user lookup failed, using headers for dev mode:', storageError);
+        req.user = {
+          id: userId,
+          username: username,
+          role: userRole,
+          email: username.includes('@') ? username : undefined
+        };
+      }
+    }
+
+    next();
+  } catch (error) {
+    console.error('Authentication error:', error);
+    res.status(500).json({ error: 'Authentication failed' });
+  }
+};
+
+// Authorization middleware factory - checks specific roles
+const requireRole = (...allowedRoles: string[]) => {
+  return (req: AuthenticatedRequest, res: express.Response, next: express.NextFunction) => {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    if (!allowedRoles.includes(req.user.role)) {
+      return res.status(403).json({ 
+        error: 'Insufficient permissions', 
+        required: allowedRoles,
+        current: req.user.role 
+      });
+    }
+
+    next();
+  };
+};
+
+// Contractor-only middleware
+const requireContractor = requireRole('contractor', 'admin');
+
+// Admin-only middleware  
+const requireAdmin = requireRole('admin');
+
+// Business/Admin middleware (for ad management)
+const requireBusiness = requireRole('admin', 'business', 'contractor');
+
 import { 
   insertContractorWatchlistSchema, 
   insertStormHotZoneSchema,
@@ -68,7 +166,13 @@ import {
   insertFormFieldSchema,
   insertCalendarBookingSchema,
   insertWorkflowSchema,
-  insertWorkflowStepSchema
+  insertWorkflowStepSchema,
+  insertStormShareGroupSchema,
+  insertStormShareGroupMemberSchema,
+  insertStormShareMessageSchema,
+  insertHelpRequestSchema,
+  insertStormShareMediaAssetSchema,
+  insertStormShareAdCampaignSchema
 } from "@shared/schema";
 
 // fetch polyfill if needed
@@ -7174,6 +7278,846 @@ Email: strategiclandmgmt@gmail.com
     } catch (error) {
       console.error('Error reordering workflow steps:', error);
       res.status(500).json({ error: 'Failed to reorder workflow steps' });
+    }
+  });
+
+  // ===== STORMSHARE COMMUNITY API ROUTES =====
+
+  // STORMSHARE GROUPS
+  app.get("/api/stormshare/groups", async (req, res) => {
+    try {
+      const { type, owner } = req.query;
+      let groups;
+      
+      if (type) {
+        groups = await storage.getStormShareGroupsByType(type as string);
+      } else if (owner) {
+        groups = await storage.getStormShareGroupsByOwner(owner as string);
+      } else {
+        groups = await storage.getStormShareGroups();
+      }
+      
+      res.json(groups);
+    } catch (error) {
+      console.error('Error fetching StormShare groups:', error);
+      res.status(500).json({ error: 'Failed to fetch groups' });
+    }
+  });
+
+  app.get("/api/stormshare/groups/slug/:slug", async (req, res) => {
+    try {
+      const group = await storage.getStormShareGroupBySlug(req.params.slug);
+      if (!group) {
+        return res.status(404).json({ error: 'Group not found' });
+      }
+      res.json({ group });
+    } catch (error) {
+      console.error('Error fetching StormShare group by slug:', error);
+      res.status(500).json({ error: 'Failed to fetch group' });
+    }
+  });
+
+  app.post("/api/stormshare/groups", authenticate, express.json(), async (req: AuthenticatedRequest, res) => {
+    try {
+      const groupData = insertStormShareGroupSchema.parse({
+        ...req.body,
+        ownerId: req.user?.id // Ensure authenticated user is the owner
+      });
+      const group = await storage.createStormShareGroup(groupData);
+      res.status(201).json({ group, createdBy: req.user?.username });
+    } catch (error) {
+      console.error('Error creating StormShare group:', error);
+      if (error instanceof Error && error.name === 'ZodError') {
+        return res.status(400).json({ error: 'Invalid group data', details: error.message });
+      }
+      res.status(500).json({ error: 'Failed to create group' });
+    }
+  });
+
+  app.put("/api/stormshare/groups/:id", authenticate, express.json(), async (req: AuthenticatedRequest, res) => {
+    try {
+      // Verify user owns the group or is admin
+      const existingGroup = await storage.getStormShareGroup(req.params.id);
+      if (!existingGroup) {
+        return res.status(404).json({ error: 'Group not found' });
+      }
+      if (existingGroup.ownerId !== req.user!.id && req.user!.role !== 'admin') {
+        return res.status(403).json({ error: 'Only group owners can update groups' });
+      }
+      
+      const updates = req.body;
+      const group = await storage.updateStormShareGroup(req.params.id, updates);
+      res.json({ group });
+    } catch (error) {
+      console.error('Error updating StormShare group:', error);
+      if (error instanceof Error && error.message === 'StormShare group not found') {
+        return res.status(404).json({ error: 'Group not found' });
+      }
+      res.status(500).json({ error: 'Failed to update group' });
+    }
+  });
+
+  // GROUP MEMBERS
+  app.get("/api/stormshare/groups/:groupId/members", async (req, res) => {
+    try {
+      const members = await storage.getStormShareGroupMembers(req.params.groupId);
+      res.json({ members });
+    } catch (error) {
+      console.error('Error fetching group members:', error);
+      res.status(500).json({ error: 'Failed to fetch members' });
+    }
+  });
+
+  app.post("/api/stormshare/groups/:groupId/members", authenticate, express.json(), async (req: AuthenticatedRequest, res) => {
+    try {
+      const memberData = insertStormShareGroupMemberSchema.parse({
+        ...req.body,
+        groupId: req.params.groupId,
+        userId: req.body.userId || req.user?.id // Allow joining yourself or admin adding others
+      });
+      const member = await storage.createStormShareGroupMember(memberData);
+      res.status(201).json({ member });
+    } catch (error) {
+      console.error('Error adding group member:', error);
+      if (error instanceof Error && error.name === 'ZodError') {
+        return res.status(400).json({ error: 'Invalid member data', details: error.message });
+      }
+      res.status(500).json({ error: 'Failed to add member' });
+    }
+  });
+
+  // STORMSHARE MESSAGES
+  app.get("/api/stormshare/messages", async (req, res) => {
+    try {
+      const { groupId, postId } = req.query;
+      const messages = await storage.getStormShareMessages(
+        groupId as string, 
+        postId as string
+      );
+      res.json(messages);
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+      res.status(500).json({ error: 'Failed to fetch messages' });
+    }
+  });
+
+  app.post("/api/stormshare/messages", express.json(), authenticate, async (req: AuthenticatedRequest, res) => {
+    try {
+      console.log('Message creation - req.user:', req.user);
+      console.log('Message creation - req.body:', req.body);
+      
+      if (!req.user) {
+        return res.status(401).json({ error: 'User not authenticated' });
+      }
+      
+      const messageData = insertStormShareMessageSchema.parse({
+        ...req.body,
+        userId: req.user.id // Ensure authenticated user is the author
+      });
+      const message = await storage.createStormShareMessage(messageData);
+      res.status(201).json({ message });
+    } catch (error) {
+      console.error('Error creating message:', error);
+      if (error instanceof Error && error.name === 'ZodError') {
+        return res.status(400).json({ error: 'Invalid message data', details: error.message });
+      }
+      res.status(500).json({ error: 'Failed to create message' });
+    }
+  });
+
+  app.put("/api/stormshare/messages/:id", authenticate, express.json(), async (req: AuthenticatedRequest, res) => {
+    try {
+      // Verify user owns the message or is admin
+      const existingMessage = await storage.getStormShareMessage(req.params.id);
+      if (!existingMessage) {
+        return res.status(404).json({ error: 'Message not found' });
+      }
+      if (existingMessage.userId !== req.user!.id && req.user!.role !== 'admin') {
+        return res.status(403).json({ error: 'Only message authors can update messages' });
+      }
+      
+      const updates = req.body;
+      const message = await storage.updateStormShareMessage(req.params.id, updates);
+      res.json({ message });
+    } catch (error) {
+      console.error('Error updating message:', error);
+      if (error instanceof Error && error.message === 'StormShare message not found') {
+        return res.status(404).json({ error: 'Message not found' });
+      }
+      res.status(500).json({ error: 'Failed to update message' });
+    }
+  });
+
+  // HELP REQUESTS
+  app.get("/api/stormshare/help", async (req, res) => {
+    try {
+      const { status, category, state, city, userId } = req.query;
+      let requests;
+
+      if (userId) {
+        requests = await storage.getHelpRequestsByUser(userId as string);
+      } else if (status) {
+        requests = await storage.getHelpRequestsByStatus(status as string);
+      } else if (category) {
+        requests = await storage.getHelpRequestsByCategory(category as string);
+      } else if (state || city) {
+        requests = await storage.getHelpRequestsByLocation(state as string, city as string);
+      } else {
+        requests = await storage.getHelpRequests();
+      }
+
+      res.json(requests);
+    } catch (error) {
+      console.error('Error fetching help requests:', error);
+      res.status(500).json({ error: 'Failed to fetch help requests' });
+    }
+  });
+
+  app.get("/api/stormshare/help/:id", async (req, res) => {
+    try {
+      const request = await storage.getHelpRequest(req.params.id);
+      if (!request) {
+        return res.status(404).json({ error: 'Help request not found' });
+      }
+      res.json({ helpRequest: request });
+    } catch (error) {
+      console.error('Error fetching help request:', error);
+      res.status(500).json({ error: 'Failed to fetch help request' });
+    }
+  });
+
+  app.post("/api/stormshare/help", authenticate, express.json(), async (req: AuthenticatedRequest, res) => {
+    try {
+      // Add authenticated user ID to request data
+      const requestData = insertHelpRequestSchema.parse({
+        ...req.body,
+        userId: req.user!.id
+      });
+      const request = await storage.createHelpRequest(requestData);
+      res.status(201).json({ helpRequest: request });
+    } catch (error) {
+      console.error('Error creating help request:', error);
+      if (error instanceof Error && error.name === 'ZodError') {
+        return res.status(400).json({ error: 'Invalid request data', details: error.message });
+      }
+      res.status(500).json({ error: 'Failed to create help request' });
+    }
+  });
+
+  app.put("/api/stormshare/help/:id", authenticate, express.json(), async (req: AuthenticatedRequest, res) => {
+    try {
+      // Verify user owns the help request or is admin
+      const existingRequest = await storage.getHelpRequest(req.params.id);
+      if (!existingRequest) {
+        return res.status(404).json({ error: 'Help request not found' });
+      }
+      if (existingRequest.userId !== req.user!.id && req.user!.role !== 'admin') {
+        return res.status(403).json({ error: 'Only request authors can update help requests' });
+      }
+      
+      const updates = req.body;
+      const request = await storage.updateHelpRequest(req.params.id, updates);
+      res.json({ helpRequest: request });
+    } catch (error) {
+      console.error('Error updating help request:', error);
+      if (error instanceof Error && error.message === 'Help request not found') {
+        return res.status(404).json({ error: 'Help request not found' });
+      }
+      res.status(500).json({ error: 'Failed to update help request' });
+    }
+  });
+
+  app.post("/api/stormshare/help/:id/convert", authenticate, requireContractor, express.json(), async (req: AuthenticatedRequest, res) => {
+    try {
+      const { contractorId } = req.body;
+      
+      // Use authenticated user's ID if no contractorId provided, but verify they're a contractor
+      const finalContractorId = contractorId || req.user?.id;
+      
+      if (!finalContractorId) {
+        return res.status(400).json({ error: 'contractorId is required' });
+      }
+      
+      // Ensure contractors can only claim for themselves (unless admin)
+      if (req.user?.role !== 'admin' && finalContractorId !== req.user?.id) {
+        return res.status(403).json({ error: 'Can only convert help requests for yourself' });
+      }
+      
+      const result = await storage.convertHelpRequestToLead(req.params.id, finalContractorId);
+      res.json({ 
+        message: 'Help request converted to lead successfully',
+        helpRequest: result.helpRequest,
+        lead: result.lead,
+        convertedBy: req.user?.username
+      });
+    } catch (error) {
+      console.error('Error converting help request to lead:', error);
+      if (error instanceof Error && error.message === 'Help request not found') {
+        return res.status(404).json({ error: 'Help request not found' });
+      }
+      res.status(500).json({ error: 'Failed to convert help request to lead' });
+    }
+  });
+
+  // MEDIA ASSETS
+  app.get("/api/stormshare/media", async (req, res) => {
+    try {
+      const { ownerId, assetType } = req.query;
+      let assets;
+
+      if (ownerId) {
+        assets = await storage.getStormShareMediaAssetsByOwner(ownerId as string);
+      } else if (assetType) {
+        assets = await storage.getStormShareMediaAssetsByType(assetType as string);
+      } else {
+        assets = await storage.getStormShareMediaAssets();
+      }
+
+      res.json({ mediaAssets: assets });
+    } catch (error) {
+      console.error('Error fetching media assets:', error);
+      res.status(500).json({ error: 'Failed to fetch media assets' });
+    }
+  });
+
+  app.post("/api/stormshare/media", express.json(), async (req, res) => {
+    try {
+      const assetData = insertStormShareMediaAssetSchema.parse(req.body);
+      const asset = await storage.createStormShareMediaAsset(assetData);
+      res.status(201).json({ mediaAsset: asset });
+    } catch (error) {
+      console.error('Error creating media asset:', error);
+      if (error instanceof Error && error.name === 'ZodError') {
+        return res.status(400).json({ error: 'Invalid asset data', details: error.message });
+      }
+      res.status(500).json({ error: 'Failed to create media asset' });
+    }
+  });
+
+  // AD CAMPAIGNS  
+  app.get("/api/stormshare/ads", async (req, res) => {
+    try {
+      const { advertiser, targetAudience, status } = req.query;
+      let campaigns;
+
+      if (status === 'active') {
+        campaigns = await storage.getActiveStormShareAdCampaigns();
+      } else if (advertiser) {
+        campaigns = await storage.getStormShareAdCampaignsByAdvertiser(advertiser as string);
+      } else if (targetAudience) {
+        campaigns = await storage.getStormShareAdCampaignsByTarget(targetAudience as string);
+      } else {
+        campaigns = await storage.getStormShareAdCampaigns();
+      }
+
+      res.json(campaigns);
+    } catch (error) {
+      console.error('Error fetching ad campaigns:', error);
+      res.status(500).json({ error: 'Failed to fetch ad campaigns' });
+    }
+  });
+
+  app.post("/api/stormshare/ads", authenticate, requireBusiness, express.json(), async (req: AuthenticatedRequest, res) => {
+    try {
+      const campaignData = insertStormShareAdCampaignSchema.parse({
+        ...req.body,
+        advertiserName: req.body.advertiserName || req.user?.username || 'Unknown Advertiser'
+      });
+      const campaign = await storage.createStormShareAdCampaign(campaignData);
+      res.status(201).json({ 
+        campaign, 
+        createdBy: req.user?.username
+      });
+    } catch (error) {
+      console.error('Error creating ad campaign:', error);
+      if (error instanceof Error && error.name === 'ZodError') {
+        return res.status(400).json({ error: 'Invalid campaign data', details: error.message });
+      }
+      res.status(500).json({ error: 'Failed to create ad campaign' });
+    }
+  });
+
+  app.post("/api/stormshare/ads/:id/impression", async (req, res) => {
+    try {
+      await storage.incrementAdImpressions(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error tracking ad impression:', error);
+      res.status(500).json({ error: 'Failed to track impression' });
+    }
+  });
+
+  app.post("/api/stormshare/ads/:id/click", async (req, res) => {
+    try {
+      await storage.incrementAdClicks(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error tracking ad click:', error);
+      res.status(500).json({ error: 'Failed to track click' });
+    }
+  });
+
+  // STORMSHARE MEDIA UPLOAD
+  const stormshareUploadMulter = multer({
+    storage: multer.memoryStorage(),
+    limits: {
+      fileSize: 50 * 1024 * 1024, // 50MB limit
+    },
+    fileFilter: (req, file, cb) => {
+      // Allow images, videos, and PDFs
+      const allowedTypes = [
+        'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
+        'video/mp4', 'video/mpeg', 'video/quicktime', 'video/x-msvideo',
+        'application/pdf'
+      ];
+      
+      if (allowedTypes.includes(file.mimetype)) {
+        cb(null, true);
+      } else {
+        cb(new Error('Invalid file type. Only images, videos, and PDFs are allowed.'));
+      }
+    }
+  });
+
+  app.post("/api/stormshare/media/upload", authenticate, stormshareUploadMulter.single('file'), async (req: AuthenticatedRequest, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: 'No file uploaded' });
+      }
+
+      const { ownerId, assetType = 'image' } = req.body;
+      const finalOwnerId = ownerId || req.user?.id;
+      
+      if (!finalOwnerId) {
+        return res.status(400).json({ error: 'ownerId is required' });
+      }
+      
+      // Users can only upload for themselves unless admin
+      if (req.user?.role !== 'admin' && finalOwnerId !== req.user?.id) {
+        return res.status(403).json({ error: 'Can only upload media for yourself' });
+      }
+
+      // Generate unique filename
+      const fileExtension = path.extname(req.file.originalname);
+      const uniqueFilename = `${Date.now()}_${randomUUID()}${fileExtension}`;
+      const objectPath = `stormshare/${assetType}s/${uniqueFilename}`;
+
+      try {
+        // Upload to object storage
+        const objectStorageService = new ObjectStorageService();
+        const publicPaths = objectStorageService.getPublicObjectSearchPaths();
+        const bucketPath = publicPaths[0]; // Use first available bucket path
+        
+        // Get upload URL for the object
+        const uploadUrl = await objectStorageService.getObjectEntityUploadURL(bucketPath, objectPath);
+        
+        // Upload file to object storage using the signed URL
+        const uploadResponse = await fetch(uploadUrl, {
+          method: 'PUT',
+          body: req.file.buffer,
+          headers: {
+            'Content-Type': req.file.mimetype,
+          }
+        });
+
+        if (!uploadResponse.ok) {
+          throw new Error('Failed to upload file to object storage');
+        }
+
+        // Create media asset record
+        const mediaAsset = await storage.createStormShareMediaAsset({
+          ownerId,
+          assetType,
+          fileName: req.file.originalname,
+          filePath: objectPath,
+          fileSize: req.file.size,
+          mimeType: req.file.mimetype,
+          publicUrl: `${bucketPath}/${objectPath}`,
+        });
+
+        res.status(201).json({ 
+          success: true,
+          mediaAsset,
+          publicUrl: mediaAsset.publicUrl
+        });
+
+      } catch (uploadError) {
+        console.error('Error uploading to object storage:', uploadError);
+        res.status(500).json({ error: 'Failed to upload file to object storage' });
+      }
+
+    } catch (error) {
+      console.error('Error in media upload:', error);
+      if (error instanceof Error && error.message.includes('Invalid file type')) {
+        return res.status(400).json({ error: error.message });
+      }
+      res.status(500).json({ error: 'Failed to upload media' });
+    }
+  });
+
+  app.get("/api/stormshare/media/:id/download", async (req, res) => {
+    try {
+      const asset = await storage.getStormShareMediaAsset(req.params.id);
+      if (!asset) {
+        return res.status(404).json({ error: 'Media asset not found' });
+      }
+
+      // Redirect to public URL or serve from object storage
+      if (asset.publicUrl) {
+        res.redirect(asset.publicUrl);
+      } else {
+        // Fallback to object storage service
+        const objectStorageService = new ObjectStorageService();
+        const publicPaths = objectStorageService.getPublicObjectSearchPaths();
+        const bucketPath = publicPaths[0];
+        
+        const file = await objectStorageService.getObjectEntityFile(bucketPath, asset.filePath);
+        await objectStorageService.downloadObject(file, res);
+      }
+
+    } catch (error) {
+      console.error('Error downloading media:', error);
+      res.status(500).json({ error: 'Failed to download media' });
+    }
+  });
+
+  // ===== STORMSHARE AI RESOURCES API ROUTES =====
+  
+  // Get FEMA disaster aid resources for a specific location
+  app.get("/api/stormshare/resources/fema/:state", async (req, res) => {
+    try {
+      const { state } = req.params;
+      const { category = 'all' } = req.query;
+      
+      if (!state || state.length !== 2) {
+        return res.status(400).json({ error: 'Valid 2-letter state code required' });
+      }
+      
+      const stateCode = state.toUpperCase();
+      
+      // Get recent disasters for the state
+      const recentDisasters = await femaDisasterService.getRecentDisastersForState(stateCode, 365); // Last year
+      
+      // Get storm hot zones for context
+      const hotZones = await storage.getStormHotZonesByState(stateCode);
+      
+      // Build resource response based on disasters and hot zones
+      const resources = {
+        state: stateCode,
+        activeDisasters: recentDisasters.filter(d => !d.disasterCloseOutDate).length,
+        totalDeclarations: recentDisasters.length,
+        hotZones: hotZones.slice(0, 10), // Top 10 risk areas
+        
+        femaResources: [
+          {
+            type: 'Individual Assistance',
+            title: 'FEMA Individual Assistance Program',
+            description: 'Financial help for individuals and families with disaster-related expenses.',
+            eligibility: 'Available for federally declared disasters. Must register within 60 days.',
+            contactInfo: {
+              phone: '1-800-621-3362',
+              website: 'https://www.disasterassistance.gov',
+              ttd: '1-800-462-7585'
+            },
+            applicationDeadline: recentDisasters.length > 0 ? '60 days from disaster declaration' : null
+          },
+          {
+            type: 'Public Assistance',
+            title: 'FEMA Public Assistance Program',
+            description: 'Aid for state, local, tribal governments and certain nonprofit organizations.',
+            eligibility: 'Must be in federally declared disaster area.',
+            contactInfo: {
+              phone: '1-800-621-3362',
+              website: 'https://www.fema.gov/assistance/public'
+            }
+          },
+          {
+            type: 'Hazard Mitigation',
+            title: 'Hazard Mitigation Grant Program',
+            description: 'Funding for long-term mitigation projects to reduce future disaster risks.',
+            eligibility: 'Available following presidential disaster declarations.',
+            contactInfo: {
+              website: 'https://www.fema.gov/grants/mitigation'
+            }
+          }
+        ],
+        
+        sbaResources: [
+          {
+            type: 'Disaster Loans',
+            title: 'SBA Disaster Loans',
+            description: 'Low-interest loans for homeowners, renters, and businesses.',
+            eligibility: 'Available in disaster-declared areas and adjacent counties.',
+            contactInfo: {
+              phone: '1-800-659-2955',
+              website: 'https://www.sba.gov/funding-programs/disaster-assistance',
+              email: 'disastercustomerservice@sba.gov'
+            },
+            loanTypes: [
+              'Home Disaster Loans (up to $200,000 for real estate repair)',
+              'Personal Property Loans (up to $40,000 for personal property)',
+              'Business Physical Disaster Loans (up to $2 million)',
+              'Economic Injury Disaster Loans (up to $2 million working capital)'
+            ]
+          }
+        ],
+        
+        localResources: hotZones.length > 0 ? [
+          {
+            type: 'County Emergency Management',
+            title: `${hotZones[0].countyParish} Emergency Management`,
+            description: 'Local emergency services and disaster response coordination.',
+            contactInfo: {
+              phone: '311 or local emergency management office'
+            }
+          },
+          {
+            type: 'Red Cross',
+            title: 'American Red Cross Local Chapter',
+            description: 'Emergency shelter, food, and recovery assistance.',
+            contactInfo: {
+              phone: '1-800-733-2767',
+              website: 'https://www.redcross.org'
+            }
+          }
+        ] : [],
+        
+        educationalContent: category === 'contractor' || category === 'all' ? [
+          {
+            type: 'Contractor Certification',
+            title: 'FEMA Debris Removal Contractor Certification',
+            description: 'Learn about getting certified for FEMA debris removal contracts.',
+            url: 'https://www.fema.gov/emergency-managers/practitioners/debris-management'
+          },
+          {
+            type: 'Insurance Claims',
+            title: 'Working with Insurance After Disasters',
+            description: 'Best practices for contractors working with insurance companies.',
+            url: 'https://www.fema.gov/assistance/individual/after-applying/insurance'
+          }
+        ] : [
+          {
+            type: 'Preparedness',
+            title: 'Ready.gov - Make a Plan',
+            description: 'Create an emergency plan for your family.',
+            url: 'https://www.ready.gov/plan'
+          },
+          {
+            type: 'Recovery',
+            title: 'Disaster Recovery Guide',
+            description: 'Steps to take after a disaster strikes.',
+            url: 'https://www.ready.gov/recovering-disasters'
+          }
+        ]
+      };
+      
+      res.json({ resources });
+    } catch (error) {
+      console.error('Error fetching FEMA resources:', error);
+      res.status(500).json({ error: 'Failed to fetch disaster resources' });
+    }
+  });
+  
+  // Get current disaster declarations for help request context
+  app.get("/api/stormshare/resources/active-disasters", async (req, res) => {
+    try {
+      const { lat, lng, radius = 50 } = req.query;
+      
+      let activeDisasters = [];
+      
+      if (lat && lng) {
+        // Find disasters near coordinates (simplified - would need proper geospatial query)
+        const allStates = ['FL', 'GA', 'AL', 'SC', 'NC', 'TN', 'TX']; // Major storm states
+        const promises = allStates.map(state => 
+          femaDisasterService.getRecentDisastersForState(state, 30)
+        );
+        
+        const stateDisasters = await Promise.all(promises);
+        activeDisasters = stateDisasters
+          .flat()
+          .filter(d => !d.disasterCloseOutDate) // Only active disasters
+          .sort((a, b) => new Date(b.declarationDate).getTime() - new Date(a.declarationDate).getTime())
+          .slice(0, 10);
+      } else {
+        // Get recent active disasters nationwide
+        const recentDisasters = await femaDisasterService.getRecentDisastersForState('FL', 30);
+        activeDisasters = recentDisasters.filter(d => !d.disasterCloseOutDate).slice(0, 5);
+      }
+      
+      const formattedDisasters = activeDisasters.map(disaster => ({
+        disasterNumber: disaster.disasterNumber,
+        title: disaster.title,
+        state: disaster.state,
+        stateCode: disaster.stateCode,
+        county: disaster.designatedCountyName,
+        incidentType: disaster.incidentType,
+        declarationDate: disaster.declarationDate,
+        incidentBeginDate: disaster.incidentBeginDate,
+        isActive: !disaster.disasterCloseOutDate,
+        assistanceAvailable: true,
+        registrationDeadline: disaster.declarationDate ? 
+          new Date(new Date(disaster.declarationDate).getTime() + 60 * 24 * 60 * 60 * 1000).toISOString() : 
+          null
+      }));
+      
+      res.json({ 
+        activeDisasters: formattedDisasters,
+        totalActive: formattedDisasters.length,
+        lastUpdated: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Error fetching active disasters:', error);
+      res.status(500).json({ error: 'Failed to fetch active disasters' });
+    }
+  });
+  
+  // Get business dashboard with ad campaign analytics  
+  app.get("/api/stormshare/dashboard/business", authenticate, requireBusiness, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: 'User ID required' });
+      }
+      
+      // Get user's ad campaigns
+      const allCampaigns = await storage.getStormShareAdCampaignsByAdvertiser(req.user?.username || userId);
+      
+      // Calculate analytics
+      const totalImpressions = allCampaigns.reduce((sum, c) => sum + (c.impressions || 0), 0);
+      const totalClicks = allCampaigns.reduce((sum, c) => sum + (c.clicks || 0), 0);
+      const totalSpent = allCampaigns.reduce((sum, c) => sum + (c.spentCents || 0), 0);
+      const ctr = totalImpressions > 0 ? (totalClicks / totalImpressions * 100) : 0;
+      
+      // Campaign performance breakdown
+      const campaignPerformance = allCampaigns.map(campaign => ({
+        id: campaign.id,
+        name: campaign.name,
+        status: campaign.status,
+        targetAudience: campaign.targetAudience,
+        budgetCents: campaign.budgetCents,
+        spentCents: campaign.spentCents || 0,
+        impressions: campaign.impressions || 0,
+        clicks: campaign.clicks || 0,
+        conversions: campaign.conversions || 0,
+        ctr: (campaign.impressions || 0) > 0 ? ((campaign.clicks || 0) / (campaign.impressions || 0) * 100) : 0,
+        cpc: (campaign.clicks || 0) > 0 ? ((campaign.spentCents || 0) / (campaign.clicks || 0)) : 0,
+        remainingBudget: (campaign.budgetCents || 0) - (campaign.spentCents || 0),
+        createdAt: campaign.createdAt,
+        updatedAt: campaign.updatedAt
+      }));
+      
+      // Recent help requests that could be monetized
+      const recentHelp = await storage.getStormShareHelpRequestsByStatus('open');
+      const helpRequestsByType = recentHelp.reduce((acc, help) => {
+        const type = help.helpType || 'other';
+        acc[type] = (acc[type] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+      
+      // Revenue opportunities
+      const opportunityMetrics = {
+        totalOpenRequests: recentHelp.length,
+        requestsByType: helpRequestsByType,
+        estimatedReach: totalImpressions,
+        conversionOpportunities: Math.floor(totalClicks * 0.1), // Estimate 10% of clicks could convert
+        suggestedBudget: Math.max(1000, totalSpent * 1.2) // Suggest 20% budget increase
+      };
+      
+      const dashboard = {
+        business: req.user.username,
+        summary: {
+          totalCampaigns: allCampaigns.length,
+          activeCampaigns: allCampaigns.filter(c => c.status === 'active').length,
+          totalImpressions,
+          totalClicks,
+          totalSpentCents: totalSpent,
+          averageCTR: ctr,
+          averageCPC: totalClicks > 0 ? (totalSpent / totalClicks) : 0
+        },
+        campaignPerformance,
+        opportunityMetrics,
+        recommendations: [
+          totalImpressions === 0 ? 'Start your first ad campaign to reach storm victims' : null,
+          ctr < 2 ? 'Consider improving ad copy or targeting to increase click-through rate' : null,
+          allCampaigns.filter(c => c.status === 'active').length === 0 ? 'Activate paused campaigns to maintain visibility' : null
+        ].filter(Boolean)
+      };
+      
+      res.json({ dashboard });
+    } catch (error) {
+      console.error('Error fetching business dashboard:', error);
+      res.status(500).json({ error: 'Failed to fetch business dashboard' });
+    }
+  });
+
+  // Get contractor opportunities from recent disasters
+  app.get("/api/stormshare/resources/contractor-opportunities", authenticate, requireContractor, async (req, res) => {
+    try {
+      const { state, specialization } = req.query;
+      
+      // Get recent disasters that create contractor opportunities
+      const stateCode = state as string || 'FL';
+      const recentDisasters = await femaDisasterService.getRecentDisastersForState(stateCode, 90);
+      
+      const opportunities = recentDisasters
+        .filter(d => {
+          // Focus on disasters that create contractor work
+          const workTypes = ['Hurricane', 'Tornado', 'Severe Storm', 'Flooding'];
+          return workTypes.includes(d.incidentType) && !d.disasterCloseOutDate;
+        })
+        .map(disaster => {
+          const opportunityTypes = [];
+          
+          if (disaster.incidentType === 'Hurricane') {
+            opportunityTypes.push(
+              'Roof repair and replacement',
+              'Tree removal and debris cleanup',
+              'Water damage restoration',
+              'Window and door replacement',
+              'Structural repairs'
+            );
+          } else if (disaster.incidentType === 'Tornado') {
+            opportunityTypes.push(
+              'Complete structural rebuilding',
+              'Debris removal',
+              'Emergency boarding and tarping',
+              'Foundation repair'
+            );
+          } else if (disaster.incidentType === 'Flooding') {
+            opportunityTypes.push(
+              'Water damage restoration',
+              'Mold remediation',
+              'Flood damage cleanup',
+              'HVAC system replacement'
+            );
+          }
+          
+          return {
+            disasterNumber: disaster.disasterNumber,
+            title: disaster.title,
+            location: `${disaster.designatedCountyName}, ${disaster.state}`,
+            incidentType: disaster.incidentType,
+            declarationDate: disaster.declarationDate,
+            opportunityTypes,
+            estimatedDemand: 'High', // Would be calculated based on affected area size
+            competitionLevel: 'Medium',
+            registrationInfo: {
+              femaContractor: 'https://www.sam.gov',
+              localPermits: 'Contact county building department',
+              insuranceRequired: 'General liability, workers comp required'
+            }
+          };
+        });
+      
+      res.json({ 
+        opportunities,
+        contractorId: req.user?.id,
+        specialization: specialization || 'general',
+        totalOpportunities: opportunities.length
+      });
+    } catch (error) {
+      console.error('Error fetching contractor opportunities:', error);
+      res.status(500).json({ error: 'Failed to fetch contractor opportunities' });
     }
   });
 

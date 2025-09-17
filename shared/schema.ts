@@ -1554,6 +1554,220 @@ export const stormShareInteractions = pgTable("storm_share_interactions", {
   uniq: unique().on(table.postId, table.userId, table.interactionType),
 }));
 
+// StormShare Community Groups
+export const stormShareGroups = pgTable("storm_share_groups", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  type: text("type").notNull(), // 'victims', 'contractors', 'business', 'general'
+  slug: text("slug").notNull().unique(),
+  description: text("description"),
+  
+  // Group settings
+  isPrivate: boolean("is_private").default(false),
+  requiresApproval: boolean("requires_approval").default(false),
+  
+  // Specialization (for contractor groups)
+  specialization: text("specialization"), // 'roofing', 'tree_removal', 'water_damage', etc.
+  serviceArea: text("service_area"), // Geographic coverage area
+  
+  // Visual
+  avatarUrl: text("avatar_url"),
+  bannerUrl: text("banner_url"),
+  
+  // Stats
+  memberCount: integer("member_count").default(0),
+  postCount: integer("post_count").default(0),
+  
+  // Moderation
+  ownerId: varchar("owner_id").notNull(),
+  moderatorIds: jsonb("moderator_ids").$type<string[]>(), // Array of user IDs
+  rules: text("rules"), // Group rules/guidelines
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// StormShare Group Memberships
+export const stormShareGroupMembers = pgTable("storm_share_group_members", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  groupId: varchar("group_id").notNull().references(() => stormShareGroups.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").notNull(),
+  
+  role: text("role").default("member"), // 'owner', 'moderator', 'member'
+  status: text("status").default("active"), // 'active', 'pending', 'banned'
+  
+  // Member info
+  joinedAt: timestamp("joined_at").defaultNow(),
+  lastActive: timestamp("last_active"),
+  
+  // Contractor-specific fields
+  licenseNumber: text("license_number"),
+  insuranceProvider: text("insurance_provider"),
+  yearsExperience: integer("years_experience"),
+  certifications: jsonb("certifications").$type<string[]>(),
+  
+}, (table) => ({
+  // Unique membership per user per group
+  uniq: unique().on(table.groupId, table.userId),
+}));
+
+// StormShare Real-time Messages
+export const stormShareMessages = pgTable("storm_share_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Context - either in a group or on a post
+  groupId: varchar("group_id"),
+  postId: varchar("post_id"),
+  
+  // Message details
+  userId: varchar("user_id").notNull(),
+  content: text("content").notNull(),
+  messageType: text("message_type").default("text"), // 'text', 'image', 'file', 'system'
+  
+  // Media/files
+  mediaUrl: text("media_url"),
+  fileName: text("file_name"),
+  fileSize: integer("file_size"),
+  
+  // Threading
+  parentMessageId: varchar("parent_message_id"), // For replies
+  threadCount: integer("thread_count").default(0),
+  
+  // Status
+  isEdited: boolean("is_edited").default(false),
+  editedAt: timestamp("edited_at"),
+  isDeleted: boolean("is_deleted").default(false),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Help Requests (separate from general posts for better lead tracking)
+export const helpRequests = pgTable("help_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  
+  // Request details
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  category: text("category").notNull(), // 'emergency', 'cleanup', 'repair', 'insurance', 'supplies'
+  urgencyLevel: text("urgency_level").default("normal"), // 'emergency', 'urgent', 'high', 'normal'
+  
+  // Location
+  address: text("address"),
+  city: text("city"),
+  state: text("state"),
+  zipCode: text("zip_code"),
+  latitude: numeric("latitude", { precision: 10, scale: 8 }),
+  longitude: numeric("longitude", { precision: 10, scale: 8 }),
+  
+  // Insurance and payment
+  hasInsurance: boolean("has_insurance"),
+  insuranceCompany: text("insurance_company"),
+  policyNumber: text("policy_number"),
+  canPayImmediately: boolean("can_pay_immediately").default(false),
+  budgetRange: text("budget_range"), // 'under_1k', '1k_5k', '5k_15k', '15k_plus'
+  
+  // Media evidence
+  photoUrls: jsonb("photo_urls").$type<string[]>(),
+  videoUrls: jsonb("video_urls").$type<string[]>(),
+  
+  // Status and assignment
+  status: text("status").default("open"), // 'open', 'claimed', 'in_progress', 'resolved', 'cancelled'
+  claimedByUserId: varchar("claimed_by_user_id"),
+  claimedAt: timestamp("claimed_at"),
+  resolvedAt: timestamp("resolved_at"),
+  
+  // Lead conversion
+  leadId: varchar("lead_id"), // Reference to leads table when converted
+  convertedAt: timestamp("converted_at"),
+  
+  // Contact preferences
+  contactMethods: jsonb("contact_methods").$type<string[]>(), // ['phone', 'text', 'email']
+  contactPhone: text("contact_phone"),
+  contactEmail: text("contact_email"),
+  preferredContactTime: text("preferred_contact_time"), // 'morning', 'afternoon', 'evening', 'anytime'
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Media Asset Management for StormShare
+export const stormShareMediaAssets = pgTable("storm_share_media_assets", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  ownerId: varchar("owner_id").notNull(),
+  
+  // File details
+  fileName: text("file_name").notNull(),
+  originalName: text("original_name").notNull(),
+  mimeType: text("mime_type").notNull(),
+  fileSize: integer("file_size").notNull(),
+  
+  // Storage
+  storageUrl: text("storage_url").notNull(),
+  thumbnailUrl: text("thumbnail_url"), // For images/videos
+  
+  // Categorization
+  assetType: text("asset_type").notNull(), // 'profile_photo', 'post_image', 'help_request_evidence', 'license_doc', 'insurance_cert'
+  tags: jsonb("tags").$type<string[]>(),
+  
+  // Usage tracking
+  isPublic: boolean("is_public").default(true),
+  usageCount: integer("usage_count").default(0),
+  lastUsed: timestamp("last_used"),
+  
+  // Moderation
+  moderationStatus: text("moderation_status").default("pending"), // 'pending', 'approved', 'rejected', 'flagged'
+  moderatedBy: varchar("moderated_by"),
+  moderatedAt: timestamp("moderated_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Advertising Campaigns for StormShare
+export const stormShareAdCampaigns = pgTable("storm_share_ad_campaigns", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Advertiser details
+  advertiserName: text("advertiser_name").notNull(),
+  contactEmail: text("contact_email").notNull(),
+  contactPhone: text("contact_phone"),
+  
+  // Campaign details
+  campaignName: text("campaign_name").notNull(),
+  description: text("description"),
+  
+  // Targeting
+  targetAudience: text("target_audience").default("all"), // 'all', 'victims', 'contractors', 'business'
+  targetLocations: jsonb("target_locations").$type<string[]>(), // Array of states/cities
+  targetCategories: jsonb("target_categories").$type<string[]>(), // Array of relevant categories
+  
+  // Creative assets
+  creativeUrl: text("creative_url").notNull(),
+  creativeType: text("creative_type").notNull(), // 'banner', 'video', 'carousel'
+  linkUrl: text("link_url").notNull(),
+  callToAction: text("call_to_action").default("Learn More"),
+  
+  // Budget and scheduling
+  budgetCents: integer("budget_cents"), // Budget in cents
+  dailyBudgetCents: integer("daily_budget_cents"),
+  startDate: timestamp("start_date"),
+  endDate: timestamp("end_date"),
+  
+  // Performance tracking
+  impressions: integer("impressions").default(0),
+  clicks: integer("clicks").default(0),
+  conversions: integer("conversions").default(0),
+  spentCents: integer("spent_cents").default(0),
+  
+  // Status
+  status: text("status").default("draft"), // 'draft', 'pending_approval', 'active', 'paused', 'completed', 'rejected'
+  approvedBy: varchar("approved_by"),
+  approvedAt: timestamp("approved_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // ===== MINIMAL AI DAMAGE DETECTION FOUNDATION =====
 
 // Detection Jobs table - minimal foundation for AI damage detection
@@ -2712,6 +2926,51 @@ export const insertStormShareInteractionSchema = createInsertSchema(stormShareIn
   createdAt: true,
 });
 
+// StormShare Community insert schemas
+export const insertStormShareGroupSchema = createInsertSchema(stormShareGroups).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  isPrivate: z.boolean().optional(),
+  requiresApproval: z.boolean().optional(),
+});
+
+export const insertStormShareGroupMemberSchema = createInsertSchema(stormShareGroupMembers).omit({
+  id: true,
+  joinedAt: true,
+});
+
+export const insertStormShareMessageSchema = createInsertSchema(stormShareMessages).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  isEdited: z.boolean().optional(),
+  isDeleted: z.boolean().optional(),
+});
+
+export const insertHelpRequestSchema = createInsertSchema(helpRequests).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  hasInsurance: z.boolean().optional(),
+  canPayImmediately: z.boolean().optional(),
+});
+
+export const insertStormShareMediaAssetSchema = createInsertSchema(stormShareMediaAssets).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  isPublic: z.boolean().optional(),
+});
+
+export const insertStormShareAdCampaignSchema = createInsertSchema(stormShareAdCampaigns).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Detection foundation insert schemas
 export const insertDetectionJobSchema = createInsertSchema(detectionJobs).omit({
   id: true,
@@ -2814,6 +3073,18 @@ export type StormSharePost = typeof stormSharePosts.$inferSelect;
 export type InsertStormSharePost = z.infer<typeof insertStormSharePostSchema>;
 export type StormShareInteraction = typeof stormShareInteractions.$inferSelect;
 export type InsertStormShareInteraction = z.infer<typeof insertStormShareInteractionSchema>;
+export type StormShareGroup = typeof stormShareGroups.$inferSelect;
+export type InsertStormShareGroup = z.infer<typeof insertStormShareGroupSchema>;
+export type StormShareGroupMember = typeof stormShareGroupMembers.$inferSelect;
+export type InsertStormShareGroupMember = z.infer<typeof insertStormShareGroupMemberSchema>;
+export type StormShareMessage = typeof stormShareMessages.$inferSelect;
+export type InsertStormShareMessage = z.infer<typeof insertStormShareMessageSchema>;
+export type HelpRequest = typeof helpRequests.$inferSelect;
+export type InsertHelpRequest = z.infer<typeof insertHelpRequestSchema>;
+export type StormShareMediaAsset = typeof stormShareMediaAssets.$inferSelect;
+export type InsertStormShareMediaAsset = z.infer<typeof insertStormShareMediaAssetSchema>;
+export type StormShareAdCampaign = typeof stormShareAdCampaigns.$inferSelect;
+export type InsertStormShareAdCampaign = z.infer<typeof insertStormShareAdCampaignSchema>;
 
 // Detection foundation types
 export type DetectionJob = typeof detectionJobs.$inferSelect;

@@ -76,7 +76,19 @@ import {
   type Workflow,
   type InsertWorkflow,
   type WorkflowStep,
-  type InsertWorkflowStep
+  type InsertWorkflowStep,
+  type StormShareGroup,
+  type InsertStormShareGroup,
+  type StormShareGroupMember,
+  type InsertStormShareGroupMember,
+  type StormShareMessage,
+  type InsertStormShareMessage,
+  type HelpRequest,
+  type InsertHelpRequest,
+  type StormShareMediaAsset,
+  type InsertStormShareMediaAsset,
+  type StormShareAdCampaign,
+  type InsertStormShareAdCampaign
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import fs from "fs";
@@ -395,6 +407,67 @@ export interface IStorage {
   updateWorkflowStep(id: string, updates: Partial<WorkflowStep>): Promise<WorkflowStep>;
   deleteWorkflowStep(id: string): Promise<boolean>;
   reorderWorkflowSteps(workflowId: string, stepIds: string[]): Promise<boolean>;
+
+  // StormShare Community methods
+  
+  // StormShare Groups
+  getStormShareGroups(): Promise<StormShareGroup[]>;
+  getStormShareGroup(id: string): Promise<StormShareGroup | undefined>;
+  getStormShareGroupBySlug(slug: string): Promise<StormShareGroup | undefined>;
+  getStormShareGroupsByType(type: string): Promise<StormShareGroup[]>;
+  getStormShareGroupsByOwner(ownerId: string): Promise<StormShareGroup[]>;
+  createStormShareGroup(group: InsertStormShareGroup): Promise<StormShareGroup>;
+  updateStormShareGroup(id: string, updates: Partial<StormShareGroup>): Promise<StormShareGroup>;
+  deleteStormShareGroup(id: string): Promise<boolean>;
+
+  // StormShare Group Members
+  getStormShareGroupMembers(groupId: string): Promise<StormShareGroupMember[]>;
+  getStormShareGroupMember(groupId: string, userId: string): Promise<StormShareGroupMember | undefined>;
+  getStormShareGroupMembershipsByUser(userId: string): Promise<StormShareGroupMember[]>;
+  createStormShareGroupMember(member: InsertStormShareGroupMember): Promise<StormShareGroupMember>;
+  updateStormShareGroupMember(id: string, updates: Partial<StormShareGroupMember>): Promise<StormShareGroupMember>;
+  deleteStormShareGroupMember(id: string): Promise<boolean>;
+
+  // StormShare Messages
+  getStormShareMessages(groupId?: string, postId?: string): Promise<StormShareMessage[]>;
+  getStormShareMessage(id: string): Promise<StormShareMessage | undefined>;
+  getStormShareMessagesByUser(userId: string): Promise<StormShareMessage[]>;
+  createStormShareMessage(message: InsertStormShareMessage): Promise<StormShareMessage>;
+  updateStormShareMessage(id: string, updates: Partial<StormShareMessage>): Promise<StormShareMessage>;
+  deleteStormShareMessage(id: string): Promise<boolean>;
+
+  // Help Requests
+  getHelpRequests(): Promise<HelpRequest[]>;
+  getHelpRequest(id: string): Promise<HelpRequest | undefined>;
+  getHelpRequestsByUser(userId: string): Promise<HelpRequest[]>;
+  getHelpRequestsByStatus(status: string): Promise<HelpRequest[]>;
+  getHelpRequestsByLocation(state?: string, city?: string): Promise<HelpRequest[]>;
+  getHelpRequestsByCategory(category: string): Promise<HelpRequest[]>;
+  createHelpRequest(request: InsertHelpRequest): Promise<HelpRequest>;
+  updateHelpRequest(id: string, updates: Partial<HelpRequest>): Promise<HelpRequest>;
+  deleteHelpRequest(id: string): Promise<boolean>;
+  convertHelpRequestToLead(helpRequestId: string, contractorId: string): Promise<{ helpRequest: HelpRequest, lead: Lead }>;
+
+  // StormShare Media Assets
+  getStormShareMediaAssets(): Promise<StormShareMediaAsset[]>;
+  getStormShareMediaAsset(id: string): Promise<StormShareMediaAsset | undefined>;
+  getStormShareMediaAssetsByOwner(ownerId: string): Promise<StormShareMediaAsset[]>;
+  getStormShareMediaAssetsByType(assetType: string): Promise<StormShareMediaAsset[]>;
+  createStormShareMediaAsset(asset: InsertStormShareMediaAsset): Promise<StormShareMediaAsset>;
+  updateStormShareMediaAsset(id: string, updates: Partial<StormShareMediaAsset>): Promise<StormShareMediaAsset>;
+  deleteStormShareMediaAsset(id: string): Promise<boolean>;
+
+  // StormShare Ad Campaigns
+  getStormShareAdCampaigns(): Promise<StormShareAdCampaign[]>;
+  getStormShareAdCampaign(id: string): Promise<StormShareAdCampaign | undefined>;
+  getActiveStormShareAdCampaigns(): Promise<StormShareAdCampaign[]>;
+  getStormShareAdCampaignsByAdvertiser(advertiserName: string): Promise<StormShareAdCampaign[]>;
+  getStormShareAdCampaignsByTarget(targetAudience: string): Promise<StormShareAdCampaign[]>;
+  createStormShareAdCampaign(campaign: InsertStormShareAdCampaign): Promise<StormShareAdCampaign>;
+  updateStormShareAdCampaign(id: string, updates: Partial<StormShareAdCampaign>): Promise<StormShareAdCampaign>;
+  deleteStormShareAdCampaign(id: string): Promise<boolean>;
+  incrementAdImpressions(campaignId: string): Promise<void>;
+  incrementAdClicks(campaignId: string): Promise<void>;
 }
 
 export class MemStorage implements IStorage {
@@ -448,6 +521,14 @@ export class MemStorage implements IStorage {
   private workflows: Map<string, Workflow> = new Map();
   private workflowSteps: Map<string, WorkflowStep> = new Map();
 
+  // StormShare Community Storage
+  private stormShareGroups: Map<string, StormShareGroup> = new Map();
+  private stormShareGroupMembers: Map<string, StormShareGroupMember> = new Map();
+  private stormShareMessages: Map<string, StormShareMessage> = new Map();
+  private helpRequests: Map<string, HelpRequest> = new Map();
+  private stormShareMediaAssets: Map<string, StormShareMediaAsset> = new Map();
+  private stormShareAdCampaigns: Map<string, StormShareAdCampaign> = new Map();
+
   constructor() {
     console.log('🏗️ Initializing MemStorage...');
     this.initializeTestData();
@@ -457,6 +538,51 @@ export class MemStorage implements IStorage {
   }
 
   private initializeTestData() {
+    // Initialize default users for authentication testing
+    const defaultUsers = [
+      {
+        id: 'victim-001',
+        username: 'sarah_victim',
+        password: 'password123', // In prod, this would be properly hashed
+        email: 'sarah@example.com',
+        role: 'victim',
+        createdAt: new Date(),
+      },
+      {
+        id: 'contractor-001', 
+        username: 'mike_contractor',
+        password: 'password123',
+        email: 'mike@example.com',
+        role: 'contractor',
+        createdAt: new Date(),
+      },
+      {
+        id: 'business-001',
+        username: 'acme_business', 
+        password: 'password123',
+        email: 'marketing@acme.com',
+        role: 'business',
+        createdAt: new Date(),
+      },
+      {
+        id: 'admin-001',
+        username: 'admin_user',
+        password: 'password123',
+        email: 'admin@stormshare.com',
+        role: 'admin', 
+        createdAt: new Date(),
+      }
+    ];
+
+    defaultUsers.forEach(user => {
+      this.users.set(user.id, user as User);
+    });
+    
+    console.log('👥 Seeded default users:', defaultUsers.map(u => `${u.username} (${u.role})`).join(', '));
+    
+    // Debug: log all users in storage
+    console.log('🔍 Users in storage after seeding:', Array.from(this.users.keys()));
+
     // Initialize with some basic insurance companies
     const companies = [
       { name: "State Farm", code: "SF", avgPayout: 4850, totalClaims: 127, successRate: 92, payoutTrend: 8 },
@@ -504,6 +630,112 @@ export class MemStorage implements IStorage {
         lastVerified: new Date(),
       });
     });
+
+    // Initialize sample help requests for testing StormShare functionality
+    const sampleHelpRequests = [
+      {
+        id: randomUUID(),
+        userId: 'victim-001',
+        title: 'Tree fell on my roof - need emergency help',
+        description: 'Large oak tree fell during the storm last night and punched a hole through my roof. Water is getting in and I need immediate tarping and tree removal. Insurance will cover it.',
+        category: 'tree_removal',
+        address: '123 Maple Street',
+        city: 'Atlanta',
+        state: 'GA',
+        zipCode: '30309',
+        contactPhone: '(404) 555-0123',
+        contactEmail: 'sarah@example.com',
+        urgencyLevel: 'emergency' as const,
+        hasInsurance: true,
+        canPayImmediately: false,
+        estimatedBudget: '$5000-10000',
+        status: 'open' as const,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      {
+        id: randomUUID(),
+        userId: 'victim-001', 
+        title: 'Storm damage repair needed',
+        description: 'My house has significant siding damage and several broken windows from the hailstorm. Looking for a reliable contractor to assess and repair. State Farm is my insurance company.',
+        category: 'home_repair',
+        address: '456 Oak Avenue',
+        city: 'Tampa',
+        state: 'FL',
+        zipCode: '33602',
+        contactPhone: '(813) 555-0456',
+        contactEmail: 'sarah@example.com',
+        urgencyLevel: 'urgent' as const,
+        hasInsurance: true,
+        canPayImmediately: true,
+        estimatedBudget: '$15000-25000',
+        status: 'open' as const,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      {
+        id: randomUUID(),
+        userId: 'admin-001',
+        title: 'Fence and deck repair after wind damage',
+        description: 'High winds knocked down sections of my privacy fence and damaged my deck railing. Need quotes for repair and replacement.',
+        category: 'fence_repair',
+        address: '789 Pine Road',
+        city: 'Charlotte',
+        state: 'NC',
+        zipCode: '28202',
+        contactPhone: '(704) 555-0789',
+        contactEmail: 'admin@stormshare.com',
+        urgencyLevel: 'normal' as const,
+        hasInsurance: false,
+        canPayImmediately: true,
+        estimatedBudget: '$2000-5000',
+        status: 'open' as const,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }
+    ];
+
+    sampleHelpRequests.forEach(request => {
+      this.helpRequests.set(request.id, request);
+    });
+
+    console.log('🆘 Seeded sample help requests:', sampleHelpRequests.length);
+
+    // Initialize sample StormShare groups for testing
+    const sampleGroups = [
+      {
+        id: randomUUID(),
+        name: 'Georgia Storm Recovery',
+        slug: 'georgia-storm-recovery',
+        type: 'contractor' as const,
+        description: 'Professional contractors helping Georgia homeowners recover from storm damage',
+        ownerId: 'contractor-001',
+        memberCount: 12,
+        isPublic: true,
+        tags: ['storm', 'georgia', 'professional'],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      {
+        id: randomUUID(),
+        name: 'Hurricane Helene Victims',
+        slug: 'hurricane-helene-victims',
+        type: 'support' as const,
+        description: 'Support group for Hurricane Helene victims sharing resources and experiences',
+        ownerId: 'victim-001',
+        memberCount: 8,
+        isPublic: true,
+        tags: ['hurricane', 'support', 'victims'],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }
+    ];
+
+    sampleGroups.forEach(group => {
+      this.stormShareGroups.set(group.id, group);
+    });
+
+    console.log('👥 Seeded sample StormShare groups:', sampleGroups.length);
   }
 
   // User methods
@@ -2253,6 +2485,453 @@ export class MemStorage implements IStorage {
       return true;
     } catch {
       return false;
+    }
+  }
+
+  // ===== STORMSHARE COMMUNITY METHODS =====
+
+  // StormShare Groups
+  async getStormShareGroups(): Promise<StormShareGroup[]> {
+    return Array.from(this.stormShareGroups.values());
+  }
+
+  async getStormShareGroup(id: string): Promise<StormShareGroup | undefined> {
+    return this.stormShareGroups.get(id);
+  }
+
+  async getStormShareGroupBySlug(slug: string): Promise<StormShareGroup | undefined> {
+    return Array.from(this.stormShareGroups.values()).find(group => group.slug === slug);
+  }
+
+  async getStormShareGroupsByType(type: string): Promise<StormShareGroup[]> {
+    return Array.from(this.stormShareGroups.values()).filter(group => group.type === type);
+  }
+
+  async getStormShareGroupsByOwner(ownerId: string): Promise<StormShareGroup[]> {
+    return Array.from(this.stormShareGroups.values()).filter(group => group.ownerId === ownerId);
+  }
+
+  async createStormShareGroup(insertGroup: InsertStormShareGroup): Promise<StormShareGroup> {
+    const id = randomUUID();
+    const group: StormShareGroup = {
+      ...insertGroup,
+      id,
+      memberCount: 0,
+      postCount: 0,
+      moderatorIds: insertGroup.moderatorIds || [],
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.stormShareGroups.set(id, group);
+    return group;
+  }
+
+  async updateStormShareGroup(id: string, updates: Partial<StormShareGroup>): Promise<StormShareGroup> {
+    const group = this.stormShareGroups.get(id);
+    if (!group) throw new Error("StormShare group not found");
+    
+    const updatedGroup = { ...group, ...updates, updatedAt: new Date() };
+    this.stormShareGroups.set(id, updatedGroup);
+    return updatedGroup;
+  }
+
+  async deleteStormShareGroup(id: string): Promise<boolean> {
+    // Also delete all group members when deleting group
+    const members = Array.from(this.stormShareGroupMembers.values()).filter(m => m.groupId === id);
+    members.forEach(member => this.stormShareGroupMembers.delete(member.id));
+    
+    return this.stormShareGroups.delete(id);
+  }
+
+  // StormShare Group Members
+  async getStormShareGroupMembers(groupId: string): Promise<StormShareGroupMember[]> {
+    return Array.from(this.stormShareGroupMembers.values()).filter(member => member.groupId === groupId);
+  }
+
+  async getStormShareGroupMember(groupId: string, userId: string): Promise<StormShareGroupMember | undefined> {
+    return Array.from(this.stormShareGroupMembers.values()).find(member => 
+      member.groupId === groupId && member.userId === userId
+    );
+  }
+
+  async getStormShareGroupMembershipsByUser(userId: string): Promise<StormShareGroupMember[]> {
+    return Array.from(this.stormShareGroupMembers.values()).filter(member => member.userId === userId);
+  }
+
+  async createStormShareGroupMember(insertMember: InsertStormShareGroupMember): Promise<StormShareGroupMember> {
+    const id = randomUUID();
+    const member: StormShareGroupMember = {
+      ...insertMember,
+      id,
+      status: insertMember.status || 'active',
+      role: insertMember.role || 'member',
+      joinedAt: new Date(),
+      lastActive: new Date()
+    };
+    this.stormShareGroupMembers.set(id, member);
+
+    // Update group member count
+    const group = this.stormShareGroups.get(insertMember.groupId);
+    if (group) {
+      group.memberCount = (group.memberCount || 0) + 1;
+      group.updatedAt = new Date();
+      this.stormShareGroups.set(insertMember.groupId, group);
+    }
+
+    return member;
+  }
+
+  async updateStormShareGroupMember(id: string, updates: Partial<StormShareGroupMember>): Promise<StormShareGroupMember> {
+    const member = this.stormShareGroupMembers.get(id);
+    if (!member) throw new Error("StormShare group member not found");
+    
+    const updatedMember = { ...member, ...updates, lastActive: new Date() };
+    this.stormShareGroupMembers.set(id, updatedMember);
+    return updatedMember;
+  }
+
+  async deleteStormShareGroupMember(id: string): Promise<boolean> {
+    const member = this.stormShareGroupMembers.get(id);
+    if (member) {
+      // Update group member count
+      const group = this.stormShareGroups.get(member.groupId);
+      if (group && group.memberCount > 0) {
+        group.memberCount = group.memberCount - 1;
+        group.updatedAt = new Date();
+        this.stormShareGroups.set(member.groupId, group);
+      }
+    }
+    return this.stormShareGroupMembers.delete(id);
+  }
+
+  // StormShare Messages
+  async getStormShareMessages(groupId?: string, postId?: string): Promise<StormShareMessage[]> {
+    let messages = Array.from(this.stormShareMessages.values());
+    if (groupId) {
+      messages = messages.filter(msg => msg.groupId === groupId);
+    }
+    if (postId) {
+      messages = messages.filter(msg => msg.postId === postId);
+    }
+    return messages.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+  }
+
+  async getStormShareMessage(id: string): Promise<StormShareMessage | undefined> {
+    return this.stormShareMessages.get(id);
+  }
+
+  async getStormShareMessagesByUser(userId: string): Promise<StormShareMessage[]> {
+    return Array.from(this.stormShareMessages.values())
+      .filter(msg => msg.userId === userId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async createStormShareMessage(insertMessage: InsertStormShareMessage): Promise<StormShareMessage> {
+    const id = randomUUID();
+    const message: StormShareMessage = {
+      ...insertMessage,
+      id,
+      messageType: insertMessage.messageType || 'text',
+      isEdited: false,
+      isDeleted: false,
+      threadCount: 0,
+      createdAt: new Date()
+    };
+    this.stormShareMessages.set(id, message);
+    return message;
+  }
+
+  async updateStormShareMessage(id: string, updates: Partial<StormShareMessage>): Promise<StormShareMessage> {
+    const message = this.stormShareMessages.get(id);
+    if (!message) throw new Error("StormShare message not found");
+    
+    const updatedMessage = { 
+      ...message, 
+      ...updates, 
+      isEdited: true, 
+      editedAt: new Date() 
+    };
+    this.stormShareMessages.set(id, updatedMessage);
+    return updatedMessage;
+  }
+
+  async deleteStormShareMessage(id: string): Promise<boolean> {
+    const message = this.stormShareMessages.get(id);
+    if (message) {
+      // Soft delete
+      const deletedMessage = { ...message, isDeleted: true };
+      this.stormShareMessages.set(id, deletedMessage);
+      return true;
+    }
+    return false;
+  }
+
+  // Help Requests
+  async getHelpRequests(): Promise<HelpRequest[]> {
+    return Array.from(this.helpRequests.values())
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async getHelpRequest(id: string): Promise<HelpRequest | undefined> {
+    return this.helpRequests.get(id);
+  }
+
+  async getHelpRequestsByUser(userId: string): Promise<HelpRequest[]> {
+    return Array.from(this.helpRequests.values())
+      .filter(req => req.userId === userId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async getHelpRequestsByStatus(status: string): Promise<HelpRequest[]> {
+    return Array.from(this.helpRequests.values())
+      .filter(req => req.status === status)
+      .sort((a, b) => {
+        if (req.urgencyLevel === 'emergency') return -1;
+        if (req.urgencyLevel === 'urgent') return -1;
+        return b.createdAt.getTime() - a.createdAt.getTime();
+      });
+  }
+
+  async getHelpRequestsByLocation(state?: string, city?: string): Promise<HelpRequest[]> {
+    let requests = Array.from(this.helpRequests.values());
+    
+    if (state) {
+      requests = requests.filter(req => req.state === state);
+    }
+    if (city) {
+      requests = requests.filter(req => req.city === city);
+    }
+    
+    return requests.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async getHelpRequestsByCategory(category: string): Promise<HelpRequest[]> {
+    return Array.from(this.helpRequests.values())
+      .filter(req => req.category === category)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async createHelpRequest(insertRequest: InsertHelpRequest): Promise<HelpRequest> {
+    const id = randomUUID();
+    const request: HelpRequest = {
+      ...insertRequest,
+      id,
+      status: 'open',
+      urgencyLevel: insertRequest.urgencyLevel || 'normal',
+      hasInsurance: insertRequest.hasInsurance || false,
+      canPayImmediately: insertRequest.canPayImmediately || false,
+      photoUrls: insertRequest.photoUrls || [],
+      videoUrls: insertRequest.videoUrls || [],
+      contactMethods: insertRequest.contactMethods || ['phone', 'email'],
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.helpRequests.set(id, request);
+    return request;
+  }
+
+  async updateHelpRequest(id: string, updates: Partial<HelpRequest>): Promise<HelpRequest> {
+    const request = this.helpRequests.get(id);
+    if (!request) throw new Error("Help request not found");
+    
+    const updatedRequest = { ...request, ...updates, updatedAt: new Date() };
+    this.helpRequests.set(id, updatedRequest);
+    return updatedRequest;
+  }
+
+  async deleteHelpRequest(id: string): Promise<boolean> {
+    return this.helpRequests.delete(id);
+  }
+
+  async convertHelpRequestToLead(helpRequestId: string, contractorId: string): Promise<{ helpRequest: HelpRequest, lead: Lead }> {
+    const helpRequest = this.helpRequests.get(helpRequestId);
+    if (!helpRequest) throw new Error("Help request not found");
+
+    // Create lead from help request
+    const leadId = randomUUID();
+    const lead: Lead = {
+      id: leadId,
+      contractorId,
+      source: 'stormshare_help_request',
+      name: 'Help Request Lead',
+      phone: helpRequest.contactPhone || '',
+      email: helpRequest.contactEmail || '',
+      address: helpRequest.address || '',
+      city: helpRequest.city || '',
+      state: helpRequest.state || '',
+      zipCode: helpRequest.zipCode || '',
+      latitude: helpRequest.latitude ? Number(helpRequest.latitude) : undefined,
+      longitude: helpRequest.longitude ? Number(helpRequest.longitude) : undefined,
+      damageType: helpRequest.category,
+      damageDescription: helpRequest.description,
+      urgency: helpRequest.urgencyLevel,
+      status: 'new',
+      priority: helpRequest.urgencyLevel === 'emergency' ? 'high' : 
+                helpRequest.urgencyLevel === 'urgent' ? 'high' : 'normal',
+      insuranceCompany: helpRequest.insuranceCompany || '',
+      insuranceClaimNumber: helpRequest.policyNumber || '',
+      estimatedCost: 0,
+      notes: `Converted from StormShare help request: ${helpRequest.title}`,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    
+    this.leads.set(leadId, lead);
+
+    // Update help request with conversion info
+    const updatedHelpRequest = {
+      ...helpRequest,
+      status: 'claimed',
+      claimedByUserId: contractorId,
+      claimedAt: new Date(),
+      leadId,
+      convertedAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.helpRequests.set(helpRequestId, updatedHelpRequest);
+
+    return { helpRequest: updatedHelpRequest, lead };
+  }
+
+  // StormShare Media Assets
+  async getStormShareMediaAssets(): Promise<StormShareMediaAsset[]> {
+    return Array.from(this.stormShareMediaAssets.values())
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async getStormShareMediaAsset(id: string): Promise<StormShareMediaAsset | undefined> {
+    return this.stormShareMediaAssets.get(id);
+  }
+
+  async getStormShareMediaAssetsByOwner(ownerId: string): Promise<StormShareMediaAsset[]> {
+    return Array.from(this.stormShareMediaAssets.values())
+      .filter(asset => asset.ownerId === ownerId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async getStormShareMediaAssetsByType(assetType: string): Promise<StormShareMediaAsset[]> {
+    return Array.from(this.stormShareMediaAssets.values())
+      .filter(asset => asset.assetType === assetType)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async createStormShareMediaAsset(insertAsset: InsertStormShareMediaAsset): Promise<StormShareMediaAsset> {
+    const id = randomUUID();
+    const asset: StormShareMediaAsset = {
+      ...insertAsset,
+      id,
+      tags: insertAsset.tags || [],
+      isPublic: insertAsset.isPublic !== false, // Default to true
+      usageCount: 0,
+      moderationStatus: 'pending',
+      createdAt: new Date()
+    };
+    this.stormShareMediaAssets.set(id, asset);
+    return asset;
+  }
+
+  async updateStormShareMediaAsset(id: string, updates: Partial<StormShareMediaAsset>): Promise<StormShareMediaAsset> {
+    const asset = this.stormShareMediaAssets.get(id);
+    if (!asset) throw new Error("StormShare media asset not found");
+    
+    const updatedAsset = { ...asset, ...updates };
+    
+    // Track usage if the asset is being used
+    if (updates.usageCount !== undefined) {
+      updatedAsset.lastUsed = new Date();
+    }
+    
+    this.stormShareMediaAssets.set(id, updatedAsset);
+    return updatedAsset;
+  }
+
+  async deleteStormShareMediaAsset(id: string): Promise<boolean> {
+    return this.stormShareMediaAssets.delete(id);
+  }
+
+  // StormShare Ad Campaigns
+  async getStormShareAdCampaigns(): Promise<StormShareAdCampaign[]> {
+    return Array.from(this.stormShareAdCampaigns.values())
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async getStormShareAdCampaign(id: string): Promise<StormShareAdCampaign | undefined> {
+    return this.stormShareAdCampaigns.get(id);
+  }
+
+  async getActiveStormShareAdCampaigns(): Promise<StormShareAdCampaign[]> {
+    const now = new Date();
+    return Array.from(this.stormShareAdCampaigns.values())
+      .filter(campaign => 
+        campaign.status === 'active' &&
+        (!campaign.startDate || campaign.startDate <= now) &&
+        (!campaign.endDate || campaign.endDate >= now)
+      )
+      .sort((a, b) => (b.budgetCents || 0) - (a.budgetCents || 0));
+  }
+
+  async getStormShareAdCampaignsByAdvertiser(advertiserName: string): Promise<StormShareAdCampaign[]> {
+    return Array.from(this.stormShareAdCampaigns.values())
+      .filter(campaign => campaign.advertiserName === advertiserName)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async getStormShareAdCampaignsByTarget(targetAudience: string): Promise<StormShareAdCampaign[]> {
+    return Array.from(this.stormShareAdCampaigns.values())
+      .filter(campaign => campaign.targetAudience === targetAudience || campaign.targetAudience === 'all')
+      .filter(campaign => campaign.status === 'active')
+      .sort((a, b) => (b.budgetCents || 0) - (a.budgetCents || 0));
+  }
+
+  async createStormShareAdCampaign(insertCampaign: InsertStormShareAdCampaign): Promise<StormShareAdCampaign> {
+    const id = randomUUID();
+    const campaign: StormShareAdCampaign = {
+      ...insertCampaign,
+      id,
+      targetAudience: insertCampaign.targetAudience || 'all',
+      callToAction: insertCampaign.callToAction || 'Learn More',
+      targetLocations: insertCampaign.targetLocations || [],
+      targetCategories: insertCampaign.targetCategories || [],
+      impressions: 0,
+      clicks: 0,
+      conversions: 0,
+      spentCents: 0,
+      status: 'draft',
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.stormShareAdCampaigns.set(id, campaign);
+    return campaign;
+  }
+
+  async updateStormShareAdCampaign(id: string, updates: Partial<StormShareAdCampaign>): Promise<StormShareAdCampaign> {
+    const campaign = this.stormShareAdCampaigns.get(id);
+    if (!campaign) throw new Error("StormShare ad campaign not found");
+    
+    const updatedCampaign = { ...campaign, ...updates, updatedAt: new Date() };
+    this.stormShareAdCampaigns.set(id, updatedCampaign);
+    return updatedCampaign;
+  }
+
+  async deleteStormShareAdCampaign(id: string): Promise<boolean> {
+    return this.stormShareAdCampaigns.delete(id);
+  }
+
+  async incrementAdImpressions(campaignId: string): Promise<void> {
+    const campaign = this.stormShareAdCampaigns.get(campaignId);
+    if (campaign) {
+      campaign.impressions = (campaign.impressions || 0) + 1;
+      campaign.updatedAt = new Date();
+      this.stormShareAdCampaigns.set(campaignId, campaign);
+    }
+  }
+
+  async incrementAdClicks(campaignId: string): Promise<void> {
+    const campaign = this.stormShareAdCampaigns.get(campaignId);
+    if (campaign) {
+      campaign.clicks = (campaign.clicks || 0) + 1;
+      campaign.updatedAt = new Date();
+      this.stormShareAdCampaigns.set(campaignId, campaign);
     }
   }
 }
