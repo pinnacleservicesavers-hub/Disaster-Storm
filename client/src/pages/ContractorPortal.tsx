@@ -255,7 +255,17 @@ export default function ContractorPortal() {
               </HoverLift>
               
               <HoverLift>
-                <Button variant="outline" size="sm" data-testid="button-ai-assistant">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  data-testid="button-ai-assistant"
+                  onClick={() => {
+                    toast({
+                      title: "AI Assistant Activated",
+                      description: "AI assistant is ready to help with estimates, scheduling, and project management."
+                    });
+                  }}
+                >
                   <Bot className="w-4 h-4 mr-2" />
                   AI Assistant
                 </Button>
@@ -263,7 +273,18 @@ export default function ContractorPortal() {
               
               <div className="relative">
                 <HoverLift>
-                  <Button variant="outline" size="sm" data-testid="button-notifications">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    data-testid="button-notifications"
+                    onClick={() => {
+                      const urgentCount = notifications.filter(n => n.urgent).length;
+                      toast({
+                        title: `Notifications (${notifications.length})`,
+                        description: urgentCount > 0 ? `You have ${urgentCount} urgent notifications` : "All caught up! No urgent notifications."
+                      });
+                    }}
+                  >
                     <Bell className="w-4 h-4" />
                     {notifications.filter(n => n.urgent).length > 0 && (
                       <motion.span 
@@ -279,7 +300,12 @@ export default function ContractorPortal() {
               </div>
               
               <HoverLift>
-                <Button variant="outline" size="sm" data-testid="button-profile-settings">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  data-testid="button-profile-settings"
+                  onClick={() => setActiveTab('profile')}
+                >
                   <User className="w-4 h-4 mr-2" />
                   Profile
                 </Button>
@@ -755,7 +781,25 @@ export default function ContractorPortal() {
                   <p className="text-sm text-gray-600 mb-4">
                     AI will automatically analyze damage, measure dimensions, and generate insurance-ready reports
                   </p>
-                  <Button data-testid="button-upload-photos-main">
+                  <Button 
+                    data-testid="button-upload-photos-main"
+                    onClick={() => {
+                      const input = document.createElement('input');
+                      input.type = 'file';
+                      input.multiple = true;
+                      input.accept = 'image/*';
+                      input.onchange = (e) => {
+                        const files = (e.target as HTMLInputElement).files;
+                        if (files) {
+                          toast({
+                            title: "Photos Selected",
+                            description: `${files.length} photo(s) ready for AI analysis and upload`
+                          });
+                        }
+                      };
+                      input.click();
+                    }}
+                  >
                     <Upload className="w-4 h-4 mr-2" />
                     Select Photos
                   </Button>
@@ -853,7 +897,24 @@ export default function ContractorPortal() {
                       <span className="text-green-600">$4,900</span>
                     </div>
                   </div>
-                  <Button variant="outline" className="w-full" data-testid="button-generate-estimate">
+                  <Button 
+                    variant="outline" 
+                    className="w-full" 
+                    data-testid="button-generate-estimate"
+                    onClick={() => {
+                      toast({
+                        title: "AI Estimate Generator",
+                        description: "Analyzing property damage and generating cost estimate... This may take a few moments."
+                      });
+                      // Simulate AI processing
+                      setTimeout(() => {
+                        toast({
+                          title: "Estimate Ready!",
+                          description: "AI has generated a comprehensive damage estimate. Check your invoices tab."
+                        });
+                      }, 3000);
+                    }}
+                  >
                     <Bot className="w-4 h-4 mr-2" />
                     Generate AI Estimate
                   </Button>

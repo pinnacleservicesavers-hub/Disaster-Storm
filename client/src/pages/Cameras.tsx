@@ -926,7 +926,13 @@ export function TrafficCameras() {
                         <div className="text-lg font-bold text-green-600">
                           ${opp.estimatedValue.toLocaleString()}
                         </div>
-                        <Button size="sm" data-testid={`button-view-opportunity-${opp.id}`}>
+                        <Button 
+                          size="sm" 
+                          data-testid={`button-view-opportunity-${opp.id}`}
+                          onClick={() => {
+                            alert(`Opportunity Details:\n\nType: ${opp.type.replace('_', ' ').toUpperCase()}\nLocation: ${opp.lat.toFixed(4)}, ${opp.lng.toFixed(4)}\nEstimated Value: $${opp.estimatedValue.toLocaleString()}\nSeverity: ${opp.severity}\n\nAffected Routes: ${opp.affectedRoutes.join(', ')}\nJurisdiction: ${opp.jurisdiction.provider}\n\nDescription: ${opp.description}`);
+                          }}
+                        >
                           View Details
                         </Button>
                       </div>
