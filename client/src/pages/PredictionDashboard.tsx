@@ -2070,34 +2070,34 @@ export default function PredictionDashboard() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="space-y-2">
-                        <h4 className="font-semibold text-sm text-violet-700 dark:text-violet-300">
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                      <div className="space-y-3 p-4 bg-white/30 dark:bg-violet-800/10 rounded-lg">
+                        <h4 className="font-semibold text-base text-violet-700 dark:text-violet-300 mb-3">
                           👁️ Real-time Monitoring
                         </h4>
-                        <ul className="text-sm text-violet-600 dark:text-violet-400 space-y-1">
+                        <ul className="text-sm text-violet-600 dark:text-violet-400 space-y-2 leading-relaxed">
                           <li>• Live weather conditions</li>
                           <li>• Storm approach visualization</li>
                           <li>• Visibility and safety assessment</li>
                           <li>• Deployment timing validation</li>
                         </ul>
                       </div>
-                      <div className="space-y-2">
-                        <h4 className="font-semibold text-sm text-violet-700 dark:text-violet-300">
+                      <div className="space-y-3 p-4 bg-white/30 dark:bg-violet-800/10 rounded-lg">
+                        <h4 className="font-semibold text-base text-violet-700 dark:text-violet-300 mb-3">
                           🎯 Strategic Deployment
                         </h4>
-                        <ul className="text-sm text-violet-600 dark:text-violet-400 space-y-1">
+                        <ul className="text-sm text-violet-600 dark:text-violet-400 space-y-2 leading-relaxed">
                           <li>• Confirm weather predictions</li>
                           <li>• Monitor crew safety conditions</li>
                           <li>• Track storm damage in real-time</li>
                           <li>• Validate AI prediction accuracy</li>
                         </ul>
                       </div>
-                      <div className="space-y-2">
-                        <h4 className="font-semibold text-sm text-violet-700 dark:text-violet-300">
+                      <div className="space-y-3 p-4 bg-white/30 dark:bg-violet-800/10 rounded-lg">
+                        <h4 className="font-semibold text-base text-violet-700 dark:text-violet-300 mb-3">
                           ⚡ Decision Support
                         </h4>
-                        <ul className="text-sm text-violet-600 dark:text-violet-400 space-y-1">
+                        <ul className="text-sm text-violet-600 dark:text-violet-400 space-y-2 leading-relaxed">
                           <li>• Visual storm intensity confirmation</li>
                           <li>• Multi-region comparison</li>
                           <li>• Ground truth validation</li>
@@ -2114,10 +2114,16 @@ export default function PredictionDashboard() {
         </FadeIn>
 
         {/* Footer */}
-        <div className="mt-8 text-center text-sm text-gray-500 dark:text-gray-400" data-testid="text-dashboard-footer">
-          Last updated: {dashboardData ? new Date(dashboardData.dashboard.lastUpdated).toLocaleString() : 'Loading...'}
-          <br />
-          Predictive Storm Damage AI System v1.0 • Powered by NOAA, NEXRAD, and Historical FEMA Data
+        <div className="mt-12 p-6 bg-gradient-to-r from-slate-50 to-blue-50 dark:from-slate-800 dark:to-blue-900 rounded-lg border border-slate-200 dark:border-slate-700" data-testid="text-dashboard-footer">
+          <div className="text-center space-y-3">
+            <div className="text-sm text-slate-600 dark:text-slate-400">
+              Last updated: {dashboardData ? new Date(dashboardData.dashboard.lastUpdated).toLocaleString() : 'Loading...'}
+            </div>
+            <div className="text-xs text-slate-500 dark:text-slate-500 leading-relaxed max-w-2xl mx-auto">
+              <div className="font-medium text-slate-700 dark:text-slate-300 mb-1">Predictive Storm Damage AI System v1.0</div>
+              <div>Powered by NOAA, NEXRAD, and Historical FEMA Data</div>
+            </div>
+          </div>
         </div>
         </FadeIn>
       </div>
