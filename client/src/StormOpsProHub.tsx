@@ -2,7 +2,7 @@ import { useState, useContext, createContext, useEffect } from 'react';
 import { Link } from 'wouter';
 import { 
   Cloud, Camera, Bot, Zap, Users, ArrowRight, Plane, HardHat, Scale, FileText, UserCheck, Phone,
-  Eye, Target, Video, Activity, MapPin, Shield, AlertTriangle
+  Eye, Target, Video, Activity, MapPin, Shield, AlertTriangle, Wifi, Radar, Satellite
 } from 'lucide-react';
 
 // Import our amazing animation components
@@ -10,6 +10,173 @@ import {
   FadeIn, SlideIn, ScaleIn, HoverLift, PulseAlert, StaggerContainer, StaggerItem,
   RainEffect, LightningFlash, CountUp
 } from '@/components/ui/animations';
+
+// ===== INCREDIBLE SPINNING TORNADO COMPONENT =====
+const SpinningTornado = ({ size = 48, showEffects = true }: { size?: number; showEffects?: boolean }) => {
+  const [isSpinning, setIsSpinning] = useState(true);
+  
+  // Respect user's motion preferences
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    setIsSpinning(!mediaQuery.matches && showEffects);
+    
+    const handler = () => setIsSpinning(!mediaQuery.matches && showEffects);
+    mediaQuery.addEventListener('change', handler);
+    return () => mediaQuery.removeEventListener('change', handler);
+  }, [showEffects]);
+
+  return (
+    <div 
+      className="relative inline-block"
+      style={{ width: size, height: size }}
+    >
+      {/* Main Tornado SVG */}
+      <svg
+        width={size}
+        height={size}
+        viewBox="0 0 48 48"
+        className={`
+          relative z-10 filter drop-shadow-lg
+          ${isSpinning ? 'animate-spin' : ''}
+        `}
+        style={{
+          animationDuration: isSpinning ? '3s' : 'none',
+          transformOrigin: 'center'
+        }}
+      >
+        {/* Tornado Gradient Definitions */}
+        <defs>
+          <radialGradient id="tornadoGradient" cx="50%" cy="20%" r="60%">
+            <stop offset="0%" stopColor="#f8fafc" stopOpacity="0.9" />
+            <stop offset="30%" stopColor="#cbd5e1" stopOpacity="0.8" />
+            <stop offset="60%" stopColor="#64748b" stopOpacity="0.7" />
+            <stop offset="100%" stopColor="#334155" stopOpacity="0.9" />
+          </radialGradient>
+          
+          <radialGradient id="tornadoCore" cx="50%" cy="30%" r="40%">
+            <stop offset="0%" stopColor="#1e293b" stopOpacity="0.3" />
+            <stop offset="100%" stopColor="#0f172a" stopOpacity="0.8" />
+          </radialGradient>
+          
+          <linearGradient id="stormGlow" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.3" />
+            <stop offset="50%" stopColor="#6366f1" stopOpacity="0.2" />
+            <stop offset="100%" stopColor="#8b5cf6" stopOpacity="0.3" />
+          </linearGradient>
+        </defs>
+        
+        {/* Tornado Funnel Shape */}
+        <path
+          d="M24 4 C20 4, 18 6, 16 10 C14 14, 12 18, 10 22 C8 26, 6 30, 8 34 C10 38, 14 40, 18 42 C22 44, 26 44, 30 42 C34 40, 38 38, 40 34 C42 30, 40 26, 38 22 C36 18, 34 14, 32 10 C30 6, 28 4, 24 4 Z"
+          fill="url(#tornadoGradient)"
+          stroke="none"
+        />
+        
+        {/* Inner Tornado Core */}
+        <path
+          d="M24 8 C22 8, 21 9, 20 12 C19 15, 18 18, 17 21 C16 24, 15 27, 16 30 C17 33, 19 35, 22 36 C25 37, 27 37, 29 36 C32 35, 34 33, 35 30 C36 27, 35 24, 34 21 C33 18, 32 15, 31 12 C30 9, 29 8, 24 8 Z"
+          fill="url(#tornadoCore)"
+          stroke="none"
+          opacity="0.6"
+        />
+        
+        {/* Swirling Detail Lines */}
+        <path
+          d="M20 12 Q24 14, 28 16 Q32 20, 30 24 Q26 28, 22 30"
+          stroke="#f1f5f9"
+          strokeWidth="1"
+          fill="none"
+          opacity="0.7"
+          strokeLinecap="round"
+        />
+        
+        <path
+          d="M22 16 Q24 18, 26 20 Q28 24, 26 26"
+          stroke="#e2e8f0"
+          strokeWidth="1"
+          fill="none"
+          opacity="0.5"
+          strokeLinecap="round"
+        />
+      </svg>
+      
+      {/* Spinning Debris Particles */}
+      {isSpinning && (
+        <>
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div
+              key={i}
+              className="absolute w-1 h-1 bg-slate-400/60 rounded-full animate-spin"
+              style={{
+                left: `${20 + Math.cos(i * 45 * Math.PI / 180) * (size * 0.35)}px`,
+                top: `${20 + Math.sin(i * 45 * Math.PI / 180) * (size * 0.35)}px`,
+                animationDuration: `${2 + (i % 3)}s`,
+                animationDelay: `${i * 0.2}s`,
+                animationDirection: i % 2 === 0 ? 'normal' : 'reverse'
+              }}
+            />
+          ))}
+        </>
+      )}
+      
+      {/* Storm Glow Effect */}
+      <div 
+        className={`
+          absolute inset-0 rounded-full opacity-40 blur-md -z-10
+          ${isSpinning ? 'animate-pulse' : ''}
+        `}
+        style={{
+          background: 'radial-gradient(circle, rgba(59, 130, 246, 0.3) 0%, rgba(99, 102, 241, 0.2) 50%, rgba(139, 92, 246, 0.3) 100%)',
+          animationDuration: '4s'
+        }}
+      />
+    </div>
+  );
+};
+
+// ===== LIVE DATA STREAMING INDICATOR =====
+const LiveDataStream = ({ showEffects = true }: { showEffects?: boolean }) => (
+  <div className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-green-500/20 to-emerald-500/20 backdrop-blur-sm rounded-full border border-green-400/30">
+    <div className="flex items-center gap-1">
+      <div className={`w-2 h-2 bg-green-400 rounded-full ${showEffects ? 'animate-pulse' : ''}`} />
+      <div className={`w-2 h-2 bg-green-400 rounded-full ${showEffects ? 'animate-pulse' : ''}`} style={{ animationDelay: '0.5s' }} />
+      <div className={`w-2 h-2 bg-green-400 rounded-full ${showEffects ? 'animate-pulse' : ''}`} style={{ animationDelay: '1s' }} />
+    </div>
+    <span className="text-green-400 text-xs font-semibold tracking-wide">LIVE STREAM</span>
+    <Wifi className="w-3 h-3 text-green-400" />
+  </div>
+);
+
+// ===== WEATHER ALERT BADGE =====
+const WeatherAlertBadge = ({ showEffects = true }: { showEffects?: boolean }) => (
+  <div className={`
+    inline-flex items-center gap-2 px-4 py-2 rounded-xl font-semibold text-sm
+    bg-gradient-to-r from-orange-500/90 to-red-500/90 text-white shadow-lg border border-orange-400/50
+    ${showEffects ? 'animate-pulse' : ''}
+  `} style={{ animationDuration: '2s' }}>
+    <AlertTriangle className="w-4 h-4" />
+    <span>STORM ALERT ACTIVE</span>
+    <div className={`w-2 h-2 bg-white rounded-full ${showEffects ? 'animate-ping' : ''}`} />
+  </div>
+);
+
+// ===== REAL-TIME SYSTEM STATUS =====
+const SystemStatus = ({ showEffects = true }: { showEffects?: boolean }) => (
+  <div className="flex items-center gap-6 text-sm">
+    <div className="flex items-center gap-2">
+      <Radar className={`w-4 h-4 text-blue-400 ${showEffects ? 'animate-spin' : ''}`} style={{ animationDuration: '3s' }} />
+      <span className="text-blue-300 font-medium">RADAR ONLINE</span>
+    </div>
+    <div className="flex items-center gap-2">
+      <Satellite className={`w-4 h-4 text-purple-400 ${showEffects ? 'animate-bounce' : ''}`} />
+      <span className="text-purple-300 font-medium">SAT ACTIVE</span>
+    </div>
+    <div className="flex items-center gap-2">
+      <Activity className={`w-4 h-4 text-green-400 ${showEffects ? 'animate-pulse' : ''}`} />
+      <span className="text-green-300 font-medium">AI PROCESSING</span>
+    </div>
+  </div>
+);
 
 // Enhanced 3D Card Tilt Effect
 const CardTilt = ({ children, className = "" }: { children: React.ReactNode; className?: string }) => (
@@ -457,41 +624,58 @@ export default function StormOpsProHub() {
             <FadeIn duration={1}>
               <div className="text-center">
                 <SlideIn direction="down" duration={0.8}>
-                  <h1 className="text-6xl md:text-7xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-blue-200 to-indigo-300 mb-6 tracking-tight" 
-                      data-testid="heading-main">
-                    🌪️ StormLead Master
-                  </h1>
+                  <div className="flex items-center justify-center gap-4 mb-6">
+                    <SpinningTornado size={64} showEffects={showEffects} />
+                    <h1 className="text-6xl md:text-7xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-blue-200 to-indigo-300 tracking-tight" 
+                        data-testid="heading-main">
+                      StormLead Master
+                    </h1>
+                    <SpinningTornado size={64} showEffects={showEffects} />
+                  </div>
                 </SlideIn>
                 
                 <SlideIn direction="up" delay={0.3} duration={0.8}>
-                  <p className="text-2xl text-blue-100 max-w-4xl mx-auto leading-relaxed mb-8">
-                    The Ultimate Storm Operations Platform - Monitor Weather, Detect Damage, Generate Leads
-                  </p>
+                  <div className="flex flex-col items-center gap-4 mb-8">
+                    <p className="text-2xl text-blue-100 max-w-4xl mx-auto leading-relaxed">
+                      The Ultimate Storm Operations Platform - Monitor Weather, Detect Damage, Generate Leads
+                    </p>
+                    <div className="flex flex-wrap items-center justify-center gap-4">
+                      <LiveDataStream showEffects={showEffects} />
+                      <WeatherAlertBadge showEffects={showEffects} />
+                    </div>
+                  </div>
                 </SlideIn>
                 
                 <SlideIn direction="up" delay={0.6} duration={0.8}>
-                  <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8">
-                    <div className="flex items-center gap-2 text-green-300 font-semibold">
-                      <Activity className="w-5 h-5 animate-pulse" />
-                      <CountUp end={14} suffix=" Active Modules" />
+                  <div className="flex flex-col items-center gap-6 mb-8">
+                    <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                      <div className="flex items-center gap-2 text-green-300 font-semibold">
+                        <Activity className={`w-5 h-5 ${showEffects ? 'animate-pulse' : ''}`} />
+                        <CountUp end={14} suffix=" Active Modules" />
+                      </div>
+                      <div className="flex items-center gap-2 text-blue-300 font-semibold">
+                        <MapPin className={`w-5 h-5 ${showEffects ? 'animate-pulse' : ''}`} />
+                        <span>Multi-State Coverage</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-yellow-300 font-semibold">
+                        <Shield className={`w-5 h-5 ${showEffects ? 'animate-pulse' : ''}`} />
+                        <span>Enterprise Ready</span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2 text-blue-300 font-semibold">
-                      <MapPin className="w-5 h-5 animate-pulse" />
-                      <span>Multi-State Coverage</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-yellow-300 font-semibold">
-                      <Shield className="w-5 h-5 animate-pulse" />
-                      <span>Enterprise Ready</span>
-                    </div>
+                    <SystemStatus showEffects={showEffects} />
                   </div>
                 </SlideIn>
                 
                 <ScaleIn delay={1}>
                   <div className="inline-block p-1 rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-600">
                     <div className="px-8 py-4 bg-slate-900/50 rounded-xl backdrop-blur-sm">
-                      <p className="text-white font-bold text-lg">
-                        🚀 Enter Storm Operations Mode - Select Your Portal Below
-                      </p>
+                      <div className="flex items-center justify-center gap-3">
+                        <div className={`w-2 h-2 bg-green-400 rounded-full ${showEffects ? 'animate-ping' : ''}`} />
+                        <p className="text-white font-bold text-lg">
+                          🚀 Enter Storm Operations Mode - Select Your Portal Below
+                        </p>
+                        <div className={`w-2 h-2 bg-blue-400 rounded-full ${showEffects ? 'animate-pulse' : ''}`} />
+                      </div>
                     </div>
                   </div>
                 </ScaleIn>
@@ -559,9 +743,30 @@ export default function StormOpsProHub() {
                 <p className="text-slate-300 mb-6 text-lg">
                   Click any portal above to access cutting-edge storm operations technology
                 </p>
-                <div className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl text-white font-semibold shadow-lg">
-                  <AlertTriangle className="w-5 h-5" />
-                  <span>Live Storm Monitoring Active</span>
+                <div className="flex flex-col items-center gap-4">
+                  <div className={`
+                    inline-flex items-center gap-3 px-6 py-3 rounded-xl text-white font-semibold shadow-lg
+                    bg-gradient-to-r from-blue-500 to-indigo-600
+                    ${showEffects ? 'animate-pulse' : ''}
+                  `} style={{ animationDuration: '3s' }}>
+                    <AlertTriangle className={`w-5 h-5 ${showEffects ? 'animate-bounce' : ''}`} />
+                    <span>Live Storm Monitoring Active</span>
+                    <div className={`flex gap-1 ${showEffects ? '' : 'hidden'}`}>
+                      <div className="w-1 h-1 bg-white rounded-full animate-ping" />
+                      <div className="w-1 h-1 bg-white rounded-full animate-ping" style={{ animationDelay: '0.3s' }} />
+                      <div className="w-1 h-1 bg-white rounded-full animate-ping" style={{ animationDelay: '0.6s' }} />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4 text-xs text-slate-400">
+                    <span className="flex items-center gap-1">
+                      <SpinningTornado size={16} showEffects={showEffects} />
+                      Real-Time Processing
+                    </span>
+                    <span>•</span>
+                    <span>Multi-State Coverage</span>
+                    <span>•</span>
+                    <span>AI-Powered Detection</span>
+                  </div>
                 </div>
               </div>
             </FadeIn>
