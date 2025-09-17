@@ -8121,6 +8121,467 @@ Email: strategiclandmgmt@gmail.com
     }
   });
 
+  // ===== DISASTER ESSENTIALS MARKETPLACE (DEM) API ENDPOINTS =====
+
+  // Get hotels and campgrounds by state
+  app.get("/api/dem/hotels", async (req, res) => {
+    try {
+      const { state, city, type } = req.query;
+      
+      // Mock data for now - will be replaced with real API integration
+      const hotels = [
+        {
+          id: "1",
+          name: "StormSafe Inn & Suites",
+          type: "hotel",
+          address: "123 Storm Ave",
+          city: "Miami",
+          state: "FL",
+          phone: "(305) 555-0123",
+          pricePerNight: 89.99,
+          discountRate: 15,
+          availableRooms: 12,
+          totalRooms: 150,
+          isOpen: true,
+          amenities: ["Free Wifi", "Generator Backup", "24hr Security"],
+          lastUpdated: new Date()
+        },
+        {
+          id: "2",
+          name: "Hurricane Harbor RV Park",
+          type: "rv_park", 
+          address: "456 Coastal Rd",
+          city: "Tampa",
+          state: "FL",
+          phone: "(813) 555-0456",
+          pricePerNight: 45.00,
+          discountRate: 20,
+          availableRooms: 8,
+          totalRooms: 50,
+          isOpen: true,
+          amenities: ["Full Hookups", "Laundry", "Storm Shelter"],
+          lastUpdated: new Date()
+        }
+      ];
+      
+      let filteredHotels = hotels;
+      if (state) {
+        filteredHotels = filteredHotels.filter(h => h.state === state);
+      }
+      if (city) {
+        filteredHotels = filteredHotels.filter(h => h.city.toLowerCase().includes((city as string).toLowerCase()));
+      }
+      if (type) {
+        filteredHotels = filteredHotels.filter(h => h.type === type);
+      }
+      
+      res.json({ hotels: filteredHotels, total: filteredHotels.length });
+    } catch (error) {
+      console.error('Error fetching hotels:', error);
+      res.status(500).json({ error: 'Failed to fetch hotels' });
+    }
+  });
+
+  // Get gas stations and fuel prices by state
+  app.get("/api/dem/gas-stations", async (req, res) => {
+    try {
+      const { state, city, brand } = req.query;
+      
+      // Mock data for now - will be replaced with GasBuddy API integration
+      const gasStations = [
+        {
+          id: "1",
+          name: "Shell Station",
+          brand: "Shell",
+          address: "789 Highway 1",
+          city: "Miami",
+          state: "FL",
+          phone: "(305) 555-0789",
+          regularPrice: 3.299,
+          premiumPrice: 3.699,
+          dieselPrice: 3.799,
+          isOpen: true,
+          hasAvailability: true,
+          hours: "24/7",
+          lastUpdated: new Date()
+        },
+        {
+          id: "2",
+          name: "Emergency Fuel Depot",
+          brand: "Independent",
+          address: "321 Storm Blvd",
+          city: "Tampa",
+          state: "FL",
+          phone: "(813) 555-0321",
+          regularPrice: 3.199,
+          premiumPrice: 3.599,
+          dieselPrice: 3.699,
+          isOpen: true,
+          hasAvailability: false,
+          hours: "6AM-10PM",
+          lastUpdated: new Date()
+        }
+      ];
+      
+      let filteredStations = gasStations;
+      if (state) {
+        filteredStations = filteredStations.filter(s => s.state === state);
+      }
+      if (city) {
+        filteredStations = filteredStations.filter(s => s.city.toLowerCase().includes((city as string).toLowerCase()));
+      }
+      if (brand) {
+        filteredStations = filteredStations.filter(s => s.brand.toLowerCase().includes((brand as string).toLowerCase()));
+      }
+      
+      res.json({ gasStations: filteredStations, total: filteredStations.length });
+    } catch (error) {
+      console.error('Error fetching gas stations:', error);
+      res.status(500).json({ error: 'Failed to fetch gas stations' });
+    }
+  });
+
+  // Get hardware stores and supplies by state
+  app.get("/api/dem/hardware-stores", async (req, res) => {
+    try {
+      const { state, city, chain } = req.query;
+      
+      // Mock data for now - will be replaced with store API integrations
+      const hardwareStores = [
+        {
+          id: "1",
+          name: "Home Depot #2045",
+          chain: "Home Depot",
+          address: "555 Builder Blvd",
+          city: "Miami",
+          state: "FL",
+          phone: "(305) 555-1234",
+          isOpen: true,
+          inventory: {
+            chainsawChains: { available: true, price: 24.99 },
+            barOil: { available: true, price: 12.99 },
+            tarps: { available: false, price: null },
+            generators: { available: true, price: 899.99 },
+            fuelCans: { available: true, price: 29.99 },
+            safetyGear: { available: true, price: 45.99 }
+          },
+          hours: "6AM-9PM",
+          lastUpdated: new Date()
+        }
+      ];
+      
+      let filteredStores = hardwareStores;
+      if (state) {
+        filteredStores = filteredStores.filter(s => s.state === state);
+      }
+      if (city) {
+        filteredStores = filteredStores.filter(s => s.city.toLowerCase().includes((city as string).toLowerCase()));
+      }
+      if (chain) {
+        filteredStores = filteredStores.filter(s => s.chain.toLowerCase().includes((chain as string).toLowerCase()));
+      }
+      
+      res.json({ hardwareStores: filteredStores, total: filteredStores.length });
+    } catch (error) {
+      console.error('Error fetching hardware stores:', error);
+      res.status(500).json({ error: 'Failed to fetch hardware stores' });
+    }
+  });
+
+  // Get shelters and victim resources by state
+  app.get("/api/dem/shelters", async (req, res) => {
+    try {
+      const { state, city, type, organization } = req.query;
+      
+      // Mock data for now - will be replaced with FEMA/Red Cross API integration
+      const shelters = [
+        {
+          id: "1",
+          name: "Miami Emergency Shelter",
+          type: "shelter",
+          organization: "Red Cross",
+          address: "100 Safety St",
+          city: "Miami",
+          state: "FL",
+          phone: "(305) 555-HELP",
+          capacity: 500,
+          currentOccupancy: 245,
+          isOpen: true,
+          acceptingIntake: true,
+          services: ["shelter", "food", "medical", "supplies"],
+          requirements: "Valid ID required",
+          hours: "24/7",
+          lastUpdated: new Date()
+        },
+        {
+          id: "2",
+          name: "Tampa Food Distribution Center",
+          type: "food_distribution",
+          organization: "FEMA",
+          address: "200 Relief Ave",
+          city: "Tampa",
+          state: "FL",
+          phone: "(813) 555-FOOD",
+          capacity: 1000,
+          currentOccupancy: 350,
+          isOpen: true,
+          acceptingIntake: true,
+          services: ["food", "water", "supplies"],
+          requirements: "No documentation required",
+          hours: "8AM-6PM",
+          lastUpdated: new Date()
+        }
+      ];
+      
+      let filteredShelters = shelters;
+      if (state) {
+        filteredShelters = filteredShelters.filter(s => s.state === state);
+      }
+      if (city) {
+        filteredShelters = filteredShelters.filter(s => s.city.toLowerCase().includes((city as string).toLowerCase()));
+      }
+      if (type) {
+        filteredShelters = filteredShelters.filter(s => s.type === type);
+      }
+      if (organization) {
+        filteredShelters = filteredShelters.filter(s => s.organization.toLowerCase().includes((organization as string).toLowerCase()));
+      }
+      
+      res.json({ shelters: filteredShelters, total: filteredShelters.length });
+    } catch (error) {
+      console.error('Error fetching shelters:', error);
+      res.status(500).json({ error: 'Failed to fetch shelters' });
+    }
+  });
+
+  // Get critical alerts by state
+  app.get("/api/dem/alerts", async (req, res) => {
+    try {
+      const { state, city, alertType, severity } = req.query;
+      
+      // Mock data for now - will be replaced with AI-powered alert system
+      const alerts = [
+        {
+          id: "1",
+          title: "Price Gouging Alert",
+          message: "Reports of fuel price gouging on I-95 corridor. Avoid stations charging >$5/gallon.",
+          alertType: "price_gouging",
+          severity: "high",
+          state: "FL",
+          county: "Miami-Dade",
+          city: "Miami",
+          isActive: true,
+          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours from now
+          source: "AI",
+          createdAt: new Date()
+        },
+        {
+          id: "2",
+          title: "Curfew in Effect",
+          message: "Emergency curfew 8PM-6AM in affected areas. Essential workers exempt with ID.",
+          alertType: "curfew",
+          severity: "critical",
+          state: "FL",
+          county: "Hillsborough",
+          city: "Tampa",
+          isActive: true,
+          expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000), // 48 hours from now
+          source: "Local Govt",
+          createdAt: new Date()
+        }
+      ];
+      
+      let filteredAlerts = alerts.filter(a => a.isActive);
+      if (state) {
+        filteredAlerts = filteredAlerts.filter(a => a.state === state);
+      }
+      if (city) {
+        filteredAlerts = filteredAlerts.filter(a => a.city && a.city.toLowerCase().includes((city as string).toLowerCase()));
+      }
+      if (alertType) {
+        filteredAlerts = filteredAlerts.filter(a => a.alertType === alertType);
+      }
+      if (severity) {
+        filteredAlerts = filteredAlerts.filter(a => a.severity === severity);
+      }
+      
+      res.json({ alerts: filteredAlerts, total: filteredAlerts.length });
+    } catch (error) {
+      console.error('Error fetching alerts:', error);
+      res.status(500).json({ error: 'Failed to fetch alerts' });
+    }
+  });
+
+  // Get satellite phones and emergency internet products
+  app.get("/api/dem/satellite-products", async (req, res) => {
+    try {
+      const { category, vendor, maxPrice, coverage } = req.query;
+      
+      // Mock data for now - will be integrated with vendor APIs
+      const satelliteProducts = [
+        {
+          id: "1",
+          name: "Iridium Extreme 9575",
+          model: "9575",
+          vendor: "Satellite Phone Store",
+          category: "satellite_phone",
+          price: 1680.00,
+          coverage: "global",
+          features: ["GPS Tracking", "SOS Button", "Weatherproof", "Two-way messaging"],
+          isInStock: true,
+          vendorUrl: "https://satellitephonestore.com",
+          vendorPhone: "(555) SAT-PHONE",
+          specifications: {
+            durability: "IP65 Weatherproof",
+            batteryLife: "30 hrs standby",
+            gpsEnabled: true,
+            sosFeatures: true,
+            waterproof: true
+          },
+          createdAt: new Date()
+        },
+        {
+          id: "2",
+          name: "Inmarsat IsatPhone 2",
+          model: "IsatPhone 2",
+          vendor: "BlueCosmo",
+          category: "satellite_phone",
+          price: 789.00,
+          coverage: "global",
+          features: ["Long Battery Life", "Compact Design", "GPS", "Emergency Button"],
+          isInStock: true,
+          vendorUrl: "https://bluecosmo.com",
+          vendorPhone: "(555) BLUE-SAT",
+          specifications: {
+            durability: "Dust/Water Resistant",
+            batteryLife: "8 hrs talk time",
+            gpsEnabled: true,
+            sosFeatures: true,
+            waterproof: false
+          },
+          createdAt: new Date()
+        },
+        {
+          id: "3",
+          name: "Starlink Portable Kit",
+          model: "Standard Kit",
+          vendor: "SpaceX",
+          category: "emergency_internet",
+          price: 599.00,
+          coverage: "global",
+          features: ["High-speed Internet", "Portable", "Easy Setup", "Weather Resistant"],
+          isInStock: true,
+          vendorUrl: "https://starlink.com",
+          vendorPhone: "(555) STARLINK",
+          specifications: {
+            durability: "Weather Resistant",
+            batteryLife: "Requires Power Source",
+            gpsEnabled: false,
+            sosFeatures: false,
+            waterproof: false
+          },
+          createdAt: new Date()
+        }
+      ];
+      
+      let filteredProducts = satelliteProducts;
+      if (category) {
+        filteredProducts = filteredProducts.filter(p => p.category === category);
+      }
+      if (vendor) {
+        filteredProducts = filteredProducts.filter(p => p.vendor.toLowerCase().includes((vendor as string).toLowerCase()));
+      }
+      if (maxPrice) {
+        filteredProducts = filteredProducts.filter(p => p.price <= parseFloat(maxPrice as string));
+      }
+      if (coverage) {
+        filteredProducts = filteredProducts.filter(p => p.coverage === coverage);
+      }
+      
+      res.json({ satelliteProducts: filteredProducts, total: filteredProducts.length });
+    } catch (error) {
+      console.error('Error fetching satellite products:', error);
+      res.status(500).json({ error: 'Failed to fetch satellite products' });
+    }
+  });
+
+  // Create a new alert (for AI system or authorized users)
+  app.post("/api/dem/alerts", async (req, res) => {
+    try {
+      const { title, message, alertType, severity, state, county, city, source, expiresAt } = req.body;
+      
+      if (!title || !message || !alertType || !state) {
+        return res.status(400).json({ error: 'Missing required fields: title, message, alertType, state' });
+      }
+      
+      const newAlert = {
+        id: randomUUID(),
+        title,
+        message,
+        alertType,
+        severity: severity || 'medium',
+        state,
+        county: county || null,
+        city: city || null,
+        isActive: true,
+        expiresAt: expiresAt ? new Date(expiresAt) : null,
+        source: source || 'API',
+        createdAt: new Date()
+      };
+      
+      // TODO: Store in database once storage methods are implemented
+      
+      res.status(201).json({ alert: newAlert, message: 'Alert created successfully' });
+    } catch (error) {
+      console.error('Error creating alert:', error);
+      res.status(500).json({ error: 'Failed to create alert' });
+    }
+  });
+
+  // Get DEM marketplace dashboard with summary statistics
+  app.get("/api/dem/dashboard", async (req, res) => {
+    try {
+      const { state } = req.query;
+      const stateFilter = state as string || 'FL';
+      
+      // Mock statistics - will be replaced with real data aggregation
+      const dashboardData = {
+        state: stateFilter,
+        summary: {
+          hotelsAvailable: 45,
+          gasStationsOpen: 89,
+          hardwareStoresOpen: 23,
+          sheltersActive: 12,
+          activeAlerts: 3,
+          satelliteProductsInStock: 15
+        },
+        pricing: {
+          avgHotelPrice: 125.50,
+          avgGasPrice: 3.45,
+          avgGeneratorPrice: 899.99
+        },
+        alerts: {
+          critical: 1,
+          high: 2,
+          medium: 4,
+          low: 1
+        },
+        availability: {
+          hotelOccupancy: 0.68, // 68% occupied
+          gasAvailability: 0.85, // 85% of stations have fuel
+          hardwareInventory: 0.72, // 72% of critical supplies in stock
+          shelterCapacity: 0.55 // 55% shelter capacity used
+        },
+        lastUpdated: new Date()
+      };
+      
+      res.json({ dashboard: dashboardData });
+    } catch (error) {
+      console.error('Error fetching DEM dashboard:', error);
+      res.status(500).json({ error: 'Failed to fetch DEM dashboard' });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
