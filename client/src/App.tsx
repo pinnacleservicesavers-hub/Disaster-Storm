@@ -23,9 +23,10 @@ import FormBuilder from "./pages/FormBuilder";
 import CalendarBooking from "./pages/CalendarBooking";
 import WorkflowBuilder from "./pages/WorkflowBuilder";
 import StormShare from "./pages/StormShare";
+import DisasterEssentialsMarketplace from "./pages/DisasterEssentialsMarketplace";
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Cloud, Home, Menu, Camera, Heart, Eye, Zap, Users, FileText, User, Plane, Scale, Settings, Briefcase, Video, Target, Share2, Shield, Bell, Search, TrendingUp } from 'lucide-react';
+import { Cloud, Home, Menu, Camera, Heart, Eye, Zap, Users, FileText, User, Plane, Scale, Settings, Briefcase, Video, Target, Share2, Shield, Bell, Search, TrendingUp, ShoppingBag } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useState } from 'react';
 import { FadeIn } from '@/components/ui/animations';
@@ -160,6 +161,19 @@ function Navigation() {
           testId: "nav-stormshare",
           badge: "Hot",
           badgeColor: "bg-pink-500"
+        }
+      ]
+    },
+    {
+      title: "Resources",
+      items: [
+        { 
+          href: "/disaster-essentials-marketplace", 
+          label: "Disaster Essentials Marketplace", 
+          icon: ShoppingBag, 
+          testId: "nav-dem",
+          badge: "New",
+          badgeColor: "bg-purple-500"
         }
       ]
     }
@@ -448,6 +462,12 @@ export default function App() {
           <title>StormShare Community - DisasterDirect</title>
           <meta name="description" content="Community platform for storm victims and contractors to share stories, request help, connect with local assistance, and access resources" />
           <StormShare />
+        </Route>
+        
+        <Route path="/disaster-essentials-marketplace">
+          <title>Disaster Essentials Marketplace - DisasterDirect</title>
+          <meta name="description" content="Real-time disaster resource hub with hotels, gas stations, hardware supplies, shelters, critical alerts, and satellite communication vendors for contractors and victims" />
+          <DisasterEssentialsMarketplace />
         </Route>
         
         <Route path="/legal">
