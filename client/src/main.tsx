@@ -9,7 +9,7 @@ import { AuthProvider } from "./contexts/AuthContext";
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
-      <AuthProvider showUserSwitcher={true}>
+      <AuthProvider showUserSwitcher={false}>
         <App />
       </AuthProvider>
     </QueryClientProvider>
