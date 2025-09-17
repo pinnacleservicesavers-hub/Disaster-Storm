@@ -362,19 +362,47 @@ export default function Legal() {
                 <CardTitle className="text-lg">Quick Actions</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <Button variant="outline" className="w-full justify-start" data-testid="button-generate-report">
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start" 
+                  onClick={() => {
+                    alert('Generating compliance report... This will download a comprehensive report of all legal items and compliance status.');
+                  }}
+                  data-testid="button-generate-report"
+                >
                   <FileText className="w-4 h-4 mr-2" />
                   Generate Compliance Report
                 </Button>
-                <Button variant="outline" className="w-full justify-start" data-testid="button-schedule-review">
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start" 
+                  onClick={() => {
+                    alert('Opening calendar to schedule legal review... Please select a date and time for your legal consultation.');
+                  }}
+                  data-testid="button-schedule-review"
+                >
                   <Calendar className="w-4 h-4 mr-2" />
                   Schedule Legal Review
                 </Button>
-                <Button variant="outline" className="w-full justify-start" data-testid="button-set-reminder">
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start" 
+                  onClick={() => {
+                    alert('Setting up deadline reminder... You will receive notifications 7, 3, and 1 day before critical legal deadlines.');
+                  }}
+                  data-testid="button-set-reminder"
+                >
                   <Clock className="w-4 h-4 mr-2" />
                   Set Deadline Reminder
                 </Button>
-                <Button variant="outline" className="w-full justify-start" data-testid="button-compliance-training">
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start" 
+                  onClick={() => {
+                    alert('Opening compliance training module... Access interactive training materials and state-specific legal requirements.');
+                  }}
+                  data-testid="button-compliance-training"
+                >
                   <CheckCircle className="w-4 h-4 mr-2" />
                   Compliance Training
                 </Button>
