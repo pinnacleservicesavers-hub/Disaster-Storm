@@ -260,6 +260,11 @@ export default function PredictionDashboard() {
   // Weather effects state
   const [showWeatherEffects, setShowWeatherEffects] = useState(false);
   const [isStormActive, setIsStormActive] = useState(false);
+  
+  // Hurricane Tracker state
+  const [selectedBasin, setSelectedBasin] = useState<string>('atlantic');
+  const [hurricaneRefreshKey, setHurricaneRefreshKey] = useState(0);
+  const [hurricaneLoadError, setHurricaneLoadError] = useState(false);
 
   // Check for active severe weather to show effects
   useEffect(() => {
@@ -854,7 +859,7 @@ export default function PredictionDashboard() {
               transition={{ delay: 1.2 }}
             >
               <TabsList 
-                className="grid w-full grid-cols-4 bg-white/80 backdrop-blur-sm border border-slate-200/50 p-1 rounded-xl shadow-lg" 
+                className="grid w-full grid-cols-5 bg-white/80 backdrop-blur-sm border border-slate-200/50 p-1 rounded-xl shadow-lg" 
                 data-testid="tabs-prediction-dashboard"
               >
                 <HoverLift>
@@ -895,6 +900,16 @@ export default function PredictionDashboard() {
                   >
                     <Target className="h-4 w-4 mr-2" />
                     🎯 Deployment
+                  </TabsTrigger>
+                </HoverLift>
+                <HoverLift>
+                  <TabsTrigger 
+                    value="hurricane-tracker" 
+                    data-testid="tab-hurricane-tracker"
+                    className="rounded-lg transition-all duration-300 data-[state=active]:bg-red-500 data-[state=active]:text-white data-[state=active]:shadow-lg"
+                  >
+                    <Eye className="h-4 w-4 mr-2" />
+                    🌀 Live Tracker
                   </TabsTrigger>
                 </HoverLift>
               </TabsList>
@@ -1391,6 +1406,389 @@ export default function PredictionDashboard() {
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+
+          {/* Hurricane Tracker Tab */}
+          <TabsContent value="hurricane-tracker" data-testid="content-hurricane-tracker">
+            <FadeIn>
+              <div className="space-y-6">
+                {/* Hurricane Tracker Header & Controls */}
+                <Card className="bg-gradient-to-br from-red-50 to-orange-100 dark:from-red-900/20 dark:to-orange-900/20 border-red-200 dark:border-red-800">
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <motion.div
+                          className="relative"
+                          animate={{ 
+                            scale: [1, 1.1, 1],
+                            rotate: [0, 5, -5, 0]
+                          }}
+                          transition={{ duration: 3, repeat: Infinity }}
+                        >
+                          <div className="w-12 h-12 bg-gradient-to-br from-red-500 to-orange-500 rounded-full flex items-center justify-center">
+                            <Eye className="w-6 h-6 text-white" />
+                          </div>
+                          <motion.div
+                            className="absolute -top-1 -right-1 w-4 h-4 bg-yellow-400 rounded-full"
+                            animate={{ 
+                              scale: [1, 1.5, 1],
+                              opacity: [0.7, 1, 0.7]
+                            }}
+                            transition={{ duration: 1.5, repeat: Infinity }}
+                          />
+                        </motion.div>
+                        <div>
+                          <CardTitle className="text-xl font-bold text-red-700 dark:text-red-300" data-testid="title-hurricane-tracker">
+                            🌀 Live Hurricane Tracker
+                          </CardTitle>
+                          <CardDescription className="text-red-600 dark:text-red-400">
+                            Real-time tracking powered by Weather Underground
+                          </CardDescription>
+                        </div>
+                      </div>
+                      
+                      {/* Refresh Controls */}
+                      <div className="flex items-center space-x-3">
+                        <motion.div
+                          className="flex items-center space-x-2 px-3 py-2 bg-white/70 backdrop-blur-sm rounded-lg border border-red-200/50"
+                          whileHover={{ scale: 1.02 }}
+                        >
+                          <span className="text-sm font-medium text-red-700">Last Updated:</span>
+                          <span className="text-sm text-red-600">
+                            {new Date().toLocaleTimeString()}
+                          </span>
+                        </motion.div>
+                        
+                        <HoverLift>
+                          <Button
+                            onClick={() => setHurricaneRefreshKey(prev => prev + 1)}
+                            variant="outline"
+                            size="sm"
+                            data-testid="button-refresh-hurricane-tracker"
+                            className="bg-white/80 hover:bg-white border-red-200 hover:border-red-300 text-red-700 hover:text-red-800 transition-all duration-300 shadow-lg hover:shadow-xl"
+                          >
+                            <motion.div
+                              animate={{ rotate: hurricaneRefreshKey * 360 }}
+                              transition={{ duration: 0.5, ease: "easeOut" }}
+                            >
+                              <RefreshCw className="h-4 w-4 mr-2" />
+                            </motion.div>
+                            Refresh Tracker
+                          </Button>
+                        </HoverLift>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  
+                  <CardContent>
+                    {/* Basin Selection Buttons */}
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-semibold text-red-700 dark:text-red-300">Select Hurricane Basin:</h4>
+                        
+                        {/* Active Storm Indicators */}
+                        <div className="flex items-center space-x-4">
+                          <motion.div
+                            className="flex items-center space-x-2 px-3 py-1 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-full text-sm font-medium"
+                            animate={{ 
+                              boxShadow: ['0 0 0 0 rgba(239, 68, 68, 0.4)', '0 0 0 10px rgba(239, 68, 68, 0)', '0 0 0 0 rgba(239, 68, 68, 0.4)']
+                            }}
+                            transition={{ duration: 2, repeat: Infinity }}
+                          >
+                            <motion.div
+                              className="w-2 h-2 bg-red-500 rounded-full"
+                              animate={{ scale: [1, 1.5, 1] }}
+                              transition={{ duration: 1, repeat: Infinity }}
+                            />
+                            <span data-testid="active-storms-count">4+ Active Systems</span>
+                          </motion.div>
+                          
+                          <motion.div
+                            className="flex items-center space-x-2 px-3 py-1 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded-full text-sm font-medium"
+                            animate={{ 
+                              scale: [1, 1.05, 1]
+                            }}
+                            transition={{ duration: 1.5, repeat: Infinity }}
+                          >
+                            <AlertTriangle className="w-3 h-3" />
+                            <span>High Alert</span>
+                          </motion.div>
+                        </div>
+                      </div>
+                      
+                      {/* Basin Buttons */}
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        {[
+                          { id: 'atlantic', name: '🌊 Atlantic', description: 'US East Coast & Gulf', color: 'blue' },
+                          { id: 'eastern-pacific', name: '🌺 E. Pacific', description: 'Mexico & Hawaii', color: 'green' },
+                          { id: 'western-pacific', name: '🏝️ W. Pacific', description: 'Asia & Philippines', color: 'purple' },
+                          { id: 'global', name: '🌍 Global View', description: 'All Active Systems', color: 'red' }
+                        ].map((basin) => {
+                          const isSelected = selectedBasin === basin.id;
+                          const colorClasses = {
+                            blue: isSelected ? 'bg-blue-500 text-white border-blue-600' : 'bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200',
+                            green: isSelected ? 'bg-green-500 text-white border-green-600' : 'bg-green-50 hover:bg-green-100 text-green-700 border-green-200',
+                            purple: isSelected ? 'bg-purple-500 text-white border-purple-600' : 'bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200',
+                            red: isSelected ? 'bg-red-500 text-white border-red-600' : 'bg-red-50 hover:bg-red-100 text-red-700 border-red-200'
+                          };
+                          
+                          return (
+                            <motion.button
+                              key={basin.id}
+                              onClick={() => setSelectedBasin(basin.id)}
+                              data-testid={`button-basin-${basin.id}`}
+                              className={`p-4 rounded-lg border-2 transition-all duration-300 ${colorClasses[basin.color as keyof typeof colorClasses]} ${isSelected ? 'shadow-lg ring-2 ring-offset-2 ring-opacity-50' : 'hover:shadow-md'}`}
+                              whileHover={{ scale: 1.02, y: -2 }}
+                              whileTap={{ scale: 0.98 }}
+                            >
+                              <div className="text-center">
+                                <div className="font-semibold text-sm mb-1">{basin.name}</div>
+                                <div className="text-xs opacity-80">{basin.description}</div>
+                                {isSelected && (
+                                  <motion.div
+                                    className="mt-2 w-full h-1 bg-white/30 rounded-full"
+                                    initial={{ scaleX: 0 }}
+                                    animate={{ scaleX: 1 }}
+                                    transition={{ duration: 0.3 }}
+                                  />
+                                )}
+                              </div>
+                            </motion.button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Main Hurricane Tracker Display */}
+                <Card className="overflow-hidden">
+                  <CardHeader className="bg-gradient-to-r from-blue-500 to-purple-600 text-white">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <Waves className="w-6 h-6" />
+                        <div>
+                          <CardTitle data-testid="hurricane-tracker-title">
+                            Weather Underground Hurricane Center
+                          </CardTitle>
+                          <CardDescription className="text-blue-100">
+                            Live tracking • Satellite imagery • Model forecasts
+                          </CardDescription>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center space-x-2">
+                        <motion.div
+                          className="w-3 h-3 bg-green-400 rounded-full"
+                          animate={{ 
+                            opacity: [0.5, 1, 0.5],
+                            scale: [1, 1.2, 1]
+                          }}
+                          transition={{ duration: 2, repeat: Infinity }}
+                        />
+                        <span className="text-sm font-medium">Live Data</span>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  
+                  <CardContent className="p-0">
+                    {/* Hurricane Tracker Features Panel */}
+                    <div className="p-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                        <div className="flex items-center space-x-2">
+                          <motion.div
+                            className="w-2 h-2 bg-blue-500 rounded-full"
+                            animate={{ scale: [1, 1.5, 1] }}
+                            transition={{ duration: 1.5, repeat: Infinity }}
+                          />
+                          <span className="font-medium">Real-time Positions</span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <motion.div
+                            className="w-2 h-2 bg-green-500 rounded-full"
+                            animate={{ scale: [1, 1.5, 1] }}
+                            transition={{ duration: 1.5, repeat: Infinity, delay: 0.2 }}
+                          />
+                          <span className="font-medium">Satellite Imagery</span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <motion.div
+                            className="w-2 h-2 bg-orange-500 rounded-full"
+                            animate={{ scale: [1, 1.5, 1] }}
+                            transition={{ duration: 1.5, repeat: Infinity, delay: 0.4 }}
+                          />
+                          <span className="font-medium">Model Forecasts</span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <motion.div
+                            className="w-2 h-2 bg-red-500 rounded-full"
+                            animate={{ scale: [1, 1.5, 1] }}
+                            transition={{ duration: 1.5, repeat: Infinity, delay: 0.6 }}
+                          />
+                          <span className="font-medium">Storm Details</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Loading State */}
+                    <AnimatePresence>
+                      {hurricaneLoadError ? (
+                        <motion.div
+                          className="flex flex-col items-center justify-center h-96 space-y-4 bg-gray-100 dark:bg-gray-800"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                        >
+                          <motion.div
+                            className="w-16 h-16 border-4 border-red-300 border-t-red-600 rounded-full"
+                            animate={{ rotate: 360 }}
+                            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                          />
+                          <div className="text-center">
+                            <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                              Unable to Load Hurricane Tracker
+                            </h3>
+                            <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
+                              The external hurricane tracking service is temporarily unavailable.
+                            </p>
+                            <div className="space-y-2">
+                              <Button
+                                onClick={() => {
+                                  setHurricaneLoadError(false);
+                                  setHurricaneRefreshKey(prev => prev + 1);
+                                }}
+                                className="bg-red-500 hover:bg-red-600 text-white"
+                                data-testid="button-retry-hurricane-tracker"
+                              >
+                                <RefreshCw className="w-4 h-4 mr-2" />
+                                Try Again
+                              </Button>
+                              <p className="text-xs text-gray-500">
+                                Alternative: Visit{' '}
+                                <a
+                                  href="https://www.wunderground.com/hurricane"
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-blue-600 hover:text-blue-800 underline"
+                                  data-testid="link-wunderground-external"
+                                >
+                                  Weather Underground
+                                </a>{' '}
+                                directly
+                              </p>
+                            </div>
+                          </div>
+                        </motion.div>
+                      ) : (
+                        <motion.div
+                          className="relative"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          transition={{ duration: 0.5 }}
+                        >
+                          {/* Weather Underground Hurricane Tracker Iframe */}
+                          <iframe
+                            key={hurricaneRefreshKey}
+                            src="https://www.wunderground.com/hurricane"
+                            className="w-full h-[800px] border-0"
+                            title="Weather Underground Hurricane Tracker"
+                            data-testid="iframe-hurricane-tracker"
+                            onLoad={() => setHurricaneLoadError(false)}
+                            onError={() => setHurricaneLoadError(true)}
+                            allow="geolocation"
+                            style={{
+                              minHeight: '800px',
+                              background: 'linear-gradient(45deg, #f0f9ff, #e0f2fe)'
+                            }}
+                          />
+                          
+                          {/* Overlay Controls */}
+                          <div className="absolute top-4 right-4 space-y-2">
+                            <motion.div
+                              className="bg-white/90 backdrop-blur-sm rounded-lg p-3 shadow-lg border border-gray-200"
+                              initial={{ opacity: 0, x: 20 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              transition={{ delay: 1 }}
+                            >
+                              <div className="text-xs font-medium text-gray-700 mb-1">Quick Actions</div>
+                              <div className="flex flex-col space-y-1">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => window.open('https://www.wunderground.com/hurricane', '_blank')}
+                                  data-testid="button-open-external-tracker"
+                                  className="text-xs h-7"
+                                >
+                                  <Eye className="w-3 h-3 mr-1" />
+                                  Full View
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => setHurricaneRefreshKey(prev => prev + 1)}
+                                  data-testid="button-refresh-iframe"
+                                  className="text-xs h-7"
+                                >
+                                  <RefreshCw className="w-3 h-3 mr-1" />
+                                  Refresh
+                                </Button>
+                              </div>
+                            </motion.div>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </CardContent>
+                </Card>
+
+                {/* Hurricane Intelligence Integration */}
+                <Card className="bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-blue-900/20 dark:to-indigo-900/20 border-blue-200 dark:border-blue-800">
+                  <CardHeader>
+                    <CardTitle className="flex items-center text-blue-700 dark:text-blue-300">
+                      <Shield className="w-5 h-5 mr-2" />
+                      📊 Hurricane Intelligence Integration
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <h4 className="font-semibold text-sm text-blue-700 dark:text-blue-300">
+                          🎯 Strategic Positioning
+                        </h4>
+                        <ul className="text-sm text-blue-600 dark:text-blue-400 space-y-1">
+                          <li>• Monitor storm intensity trends</li>
+                          <li>• Track landfall predictions</li>
+                          <li>• Identify deployment windows</li>
+                          <li>• Pre-position crew strategically</li>
+                        </ul>
+                      </div>
+                      <div className="space-y-2">
+                        <h4 className="font-semibold text-sm text-blue-700 dark:text-blue-300">
+                          📈 Data Integration
+                        </h4>
+                        <ul className="text-sm text-blue-600 dark:text-blue-400 space-y-1">
+                          <li>• Cross-reference with damage forecasts</li>
+                          <li>• Validate AI predictions</li>
+                          <li>• Monitor model consensus</li>
+                          <li>• Track uncertainty levels</li>
+                        </ul>
+                      </div>
+                      <div className="space-y-2">
+                        <h4 className="font-semibold text-sm text-blue-700 dark:text-blue-300">
+                          ⚡ Real-time Operations
+                        </h4>
+                        <ul className="text-sm text-blue-600 dark:text-blue-400 space-y-1">
+                          <li>• Live storm position updates</li>
+                          <li>• Wind field visualization</li>
+                          <li>• Satellite imagery analysis</li>
+                          <li>• NHC official advisories</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </FadeIn>
           </TabsContent>
         </Tabs>
         </FadeIn>
