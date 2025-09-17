@@ -260,10 +260,27 @@ export default function Customers() {
                             </div>
                             
                             <div className="flex space-x-2">
-                              <Button size="sm" variant="outline" data-testid={`button-contact-${customer.id}`}>
+                              <Button 
+                                size="sm" 
+                                variant="outline" 
+                                onClick={() => {
+                                  const cleanPhone = customer.phone.replace(/[^0-9+]/g, '');
+                                  window.location.href = `tel:${cleanPhone}`;
+                                }}
+                                data-testid={`button-contact-${customer.id}`}
+                                title={`Call ${customer.phone}`}
+                              >
                                 <Phone className="h-4 w-4" />
                               </Button>
-                              <Button size="sm" variant="outline" data-testid={`button-email-${customer.id}`}>
+                              <Button 
+                                size="sm" 
+                                variant="outline" 
+                                onClick={() => {
+                                  window.location.href = `mailto:${customer.email}`;
+                                }}
+                                data-testid={`button-email-${customer.id}`}
+                                title={`Email ${customer.email}`}
+                              >
                                 <Mail className="h-4 w-4" />
                               </Button>
                             </div>
