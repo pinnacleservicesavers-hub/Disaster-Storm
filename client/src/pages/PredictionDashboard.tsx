@@ -33,7 +33,8 @@ import {
   Droplets,
   CloudRain,
   Tornado,
-  Sun
+  Sun,
+  Video
 } from 'lucide-react';
 
 // ===== INTERFACES =====
@@ -257,6 +258,19 @@ export default function PredictionDashboard() {
     return `${Math.floor(diffHours / 24)}d ${diffHours % 24}h`;
   };
 
+  // Get Windy webcam URL based on region
+  const getWebcamUrl = (region: string) => {
+    const baseUrl = 'https://www.windy.com/-Webcams/webcams';
+    const regionCoords = {
+      southeast: '32.607,-84.937,5',  // Georgia/Florida area
+      gulf: '29.760,-95.369,5',       // Gulf Coast (Houston area) 
+      atlantic: '35.771,-75.764,5',    // Outer Banks area
+      midwest: '39.739,-104.991,5',    // Denver/Tornado Alley
+      caribbean: '18.467,-66.106,5'   // Puerto Rico area
+    };
+    return `${baseUrl}?${regionCoords[region as keyof typeof regionCoords]}`;
+  };
+
   // Weather effects state
   const [showWeatherEffects, setShowWeatherEffects] = useState(false);
   const [isStormActive, setIsStormActive] = useState(false);
@@ -265,6 +279,11 @@ export default function PredictionDashboard() {
   const [selectedBasin, setSelectedBasin] = useState<string>('atlantic');
   const [hurricaneRefreshKey, setHurricaneRefreshKey] = useState(0);
   const [hurricaneLoadError, setHurricaneLoadError] = useState(false);
+  
+  // Webcam state
+  const [webcamRegion, setWebcamRegion] = useState<string>('southeast');
+  const [webcamLoadError, setWebcamLoadError] = useState(false);
+  const [webcamRefreshKey, setWebcamRefreshKey] = useState(0);
 
   // Check for active severe weather to show effects
   useEffect(() => {
@@ -859,7 +878,7 @@ export default function PredictionDashboard() {
               transition={{ delay: 1.2 }}
             >
               <TabsList 
-                className="grid w-full grid-cols-5 bg-white/80 backdrop-blur-sm border border-slate-200/50 p-1 rounded-xl shadow-lg" 
+                className="grid w-full grid-cols-6 bg-white/80 backdrop-blur-sm border border-slate-200/50 p-1 rounded-xl shadow-lg" 
                 data-testid="tabs-prediction-dashboard"
               >
                 <HoverLift>
@@ -910,6 +929,16 @@ export default function PredictionDashboard() {
                   >
                     <Eye className="h-4 w-4 mr-2" />
                     🌀 Live Tracker
+                  </TabsTrigger>
+                </HoverLift>
+                <HoverLift>
+                  <TabsTrigger 
+                    value="webcams" 
+                    data-testid="tab-webcams"
+                    className="rounded-lg transition-all duration-300 data-[state=active]:bg-indigo-500 data-[state=active]:text-white data-[state=active]:shadow-lg"
+                  >
+                    <Video className="h-4 w-4 mr-2" />
+                    📹 Live Cams
                   </TabsTrigger>
                 </HoverLift>
               </TabsList>
@@ -1782,6 +1811,297 @@ export default function PredictionDashboard() {
                           <li>• Wind field visualization</li>
                           <li>• Satellite imagery analysis</li>
                           <li>• NHC official advisories</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </FadeIn>
+          </TabsContent>
+
+          {/* Live Webcams Tab */}
+          <TabsContent value="webcams" data-testid="content-live-webcams">
+            <FadeIn delay={0.4}>
+              <div className="space-y-6">
+                <Card className="bg-gradient-to-br from-violet-50 to-purple-100 dark:from-violet-900/20 dark:to-purple-900/20 border-violet-200 dark:border-violet-800 overflow-hidden">
+                  <CardHeader className="pb-4">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-xl font-bold text-violet-700 dark:text-violet-300" data-testid="title-live-webcams">
+                        <div className="flex items-center space-x-3">
+                          <motion.div
+                            className="relative"
+                            animate={{ 
+                              scale: [1, 1.1, 1],
+                              rotate: [0, 5, -5, 0]
+                            }}
+                            transition={{ duration: 3, repeat: Infinity }}
+                          >
+                            <Video className="w-6 h-6" />
+                            <motion.div
+                              className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"
+                              animate={{ 
+                                scale: [1, 1.3, 1],
+                                opacity: [0.7, 1, 0.7]
+                              }}
+                              transition={{ duration: 1.5, repeat: Infinity }}
+                            />
+                          </motion.div>
+                          <span>📹 Live Storm Webcams</span>
+                        </div>
+                      </CardTitle>
+                      
+                      <div className="flex items-center space-x-3">
+                        {/* Region Selector */}
+                        <div className="flex items-center space-x-2">
+                          <label className="text-sm font-medium text-violet-700 dark:text-violet-300">Region:</label>
+                          <select
+                            value={webcamRegion}
+                            onChange={(e) => {
+                              setWebcamRegion(e.target.value);
+                              setWebcamRefreshKey(prev => prev + 1);
+                            }}
+                            className="px-3 py-1 text-sm border border-violet-200 rounded-md bg-white/90 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-violet-500 dark:bg-gray-800/90 dark:border-violet-600 dark:text-white"
+                            data-testid="select-webcam-region"
+                          >
+                            <option value="southeast">🌊 Southeast Coast</option>
+                            <option value="gulf">🌴 Gulf Coast</option>
+                            <option value="atlantic">🏖️ Atlantic Coast</option>
+                            <option value="midwest">🌪️ Tornado Alley</option>
+                            <option value="caribbean">🏝️ Caribbean</option>
+                          </select>
+                        </div>
+                        
+                        {/* Auto Refresh Toggle */}
+                        <div className="flex items-center space-x-2 bg-white/70 backdrop-blur-sm rounded-lg px-3 py-1 border border-violet-200/50">
+                          <span className="text-xs font-medium text-violet-700 dark:text-violet-300">Live</span>
+                          <motion.div
+                            className="w-2 h-2 bg-green-400 rounded-full"
+                            animate={{ scale: [1, 1.5, 1] }}
+                            transition={{ duration: 2, repeat: Infinity }}
+                          />
+                        </div>
+
+                        {/* Refresh Button */}
+                        <Button
+                          onClick={() => {
+                            setWebcamRefreshKey(prev => prev + 1);
+                            setWebcamLoadError(false);
+                          }}
+                          variant="outline"
+                          size="sm"
+                          data-testid="button-refresh-webcams"
+                          className="bg-white/80 hover:bg-white border-violet-200 hover:border-violet-300 text-violet-700 hover:text-violet-800 backdrop-blur-sm transition-all duration-300 shadow-lg hover:shadow-xl"
+                        >
+                          <motion.div
+                            animate={{ rotate: 360 }}
+                            transition={{ duration: 1, ease: "linear" }}
+                            key={webcamRefreshKey}
+                          >
+                            <RefreshCw className="h-4 w-4 mr-2" />
+                          </motion.div>
+                          Refresh Cams
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center space-x-4 text-sm text-violet-600 dark:text-violet-400 mt-2">
+                      <div className="flex items-center space-x-1">
+                        <Eye className="w-3 h-3" />
+                        <span>Real-time visual conditions</span>
+                      </div>
+                      <div className="flex items-center space-x-1">
+                        <Activity className="w-3 h-3" />
+                        <span>Live weather monitoring</span>
+                      </div>
+                      <div className="flex items-center space-x-1">
+                        <Shield className="w-3 h-3" />
+                        <span>Deployment safety assessment</span>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  
+                  <CardContent className="p-0">
+                    <AnimatePresence mode="wait">
+                      {webcamLoadError ? (
+                        <motion.div
+                          key="error"
+                          initial={{ opacity: 0, scale: 0.9 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.9 }}
+                          className="min-h-[600px] flex flex-col items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 text-center p-8"
+                        >
+                          <motion.div
+                            animate={{ 
+                              scale: [1, 1.1, 1],
+                              rotate: [0, -10, 10, 0]
+                            }}
+                            transition={{ duration: 2, repeat: Infinity }}
+                            className="text-6xl mb-4"
+                          >
+                            📹
+                          </motion.div>
+                          <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                            Webcam Feed Unavailable
+                          </h3>
+                          <p className="text-gray-600 dark:text-gray-400 mb-6 max-w-md">
+                            Unable to load live webcam feeds from Windy.com. This might be due to regional restrictions or temporary network issues.
+                          </p>
+                          <div className="space-y-3">
+                            <Button
+                              onClick={() => {
+                                setWebcamLoadError(false);
+                                setWebcamRefreshKey(prev => prev + 1);
+                              }}
+                              className="bg-violet-600 hover:bg-violet-700 text-white"
+                              data-testid="button-retry-webcams"
+                            >
+                              <RefreshCw className="w-4 h-4 mr-2" />
+                              Try Again
+                            </Button>
+                            <div className="text-sm text-gray-500">
+                              <p>Alternative: Open directly in</p>
+                              <Button
+                                variant="link"
+                                size="sm"
+                                onClick={() => window.open(getWebcamUrl(webcamRegion), '_blank')}
+                                className="text-violet-600 hover:text-violet-700 p-0 h-auto"
+                                data-testid="button-open-windy-external"
+                              >
+                                Windy.com ↗
+                              </Button>
+                            </div>
+                          </div>
+                        </motion.div>
+                      ) : (
+                        <motion.div
+                          key={`webcam-${webcamRegion}-${webcamRefreshKey}`}
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          className="relative w-full bg-gradient-to-br from-violet-50 to-purple-100 dark:from-violet-900/20 dark:to-purple-900/20"
+                        >
+                          <iframe
+                            src={getWebcamUrl(webcamRegion)}
+                            className="w-full border-0 rounded-b-lg"
+                            title="Windy Live Webcams"
+                            data-testid="iframe-live-webcams"
+                            onLoad={() => setWebcamLoadError(false)}
+                            onError={() => setWebcamLoadError(true)}
+                            allow="geolocation"
+                            style={{
+                              minHeight: '800px',
+                              background: 'linear-gradient(45deg, #f5f3ff, #ede9fe)'
+                            }}
+                          />
+                          
+                          {/* Overlay Controls */}
+                          <div className="absolute top-4 right-4 space-y-2">
+                            <motion.div
+                              className="bg-white/90 backdrop-blur-sm rounded-lg p-3 shadow-lg border border-violet-200"
+                              initial={{ opacity: 0, x: 20 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              transition={{ delay: 1 }}
+                            >
+                              <div className="text-xs font-medium text-violet-700 mb-2">Quick Actions</div>
+                              <div className="flex flex-col space-y-1">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => window.open(getWebcamUrl(webcamRegion), '_blank')}
+                                  data-testid="button-open-external-webcams"
+                                  className="text-xs h-7"
+                                >
+                                  <Eye className="w-3 h-3 mr-1" />
+                                  Full View
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => setWebcamRefreshKey(prev => prev + 1)}
+                                  data-testid="button-refresh-iframe-webcams"
+                                  className="text-xs h-7"
+                                >
+                                  <RefreshCw className="w-3 h-3 mr-1" />
+                                  Refresh
+                                </Button>
+                              </div>
+                            </motion.div>
+                          </div>
+
+                          {/* Region Info Overlay */}
+                          <div className="absolute top-4 left-4">
+                            <motion.div
+                              className="bg-white/90 backdrop-blur-sm rounded-lg p-3 shadow-lg border border-violet-200"
+                              initial={{ opacity: 0, x: -20 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              transition={{ delay: 1.2 }}
+                            >
+                              <div className="text-xs font-medium text-violet-700 mb-1">Current Region</div>
+                              <div className="text-sm font-bold text-violet-800">
+                                {webcamRegion === 'southeast' && '🌊 Southeast Coast'}
+                                {webcamRegion === 'gulf' && '🌴 Gulf Coast'}
+                                {webcamRegion === 'atlantic' && '🏖️ Atlantic Coast'}
+                                {webcamRegion === 'midwest' && '🌪️ Tornado Alley'}
+                                {webcamRegion === 'caribbean' && '🏝️ Caribbean'}
+                              </div>
+                              <div className="text-xs text-violet-600 mt-1 flex items-center">
+                                <motion.div
+                                  className="w-2 h-2 bg-green-400 rounded-full mr-1"
+                                  animate={{ scale: [1, 1.3, 1] }}
+                                  transition={{ duration: 2, repeat: Infinity }}
+                                />
+                                Live Webcams
+                              </div>
+                            </motion.div>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </CardContent>
+                </Card>
+
+                {/* Webcam Intelligence Integration */}
+                <Card className="bg-gradient-to-br from-violet-50 to-purple-100 dark:from-violet-900/20 dark:to-purple-900/20 border-violet-200 dark:border-violet-800">
+                  <CardHeader>
+                    <CardTitle className="flex items-center text-violet-700 dark:text-violet-300">
+                      <Eye className="w-5 h-5 mr-2" />
+                      📊 Visual Intelligence Integration
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <h4 className="font-semibold text-sm text-violet-700 dark:text-violet-300">
+                          👁️ Real-time Monitoring
+                        </h4>
+                        <ul className="text-sm text-violet-600 dark:text-violet-400 space-y-1">
+                          <li>• Live weather conditions</li>
+                          <li>• Storm approach visualization</li>
+                          <li>• Visibility and safety assessment</li>
+                          <li>• Deployment timing validation</li>
+                        </ul>
+                      </div>
+                      <div className="space-y-2">
+                        <h4 className="font-semibold text-sm text-violet-700 dark:text-violet-300">
+                          🎯 Strategic Deployment
+                        </h4>
+                        <ul className="text-sm text-violet-600 dark:text-violet-400 space-y-1">
+                          <li>• Confirm weather predictions</li>
+                          <li>• Monitor crew safety conditions</li>
+                          <li>• Track storm damage in real-time</li>
+                          <li>• Validate AI prediction accuracy</li>
+                        </ul>
+                      </div>
+                      <div className="space-y-2">
+                        <h4 className="font-semibold text-sm text-violet-700 dark:text-violet-300">
+                          ⚡ Decision Support
+                        </h4>
+                        <ul className="text-sm text-violet-600 dark:text-violet-400 space-y-1">
+                          <li>• Visual storm intensity confirmation</li>
+                          <li>• Multi-region comparison</li>
+                          <li>• Ground truth validation</li>
+                          <li>• Real-time operational decisions</li>
                         </ul>
                       </div>
                     </div>
