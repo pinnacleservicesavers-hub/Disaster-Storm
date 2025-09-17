@@ -49,6 +49,7 @@ import { femaDisasterService } from "./services/femaDisasterService";
 import { femaMonitoringService } from "./services/femaMonitoringService";
 import { predictiveStormService } from "./services/predictiveStormService";
 import { storage } from "./storage";
+import { z } from "zod";
 import { 
   insertContractorWatchlistSchema, 
   insertStormHotZoneSchema,
@@ -2083,21 +2084,21 @@ Email: strategiclandmgmt@gmail.com
       const { contractorId, itemId } = req.params;
       
       // Validate using Zod schema per project guidelines
-      const alertPreferencesSchema = insertContractorWatchlistSchema.pick({
-        emailAlertsEnabled: true,
-        smsAlertsEnabled: true,
-        browserAlertsEnabled: true,
-        alertEmail: true,
-        alertPhone: true,
-        minSeverityLevel: true,
-        alertTypes: true,
-        alertRadius: true,
-        quietHoursStart: true,
-        quietHoursEnd: true,
-        timezone: true,
-        immediateAlertTypes: true,
-        maxAlertsPerHour: true
-      }).partial();
+      const alertPreferencesSchema = z.object({
+        emailAlertsEnabled: z.boolean().optional(),
+        smsAlertsEnabled: z.boolean().optional(),
+        browserAlertsEnabled: z.boolean().optional(),
+        alertEmail: z.string().optional(),
+        alertPhone: z.string().optional(),
+        minSeverityLevel: z.string().optional(),
+        alertTypes: z.array(z.string()).optional(),
+        alertRadius: z.string().optional(),
+        quietHoursStart: z.string().optional(),
+        quietHoursEnd: z.string().optional(),
+        timezone: z.string().optional(),
+        immediateAlertTypes: z.array(z.string()).optional(),
+        maxAlertsPerHour: z.number().optional()
+      });
       
       const validatedUpdates = alertPreferencesSchema.parse(req.body);
       
@@ -4914,12 +4915,11 @@ Email: strategiclandmgmt@gmail.com
       // Create homeowner
       const homeowner = await storage.createHomeowner({
         ...validatedData,
-        passwordHash: hashedPassword,
-        verificationToken: randomUUID() // For email verification if needed
+        passwordHash: hashedPassword
       });
 
       // Remove sensitive data from response
-      const { passwordHash, verificationToken, ...safeHomeowner } = homeowner;
+      const { passwordHash, ...safeHomeowner } = homeowner;
 
       res.status(201).json({ 
         ok: true, 
@@ -4960,7 +4960,7 @@ Email: strategiclandmgmt@gmail.com
       }
 
       // Remove sensitive data from response
-      const { passwordHash, verificationToken, ...safeHomeowner } = homeowner;
+      const { passwordHash, ...safeHomeowner } = homeowner;
 
       res.json({ 
         ok: true, 
@@ -4984,7 +4984,7 @@ Email: strategiclandmgmt@gmail.com
       }
 
       // Remove sensitive data from response
-      const { passwordHash, verificationToken, ...safeHomeowner } = homeowner;
+      const { passwordHash, ...safeHomeowner } = homeowner;
 
       res.json({ homeowner: safeHomeowner });
     } catch (error) {
@@ -5000,7 +5000,7 @@ Email: strategiclandmgmt@gmail.com
       const updates = req.body;
 
       // Remove sensitive fields that shouldn't be updated via this endpoint
-      const { passwordHash, verificationToken, id: bodyId, createdAt, ...allowedUpdates } = updates;
+      const { passwordHash, id: bodyId, createdAt, ...allowedUpdates } = updates;
 
       const updatedHomeowner = await storage.updateHomeowner(id, {
         ...allowedUpdates,
@@ -5108,8 +5108,6 @@ Email: strategiclandmgmt@gmail.com
       // Create damage report
       const damageReport = await storage.createDamageReport({
         ...validatedData,
-        photos: photos.length > 0 ? photos : null,
-        videos: videos.length > 0 ? videos : null,
         photoCount: photos.length,
         videoCount: videos.length,
         gpsFromExif: false, // Could be enhanced to extract GPS from EXIF
@@ -5171,7 +5169,6 @@ Email: strategiclandmgmt@gmail.com
 
       const serviceRequest = await storage.createServiceRequest({
         ...validatedData,
-        matchedContractors: null, // Will be populated by matching system
         assignedContractorId: null
       });
 
@@ -5276,7 +5273,7 @@ Email: strategiclandmgmt@gmail.com
                 alertType: persistedAlert.alertType,
                 priority: persistedAlert.leadPriority,
                 estimatedValue: persistedAlert.estimatedCost ? 
-                  (persistedAlert.estimatedCost.min + persistedAlert.estimatedCost.max) / 2 : 2500,
+                  (Number(persistedAlert.estimatedCost.min) + Number(persistedAlert.estimatedCost.max)) / 2 : 2500,
                 status: 'new' as const,
                 contactAttempts: 0
               };
@@ -5989,7 +5986,6 @@ Email: strategiclandmgmt@gmail.com
       // Store the prediction, forecasts, and opportunities in storage
       const storedPrediction = await storage.createStormPrediction({
         stormId: predictionResult.stormPrediction.stormId,
-        stormName: predictionResult.stormPrediction.stormName,
         stormType: predictionResult.stormPrediction.stormType,
         currentLatitude: predictionResult.stormPrediction.currentLatitude,
         currentLongitude: predictionResult.stormPrediction.currentLongitude,
@@ -5998,16 +5994,7 @@ Email: strategiclandmgmt@gmail.com
         currentDirection: predictionResult.stormPrediction.currentDirection,
         currentSpeed: predictionResult.stormPrediction.currentSpeed,
         forecastHours: predictionResult.stormPrediction.forecastHours,
-        predictedPath: predictionResult.stormPrediction.predictedPath,
-        intensityForecast: predictionResult.stormPrediction.intensityForecast,
-        maxWindSpeed: predictionResult.stormPrediction.maxWindSpeed,
-        maxWindRadius: predictionResult.stormPrediction.maxWindRadius,
-        stormSurgeHeight: predictionResult.stormPrediction.stormSurgeHeight,
-        stormSurgeRadius: predictionResult.stormPrediction.stormSurgeRadius,
-        precipitationForecast: predictionResult.stormPrediction.precipitationForecast,
-        confidenceScore: predictionResult.stormPrediction.confidenceScore,
-        uncertaintyRadius: predictionResult.stormPrediction.uncertaintyRadius,
-        isActive: predictionResult.stormPrediction.isActive
+        predictedPath: predictionResult.stormPrediction.predictedPath
       });
 
       // Store damage forecasts
@@ -6018,15 +6005,7 @@ Email: strategiclandmgmt@gmail.com
             state: forecast.state,
             county: forecast.county,
             riskLevel: forecast.riskLevel,
-            affectedPopulation: forecast.affectedPopulation,
-            estimatedPropertyDamage: forecast.estimatedPropertyDamage,
-            estimatedBusinessLoss: forecast.estimatedBusinessLoss,
-            primaryDamageTypes: forecast.primaryDamageTypes,
-            vulnerableInfrastructure: forecast.vulnerableInfrastructure,
-            evacuationZones: forecast.evacuationZones,
-            timeToImpact: forecast.timeToImpact,
-            forecastConfidence: forecast.forecastConfidence,
-            lastUpdated: forecast.lastUpdated
+            estimatedPropertyDamage: forecast.estimatedPropertyDamage
           })
         )
       );
@@ -6039,17 +6018,8 @@ Email: strategiclandmgmt@gmail.com
             state: opportunity.state,
             county: opportunity.county,
             marketPotential: opportunity.marketPotential,
-            estimatedJobValue: opportunity.estimatedJobValue,
             competitionLevel: opportunity.competitionLevel,
-            timeToMarket: opportunity.timeToMarket,
-            primaryServiceTypes: opportunity.primaryServiceTypes,
-            opportunityScore: opportunity.opportunityScore,
-            urgencyFactor: opportunity.urgencyFactor,
-            accessibilityRating: opportunity.accessibilityRating,
-            regulatoryComplexity: opportunity.regulatoryComplexity,
-            equipmentRequirements: opportunity.equipmentRequirements,
-            crewSizeRecommendation: opportunity.crewSizeRecommendation,
-            lastUpdated: opportunity.lastUpdated
+            opportunityScore: opportunity.opportunityScore
           })
         )
       );

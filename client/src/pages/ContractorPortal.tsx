@@ -317,7 +317,7 @@ export default function ContractorPortal() {
               <CardContent className="p-4 text-center">
                 <DollarSign className="w-8 h-8 mx-auto mb-2 text-green-500" />
                 <div className="text-2xl font-bold text-green-600" data-testid="kpi-monthly-revenue">
-                  <CountUp end={monthlyRevenue} duration={2} prefix="$" separator="," />
+                  <CountUp end={monthlyRevenue} duration={2} prefix="$" />
                 </div>
                 <div className="text-xs text-green-600/80 font-medium">Monthly Revenue</div>
               </CardContent>
