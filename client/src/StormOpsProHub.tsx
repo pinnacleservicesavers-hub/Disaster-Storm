@@ -628,7 +628,7 @@ export default function StormOpsProHub() {
                     <SpinningTornado size={64} showEffects={showEffects} />
                     <h1 className="text-6xl md:text-7xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-blue-200 to-indigo-300 tracking-tight" 
                         data-testid="heading-main">
-                      StormLead Master
+                      DisasterDirect
                     </h1>
                     <SpinningTornado size={64} showEffects={showEffects} />
                   </div>

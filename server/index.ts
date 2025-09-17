@@ -98,7 +98,7 @@ app.get('/api/status', (req, res) => {
   ];
   res.json({
     ok: true,
-    server: 'StormLead Master',
+    server: 'DisasterDirect',
     port: process.env.PORT || 5000,
     available_endpoints: endpoints,
     note: 'All APIs are working on port 5000. Use http://localhost:5000 for all requests.',
@@ -750,7 +750,7 @@ async function startServer() {
   
   const PORT = process.env.PORT || 5000;
   httpServer.listen(PORT, () => {
-    console.log('🌟 StormLead Master running on port', PORT);
+    console.log('🌟 DisasterDirect running on port', PORT);
     console.log('🌐 Frontend available at http://localhost:' + PORT);
     console.log('🔧 API endpoints available at http://localhost:' + PORT + '/api/*');
   });

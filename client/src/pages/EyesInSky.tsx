@@ -298,7 +298,7 @@ export default function EyesInSky() {
                 <AlertCircle className="w-5 h-5 text-orange-600 mt-0.5" />
                 <div>
                   <p className="text-orange-700 dark:text-orange-300 mb-4">
-                    Some streaming services require premium memberships. StormLead Master monitors 
+                    Some streaming services require premium memberships. DisasterDirect monitors 
                     subscription status and provides automated alerts for service renewals.
                   </p>
                   <div className="flex flex-wrap gap-2">

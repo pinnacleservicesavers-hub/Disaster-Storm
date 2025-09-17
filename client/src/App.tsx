@@ -199,7 +199,7 @@ function Navigation() {
                 </motion.div>
                 <div>
                   <h1 className="text-xl font-bold tracking-tight">
-                    StormLead Master
+                    DisasterDirect
                   </h1>
                   <p className="text-xs text-white/80 hidden sm:block">
                     Storm Operations Platform
@@ -348,110 +348,110 @@ export default function App() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Set page title and meta tags */}
-      <title>StormLead Master - Storm Operations Platform</title>
+      <title>DisasterDirect - Storm Operations Platform</title>
       <meta name="description" content="Comprehensive storm operations and claims management platform for contractors and property restoration professionals" />
       
       <Navigation />
       
       <Switch>
         <Route path="/weather">
-          <title>Weather Center - StormLead Master</title>
+          <title>Weather Center - DisasterDirect</title>
           <meta name="description" content="Live weather monitoring, alerts, radar data, and hurricane tracking for emergency storm response operations" />
           <WeatherCenter />
         </Route>
         
         <Route path="/traffic-cameras">
-          <title>TrafficCamWatcher - StormLead Master</title>
+          <title>TrafficCamWatcher - DisasterDirect</title>
           <meta name="description" content="Monitor live traffic cameras and incidents across multiple states with AI-powered damage detection and contractor opportunity identification" />
           <TrafficCameras />
         </Route>
         
         <Route path="/damage-detection">
-          <title>AI Damage Detection - StormLead Master</title>
+          <title>AI Damage Detection - DisasterDirect</title>
           <meta name="description" content="Real-time AI-powered damage detection system analyzing traffic camera feeds to identify storm damage and generate contractor leads automatically" />
           <DamageDetectionDashboard />
         </Route>
         
         <Route path="/prediction-dashboard">
-          <title>Storm Predictions - StormLead Master</title>
+          <title>Storm Predictions - DisasterDirect</title>
           <meta name="description" content="AI-powered predictive storm damage analysis with 24-48 hour forecasts, contractor deployment recommendations, and real-time risk assessment using NOAA radar and historical FEMA data" />
           <PredictionDashboard />
         </Route>
         
         <Route path="/contractors">
-          <title>Contractor Portal - StormLead Master</title>
+          <title>Contractor Portal - DisasterDirect</title>
           <meta name="description" content="Professional contractor portal with AI-powered tools, lead management, photo documentation, invoicing, insurance claims, and compliance tracking for storm restoration professionals" />
           <ContractorPortal />
         </Route>
         
         <Route path="/contractor-management">
-          <title>Contractor Management - StormLead Master</title>
+          <title>Contractor Management - DisasterDirect</title>
           <meta name="description" content="Administrative oversight and management of contractor network, qualifications, assignments, and performance tracking for storm restoration projects" />
           <ContractorManagement />
         </Route>
         
         <Route path="/claims">
-          <title>Claims Management - StormLead Master</title>
+          <title>Claims Management - DisasterDirect</title>
           <meta name="description" content="Process insurance claims, track settlements, manage documentation and communicate with insurance carriers" />
           <Claims />
         </Route>
         
         <Route path="/customers">
-          <title>Customer Management - StormLead Master</title>
+          <title>Customer Management - DisasterDirect</title>
           <meta name="description" content="Manage customer relationships, communications, service history and project tracking for property restoration services" />
           <Customers />
         </Route>
         
         <Route path="/drones">
-          <title>Drone Operations - StormLead Master</title>
+          <title>Drone Operations - DisasterDirect</title>
           <meta name="description" content="Manage drone fleet, aerial inspections, automated damage assessment and real-time monitoring for storm response" />
           <Drones />
         </Route>
         
         <Route path="/eyes-in-sky">
-          <title>Eyes in the Sky - StormLead Master</title>
+          <title>Eyes in the Sky - DisasterDirect</title>
           <meta name="description" content="Watch live storm chasing footage and streaming feeds from professional storm chasers and weather services" />
           <EyesInSky />
         </Route>
         
         <Route path="/leads">
-          <title>Damage Leads - StormLead Master</title>
+          <title>Damage Leads - DisasterDirect</title>
           <meta name="description" content="AI-powered damage detection leads from live footage with property owner information and contractor assignments" />
           <Leads />
         </Route>
         
         <Route path="/funnel-builder">
-          <title>Funnel Builder - StormLead Master</title>
+          <title>Funnel Builder - DisasterDirect</title>
           <meta name="description" content="Create high-converting lead capture funnels with drag-and-drop simplicity for storm damage restoration leads" />
           <FunnelBuilder />
         </Route>
         
         <Route path="/form-builder">
-          <title>Form Builder - StormLead Master</title>
+          <title>Form Builder - DisasterDirect</title>
           <meta name="description" content="Build intelligent forms with conditional logic and automated workflows for lead capture and qualification" />
           <FormBuilder />
         </Route>
         
         <Route path="/calendar-booking">
-          <title>Calendar Booking - StormLead Master</title>
+          <title>Calendar Booking - DisasterDirect</title>
           <meta name="description" content="Manage appointments, consultations, and property inspections with advanced calendar booking system" />
           <CalendarBooking />
         </Route>
         
         <Route path="/workflow-builder">
-          <title>Workflow Builder - StormLead Master</title>
+          <title>Workflow Builder - DisasterDirect</title>
           <meta name="description" content="Create automated sequences to nurture leads and streamline communication across multiple channels" />
           <WorkflowBuilder />
         </Route>
         
         <Route path="/stormshare">
-          <title>StormShare Community - StormLead Master</title>
+          <title>StormShare Community - DisasterDirect</title>
           <meta name="description" content="Community platform for storm victims and contractors to share stories, request help, connect with local assistance, and access resources" />
           <StormShare />
         </Route>
         
         <Route path="/legal">
-          <title>Legal Compliance - StormLead Master</title>
+          <title>Legal Compliance - DisasterDirect</title>
           <meta name="description" content="Manage legal compliance, contracts, liens, regulatory requirements and documentation for storm restoration business" />
           <Legal />
         </Route>
