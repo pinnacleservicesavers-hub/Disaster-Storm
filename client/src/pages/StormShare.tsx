@@ -69,10 +69,10 @@ const helpRequestSchema = z.object({
   zipCode: z.string().optional(),
   contactPhone: z.string().min(1, 'Phone is required'),
   contactEmail: z.string().email().optional(),
-  urgencyLevel: z.enum(['normal', 'urgent', 'emergency']),
+  urgencyLevel: z.enum(['normal', 'urgent', 'high', 'emergency']),
   hasInsurance: z.boolean(),
   canPayImmediately: z.boolean(),
-  estimatedBudget: z.string().optional(),
+  budgetRange: z.enum(['under_1k', '1k_5k', '5k_15k', '15k_plus']).optional(),
 });
 
 const messageSchema = z.object({
@@ -178,7 +178,7 @@ export default function StormShare() {
       urgencyLevel: 'normal',
       hasInsurance: false,
       canPayImmediately: false,
-      estimatedBudget: '',
+      budgetRange: undefined,
     }
   });
 
@@ -609,7 +609,7 @@ export default function StormShare() {
                                 </div>
                                 <div>
                                   <span className="font-medium">Budget:</span>
-                                  <p>{request.estimatedBudget || 'Not specified'}</p>
+                                  <p>{request.budgetRange ? request.budgetRange.replace('_', '-').replace('k', 'K').replace('plus', '+') : 'Not specified'}</p>
                                 </div>
                               </div>
 
