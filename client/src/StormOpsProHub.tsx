@@ -2,7 +2,7 @@ import { useState, useContext, createContext, useEffect } from 'react';
 import { Link } from 'wouter';
 import { 
   Cloud, Camera, Bot, Zap, Users, ArrowRight, Plane, HardHat, Scale, FileText, UserCheck, Phone,
-  Eye, Target, Video, Activity, MapPin, Shield, AlertTriangle, Wifi, Radar, Satellite
+  Eye, Target, Video, Activity, MapPin, Shield, AlertTriangle, Wifi, Radar, Satellite, ShoppingBag
 } from 'lucide-react';
 
 // Import our amazing animation components
@@ -529,7 +529,21 @@ export default function StormOpsProHub() {
       priority: 'medium',
       liveData: true
     },
-    // 10. Customers - Manage relationships
+    // 10. Disaster Essentials Marketplace - NEW MODULE
+    {
+      id: 'disaster-essentials-marketplace',
+      title: 'Disaster Essentials Marketplace',
+      description: 'Real-time marketplace for hotels, fuel, hardware, shelters, FEMA resources, and emergency supplies with voice-guided navigation',
+      icon: ShoppingBag,
+      link: '/disaster-essentials-marketplace',
+      color: 'emerald',
+      bgClass: 'from-emerald-500 to-emerald-600',
+      borderClass: 'border-emerald-200',
+      testId: 'portal-disaster-essentials-marketplace',
+      priority: 'high',
+      liveData: true
+    },
+    // 11. Customers - Manage relationships
     {
       id: 'customers',
       title: 'Customer Hub',
@@ -543,7 +557,7 @@ export default function StormOpsProHub() {
       priority: 'medium',
       liveData: false
     },
-    // 11. Claims Management - Process insurance
+    // 12. Claims Management - Process insurance
     {
       id: 'claims',
       title: 'Claims Central',
@@ -557,7 +571,7 @@ export default function StormOpsProHub() {
       priority: 'medium',
       liveData: false
     },
-    // 12. Contractor Management - Internal operations
+    // 13. Contractor Management - Internal operations
     {
       id: 'contractor-management',
       title: 'Contractor Command',
@@ -571,7 +585,7 @@ export default function StormOpsProHub() {
       priority: 'medium',
       liveData: false
     },
-    // 13. Contractors - External contractors
+    // 14. Contractors - External contractors
     {
       id: 'contractors',
       title: 'Contractor Portal',
@@ -585,7 +599,7 @@ export default function StormOpsProHub() {
       priority: 'low',
       liveData: false
     },
-    // 14. Legal Compliance - Stay compliant
+    // 15. Legal Compliance - Stay compliant
     {
       id: 'legal',
       title: 'Legal Command',
