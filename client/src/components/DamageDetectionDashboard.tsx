@@ -104,20 +104,33 @@ export function DamageDetectionDashboard() {
   // Initialize voice loading
   useEffect(() => {
     const loadVoices = () => {
-      setVoices(window.speechSynthesis.getVoices());
+      if ('speechSynthesis' in window) {
+        setVoices(window.speechSynthesis.getVoices());
+      }
     };
     
     loadVoices();
-    window.speechSynthesis.onvoiceschanged = loadVoices;
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.onvoiceschanged = loadVoices;
+    }
     
     return () => {
-      window.speechSynthesis.onvoiceschanged = null;
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.onvoiceschanged = null;
+      }
     };
   }, []);
 
   const startVoiceGuide = () => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      console.warn('Speech synthesis not supported in this browser');
+      return;
+    }
+
     if (!isVoiceGuideActive) {
       setIsVoiceGuideActive(true);
+      window.speechSynthesis.cancel();
       
       const voiceContent = `Welcome to AI Damage Detection Dashboard! This intelligent system analyzes images and data streams to automatically identify weather damage and generate contractor leads. The main dashboard displays real-time damage alerts with severity scores from minor to critical, confidence levels, and profitability assessments. Each alert includes estimated repair costs, property addresses, required contractor types, and insurance likelihood scores. The lead generation statistics show conversion rates, average response times, and revenue potential. You can filter alerts by severity thresholds, location, and damage types. The system integrates with contractor notification systems to automatically dispatch qualified professionals to high-value opportunities. Emergency response alerts get priority routing for immediate safety concerns.`;
       
@@ -131,6 +144,11 @@ export function DamageDetectionDashboard() {
       }
       
       utterance.onend = () => {
+        setIsVoiceGuideActive(false);
+      };
+      
+      utterance.onerror = (event) => {
+        console.error('Speech synthesis error:', event);
         setIsVoiceGuideActive(false);
       };
       
@@ -222,6 +240,8 @@ export function DamageDetectionDashboard() {
                 onClick={startVoiceGuide}
                 className="flex items-center gap-2"
                 data-testid="button-voice-guide"
+                aria-label="Voice guide for AI Damage Detection"
+                aria-pressed={isVoiceGuideActive}
               >
                 {isVoiceGuideActive ? (
                   <>
