@@ -29,6 +29,8 @@ import {
 } from "lucide-react";
 import { getPrimaryServicePhoto, hasServicePhotos } from "@/utils/photoManager";
 import VoiceGuide from "@/components/VoiceGuide";
+import PortalVoiceGuide, { PORTAL_SECTIONS } from "@/components/PortalVoiceGuide";
+import AIAssistant from "@/components/AIAssistant";
 import { Link } from "wouter";
 
 // State selection data
@@ -72,6 +74,7 @@ export default function DisasterEssentialsMarketplace() {
   const [selectedState, setSelectedState] = useState("FL");
   const [searchLocation, setSearchLocation] = useState("");
   const [currentPortal, setCurrentPortal] = useState("hotels");
+  const [currentSection, setCurrentSection] = useState("welcome");
 
   // Sample data (will be replaced with real API calls)
   const mockHotels = [
@@ -306,6 +309,10 @@ export default function DisasterEssentialsMarketplace() {
     setCurrentPortal(portal);
   };
 
+  const handleSectionChange = (sectionId: string) => {
+    setCurrentSection(sectionId);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       <div className="container mx-auto px-4 py-8">
@@ -374,23 +381,33 @@ export default function DisasterEssentialsMarketplace() {
           />
         </motion.div>
 
-        {/* Voice Guide */}
+        {/* Portal Voice Guide & AI Assistant */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.4 }}
-          className="flex justify-center mb-8"
+          className="flex flex-col lg:flex-row gap-6 justify-center mb-8"
         >
-          <VoiceGuide
-            currentPortal={currentPortal}
-            onPortalChange={handlePortalChange}
-            className="relative"
+          {/* Portal Voice Guide */}
+          <PortalVoiceGuide
+            portalName="Disaster Essentials Marketplace"
+            sections={PORTAL_SECTIONS['disaster-essentials-marketplace'] || []}
+            currentSection={currentSection}
+            onSectionChange={handleSectionChange}
+            className="flex-1 max-w-2xl"
+          />
+          
+          {/* AI Assistant */}
+          <AIAssistant
+            portalContext="disaster-essentials-marketplace"
+            userLocation={{ lat: 25.7617, lng: -80.1918 }} // Miami coordinates for demo
+            className="flex-1 max-w-lg"
           />
         </motion.div>
 
         {/* Main Content Tabs */}
         <Tabs defaultValue="hotels" onValueChange={handlePortalChange} className="w-full">
-          <TabsList className="grid w-full grid-cols-7 mb-8" data-testid="tabs-dem-sections">
+          <TabsList className="category-tabs grid w-full grid-cols-7 mb-8" data-testid="tabs-dem-sections">
             <TabsTrigger value="hotels" className="text-xs" data-testid="tab-hotels">
               <Hotel className="w-4 h-4 mr-1" />
               Hotels
@@ -439,7 +456,7 @@ export default function DisasterEssentialsMarketplace() {
                   <p className="text-gray-600 dark:text-gray-400 mb-4">
                     State-by-state discounts and real-time vacancy status with one-click booking.
                   </p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="location-results grid grid-cols-1 md:grid-cols-2 gap-8">
                     {mockHotels.map((hotel) => (
                       <motion.div key={hotel.id} variants={fadeInUp}>
                         <div 
