@@ -30,7 +30,9 @@ import {
   Signal,
   CloudSnow,
   Sun,
-  CloudLightning
+  CloudLightning,
+  Volume2,
+  VolumeX
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -120,6 +122,9 @@ export default function WeatherCenter() {
   const [refreshInterval, setRefreshInterval] = useState(30000); // 30 seconds
   const [selectedTab, setSelectedTab] = useState('overview');
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isVoiceGuideActive, setIsVoiceGuideActive] = useState(false);
+  const [speechSynth, setSpeechSynth] = useState<SpeechSynthesis | null>(null);
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
 
   // Get user's GPS location
   useEffect(() => {
@@ -136,6 +141,21 @@ export default function WeatherCenter() {
           setUserLocation({ lat: 33.7490, lon: -84.3880 }); // Atlanta default
         }
       );
+    }
+  }, []);
+
+  // Initialize Speech Synthesis
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      setSpeechSynth(window.speechSynthesis);
+      
+      const loadVoices = () => {
+        const availableVoices = window.speechSynthesis.getVoices();
+        setVoices(availableVoices);
+      };
+      
+      loadVoices();
+      window.speechSynthesis.onvoiceschanged = loadVoices;
     }
   }, []);
 
@@ -221,6 +241,91 @@ export default function WeatherCenter() {
     } catch {
       // Fallback if clipboard API blocked
       prompt("Copy this link:", url);
+    }
+  };
+
+  // Voice Guide Function - explains all icons and features
+  const startVoiceGuide = () => {
+    if (!speechSynth) {
+      alert('Voice guidance is not available in this browser.');
+      return;
+    }
+
+    setIsVoiceGuideActive(true);
+    
+    const guide = `Welcome to the Weather Center Voice Navigation Guide. I'll explain all the icons and features you see on this page.
+
+    At the top, you'll see several status indicators:
+    - The spinning refresh icon with "Live Data" means we're actively updating weather information
+    - The triangle warning icon shows the number of active weather alerts in your area
+    - The wind icon displays the count of active storm systems being tracked
+    - The wave icon shows how many live ocean buoys are providing data
+    - The activity icon indicates the number of wave monitoring stations
+
+    The main navigation tabs are:
+    - Overview tab, marked with an eye icon, shows the live weather map and key metrics
+    - Alerts tab, with a triangle warning icon, displays all National Weather Service alerts
+    - Radar plus Lightning tab, with a radar dish icon, provides weather radar data
+    - Satellite plus MRMS tab, with a satellite icon, shows sea surface temperatures and wave conditions
+    - Hurricanes plus SPC tab, with a wind icon, tracks tropical storms and severe weather outlooks
+    - Models plus External tab, with a cloud icon, provides access to weather forecast models
+    - There are also external links to Omega Radar and Windy for advanced weather tracking
+
+    On the live weather map, you'll see:
+    - Colored areas representing weather alerts - red for extreme severity, orange for severe, and yellow for moderate
+    - Dashed line areas showing Storm Prediction Center outlooks with different colors for risk levels
+    - Red circular markers for active hurricanes and tropical storms
+    - Blue dots representing ocean buoy stations providing real-time marine data
+
+    The dashboard shows six key metrics:
+    - Total active alerts with a red warning triangle
+    - Active storm systems with a purple eye icon
+    - Average wave height with a blue wave icon
+    - Sea surface temperature with an orange thermometer icon  
+    - Wind conditions with a green activity monitor icon
+    - Data connection status with a signal strength icon
+
+    Control buttons include:
+    - The globe icon opens fullscreen mode for better viewing
+    - The play or pause icon controls automatic data refreshing
+    - The share icon lets you share your current weather view
+    - The refresh rate selector lets you choose how often data updates
+
+    This voice guide can be stopped at any time by clicking the voice navigation button again. All weather data is updated live from official sources including the National Hurricane Center, National Weather Service, and NOAA buoys.`;
+
+    speechSynth.cancel();
+    
+    const utterance = new SpeechSynthesisUtterance(guide);
+    if (voices.length > 0) {
+      utterance.voice = voices.find(voice => voice.lang.includes('en')) || voices[0];
+    }
+    utterance.rate = 0.9;
+    utterance.pitch = 1.0;
+    utterance.volume = 0.8;
+    
+    utterance.onend = () => {
+      setIsVoiceGuideActive(false);
+    };
+    
+    utterance.onerror = () => {
+      setIsVoiceGuideActive(false);
+    };
+    
+    speechSynth.speak(utterance);
+  };
+
+  const stopVoiceGuide = () => {
+    if (speechSynth) {
+      speechSynth.cancel();
+    }
+    setIsVoiceGuideActive(false);
+  };
+
+  const toggleVoiceGuide = () => {
+    if (isVoiceGuideActive) {
+      stopVoiceGuide();
+    } else {
+      startVoiceGuide();
     }
   };
 
@@ -432,6 +537,27 @@ export default function WeatherCenter() {
                       >
                         <Share className="w-4 h-4 mr-2" />
                         Share
+                      </Button>
+                    </HoverLift>
+                    
+                    <HoverLift>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={toggleVoiceGuide}
+                        data-testid="button-voice-guide"
+                        className={`${
+                          isVoiceGuideActive 
+                            ? 'bg-orange-100 hover:bg-orange-200 border-orange-300 text-orange-800' 
+                            : 'hover:bg-purple-50 border-purple-200'
+                        } transition-all duration-300`}
+                      >
+                        {isVoiceGuideActive ? (
+                          <VolumeX className="w-4 h-4 mr-2" />
+                        ) : (
+                          <Volume2 className="w-4 h-4 mr-2" />
+                        )}
+                        {isVoiceGuideActive ? 'Stop Guide' : 'Voice Guide'}
                       </Button>
                     </HoverLift>
                     
