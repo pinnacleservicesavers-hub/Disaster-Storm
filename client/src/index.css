@@ -62,6 +62,17 @@
   --glass-bg: rgba(255, 255, 255, 0.1);
   --glass-border: rgba(255, 255, 255, 0.2);
   --glass-backdrop: blur(10px);
+  
+  /* Enhanced portal card effects */
+  --portal-overlay: rgba(0, 0, 0, 0.4);
+  --portal-overlay-hover: rgba(0, 0, 0, 0.3);
+  --portal-text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+  --portal-card-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  --portal-card-shadow-hover: 0 20px 40px rgba(0, 0, 0, 0.3);
+  
+  /* Dark mode portal overlays */
+  --portal-overlay-dark: rgba(0, 0, 0, 0.6);
+  --portal-overlay-hover-dark: rgba(0, 0, 0, 0.5);
 }
 
 .dark {
@@ -324,6 +335,109 @@ h1, h2, h3, h4, h5, h6 {
 .weather-clear {
   background: hsl(var(--weather-clear));
   color: hsl(var(--foreground));
+}
+
+/* Portal Card Styling with Photo Backgrounds */
+.portal-card {
+  position: relative;
+  overflow: hidden;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  min-height: 280px;
+  border-radius: 12px;
+  box-shadow: var(--portal-card-shadow);
+  transition: all 0.4s ease;
+}
+
+.portal-card:hover {
+  box-shadow: var(--portal-card-shadow-hover);
+  transform: translateY(-4px) scale(1.02);
+}
+
+.portal-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, var(--portal-overlay) 0%, transparent 50%, var(--portal-overlay) 100%);
+  transition: all 0.3s ease;
+  z-index: 1;
+}
+
+.portal-card:hover::before {
+  background: linear-gradient(135deg, var(--portal-overlay-hover) 0%, transparent 50%, var(--portal-overlay-hover) 100%);
+}
+
+.dark .portal-card::before {
+  background: linear-gradient(135deg, var(--portal-overlay-dark) 0%, transparent 50%, var(--portal-overlay-dark) 100%);
+}
+
+.dark .portal-card:hover::before {
+  background: linear-gradient(135deg, var(--portal-overlay-hover-dark) 0%, transparent 50%, var(--portal-overlay-hover-dark) 100%);
+}
+
+.portal-card-content {
+  position: relative;
+  z-index: 2;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.portal-card-text {
+  color: white;
+  text-shadow: var(--portal-text-shadow);
+}
+
+.portal-card-title {
+  color: white;
+  text-shadow: var(--portal-text-shadow);
+  font-weight: 700;
+  font-size: 1.25rem;
+}
+
+.portal-card-subtitle {
+  color: rgba(255, 255, 255, 0.9);
+  text-shadow: var(--portal-text-shadow);
+}
+
+.portal-card-badge {
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  text-shadow: var(--portal-text-shadow);
+}
+
+.portal-card-button {
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  transition: all 0.3s ease;
+}
+
+.portal-card-button:hover {
+  background: rgba(255, 255, 255, 0.25);
+  transform: scale(1.05);
+}
+
+/* Enhanced info cards */
+.portal-info-card {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.85) 100%);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 16px;
+  box-shadow: var(--portal-card-shadow);
+}
+
+.dark .portal-info-card {
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0.7) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 /* Responsive typography */

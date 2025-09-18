@@ -26,6 +26,7 @@ import {
   Wifi,
   Navigation
 } from "lucide-react";
+import { getPrimaryServicePhoto, hasServicePhotos } from "@/utils/photoManager";
 
 // State selection data
 const US_STATES = [
@@ -397,86 +398,90 @@ export default function DisasterEssentialsMarketplace() {
                   <p className="text-gray-600 dark:text-gray-400 mb-4">
                     State-by-state discounts and real-time vacancy status with one-click booking.
                   </p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     {mockHotels.map((hotel) => (
                       <motion.div key={hotel.id} variants={fadeInUp}>
-                        <Card className="border-2 hover:border-blue-300 transition-colors" data-testid={`card-hotel-${hotel.id}`}>
-                          <CardContent className="p-6">
+                        <div 
+                          className="portal-card"
+                          style={{
+                            backgroundImage: `url(${getPrimaryServicePhoto('hotels')})`
+                          }}
+                          data-testid={`card-hotel-${hotel.id}`}
+                        >
+                          <div className="portal-card-content p-6">
                             <div className="flex justify-between items-start mb-4">
                               <div>
-                                <h3 className="font-bold text-lg text-gray-900 dark:text-gray-100" data-testid={`text-hotel-name-${hotel.id}`}>
+                                <h3 className="portal-card-title" data-testid={`text-hotel-name-${hotel.id}`}>
                                   {hotel.name}
                                 </h3>
-                                <p className="text-sm text-gray-600 dark:text-gray-400" data-testid={`text-hotel-address-${hotel.id}`}>
+                                <p className="portal-card-subtitle text-sm" data-testid={`text-hotel-address-${hotel.id}`}>
                                   {hotel.address}, {hotel.city}, {hotel.state}
                                 </p>
                               </div>
-                              <Badge className={getStatusColor(hotel.isOpen)} data-testid={`badge-hotel-status-${hotel.id}`}>
+                              <Badge className={`portal-card-badge ${getStatusColor(hotel.isOpen)}`} data-testid={`badge-hotel-status-${hotel.id}`}>
                                 {getStatusText(hotel.isOpen)}
                               </Badge>
                             </div>
                             
-                            <div className="space-y-3">
-                              <div className="flex items-center justify-between">
-                                <span className="text-sm text-gray-600 dark:text-gray-400">Price per night:</span>
-                                <div className="text-right">
-                                  <span className="text-lg font-bold text-green-600" data-testid={`text-hotel-price-${hotel.id}`}>
-                                    ${(hotel.pricePerNight * (100 - hotel.discountRate) / 100).toFixed(2)}
+                            <div className="space-y-4 flex-1">
+                              <div className="bg-black/30 backdrop-blur-sm rounded-lg p-4 space-y-3">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-sm portal-card-text">Price per night:</span>
+                                  <div className="text-right">
+                                    <span className="text-lg font-bold text-green-300" data-testid={`text-hotel-price-${hotel.id}`}>
+                                      ${(hotel.pricePerNight * (100 - hotel.discountRate) / 100).toFixed(2)}
+                                    </span>
+                                    {hotel.discountRate > 0 && (
+                                      <div className="text-xs text-gray-300 line-through">
+                                        ${hotel.pricePerNight}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                                
+                                <div className="flex items-center justify-between">
+                                  <span className="text-sm portal-card-text">Availability:</span>
+                                  <span className="text-sm font-medium portal-card-text" data-testid={`text-hotel-availability-${hotel.id}`}>
+                                    {hotel.availableRooms}/{hotel.totalRooms} rooms
                                   </span>
-                                  {hotel.discountRate > 0 && (
-                                    <div className="text-xs text-gray-400 line-through">
-                                      ${hotel.pricePerNight}
-                                    </div>
-                                  )}
+                                </div>
+
+                                {hotel.discountRate > 0 && (
+                                  <Badge className="bg-orange-500/80 text-white border-orange-400">
+                                    {hotel.discountRate}% Contractor Discount
+                                  </Badge>
+                                )}
+
+                                <div className="flex flex-wrap gap-1 mt-2">
+                                  {hotel.amenities.map((amenity, idx) => (
+                                    <Badge key={idx} className="portal-card-badge text-xs">
+                                      {amenity}
+                                    </Badge>
+                                  ))}
                                 </div>
                               </div>
-                              
-                              <div className="flex items-center justify-between">
-                                <span className="text-sm text-gray-600 dark:text-gray-400">Availability:</span>
-                                <span className="text-sm font-medium" data-testid={`text-hotel-availability-${hotel.id}`}>
-                                  {hotel.availableRooms}/{hotel.totalRooms} rooms
-                                </span>
-                              </div>
 
-                              {hotel.discountRate > 0 && (
-                                <Badge className="bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300">
-                                  {hotel.discountRate}% Contractor Discount
-                                </Badge>
-                              )}
-
-                              <div className="flex flex-wrap gap-1 mt-2">
-                                {hotel.amenities.map((amenity, idx) => (
-                                  <Badge key={idx} variant="outline" className="text-xs">
-                                    {amenity}
-                                  </Badge>
-                                ))}
-                              </div>
-
-                              <div className="flex gap-2 mt-4">
+                              <div className="flex gap-3 mt-4">
                                 <Button 
-                                  variant="outline" 
-                                  size="sm" 
                                   onClick={() => handleCall(hotel.phone)}
-                                  className="flex-1"
+                                  className="portal-card-button flex-1"
                                   data-testid={`button-call-hotel-${hotel.id}`}
                                 >
-                                  <Phone className="w-4 h-4 mr-1" />
+                                  <Phone className="w-4 h-4 mr-2" />
                                   Call
                                 </Button>
                                 <Button 
-                                  variant="outline" 
-                                  size="sm" 
                                   onClick={() => handleDirections(hotel.address, hotel.city, hotel.state)}
-                                  className="flex-1"
+                                  className="portal-card-button flex-1"
                                   data-testid={`button-directions-hotel-${hotel.id}`}
                                 >
-                                  <Navigation className="w-4 h-4 mr-1" />
+                                  <Navigation className="w-4 h-4 mr-2" />
                                   Directions
                                 </Button>
                               </div>
                             </div>
-                          </CardContent>
-                        </Card>
+                          </div>
+                        </div>
                       </motion.div>
                     ))}
                   </div>
@@ -503,73 +508,77 @@ export default function DisasterEssentialsMarketplace() {
                   <p className="text-gray-600 dark:text-gray-400 mb-4">
                     Live gas price feeds showing cheapest, closest, and average prices with real-time availability.
                   </p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     {mockGasStations.map((station) => (
                       <motion.div key={station.id} variants={fadeInUp}>
-                        <Card className="border-2 hover:border-orange-300 transition-colors" data-testid={`card-gas-station-${station.id}`}>
-                          <CardContent className="p-6">
+                        <div 
+                          className="portal-card"
+                          style={{
+                            backgroundImage: `url(${getPrimaryServicePhoto('gas')})`
+                          }}
+                          data-testid={`card-gas-station-${station.id}`}
+                        >
+                          <div className="portal-card-content p-6">
                             <div className="flex justify-between items-start mb-4">
                               <div>
-                                <h3 className="font-bold text-lg text-gray-900 dark:text-gray-100" data-testid={`text-gas-name-${station.id}`}>
+                                <h3 className="portal-card-title" data-testid={`text-gas-name-${station.id}`}>
                                   {station.name}
                                 </h3>
-                                <p className="text-sm text-gray-600 dark:text-gray-400" data-testid={`text-gas-address-${station.id}`}>
+                                <p className="portal-card-subtitle text-sm" data-testid={`text-gas-address-${station.id}`}>
                                   {station.address}, {station.city}, {station.state}
                                 </p>
-                                <p className="text-xs text-gray-500 dark:text-gray-500">{station.hours}</p>
+                                <p className="text-xs portal-card-text opacity-90">{station.hours}</p>
                               </div>
-                              <Badge className={getStatusColor(station.isOpen, station.hasAvailability)} data-testid={`badge-gas-status-${station.id}`}>
+                              <Badge className={`portal-card-badge ${getStatusColor(station.isOpen, station.hasAvailability)}`} data-testid={`badge-gas-status-${station.id}`}>
                                 {getStatusText(station.isOpen, station.hasAvailability)}
                               </Badge>
                             </div>
                             
-                            <div className="space-y-3">
-                              <div className="grid grid-cols-3 gap-4 text-center">
-                                <div>
-                                  <p className="text-xs text-gray-500">Regular</p>
-                                  <p className="font-bold text-green-600" data-testid={`text-gas-regular-${station.id}`}>
-                                    ${station.regularPrice}
-                                  </p>
-                                </div>
-                                <div>
-                                  <p className="text-xs text-gray-500">Premium</p>
-                                  <p className="font-bold text-blue-600" data-testid={`text-gas-premium-${station.id}`}>
-                                    ${station.premiumPrice}
-                                  </p>
-                                </div>
-                                <div>
-                                  <p className="text-xs text-gray-500">Diesel</p>
-                                  <p className="font-bold text-purple-600" data-testid={`text-gas-diesel-${station.id}`}>
-                                    ${station.dieselPrice}
-                                  </p>
+                            <div className="space-y-4 flex-1">
+                              <div className="bg-black/40 backdrop-blur-sm rounded-lg p-4">
+                                <div className="grid grid-cols-3 gap-4 text-center">
+                                  <div className="bg-white/10 rounded-lg p-3">
+                                    <p className="text-xs portal-card-text opacity-80">Regular</p>
+                                    <p className="font-bold text-green-300 text-lg" data-testid={`text-gas-regular-${station.id}`}>
+                                      ${station.regularPrice}
+                                    </p>
+                                  </div>
+                                  <div className="bg-white/10 rounded-lg p-3">
+                                    <p className="text-xs portal-card-text opacity-80">Premium</p>
+                                    <p className="font-bold text-blue-300 text-lg" data-testid={`text-gas-premium-${station.id}`}>
+                                      ${station.premiumPrice}
+                                    </p>
+                                  </div>
+                                  <div className="bg-white/10 rounded-lg p-3">
+                                    <p className="text-xs portal-card-text opacity-80">Diesel</p>
+                                    <p className="font-bold text-purple-300 text-lg" data-testid={`text-gas-diesel-${station.id}`}>
+                                      ${station.dieselPrice}
+                                    </p>
+                                  </div>
                                 </div>
                               </div>
 
-                              <div className="flex gap-2 mt-4">
+                              <div className="flex gap-3 mt-4">
                                 <Button 
-                                  variant="outline" 
-                                  size="sm" 
                                   onClick={() => handleCall(station.phone)}
-                                  className="flex-1"
+                                  className="portal-card-button flex-1"
                                   data-testid={`button-call-gas-${station.id}`}
                                 >
-                                  <Phone className="w-4 h-4 mr-1" />
+                                  <Phone className="w-4 h-4 mr-2" />
                                   Call
                                 </Button>
                                 <Button 
-                                  variant="outline" 
-                                  size="sm" 
                                   onClick={() => handleDirections(station.address, station.city, station.state)}
-                                  className="flex-1"
+                                  className="portal-card-button flex-1"
                                   data-testid={`button-directions-gas-${station.id}`}
                                 >
-                                  <Navigation className="w-4 h-4 mr-1" />
+                                  <Navigation className="w-4 h-4 mr-2" />
                                   Directions
                                 </Button>
                               </div>
                             </div>
-                          </CardContent>
-                        </Card>
+                          </div>
+                        </div>
                       </motion.div>
                     ))}
                   </div>
@@ -598,60 +607,87 @@ export default function DisasterEssentialsMarketplace() {
                       FEMA-approved contractor lodging and registration portal with direct sign-up access.
                     </p>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <Card className="border-green-200 dark:border-green-800">
-                        <CardContent className="p-6">
-                          <h3 className="font-bold text-lg mb-4 text-green-700 dark:text-green-300">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      <div 
+                        className="portal-card"
+                        style={{
+                          backgroundImage: `url(${getPrimaryServicePhoto('fema')})`
+                        }}
+                      >
+                        <div className="portal-card-content p-6">
+                          <h3 className="portal-card-title mb-4">
                             Contractor Registration
                           </h3>
-                          <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                            Register your contracting business with FEMA for disaster response opportunities.
-                          </p>
+                          <div className="bg-black/30 backdrop-blur-sm rounded-lg p-4 mb-4">
+                            <p className="text-sm portal-card-text mb-4">
+                              Register your contracting business with FEMA for disaster response opportunities.
+                            </p>
+                          </div>
                           <Button 
-                            className="w-full bg-green-600 hover:bg-green-700 text-white"
+                            className="portal-card-button w-full"
                             onClick={() => handleExternalLink("https://www.sam.gov")}
                             data-testid="button-fema-registration"
                           >
                             <ExternalLink className="w-4 h-4 mr-2" />
                             FEMA Vendor Registration
                           </Button>
-                        </CardContent>
-                      </Card>
+                        </div>
+                      </div>
 
-                      <Card className="border-blue-200 dark:border-blue-800">
-                        <CardContent className="p-6">
-                          <h3 className="font-bold text-lg mb-4 text-blue-700 dark:text-blue-300">
+                      <div 
+                        className="portal-card"
+                        style={{
+                          backgroundImage: `url(${getPrimaryServicePhoto('fema')})`
+                        }}
+                      >
+                        <div className="portal-card-content p-6">
+                          <h3 className="portal-card-title mb-4">
                             Approved Housing
                           </h3>
-                          <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                            Find FEMA-approved lodging for contractors working disaster areas.
-                          </p>
+                          <div className="bg-black/30 backdrop-blur-sm rounded-lg p-4 mb-4">
+                            <p className="text-sm portal-card-text mb-4">
+                              Find FEMA-approved lodging for contractors working disaster areas.
+                            </p>
+                          </div>
                           <Button 
-                            className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                            className="portal-card-button w-full"
                             onClick={() => handleExternalLink("https://www.fema.gov/assistance/contractor-resources")}
                             data-testid="button-fema-housing"
                           >
                             <Home className="w-4 h-4 mr-2" />
                             Find Housing
                           </Button>
-                        </CardContent>
-                      </Card>
+                        </div>
+                      </div>
                     </div>
 
-                    <Card className="bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800">
-                      <CardContent className="p-6">
-                        <h3 className="font-bold text-lg mb-4 text-yellow-700 dark:text-yellow-300">
-                          📋 Registration Steps
-                        </h3>
-                        <ol className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
-                          <li>1. Create SAM.gov account for federal contracting</li>
-                          <li>2. Complete FEMA vendor profile with capabilities</li>
-                          <li>3. Submit required certifications and insurance</li>
-                          <li>4. Await approval and activation status</li>
-                          <li>5. Monitor opportunities through FEMA systems</li>
-                        </ol>
-                      </CardContent>
-                    </Card>
+                    <div className="portal-info-card p-6">
+                      <h3 className="font-bold text-lg mb-4 text-yellow-600 dark:text-yellow-400">
+                        📋 Registration Steps
+                      </h3>
+                      <ol className="space-y-3 text-sm text-gray-700 dark:text-gray-300">
+                        <li className="flex items-start">
+                          <span className="font-semibold text-yellow-600 dark:text-yellow-400 mr-2">1.</span>
+                          Create SAM.gov account for federal contracting
+                        </li>
+                        <li className="flex items-start">
+                          <span className="font-semibold text-yellow-600 dark:text-yellow-400 mr-2">2.</span>
+                          Complete FEMA vendor profile with capabilities
+                        </li>
+                        <li className="flex items-start">
+                          <span className="font-semibold text-yellow-600 dark:text-yellow-400 mr-2">3.</span>
+                          Submit required certifications and insurance
+                        </li>
+                        <li className="flex items-start">
+                          <span className="font-semibold text-yellow-600 dark:text-yellow-400 mr-2">4.</span>
+                          Await approval and activation status
+                        </li>
+                        <li className="flex items-start">
+                          <span className="font-semibold text-yellow-600 dark:text-yellow-400 mr-2">5.</span>
+                          Monitor opportunities through FEMA systems
+                        </li>
+                      </ol>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
