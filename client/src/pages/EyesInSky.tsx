@@ -16,23 +16,36 @@ export default function EyesInSky() {
   const [isVoiceGuideActive, setIsVoiceGuideActive] = useState(false);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
 
-  // Initialize voice loading
+  // Initialize voice loading with enhanced cleanup
   useEffect(() => {
     const loadVoices = () => {
-      setVoices(window.speechSynthesis.getVoices());
+      if ('speechSynthesis' in window) {
+        setVoices(window.speechSynthesis.getVoices());
+      }
     };
     
     loadVoices();
-    window.speechSynthesis.onvoiceschanged = loadVoices;
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.onvoiceschanged = loadVoices;
+    }
     
     return () => {
-      window.speechSynthesis.onvoiceschanged = null;
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.onvoiceschanged = null;
+      }
     };
   }, []);
 
   const startVoiceGuide = () => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      console.warn('Speech synthesis not supported in this browser');
+      return;
+    }
+
     if (!isVoiceGuideActive) {
       setIsVoiceGuideActive(true);
+      window.speechSynthesis.cancel();
       
       const voiceContent = `Welcome to Eyes in the Sky! This aerial surveillance platform aggregates live storm chasing streams, weather reconnaissance feeds, and satellite imagery for comprehensive sky-level monitoring. The dashboard displays categorized streaming sources including professional storm chasers, meteorologist channels, and weather intelligence feeds. You can filter by category such as live chasing, YouTube channels, or weather intelligence. Each feed shows live status indicators - live, offline, or scheduled. The favorites system lets you bookmark frequently used streams. Search functionality helps you quickly find specific weather events or regions. All feeds are external links that open professional storm tracking and meteorological analysis streams. This gives you real-time aerial perspective on developing weather situations across the country.`;
       
@@ -46,6 +59,11 @@ export default function EyesInSky() {
       }
       
       utterance.onend = () => {
+        setIsVoiceGuideActive(false);
+      };
+      
+      utterance.onerror = (event) => {
+        console.error('Speech synthesis error:', event);
         setIsVoiceGuideActive(false);
       };
       
@@ -217,6 +235,8 @@ export default function EyesInSky() {
                   onClick={startVoiceGuide}
                   className="flex items-center gap-2 bg-white/80 hover:bg-white border-blue-200 hover:border-blue-300 text-blue-700 hover:text-blue-800 backdrop-blur-sm transition-all duration-300 shadow-lg hover:shadow-xl"
                   data-testid="button-voice-guide"
+                  aria-label="Voice guide for Eyes in the Sky"
+                  aria-pressed={isVoiceGuideActive}
                 >
                   {isVoiceGuideActive ? (
                     <>

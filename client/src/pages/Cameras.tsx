@@ -80,23 +80,36 @@ export function TrafficCameras() {
   const contractorId = 'contractor-demo-001';
   const queryClient = useQueryClient();
 
-  // Initialize voice loading
+  // Initialize voice loading with enhanced cleanup
   useEffect(() => {
     const loadVoices = () => {
-      setVoices(window.speechSynthesis.getVoices());
+      if ('speechSynthesis' in window) {
+        setVoices(window.speechSynthesis.getVoices());
+      }
     };
     
     loadVoices();
-    window.speechSynthesis.onvoiceschanged = loadVoices;
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.onvoiceschanged = loadVoices;
+    }
     
     return () => {
-      window.speechSynthesis.onvoiceschanged = null;
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.onvoiceschanged = null;
+      }
     };
   }, []);
 
   const startVoiceGuide = () => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      console.warn('Speech synthesis not supported in this browser');
+      return;
+    }
+
     if (!isVoiceGuideActive) {
       setIsVoiceGuideActive(true);
+      window.speechSynthesis.cancel();
       
       const voiceContent = `Welcome to Traffic Cam Watcher! This monitoring system provides access to live traffic camera feeds across multiple states to identify contractor opportunities from weather-related incidents. The main dashboard displays camera directory by state showing total cameras, active incidents, and potential contractor opportunities. You can filter by state and county to focus on specific regions. The incident detection system uses AI to automatically identify weather damage, road closures, and infrastructure issues that create contracting opportunities. Each opportunity shows estimated value, severity level, and location details. The watchlist feature lets you monitor specific states for new incidents. Camera feeds update in real-time, and you can switch between map view and list view for easier navigation.`;
       
@@ -110,6 +123,11 @@ export function TrafficCameras() {
       }
       
       utterance.onend = () => {
+        setIsVoiceGuideActive(false);
+      };
+      
+      utterance.onerror = (event) => {
+        console.error('Speech synthesis error:', event);
         setIsVoiceGuideActive(false);
       };
       
@@ -552,6 +570,8 @@ export function TrafficCameras() {
                   onClick={startVoiceGuide}
                   className="flex items-center gap-2 transition-all duration-200"
                   data-testid="button-voice-guide"
+                  aria-label="Voice guide for Traffic Cam Watcher"
+                  aria-pressed={isVoiceGuideActive}
                 >
                   {isVoiceGuideActive ? (
                     <>

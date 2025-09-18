@@ -77,23 +77,36 @@ export default function Drones() {
 
   const queryClient = useQueryClient();
 
-  // Initialize voice loading
+  // Initialize voice loading with enhanced cleanup
   useEffect(() => {
     const loadVoices = () => {
-      setVoices(window.speechSynthesis.getVoices());
+      if ('speechSynthesis' in window) {
+        setVoices(window.speechSynthesis.getVoices());
+      }
     };
     
     loadVoices();
-    window.speechSynthesis.onvoiceschanged = loadVoices;
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.onvoiceschanged = loadVoices;
+    }
     
     return () => {
-      window.speechSynthesis.onvoiceschanged = null;
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.onvoiceschanged = null;
+      }
     };
   }, []);
 
   const startVoiceGuide = () => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      console.warn('Speech synthesis not supported in this browser');
+      return;
+    }
+
     if (!isVoiceGuideActive) {
       setIsVoiceGuideActive(true);
+      window.speechSynthesis.cancel();
       
       const voiceContent = `Welcome to Drone Operations Command Center! This comprehensive flight management system controls your drone fleet for weather reconnaissance and damage assessment missions. The live flight dashboard shows all active drones with real-time telemetry including altitude, speed, battery level, and GPS coordinates. Flight status indicators show active, returning, emergency, ready, and maintenance states. Each drone displays mission progress, video feed status, and pilot assignments. The control interface includes flight time tracking, temperature monitoring, wind speed readings, and signal strength indicators. Mission planning features let you create inspection, search and rescue, survey, or patrol missions with waypoint mapping. Emergency alerts highlight any drones requiring immediate attention. Auto-mode indicators show which drones are operating autonomously versus manual control.`;
       
@@ -107,6 +120,11 @@ export default function Drones() {
       }
       
       utterance.onend = () => {
+        setIsVoiceGuideActive(false);
+      };
+      
+      utterance.onerror = (event) => {
+        console.error('Speech synthesis error:', event);
         setIsVoiceGuideActive(false);
       };
       
@@ -438,6 +456,8 @@ export default function Drones() {
                   onClick={startVoiceGuide}
                   className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white border-white/20"
                   data-testid="button-voice-guide"
+                  aria-label="Voice guide for Drone Operations"
+                  aria-pressed={isVoiceGuideActive}
                 >
                   {isVoiceGuideActive ? (
                     <>

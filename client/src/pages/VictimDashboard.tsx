@@ -70,23 +70,36 @@ export default function VictimDashboard() {
 
   const queryClient = useQueryClient();
 
-  // Initialize voice loading
+  // Initialize voice loading with enhanced cleanup
   useEffect(() => {
     const loadVoices = () => {
-      setVoices(window.speechSynthesis.getVoices());
+      if ('speechSynthesis' in window) {
+        setVoices(window.speechSynthesis.getVoices());
+      }
     };
     
     loadVoices();
-    window.speechSynthesis.onvoiceschanged = loadVoices;
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.onvoiceschanged = loadVoices;
+    }
     
     return () => {
-      window.speechSynthesis.onvoiceschanged = null;
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.onvoiceschanged = null;
+      }
     };
   }, []);
 
   const startVoiceGuide = () => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      console.warn('Speech synthesis not supported in this browser');
+      return;
+    }
+
     if (!isVoiceGuideActive) {
       setIsVoiceGuideActive(true);
+      window.speechSynthesis.cancel();
       
       const voiceContent = `Welcome to Victim Portal! This assistance platform helps storm victims navigate recovery with step-by-step guidance and resource coordination. The emergency checklist displays critical safety steps, documentation requirements, insurance procedures, and repair priorities. Each step shows completion status, estimated timeframes, and detailed instructions. Emergency alerts provide real-time safety information, evacuation notices, and service updates. The assistance request system connects victims with qualified contractors, legal help, insurance support, and emergency services. Progress tracking shows request status, assigned personnel, and estimated completion times. Resource directories include emergency contacts, shelter information, and financial assistance programs. The portal prioritizes safety procedures while streamlining the recovery process with clear guidance at every step.`;
       
@@ -100,6 +113,11 @@ export default function VictimDashboard() {
       }
       
       utterance.onend = () => {
+        setIsVoiceGuideActive(false);
+      };
+      
+      utterance.onerror = (event) => {
+        console.error('Speech synthesis error:', event);
         setIsVoiceGuideActive(false);
       };
       
@@ -453,6 +471,8 @@ export default function VictimDashboard() {
                   onClick={startVoiceGuide}
                   className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white border-white/20"
                   data-testid="button-voice-guide"
+                  aria-label="Voice guide for Victim Portal"
+                  aria-pressed={isVoiceGuideActive}
                 >
                   {isVoiceGuideActive ? (
                     <>

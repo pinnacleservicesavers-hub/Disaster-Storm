@@ -84,17 +84,24 @@ export default function ContractorPortal() {
     setActiveTab('customers');
   };
   
-  // Initialize voice loading
+  // Initialize voice loading with enhanced cleanup
   useEffect(() => {
     const loadVoices = () => {
-      setVoices(window.speechSynthesis.getVoices());
+      if ('speechSynthesis' in window) {
+        setVoices(window.speechSynthesis.getVoices());
+      }
     };
     
     loadVoices();
-    window.speechSynthesis.onvoiceschanged = loadVoices;
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.onvoiceschanged = loadVoices;
+    }
     
     return () => {
-      window.speechSynthesis.onvoiceschanged = null;
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.onvoiceschanged = null;
+      }
     };
   }, []);
 
@@ -169,10 +176,16 @@ export default function ContractorPortal() {
     }] : [])
   ];
 
-  // Voice Guide Function
+  // Robust Voice Guide Function
   const startVoiceGuide = () => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      console.warn('Speech synthesis not supported in this browser');
+      return;
+    }
+
     if (!isVoiceGuideActive) {
       setIsVoiceGuideActive(true);
+      window.speechSynthesis.cancel();
       
       const voiceContent = `Welcome to the Contractor Portal Voice Navigation Guide. This is your comprehensive contractor dashboard for managing leads, customer relationships, invoices, and project documentation.
 
@@ -242,6 +255,11 @@ export default function ContractorPortal() {
       }
       
       utterance.onend = () => {
+        setIsVoiceGuideActive(false);
+      };
+      
+      utterance.onerror = (event) => {
+        console.error('Speech synthesis error:', event);
         setIsVoiceGuideActive(false);
       };
       
@@ -350,6 +368,8 @@ export default function ContractorPortal() {
                   onClick={startVoiceGuide}
                   className="flex items-center gap-2"
                   data-testid="button-voice-guide"
+                  aria-label="Voice guide for Contractor Portal"
+                  aria-pressed={isVoiceGuideActive}
                 >
                   {isVoiceGuideActive ? (
                     <>

@@ -82,23 +82,36 @@ export default function Leads() {
 
   const queryClient = useQueryClient();
 
-  // Initialize voice loading
+  // Initialize voice loading with enhanced cleanup
   useEffect(() => {
     const loadVoices = () => {
-      setVoices(window.speechSynthesis.getVoices());
+      if ('speechSynthesis' in window) {
+        setVoices(window.speechSynthesis.getVoices());
+      }
     };
     
     loadVoices();
-    window.speechSynthesis.onvoiceschanged = loadVoices;
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.onvoiceschanged = loadVoices;
+    }
     
     return () => {
-      window.speechSynthesis.onvoiceschanged = null;
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.onvoiceschanged = null;
+      }
     };
   }, []);
 
   const startVoiceGuide = () => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      console.warn('Speech synthesis not supported in this browser');
+      return;
+    }
+
     if (!isVoiceGuideActive) {
       setIsVoiceGuideActive(true);
+      window.speechSynthesis.cancel();
       
       const voiceContent = `Welcome to Lead Management System! This comprehensive CRM platform manages all contractor leads from initial contact through project completion. The lead board displays active prospects organized by status - new, contacted, qualified, assigned, in progress, and completed. Each lead shows customer information, damage details, estimated project value, and urgency levels. The assignment system matches leads with qualified contractors based on specialty, location, and availability. Contact management features include phone numbers, email addresses, and communication history. Progress tracking shows response times, follow-up schedules, and conversion metrics. You can filter leads by priority, contractor type needed, project value, and geographic area. Analytics provide insights into lead sources, conversion rates, and revenue forecasting.`;
       
@@ -112,6 +125,11 @@ export default function Leads() {
       }
       
       utterance.onend = () => {
+        setIsVoiceGuideActive(false);
+      };
+      
+      utterance.onerror = (event) => {
+        console.error('Speech synthesis error:', event);
         setIsVoiceGuideActive(false);
       };
       
@@ -535,6 +553,8 @@ export default function Leads() {
                   onClick={startVoiceGuide}
                   className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white border-white/20"
                   data-testid="button-voice-guide"
+                  aria-label="Voice guide for Lead Management"
+                  aria-pressed={isVoiceGuideActive}
                 >
                   {isVoiceGuideActive ? (
                     <>

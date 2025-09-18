@@ -164,23 +164,36 @@ export default function PredictionDashboard() {
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const queryClient = useQueryClient();
 
-  // Initialize voice loading
+  // Initialize voice loading with enhanced cleanup
   useEffect(() => {
     const loadVoices = () => {
-      setVoices(window.speechSynthesis.getVoices());
+      if ('speechSynthesis' in window) {
+        setVoices(window.speechSynthesis.getVoices());
+      }
     };
     
     loadVoices();
-    window.speechSynthesis.onvoiceschanged = loadVoices;
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.onvoiceschanged = loadVoices;
+    }
     
     return () => {
-      window.speechSynthesis.onvoiceschanged = null;
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.onvoiceschanged = null;
+      }
     };
   }, []);
 
   const startVoiceGuide = () => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      console.warn('Speech synthesis not supported in this browser');
+      return;
+    }
+
     if (!isVoiceGuideActive) {
       setIsVoiceGuideActive(true);
+      window.speechSynthesis.cancel();
       
       const voiceContent = `Welcome to Storm Prediction Dashboard! This advanced forecasting system uses AI models and NOAA data to predict storm paths, intensity changes, and damage potential. The main dashboard shows active storm predictions with confidence levels, predicted paths with time stamps, and damage forecasts by county including wind, flood, and tornado risks. You'll see risk level indicators from minimal to extreme, estimated property damage amounts, and potential restoration job volumes. Use the tabs to switch between storm tracking, damage forecasts, and historical analysis. The map displays storm paths with color-coded intensity levels, and you can click on any forecast point for detailed information. All predictions update automatically as new weather data becomes available.`;
       
@@ -194,6 +207,11 @@ export default function PredictionDashboard() {
       }
       
       utterance.onend = () => {
+        setIsVoiceGuideActive(false);
+      };
+      
+      utterance.onerror = (event) => {
+        console.error('Speech synthesis error:', event);
         setIsVoiceGuideActive(false);
       };
       
@@ -664,6 +682,8 @@ export default function PredictionDashboard() {
                     onClick={startVoiceGuide}
                     className="flex items-center gap-2 bg-white/80 hover:bg-white border-blue-200 hover:border-blue-300 text-blue-700 hover:text-blue-800 backdrop-blur-sm transition-all duration-300 shadow-lg hover:shadow-xl"
                     data-testid="button-voice-guide"
+                    aria-label="Voice guide for Storm Prediction"
+                    aria-pressed={isVoiceGuideActive}
                   >
                     {isVoiceGuideActive ? (
                       <>

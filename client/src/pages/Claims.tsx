@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -91,8 +91,17 @@ export default function Claims() {
 
   // Voice Guide Function
   const startVoiceGuide = () => {
+    // Feature detection
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      console.warn('Speech synthesis not supported in this browser');
+      return;
+    }
+
     if (!isVoiceGuideActive) {
       setIsVoiceGuideActive(true);
+      
+      // Cancel any ongoing speech
+      window.speechSynthesis.cancel();
       
       const voiceContent = `Welcome to the Claims Central Voice Navigation Guide. This is your comprehensive insurance claims processing and management system for disaster recovery operations.
 
@@ -142,6 +151,11 @@ export default function Claims() {
         setIsVoiceGuideActive(false);
       };
       
+      utterance.onerror = (event) => {
+        console.error('Speech synthesis error:', event);
+        setIsVoiceGuideActive(false);
+      };
+      
       window.speechSynthesis.speak(utterance);
     } else {
       window.speechSynthesis.cancel();
@@ -177,7 +191,9 @@ export default function Claims() {
           label: isVoiceGuideActive ? 'Stop Guide' : 'Voice Guide', 
           variant: 'outline', 
           testId: 'button-voice-guide',
-          onClick: startVoiceGuide
+          onClick: startVoiceGuide,
+          'aria-label': 'Voice guide for Claims Central',
+          'aria-pressed': isVoiceGuideActive
         }
       ]}
       testId="claims-section"

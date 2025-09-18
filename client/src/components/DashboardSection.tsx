@@ -21,6 +21,8 @@ interface ActionButtonProps {
   onClick?: () => void;
   variant?: 'default' | 'outline' | 'secondary';
   testId: string;
+  'aria-label'?: string;
+  'aria-pressed'?: boolean;
 }
 
 interface DashboardSectionProps {
@@ -128,6 +130,8 @@ export const DashboardSection: React.FC<DashboardSectionProps> = ({
                       onClick={action.onClick}
                       className="flex items-center space-x-2"
                       data-testid={action.testId}
+                      aria-label={action['aria-label']}
+                      aria-pressed={action['aria-pressed']}
                     >
                       <action.icon className="h-4 w-4" />
                       <span>{action.label}</span>

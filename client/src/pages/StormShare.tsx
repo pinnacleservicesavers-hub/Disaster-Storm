@@ -97,23 +97,36 @@ export default function StormShare() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Initialize voice loading
+  // Initialize voice loading with enhanced cleanup
   useEffect(() => {
     const loadVoices = () => {
-      setVoices(window.speechSynthesis.getVoices());
+      if ('speechSynthesis' in window) {
+        setVoices(window.speechSynthesis.getVoices());
+      }
     };
     
     loadVoices();
-    window.speechSynthesis.onvoiceschanged = loadVoices;
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.onvoiceschanged = loadVoices;
+    }
     
     return () => {
-      window.speechSynthesis.onvoiceschanged = null;
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.onvoiceschanged = null;
+      }
     };
   }, []);
 
   const startVoiceGuide = () => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      console.warn('Speech synthesis not supported in this browser');
+      return;
+    }
+
     if (!isVoiceGuideActive) {
       setIsVoiceGuideActive(true);
+      window.speechSynthesis.cancel();
       
       const voiceContent = `Welcome to StormShare Community Platform! This collaborative network connects storm victims, contractors, and businesses for mutual assistance during weather emergencies. The community feed displays help requests, resource sharing, and recovery updates from your local area. You can post assistance needs, offer services, or share resources with verified community members. The help request system categorizes needs by urgency - normal, urgent, high priority, or emergency - with contact information and location details. Group messaging enables neighborhood coordination and resource sharing. Contractor matching connects verified professionals with people needing services. The platform includes reputation systems, insurance verification, and secure payment processing. Local business directories provide essential services during recovery. All interactions are monitored for safety and authenticity.`;
       
@@ -127,6 +140,11 @@ export default function StormShare() {
       }
       
       utterance.onend = () => {
+        setIsVoiceGuideActive(false);
+      };
+      
+      utterance.onerror = (event) => {
+        console.error('Speech synthesis error:', event);
         setIsVoiceGuideActive(false);
       };
       
@@ -285,7 +303,7 @@ export default function StormShare() {
         { icon: Heart, label: 'Request Help', variant: 'default', testId: 'button-request-help' },
         { icon: MessageCircle, label: 'Join Chat', variant: 'outline', testId: 'button-join-chat' },
         { icon: Share2, label: 'Share Story', variant: 'outline', testId: 'button-share-story' },
-        { icon: isVoiceGuideActive ? VolumeX : Volume2, label: isVoiceGuideActive ? 'Stop Guide' : 'Voice Guide', variant: 'outline', testId: 'button-voice-guide', onClick: startVoiceGuide }
+        { icon: isVoiceGuideActive ? VolumeX : Volume2, label: isVoiceGuideActive ? 'Stop Guide' : 'Voice Guide', variant: 'outline', testId: 'button-voice-guide', onClick: startVoiceGuide, 'aria-label': 'Voice guide for StormShare', 'aria-pressed': isVoiceGuideActive }
       ]}
       testId="stormshare-section"
     >

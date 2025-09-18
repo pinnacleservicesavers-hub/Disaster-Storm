@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -118,8 +118,17 @@ export default function ContractorManagement() {
 
   // Voice Guide Function
   const startVoiceGuide = () => {
+    // Feature detection
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      console.warn('Speech synthesis not supported in this browser');
+      return;
+    }
+
     if (!isVoiceGuideActive) {
       setIsVoiceGuideActive(true);
+      
+      // Cancel any ongoing speech
+      window.speechSynthesis.cancel();
       
       const voiceContent = `Welcome to the Contractor Command Voice Navigation Guide. This is your comprehensive contractor management system for coordinating disaster recovery operations.
 
@@ -170,6 +179,11 @@ export default function ContractorManagement() {
       }
       
       utterance.onend = () => {
+        setIsVoiceGuideActive(false);
+      };
+      
+      utterance.onerror = (event) => {
+        console.error('Speech synthesis error:', event);
         setIsVoiceGuideActive(false);
       };
       
@@ -242,7 +256,9 @@ export default function ContractorManagement() {
           label: isVoiceGuideActive ? 'Stop Guide' : 'Voice Guide', 
           variant: 'outline', 
           testId: 'button-voice-guide',
-          onClick: startVoiceGuide
+          onClick: startVoiceGuide,
+          'aria-label': 'Voice guide for Contractor Command',
+          'aria-pressed': isVoiceGuideActive
         }
       ]}
       testId="contractor-management"
