@@ -47,6 +47,7 @@ import {
   LightningFlash
 } from '@/components/ui/animations';
 import type { WeatherAlert } from '@shared/schema';
+import AIAssistant from '@/components/AIAssistant';
 
 // API response interfaces that extend shared schema types
 interface SPCData {
@@ -469,6 +470,20 @@ export default function WeatherCenter() {
           </div>
         </FadeIn>
 
+        {/* AI Assistant - Weather Center Context */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.4 }}
+          className="flex justify-center mb-8"
+        >
+          <AIAssistant
+            portalContext="weather-center"
+            userLocation={userLocation ? { lat: userLocation.lat, lng: userLocation.lon } : { lat: 33.7490, lng: -84.3880 }}
+            className="max-w-lg w-full"
+          />
+        </motion.div>
+
         {/* Enhanced KPI Dashboard */}
         <motion.div 
           className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6 mb-8"
@@ -774,11 +789,11 @@ export default function WeatherCenter() {
                       <LocationMarker />
                       
                       {/* NWS Alerts */}
-                      {alerts.map((alert, index) => 
-                        alert.geometry && (
+                      {alerts.map((alert, index) => (
+                        (alert as any).geometry ? (
                           <GeoJSON
                             key={`alert-${index}`}
-                            data={alert.geometry}
+                            data={(alert as any).geometry}
                             style={{
                               color: alert.severity === 'extreme' ? '#dc2626' :
                                      alert.severity === 'severe' ? '#ea580c' : '#ca8a04',
@@ -794,12 +809,12 @@ export default function WeatherCenter() {
                               `);
                             }}
                           />
-                        )
-                      )}
+                        ) : null
+                      ))}
                       
                       {/* SPC Outlooks */}
-                      {spcData.map((outlook, index) => 
-                        outlook.geometry && (
+                      {spcData.map((outlook, index) => (
+                        outlook.geometry ? (
                           <GeoJSON
                             key={`spc-${index}`}
                             data={outlook.geometry}
@@ -820,12 +835,12 @@ export default function WeatherCenter() {
                               `);
                             }}
                           />
-                        )
-                      )}
+                        ) : null
+                      ))}
                       
                       {/* Hurricane Points */}
-                      {nhcData.storms.map((storm, index) => 
-                        storm.geometry && (
+                      {nhcData.storms.map((storm, index) => (
+                        storm.geometry ? (
                           <GeoJSON
                             key={`storm-${index}`}
                             data={storm.geometry}
@@ -849,8 +864,8 @@ export default function WeatherCenter() {
                               `);
                             }}
                           />
-                        )
-                      )}
+                        ) : null
+                      ))}
                       
                       {/* NDBC Buoy Stations */}
                       {buoyData.map((buoy, index) => (
