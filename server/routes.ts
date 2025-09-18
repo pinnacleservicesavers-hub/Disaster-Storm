@@ -48,6 +48,7 @@ import { IncidentCorrelationService } from "./services/incidentCorrelationServic
 import { femaDisasterService } from "./services/femaDisasterService";
 import { femaMonitoringService } from "./services/femaMonitoringService";
 import { predictiveStormService } from "./services/predictiveStormService";
+import stormIntelligenceRoutes from "./routes/stormIntelligence";
 import { storage } from "./storage";
 import { z } from "zod";
 
@@ -399,6 +400,10 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
   
   console.log('🔔 Alert system services initialized');
   
+  // ---- Storm Intelligence AI Routes ----
+  app.use('/api/storm-intelligence', stormIntelligenceRoutes);
+  console.log('🧠 Storm Intelligence AI routes registered');
+
   // ---- static assets setup ----
   app.use("/uploads", express.static(UPLOAD_DIR));
   app.use("/assets", express.static(ASSETS_DIR));

@@ -36,8 +36,11 @@ import {
   Sun,
   Video,
   Volume2,
-  VolumeX
+  VolumeX,
+  Brain,
+  Bot
 } from 'lucide-react';
+import StormIntelligenceChat from '@/components/StormIntelligenceChat';
 
 // ===== INTERFACES =====
 
