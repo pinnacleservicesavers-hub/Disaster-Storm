@@ -48,6 +48,7 @@ import {
 } from 'lucide-react';
 import { DashboardSection } from '@/components/DashboardSection';
 import { FadeIn, PulseAlert, StaggerContainer, StaggerItem, HoverLift } from '@/components/ui/animations';
+import { getPrimaryServicePhoto, getServicePhoto } from '@/utils/photoManager';
 import { z } from 'zod';
 import type { 
   StormShareGroup, 

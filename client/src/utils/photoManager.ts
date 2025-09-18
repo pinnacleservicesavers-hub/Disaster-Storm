@@ -7,14 +7,23 @@ export interface ServicePhoto {
   fallbackIcon: string;
 }
 
-// Import all our stunning AI-generated photos designed specifically for disaster management
-import hotelPhoto1 from "@assets/generated_images/Emergency_Relief_Hotel_Exterior_a1019bef.png";
-import gasPhoto1 from "@assets/generated_images/Emergency_Fuel_Station_Scene_6efc907f.png";
-import hardwarePhoto1 from "@assets/generated_images/Emergency_Hardware_Store_Interior_35b85708.png";
-import shelterPhoto1 from "@assets/generated_images/Emergency_Shelter_Relief_Center_57584237.png";
-import femaPhoto1 from "@assets/generated_images/FEMA_Emergency_Relief_Center_53ba829a.png";
-import satellitePhoto1 from "@assets/generated_images/Emergency_Satellite_Communication_Hub_c1f4d455.png";
-import alertPhoto1 from "@assets/generated_images/Emergency_Alert_Command_Center_c21fdabd.png";
+// Import all our stunning photos designed specifically for disaster management
+import hotelPhoto1 from "@assets/stock_images/modern_emergency_dis_40a02e41.jpg";
+import gasPhoto1 from "@assets/stock_images/gas_station_fuel_pum_9aa81689.jpg";
+import hardwarePhoto1 from "@assets/stock_images/hardware_store_tools_43403a06.jpg";
+import shelterPhoto1 from "@assets/stock_images/emergency_shelter_di_0984e808.jpg";
+import femaPhoto1 from "@assets/stock_images/fema_emergency_respo_7fbec867.jpg";
+import satellitePhoto1 from "@assets/stock_images/satellite_communicat_b643663d.jpg";
+import alertPhoto1 from "@assets/stock_images/disaster_alert_warni_5e4a5268.jpg";
+
+// Storm aftermath and community photos for StormShare
+import stormDamage1 from "@assets/stock_images/storm_damage_trees_f_5ca3f1b8.jpg";
+import stormDamage2 from "@assets/stock_images/storm_damage_trees_f_41db1547.jpg";
+import stormDamage3 from "@assets/stock_images/storm_damage_trees_f_4e8100c9.jpg";
+import hurricaneAftermath1 from "@assets/stock_images/hurricane_aftermath__672e4c6f.jpg";
+import hurricaneAftermath2 from "@assets/stock_images/hurricane_aftermath__e986e410.jpg";
+import stormCommunity1 from "@assets/stock_images/storm_community_neig_d4e087df.jpg";
+import stormCommunity2 from "@assets/stock_images/storm_community_neig_7ce233fc.jpg";
 
 // Service category photo mappings with stunning AI-generated images
 export const SERVICE_PHOTOS: Record<string, ServicePhoto> = {
@@ -52,6 +61,11 @@ export const SERVICE_PHOTOS: Record<string, ServicePhoto> = {
     category: "alerts",
     photos: [alertPhoto1],
     fallbackIcon: "⚠️"
+  },
+  stormshare: {
+    category: "stormshare",
+    photos: [stormDamage1, stormDamage2, stormDamage3, hurricaneAftermath1, hurricaneAftermath2, stormCommunity1, stormCommunity2],
+    fallbackIcon: "🌪️"
   }
 };
 

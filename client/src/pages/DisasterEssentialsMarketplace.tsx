@@ -27,6 +27,7 @@ import {
   Navigation
 } from "lucide-react";
 import { getPrimaryServicePhoto, hasServicePhotos } from "@/utils/photoManager";
+import VoiceGuide from "@/components/VoiceGuide";
 
 // State selection data
 const US_STATES = [
@@ -68,6 +69,7 @@ const fadeInUp = {
 export default function DisasterEssentialsMarketplace() {
   const [selectedState, setSelectedState] = useState("FL");
   const [searchLocation, setSearchLocation] = useState("");
+  const [currentPortal, setCurrentPortal] = useState("hotels");
 
   // Sample data (will be replaced with real API calls)
   const mockHotels = [
@@ -298,6 +300,10 @@ export default function DisasterEssentialsMarketplace() {
     window.open(url, '_blank');
   };
 
+  const handlePortalChange = (portal: string) => {
+    setCurrentPortal(portal);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       <div className="container mx-auto px-4 py-8">
@@ -347,8 +353,22 @@ export default function DisasterEssentialsMarketplace() {
           />
         </motion.div>
 
+        {/* Voice Guide */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.4 }}
+          className="flex justify-center mb-8"
+        >
+          <VoiceGuide
+            currentPortal={currentPortal}
+            onPortalChange={handlePortalChange}
+            className="relative"
+          />
+        </motion.div>
+
         {/* Main Content Tabs */}
-        <Tabs defaultValue="hotels" className="w-full">
+        <Tabs defaultValue="hotels" onValueChange={handlePortalChange} className="w-full">
           <TabsList className="grid w-full grid-cols-7 mb-8" data-testid="tabs-dem-sections">
             <TabsTrigger value="hotels" className="text-xs" data-testid="tab-hotels">
               <Hotel className="w-4 h-4 mr-1" />
