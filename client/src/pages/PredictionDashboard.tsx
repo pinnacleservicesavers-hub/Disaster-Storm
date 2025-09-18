@@ -34,7 +34,9 @@ import {
   CloudRain,
   Tornado,
   Sun,
-  Video
+  Video,
+  Volume2,
+  VolumeX
 } from 'lucide-react';
 
 // ===== INTERFACES =====
@@ -158,7 +160,23 @@ export default function PredictionDashboard() {
   const [selectedState, setSelectedState] = useState<string>('');
   const [forecastHours, setForecastHours] = useState<number>(48);
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const [isVoiceGuideActive, setIsVoiceGuideActive] = useState(false);
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const queryClient = useQueryClient();
+
+  // Initialize voice loading
+  useEffect(() => {
+    const loadVoices = () => {
+      setVoices(window.speechSynthesis.getVoices());
+    };
+    
+    loadVoices();
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+    
+    return () => {
+      window.speechSynthesis.onvoiceschanged = null;
+    };
+  }, []);
 
   // Fetch dashboard data
   const { data: dashboardData, isLoading: dashboardLoading } = useQuery<DashboardData>({

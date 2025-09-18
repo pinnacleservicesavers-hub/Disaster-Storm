@@ -14,7 +14,7 @@ import {
   PlayCircle, PauseCircle, Target, Battery, Signal, Wind, Thermometer,
   Clock, Users, Camera, Video, Shield, Navigation, Gauge, TrendingUp,
   Eye, Radio, Compass, Map, Layers, Filter, Grid, List, Maximize2,
-  RefreshCw, Power, ChevronDown, ChevronUp, RotateCcw, Home
+  RefreshCw, Power, ChevronDown, ChevronUp, RotateCcw, Home, Volume2, VolumeX
 } from 'lucide-react';
 import { DashboardSection } from '@/components/DashboardSection';
 import { FadeIn, PulseAlert, StaggerContainer, StaggerItem, HoverLift, CountUp, ScaleIn, SlideIn } from '@/components/ui/animations';
@@ -72,8 +72,24 @@ export default function Drones() {
   const [missionPlannerOpen, setMissionPlannerOpen] = useState(false);
   const [weatherOverlay, setWeatherOverlay] = useState(false);
   const [emergencyMode, setEmergencyMode] = useState(false);
+  const [isVoiceGuideActive, setIsVoiceGuideActive] = useState(false);
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
 
   const queryClient = useQueryClient();
+
+  // Initialize voice loading
+  useEffect(() => {
+    const loadVoices = () => {
+      setVoices(window.speechSynthesis.getVoices());
+    };
+    
+    loadVoices();
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+    
+    return () => {
+      window.speechSynthesis.onvoiceschanged = null;
+    };
+  }, []);
 
   // Mock real-time drone fleet data
   const { data: liveFlights = [] } = useQuery({

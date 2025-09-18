@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { useQuery } from '@tanstack/react-query';
-import { FileText, Plus, Search, Settings, DollarSign, Clock, CheckCircle, AlertTriangle, TrendingUp, Eye } from 'lucide-react';
+import { FileText, Plus, Search, Settings, DollarSign, Clock, CheckCircle, AlertTriangle, TrendingUp, Eye, Volume2, VolumeX } from 'lucide-react';
 import { DashboardSection } from '@/components/DashboardSection';
 import { FadeIn, PulseAlert, StaggerContainer, StaggerItem, HoverLift, CountUp } from '@/components/ui/animations';
 import { XactimateComparables } from '@/components/XactimateComparables';
@@ -26,6 +26,8 @@ interface Claim {
 
 export default function Claims() {
   const [selectedStatus, setSelectedStatus] = useState('all');
+  const [isVoiceGuideActive, setIsVoiceGuideActive] = useState(false);
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
 
   // Mock claims data with React Query
   const { data: claims = [], isLoading } = useQuery({
@@ -45,6 +47,20 @@ export default function Claims() {
     },
     refetchInterval: 30000,
   });
+
+  // Initialize voice loading
+  useEffect(() => {
+    const loadVoices = () => {
+      setVoices(window.speechSynthesis.getVoices());
+    };
+    
+    loadVoices();
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+    
+    return () => {
+      window.speechSynthesis.onvoiceschanged = null;
+    };
+  }, []);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -73,6 +89,66 @@ export default function Claims() {
     return 'bg-red-500';
   };
 
+  // Voice Guide Function
+  const startVoiceGuide = () => {
+    if (!isVoiceGuideActive) {
+      setIsVoiceGuideActive(true);
+      
+      const voiceContent = `Welcome to the Claims Central Voice Navigation Guide. This is your comprehensive insurance claims processing and management system for disaster recovery operations.
+
+      The dashboard displays critical claims metrics:
+      - Open Claims showing 1,247 active claims with 87 new this week
+      - Pending Review displaying claims awaiting adjuster assignment
+      - Approval Rate showing 94% success rate over the last 30 days
+      - Total Value indicating 12.4 million dollars in claims this quarter
+
+      Main action buttons include:
+      - New Claim with a plus icon to file new insurance claims
+      - Search Claims with a search icon to quickly locate specific claim records
+      - Analytics with a trending up icon to view processing performance insights
+
+      The Claims Processing Pipeline shows the four critical stages:
+      - Submitted stage with blue progress indicator showing newly filed claims
+      - Under Review stage with yellow indicator for claims being assessed
+      - Approved stage with green indicator for claims ready for payout
+      - Paid Out stage with purple indicator showing completed claims
+
+      Each claim in the main list displays:
+      - Claim number for insurance company reference
+      - Customer name and damage type such as Storm, Water, Wind, Hail, or Tree damage
+      - Current status with color-coded badges - blue for Open, gray for Pending, green for Approved, outlined for Closed
+      - Claim value showing the financial settlement amount
+      - Assigned adjuster name for case management
+      - Priority level with color coding - red for urgent, orange for high, blue for medium, green for low
+      - Progress percentage with colored progress bars indicating processing completion
+
+      The Xactimate Comparables section provides:
+      - Industry-standard estimate comparisons for accurate claim valuation
+      - Historical pricing data for similar damage types in the area
+      - Adjustments for regional cost variations
+
+      This Claims Central system ensures efficient processing of disaster-related insurance claims, tracks adjuster workloads, and maintains compliance with insurance regulations. The voice guide supports accessibility and hands-free operation during high-volume claim processing periods.`;
+      
+      const utterance = new SpeechSynthesisUtterance(voiceContent);
+      utterance.rate = 0.9;
+      utterance.pitch = 1.0;
+      utterance.volume = 0.8;
+      
+      if (voices.length > 0) {
+        utterance.voice = voices.find(voice => voice.lang.includes('en')) || voices[0];
+      }
+      
+      utterance.onend = () => {
+        setIsVoiceGuideActive(false);
+      };
+      
+      window.speechSynthesis.speak(utterance);
+    } else {
+      window.speechSynthesis.cancel();
+      setIsVoiceGuideActive(false);
+    }
+  };
+
   // Calculate metrics
   const openClaims = claims.filter(c => c.status === 'open').length;
   const pendingClaims = claims.filter(c => c.status === 'pending').length;
@@ -95,7 +171,14 @@ export default function Claims() {
       actions={[
         { icon: Plus, label: 'New Claim', variant: 'default', testId: 'button-new-claim' },
         { icon: Search, label: 'Search Claims', variant: 'outline', testId: 'button-search-claims' },
-        { icon: TrendingUp, label: 'Analytics', variant: 'outline', testId: 'button-claims-analytics' }
+        { icon: TrendingUp, label: 'Analytics', variant: 'outline', testId: 'button-claims-analytics' },
+        { 
+          icon: isVoiceGuideActive ? VolumeX : Volume2, 
+          label: isVoiceGuideActive ? 'Stop Guide' : 'Voice Guide', 
+          variant: 'outline', 
+          testId: 'button-voice-guide',
+          onClick: startVoiceGuide
+        }
       ]}
       testId="claims-section"
     >

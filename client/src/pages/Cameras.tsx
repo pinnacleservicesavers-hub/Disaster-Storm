@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
-import { MapPin, Camera, AlertTriangle, DollarSign, Bell, Heart, Eye, Activity, Monitor, Search, Filter, Grid, List, Play, Pause, Maximize2, Signal, Wifi, WifiOff, Zap, TrendingUp, Users, Clock, RefreshCw } from 'lucide-react';
+import { MapPin, Camera, AlertTriangle, DollarSign, Bell, Heart, Eye, Activity, Monitor, Search, Filter, Grid, List, Play, Pause, Maximize2, Signal, Wifi, WifiOff, Zap, TrendingUp, Users, Clock, RefreshCw, Volume2, VolumeX } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { MapView } from '@/components/MapView';
 import { CameraViewer } from '@/components/CameraViewer';
@@ -73,10 +73,26 @@ export function TrafficCameras() {
   const [showLiveOnly, setShowLiveOnly] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [selectedOpportunity, setSelectedOpportunity] = useState<string | null>(null);
+  const [isVoiceGuideActive, setIsVoiceGuideActive] = useState(false);
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   
   // For now, using a hardcoded contractor ID since there's no authentication system
   const contractorId = 'contractor-demo-001';
   const queryClient = useQueryClient();
+
+  // Initialize voice loading
+  useEffect(() => {
+    const loadVoices = () => {
+      setVoices(window.speechSynthesis.getVoices());
+    };
+    
+    loadVoices();
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+    
+    return () => {
+      window.speechSynthesis.onvoiceschanged = null;
+    };
+  }, []);
 
   // Fetch directory
   const { data: directory, isLoading: directoryLoading } = useQuery<CameraDirectory>({

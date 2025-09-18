@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -42,7 +42,9 @@ import {
   ArrowUpRight,
   Timer,
   Award,
-  Briefcase
+  Briefcase,
+  Volume2,
+  VolumeX
 } from 'lucide-react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { apiRequest, queryClient } from '@/lib/queryClient';
@@ -61,6 +63,8 @@ export default function ContractorPortal() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
+  const [isVoiceGuideActive, setIsVoiceGuideActive] = useState(false);
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const { toast } = useToast();
   
   // Quick actions for dashboard
@@ -80,6 +84,20 @@ export default function ContractorPortal() {
     setActiveTab('customers');
   };
   
+  // Initialize voice loading
+  useEffect(() => {
+    const loadVoices = () => {
+      setVoices(window.speechSynthesis.getVoices());
+    };
+    
+    loadVoices();
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+    
+    return () => {
+      window.speechSynthesis.onvoiceschanged = null;
+    };
+  }, []);
+
   // Contractor ID - In a real app, this would come from auth context
   const contractorId = 'contractor-1';
 
@@ -150,6 +168,89 @@ export default function ContractorPortal() {
       urgent: false
     }] : [])
   ];
+
+  // Voice Guide Function
+  const startVoiceGuide = () => {
+    if (!isVoiceGuideActive) {
+      setIsVoiceGuideActive(true);
+      
+      const voiceContent = `Welcome to the Contractor Portal Voice Navigation Guide. This is your comprehensive contractor dashboard for managing leads, customer relationships, invoices, and project documentation.
+
+      The main navigation tabs across the top include:
+      - Dashboard tab with a bar chart icon showing your business overview and key metrics
+      - Leads tab with a target icon for managing new business opportunities from storm damage
+      - Photos tab with a camera icon for uploading and organizing project documentation
+      - Invoices tab with a credit card icon for billing and payment management
+      - Customers tab with a users icon for customer relationship management
+
+      The Dashboard section displays:
+      - Active Projects count showing your current workload
+      - Monthly Revenue total from completed and ongoing projects
+      - New Leads counter indicating available opportunities in your area
+      - Notification alerts for urgent items like approaching lien deadlines
+
+      Quick action buttons on the dashboard include:
+      - Claim Lead button to accept new storm damage opportunities
+      - Upload Photos button to document project progress and completion
+      - Create Invoice button to bill customers for completed work
+      - Contact Customer button to manage customer communications
+
+      The Leads section features:
+      - Available leads list with damage type, location, and estimated value
+      - Lead status indicators showing new, claimed, or in progress
+      - Priority ratings for urgent vs standard opportunities
+      - Contact information and project details for each lead
+      - Acceptance and rejection controls for lead management
+
+      The Photos section includes:
+      - Project photo galleries organized by customer and date
+      - Upload capabilities for before, during, and after photos
+      - Photo categorization by damage type and repair stage
+      - Integration with invoice generation for billing documentation
+      - Sharing options for insurance companies and customers
+
+      The Invoices section provides:
+      - Invoice creation tools with line item management
+      - Payment status tracking showing sent, viewed, and paid invoices
+      - Revenue reporting and financial analytics
+      - Integration with customer records and project photos
+      - Export options for accounting and tax reporting
+
+      The Customers section contains:
+      - Customer contact database with project history
+      - Communication logs showing calls, emails, and messages
+      - Service history and satisfaction ratings
+      - Emergency contact information and property details
+      - Follow-up scheduling for maintenance and additional services
+
+      Advanced features include:
+      - Real-time notifications for new leads in your service area
+      - Automated invoice generation from completed project photos
+      - Customer communication templates for professional correspondence
+      - Performance analytics showing completion rates and customer satisfaction
+      - Integration with legal compliance for lien management and contractor licensing
+
+      This Contractor Portal empowers independent contractors to efficiently manage their disaster recovery business, from lead acquisition through project completion and payment collection. The voice guide provides accessibility support and hands-free operation for contractors working in challenging field conditions.`;
+      
+      const utterance = new SpeechSynthesisUtterance(voiceContent);
+      utterance.rate = 0.9;
+      utterance.pitch = 1.0;
+      utterance.volume = 0.8;
+      
+      if (voices.length > 0) {
+        utterance.voice = voices.find(voice => voice.lang.includes('en')) || voices[0];
+      }
+      
+      utterance.onend = () => {
+        setIsVoiceGuideActive(false);
+      };
+      
+      window.speechSynthesis.speak(utterance);
+    } else {
+      window.speechSynthesis.cancel();
+      setIsVoiceGuideActive(false);
+    }
+  };
 
   return (
     <div className={`min-h-screen transition-all duration-500 ${
@@ -241,6 +342,29 @@ export default function ContractorPortal() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.6, delay: 0.3 }}
             >
+              {/* Voice Guide Button */}
+              <HoverLift>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={startVoiceGuide}
+                  className="flex items-center gap-2"
+                  data-testid="button-voice-guide"
+                >
+                  {isVoiceGuideActive ? (
+                    <>
+                      <VolumeX className="h-4 w-4" />
+                      Stop Guide
+                    </>
+                  ) : (
+                    <>
+                      <Volume2 className="h-4 w-4" />
+                      Voice Guide
+                    </>
+                  )}
+                </Button>
+              </HoverLift>
+
               {/* Fullscreen Toggle */}
               <HoverLift>
                 <motion.button

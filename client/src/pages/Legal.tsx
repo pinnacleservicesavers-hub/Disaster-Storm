@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useQuery } from '@tanstack/react-query';
-import { Scale, Plus, Search, Settings, AlertTriangle, Calendar, Clock, FileText, CheckCircle } from 'lucide-react';
+import { Scale, Plus, Search, Settings, AlertTriangle, Calendar, Clock, FileText, CheckCircle, Volume2, VolumeX } from 'lucide-react';
 import { DashboardSection } from '@/components/DashboardSection';
 import { FadeIn, PulseAlert, StaggerContainer, StaggerItem, HoverLift } from '@/components/ui/animations';
 
@@ -23,6 +23,8 @@ interface LegalItem {
 
 export default function Legal() {
   const [selectedFilter, setSelectedFilter] = useState('all');
+  const [isVoiceGuideActive, setIsVoiceGuideActive] = useState(false);
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
 
   // Mock legal items with React Query
   const { data: legalItems = [], isLoading } = useQuery({
@@ -47,6 +49,20 @@ export default function Legal() {
     refetchInterval: 60000,
   });
 
+  // Initialize voice loading
+  useEffect(() => {
+    const loadVoices = () => {
+      setVoices(window.speechSynthesis.getVoices());
+    };
+    
+    loadVoices();
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+    
+    return () => {
+      window.speechSynthesis.onvoiceschanged = null;
+    };
+  }, []);
+
   const getTypeIcon = (type: string) => {
     switch (type) {
       case 'contract': return FileText;
@@ -64,6 +80,74 @@ export default function Legal() {
       case 'license': return 'bg-green-500';
       case 'compliance': return 'bg-purple-500';
       default: return 'bg-gray-500';
+    }
+  };
+
+  // Voice Guide Function
+  const startVoiceGuide = () => {
+    if (!isVoiceGuideActive) {
+      setIsVoiceGuideActive(true);
+      
+      const voiceContent = `Welcome to the Legal Command Voice Navigation Guide. This is your comprehensive legal compliance and contract management system for disaster recovery operations.
+
+      The dashboard displays critical legal metrics:
+      - Total Contracts showing active legal documents and agreements
+      - Urgent Items displaying contracts and liens requiring immediate attention with deadlines
+      - Completion Rate showing the percentage of successfully processed legal items
+      - Monthly Processing indicating legal workload and productivity metrics
+
+      Main action buttons include:
+      - New Document with a plus icon to create new contracts, liens, or compliance items
+      - Search Legal with a search icon to quickly locate specific legal documents
+      - Settings with a gear icon to configure legal workflow preferences
+
+      The legal items list displays comprehensive information:
+      - Document type indicators with color-coded icons - blue for contracts, red for liens, green for licenses, purple for compliance items
+      - Document titles and descriptions for easy identification
+      - Deadline dates with days remaining counters to prevent missed filing deadlines
+      - Priority levels with visual coding - red borders for critical items, orange for high priority, yellow for medium, green for low
+      - Status badges showing pending, in progress, completed, or overdue states
+      - Assigned team member names for accountability and workload distribution
+      - Document values where applicable, particularly for lien amounts
+      - Location information indicating which state or jurisdiction applies
+
+      Critical deadline management features:
+      - Color-coded urgency indicators that highlight items requiring immediate attention
+      - Automated alerts for approaching deadlines to prevent legal violations
+      - Priority sorting to ensure critical items are addressed first
+      - Status tracking from initiation through completion
+
+      Legal document types include:
+      - Contracts for insurance agreements, vendor relationships, and customer service agreements
+      - Liens for securing payment on completed disaster recovery work
+      - Licenses for maintaining contractor certifications and state compliance
+      - Compliance reviews for regulatory adherence across multiple jurisdictions
+
+      Advanced compliance features:
+      - Multi-state jurisdiction tracking for companies operating across state lines
+      - Automated deadline calculations based on state-specific legal requirements
+      - Document templates for common legal procedures
+      - Integration with legal team workflows and external counsel coordination
+
+      This Legal Command system ensures regulatory compliance, protects financial interests through proper lien procedures, and maintains professional standing through license management. The voice guide supports accessibility for legal professionals and provides hands-free operation during busy legal processing periods.`;
+      
+      const utterance = new SpeechSynthesisUtterance(voiceContent);
+      utterance.rate = 0.9;
+      utterance.pitch = 1.0;
+      utterance.volume = 0.8;
+      
+      if (voices.length > 0) {
+        utterance.voice = voices.find(voice => voice.lang.includes('en')) || voices[0];
+      }
+      
+      utterance.onend = () => {
+        setIsVoiceGuideActive(false);
+      };
+      
+      window.speechSynthesis.speak(utterance);
+    } else {
+      window.speechSynthesis.cancel();
+      setIsVoiceGuideActive(false);
     }
   };
 
@@ -106,7 +190,14 @@ export default function Legal() {
       actions={[
         { icon: Plus, label: 'New Document', variant: 'default', testId: 'button-new-contract' },
         { icon: Search, label: 'Search Legal', variant: 'outline', testId: 'button-search-legal' },
-        { icon: Settings, label: 'Settings', variant: 'outline', testId: 'button-legal-settings' }
+        { icon: Settings, label: 'Settings', variant: 'outline', testId: 'button-legal-settings' },
+        { 
+          icon: isVoiceGuideActive ? VolumeX : Volume2, 
+          label: isVoiceGuideActive ? 'Stop Guide' : 'Voice Guide', 
+          variant: 'outline', 
+          testId: 'button-voice-guide',
+          onClick: startVoiceGuide
+        }
       ]}
       testId="legal-section"
     >

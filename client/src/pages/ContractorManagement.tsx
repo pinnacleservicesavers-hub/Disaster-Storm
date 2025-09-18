@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { useQuery } from '@tanstack/react-query';
-import { Users, Plus, Search, Settings, Shield, AlertTriangle, CheckCircle, TrendingUp, Star, MapPin, Calendar, Clock, Zap, Award, Target, ChevronRight, Briefcase, UserPlus, Phone, Mail, MessageSquare, Filter } from 'lucide-react';
+import { Users, Plus, Search, Settings, Shield, AlertTriangle, CheckCircle, TrendingUp, Star, MapPin, Calendar, Clock, Zap, Award, Target, ChevronRight, Briefcase, UserPlus, Phone, Mail, MessageSquare, Filter, Volume2, VolumeX } from 'lucide-react';
 import { DashboardSection } from '@/components/DashboardSection';
 import { FadeIn, PulseAlert, StaggerContainer, StaggerItem, HoverLift, CountUp, ScaleIn, SlideIn } from '@/components/ui/animations';
 
@@ -47,6 +47,8 @@ export default function ContractorManagement() {
   const [selectedView, setSelectedView] = useState('overview');
   const [draggedJob, setDraggedJob] = useState<Job | null>(null);
   const [showScheduler, setShowScheduler] = useState(false);
+  const [isVoiceGuideActive, setIsVoiceGuideActive] = useState(false);
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
 
   // Mock contractor data with React Query
   const { data: contractors = [], isLoading } = useQuery({
@@ -82,6 +84,20 @@ export default function ContractorManagement() {
     refetchInterval: 60000,
   });
 
+  // Initialize voice loading
+  useEffect(() => {
+    const loadVoices = () => {
+      setVoices(window.speechSynthesis.getVoices());
+    };
+    
+    loadVoices();
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+    
+    return () => {
+      window.speechSynthesis.onvoiceschanged = null;
+    };
+  }, []);
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'available': return 'bg-green-500';
@@ -97,6 +113,70 @@ export default function ContractorManagement() {
       case 'busy': return { text: 'BUSY', variant: 'secondary' as const };
       case 'offline': return { text: 'OFFLINE', variant: 'outline' as const };
       default: return { text: 'UNKNOWN', variant: 'outline' as const };
+    }
+  };
+
+  // Voice Guide Function
+  const startVoiceGuide = () => {
+    if (!isVoiceGuideActive) {
+      setIsVoiceGuideActive(true);
+      
+      const voiceContent = `Welcome to the Contractor Command Voice Navigation Guide. This is your comprehensive contractor management system for coordinating disaster recovery operations.
+
+      The dashboard shows key contractor metrics:
+      - Available Contractors displaying ready teams with green status indicators
+      - Busy Contractors showing teams currently on active jobs with yellow status
+      - Offline Contractors indicating unavailable teams with gray status
+      - Average Rating showing overall contractor performance scores
+
+      Main action buttons include:
+      - Add Contractor with a plus icon to onboard new disaster recovery specialists
+      - Search Contractors with a search icon to quickly locate specific contractor profiles
+      - Analytics with a trending up icon to view performance and utilization insights
+
+      The contractor grid displays detailed information:
+      - Contractor company names and specialties like Tree Removal, Roofing, Water Damage, Debris Removal, or Electrical work
+      - Real-time status indicators with colored dots - green for available, yellow for busy, gray for offline
+      - Star ratings showing customer satisfaction scores out of 5 stars
+      - Completed jobs count indicating experience level
+      - Response time averages showing how quickly contractors respond to assignments
+      - Last active timestamps to track contractor engagement
+      - Hourly rates for budget planning and cost estimation
+      - Skill tags showing specific capabilities like Emergency Response, Storm Cleanup, or Insurance Claims
+      - Certification badges such as ISA Certified, OSHA 30, GAF Master Elite, or HAAG Certified
+
+      The job assignment section includes:
+      - Pending jobs list with drag-and-drop functionality for easy assignment
+      - Priority levels with color coding - red for urgent, orange for high, blue for medium, green for low
+      - Estimated duration and job values for resource planning
+      - Required skills matching for optimal contractor selection
+      - Customer information and project locations
+
+      Advanced features include:
+      - Drag and drop job assignment where you can drag jobs from the pending list to available contractors
+      - Real-time availability tracking that updates contractor status every 30 seconds
+      - Smart matching that suggests contractors based on skills, location, and availability
+      - Performance tracking with completion rates and customer feedback scores
+
+      This Contractor Command system ensures efficient coordination of disaster recovery teams, optimizes job assignments based on skills and availability, and maintains quality control through performance monitoring. The voice guide supports accessibility and hands-free operation during emergency coordination situations.`;
+      
+      const utterance = new SpeechSynthesisUtterance(voiceContent);
+      utterance.rate = 0.9;
+      utterance.pitch = 1.0;
+      utterance.volume = 0.8;
+      
+      if (voices.length > 0) {
+        utterance.voice = voices.find(voice => voice.lang.includes('en')) || voices[0];
+      }
+      
+      utterance.onend = () => {
+        setIsVoiceGuideActive(false);
+      };
+      
+      window.speechSynthesis.speak(utterance);
+    } else {
+      window.speechSynthesis.cancel();
+      setIsVoiceGuideActive(false);
     }
   };
 
@@ -156,7 +236,14 @@ export default function ContractorManagement() {
         { icon: Plus, label: 'Add Contractor', variant: 'default', testId: 'button-add-contractor' },
         { icon: Calendar, label: 'Schedule', variant: 'outline', testId: 'button-schedule-contractors', onClick: () => setShowScheduler(!showScheduler) },
         { icon: Briefcase, label: 'Jobs', variant: 'outline', testId: 'button-view-jobs' },
-        { icon: TrendingUp, label: 'Analytics', variant: 'outline', testId: 'button-contractor-analytics' }
+        { icon: TrendingUp, label: 'Analytics', variant: 'outline', testId: 'button-contractor-analytics' },
+        { 
+          icon: isVoiceGuideActive ? VolumeX : Volume2, 
+          label: isVoiceGuideActive ? 'Stop Guide' : 'Voice Guide', 
+          variant: 'outline', 
+          testId: 'button-voice-guide',
+          onClick: startVoiceGuide
+        }
       ]}
       testId="contractor-management"
     >

@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FadeIn, ScaleIn, SlideIn } from '@/components/ui/animations';
-import { Video, ExternalLink, AlertCircle, DollarSign, Play, Users, Signal, Zap, Heart, Filter, Search, Clock } from 'lucide-react';
+import { Video, ExternalLink, AlertCircle, DollarSign, Play, Users, Signal, Zap, Heart, Filter, Search, Clock, Volume2, VolumeX } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect } from 'react';
 
@@ -13,6 +13,22 @@ export default function EyesInSky() {
   const [viewMode, setViewMode] = useState('grid');
   const [favorites, setFavorites] = useState<string[]>([]);
   const [liveStatus, setLiveStatus] = useState<{[key: string]: 'live' | 'offline' | 'scheduled'}>({});
+  const [isVoiceGuideActive, setIsVoiceGuideActive] = useState(false);
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+
+  // Initialize voice loading
+  useEffect(() => {
+    const loadVoices = () => {
+      setVoices(window.speechSynthesis.getVoices());
+    };
+    
+    loadVoices();
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+    
+    return () => {
+      window.speechSynthesis.onvoiceschanged = null;
+    };
+  }, []);
 
   // Simulate live status updates
   useEffect(() => {
