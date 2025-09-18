@@ -120,6 +120,59 @@ h1, h2, h3, h4, h5, h6 {
   font-family: 'JetBrains Mono', 'Courier New', monospace;
 }
 
+/* Enhanced Dropdown/Select Text Visibility */
+[data-radix-select-content] {
+  background: hsl(var(--popover)) !important;
+  color: hsl(var(--popover-foreground)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+}
+
+[data-radix-select-item] {
+  color: hsl(var(--foreground)) !important;
+  font-weight: 500 !important;
+}
+
+[data-radix-select-item]:hover,
+[data-radix-select-item][data-highlighted] {
+  background: hsl(var(--accent)) !important;
+  color: hsl(var(--accent-foreground)) !important;
+}
+
+[data-radix-select-trigger] {
+  color: hsl(var(--foreground)) !important;
+  font-weight: 500 !important;
+}
+
+[data-radix-select-value] {
+  color: hsl(var(--foreground)) !important;
+  font-weight: 500 !important;
+}
+
+/* Ensure dark mode dropdown visibility */
+.dark [data-radix-select-content] {
+  background: hsl(var(--popover)) !important;
+  color: hsl(var(--popover-foreground)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+}
+
+.dark [data-radix-select-item] {
+  color: hsl(var(--foreground)) !important;
+}
+
+.dark [data-radix-select-item]:hover,
+.dark [data-radix-select-item][data-highlighted] {
+  background: hsl(var(--accent)) !important;
+  color: hsl(var(--accent-foreground)) !important;
+}
+
+.dark [data-radix-select-trigger] {
+  color: hsl(var(--foreground)) !important;
+}
+
+.dark [data-radix-select-value] {
+  color: hsl(var(--foreground)) !important;
+}
+
 /* Storm-themed animations */
 @keyframes storm-pulse {
   0%, 100% { opacity: 1; transform: scale(1); }
