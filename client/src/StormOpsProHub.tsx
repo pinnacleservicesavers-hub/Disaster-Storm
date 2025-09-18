@@ -11,6 +11,9 @@ import {
   RainEffect, LightningFlash, CountUp
 } from '@/components/ui/animations';
 
+// Import Voice Guide Component
+import VoiceGuide, { VoiceExplanation } from '@/components/VoiceGuide';
+
 // ===== INCREDIBLE SPINNING TORNADO COMPONENT =====
 const SpinningTornado = ({ size = 48, showEffects = true }: { size?: number; showEffects?: boolean }) => {
   const [isSpinning, setIsSpinning] = useState(true);
@@ -366,9 +369,174 @@ const ModuleCard = ({
   </div>
 );
 
+// Dashboard Portal Explanations for Voice Guide
+const DASHBOARD_PORTAL_EXPLANATIONS: Record<string, VoiceExplanation> = {
+  welcome: {
+    id: 'welcome',
+    portal: 'welcome',
+    title: 'Welcome to DisasterDirect Operations Hub',
+    content: `Welcome to DisasterDirect, the ultimate storm operations platform! I'm your voice guide, ready to walk you through our comprehensive 15-module disaster management system. This platform monitors weather conditions, detects damage using AI, generates contractor leads, helps victims, and coordinates complete storm response operations. Each portal is designed to work together, creating a seamless workflow from storm prediction to recovery completion.`,
+    keyFeatures: ['15 integrated modules', 'Real-time monitoring', 'AI-powered damage detection', 'Complete storm workflow'],
+    navigation: 'Click any portal card below to launch that module, or let me guide you through each one.',
+    benefits: ['Complete storm operations management', 'Automated lead generation', 'Multi-state coordination', 'Real-time data insights'],
+    duration: 50
+  },
+  'weather-center': {
+    id: 'weather-center',
+    portal: 'weather-center',
+    title: 'Weather Center Portal',
+    content: `The Weather Center is your command headquarters for storm monitoring. This high-priority module provides live weather data, radar feeds, and alerts from NOAA and multiple weather services. You'll see real-time storm tracking, precipitation forecasts, wind patterns, and severe weather warnings. The live data streams update every few minutes, ensuring you always have the most current weather intelligence for your operations.`,
+    keyFeatures: ['Live NOAA radar data', 'Multi-state weather tracking', 'Severe weather alerts', 'Real-time storm prediction'],
+    navigation: 'Click the blue Weather Center portal to access live weather monitoring and alerts.',
+    benefits: ['Stay ahead of storms', 'Plan operations safely', 'Coordinate team deployments', 'Track damage opportunities'],
+    duration: 35
+  },
+  'storm-predictions': {
+    id: 'storm-predictions',
+    portal: 'storm-predictions',
+    title: 'AI Storm Predictions Portal',
+    content: `Storm Predictions uses advanced AI and machine learning to forecast storm damage potential before it happens. This high-priority module analyzes historical data, current weather patterns, and geographic risk factors to predict where storm damage is most likely to occur. You'll get predictive damage maps, risk assessments, and opportunity forecasts that help you position your teams and resources proactively.`,
+    keyFeatures: ['AI damage forecasting', 'Predictive risk mapping', 'Resource positioning guidance', 'Historical pattern analysis'],
+    navigation: 'Click the purple Storm Predictions portal to access AI-powered forecasting tools.',
+    benefits: ['Proactive team positioning', 'Higher lead conversion rates', 'Reduced travel time', 'Maximize opportunity capture'],
+    duration: 35
+  },
+  'traffic-cam-watcher': {
+    id: 'traffic-cam-watcher',
+    portal: 'traffic-cam-watcher',
+    title: 'TrafficCam Watcher Portal',
+    content: `TrafficCam Watcher is your eyes on the ground across multiple states. This innovative module monitors live traffic cameras and uses AI to automatically detect storm damage like fallen trees, flooding, roof damage, and debris. When damage is detected, the system immediately generates contractor leads with exact locations, photos, and damage assessments. It's like having thousands of scouts working for you 24/7.`,
+    keyFeatures: ['Multi-state camera monitoring', 'AI damage detection', 'Automatic lead generation', 'Real-time damage photos'],
+    navigation: 'Click the green TrafficCam Watcher portal to monitor live damage detection.',
+    benefits: ['Instant damage detection', 'Precise location data', 'Photo evidence included', 'First-mover advantage'],
+    duration: 40
+  },
+  'eyes-in-sky': {
+    id: 'eyes-in-sky',
+    portal: 'eyes-in-sky',
+    title: 'Eyes in the Sky Portal',
+    content: `Eyes in the Sky provides satellite surveillance and aerial reconnaissance capabilities. This high-priority module offers real-time satellite imagery, aerial damage assessment, and wide-area storm tracking. You can monitor large geographic regions, identify damage patterns from above, and coordinate with drone operations for detailed inspections. It's your bird's-eye view of storm impact and recovery operations.`,
+    keyFeatures: ['Satellite surveillance', 'Aerial damage assessment', 'Wide-area monitoring', 'Drone coordination'],
+    navigation: 'Click the sky-blue Eyes in the Sky portal for satellite and aerial intelligence.',
+    benefits: ['Comprehensive area coverage', 'Strategic damage overview', 'Efficient resource allocation', 'Advanced reconnaissance'],
+    duration: 35
+  },
+  'drones': {
+    id: 'drones',
+    portal: 'drones',
+    title: 'Drone Operations Portal',
+    content: `Drone Operations manages your aerial fleet for detailed damage assessment and documentation. This module handles drone deployment, flight planning, aerial footage analysis, and damage documentation workflows. You can dispatch drones to specific locations, capture high-resolution damage photos and videos, create detailed damage reports, and generate professional documentation for insurance claims and contractor estimates.`,
+    keyFeatures: ['Fleet management', 'Automated flight planning', 'HD damage documentation', 'Insurance-ready reports'],
+    navigation: 'Click the emerald Drone Operations portal to manage your aerial assessment fleet.',
+    benefits: ['Detailed damage documentation', 'Professional reports', 'Safe remote assessment', 'Enhanced claim success'],
+    duration: 35
+  },
+  'ai-damage-detection': {
+    id: 'ai-damage-detection',
+    portal: 'ai-damage-detection',
+    title: 'AI Damage Detection Portal',
+    content: `AI Damage Detection is the brain of your operation, analyzing camera feeds and images to identify storm damage automatically. This high-priority module uses advanced computer vision to detect roof damage, siding issues, fallen trees, flooding, and structural problems. It processes thousands of images per hour, generates detailed damage reports, and creates qualified contractor leads with damage assessments and repair recommendations.`,
+    keyFeatures: ['Advanced computer vision', 'Multi-damage type detection', 'Automated damage reports', 'Qualified lead generation'],
+    navigation: 'Click the orange AI Damage Detection portal to access intelligent damage analysis.',
+    benefits: ['Scale damage assessment', 'Consistent quality analysis', 'Automated reporting', 'Higher accuracy rates'],
+    duration: 40
+  },
+  'leads': {
+    id: 'leads',
+    portal: 'leads',
+    title: 'Lead Management Portal',
+    content: `Lead Management is your sales command center for tracking and converting storm damage opportunities. This high-priority module manages leads from detection through conversion, with AI-powered insights and automated follow-ups. You'll see lead quality scores, contact history, conversion tracking, and performance analytics. The system helps prioritize your best opportunities and maximize your conversion rates through intelligent lead nurturing.`,
+    keyFeatures: ['AI lead scoring', 'Automated follow-ups', 'Conversion tracking', 'Performance analytics'],
+    navigation: 'Click the rose Lead Management portal to optimize your sales pipeline.',
+    benefits: ['Higher conversion rates', 'Efficient lead prioritization', 'Automated nurturing', 'Data-driven decisions'],
+    duration: 35
+  },
+  'victim-portal': {
+    id: 'victim-portal',
+    portal: 'victim-portal',
+    title: 'Victim Portal',
+    content: `The Victim Portal is where storm-affected property owners report damage and request assistance. This portal provides a simple interface for homeowners to submit damage reports, upload photos, request contractor services, and track repair progress. It creates a direct pipeline of legitimate repair opportunities while helping victims connect with qualified contractors in their area.`,
+    keyFeatures: ['Damage reporting interface', 'Photo upload capability', 'Contractor matching', 'Progress tracking'],
+    navigation: 'Click the red Victim Portal to access homeowner damage reporting.',
+    benefits: ['Direct victim connection', 'Legitimate repair needs', 'Local contractor matching', 'Streamlined intake process'],
+    duration: 30
+  },
+  'storm-share': {
+    id: 'storm-share',
+    portal: 'storm-share',
+    title: 'StormShare Community Portal',
+    content: `StormShare is the heart of your storm operations - a community platform where victims get help, contractors network, and businesses advertise their services. This dynamic portal includes social features, help requests, contractor networking, and business advertising opportunities. It creates a thriving ecosystem where all stakeholders can connect, collaborate, and support recovery efforts.`,
+    keyFeatures: ['Community networking', 'Help request system', 'Contractor collaboration', 'Business advertising'],
+    navigation: 'Click the violet StormShare portal to join the recovery community.',
+    benefits: ['Network building', 'Community support', 'Business opportunities', 'Collaborative recovery'],
+    duration: 35
+  },
+  'disaster-essentials-marketplace': {
+    id: 'disaster-essentials-marketplace',
+    portal: 'disaster-essentials-marketplace',
+    title: 'Disaster Essentials Marketplace Portal',
+    content: `The Disaster Essentials Marketplace is your one-stop resource hub for emergency supplies and services. This high-priority portal provides real-time information on hotels, fuel stations, hardware stores, shelters, FEMA resources, emergency alerts, and satellite communication equipment. With voice-guided navigation and live pricing data, you'll quickly find exactly what you need during disaster operations.`,
+    keyFeatures: ['Real-time marketplace data', 'Voice-guided navigation', 'Seven essential categories', 'Live pricing information'],
+    navigation: 'Click the emerald Marketplace portal to access essential disaster resources.',
+    benefits: ['One-stop resource access', 'Real-time availability', 'Professional guidance', 'Emergency preparedness'],
+    duration: 35
+  },
+  'customers': {
+    id: 'customers',
+    portal: 'customers',
+    title: 'Customer Hub Portal',
+    content: `Customer Hub manages all your client relationships, project history, and communication tracking. This portal centralizes customer information, tracks project timelines, manages communication logs, and provides customer service insights. You can view complete customer histories, schedule follow-ups, track satisfaction scores, and ensure no customer falls through the cracks during busy storm seasons.`,
+    keyFeatures: ['Centralized customer data', 'Project history tracking', 'Communication logging', 'Satisfaction monitoring'],
+    navigation: 'Click the teal Customer Hub portal to manage client relationships.',
+    benefits: ['Better customer service', 'Improved retention rates', 'Organized communication', 'Project accountability'],
+    duration: 30
+  },
+  'claims': {
+    id: 'claims',
+    portal: 'claims',
+    title: 'Claims Central Portal',
+    content: `Claims Central streamlines insurance claims processing with automated documentation and letter generation. This portal helps you create professional insurance claims, track claim status, generate required documentation, and manage the entire claims process from initial damage assessment through final payment. The automated letter generation ensures consistent, professional communication with insurance companies.`,
+    keyFeatures: ['Automated claims processing', 'Professional letter generation', 'Documentation management', 'Status tracking'],
+    navigation: 'Click the indigo Claims Central portal to manage insurance processing.',
+    benefits: ['Faster claim processing', 'Professional documentation', 'Higher approval rates', 'Streamlined workflow'],
+    duration: 30
+  },
+  'contractor-management': {
+    id: 'contractor-management',
+    portal: 'contractor-management',
+    title: 'Contractor Command Portal',
+    content: `Contractor Command is your internal operations center for crew dispatch and project tracking. This portal manages your internal contractor network, dispatches crews to job sites, tracks project progress, and coordinates storm response operations. You can view crew availability, assign projects, monitor work completion, and ensure efficient resource utilization across all your operations.`,
+    keyFeatures: ['Crew dispatch system', 'Project tracking', 'Resource coordination', 'Operations management'],
+    navigation: 'Click the cyan Contractor Command portal to manage internal operations.',
+    benefits: ['Efficient crew utilization', 'Coordinated operations', 'Project visibility', 'Resource optimization'],
+    duration: 30
+  },
+  'contractors': {
+    id: 'contractors',
+    portal: 'contractors',
+    title: 'Contractor Portal',
+    content: `The Contractor Portal is where external contractors sign up and access your platform services. This portal provides contractor registration, AI support tools, leads management, invoicing capabilities, and compliance tracking. External contractors can join your network, access available leads, manage their projects, submit invoices, and maintain their professional credentials through this comprehensive portal.`,
+    keyFeatures: ['Contractor registration', 'AI support tools', 'Lead access', 'Invoicing system'],
+    navigation: 'Click the amber Contractor Portal to manage external contractor relationships.',
+    benefits: ['Expanded contractor network', 'Streamlined onboarding', 'Integrated operations', 'Professional compliance'],
+    duration: 30
+  },
+  'legal': {
+    id: 'legal',
+    portal: 'legal',
+    title: 'Legal Command Portal',
+    content: `Legal Command keeps you compliant with state lien deadlines, attorney directories, and legal requirements. This portal tracks important legal deadlines, provides access to attorney networks, manages compliance documentation, and ensures your operations meet all legal requirements across different states. It's your legal safety net for complex multi-state storm operations.`,
+    keyFeatures: ['Lien deadline tracking', 'Attorney directories', 'Compliance management', 'Multi-state legal support'],
+    navigation: 'Click the slate Legal Command portal to ensure legal compliance.',
+    benefits: ['Legal protection', 'Compliance assurance', 'Professional networks', 'Risk mitigation'],
+    duration: 30
+  }
+};
+
 // ===== Main Portal Hub Component =====
 export default function StormOpsProHub() {
   const [showEffects, setShowEffects] = useState(true);
+  const [currentPortal, setCurrentPortal] = useState('welcome');
   
   // Respect user's motion preferences
   useEffect(() => {
@@ -400,6 +568,16 @@ export default function StormOpsProHub() {
   // Check if victim user is logged in to determine link
   const victimUser = localStorage.getItem('victimUser');
   const victimPortalLink = victimUser ? '/victim/dashboard' : '/victim/login';
+
+  // Handle portal change for voice guide
+  const handlePortalChange = (portalId: string) => {
+    setCurrentPortal(portalId);
+    // Optionally scroll to the portal card or highlight it
+    const portalElement = document.querySelector(`[data-testid="portal-${portalId}"]`);
+    if (portalElement) {
+      portalElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
 
   // Complete 14-module workflow in optimal order
   const portals = [
@@ -705,6 +883,20 @@ export default function StormOpsProHub() {
           </div>
         </div>
 
+        {/* Voice Guide for Dashboard Portals */}
+        <div className="max-w-7xl mx-auto px-6 pb-8">
+          <FadeIn delay={0.2}>
+            <div className="flex justify-center">
+              <VoiceGuide
+                currentPortal={currentPortal}
+                explanations={DASHBOARD_PORTAL_EXPLANATIONS}
+                onPortalChange={handlePortalChange}
+                className="relative"
+              />
+            </div>
+          </FadeIn>
+        </div>
+
         {/* Portal Grid with Staggered Animation */}
         <div className="max-w-7xl mx-auto px-6 pb-20 relative z-10">
           <StaggerContainer staggerDelay={0.05}>
@@ -716,7 +908,7 @@ export default function StormOpsProHub() {
                 
                 return (
                   <StaggerItem key={portal.id}>
-                    <Link href={portal.link} data-testid={portal.testId}>
+                    <Link href={portal.link} data-testid={`portal-${portal.id}`}>
                       <CardTilt>
                         {isHighPriority ? (
                           <PulseAlert intensity="subtle">
