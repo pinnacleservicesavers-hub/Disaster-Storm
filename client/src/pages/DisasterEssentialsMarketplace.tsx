@@ -712,77 +712,81 @@ export default function DisasterEssentialsMarketplace() {
                   <p className="text-gray-600 dark:text-gray-400 mb-4">
                     Real-time inventory for chainsaw chains, bar oil, tarps, generators, fuel cans, and safety gear.
                   </p>
-                  <div className="grid grid-cols-1 gap-6">
+                  <div className="grid grid-cols-1 gap-8">
                     {mockHardwareStores.map((store) => (
                       <motion.div key={store.id} variants={fadeInUp}>
-                        <Card className="border-2 hover:border-purple-300 transition-colors" data-testid={`card-hardware-${store.id}`}>
-                          <CardContent className="p-6">
+                        <div 
+                          className="portal-card"
+                          style={{
+                            backgroundImage: `url(${getPrimaryServicePhoto('hardware')})`
+                          }}
+                          data-testid={`card-hardware-${store.id}`}
+                        >
+                          <div className="portal-card-content p-6">
                             <div className="flex justify-between items-start mb-4">
                               <div>
-                                <h3 className="font-bold text-lg text-gray-900 dark:text-gray-100" data-testid={`text-hardware-name-${store.id}`}>
+                                <h3 className="portal-card-title" data-testid={`text-hardware-name-${store.id}`}>
                                   {store.name}
                                 </h3>
-                                <p className="text-sm text-gray-600 dark:text-gray-400" data-testid={`text-hardware-address-${store.id}`}>
+                                <p className="portal-card-subtitle text-sm" data-testid={`text-hardware-address-${store.id}`}>
                                   {store.address}, {store.city}, {store.state}
                                 </p>
-                                <p className="text-xs text-gray-500 dark:text-gray-500">{store.hours}</p>
+                                <p className="text-xs portal-card-text opacity-90">{store.hours}</p>
                               </div>
-                              <Badge className={getStatusColor(store.isOpen)} data-testid={`badge-hardware-status-${store.id}`}>
+                              <Badge className={`portal-card-badge ${getStatusColor(store.isOpen)}`} data-testid={`badge-hardware-status-${store.id}`}>
                                 {getStatusText(store.isOpen)}
                               </Badge>
                             </div>
 
-                            <div className="space-y-3">
-                              <h4 className="font-semibold text-gray-700 dark:text-gray-300">Current Inventory:</h4>
-                              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                                {Object.entries(store.inventory).map(([item, details]) => (
-                                  <div key={item} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded">
-                                    <span className="text-sm capitalize">{item.replace(/([A-Z])/g, ' $1').trim()}</span>
-                                    <div className="text-right">
-                                      {details.available ? (
-                                        <div>
-                                          <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 mb-1">
-                                            Available
+                            <div className="space-y-4 flex-1">
+                              <div className="bg-black/40 backdrop-blur-sm rounded-lg p-4">
+                                <h4 className="font-semibold portal-card-text mb-3">Current Inventory:</h4>
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                  {Object.entries(store.inventory).map(([item, details]) => (
+                                    <div key={item} className="bg-white/10 backdrop-blur-sm rounded-lg p-3">
+                                      <span className="text-xs portal-card-text block mb-2 capitalize">{item.replace(/([A-Z])/g, ' $1').trim()}</span>
+                                      <div className="text-center">
+                                        {details.available ? (
+                                          <div>
+                                            <Badge className="bg-green-500/80 text-white text-xs mb-1">
+                                              Available
+                                            </Badge>
+                                            {details.price && (
+                                              <p className="text-xs portal-card-text font-semibold">${details.price}</p>
+                                            )}
+                                          </div>
+                                        ) : (
+                                          <Badge className="bg-red-500/80 text-white text-xs">
+                                            Out of Stock
                                           </Badge>
-                                          {details.price && (
-                                            <p className="text-xs text-gray-600">${details.price}</p>
-                                          )}
-                                        </div>
-                                      ) : (
-                                        <Badge className="bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300">
-                                          Out of Stock
-                                        </Badge>
-                                      )}
+                                        )}
+                                      </div>
                                     </div>
-                                  </div>
-                                ))}
+                                  ))}
+                                </div>
                               </div>
 
-                              <div className="flex gap-2 mt-4">
+                              <div className="flex gap-3 mt-4">
                                 <Button 
-                                  variant="outline" 
-                                  size="sm" 
                                   onClick={() => handleCall(store.phone)}
-                                  className="flex-1"
+                                  className="portal-card-button flex-1"
                                   data-testid={`button-call-hardware-${store.id}`}
                                 >
-                                  <Phone className="w-4 h-4 mr-1" />
+                                  <Phone className="w-4 h-4 mr-2" />
                                   Call Store
                                 </Button>
                                 <Button 
-                                  variant="outline" 
-                                  size="sm" 
                                   onClick={() => handleDirections(store.address, store.city, store.state)}
-                                  className="flex-1"
+                                  className="portal-card-button flex-1"
                                   data-testid={`button-directions-hardware-${store.id}`}
                                 >
-                                  <Navigation className="w-4 h-4 mr-1" />
+                                  <Navigation className="w-4 h-4 mr-2" />
                                   Directions
                                 </Button>
                               </div>
                             </div>
-                          </CardContent>
-                        </Card>
+                          </div>
+                        </div>
                       </motion.div>
                     ))}
                   </div>
