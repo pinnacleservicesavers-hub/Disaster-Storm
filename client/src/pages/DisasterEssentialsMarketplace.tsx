@@ -24,10 +24,12 @@ import {
   ShoppingCart,
   Shield,
   Wifi,
-  Navigation
+  Navigation,
+  ArrowLeft
 } from "lucide-react";
 import { getPrimaryServicePhoto, hasServicePhotos } from "@/utils/photoManager";
 import VoiceGuide from "@/components/VoiceGuide";
+import { Link } from "wouter";
 
 // State selection data
 const US_STATES = [
@@ -307,6 +309,25 @@ export default function DisasterEssentialsMarketplace() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       <div className="container mx-auto px-4 py-8">
+        {/* Back to Dashboard Button */}
+        <motion.div
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.5 }}
+          className="mb-6"
+        >
+          <Link href="/">
+            <Button 
+              variant="outline" 
+              className="flex items-center space-x-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+              data-testid="button-back-to-dashboard"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Back to Dashboard</span>
+            </Button>
+          </Link>
+        </motion.div>
+
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
