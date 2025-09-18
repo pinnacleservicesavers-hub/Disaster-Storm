@@ -18,7 +18,9 @@ import {
   Settings,
   BarChart3,
   Activity,
-  Zap
+  Zap,
+  Volume2,
+  VolumeX
 } from 'lucide-react';
 
 interface DamageAlert {
@@ -76,6 +78,8 @@ export function DamageDetectionDashboard() {
   const [selectedSeverityThreshold, setSelectedSeverityThreshold] = useState(5);
   const [selectedProfitabilityThreshold, setSelectedProfitabilityThreshold] = useState(4);
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const [isVoiceGuideActive, setIsVoiceGuideActive] = useState(false);
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
 
   // Fetch damage alerts
   const { data: alertsData, isLoading: alertsLoading, refetch: refetchAlerts } = useQuery<{
@@ -96,6 +100,46 @@ export function DamageDetectionDashboard() {
     queryKey: ['/api/lead-generation-stats', { timeframe: '24h' }],
     refetchInterval: autoRefresh ? 60000 : false, // Refresh every minute
   });
+
+  // Initialize voice loading
+  useEffect(() => {
+    const loadVoices = () => {
+      setVoices(window.speechSynthesis.getVoices());
+    };
+    
+    loadVoices();
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+    
+    return () => {
+      window.speechSynthesis.onvoiceschanged = null;
+    };
+  }, []);
+
+  const startVoiceGuide = () => {
+    if (!isVoiceGuideActive) {
+      setIsVoiceGuideActive(true);
+      
+      const voiceContent = `Welcome to AI Damage Detection Dashboard! This intelligent system analyzes images and data streams to automatically identify weather damage and generate contractor leads. The main dashboard displays real-time damage alerts with severity scores from minor to critical, confidence levels, and profitability assessments. Each alert includes estimated repair costs, property addresses, required contractor types, and insurance likelihood scores. The lead generation statistics show conversion rates, average response times, and revenue potential. You can filter alerts by severity thresholds, location, and damage types. The system integrates with contractor notification systems to automatically dispatch qualified professionals to high-value opportunities. Emergency response alerts get priority routing for immediate safety concerns.`;
+      
+      const utterance = new SpeechSynthesisUtterance(voiceContent);
+      utterance.rate = 0.9;
+      utterance.pitch = 1.0;
+      utterance.volume = 0.8;
+      
+      if (voices.length > 0) {
+        utterance.voice = voices.find(voice => voice.lang.includes('en')) || voices[0];
+      }
+      
+      utterance.onend = () => {
+        setIsVoiceGuideActive(false);
+      };
+      
+      window.speechSynthesis.speak(utterance);
+    } else {
+      window.speechSynthesis.cancel();
+      setIsVoiceGuideActive(false);
+    }
+  };
 
   const getSeverityColor = (score: number): string => {
     if (score >= 9) return 'bg-red-600';
@@ -171,6 +215,25 @@ export function DamageDetectionDashboard() {
               >
                 <Activity className={`h-4 w-4 mr-2 ${autoRefresh ? 'animate-pulse' : ''}`} />
                 Auto Refresh
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={startVoiceGuide}
+                className="flex items-center gap-2"
+                data-testid="button-voice-guide"
+              >
+                {isVoiceGuideActive ? (
+                  <>
+                    <VolumeX className="h-4 w-4" />
+                    Stop Guide
+                  </>
+                ) : (
+                  <>
+                    <Volume2 className="h-4 w-4" />
+                    Voice Guide
+                  </>
+                )}
               </Button>
             </div>
           </div>

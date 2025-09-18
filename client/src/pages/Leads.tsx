@@ -15,7 +15,7 @@ import {
   PlayCircle, PauseCircle, MoreHorizontal, Plus, Filter, Search,
   Star, DollarSign, Camera, FileText, MessageSquare, UserPlus,
   Building2, Shield, Activity, Eye, ChevronRight, RefreshCw,
-  Briefcase, Award, Timer, Globe, Navigation
+  Briefcase, Award, Timer, Globe, Navigation, Volume2, VolumeX
 } from 'lucide-react';
 import { FadeIn, PulseAlert, StaggerContainer, StaggerItem, HoverLift, CountUp, ScaleIn, SlideIn } from '@/components/ui/animations';
 import { apiRequest } from '@/lib/queryClient';
@@ -77,8 +77,50 @@ export default function Leads() {
   const [viewMode, setViewMode] = useState<'kanban' | 'list' | 'map'>('kanban');
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [assignmentModal, setAssignmentModal] = useState(false);
+  const [isVoiceGuideActive, setIsVoiceGuideActive] = useState(false);
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
 
   const queryClient = useQueryClient();
+
+  // Initialize voice loading
+  useEffect(() => {
+    const loadVoices = () => {
+      setVoices(window.speechSynthesis.getVoices());
+    };
+    
+    loadVoices();
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+    
+    return () => {
+      window.speechSynthesis.onvoiceschanged = null;
+    };
+  }, []);
+
+  const startVoiceGuide = () => {
+    if (!isVoiceGuideActive) {
+      setIsVoiceGuideActive(true);
+      
+      const voiceContent = `Welcome to Lead Management System! This comprehensive CRM platform manages all contractor leads from initial contact through project completion. The lead board displays active prospects organized by status - new, contacted, qualified, assigned, in progress, and completed. Each lead shows customer information, damage details, estimated project value, and urgency levels. The assignment system matches leads with qualified contractors based on specialty, location, and availability. Contact management features include phone numbers, email addresses, and communication history. Progress tracking shows response times, follow-up schedules, and conversion metrics. You can filter leads by priority, contractor type needed, project value, and geographic area. Analytics provide insights into lead sources, conversion rates, and revenue forecasting.`;
+      
+      const utterance = new SpeechSynthesisUtterance(voiceContent);
+      utterance.rate = 0.9;
+      utterance.pitch = 1.0;
+      utterance.volume = 0.8;
+      
+      if (voices.length > 0) {
+        utterance.voice = voices.find(voice => voice.lang.includes('en')) || voices[0];
+      }
+      
+      utterance.onend = () => {
+        setIsVoiceGuideActive(false);
+      };
+      
+      window.speechSynthesis.speak(utterance);
+    } else {
+      window.speechSynthesis.cancel();
+      setIsVoiceGuideActive(false);
+    }
+  };
 
   // Enhanced mock lead data with more realistic properties
   const { data: leads = [], isLoading } = useQuery<Lead[]>({
@@ -486,6 +528,25 @@ export default function Leads() {
                 >
                   <FileText className="h-4 w-4 mr-2" />
                   Export
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={startVoiceGuide}
+                  className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white border-white/20"
+                  data-testid="button-voice-guide"
+                >
+                  {isVoiceGuideActive ? (
+                    <>
+                      <VolumeX className="h-4 w-4" />
+                      Stop Guide
+                    </>
+                  ) : (
+                    <>
+                      <Volume2 className="h-4 w-4" />
+                      Voice Guide
+                    </>
+                  )}
                 </Button>
               </div>
             </div>

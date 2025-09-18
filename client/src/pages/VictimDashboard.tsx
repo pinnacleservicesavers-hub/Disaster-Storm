@@ -17,7 +17,7 @@ import {
   Smartphone, Globe, Wind, Thermometer, Gauge, Eye,
   RefreshCw, Search, Filter, Calendar, TrendingUp,
   Clipboard, DollarSign, Award, Target, Radio, Siren,
-  Briefcase, FileCheck, PersonStanding, Lightbulb
+  Briefcase, FileCheck, PersonStanding, Lightbulb, Volume2, VolumeX
 } from 'lucide-react';
 import { FadeIn, PulseAlert, StaggerContainer, StaggerItem, HoverLift, CountUp, ScaleIn, SlideIn } from '@/components/ui/animations';
 import { apiRequest } from '@/lib/queryClient';
@@ -65,8 +65,50 @@ export default function VictimDashboard() {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [emergencyMode, setEmergencyMode] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const [isVoiceGuideActive, setIsVoiceGuideActive] = useState(false);
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
 
   const queryClient = useQueryClient();
+
+  // Initialize voice loading
+  useEffect(() => {
+    const loadVoices = () => {
+      setVoices(window.speechSynthesis.getVoices());
+    };
+    
+    loadVoices();
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+    
+    return () => {
+      window.speechSynthesis.onvoiceschanged = null;
+    };
+  }, []);
+
+  const startVoiceGuide = () => {
+    if (!isVoiceGuideActive) {
+      setIsVoiceGuideActive(true);
+      
+      const voiceContent = `Welcome to Victim Portal! This assistance platform helps storm victims navigate recovery with step-by-step guidance and resource coordination. The emergency checklist displays critical safety steps, documentation requirements, insurance procedures, and repair priorities. Each step shows completion status, estimated timeframes, and detailed instructions. Emergency alerts provide real-time safety information, evacuation notices, and service updates. The assistance request system connects victims with qualified contractors, legal help, insurance support, and emergency services. Progress tracking shows request status, assigned personnel, and estimated completion times. Resource directories include emergency contacts, shelter information, and financial assistance programs. The portal prioritizes safety procedures while streamlining the recovery process with clear guidance at every step.`;
+      
+      const utterance = new SpeechSynthesisUtterance(voiceContent);
+      utterance.rate = 0.9;
+      utterance.pitch = 1.0;
+      utterance.volume = 0.8;
+      
+      if (voices.length > 0) {
+        utterance.voice = voices.find(voice => voice.lang.includes('en')) || voices[0];
+      }
+      
+      utterance.onend = () => {
+        setIsVoiceGuideActive(false);
+      };
+      
+      window.speechSynthesis.speak(utterance);
+    } else {
+      window.speechSynthesis.cancel();
+      setIsVoiceGuideActive(false);
+    }
+  };
 
   // Enhanced mock emergency steps
   const { data: emergencySteps = [] } = useQuery<EmergencyStep[]>({
@@ -404,6 +446,25 @@ export default function VictimDashboard() {
                 >
                   <LogOut className="h-4 w-4 mr-2" />
                   Logout
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={startVoiceGuide}
+                  className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white border-white/20"
+                  data-testid="button-voice-guide"
+                >
+                  {isVoiceGuideActive ? (
+                    <>
+                      <VolumeX className="h-4 w-4" />
+                      Stop Guide
+                    </>
+                  ) : (
+                    <>
+                      <Volume2 className="h-4 w-4" />
+                      Voice Guide
+                    </>
+                  )}
                 </Button>
               </div>
             </div>

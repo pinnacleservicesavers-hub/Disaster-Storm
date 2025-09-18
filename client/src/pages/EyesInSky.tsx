@@ -30,6 +30,32 @@ export default function EyesInSky() {
     };
   }, []);
 
+  const startVoiceGuide = () => {
+    if (!isVoiceGuideActive) {
+      setIsVoiceGuideActive(true);
+      
+      const voiceContent = `Welcome to Eyes in the Sky! This aerial surveillance platform aggregates live storm chasing streams, weather reconnaissance feeds, and satellite imagery for comprehensive sky-level monitoring. The dashboard displays categorized streaming sources including professional storm chasers, meteorologist channels, and weather intelligence feeds. You can filter by category such as live chasing, YouTube channels, or weather intelligence. Each feed shows live status indicators - live, offline, or scheduled. The favorites system lets you bookmark frequently used streams. Search functionality helps you quickly find specific weather events or regions. All feeds are external links that open professional storm tracking and meteorological analysis streams. This gives you real-time aerial perspective on developing weather situations across the country.`;
+      
+      const utterance = new SpeechSynthesisUtterance(voiceContent);
+      utterance.rate = 0.9;
+      utterance.pitch = 1.0;
+      utterance.volume = 0.8;
+      
+      if (voices.length > 0) {
+        utterance.voice = voices.find(voice => voice.lang.includes('en')) || voices[0];
+      }
+      
+      utterance.onend = () => {
+        setIsVoiceGuideActive(false);
+      };
+      
+      window.speechSynthesis.speak(utterance);
+    } else {
+      window.speechSynthesis.cancel();
+      setIsVoiceGuideActive(false);
+    }
+  };
+
   // Simulate live status updates
   useEffect(() => {
     const updateLiveStatus = () => {
@@ -181,9 +207,30 @@ export default function EyesInSky() {
               <h1 className="text-4xl lg:text-5xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-blue-800 bg-clip-text text-transparent mb-4" data-testid="title-eyes-in-sky">
                 👁️ Eyes in the Sky
               </h1>
-              <p className="text-xl text-slate-600 dark:text-slate-300 max-w-3xl mx-auto">
+              <p className="text-xl text-slate-600 dark:text-slate-300 max-w-3xl mx-auto mb-4">
                 Real-time storm chasing coverage and professional weather monitoring from across the United States
               </p>
+              <div className="flex justify-center">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={startVoiceGuide}
+                  className="flex items-center gap-2 bg-white/80 hover:bg-white border-blue-200 hover:border-blue-300 text-blue-700 hover:text-blue-800 backdrop-blur-sm transition-all duration-300 shadow-lg hover:shadow-xl"
+                  data-testid="button-voice-guide"
+                >
+                  {isVoiceGuideActive ? (
+                    <>
+                      <VolumeX className="h-4 w-4" />
+                      Stop Guide
+                    </>
+                  ) : (
+                    <>
+                      <Volume2 className="h-4 w-4" />
+                      Voice Guide
+                    </>
+                  )}
+                </Button>
+              </div>
             </motion.div>
 
             {/* Live Stats Bar */}

@@ -94,6 +94,32 @@ export function TrafficCameras() {
     };
   }, []);
 
+  const startVoiceGuide = () => {
+    if (!isVoiceGuideActive) {
+      setIsVoiceGuideActive(true);
+      
+      const voiceContent = `Welcome to Traffic Cam Watcher! This monitoring system provides access to live traffic camera feeds across multiple states to identify contractor opportunities from weather-related incidents. The main dashboard displays camera directory by state showing total cameras, active incidents, and potential contractor opportunities. You can filter by state and county to focus on specific regions. The incident detection system uses AI to automatically identify weather damage, road closures, and infrastructure issues that create contracting opportunities. Each opportunity shows estimated value, severity level, and location details. The watchlist feature lets you monitor specific states for new incidents. Camera feeds update in real-time, and you can switch between map view and list view for easier navigation.`;
+      
+      const utterance = new SpeechSynthesisUtterance(voiceContent);
+      utterance.rate = 0.9;
+      utterance.pitch = 1.0;
+      utterance.volume = 0.8;
+      
+      if (voices.length > 0) {
+        utterance.voice = voices.find(voice => voice.lang.includes('en')) || voices[0];
+      }
+      
+      utterance.onend = () => {
+        setIsVoiceGuideActive(false);
+      };
+      
+      window.speechSynthesis.speak(utterance);
+    } else {
+      window.speechSynthesis.cancel();
+      setIsVoiceGuideActive(false);
+    }
+  };
+
   // Fetch directory
   const { data: directory, isLoading: directoryLoading } = useQuery<CameraDirectory>({
     queryKey: ['/api/511/directory'],
@@ -154,8 +180,6 @@ export function TrafficCameras() {
       itemId: state,
       displayName: `${stateName} Traffic Cameras`,
       state,
-      alertsEnabled: true,
-      metadata: null,
     };
     addWatchlistMutation.mutate(watchlistItem);
   };
@@ -521,6 +545,25 @@ export function TrafficCameras() {
                     <Wifi className="w-4 h-4 mr-2" />
                   </motion.div>
                   Live Only
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={startVoiceGuide}
+                  className="flex items-center gap-2 transition-all duration-200"
+                  data-testid="button-voice-guide"
+                >
+                  {isVoiceGuideActive ? (
+                    <>
+                      <VolumeX className="h-4 w-4" />
+                      Stop Guide
+                    </>
+                  ) : (
+                    <>
+                      <Volume2 className="h-4 w-4" />
+                      Voice Guide
+                    </>
+                  )}
                 </Button>
               </motion.div>
             </motion.div>

@@ -91,6 +91,32 @@ export default function Drones() {
     };
   }, []);
 
+  const startVoiceGuide = () => {
+    if (!isVoiceGuideActive) {
+      setIsVoiceGuideActive(true);
+      
+      const voiceContent = `Welcome to Drone Operations Command Center! This comprehensive flight management system controls your drone fleet for weather reconnaissance and damage assessment missions. The live flight dashboard shows all active drones with real-time telemetry including altitude, speed, battery level, and GPS coordinates. Flight status indicators show active, returning, emergency, ready, and maintenance states. Each drone displays mission progress, video feed status, and pilot assignments. The control interface includes flight time tracking, temperature monitoring, wind speed readings, and signal strength indicators. Mission planning features let you create inspection, search and rescue, survey, or patrol missions with waypoint mapping. Emergency alerts highlight any drones requiring immediate attention. Auto-mode indicators show which drones are operating autonomously versus manual control.`;
+      
+      const utterance = new SpeechSynthesisUtterance(voiceContent);
+      utterance.rate = 0.9;
+      utterance.pitch = 1.0;
+      utterance.volume = 0.8;
+      
+      if (voices.length > 0) {
+        utterance.voice = voices.find(voice => voice.lang.includes('en')) || voices[0];
+      }
+      
+      utterance.onend = () => {
+        setIsVoiceGuideActive(false);
+      };
+      
+      window.speechSynthesis.speak(utterance);
+    } else {
+      window.speechSynthesis.cancel();
+      setIsVoiceGuideActive(false);
+    }
+  };
+
   // Mock real-time drone fleet data
   const { data: liveFlights = [] } = useQuery({
     queryKey: ['live-flights'],
@@ -406,6 +432,25 @@ export default function Drones() {
                   <Target className="h-4 w-4 mr-2" />
                   Plan Mission
                 </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={startVoiceGuide}
+                  className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white border-white/20"
+                  data-testid="button-voice-guide"
+                >
+                  {isVoiceGuideActive ? (
+                    <>
+                      <VolumeX className="h-4 w-4" />
+                      Stop Guide
+                    </>
+                  ) : (
+                    <>
+                      <Volume2 className="h-4 w-4" />
+                      Voice Guide
+                    </>
+                  )}
+                </Button>
               </div>
             </div>
 
@@ -599,7 +644,9 @@ export default function Drones() {
                                     {flight.droneId}
                                   </CardTitle>
                                   <div className="flex items-center space-x-2">
-                                    <Badge {...getStatusBadge(flight.status)} />
+                                    <Badge variant={getStatusBadge(flight.status).variant}>
+                                      {getStatusBadge(flight.status).text}
+                                    </Badge>
                                     <span className="text-sm text-muted-foreground">{flight.pilot}</span>
                                   </div>
                                 </div>

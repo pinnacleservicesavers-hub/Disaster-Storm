@@ -178,6 +178,32 @@ export default function PredictionDashboard() {
     };
   }, []);
 
+  const startVoiceGuide = () => {
+    if (!isVoiceGuideActive) {
+      setIsVoiceGuideActive(true);
+      
+      const voiceContent = `Welcome to Storm Prediction Dashboard! This advanced forecasting system uses AI models and NOAA data to predict storm paths, intensity changes, and damage potential. The main dashboard shows active storm predictions with confidence levels, predicted paths with time stamps, and damage forecasts by county including wind, flood, and tornado risks. You'll see risk level indicators from minimal to extreme, estimated property damage amounts, and potential restoration job volumes. Use the tabs to switch between storm tracking, damage forecasts, and historical analysis. The map displays storm paths with color-coded intensity levels, and you can click on any forecast point for detailed information. All predictions update automatically as new weather data becomes available.`;
+      
+      const utterance = new SpeechSynthesisUtterance(voiceContent);
+      utterance.rate = 0.9;
+      utterance.pitch = 1.0;
+      utterance.volume = 0.8;
+      
+      if (voices.length > 0) {
+        utterance.voice = voices.find(voice => voice.lang.includes('en')) || voices[0];
+      }
+      
+      utterance.onend = () => {
+        setIsVoiceGuideActive(false);
+      };
+      
+      window.speechSynthesis.speak(utterance);
+    } else {
+      window.speechSynthesis.cancel();
+      setIsVoiceGuideActive(false);
+    }
+  };
+
   // Fetch dashboard data
   const { data: dashboardData, isLoading: dashboardLoading } = useQuery<DashboardData>({
     queryKey: ['/api/prediction-dashboard', selectedState, forecastHours],
@@ -631,6 +657,27 @@ export default function PredictionDashboard() {
                     />
                   )}
                 </div>
+                <HoverLift>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={startVoiceGuide}
+                    className="flex items-center gap-2 bg-white/80 hover:bg-white border-blue-200 hover:border-blue-300 text-blue-700 hover:text-blue-800 backdrop-blur-sm transition-all duration-300 shadow-lg hover:shadow-xl"
+                    data-testid="button-voice-guide"
+                  >
+                    {isVoiceGuideActive ? (
+                      <>
+                        <VolumeX className="h-4 w-4" />
+                        Stop Guide
+                      </>
+                    ) : (
+                      <>
+                        <Volume2 className="h-4 w-4" />
+                        Voice Guide
+                      </>
+                    )}
+                  </Button>
+                </HoverLift>
               </motion.div>
           </div>
           
