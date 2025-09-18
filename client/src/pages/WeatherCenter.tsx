@@ -789,82 +789,76 @@ export default function WeatherCenter() {
                       <LocationMarker />
                       
                       {/* NWS Alerts */}
-                      {alerts.map((alert, index) => (
-                        (alert as any).geometry ? (
-                          <GeoJSON
-                            key={`alert-${index}`}
-                            data={(alert as any).geometry}
-                            style={{
-                              color: alert.severity === 'extreme' ? '#dc2626' :
-                                     alert.severity === 'severe' ? '#ea580c' : '#ca8a04',
-                              weight: 2,
-                              opacity: 0.8,
-                              fillOpacity: 0.3
-                            }}
-                            onEachFeature={(feature, layer) => {
-                              layer.bindPopup(`
-                                <div class="font-medium">${alert.title}</div>
-                                <div class="text-sm text-gray-600">${alert.alertType}</div>
-                                <div class="text-xs mt-1">Severity: ${alert.severity}</div>
-                              `);
-                            }}
-                          />
-                        ) : null
+                      {alerts.filter((a: any) => a.geometry).map((alert, index) => (
+                        <GeoJSON
+                          key={`alert-${index}`}
+                          data={(alert as any).geometry}
+                          style={{
+                            color: alert.severity === 'extreme' ? '#dc2626' :
+                                   alert.severity === 'severe' ? '#ea580c' : '#ca8a04',
+                            weight: 2,
+                            opacity: 0.8,
+                            fillOpacity: 0.3
+                          }}
+                          onEachFeature={(feature, layer) => {
+                            layer.bindPopup(`
+                              <div class="font-medium">${alert.title}</div>
+                              <div class="text-sm text-gray-600">${alert.alertType}</div>
+                              <div class="text-xs mt-1">Severity: ${alert.severity}</div>
+                            `);
+                          }}
+                        />
                       ))}
                       
                       {/* SPC Outlooks */}
-                      {spcData.map((outlook, index) => (
-                        outlook.geometry ? (
-                          <GeoJSON
-                            key={`spc-${index}`}
-                            data={outlook.geometry}
-                            style={{
-                              color: outlook.risk === 'high' ? '#dc2626' :
-                                     outlook.risk === 'enhanced' ? '#ea580c' :
-                                     outlook.risk === 'slight' ? '#ca8a04' :
-                                     outlook.risk === 'marginal' ? '#16a34a' : '#6b7280',
-                              weight: 2,
-                              opacity: 0.7,
-                              fillOpacity: 0.2,
-                              dashArray: '5, 5'
-                            }}
-                            onEachFeature={(feature, layer) => {
-                              layer.bindPopup(`
-                                <div class="font-medium">🌪️ SPC Day ${outlook.day} Outlook</div>
-                                <div class="text-sm mt-1">Risk: ${outlook.risk || 'Marginal'}</div>
-                              `);
-                            }}
-                          />
-                        ) : null
+                      {spcData.filter((outlook: any) => outlook.geometry).map((outlook, index) => (
+                        <GeoJSON
+                          key={`spc-${index}`}
+                          data={outlook.geometry}
+                          style={{
+                            color: outlook.risk === 'high' ? '#dc2626' :
+                                   outlook.risk === 'enhanced' ? '#ea580c' :
+                                   outlook.risk === 'slight' ? '#ca8a04' :
+                                   outlook.risk === 'marginal' ? '#16a34a' : '#6b7280',
+                            weight: 2,
+                            opacity: 0.7,
+                            fillOpacity: 0.2,
+                            dashArray: '5, 5'
+                          }}
+                          onEachFeature={(feature, layer) => {
+                            layer.bindPopup(`
+                              <div class="font-medium">🌪️ SPC Day ${outlook.day} Outlook</div>
+                              <div class="text-sm mt-1">Risk: ${outlook.risk || 'Marginal'}</div>
+                            `);
+                          }}
+                        />
                       ))}
                       
                       {/* Hurricane Points */}
-                      {nhcData.storms.map((storm, index) => (
-                        storm.geometry ? (
-                          <GeoJSON
-                            key={`storm-${index}`}
-                            data={storm.geometry}
-                            pointToLayer={(feature, latlng) => {
-                              const L = (window as any).L;
-                              return L.circleMarker(latlng, {
-                                radius: 8,
-                                fillColor: '#dc2626',
-                                color: '#7f1d1d',
-                                weight: 2,
-                                opacity: 1,
-                                fillOpacity: 0.8
-                              });
-                            }}
-                            onEachFeature={(feature, layer) => {
-                              layer.bindPopup(`
-                                <div class="font-medium">🌀 ${storm.name}</div>
-                                <div class="text-sm">Status: ${storm.status}</div>
-                                <div class="text-sm">Max Winds: ${storm.maxWinds} mph</div>
-                                <div class="text-sm">Movement: ${storm.movement}</div>
-                              `);
-                            }}
-                          />
-                        ) : null
+                      {nhcData.storms.filter((storm: any) => storm.geometry).map((storm, index) => (
+                        <GeoJSON
+                          key={`storm-${index}`}
+                          data={storm.geometry}
+                          pointToLayer={(feature, latlng) => {
+                            const L = (window as any).L;
+                            return L.circleMarker(latlng, {
+                              radius: 8,
+                              fillColor: '#dc2626',
+                              color: '#7f1d1d',
+                              weight: 2,
+                              opacity: 1,
+                              fillOpacity: 0.8
+                            });
+                          }}
+                          onEachFeature={(feature, layer) => {
+                            layer.bindPopup(`
+                              <div class="font-medium">🌀 ${storm.name}</div>
+                              <div class="text-sm">Status: ${storm.status}</div>
+                              <div class="text-sm">Max Winds: ${storm.maxWinds} mph</div>
+                              <div class="text-sm">Movement: ${storm.movement}</div>
+                            `);
+                          }}
+                        />
                       ))}
                       
                       {/* NDBC Buoy Stations */}

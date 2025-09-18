@@ -351,6 +351,26 @@ export default function AIAssistant({ portalContext, userLocation, className }: 
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [conversation]);
 
+  // Speech synthesis function
+  const speak = useCallback((text: string) => {
+    if (!synthRef.current || !voice) return;
+
+    synthRef.current.cancel();
+    
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.voice = voice;
+    utterance.rate = 0.9;
+    utterance.pitch = 1.1;
+    utterance.volume = 0.8;
+    
+    utterance.onstart = () => setIsSpeaking(true);
+    utterance.onend = () => setIsSpeaking(false);
+    utterance.onerror = () => setIsSpeaking(false);
+    
+    synthRef.current.speak(utterance);
+    setCurrentMessage(text);
+  }, [voice]);
+
   // Initialize WebSocket for real-time data
   useEffect(() => {
     if (isActive) {
@@ -399,7 +419,7 @@ export default function AIAssistant({ portalContext, userLocation, className }: 
         wsRef.current.close();
       }
     };
-  }, [isActive]);
+  }, [isActive, speak]);
 
   // AI Response Generation based on portal context
   const generateAIResponse = useCallback((userQuestion: string): string => {
@@ -580,26 +600,6 @@ export default function AIAssistant({ portalContext, userLocation, className }: 
     setDamageLocations(mockDamage);
     setStormData(mockStorm);
   }, [userLocation]);
-
-  // Speech synthesis function
-  const speak = useCallback((text: string) => {
-    if (!synthRef.current || !voice) return;
-
-    synthRef.current.cancel();
-    
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.voice = voice;
-    utterance.rate = 0.9;
-    utterance.pitch = 1.1;
-    utterance.volume = 0.8;
-    
-    utterance.onstart = () => setIsSpeaking(true);
-    utterance.onend = () => setIsSpeaking(false);
-    utterance.onerror = () => setIsSpeaking(false);
-    
-    synthRef.current.speak(utterance);
-    setCurrentMessage(text);
-  }, [voice]);
 
   // Announce new damage detection
   const announceNewDamage = useCallback((location: DamageLocation) => {
