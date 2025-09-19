@@ -1,0 +1,75 @@
+For Contractors
+
+The AI should give them job-ready intelligence that saves time, builds credibility with insurers, and increases revenue:
+
+Damage Assessment & Classification
+
+Auto-detect tree damage, roof damage, powerline strikes, flooding, etc.
+
+Classify severity (minor, major, catastrophic).
+
+Estimate tree height, diameter, and approximate weight.
+
+Instant Insurance Packet Data
+
+Generate a claims-ready summary in Xactimate-style format.
+
+Attach annotated photos with AI-generated captions (e.g., “Oak tree, approx. 36 inches diameter, leaning on roof, structural damage visible.”).
+
+Estimate removal time, crew size, and equipment needed (crane, bucket, etc.).
+
+Safety & Compliance Guidance
+
+Point out hazards (live wires, unstable trees, flood zones).
+
+Recommend PPE or OSHA/ANSI compliance steps.
+
+Suggest best access routes for trucks and equipment.
+
+Job Cost & Resource Calculator
+
+Provide rough job estimates (labor hours, equipment use, disposal costs).
+
+Compare costs with local/state averages to stay competitive.
+
+🏠 For Customers / Victims Watching Live or Aftermath
+
+The AI should give them clear, reassuring, and actionable updates:
+
+Plain-English Damage Reports
+
+Explain what the footage shows (“A large tree has fallen across the back half of your roof, causing visible roof collapse.”).
+
+Translate technical contractor terms into homeowner-friendly language.
+
+Safety Alerts
+
+Point out immediate dangers (“Avoid the backyard — downed power line detected.”).
+
+Suggest next steps (“Do not attempt to remove debris yourself; wait for a licensed contractor.”).
+
+Insurance & Recovery Help
+
+Generate a simplified “claim snapshot” they can forward to their insurance adjuster.
+
+Provide FEMA, SBA, or Red Cross links for assistance.
+
+Live Q&A
+
+Let victims ask: “How bad is this?” or “Will my roof need full replacement?” — and get AI-generated, easy-to-understand answers.
+
+🔑 Bonus Features to Make It Next-Level
+
+Before/After Comparisons – AI overlays satellite or prior drone images to show exact damage differences.
+
+Predictive Risk Alerts – AI tells contractors if nearby trees/hazards might cause secondary damage.
+
+Auto-Generated Work Orders – Contractors can push one button and generate a draft contract + price sheet from the footage.
+
+Victim Portal Sync – Customers can click to request help directly from what they’re watching, and it routes to the nearest contractor.
+
+👉 In short:
+
+Contractors get technical, cost, and safety data to win jobs and file claims faster.
+
+Customers get clear, calm, easy-to-understand guidance that builds trust.

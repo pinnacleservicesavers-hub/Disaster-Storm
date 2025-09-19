@@ -1678,8 +1678,33 @@ export default function PredictionDashboard() {
                           }}
                           transition={{ duration: 3, repeat: Infinity }}
                         >
-                          <div className="w-12 h-12 bg-gradient-to-br from-red-500 to-orange-500 rounded-full flex items-center justify-center">
-                            <Eye className="w-6 h-6 text-white" />
+                          {/* Realistic Eye Design */}
+                          <div className="relative w-14 h-8 bg-white rounded-full border-2 border-red-300 shadow-lg flex items-center justify-center overflow-hidden">
+                            {/* Eye White */}
+                            <div className="absolute inset-1 bg-gradient-to-r from-gray-50 to-white rounded-full"></div>
+                            
+                            {/* Iris */}
+                            <div className="relative w-6 h-6 bg-gradient-to-br from-blue-400 via-blue-600 to-blue-800 rounded-full shadow-inner flex items-center justify-center">
+                              {/* Pupil */}
+                              <div className="w-3 h-3 bg-black rounded-full shadow-lg flex items-center justify-center">
+                                {/* Light reflection */}
+                                <div className="w-1 h-1 bg-white rounded-full translate-x-0.5 -translate-y-0.5"></div>
+                              </div>
+                              
+                              {/* Iris pattern */}
+                              <div className="absolute inset-0 bg-gradient-to-t from-blue-900/30 to-transparent rounded-full"></div>
+                              <div className="absolute w-1 h-1 bg-blue-300/60 rounded-full top-1 left-1"></div>
+                              <div className="absolute w-0.5 h-0.5 bg-blue-200/80 rounded-full top-2 right-1"></div>
+                            </div>
+                            
+                            {/* Eyelashes/Lids */}
+                            <div className="absolute -top-1 left-2 w-0.5 h-2 bg-red-600/60 rounded-full rotate-12"></div>
+                            <div className="absolute -top-1 left-4 w-0.5 h-2 bg-red-600/60 rounded-full rotate-6"></div>
+                            <div className="absolute -top-1 right-4 w-0.5 h-2 bg-red-600/60 rounded-full -rotate-6"></div>
+                            <div className="absolute -top-1 right-2 w-0.5 h-2 bg-red-600/60 rounded-full -rotate-12"></div>
+                            
+                            {/* Bottom eyelid shadow */}
+                            <div className="absolute bottom-0 inset-x-2 h-1 bg-gradient-to-t from-red-300/40 to-transparent rounded-b-full"></div>
                           </div>
                           <motion.div
                             className="absolute -top-1 -right-1 w-4 h-4 bg-yellow-400 rounded-full"

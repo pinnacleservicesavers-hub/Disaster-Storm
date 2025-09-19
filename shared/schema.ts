@@ -3272,6 +3272,180 @@ export type InsertDemAlert = z.infer<typeof insertDemAlertSchema>;
 export type DemSatelliteProduct = typeof demSatelliteProducts.$inferSelect;
 export type InsertDemSatelliteProduct = z.infer<typeof insertDemSatelliteProductSchema>;
 
+// ===== DRONE OPERATIONS CENTER TABLES =====
+
+// Drones - Core drone fleet management
+export const drones = pgTable("drones", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(), // User-friendly drone name
+  model: text("model").notNull(), // DJI Phantom 4, etc.
+  status: text("status").notNull().default("ready"), // ready, active, returning, emergency, maintenance, offline
+  batteryPct: integer("battery_pct").default(100), // 0-100
+  lastTelemetryAt: timestamp("last_telemetry_at"),
+  healthScore: integer("health_score").default(100), // Overall health score 0-100
+  firmware: text("firmware"), // Current firmware version
+  assignedMissionId: varchar("assigned_mission_id"), // Current mission if any
+  capabilities: jsonb("capabilities").$type<string[]>(), // ['4k_camera', 'thermal_imaging', 'lidar', 'night_vision']
+  location: jsonb("location").$type<{
+    latitude: number;
+    longitude: number;
+    altitude?: number;
+    address?: string;
+  }>(),
+  pilotId: varchar("pilot_id"), // Assigned pilot
+  lastMaintenanceAt: timestamp("last_maintenance_at"),
+  nextMaintenanceDue: timestamp("next_maintenance_due"),
+  flightHours: numeric("flight_hours", { precision: 8, scale: 2 }).default("0"), // Total flight hours
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Missions - Flight mission management
+export const missions = pgTable("missions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  type: text("type").notNull(), // inspection, search_rescue, survey, patrol, emergency_response
+  priority: text("priority").notNull().default("medium"), // low, medium, high, critical
+  status: text("status").notNull().default("planned"), // planned, active, paused, completed, cancelled, failed
+  assignedDroneId: varchar("assigned_drone_id"),
+  estimatedDurationMin: integer("estimated_duration_min").notNull(), // Estimated duration in minutes
+  actualDurationMin: integer("actual_duration_min"), // Actual duration when completed
+  description: text("description"),
+  waypoints: jsonb("waypoints").$type<Array<{
+    lat: number;
+    lng: number;
+    altitude: number;
+    action: string; // hover, photo, video, inspect, search
+    duration?: number; // Time to spend at waypoint in seconds
+  }>>(),
+  missionArea: jsonb("mission_area").$type<{
+    center: { lat: number; lng: number };
+    radius: number; // in meters
+    boundingBox?: {
+      north: number;
+      south: number;
+      east: number;
+      west: number;
+    };
+  }>(),
+  weatherConstraints: jsonb("weather_constraints").$type<{
+    maxWindSpeed?: number;
+    minVisibility?: number;
+    maxPrecipitation?: number;
+    temperatureRange?: { min: number; max: number };
+  }>(),
+  safetyChecklist: jsonb("safety_checklist").$type<{
+    preFlightComplete: boolean;
+    batteryCheck: boolean;
+    weatherCheck: boolean;
+    airspaceCleared: boolean;
+    emergencyPlanReviewed: boolean;
+  }>(),
+  progress: integer("progress").default(0), // 0-100 percentage
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Telemetry - Real-time drone data
+export const telemetry = pgTable("telemetry", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  droneId: varchar("drone_id").notNull(),
+  ts: timestamp("timestamp").notNull().defaultNow(),
+  altitude: numeric("altitude", { precision: 8, scale: 2 }), // meters above ground
+  speed: numeric("speed", { precision: 6, scale: 2 }), // m/s
+  heading: integer("heading"), // degrees 0-360
+  temperature: numeric("temperature", { precision: 4, scale: 1 }), // Celsius
+  windSpeed: numeric("wind_speed", { precision: 5, scale: 2 }), // m/s
+  signalStrength: integer("signal_strength"), // dBm or percentage
+  batteryPct: integer("battery_pct").notNull(), // 0-100
+  coords: jsonb("coords").$type<{
+    latitude: number;
+    longitude: number;
+    accuracy?: number; // GPS accuracy in meters
+  }>().notNull(),
+  flightMode: text("flight_mode"), // manual, auto, rth, hover, land
+  gpsStatus: text("gps_status"), // fixed, dgps, no_fix
+  homePoint: jsonb("home_point").$type<{
+    latitude: number;
+    longitude: number;
+    altitude: number;
+  }>(),
+  remainingFlightTime: integer("remaining_flight_time"), // estimated minutes left
+  obstacleDistance: numeric("obstacle_distance", { precision: 5, scale: 2 }), // meters to nearest obstacle
+  cameraStatus: jsonb("camera_status").$type<{
+    recording: boolean;
+    storageRemaining: number; // MB
+    gimbalTilt: number; // degrees
+  }>(),
+}, (table) => ({
+  droneIdTimestampIdx: unique().on(table.droneId, table.ts),
+}));
+
+// Maintenance Events - Drone maintenance tracking
+export const maintenanceEvents = pgTable("maintenance_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  droneId: varchar("drone_id").notNull(),
+  ts: timestamp("timestamp").notNull().defaultNow(),
+  type: text("type").notNull(), // scheduled, repair, inspection, calibration, upgrade, emergency
+  notes: text("notes").notNull(),
+  severity: text("severity").notNull().default("routine"), // routine, minor, major, critical
+  performedBy: text("performed_by"), // Technician name/ID
+  partsReplaced: jsonb("parts_replaced").$type<Array<{
+    partName: string;
+    partNumber?: string;
+    quantity: number;
+    cost?: number;
+  }>>(),
+  laborHours: numeric("labor_hours", { precision: 4, scale: 2 }),
+  totalCost: numeric("total_cost", { precision: 8, scale: 2 }),
+  beforeHealthScore: integer("before_health_score"), // Health score before maintenance
+  afterHealthScore: integer("after_health_score"), // Health score after maintenance
+  nextMaintenanceDue: timestamp("next_maintenance_due"),
+  flightHoursAtMaintenance: numeric("flight_hours_at_maintenance", { precision: 8, scale: 2 }),
+  issues: jsonb("issues").$type<Array<{
+    category: string; // battery, propeller, camera, gimbal, sensor, software
+    description: string;
+    resolved: boolean;
+  }>>(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Create insert schemas for drone models
+export const insertDroneSchema = createInsertSchema(drones).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertMissionSchema = createInsertSchema(missions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertTelemetrySchema = createInsertSchema(telemetry).omit({
+  id: true,
+  ts: true,
+});
+
+export const insertMaintenanceEventSchema = createInsertSchema(maintenanceEvents).omit({
+  id: true,
+  ts: true,
+  createdAt: true,
+});
+
+// Export drone types
+export type Drone = typeof drones.$inferSelect;
+export type InsertDrone = z.infer<typeof insertDroneSchema>;
+export type Mission = typeof missions.$inferSelect;
+export type InsertMission = z.infer<typeof insertMissionSchema>;
+export type Telemetry = typeof telemetry.$inferSelect;
+export type InsertTelemetry = z.infer<typeof insertTelemetrySchema>;
+export type MaintenanceEvent = typeof maintenanceEvents.$inferSelect;
+export type InsertMaintenanceEvent = z.infer<typeof insertMaintenanceEventSchema>;
+
 // Detection foundation types
 export type DetectionJob = typeof detectionJobs.$inferSelect;
 export type InsertDetectionJob = z.infer<typeof insertDetectionJobSchema>;
