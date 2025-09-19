@@ -34,6 +34,7 @@ import { FadeIn } from '@/components/ui/animations';
 function Navigation() {
   const [location] = useLocation();
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
   
   // Navigation sections with grouping
   const navSections = [
@@ -301,19 +302,66 @@ function Navigation() {
               </motion.button>
 
               {/* Notifications */}
-              <motion.button
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                className="relative p-2 text-white/90 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
-                data-testid="button-notifications"
-              >
-                <Bell className="w-5 h-5" />
-                <motion.div
-                  animate={{ scale: [1, 1.2, 1] }}
-                  transition={{ duration: 2, repeat: Infinity }}
-                  className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white"
-                />
-              </motion.button>
+              <div className="relative">
+                <motion.button
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                  onClick={() => setShowNotifications(!showNotifications)}
+                  className="relative p-2 text-white/90 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                  data-testid="button-notifications"
+                >
+                  <Bell className="w-5 h-5" />
+                  <motion.div
+                    animate={{ scale: [1, 1.2, 1] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                    className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white"
+                  />
+                </motion.button>
+
+                {/* Notifications Dropdown */}
+                {showNotifications && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="absolute right-0 top-12 w-80 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 z-50"
+                  >
+                    <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Notifications</h3>
+                    </div>
+                    <div className="p-4 space-y-3 max-h-96 overflow-y-auto">
+                      <div className="flex items-start space-x-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                        <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-900 dark:text-white">Storm Alert</p>
+                          <p className="text-xs text-gray-600 dark:text-gray-400">High priority damage detected in Miami-Dade</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">2 minutes ago</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start space-x-3 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                        <div className="w-2 h-2 bg-green-500 rounded-full mt-2"></div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-900 dark:text-white">New Leads</p>
+                          <p className="text-xs text-gray-600 dark:text-gray-400">3 new contractor leads generated</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">5 minutes ago</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start space-x-3 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
+                        <div className="w-2 h-2 bg-yellow-500 rounded-full mt-2"></div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-900 dark:text-white">Weather Update</p>
+                          <p className="text-xs text-gray-600 dark:text-gray-400">Hurricane Alexandra forecast updated</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">15 minutes ago</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="p-3 border-t border-gray-200 dark:border-gray-700">
+                      <button className="w-full text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium">
+                        View All Notifications
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </div>
 
               {/* Status indicator */}
               <div className="hidden sm:flex items-center space-x-2">
@@ -336,19 +384,46 @@ function Navigation() {
         {/* Search overlay */}
         {isSearchOpen && (
           <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="absolute top-full left-0 right-0 bg-white/95 backdrop-blur-lg border-b border-gray-200 p-4 z-50"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="absolute top-16 left-0 right-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 z-40"
           >
-            <div className="max-w-2xl mx-auto">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                 <input
                   type="text"
-                  placeholder="Search storm operations, alerts, contractors..."
-                  className="w-full pl-10 pr-4 py-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
-                  data-testid="input-search"
+                  placeholder="Search across all DisasterDirect modules..."
+                  className="w-full pl-10 pr-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
+                  autoFocus
                 />
+              </div>
+              <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Quick Actions</h4>
+                  <ul className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
+                    <li className="hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer">View Weather Alerts</li>
+                    <li className="hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer">Check Storm Predictions</li>
+                    <li className="hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer">Browse Contractor Leads</li>
+                    <li className="hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer">Access Victim Portal</li>
+                  </ul>
+                </div>
+                <div>
+                  <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Recent Searches</h4>
+                  <ul className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
+                    <li className="hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer">Hurricane Alexandra</li>
+                    <li className="hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer">Miami damage reports</li>
+                    <li className="hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer">Roofing contractors</li>
+                  </ul>
+                </div>
+                <div>
+                  <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Suggested</h4>
+                  <ul className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
+                    <li className="hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer">Traffic camera alerts</li>
+                    <li className="hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer">Drone operations status</li>
+                    <li className="hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer">Insurance claims</li>
+                  </ul>
+                </div>
               </div>
             </div>
           </motion.div>
