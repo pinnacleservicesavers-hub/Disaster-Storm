@@ -41,6 +41,7 @@ import {
   Bot
 } from 'lucide-react';
 import StormIntelligenceChat from '@/components/StormIntelligenceChat';
+import { VoiceAIAssistant } from '@/components/VoiceAIAssistant';
 
 // ===== INTERFACES =====
 
@@ -1155,14 +1156,24 @@ export default function PredictionDashboard() {
                     Ask AI questions about disaster predictions, storm paths, damage assessments, and get real-time intelligence insights.
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="p-0">
-                  <StormIntelligenceChat 
-                    className="border-0 shadow-none bg-transparent"
-                    initialLocation={{
-                      latitude: 32.607,
-                      longitude: -84.937
-                    }}
+                <CardContent className="space-y-6">
+                  {/* Voice AI Assistant */}
+                  <VoiceAIAssistant 
+                    portalType="prediction" 
+                    currentData={dashboardData}
+                    userLocation={currentLocation || undefined}
                   />
+                  
+                  {/* Storm Intelligence Chat */}
+                  <div className="pt-4 border-t border-purple-200 dark:border-purple-700">
+                    <StormIntelligenceChat 
+                      className="border-0 shadow-none bg-transparent"
+                      initialLocation={{
+                        latitude: 32.607,
+                        longitude: -84.937
+                      }}
+                    />
+                  </div>
                 </CardContent>
               </Card>
             </motion.div>

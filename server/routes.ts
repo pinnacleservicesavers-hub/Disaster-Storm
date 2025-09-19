@@ -50,6 +50,7 @@ import { femaDisasterService } from "./services/femaDisasterService";
 import { femaMonitoringService } from "./services/femaMonitoringService";
 import { predictiveStormService } from "./services/predictiveStormService";
 import stormIntelligenceRoutes from "./routes/stormIntelligence";
+import { VoiceAIService } from "./services/voiceAI";
 import { storage } from "./storage";
 import { z } from "zod";
 
@@ -8600,6 +8601,149 @@ Email: strategiclandmgmt@gmail.com
       console.error('Error fetching DEM dashboard:', error);
       res.status(500).json({ error: 'Failed to fetch DEM dashboard' });
     }
+  });
+
+  // ===== VOICE AI INTELLIGENCE ROUTES =====
+
+  // Generate voice response for portal intelligence
+  app.post("/api/voice-ai/generate", async (req, res) => {
+    try {
+      const { portalType, requestType, question, currentData, userLocation } = req.body;
+      
+      if (!portalType || !requestType) {
+        return res.status(400).json({ 
+          error: 'Missing required fields: portalType and requestType are required' 
+        });
+      }
+
+      console.log(`🎤 Generating voice response for ${portalType} portal (${requestType})`);
+      
+      const voiceAI = VoiceAIService.getInstance();
+      const voiceResponse = await voiceAI.generateVoiceResponse({
+        portalType,
+        requestType,
+        question,
+        currentData,
+        userLocation
+      });
+      
+      // Convert audio buffer to base64 for transmission
+      if (voiceResponse.audioBuffer) {
+        const audioBase64 = voiceResponse.audioBuffer.toString('base64');
+        res.json({
+          ...voiceResponse,
+          audioBase64,
+          audioBuffer: undefined // Remove buffer from response
+        });
+      } else {
+        res.json(voiceResponse);
+      }
+
+    } catch (error) {
+      console.error('🚨 Error generating voice response:', error);
+      res.status(500).json({ 
+        error: 'Failed to generate voice response',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Quick voice update for portal data
+  app.post("/api/voice-ai/quick-update", async (req, res) => {
+    try {
+      const { portalType, currentData } = req.body;
+      
+      if (!portalType) {
+        return res.status(400).json({ 
+          error: 'portalType is required' 
+        });
+      }
+
+      console.log(`🎤 Generating quick voice update for ${portalType} portal`);
+      
+      const voiceAI = VoiceAIService.getInstance();
+      const voiceResponse = await voiceAI.getQuickUpdate(portalType, currentData);
+      
+      // Convert audio buffer to base64 for transmission
+      if (voiceResponse.audioBuffer) {
+        const audioBase64 = voiceResponse.audioBuffer.toString('base64');
+        res.json({
+          ...voiceResponse,
+          audioBase64,
+          audioBuffer: undefined // Remove buffer from response
+        });
+      } else {
+        res.json(voiceResponse);
+      }
+
+    } catch (error) {
+      console.error('🚨 Error generating quick voice update:', error);
+      res.status(500).json({ 
+        error: 'Failed to generate voice update',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Answer specific questions with voice AI
+  app.post("/api/voice-ai/answer-question", async (req, res) => {
+    try {
+      const { question, portalType, currentData } = req.body;
+      
+      if (!question || !portalType) {
+        return res.status(400).json({ 
+          error: 'question and portalType are required' 
+        });
+      }
+
+      console.log(`🎤 Answering voice question: "${question}" for ${portalType} portal`);
+      
+      const voiceAI = VoiceAIService.getInstance();
+      const voiceResponse = await voiceAI.answerQuestion(question, portalType, currentData);
+      
+      // Convert audio buffer to base64 for transmission
+      if (voiceResponse.audioBuffer) {
+        const audioBase64 = voiceResponse.audioBuffer.toString('base64');
+        res.json({
+          ...voiceResponse,
+          audioBase64,
+          audioBuffer: undefined // Remove buffer from response
+        });
+      } else {
+        res.json(voiceResponse);
+      }
+
+    } catch (error) {
+      console.error('🚨 Error answering voice question:', error);
+      res.status(500).json({ 
+        error: 'Failed to answer question with voice',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Get voice AI capabilities and status
+  app.get("/api/voice-ai/status", (req, res) => {
+    res.json({
+      status: 'active',
+      features: {
+        textToSpeech: true,
+        intelligentAnalysis: true,
+        realTimeUpdates: true,
+        questionAnswering: true,
+        multiPortalSupport: true
+      },
+      supportedPortals: [
+        'prediction',
+        'damage-detection', 
+        'drones',
+        'leads',
+        'all'
+      ],
+      voiceModel: 'OpenAI TTS-1-HD with Nova voice',
+      aiModel: 'GPT-4o',
+      lastUpdated: new Date().toISOString()
+    });
   });
 
   const httpServer = createServer(app);
