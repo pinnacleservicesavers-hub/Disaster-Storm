@@ -375,7 +375,10 @@ export default function AIAssistant({ portalContext, userLocation, className }: 
   useEffect(() => {
     if (isActive) {
       try {
-        wsRef.current = new WebSocket(`${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/realtime`);
+        // Use correct WebSocket URL for both development and production
+        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsHost = process.env.NODE_ENV === 'production' ? window.location.host : 'localhost:5000';
+        wsRef.current = new WebSocket(`${wsProtocol}//${wsHost}/realtime`);
         
         wsRef.current.onmessage = (event) => {
           const data = JSON.parse(event.data);
