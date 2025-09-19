@@ -1351,95 +1351,7 @@ export default function WeatherCenter() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {weatherData?.nhc?.hurricaneModels?.models ? (
-                  <div className="space-y-4">
-                    {weatherData.nhc.hurricaneModels.models.map((model, index) => (
-                      <div 
-                        key={`hurricane-model-${index}`}
-                        className="border rounded-lg p-4 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-950 dark:to-cyan-950"
-                        data-testid={`hurricane-model-${index}`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <h4 className="font-semibold text-lg flex items-center gap-2">
-                              <Database className="h-4 w-4 text-blue-600" />
-                              {model.name || `Hurricane Model ${index + 1}`}
-                            </h4>
-                            <p className="text-sm text-muted-foreground mt-1">
-                              Resolution: {model.resolution || 'High-res'} • Coverage: {model.coverage || 'Atlantic Basin'}
-                            </p>
-                            <p className="text-sm text-muted-foreground">
-                              Update Frequency: {model.updateFrequency || 'Every 6 hours'}
-                            </p>
-                          </div>
-                          <div className="text-right">
-                            <Badge variant="outline" className="bg-green-100 text-green-800">
-                              <Signal className="h-3 w-3 mr-1" />
-                              Active
-                            </Badge>
-                          </div>
-                        </div>
-                        <div className="mt-3 grid grid-cols-2 gap-4 text-sm">
-                          <div>
-                            <strong>Forecast Length:</strong><br />
-                            <span className="text-muted-foreground">{model.forecastLength || '5 days'}</span>
-                          </div>
-                          <div>
-                            <strong>Last Update:</strong><br />
-                            <span className="text-muted-foreground">{new Date().toLocaleTimeString()}</span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                    
-                    {/* Global Models Section */}
-                    <div className="border rounded-lg p-4 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950 dark:to-pink-950">
-                      <h4 className="font-semibold text-lg flex items-center gap-2 mb-3">
-                        <Globe className="h-4 w-4 text-purple-600" />
-                        Global Weather Models
-                      </h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div className="p-3 bg-white dark:bg-gray-800 rounded border">
-                          <div className="flex items-center justify-between">
-                            <span className="font-medium">GFS (Global)</span>
-                            <Badge variant="outline" className="text-xs">0.25°</Badge>
-                          </div>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Global Forecast System - Worldwide coverage
-                          </p>
-                        </div>
-                        <div className="p-3 bg-white dark:bg-gray-800 rounded border">
-                          <div className="flex items-center justify-between">
-                            <span className="font-medium">HWRF</span>
-                            <Badge variant="outline" className="text-xs">High-res</Badge>
-                          </div>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Hurricane Weather Research - Storm-focused
-                          </p>
-                        </div>
-                        <div className="p-3 bg-white dark:bg-gray-800 rounded border">
-                          <div className="flex items-center justify-between">
-                            <span className="font-medium">HAFS</span>
-                            <Badge variant="outline" className="text-xs">Next-gen</Badge>
-                          </div>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Hurricane Analysis - Advanced prediction
-                          </p>
-                        </div>
-                        <div className="p-3 bg-white dark:bg-gray-800 rounded border">
-                          <div className="flex items-center justify-between">
-                            <span className="font-medium">WAVEWATCH III</span>
-                            <Badge variant="outline" className="text-xs">Ocean</Badge>
-                          </div>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Wave forecast model - Marine conditions
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
+                <div className="space-y-4">
                     {/* Default Models Display */}
                     <div className="border rounded-lg p-4 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-950 dark:to-cyan-950">
                       <h4 className="font-semibold text-lg flex items-center gap-2 mb-3">
@@ -1528,7 +1440,6 @@ export default function WeatherCenter() {
                       </div>
                     </div>
                   </div>
-                )}
               </CardContent>
             </Card>
 
