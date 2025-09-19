@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Mic, 
@@ -15,7 +16,9 @@ import {
   Pause,
   RotateCcw,
   Brain,
-  Activity
+  Activity,
+  Type,
+  Send
 } from 'lucide-react';
 
 interface VoiceAIAssistantProps {
@@ -51,6 +54,8 @@ export function VoiceAIAssistant({
   const [transcription, setTranscription] = useState<string>('');
   const [isExpanded, setIsExpanded] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [textQuestion, setTextQuestion] = useState<string>('');
+  const [showTextInput, setShowTextInput] = useState(false);
 
   const recognitionRef = useRef<any>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -199,6 +204,23 @@ export function VoiceAIAssistant({
       setError('Failed to process your question. Please try again.');
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  // Handle text question submission
+  const handleTextQuestion = async () => {
+    if (!textQuestion.trim()) return;
+    
+    await handleQuestion(textQuestion);
+    setTextQuestion('');
+    setShowTextInput(false);
+  };
+
+  // Handle Enter key press in text input
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleTextQuestion();
     }
   };
 
@@ -376,7 +398,18 @@ export function VoiceAIAssistant({
                 ) : (
                   <Mic className="w-4 h-4 mr-2" />
                 )}
-                {isListening ? 'Stop' : 'Ask Question'}
+                {isListening ? 'Stop Voice' : 'Voice Question'}
+              </Button>
+
+              <Button
+                onClick={() => setShowTextInput(!showTextInput)}
+                disabled={isProcessing || isListening}
+                variant="outline"
+                className="bg-green-600 hover:bg-green-700 text-white border-green-600"
+                data-testid="button-text-input"
+              >
+                <Type className="w-4 h-4 mr-2" />
+                Text Question
               </Button>
               
               {currentResponse?.audioBase64 && (
@@ -425,6 +458,37 @@ export function VoiceAIAssistant({
                     <span className="text-blue-800 dark:text-blue-200 font-medium">
                       Listening... {transcription && `"${transcription}"`}
                     </span>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* Text Input */}
+              {showTextInput && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="bg-green-50 dark:bg-green-950 p-3 rounded-lg border border-green-200 dark:border-green-800"
+                >
+                  <div className="flex items-center space-x-2">
+                    <Input
+                      value={textQuestion}
+                      onChange={(e) => setTextQuestion(e.target.value)}
+                      onKeyPress={handleKeyPress}
+                      placeholder="Type your question about storm intelligence..."
+                      disabled={isProcessing}
+                      className="flex-1"
+                      data-testid="input-text-question"
+                    />
+                    <Button
+                      onClick={handleTextQuestion}
+                      disabled={isProcessing || !textQuestion.trim()}
+                      size="sm"
+                      className="bg-green-600 hover:bg-green-700 text-white"
+                      data-testid="button-send-text"
+                    >
+                      <Send className="w-4 h-4" />
+                    </Button>
                   </div>
                 </motion.div>
               )}
