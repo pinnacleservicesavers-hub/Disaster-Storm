@@ -2934,6 +2934,317 @@ export class MemStorage implements IStorage {
       this.stormShareAdCampaigns.set(campaignId, campaign);
     }
   }
+  // ===== SAMPLE DATA INITIALIZATION =====
+  
+  async initializeSampleData(): Promise<void> {
+    console.log('🌪️ Initializing sample storm prediction data...');
+    
+    // Only initialize if we don't have any data yet
+    if (this.stormPredictions.size > 0) {
+      console.log('✅ Sample data already exists, skipping initialization');
+      return;
+    }
+    
+    try {
+      // Create sample storm predictions
+      const stormPredictions = await this.createSampleStormPredictions();
+      
+      // Create sample damage forecasts for each prediction
+      for (const prediction of stormPredictions) {
+        await this.createSampleDamageForecasts(prediction);
+      }
+      
+      // Create sample contractor opportunities
+      const forecasts = Array.from(this.damageForecasts.values());
+      for (const forecast of forecasts) {
+        if (['moderate', 'high', 'extreme'].includes(forecast.riskLevel)) {
+          await this.createSampleContractorOpportunity(forecast);
+        }
+      }
+      
+      console.log(`✅ Initialized sample data: ${this.stormPredictions.size} predictions, ${this.damageForecasts.size} forecasts, ${this.contractorOpportunityPredictions.size} opportunities`);
+    } catch (error) {
+      console.error('❌ Failed to initialize sample data:', error);
+    }
+  }
+  
+  private async createSampleStormPredictions(): Promise<StormPrediction[]> {
+    const samplePredictions = [
+      {
+        stormId: 'STORM-2025-001',
+        stormName: 'Hurricane Alexandra',
+        stormType: 'hurricane',
+        currentLatitude: '25.7617',
+        currentLongitude: '-80.1918',
+        currentIntensity: 85,
+        currentPressure: 965,
+        currentDirection: 315,
+        currentSpeed: 12,
+        forecastHours: 72,
+        predictedPath: [
+          { time: new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString(), latitude: 26.2, longitude: -80.8, intensity: 90, confidence: 0.92 },
+          { time: new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString(), latitude: 27.1, longitude: -81.5, intensity: 95, confidence: 0.88 },
+          { time: new Date(Date.now() + 18 * 60 * 60 * 1000).toISOString(), latitude: 28.3, longitude: -82.2, intensity: 100, confidence: 0.85 },
+          { time: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), latitude: 29.5, longitude: -83.1, intensity: 85, confidence: 0.81 }
+        ],
+        maxPredictedIntensity: 100,
+        overallConfidence: '0.86',
+        pathConfidence: '0.83',
+        intensityConfidence: '0.89',
+        modelsSources: ['HWRF', 'GFS', 'ECMWF', 'HMON'],
+        aiModelVersion: 'v1.0',
+        analysisComplexity: 'high',
+        status: 'active',
+        predictionStartTime: new Date().toISOString(),
+        predictionEndTime: new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString()
+      },
+      {
+        stormId: 'STORM-2025-002', 
+        stormName: 'Tropical Storm Benjamin',
+        stormType: 'tropical_storm',
+        currentLatitude: '32.0835',
+        currentLongitude: '-81.0998',
+        currentIntensity: 65,
+        currentPressure: 995,
+        currentDirection: 45,
+        currentSpeed: 15,
+        forecastHours: 48,
+        predictedPath: [
+          { time: new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString(), latitude: 32.8, longitude: -80.2, intensity: 70, confidence: 0.89 },
+          { time: new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString(), latitude: 33.6, longitude: -79.5, intensity: 65, confidence: 0.85 },
+          { time: new Date(Date.now() + 18 * 60 * 60 * 1000).toISOString(), latitude: 34.5, longitude: -78.8, intensity: 60, confidence: 0.82 }
+        ],
+        maxPredictedIntensity: 70,
+        overallConfidence: '0.85',
+        pathConfidence: '0.87',
+        intensityConfidence: '0.83',
+        modelsSources: ['GFS', 'NAM', 'HRRR'],
+        aiModelVersion: 'v1.0',
+        analysisComplexity: 'moderate',
+        status: 'active',
+        predictionStartTime: new Date().toISOString(),
+        predictionEndTime: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString()
+      },
+      {
+        stormId: 'STORM-2025-003',
+        stormName: null,
+        stormType: 'severe_thunderstorm',
+        currentLatitude: '33.4484',
+        currentLongitude: '-86.8017',
+        currentIntensity: 45,
+        currentPressure: null,
+        currentDirection: 270,
+        currentSpeed: 25,
+        forecastHours: 24,
+        predictedPath: [
+          { time: new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString(), latitude: 33.5, longitude: -86.2, intensity: 50, confidence: 0.91 },
+          { time: new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString(), latitude: 33.7, longitude: -85.4, intensity: 55, confidence: 0.87 },
+          { time: new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString(), latitude: 34.0, longitude: -84.6, intensity: 45, confidence: 0.84 }
+        ],
+        maxPredictedIntensity: 55,
+        overallConfidence: '0.87',
+        pathConfidence: '0.89',
+        intensityConfidence: '0.85',
+        modelsSources: ['HRRR', 'NAM', 'RAP'],
+        aiModelVersion: 'v1.0',
+        analysisComplexity: 'low',
+        status: 'active',
+        predictionStartTime: new Date().toISOString(),
+        predictionEndTime: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+      }
+    ];
+    
+    const createdPredictions: StormPrediction[] = [];
+    for (const predData of samplePredictions) {
+      const prediction = await this.createStormPrediction(predData as any);
+      createdPredictions.push(prediction);
+    }
+    
+    return createdPredictions;
+  }
+  
+  private async createSampleDamageForecasts(stormPrediction: StormPrediction): Promise<void> {
+    const forecastsData = [];
+    
+    if (stormPrediction.stormType === 'hurricane') {
+      forecastsData.push(
+        {
+          stormPredictionId: stormPrediction.id,
+          stormId: stormPrediction.stormId,
+          state: 'Florida',
+          stateCode: 'FL',
+          county: 'Miami-Dade',
+          centerLatitude: '25.7617',
+          centerLongitude: '-80.1918',
+          impactRadius: '50.0',
+          expectedArrivalTime: new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString(),
+          peakIntensityTime: new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString(),
+          expectedExitTime: new Date(Date.now() + 18 * 60 * 60 * 1000).toISOString(),
+          windDamageRisk: '9.2',
+          floodingRisk: '8.5',
+          stormSurgeRisk: '9.8',
+          hailRisk: '2.1',
+          tornadoRisk: '4.3',
+          overallDamageRisk: '8.9',
+          riskLevel: 'extreme' as const,
+          confidenceScore: '0.91',
+          estimatedPropertyDamage: '2500000000',
+          estimatedClaimVolume: 85000,
+          estimatedRestorationJobs: 12500,
+          averageJobValue: '15000',
+          populationExposed: 2700000,
+          buildingsExposed: 950000,
+          highValueTargets: ['Miami International Airport', 'Port of Miami', 'Downtown Miami'],
+          status: 'active',
+          validUntilTime: new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString()
+        },
+        {
+          stormPredictionId: stormPrediction.id,
+          stormId: stormPrediction.stormId,
+          state: 'Florida',
+          stateCode: 'FL',
+          county: 'Broward',
+          centerLatitude: '26.1224',
+          centerLongitude: '-80.1373',
+          impactRadius: '45.0',
+          expectedArrivalTime: new Date(Date.now() + 10 * 60 * 60 * 1000).toISOString(),
+          peakIntensityTime: new Date(Date.now() + 14 * 60 * 60 * 1000).toISOString(),
+          expectedExitTime: new Date(Date.now() + 20 * 60 * 60 * 1000).toISOString(),
+          windDamageRisk: '8.7',
+          floodingRisk: '7.8',
+          stormSurgeRisk: '8.9',
+          hailRisk: '1.8',
+          tornadoRisk: '3.9',
+          overallDamageRisk: '8.2',
+          riskLevel: 'high' as const,
+          confidenceScore: '0.88',
+          estimatedPropertyDamage: '1800000000',
+          estimatedClaimVolume: 62000,
+          estimatedRestorationJobs: 9200,
+          averageJobValue: '14500',
+          populationExposed: 1950000,
+          buildingsExposed: 720000,
+          highValueTargets: ['Fort Lauderdale Airport', 'Port Everglades'],
+          status: 'active',
+          validUntilTime: new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString()
+        }
+      );
+    } else if (stormPrediction.stormType === 'tropical_storm') {
+      forecastsData.push({
+        stormPredictionId: stormPrediction.id,
+        stormId: stormPrediction.stormId,
+        state: 'Georgia',
+        stateCode: 'GA',
+        county: 'Chatham',
+        centerLatitude: '32.0835',
+        centerLongitude: '-81.0998',
+        impactRadius: '35.0',
+        expectedArrivalTime: new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString(),
+        peakIntensityTime: new Date(Date.now() + 10 * 60 * 60 * 1000).toISOString(),
+        expectedExitTime: new Date(Date.now() + 16 * 60 * 60 * 1000).toISOString(),
+        windDamageRisk: '6.5',
+        floodingRisk: '7.2',
+        stormSurgeRisk: '5.8',
+        hailRisk: '1.2',
+        tornadoRisk: '3.1',
+        overallDamageRisk: '6.1',
+        riskLevel: 'moderate' as const,
+        confidenceScore: '0.84',
+        estimatedPropertyDamage: '450000000',
+        estimatedClaimVolume: 18500,
+        estimatedRestorationJobs: 2800,
+        averageJobValue: '12000',
+        populationExposed: 395000,
+        buildingsExposed: 145000,
+        highValueTargets: ['Savannah Port', 'Historic District'],
+        status: 'active',
+        validUntilTime: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString()
+      });
+    } else if (stormPrediction.stormType === 'severe_thunderstorm') {
+      forecastsData.push({
+        stormPredictionId: stormPrediction.id,
+        stormId: stormPrediction.stormId,
+        state: 'Alabama',
+        stateCode: 'AL', 
+        county: 'Jefferson',
+        centerLatitude: '33.4484',
+        centerLongitude: '-86.8017',
+        impactRadius: '25.0',
+        expectedArrivalTime: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
+        peakIntensityTime: new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString(),
+        expectedExitTime: new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString(),
+        windDamageRisk: '5.8',
+        floodingRisk: '4.2',
+        stormSurgeRisk: '0.0',
+        hailRisk: '7.5',
+        tornadoRisk: '6.8',
+        overallDamageRisk: '5.9',
+        riskLevel: 'moderate' as const,
+        confidenceScore: '0.87',
+        estimatedPropertyDamage: '180000000',
+        estimatedClaimVolume: 8500,
+        estimatedRestorationJobs: 1200,
+        averageJobValue: '8500',
+        populationExposed: 660000,
+        buildingsExposed: 285000,
+        highValueTargets: ['Birmingham Airport', 'University of Alabama'],
+        status: 'active',
+        validUntilTime: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+      });
+    }
+    
+    for (const forecastData of forecastsData) {
+      await this.createDamageForecast(forecastData as any);
+    }
+  }
+  
+  private async createSampleContractorOpportunity(damageForecast: DamageForecast): Promise<void> {
+    const baseOpportunityScore = damageForecast.riskLevel === 'extreme' ? 85 : 
+                                 damageForecast.riskLevel === 'high' ? 75 : 65;
+    
+    const opportunityData = {
+      damageForecastId: damageForecast.id,
+      stormPredictionId: damageForecast.stormPredictionId,
+      state: damageForecast.state,
+      county: damageForecast.county,
+      city: null,
+      zipCode: null,
+      opportunityScore: (baseOpportunityScore + Math.random() * 10).toFixed(1),
+      marketPotential: damageForecast.riskLevel === 'extreme' ? 'very_high' : 
+                      damageForecast.riskLevel === 'high' ? 'high' : 'moderate',
+      competitionLevel: 'moderate',
+      treeRemovalDemand: (70 + Math.random() * 25).toFixed(1),
+      roofingDemand: (80 + Math.random() * 15).toFixed(1),
+      sidingDemand: (60 + Math.random() * 20).toFixed(1),
+      windowDemand: (55 + Math.random() * 25).toFixed(1),
+      gutterDemand: (45 + Math.random() * 20).toFixed(1),
+      fencingDemand: (40 + Math.random() * 15).toFixed(1),
+      emergencyTarpingDemand: (85 + Math.random() * 10).toFixed(1),
+      waterDamageDemand: (65 + Math.random() * 20).toFixed(1),
+      estimatedRevenueOpportunity: (parseFloat(damageForecast.estimatedPropertyDamage) * 0.15).toFixed(0),
+      expectedJobCount: Math.floor(damageForecast.estimatedRestorationJobs * 0.8),
+      averageJobValue: (parseFloat(damageForecast.averageJobValue) * 1.2).toFixed(0),
+      emergencyPremiumFactor: '1.25',
+      insurancePayoutLikelihood: '0.82',
+      averageClaimAmount: damageForecast.averageJobValue,
+      historicalPayoutRatio: '0.85',
+      optimalPrePositionTime: new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString(),
+      workAvailableFromTime: new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString(),
+      peakDemandTime: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
+      demandDeclineTime: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+      recommendedCrewSize: Math.max(2, Math.floor(damageForecast.estimatedRestorationJobs / 500)),
+      estimatedDurationDays: Math.floor(15 + Math.random() * 20),
+      predictionConfidence: (0.75 + Math.random() * 0.15).toFixed(2),
+      alertLevel: damageForecast.riskLevel === 'extreme' ? 'emergency' : 
+                  damageForecast.riskLevel === 'high' ? 'warning' : 'advisory',
+      status: 'active'
+    };
+    
+    await this.createContractorOpportunityPrediction(opportunityData as any);
+  }
 }
 
 export const storage = new MemStorage();
+
+// Initialize sample data when the storage is created
+storage.initializeSampleData().catch(console.error);
