@@ -419,7 +419,7 @@ export function DamageDetectionDashboard() {
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
                 <p>Loading damage alerts...</p>
               </div>
-            ) : alertsData?.alerts.length === 0 ? (
+            ) : !alertsData?.alerts || alertsData.alerts.length === 0 ? (
               <div className="text-center py-8 text-gray-500">
                 <Eye className="h-12 w-12 mx-auto mb-4 text-gray-400" />
                 <h3 className="text-lg font-semibold mb-2">No Active Alerts</h3>
@@ -427,7 +427,7 @@ export function DamageDetectionDashboard() {
               </div>
             ) : (
               <div className="grid gap-4">
-                {alertsData?.alerts.map((alert) => (
+                {(alertsData?.alerts || []).map((alert) => (
                   <Card key={alert.id} className="border-l-4 border-l-orange-500">
                     <CardContent className="p-6">
                       <div className="flex items-start justify-between">
@@ -532,7 +532,7 @@ export function DamageDetectionDashboard() {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-3">
-                      {stats?.topAlertTypes.map((type, index) => (
+                      {(stats?.topAlertTypes || []).map((type, index) => (
                         <div key={type.alertType} className="flex items-center justify-between">
                           <div className="flex items-center">
                             <span className="w-6 h-6 bg-blue-500 text-white rounded-full text-xs flex items-center justify-center mr-3">
@@ -562,7 +562,7 @@ export function DamageDetectionDashboard() {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-3">
-                      {stats?.topStates.map((state, index) => (
+                      {(stats?.topStates || []).map((state, index) => (
                         <div key={state.state} className="flex items-center justify-between">
                           <div className="flex items-center">
                             <span className="w-6 h-6 bg-green-500 text-white rounded-full text-xs flex items-center justify-center mr-3">
