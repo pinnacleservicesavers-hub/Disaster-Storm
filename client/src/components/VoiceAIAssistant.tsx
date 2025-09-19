@@ -18,7 +18,8 @@ import {
   Brain,
   Activity,
   Type,
-  Send
+  Send,
+  Square
 } from 'lucide-react';
 
 interface VoiceAIAssistantProps {
@@ -265,6 +266,32 @@ export function VoiceAIAssistant({
     setIsPlaying(false);
   };
 
+  // Stop everything - audio, speech synthesis, and processing
+  const stopEverything = () => {
+    // Stop any audio playback
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+    
+    // Stop speech synthesis
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+    
+    // Stop voice recognition
+    if (recognitionRef.current && isListening) {
+      recognitionRef.current.stop();
+    }
+    
+    // Reset all states
+    setIsPlaying(false);
+    setIsListening(false);
+    setIsProcessing(false);
+    setTranscription('');
+    setError(null);
+  };
+
   // Play text using browser's speech synthesis as fallback
   const playBrowserTTS = async (text: string) => {
     try {
@@ -411,6 +438,18 @@ export function VoiceAIAssistant({
                 <Type className="w-4 h-4 mr-2" />
                 Text Question
               </Button>
+
+              {(isPlaying || isProcessing || isListening) && (
+                <Button
+                  onClick={stopEverything}
+                  variant="destructive"
+                  className="bg-red-600 hover:bg-red-700 text-white"
+                  data-testid="button-stop-all"
+                >
+                  <Square className="w-4 h-4 mr-2" />
+                  Stop ARIA
+                </Button>
+              )}
               
               {currentResponse?.audioBase64 && (
                 <div className="flex items-center space-x-2">
