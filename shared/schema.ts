@@ -1113,191 +1113,191 @@ export const radarAnalysisCache = pgTable("radar_analysis_cache", {
 }));
 
 // Zod schemas for validation  
-export const insertUserSchema = createInsertSchema(users, {
-  id: false,
-  createdAt: false,
+export const insertUserSchema = createInsertSchema(users).omit({
+  id: true,
+  createdAt: true,
 });
-export const insertClaimSchema = createInsertSchema(claims, {
-  id: false,
-  createdAt: false,
-  updatedAt: false,
+export const insertClaimSchema = createInsertSchema(claims).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
 });
-export const insertInsuranceCompanySchema = createInsertSchema(insuranceCompanies, {
-  id: false,
-  updatedAt: false,
+export const insertInsuranceCompanySchema = createInsertSchema(insuranceCompanies).omit({
+  id: true,
+  updatedAt: true,
 });
-export const insertLienRuleSchema = createInsertSchema(lienRules, {
-  id: false,
-  lastVerified: false,
+export const insertLienRuleSchema = createInsertSchema(lienRules).omit({
+  id: true,
+  lastVerified: true,
 }).extend({ 
   prelimNoticeRequired: z.boolean().optional() 
 });
-export const insertWeatherAlertSchema = createInsertSchema(weatherAlerts, {
-  id: false,
-  createdAt: false,
+export const insertWeatherAlertSchema = createInsertSchema(weatherAlerts).omit({
+  id: true,
+  createdAt: true,
 }).extend({ 
   isActive: z.boolean().optional() 
 });
-export const insertFieldReportSchema = createInsertSchema(fieldReports, {
-  id: false,
-  createdAt: false,
-  updatedAt: false,
+export const insertFieldReportSchema = createInsertSchema(fieldReports).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
 });
-export const insertDroneFootageSchema = createInsertSchema(droneFootage, {
-  id: false,
-  createdAt: false,
+export const insertDroneFootageSchema = createInsertSchema(droneFootage).omit({
+  id: true,
+  createdAt: true,
 }).extend({ 
   isLive: z.boolean().optional() 
 });
-export const insertMarketComparableSchema = createInsertSchema(marketComparables, {
-  id: false,
-  lastUpdated: false,
+export const insertMarketComparableSchema = createInsertSchema(marketComparables).omit({
+  id: true,
+  lastUpdated: true,
 });
-export const insertAiInteractionSchema = createInsertSchema(aiInteractions, {
-  id: false,
-  createdAt: false,
+export const insertAiInteractionSchema = createInsertSchema(aiInteractions).omit({
+  id: true,
+  createdAt: true,
 });
-export const insertDspFootageSchema = createInsertSchema(dspFootage, {
-  id: false,
-  createdAt: false,
-  processedAt: false,
+export const insertDspFootageSchema = createInsertSchema(dspFootage).omit({
+  id: true,
+  createdAt: true,
+  processedAt: true,
 });
-export const insertContractorDocumentSchema = createInsertSchema(contractorDocuments, {
-  id: false,
-  createdAt: false,
-  updatedAt: false,
+export const insertContractorDocumentSchema = createInsertSchema(contractorDocuments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
 }).extend({ 
   isActive: z.boolean().optional() 
 });
-export const insertLeadSchema = createInsertSchema(leads, {
-  id: false,
-  createdAt: false,
-  updatedAt: false,
+export const insertLeadSchema = createInsertSchema(leads).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
 });
-export const insertInvoiceSchema = createInsertSchema(invoices, {
-  id: false,
-  createdAt: false,
-  updatedAt: false,
+export const insertInvoiceSchema = createInsertSchema(invoices).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
 }).extend({ 
   isEmergencyRate: z.boolean().optional() 
 });
-export const insertJobCostSchema = createInsertSchema(jobCosts, {
-  id: false,
-  createdAt: false,
+export const insertJobCostSchema = createInsertSchema(jobCosts).omit({
+  id: true,
+  createdAt: true,
 }).extend({ 
   oshaCompliance: z.boolean().optional(), 
   ansiCompliance: z.boolean().optional() 
 });
-export const insertPhotoSchema = createInsertSchema(photos, {
-  id: false,
-  createdAt: false,
+export const insertPhotoSchema = createInsertSchema(photos).omit({
+  id: true,
+  createdAt: true,
 }).extend({ 
   isProcessed: z.boolean().optional() 
 });
-export const insertXactimateComparableSchema = createInsertSchema(xactimateComparables, {
-  id: false,
-  createdAt: false,
+export const insertXactimateComparableSchema = createInsertSchema(xactimateComparables).omit({
+  id: true,
+  createdAt: true,
 });
-export const insertClaimSubmissionSchema = createInsertSchema(claimSubmissions, {
-  id: false,
-  submittedAt: false,
-  acknowledgedAt: false,
-  responseReceived: false,
+export const insertClaimSubmissionSchema = createInsertSchema(claimSubmissions).omit({
+  id: true,
+  submittedAt: true,
+  acknowledgedAt: true,
+  responseReceived: true,
 });
-export const insertTrafficCameraSchema = createInsertSchema(trafficCameras, {
-  id: false,
-  createdAt: false,
-  updatedAt: false,
-  lastHealthCheck: false,
+export const insertTrafficCameraSchema = createInsertSchema(trafficCameras).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  lastHealthCheck: true,
 }).extend({ 
   isActive: z.boolean().optional() 
 });
-export const insertTrafficCamSubscriptionSchema = createInsertSchema(trafficCamSubscriptions, {
-  id: false,
-  createdAt: false,
+export const insertTrafficCamSubscriptionSchema = createInsertSchema(trafficCamSubscriptions).omit({
+  id: true,
+  createdAt: true,
 }).extend({ 
   isActive: z.boolean().optional() 
 });
-export const insertTrafficCamAlertSchema = createInsertSchema(trafficCamAlerts, {
-  id: false,
-  createdAt: false,
-  updatedAt: false,
-  verifiedAt: false,
+export const insertTrafficCamAlertSchema = createInsertSchema(trafficCamAlerts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  verifiedAt: true,
 }).extend({ 
   emergencyResponse: z.boolean().optional(), 
   leadGenerated: z.boolean().optional(), 
   isVerified: z.boolean().optional() 
 });
-export const insertTrafficCamLeadSchema = createInsertSchema(trafficCamLeads, {
-  id: false,
-  createdAt: false,
-  updatedAt: false,
-  lastContactedAt: false,
-  arrivalTime: false,
-  workStarted: false,
-  workCompleted: false,
+export const insertTrafficCamLeadSchema = createInsertSchema(trafficCamLeads).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  lastContactedAt: true,
+  arrivalTime: true,
+  workStarted: true,
+  workCompleted: true,
 });
-export const insertContractorWatchlistSchema = createInsertSchema(contractorWatchlist, {
-  id: false,
-  createdAt: false,
-  updatedAt: false,
+export const insertContractorWatchlistSchema = createInsertSchema(contractorWatchlist).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
 });
-export const insertStormHotZoneSchema = createInsertSchema(stormHotZones, {
-  id: false,
-  createdAt: false,
-  lastUpdated: false,
+export const insertStormHotZoneSchema = createInsertSchema(stormHotZones).omit({
+  id: true,
+  createdAt: true,
+  lastUpdated: true,
 });
-export const insertHomeownerSchema = createInsertSchema(homeowners, {
-  id: false,
-  createdAt: false,
-  updatedAt: false,
+export const insertHomeownerSchema = createInsertSchema(homeowners).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
 });
-export const insertDamageReportSchema = createInsertSchema(damageReports, {
-  id: false,
-  createdAt: false,
-  updatedAt: false,
+export const insertDamageReportSchema = createInsertSchema(damageReports).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
 });
-export const insertServiceRequestSchema = createInsertSchema(serviceRequests, {
-  id: false,
-  createdAt: false,
-  updatedAt: false,
+export const insertServiceRequestSchema = createInsertSchema(serviceRequests).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
 });
-export const insertEmergencyContactSchema = createInsertSchema(emergencyContacts, {
-  id: false,
-  createdAt: false,
-  updatedAt: false,
+export const insertEmergencyContactSchema = createInsertSchema(emergencyContacts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
 });
 
 // Predictive Storm AI schemas
-export const insertStormPredictionSchema = createInsertSchema(stormPredictions, {
-  id: false,
-  createdAt: false,
-  updatedAt: false,
+export const insertStormPredictionSchema = createInsertSchema(stormPredictions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
 }).extend({ 
   validatedAgainstHistorical: z.boolean().optional() 
 });
-export const insertDamageForecastSchema = createInsertSchema(damageForecast, {
-  id: false,
-  createdAt: false,
-  updatedAt: false,
+export const insertDamageForecastSchema = createInsertSchema(damageForecast).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
 });
-export const insertContractorOpportunityPredictionSchema = createInsertSchema(contractorOpportunityPredictions, {
-  id: false,
-  createdAt: false,
-  updatedAt: false,
+export const insertContractorOpportunityPredictionSchema = createInsertSchema(contractorOpportunityPredictions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
 });
-export const insertHistoricalDamagePatternSchema = createInsertSchema(historicalDamagePatterns, {
-  id: false,
-  createdAt: false,
-  updatedAt: false,
+export const insertHistoricalDamagePatternSchema = createInsertSchema(historicalDamagePatterns).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
 }).extend({ 
   evacuationOrdered: z.boolean().optional() 
 });
-export const insertRadarAnalysisCacheSchema = createInsertSchema(radarAnalysisCache, {
-  id: false,
-  createdAt: false,
-  processingTime: false,
-  cacheExpiry: false,
+export const insertRadarAnalysisCacheSchema = createInsertSchema(radarAnalysisCache).omit({
+  id: true,
+  createdAt: true,
+  processingTime: true,
+  cacheExpiry: true,
 });
 
 // Types
@@ -2879,30 +2879,30 @@ export const insertPaymentLinkSchema = createInsertSchema(paymentLinks).omit({
 });
 
 // Insert schemas for the new tables
-export const insertAiDamageLeadSchema = createInsertSchema(aiDamageLeads, {
-  id: false,
-  createdAt: false,
-  updatedAt: false,
-  verifiedAt: false,
+export const insertAiDamageLeadSchema = createInsertSchema(aiDamageLeads).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  verifiedAt: true,
 });
 
-export const insertAiLeadAssignmentSchema = createInsertSchema(aiLeadAssignments, {
-  id: false,
-  createdAt: false,
-  updatedAt: false,
-  assignedAt: false,
-  acceptedAt: false,
-  completedAt: false,
-  lastContactAt: false,
+export const insertAiLeadAssignmentSchema = createInsertSchema(aiLeadAssignments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  assignedAt: true,
+  acceptedAt: true,
+  completedAt: true,
+  lastContactAt: true,
 }).extend({ 
   responseReceived: z.boolean().optional() 
 });
 
-export const insertLiveStreamSourceSchema = createInsertSchema(liveStreamSources, {
-  id: false,
-  createdAt: false,
-  updatedAt: false,
-  lastChecked: false,
+export const insertLiveStreamSourceSchema = createInsertSchema(liveStreamSources).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  lastChecked: true,
 }).extend({ 
   isActive: z.boolean().optional(), 
   requiresSubscription: z.boolean().optional(), 
