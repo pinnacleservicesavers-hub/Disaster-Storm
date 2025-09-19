@@ -12,20 +12,45 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
-import { insertHomeownerSchema } from '@shared/schema';
+import { insertHomeownerSchema, type InsertHomeowner } from '@shared/schema';
 import { UserPlus, Eye, EyeOff, AlertCircle, CheckCircle } from 'lucide-react';
 
-// Create registration schema based on homeowner fields
+// Create registration schema that properly extends insertHomeownerSchema with password confirmation
+// Remove server-generated fields (passwordHash) and fix numeric field types
 const registrationSchema = z.object({
+  // Personal Information - required fields
   firstName: z.string().min(1, 'First name is required'),
   lastName: z.string().min(1, 'Last name is required'),
   email: z.string().email('Please enter a valid email address'),
   phone: z.string().min(10, 'Please enter a valid phone number'),
+  
+  // Property Information - required fields
   propertyAddress: z.string().min(1, 'Property address is required'),
   city: z.string().min(1, 'City is required'),
   state: z.string().min(2, 'State is required'),
   zipCode: z.string().min(5, 'ZIP code is required'),
   propertyType: z.enum(['residential', 'commercial']),
+  
+  // Location - optional numeric fields (use coerce to match backend schema exactly)
+  latitude: z.coerce.number().nullable().optional(),
+  longitude: z.coerce.number().nullable().optional(),
+  
+  // Property Details - optional fields
+  squareFootage: z.coerce.number().nullable().optional(),
+  yearBuilt: z.coerce.number().int().nullable().optional(),
+  
+  // Insurance Information - optional fields
+  insuranceCarrier: z.string().nullable().optional(),
+  policyNumber: z.string().nullable().optional(),
+  
+  // Contact Preferences - fields with defaults matching backend schema
+  preferredContactMethod: z.string().default('phone'),
+  languagePreference: z.string().default('en'),
+  
+  // Emergency Status - field with default matching backend schema
+  hasActiveEmergency: z.boolean().default(false),
+  
+  // Account Security - exclude passwordHash (server-generated), isVerified, verificationToken
   password: z.string().min(6, 'Password must be at least 6 characters'),
   confirmPassword: z.string().min(6, 'Please confirm your password')
 }).refine((data) => data.password === data.confirmPassword, {
@@ -33,19 +58,7 @@ const registrationSchema = z.object({
   path: ["confirmPassword"],
 });
 
-type RegistrationForm = {
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string;
-  propertyAddress: string;
-  city: string;
-  state: string;
-  zipCode: string;
-  propertyType: string;
-  password: string;
-  confirmPassword: string;
-};
+type RegistrationForm = z.infer<typeof registrationSchema>;
 
 export default function VictimRegister() {
   const [showPassword, setShowPassword] = useState(false);
@@ -65,19 +78,51 @@ export default function VictimRegister() {
       zipCode: '',
       propertyType: 'residential',
       password: '',
-      confirmPassword: ''
+      confirmPassword: '',
+      latitude: undefined,
+      longitude: undefined,
+      squareFootage: undefined,
+      yearBuilt: undefined,
+      insuranceCarrier: '',
+      policyNumber: '',
+      preferredContactMethod: 'phone',
+      languagePreference: 'en',
+      hasActiveEmergency: false
     }
   });
 
   const registerMutation = useMutation({
     mutationFn: async (data: RegistrationForm) => {
-      const { confirmPassword, password, ...registrationData } = data;
+      // Remove client-only fields (password, confirmPassword) and construct InsertHomeowner payload
+      const { confirmPassword, password, ...formData } = data;
+      
+      // Construct payload as InsertHomeowner type - only fields that match backend schema
+      const homeownerPayload: Partial<InsertHomeowner> = {
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email,
+        phone: formData.phone,
+        propertyAddress: formData.propertyAddress,
+        city: formData.city,
+        state: formData.state,
+        zipCode: formData.zipCode,
+        propertyType: formData.propertyType,
+        latitude: formData.latitude ?? null,
+        longitude: formData.longitude ?? null,
+        squareFootage: formData.squareFootage ?? null,
+        yearBuilt: formData.yearBuilt ?? null,
+        insuranceCarrier: formData.insuranceCarrier || null,
+        policyNumber: formData.policyNumber || null,
+        preferredContactMethod: formData.preferredContactMethod,
+        languagePreference: formData.languagePreference,
+        hasActiveEmergency: formData.hasActiveEmergency,
+        passwordHash: password, // Backend expects passwordHash field
+        isVerified: false // Server-controlled default
+      };
+
       const response = await apiRequest('/api/victim/register', {
         method: 'POST',
-        body: JSON.stringify({
-          ...registrationData,
-          passwordHash: password // Backend expects passwordHash field
-        })
+        body: JSON.stringify(homeownerPayload)
       });
       return response;
     },
