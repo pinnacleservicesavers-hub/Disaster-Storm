@@ -142,9 +142,11 @@ export function VoiceAIAssistant({
       setCurrentResponse(voiceResponse);
       setLastQuestion('Live Portal Update');
       
-      // Play the audio if available
+      // Play the audio if available, otherwise use browser TTS
       if (voiceResponse.audioBase64) {
         await playAudio(voiceResponse.audioBase64);
+      } else {
+        await playBrowserTTS(voiceResponse.text);
       }
       
       setIsExpanded(true);
@@ -184,9 +186,11 @@ export function VoiceAIAssistant({
       const voiceResponse: VoiceResponse = await response.json();
       setCurrentResponse(voiceResponse);
       
-      // Play the audio if available
+      // Play the audio if available, otherwise use browser TTS
       if (voiceResponse.audioBase64) {
         await playAudio(voiceResponse.audioBase64);
+      } else {
+        await playBrowserTTS(voiceResponse.text);
       }
       
       setIsExpanded(true);
@@ -239,10 +243,59 @@ export function VoiceAIAssistant({
     setIsPlaying(false);
   };
 
+  // Play text using browser's speech synthesis as fallback
+  const playBrowserTTS = async (text: string) => {
+    try {
+      if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+        console.warn('Speech synthesis not supported');
+        return;
+      }
+
+      // Cancel any ongoing speech
+      window.speechSynthesis.cancel();
+      
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 0.9;
+      utterance.pitch = 1.0;
+      utterance.volume = 0.8;
+      
+      // Try to find a female voice
+      const voices = window.speechSynthesis.getVoices();
+      const femaleVoice = voices.find(voice => {
+        const name = voice.name.toLowerCase();
+        return (name.includes('female') || name.includes('woman') ||
+               name.includes('zira') || name.includes('hazel') ||
+               name.includes('samantha') || name.includes('karen') ||
+               name.includes('victoria') || name.includes('susan') ||
+               name.includes('mary') || name.includes('anna') ||
+               name.includes('emma') || name.includes('alice')) && 
+               voice.lang.includes('en');
+      }) || voices.find(voice => voice.lang.includes('en')) || voices[0];
+      
+      if (femaleVoice) {
+        utterance.voice = femaleVoice;
+      }
+      
+      utterance.onstart = () => setIsPlaying(true);
+      utterance.onend = () => setIsPlaying(false);
+      utterance.onerror = () => {
+        setIsPlaying(false);
+        setError('Failed to play speech');
+      };
+      
+      window.speechSynthesis.speak(utterance);
+    } catch (error) {
+      console.error('Error with browser TTS:', error);
+      setError('Failed to play speech');
+    }
+  };
+
   // Replay current audio
   const replayAudio = () => {
     if (currentResponse?.audioBase64) {
       playAudio(currentResponse.audioBase64);
+    } else if (currentResponse?.text) {
+      playBrowserTTS(currentResponse.text);
     }
   };
 
