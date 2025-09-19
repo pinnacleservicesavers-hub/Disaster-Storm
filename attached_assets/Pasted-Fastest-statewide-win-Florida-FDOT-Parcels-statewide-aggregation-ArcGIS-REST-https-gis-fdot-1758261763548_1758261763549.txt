@@ -1,0 +1,82 @@
+Fastest statewide win (Florida)
+
+FDOT Parcels (statewide aggregation) — ArcGIS REST
+https://gis.fdot.gov/arcgis/rest/services/Parcels/MapServer (parcel tiles/attributes vary by county). 
+Florida Department of Transportation GIS
+
+Florida DOR list of county property appraisers (official directory to each county’s site/API/Hub). Use it to fill gaps. 
+Florida Dept. of Revenue
+
+High-risk coastal counties – production ArcGIS endpoints
+
+Florida (frequently impacted)
+
+Miami-Dade — Parcel dataset + API (ArcGIS Hub / OGC/REST):
+Hub: https://gis-mdc.opendata.arcgis.com/datasets/parcel/api and dataset page (supports OGC API): …/datasets/MDC::parcel/about. 
+Open Data Hub
++1
+
+Broward — GeoHub with API explorer for datasets (parcel and related layers):
+https://geohub-bcgis.opendata.arcgis.com/ (example API explorer page inside: Section Grid). 
+Broward County GeoHub
++1
+
+Palm Beach — Parcels MapServer (direct):
+https://maps.co.palm-beach.fl.us/arcgis/rest/services/Parcels/Parcels/MapServer (folder index: …/rest/services/). 
+Palm Beach Maps
++1
+
+Pinellas — official appraiser portal (GIS & storm tools; most layers downloadable):
+https://www.pcpao.gov/ (links out to data/GIS). 
+Pinellas County Property Appraiser
+
+South Carolina
+
+Charleston County — Public Search MapServer (used in parcel app):
+https://gisccapps.charlestoncounty.org/arcgis/rest/services/GIS_VIEWER/Public_Search/MapServer
+County GIS hub: https://charleston-county-gis-chascogis.hub.arcgis.com/. 
+Charleston County GIS
++1
+
+Georgia
+
+Chatham County (Savannah area) — SAGIS Open Data (parcel layers + REST):
+Hub: https://data-sagis.opendata.arcgis.com/
+Examples: Parcel PIN labels (MapServer) and Parcel Digest layers. 
+SAGIS Open Data
++2
+Sagis
++2
+
+Louisiana
+
+Orleans Parish (New Orleans) — Parcels MapServer (updated weekly):
+https://gis.nola.gov/arcgis/rest/services/LandBase/Parcels/MapServer/layers (+ Open Data item). 
+New Orleans GIS
++1
+
+Jefferson Parish — Parcels FeatureServer (queryable):
+https://jpgis.jeffparish.net/server/rest/services/Parcels/FeatureServer/0 (+ public atlas app). 
+jpgis.jeffparish.net
++1
+
+Texas
+
+Harris County (Houston/HCAD) — Parcels MapServer + layer:
+Service: https://www.gis.hctx.net/arcgis/rest/services/HCAD/Parcels/MapServer
+Layer 0 (fields include owner name): …/HCAD/Parcels/MapServer/0
+Quarterly GIS downloads also available. 
+gis.hctx.net
++2
+gis.hctx.net
++2
+
+Galveston County — CAD GIS data page + municipal ArcGIS parcel layers:
+CAD GIS page (pointers to apps/layers): https://galvestoncad.org/gis-data/
+Example county server layer: https://gis.galvestontx.gov/server/rest/services/VUEWorks_Production/VUEWorks_Mobile_Map_Prodction10182024/FeatureServer/29 (Parcels). 
+galvestoncad.org
++1
+
+North Carolina
+
+Wilmington / New Hanover & Brunswick rely on county GIS hubs (NC OneMap links from each county). For a nearby example, Charleston (SC) endpoints above; NC equivalents are discoverable via each county’s ArcGIS Hub. (Use pattern below.)

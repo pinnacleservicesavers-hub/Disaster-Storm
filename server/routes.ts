@@ -43,6 +43,7 @@ import { trafficCameraService } from "./services/trafficCameras";
 import { damageDetectionService } from "./services/damageDetection";
 import { LeadGenerationService } from "./services/leadGenerationService";
 import { unified511Directory } from "./services/unified511Directory";
+import { countyParcelService } from "./services/countyParcelService.js";
 import { NotificationService } from "./services/notificationService";
 import { IncidentCorrelationService } from "./services/incidentCorrelationService";
 import { femaDisasterService } from "./services/femaDisasterService";
@@ -2719,6 +2720,92 @@ Email: strategiclandmgmt@gmail.com
     } catch (error) {
       console.error(`Error fetching realtime2 station ${req.params.stationId}:`, error);
       res.status(500).json({ error: `Failed to fetch realtime2 station ${req.params.stationId}` });
+    }
+  });
+
+  // === COUNTY PARCEL DATA ENDPOINTS ===
+
+  // County parcel lookup by coordinates
+  app.get('/api/property/parcel/coordinates/:lat/:lng', async (req, res) => {
+    try {
+      const { lat, lng } = req.params;
+      const latitude = parseFloat(lat);
+      const longitude = parseFloat(lng);
+
+      if (isNaN(latitude) || isNaN(longitude)) {
+        return res.status(400).json({ error: 'Invalid coordinates' });
+      }
+
+      const parcelData = await countyParcelService.lookupByCoordinates(latitude, longitude);
+      
+      if (!parcelData) {
+        return res.status(404).json({ error: 'No parcel data found for these coordinates' });
+      }
+
+      res.json(parcelData);
+    } catch (error) {
+      console.error('Error looking up parcel by coordinates:', error);
+      res.status(500).json({ error: 'Failed to lookup parcel data' });
+    }
+  });
+
+  // County parcel lookup by address
+  app.get('/api/property/parcel/address', async (req, res) => {
+    try {
+      const { q: address } = req.query;
+
+      if (!address || typeof address !== 'string') {
+        return res.status(400).json({ error: 'Address parameter (q) is required' });
+      }
+
+      const parcelData = await countyParcelService.lookupByAddress(address);
+      
+      if (!parcelData) {
+        return res.status(404).json({ error: 'No parcel data found for this address' });
+      }
+
+      res.json(parcelData);
+    } catch (error) {
+      console.error('Error looking up parcel by address:', error);
+      res.status(500).json({ error: 'Failed to lookup parcel data' });
+    }
+  });
+
+  // County parcel lookup by parcel ID
+  app.get('/api/property/parcel/:parcelId', async (req, res) => {
+    try {
+      const { parcelId } = req.params;
+      const { county, state } = req.query;
+
+      if (!county || !state || typeof county !== 'string' || typeof state !== 'string') {
+        return res.status(400).json({ error: 'County and state parameters are required' });
+      }
+
+      const parcelData = await countyParcelService.lookupByParcelId(parcelId, county, state);
+      
+      if (!parcelData) {
+        return res.status(404).json({ error: 'No parcel data found for this parcel ID' });
+      }
+
+      res.json(parcelData);
+    } catch (error) {
+      console.error('Error looking up parcel by ID:', error);
+      res.status(500).json({ error: 'Failed to lookup parcel data' });
+    }
+  });
+
+  // Get available counties and endpoints
+  app.get('/api/property/parcel/counties', async (req, res) => {
+    try {
+      const counties = countyParcelService.getAvailableCounties();
+      res.json({ 
+        counties,
+        message: 'Official government parcel data sources for storm-impacted coastal areas',
+        coverage: 'Florida, South Carolina, Georgia, Louisiana, Texas'
+      });
+    } catch (error) {
+      console.error('Error getting available counties:', error);
+      res.status(500).json({ error: 'Failed to get county list' });
     }
   });
 

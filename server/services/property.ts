@@ -221,3 +221,8 @@ export class PropertyService {
 }
 
 export const propertyService = new PropertyService();
+
+// Import and integrate county parcel service
+import { countyParcelService, CountyParcelData } from './countyParcelService.js';
+
+export { countyParcelService, CountyParcelData };
