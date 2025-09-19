@@ -1,0 +1,59 @@
+Parcel / GIS Endpoints by County
+County	Available API / Data Source	What you can do / Notes
+Lee	  • Lee County “Parcels File Geodatabase” dataset on the Lee County GIS site. 
+maps.leegov.com
+
+ • Lee County’s “GeoView” / mapping interface (a GIS viewer to pick parcels) via LCPA GeoView. 
+gissvr.leepa.org
+
+ • Lee parcels in Florida state-wide FeatureServer (FDOT) / state parcel datasets. 
+Florida Department of Transportation GIS
++1
+	The county dataset gives you full parcel boundary, owner, improvement data. But “GeoView” might be more visual/viewer-based than fully programmable API. The statewide FeatureServer gives you queryable layers you can use in code.
+Collier	  • Collier County GIS Hub (ArcGIS Hub) “Collier County Departments with GIS Services” dataset. 
+hub-collierbcc.opendata.arcgis.com
+
+ • Collier County Parcels on Koordinates (exportable, has API) service. 
+Koordinates
+	Koordinates API lets you export and query parcel data; good option if county’s own API is limited.
+Charlotte	No specific API found yet in the sources I looked at	Probably has a county property appraiser / GIS portal, but I didn’t find a confirmed FeatureServer or open-data API in the quick search. I can dig more.
+Sarasota	  • Sarasota County GIS Portal / Open Data (ArcGIS) through “data-sarco.opendata.arcgis.com” for GIS / parcel layers. 
+data-sarco.opendata.arcgis.com
+
+ • Parcel data via Regrid for Sarasota. 
+Regrid
+
+ • Sarasota parcels via Koordinates. 
+Koordinates
+	The open data portal likely gives a REST / FeatureService you can call. Regrid gives uniform parcel coverage, good for app work.
+Escambia	  • Escambia County “Property Lookup” / GIS via MyEscambia (“Property Lookup Tool”) for address → parcel info etc. 
+MyEscambia.com
+
+ • Regrid parcel service for Escambia. 
+Regrid
+
+ • County GIS / Property Appraiser office page. 
+Escambia County Property Appraiser
+	The “Property Lookup” is often form-based; may not be full API, but helps. Regrid gives you more programmatic access.
+Miami-Dade	Not found in quick search	Likely has a powerful parcel GIS system; needs further lookup.
+Broward	Not found in quick search	Same as above; probably has API/data but not immediately located.
+Palm Beach	  • Palm Beach County Parcel layer as a MapServer: “Parcels/Parcels (MapServer)” via Palm Beach County Property Appraiser. 
+Palm Beach Maps
+
+ • Open Data portal “Parcels and Property Details” local projection via PBC Open Data. 
+opendata2-pbcgov.opendata.arcgis.com
+
+ • Palm Beach County “GIS / Ownership” info page. 
+Palm Beach County Property Appraiser
+	The MapServer supports JSON, GeoJSON etc via query. The open data portal gives you likely REST / feature services.
+⚙ Example Ready-to-Use API Query
+
+For Palm Beach, since it has a MapServer, you could do something like:
+
+GET https://maps.co.palm-beach.fl.us/arcgis/rest/services/Parcels/Parcels/MapServer/0/query
+  ?where=UPPER(OWNER)%20LIKE%20'%25SMITH%25'
+  &outFields=OWNER,MAIL_ADDR,SITE_ADDR,PARCEL_ID
+  &f=geojson
+
+
+Swap “SMITH” with owner name, etc. Use fields the county supports.

@@ -2794,6 +2794,37 @@ Email: strategiclandmgmt@gmail.com
     }
   });
 
+  // County parcel lookup by owner name
+  app.get('/api/property/parcel/owner/:ownerName', async (req, res) => {
+    try {
+      const { ownerName } = req.params;
+      const { county, state } = req.query;
+
+      if (!ownerName || ownerName.trim().length < 2) {
+        return res.status(400).json({ error: 'Owner name must be at least 2 characters long' });
+      }
+
+      const parcelData = await countyParcelService.lookupByOwnerName(
+        ownerName, 
+        county as string | undefined, 
+        state as string | undefined
+      );
+      
+      if (!parcelData || parcelData.length === 0) {
+        return res.status(404).json({ error: 'No parcel data found for this owner name' });
+      }
+
+      res.json({ 
+        results: parcelData,
+        count: parcelData.length,
+        query: { ownerName, county, state }
+      });
+    } catch (error) {
+      console.error('Error looking up parcel by owner name:', error);
+      res.status(500).json({ error: 'Failed to lookup parcel data by owner name' });
+    }
+  });
+
   // Get available counties and endpoints
   app.get('/api/property/parcel/counties', async (req, res) => {
     try {
