@@ -1292,18 +1292,18 @@ export default function Leads() {
               <div>
                 <label className="block text-sm font-medium mb-2">Select Contractor</label>
                 <Select value={bulkAssignContractor} onValueChange={setBulkAssignContractor}>
-                  <SelectTrigger>
+                  <SelectTrigger className="bg-background text-foreground">
                     <SelectValue placeholder="Choose contractor..." />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Rodriguez Tree Service">Rodriguez Tree Service</SelectItem>
-                    <SelectItem value="FloodPro Restoration">FloodPro Restoration</SelectItem>
-                    <SelectItem value="Miami Storm Repairs">Miami Storm Repairs</SelectItem>
-                    <SelectItem value="Gulf Coast Roofing">Gulf Coast Roofing</SelectItem>
-                    <SelectItem value="Keys Foundation Experts">Keys Foundation Experts</SelectItem>
-                    <SelectItem value="Tampa Bay Emergency Response">Tampa Bay Emergency Response</SelectItem>
-                    <SelectItem value="Orlando Tree Masters">Orlando Tree Masters</SelectItem>
-                    <SelectItem value="Naples Restoration Pro">Naples Restoration Pro</SelectItem>
+                  <SelectContent className="bg-background text-foreground border border-border">
+                    <SelectItem value="Rodriguez Tree Service" className="text-foreground hover:bg-accent hover:text-accent-foreground">Rodriguez Tree Service</SelectItem>
+                    <SelectItem value="FloodPro Restoration" className="text-foreground hover:bg-accent hover:text-accent-foreground">FloodPro Restoration</SelectItem>
+                    <SelectItem value="Miami Storm Repairs" className="text-foreground hover:bg-accent hover:text-accent-foreground">Miami Storm Repairs</SelectItem>
+                    <SelectItem value="Gulf Coast Roofing" className="text-foreground hover:bg-accent hover:text-accent-foreground">Gulf Coast Roofing</SelectItem>
+                    <SelectItem value="Keys Foundation Experts" className="text-foreground hover:bg-accent hover:text-accent-foreground">Keys Foundation Experts</SelectItem>
+                    <SelectItem value="Tampa Bay Emergency Response" className="text-foreground hover:bg-accent hover:text-accent-foreground">Tampa Bay Emergency Response</SelectItem>
+                    <SelectItem value="Orlando Tree Masters" className="text-foreground hover:bg-accent hover:text-accent-foreground">Orlando Tree Masters</SelectItem>
+                    <SelectItem value="Naples Restoration Pro" className="text-foreground hover:bg-accent hover:text-accent-foreground">Naples Restoration Pro</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
