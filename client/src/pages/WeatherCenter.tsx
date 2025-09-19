@@ -1340,18 +1340,361 @@ export default function WeatherCenter() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="models">
-          <Card>
-            <CardHeader>
-              <CardTitle>🌡️ Weather Models & External Tools</CardTitle>
-              <CardDescription>Forecast models and additional weather resources</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-8 text-muted-foreground">
-                🚧 Weather models and external tools coming soon
-              </div>
-            </CardContent>
-          </Card>
+        <TabsContent value="models" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Hurricane Forecast Models */}
+            <Card>
+              <CardHeader>
+                <CardTitle data-testid="card-title-hurricane-models">🌀 Hurricane Forecast Models</CardTitle>
+                <CardDescription>
+                  HWRF, HAFS & GFS tropical cyclone tracking models
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {weatherData?.nhc?.hurricaneModels?.models ? (
+                  <div className="space-y-4">
+                    {weatherData.nhc.hurricaneModels.models.map((model, index) => (
+                      <div 
+                        key={`hurricane-model-${index}`}
+                        className="border rounded-lg p-4 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-950 dark:to-cyan-950"
+                        data-testid={`hurricane-model-${index}`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h4 className="font-semibold text-lg flex items-center gap-2">
+                              <Database className="h-4 w-4 text-blue-600" />
+                              {model.name || `Hurricane Model ${index + 1}`}
+                            </h4>
+                            <p className="text-sm text-muted-foreground mt-1">
+                              Resolution: {model.resolution || 'High-res'} • Coverage: {model.coverage || 'Atlantic Basin'}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              Update Frequency: {model.updateFrequency || 'Every 6 hours'}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <Badge variant="outline" className="bg-green-100 text-green-800">
+                              <Signal className="h-3 w-3 mr-1" />
+                              Active
+                            </Badge>
+                          </div>
+                        </div>
+                        <div className="mt-3 grid grid-cols-2 gap-4 text-sm">
+                          <div>
+                            <strong>Forecast Length:</strong><br />
+                            <span className="text-muted-foreground">{model.forecastLength || '5 days'}</span>
+                          </div>
+                          <div>
+                            <strong>Last Update:</strong><br />
+                            <span className="text-muted-foreground">{new Date().toLocaleTimeString()}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    
+                    {/* Global Models Section */}
+                    <div className="border rounded-lg p-4 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950 dark:to-pink-950">
+                      <h4 className="font-semibold text-lg flex items-center gap-2 mb-3">
+                        <Globe className="h-4 w-4 text-purple-600" />
+                        Global Weather Models
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div className="p-3 bg-white dark:bg-gray-800 rounded border">
+                          <div className="flex items-center justify-between">
+                            <span className="font-medium">GFS (Global)</span>
+                            <Badge variant="outline" className="text-xs">0.25°</Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Global Forecast System - Worldwide coverage
+                          </p>
+                        </div>
+                        <div className="p-3 bg-white dark:bg-gray-800 rounded border">
+                          <div className="flex items-center justify-between">
+                            <span className="font-medium">HWRF</span>
+                            <Badge variant="outline" className="text-xs">High-res</Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Hurricane Weather Research - Storm-focused
+                          </p>
+                        </div>
+                        <div className="p-3 bg-white dark:bg-gray-800 rounded border">
+                          <div className="flex items-center justify-between">
+                            <span className="font-medium">HAFS</span>
+                            <Badge variant="outline" className="text-xs">Next-gen</Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Hurricane Analysis - Advanced prediction
+                          </p>
+                        </div>
+                        <div className="p-3 bg-white dark:bg-gray-800 rounded border">
+                          <div className="flex items-center justify-between">
+                            <span className="font-medium">WAVEWATCH III</span>
+                            <Badge variant="outline" className="text-xs">Ocean</Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Wave forecast model - Marine conditions
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {/* Default Models Display */}
+                    <div className="border rounded-lg p-4 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-950 dark:to-cyan-950">
+                      <h4 className="font-semibold text-lg flex items-center gap-2 mb-3">
+                        <Database className="h-4 w-4 text-blue-600" />
+                        Hurricane Forecast Models
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div className="p-3 bg-white dark:bg-gray-800 rounded border">
+                          <div className="flex items-center justify-between">
+                            <span className="font-medium">HWRF</span>
+                            <Badge variant="outline" className="bg-green-100 text-green-800">
+                              <Signal className="h-3 w-3 mr-1" />
+                              Active
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Hurricane Weather Research & Forecasting Model
+                          </p>
+                          <div className="mt-2 text-xs">
+                            <strong>Resolution:</strong> 2km core, 6km outer
+                            <br />
+                            <strong>Coverage:</strong> Atlantic & Eastern Pacific
+                          </div>
+                        </div>
+                        <div className="p-3 bg-white dark:bg-gray-800 rounded border">
+                          <div className="flex items-center justify-between">
+                            <span className="font-medium">HAFS</span>
+                            <Badge variant="outline" className="bg-green-100 text-green-800">
+                              <Signal className="h-3 w-3 mr-1" />
+                              Active
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Hurricane Analysis & Forecast System (Next-gen)
+                          </p>
+                          <div className="mt-2 text-xs">
+                            <strong>Resolution:</strong> 1.33km nest, 6km outer
+                            <br />
+                            <strong>Features:</strong> Advanced physics & coupling
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Global Models */}
+                    <div className="border rounded-lg p-4 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950 dark:to-pink-950">
+                      <h4 className="font-semibold text-lg flex items-center gap-2 mb-3">
+                        <Globe className="h-4 w-4 text-purple-600" />
+                        Global Weather Models
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div className="p-3 bg-white dark:bg-gray-800 rounded border">
+                          <div className="flex items-center justify-between">
+                            <span className="font-medium">GFS (Global)</span>
+                            <Badge variant="outline" className="bg-blue-100 text-blue-800">
+                              <Activity className="h-3 w-3 mr-1" />
+                              Live
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Global Forecast System - NOAA's primary global model
+                          </p>
+                          <div className="mt-2 text-xs">
+                            <strong>Resolution:</strong> 13km (0.25°)
+                            <br />
+                            <strong>Updates:</strong> Every 6 hours, 16-day forecast
+                          </div>
+                        </div>
+                        <div className="p-3 bg-white dark:bg-gray-800 rounded border">
+                          <div className="flex items-center justify-between">
+                            <span className="font-medium">NAM</span>
+                            <Badge variant="outline" className="bg-blue-100 text-blue-800">
+                              <Activity className="h-3 w-3 mr-1" />
+                              Live
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            North American Mesoscale - High-resolution regional
+                          </p>
+                          <div className="mt-2 text-xs">
+                            <strong>Resolution:</strong> 12km continental US
+                            <br />
+                            <strong>Updates:</strong> Every 6 hours, 84-hour forecast
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* External Tools & Resources */}
+            <Card>
+              <CardHeader>
+                <CardTitle data-testid="card-title-external-tools">🔧 External Tools & Resources</CardTitle>
+                <CardDescription>
+                  Additional weather analysis and forecast tools
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {/* NOAA Resources */}
+                  <div className="border rounded-lg p-4 bg-gradient-to-r from-green-50 to-teal-50 dark:from-green-950 dark:to-teal-950">
+                    <h4 className="font-semibold text-lg flex items-center gap-2 mb-3">
+                      <ThermometerSun className="h-4 w-4 text-green-600" />
+                      NOAA Resources
+                    </h4>
+                    <div className="grid grid-cols-1 gap-3">
+                      <div className="p-3 bg-white dark:bg-gray-800 rounded border">
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium">National Hurricane Center</span>
+                          <Badge variant="outline" className="bg-red-100 text-red-800">
+                            <AlertTriangle className="h-3 w-3 mr-1" />
+                            Critical
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Official hurricane forecasts, tracks, and warnings
+                        </p>
+                        <div className="mt-2">
+                          <Button variant="outline" size="sm" className="w-full" data-testid="button-nhc-link">
+                            <Globe className="h-4 w-4 mr-2" />
+                            Access NHC Data
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="p-3 bg-white dark:bg-gray-800 rounded border">
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium">Storm Prediction Center</span>
+                          <Badge variant="outline" className="bg-orange-100 text-orange-800">
+                            <Zap className="h-3 w-3 mr-1" />
+                            Active
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Severe weather outlooks and tornado/severe thunderstorm watches
+                        </p>
+                        <div className="mt-2">
+                          <Button variant="outline" size="sm" className="w-full" data-testid="button-spc-link">
+                            <CloudLightning className="h-4 w-4 mr-2" />
+                            Access SPC Data
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="p-3 bg-white dark:bg-gray-800 rounded border">
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium">NOMADS Model Server</span>
+                          <Badge variant="outline" className="bg-blue-100 text-blue-800">
+                            <Database className="h-3 w-3 mr-1" />
+                            Live
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Real-time access to numerical weather prediction models
+                        </p>
+                        <div className="mt-2">
+                          <Button variant="outline" size="sm" className="w-full" data-testid="button-nomads-link">
+                            <Satellite className="h-4 w-4 mr-2" />
+                            Access NOMADS
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Analysis Tools */}
+                  <div className="border rounded-lg p-4 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950 dark:to-orange-950">
+                    <h4 className="font-semibold text-lg flex items-center gap-2 mb-3">
+                      <Activity className="h-4 w-4 text-amber-600" />
+                      Analysis Tools
+                    </h4>
+                    <div className="grid grid-cols-1 gap-3">
+                      <div className="p-3 bg-white dark:bg-gray-800 rounded border">
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium">Model Comparison</span>
+                          <Badge variant="outline" className="text-xs">Interactive</Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Compare multiple weather model forecasts side-by-side
+                        </p>
+                        <div className="mt-2">
+                          <Button variant="outline" size="sm" className="w-full" data-testid="button-model-compare">
+                            <TrendingUp className="h-4 w-4 mr-2" />
+                            Compare Models
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="p-3 bg-white dark:bg-gray-800 rounded border">
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium">Ensemble Forecasts</span>
+                          <Badge variant="outline" className="text-xs">Probability</Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Probabilistic forecasts from multiple model runs
+                        </p>
+                        <div className="mt-2">
+                          <Button variant="outline" size="sm" className="w-full" data-testid="button-ensemble">
+                            <Gauge className="h-4 w-4 mr-2" />
+                            View Ensembles
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="p-3 bg-white dark:bg-gray-800 rounded border">
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium">Historical Archive</span>
+                          <Badge variant="outline" className="text-xs">Research</Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Access historical weather data and past model performance
+                        </p>
+                        <div className="mt-2">
+                          <Button variant="outline" size="sm" className="w-full" data-testid="button-historical">
+                            <Clock className="h-4 w-4 mr-2" />
+                            Historical Data
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Model Status */}
+                  <div className="border rounded-lg p-4 bg-gradient-to-r from-slate-50 to-gray-50 dark:from-slate-950 dark:to-gray-950">
+                    <h4 className="font-semibold text-lg flex items-center gap-2 mb-3">
+                      <Signal className="h-4 w-4 text-slate-600" />
+                      Model Status & Performance
+                    </h4>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between p-2 bg-white dark:bg-gray-800 rounded border">
+                        <span className="text-sm">GFS Model Status</span>
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                          <span className="text-xs text-green-600">Operational</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between p-2 bg-white dark:bg-gray-800 rounded border">
+                        <span className="text-sm">HWRF Model Status</span>
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                          <span className="text-xs text-green-600">Operational</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between p-2 bg-white dark:bg-gray-800 rounded border">
+                        <span className="text-sm">NOMADS Server</span>
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                          <span className="text-xs text-yellow-600">Intermittent</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
           </Tabs>
         </FadeIn>

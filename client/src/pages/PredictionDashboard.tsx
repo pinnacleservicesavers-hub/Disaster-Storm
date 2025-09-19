@@ -165,7 +165,68 @@ export default function PredictionDashboard() {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [isVoiceGuideActive, setIsVoiceGuideActive] = useState(false);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [currentLocation, setCurrentLocation] = useState<{latitude: number; longitude: number} | null>(null);
+  const [locationError, setLocationError] = useState<string | null>(null);
   const queryClient = useQueryClient();
+
+  // State to coordinates mapping for major states
+  const stateCoordinates: Record<string, {latitude: number; longitude: number}> = {
+    'FL': { latitude: 27.7663, longitude: -82.6404 }, // Florida (Central)
+    'GA': { latitude: 32.1656, longitude: -82.9001 }, // Georgia (Central)
+    'AL': { latitude: 32.3792, longitude: -86.8067 }, // Alabama (Central)
+    'MS': { latitude: 32.3547, longitude: -89.3985 }, // Mississippi (Central)
+    'LA': { latitude: 31.2044, longitude: -92.9189 }, // Louisiana (Central)
+    'TX': { latitude: 31.0545, longitude: -97.5635 }, // Texas (Central)
+    'NC': { latitude: 35.5175, longitude: -79.3985 }, // North Carolina (Central)
+    'SC': { latitude: 33.8191, longitude: -80.9066 }, // South Carolina (Central)
+    'VA': { latitude: 37.4316, longitude: -78.6569 }, // Virginia (Central)
+    'TN': { latitude: 35.7478, longitude: -86.7923 }, // Tennessee (Central)
+    'KY': { latitude: 37.6681, longitude: -84.6701 }, // Kentucky (Central)
+    'AR': { latitude: 34.9513, longitude: -92.3809 }, // Arkansas (Central)
+    'OK': { latitude: 35.4821, longitude: -97.5340 }, // Oklahoma (Central)
+    'KS': { latitude: 38.5266, longitude: -96.7265 }, // Kansas (Central)
+    'MO': { latitude: 38.4561, longitude: -92.2884 }, // Missouri (Central)
+    'NE': { latitude: 41.1254, longitude: -98.2681 }, // Nebraska (Central)
+    'IA': { latitude: 42.0115, longitude: -93.2105 }, // Iowa (Central)
+    'MN': { latitude: 45.6945, longitude: -93.9002 }, // Minnesota (Central)
+    'WI': { latitude: 44.2619, longitude: -89.6165 }, // Wisconsin (Central)
+    'IL': { latitude: 40.3363, longitude: -89.0022 }, // Illinois (Central)
+    'IN': { latitude: 39.8647, longitude: -86.2604 }, // Indiana (Central)
+    'OH': { latitude: 40.3888, longitude: -82.7649 }, // Ohio (Central)
+    'MI': { latitude: 43.3266, longitude: -84.5361 }, // Michigan (Central)
+    'NY': { latitude: 42.1657, longitude: -74.9481 }, // New York (Central)
+    'PA': { latitude: 40.5908, longitude: -77.2098 }, // Pennsylvania (Central)
+    'NJ': { latitude: 40.2989, longitude: -74.5210 }, // New Jersey (Central)
+    'DE': { latitude: 39.3185, longitude: -75.5071 }, // Delaware (Central)
+    'MD': { latitude: 39.0639, longitude: -76.8021 }, // Maryland (Central)
+    'WV': { latitude: 38.4910, longitude: -80.9540 }, // West Virginia (Central)
+    'CT': { latitude: 41.5978, longitude: -72.7554 }, // Connecticut (Central)
+    'RI': { latitude: 41.6809, longitude: -71.5118 }, // Rhode Island (Central)
+    'MA': { latitude: 42.2352, longitude: -71.0275 }, // Massachusetts (Central)
+    'VT': { latitude: 44.0459, longitude: -72.7107 }, // Vermont (Central)
+    'NH': { latitude: 43.4525, longitude: -71.5639 }, // New Hampshire (Central)
+    'ME': { latitude: 44.6939, longitude: -69.7653 }, // Maine (Central)
+    'CA': { latitude: 36.1162, longitude: -119.6816 }, // California (Central)
+    'NV': { latitude: 38.4199, longitude: -117.1219 }, // Nevada (Central)
+    'OR': { latitude: 44.5672, longitude: -122.1269 }, // Oregon (Central)
+    'WA': { latitude: 47.0379, longitude: -121.0187 }, // Washington (Central)
+    'ID': { latitude: 44.2394, longitude: -114.5103 }, // Idaho (Central)
+    'UT': { latitude: 40.1135, longitude: -111.8535 }, // Utah (Central)
+    'AZ': { latitude: 33.7298, longitude: -111.4312 }, // Arizona (Central)
+    'NM': { latitude: 34.8405, longitude: -106.2485 }, // New Mexico (Central)
+    'CO': { latitude: 39.0598, longitude: -105.3111 }, // Colorado (Central)
+    'WY': { latitude: 42.7475, longitude: -107.2085 }, // Wyoming (Central)
+    'MT': { latitude: 47.0527, longitude: -110.2140 }, // Montana (Central)
+    'ND': { latitude: 47.5289, longitude: -99.7840 }, // North Dakota (Central)
+    'SD': { latitude: 44.2998, longitude: -99.4388 }, // South Dakota (Central)
+    'AK': { latitude: 61.2181, longitude: -149.9003 }, // Alaska (Anchorage)
+    'HI': { latitude: 21.0943, longitude: -157.4983 }  // Hawaii (Honolulu)
+  };
+
+  // Calculate dynamic location based on selectedState or browser geolocation
+  const dynamicLocation = selectedState && stateCoordinates[selectedState] 
+    ? stateCoordinates[selectedState] 
+    : currentLocation;
 
   // Initialize voice loading with enhanced cleanup
   useEffect(() => {
@@ -187,6 +248,34 @@ export default function PredictionDashboard() {
       }
     };
   }, []);
+
+  // Initialize browser geolocation as fallback
+  useEffect(() => {
+    // Only get browser location if no state is selected
+    if (!selectedState && typeof window !== 'undefined' && 'geolocation' in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setCurrentLocation({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude
+          });
+          setLocationError(null);
+          console.log('📍 Browser location obtained:', position.coords.latitude, position.coords.longitude);
+        },
+        (error) => {
+          setLocationError(error.message);
+          console.warn('📍 Geolocation error:', error.message);
+          // Set default location to Southeast US (typical storm region)
+          setCurrentLocation({ latitude: 32.1656, longitude: -82.9001 });
+        },
+        {
+          enableHighAccuracy: false,
+          timeout: 10000,
+          maximumAge: 300000 // 5 minutes
+        }
+      );
+    }
+  }, [selectedState]); // Re-run when selectedState changes
 
   const startVoiceGuide = () => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
@@ -959,16 +1048,26 @@ export default function PredictionDashboard() {
 
         {/* Enhanced Main Content Tabs */}
         <FadeIn delay={1.0}>
-          <Tabs defaultValue="predictions" className="w-full">
+          <Tabs defaultValue="ai-intelligence" className="w-full">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 1.2 }}
             >
               <TabsList 
-                className="grid w-full grid-cols-6 bg-white/80 backdrop-blur-sm border border-slate-200/50 p-1 rounded-xl shadow-lg" 
+                className="grid w-full grid-cols-7 bg-white/80 backdrop-blur-sm border border-slate-200/50 p-1 rounded-xl shadow-lg" 
                 data-testid="tabs-prediction-dashboard"
               >
+                <HoverLift>
+                  <TabsTrigger 
+                    value="ai-intelligence" 
+                    data-testid="tab-ai-intelligence"
+                    className="rounded-lg transition-all duration-300 data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-600 data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-xl data-[state=active]:ring-2 data-[state=active]:ring-purple-300"
+                  >
+                    <Brain className="h-4 w-4 mr-2" />
+                    🧠 AI Intelligence
+                  </TabsTrigger>
+                </HoverLift>
                 <HoverLift>
                   <TabsTrigger 
                     value="predictions" 
@@ -1031,6 +1130,43 @@ export default function PredictionDashboard() {
                 </HoverLift>
               </TabsList>
             </motion.div>
+
+          {/* AI Intelligence Tab */}
+          <TabsContent value="ai-intelligence" data-testid="content-ai-intelligence">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              className="space-y-6"
+            >
+              <Card className="bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 border-purple-200 dark:border-purple-700">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center text-purple-700 dark:text-purple-300">
+                      <Brain className="h-6 w-6 mr-3 text-purple-600" />
+                      Storm Intelligence AI Portal
+                    </CardTitle>
+                    <Badge className="bg-purple-100 text-purple-800 dark:bg-purple-800 dark:text-purple-100">
+                      <Bot className="h-3 w-3 mr-1" />
+                      Advanced AI Active
+                    </Badge>
+                  </div>
+                  <CardDescription className="text-purple-600 dark:text-purple-400">
+                    Ask AI questions about disaster predictions, storm paths, damage assessments, and get real-time intelligence insights.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <StormIntelligenceChat 
+                    className="border-0 shadow-none bg-transparent"
+                    initialLocation={{
+                      latitude: 32.607,
+                      longitude: -84.937
+                    }}
+                  />
+                </CardContent>
+              </Card>
+            </motion.div>
+          </TabsContent>
 
           {/* Storm Predictions Tab */}
           <TabsContent value="predictions" data-testid="content-storm-predictions">
