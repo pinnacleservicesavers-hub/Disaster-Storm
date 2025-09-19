@@ -15,7 +15,8 @@ import {
   PlayCircle, PauseCircle, MoreHorizontal, Plus, Filter, Search,
   Star, DollarSign, Camera, FileText, MessageSquare, UserPlus,
   Building2, Shield, Activity, Eye, ChevronRight, RefreshCw,
-  Briefcase, Award, Timer, Globe, Navigation, Volume2, VolumeX
+  Briefcase, Award, Timer, Globe, Navigation, Volume2, VolumeX,
+  List, Download, UserX
 } from 'lucide-react';
 import { FadeIn, PulseAlert, StaggerContainer, StaggerItem, HoverLift, CountUp, ScaleIn, SlideIn } from '@/components/ui/animations';
 import { apiRequest } from '@/lib/queryClient';
@@ -77,6 +78,8 @@ export default function Leads() {
   const [viewMode, setViewMode] = useState<'kanban' | 'list' | 'map'>('kanban');
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [assignmentModal, setAssignmentModal] = useState(false);
+  const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
+  const [bulkAssignContractor, setBulkAssignContractor] = useState('');
   const [isVoiceGuideActive, setIsVoiceGuideActive] = useState(false);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
 
@@ -305,6 +308,30 @@ export default function Leads() {
           claimNumber: 'FEMA-FL-2024-1234',
           weatherConditions: 'Tropical storm warning',
           urgencyScore: 88
+        },
+        {
+          id: 'L007',
+          type: 'hurricane_damage',
+          address: '4567 Magnolia Street, Naples, FL 34102',
+          ownerName: 'William Smith',
+          phone: '(239) 555-0147',
+          email: 'william.smith@email.com',
+          damageDescription: 'Hurricane winds caused significant roof damage, tree fell on garage, power lines down',
+          coverageType: 'Homeowners - Comprehensive',
+          estimatedValue: 52000,
+          priority: 'high',
+          contractorsNeeded: ['Roofing', 'Tree Services', 'Electrical', 'Structural'],
+          aiConfidence: 96,
+          images: 14,
+          timestamp: '2024-01-15 17:30:00',
+          status: 'new',
+          notes: 'High priority - multiple damage types, safety hazards present',
+          latitude: 26.1420,
+          longitude: -81.7948,
+          propertyValue: 725000,
+          insuranceCompany: 'Citizens Property Insurance',
+          weatherConditions: 'Storm conditions, high winds',
+          urgencyScore: 87
         }
       ];
 
@@ -456,6 +483,74 @@ export default function Leads() {
     setAssignmentModal(true);
   };
 
+  const handleBulkAssign = () => {
+    if (selectedLeads.length === 0 || !bulkAssignContractor) {
+      alert('Please select leads and a contractor');
+      return;
+    }
+    console.log(`Bulk assigning ${selectedLeads.length} leads to ${bulkAssignContractor}`);
+    // In real implementation, would make API call to assign contractors
+    setSelectedLeads([]);
+    setBulkAssignContractor('');
+    setAssignmentModal(false);
+    alert(`Successfully assigned ${selectedLeads.length} leads to ${bulkAssignContractor}`);
+  };
+
+  const handleSelectLead = (leadId: string) => {
+    setSelectedLeads(prev => 
+      prev.includes(leadId) 
+        ? prev.filter(id => id !== leadId)
+        : [...prev, leadId]
+    );
+  };
+
+  const handleSelectAll = () => {
+    if (selectedLeads.length === leads.length) {
+      setSelectedLeads([]);
+    } else {
+      setSelectedLeads(leads.map(lead => lead.id));
+    }
+  };
+
+  const handleExportLeads = () => {
+    const csvHeaders = [
+      'ID', 'Owner Name', 'Phone', 'Email', 'Address', 'Damage Type', 
+      'Estimated Value', 'Priority', 'Status', 'AI Confidence', 'Insurance Company',
+      'Claim Number', 'Contractors Needed', 'Notes'
+    ];
+    
+    const csvData = leads.map(lead => [
+      lead.id,
+      lead.ownerName,
+      lead.phone,
+      lead.email,
+      lead.address,
+      lead.type.replace(/_/g, ' '),
+      lead.estimatedValue,
+      lead.priority,
+      lead.status,
+      lead.aiConfidence,
+      lead.insuranceCompany || '',
+      lead.claimNumber || '',
+      lead.contractorsNeeded.join('; '),
+      lead.notes
+    ]);
+
+    const csvContent = [csvHeaders, ...csvData]
+      .map(row => row.map(cell => `"${cell}"`).join(','))
+      .join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `leads_export_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const totalValue = leads.reduce((sum, lead) => sum + lead.estimatedValue, 0);
   const urgentCount = leads.filter(l => ['emergency', 'urgent'].includes(l.priority)).length;
   const avgConfidence = Math.round(leads.reduce((sum, lead) => sum + lead.aiConfidence, 0) / leads.length) || 0;
@@ -541,10 +636,11 @@ export default function Leads() {
                 </Button>
                 <Button
                   variant="secondary"
+                  onClick={handleExportLeads}
                   data-testid="button-export-leads"
                   className="bg-white/10 hover:bg-white/20 text-white border-white/20"
                 >
-                  <FileText className="h-4 w-4 mr-2" />
+                  <Download className="h-4 w-4 mr-2" />
                   Export
                 </Button>
                 <Button
@@ -889,25 +985,376 @@ export default function Leads() {
         {/* List View Tab */}
         <TabsContent value="list" className="space-y-6">
           <FadeIn>
-            <div className="text-center py-12">
-              <BarChart3 className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-xl font-semibold mb-2">Comprehensive List View</h3>
-              <p className="text-muted-foreground">Detailed list view with advanced filtering and sorting capabilities</p>
-            </div>
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <List className="h-5 w-5 mr-2" />
+                  Comprehensive Lead List
+                </CardTitle>
+                <div className="flex items-center space-x-4">
+                  <Badge variant="outline">
+                    Total: {leads.length} leads
+                  </Badge>
+                  <Badge variant="outline" className="text-green-600">
+                    ${leads.reduce((sum, lead) => sum + lead.estimatedValue, 0).toLocaleString()}
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left p-3 font-semibold">
+                          <div className="flex items-center">
+                            <input
+                              type="checkbox"
+                              checked={selectedLeads.length === leads.length}
+                              onChange={handleSelectAll}
+                              className="mr-2"
+                            />
+                            Select
+                          </div>
+                        </th>
+                        <th className="text-left p-3 font-semibold">Owner Name</th>
+                        <th className="text-left p-3 font-semibold">Address</th>
+                        <th className="text-left p-3 font-semibold">Damage Type</th>
+                        <th className="text-left p-3 font-semibold">Value</th>
+                        <th className="text-left p-3 font-semibold">Priority</th>
+                        <th className="text-left p-3 font-semibold">Status</th>
+                        <th className="text-left p-3 font-semibold">AI Confidence</th>
+                        <th className="text-left p-3 font-semibold">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {leads.map((lead) => (
+                        <tr key={lead.id} className={`border-b hover:bg-gray-50 dark:hover:bg-gray-800/50 ${selectedLeads.includes(lead.id) ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}>
+                          <td className="p-3">
+                            <input
+                              type="checkbox"
+                              checked={selectedLeads.includes(lead.id)}
+                              onChange={() => handleSelectLead(lead.id)}
+                              className="rounded"
+                            />
+                          </td>
+                          <td className="p-3">
+                            <div>
+                              <div className="font-medium">{lead.ownerName}</div>
+                              <div className="text-sm text-gray-500">{lead.phone}</div>
+                            </div>
+                          </td>
+                          <td className="p-3">
+                            <div className="text-sm">{lead.address}</div>
+                          </td>
+                          <td className="p-3">
+                            <Badge variant="outline">
+                              {lead.type.replace(/_/g, ' ').toUpperCase()}
+                            </Badge>
+                          </td>
+                          <td className="p-3">
+                            <div className="font-medium text-green-600">
+                              ${lead.estimatedValue.toLocaleString()}
+                            </div>
+                          </td>
+                          <td className="p-3">
+                            <Badge className={
+                              lead.priority === 'emergency' ? 'bg-red-500 text-white' :
+                              lead.priority === 'urgent' ? 'bg-orange-500 text-white' :
+                              lead.priority === 'high' ? 'bg-yellow-500 text-white' :
+                              'bg-gray-500 text-white'
+                            }>
+                              {lead.priority.toUpperCase()}
+                            </Badge>
+                          </td>
+                          <td className="p-3">
+                            <Badge variant={
+                              lead.status === 'new' ? 'default' :
+                              lead.status === 'completed' ? 'destructive' :
+                              'secondary'
+                            }>
+                              {lead.status.replace(/_/g, ' ').toUpperCase()}
+                            </Badge>
+                          </td>
+                          <td className="p-3">
+                            <div className="flex items-center">
+                              <div className="w-16 bg-gray-200 rounded-full h-2 mr-2">
+                                <div 
+                                  className="bg-blue-600 h-2 rounded-full" 
+                                  style={{ width: `${lead.aiConfidence}%` }}
+                                ></div>
+                              </div>
+                              <span className="text-sm">{lead.aiConfidence}%</span>
+                            </div>
+                          </td>
+                          <td className="p-3">
+                            <div className="flex space-x-1">
+                              <Button size="sm" variant="outline" className="h-8 w-8 p-0">
+                                <Eye className="h-3 w-3" />
+                              </Button>
+                              <Button size="sm" variant="outline" className="h-8 w-8 p-0">
+                                <Phone className="h-3 w-3" />
+                              </Button>
+                              <Button size="sm" variant="outline" className="h-8 w-8 p-0">
+                                <Mail className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
           </FadeIn>
         </TabsContent>
 
         {/* Analytics Tab */}
         <TabsContent value="analytics" className="space-y-6">
           <FadeIn>
-            <div className="text-center py-12">
-              <TrendingUp className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-xl font-semibold mb-2">Lead Analytics & Performance</h3>
-              <p className="text-muted-foreground">Advanced analytics, conversion tracking, and performance metrics</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+              <Card>
+                <CardContent className="p-6 text-center">
+                  <div className="flex items-center justify-center mb-2">
+                    <Target className="h-5 w-5 text-blue-500 mr-2" />
+                    <span className="text-sm font-medium">Total Leads</span>
+                  </div>
+                  <div className="text-2xl font-bold">
+                    <CountUp end={leadStats?.totalLeads || 0} duration={1} />
+                  </div>
+                  <div className="text-xs text-muted-foreground">All time</div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="p-6 text-center">
+                  <div className="flex items-center justify-center mb-2">
+                    <Plus className="h-5 w-5 text-green-500 mr-2" />
+                    <span className="text-sm font-medium">New Today</span>
+                  </div>
+                  <div className="text-2xl font-bold text-green-600">
+                    <CountUp end={leadStats?.newToday || 0} duration={1} />
+                  </div>
+                  <div className="text-xs text-muted-foreground">+24 hours</div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="p-6 text-center">
+                  <div className="flex items-center justify-center mb-2">
+                    <DollarSign className="h-5 w-5 text-amber-500 mr-2" />
+                    <span className="text-sm font-medium">Total Value</span>
+                  </div>
+                  <div className="text-2xl font-bold text-amber-600">
+                    $<CountUp end={leadStats?.totalValue || 0} duration={1} />
+                  </div>
+                  <div className="text-xs text-muted-foreground">Est. revenue</div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="p-6 text-center">
+                  <div className="flex items-center justify-center mb-2">
+                    <TrendingUp className="h-5 w-5 text-purple-500 mr-2" />
+                    <span className="text-sm font-medium">Conversion Rate</span>
+                  </div>
+                  <div className="text-2xl font-bold text-purple-600">
+                    <CountUp end={leadStats?.conversionRate || 0} duration={1} suffix="%" />
+                  </div>
+                  <div className="text-xs text-muted-foreground">Success rate</div>
+                </CardContent>
+              </Card>
             </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Lead Status Distribution</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {Object.entries(leads.reduce((acc, lead) => {
+                      acc[lead.status] = (acc[lead.status] || 0) + 1;
+                      return acc;
+                    }, {} as Record<string, number>)).map(([status, count]) => (
+                      <div key={status} className="flex items-center justify-between">
+                        <div className="flex items-center">
+                          <div className={`w-3 h-3 rounded-full mr-3 ${
+                            status === 'new' ? 'bg-blue-500' :
+                            status === 'contacted' ? 'bg-yellow-500' :
+                            status === 'qualified' ? 'bg-purple-500' :
+                            status === 'assigned' ? 'bg-orange-500' :
+                            status === 'in_progress' ? 'bg-indigo-500' :
+                            'bg-green-500'
+                          }`}></div>
+                          <span className="capitalize">{status.replace(/_/g, ' ')}</span>
+                        </div>
+                        <div className="flex items-center">
+                          <span className="font-medium mr-2">{count}</span>
+                          <span className="text-sm text-muted-foreground">
+                            ({((count / leads.length) * 100).toFixed(0)}%)
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Priority Distribution</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {Object.entries(leads.reduce((acc, lead) => {
+                      acc[lead.priority] = (acc[lead.priority] || 0) + 1;
+                      return acc;
+                    }, {} as Record<string, number>)).map(([priority, count]) => (
+                      <div key={priority} className="flex items-center justify-between">
+                        <div className="flex items-center">
+                          <div className={`w-3 h-3 rounded-full mr-3 ${
+                            priority === 'emergency' ? 'bg-red-500' :
+                            priority === 'urgent' ? 'bg-orange-500' :
+                            priority === 'high' ? 'bg-yellow-500' :
+                            'bg-gray-500'
+                          }`}></div>
+                          <span className="capitalize">{priority}</span>
+                        </div>
+                        <div className="flex items-center">
+                          <span className="font-medium mr-2">{count}</span>
+                          <span className="text-sm text-muted-foreground">
+                            ({((count / leads.length) * 100).toFixed(0)}%)
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Top Damage Types by Value</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {Object.entries(leads.reduce((acc, lead) => {
+                    const type = lead.type.replace(/_/g, ' ').toUpperCase();
+                    if (!acc[type]) {
+                      acc[type] = { count: 0, value: 0 };
+                    }
+                    acc[type].count += 1;
+                    acc[type].value += lead.estimatedValue;
+                    return acc;
+                  }, {} as Record<string, { count: number; value: number }>))
+                  .sort(([,a], [,b]) => b.value - a.value)
+                  .slice(0, 5)
+                  .map(([type, data]) => (
+                    <div key={type} className="flex items-center justify-between">
+                      <div>
+                        <div className="font-medium">{type}</div>
+                        <div className="text-sm text-muted-foreground">{data.count} incidents</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-bold text-green-600">${data.value.toLocaleString()}</div>
+                        <div className="text-sm text-muted-foreground">
+                          Avg: ${(data.value / data.count).toLocaleString()}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
           </FadeIn>
         </TabsContent>
       </Tabs>
+
+      {/* Bulk Assignment Modal */}
+      {assignmentModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold mb-4">
+              {selectedLeads.length > 0 ? `Bulk Assign ${selectedLeads.length} Leads` : 'Assign Contractor'}
+            </h3>
+            
+            <div className="space-y-4">
+              {selectedLeads.length > 0 && (
+                <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                  <p className="text-sm text-blue-700 dark:text-blue-300">
+                    Selected {selectedLeads.length} leads for bulk assignment
+                  </p>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Select Contractor</label>
+                <Select value={bulkAssignContractor} onValueChange={setBulkAssignContractor}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose contractor..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Rodriguez Tree Service">Rodriguez Tree Service</SelectItem>
+                    <SelectItem value="FloodPro Restoration">FloodPro Restoration</SelectItem>
+                    <SelectItem value="Miami Storm Repairs">Miami Storm Repairs</SelectItem>
+                    <SelectItem value="Gulf Coast Roofing">Gulf Coast Roofing</SelectItem>
+                    <SelectItem value="Keys Foundation Experts">Keys Foundation Experts</SelectItem>
+                    <SelectItem value="Tampa Bay Emergency Response">Tampa Bay Emergency Response</SelectItem>
+                    <SelectItem value="Orlando Tree Masters">Orlando Tree Masters</SelectItem>
+                    <SelectItem value="Naples Restoration Pro">Naples Restoration Pro</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex justify-end space-x-3">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setAssignmentModal(false);
+                    setBulkAssignContractor('');
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleBulkAssign}
+                  disabled={!bulkAssignContractor}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  {selectedLeads.length > 0 ? `Assign ${selectedLeads.length} Leads` : 'Assign Lead'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Selected Leads Counter */}
+      {selectedLeads.length > 0 && (
+        <div className="fixed bottom-4 right-4 bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg">
+          <div className="flex items-center space-x-2">
+            <span className="text-sm font-medium">{selectedLeads.length} leads selected</span>
+            <Button 
+              size="sm" 
+              variant="outline" 
+              className="text-white border-white hover:bg-white hover:text-blue-600"
+              onClick={() => setAssignmentModal(true)}
+            >
+              Bulk Assign
+            </Button>
+            <Button 
+              size="sm" 
+              variant="ghost" 
+              className="text-white hover:bg-white/20"
+              onClick={() => setSelectedLeads([])}
+            >
+              <UserX className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
