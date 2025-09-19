@@ -733,7 +733,6 @@ export class StormIntelligenceAI {
     
     return prompt;
   }
-}
 
   /**
    * Generate fallback response using available weather data
