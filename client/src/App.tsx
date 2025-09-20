@@ -1,7 +1,7 @@
 import { Route, Switch, Link, useLocation } from 'wouter';
 import StormOpsProHub from "./StormOpsProHub";
 import WeatherCenter from "./pages/WeatherCenter";
-import { TrafficCameras } from "./pages/Cameras";
+import SurveillanceCenter from "./pages/SurveillanceCenter";
 import VictimLogin from "./pages/VictimLogin";
 import VictimRegister from "./pages/VictimRegister";
 import VictimDashboard from "./pages/VictimDashboard";
@@ -14,9 +14,7 @@ import ContractorPortal from "./pages/ContractorPortal";
 import ContractorManagement from "./pages/ContractorManagement";
 import Claims from "./pages/Claims";
 import Customers from "./pages/Customers";
-import Drones from "./pages/Drones";
 import Legal from "./pages/Legal";
-import EyesInSky from "./pages/EyesInSky";
 import Leads from "./pages/Leads";
 import FunnelBuilder from "./pages/FunnelBuilder";
 import FormBuilder from "./pages/FormBuilder";
@@ -58,34 +56,18 @@ function Navigation() {
           badgeColor: "bg-blue-500"
         },
         { 
-          href: "/traffic-cameras", 
-          label: "Traffic Cam Watcher", 
-          icon: Camera, 
-          testId: "nav-traffic-cameras",
-          badge: "247",
-          badgeColor: "bg-yellow-500"
-        },
-        { 
-          href: "/eyes-in-sky", 
-          label: "Eyes in the Sky", 
-          icon: Video, 
-          testId: "nav-eyes-in-sky",
-          badge: "8",
-          badgeColor: "bg-red-500"
+          href: "/surveillance", 
+          label: "Surveillance Center", 
+          icon: Eye, 
+          testId: "nav-surveillance",
+          badge: "Live",
+          badgeColor: "bg-purple-500"
         }
       ]
     },
     {
       title: "Operations",
       items: [
-        { 
-          href: "/drones", 
-          label: "Drone Operations", 
-          icon: Plane, 
-          testId: "nav-drones",
-          badge: "24",
-          badgeColor: "bg-blue-500"
-        },
         { 
           href: "/damage-detection", 
           label: "AI Damage Detection", 
@@ -449,10 +431,10 @@ export default function App() {
           <WeatherCenter />
         </Route>
         
-        <Route path="/traffic-cameras">
-          <title>TrafficCamWatcher - DisasterDirect</title>
-          <meta name="description" content="Monitor live traffic cameras and incidents across multiple states with AI-powered damage detection and contractor opportunity identification" />
-          <TrafficCameras />
+        <Route path="/surveillance">
+          <title>Surveillance Center - DisasterDirect</title>
+          <meta name="description" content="Unified surveillance portal with live cameras, drone operations, traffic monitoring, and contractor opportunity detection across all states" />
+          <SurveillanceCenter />
         </Route>
         
         <Route path="/damage-detection">
@@ -489,18 +471,6 @@ export default function App() {
           <title>Customer Management - DisasterDirect</title>
           <meta name="description" content="Manage customer relationships, communications, service history and project tracking for property restoration services" />
           <Customers />
-        </Route>
-        
-        <Route path="/drones">
-          <title>Drone Operations - DisasterDirect</title>
-          <meta name="description" content="Manage drone fleet, aerial inspections, automated damage assessment and real-time monitoring for storm response" />
-          <Drones />
-        </Route>
-        
-        <Route path="/eyes-in-sky">
-          <title>Eyes in the Sky - DisasterDirect</title>
-          <meta name="description" content="Watch live storm chasing footage and streaming feeds from professional storm chasers and weather services" />
-          <EyesInSky />
         </Route>
         
         <Route path="/leads">
