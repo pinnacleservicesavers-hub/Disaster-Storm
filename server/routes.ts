@@ -3635,6 +3635,100 @@ Email: strategiclandmgmt@gmail.com
     });
   });
 
+  // ===== SURVEILLANCE OVERVIEW =====
+
+  // Get comprehensive surveillance overview
+  app.get('/api/surveillance/overview', async (req, res) => {
+    try {
+      // Get traffic cameras
+      const cameras = await trafficCameraService.getAllCameras();
+      const onlineCameras = cameras.filter(cam => cam.isActive).length;
+      
+      // Get contractor opportunities from state providers  
+      const supportedStates = ['GA', 'FL', 'CA', 'TX'];
+      let totalOpportunities = 0;
+      let estimatedValue = 0;
+      
+      for (const state of supportedStates) {
+        try {
+          const opportunities = await unified511Directory.getContractorOpportunities(state);
+          totalOpportunities += opportunities.length;
+          estimatedValue += opportunities.reduce((sum, opp) => sum + (opp.estimatedValue || 5000), 0);
+        } catch (error: any) {
+          console.log(`⚠️ Could not fetch opportunities for ${state}:`, error.message);
+        }
+      }
+      
+      // Mock drone data for now (can be enhanced later)
+      const mockDrones = [
+        {
+          id: 'drone_001',
+          droneId: 'STORM-01',
+          pilot: 'Sarah Chen',
+          location: 'Atlanta, GA',
+          status: 'active',
+          battery: 85,
+          altitude: 150,
+          mission: 'Storm damage assessment',
+          speed: 25,
+          coordinates: { lat: 33.7490, lng: -84.3880 },
+          missionProgress: 75,
+          videoFeedActive: true,
+          flightTime: 1847
+        },
+        {
+          id: 'drone_002',
+          droneId: 'SCOUT-03',
+          pilot: 'Mike Rodriguez',
+          location: 'Miami, FL',
+          status: 'returning',
+          battery: 42,
+          altitude: 200,
+          mission: 'Roof damage survey',
+          speed: 30,
+          coordinates: { lat: 25.7617, lng: -80.1918 },
+          missionProgress: 100,
+          videoFeedActive: false,
+          flightTime: 2103
+        }
+      ];
+      
+      const activeDrones = mockDrones.filter(drone => drone.status === 'active').length;
+      
+      const surveillanceData = {
+        cameras: cameras.map(cam => ({
+          id: cam.id,
+          name: cam.name,
+          state: cam.state,
+          location: `${cam.city}, ${cam.state}`,
+          coordinates: { lat: cam.lat, lng: cam.lng },
+          status: cam.isActive ? 'online' : 'offline',
+          type: 'traffic',
+          streamUrl: cam.streamUrl,
+          lastUpdate: cam.lastUpdated,
+          incidentCount: Math.floor(Math.random() * 5), // Mock incident count
+          contractorOpportunities: Math.floor(Math.random() * 3),
+          provider: cam.source
+        })),
+        drones: mockDrones,
+        opportunities: [], // Can be enhanced to include actual opportunities
+        stats: {
+          totalCameras: cameras.length,
+          onlineCameras,
+          activeDrones,
+          totalOpportunities,
+          estimatedValue: `$${(estimatedValue / 1000).toFixed(0)}K`,
+          coverageArea: `${supportedStates.length} states`
+        }
+      };
+      
+      res.json(surveillanceData);
+    } catch (error) {
+      console.error("Error fetching surveillance overview:", error);
+      res.status(500).json({ error: "Failed to fetch surveillance data" });
+    }
+  });
+
   // ===== TRAFFIC CAMERA WATCHER ENDPOINTS =====
   
   // Get all available traffic cameras
