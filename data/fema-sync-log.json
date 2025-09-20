@@ -131,5 +131,46 @@
         "operationId": "manual_sync_1757651854238_7m3f1iyl9"
       }
     }
+  },
+  {
+    "timestamp": "2025-09-20T00:00:00.035Z",
+    "operation": "scheduled_sync",
+    "status": "started",
+    "details": {
+      "triggeredBy": "scheduler",
+      "lookbackDays": 1,
+      "metadata": {
+        "operationId": "scheduled_sync_1758326400035_2bcxjro7r"
+      }
+    }
+  },
+  {
+    "timestamp": "2025-09-20T00:00:00.372Z",
+    "operation": "api_fetch",
+    "status": "completed",
+    "details": {
+      "avgResponseTime": 334,
+      "rateLimitHits": 0,
+      "apiCallCount": 1,
+      "metadata": {
+        "endpoint": "DisasterDeclarationsSummaries"
+      }
+    }
+  },
+  {
+    "timestamp": "2025-09-20T00:00:00.374Z",
+    "operation": "scheduled_sync",
+    "status": "completed",
+    "duration": 339,
+    "details": {
+      "disastersProcessed": 0,
+      "newCounties": 0,
+      "updatedCounties": 0,
+      "errors": [],
+      "errorTypes": [],
+      "metadata": {
+        "operationId": "scheduled_sync_1758326400035_2bcxjro7r"
+      }
+    }
   }
 ]

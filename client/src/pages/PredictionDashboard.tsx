@@ -40,8 +40,7 @@ import {
   Brain,
   Bot
 } from 'lucide-react';
-import StormIntelligenceChat from '@/components/StormIntelligenceChat';
-import { VoiceAIAssistant } from '@/components/VoiceAIAssistant';
+import { UnifiedAssistant } from '@/components/UnifiedAssistant';
 
 // ===== INTERFACES =====
 
@@ -1157,23 +1156,14 @@ export default function PredictionDashboard() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  {/* Voice AI Assistant */}
-                  <VoiceAIAssistant 
+                  {/* Unified AI Assistant - Consolidates VoiceAI + Storm Intelligence */}
+                  <UnifiedAssistant 
                     portalType="prediction" 
                     currentData={dashboardData}
                     userLocation={currentLocation || undefined}
+                    mode="full"
+                    className="border-0 shadow-none bg-transparent"
                   />
-                  
-                  {/* Storm Intelligence Chat */}
-                  <div className="pt-4 border-t border-purple-200 dark:border-purple-700">
-                    <StormIntelligenceChat 
-                      className="border-0 shadow-none bg-transparent"
-                      initialLocation={{
-                        latitude: 32.607,
-                        longitude: -84.937
-                      }}
-                    />
-                  </div>
                 </CardContent>
               </Card>
             </motion.div>
