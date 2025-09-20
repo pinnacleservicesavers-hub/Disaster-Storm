@@ -53,6 +53,61 @@ export const PORTAL_SECTIONS: Record<string, PortalSection[]> = {
       duration: 20
     }
   ],
+  'weather-intelligence-center': [
+    {
+      id: 'overview',
+      title: 'Weather Intelligence Center Overview',
+      description: 'Welcome to the Weather Intelligence Center! This is your unified command hub for weather monitoring and AI-powered storm prediction. Here you can access live weather data, AI storm predictions, professional weather models, and advanced analytics all in one place.',
+      keyFeatures: ['Real-time weather monitoring', 'AI storm predictions', 'Professional weather models', 'Contractor opportunity analysis'],
+      helpfulTips: ['Use state filtering for focused analysis', 'Check both live weather and AI predictions', 'Monitor the KPI dashboard for quick insights'],
+      duration: 35
+    },
+    {
+      id: 'kpi-dashboard',
+      title: 'KPI Metrics Dashboard',
+      element: '.grid',
+      description: 'The KPI dashboard shows six critical metrics at a glance: active weather alerts, storm systems, wave heights, AI predictions, contractor opportunities, and data quality scores. Each metric updates in real-time and uses color coding to show status.',
+      keyFeatures: ['Six real-time metrics', 'Color-coded status', 'Live updates', 'Interactive counters'],
+      helpfulTips: ['Red metrics need immediate attention', 'Orange shows moderate concern', 'Green indicates normal conditions'],
+      duration: 25
+    },
+    {
+      id: 'live-weather-tab',
+      title: 'Live Weather Monitoring',
+      element: '[data-testid="tab-live-weather"]',
+      description: 'The Live Weather tab provides real-time weather data from NOAA, NWS, satellites, and ocean buoys. You can see active weather alerts, ocean conditions including sea temperatures and wave heights, and monitor data from active weather buoys.',
+      keyFeatures: ['NOAA weather alerts', 'Ocean temperature data', 'Wave height monitoring', 'Active buoy stations'],
+      helpfulTips: ['Check alerts for severity levels', 'Monitor sea temperatures for hurricane development', 'Use buoy data for marine forecasting'],
+      duration: 30
+    },
+    {
+      id: 'ai-predictions-tab',
+      title: 'AI Storm Predictions',
+      element: '[data-testid="tab-ai-predictions"]',
+      description: 'The AI Predictions tab uses advanced machine learning to analyze radar, satellite, ocean data, and historical patterns to predict storm behavior and identify contractor opportunities. You can see active predictions, damage forecasts, and risk level distributions.',
+      keyFeatures: ['AI storm analysis', 'Damage forecasting', 'Contractor opportunities', 'Risk assessment'],
+      helpfulTips: ['Higher risk levels indicate better opportunities', 'Use damage forecasts for pre-positioning', 'Monitor revenue estimates for planning'],
+      duration: 30
+    },
+    {
+      id: 'models-external-tab',
+      title: 'Weather Models & External Resources',
+      element: '[data-testid="tab-models-external"]',
+      description: 'Access professional weather models including HWRF, HAFS, and GFS hurricane models, plus external analysis tools like the National Hurricane Center, Storm Prediction Center, and NOMADS model server for advanced weather analysis.',
+      keyFeatures: ['Hurricane forecast models', 'Global weather models', 'Professional tools', 'External resources'],
+      helpfulTips: ['Use HWRF for detailed hurricane analysis', 'GFS provides global weather patterns', 'External tools offer specialized analysis'],
+      duration: 25
+    },
+    {
+      id: 'ai-assistant-tab',
+      title: 'ARIA Weather Intelligence Assistant',
+      element: '[data-testid="tab-assistant"]',
+      description: 'ARIA is your advanced AI assistant specializing in weather analysis, storm prediction, and disaster response guidance. You can ask questions about weather patterns, get storm analysis, and receive expert guidance on weather-related decisions.',
+      keyFeatures: ['Voice and text interaction', 'Weather expertise', 'Storm analysis', 'Decision support'],
+      helpfulTips: ['Ask specific questions about weather patterns', 'Use voice commands for hands-free operation', 'Request analysis of current conditions'],
+      duration: 25
+    }
+  ],
   'traffic-cam-watcher': [
     {
       id: 'overview',

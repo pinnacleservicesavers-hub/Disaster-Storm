@@ -1,6 +1,6 @@
 import { Route, Switch, Link, useLocation } from 'wouter';
 import StormOpsProHub from "./StormOpsProHub";
-import WeatherCenter from "./pages/WeatherCenter";
+import WeatherIntelligenceCenter from "./pages/WeatherIntelligenceCenter";
 import SurveillanceCenter from "./pages/SurveillanceCenter";
 import VictimLogin from "./pages/VictimLogin";
 import VictimRegister from "./pages/VictimRegister";
@@ -9,7 +9,6 @@ import DamageReport from "./pages/DamageReport";
 import ServiceRequest from "./pages/ServiceRequest";
 import MyRequests from "./pages/MyRequests";
 import { DamageDetectionDashboard } from "./components/DamageDetectionDashboard";
-import PredictionDashboard from "./pages/PredictionDashboard";
 import ContractorPortal from "./pages/ContractorPortal";
 import ContractorManagement from "./pages/ContractorManagement";
 import Claims from "./pages/Claims";
@@ -40,20 +39,12 @@ function Navigation() {
       title: "Monitoring",
       items: [
         { 
-          href: "/weather", 
-          label: "Weather Center", 
+          href: "/weather-intelligence", 
+          label: "Weather Intelligence", 
           icon: Cloud, 
-          testId: "nav-weather",
-          badge: "Live",
-          badgeColor: "bg-green-500"
-        },
-        { 
-          href: "/prediction-dashboard", 
-          label: "Storm Predictions", 
-          icon: Zap, 
-          testId: "nav-prediction-dashboard",
-          badge: "AI",
-          badgeColor: "bg-blue-500"
+          testId: "nav-weather-intelligence",
+          badge: "AI+Live",
+          badgeColor: "bg-gradient-to-r from-blue-500 to-purple-500"
         },
         { 
           href: "/surveillance", 
@@ -426,9 +417,15 @@ export default function App() {
       
       <Switch>
         <Route path="/weather">
-          <title>Weather Center - DisasterDirect</title>
-          <meta name="description" content="Live weather monitoring, alerts, radar data, and hurricane tracking for emergency storm response operations" />
-          <WeatherCenter />
+          <title>Weather Intelligence Center - DisasterDirect</title>
+          <meta name="description" content="Live weather monitoring, alerts, radar data, and AI-powered storm predictions for emergency response operations" />
+          <WeatherIntelligenceCenter />
+        </Route>
+        
+        <Route path="/weather-intelligence">
+          <title>Weather Intelligence Center - DisasterDirect</title>
+          <meta name="description" content="Unified weather monitoring and AI-powered storm prediction for disaster response professionals" />
+          <WeatherIntelligenceCenter />
         </Route>
         
         <Route path="/surveillance">
@@ -444,9 +441,9 @@ export default function App() {
         </Route>
         
         <Route path="/prediction-dashboard">
-          <title>Storm Predictions - DisasterDirect</title>
-          <meta name="description" content="AI-powered predictive storm damage analysis with 24-48 hour forecasts, contractor deployment recommendations, and real-time risk assessment using NOAA radar and historical FEMA data" />
-          <PredictionDashboard />
+          <title>Weather Intelligence Center - DisasterDirect</title>
+          <meta name="description" content="AI-powered storm prediction and damage forecasting integrated with live weather monitoring" />
+          <WeatherIntelligenceCenter />
         </Route>
         
         <Route path="/contractors">
