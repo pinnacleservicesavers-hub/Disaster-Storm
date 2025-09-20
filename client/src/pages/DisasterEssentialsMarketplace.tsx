@@ -25,7 +25,14 @@ import {
   Shield,
   Wifi,
   Navigation,
-  ArrowLeft
+  ArrowLeft,
+  Truck,
+  Route,
+  Wrench,
+  Brain,
+  MessageCircle,
+  Calculator,
+  Target
 } from "lucide-react";
 import { getPrimaryServicePhoto, hasServicePhotos } from "@/utils/photoManager";
 import VoiceGuide from "@/components/VoiceGuide";
@@ -407,7 +414,7 @@ export default function DisasterEssentialsMarketplace() {
 
         {/* Main Content Tabs */}
         <Tabs defaultValue="hotels" onValueChange={handlePortalChange} className="w-full">
-          <TabsList className="category-tabs grid w-full grid-cols-7 mb-8" data-testid="tabs-dem-sections">
+          <TabsList className="category-tabs grid w-full grid-cols-8 mb-8" data-testid="tabs-dem-sections">
             <TabsTrigger value="hotels" className="text-xs" data-testid="tab-hotels">
               <Hotel className="w-4 h-4 mr-1" />
               Hotels
@@ -435,6 +442,10 @@ export default function DisasterEssentialsMarketplace() {
             <TabsTrigger value="satellite" className="text-xs" data-testid="tab-satellite">
               <Satellite className="w-4 h-4 mr-1" />
               Satellite
+            </TabsTrigger>
+            <TabsTrigger value="logistics" className="text-xs" data-testid="tab-logistics">
+              <Truck className="w-4 h-4 mr-1" />
+              Logistics
             </TabsTrigger>
           </TabsList>
 
@@ -1135,6 +1146,488 @@ export default function DisasterEssentialsMarketplace() {
                             <li>• <strong>Regulations:</strong> Some states/countries restrict usage</li>
                           </ul>
                         </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </CardContent>
+              </Card>
+            </motion.div>
+          </TabsContent>
+
+          {/* Logistics Command Center Tab */}
+          <TabsContent value="logistics">
+            <motion.div
+              variants={staggerContainer}
+              initial="hidden"
+              animate="show"
+            >
+              <Card className="mb-6" data-testid="card-logistics-info">
+                <CardHeader>
+                  <CardTitle className="flex items-center text-orange-600">
+                    <Truck className="w-6 h-6 mr-2" />
+                    🚛 Logistics Command Center
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-gray-600 dark:text-gray-400 mb-6">
+                    AI-powered logistics planning for contractor deployment. Get battle-ready plans for crew coordination, supply chain management, and operational efficiency.
+                  </p>
+
+                  {/* Step 1: Contractor Type Selection */}
+                  <div className="mb-8">
+                    <h3 className="text-lg font-semibold mb-4 flex items-center">
+                      <Target className="w-5 h-5 mr-2 text-blue-600" />
+                      Step 1: Select Your Contractor Type
+                    </h3>
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                      {[
+                        { type: 'tree', name: 'Tree Services', icon: '🌳', supplies: ['Bar oil', 'Chains', 'Fuel mix', 'Rigging rope', 'Saw parts'] },
+                        { type: 'roofing', name: 'Roofing', icon: '🏠', supplies: ['Tarps', 'Nails', 'Shingles', 'Plywood', 'Sealants'] },
+                        { type: 'electrical', name: 'Electrical', icon: '⚡', supplies: ['Wire', 'Conduit', 'PPE', 'Generators'] },
+                        { type: 'plumbing', name: 'Plumbing', icon: '🔧', supplies: ['Pipes', 'Fittings', 'Pumps', 'Tools'] },
+                        { type: 'general', name: 'General Contractor', icon: '🏗️', supplies: ['Tools', 'Materials', 'Equipment', 'Safety gear'] },
+                        { type: 'restoration', name: 'Water Restoration', icon: '💧', supplies: ['Dehumidifiers', 'Fans', 'Cleaners', 'Tarps'] }
+                      ].map((contractor) => (
+                        <Card key={contractor.type} className="hover:shadow-lg transition-shadow cursor-pointer border-2 hover:border-orange-300" data-testid={`card-contractor-${contractor.type}`}>
+                          <CardContent className="p-4 text-center">
+                            <div className="text-3xl mb-2">{contractor.icon}</div>
+                            <h4 className="font-semibold text-sm mb-2">{contractor.name}</h4>
+                            <Button size="sm" className="w-full bg-orange-600 hover:bg-orange-700">
+                              Select
+                            </Button>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Step 2: Trip & Crew Information */}
+                  <div className="mb-8">
+                    <h3 className="text-lg font-semibold mb-4 flex items-center">
+                      <Users className="w-5 h-5 mr-2 text-green-600" />
+                      Step 2: Enter Trip & Crew Details
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-md">Crew Information</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          <div>
+                            <label className="block text-sm font-medium mb-2">Number of Crews</label>
+                            <Input type="number" placeholder="2" className="w-full" data-testid="input-crew-count" />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium mb-2">Total Personnel</label>
+                            <Input type="number" placeholder="10" className="w-full" data-testid="input-personnel-count" />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium mb-2">Deployment Duration</label>
+                            <Select>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select duration" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="3-days">3 Days</SelectItem>
+                                <SelectItem value="1-week">1 Week</SelectItem>
+                                <SelectItem value="2-weeks">2 Weeks</SelectItem>
+                                <SelectItem value="1-month">1 Month</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-md">Equipment & Vehicles</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          <div>
+                            <label className="block text-sm font-medium mb-2">Pickup Trucks</label>
+                            <Input type="number" placeholder="3" className="w-full" data-testid="input-pickup-count" />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium mb-2">Bucket Trucks</label>
+                            <Input type="number" placeholder="2" className="w-full" data-testid="input-bucket-count" />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium mb-2">Trailers</label>
+                            <Input type="number" placeholder="2" className="w-full" data-testid="input-trailer-count" />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium mb-2">Special Equipment</label>
+                            <Input placeholder="Crane, Skid Steer, etc." className="w-full" data-testid="input-special-equipment" />
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-md">Destination</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          <div>
+                            <label className="block text-sm font-medium mb-2">Target Area</label>
+                            <Input placeholder="Fort Myers, FL" className="w-full" data-testid="input-destination" />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium mb-2">Staging Distance</label>
+                            <Select>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select range" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="10">Within 10 miles</SelectItem>
+                                <SelectItem value="20">Within 20 miles</SelectItem>
+                                <SelectItem value="50">Within 50 miles</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <Button className="w-full bg-blue-600 hover:bg-blue-700" data-testid="button-generate-plan">
+                            <Calculator className="w-4 h-4 mr-2" />
+                            Generate AI Logistics Plan
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </div>
+
+                  {/* Step 3: AI Generated Logistics Plan */}
+                  <div className="mb-8">
+                    <h3 className="text-lg font-semibold mb-4 flex items-center">
+                      <Route className="w-5 h-5 mr-2 text-purple-600" />
+                      Step 3: AI-Generated Logistics Plan
+                    </h3>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {/* Trip Planning & Routing */}
+                      <Card className="border-purple-200 dark:border-purple-800">
+                        <CardHeader>
+                          <CardTitle className="text-md flex items-center">
+                            <Navigation className="w-4 h-4 mr-2" />
+                            Trip Planning & Routing
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-4">
+                            <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
+                              <h4 className="font-semibold text-green-800 dark:text-green-200 mb-2">✅ Best Route Analysis</h4>
+                              <ul className="text-sm text-green-700 dark:text-green-300 space-y-1">
+                                <li>• I-75 South → I-275 West (avoid flooded US-41)</li>
+                                <li>• Est. travel time: 3.5 hours with equipment</li>
+                                <li>• 🚧 Active construction zones marked</li>
+                              </ul>
+                            </div>
+                            <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
+                              <h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-2">⛽ Fuel Stop Planning</h4>
+                              <ul className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
+                                <li>• Flying J Truck Stop (Mile 126) - Diesel available</li>
+                                <li>• Shell Station (Mile 158) - Generator fuel supply</li>
+                                <li>• Est. fuel cost: $2,340 for round trip</li>
+                              </ul>
+                            </div>
+                            <div className="bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-lg">
+                              <h4 className="font-semibold text-yellow-800 dark:text-yellow-200 mb-2">🏨 Staging Hotels</h4>
+                              <ul className="text-sm text-yellow-700 dark:text-yellow-300 space-y-1">
+                                <li>• Hampton Inn I-75 (Large rig parking)</li>
+                                <li>• Contractor rate: $89/night (20% off)</li>
+                                <li>• 18 miles from disaster zone</li>
+                              </ul>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Crew & Equipment Coordination */}
+                      <Card className="border-orange-200 dark:border-orange-800">
+                        <CardHeader>
+                          <CardTitle className="text-md flex items-center">
+                            <Wrench className="w-4 h-4 mr-2" />
+                            Crew & Equipment Coordination
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-4">
+                            <div className="bg-orange-50 dark:bg-orange-900/20 p-4 rounded-lg">
+                              <h4 className="font-semibold text-orange-800 dark:text-orange-200 mb-2">👥 Crew Optimization</h4>
+                              <ul className="text-sm text-orange-700 dark:text-orange-300 space-y-1">
+                                <li>• <strong>Crew A:</strong> 5 people → Residential jobs</li>
+                                <li>• <strong>Crew B:</strong> 5 people → FEMA priority sites</li>
+                                <li>• Est. 12-15 jobs per day (both crews)</li>
+                              </ul>
+                            </div>
+                            <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-lg">
+                              <h4 className="font-semibold text-indigo-800 dark:text-indigo-200 mb-2">🚛 Equipment Usage</h4>
+                              <ul className="text-sm text-indigo-700 dark:text-indigo-300 space-y-1">
+                                <li>• Bucket Truck #1: Morning residential route</li>
+                                <li>• Bucket Truck #2: Afternoon commercial route</li>
+                                <li>• Crane: On-call for priority emergencies</li>
+                              </ul>
+                            </div>
+                            <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
+                              <h4 className="font-semibold text-green-800 dark:text-green-200 mb-2">📋 Rotation Schedule</h4>
+                              <ul className="text-sm text-green-700 dark:text-green-300 space-y-1">
+                                <li>• Day shift: 6 AM - 6 PM (better visibility)</li>
+                                <li>• Night shift: 7 PM - 5 AM (emergency only)</li>
+                                <li>• Crew swap every 3 days (fatigue prevention)</li>
+                              </ul>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </div>
+
+                  {/* Step 4: Supply Chain Support */}
+                  <div className="mb-8">
+                    <h3 className="text-lg font-semibold mb-4 flex items-center">
+                      <ShoppingCart className="w-5 h-5 mr-2 text-green-600" />
+                      Step 4: Supply Chain Support
+                    </h3>
+                    <Card className="border-green-200 dark:border-green-800">
+                      <CardHeader>
+                        <CardTitle className="text-md">Tree Services Supply Checklist</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                          <div>
+                            <h4 className="font-semibold mb-3 text-green-700 dark:text-green-300">Critical Supplies</h4>
+                            <div className="space-y-2">
+                              {[
+                                { item: 'Bar Oil (5 gal)', stock: 'High', price: '$89.99', supplier: 'Home Depot #2045' },
+                                { item: 'Chainsaw Chains (10 pk)', stock: 'Medium', price: '$249.99', supplier: 'Lowe\'s #1234' },
+                                { item: 'Fuel Mix (2-cycle)', stock: 'Low', price: '$12.99/gal', supplier: 'Tractor Supply' },
+                                { item: 'Rigging Rope (100ft)', stock: 'High', price: '$124.99', supplier: 'Harbor Freight' }
+                              ].map((supply, idx) => (
+                                <div key={idx} className="flex justify-between items-center p-2 border rounded">
+                                  <div>
+                                    <div className="font-medium text-sm">{supply.item}</div>
+                                    <div className="text-xs text-gray-600">{supply.supplier}</div>
+                                  </div>
+                                  <div className="text-right">
+                                    <div className="text-sm font-semibold">{supply.price}</div>
+                                    <Badge className={supply.stock === 'Low' ? 'bg-red-100 text-red-800' : supply.stock === 'Medium' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}>
+                                      {supply.stock}
+                                    </Badge>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                          <div>
+                            <h4 className="font-semibold mb-3 text-blue-700 dark:text-blue-300">Safety Equipment</h4>
+                            <div className="space-y-2">
+                              {[
+                                { item: 'Hard Hats', needed: '12', price: '$15.99 each' },
+                                { item: 'Safety Glasses', needed: '12', price: '$8.99 each' },
+                                { item: 'Cut-resistant Gloves', needed: '12 pairs', price: '$19.99/pair' },
+                                { item: 'First Aid Kits', needed: '3', price: '$49.99 each' }
+                              ].map((safety, idx) => (
+                                <div key={idx} className="p-2 border rounded bg-blue-50 dark:bg-blue-900/20">
+                                  <div className="font-medium text-sm">{safety.item}</div>
+                                  <div className="text-xs text-gray-600">Need: {safety.needed} • {safety.price}</div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                          <div>
+                            <h4 className="font-semibold mb-3 text-purple-700 dark:text-purple-300">Nearby Suppliers</h4>
+                            <div className="space-y-2">
+                              {[
+                                { name: 'Home Depot #2045', distance: '12 mi', hours: '6AM-9PM' },
+                                { name: 'Lowe\'s #1234', distance: '8 mi', hours: '6AM-10PM' },
+                                { name: 'Tractor Supply Co.', distance: '15 mi', hours: '8AM-8PM' },
+                                { name: 'Harbor Freight', distance: '18 mi', hours: '8AM-8PM' }
+                              ].map((supplier, idx) => (
+                                <div key={idx} className="p-2 border rounded">
+                                  <div className="font-medium text-sm">{supplier.name}</div>
+                                  <div className="text-xs text-gray-600">{supplier.distance} • {supplier.hours}</div>
+                                  <Button size="sm" className="mt-1 w-full text-xs" data-testid={`button-supplier-${idx}`}>
+                                    <MapPin className="w-3 h-3 mr-1" />
+                                    Get Directions
+                                  </Button>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="mt-6 p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
+                          <div className="flex items-center mb-2">
+                            <AlertTriangle className="w-5 h-5 mr-2 text-yellow-600" />
+                            <h4 className="font-semibold text-yellow-800 dark:text-yellow-200">Supply Alert</h4>
+                          </div>
+                          <p className="text-sm text-yellow-700 dark:text-yellow-300">
+                            🔔 <strong>Low Stock Alert:</strong> 2-cycle fuel mix running low in area. Recommend purchasing 20+ gallons before deployment.
+                            <br />📈 <strong>Price Trend:</strong> Bar oil prices up 15% due to increased demand.
+                          </p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Step 5: AI Logistics Advisor */}
+                  <div className="mb-8">
+                    <h3 className="text-lg font-semibold mb-4 flex items-center">
+                      <Brain className="w-5 h-5 mr-2 text-indigo-600" />
+                      Step 5: AI Logistics Advisor
+                    </h3>
+                    <Card className="border-indigo-200 dark:border-indigo-800">
+                      <CardHeader>
+                        <CardTitle className="text-md flex items-center">
+                          <MessageCircle className="w-4 h-4 mr-2" />
+                          Ask Your Logistics Questions
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-4">
+                          {/* Sample Questions */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <h4 className="font-semibold text-sm mb-2">Quick Questions:</h4>
+                              {[
+                                "How many gallons of fuel for 5 trucks, 10 hours/day?",
+                                "Best staging location within 20 miles of Fort Myers?",
+                                "Crew rotation schedule for 2-week deployment?",
+                                "Equipment maintenance schedule in field conditions?"
+                              ].map((question, idx) => (
+                                <Button key={idx} variant="outline" size="sm" className="w-full mb-2 text-left justify-start h-auto p-2" data-testid={`button-quick-question-${idx}`}>
+                                  <span className="text-xs">{question}</span>
+                                </Button>
+                              ))}
+                            </div>
+                            <div>
+                              <h4 className="font-semibold text-sm mb-2">Predictive Planning:</h4>
+                              <div className="space-y-3">
+                                <div className="p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded border-l-4 border-indigo-400">
+                                  <div className="font-medium text-sm">Based on storm track analysis:</div>
+                                  <div className="text-xs text-gray-600 mt-1">
+                                    • You'll need 3 additional chainsaws in next 72 hours
+                                    • Diesel demand will spike 40% - secure fuel contracts now
+                                    • Hotel rates will increase 25% after Day 3
+                                  </div>
+                                </div>
+                                <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded border-l-4 border-green-400">
+                                  <div className="font-medium text-sm">Optimization Opportunity:</div>
+                                  <div className="text-xs text-gray-600 mt-1">
+                                    • Share crane rental with Miller Roofing (save $480/day)
+                                    • Bulk fuel purchase saves $0.15/gallon
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Chat Interface */}
+                          <div className="border-t pt-4">
+                            <div className="flex space-x-2">
+                              <Input placeholder="Ask AI: How should I stage my equipment for maximum efficiency?" className="flex-1" data-testid="input-ai-question" />
+                              <Button className="bg-indigo-600 hover:bg-indigo-700" data-testid="button-ask-ai">
+                                Ask AI
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Step 6: Shared Resource Coordination (Premium) */}
+                  <div className="mb-6">
+                    <h3 className="text-lg font-semibold mb-4 flex items-center">
+                      <Users className="w-5 h-5 mr-2 text-gold-600" />
+                      Step 6: Shared Resource Coordination
+                      <Badge className="ml-2 bg-gold-100 text-gold-800 dark:bg-gold-900 dark:text-gold-200">Premium</Badge>
+                    </h3>
+                    <Card className="border-yellow-200 dark:border-yellow-800 bg-gradient-to-r from-yellow-50 to-gold-50 dark:from-yellow-900/20 dark:to-gold-900/20">
+                      <CardContent className="p-6">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                          <div>
+                            <h4 className="font-semibold mb-3">🤝 Network with Other Contractors</h4>
+                            <div className="space-y-3">
+                              {[
+                                { name: 'Miller Roofing', type: 'Roofing', distance: '12 mi', sharing: 'Crane rental available' },
+                                { name: 'Tampa Tree Pros', type: 'Tree Service', distance: '8 mi', sharing: 'Extra crew available' },
+                                { name: 'Gulf Coast Electric', type: 'Electrical', distance: '15 mi', sharing: 'Generator sharing' }
+                              ].map((contractor, idx) => (
+                                <div key={idx} className="p-3 bg-white dark:bg-gray-800 rounded border">
+                                  <div className="flex justify-between items-start">
+                                    <div>
+                                      <div className="font-medium text-sm">{contractor.name}</div>
+                                      <div className="text-xs text-gray-600">{contractor.type} • {contractor.distance}</div>
+                                      <div className="text-xs text-green-600 mt-1">{contractor.sharing}</div>
+                                    </div>
+                                    <Button size="sm" data-testid={`button-connect-${idx}`}>Connect</Button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                          <div>
+                            <h4 className="font-semibold mb-3">💰 Cost Savings Opportunities</h4>
+                            <div className="space-y-3">
+                              <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded">
+                                <div className="font-medium text-sm text-green-800 dark:text-green-200">Fuel Bulk Purchase</div>
+                                <div className="text-xs text-green-700 dark:text-green-300">Join 4 contractors • Save $0.18/gallon</div>
+                                <div className="text-xs font-semibold text-green-800 dark:text-green-200">Potential savings: $340</div>
+                              </div>
+                              <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded">
+                                <div className="font-medium text-sm text-blue-800 dark:text-blue-200">Shared Equipment Pool</div>
+                                <div className="text-xs text-blue-700 dark:text-blue-300">Crane sharing with 2 contractors</div>
+                                <div className="text-xs font-semibold text-blue-800 dark:text-blue-200">Potential savings: $960/week</div>
+                              </div>
+                              <div className="p-3 bg-purple-100 dark:bg-purple-900/30 rounded">
+                                <div className="font-medium text-sm text-purple-800 dark:text-purple-200">Hotel Group Rates</div>
+                                <div className="text-xs text-purple-700 dark:text-purple-300">Book 15+ rooms together</div>
+                                <div className="text-xs font-semibold text-purple-800 dark:text-purple-200">Potential savings: $25/night/room</div>
+                              </div>
+                            </div>
+                            <div className="mt-4 p-3 bg-gold-100 dark:bg-gold-900/30 rounded border border-gold-300 dark:border-gold-700">
+                              <div className="text-center">
+                                <div className="font-semibold text-gold-800 dark:text-gold-200">Total Potential Weekly Savings</div>
+                                <div className="text-2xl font-bold text-gold-600">$1,847</div>
+                                <Button className="mt-2 bg-gold-600 hover:bg-gold-700 text-white" data-testid="button-upgrade-premium">
+                                  Upgrade to Premium
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Success Summary */}
+                  <Card className="bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20 border-green-200 dark:border-green-800">
+                    <CardContent className="p-6">
+                      <h3 className="font-bold text-lg mb-4 text-center text-green-700 dark:text-green-300">
+                        🎯 Your Battle-Ready Logistics Plan
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                        <div className="text-center">
+                          <div className="text-2xl mb-2">🗺️</div>
+                          <div className="font-semibold">Route Optimized</div>
+                          <div className="text-gray-600">3.5hr travel time</div>
+                          <div className="text-gray-600">Fuel stops planned</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-2xl mb-2">👥</div>
+                          <div className="font-semibold">Crews Coordinated</div>
+                          <div className="text-gray-600">12-15 jobs/day capacity</div>
+                          <div className="text-gray-600">Equipment optimized</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-2xl mb-2">📦</div>
+                          <div className="font-semibold">Supplies Secured</div>
+                          <div className="text-gray-600">Vendor relationships</div>
+                          <div className="text-gray-600">Low-stock alerts active</div>
+                        </div>
+                      </div>
+                      <div className="mt-6 text-center">
+                        <Button size="lg" className="bg-green-600 hover:bg-green-700 text-white" data-testid="button-deploy-plan">
+                          <Truck className="w-5 h-5 mr-2" />
+                          Deploy This Logistics Plan
+                        </Button>
                       </div>
                     </CardContent>
                   </Card>
