@@ -125,6 +125,15 @@ export default function SurveillanceCenter() {
     refetchInterval: 30000, // Refresh every 30 seconds for live data
   });
 
+  // Debug: Log the actual data being received
+  console.log('📊 Surveillance API Status:', { 
+    isLoading, 
+    hasRealData: !!surveillanceData, 
+    cameraCount: surveillanceData?.cameras?.length || 0,
+    realCameras: surveillanceData?.cameras?.map(c => c.name) || [],
+    timestamp: new Date().toISOString()
+  });
+
   // Mock data while backend API is being set up
   const mockData: SurveillanceData = {
     cameras: [
@@ -234,7 +243,15 @@ export default function SurveillanceCenter() {
     }
   };
 
+  // Use real API data if available, fallback to mock data
   const currentData = surveillanceData || mockData;
+  
+  // Log what we're actually displaying
+  if (surveillanceData) {
+    console.log('✅ Using REAL traffic camera data:', surveillanceData.cameras.map(c => c.name));
+  } else {
+    console.log('⚠️ Falling back to mock data - API may be loading');
+  }
 
   const startVoiceGuide = () => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) {

@@ -3653,7 +3653,7 @@ Email: strategiclandmgmt@gmail.com
         try {
           const opportunities = await unified511Directory.getContractorOpportunities(state);
           totalOpportunities += opportunities.length;
-          estimatedValue += opportunities.reduce((sum, opp) => sum + (opp.estimatedValue || 5000), 0);
+          estimatedValue += opportunities.reduce((sum, opp) => sum + 5000, 0);
         } catch (error: any) {
           console.log(`⚠️ Could not fetch opportunities for ${state}:`, error.message);
         }
