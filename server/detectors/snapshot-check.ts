@@ -43,13 +43,15 @@ export class SnapshotChecker {
     try {
       console.log(`📸 Capturing snapshot from ${camera.name} (${camera.id})`);
       
-      if (!camera.snapshotUrl) {
+      // Check for snapshot URL (try multiple property names)
+      const snapshotUrl = camera.snapshotUrl || (camera as any).url || (camera as any).imageUrl;
+      if (!snapshotUrl) {
         console.log(`⚠️ No snapshot URL available for ${camera.name}`);
         return null;
       }
 
       // Capture snapshot
-      const imageBuffer = await this.captureSnapshot(camera.snapshotUrl);
+      const imageBuffer = await this.captureSnapshot(snapshotUrl);
       
       // Analyze for damage
       const analysisResult = await this.damageDetector.analyzeImageForDamage(
@@ -111,7 +113,7 @@ export class SnapshotChecker {
 
       // Filter to active cameras with snapshot URLs and apply limit
       const activeCameras = camerasToCheck
-        .filter(camera => camera.isActive && camera.snapshotUrl)
+        .filter(camera => camera.isActive && (camera.snapshotUrl || (camera as any).url || (camera as any).imageUrl))
         .slice(0, maxCameras || this.config.detectionConfig.batchSize);
 
       console.log(`📸 Checking ${activeCameras.length} active cameras with snapshot URLs`);
