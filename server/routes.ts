@@ -8840,6 +8840,115 @@ Email: strategiclandmgmt@gmail.com
     });
   });
 
+  // ===== DRONE FLEET MANAGEMENT ENDPOINTS =====
+
+  // Get all drones
+  app.get('/api/drones', async (req, res) => {
+    try {
+      const drones = await storage.getDrones();
+      res.json({ drones, count: drones.length });
+    } catch (error) {
+      console.error('Error fetching drones:', error);
+      res.status(500).json({ error: 'Failed to fetch drones' });
+    }
+  });
+
+  // Get specific drone
+  app.get('/api/drones/:droneId', async (req, res) => {
+    try {
+      const drone = await storage.getDrone(req.params.droneId);
+      if (!drone) {
+        return res.status(404).json({ error: 'Drone not found' });
+      }
+      res.json({ drone });
+    } catch (error) {
+      console.error('Error fetching drone:', error);
+      res.status(500).json({ error: 'Failed to fetch drone' });
+    }
+  });
+
+  // Create new drone
+  app.post('/api/drones', express.json(), async (req, res) => {
+    try {
+      const drone = await storage.createDrone(req.body);
+      res.status(201).json({ drone });
+    } catch (error) {
+      console.error('Error creating drone:', error);
+      res.status(500).json({ error: 'Failed to create drone' });
+    }
+  });
+
+  // Update drone
+  app.put('/api/drones/:droneId', express.json(), async (req, res) => {
+    try {
+      const drone = await storage.updateDrone(req.params.droneId, req.body);
+      res.json({ drone });
+    } catch (error) {
+      console.error('Error updating drone:', error);
+      if (error instanceof Error && error.message === 'Drone not found') {
+        return res.status(404).json({ error: 'Drone not found' });
+      }
+      res.status(500).json({ error: 'Failed to update drone' });
+    }
+  });
+
+  // Get all missions
+  app.get('/api/missions', async (req, res) => {
+    try {
+      const { droneId } = req.query;
+      const missions = droneId 
+        ? await storage.getMissionsByDrone(droneId as string)
+        : await storage.getMissions();
+      res.json({ missions, count: missions.length });
+    } catch (error) {
+      console.error('Error fetching missions:', error);
+      res.status(500).json({ error: 'Failed to fetch missions' });
+    }
+  });
+
+  // Create new mission
+  app.post('/api/missions', express.json(), async (req, res) => {
+    try {
+      const mission = await storage.createMission(req.body);
+      res.status(201).json({ mission });
+    } catch (error) {
+      console.error('Error creating mission:', error);
+      res.status(500).json({ error: 'Failed to create mission' });
+    }
+  });
+
+  // Get telemetry
+  app.get('/api/telemetry', async (req, res) => {
+    try {
+      const { droneId, missionId } = req.query;
+      let telemetry;
+      
+      if (droneId) {
+        telemetry = await storage.getTelemetryByDrone(droneId as string);
+      } else if (missionId) {
+        telemetry = await storage.getTelemetryByMission(missionId as string);
+      } else {
+        telemetry = await storage.getTelemetry();
+      }
+      
+      res.json({ telemetry, count: telemetry.length });
+    } catch (error) {
+      console.error('Error fetching telemetry:', error);
+      res.status(500).json({ error: 'Failed to fetch telemetry' });
+    }
+  });
+
+  // Create telemetry data
+  app.post('/api/telemetry', express.json(), async (req, res) => {
+    try {
+      const telemetry = await storage.createTelemetry(req.body);
+      res.status(201).json({ telemetry });
+    } catch (error) {
+      console.error('Error creating telemetry:', error);
+      res.status(500).json({ error: 'Failed to create telemetry' });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

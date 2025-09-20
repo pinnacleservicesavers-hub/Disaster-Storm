@@ -88,7 +88,13 @@ import {
   type StormShareMediaAsset,
   type InsertStormShareMediaAsset,
   type StormShareAdCampaign,
-  type InsertStormShareAdCampaign
+  type InsertStormShareAdCampaign,
+  type Drone,
+  type InsertDrone,
+  type Mission,
+  type InsertMission,
+  type Telemetry,
+  type InsertTelemetry
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import fs from "fs";
@@ -138,6 +144,28 @@ export interface IStorage {
   getDroneFootage(): Promise<DroneFootage[]>;
   getLiveDroneFootage(): Promise<DroneFootage[]>;
   createDroneFootage(footage: InsertDroneFootage): Promise<DroneFootage>;
+
+  // Drone Fleet Management methods
+  getDrones(): Promise<Drone[]>;
+  getDrone(id: string): Promise<Drone | undefined>;
+  createDrone(drone: InsertDrone): Promise<Drone>;
+  updateDrone(id: string, updates: Partial<Drone>): Promise<Drone>;
+  deleteDrone(id: string): Promise<boolean>;
+
+  // Mission Management methods
+  getMissions(): Promise<Mission[]>;
+  getMission(id: string): Promise<Mission | undefined>;
+  getMissionsByDrone(droneId: string): Promise<Mission[]>;
+  createMission(mission: InsertMission): Promise<Mission>;
+  updateMission(id: string, updates: Partial<Mission>): Promise<Mission>;
+  deleteMission(id: string): Promise<boolean>;
+
+  // Telemetry methods
+  getTelemetry(): Promise<Telemetry[]>;
+  getTelemetryByDrone(droneId: string): Promise<Telemetry[]>;
+  getTelemetryByMission(missionId: string): Promise<Telemetry[]>;
+  createTelemetry(telemetry: InsertTelemetry): Promise<Telemetry>;
+  getLatestTelemetryByDrone(droneId: string): Promise<Telemetry | undefined>;
 
   // Market Comparable methods
   getMarketComparables(): Promise<MarketComparable[]>;
@@ -490,6 +518,11 @@ export class MemStorage implements IStorage {
   private contractorDocuments: Map<string, ContractorDocument> = new Map();
   private contractorWatchlist: Map<string, ContractorWatchlist> = new Map();
   private stormHotZones: Map<string, StormHotZone> = new Map();
+  
+  // Drone Fleet Management Storage
+  private drones: Map<string, Drone> = new Map();
+  private missions: Map<string, Mission> = new Map();
+  private telemetry: Map<string, Telemetry> = new Map();
   
   // Victim Portal Storage
   private homeowners: Map<string, Homeowner> = new Map();
@@ -3241,6 +3274,112 @@ export class MemStorage implements IStorage {
     };
     
     await this.createContractorOpportunityPrediction(opportunityData as any);
+  }
+
+  // ===== DRONE FLEET MANAGEMENT METHODS =====
+
+  async getDrones(): Promise<Drone[]> {
+    return Array.from(this.drones.values());
+  }
+
+  async getDrone(id: string): Promise<Drone | undefined> {
+    return this.drones.get(id);
+  }
+
+  async createDrone(insertDrone: InsertDrone): Promise<Drone> {
+    const drone: Drone = {
+      id: randomUUID(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      ...insertDrone
+    };
+    this.drones.set(drone.id, drone);
+    return drone;
+  }
+
+  async updateDrone(id: string, updates: Partial<Drone>): Promise<Drone> {
+    const drone = this.drones.get(id);
+    if (!drone) {
+      throw new Error('Drone not found');
+    }
+    const updatedDrone = { ...drone, ...updates, updatedAt: new Date() };
+    this.drones.set(id, updatedDrone);
+    return updatedDrone;
+  }
+
+  async deleteDrone(id: string): Promise<boolean> {
+    return this.drones.delete(id);
+  }
+
+  // ===== MISSION MANAGEMENT METHODS =====
+
+  async getMissions(): Promise<Mission[]> {
+    return Array.from(this.missions.values());
+  }
+
+  async getMission(id: string): Promise<Mission | undefined> {
+    return this.missions.get(id);
+  }
+
+  async getMissionsByDrone(droneId: string): Promise<Mission[]> {
+    return Array.from(this.missions.values()).filter(mission => mission.droneId === droneId);
+  }
+
+  async createMission(insertMission: InsertMission): Promise<Mission> {
+    const mission: Mission = {
+      id: randomUUID(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      ...insertMission
+    };
+    this.missions.set(mission.id, mission);
+    return mission;
+  }
+
+  async updateMission(id: string, updates: Partial<Mission>): Promise<Mission> {
+    const mission = this.missions.get(id);
+    if (!mission) {
+      throw new Error('Mission not found');
+    }
+    const updatedMission = { ...mission, ...updates, updatedAt: new Date() };
+    this.missions.set(id, updatedMission);
+    return updatedMission;
+  }
+
+  async deleteMission(id: string): Promise<boolean> {
+    return this.missions.delete(id);
+  }
+
+  // ===== TELEMETRY METHODS =====
+
+  async getTelemetry(): Promise<Telemetry[]> {
+    return Array.from(this.telemetry.values());
+  }
+
+  async getTelemetryByDrone(droneId: string): Promise<Telemetry[]> {
+    return Array.from(this.telemetry.values()).filter(t => t.droneId === droneId);
+  }
+
+  async getTelemetryByMission(missionId: string): Promise<Telemetry[]> {
+    return Array.from(this.telemetry.values()).filter(t => t.missionId === missionId);
+  }
+
+  async createTelemetry(insertTelemetry: InsertTelemetry): Promise<Telemetry> {
+    const telemetry: Telemetry = {
+      id: randomUUID(),
+      createdAt: new Date(),
+      ...insertTelemetry
+    };
+    this.telemetry.set(telemetry.id, telemetry);
+    return telemetry;
+  }
+
+  async getLatestTelemetryByDrone(droneId: string): Promise<Telemetry | undefined> {
+    const droneTelemetry = await this.getTelemetryByDrone(droneId);
+    if (droneTelemetry.length === 0) return undefined;
+    
+    // Sort by timestamp desc and return the latest
+    return droneTelemetry.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
   }
 }
 

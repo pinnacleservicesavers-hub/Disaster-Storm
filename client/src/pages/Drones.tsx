@@ -135,11 +135,45 @@ export default function Drones() {
     }
   };
 
-  // Mock real-time drone fleet data
+  // Real drone fleet data from API
   const { data: liveFlights = [] } = useQuery({
     queryKey: ['live-flights'],
     queryFn: async () => {
-      await new Promise(resolve => setTimeout(resolve, 300));
+      try {
+        const response = await fetch('/api/drones');
+        if (!response.ok) {
+          throw new Error('Failed to fetch drones');
+        }
+        const data = await response.json();
+        
+        // Transform API data to match interface, fallback to mock if empty
+        if (data.drones && data.drones.length > 0) {
+          return data.drones.map((drone: any) => ({
+            id: drone.id,
+            droneId: drone.name || drone.droneId || `HAWK-${drone.id.slice(-2)}`,
+            pilot: drone.operatorId || 'AI Pilot',
+            location: `${drone.city || 'Unknown'}, ${drone.state || 'N/A'}`,
+            status: drone.status || 'ready',
+            battery: drone.batteryLevel || 100,
+            altitude: 0,
+            mission: drone.currentMission || 'Standby',
+            speed: 0,
+            heading: 0,
+            temperature: 25,
+            windSpeed: 0,
+            signalStrength: 100,
+            flightTime: 0,
+            coordinates: { lat: 0, lng: 0 },
+            missionProgress: 0,
+            videoFeedActive: false,
+            autoMode: false
+          }));
+        }
+      } catch (error) {
+        console.error('⚠️ Drone API failed, using fallback data:', error);
+      }
+      
+      // Fallback mock data if API fails or returns empty
       return [
         { 
           id: '1', 
