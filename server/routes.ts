@@ -52,6 +52,7 @@ import { predictiveStormService } from "./services/predictiveStormService";
 import stormIntelligenceRoutes from "./routes/stormIntelligence";
 import { VoiceAIService } from "./services/voiceAI";
 import { weatherAI } from "./services/weatherAI.js";
+import { universalAI } from "./services/universalAI.js";
 import { storage } from "./storage";
 import { z } from "zod";
 
@@ -6320,6 +6321,144 @@ Email: strategiclandmgmt@gmail.com
       console.error('❌ Voice briefing generation failed:', error);
       res.status(500).json({
         error: 'Voice briefing failed',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // ===== UNIVERSAL AI INTELLIGENCE ENDPOINTS =====
+
+  // Universal AI Analysis for any module
+  app.post("/api/universal-ai/analyze", express.json(), async (req, res) => {
+    try {
+      const { module, location, timeframe = '24hour', currentData, userQuery } = req.body;
+      
+      if (!module) {
+        return res.status(400).json({ error: 'Module type is required' });
+      }
+      
+      console.log(`🧠 Universal AI Analysis for ${module} module`);
+      
+      const context = {
+        module,
+        location,
+        timeframe,
+        currentData,
+        userQuery
+      };
+
+      const analysis = await universalAI.analyzeForModule(context);
+      
+      res.json({
+        success: true,
+        analysis,
+        module,
+        timestamp: new Date().toISOString(),
+        superiority: analysis.superiority
+      });
+    } catch (error) {
+      console.error('❌ Universal AI analysis failed:', error);
+      res.status(500).json({
+        error: 'Universal AI analysis failed',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Real-time Storm Prediction
+  app.post("/api/universal-ai/storm-prediction", express.json(), async (req, res) => {
+    try {
+      const { location, timeframe = '24hour', currentData } = req.body;
+      
+      console.log('🌪️ Real-time Storm Prediction requested');
+      
+      const context = {
+        module: 'weather' as const,
+        location,
+        timeframe,
+        currentData
+      };
+
+      const prediction = await universalAI.predictStormDevelopment(context);
+      
+      res.json({
+        success: true,
+        prediction,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('❌ Storm prediction failed:', error);
+      res.status(500).json({
+        error: 'Storm prediction failed',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Live Satellite Data
+  app.get("/api/universal-ai/satellite-data", async (req, res) => {
+    try {
+      const { region = 'current' } = req.query;
+      
+      console.log('🛰️ Live Satellite Data requested');
+      
+      const satelliteData = await universalAI.getSatelliteData(region as string);
+      
+      res.json({
+        success: true,
+        satelliteData,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('❌ Satellite data retrieval failed:', error);
+      res.status(500).json({
+        error: 'Satellite data retrieval failed',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Real-time Wind Analysis
+  app.get("/api/universal-ai/wind-data", async (req, res) => {
+    try {
+      const { region = 'current' } = req.query;
+      
+      console.log('💨 Real-time Wind Analysis requested');
+      
+      const windData = await universalAI.getWindData(region as string);
+      
+      res.json({
+        success: true,
+        windData,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('❌ Wind data retrieval failed:', error);
+      res.status(500).json({
+        error: 'Wind data retrieval failed',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Temperature Gradient Analysis
+  app.get("/api/universal-ai/temperature-data", async (req, res) => {
+    try {
+      const { region = 'current' } = req.query;
+      
+      console.log('🌡️ Temperature Gradient Analysis requested');
+      
+      const temperatureData = await universalAI.getTemperatureData(region as string);
+      
+      res.json({
+        success: true,
+        temperatureData,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('❌ Temperature data retrieval failed:', error);
+      res.status(500).json({
+        error: 'Temperature data retrieval failed',
         details: error instanceof Error ? error.message : 'Unknown error'
       });
     }
