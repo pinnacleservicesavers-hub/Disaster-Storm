@@ -48,6 +48,7 @@ import {
 import { FadeIn, CountUp, StaggerContainer, StaggerItem, HoverLift, ScaleIn, SlideIn, PulseAlert } from '@/components/ui/animations';
 import { apiRequest } from '@/lib/queryClient';
 import { UnifiedAssistant } from '@/components/UnifiedAssistant';
+import { UniversalAIAssistant } from '@/components/UniversalAIAssistant';
 
 interface SurveillanceData {
   cameras: CameraFeed[];
@@ -479,10 +480,14 @@ export default function SurveillanceCenter() {
 
       {/* AI Assistant */}
       <FadeIn delay={0.2}>
-        <UnifiedAssistant 
-          portalType="surveillance"
+        <UniversalAIAssistant
+          module="surveillance"
+          currentLocation={userLocation ? {
+            latitude: userLocation.latitude,
+            longitude: userLocation.longitude,
+            state: userLocation.state
+          } : undefined}
           currentData={currentData}
-          mode="voice"
           className="mb-6"
         />
       </FadeIn>

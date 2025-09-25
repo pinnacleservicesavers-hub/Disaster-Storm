@@ -51,6 +51,7 @@ import { Link } from 'wouter';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
+import { UniversalAIAssistant } from '@/components/UniversalAIAssistant';
 import {
   FadeIn,
   SlideIn,
@@ -1386,24 +1387,19 @@ export default function ContractorPortal() {
 
           {/* AI Tools Tab */}
           <TabsContent value="ai" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Bot className="w-5 h-5 mr-2" />
-                  AI Support & Assistance
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-6 rounded-lg">
-                  <h4 className="font-semibold text-gray-900 mb-3">Your AI Assistant is Ready</h4>
-                  <p className="text-sm text-gray-700 mb-4">
-                    Get help with compliance, contracts, pricing, claims processes, and more. Your AI assistant has access to industry best practices and your project history.
-                  </p>
-                  <Button data-testid="button-start-ai-chat">
-                    <Bot className="w-4 h-4 mr-2" />
-                    Start AI Chat
-                  </Button>
-                </div>
+            <UniversalAIAssistant
+              module="contractor"
+              currentLocation={undefined}
+              currentData={{
+                opportunities: [], // Add contractor opportunities data
+                leads: [], // Add leads data
+                customers: [], // Add customer data
+                invoices: [], // Add invoice data
+                compliance: [], // Add compliance data
+                projects: [] // Add project data
+              }}
+              className="w-full"
+            />
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="bg-green-50 p-4 rounded-lg">
