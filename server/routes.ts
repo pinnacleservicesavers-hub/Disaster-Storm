@@ -10493,10 +10493,40 @@ What specific area or type of incident would you like me to focus on? I can prov
 
   // ===== AI ASSISTANT ENDPOINTS =====
   
+  // Create AI session (AI assistant)
+  app.post('/api/ai/session', authenticate, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { projectId, mode } = req.body;
+      
+      if (!projectId || !mode) {
+        return res.status(400).json({ error: 'projectId and mode are required' });
+      }
+      
+      // Create AI session in database
+      const session = await storage.createAiSession({
+        projectId,
+        startedBy: req.user.id,
+        mode: mode as 'ask' | 'mark' | 'measure' | 'summarize' | 'inspect' | 'blur'
+      });
+      
+      console.log(`AI Assistant session created: ${session.id} for project ${projectId} by user ${req.user.id}`);
+      
+      res.status(201).json({ 
+        ok: true, 
+        sessionId: session.id,
+        message: `AI session started in ${mode} mode`
+      });
+      
+    } catch (error) {
+      console.error('Error creating AI session:', error);
+      res.status(500).json({ error: 'Failed to create AI session' });
+    }
+  });
+  
   // Add circle annotation (AI assistant)
   app.post('/api/ai/annotate/circle', authenticate, async (req: AuthenticatedRequest, res) => {
     try {
-      const { mediaId, x, y, r, label } = req.body;
+      const { mediaId, x, y, r, label, sessionId } = req.body;
       
       if (!mediaId || x === undefined || y === undefined || r === undefined || !label) {
         return res.status(400).json({ error: 'mediaId, x, y, r, and label are required' });
@@ -10512,6 +10542,17 @@ What specific area or type of incident would you like me to focus on? I can prov
       });
       
       // Log AI action for audit trail
+      if (sessionId) {
+        await storage.createAiAction({
+          sessionId,
+          action: 'annotate.circle',
+          input: { mediaId, x, y, r, label },
+          output: { annotationId: annotation.id },
+          mediaId,
+          sha256: null // Could be added later for chain-of-custody
+        });
+      }
+      
       console.log(`AI Assistant created circle annotation: ${label} at (${x}, ${y}) r=${r} for media ${mediaId}`);
       
       res.status(201).json({ 
@@ -10559,7 +10600,7 @@ What specific area or type of incident would you like me to focus on? I can prov
   // Measure diameter (AI assistant)
   app.post('/api/ai/measure/diameter', authenticate, async (req: AuthenticatedRequest, res) => {
     try {
-      const { mediaId, x1, y1, x2, y2, pixelsPerInch } = req.body;
+      const { mediaId, x1, y1, x2, y2, pixelsPerInch, sessionId } = req.body;
       
       if (!mediaId || x1 === undefined || y1 === undefined || x2 === undefined || y2 === undefined) {
         return res.status(400).json({ error: 'mediaId, x1, y1, x2, y2 are required' });
@@ -10585,6 +10626,18 @@ What specific area or type of incident would you like me to focus on? I can prov
         content: inches ? `${inches.toFixed(1)}" diameter (±${uncertaintyPct}%)` : `${pixelDistance.toFixed(0)}px measurement`,
         createdBy: req.user.id
       });
+      
+      // Log AI action for audit trail
+      if (sessionId) {
+        await storage.createAiAction({
+          sessionId,
+          action: 'measure.diameter',
+          input: { mediaId, x1, y1, x2, y2, pixelsPerInch },
+          output: { annotationId: annotation.id, inches, pixelDistance, uncertaintyPct },
+          mediaId,
+          sha256: null
+        });
+      }
       
       console.log(`AI Assistant measured diameter: ${inches ? inches.toFixed(1) + ' inches' : pixelDistance.toFixed(0) + 'px'} for media ${mediaId}`);
       

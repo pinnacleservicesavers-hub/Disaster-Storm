@@ -1,0 +1,69 @@
+// apps/web/src/components/AssistantDock.tsx
+const wsRef = useRef<WebSocket|null>(null);
+const mediaRecorderRef = useRef<MediaRecorder|null>(null);
+
+
+useEffect(() => {
+const ws = new WebSocket(`${location.protocol==='https:'?'wss':'ws'}://${location.host}/ws/assistant`);
+wsRef.current = ws;
+ws.addEventListener('open', () => ws.send(JSON.stringify({ type:'start', projectId:'DEMO', mode:'ask' })));
+ws.addEventListener('message', (ev) => {
+const m = JSON.parse(ev.data);
+if (m.type === 'assistant_text') setMsgs((s)=>[...s,{role:'assistant',text:m.text}]);
+if (m.type === 'partial_transcript') setMsgs((s)=>[...s,{role:'system',text:`…${m.text}` }]);
+if (m.type === 'tool_call') {
+// Optimistically show intent
+setMsgs((s)=>[...s,{role:'system', text:`[Tool] ${m.name}` }]);
+// Optionally call REST endpoint to perform
+}
+});
+return () => ws.close();
+}, []);
+
+
+const sendText = (text:string) => {
+wsRef.current?.send(JSON.stringify({ type:'user_text', text }));
+setMsgs((s)=>[...s,{role:'user',text}]);
+};
+
+
+const startPTT = async () => {
+const stream = await navigator.mediaDevices.getUserMedia({ audio:true });
+const mr = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+mediaRecorderRef.current = mr;
+mr.ondataavailable = (e) => e.data.arrayBuffer().then(buf => wsRef.current?.send(JSON.stringify({ type:'user_audio', pcm: Array.from(new Uint8Array(buf)) })));
+mr.start(250);
+};
+const stopPTT = () => mediaRecorderRef.current?.stop();
+
+
+return (
+<div className={`fixed right-4 bottom-4 w-96 ${open?'':'translate-y-[calc(100%+16px)]'} transition`}>
+<div className="rounded-2xl shadow-xl border bg-white overflow-hidden">
+<div className="px-3 py-2 flex items-center justify-between">
+<div className="font-medium">AI Assistant</div>
+<button onClick={()=>setOpen(false)} className="text-sm">×</button>
+</div>
+<div className="h-64 overflow-auto space-y-2 px-3 py-2 bg-gray-50">
+{msgs.map((m,i)=> (
+<div key={i} className={`text-sm ${m.role==='user'?'text-right':''}`}>
+<span className={`inline-block px-2 py-1 rounded-xl ${m.role==='user'?'bg-black text-white':'bg-white border'}`}>{m.text}</span>
+</div>
+))}
+</div>
+<div className="p-2 border-t flex items-center gap-2">
+<button onMouseDown={startPTT} onMouseUp={stopPTT} className="px-3 py-1.5 rounded-xl border">🎙️ Hold to talk</button>
+<input id="aiText" placeholder="Ask about this project…" className="flex-1 rounded-xl border px-2 py-1.5" onKeyDown={(e)=>{
+if(e.key==='Enter'){
+const v=(e.target as HTMLInputElement).value.trim();
+if(v){ sendText(v); (e.target as HTMLInputElement).value=''; }
+}
+}} />
+<button className="px-3 py-1.5 rounded-xl bg-black text-white" onClick={()=>{
+const el = document.getElementById('aiText') as HTMLInputElement; const v=el.value.trim(); if(v){ sendText(v); el.value=''; }
+}}>Send</button>
+</div>
+</div>
+</div>
+);
+}

@@ -3673,6 +3673,66 @@ export const auditLog = pgTable("audit_log", {
   }),
 }));
 
+// ===== AI ASSISTANT TABLES =====
+
+// AI Sessions table (track user sessions with the AI assistant)
+export const aiSessions = pgTable("ai_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull(),
+  startedBy: varchar("started_by").notNull(),
+  mode: text("mode").notNull().$type<'ask' | 'mark' | 'measure' | 'summarize' | 'inspect' | 'blur'>(),
+  startedAt: timestamp("started_at").defaultNow(),
+}, (table) => ({
+  sessionProjectFkey: foreignKey({
+    columns: [table.projectId],
+    foreignColumns: [projects.id],
+    name: "fk_ai_session_project"
+  }),
+  sessionUserFkey: foreignKey({
+    columns: [table.startedBy],
+    foreignColumns: [users.id],
+    name: "fk_ai_session_user"
+  }),
+}));
+
+// AI Actions table (track all AI-generated actions for audit trail)
+export const aiActions = pgTable("ai_actions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").notNull(),
+  action: text("action").notNull(), // e.g. annotate.box, measure.diameter
+  input: jsonb("input").$type<JsonObject>().notNull(),
+  output: jsonb("output").$type<JsonObject>(),
+  mediaId: varchar("media_id"),
+  sha256: text("sha256"), // hash of source asset used
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  actionSessionFkey: foreignKey({
+    columns: [table.sessionId],
+    foreignColumns: [aiSessions.id],
+    name: "fk_ai_action_session"
+  }),
+  actionMediaFkey: foreignKey({
+    columns: [table.mediaId],
+    foreignColumns: [media.id],
+    name: "fk_ai_action_media"
+  }),
+}));
+
+// Media Frames table (store per-frame analysis caches for videos)
+export const mediaFrames = pgTable("media_frames", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  mediaId: varchar("media_id").notNull(),
+  tMs: integer("t_ms").notNull(), // timestamp (ms)
+  thumbKey: text("thumb_key").notNull(), // storage key for frame thumbnail
+  analysis: jsonb("analysis").$type<JsonObject>(), // detections, keypoints, etc.
+}, (table) => ({
+  frameMediaFkey: foreignKey({
+    columns: [table.mediaId],
+    foreignColumns: [media.id],
+    name: "fk_media_frame_media"
+  }),
+}));
+
 // ===== DISASTER LENS INSERT SCHEMAS =====
 
 export const insertOrganizationSchema = createInsertSchema(organizations).omit({
@@ -3731,6 +3791,21 @@ export const insertAuditLogSchema = createInsertSchema(auditLog).omit({
   at: true,
 });
 
+// AI Assistant Insert Schemas
+export const insertAiSessionSchema = createInsertSchema(aiSessions).omit({
+  id: true,
+  startedAt: true,
+});
+
+export const insertAiActionSchema = createInsertSchema(aiActions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertMediaFrameSchema = createInsertSchema(mediaFrames).omit({
+  id: true,
+});
+
 // ===== DISASTER LENS TYPES =====
 
 export type Organization = typeof organizations.$inferSelect;
@@ -3753,3 +3828,11 @@ export type Share = typeof shares.$inferSelect;
 export type InsertShare = z.infer<typeof insertShareSchema>;
 export type AuditLogEntry = typeof auditLog.$inferSelect;
 export type InsertAuditLogEntry = z.infer<typeof insertAuditLogSchema>;
+
+// AI Assistant Types
+export type AiSession = typeof aiSessions.$inferSelect;
+export type InsertAiSession = z.infer<typeof insertAiSessionSchema>;
+export type AiAction = typeof aiActions.$inferSelect;
+export type InsertAiAction = z.infer<typeof insertAiActionSchema>;
+export type MediaFrame = typeof mediaFrames.$inferSelect;
+export type InsertMediaFrame = z.infer<typeof insertMediaFrameSchema>;

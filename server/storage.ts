@@ -115,7 +115,14 @@ import {
   type Share,
   type InsertShare,
   type AuditLogEntry,
-  type InsertAuditLogEntry
+  type InsertAuditLogEntry,
+  // AI Assistant entities
+  type AiSession,
+  type InsertAiSession,
+  type AiAction,
+  type InsertAiAction,
+  type MediaFrame,
+  type InsertMediaFrame
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import fs from "fs";
@@ -585,6 +592,15 @@ export interface IStorage {
   updateShare(id: string, updates: Partial<Share>): Promise<Share>;
   deleteShare(id: string): Promise<boolean>;
   
+  // AI Assistant methods
+  createAiSession(session: InsertAiSession): Promise<AiSession>;
+  getAiSession(id: string): Promise<AiSession | undefined>;
+  getAiSessionsByProject(projectId: string): Promise<AiSession[]>;
+  createAiAction(action: InsertAiAction): Promise<AiAction>;
+  getAiActionsBySession(sessionId: string): Promise<AiAction[]>;
+  createMediaFrame(frame: InsertMediaFrame): Promise<MediaFrame>;
+  getMediaFramesByMedia(mediaId: string): Promise<MediaFrame[]>;
+  
   // Audit Log methods
   createAuditLog(entry: InsertAuditLogEntry): Promise<AuditLogEntry>;
   getAuditLogByProject(projectId: string): Promise<AuditLogEntry[]>;
@@ -665,6 +681,11 @@ export class MemStorage implements IStorage {
   private disasterReports: Map<string, DisasterReport> = new Map();
   private shares: Map<string, Share> = new Map();
   private auditLog: Map<string, AuditLogEntry> = new Map();
+  
+  // AI Assistant Storage
+  private aiSessions: Map<string, AiSession> = new Map();
+  private aiActions: Map<string, AiAction> = new Map();
+  private mediaFrames: Map<string, MediaFrame> = new Map();
 
   constructor() {
     console.log('🏗️ Initializing MemStorage...');
@@ -3979,6 +4000,53 @@ export class MemStorage implements IStorage {
     
     // Sort by timestamp desc and return the latest
     return droneTelemetry.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+  }
+
+  // ===== AI ASSISTANT METHODS =====
+
+  async createAiSession(insertSession: InsertAiSession): Promise<AiSession> {
+    const session: AiSession = {
+      id: randomUUID(),
+      startedAt: new Date(),
+      ...insertSession
+    };
+    this.aiSessions.set(session.id, session);
+    return session;
+  }
+
+  async getAiSession(id: string): Promise<AiSession | undefined> {
+    return this.aiSessions.get(id);
+  }
+
+  async getAiSessionsByProject(projectId: string): Promise<AiSession[]> {
+    return Array.from(this.aiSessions.values()).filter(session => session.projectId === projectId);
+  }
+
+  async createAiAction(insertAction: InsertAiAction): Promise<AiAction> {
+    const action: AiAction = {
+      id: randomUUID(),
+      createdAt: new Date(),
+      ...insertAction
+    };
+    this.aiActions.set(action.id, action);
+    return action;
+  }
+
+  async getAiActionsBySession(sessionId: string): Promise<AiAction[]> {
+    return Array.from(this.aiActions.values()).filter(action => action.sessionId === sessionId);
+  }
+
+  async createMediaFrame(insertFrame: InsertMediaFrame): Promise<MediaFrame> {
+    const frame: MediaFrame = {
+      id: randomUUID(),
+      ...insertFrame
+    };
+    this.mediaFrames.set(frame.id, frame);
+    return frame;
+  }
+
+  async getMediaFramesByMedia(mediaId: string): Promise<MediaFrame[]> {
+    return Array.from(this.mediaFrames.values()).filter(frame => frame.mediaId === mediaId);
   }
 }
 

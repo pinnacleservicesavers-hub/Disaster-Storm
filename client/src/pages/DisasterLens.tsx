@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { getAuthHeaders } from "@/lib/queryClient";
 
 // Single-file demo UI for Disaster Lens
 // Tabs: Capture, Timeline, Annotator, Report Builder
@@ -8,32 +9,124 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 // ------------------------------
 // AI Assistant Dock Component
 // ------------------------------
-function AssistantDock() {
+function AssistantDock({ projectId, currentMediaId }: { projectId?: string, currentMediaId?: string }) {
   const [open, setOpen] = useState(true);
   const [msgs, setMsgs] = useState<{role:'user'|'assistant'|'system', text:string}[]>([]);
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const wsRef = useRef<WebSocket|null>(null);
   const mediaRecorderRef = useRef<MediaRecorder|null>(null);
+
+  // Create AI session when component mounts
+  useEffect(() => {
+    if (projectId) {
+      createAiSession();
+    }
+  }, [projectId]);
+
+  const createAiSession = async () => {
+    try {
+      const response = await fetch('/api/ai/session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders()
+        },
+        body: JSON.stringify({ 
+          projectId: projectId || 'demo-project', 
+          mode: 'ask' 
+        })
+      });
+      const data = await response.json();
+      if (data.ok) {
+        setSessionId(data.sessionId);
+      }
+    } catch (error) {
+      console.error('Failed to create AI session:', error);
+    }
+  };
 
   useEffect(() => {
     const ws = new WebSocket(`${location.protocol==='https:'?'wss':'ws'}://${location.host}/ws/assistant`);
     wsRef.current = ws;
-    ws.addEventListener('open', () => ws.send(JSON.stringify({ type:'start', projectId:'DEMO', mode:'ask' })));
+    ws.addEventListener('open', () => {
+      if (sessionId) {
+        ws.send(JSON.stringify({ type:'start', sessionId, projectId: projectId || 'demo-project', mode:'ask' }));
+      }
+    });
     ws.addEventListener('message', (ev) => {
       const m = JSON.parse(ev.data);
       if (m.type === 'assistant_text') setMsgs((s)=>[...s,{role:'assistant',text:m.text}]);
       if (m.type === 'partial_transcript') setMsgs((s)=>[...s,{role:'system',text:`…${m.text}` }]);
       if (m.type === 'tool_call') {
-        // Optimistically show intent
-        setMsgs((s)=>[...s,{role:'system', text:`[Tool] ${m.name}` }]);
-        // Optionally call REST endpoint to perform
+        // Execute tool call via REST endpoint
+        executeTool(m.name, m.args);
       }
     });
     return () => ws.close();
-  }, []);
+  }, [sessionId, projectId]);
+
+  const executeTool = async (toolName: string, args: any) => {
+    setMsgs((s)=>[...s,{role:'system', text:`🔧 Executing ${toolName}...` }]);
+    
+    try {
+      let endpoint = '';
+      let payload = { ...args, sessionId };
+      
+      // Route tool calls to correct endpoints
+      if (toolName === 'annotate.addCircle') {
+        endpoint = '/api/ai/annotate/circle';
+        payload = {
+          mediaId: currentMediaId || args.mediaId,
+          x: args.x,
+          y: args.y,
+          r: args.r,
+          label: args.label,
+          sessionId
+        };
+      } else if (toolName === 'measure.diameter') {
+        endpoint = '/api/ai/measure/diameter';
+        payload = {
+          mediaId: currentMediaId || args.mediaId,
+          x1: args.x1,
+          y1: args.y1,
+          x2: args.x2,
+          y2: args.y2,
+          pixelsPerInch: args.pixelsPerInch,
+          sessionId
+        };
+      }
+      
+      if (endpoint) {
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...getAuthHeaders()
+          },
+          body: JSON.stringify(payload)
+        });
+        
+        const result = await response.json();
+        if (result.ok) {
+          setMsgs((s)=>[...s,{role:'assistant', text:`✅ ${result.message}` }]);
+        } else {
+          setMsgs((s)=>[...s,{role:'system', text:`❌ Error: ${result.error}` }]);
+        }
+      } else {
+        setMsgs((s)=>[...s,{role:'system', text:`🔧 Tool ${toolName} not implemented yet` }]);
+      }
+    } catch (error) {
+      setMsgs((s)=>[...s,{role:'system', text:`❌ Failed to execute ${toolName}: ${error}` }]);
+    }
+  };
 
   const sendText = (text:string) => {
-    wsRef.current?.send(JSON.stringify({ type:'user_text', text }));
-    setMsgs((s)=>[...s,{role:'user',text}]);
+    if (wsRef.current && sessionId) {
+      wsRef.current?.send(JSON.stringify({ type:'user_text', text, sessionId }));
+      setMsgs((s)=>[...s,{role:'user',text}]);
+    } else {
+      setMsgs((s)=>[...s,{role:'system', text:'⚠️ Please wait for session to initialize...' }]);
+    }
   };
 
   const startPTT = async () => {
@@ -614,7 +707,7 @@ export default function App() {
       </footer>
       
       {/* AI Assistant Dock */}
-      <AssistantDock />
+      <AssistantDock projectId="demo-project-001" currentMediaId="demo-media-001" />
     </div>
   );
 }

@@ -1,0 +1,70 @@
+Disaster Lense — Ai Voice & Vision Assistant (spec + Starter Code)
+Disaster Lense — AI Voice & Vision Assistant (Spec + Starter Code)
+
+Goal: Add an advanced multimodal AI assistant inside Disaster Lense that supports voice & text chat about project photos/videos and can perform actions: annotate damage, place a measuring tape, estimate stump diameter, (configurable) tree weight estimation, circle water/gas/electrical damage areas, blur PII, and auto‑draft insurer‑ready snippets — all while keeping chain‑of‑custody and role‑based permissions.
+
+This is an implementation‑ready spec with UI/Server stubs you can paste into your Replit monorepo from the previous canvases.
+
+1) User Experience (UX)
+
+Assistant Dock
+
+A floating panel on every Project page: mic button (push‑to‑talk), transcript stream, and an action log.
+
+Modes: Ask (Q&A), Mark (annotations), Measure (tape), Summarize (report text), Inspect (AI scans for risks/hazards), Blur (PII).
+
+Voice in/out: speech‑to‑text (STT) and text‑to‑speech (TTS). If poor network, falls back to text.
+
+Sample Voice Prompts
+
+“Show me the largest stump diameter and label it.”
+
+“Circle the broken water line and add ‘Possible water main damage’.”
+
+“Estimate the weight of this oak trunk section at 12 ft — add the math to the report.”
+
+“Create an insurance summary for USAA with before/during/after bullets.”
+
+“Blur house number and license plate, then make a client‑share link.”
+
+Audit & Safety
+
+Every AI action writes an audit_log row with inputs/outputs and the media sha256.
+
+Visual outputs watermark: “AI‑assisted estimate — verify before use.”
+
+2) Architecture Overview
+
+Client (web/PWA)
+
+AssistantDock React component with WebSocket to /ws/assistant.
+
+STT: browser MediaStream → VAD (basic) → PCM chunks over WS.
+
+TTS: receives audio (optional) or uses browser speechSynthesis.
+
+Tool invocations: messages returned from server as “tool calls”; the client renders the effect or asks server to apply.
+
+Server (Node/Express + WS)
+
+/ws/assistant upgrades to WebSocket.
+
+AI Orchestrator interprets user utterances, referencing project media via embeddings/captions.
+
+Tool executor modules:
+
+annotate.addBox, annotate.arrow, annotate.text, annotate.blur
+
+measure.diameterFromFrame (needs scale calibration)
+
+video.markAndExport (FFmpeg overlay pipeline)
+
+detect.damageHints (TF.js / server model optional)
+
+estimate.treeWeight (uses species + DBH + length params)
+
+report.snippet (insurer style)
+
+Persist generated annotations in DB and store edited media derivatives with new storage keys (never overwrite original).
+
+3) Data Model Additions

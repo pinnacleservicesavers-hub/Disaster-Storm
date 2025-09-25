@@ -1,0 +1,61 @@
+9) Insurance‑Ready Output Templates
+
+USAA / State Farm style (example fields)
+
+Claim #: ____ | Project: ____ | Address: ____ | Date: ____
+
+Damage Summary: bullet points with references to annotated photo IDs
+
+Measurements: stump diameters (in), limb lengths (ft), roof impact area (sq ft)
+
+Estimates: formulas used for weight → disposal/rigging plans
+
+Safety & Pre‑Existing Conditions: items identified before work (protects contractor)
+
+Footer: chain‑of‑custody hashes of referenced media
+
+10) Privacy, Safety, and Disclaimers
+
+Always preserve originals; edits/overlays are derivatives with new keys.
+
+Place a subtle watermark: “AI‑assisted estimate. Verify before use.”
+
+Measurement/weight are estimates; include method & uncertainty.
+
+Blur PII by default on public shares.
+
+Log all AI actions with parameters and model versions used.
+
+11) Next Steps (Incremental Build)
+
+Mount AssistantDock and connect WS.
+
+Implement annotate.addCircle → DB row + live overlay in UI.
+
+Add measure.calibrate + measure.diameter with tape overlay.
+
+Wire report.snippet → append to Report Builder captions/notes.
+
+Add FFmpeg pipeline for video.markAndExport.
+
+Add configurable species equation table for tree weight.
+
+Add hazard‑hint (optional TF.js) for assistive bounding boxes.
+
+This delivers a powerful, auditable AI assistant that talks, listens, and works on your media — exactly what your contractors and adjusters will love.
+
+🔥 Love it — I added a full AI Voice & Vision Assistant spec to the canvas, including:
+
+UX for a floating Assistant Dock with push-to-talk, live transcripts, and an action log
+
+WebSocket protocol for voice/text chat and tool calls
+
+Tool catalog to let the AI mark, measure, circle damage, blur PII, estimate tree weight, and draft insurer-ready snippets
+
+Measurement calibration strategies (tape/QR tag/EXIF) and uncertainty tracking with watermarks
+
+Server stubs for annotate, measure, estimate, and FFmpeg video markups
+
+DB tables for AI sessions + AI actions (audit trail with media SHA-256)
+
+Privacy/safety notes and step-by-step rollout plan
