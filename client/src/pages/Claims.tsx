@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { Link } from 'wouter';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { useQuery } from '@tanstack/react-query';
-import { FileText, Plus, Search, Settings, DollarSign, Clock, CheckCircle, AlertTriangle, TrendingUp, Eye, Volume2, VolumeX } from 'lucide-react';
+import { FileText, Plus, Search, Settings, DollarSign, Clock, CheckCircle, AlertTriangle, TrendingUp, Eye, Volume2, VolumeX, ArrowLeft } from 'lucide-react';
 import { DashboardSection } from '@/components/DashboardSection';
 import { FadeIn, PulseAlert, StaggerContainer, StaggerItem, HoverLift, CountUp } from '@/components/ui/animations';
 import { XactimateComparables } from '@/components/XactimateComparables';

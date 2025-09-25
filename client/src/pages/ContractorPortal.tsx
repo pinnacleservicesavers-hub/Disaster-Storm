@@ -44,8 +44,10 @@ import {
   Award,
   Briefcase,
   Volume2,
-  VolumeX
+  VolumeX,
+  ArrowLeft
 } from 'lucide-react';
+import { Link } from 'wouter';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';

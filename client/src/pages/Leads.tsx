@@ -16,8 +16,9 @@ import {
   Star, DollarSign, Camera, FileText, MessageSquare, UserPlus,
   Building2, Shield, Activity, Eye, ChevronRight, RefreshCw,
   Briefcase, Award, Timer, Globe, Navigation, Volume2, VolumeX,
-  List, Download, UserX
+  List, Download, UserX, ArrowLeft
 } from 'lucide-react';
+import { Link } from 'wouter';
 import { FadeIn, PulseAlert, StaggerContainer, StaggerItem, HoverLift, CountUp, ScaleIn, SlideIn } from '@/components/ui/animations';
 import { apiRequest } from '@/lib/queryClient';
 
