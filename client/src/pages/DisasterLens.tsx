@@ -519,9 +519,32 @@ function ReportBuilderTab() {
   const [reportTitle, setReportTitle] = useState("Storm Damage Assessment");
   const [sections, setSections] = useState([
     { id: 1, title: "Executive Summary", content: "Overview of damage assessment findings..." },
-    { id: 2, title: "Photo Documentation", content: "Detailed photographic evidence..." },
+    { id: 2, title: "Photo Documentation", content: "Detailed photographic evidence...", media: [] as string[] },
     { id: 3, title: "Recommendations", content: "Suggested remediation actions..." }
   ]);
+
+  // Listen for auto-injection events from diameter measurements
+  useEffect(()=>{
+    function onOverlay(e: any){
+      const { imageBase64, caption } = e.detail || {};
+      if (!imageBase64) return;
+      setSections(prev => {
+        const copy = [...prev];
+        // Find Photo Documentation section or create one
+        let photoSection = copy.find(s => s.title === "Photo Documentation");
+        if (!photoSection) {
+          photoSection = { id: Date.now(), title: "Photo Documentation", content: "Measurement overlays and damage documentation", media: [] };
+          copy.push(photoSection);
+        }
+        // Add overlay image to media array
+        if (!photoSection.media) photoSection.media = [];
+        photoSection.media.push(imageBase64);
+        return copy;
+      });
+    }
+    window.addEventListener('DL_ADD_OVERLAY_TO_REPORT', onOverlay as any);
+    return ()=> window.removeEventListener('DL_ADD_OVERLAY_TO_REPORT', onOverlay as any);
+  },[]);
 
   const addSection = () => {
     const title = prompt("Section title:");
@@ -529,7 +552,8 @@ function ReportBuilderTab() {
       setSections(prev => [...prev, {
         id: Date.now(),
         title,
-        content: "New section content..."
+        content: "New section content...",
+        media: []
       }]);
     }
   };
@@ -540,23 +564,43 @@ function ReportBuilderTab() {
     ));
   };
 
+  const removeMedia = (sectionId: number, mediaIndex: number) => {
+    setSections(prev => prev.map(section => {
+      if (section.id === sectionId && section.media) {
+        const newMedia = [...section.media];
+        newMedia.splice(mediaIndex, 1);
+        return { ...section, media: newMedia };
+      }
+      return section;
+    }));
+  };
+
   const deleteSection = (id: number) => {
     setSections(prev => prev.filter(section => section.id !== id));
   };
 
   const generateReport = async () => {
     try {
-      const response = await fetch('/api/reports/generate', {
+      const payload = {
+        title: reportTitle,
+        projectTitle: "Disaster Lens - Professional Assessment",
+        items: sections.flatMap((s) => {
+          const textItems = [{ caption: `${s.title}: ${s.content}` }];
+          const mediaItems = (s.media || []).map((media, idx) => ({
+            caption: `${s.title} - Evidence ${idx + 1}`,
+            imageBase64: media
+          }));
+          return [...textItems, ...mediaItems];
+        })
+      };
+      
+      const response = await fetch('/api/reports/demo/render', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...getAuthHeaders()
         },
-        body: JSON.stringify({
-          title: reportTitle,
-          sections,
-          projectId: 'demo-project-001'
-        })
+        body: JSON.stringify(payload)
       });
       
       const blob = await response.blob();
@@ -589,7 +633,7 @@ function ReportBuilderTab() {
               className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
               data-testid="button-generate-report"
             >
-              Generate PDF
+              📄 Generate PDF
             </button>
           </div>
         </div>
@@ -631,6 +675,25 @@ function ReportBuilderTab() {
                 className="w-full border rounded px-3 py-2"
                 data-testid={`textarea-section-content-${section.id}`}
               />
+              {section.media && section.media.length > 0 && (
+                <div className="mt-4">
+                  <div className="text-sm font-medium mb-2">Media ({section.media.length})</div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    {section.media.map((media, i) => (
+                      <div key={i} className="relative group">
+                        <img src={media} className="w-full aspect-video object-cover rounded border" />
+                        <button 
+                          onClick={() => removeMedia(section.id, i)}
+                          className="absolute top-1 right-1 bg-red-500 text-white text-xs px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition"
+                          data-testid={`button-remove-media-${section.id}-${i}`}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -639,9 +702,142 @@ function ReportBuilderTab() {
   );
 }
 
+// --- Calibrate Tab (QR/Marker) ---
+function CalibrateTab({ scalePxPerInch, setScalePxPerInch }: { scalePxPerInch: number | null, setScalePxPerInch: (v:number)=>void }){
+  const [preview, setPreview] = useState("");
+  const [markerInches, setMarkerInches] = useState(2.0);
+  const [busy, setBusy] = useState(false);
+  const [payload, setPayload] = useState("");
+
+  async function onScan(){
+    if (!preview) return;
+    setBusy(true);
+    try {
+      const res = await fetch('/api/calibrate/qr', { 
+        method:'POST', 
+        headers:{'Content-Type':'application/json'}, 
+        body: JSON.stringify({ imageBase64: preview, knownSizeMm: markerInches * 25.4 }) // Convert inches to mm
+      });
+      const data = await res.json();
+      if (data.ok && data.pixelsPerInch){
+        setScalePxPerInch(Number(data.pixelsPerInch));
+        setPayload(String(data.payload||''));
+      } else {
+        alert(data.error || 'QR scan failed');
+      }
+    } finally { setBusy(false); }
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-white p-6 border rounded shadow">
+        <h2 className="text-xl font-bold mb-4">QR Calibration</h2>
+        
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div>
+            <p className="text-sm text-gray-600 mb-4">
+              Place a known-size square QR (e.g., 2 in) in frame for automatic scale detection.
+            </p>
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-2">Marker Size</label>
+              <div className="flex items-center gap-2">
+                <input 
+                  type="number" 
+                  step="0.1" 
+                  value={markerInches} 
+                  onChange={(e)=>setMarkerInches(Number(e.target.value||2))} 
+                  className="rounded border p-2 w-28"
+                  data-testid="input-marker-size"
+                />
+                <span className="text-sm">inches</span>
+              </div>
+            </div>
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-2">Upload QR Image</label>
+              <label className="cursor-pointer inline-block px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  className="hidden" 
+                  onChange={async (e)=>{
+                    const f=e.target.files?.[0]; 
+                    if(!f) return; 
+                    const b64 = await fileToBase64(f); 
+                    setPreview(b64);
+                  }} 
+                  data-testid="input-qr-upload"
+                />
+                Choose Image
+              </label>
+            </div>
+            
+            <button 
+              onClick={onScan} 
+              disabled={!preview || busy}
+              className="w-full px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-gray-400"
+              data-testid="button-scan-qr"
+            >
+              {busy ? 'Scanning QR...' : 'Scan & Calibrate'}
+            </button>
+            
+            {scalePxPerInch && (
+              <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded">
+                <div className="text-sm font-medium text-green-800">✅ Calibration Complete</div>
+                <div className="text-xs text-green-600">
+                  Scale: {scalePxPerInch.toFixed(2)} pixels per inch
+                </div>
+                {payload && (
+                  <div className="text-xs text-green-600 mt-1">
+                    QR Data: {payload.slice(0, 50)}{payload.length > 50 ? '...' : ''}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+          
+          <div>
+            <div className="aspect-video w-full border rounded bg-gray-100 overflow-hidden">
+              {preview ? (
+                <img src={preview} className="w-full h-full object-contain" alt="QR preview" data-testid="image-qr-preview" />
+              ) : (
+                <div className="flex items-center justify-center h-full text-gray-500">
+                  Upload a photo with the QR marker visible
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+        
+        <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded">
+          <h3 className="font-medium text-blue-800 mb-2">Tips for Best Results</h3>
+          <ul className="text-sm text-blue-700 space-y-1">
+            <li>• Ensure QR code is clearly visible and well-lit</li>
+            <li>• Keep camera parallel to QR surface for accuracy</li>
+            <li>• Standard business card QR codes are typically 2 inches</li>
+            <li>• Calibration enables precise diameter measurements</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
-  const tabs = ["Capture", "Timeline", "Annotator", "Report Builder"] as const;
+  const tabs = ["Capture", "Timeline", "Annotator", "Calibrate", "Report Builder"] as const;
   const [tab, setTab] = useState<typeof tabs[number]>("Capture");
+  const [scalePxPerInch, setScalePxPerInchState] = useState<number | null>(null);
+
+  useEffect(()=>{
+    const saved = localStorage.getItem('DL_scalePxPerInch');
+    if (saved) setScalePxPerInchState(Number(saved));
+  },[]);
+
+  const setScalePxPerInch = (v:number) => {
+    setScalePxPerInchState(v);
+    localStorage.setItem('DL_scalePxPerInch', String(v));
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -664,15 +860,21 @@ export default function App() {
       </header>
 
       <main className="max-w-6xl mx-auto px-4 py-6 space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
           <StatCard label="Project Status" value="Active" sub="Job #DL-000271" />
           <StatCard label="Media" value="128 items" sub="Today + Yesterday" />
           <StatCard label="Reports" value="3 drafts" sub="1 final, 2 daily" />
+          <StatCard 
+            label="Calibration" 
+            value={scalePxPerInch? `${scalePxPerInch.toFixed(2)} px/in` : 'Not set'} 
+            sub={scalePxPerInch? 'QR-based' : 'Scan a QR in Calibrate tab'} 
+          />
         </div>
 
         {tab === "Capture" && <CaptureTab />}
         {tab === "Timeline" && <TimelineTab />}
-        {tab === "Annotator" && <AnnotatorTab />}
+        {tab === "Annotator" && <AnnotatorTab scalePxPerInch={scalePxPerInch} />}
+        {tab === "Calibrate" && <CalibrateTab scalePxPerInch={scalePxPerInch} setScalePxPerInch={setScalePxPerInch} />}
         {tab === "Report Builder" && <ReportBuilderTab />}
       </main>
 
