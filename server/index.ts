@@ -834,6 +834,9 @@ async function startServer() {
           case 'tool_call':
             await handleToolCall(ws, message);
             break;
+          case 'tool_result':
+            await handleToolResult(ws, message);
+            break;
           default:
             ws.send(JSON.stringify({
               type: 'error',
@@ -1280,6 +1283,119 @@ async function startServer() {
         type: 'error',
         message: `Unknown tool: ${name}`
       }));
+    }
+  }
+  
+  async function handleToolResult(ws: any, message: any) {
+    const { name, ok, annotationId, error, sessionId, ...additionalData } = message;
+    
+    if (!sessionId) {
+      ws.send(JSON.stringify({
+        type: 'error',
+        message: 'Session ID required for tool result processing'
+      }));
+      return;
+    }
+    
+    console.log(`📋 Received tool result: ${name} - ${ok ? 'SUCCESS' : 'FAILED'} for session ${sessionId}`);
+    
+    // Calculate SHA-256 hash for tool result (for audit trail)
+    const toolResultInput = JSON.stringify({ name, ok, annotationId, error, sessionId, timestamp: new Date().toISOString(), ...additionalData });
+    const toolResultHash = crypto.createHash('sha256').update(toolResultInput).digest('hex');
+    
+    // Log tool result for audit trail
+    try {
+      await storage.createAiAction({
+        sessionId,
+        action: `result.${name}`,
+        input: { toolName: name, success: ok, annotationId, error, additionalData },
+        output: { logged: true, source: 'client_tool_result' },
+        mediaId: additionalData?.mediaId || 'demo-media-001',
+        sha256: toolResultHash
+      });
+    } catch (storageError) {
+      console.error('Failed to log tool result AI action:', storageError);
+    }
+    
+    // Send acknowledgment
+    ws.send(JSON.stringify({
+      type: 'result_received',
+      name: name,
+      ok: ok,
+      annotationId: annotationId,
+      sessionId: sessionId,
+      message: `Tool result for ${name} received and logged`
+    }));
+    
+    // Handle success vs failure cases
+    if (ok) {
+      // Successful tool execution
+      if (name === 'annotate.addCircle' && annotationId) {
+        ws.send(JSON.stringify({
+          type: 'system_confirmation',
+          text: `✅ Annotation ${annotationId} successfully created and confirmed`,
+          data: {
+            toolName: name,
+            annotationId: annotationId,
+            status: 'confirmed'
+          }
+        }));
+        
+        // Log successful annotation confirmation
+        try {
+          const confirmationActionInput = JSON.stringify({ annotationId, toolName: name, sessionId, status: 'confirmed' });
+          const confirmationActionHash = crypto.createHash('sha256').update(confirmationActionInput).digest('hex');
+          
+          await storage.createAiAction({
+            sessionId,
+            action: 'annotation.confirmed',
+            input: { annotationId, toolName: name, status: 'confirmed' },
+            output: { confirmed: true, annotationId },
+            mediaId: additionalData?.mediaId || 'demo-media-001',
+            sha256: confirmationActionHash
+          });
+        } catch (error) {
+          console.error('Failed to log annotation confirmation:', error);
+        }
+        
+      } else {
+        ws.send(JSON.stringify({
+          type: 'system_confirmation',
+          text: `✅ Tool ${name} execution confirmed successfully`,
+          data: {
+            toolName: name,
+            status: 'confirmed'
+          }
+        }));
+      }
+    } else {
+      // Failed tool execution
+      ws.send(JSON.stringify({
+        type: 'system_error',
+        text: `❌ Tool ${name} execution failed: ${error || 'Unknown error'}`,
+        data: {
+          toolName: name,
+          error: error,
+          status: 'failed'
+        }
+      }));
+      
+      // Log failed tool execution
+      try {
+        const errorActionInput = JSON.stringify({ toolName: name, error, sessionId, status: 'failed' });
+        const errorActionHash = crypto.createHash('sha256').update(errorActionInput).digest('hex');
+        
+        await storage.createAiAction({
+          sessionId,
+          action: 'tool.error',
+          input: { toolName: name, error, status: 'failed' },
+          output: { failed: true, error },
+          mediaId: additionalData?.mediaId || 'demo-media-001',
+          sha256: errorActionHash
+        });
+      } catch (logError) {
+        console.error('Failed to log tool error:', logError);
+      }
     }
   }
   
