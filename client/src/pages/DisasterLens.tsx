@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { getAuthHeaders } from "@/lib/queryClient";
 import AssistantDock from '../components/AssistantDock';
+import { Volume2, VolumeX, Play, Pause, RotateCcw } from 'lucide-react';
 
 // Single-file demo UI for Disaster Lens
 // Tabs: Capture, Timeline, Annotator, Report Builder
@@ -1067,19 +1068,156 @@ function CalibrateTab({ scalePxPerInch, setScalePxPerInch }: { scalePxPerInch: n
   );
 }
 
+// Voice Guide Scripts for Disaster Lens Module
+const VOICE_GUIDE_SCRIPTS = {
+  overview: {
+    title: "Disaster Lens Overview",
+    content: `Welcome to Disaster Lens, your comprehensive professional damage documentation platform. This module provides industry-grade tools for precise measurement, photo annotation, and report generation. You'll have access to QR code calibration for scientific accuracy, three professional measurement tools, AI-powered damage detection, and automated report generation. Everything is designed to meet insurance industry standards and legal requirements for chain-of-custody documentation.`
+  },
+  capture: {
+    title: "Photo and Video Capture",
+    content: `The Capture tab lets you take professional photos and videos with automatic GPS tagging and EXIF data preservation. Each image is automatically stamped with location, timestamp, and project information. The system creates SHA-256 hashes for legal chain-of-custody compliance. You can switch between photo and video modes, and all captured media is immediately available in your project timeline.`
+  },
+  timeline: {
+    title: "Project Timeline",
+    content: `The Timeline tab shows all your captured media in chronological order. Each item displays GPS coordinates, timestamp, and file size. You can filter by photos, videos, or view everything together. This gives you a complete overview of your documentation progress and helps you organize your damage assessment workflow.`
+  },
+  annotator: {
+    title: "Annotator and Measurement Tools",
+    content: `The Annotator tab is where the magic happens. You have three professional measurement tools: Diameter for circular measurements like pipes and tanks, Length for linear measurements like cracks and distances, and Area for irregular shapes like water damage patterns. The AI Damage Detection can automatically highlight potential damage areas. Your Copy Math button lets you instantly share precise calculations with insurance adjusters. All measurements use your QR calibration for scientific accuracy.`
+  },
+  calibrate: {
+    title: "QR Code Calibration System", 
+    content: `The Calibrate tab uses QR code detection to set precise measurement scales. Simply upload a photo containing a QR code of known size - typically 2 inches for business cards. The system automatically detects the QR code, calculates pixels per inch, and locks this scale for all future measurements. This ensures your diameter, length, and area calculations meet professional surveying standards.`
+  },
+  reportBuilder: {
+    title: "Professional Report Generation",
+    content: `The Report Builder creates professional PDF reports with your photos, measurements, and annotations. You can drag and reorder sections, add custom text, and include all your measurement calculations. The system generates reports that meet insurance industry requirements with proper metadata, chain-of-custody information, and professional formatting suitable for legal proceedings.`
+  },
+  measurements: {
+    title: "Three Professional Measurement Tools",
+    content: `You have three measurement tools: First, the Diameter tool for circular measurements - click two points on opposite sides of a circle, and it calculates the diameter with sub-inch precision. Second, the Length tool for straight-line measurements - click start and end points for distances, cracks, or structural elements. Third, the Area tool for irregular shapes - click multiple points to create a polygon, then the system calculates the exact square footage using advanced geometry. All tools require QR calibration for accuracy.`
+  },
+  copyMath: {
+    title: "Copy Math Clipboard System",
+    content: `The Copy Math button instantly copies your measurement calculations to the clipboard in a format perfect for insurance adjusters. It includes the mathematical formulas, pixel distances, calibration factors, and final results in both inches and feet. This saves time during claim processing and ensures adjusters have the exact numbers they need for documentation.`
+  },
+  aiFeatures: {
+    title: "AI-Powered Damage Detection",
+    content: `Our AI system can automatically analyze photos to identify potential damage areas. Click the Get Damage Hints button to highlight suspected roof damage, structural issues, water damage, and other problems. The AI provides confidence scores and suggested inspection areas, helping you focus on the most important damage during your assessment.`
+  }
+};
+
 export default function App() {
   const tabs = ["Capture", "Timeline", "Annotator", "Calibrate", "Report Builder"] as const;
   const [tab, setTab] = useState<typeof tabs[number]>("Capture");
   const [scalePxPerInch, setScalePxPerInchState] = useState<number | null>(null);
-
+  
+  // Voice Guide State
+  const [isVoiceGuideActive, setIsVoiceGuideActive] = useState(false);
+  const [currentVoiceScript, setCurrentVoiceScript] = useState<string | null>(null);
+  const [speechSynthesis, setSpeechSynthesis] = useState<SpeechSynthesis | null>(null);
+  const [currentUtterance, setCurrentUtterance] = useState<SpeechSynthesisUtterance | null>(null);
+  
   useEffect(()=>{
     const saved = localStorage.getItem('DL_scalePxPerInch');
     if (saved) setScalePxPerInchState(Number(saved));
+    
+    // Initialize Speech Synthesis
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      setSpeechSynthesis(window.speechSynthesis);
+    }
   },[]);
 
   const setScalePxPerInch = (v:number) => {
     setScalePxPerInchState(v);
     localStorage.setItem('DL_scalePxPerInch', String(v));
+  };
+
+  // Voice Guide Functions
+  const startVoiceGuide = (scriptKey: keyof typeof VOICE_GUIDE_SCRIPTS) => {
+    if (!speechSynthesis) {
+      alert('Voice guidance is not supported in your browser');
+      return;
+    }
+
+    // Stop any current speech
+    stopVoiceGuide();
+
+    const script = VOICE_GUIDE_SCRIPTS[scriptKey];
+    const utterance = new SpeechSynthesisUtterance(script.content);
+    
+    // Configure voice settings
+    utterance.rate = 0.8; // Slightly slower for clarity
+    utterance.pitch = 1.0;
+    utterance.volume = 1.0;
+    
+    // Set voice to a clear English voice if available
+    const voices = speechSynthesis.getVoices();
+    const englishVoice = voices.find(voice => 
+      voice.lang.startsWith('en-') && 
+      (voice.name.includes('Google') || voice.name.includes('Microsoft') || voice.name.includes('Alex'))
+    );
+    if (englishVoice) {
+      utterance.voice = englishVoice;
+    }
+
+    utterance.onstart = () => {
+      setIsVoiceGuideActive(true);
+      setCurrentVoiceScript(scriptKey);
+    };
+
+    utterance.onend = () => {
+      setIsVoiceGuideActive(false);
+      setCurrentVoiceScript(null);
+      setCurrentUtterance(null);
+    };
+
+    utterance.onerror = () => {
+      setIsVoiceGuideActive(false);
+      setCurrentVoiceScript(null);
+      setCurrentUtterance(null);
+    };
+
+    setCurrentUtterance(utterance);
+    speechSynthesis.speak(utterance);
+  };
+
+  const stopVoiceGuide = () => {
+    if (speechSynthesis) {
+      speechSynthesis.cancel();
+    }
+    setIsVoiceGuideActive(false);
+    setCurrentVoiceScript(null);
+    setCurrentUtterance(null);
+  };
+
+  const pauseVoiceGuide = () => {
+    if (speechSynthesis && isVoiceGuideActive) {
+      speechSynthesis.pause();
+    }
+  };
+
+  const resumeVoiceGuide = () => {
+    if (speechSynthesis && currentUtterance) {
+      speechSynthesis.resume();
+    }
+  };
+
+  // Auto-start voice guide for current tab
+  const startTabVoiceGuide = () => {
+    const scriptMap: Record<string, keyof typeof VOICE_GUIDE_SCRIPTS> = {
+      'Capture': 'capture',
+      'Timeline': 'timeline',
+      'Annotator': 'annotator',
+      'Calibrate': 'calibrate',
+      'Report Builder': 'reportBuilder'
+    };
+    
+    const scriptKey = scriptMap[tab];
+    if (scriptKey) {
+      startVoiceGuide(scriptKey);
+    }
   };
 
   return (
@@ -1091,14 +1229,74 @@ export default function App() {
               <h1 className="text-2xl font-bold text-gray-900">Disaster Lens</h1>
               <p className="text-sm text-gray-600">Photo • Video • Reports</p>
             </div>
-            <div className="flex gap-2">
-              {tabs.map((t) => (
-                <TabButton key={t} active={t===tab} onClick={()=>setTab(t)} data-testid={`tab-${t.toLowerCase().replace(' ', '-')}`}>
-                  {t}
-                </TabButton>
-              ))}
+            
+            {/* Voice Guide Controls */}
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg">
+                <Volume2 className="w-4 h-4 text-blue-600" />
+                <span className="text-sm font-medium text-blue-800">Voice Guide</span>
+                
+                {!isVoiceGuideActive ? (
+                  <div className="flex gap-1">
+                    <button
+                      onClick={() => startVoiceGuide('overview')}
+                      className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                      data-testid="button-voice-overview"
+                      title="Overview of Disaster Lens"
+                    >
+                      Overview
+                    </button>
+                    <button
+                      onClick={startTabVoiceGuide}
+                      className="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
+                      data-testid="button-voice-current-tab"
+                      title={`Guide for ${tab} tab`}
+                    >
+                      {tab}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex gap-1">
+                    <button
+                      onClick={speechSynthesis?.paused ? resumeVoiceGuide : pauseVoiceGuide}
+                      className="px-2 py-1 text-xs bg-yellow-600 text-white rounded hover:bg-yellow-700 transition-colors"
+                      data-testid="button-voice-pause-resume"
+                    >
+                      {speechSynthesis?.paused ? <Play className="w-3 h-3" /> : <Pause className="w-3 h-3" />}
+                    </button>
+                    <button
+                      onClick={stopVoiceGuide}
+                      className="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+                      data-testid="button-voice-stop"
+                    >
+                      <VolumeX className="w-3 h-3" />
+                    </button>
+                  </div>
+                )}
+              </div>
+              
+              {/* Tab Navigation */}
+              <div className="flex gap-2">
+                {tabs.map((t) => (
+                  <TabButton key={t} active={t===tab} onClick={()=>setTab(t)} data-testid={`tab-${t.toLowerCase().replace(' ', '-')}`}>
+                    {t}
+                  </TabButton>
+                ))}
+              </div>
             </div>
           </div>
+          
+          {/* Voice Guide Status */}
+          {isVoiceGuideActive && currentVoiceScript && (
+            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-center gap-2">
+                <Volume2 className="w-4 h-4 text-blue-600 animate-pulse" />
+                <span className="text-sm font-medium text-blue-800">
+                  🔊 Playing: {VOICE_GUIDE_SCRIPTS[currentVoiceScript as keyof typeof VOICE_GUIDE_SCRIPTS]?.title}
+                </span>
+              </div>
+            </div>
+          )}
         </div>
       </header>
 
