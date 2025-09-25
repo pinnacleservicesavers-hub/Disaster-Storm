@@ -53,6 +53,7 @@ import stormIntelligenceRoutes from "./routes/stormIntelligence";
 import { VoiceAIService } from "./services/voiceAI";
 import { weatherAI } from "./services/weatherAI.js";
 import { universalAI } from "./services/universalAI.js";
+import { EnhancedImageAnalysisService } from "./services/enhancedImageAnalysis.js";
 import { storage } from "./storage";
 import { z } from "zod";
 
@@ -401,6 +402,9 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
     notificationService
   );
   leadGenerationService = new LeadGenerationService(notificationService);
+  
+  // Initialize Enhanced Image Analysis Service  
+  const enhancedImageAnalysisService = new EnhancedImageAnalysisService();
   
   console.log('🔔 Alert system services initialized');
   
