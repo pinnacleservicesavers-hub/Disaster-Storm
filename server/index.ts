@@ -5,7 +5,7 @@ import { WebSocketServer } from 'ws';
 import cors from 'cors';
 import crypto from 'crypto';
 import { storage } from './storage.js';
-import { attachAssistantWSS, tools } from '../apps/server/src/ws/assistant.js';
+import { attachAssistantWSS } from '../apps/server/src/ws/assistant.js';
 
 const app = express();
 app.use(cors());
@@ -120,5 +120,5 @@ httpServer.listen(PORT, () => {
   console.log('🔧 API endpoints available at http://localhost:' + PORT + '/api/*');
   console.log('⚡ WebSocket available at ws://localhost:' + PORT + '/realtime');
   console.log('🤖 AI Assistant available at ws://localhost:' + PORT + '/ws/assistant');
-  console.log('✅ Clean tools pattern integrated:', Object.keys(tools));
+  console.log('✅ Simplified AI Assistant handler integrated');
 });
