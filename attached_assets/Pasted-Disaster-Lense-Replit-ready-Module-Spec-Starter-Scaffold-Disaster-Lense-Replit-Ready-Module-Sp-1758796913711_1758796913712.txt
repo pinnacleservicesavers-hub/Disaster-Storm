@@ -1,0 +1,74 @@
+Disaster Lense — Replit‑ready Module Spec & Starter Scaffold
+Disaster Lense — Replit‑Ready Module Spec & Starter Scaffold
+
+Goal: Build a photo+video documentation, collaboration, and reporting module (web + mobile‑friendly PWA) that provides feature parity with CompanyCam—and then goes beyond it for disaster / storm response contractors. This doc is written so a Replit project can be spun up directly from it.
+
+1) Scope (Plain‑English)
+
+Disaster Lense is a self‑contained module that you can drop into your app. It:
+
+Captures photos & short videos from the browser/phone camera.
+
+Auto‑stamps time, GPS, user, and project on every capture.
+
+Lets users annotate (draw, arrows, text, blur/redact, simple measurements).
+
+Organizes media by Project with tags, filters, and a live Timeline.
+
+Enables comments, @mentions, and team activity feeds.
+
+Provides checklists & tasks (with “photo required” steps).
+
+Generates branded PDF reports (Before → During → After, Daily Log, Final).
+
+Shares view‑only links to clients/adjusters/subs (with expiration).
+
+Stores documents, supports e‑signatures, payments (optional).
+
+Works offline‑first with background sync; resolves conflicts when back online.
+
+Includes admin/roles/permissions and an audit log (chain‑of‑custody).
+
+Out‑of‑the‑box “wow” features (storm‑ops focused):
+
+Auto‑captioning & voice‑to‑text notes; AI report summaries.
+
+Hazard highlights (on‑device ML hints): cracked limbs, down lines (informational).
+
+PII auto‑redaction (blur house numbers/license plates on demand).
+
+AR‑assist measures (rough length/diameter with calibration shot).
+
+Insurance Packet button → one‑click, carrier‑specific PDF set + CSV export (Xactimate‑style lines).
+
+Geofenced check‑in/out, QR job tags, and chain‑of‑custody hashes.
+
+Crew logistics view (who, where, last photo time) + staging map overlay.
+
+Note: We are not using CompanyCam’s API. This is an independent module.
+
+2) Suggested Stack (Replit‑friendly)
+
+Web App: React + TypeScript + Vite (PWA enabled: service worker + manifest)
+
+UI: TailwindCSS + Headless UI (or shadcn if you prefer)
+
+Canvas/Annotations: konva or react‑konva
+
+State: React Query (server cache) + Zustand (local UI state)
+
+Auth & DB: Postgres (Supabase recommended) or SQLite for local dev
+
+Object Storage: Supabase Storage or AWS S3 compatible (MinIO for dev)
+
+Server: Node + Express (TypeScript) with tRPC or REST; pdf via pdf‑lib or puppeteer
+
+Offline: Workbox (service worker), IndexedDB (idb), Background Sync API
+
+Maps (optional): MapLibre + tiles; offline tile pack optional
+
+Payments (optional): Stripe Payment Links or Elements
+
+You can do all of this within one Replit repo; Supabase works well with Replit.
+
+3) Monorepo Layout
