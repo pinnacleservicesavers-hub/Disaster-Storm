@@ -51,6 +51,15 @@ function useHashWorker() {
   };
 }
 
+async function fileToBase64(f: File): Promise<string> {
+  return new Promise((resolve,reject)=>{ 
+    const r = new FileReader(); 
+    r.onload=()=>resolve(String(r.result)); 
+    r.onerror=reject; 
+    r.readAsDataURL(f); 
+  });
+}
+
 function TabButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
     <button
@@ -296,68 +305,207 @@ function TimelineTab() {
   );
 }
 
-// --- Annotator Tab (simple mock) ---
-function AnnotatorTab() {
-  const [selectedImage, setSelectedImage] = useState("https://picsum.photos/800/600?random=1");
-  const [annotations, setAnnotations] = useState<Array<{x: number, y: number, label: string}>>([]);
-  
-  const handleImageClick = (e: React.MouseEvent<HTMLImageElement>) => {
+// --- Annotator Tab with Damage Hints & Measure Diameter ---
+function AnnotatorTab({ scalePxPerInch }: { scalePxPerInch: number | null }) {
+  const [brush, setBrush] = useState<'arrow'|'box'|'text'|'blur'|'measure'|'diameter'>("box");
+  const [caption, setCaption] = useState("Cracked limb over structure — immediate removal recommended.");
+  const [selectedImage, setSelectedImage] = useState("https://picsum.photos/seed/annotate/1200/675");
+  const [hints, setHints] = useState<{x:number,y:number,w:number,h:number, score:number, label?:string, picked?:boolean}[]>([]);
+  const [loadingHints, setLoadingHints] = useState(false);
+  const [measureClicks, setMeasureClicks] = useState<{x:number,y:number}[]>([]);
+
+  async function getDamageHints(){
+    try {
+      setLoadingHints(true);
+      // If selectedImage is a data URL already, just send; otherwise fetch and convert
+      let imageBase64 = selectedImage;
+      if (!imageBase64.startsWith('data:')){
+        const resp = await fetch(selectedImage); 
+        const blob = await resp.blob();
+        imageBase64 = await fileToBase64(new File([blob], 'img.jpg', { type: blob.type||'image/jpeg' }));
+      }
+      const res = await fetch('/api/hints/damage', { 
+        method:'POST', 
+        headers:{'Content-Type':'application/json'}, 
+        body: JSON.stringify({ imageBase64 }) 
+      });
+      const data = await res.json();
+      setHints((data?.hints||[]).map((h:any)=>({ ...h })));
+    } finally { setLoadingHints(false); }
+  }
+
+  function suggestLabels(){
+    // Heuristic label proposals
+    setHints((prev)=> prev.map(h => {
+      let label = 'Damage';
+      if (h.w>h.h && h.score>20) label = 'Fallen limb impact';
+      if (h.h>h.w && h.score>20) label = 'Uprooted root plate';
+      if (h.score<10) label = 'Minor disturbance';
+      return { ...h, label };
+    }));
+  }
+
+  async function confirmHint(h: any){
+    // Convert hint box → circle annotation via API
+    const cx = h.x + h.w/2, cy = h.y + h.h/2; 
+    const r = Math.round(Math.min(h.w,h.h)/2);
+    const res = await fetch('/api/annotate/circle', { 
+      method:'POST', 
+      headers:{'Content-Type':'application/json'}, 
+      body: JSON.stringify({ mediaId:'demo-media', x: Math.round(cx), y: Math.round(cy), r, label: h.label||'Damage' }) 
+    });
+    if (res.ok) setHints(prev => prev.map(it => it===h? { ...it, picked:true }: it));
+  }
+
+  const handleImageClick = async (e: React.MouseEvent) => {
     const rect = e.currentTarget.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
     
-    const label = prompt("Add annotation label:");
-    if (label) {
-      setAnnotations(prev => [...prev, { x, y, label }]);
+    if (brush === 'diameter') {
+      if (!scalePxPerInch) {
+        alert('Please calibrate with QR first for accurate measurements');
+        return;
+      }
+      
+      const newClicks = [...measureClicks, {x, y}];
+      setMeasureClicks(newClicks);
+      
+      if (newClicks.length === 2) {
+        // Two clicks = diameter measurement
+        const [p1, p2] = newClicks;
+        
+        try {
+          const response = await fetch('/api/tape/overlay', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              imageBase64: selectedImage,
+              x1: p1.x, y1: p1.y,
+              x2: p2.x, y2: p2.y,
+              scalePxPerInch,
+              label: 'Diameter'
+            })
+          });
+          
+          const result = await response.json();
+          
+          if (result.ok) {
+            // Auto-inject into Report Builder
+            window.dispatchEvent(new CustomEvent('DL_ADD_OVERLAY_TO_REPORT', {
+              detail: {
+                imageBase64: result.overlayImageBase64,
+                caption: `Diameter: ${result.measurementInches}" (AI-measured)`
+              }
+            }));
+            
+            alert(`Measurement complete: ${result.measurementInches}" diameter`);
+          }
+        } catch (error) {
+          console.error('Measurement failed:', error);
+        }
+        
+        setMeasureClicks([]);
+      }
     }
   };
 
   return (
     <div className="space-y-6">
       <div className="bg-white p-6 border rounded shadow">
-        <h2 className="text-xl font-bold mb-4">Image Annotator</h2>
-        
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          <div className="lg:col-span-3">
-            <div className="relative border rounded bg-gray-100">
-              <img 
-                src={selectedImage} 
-                alt="Annotation target"
-                className="w-full cursor-crosshair"
-                onClick={handleImageClick}
-                data-testid="image-annotator"
-              />
-              {annotations.map((ann, i) => (
-                <div 
-                  key={i}
-                  className="absolute bg-red-500 text-white text-xs px-1 py-0.5 rounded pointer-events-none"
-                  style={{ left: ann.x, top: ann.y }}
-                >
-                  {ann.label}
-                </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2">
+            <div className="mb-4 flex items-center gap-2 flex-wrap">
+              {(["arrow","box","text","blur","measure","diameter"] as const).map((b)=> (
+                <button key={b} onClick={()=>setBrush(b)} 
+                  className={`px-3 py-1.5 rounded border text-sm ${brush===b?"bg-black text-white":"hover:bg-gray-50"}`}
+                  data-testid={`brush-${b}`}>
+                  {b === 'diameter' ? `Diameter ${scalePxPerInch ? '(calibrated)' : '(needs QR)'}` : b}
+                </button>
               ))}
+              <label className="ml-auto text-sm flex items-center gap-2 cursor-pointer">
+                <span className="hidden sm:inline">Change image</span>
+                <input type="file" accept="image/*" className="hidden" onChange={async (e)=>{
+                  const f = e.target.files?.[0]; if (!f) return; 
+                  const b64 = await fileToBase64(f); 
+                  setSelectedImage(b64); setHints([]);
+                }} />
+                <span className="px-3 py-1.5 rounded border">Upload</span>
+              </label>
+            </div>
+            
+            <div className="aspect-video w-full rounded border overflow-hidden relative bg-gray-100">
+              <img src={selectedImage} className="w-full h-full object-cover" 
+                onClick={handleImageClick}
+                style={{ cursor: brush === 'diameter' ? 'crosshair' : 'default' }}
+                data-testid="image-annotator" />
+              {/* Hints overlay */}
+              <div className="absolute inset-0">
+                {hints.map((h, i)=> (
+                  <div key={i} className={`absolute border-2 ${h.picked? 'border-green-500' : 'border-yellow-400'} bg-yellow-300/10`}
+                    style={{ left:h.x, top:h.y, width:h.w, height:h.h }}>
+                    {h.label && (
+                      <div className="absolute -top-5 left-0 text-[10px] bg-black/70 text-white px-1.5 py-0.5 rounded">{h.label}</div>
+                    )}
+                  </div>
+                ))}
+                {/* Measure clicks visualization */}
+                {measureClicks.map((click, i) => (
+                  <div key={i} className="absolute w-2 h-2 bg-blue-500 rounded-full -translate-x-1 -translate-y-1"
+                    style={{ left: click.x, top: click.y }} />
+                ))}
+                {measureClicks.length === 1 && (
+                  <div className="absolute top-2 left-2 bg-blue-500 text-white text-xs px-2 py-1 rounded">
+                    Click endpoint to measure diameter
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <button onClick={getDamageHints} className="rounded border py-2" data-testid="button-get-hints">
+                {loadingHints? 'Finding hints…':'Get Damage Hints'}
+              </button>
+              <button onClick={suggestLabels} className="rounded border py-2" data-testid="button-suggest-labels">
+                Suggest Labels
+              </button>
+            </div>
+            
+            <div className="mt-4">
+              <label className="block text-sm font-medium mb-2">Caption</label>
+              <input value={caption} onChange={(e)=>setCaption(e.target.value)} 
+                className="w-full rounded border p-2" data-testid="input-caption" />
+            </div>
+            
+            <div className="mt-4 p-3 border rounded bg-gray-50">
+              <div className="text-sm font-medium mb-2">Calibration Status</div>
+              <div className="text-xs text-gray-600">
+                {scalePxPerInch? `Scale locked: ${scalePxPerInch.toFixed(2)} px/in (QR-calibrated)` : 'No scale set. Use Calibrate tab for accurate measurements.'}
+              </div>
             </div>
           </div>
           
           <div>
-            <h3 className="font-medium mb-3">Annotations ({annotations.length})</h3>
-            <div className="space-y-2">
-              {annotations.map((ann, i) => (
-                <div key={i} className="p-2 border rounded text-sm">
-                  <div className="font-medium">{ann.label}</div>
-                  <div className="text-gray-600">({ann.x.toFixed(0)}, {ann.y.toFixed(0)})</div>
+            <h3 className="font-medium mb-3">Damage Hints ({hints.length})</h3>
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {hints.map((h, i) => (
+                <div key={i} className={`p-2 border rounded text-sm ${h.picked?'bg-green-50':''}`}>
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <div className="font-medium text-xs">{h.label || 'Unlabeled'}</div>
+                      <div className="text-xs text-gray-600">Score: {h.score}</div>
+                      <div className="text-xs text-gray-500">({h.x},{h.y}) {h.w}×{h.h}</div>
+                    </div>
+                    {!h.picked && (
+                      <button onClick={() => confirmHint(h)} 
+                        className="text-xs bg-blue-500 text-white px-2 py-1 rounded"
+                        data-testid={`button-confirm-hint-${i}`}>
+                        Add
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
-            </div>
-            
-            <div className="mt-4">
-              <button 
-                onClick={() => setAnnotations([])}
-                className="w-full px-3 py-2 border rounded text-sm hover:bg-gray-50"
-                data-testid="button-clear-annotations"
-              >
-                Clear All
-              </button>
             </div>
           </div>
         </div>
