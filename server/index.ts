@@ -831,6 +831,9 @@ async function startServer() {
           case 'assistant_text':
             await handleAssistantText(ws, message);
             break;
+          case 'tool_call':
+            await handleToolCall(ws, message);
+            break;
           default:
             ws.send(JSON.stringify({
               type: 'error',
@@ -1160,6 +1163,122 @@ async function startServer() {
       ws.send(JSON.stringify({
         type: 'system_response',
         text: `✅ Assistant message logged and processed for audit trail.`
+      }));
+    }
+  }
+  
+  async function handleToolCall(ws: any, message: any) {
+    const { name, args, sessionId } = message;
+    
+    if (!sessionId) {
+      ws.send(JSON.stringify({
+        type: 'error',
+        message: 'Session ID required for tool call processing'
+      }));
+      return;
+    }
+    
+    console.log(`🛠️ Received tool call: ${name} with args:`, args, `for session ${sessionId}`);
+    
+    // Calculate SHA-256 hash for tool call (for audit trail)
+    const toolCallInput = JSON.stringify({ name, args, sessionId, timestamp: new Date().toISOString() });
+    const toolCallHash = crypto.createHash('sha256').update(toolCallInput).digest('hex');
+    
+    // Log tool call for audit trail
+    try {
+      await storage.createAiAction({
+        sessionId,
+        action: `tool.${name}`,
+        input: { toolName: name, toolArgs: args, triggerSource: 'direct_tool_call' },
+        output: { executed: true, source: 'client_tool_call' },
+        mediaId: args?.mediaId || 'demo-media-001',
+        sha256: toolCallHash
+      });
+    } catch (error) {
+      console.error('Failed to log tool call AI action:', error);
+    }
+    
+    // Send acknowledgment
+    ws.send(JSON.stringify({
+      type: 'tool_received',
+      name: name,
+      args: args,
+      sessionId: sessionId,
+      message: `Tool call ${name} received and logged`
+    }));
+    
+    // Execute specific tool functions
+    if (name === 'annotate.addCircle') {
+      const { mediaId, x, y, r, label } = args;
+      
+      // Log the specific annotation action
+      try {
+        const annotationActionInput = JSON.stringify({ ...args, sessionId, toolCallHash, triggerSource: 'direct_tool_call' });
+        const annotationActionHash = crypto.createHash('sha256').update(annotationActionInput).digest('hex');
+        
+        await storage.createAiAction({
+          sessionId,
+          action: 'annotate.addCircle',
+          input: { ...args, toolCallHash, triggerSource: 'direct_tool_call' },
+          output: { executed: true, triggerSource: 'direct_tool_call', toolCallHash },
+          mediaId: mediaId || 'demo-media-001',
+          sha256: annotationActionHash
+        });
+      } catch (error) {
+        console.error('Failed to log annotation AI action:', error);
+      }
+      
+      // Send tool execution confirmation
+      ws.send(JSON.stringify({
+        type: 'tool_executed',
+        name: 'annotate.addCircle',
+        args: args,
+        result: {
+          success: true,
+          annotation: {
+            id: `annotation_${Date.now()}`,
+            mediaId: mediaId || 'demo-media-001',
+            x, y, r, label,
+            createdAt: new Date().toISOString()
+          }
+        }
+      }));
+      
+      ws.send(JSON.stringify({
+        type: 'system_response',
+        text: `✅ Circle annotation added at (${x}, ${y}) with radius ${r}px: "${label}"`
+      }));
+      
+    } else if (name === 'measure.diameter') {
+      const { mediaId, x1, y1, x2, y2, pixelsPerInch } = args;
+      const distance = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+      const inches = distance / (pixelsPerInch || 96);
+      
+      ws.send(JSON.stringify({
+        type: 'tool_executed',
+        name: 'measure.diameter',
+        args: args,
+        result: {
+          success: true,
+          measurement: {
+            id: `measurement_${Date.now()}`,
+            mediaId: mediaId || 'demo-media-001',
+            distance: distance,
+            inches: inches.toFixed(2),
+            createdAt: new Date().toISOString()
+          }
+        }
+      }));
+      
+      ws.send(JSON.stringify({
+        type: 'system_response',
+        text: `✅ Measurement complete: ${distance.toFixed(1)}px (${inches.toFixed(2)} inches)`
+      }));
+      
+    } else {
+      ws.send(JSON.stringify({
+        type: 'error',
+        message: `Unknown tool: ${name}`
       }));
     }
   }
