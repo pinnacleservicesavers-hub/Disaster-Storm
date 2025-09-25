@@ -8,6 +8,7 @@ import { router as annotate } from '../apps/server/src/routes/annotate.js';
 import { router as measure } from '../apps/server/src/routes/measure.js';
 import { router as video } from '../apps/server/src/routes/video.js';
 import { router as weight } from '../apps/server/src/routes/weight.js';
+import { router as tape } from '../apps/server/src/routes/tape.js';
 
 const app = express();
 app.use(cors());
@@ -25,6 +26,7 @@ app.use('/api/annotate', annotate);
 app.use('/api/measure', measure);
 app.use('/api/video', video);
 app.use('/api/weight', weight);
+app.use('/api/tape', tape);
 
 // Tool registry endpoint for LLM provider flexibility
 app.get('/api/ai/tools', (req, res) => {
