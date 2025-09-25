@@ -793,10 +793,145 @@ async function startServer() {
     });
   });
   
+  // Setup AI Assistant WebSocket Server
+  const aiWss = new WebSocketServer({
+    server: httpServer,
+    path: '/ws/assistant'
+  });
+  
+  const aiClients = new Set<any>();
+  const aiSessions = new Map<string, { sessionId: string, projectId: string, mode: string }>();
+  
+  aiWss.on('connection', (ws: any, req: IncomingMessage) => {
+    console.log('🤖 AI Assistant WebSocket connection established');
+    aiClients.add(ws);
+    
+    // Handle incoming messages
+    ws.on('message', async (data: Buffer) => {
+      try {
+        const message = JSON.parse(data.toString());
+        console.log('🤖 AI Assistant received message:', message);
+        
+        // Handle different message types
+        switch (message.type) {
+          case 'start':
+            await handleAIStart(ws, message);
+            break;
+          case 'user_text':
+            await handleUserText(ws, message);
+            break;
+          case 'voice_data':
+            await handleVoiceData(ws, message);
+            break;
+          default:
+            ws.send(JSON.stringify({
+              type: 'error',
+              message: `Unknown message type: ${message.type}`
+            }));
+        }
+      } catch (error) {
+        console.error('❌ AI Assistant message error:', error);
+        ws.send(JSON.stringify({
+          type: 'error',
+          message: 'Failed to process message'
+        }));
+      }
+    });
+    
+    // Handle connection close
+    ws.on('close', () => {
+      console.log('🤖 AI Assistant WebSocket connection closed');
+      aiClients.delete(ws);
+    });
+    
+    // Handle errors
+    ws.on('error', (error: any) => {
+      console.error('❌ AI Assistant WebSocket error:', error);
+      aiClients.delete(ws);
+    });
+  });
+  
+  // AI Assistant Message Handlers
+  async function handleAIStart(ws: any, message: any) {
+    const { projectId, mode, sessionId } = message;
+    
+    // Store session context
+    const sessionKey = sessionId || `${projectId}_${Date.now()}`;
+    aiSessions.set(sessionKey, { sessionId: sessionKey, projectId, mode });
+    
+    // Send confirmation
+    ws.send(JSON.stringify({
+      type: 'session_started',
+      sessionId: sessionKey,
+      projectId,
+      mode,
+      message: `AI Assistant ready in ${mode} mode for project ${projectId}`
+    }));
+    
+    console.log(`🤖 AI session started: ${sessionKey} for project ${projectId} in ${mode} mode`);
+  }
+  
+  async function handleUserText(ws: any, message: any) {
+    const { text, sessionId } = message;
+    
+    // Echo back for now (real OpenAI integration would go here)
+    ws.send(JSON.stringify({
+      type: 'assistant_text',
+      text: `I received your message: "${text}". AI processing is being implemented...`
+    }));
+    
+    // Simulate tool call detection
+    if (text.toLowerCase().includes('circle') || text.toLowerCase().includes('annotate')) {
+      ws.send(JSON.stringify({
+        type: 'tool_call',
+        name: 'annotate.addCircle',
+        args: {
+          mediaId: 'demo-media-001',
+          x: 100,
+          y: 100,
+          r: 50,
+          label: 'Damage detected'
+        }
+      }));
+    } else if (text.toLowerCase().includes('measure')) {
+      ws.send(JSON.stringify({
+        type: 'tool_call',
+        name: 'measure.diameter',
+        args: {
+          mediaId: 'demo-media-001',
+          x1: 50,
+          y1: 50,
+          x2: 150,
+          y2: 150,
+          pixelsPerInch: 96
+        }
+      }));
+    }
+  }
+  
+  async function handleVoiceData(ws: any, message: any) {
+    const { audioData, sessionId } = message;
+    
+    // Placeholder for speech-to-text
+    ws.send(JSON.stringify({
+      type: 'partial_transcript',
+      text: 'Processing voice input...'
+    }));
+    
+    // Simulate transcript completion
+    setTimeout(() => {
+      ws.send(JSON.stringify({
+        type: 'assistant_text',
+        text: 'Voice processing is being implemented. Please use text for now.'
+      }));
+    }, 1000);
+  }
+  
   // Initialize Real-time Services and Monitoring
   initializeRealtimeServices();
   
   console.log('⚡ WebSocket server initialized at /realtime');
+  console.log('🤖 AI Assistant WebSocket server initialized at /ws/assistant');
   
   // Set up frontend serving
   if (process.env.NODE_ENV === 'development') {
