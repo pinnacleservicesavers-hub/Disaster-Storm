@@ -11,6 +11,7 @@ import PDFDocument from 'pdfkit';
 import fetch from 'node-fetch';
 import { storage } from './storage.js';
 import crypto from 'crypto';
+import AssistantToolExecutor, { TOOL_REGISTRY, ToolCall } from '../apps/server/src/ws/assistant.js';
 
 const app = express();
 app.use(cors());
@@ -86,6 +87,26 @@ app.get('/health', (req, res) => {
 });
 
 // --- API Status Check
+// ===== AI ASSISTANT TOOL REGISTRY =====
+
+// GET /api/ai/tools - Expose tool registry for LLM provider flexibility
+app.get('/api/ai/tools', (req, res) => {
+  res.json({
+    tools: TOOL_REGISTRY,
+    meta: {
+      total_tools: TOOL_REGISTRY.length,
+      categories: {
+        measurement: TOOL_REGISTRY.filter(t => t.name.startsWith('measure.')).length,
+        tree_analysis: TOOL_REGISTRY.filter(t => t.name.startsWith('tree.')).length,
+        damage_detection: TOOL_REGISTRY.filter(t => t.name.startsWith('damage.')).length,
+        annotation: TOOL_REGISTRY.filter(t => t.name.startsWith('annotate.')).length
+      },
+      server_authority: true,
+      explicit_tool_calls: true
+    }
+  });
+});
+
 app.get('/api/status', (req, res) => {
   const endpoints = [
     '/health',
@@ -803,6 +824,7 @@ async function startServer() {
   
   const aiClients = new Set<any>();
   const aiSessions = new Map<string, { sessionId: string, projectId: string, mode: string }>();
+  const toolExecutor = new AssistantToolExecutor(storage);
   
   aiWss.on('connection', (ws: any, req: IncomingMessage) => {
     console.log('🤖 AI Assistant WebSocket connection established');
@@ -1181,107 +1203,78 @@ async function startServer() {
       return;
     }
     
-    console.log(`🛠️ Received tool call: ${name} with args:`, args, `for session ${sessionId}`);
+    console.log(`🛠️ Received explicit tool call: ${name} with args:`, args, `for session ${sessionId}`);
     
-    // Calculate SHA-256 hash for tool call (for audit trail)
-    const toolCallInput = JSON.stringify({ name, args, sessionId, timestamp: new Date().toISOString() });
-    const toolCallHash = crypto.createHash('sha256').update(toolCallInput).digest('hex');
+    // Create explicit tool call with unique ID
+    const toolCall: ToolCall = {
+      id: `tool_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      name,
+      arguments: args
+    };
     
-    // Log tool call for audit trail
-    try {
-      await storage.createAiAction({
-        sessionId,
-        action: `tool.${name}`,
-        input: { toolName: name, toolArgs: args, triggerSource: 'direct_tool_call' },
-        output: { executed: true, source: 'client_tool_call' },
-        mediaId: args?.mediaId || 'demo-media-001',
-        sha256: toolCallHash
-      });
-    } catch (error) {
-      console.error('Failed to log tool call AI action:', error);
-    }
-    
-    // Send acknowledgment
+    // Send acknowledgment 
     ws.send(JSON.stringify({
       type: 'tool_received',
+      id: toolCall.id,
       name: name,
       args: args,
       sessionId: sessionId,
-      message: `Tool call ${name} received and logged`
+      message: `Tool call ${name} received - executing with server authority`
     }));
     
-    // Execute specific tool functions
-    if (name === 'annotate.addCircle') {
-      const { mediaId, x, y, r, label } = args;
+    try {
+      // Execute tool with server authority - explicit tool calls for LLM provider flexibility
+      const result = await toolExecutor.executeTool(toolCall, sessionId);
       
-      // Log the specific annotation action
-      try {
-        const annotationActionInput = JSON.stringify({ ...args, sessionId, toolCallHash, triggerSource: 'direct_tool_call' });
-        const annotationActionHash = crypto.createHash('sha256').update(annotationActionInput).digest('hex');
+      // Send tool execution result
+      ws.send(JSON.stringify({
+        type: 'tool_executed',
+        id: toolCall.id,
+        name: name,
+        args: args,
+        result: result
+      }));
+      
+      // Send system response based on tool type
+      if (result.success) {
+        let responseText = `✅ ${name} executed successfully`;
         
-        await storage.createAiAction({
-          sessionId,
-          action: 'annotate.addCircle',
-          input: { ...args, toolCallHash, triggerSource: 'direct_tool_call' },
-          output: { executed: true, triggerSource: 'direct_tool_call', toolCallHash },
-          mediaId: mediaId || 'demo-media-001',
-          sha256: annotationActionHash
-        });
-      } catch (error) {
-        console.error('Failed to log annotation AI action:', error);
+        if (name === 'measure.calibrate') {
+          const { pixelsPerUnit, uncertainty, method, units } = result.data;
+          responseText = `✅ Measurement calibrated: ${pixelsPerUnit.toFixed(3)} pixels/${units} (${uncertainty} uncertainty, ${method})`;
+        } else if (name === 'measure.diameter') {
+          const { realWorldDistance, units, uncertainty } = result.data;
+          responseText = `✅ Measurement: ${realWorldDistance} ${units} (${uncertainty}% uncertainty)`;
+        } else if (name === 'tree.estimate_weight') {
+          const { weight_lbs, species, accuracy } = result.data;
+          responseText = `✅ Tree weight estimate: ${weight_lbs} lbs (${species}, ${accuracy} accuracy)`;
+        } else if (name === 'damage.detect_regions') {
+          const { filtered_count, total_detected } = result.data;
+          responseText = `✅ Damage detection: ${filtered_count}/${total_detected} regions found (requires user confirmation)`;
+        } else if (name === 'annotate.addCircle') {
+          const { x, y, r, label } = result.data;
+          responseText = `✅ Circle annotation added at (${x}, ${y}) radius ${r}px: "${label}"`;
+        }
+        
+        ws.send(JSON.stringify({
+          type: 'system_response',
+          text: responseText,
+          metadata: result.metadata
+        }));
+      } else {
+        ws.send(JSON.stringify({
+          type: 'system_error',
+          text: `❌ Tool ${name} failed: ${result.error}`,
+          error: result.error
+        }));
       }
       
-      // Send tool execution confirmation
+    } catch (error) {
+      console.error('Tool execution error:', error);
       ws.send(JSON.stringify({
-        type: 'tool_executed',
-        name: 'annotate.addCircle',
-        args: args,
-        result: {
-          success: true,
-          annotation: {
-            id: `annotation_${Date.now()}`,
-            mediaId: mediaId || 'demo-media-001',
-            x, y, r, label,
-            createdAt: new Date().toISOString()
-          }
-        }
-      }));
-      
-      ws.send(JSON.stringify({
-        type: 'system_response',
-        text: `✅ Circle annotation added at (${x}, ${y}) with radius ${r}px: "${label}"`
-      }));
-      
-    } else if (name === 'measure.diameter') {
-      const { mediaId, x1, y1, x2, y2, pixelsPerInch } = args;
-      const distance = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
-      const inches = distance / (pixelsPerInch || 96);
-      
-      ws.send(JSON.stringify({
-        type: 'tool_executed',
-        name: 'measure.diameter',
-        args: args,
-        result: {
-          success: true,
-          measurement: {
-            id: `measurement_${Date.now()}`,
-            mediaId: mediaId || 'demo-media-001',
-            distance: distance,
-            inches: inches.toFixed(2),
-            createdAt: new Date().toISOString()
-          }
-        }
-      }));
-      
-      ws.send(JSON.stringify({
-        type: 'system_response',
-        text: `✅ Measurement complete: ${distance.toFixed(1)}px (${inches.toFixed(2)} inches)`
-      }));
-      
-    } else {
-      ws.send(JSON.stringify({
-        type: 'error',
-        message: `Unknown tool: ${name}`
+        type: 'system_error',
+        text: `❌ Tool execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error: error instanceof Error ? error.message : 'Unknown error'
       }));
     }
   }
