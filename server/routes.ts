@@ -9706,6 +9706,131 @@ What specific area or type of incident would you like me to focus on? I can prov
     }
   });
 
+  // ===== DISASTER LENSE MODULE API =====
+  const DISASTER_LENSE_PROJECTS_PATH = path.join(DATA_DIR, 'disaster-lense-projects.json');
+  const DISASTER_LENSE_MEDIA_PATH = path.join(DATA_DIR, 'disaster-lense-media.json');
+  const DISASTER_LENSE_TASKS_PATH = path.join(DATA_DIR, 'disaster-lense-tasks.json');
+
+  // Initialize Disaster Lense data files
+  if (!fs.existsSync(DISASTER_LENSE_PROJECTS_PATH)) {
+    fs.writeFileSync(DISASTER_LENSE_PROJECTS_PATH, JSON.stringify({ items: [] }, null, 2));
+  }
+  if (!fs.existsSync(DISASTER_LENSE_MEDIA_PATH)) {
+    fs.writeFileSync(DISASTER_LENSE_MEDIA_PATH, JSON.stringify({ items: [] }, null, 2));
+  }
+  if (!fs.existsSync(DISASTER_LENSE_TASKS_PATH)) {
+    fs.writeFileSync(DISASTER_LENSE_TASKS_PATH, JSON.stringify({ items: [] }, null, 2));
+  }
+
+  // Disaster Lense Projects CRUD
+  function readDisasterLenseProjects() {
+    try {
+      return JSON.parse(fs.readFileSync(DISASTER_LENSE_PROJECTS_PATH, 'utf8'));
+    } catch {
+      return { items: [] };
+    }
+  }
+
+  function writeDisasterLenseProjects(data: any) {
+    try {
+      fs.writeFileSync(DISASTER_LENSE_PROJECTS_PATH, JSON.stringify(data, null, 2));
+    } catch (e) {
+      console.error('Failed to write Disaster Lense projects:', e);
+    }
+  }
+
+  // Get all projects
+  app.get('/api/disaster-lense/projects', (req, res) => {
+    try {
+      const { search, status, userId } = req.query;
+      const db = readDisasterLenseProjects();
+      let projects = db.items || [];
+
+      // Filter by search term
+      if (search) {
+        const searchTerm = String(search).toLowerCase();
+        projects = projects.filter((project: any) =>
+          (project.name || '').toLowerCase().includes(searchTerm) ||
+          (project.address || '').toLowerCase().includes(searchTerm) ||
+          (project.tags || []).some((tag: string) => tag.toLowerCase().includes(searchTerm))
+        );
+      }
+
+      // Filter by status
+      if (status && status !== 'all') {
+        projects = projects.filter((project: any) => project.status === status);
+      }
+
+      res.json({ projects });
+    } catch (error) {
+      console.error('Error fetching projects:', error);
+      res.status(500).json({ error: 'Failed to fetch projects' });
+    }
+  });
+
+  // Create new project
+  app.post('/api/disaster-lense/projects', express.json(), (req, res) => {
+    try {
+      const { name, address, tags, status = 'active', coords, createdBy = 'user-1', orgId = 'org-1' } = req.body;
+
+      if (!name || !name.trim()) {
+        return res.status(400).json({ error: 'Project name is required' });
+      }
+
+      const project = {
+        id: `dl-project-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        name: name.trim(),
+        orgId,
+        address: address ? address.trim() : undefined,
+        coords: coords || undefined,
+        tags: Array.isArray(tags) ? tags : [],
+        status,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        createdBy,
+        teamMembers: [createdBy],
+        mediaCount: 0
+      };
+
+      const db = readDisasterLenseProjects();
+      db.items.push(project);
+      writeDisasterLenseProjects(db);
+
+      res.status(201).json({ ok: true, project });
+    } catch (error) {
+      console.error('Error creating project:', error);
+      res.status(500).json({ ok: false, error: 'Failed to create project' });
+    }
+  });
+
+  // Update project
+  app.put('/api/disaster-lense/projects/:id', express.json(), (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+
+      const db = readDisasterLenseProjects();
+      const projectIndex = (db.items || []).findIndex((p: any) => p.id === id);
+
+      if (projectIndex === -1) {
+        return res.status(404).json({ error: 'Project not found' });
+      }
+
+      db.items[projectIndex] = {
+        ...db.items[projectIndex],
+        ...updates,
+        id,
+        updatedAt: new Date().toISOString()
+      };
+
+      writeDisasterLenseProjects(db);
+      res.json({ ok: true, project: db.items[projectIndex] });
+    } catch (error) {
+      console.error('Error updating project:', error);
+      res.status(500).json({ ok: false, error: 'Failed to update project' });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

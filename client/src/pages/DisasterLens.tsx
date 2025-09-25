@@ -514,68 +514,122 @@ export default function DisasterLens() {
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentLocation, setCurrentLocation] = useState<{lat: number, lng: number} | null>(null);
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Mock projects data - would come from API
-  const projects: Project[] = [
-    {
-      id: '1',
-      name: 'Hurricane Alexandra - Miami Beach',
-      orgId: 'org-1',
-      address: '1500 Collins Ave, Miami Beach, FL 33139',
-      coords: { lat: 25.7907, lng: -80.1301 },
-      tags: ['hurricane', 'structural', 'urgent'],
-      status: 'active',
-      createdAt: new Date('2024-01-15'),
-      updatedAt: new Date('2024-01-20'),
-      mediaCount: 47,
-      teamMembers: ['john-doe', 'jane-smith']
+  // Fetch projects from API
+  const { data: projectsData, isLoading: projectsLoading, error: projectsError } = useQuery({
+    queryKey: ['disaster-lense-projects', searchTerm],
+    queryFn: () => fetch(`/api/disaster-lense/projects?${searchTerm ? `search=${searchTerm}` : ''}`).then(res => res.json())
+  });
+
+  const projects = projectsData?.projects || [];
+
+  // Mutations for project operations
+  const createProjectMutation = useMutation({
+    mutationFn: (projectData: Partial<Project>) => 
+      apiRequest('/api/disaster-lense/projects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(projectData)
+      }),
+    onSuccess: (data) => {
+      toast({
+        title: "Project Created",
+        description: `${data.project.name} has been created successfully.`
+      });
+      queryClient.invalidateQueries({ queryKey: ['disaster-lense-projects'] });
+      setIsProjectModalOpen(false);
+      setSelectedProject(null);
     },
-    {
-      id: '2',
-      name: 'Storm Damage Assessment - Downtown',
-      orgId: 'org-1',
-      address: '200 SE 1st Ave, Fort Lauderdale, FL 33301',
-      tags: ['storm', 'commercial', 'roof'],
-      status: 'active',
-      createdAt: new Date('2024-01-18'),
-      updatedAt: new Date('2024-01-21'),
-      mediaCount: 23,
-      teamMembers: ['mike-wilson']
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create project",
+        variant: "destructive"
+      });
     }
-  ];
+  });
+
+  const updateProjectMutation = useMutation({
+    mutationFn: ({ id, ...updates }: { id: string } & Partial<Project>) =>
+      apiRequest(`/api/disaster-lense/projects/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates)
+      }),
+    onSuccess: (data) => {
+      toast({
+        title: "Project Updated",
+        description: "Project has been updated successfully."
+      });
+      queryClient.invalidateQueries({ queryKey: ['disaster-lense-projects'] });
+      setIsProjectModalOpen(false);
+      setSelectedProject(null);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update project",
+        variant: "destructive"
+      });
+    }
+  });
+
+  const createMediaMutation = useMutation({
+    mutationFn: (mediaData: any) =>
+      apiRequest('/api/disaster-lense/media', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(mediaData)
+      }),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['disaster-lense-projects'] });
+      queryClient.invalidateQueries({ queryKey: ['disaster-lense-media'] });
+    }
+  });
 
   const handleCreateProject = (projectData: Partial<Project>) => {
-    // Would make API call here
-    toast({
-      title: "Project Created",
-      description: `${projectData.name} has been created successfully.`
-    });
-    queryClient.invalidateQueries({ queryKey: ['projects'] });
+    createProjectMutation.mutate(projectData);
   };
 
   const handleUpdateProject = (projectData: Partial<Project>) => {
-    // Would make API call here
-    toast({
-      title: "Project Updated",
-      description: "Project has been updated successfully."
-    });
-    queryClient.invalidateQueries({ queryKey: ['projects'] });
+    if (selectedProject) {
+      updateProjectMutation.mutate({ id: selectedProject.id, ...projectData });
+    }
   };
 
   const handleMediaCapture = (file: File, type: 'photo' | 'video') => {
-    // Would upload file and create media item via API
-    console.log('Captured media:', { file, type, project: selectedProject?.id });
+    if (!selectedProject) return;
+
+    // Create media data with auto-stamping
+    const mediaData = {
+      projectId: selectedProject.id,
+      fileName: file.name,
+      originalName: file.name,
+      type,
+      fileSize: file.size,
+      coords: currentLocation ? {
+        lat: currentLocation.lat,
+        lng: currentLocation.lng,
+        accuracy: 10
+      } : undefined,
+      deviceInfo: {
+        userAgent: navigator.userAgent,
+        platform: navigator.platform
+      },
+      userId: 'current-user' // Would come from auth context
+    };
+
+    // TODO: Upload file to storage first, then create media record
+    createMediaMutation.mutate(mediaData);
     setIsCameraOpen(false);
   };
 
-  const filteredProjects = projects.filter(project =>
-    project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    project.address?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    project.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  // Projects are already filtered by search term via API query
+  const filteredProjects = projects;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
@@ -646,8 +700,18 @@ export default function DisasterLens() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="grid gap-4">
-                  {filteredProjects.map((project) => (
+                {projectsLoading ? (
+                  <div className="text-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                    <p className="text-gray-500 mt-2">Loading projects...</p>
+                  </div>
+                ) : projectsError ? (
+                  <div className="text-center py-8">
+                    <p className="text-red-500">Failed to load projects</p>
+                  </div>
+                ) : (
+                  <div className="grid gap-4">
+                    {filteredProjects.map((project) => (
                     <motion.div
                       key={project.id}
                       whileHover={{ scale: 1.02 }}
@@ -728,8 +792,9 @@ export default function DisasterLens() {
                         </div>
                       </div>
                     </motion.div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
                 
                 {filteredProjects.length === 0 && (
                   <div className="text-center py-12">

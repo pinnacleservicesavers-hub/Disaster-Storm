@@ -1,0 +1,156 @@
+Disaster Lense — Api Stub & Supabase Seed
+Disaster Lense — Express API Stub & Supabase Seed (Replit‑Ready)
+
+This adds a tiny TypeScript Express backend your UI can hit for Render PDF, Create Share Link, and demo data. It also includes a Supabase SQL seed for an example org, user, and project (Michael Thomas — Pecan Removal).
+
+✅ No external dependencies beyond what you can install on Replit. Swap Supabase for any Postgres later if you prefer.
+
+1) File Tree (server)
+apps/
+  server/
+    src/
+      index.ts
+      routes/
+        health.ts
+        projects.ts
+        media.ts
+        reports.ts
+        shares.ts
+      lib/
+        db.ts
+        storage.ts
+        pdf.ts
+        auth.ts
+    package.json
+    tsconfig.json
+2) apps/server/package.json
+{
+  "name": "disaster-lense-server",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nodemon --watch src --ext ts --exec ts-node src/index.ts",
+    "build": "tsc -p .",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "cors": "^2.8.5",
+    "zod": "^3.23.8",
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.11.3",
+    "pdf-lib": "^1.17.1",
+    "nanoid": "^5.0.6"
+  },
+  "devDependencies": {
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.5",
+    "nodemon": "^3.0.3"
+  }
+}
+3) apps/server/tsconfig.json
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "Node",
+    "outDir": "dist",
+    "rootDir": "src",
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "strict": true,
+    "skipLibCheck": true
+  },
+  "include": ["src"]
+}
+4) .env (Replit Secrets)
+PORT=5175
+DATABASE_URL=postgres://USER:PASSWORD@HOST:5432/postgres
+JWT_SECRET=change_me
+PUBLIC_BASE_URL=http://localhost:5175
+STORAGE_BUCKET=disaster-lense
+5) apps/server/src/index.ts
+import express from 'express';
+import cors from 'cors';
+import { router as health } from './routes/health.js';
+import { router as projects } from './routes/projects.js';
+import { router as media } from './routes/media.js';
+import { router as reports } from './routes/reports.js';
+import { router as shares } from './routes/shares.js';
+
+
+const app = express();
+app.use(cors());
+app.use(express.json({ limit: '10mb' }));
+
+
+app.use('/api/health', health);
+app.use('/api/projects', projects);
+app.use('/api/media', media);
+app.use('/api/reports', reports);
+app.use('/api/shares', shares);
+
+
+const port = Number(process.env.PORT || 5175);
+app.listen(port, () => console.log(`[server] http://localhost:${port}`));
+6) apps/server/src/lib/db.ts
+import { Pool } from 'pg';
+
+
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+export const db = {
+  query: (text: string, params?: any[]) => pool.query(text, params)
+};
+7) apps/server/src/lib/auth.ts (stub RBAC)
+import type { Request, Response, NextFunction } from 'express';
+
+
+export function requireAuth(req: Request, _res: Response, next: NextFunction){
+  // TODO: verify JWT; for now accept an X-Demo-User header
+  (req as any).user = { id: 'demo-user', orgId: 'demo-org', role: 'manager' };
+  next();
+}
+8) apps/server/src/lib/storage.ts (fake pre-signed URLs)
+import { customAlphabet } from 'nanoid';
+const nano = customAlphabet('1234567890abcdefghijklmnopqrstuvwxyz', 12);
+
+
+export function makeUploadUrl(){
+  const key = `media/${nano()}.png`;
+  const url = `${process.env.PUBLIC_BASE_URL}/debug-upload/${key}`; // dev stub
+  return { key, url };
+}
+9) apps/server/src/lib/pdf.ts (minimal PDF using pdf-lib)
+import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
+
+
+export async function buildSimplePdf(opts: { title: string; projectTitle: string; items: { caption: string }[]; }){
+  const pdf = await PDFDocument.create();
+  const font = await pdf.embedFont(StandardFonts.Helvetica);
+  const page = pdf.addPage([612, 792]);
+  const { width, height } = page.getSize();
+  const margin = 40;
+
+
+  page.drawText(opts.title, { x: margin, y: height - margin - 20, size: 18, font });
+  page.drawText(`Project: ${opts.projectTitle}`, { x: margin, y: height - margin - 44, size: 12, font, color: rgb(0.2,0.2,0.2) });
+
+
+  let y = height - margin - 80;
+  opts.items.forEach((it, idx) => {
+    page.drawText(`${idx+1}. ${it.caption}`, { x: margin, y, size: 11, font });
+    y -= 18;
+  });
+
+
+  page.drawText(`Generated: ${new Date().toISOString()}`, { x: margin, y: margin, size: 9, font, color: rgb(0.4,0.4,0.4) });
+  return await pdf.save();
+}
+10) Routes
+apps/server/src/routes/health.ts
+import { Router } from 'express';
+export const router = Router();
+router.get('/', (_req, res) => res.json({ ok: true }));
+apps/server/src/routes/projects.ts
+import { Router } from 'express';
+import { db } from '../lib/
