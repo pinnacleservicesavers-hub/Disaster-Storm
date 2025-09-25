@@ -197,19 +197,67 @@ const CameraCapture: React.FC<{
     canvas.height = video.videoHeight;
     ctx.drawImage(video, 0, 0);
     
+    // Add auto-stamping overlay with metadata
+    const overlayHeight = 120;
+    const padding = 20;
+    const currentTime = new Date();
+
+    // Semi-transparent black background for metadata overlay
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+    ctx.fillRect(0, canvas.height - overlayHeight, canvas.width, overlayHeight);
+
+    // Set text properties for metadata
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 24px Arial';
+    ctx.textAlign = 'left';
+
+    // Add timestamp with consistent formatting
+    const timestamp = currentTime.toLocaleString('en-US', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    });
+    ctx.fillText(timestamp, padding, canvas.height - overlayHeight + 35);
+
+    // Add project name
+    ctx.font = 'bold 20px Arial';
+    ctx.fillText(`Project: ${currentProject?.name || 'Unknown Project'}`, padding, canvas.height - overlayHeight + 65);
+
+    // Add GPS coordinates with accuracy indicator
+    if (currentLocation) {
+      ctx.font = '18px Arial';
+      ctx.fillStyle = '#90EE90'; // Light green for GPS available
+      const gpsText = `GPS: ${currentLocation.lat.toFixed(6)}, ${currentLocation.lng.toFixed(6)}`;
+      ctx.fillText(gpsText, padding, canvas.height - overlayHeight + 90);
+    } else {
+      ctx.font = '18px Arial';
+      ctx.fillStyle = '#ff9999'; // Light red for GPS unavailable
+      ctx.fillText('GPS: Location not available', padding, canvas.height - overlayHeight + 90);
+    }
+
+    // Add DisasterDirect watermark in top-right
+    ctx.font = 'bold 16px Arial';
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+    ctx.textAlign = 'right';
+    ctx.fillText('DisasterDirect', canvas.width - padding, 35);
+    
     canvas.toBlob((blob) => {
       if (blob) {
-        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const timestampFile = currentTime.toISOString().replace(/[:.]/g, '-');
         const projectName = currentProject?.name.replace(/[^a-zA-Z0-9]/g, '_') || 'unknown';
-        const fileName = `${projectName}_photo_${timestamp}.jpg`;
+        const fileName = `${projectName}_photo_${timestampFile}.jpg`;
         const file = new File([blob], fileName, { type: 'image/jpeg' });
         onCapture(file, 'photo');
         toast({
           title: "Photo Captured",
-          description: `Photo saved to ${currentProject?.name || 'current project'}`
+          description: `Photo with auto-stamp saved to ${currentProject?.name || 'current project'}`
         });
       }
-    }, 'image/jpeg', 0.9);
+    }, 'image/jpeg', 0.92); // Higher quality for professional documentation
   };
 
   const startVideoRecording = () => {
@@ -518,6 +566,24 @@ export default function DisasterLens() {
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Get user location on component mount for auto-stamping
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setCurrentLocation({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          });
+        },
+        (error) => {
+          console.warn('Geolocation denied or failed:', error);
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
+      );
+    }
+  }, []);
 
   // Fetch projects from API
   const { data: projectsData, isLoading: projectsLoading, error: projectsError } = useQuery({
