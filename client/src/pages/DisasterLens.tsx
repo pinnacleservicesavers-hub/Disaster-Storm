@@ -1,1259 +1,511 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Camera, 
-  Video, 
-  Plus,
-  FolderOpen,
-  MapPin, 
-  Clock, 
-  MessageSquare, 
-  Users, 
-  FileText, 
-  Share2,
-  Download,
-  Upload,
-  Play,
-  Square,
-  Circle,
-  Zap,
-  Bot,
-  Eye,
-  ArrowLeft,
-  Settings,
-  Filter,
-  Search,
-  Calendar,
-  Tag,
-  CheckSquare,
-  Edit3,
-  Save,
-  Trash2,
-  Shield,
-  Building2
-} from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Progress } from '@/components/ui/progress';
-import { useToast } from '@/hooks/use-toast';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiRequest } from '@/lib/queryClient';
+// Single-file demo UI for Disaster Lens
+// Tabs: Capture, Timeline, Annotator, Report Builder
+// Styling: TailwindCSS classes
+// NOTE: This is a front-end scaffold. Buttons are now wired to your Express API.
 
-// Types matching the specification
-interface Project {
-  id: string;
-  name: string;
-  orgId: string;
-  address?: string;
-  coords?: { lat: number; lng: number };
-  tags: string[];
-  status: 'active' | 'completed' | 'archived';
-  createdAt: Date;
-  updatedAt: Date;
-  mediaCount: number;
-  teamMembers: string[];
-}
-
-interface MediaItem {
-  id: string;
-  projectId: string;
-  userId: string;
-  type: 'photo' | 'video';
-  fileName: string;
-  originalName: string;
-  url: string;
-  thumbnailUrl?: string;
-  
-  // Auto-stamped metadata
-  capturedAt: Date;
-  coords?: { lat: number; lng: number; accuracy?: number };
-  deviceInfo?: { userAgent: string; platform?: string };
-  
-  // EXIF and technical data
-  exifData?: Record<string, any>;
-  dimensions?: { width: number; height: number };
-  fileSize: number;
-  
-  // Content analysis
-  aiAnalysis?: {
-    caption?: string;
-    tags: string[];
-    hazards: string[];
-    confidence?: number;
-  };
-  
-  // User annotations
-  annotations: Annotation[];
-  tags: string[];
-  isRedacted: boolean;
-  chainOfCustodyHash?: string;
-}
-
-interface Annotation {
-  type: 'draw' | 'arrow' | 'text' | 'measure' | 'blur';
-  data: Record<string, any>;
-  createdBy: string;
-  createdAt: Date;
-}
-
-interface Task {
-  id: string;
-  projectId: string;
-  title: string;
-  description?: string;
-  assignedTo?: string;
-  status: 'pending' | 'in_progress' | 'completed';
-  requiresPhoto: boolean;
-  requiredPhotos: number;
-  attachedMedia: string[];
-  dueDate?: Date;
-  createdAt: Date;
-  completedAt?: Date;
-}
-
-// Camera Capture Component
-const CameraCapture: React.FC<{
-  isOpen: boolean;
-  onClose: () => void;
-  onCapture: (file: File, type: 'photo' | 'video') => void;
-  currentProject: Project | null;
-}> = ({ isOpen, onClose, onCapture, currentProject }) => {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  
-  const [isStreaming, setIsStreaming] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
-  const [recordingTime, setRecordingTime] = useState(0);
-  const [mode, setMode] = useState<'photo' | 'video'>('photo');
-  const [currentLocation, setCurrentLocation] = useState<{lat: number, lng: number} | null>(null);
-
-  const { toast } = useToast();
-
-  // Get user's location
-  useEffect(() => {
-    if (isOpen && navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setCurrentLocation({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude
-          });
-        },
-        (error) => {
-          console.warn('Geolocation error:', error);
-        }
-      );
-    }
-  }, [isOpen]);
-
-  const startStream = async () => {
+// ------------------------------
+// Inline SHA-256 Web Worker (chain-of-custody)
+// ------------------------------
+const hashingWorkerUrl = (() => {
+  const src = `self.onmessage = async (e) => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { 
-          facingMode: 'environment',
-          width: { ideal: 1920 },
-          height: { ideal: 1080 }
-        },
-        audio: mode === 'video'
-      });
-      
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        setIsStreaming(true);
-      }
+      const buf = e.data;
+      const digest = await crypto.subtle.digest('SHA-256', buf);
+      const bytes = new Uint8Array(digest);
+      const hex = Array.from(bytes).map(b => b.toString(16).padStart(2,'0')).join('');
+      self.postMessage({ ok: true, hex });
     } catch (err) {
-      toast({
-        title: "Camera Error",
-        description: "Failed to access camera: " + (err as Error).message,
-        variant: "destructive"
-      });
+      self.postMessage({ ok: false, error: String(err) });
     }
-  };
-  
-  const stopStream = () => {
-    if (videoRef.current?.srcObject) {
-      const stream = videoRef.current.srcObject as MediaStream;
-      stream.getTracks().forEach(track => track.stop());
-      videoRef.current.srcObject = null;
-      setIsStreaming(false);
-    }
-  };
-  
-  const capturePhoto = () => {
-    if (!videoRef.current || !canvasRef.current) return;
-    
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    
-    if (!ctx) return;
-    
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    ctx.drawImage(video, 0, 0);
-    
-    // Add auto-stamping overlay with metadata
-    const overlayHeight = 120;
-    const padding = 20;
-    const currentTime = new Date();
+  }`;
+  const blob = new Blob([src], { type: "text/javascript" });
+  return URL.createObjectURL(blob);
+})();
 
-    // Semi-transparent black background for metadata overlay
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-    ctx.fillRect(0, canvas.height - overlayHeight, canvas.width, overlayHeight);
-
-    // Set text properties for metadata
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 24px Arial';
-    ctx.textAlign = 'left';
-
-    // Add timestamp with consistent formatting
-    const timestamp = currentTime.toLocaleString('en-US', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false
-    });
-    ctx.fillText(timestamp, padding, canvas.height - overlayHeight + 35);
-
-    // Add project name
-    ctx.font = 'bold 20px Arial';
-    ctx.fillText(`Project: ${currentProject?.name || 'Unknown Project'}`, padding, canvas.height - overlayHeight + 65);
-
-    // Add GPS coordinates with accuracy indicator
-    if (currentLocation) {
-      ctx.font = '18px Arial';
-      ctx.fillStyle = '#90EE90'; // Light green for GPS available
-      const gpsText = `GPS: ${currentLocation.lat.toFixed(6)}, ${currentLocation.lng.toFixed(6)}`;
-      ctx.fillText(gpsText, padding, canvas.height - overlayHeight + 90);
-    } else {
-      ctx.font = '18px Arial';
-      ctx.fillStyle = '#ff9999'; // Light red for GPS unavailable
-      ctx.fillText('GPS: Location not available', padding, canvas.height - overlayHeight + 90);
-    }
-
-    // Add DisasterDirect watermark in top-right
-    ctx.font = 'bold 16px Arial';
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-    ctx.textAlign = 'right';
-    ctx.fillText('DisasterDirect', canvas.width - padding, 35);
-    
-    canvas.toBlob((blob) => {
-      if (blob) {
-        const timestampFile = currentTime.toISOString().replace(/[:.]/g, '-');
-        const projectName = currentProject?.name.replace(/[^a-zA-Z0-9]/g, '_') || 'unknown';
-        const fileName = `${projectName}_photo_${timestampFile}.jpg`;
-        const file = new File([blob], fileName, { type: 'image/jpeg' });
-        onCapture(file, 'photo');
-        toast({
-          title: "Photo Captured",
-          description: `Photo with auto-stamp saved to ${currentProject?.name || 'current project'}`
-        });
-      }
-    }, 'image/jpeg', 0.92); // Higher quality for professional documentation
-  };
-
-  const startVideoRecording = () => {
-    if (!videoRef.current?.srcObject) return;
-    
-    const stream = videoRef.current.srcObject as MediaStream;
-    const mediaRecorder = new MediaRecorder(stream);
-    const chunks: Blob[] = [];
-    
-    mediaRecorder.ondataavailable = (event) => {
-      if (event.data.size > 0) {
-        chunks.push(event.data);
-      }
-    };
-    
-    mediaRecorder.onstop = () => {
-      const blob = new Blob(chunks, { type: 'video/webm' });
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const projectName = currentProject?.name.replace(/[^a-zA-Z0-9]/g, '_') || 'unknown';
-      const fileName = `${projectName}_video_${timestamp}.webm`;
-      const file = new File([blob], fileName, { type: 'video/webm' });
-      onCapture(file, 'video');
-      toast({
-        title: "Video Recorded",
-        description: `Video saved to ${currentProject?.name || 'current project'}`
-      });
-    };
-    
-    mediaRecorderRef.current = mediaRecorder;
-    mediaRecorder.start();
-    setIsRecording(true);
-    
-    // Recording timer
-    const timer = setInterval(() => {
-      setRecordingTime(prev => prev + 1);
-    }, 1000);
-    
-    // Auto-stop after 5 minutes
-    setTimeout(() => {
-      if (mediaRecorderRef.current?.state === 'recording') {
-        mediaRecorderRef.current.stop();
-        setIsRecording(false);
-        setRecordingTime(0);
-        clearInterval(timer);
-      }
-    }, 300000);
-  };
-  
-  const stopVideoRecording = () => {
-    if (mediaRecorderRef.current?.state === 'recording') {
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
-      setRecordingTime(0);
-    }
-  };
-
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black z-50 flex flex-col">
-      {/* Header */}
-      <div className="flex items-center justify-between p-4 bg-black/90 backdrop-blur-sm">
-        <Button variant="ghost" onClick={onClose} className="text-white">
-          <ArrowLeft className="w-5 h-5 mr-2" />
-          Back
-        </Button>
-        
-        <div className="text-center">
-          <h2 className="text-lg font-semibold text-white">
-            {currentProject?.name || 'Camera Capture'}
-          </h2>
-          {currentLocation && (
-            <p className="text-sm text-white/70">
-              📍 {currentLocation.lat.toFixed(6)}, {currentLocation.lng.toFixed(6)}
-            </p>
-          )}
-        </div>
-
-        {isRecording && (
-          <div className="bg-red-500 text-white px-3 py-1 rounded-full text-sm font-bold animate-pulse">
-            REC {formatTime(recordingTime)}
-          </div>
-        )}
-      </div>
-
-      {/* Video Stream */}
-      <div className="flex-1 relative">
-        <video
-          ref={videoRef}
-          autoPlay
-          playsInline
-          muted
-          className="w-full h-full object-cover"
-        />
-        <canvas ref={canvasRef} className="hidden" />
-      </div>
-
-      {/* Controls */}
-      <div className="p-6 bg-black/90 backdrop-blur-sm">
-        <div className="flex justify-center items-center space-x-8">
-          {/* Mode Toggle */}
-          <div className="flex gap-2">
-            <Button
-              variant={mode === 'photo' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setMode('photo')}
-              className={mode === 'photo' ? 'text-black' : 'text-white border-white'}
-            >
-              <Camera className="w-4 h-4 mr-2" />
-              Photo
-            </Button>
-            <Button
-              variant={mode === 'video' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setMode('video')}
-              className={mode === 'video' ? 'text-black' : 'text-white border-white'}
-            >
-              <Video className="w-4 h-4 mr-2" />
-              Video
-            </Button>
-          </div>
-
-          {/* Capture Controls */}
-          {!isStreaming ? (
-            <Button onClick={startStream} size="lg" className="bg-blue-600 hover:bg-blue-700">
-              <Camera className="w-5 h-5 mr-2" />
-              Start Camera
-            </Button>
-          ) : (
-            <>
-              {mode === 'photo' ? (
-                <motion.button
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.9 }}
-                  onClick={capturePhoto}
-                  className="w-20 h-20 bg-white rounded-full border-4 border-white/30 flex items-center justify-center shadow-xl"
-                >
-                  <div className="w-16 h-16 bg-gray-100 rounded-full" />
-                </motion.button>
-              ) : (
-                <motion.button
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.9 }}
-                  onClick={isRecording ? stopVideoRecording : startVideoRecording}
-                  className={`w-20 h-20 ${
-                    isRecording ? 'bg-red-500' : 'bg-white'
-                  } rounded-full border-4 border-white/30 flex items-center justify-center shadow-xl`}
-                >
-                  {isRecording ? (
-                    <Square className="w-8 h-8 text-white" />
-                  ) : (
-                    <Circle className="w-8 h-8 text-red-500" />
-                  )}
-                </motion.button>
-              )}
-              
-              <Button 
-                onClick={stopStream} 
-                variant="outline" 
-                className="text-white border-white"
-              >
-                <Square className="w-4 h-4 mr-2" />
-                Stop
-              </Button>
-            </>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// Project Creation Modal
-const ProjectModal: React.FC<{
-  isOpen: boolean;
-  onClose: () => void;
-  onSave: (project: Partial<Project>) => void;
-  project?: Project | null;
-}> = ({ isOpen, onClose, onSave, project }) => {
-  const [formData, setFormData] = useState<{
-    name: string;
-    address: string;
-    tags: string[];
-    status: 'active' | 'completed' | 'archived';
-  }>({
-    name: '',
-    address: '',
-    tags: [],
-    status: 'active'
-  });
-
+function useHashWorker() {
+  const workerRef = useRef<Worker | null>(null);
   useEffect(() => {
-    if (project) {
-      setFormData({
-        name: project.name,
-        address: project.address || '',
-        tags: project.tags,
-        status: project.status
-      });
-    } else {
-      setFormData({
-        name: '',
-        address: '',
-        tags: [],
-        status: 'active'
-      });
-    }
-  }, [project]);
-
-  const handleSave = () => {
-    if (!formData.name.trim()) return;
-    
-    onSave({
-      ...formData,
-      name: formData.name.trim(),
-      address: formData.address.trim() || undefined
-    });
-    onClose();
-  };
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="bg-white rounded-lg p-6 max-w-md w-full mx-4"
-      >
-        <h3 className="text-lg font-semibold mb-4">
-          {project ? 'Edit Project' : 'New Project'}
-        </h3>
-        
-        <div className="space-y-4">
-          <div>
-            <Label htmlFor="project-name">Project Name *</Label>
-            <Input
-              id="project-name"
-              value={formData.name}
-              onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-              placeholder="Storm damage assessment - Main St"
-            />
-          </div>
-          
-          <div>
-            <Label htmlFor="project-address">Address</Label>
-            <Input
-              id="project-address"
-              value={formData.address}
-              onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
-              placeholder="123 Main St, City, State 12345"
-            />
-          </div>
-          
-          <div>
-            <Label htmlFor="project-status">Status</Label>
-            <Select
-              value={formData.status}
-              onValueChange={(value: 'active' | 'completed' | 'archived') => 
-                setFormData(prev => ({ ...prev, status: value }))
-              }
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="completed">Completed</SelectItem>
-                <SelectItem value="archived">Archived</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-        
-        <div className="flex gap-3 mt-6">
-          <Button onClick={onClose} variant="outline" className="flex-1">
-            Cancel
-          </Button>
-          <Button 
-            onClick={handleSave} 
-            className="flex-1"
-            disabled={!formData.name.trim()}
-          >
-            {project ? 'Update' : 'Create'} Project
-          </Button>
-        </div>
-      </motion.div>
-    </div>
-  );
-};
-
-// Media Library Component
-const MediaLibrary = ({ projects }: { projects: Project[] }) => {
-  const [selectedProject, setSelectedProject] = useState<string>('all');
-  const [mediaType, setMediaType] = useState<string>('all');
-  
-  // Fetch media items from API
-  const { data: mediaData, isLoading } = useQuery({
-    queryKey: ['disaster-lense-media', selectedProject, mediaType],
-    queryFn: () => {
-      const params = new URLSearchParams();
-      if (selectedProject !== 'all') params.set('projectId', selectedProject);
-      if (mediaType !== 'all') params.set('type', mediaType);
-      return fetch(`/api/disaster-lense/media?${params.toString()}`).then(res => res.json());
-    }
-  });
-
-  const mediaItems = mediaData?.media || [];
-
-  return (
-    <Card>
-      <CardHeader>
-        <div className="flex justify-between items-center">
-          <CardTitle>Media Library</CardTitle>
-          <div className="flex gap-2">
-            <select
-              value={selectedProject}
-              onChange={(e) => setSelectedProject(e.target.value)}
-              className="px-3 py-1 border rounded text-sm"
-            >
-              <option value="all">All Projects</option>
-              {projects.map(project => (
-                <option key={project.id} value={project.id}>{project.name}</option>
-              ))}
-            </select>
-            <select
-              value={mediaType}
-              onChange={(e) => setMediaType(e.target.value)}
-              className="px-3 py-1 border rounded text-sm"
-            >
-              <option value="all">All Media</option>
-              <option value="photo">Photos</option>
-              <option value="video">Videos</option>
-            </select>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent>
-        {isLoading ? (
-          <div className="text-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-          </div>
-        ) : mediaItems.length === 0 ? (
-          <div className="text-center py-12">
-            <Camera className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No media yet</h3>
-            <p className="text-gray-500">Capture photos and videos to see them here.</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {mediaItems.map((media: any) => (
-              <div key={media.id} className="border rounded-lg p-3 hover:bg-gray-50">
-                <div className="aspect-square bg-gray-100 rounded mb-2 flex items-center justify-center">
-                  {media.type === 'photo' ? (
-                    <Camera className="w-8 h-8 text-gray-400" />
-                  ) : (
-                    <Video className="w-8 h-8 text-gray-400" />
-                  )}
-                </div>
-                <div className="text-sm">
-                  <div className="font-medium truncate">{media.originalName}</div>
-                  <div className="text-gray-500 text-xs">
-                    {new Date(media.capturedAt).toLocaleDateString()}
-                  </div>
-                  {media.coords && (
-                    <div className="text-green-600 text-xs">📍 GPS</div>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-};
-
-// Task Management Component
-const TaskManagement = ({ projects }: { projects: Project[] }) => {
-  const [selectedProject, setSelectedProject] = useState<string>('all');
-  const [showCreateTask, setShowCreateTask] = useState(false);
-  
-  // Fetch tasks from API
-  const { data: tasksData, isLoading } = useQuery({
-    queryKey: ['disaster-lense-tasks', selectedProject],
-    queryFn: () => {
-      const params = new URLSearchParams();
-      if (selectedProject !== 'all') params.set('projectId', selectedProject);
-      return fetch(`/api/disaster-lense/tasks?${params.toString()}`).then(res => res.json());
-    }
-  });
-
-  const tasks = tasksData?.tasks || [];
-
-  const queryClient = useQueryClient();
-  
-  const createTaskMutation = useMutation({
-    mutationFn: (taskData: any) =>
-      apiRequest('/api/disaster-lense/tasks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(taskData)
-      }),
-    onSuccess: () => {
-      setShowCreateTask(false);
-      queryClient.invalidateQueries({ queryKey: ['disaster-lense-tasks'] });
-    }
-  });
-
-  return (
-    <Card>
-      <CardHeader>
-        <div className="flex justify-between items-center">
-          <CardTitle>Tasks & Checklists</CardTitle>
-          <div className="flex gap-2">
-            <select
-              value={selectedProject}
-              onChange={(e) => setSelectedProject(e.target.value)}
-              className="px-3 py-1 border rounded text-sm"
-            >
-              <option value="all">All Projects</option>
-              {projects.map(project => (
-                <option key={project.id} value={project.id}>{project.name}</option>
-              ))}
-            </select>
-            <Button size="sm" onClick={() => setShowCreateTask(true)}>
-              <Plus className="w-4 h-4 mr-2" />
-              New Task
-            </Button>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent>
-        {isLoading ? (
-          <div className="text-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-          </div>
-        ) : tasks.length === 0 ? (
-          <div className="text-center py-12">
-            <CheckSquare className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No tasks yet</h3>
-            <p className="text-gray-500">Create tasks to organize your project workflow.</p>
-          </div>
-        ) : (
-          <div>
-            {/* Task Creation Form */}
-            {showCreateTask && (
-              <div className="mb-6 border rounded-lg p-4 bg-gray-50">
-                <h4 className="font-medium mb-3">Create New Task</h4>
-                <form onSubmit={(e) => {
-                  e.preventDefault();
-                  const formData = new FormData(e.currentTarget);
-                  createTaskMutation.mutate({
-                    projectId: formData.get('projectId'),
-                    title: formData.get('title'),
-                    description: formData.get('description'),
-                    requiresPhoto: formData.get('requiresPhoto') === 'on'
-                  });
-                }}>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="title">Task Title</Label>
-                      <Input name="title" id="title" required />
-                    </div>
-                    <div>
-                      <Label htmlFor="project">Project</Label>
-                      <select name="projectId" className="w-full px-3 py-2 border rounded">
-                        {projects.map(project => (
-                          <option key={project.id} value={project.id}>{project.name}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                  <div className="mt-4">
-                    <Label htmlFor="description">Description</Label>
-                    <Textarea name="description" id="description" />
-                  </div>
-                  <div className="mt-4">
-                    <label className="flex items-center gap-2">
-                      <input type="checkbox" name="requiresPhoto" />
-                      <span className="text-sm">Requires photo documentation</span>
-                    </label>
-                  </div>
-                  <div className="flex gap-2 mt-4">
-                    <Button type="submit" disabled={createTaskMutation.isPending}>
-                      Create Task
-                    </Button>
-                    <Button type="button" variant="outline" onClick={() => setShowCreateTask(false)}>
-                      Cancel
-                    </Button>
-                  </div>
-                </form>
-              </div>
-            )}
-            
-            <div className="space-y-3">
-              {tasks.map((task: any) => (
-                <div key={task.id} className="border rounded-lg p-4">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <div className={`w-3 h-3 rounded-full ${task.status === 'completed' ? 'bg-green-500' : task.status === 'in_progress' ? 'bg-yellow-500' : 'bg-gray-300'}`} />
-                      <h4 className="font-medium">{task.title}</h4>
-                    </div>
-                    {task.description && (
-                      <p className="text-sm text-gray-600 mt-1">{task.description}</p>
-                    )}
-                    <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
-                      <span>{projects.find(p => p.id === task.projectId)?.name}</span>
-                      {task.requiresPhoto && (
-                        <span className="flex items-center gap-1">
-                          <Camera className="w-3 h-3" />
-                          Photo required
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <Button variant="outline" size="sm">
-                    {task.status === 'completed' ? 'Completed' : 'Mark Complete'}
-                  </Button>
-                </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-};
-
-// Reports Center Component
-const ReportsCenter = ({ projects }: { projects: Project[] }) => {
-  const [selectedProject, setSelectedProject] = useState<string>('all');
-  
-  // Fetch reports from API  
-  const { data: reportsData, isLoading } = useQuery({
-    queryKey: ['disaster-lense-reports', selectedProject],
-    queryFn: () => {
-      const params = new URLSearchParams();
-      if (selectedProject !== 'all') params.set('projectId', selectedProject);
-      return fetch(`/api/disaster-lense/reports?${params.toString()}`).then(res => res.json()).catch(() => ({ reports: [] }));
-    }
-  });
-
-  const reports = reportsData?.reports || [];
-
-  return (
-    <Card>
-      <CardHeader>
-        <div className="flex justify-between items-center">
-          <CardTitle>Reports & Documentation</CardTitle>
-          <div className="flex gap-2">
-            <select
-              value={selectedProject}
-              onChange={(e) => setSelectedProject(e.target.value)}
-              className="px-3 py-1 border rounded text-sm"
-            >
-              <option value="all">All Projects</option>
-              {projects.map(project => (
-                <option key={project.id} value={project.id}>{project.name}</option>
-              ))}
-            </select>
-            <Button size="sm">
-              <FileText className="w-4 h-4 mr-2" />
-              Generate Report
-            </Button>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent>
-        {isLoading ? (
-          <div className="text-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-          </div>
-        ) : reports.length === 0 ? (
-          <div className="text-center py-12">
-            <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No reports generated</h3>
-            <p className="text-gray-500 mb-6">
-              Generate professional reports from your captured media and project data.
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-2xl mx-auto">
-              <div className="border rounded-lg p-4 text-center">
-                <Clock className="w-8 h-8 text-blue-500 mx-auto mb-2" />
-                <h4 className="font-medium">Daily Log</h4>
-                <p className="text-sm text-gray-500">Progress documentation</p>
-              </div>
-              <div className="border rounded-lg p-4 text-center">
-                <Shield className="w-8 h-8 text-green-500 mx-auto mb-2" />
-                <h4 className="font-medium">Before/After</h4>
-                <p className="text-sm text-gray-500">Damage assessment</p>
-              </div>
-              <div className="border rounded-lg p-4 text-center">
-                <Building2 className="w-8 h-8 text-purple-500 mx-auto mb-2" />
-                <h4 className="font-medium">Insurance Packet</h4>
-                <p className="text-sm text-gray-500">Claims documentation</p>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {reports.map((report: any) => (
-              <div key={report.id} className="border rounded-lg p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="font-medium">{report.name}</h4>
-                    <p className="text-sm text-gray-500">
-                      {projects.find(p => p.id === report.projectId)?.name} • 
-                      {new Date(report.createdAt).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm">
-                      <Eye className="w-4 h-4 mr-1" />
-                      View
-                    </Button>
-                    <Button variant="outline" size="sm">
-                      <Download className="w-4 h-4 mr-1" />
-                      Download
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-};
-
-// Main DisasterLens Component
-export default function DisasterLens() {
-  const [activeTab, setActiveTab] = useState('projects');
-  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
-  const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
-  const [isCameraOpen, setIsCameraOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [currentLocation, setCurrentLocation] = useState<{lat: number, lng: number} | null>(null);
-
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-
-  // Get user location on component mount for auto-stamping
-  useEffect(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setCurrentLocation({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude
-          });
-        },
-        (error) => {
-          console.warn('Geolocation denied or failed:', error);
-        },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
-      );
-    }
+    const w = new Worker(hashingWorkerUrl);
+    workerRef.current = w;
+    return () => w.terminate();
   }, []);
 
-  // Fetch projects from API
-  const { data: projectsData, isLoading: projectsLoading, error: projectsError } = useQuery({
-    queryKey: ['disaster-lense-projects', searchTerm],
-    queryFn: () => fetch(`/api/disaster-lense/projects?${searchTerm ? `search=${searchTerm}` : ''}`).then(res => res.json())
-  });
-
-  const projects = projectsData?.projects || [];
-
-  // Mutations for project operations
-  const createProjectMutation = useMutation({
-    mutationFn: (projectData: Partial<Project>) => 
-      apiRequest('/api/disaster-lense/projects', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(projectData)
-      }),
-    onSuccess: (data) => {
-      toast({
-        title: "Project Created",
-        description: `${data.project.name} has been created successfully.`
-      });
-      queryClient.invalidateQueries({ queryKey: ['disaster-lense-projects'] });
-      setIsProjectModalOpen(false);
-      setSelectedProject(null);
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to create project",
-        variant: "destructive"
-      });
-    }
-  });
-
-  const updateProjectMutation = useMutation({
-    mutationFn: ({ id, ...updates }: { id: string } & Partial<Project>) =>
-      apiRequest(`/api/disaster-lense/projects/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updates)
-      }),
-    onSuccess: (data) => {
-      toast({
-        title: "Project Updated",
-        description: "Project has been updated successfully."
-      });
-      queryClient.invalidateQueries({ queryKey: ['disaster-lense-projects'] });
-      setIsProjectModalOpen(false);
-      setSelectedProject(null);
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to update project",
-        variant: "destructive"
-      });
-    }
-  });
-
-  const createMediaMutation = useMutation({
-    mutationFn: (mediaData: any) =>
-      apiRequest('/api/disaster-lense/media', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(mediaData)
-      }),
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['disaster-lense-projects'] });
-      queryClient.invalidateQueries({ queryKey: ['disaster-lense-media'] });
-    }
-  });
-
-  const handleCreateProject = (projectData: Partial<Project>) => {
-    createProjectMutation.mutate(projectData);
+  return async function hashArrayBuffer(buf: ArrayBuffer): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const w = workerRef.current;
+      if (!w) return reject(new Error("worker not ready"));
+      const onMessage = (ev: MessageEvent) => {
+        const { ok, hex, error } = ev.data || {};
+        w.removeEventListener('message', onMessage);
+        if (ok) resolve(hex); else reject(new Error(error || 'hash failed'));
+      };
+      w.addEventListener('message', onMessage);
+      w.postMessage(buf, [buf as any]);
+    });
   };
+}
 
-  const handleUpdateProject = (projectData: Partial<Project>) => {
-    if (selectedProject) {
-      updateProjectMutation.mutate({ id: selectedProject.id, ...projectData });
+function TabButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`px-4 py-2 rounded-2xl text-sm font-medium shadow-sm transition hover:shadow ${active ? "bg-black text-white" : "bg-white text-gray-800 border"}`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function StatCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
+  return (
+    <div className="rounded-2xl border p-4 shadow-sm bg-white">
+      <div className="text-xs uppercase tracking-wider text-gray-500">{label}</div>
+      <div className="text-2xl font-semibold mt-1 break-all">{value}</div>
+      {sub && <div className="text-xs text-gray-500 mt-1">{sub}</div>}
+    </div>
+  );
+}
+
+// --- Capture Tab ---
+function CaptureTab() {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [streamOn, setStreamOn] = useState(false);
+  const [shots, setShots] = useState<{ url: string; hash: string }[]>([]);
+  const [useRear, setUseRear] = useState(true);
+  const [note, setNote] = useState("");
+  const hashWorker = useHashWorker();
+
+  async function startCamera() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: useRear ? { ideal: "environment" } : "user" },
+        audio: false,
+      });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await (videoRef.current as HTMLVideoElement).play();
+        setStreamOn(true);
+      }
+    } catch (e) {
+      alert("Camera not available in preview. You can still use the UI.");
     }
-  };
+  }
+  
+  function stopCamera() {
+    const vid = videoRef.current as HTMLVideoElement | null;
+    const stream = vid && (vid.srcObject as MediaStream);
+    stream?.getTracks().forEach((t) => t.stop());
+    setStreamOn(false);
+  }
+  
+  async function takeShot() {
+    const video = videoRef.current as HTMLVideoElement | null;
+    const canvas = canvasRef.current as HTMLCanvasElement | null;
+    if (!video || !canvas) return;
+    const w = video.videoWidth || 640;
+    const h = video.videoHeight || 360;
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.drawImage(video, 0, 0, w, h);
+    // Watermark sample
+    ctx.fillStyle = "rgba(0,0,0,0.6)";
+    ctx.fillRect(0, h - 26, w, 26);
+    ctx.fillStyle = "#fff";
+    ctx.font = "14px sans-serif";
+    const ts = new Date().toISOString();
+    ctx.fillText(`Disaster Lens • ${ts}`, 8, h - 8);
 
-  const handleMediaCapture = (file: File, type: 'photo' | 'video') => {
-    if (!selectedProject) return;
-
-    // Create media data with auto-stamping
-    const mediaData = {
-      projectId: selectedProject.id,
-      fileName: file.name,
-      originalName: file.name,
-      type,
-      fileSize: file.size,
-      coords: currentLocation ? {
-        lat: currentLocation.lat,
-        lng: currentLocation.lng,
-        accuracy: 10
-      } : undefined,
-      deviceInfo: {
-        userAgent: navigator.userAgent,
-        platform: navigator.platform
-      },
-      userId: 'current-user' // Would come from auth context
-    };
-
-    // TODO: Upload file to storage first, then create media record
-    createMediaMutation.mutate(mediaData);
-    setIsCameraOpen(false);
-  };
-
-  // Projects are already filtered by search term via API query
-  const filteredProjects = projects;
+    // Convert to Blob → ArrayBuffer for hashing
+    canvas.toBlob(async (blob) => {
+      if (!blob) return;
+      const ab = await blob.arrayBuffer();
+      const hex = await hashWorker(ab);
+      const url = URL.createObjectURL(blob);
+      setShots((s) => [{ url, hash: hex }, ...s]);
+    }, 'image/png');
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-      <div className="container mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              Disaster Lense
-            </h1>
-            <p className="text-gray-600">
-              Professional photo & video documentation for storm response
-            </p>
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="lg:col-span-2 rounded-2xl border p-4 bg-white shadow-sm">
+        <div className="flex items-center justify-between mb-3">
+          <div className="text-lg font-semibold">Capture</div>
+          <div className="flex items-center gap-2">
+            <button className="px-3 py-1.5 rounded-xl border" onClick={() => setUseRear((v) => !v)}>
+              {useRear ? "Rear" : "Front"}
+            </button>
+            {!streamOn ? (
+              <button className="px-3 py-1.5 rounded-xl bg-black text-white" onClick={startCamera}>Start</button>
+            ) : (
+              <button className="px-3 py-1.5 rounded-xl bg-red-600 text-white" onClick={stopCamera}>Stop</button>
+            )}
+            <button className="px-3 py-1.5 rounded-xl border" onClick={takeShot} data-testid="button-take-shot">Snap</button>
           </div>
-          
-          <Button
-            onClick={() => setIsProjectModalOpen(true)}
-            className="bg-blue-600 hover:bg-blue-700"
-            data-testid="button-new-project"
+        </div>
+        <div className="aspect-video w-full bg-black/5 rounded-xl overflow-hidden flex items-center justify-center">
+          <video ref={videoRef} className="w-full" playsInline muted />
+        </div>
+        <canvas ref={canvasRef} className="hidden" />
+        <div className="mt-4">
+          <label className="text-sm text-gray-700">Quick note (auto-caption)</label>
+          <textarea 
+            value={note} 
+            onChange={(e)=>setNote(e.target.value)} 
+            placeholder="e.g., Split trunk over fence; live line nearby"
+            className="mt-1 w-full rounded-xl border p-2" 
+            rows={3}
+            data-testid="input-note"
+          />
+        </div>
+      </div>
+      <div className="space-y-3">
+        <StatCard label="Project" value="Michael Thomas — Pecan Removal" sub="5385 Westwood Dr, Columbus, GA" />
+        <StatCard label="Chain-of-Custody" value="SHA-256 on save" sub="Hash printed in reports" />
+        <div className="rounded-2xl border p-3 bg-white">
+          <div className="font-semibold mb-2">Recent Shots</div>
+          <div className="grid grid-cols-3 gap-2">
+            {shots.map((s, i) => (
+              <div key={i} className="relative group" data-testid={`shot-${i}`}>
+                <img src={s.url} className="rounded-xl border" alt={`Shot ${i}`} />
+                <div className="absolute inset-x-0 bottom-0 text-[10px] p-1 bg-black/60 text-white rounded-b-xl opacity-0 group-hover:opacity-100 transition">
+                  {s.hash.slice(0,16)}…
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// --- Timeline Tab ---
+function TimelineItem({ img, title, meta }: { img: string; title: string; meta: string }) {
+  return (
+    <div className="flex gap-3 p-3 rounded-xl border bg-white">
+      <img src={img} className="w-28 h-20 object-cover rounded-lg border" alt={title} />
+      <div>
+        <div className="font-medium">{title}</div>
+        <div className="text-xs text-gray-500">{meta}</div>
+      </div>
+    </div>
+  );
+}
+
+function TimelineTab() {
+  const demo = new Array(6).fill(0).map((_, i) => ({
+    img: `https://picsum.photos/seed/${i + 2}/320/180`,
+    title: i === 0 ? "Before — Split trunk over fence" : i < 4 ? "During — sectional lowering" : "After — cleanup complete",
+    meta: `By Brian • ${new Date(Date.now() - i * 3.6e6).toLocaleString()}`,
+  }));
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="lg:col-span-2 space-y-3">
+        {demo.map((d, i) => (
+          <TimelineItem key={i} {...d} />
+        ))}
+      </div>
+      <div className="space-y-3">
+        <div className="rounded-2xl border p-4 bg-white">
+          <div className="font-semibold mb-2">Filters</div>
+          <div className="flex flex-wrap gap-2">
+            {["hazard", "estimate", "work", "complete"].map((t) => (
+              <button key={t} className="px-3 py-1.5 rounded-full border text-sm" data-testid={`filter-${t}`}>#{t}</button>
+            ))}
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <button className="rounded-xl border p-2" data-testid="filter-photos">Photos</button>
+            <button className="rounded-xl border p-2" data-testid="filter-videos">Videos</button>
+            <button className="rounded-xl border p-2" data-testid="filter-mine">Mine</button>
+            <button className="rounded-xl border p-2" data-testid="filter-crew">Crew</button>
+          </div>
+        </div>
+        <div className="rounded-2xl border p-4 bg-white">
+          <div className="font-semibold mb-2">Pinned Notes</div>
+          <ul className="text-sm list-disc pl-5 space-y-1">
+            <li>Use crane access only — soft yard</li>
+            <li>Call homeowner before arrival</li>
+            <li>Document fence damage thoroughly</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// --- Annotator Tab (simple mock) ---
+function AnnotatorTab() {
+  const [brush, setBrush] = useState<'arrow'|'box'|'text'|'blur'|'measure'>("box");
+  const [caption, setCaption] = useState("Cracked limb over structure — immediate removal recommended.");
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="rounded-2xl border p-4 bg-white lg:col-span-2">
+        <div className="mb-2 flex items-center gap-2">
+          {(["arrow","box","text","blur","measure"] as const).map((b)=> (
+            <button 
+              key={b} 
+              onClick={()=>setBrush(b)} 
+              className={`px-3 py-1.5 rounded-xl border text-sm ${brush===b?"bg-black text-white":""}`}
+              data-testid={`brush-${b}`}
+            >
+              {b}
+            </button>
+          ))}
+        </div>
+        <div className="aspect-video w-full rounded-xl overflow-hidden border relative">
+          <img src="https://picsum.photos/seed/annotate/1200/675" className="w-full h-full object-cover" alt="Annotation target" />
+          {/* Mock overlay */}
+          <div className="absolute inset-0 pointer-events-none">
+            {brush === "box" && (
+              <div className="absolute left-12 top-10 w-40 h-20 border-4 border-red-500 rounded" />
+            )}
+            {brush === "arrow" && (
+              <div className="absolute left-56 top-16 w-28 h-1 bg-red-500 rotate-12 origin-left" />
+            )}
+            {brush === "blur" && (
+              <div className="absolute right-10 bottom-12 w-24 h-10 backdrop-blur" />
+            )}
+          </div>
+        </div>
+        <div className="mt-3">
+          <label className="text-sm text-gray-700">Caption</label>
+          <input 
+            value={caption} 
+            onChange={(e)=>setCaption(e.target.value)} 
+            className="mt-1 w-full rounded-xl border p-2"
+            data-testid="input-caption"
+          />
+        </div>
+      </div>
+      <div className="space-y-3">
+        <div className="rounded-2xl border p-4 bg-white">
+          <div className="font-semibold mb-2">Annotation Notes</div>
+          <p className="text-sm text-gray-700">Use <b>blur</b> on house numbers/license plates for public shares. Measurements are estimates.</p>
+        </div>
+        <div className="rounded-2xl border p-4 bg-white">
+          <div className="font-semibold mb-2">Annotation Tools</div>
+          <div className="space-y-2 text-sm">
+            <div><b>Arrow:</b> Point to specific damage</div>
+            <div><b>Box:</b> Highlight affected areas</div>
+            <div><b>Text:</b> Add labels and notes</div>
+            <div><b>Blur:</b> Redact sensitive info</div>
+            <div><b>Measure:</b> Approximate distances</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// --- Report Builder Tab ---
+function ReportBuilderTab() {
+  const [title, setTitle] = useState("Storm Tree Removal — Final Report");
+  const [kind, setKind] = useState("final");
+  const [sections, setSections] = useState([
+    { title: "Before", media: ["https://picsum.photos/seed/b1/600/340", "https://picsum.photos/seed/b2/600/340"] },
+    { title: "During", media: ["https://picsum.photos/seed/d1/600/340"] },
+    { title: "After", media: ["https://picsum.photos/seed/a1/600/340", "https://picsum.photos/seed/a2/600/340"] },
+  ]);
+
+  function addSection() {
+    setSections((s) => [...s, { title: `Section ${s.length + 1}`, media: [] }]);
+  }
+
+  // ---- Wired Buttons ----
+  async function onRenderPdf() {
+    const payload = {
+      title,
+      projectTitle: "Michael Thomas — Pecan Removal",
+      items: sections.flatMap((s) => s.media.map((_, idx) => ({ caption: `${s.title} — item ${idx+1}` })))
+    };
+    try {
+      const res = await fetch(`/api/reports/demo/render`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+    } catch (error) {
+      alert('Error rendering PDF: ' + error);
+    }
+  }
+
+  async function onCreateShare() {
+    try {
+      const res = await fetch(`/api/shares`, { method: 'POST' });
+      const data = await res.json();
+      await navigator.clipboard.writeText(data.url);
+      alert(`Share link copied to clipboard!\n${data.url}`);
+    } catch {
+      alert('Error creating share link');
+    }
+  }
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="rounded-2xl border p-4 bg-white lg:col-span-2">
+        <div className="flex items-center gap-3 mb-3">
+          <input 
+            value={title} 
+            onChange={(e)=>setTitle(e.target.value)} 
+            className="flex-1 rounded-xl border p-2"
+            data-testid="input-title"
+          />
+          <select 
+            value={kind} 
+            onChange={(e)=>setKind(e.target.value)} 
+            className="rounded-xl border p-2"
+            data-testid="select-kind"
           >
-            <Plus className="w-5 h-5 mr-2" />
-            New Project
-          </Button>
+            <option value="photo">Photo</option>
+            <option value="daily">Daily</option>
+            <option value="final">Final</option>
+            <option value="insurance_packet">Insurance Packet</option>
+          </select>
+          <button onClick={addSection} className="px-3 py-1.5 rounded-xl border" data-testid="button-add-section">Add Section</button>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="projects" className="flex items-center gap-2">
-              <FolderOpen className="w-4 h-4" />
-              Projects
-            </TabsTrigger>
-            <TabsTrigger value="media" className="flex items-center gap-2">
-              <Camera className="w-4 h-4" />
-              Media
-            </TabsTrigger>
-            <TabsTrigger value="tasks" className="flex items-center gap-2">
-              <CheckSquare className="w-4 h-4" />
-              Tasks
-            </TabsTrigger>
-            <TabsTrigger value="reports" className="flex items-center gap-2">
-              <FileText className="w-4 h-4" />
-              Reports
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="projects" className="space-y-6">
-            {/* Search & Filters */}
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle>Projects</CardTitle>
-                  <div className="flex items-center gap-3">
-                    <div className="relative">
-                      <Search className="w-4 h-4 absolute left-3 top-3 text-gray-400" />
-                      <Input
-                        placeholder="Search projects..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-10 w-64"
-                        data-testid="input-search-projects"
-                      />
-                    </div>
-                    <Button variant="outline" size="sm">
-                      <Filter className="w-4 h-4 mr-2" />
-                      Filter
-                    </Button>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {projectsLoading ? (
-                  <div className="text-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                    <p className="text-gray-500 mt-2">Loading projects...</p>
-                  </div>
-                ) : projectsError ? (
-                  <div className="text-center py-8">
-                    <p className="text-red-500">Failed to load projects</p>
-                  </div>
-                ) : (
-                  <div className="grid gap-4">
-                    {filteredProjects.map((project) => (
-                    <motion.div
-                      key={project.id}
-                      whileHover={{ scale: 1.02 }}
-                      className="border rounded-lg p-4 cursor-pointer hover:bg-gray-50"
-                      onClick={() => setSelectedProject(project)}
-                      data-testid={`project-${project.id}`}
+        <div className="space-y-4">
+          {sections.map((s, i) => (
+            <div key={i} className="rounded-xl border p-3" data-testid={`section-${i}`}>
+              <div className="flex items-center justify-between mb-2">
+                <input 
+                  defaultValue={s.title} 
+                  className="text-lg font-semibold bg-transparent" 
+                  onBlur={(e)=>{
+                    const v = e.target.value; 
+                    setSections((prev)=> prev.map((it,idx)=> idx===i? {...it, title:v}: it));
+                  }} 
+                  data-testid={`section-title-${i}`}
+                />
+                <button 
+                  className="text-sm text-red-600" 
+                  onClick={()=> setSections((prev)=> prev.filter((_,idx)=> idx!==i))}
+                  data-testid={`remove-section-${i}`}
+                >
+                  Remove
+                </button>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                {s.media.map((m, j) => (
+                  <div key={j} className="relative" data-testid={`media-${i}-${j}`}>
+                    <img src={m} className="w-full h-32 object-cover rounded-lg border" alt={`Media ${j}`} />
+                    <button 
+                      className="absolute -top-2 -right-2 bg-white border rounded-full w-6 h-6 text-xs" 
+                      onClick={()=>{
+                        setSections((prev)=> prev.map((it,idx)=> idx!==i? it: { ...it, media: it.media.filter((_,k)=>k!==j) }));
+                      }}
+                      data-testid={`remove-media-${i}-${j}`}
                     >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-2">
-                            <h3 className="font-semibold text-lg">{project.name}</h3>
-                            <Badge variant={
-                              project.status === 'active' ? 'default' : 
-                              project.status === 'completed' ? 'secondary' : 'outline'
-                            }>
-                              {project.status}
-                            </Badge>
-                          </div>
-                          
-                          {project.address && (
-                            <div className="flex items-center gap-2 text-gray-600 mb-2">
-                              <MapPin className="w-4 h-4" />
-                              <span className="text-sm">{project.address}</span>
-                            </div>
-                          )}
-                          
-                          <div className="flex items-center gap-4 text-sm text-gray-500">
-                            <div className="flex items-center gap-1">
-                              <Camera className="w-4 h-4" />
-                              {project.mediaCount} items
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <Users className="w-4 h-4" />
-                              {project.teamMembers.length} members
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <Clock className="w-4 h-4" />
-                              {project.createdAt.toLocaleDateString()}
-                            </div>
-                          </div>
-                          
-                          {project.tags.length > 0 && (
-                            <div className="flex gap-2 mt-3">
-                              {project.tags.map((tag) => (
-                                <Badge key={tag} variant="outline" className="text-xs">
-                                  {tag}
-                                </Badge>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                        
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedProject(project);
-                              setIsCameraOpen(true);
-                            }}
-                            className="bg-green-600 hover:bg-green-700"
-                            data-testid={`button-capture-${project.id}`}
-                          >
-                            <Camera className="w-4 h-4 mr-2" />
-                            Capture
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedProject(project);
-                              setIsProjectModalOpen(true);
-                            }}
-                          >
-                            <Edit3 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    </motion.div>
-                    ))}
+                      ×
+                    </button>
                   </div>
-                )}
-                
-                {filteredProjects.length === 0 && (
-                  <div className="text-center py-12">
-                    <FolderOpen className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">No projects found</h3>
-                    <p className="text-gray-500 mb-6">
-                      {searchTerm ? 'No projects match your search.' : 'Create your first project to get started.'}
-                    </p>
-                    <Button onClick={() => setIsProjectModalOpen(true)}>
-                      <Plus className="w-5 h-5 mr-2" />
-                      Create Project
-                    </Button>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="media">
-            <MediaLibrary projects={projects} />
-          </TabsContent>
-
-          <TabsContent value="tasks">
-            <TaskManagement projects={projects} />
-          </TabsContent>
-
-          <TabsContent value="reports">
-            <ReportsCenter projects={projects} />
-          </TabsContent>
-        </Tabs>
+                ))}
+                <label className="h-32 border-2 border-dashed rounded-lg flex items-center justify-center text-sm text-gray-500 cursor-pointer" data-testid={`add-media-${i}`}>
+                  + Add
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    className="hidden" 
+                    onChange={(e)=>{
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const reader = new FileReader();
+                      reader.onload = () => {
+                        setSections((prev)=> prev.map((it,idx)=> idx!==i? it: { ...it, media: [...it.media, String(reader.result)] }));
+                      };
+                      reader.readAsDataURL(file);
+                    }} 
+                  />
+                </label>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
+      <div className="space-y-3">
+        <div className="rounded-2xl border p-4 bg-white">
+          <div className="font-semibold mb-2">Branding</div>
+          <div className="flex items-center gap-2">
+            <div className="w-10 h-10 rounded-xl bg-black" />
+            <div>
+              <div className="text-sm font-medium">Strategic Land Management LLC</div>
+              <div className="text-xs text-gray-500">Logo + primary color</div>
+            </div>
+          </div>
+        </div>
+        <div className="rounded-2xl border p-4 bg-white">
+          <div className="font-semibold mb-2">Export</div>
+          <button 
+            onClick={onRenderPdf} 
+            className="w-full rounded-xl bg-black text-white py-2"
+            data-testid="button-render-pdf"
+          >
+            Render PDF
+          </button>
+          <button 
+            onClick={onCreateShare} 
+            className="w-full rounded-xl border py-2 mt-2"
+            data-testid="button-create-share"
+          >
+            Create Share Link
+          </button>
+          <p className="text-xs text-gray-500 mt-2">PDF footer includes chain-of-custody hash and GPS/time.</p>
+        </div>
+      </div>
+    </div>
+  );
+}
 
-      {/* Modals */}
-      <ProjectModal
-        isOpen={isProjectModalOpen}
-        onClose={() => {
-          setIsProjectModalOpen(false);
-          setSelectedProject(null);
-        }}
-        onSave={selectedProject ? handleUpdateProject : handleCreateProject}
-        project={selectedProject}
-      />
+export default function App() {
+  const tabs = ["Capture", "Timeline", "Annotator", "Report Builder"] as const;
+  const [tab, setTab] = useState<typeof tabs[number]>("Capture");
 
-      <CameraCapture
-        isOpen={isCameraOpen}
-        onClose={() => setIsCameraOpen(false)}
-        onCapture={handleMediaCapture}
-        currentProject={selectedProject}
-      />
+  return (
+    <div className="min-h-screen bg-gray-100">
+      <header className="bg-white shadow-sm border-b">
+        <div className="max-w-6xl mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Disaster Lens</h1>
+              <p className="text-sm text-gray-600">Photo • Video • Reports</p>
+            </div>
+            <div className="flex gap-2">
+              {tabs.map((t) => (
+                <TabButton key={t} active={t===tab} onClick={()=>setTab(t)} data-testid={`tab-${t.toLowerCase().replace(' ', '-')}`}>
+                  {t}
+                </TabButton>
+              ))}
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-6xl mx-auto px-4 py-6 space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <StatCard label="Project Status" value="Active" sub="Job #DL-000271" />
+          <StatCard label="Media" value="128 items" sub="Today + Yesterday" />
+          <StatCard label="Reports" value="3 drafts" sub="1 final, 2 daily" />
+        </div>
+
+        {tab === "Capture" && <CaptureTab />}
+        {tab === "Timeline" && <TimelineTab />}
+        {tab === "Annotator" && <AnnotatorTab />}
+        {tab === "Report Builder" && <ReportBuilderTab />}
+      </main>
+
+      <footer className="py-6 text-center text-xs text-gray-500">
+        © {new Date().getFullYear()} Disaster Lens Module — UI Demo
+      </footer>
     </div>
   );
 }
