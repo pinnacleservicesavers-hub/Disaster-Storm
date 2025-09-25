@@ -10,6 +10,7 @@ import { router as video } from '../apps/server/src/routes/video.js';
 import { router as weight } from '../apps/server/src/routes/weight.js';
 import { router as tape } from '../apps/server/src/routes/tape.js';
 import { router as calibrate } from './routes/calibrate.js';
+import { router as hints } from './routes/hints.js';
 import { router as damage } from '../apps/server/src/routes/damage.js';
 
 const app = express();
@@ -30,6 +31,7 @@ app.use('/api/video', video);
 app.use('/api/weight', weight);
 app.use('/api/tape', tape);
 app.use('/api/calibrate', calibrate);
+app.use('/api/hints', hints);
 app.use('/api/damage', damage);
 
 // Tool registry endpoint for LLM provider flexibility
