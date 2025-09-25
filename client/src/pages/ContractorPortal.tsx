@@ -55,6 +55,7 @@ import { UniversalAIAssistant } from '@/components/UniversalAIAssistant';
 import { UltimateAIIntelligenceSystem } from '@/components/UltimateAIIntelligenceSystem';
 import { RealTimeDamageAlert } from '@/components/RealTimeDamageAlert';
 import { StormPathWarningSystem } from '@/components/StormPathWarningSystem';
+import { ComprehensiveIntelligenceSystem } from '@/components/ComprehensiveIntelligenceSystem';
 import {
   FadeIn,
   SlideIn,
@@ -1390,6 +1391,18 @@ export default function ContractorPortal() {
 
           {/* AI Tools Tab */}
           <TabsContent value="ai" className="space-y-6">
+            {/* 🌍 COMPREHENSIVE INTELLIGENCE SYSTEM - Ask About Anything Anywhere */}
+            <ComprehensiveIntelligenceSystem
+              className="w-full"
+              onIncidentAlert={(incident) => {
+                console.log('Critical incident detected:', incident);
+                // Handle critical incident alerts
+                if (incident.severity === 'emergency' || incident.severity === 'critical') {
+                  // Could trigger push notifications, SMS alerts, database updates, etc.
+                }
+              }}
+            />
+
             {/* 🚨 REAL-TIME DAMAGE DETECTION & ALERTS - Live Incident Intelligence */}
             <RealTimeDamageAlert
               className="w-full"
