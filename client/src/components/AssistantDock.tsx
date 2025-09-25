@@ -1,333 +1,278 @@
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
-import { Mic, MicOff, Send, Wrench, Eye, Activity, Copy, Download } from "lucide-react";
+import { Mic, MicOff, Send, Activity } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-interface ToolCall {
-  id: string;
-  name: string;
-  args: any;
-  status: 'pending' | 'executing' | 'completed' | 'failed';
-  result?: any;
-  timestamp: string;
-}
-
-interface AssistantMessage {
-  id: string;
-  type: 'user' | 'assistant' | 'system' | 'tool_call' | 'tool_result';
-  text: string;
-  timestamp: string;
-  metadata?: any;
-}
 
 interface AssistantDockProps {
   className?: string;
   projectId?: string;
   mediaId?: string;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
-export function AssistantDock({ className, projectId, mediaId }: AssistantDockProps) {
-  const [messages, setMessages] = useState<AssistantMessage[]>([]);
-  const [toolCalls, setToolCalls] = useState<ToolCall[]>([]);
-  const [inputText, setInputText] = useState("");
-  const [isConnected, setIsConnected] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
-  const [sessionId] = useState(() => `session_${Date.now()}`);
-  
+interface Message {
+  role: 'user' | 'assistant' | 'system';
+  text: string;
+  id: string;
+  timestamp: string;
+}
+
+export function AssistantDock({ 
+  className, 
+  projectId = 'DEMO', 
+  mediaId,
+  open: controlledOpen,
+  onOpenChange 
+}: AssistantDockProps) {
+  const [internalOpen, setInternalOpen] = useState(true);
+  const [msgs, setMsgs] = useState<Message[]>([]);
   const wsRef = useRef<WebSocket | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [isConnected, setIsConnected] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // WebSocket connection
+  const open = controlledOpen !== undefined ? controlledOpen : internalOpen;
+  const setOpen = onOpenChange || setInternalOpen;
+
   useEffect(() => {
-    const ws = new WebSocket('ws://localhost:5000/ws/assistant');
+    const ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws/assistant`);
     wsRef.current = ws;
-
-    ws.onopen = () => {
+    
+    ws.addEventListener('open', () => {
       setIsConnected(true);
-      ws.send(JSON.stringify({ type: 'start', sessionId, projectId, mediaId }));
-      addMessage('system', 'Assistant connected and ready');
-    };
-
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      handleWebSocketMessage(data);
-    };
-
-    ws.onclose = () => {
+      ws.send(JSON.stringify({ type: 'start', projectId, mode: 'ask' }));
+      addMessage('system', 'AI Assistant connected and ready');
+    });
+    
+    ws.addEventListener('message', (ev) => {
+      const m = JSON.parse(ev.data);
+      
+      if (m.type === 'assistant_text') {
+        addMessage('assistant', m.text);
+      } else if (m.type === 'partial_transcript') {
+        addMessage('system', `…${m.text}`);
+      } else if (m.type === 'tool_call') {
+        // Optimistically show intent
+        addMessage('system', `[Tool] ${m.name}`);
+      } else if (m.type === 'tool_result') {
+        if (m.result?.kind === 'overlay_image') {
+          addMessage('assistant', `📐 Measurement complete: ${m.result.inches?.toFixed(1) || 'N/A'}" - overlay image generated`);
+        } else if (m.result?.kind === 'snippet') {
+          addMessage('assistant', `📝 Report snippet: ${m.result.text}`);
+        } else {
+          addMessage('assistant', `✅ Tool result: ${JSON.stringify(m.result)}`);
+        }
+      }
+    });
+    
+    ws.addEventListener('close', () => {
       setIsConnected(false);
       addMessage('system', 'Assistant disconnected');
-    };
-
-    ws.onerror = (error) => {
+    });
+    
+    ws.addEventListener('error', (error) => {
       console.error('WebSocket error:', error);
       addMessage('system', 'Connection error');
-    };
-
-    return () => {
-      ws.close();
-    };
-  }, [sessionId, projectId, mediaId]);
+    });
+    
+    return () => ws.close();
+  }, [projectId]);
 
   // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [msgs]);
 
-  const handleWebSocketMessage = (data: any) => {
-    switch (data.type) {
-      case 'assistant_text':
-        addMessage('assistant', data.text);
-        break;
-      case 'tool_call':
-        handleToolCall(data);
-        break;
-      case 'tool_result':
-        handleToolResult(data);
-        break;
-      case 'system_response':
-        addMessage('system', data.text, data.metadata);
-        break;
-      case 'partial_transcript':
-        addMessage('assistant', `🎤 ${data.text}`, { partial: true });
-        break;
-      default:
-        console.log('Unknown message type:', data.type);
-    }
-  };
-
-  const addMessage = (type: AssistantMessage['type'], text: string, metadata?: any) => {
-    const message: AssistantMessage = {
+  const addMessage = (role: Message['role'], text: string) => {
+    const message: Message = {
       id: `msg_${Date.now()}_${Math.random()}`,
-      type,
+      role,
       text,
-      timestamp: new Date().toISOString(),
-      metadata
-    };
-    setMessages(prev => [...prev, message]);
-  };
-
-  const handleToolCall = (data: any) => {
-    const toolCall: ToolCall = {
-      id: data.id || `tool_${Date.now()}`,
-      name: data.name,
-      args: data.args,
-      status: 'executing',
       timestamp: new Date().toISOString()
     };
-    
-    setToolCalls(prev => [...prev, toolCall]);
-    addMessage('tool_call', `🔧 Executing: ${data.name}`, data.args);
+    setMsgs(prev => [...prev, message]);
   };
 
-  const handleToolResult = (data: any) => {
-    const { result } = data;
+  const sendText = (text: string) => {
+    if (!text.trim() || !wsRef.current) return;
     
-    setToolCalls(prev => 
-      prev.map(tc => 
-        tc.id === data.id ? { ...tc, status: result.success ? 'completed' : 'failed', result } : tc
-      )
-    );
-    
-    if (result.success) {
-      addMessage('tool_result', `✅ Tool completed: ${JSON.stringify(result.data)}`, result);
-    } else {
-      addMessage('tool_result', `❌ Tool failed: ${result.error}`, result);
+    wsRef.current.send(JSON.stringify({ type: 'user_text', text }));
+    addMessage('user', text);
+  };
+
+  const startPTT = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mr = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+      mediaRecorderRef.current = mr;
+      
+      mr.ondataavailable = (e) => {
+        e.data.arrayBuffer().then(buf => {
+          wsRef.current?.send(JSON.stringify({ 
+            type: 'user_audio', 
+            pcm: Array.from(new Uint8Array(buf)) 
+          }));
+        });
+      };
+      
+      mr.start(250);
+      setIsRecording(true);
+      addMessage('system', '🎤 Recording started...');
+    } catch (error) {
+      console.error('Failed to start recording:', error);
+      addMessage('system', 'Failed to start recording');
     }
   };
 
-  const sendMessage = () => {
-    if (!inputText.trim() || !isConnected) return;
-
-    addMessage('user', inputText);
-    wsRef.current?.send(JSON.stringify({
-      type: 'user_text',
-      text: inputText,
-      sessionId
-    }));
-    
-    setInputText("");
-  };
-
-  const toggleRecording = () => {
-    if (isRecording) {
+  const stopPTT = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
       setIsRecording(false);
       addMessage('system', 'Recording stopped');
-    } else {
-      setIsRecording(true);
-      addMessage('system', 'Recording started...');
-      // Voice recording would be implemented here
     }
   };
 
-  const copyFilterGraph = (toolCall: ToolCall) => {
-    if (toolCall.result?.data?.filterGraph) {
-      navigator.clipboard.writeText(toolCall.result.data.filterGraph);
-      addMessage('system', 'Filter graph copied to clipboard');
+  // Send context image when mediaId changes
+  useEffect(() => {
+    if (mediaId && wsRef.current && isConnected) {
+      // For demo, we'll assume we have access to the image data
+      // In real implementation, you'd fetch the image data here
+      wsRef.current.send(JSON.stringify({ 
+        type: 'context_image', 
+        mediaId, 
+        imageBase64: 'data:image/jpeg;base64,/placeholder' // Replace with actual image data
+      }));
     }
-  };
-
-  const downloadResult = (toolCall: ToolCall) => {
-    if (toolCall.result?.data?.outputKey) {
-      const link = document.createElement('a');
-      link.href = `/uploads/${toolCall.result.data.outputKey}`;
-      link.download = toolCall.result.data.outputKey;
-      link.click();
-    }
-  };
+  }, [mediaId, isConnected]);
 
   return (
-    <Card className={cn("flex flex-col h-96", className)} data-testid="assistant-dock">
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-sm">
-          <Activity className="h-4 w-4" />
-          AI Assistant
-          <Badge variant={isConnected ? "default" : "destructive"} className="ml-auto">
-            {isConnected ? "Connected" : "Disconnected"}
-          </Badge>
-        </CardTitle>
-      </CardHeader>
-      
-      <CardContent className="flex-1 flex flex-col gap-3 p-3">
-        {/* Messages Area */}
-        <ScrollArea className="flex-1 border rounded-md p-3" data-testid="messages-area">
-          <div className="space-y-2">
-            {messages.map((message) => (
-              <div key={message.id} className={cn(
-                "p-2 rounded-md text-sm",
-                message.type === 'user' && "bg-blue-50 dark:bg-blue-950 ml-8",
-                message.type === 'assistant' && "bg-green-50 dark:bg-green-950 mr-8",
-                message.type === 'system' && "bg-gray-50 dark:bg-gray-950 italic",
-                message.type === 'tool_call' && "bg-orange-50 dark:bg-orange-950 border-l-2 border-orange-500",
-                message.type === 'tool_result' && "bg-purple-50 dark:bg-purple-950 border-l-2 border-purple-500"
-              )} data-testid={`message-${message.type}`}>
-                <div className="font-medium text-xs text-muted-foreground mb-1">
-                  {new Date(message.timestamp).toLocaleTimeString()}
-                </div>
-                <div>{message.text}</div>
-                {message.metadata && (
-                  <div className="text-xs text-muted-foreground mt-1 font-mono">
-                    {JSON.stringify(message.metadata, null, 2)}
-                  </div>
-                )}
+    <div className={`fixed right-4 bottom-4 w-96 ${open ? '' : 'translate-y-[calc(100%+16px)]'} transition-transform duration-300 z-50`}>
+      <Card className="shadow-xl border bg-white dark:bg-gray-800 overflow-hidden">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center justify-between text-sm">
+            <div className="flex items-center gap-2">
+              <Activity className="h-4 w-4" />
+              AI Assistant
+              <Badge variant={isConnected ? "default" : "destructive"}>
+                {isConnected ? "Connected" : "Disconnected"}
+              </Badge>
+            </div>
+            <button 
+              onClick={() => setOpen(false)} 
+              className="text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded px-2 py-1"
+              data-testid="button-close-assistant"
+            >
+              ×
+            </button>
+          </CardTitle>
+        </CardHeader>
+        
+        <CardContent className="p-3">
+          <ScrollArea className="h-64 overflow-auto space-y-2 bg-gray-50 dark:bg-gray-900 rounded p-3 mb-3">
+            {msgs.map((m, i) => (
+              <div key={m.id || i} className={cn(
+                "mb-2 text-sm",
+                m.role === 'user' && "text-right"
+              )}>
+                <span className={cn(
+                  "inline-block px-2 py-1 rounded-xl max-w-[85%]",
+                  m.role === 'user' && "bg-black text-white",
+                  m.role === 'assistant' && "bg-white dark:bg-gray-700 border",
+                  m.role === 'system' && "bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200 italic"
+                )}>
+                  {m.text}
+                </span>
               </div>
             ))}
             <div ref={messagesEndRef} />
+          </ScrollArea>
+          
+          <div className="border-t pt-2 flex items-center gap-2">
+            <button 
+              onMouseDown={startPTT} 
+              onMouseUp={stopPTT}
+              className={cn(
+                "px-3 py-1.5 rounded-xl border transition-colors",
+                isRecording ? "bg-red-500 text-white" : "hover:bg-gray-50 dark:hover:bg-gray-700"
+              )}
+              disabled={!isConnected}
+              data-testid="button-voice-record"
+            >
+              {isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+              <span className="ml-1 text-sm">Hold to talk</span>
+            </button>
+            
+            <input 
+              id="aiText" 
+              placeholder="Ask about this project…" 
+              className="flex-1 rounded-xl border px-2 py-1.5 dark:bg-gray-700 dark:border-gray-600" 
+              disabled={!isConnected}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  const v = (e.target as HTMLInputElement).value.trim();
+                  if (v) { 
+                    sendText(v); 
+                    (e.target as HTMLInputElement).value = ''; 
+                  }
+                }
+              }}
+              data-testid="input-assistant-text"
+            />
+            
+            <button 
+              className="px-3 py-1.5 rounded-xl bg-black text-white hover:bg-gray-800 disabled:opacity-50 transition-colors" 
+              disabled={!isConnected}
+              onClick={() => {
+                const el = document.getElementById('aiText') as HTMLInputElement; 
+                const v = el.value.trim(); 
+                if (v) { 
+                  sendText(v); 
+                  el.value = ''; 
+                }
+              }}
+              data-testid="button-send-text"
+            >
+              <Send className="w-4 h-4" />
+            </button>
           </div>
-        </ScrollArea>
-
-        {/* Tool Calls Status */}
-        {toolCalls.length > 0 && (
-          <>
-            <Separator />
-            <div className="space-y-2" data-testid="tool-calls-area">
-              <div className="text-sm font-medium">Active Tool Calls</div>
-              {toolCalls.slice(-3).map((toolCall) => (
-                <div key={toolCall.id} className="flex items-center justify-between p-2 border rounded-md">
-                  <div className="flex items-center gap-2">
-                    <Wrench className="h-3 w-3" />
-                    <span className="text-sm font-mono">{toolCall.name}</span>
-                    <Badge variant={
-                      toolCall.status === 'completed' ? 'default' :
-                      toolCall.status === 'failed' ? 'destructive' :
-                      toolCall.status === 'executing' ? 'outline' : 'secondary'
-                    }>
-                      {toolCall.status}
-                    </Badge>
-                  </div>
-                  <div className="flex gap-1">
-                    {toolCall.result?.data?.filterGraph && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => copyFilterGraph(toolCall)}
-                        data-testid={`copy-filter-${toolCall.id}`}
-                      >
-                        <Copy className="h-3 w-3" />
-                      </Button>
-                    )}
-                    {toolCall.result?.data?.outputKey && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => downloadResult(toolCall)}
-                        data-testid={`download-result-${toolCall.id}`}
-                      >
-                        <Download className="h-3 w-3" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </>
-        )}
-
-        {/* Input Area */}
-        <div className="flex gap-2">
-          <Input
-            value={inputText}
-            onChange={(e) => setInputText(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
-            placeholder="Ask assistant for damage analysis, measurements..."
-            disabled={!isConnected}
-            data-testid="input-message"
-            className="flex-1"
-          />
-          <Button
-            onClick={toggleRecording}
-            variant={isRecording ? "destructive" : "outline"}
-            size="sm"
-            disabled={!isConnected}
-            data-testid="button-voice"
-          >
-            {isRecording ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
-          </Button>
-          <Button
-            onClick={sendMessage}
-            disabled={!inputText.trim() || !isConnected}
-            size="sm"
-            data-testid="button-send"
-          >
-            <Send className="h-4 w-4" />
-          </Button>
-        </div>
-
-        {/* Quick Actions */}
-        <div className="flex gap-2 flex-wrap">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setInputText("Add circle annotation for damage")}
-            data-testid="button-annotate"
-          >
-            <Eye className="h-3 w-3 mr-1" />
-            Annotate
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setInputText("Measure diameter in frame")}
-            data-testid="button-measure"
-          >
-            <Wrench className="h-3 w-3 mr-1" />
-            Measure
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setInputText("Estimate tree weight")}
-            data-testid="button-estimate"
-          >
-            <Activity className="h-3 w-3 mr-1" />
-            Estimate
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
+          
+          {/* Quick Actions */}
+          <div className="flex gap-2 mt-2 flex-wrap">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => sendText("Add circle annotation for damage")}
+              disabled={!isConnected}
+              data-testid="button-quick-annotate"
+            >
+              🎯 Annotate
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => sendText("Measure diameter in this image")}
+              disabled={!isConnected}
+              data-testid="button-quick-measure"
+            >
+              📐 Measure
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => sendText("Detect damage in this image")}
+              disabled={!isConnected}
+              data-testid="button-quick-damage"
+            >
+              🔍 Damage
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
