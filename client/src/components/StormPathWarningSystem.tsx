@@ -137,11 +137,11 @@ export function StormPathWarningSystem({ className = '', contractorLocation }: S
   };
 
   useEffect(() => {
-    if (stormPathData?.storms) {
-      setActiveStorms(stormPathData.storms);
+    if (stormPathData && (stormPathData as any).storms) {
+      setActiveStorms((stormPathData as any).storms);
       
       // Speak critical storm alerts
-      stormPathData.storms.forEach((storm: StormPathData) => {
+      (stormPathData as any).storms.forEach((storm: StormPathData) => {
         if (storm.intensity >= 8) {
           speakStormWarning(storm, 'emergency');
         } else if (storm.intensity >= 6) {
@@ -152,8 +152,8 @@ export function StormPathWarningSystem({ className = '', contractorLocation }: S
   }, [stormPathData]);
 
   useEffect(() => {
-    if (positioningData?.positions) {
-      setContractorPositions(positioningData.positions);
+    if (positioningData && (positioningData as any).positions) {
+      setContractorPositions((positioningData as any).positions);
     }
   }, [positioningData]);
 

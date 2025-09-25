@@ -242,8 +242,8 @@ export function RealTimeDamageAlert({ className = '', onIncident, onContractorAl
 
   // Process new damage data
   useEffect(() => {
-    if (damageStream?.newIncidents) {
-      damageStream.newIncidents.forEach((incident: any) => {
+    if (damageStream && (damageStream as any).newIncidents) {
+      (damageStream as any).newIncidents.forEach((incident: any) => {
         damageAnalysisMutation.mutate(incident);
       });
     }
@@ -251,8 +251,8 @@ export function RealTimeDamageAlert({ className = '', onIncident, onContractorAl
 
   // Process storm tracking data
   useEffect(() => {
-    if (stormTracking?.stormPaths) {
-      setStormPaths(stormTracking.stormPaths);
+    if (stormTracking && (stormTracking as any).stormPaths) {
+      setStormPaths((stormTracking as any).stormPaths);
     }
   }, [stormTracking]);
 
