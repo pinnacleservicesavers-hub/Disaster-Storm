@@ -370,6 +370,10 @@ export function attachAssistantWSS(server: any, storage: any) {
 
   wss.on('connection', (ws) => {
     let sessionId = uuid();
+    let session = {
+      id: sessionId,
+      lastImage: null as string | null  // Store last context image
+    };
 
     ws.on('message', async (raw) => {
       const msg = safeParse(raw);
@@ -380,6 +384,15 @@ export function attachAssistantWSS(server: any, storage: any) {
         ws.send(JSON.stringify({ 
           type: 'assistant_text', 
           text: 'AI Assistant ready. I can help with measurements, tree weight estimation, damage detection, and annotations.' 
+        }));
+      }
+
+      if (msg.type === 'context_image') {
+        // Store the current image for use in tool calls
+        session.lastImage = msg.imageBase64;
+        ws.send(JSON.stringify({ 
+          type: 'assistant_text', 
+          text: 'Image context received. Ready for analysis and measurements.' 
         }));
       }
 
@@ -419,37 +432,69 @@ export function attachAssistantWSS(server: any, storage: any) {
             result 
           }));
 
-        } else if (msg.text.toLowerCase().includes('measure')) {
-          ws.send(JSON.stringify({ 
-            type: 'assistant_text', 
-            text: 'I\'ll help you calibrate measurements and add a circle annotation.' 
-          }));
+        } else if (/measure|diameter|tape/i.test(msg.text)) {
+          // In real LLM planner, extract points; for demo, use sample points
+          const points = { x1: 100, y1: 220, x2: 360, y2: 225 };
           
-          const measureToolCall: ToolCall = {
-            id: uuid(),
-            name: 'measure.diameter',
-            arguments: { 
-              mediaId: 'demo-media', 
-              x1: 300, y1: 200, x2: 400, y2: 250,
-              scalePxPerInch: 10
-            }
-          };
+          if (!session.lastImage) {
+            ws.send(JSON.stringify({ 
+              type: 'assistant_text', 
+              text: 'Please provide a context image first before I can measure.' 
+            }));
+            return;
+          }
           
-          const result = await toolExecutor.executeTool(measureToolCall, sessionId);
-          
-          ws.send(JSON.stringify({ 
-            type: 'tool_call',
-            id: measureToolCall.id,
-            name: measureToolCall.name, 
-            args: measureToolCall.arguments 
-          }));
-          
-          ws.send(JSON.stringify({ 
-            type: 'tool_result',
-            id: measureToolCall.id,
-            name: measureToolCall.name,
-            result 
-          }));
+          try {
+            // Call the tape overlay API with current image and measurement points
+            const resp = await fetch('http://localhost:5000/api/tape/overlay', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ 
+                imageBase64: session.lastImage,
+                ...points,
+                realInches: 24
+              })
+            });
+            
+            const buf = Buffer.from(await resp.arrayBuffer());
+            const b64 = `data:image/png;base64,${buf.toString('base64')}`;
+            const inches = Number(resp.headers.get('X-Measurement-Inches') || '0');
+            
+            // Send tool result with overlay image
+            ws.send(JSON.stringify({ 
+              type: 'tool_result', 
+              name: 'measure.diameter', 
+              ok: true, 
+              result: { 
+                kind: 'overlay_image', 
+                imageBase64: b64, 
+                inches: inches 
+              } 
+            }));
+            
+            // Send assistant text feedback
+            ws.send(JSON.stringify({ 
+              type: 'assistant_text', 
+              text: `Measured diameter ~ ${inches.toFixed(1)} in. Added overlay image.` 
+            }));
+            
+            // Send report snippet suggestion
+            ws.send(JSON.stringify({ 
+              type: 'tool_result', 
+              name: 'report.snippet', 
+              ok: true, 
+              result: { 
+                kind: 'snippet', 
+                text: `Stump diameter measured at ~${inches.toFixed(1)} in (AI-estimated).` 
+              } 
+            }));
+            
+          } catch (error) {
+            ws.send(JSON.stringify({ 
+              type: 'assistant_text', 
+              text: 'Error processing measurement. Please try again.' 
+            }));
+          }
         } else {
           ws.send(JSON.stringify({ 
             type: 'assistant_text', 
