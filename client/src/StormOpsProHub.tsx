@@ -790,6 +790,20 @@ export default function StormOpsProHub() {
       testId: 'portal-legal',
       priority: 'low',
       liveData: false
+    },
+    // 16. Disaster Lens - Professional documentation
+    {
+      id: 'disaster-lens',
+      title: 'Disaster Lens',
+      description: 'Professional damage documentation with QR calibration, AI measurement tools, and PDF reports',
+      icon: Camera,
+      link: '/disaster-lens',
+      color: 'emerald',
+      bgClass: 'from-emerald-500 to-emerald-600',
+      borderClass: 'border-emerald-200',
+      testId: 'portal-disaster-lens',
+      priority: 'high',
+      liveData: false
     }
   ];
 
@@ -843,7 +857,7 @@ export default function StormOpsProHub() {
                     <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
                       <div className="flex items-center gap-2 text-green-300 font-semibold">
                         <Activity className={`w-5 h-5 ${showEffects ? 'animate-pulse' : ''}`} />
-                        <CountUp end={14} suffix=" Active Modules" />
+                        <CountUp end={16} suffix=" Active Modules" />
                       </div>
                       <div className="flex items-center gap-2 text-blue-300 font-semibold">
                         <MapPin className={`w-5 h-5 ${showEffects ? 'animate-pulse' : ''}`} />
