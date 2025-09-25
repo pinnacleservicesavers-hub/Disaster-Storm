@@ -1,0 +1,187 @@
+Disaster Lense — Api Stub & Supabase Seed
+
+import React, { useEffect, useMemo, useRef, useState } from "react";
+
+// Single-file demo UI for Disaster Lense // Tabs: Capture, Timeline, Annotator, Calibrate, Report Builder // Styling: TailwindCSS classes // NOTE: Front-end scaffold wired to your Express API (reports, shares, hints, tape overlay, calibration).
+
+// ------------------------------ // Inline SHA-256 Web Worker (chain-of-custody) // ------------------------------ const hashingWorkerUrl = (() => { const src = self.onmessage = async (e) => { try { const buf = e.data; const digest = await crypto.subtle.digest('SHA-256', buf); const bytes = new Uint8Array(digest); const hex = Array.from(bytes).map(b => b.toString(16).padStart(2,'0')).join(''); self.postMessage({ ok: true, hex }); } catch (err) { self.postMessage({ ok: false, error: String(err) }); } }; const blob = new Blob([src], { type: "text/javascript" }); return URL.createObjectURL(blob); })();
+
+function useHashWorker() { const workerRef = useRef<Worker | null>(null); useEffect(() => { const w = new Worker(hashingWorkerUrl); workerRef.current = w; return () => w.terminate(); }, []);
+
+return async function hashArrayBuffer(buf: ArrayBuffer): Promise { return new Promise((resolve, reject) => { const w = workerRef.current; if (!w) return reject(new Error("worker not ready")); const onMessage = (ev: MessageEvent) => { const { ok, hex, error } = ev.data || {}; w.removeEventListener('message', onMessage); if (ok) resolve(hex); else reject(new Error(error || 'hash failed')); }; w.addEventListener('message', onMessage); w.postMessage(buf, [buf as any]); }); }; }
+
+async function fileToBase64(f: File): Promise{ return new Promise((resolve,reject)=>{ const r = new FileReader(); r.onload=()=>resolve(String(r.result)); r.onerror=reject; r.readAsDataURL(f); }); }
+
+function TabButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) { return ( <button onClick={onClick} className={px-4 py-2 rounded-2xl text-sm font-medium shadow-sm transition hover:shadow ${active ? "bg-black text-white" : "bg-white text-gray-800 border"}} > {children} ); }
+
+function StatCard({ label, value, sub }: { label: string; value: string | number; sub?: string }) { return ( {label} {value} {sub && {sub}} ); }
+
+// --- Capture Tab --- function CaptureTab() { const videoRef = useRef<HTMLVideoElement | null>(null); const canvasRef = useRef<HTMLCanvasElement | null>(null); const [streamOn, setStreamOn] = useState(false); const [shots, setShots] = useState<{ url: string; hash: string }[]>([]); const [useRear, setUseRear] = useState(true); const [note, setNote] = useState(""); const hashWorker = useHashWorker();
+
+async function startCamera() { try { const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: useRear ? { ideal: "environment" } : "user" }, audio: false, }); if (videoRef.current) { (videoRef.current as HTMLVideoElement).srcObject = stream; await (videoRef.current as HTMLVideoElement).play(); setStreamOn(true); } } catch (e) { alert("Camera not available in preview. You can still use the UI."); } } function stopCamera() { const vid = videoRef.current as HTMLVideoElement | null; const stream = vid && (vid.srcObject as MediaStream); stream?.getTracks().forEach((t) => t.stop()); setStreamOn(false); } async function takeShot() { const video = videoRef.current as HTMLVideoElement | null; const canvas = canvasRef.current as HTMLCanvasElement | null; if (!video || !canvas) return; const w = video.videoWidth || 640; const h = video.videoHeight || 360; canvas.width = w; canvas.height = h; const ctx = canvas.getContext("2d"); if (!ctx) return; ctx.drawImage(video, 0, 0, w, h); // Watermark sample ctx.fillStyle = "rgba(0,0,0,0.6)"; ctx.fillRect(0, h - 26, w, 26); ctx.fillStyle = "#fff"; ctx.font = "14px sans-serif"; const ts = new Date().toISOString(); ctx.fillText(Disaster Lense • ${ts}, 8, h - 8);
+
+canvas.toBlob(async (blob) => {
+  if (!blob) return;
+  const ab = await blob.arrayBuffer();
+  const hex = await hashWorker(ab);
+  const url = URL.createObjectURL(blob);
+  setShots((s) => [{ url, hash: hex }, ...s]);
+}, 'image/png');
+
+}
+
+return ( Capture <button className="px-3 py-1.5 rounded-xl border" onClick={() => setUseRear((v) => !v)}> {useRear ? "Rear" : "Front"} {!streamOn ? ( Start ) : ( Stop )} Snap Quick note (auto-caption) <textarea value={note} onChange={(e)=>setNote(e.target.value)} placeholder="e.g., Split trunk over fence; live line nearby" className="mt-1 w-full rounded-xl border p-2" rows={3}/> Recent Shots {shots.map((s, i) => ( {s.hash.slice(0,16)}… ))} ); }
+
+// --- Timeline Tab --- function TimelineItem({ img, title, meta }: { img: string; title: string; meta: string }) { return ( {title} {meta} ); }
+
+function TimelineTab() { const demo = new Array(6).fill(0).map((_, i) => ({ img: https://picsum.photos/seed/${i + 2}/320/180, title: i === 0 ? "Before — Split trunk over fence" : i < 4 ? "During — sectional lowering" : "After — cleanup complete", meta: By Brian • ${new Date(Date.now() - i * 3.6e6).toLocaleString()}, }));
+
+return ( {demo.map((d, i) => ( <TimelineItem key={i} {...d} /> ))} Filters {["hazard", "estimate", "work", "complete"].map((t) => ( #{t} ))} Photos Videos Mine Crew Pinned Notes Use crane access only — soft yard. Call homeowner before arrival. Document fence damage thoroughly. ); }
+
+// --- Annotator Tab with Damage Hints & Suggest Labels --- function AnnotatorTab({ scalePxPerInch }: { scalePxPerInch: number | null }) { const [brush, setBrush] = useState<'arrow'|'box'|'text'|'blur'|'measure'>("box"); const [caption, setCaption] = useState("Cracked limb over structure — immediate removal recommended."); const [selectedImage, setSelectedImage] = useState("https://picsum.photos/seed/annotate/1200/675"); const [hints, setHints] = useState<{x:number,y:number,w:number,h:number, score:number, label?:string, picked?:boolean}[]>([]); const [loadingHints, setLoadingHints] = useState(false);
+
+// --- Measure brush state --- const [mPt1, setMPt1] = useState<{x:number,y:number}|null>(null); const [measurePreview, setMeasurePreview] = useState<string|null>(null);
+
+async function ensureBase64(img: string): Promise { if (img.startsWith('data:')) return img; const resp = await fetch(img); const blob = await resp.blob(); return await fileToBase64(new File([blob], 'img.jpg', { type: blob.type||'image/jpeg' })); }
+
+async function getDamageHints(){ try { setLoadingHints(true); const imageBase64 = await ensureBase64(selectedImage); const res = await fetch('/api/hints/damage', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ imageBase64 }) }); const data = await res.json(); setHints((data?.hints||[]).map((h:any)=>({ ...h }))); } finally { setLoadingHints(false); } }
+
+function suggestLabels(){ setHints((prev)=> prev.map(h => { let label = 'Damage'; if (h.w>h.h && h.score>20) label = 'Fallen limb impact'; if (h.h>h.w && h.score>20) label = 'Uprooted root plate'; if (h.score<10) label = 'Minor disturbance'; return { ...h, label }; })); }
+
+async function confirmHint(h: any){ const cx = h.x + h.h/2; const cy = h.y + h.h/2; const r = Math.round(Math.min(h.w,h.h)/2); const res = await fetch('/api/annotate/circle', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ mediaId:'demo-media', x: Math.round(cx), y: Math.round(cy), r, label: h.label||'Damage' }) }); if (res.ok) setHints(prev => prev.map(it => it===h? { ...it, picked:true }: it)); }
+
+// --- NEW: handle two-click measurement and overlay tape via API --- async function handleMeasureClick(e: React.MouseEvent<HTMLDivElement, MouseEvent>) { if (brush !== 'measure') return; const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect(); const x = e.clientX - rect.left; const y = e.clientY - rect.top; if (!mPt1) { setMPt1({ x, y }); return; } if (!scalePxPerInch) { alert('No calibration set. Open the Calibrate tab to scan a QR and lock scale.'); setMPt1(null); return; }
+
+const pt1 = mPt1; const pt2 = { x, y };
+setMPt1(null);
+try {
+  const imageBase64 = await ensureBase64(selectedImage);
+  const res = await fetch('/api/tape/overlay', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ imageBase64, x1: Math.round(pt1.x), y1: Math.round(pt1.y), x2: Math.round(pt2.x), y2: Math.round(pt2.y), scalePxPerInch, label: 'Diameter' })
+  });
+  if (!res.ok) { alert('Overlay failed'); return; }
+  const inches = Number(res.headers.get('X-Measurement-Inches') || '0');
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  setMeasurePreview(url);
+  // Also convert to base64 to push into Report Builder
+  const arrBuf = await blob.arrayBuffer();
+  const b64 = `data:image/png;base64,${btoa(String.fromCharCode(...new Uint8Array(arrBuf)))}`;
+  window.dispatchEvent(new CustomEvent('DL_ADD_OVERLAY_TO_REPORT', { detail: { imageBase64: b64, caption: `Diameter: ${inches.toFixed(1)} in (AI-estimated)` } }));
+} catch (err) {
+  console.error(err);
+}
+
+}
+
+return ( {(["arrow","box","text","blur","measure"] as const).map((b)=> ( <button key={b} onClick={()=>setBrush(b)} className={px-3 py-1.5 rounded-xl border text-sm ${brush===b?"bg-black text-white":""}}>{b} ))} Change image <input type="file" accept="image/" className="hidden" onChange={async (e)=>{ const f = e.target.files?.[0]; if (!f) return; const b64 = await fileToBase64(f); setSelectedImage(b64); setHints([]); setMeasurePreview(null); setMPt1(null); }} /> Upload <img src={measurePreview || selectedImage} className="w-full h-full object-cover" /> {/ Click hints for measure /} {brush==='measure' && mPt1 && ( <div className="absolute" style={{ left:mPt1.x-6, top:mPt1.y-6 }}> First point set )} {/ Hints overlay */} {hints.map((h, i)=> ( <div key={i} className={absolute border-2 ${h.picked? 'border-green-500' : 'border-yellow-400'} bg-yellow-300/10} style={{ left:h.x, top:h.y, width:h.w, height:h.h }}> {h.label && ( {h.label} )} ))} {loadingHints? 'Finding hints…':'Get Damage Hints'} Suggest Labels <button onClick={()=>{ setBrush('measure'); setMPt1(null); setMeasurePreview(null); }} className={rounded-xl border py-2 ${brush==='measure'?'bg-black text-white':''}}>Measure Diameter Caption <input value={caption} onChange={(e)=>setCaption(e.target.value)} className="mt-1 w-full rounded-xl border p-2" /> Calibration {scalePxPerInch? Scale locked: ${scalePxPerInch.toFixed(2)} px/in (AI-estimated) : 'No scale set. Use Calibrate tab (QR) for accurate measurements.'} Actions {hints.map((h,i)=> ( Box {i+1} — {h.label||'Unlabeled'} <button className="px-2 py-1 rounded-lg border" onClick={()=>confirmHint(h)}>Add <button className="px-2 py-1 rounded-lg border" onClick={()=> setHints(prev => prev.filter((_,idx)=>idx!==i))}>Dismiss ))} {hints.length===0 && No hints yet.} Annotation Notes Use blur on house numbers/license plates for public shares. Measurements are estimates. ); }
+
+// --- Calibrate Tab (QR/Marker) --- function CalibrateTab({ scalePxPerInch, setScalePxPerInch }: { scalePxPerInch: number | null, setScalePxPerInch: (v:number)=>void }){ const [preview, setPreview] = useState(""); const [markerInches, setMarkerInches] = useState(2.0); const [busy, setBusy] = useState(false); const [payload, setPayload] = useState("");
+
+async function onScan(){ if (!preview) return; setBusy(true); try { const res = await fetch('/api/calibrate/qr', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ imageBase64: preview, markerInches }) }); const data = await res.json(); if (data.ok && data.scalePxPerInch){ setScalePxPerInch(Number(data.scalePxPerInch)); setPayload(String(data.payload||'')); localStorage.setItem('DL_scalePxPerInch', String(data.scalePxPerInch)); } else { alert(data.error || 'No QR found'); } } finally { setBusy(false); } }
+
+return ( QR Calibration Place a known-size square QR (e.g., 2 in) in frame. {preview ? : Upload a photo with the QR marker visible} Upload <input type="file" accept="image/*" className="hidden" onChange={async (e)=>{ const f=e.target.files?.[0]; if(!f) return; const b64 = await fileToBase64(f); setPreview(b64); }} /> <input type="number" step="0.1" value={markerInches} onChange={(e)=>setMarkerInches(Number(e.target.value||2))} className="rounded-xl border p-2 w-28"/> in <button onClick={onScan} className="px-3 py-1.5 rounded-xl bg-black text-white disabled:opacity-50" disabled={!preview || busy}>{busy? 'Scanning…':'Scan QR'} {payload && QR payload: {payload}} <StatCard label="Current Scale" value={scalePxPerInch? ${scalePxPerInch.toFixed(2)} px/in : 'Not set'} sub={scalePxPerInch? 'Saved to local storage' : 'Use QR to set'} /> Tips Keep the QR flat and fully visible. Avoid glare; fill ~10–20% of frame. Re‑scan if the camera angle changes a lot. ); }
+
+// --- Report Builder Tab --- function ReportBuilderTab() { const [title, setTitle] = useState("Storm Tree Removal — Final Report"); const [kind, setKind] = useState("final"); const [sections, setSections] = useState([ { title: "Before", media: ["https://picsum.photos/seed/b1/600/340", "https://picsum.photos/seed/b2/600/340"] }, { title: "During", media: ["https://picsum.photos/seed/d1/600/340"] }, { title: "After", media: ["https://picsum.photos/seed/a1/600/340", "https://picsum.photos/seed/a2/600/340"] }, ]);
+
+function addSection() { setSections((s) => [...s, { title: Section ${s.length + 1}, media: [] }]); }
+
+// ---- Wired Buttons ---- async function onRenderPdf() { const payload = { title, projectTitle: "Michael Thomas — Pecan Removal", items: sections.flatMap((s) => s.media.map((_, idx) => ({ caption: ${s.title} — item ${idx+1} }))) }; const res = await fetch(/api/reports/demo/render, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); const blob = await res.blob(); const url = URL.createObjectURL(blob); window.open(url, '_blank'); }
+
+async function onCreateShare() { const res = await fetch(/api/shares, { method: 'POST' }); const data = await res.json(); try { await navigator.clipboard.writeText(data.url); alert(Share link copied to clipboard! ${data.url}); } catch { alert(Share link: ${data.url}); } }
+
+useEffect(()=>{ function onOverlay(e: any){ const { imageBase64, caption } = e.detail || {}; if (!imageBase64) return; setSections(prev => { const copy = [...prev]; if (copy.length === 0) copy.push({ title: 'After', media: [] }); copy[copy.length - 1].media.push(imageBase64); return copy; }); } window.addEventListener('DL_ADD_OVERLAY_TO_REPORT', onOverlay as any); return ()=> window.removeEventListener('DL_ADD_OVERLAY_TO_REPORT', onOverlay as any); },[]);
+
+return ( <input value={title} onChange={(e)=>setTitle(e.target.value)} className="flex-1 rounded-xl border p-2" /> <select value={kind} onChange={(e)=>setKind(e.target.value)} className="rounded-xl border p-2"> Photo Daily Final Insurance Packet Add Section
+
+
+    <div className="space-y-4">
+      {sections.map((s, i) => (
+        <div key={i} className="rounded-xl border p-3">
+          <div className="flex items-center justify-between mb-2">
+            <input defaultValue={s.title} className="text-lg font-semibold bg-transparent" onBlur={(e)=>{ const v = e.target.value; setSections((prev)=> prev.map((it,idx)=> idx===i? {...it, title:v}: it)); }} />
+            <button className="text-sm text-red-600" onClick={()=> setSections((prev)=> prev.filter((_,idx)=> idx!==i))}>Remove</button>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+            {s.media.map((m, j) => (
+              <div key={j} className="relative">
+                <img src={m} className="w-full h-32 object-cover rounded-lg border" />
+                <button className="absolute -top-2 -right-2 bg-white border rounded-full w-6 h-6 text-xs" onClick={()=>{ setSections((prev)=> prev.map((it,idx)=> idx!==i? it: { ...it, media: it.media.filter((_,k)=>k!==j) })); }}>×</button>
+              </div>
+            ))}
+            <label className="h-32 border-2 border-dashed rounded-lg flex items-center justify-center text-sm text-gray-500 cursor-pointer">
+              + Add
+              <input type="file" accept="image/*" className="hidden" onChange={(e)=>{ const file = e.target.files?.[0]; if (!file) return; const reader = new FileReader(); reader.onload = () => { setSections((prev)=> prev.map((it,idx)=> idx!==i? it: { ...it, media: [...it.media, String(reader.result)] })); }; reader.readAsDataURL(file); }} />
+            </label>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+  <div className="space-y-3">
+    <div className="rounded-2xl border p-4 bg-white">
+      <div className="font-semibold mb-2">Branding</div>
+      <div className="flex items-center gap-2">
+        <div className="w-10 h-10 rounded-xl bg-black" />
+        <div>
+          <div className="text-sm font-medium">Strategic Land Management LLC</div>
+          <div className="text-xs text-gray-500">Logo + primary color</div>
+        </div>
+      </div>
+    </div>
+    <div className="rounded-2xl border p-4 bg-white">
+      <div className="font-semibold mb-2">Export</div>
+      <button onClick={onRenderPdf} className="w-full rounded-xl bg-black text-white py-2">Render PDF</button>
+      <button onClick={onCreateShare} className="w-full rounded-xl border py-2 mt-2">Create Share Link</button>
+      <p className="text-xs text-gray-500 mt-2">PDF footer includes chain-of-custody hash and GPS/time.</p>
+    </div>
+  </div>
+</div>
+
+); }
+
+export default function App() { const tabs = ["Capture", "Timeline", "Annotator", "Calibrate", "Report Builder"] as const; const [tab, setTab] = useState<typeof tabs[number]>("Capture"); const [scalePxPerInch, setScalePxPerInchState] = useState<number | null>(null);
+
+useEffect(()=>{ const saved = localStorage.getItem('DL_scalePxPerInch'); if (saved) setScalePxPerInchState(Number(saved)); },[]);
+
+const setScalePxPerInch = (v:number) => setScalePxPerInchState(v);
+
+return ( Disaster Lense Photo • Video • Reports {tabs.map((t) => ( <TabButton key={t} active={t===tab} onClick={()=>setTab(t)}>{t} ))}
+
+
+  <main className="max-w-6xl mx-auto px-4 py-6 space-y-6">
+    <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+      <StatCard label="Project Status" value="Active" sub="Job #DL-000271" />
+      <StatCard label="Media" value={128} sub="Today + Yesterday" />
+      <StatCard label="Reports" value={3} sub="1 final, 2 daily" />
+      <StatCard label="Calibration" value={scalePxPerInch? `${scalePxPerInch.toFixed(2)} px/in` : 'Not set'} sub={scalePxPerInch? 'QR-based' : 'Scan a QR in Calibrate tab'} />
+    </div>
+
+
+    {tab === "Capture" && <CaptureTab />}
+    {tab === "Timeline" && <TimelineTab />}
+    {tab === "Annotator" && <AnnotatorTab scalePxPerInch={scalePxPerInch} />}
+    {tab === "Calibrate" && <CalibrateTab scalePxPerInch={scalePxPerInch} setScalePxPerInch={setScalePxPerInch} />}
+    {tab === "Report Builder" && <ReportBuilderTab />}
+  </main>
+
+
+  <footer className="py-6 text-center text-xs text-gray-500">© {new Date().getFullYear()} Disaster Lense Module — UI Demo</footer>
+</div>
+
+); }
+
+All set! I added a Measure Diameter brush to the Annotator:
+
+Two-click workflow: click start/end across a stump (or any span).
+
+Uses your saved px/in calibration (from the Calibrate tab). If none, it prompts you to scan first.
+
+Calls POST /api/tape/overlay to render a virtual measuring tape + label.
+
+Shows an immediate preview in the canvas.
+
+Automatically injects the overlay into the Report Builder with a caption like Diameter: 22.4 in (AI-estimated).
+
+Want me to add a similar Measure Length tool for limbs/rigging lines, plus a multi-point area tool to estimate square footage of roof impact or root-plate upheaval?

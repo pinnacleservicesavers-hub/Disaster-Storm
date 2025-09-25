@@ -12,12 +12,13 @@ import { router as tape } from '../apps/server/src/routes/tape.js';
 import { router as calibrate } from './routes/calibrate.js';
 import { router as hints } from './routes/hints.js';
 import { router as damage } from '../apps/server/src/routes/damage.js';
+import { setupVite, log } from './vite.js';
 
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
-const port = Number(process.env.PORT || 5175);
+const port = Number(process.env.PORT || 5000);
 const server = http.createServer(app);
 
 // Basic API routes
@@ -101,4 +102,14 @@ app.get('/api/ai/tools', (req, res) => {
 import { attachAssistantWSS } from './ws/assistant.js';
 attachAssistantWSS(server);
 
-server.listen(port, () => console.log(`[server] http://localhost:${port}`));
+// Setup Vite for serving the React app
+if (process.env.NODE_ENV === "development") {
+  await setupVite(app, server);
+}
+
+server.listen(port, () => {
+  log(`Server running at http://localhost:${port}`);
+  if (process.env.NODE_ENV === "development") {
+    log("Vite development server enabled with HMR");
+  }
+});
