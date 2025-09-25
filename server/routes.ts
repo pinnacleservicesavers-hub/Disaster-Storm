@@ -54,6 +54,7 @@ import { VoiceAIService } from "./services/voiceAI";
 import { weatherAI } from "./services/weatherAI.js";
 import { universalAI } from "./services/universalAI.js";
 import { EnhancedImageAnalysisService } from "./services/enhancedImageAnalysis.js";
+import { PhotoOrganizationService } from "./services/photoOrganizationService";
 import { storage } from "./storage";
 import { z } from "zod";
 
@@ -405,6 +406,9 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
   
   // Initialize Enhanced Image Analysis Service  
   const enhancedImageAnalysisService = new EnhancedImageAnalysisService();
+  
+  // Initialize Photo Organization Service
+  const photoOrganizationService = new PhotoOrganizationService('./uploads/photos');
   
   console.log('🔔 Alert system services initialized');
   
@@ -1396,6 +1400,315 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
     }catch(e){ res.status(500).json({ error:'describe_batch_failed' }); }
   });
 
+  // ===== PHOTO ORGANIZATION WORKFLOW ROUTES =====
+  
+  // Enhanced photo upload with automatic organization
+  const organizedUpload = multer({ dest: UPLOAD_DIR, limits: { fileSize: 50 * 1024 * 1024 } }); // 50MB limit
+  
+  app.post('/api/photos/upload-organized', organizedUpload.single('photo'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: 'No photo file provided' });
+      }
+
+      const { customerName, jobAddress, jobId, description } = req.body;
+      
+      if (!customerName || !jobAddress) {
+        return res.status(400).json({ error: 'Customer name and job address are required' });
+      }
+
+      // Read uploaded file
+      const fileBuffer = fs.readFileSync(req.file.path);
+      
+      // Get AI analysis if available
+      let aiAnalysis = null;
+      if (enhancedImageAnalysisService) {
+        try {
+          const analysisResult = await enhancedImageAnalysisService.analyzeImage(fileBuffer, req.file.originalname);
+          aiAnalysis = JSON.stringify(analysisResult);
+        } catch (error) {
+          console.warn('AI analysis failed, continuing without:', error.message);
+        }
+      }
+
+      // Organize photo
+      const photoMetadata = await photoOrganizationService.organizePhoto(
+        fileBuffer,
+        req.file.originalname,
+        customerName,
+        jobAddress,
+        {
+          jobId,
+          description,
+          aiAnalysis,
+          mimeType: req.file.mimetype,
+          additionalTags: req.body.tags ? JSON.parse(req.body.tags) : []
+        }
+      );
+
+      // Clean up temp file
+      fs.unlinkSync(req.file.path);
+
+      res.json({
+        success: true,
+        photo: photoMetadata,
+        message: 'Photo uploaded and organized successfully'
+      });
+
+    } catch (error) {
+      console.error('Photo upload error:', error);
+      res.status(500).json({ 
+        error: 'Failed to upload and organize photo',
+        detail: error.message 
+      });
+    }
+  });
+
+  // Edit photo metadata
+  app.put('/api/photos/:photoId', async (req, res) => {
+    try {
+      const { photoId } = req.params;
+      const editRequest = { photoId, ...req.body };
+      
+      const updatedPhoto = await photoOrganizationService.editPhoto(editRequest);
+      
+      if (!updatedPhoto) {
+        return res.status(404).json({ error: 'Photo not found or not editable' });
+      }
+
+      res.json({
+        success: true,
+        photo: updatedPhoto,
+        message: 'Photo updated successfully'
+      });
+
+    } catch (error) {
+      console.error('Photo edit error:', error);
+      res.status(500).json({ 
+        error: 'Failed to edit photo',
+        detail: error.message 
+      });
+    }
+  });
+
+  // Delete photo
+  app.delete('/api/photos/:photoId', async (req, res) => {
+    try {
+      const { photoId } = req.params;
+      
+      const deleted = await photoOrganizationService.deletePhoto(photoId);
+      
+      if (!deleted) {
+        return res.status(404).json({ error: 'Photo not found' });
+      }
+
+      res.json({
+        success: true,
+        message: 'Photo deleted successfully'
+      });
+
+    } catch (error) {
+      console.error('Photo delete error:', error);
+      res.status(500).json({ 
+        error: 'Failed to delete photo',
+        detail: error.message 
+      });
+    }
+  });
+
+  // Search photos
+  app.get('/api/photos/search', async (req, res) => {
+    try {
+      const query: any = {};
+      
+      if (req.query.customerName) query.customerName = req.query.customerName as string;
+      if (req.query.jobAddress) query.jobAddress = req.query.jobAddress as string;
+      if (req.query.location) query.location = req.query.location as string;
+      if (req.query.jobId) query.jobId = req.query.jobId as string;
+      if (req.query.tags) query.tags = (req.query.tags as string).split(',');
+      if (req.query.dateFrom) query.dateFrom = new Date(req.query.dateFrom as string);
+      if (req.query.dateTo) query.dateTo = new Date(req.query.dateTo as string);
+      
+      const photos = photoOrganizationService.searchPhotos(query);
+      
+      res.json({
+        success: true,
+        photos,
+        count: photos.length
+      });
+
+    } catch (error) {
+      console.error('Photo search error:', error);
+      res.status(500).json({ 
+        error: 'Failed to search photos',
+        detail: error.message 
+      });
+    }
+  });
+
+  // Get photos by customer
+  app.get('/api/photos/customer/:customerName', async (req, res) => {
+    try {
+      const { customerName } = req.params;
+      const photos = photoOrganizationService.getPhotosByCustomer(customerName);
+      
+      res.json({
+        success: true,
+        photos,
+        customer: customerName,
+        count: photos.length
+      });
+
+    } catch (error) {
+      console.error('Get customer photos error:', error);
+      res.status(500).json({ 
+        error: 'Failed to get customer photos',
+        detail: error.message 
+      });
+    }
+  });
+
+  // Get photos by job
+  app.get('/api/photos/job/:jobId', async (req, res) => {
+    try {
+      const { jobId } = req.params;
+      const photos = photoOrganizationService.getPhotosByJob(jobId);
+      
+      res.json({
+        success: true,
+        photos,
+        jobId,
+        count: photos.length
+      });
+
+    } catch (error) {
+      console.error('Get job photos error:', error);
+      res.status(500).json({ 
+        error: 'Failed to get job photos',
+        detail: error.message 
+      });
+    }
+  });
+
+  // Get photos by location
+  app.get('/api/photos/location/:location', async (req, res) => {
+    try {
+      const { location } = req.params;
+      const photos = photoOrganizationService.getPhotosByLocation(decodeURIComponent(location));
+      
+      res.json({
+        success: true,
+        photos,
+        location,
+        count: photos.length
+      });
+
+    } catch (error) {
+      console.error('Get location photos error:', error);
+      res.status(500).json({ 
+        error: 'Failed to get location photos',
+        detail: error.message 
+      });
+    }
+  });
+
+  // Get single photo details
+  app.get('/api/photos/:photoId', async (req, res) => {
+    try {
+      const { photoId } = req.params;
+      const photo = photoOrganizationService.getPhotoById(photoId);
+      
+      if (!photo) {
+        return res.status(404).json({ error: 'Photo not found' });
+      }
+
+      res.json({
+        success: true,
+        photo
+      });
+
+    } catch (error) {
+      console.error('Get photo error:', error);
+      res.status(500).json({ 
+        error: 'Failed to get photo',
+        detail: error.message 
+      });
+    }
+  });
+
+  // Get all photos with pagination
+  app.get('/api/photos', async (req, res) => {
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
+      const offset = req.query.offset ? parseInt(req.query.offset as string) : undefined;
+      
+      const photos = photoOrganizationService.getAllPhotos(limit, offset);
+      
+      res.json({
+        success: true,
+        photos,
+        count: photos.length,
+        pagination: limit ? { limit, offset: offset || 0 } : null
+      });
+
+    } catch (error) {
+      console.error('Get all photos error:', error);
+      res.status(500).json({ 
+        error: 'Failed to get photos',
+        detail: error.message 
+      });
+    }
+  });
+
+  // Get folder structure for reporting
+  app.get('/api/photos/folder-structure', async (req, res) => {
+    try {
+      const structure = photoOrganizationService.getFolderStructure();
+      
+      res.json({
+        success: true,
+        structure,
+        message: 'Folder structure retrieved successfully'
+      });
+
+    } catch (error) {
+      console.error('Get folder structure error:', error);
+      res.status(500).json({ 
+        error: 'Failed to get folder structure',
+        detail: error.message 
+      });
+    }
+  });
+
+  // Serve organized photos
+  app.get('/api/photos/file/:photoId', async (req, res) => {
+    try {
+      const { photoId } = req.params;
+      const photo = photoOrganizationService.getPhotoById(photoId);
+      
+      if (!photo) {
+        return res.status(404).json({ error: 'Photo not found' });
+      }
+
+      // Security check - ensure file path is within allowed directory
+      const resolvedPath = path.resolve(photo.storagePath);
+      const allowedDir = path.resolve('./uploads');
+      
+      if (!resolvedPath.startsWith(allowedDir)) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+
+      res.sendFile(resolvedPath);
+
+    } catch (error) {
+      console.error('Serve photo file error:', error);
+      res.status(500).json({ 
+        error: 'Failed to serve photo file',
+        detail: error.message 
+      });
+    }
+  });
+
   // === Claim Package: build summary PDF + email with attachments ===
   app.post('/api/claim/package', async (req, res) => {
     try{
@@ -1854,59 +2167,7 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
     } 
   });
 
-  // ===== Photo Management with AI Analysis =====
-  const PHOTOS_PATH = path.join(DATA_DIR, 'photos.json');
-  if (!fs.existsSync(PHOTOS_PATH)) fs.writeFileSync(PHOTOS_PATH, JSON.stringify({ items: [] }, null, 2));
-  function readPhotos(){ try{ return JSON.parse(fs.readFileSync(PHOTOS_PATH,'utf8')); }catch{ return { items: [] }; } }
-  function writePhotos(d: any){ try{ fs.writeFileSync(PHOTOS_PATH, JSON.stringify(d,null,2)); }catch{} }
-
-  app.get('/api/photos', (req,res)=>{ 
-    try{ 
-      const { contractorId } = req.query;
-      const db = readPhotos(); 
-      const photos = contractorId ? (db.items||[]).filter((p: any) => p.contractorId === contractorId) : (db.items||[]);
-      res.json({ photos }); 
-    }catch{ 
-      res.json({ photos: [] }); 
-    } 
-  });
-
-  app.post('/api/photos/analyze', express.json(), async (req,res)=>{ 
-    try{ 
-      const { contractorId, fileName, fileUrl, category } = req.body;
-      
-      // Simulate AI analysis (would integrate with actual AI service)
-      const mockAiAnalysis = {
-        aiDescription: `Analysis: ${category} photo showing potential property damage. Visible structural elements and environmental conditions documented.`,
-        damageType: ['tree_damage', 'roof_damage', 'structural_damage'][Math.floor(Math.random() * 3)],
-        severity: ['minor', 'moderate', 'severe', 'critical'][Math.floor(Math.random() * 4)],
-        latitude: (33.7490 + (Math.random() - 0.5) * 0.1).toString(), // Mock GPS around Atlanta
-        longitude: (-84.3880 + (Math.random() - 0.5) * 0.1).toString(),
-        address: `${Math.floor(Math.random() * 9999)} Sample St, Atlanta, GA 30309`,
-        isProcessed: true,
-        processedAt: new Date().toISOString()
-      };
-      
-      const photo = {
-        id: `photo:${Date.now()}:${Math.random().toString(36).slice(2,6)}`,
-        createdAt: new Date().toISOString(),
-        contractorId,
-        fileName,
-        fileUrl,
-        category,
-        thumbnailUrl: fileUrl, // Would generate thumbnail in real implementation
-        ...mockAiAnalysis
-      };
-      
-      const db = readPhotos(); 
-      db.items.push(photo); 
-      writePhotos(db); 
-      res.json({ ok: true, photo }); 
-    }catch(e){ 
-      console.error('Error analyzing photo:', e);
-      res.status(500).json({ ok: false, error: 'Failed to analyze photo' }); 
-    } 
-  });
+  // Note: Photo Management routes moved to comprehensive Photo Organization Workflow above
 
   // ===== Insurance Companies Database =====
   const INSURANCE_PATH = path.join(DATA_DIR, 'insurance-companies.json');

@@ -70,6 +70,39 @@ interface MediaItem {
   project: string;
 }
 
+interface PhotoMetadata {
+  id: string;
+  fileName: string;
+  originalName: string;
+  customerName: string;
+  jobAddress: string;
+  location?: string;
+  jobId?: string;
+  dateTaken: Date;
+  tags: string[];
+  description?: string;
+  aiAnalysis?: string;
+  gpsCoordinates?: {
+    latitude: number;
+    longitude: number;
+  };
+  fileSize: number;
+  mimeType: string;
+  storagePath: string;
+  thumbnailPath?: string;
+  isEditable: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+interface PhotoUploadForm {
+  customerName: string;
+  jobAddress: string;
+  jobId?: string;
+  description?: string;
+  tags?: string[];
+}
+
 interface Annotation {
   id: string;
   type: 'text' | 'arrow' | 'circle' | 'measurement' | 'highlight';
@@ -94,7 +127,7 @@ interface AIAnalysis {
 }
 
 export default function DisasterLens() {
-  const [activeTab, setActiveTab] = useState<'capture' | 'gallery' | 'projects' | 'reports'>('capture');
+  const [activeTab, setActiveTab] = useState<'capture' | 'gallery' | 'projects' | 'reports' | 'organize'>('capture');
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const [isCapturing, setIsCapturing] = useState(false);
   const [selectedMedia, setSelectedMedia] = useState<MediaItem | null>(null);
@@ -107,11 +140,105 @@ export default function DisasterLens() {
   const [isVoiceGuideActive, setIsVoiceGuideActive] = useState(false);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   
+  // Photo Organization State
+  const [uploadForm, setUploadForm] = useState<PhotoUploadForm>({
+    customerName: '',
+    jobAddress: '',
+    jobId: '',
+    description: '',
+    tags: []
+  });
+  const [selectedPhoto, setSelectedPhoto] = useState<PhotoMetadata | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchFilters, setSearchFilters] = useState({
+    customerName: '',
+    location: '',
+    dateFrom: '',
+    dateTo: ''
+  });
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   
   const { toast } = useToast();
+
+  // Photo Organization Queries
+  const { data: photos, refetch: refetchPhotos } = useQuery({
+    queryKey: ['/api/photos'],
+    enabled: activeTab === 'organize'
+  });
+
+  const { data: searchResults } = useQuery({
+    queryKey: ['/api/photos/search', searchFilters],
+    enabled: activeTab === 'organize' && Object.values(searchFilters).some(v => v)
+  });
+
+  const uploadPhotoMutation = useMutation({
+    mutationFn: async (data: FormData) => {
+      const response = await fetch('/api/photos/upload-organized', {
+        method: 'POST',
+        body: data
+      });
+      if (!response.ok) throw new Error('Upload failed');
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({ title: "Photo uploaded successfully", description: `${data.photo.fileName} has been organized and stored.` });
+      refetchPhotos();
+      setUploadForm({ customerName: '', jobAddress: '', jobId: '', description: '', tags: [] });
+    },
+    onError: (error: any) => {
+      toast({ title: "Upload failed", description: error.message, variant: "destructive" });
+    }
+  });
+
+  const editPhotoMutation = useMutation({
+    mutationFn: async ({ photoId, ...data }: any) => {
+      return apiRequest(`/api/photos/${photoId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+    },
+    onSuccess: () => {
+      toast({ title: "Photo updated successfully" });
+      refetchPhotos();
+      setIsEditing(false);
+      setSelectedPhoto(null);
+    }
+  });
+
+  const deletePhotoMutation = useMutation({
+    mutationFn: async (photoId: string) => {
+      return apiRequest(`/api/photos/${photoId}`, {
+        method: 'DELETE'
+      });
+    },
+    onSuccess: () => {
+      toast({ title: "Photo deleted successfully" });
+      refetchPhotos();
+      setSelectedPhoto(null);
+    }
+  });
+
+  // Handle photo upload
+  const handlePhotoUpload = async (file: File) => {
+    if (!file) return;
+    
+    const formData = new FormData();
+    formData.append('photo', file);
+    formData.append('customerName', uploadForm.customerName);
+    formData.append('jobAddress', uploadForm.jobAddress);
+    if (uploadForm.jobId) formData.append('jobId', uploadForm.jobId);
+    if (uploadForm.description) formData.append('description', uploadForm.description);
+    if (uploadForm.tags && uploadForm.tags.length > 0) {
+      formData.append('tags', JSON.stringify(uploadForm.tags));
+    }
+    
+    uploadPhotoMutation.mutate(formData);
+  };
 
   // Initialize voices for speech synthesis
   useEffect(() => {
@@ -451,6 +578,7 @@ export default function DisasterLens() {
         {[
           { id: 'capture', label: 'Capture', icon: Camera },
           { id: 'gallery', label: 'Gallery', icon: Image },
+          { id: 'organize', label: 'Organize', icon: Layers },
           { id: 'projects', label: 'Projects', icon: FileText },
           { id: 'reports', label: 'AI Reports', icon: Bot }
         ].map((tab) => (
@@ -740,6 +868,539 @@ export default function DisasterLens() {
                 </div>
               </CardContent>
             </Card>
+          )}
+        </div>
+      )}
+
+      {/* Organize Tab - Photo Organization Workflow */}
+      {activeTab === 'organize' && (
+        <div className="space-y-6">
+          {/* Header */}
+          <div className="flex justify-between items-center">
+            <div>
+              <h3 className="text-xl font-semibold">Photo Organization</h3>
+              <p className="text-gray-600 dark:text-gray-400 text-sm">
+                Smart folder organization by customer, location, and date with AI analysis
+              </p>
+            </div>
+            <div className="flex space-x-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => fileInputRef.current?.click()}
+                data-testid="button-upload-photos"
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                Upload Photos
+              </Button>
+            </div>
+          </div>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            onChange={(e) => {
+              if (e.target.files && e.target.files.length > 0) {
+                const file = e.target.files[0];
+                if (uploadForm.customerName && uploadForm.jobAddress) {
+                  handlePhotoUpload(file);
+                } else {
+                  setSelectedPhoto({
+                    id: '',
+                    fileName: file.name,
+                    originalName: file.name,
+                    customerName: uploadForm.customerName,
+                    jobAddress: uploadForm.jobAddress,
+                    dateTaken: new Date(),
+                    tags: [],
+                    fileSize: file.size,
+                    mimeType: file.type,
+                    storagePath: '',
+                    isEditable: true,
+                    createdAt: new Date(),
+                    updatedAt: new Date()
+                  } as PhotoMetadata);
+                  setIsEditing(true);
+                  toast({ 
+                    title: "Customer info needed", 
+                    description: "Please fill in customer name and job address first",
+                    variant: "destructive"
+                  });
+                }
+              }
+            }}
+          />
+
+          {/* Upload Form */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <Layers className="h-5 w-5 text-blue-500 mr-2" />
+                Photo Upload & Organization
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="customerName">Customer Name *</Label>
+                  <Input
+                    id="customerName"
+                    value={uploadForm.customerName}
+                    onChange={(e) => setUploadForm({...uploadForm, customerName: e.target.value})}
+                    placeholder="e.g., Michael Thomas"
+                    data-testid="input-customer-name"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="jobAddress">Job Address *</Label>
+                  <Input
+                    id="jobAddress"
+                    value={uploadForm.jobAddress}
+                    onChange={(e) => setUploadForm({...uploadForm, jobAddress: e.target.value})}
+                    placeholder="e.g., 5385 Westwood Dr, Columbus, GA"
+                    data-testid="input-job-address"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="jobId">Job ID (Optional)</Label>
+                  <Input
+                    id="jobId"
+                    value={uploadForm.jobId}
+                    onChange={(e) => setUploadForm({...uploadForm, jobId: e.target.value})}
+                    placeholder="e.g., JOB-2025-001"
+                    data-testid="input-job-id"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="description">Description</Label>
+                  <Input
+                    id="description"
+                    value={uploadForm.description}
+                    onChange={(e) => setUploadForm({...uploadForm, description: e.target.value})}
+                    placeholder="e.g., Storm damage assessment"
+                    data-testid="input-description"
+                  />
+                </div>
+              </div>
+              
+              <div className="flex justify-end space-x-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setUploadForm({ customerName: '', jobAddress: '', jobId: '', description: '', tags: [] })}
+                  data-testid="button-clear-form"
+                >
+                  Clear
+                </Button>
+                <Button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={!uploadForm.customerName || !uploadForm.jobAddress}
+                  data-testid="button-select-photos"
+                >
+                  <Camera className="w-4 h-4 mr-2" />
+                  Select Photos
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Search & Filter */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <Search className="h-5 w-5 text-green-500 mr-2" />
+                Search Photos
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div>
+                  <Label htmlFor="searchCustomer">Customer Name</Label>
+                  <Input
+                    id="searchCustomer"
+                    value={searchFilters.customerName}
+                    onChange={(e) => setSearchFilters({...searchFilters, customerName: e.target.value})}
+                    placeholder="Search by customer"
+                    data-testid="input-search-customer"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="searchLocation">Location</Label>
+                  <Input
+                    id="searchLocation"
+                    value={searchFilters.location}
+                    onChange={(e) => setSearchFilters({...searchFilters, location: e.target.value})}
+                    placeholder="Search by location"
+                    data-testid="input-search-location"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="dateFrom">Date From</Label>
+                  <Input
+                    id="dateFrom"
+                    type="date"
+                    value={searchFilters.dateFrom}
+                    onChange={(e) => setSearchFilters({...searchFilters, dateFrom: e.target.value})}
+                    data-testid="input-date-from"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="dateTo">Date To</Label>
+                  <Input
+                    id="dateTo"
+                    type="date"
+                    value={searchFilters.dateTo}
+                    onChange={(e) => setSearchFilters({...searchFilters, dateTo: e.target.value})}
+                    data-testid="input-date-to"
+                  />
+                </div>
+              </div>
+              
+              <div className="flex space-x-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setSearchFilters({ customerName: '', location: '', dateFrom: '', dateTo: '' })}
+                  data-testid="button-clear-search"
+                >
+                  Clear Filters
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Photo Gallery */}
+          <Card>
+            <CardHeader>
+              <div className="flex justify-between items-center">
+                <CardTitle className="flex items-center">
+                  <Image className="h-5 w-5 text-purple-500 mr-2" />
+                  Organized Photos ({(photos as any)?.photos?.length || 0})
+                </CardTitle>
+                <div className="flex space-x-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => refetchPhotos()}
+                    data-testid="button-refresh-photos"
+                  >
+                    Refresh
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {(photos as any)?.photos?.length ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {((searchResults as any)?.photos || (photos as any)?.photos || []).map((photo: PhotoMetadata) => (
+                    <Card key={photo.id} className="cursor-pointer hover:shadow-lg transition-shadow">
+                      <div className="relative">
+                        <img
+                          src={`/api/photos/file/${photo.id}`}
+                          alt={photo.fileName}
+                          className="w-full h-48 object-cover rounded-t-lg"
+                          onClick={() => setSelectedPhoto(photo)}
+                          data-testid={`photo-${photo.id}`}
+                        />
+                        <Badge
+                          variant="secondary"
+                          className="absolute top-2 left-2 text-xs"
+                        >
+                          {photo.fileSize > 1024 * 1024 
+                            ? `${(photo.fileSize / (1024 * 1024)).toFixed(1)}MB`
+                            : `${(photo.fileSize / 1024).toFixed(1)}KB`
+                          }
+                        </Badge>
+                        <div className="absolute top-2 right-2 flex space-x-1">
+                          {photo.isEditable && (
+                            <Badge variant="default" className="text-xs">
+                              <Edit3 className="w-3 h-3 mr-1" />
+                              Editable
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                      <CardContent className="p-3">
+                        <div className="space-y-2">
+                          <div className="font-medium text-sm truncate">{photo.customerName}</div>
+                          <div className="text-xs text-gray-600 dark:text-gray-400 truncate">
+                            {photo.jobAddress}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {new Date(photo.dateTaken).toLocaleDateString()}
+                          </div>
+                          {photo.description && (
+                            <div className="text-xs text-gray-600 dark:text-gray-400 truncate">
+                              {photo.description}
+                            </div>
+                          )}
+                          <div className="flex flex-wrap gap-1">
+                            {photo.tags.slice(0, 2).map((tag) => (
+                              <Badge key={tag} variant="outline" className="text-xs">
+                                {tag}
+                              </Badge>
+                            ))}
+                            {photo.tags.length > 2 && (
+                              <Badge variant="outline" className="text-xs">
+                                +{photo.tags.length - 2}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex justify-between items-center mt-3">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedPhoto(photo);
+                              setIsEditing(true);
+                            }}
+                            data-testid={`button-edit-photo-${photo.id}`}
+                          >
+                            <Edit3 className="w-3 h-3 mr-1" />
+                            Edit
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (confirm('Are you sure you want to delete this photo?')) {
+                                deletePhotoMutation.mutate(photo.id);
+                              }
+                            }}
+                            data-testid={`button-delete-photo-${photo.id}`}
+                          >
+                            Delete
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <Image className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                  <div className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
+                    No Photos Found
+                  </div>
+                  <div className="text-gray-500 dark:text-gray-400">
+                    Upload photos using the form above to get started with organization
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Folder Structure Display */}
+          {(photos as any)?.photos?.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <FileText className="h-5 w-5 text-orange-500 mr-2" />
+                  Folder Structure Preview
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 text-sm font-mono">
+                  <div className="text-gray-600 dark:text-gray-400">
+                    /Photos/2025/
+                    <br />
+                    {"  "}└── Columbus_GA/
+                    <br />
+                    {"      "}└── Michael_Thomas_5385_Westwood/
+                    <br />
+                    {"          "}├── IMG_001.jpg
+                    <br />
+                    {"          "}└── IMG_002.jpg
+                  </div>
+                </div>
+                <div className="text-xs text-gray-500 mt-2">
+                  Photos are automatically organized by Year → City/State → Customer_Address
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Photo Editing Modal */}
+          {isEditing && selectedPhoto && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <Card className="w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
+                <CardHeader>
+                  <div className="flex justify-between items-center">
+                    <CardTitle className="flex items-center">
+                      <Edit3 className="h-5 w-5 text-blue-500 mr-2" />
+                      Edit Photo Details
+                    </CardTitle>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setIsEditing(false);
+                        setSelectedPhoto(null);
+                      }}
+                      data-testid="button-close-edit-modal"
+                    >
+                      ✕
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Photo Preview */}
+                  <div className="relative rounded-lg overflow-hidden">
+                    <img
+                      src={selectedPhoto.id ? `/api/photos/file/${selectedPhoto.id}` : undefined}
+                      alt={selectedPhoto.fileName}
+                      className="w-full h-48 object-cover"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+                    <div className="absolute bottom-2 left-2 text-white text-sm font-medium">
+                      {selectedPhoto.fileName}
+                    </div>
+                  </div>
+
+                  {/* Edit Form */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="editCustomerName">Customer Name *</Label>
+                      <Input
+                        id="editCustomerName"
+                        value={selectedPhoto.customerName}
+                        onChange={(e) => setSelectedPhoto({
+                          ...selectedPhoto,
+                          customerName: e.target.value
+                        })}
+                        placeholder="Customer name"
+                        data-testid="input-edit-customer-name"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="editJobAddress">Job Address *</Label>
+                      <Input
+                        id="editJobAddress"
+                        value={selectedPhoto.jobAddress}
+                        onChange={(e) => setSelectedPhoto({
+                          ...selectedPhoto,
+                          jobAddress: e.target.value
+                        })}
+                        placeholder="Job address"
+                        data-testid="input-edit-job-address"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="editJobId">Job ID</Label>
+                      <Input
+                        id="editJobId"
+                        value={selectedPhoto.jobId || ''}
+                        onChange={(e) => setSelectedPhoto({
+                          ...selectedPhoto,
+                          jobId: e.target.value
+                        })}
+                        placeholder="Job ID"
+                        data-testid="input-edit-job-id"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="editFileName">File Name</Label>
+                      <Input
+                        id="editFileName"
+                        value={selectedPhoto.fileName}
+                        onChange={(e) => setSelectedPhoto({
+                          ...selectedPhoto,
+                          fileName: e.target.value
+                        })}
+                        placeholder="File name"
+                        data-testid="input-edit-file-name"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="editDescription">Description</Label>
+                    <Textarea
+                      id="editDescription"
+                      value={selectedPhoto.description || ''}
+                      onChange={(e) => setSelectedPhoto({
+                        ...selectedPhoto,
+                        description: e.target.value
+                      })}
+                      placeholder="Photo description"
+                      rows={3}
+                      data-testid="textarea-edit-description"
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="editTags">Tags (comma separated)</Label>
+                    <Input
+                      id="editTags"
+                      value={selectedPhoto.tags.join(', ')}
+                      onChange={(e) => setSelectedPhoto({
+                        ...selectedPhoto,
+                        tags: e.target.value.split(',').map(tag => tag.trim()).filter(tag => tag)
+                      })}
+                      placeholder="damage, storm, roof, etc."
+                      data-testid="input-edit-tags"
+                    />
+                  </div>
+
+                  {/* AI Analysis Display */}
+                  {selectedPhoto.aiAnalysis && (
+                    <Card className="bg-blue-50 dark:bg-blue-900/20">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm flex items-center">
+                          <Bot className="h-4 w-4 text-blue-500 mr-2" />
+                          AI Analysis
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="pt-0">
+                        <div className="text-sm text-blue-800 dark:text-blue-200 max-h-32 overflow-y-auto">
+                          {typeof selectedPhoto.aiAnalysis === 'string' 
+                            ? selectedPhoto.aiAnalysis.substring(0, 300) + (selectedPhoto.aiAnalysis.length > 300 ? '...' : '')
+                            : 'AI analysis available'
+                          }
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Action Buttons */}
+                  <div className="flex justify-end space-x-2 pt-4">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setIsEditing(false);
+                        setSelectedPhoto(null);
+                      }}
+                      data-testid="button-cancel-edit"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        if (selectedPhoto.id && selectedPhoto.customerName && selectedPhoto.jobAddress) {
+                          editPhotoMutation.mutate({
+                            photoId: selectedPhoto.id,
+                            customerName: selectedPhoto.customerName,
+                            jobAddress: selectedPhoto.jobAddress,
+                            jobId: selectedPhoto.jobId,
+                            fileName: selectedPhoto.fileName,
+                            description: selectedPhoto.description,
+                            tags: selectedPhoto.tags
+                          });
+                        }
+                      }}
+                      disabled={!selectedPhoto.customerName || !selectedPhoto.jobAddress || editPhotoMutation.isPending}
+                      data-testid="button-save-edit"
+                    >
+                      {editPhotoMutation.isPending ? 'Saving...' : 'Save Changes'}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           )}
         </div>
       )}
