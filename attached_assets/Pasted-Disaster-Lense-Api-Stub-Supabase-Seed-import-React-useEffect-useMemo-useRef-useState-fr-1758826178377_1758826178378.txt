@@ -1,0 +1,19 @@
+Disaster Lense — Api Stub & Supabase Seed
+
+import React, { useEffect, useMemo, useRef, useState } from "react";
+
+// Single-file demo UI for Disaster Lense // Tabs: Capture, Timeline, Annotator, Report Builder // Styling: TailwindCSS classes // NOTE: This is a front-end scaffold. Buttons are now wired to your Express API.
+
+// ------------------------------ // Inline SHA-256 Web Worker (chain-of-custody) // ------------------------------ const hashingWorkerUrl = (() => { const src = self.onmessage = async (e) => { try { const buf = e.data; const digest = await crypto.subtle.digest('SHA-256', buf); const bytes = new Uint8Array(digest); const hex = Array.from(bytes).map(b => b.toString(16).padStart(2,'0')).join(''); self.postMessage({ ok: true, hex }); } catch (err) { self.postMessage({ ok: false, error: String(err) }); } }; const blob = new Blob([src], { type: "text/javascript" }); return URL.createObjectURL(blob); })();
+
+function useHashWorker() { const workerRef = useRef<Worker | null>(null); useEffect(() => { const w = new Worker(hashingWorkerUrl); workerRef.current = w; return () => w.terminate(); }, []);
+
+return async function hashArrayBuffer(buf: ArrayBuffer): Promise { return new Promise((resolve, reject) => { const w = workerRef.current; if (!w) return reject(new Error("worker not ready")); const onMessage = (ev: MessageEvent) => { const { ok, hex, error } = ev.data || {}; w.removeEventListener('message', onMessage); if (ok) resolve(hex); else reject(new Error(error || 'hash failed')); }; w.addEventListener('message', onMessage); w.postMessage(buf, [buf as any]); }); }; }
+
+function TabButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) { return ( <button onClick={onClick} className={px-4 py-2 rounded-2xl text-sm font-medium shadow-sm transition hover:shadow ${active ? "bg-black text-white" : "bg-white text-gray-800 border"}} > {children} ); }
+
+function StatCard({ label, value, sub }: { label: string; value: string; sub?: string }) { return ( {label} {value} {sub && {sub}} ); }
+
+// --- Capture Tab --- function CaptureTab() { const videoRef = useRef<HTMLVideoElement | null>(null); const canvasRef = useRef<HTMLCanvasElement | null>(null); const [streamOn, setStreamOn] = useState(false); const [shots, setShots] = useState<{ url: string; hash: string }[]>([]); const [useRear, setUseRear] = useState(true); const [note, setNote] = useState(""); const hashWorker = useHashWorker();
+
+async function startCamera() { try { const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: useRear ? { ideal: "environment" } : "user" }, audio: false, }); if (videoRef.current) { videoRef.current.srcObject = stream; await (videoRef.current as HTMLVideoElement).play(); setStreamOn(true); } } catch (e) { alert("Camera not available in preview. You can still use the UI."); } } function stopCamera() { const vid = videoRef.current as HTMLVideoElement | null; const stream = vid && (vid.srcObject as MediaStream); stream?.getTracks().forEach((t) => t.stop()); setStreamOn(false); } async function takeShot() { const video = videoRef.current as HTMLVideoElement | null; const canvas = canvasRef.current as HTMLCanvasElement | null; if (!video || !canvas) return; const w = video.videoWidth || 640; const h = video.videoHeight || 360; canvas.width = w; canvas.height = h; const ctx = canvas.getContext("2d"); if (!ctx) return; ctx.drawImage(video, 0, 0, w, h); // Watermark sample ctx.fillStyle = "rgba(0,0,0,0.6)"; ctx.fillRect(0, h - 26, w, 26); ctx.fillStyle = "#fff"; ctx.font = "14px sans-serif"; const ts = new Date().toISOString(); ctx.fillText(Disaster Lense • ${ts}, 8, h - 8);
