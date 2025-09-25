@@ -1,0 +1,128 @@
+🔑 Core Tools
+1. Photo & Video Documentation
+
+Every photo is automatically stamped with GPS location, time, and user.
+
+You don’t have to manually upload or label pictures—saves time.
+
+Great for insurance, liability protection, and proving completion.
+
+2. Project-Based Organization
+
+Each job is its own “project” folder.
+
+All media, notes, tasks, and conversations for that job stay together.
+
+Easy to pull up “Mr. Thomas – 5385 Westwood Dr – Pecan Tree Removal” later if an insurance adjuster calls.
+
+3. Markup & Notes on Photos
+
+Draw arrows, circles, or highlight dangerous limbs or power lines.
+
+Add text notes like “Storm damage – urgent removal needed.”
+
+Adds context to simple photos so anyone looking knows what’s going on.
+
+⚡ Special Features
+✅ Project Feed (Live Updates)
+
+Every jobsite update flows into one dashboard.
+
+You can watch crews in the field in real-time without being there.
+
+Ideal for storm response when you’re juggling multiple crews.
+
+✅ Task Lists & Checklists
+
+Example: “Pre-job safety check” → Crew must upload a photo of PPE before starting.
+
+Keeps OSHA compliance tight without paperwork.
+
+Can assign tasks like “Grind stump,” “Haul debris,” and track who did what.
+
+✅ Automatic Reports
+
+AI or prebuilt templates turn photos + notes into:
+
+Daily logs (for internal accountability)
+
+Client updates (so they know progress)
+
+Insurance packets (before/after evidence with descriptions)
+
+Saves hours of admin work.
+
+✅ Client & Subcontractor Sharing
+
+Share a view-only link with homeowners, insurance adjusters, or subcontractors.
+
+They see a timeline or gallery without downloading an app.
+
+Keeps clients calm when they can see progress in real-time.
+
+✅ Document Storage
+
+Upload contracts, permits, work orders, COIs, etc.
+
+Keep everything tied to the same job.
+
+Option to collect e-signatures for authorizations or change orders.
+
+✅ Payments & Invoicing (on certain plans)
+
+Send invoices and request payments from the app.
+
+Handy for on-the-spot collection after emergency work.
+
+✅ Integrations
+
+Works with job management, CRM, and estimating software (e.g. Jobber, Housecall Pro, ServiceTitan, etc.).
+
+Syncs your customer/project info so you’re not retyping.
+
+🌪 Real-World Workflows for Your Business
+1. Storm Response / Emergency Tree Removal
+
+Crew arrives, opens the project.
+
+Snap before photos (auto timestamped + GPS).
+
+Mark dangerous areas in red → share with insurance & homeowner instantly.
+
+Upload after photos + cleanup proof.
+
+Auto-generate report → send to insurance company with cost breakdown.
+
+2. Insurance Claim Disputes
+
+If adjuster undervalues damage (like your $11,400 vs. $4,500 roof case), you have timestamped, geotagged photos to back your invoice.
+
+Can send them annotated photos + a formal report instead of digging through phone galleries.
+
+3. Subcontractor Oversight
+
+If you sub out jobs (roofing, debris hauling, stump grinding), you can require photo check-ins.
+
+Prevents disputes like “that wasn’t done” or “we didn’t break the fence.”
+
+4. Crew Accountability
+
+Know which crew was where, and when.
+
+Protects you if a client says, “your guys didn’t show up” → you have timestamp proof.
+
+5. Marketing / Before & After
+
+Build instant galleries of “before and after” shots.
+
+Use for social media, website, or Yelp/Google updates.
+
+Shows professionalism without extra editing.
+
+🚧 Things to Keep in Mind
+
+Cost: Starts per-user monthly. Best value if you have multiple crews/projects running at once.
+
+Training: Crews must remember to always open projects and snap pics inside the app (not their phone camera).
+
+Connectivity: Works offline but syncs once you have service; good for rural or storm-hit areas.

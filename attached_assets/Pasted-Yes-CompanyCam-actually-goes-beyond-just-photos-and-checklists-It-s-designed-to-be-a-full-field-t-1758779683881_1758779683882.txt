@@ -1,0 +1,75 @@
+Yes — CompanyCam actually goes beyond just photos and checklists. It’s designed to be a full field-to-office communication and documentation hub. Let me expand on even more things it does that I haven’t mentioned yet:
+
+📸 Advanced Photo/Media Features
+
+Video Capture: Not just still photos — you can take short videos to show wind movement, roof flex, or unstable limbs.
+
+Photo Tags & Filters: Tag by type (damage, completion, estimate, hazard) so you can pull up “all hazard photos” across jobs in seconds.
+
+Smart Groups: Automatically group photos by user, project, or date for easy review.
+
+🗂 Project Management Add-Ons
+
+Timeline View: Each project has a chronological “story” of everything done — photos, notes, comments, documents, and reports.
+
+Pinned Notes: Highlight important instructions (“Use crane access only,” “Call homeowner first”) so the crew sees them right away.
+
+Voice Notes: Record audio messages in-app — faster than typing when you’re in the field.
+
+👷 Team Oversight Tools
+
+User Permissions: Limit what different roles can see/do. For example, subs can upload photos but not view invoices.
+
+User Tracking: See who took which photo and when (crew accountability).
+
+Daily Logs: Automatically compile who was on site, what was done, and when.
+
+📑 Reporting & Client Tools
+
+Branded Reports: Add your logo/colors to photo reports or damage packets → looks professional to insurers & homeowners.
+
+Progress Reports: Send homeowners daily or weekly updates without extra effort.
+
+Customer Galleries: Share “before and after” albums easily (great for marketing).
+
+🔌 Integrations & Workflow Expansion
+
+CRM / Estimating Software: Connect with Jobber, Housecall Pro, Contractor Foreman, ServiceTitan, etc.
+
+Accounting / Billing: Hook into QuickBooks Online and other accounting tools to keep invoices synced.
+
+API Access: Advanced users can integrate directly into their own custom systems (like your storm app idea).
+
+💸 Financial Tools (on higher tiers)
+
+Estimates & Invoicing: Build and send estimates or invoices from the app.
+
+Payments: Accept credit card payments directly through CompanyCam (reduces “I’ll mail a check” delays).
+
+📱 Mobile-Friendly Extras
+
+Offline Mode: Crews can take photos even without service → uploads when back online.
+
+Push Notifications: Get alerts when new photos/comments are added to important projects.
+
+Quick Capture Mode: Open straight to camera so crews don’t waste time fumbling with project setup.
+
+🌐 Beyond the Basics
+
+Marketing Content: Turn job photos into ready-to-post social media material.
+
+Training Library: Use jobsite photos/videos for safety training (“what to watch for” examples).
+
+Warranty/Guarantee Proof: Keep long-term documentation to prove work was done correctly if there’s a dispute years later.
+
+👉 So in short, yes — it does a lot more than people first think. It’s really a central hub for:
+
+Documenting
+
+Communicating
+
+Reporting
+
+Invoicing/Payments
+
+Marketing

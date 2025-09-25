@@ -15,6 +15,7 @@ import ContractorPortal from "./pages/ContractorPortal";
 import ContractorManagement from "./pages/ContractorManagement";
 import Claims from "./pages/Claims";
 import Customers from "./pages/Customers";
+import DisasterLens from "./pages/DisasterLens";
 import Legal from "./pages/Legal";
 import Leads from "./pages/Leads";
 import FunnelBuilder from "./pages/FunnelBuilder";
@@ -510,6 +511,12 @@ export default function App() {
           <title>Claims Management - DisasterDirect</title>
           <meta name="description" content="Process insurance claims, track settlements, manage documentation and communicate with insurance carriers" />
           <Claims />
+        </Route>
+        
+        <Route path="/disaster-lens">
+          <title>Disaster Lens - DisasterDirect</title>
+          <meta name="description" content="AI-powered disaster documentation and damage assessment with real-time photo/video analysis, automatic tagging, and professional reporting" />
+          <DisasterLens />
         </Route>
         
         <Route path="/customers">
