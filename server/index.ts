@@ -6,6 +6,8 @@ import crypto from 'crypto';
 import { storage } from './storage.js';
 import { router as annotate } from '../apps/server/src/routes/annotate.js';
 import { router as measure } from '../apps/server/src/routes/measure.js';
+import { router as video } from '../apps/server/src/routes/video.js';
+import { router as weight } from '../apps/server/src/routes/weight.js';
 
 const app = express();
 app.use(cors());
@@ -21,6 +23,8 @@ app.get('/health', (req, res) => {
 
 app.use('/api/annotate', annotate);
 app.use('/api/measure', measure);
+app.use('/api/video', video);
+app.use('/api/weight', weight);
 
 // Tool registry endpoint for LLM provider flexibility
 app.get('/api/ai/tools', (req, res) => {
