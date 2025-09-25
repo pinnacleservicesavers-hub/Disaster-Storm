@@ -828,6 +828,9 @@ async function startServer() {
           case 'partial_transcript':
             await handlePartialTranscript(ws, message);
             break;
+          case 'assistant_text':
+            await handleAssistantText(ws, message);
+            break;
           default:
             ws.send(JSON.stringify({
               type: 'error',
@@ -1064,6 +1067,99 @@ async function startServer() {
       ws.send(JSON.stringify({
         type: 'assistant_preview', 
         text: `I see you're saying "${text}" - I can help with measurements when you finish speaking.`
+      }));
+    }
+  }
+  
+  async function handleAssistantText(ws: any, message: any) {
+    const { text, sessionId } = message;
+    
+    if (!sessionId) {
+      ws.send(JSON.stringify({
+        type: 'error',
+        message: 'Session ID required for assistant text processing'
+      }));
+      return;
+    }
+    
+    console.log(`🤖 Received assistant text: "${text}" for session ${sessionId}`);
+    
+    // Calculate SHA-256 hash for assistant response (for audit trail)
+    const assistantHash = crypto.createHash('sha256').update(text).digest('hex');
+    
+    // Log assistant response for audit trail
+    try {
+      await storage.createAiAction({
+        sessionId,
+        action: 'assistant.response',
+        input: { assistantText: text, timestamp: new Date().toISOString() },
+        output: { processed: true, source: 'client_assistant' },
+        mediaId: 'demo-media-001',
+        sha256: assistantHash
+      });
+    } catch (error) {
+      console.error('Failed to log assistant text AI action:', error);
+    }
+    
+    // Send acknowledgment
+    ws.send(JSON.stringify({
+      type: 'assistant_received',
+      text: text,
+      sessionId: sessionId,
+      message: `Assistant message logged: "${text}"`
+    }));
+    
+    // Check if assistant text mentions tool execution and trigger appropriate actions
+    if (text.toLowerCase().includes('highlight') || text.toLowerCase().includes('circle')) {
+      // Extract damage type from assistant text
+      let label = 'Assistant-detected damage';
+      if (text.toLowerCase().includes('water line')) {
+        label = 'Water line rupture';
+      } else if (text.toLowerCase().includes('root ball')) {
+        label = 'Root ball damage';
+      } else if (text.toLowerCase().includes('rupture')) {
+        label = 'Suspected rupture';
+      }
+      
+      const toolCallArgs = {
+        mediaId: 'demo-media-001',
+        x: 200,
+        y: 150,
+        r: 65,
+        label: label
+      };
+      
+      // Log AI tool execution triggered by assistant text
+      try {
+        const toolActionInput = JSON.stringify({ ...toolCallArgs, sessionId, assistantHash, triggerSource: 'assistant_text' });
+        const toolActionHash = crypto.createHash('sha256').update(toolActionInput).digest('hex');
+        
+        await storage.createAiAction({
+          sessionId,
+          action: 'annotate.addCircle',
+          input: { ...toolCallArgs, assistantHash, triggerSource: 'assistant_text' },
+          output: { triggerSource: 'assistant_text', assistantHash },
+          mediaId: 'demo-media-001',
+          sha256: toolActionHash
+        });
+      } catch (error) {
+        console.error('Failed to log assistant-triggered tool action:', error);
+      }
+      
+      ws.send(JSON.stringify({
+        type: 'tool_call',
+        name: 'annotate.addCircle',
+        args: toolCallArgs
+      }));
+      
+      ws.send(JSON.stringify({
+        type: 'system_response',
+        text: `✅ Assistant analysis processed: "${label}" annotation added based on AI description.`
+      }));
+    } else {
+      ws.send(JSON.stringify({
+        type: 'system_response',
+        text: `✅ Assistant message logged and processed for audit trail.`
       }));
     }
   }

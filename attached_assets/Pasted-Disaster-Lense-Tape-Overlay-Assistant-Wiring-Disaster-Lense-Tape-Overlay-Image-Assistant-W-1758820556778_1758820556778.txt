@@ -1,0 +1,225 @@
+Disaster Lense — Tape Overlay & Assistant Wiring
+Disaster Lense — Tape Overlay (Image) + Assistant Wiring to Reports
+
+This patch adds:
+
+Tape Overlay endpoint to render a virtual measuring tape + diameter text onto a photo and return a PNG.
+
+Assistant wiring so tool calls can trigger measurements, receive overlays, and inject snippets into the Report Builder.
+
+Designed to drop into your existing Replit monorepo without breaking previous code. Keep originals immutable; overlays are derivatives.
+
+0) Install deps
+pnpm -C apps/server add sharp
+
+sharp lets us composite an SVG overlay (tape + text) onto the uploaded image.
+
+1) Server: Tape Overlay Route
+
+Create apps/server/src/routes/tape.ts:
+
+import { Router } from 'express';
+  x2: number, y2: number,
+  // Either provide a known scale OR provide realInches for calibration
+  scalePxPerInch?: number,
+  realInches?: number,
+  label?: string,                // optional custom label
+  color?: string                 // 'yellow', '#00ffcc', etc.
+}
+Returns: PNG with overlay + measurement numbers.
+*/
+router.post('/overlay', async (req, res) => {
+  try {
+    const { imageBase64, x1, y1, x2, y2, scalePxPerInch, realInches, color = 'yellow', label } = req.body || {};
+    if (!imageBase64) return res.status(400).json({ ok:false, error:'imageBase64 required' });
+    if ([x1,y1,x2,y2].some(v => typeof v !== 'number')) return res.status(400).json({ ok:false, error:'x1,y1,x2,y2 required' });
+
+
+    const base64 = String(imageBase64).split(',').pop();
+    const input = Buffer.from(base64!, 'base64');
+
+
+    const px = Math.hypot(Number(x2)-Number(x1), Number(y2)-Number(y1));
+    const k = scalePxPerInch ? Number(scalePxPerInch) : (realInches ? px / Number(realInches) : undefined);
+    if (!k) return res.status(400).json({ ok:false, error:'Provide scalePxPerInch or realInches for calibration' });
+    const inches = px / k;
+
+
+    // Build SVG overlay (line + ticks + label)
+    // Basic tick spacing ~ every inch (scaled to px)
+    const tickPx = Math.max(10, k); // at least 10px between ticks
+    const len = px;
+    const dx = (x2 - x1) / len;
+    const dy = (y2 - y1) / len;
+
+
+    const ticks: string[] = [];
+    for (let s = 0; s <= len; s += tickPx) {
+      const tx = x1 + dx * s;
+      const ty = y1 + dy * s;
+      const nx = -dy; const ny = dx; // normal
+      const tlen = (s % (tickPx*12) === 0) ? 10 : 6; // foot-ish accent if k ~ px/in
+      ticks.push(`<line x1="${tx - nx*tlen}" y1="${ty - ny*tlen}" x2="${tx + nx*tlen}" y2="${ty + ny*tlen}" stroke="${color}" stroke-width="2" />`);
+    }
+
+
+    const midx = (x1+x2)/2; const midy = (y1+y2)/2;
+    const textLabel = label || `${inches.toFixed(1)} in`;
+
+
+    const svg = Buffer.from(`<?xml version="1.0"?>
+      <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 4000 4000" preserveAspectRatio="none">
+        <g>
+          <line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${color}" stroke-width="4" />
+          ${ticks.join('\n')}
+          <rect x="${midx-80}" y="${midy-26}" width="160" height="24" rx="6" ry="6" fill="black" fill-opacity="0.6" />
+          <text x="${midx}" y="${midy-8}" fill="white" font-size="18" font-family="Arial" text-anchor="middle">${textLabel}</text>
+        </g>
+      </svg>`);
+
+
+    const img = sharp(input);
+    const meta = await img.metadata();
+
+
+    // Composite with svg; use image size as canvas to avoid scaling issues
+    const out = await img
+      .composite([{ input: svg, gravity: 'northwest' }])
+      .png()
+      .toBuffer();
+
+
+    res.setHeader('Content-Type','image/png');
+    res.setHeader('X-Measurement-Inches', inches.toFixed(2));
+    res.send(out);
+  } catch (e:any) {
+    res.status(500).json({ ok:false, error: String(e.message||e) });
+  }
+});
+
+Register in apps/server/src/index.ts:
+
+import { router as tape } from './routes/tape.js';
+...
+app.use('/api/tape', tape);
+2) Client: Simple helpers to call overlay and inject to Report
+
+Add to your React UI (e.g., inside Annotator or a shared util):
+
+export async function overlayTapeOnImage(file: File, points: {x1:number,y1:number,x2:number,y2:number}, opts?: { scalePxPerInch?: number, realInches?: number, label?: string }){
+  const base64 = await fileToBase64(file);
+  const res = await fetch('/api/tape/overlay', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ imageBase64: base64, ...points, ...opts })
+  });
+  if (!res.ok) throw new Error('overlay failed');
+  const inches = Number(res.headers.get('X-Measurement-Inches') || '0');
+  const blob = await res.blob();
+  return { inches, blob, url: URL.createObjectURL(blob) };
+}
+
+
+export function fileToBase64(f: File): Promise<string>{
+  return new Promise((resolve,reject)=>{ const r = new FileReader(); r.onload=()=>resolve(String(r.result)); r.onerror=reject; r.readAsDataURL(f); });
+}
+
+Then, in Report Builder, after getting url, you can push the overlay into a section (e.g., After) and add a caption like Stump diameter: 22.4 in (AI-estimated).
+
+3) Assistant Wiring (WS → REST → UI)
+
+Extend your WS assistant to handle a measure.diameter tool call by:
+
+Reading the current image (client can supply the selected photo as base64 via a context_image message),
+
+Calling /api/tape/overlay with the two points,
+
+Sending back a tool_result containing { kind:'overlay_image', url, inches },
+
+Broadcasting a report snippet suggestion.
+
+3.1 Client → Server: provide context image
+
+From the client when a user selects an image in Annotator:
+
+ws.send(JSON.stringify({ type:'context_image', mediaId, imageBase64 }));
+3.2 Server: handle tool planning (pseudo)
+// inside ws/assistant.ts message handler
+if (msg.type === 'user_text' && /measure|diameter|tape/i.test(msg.text)){
+  // In real LLM planner, extract points; for demo, use sample points
+  const points = { x1: 100, y1: 220, x2: 360, y2: 225 };
+  // You would retrieve last provided context_image from session memory
+  const resp = await fetch('http://localhost:5175/api/tape/overlay', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ imageBase64: session.lastImage, ...points, realInches: 24 })
+  });
+  const buf = Buffer.from(await resp.arrayBuffer());
+  const b64 = `data:image/png;base64,${buf.toString('base64')}`;
+  ws.send(JSON.stringify({ type:'tool_result', name:'measure.diameter', ok:true, result: { kind:'overlay_image', imageBase64: b64, inches: Number(resp.headers.get('X-Measurement-Inches')||'0') } }));
+  ws.send(JSON.stringify({ type:'assistant_text', text:`Measured diameter ~ ${Number(resp.headers.get('X-Measurement-Inches')||'0').toFixed(1)} in. Added overlay image.` }));
+  // Optionally: also send a report snippet suggestion
+  ws.send(JSON.stringify({ type:'tool_result', name:'report.snippet', ok:true, result: { kind:'snippet', text: `Stump diameter measured at ~${Number(resp.headers.get('X-Measurement-Inches')||'0').toFixed(1)} in (AI-estimated).` } }));
+}
+3.3 Client: receive overlay + inject into Report Builder
+
+In your AssistantDock message handler:
+
+if (m.type === 'tool_result' && m.result?.kind === 'overlay_image'){
+  // Broadcast to the app via a custom event
+  window.dispatchEvent(new CustomEvent('DL_ADD_OVERLAY_TO_REPORT', { detail: { imageBase64: m.result.imageBase64, caption: `Diameter: ${m.result.inches?.toFixed?.(1)} in (AI-estimated)` } }));
+}
+if (m.type === 'tool_result' && m.result?.kind === 'snippet'){
+  window.dispatchEvent(new CustomEvent('DL_ADD_REPORT_SNIPPET', { detail: { text: m.result.text } }));
+}
+
+In your Report Builder component, subscribe once:
+
+useEffect(() => {
+  function onOverlay(e: any){
+    const { imageBase64, caption } = e.detail || {};
+    if (!imageBase64) return;
+    // push to the last section (or After)
+    setSections(prev => {
+      const copy = [...prev];
+      if (copy.length === 0) copy.push({ title: 'After', media: [] });
+      copy[copy.length - 1].media.push(imageBase64);
+      // Optionally store captions in parallel structure
+      return copy;
+    });
+    // You could also store captions map if you implemented it (see earlier spec)
+  }
+  function onSnippet(e:any){
+    // Append to a notes area or auto-caption next selected image
+    console.log('Report snippet suggestion:', e.detail?.text);
+  }
+  window.addEventListener('DL_ADD_OVERLAY_TO_REPORT', onOverlay as any);
+  window.addEventListener('DL_ADD_REPORT_SNIPPET', onSnippet as any);
+  return () => {
+    window.removeEventListener('DL_ADD_OVERLAY_TO_REPORT', onOverlay as any);
+    window.removeEventListener('DL_ADD_REPORT_SNIPPET', onSnippet as any);
+  };
+}, []);
+4) Notes & Best Practices
+
+Accuracy: treat measurements as estimates unless you calibrate with a real known reference (measuring tape, AprilTag). Include uncertainty in captions if possible.
+
+Chain-of-custody: never overwrite originals; store overlays as new media with their own sha256 and reference the source media id in the report.
+
+PII: if you later add public sharing, automatically blur house numbers and plates before creating share links.
+
+Assistant: keep tool calls explicit and auditable. Every tool_result should also write an ai_actions row with parameters + media hash (see earlier spec).
+
+This gives you the “install measuring tape” feature on photos and wires the assistant so users can speak: “measure that stump,” and see the result appear in the report automatically.
+
+Nice. I added a new canvas doc “Disaster Lense — Tape Overlay & Assistant Wiring.” It includes:
+
+POST /api/tape/overlay (Sharp-based) → returns a PNG with a virtual measuring tape and auto-labeled inches. Works with either a known scalePxPerInch or a quick realInches calibration.
+
+Client helpers to call the endpoint and push the overlay into your Report Builder.
+
+Assistant plumbing: sample WS flow to handle a measure.diameter request, call the overlay API, then emit a tool_result that the UI catches and drops into the report—plus a snippet suggestion for insurer notes.
+
+Want me to go one step further and:
+
+add a calibration QR/AprilTag option (known-size marker → automatic scale), and
+
+a damage-hints endpoint that proposes circles for things like uprooted root plates and busted water lines so the assistant can say “I found likely damage here—want me to label it?”?
