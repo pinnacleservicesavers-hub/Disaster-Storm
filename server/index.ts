@@ -9,7 +9,7 @@ import { router as measure } from '../apps/server/src/routes/measure.js';
 import { router as video } from '../apps/server/src/routes/video.js';
 import { router as weight } from '../apps/server/src/routes/weight.js';
 import { router as tape } from '../apps/server/src/routes/tape.js';
-import { router as calibrate } from '../apps/server/src/routes/calibrate.js';
+import { router as calibrate } from './routes/calibrate.js';
 import { router as damage } from '../apps/server/src/routes/damage.js';
 
 const app = express();
