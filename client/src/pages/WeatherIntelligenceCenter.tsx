@@ -297,7 +297,7 @@ export default function WeatherIntelligenceCenter() {
   }, []);
 
   // Calculate dynamic location
-  const dynamicLocation = selectedState && stateCoordinates[selectedState] 
+  const dynamicLocation = selectedState && selectedState !== "all" && stateCoordinates[selectedState] 
     ? stateCoordinates[selectedState] 
     : currentLocation;
 
@@ -310,7 +310,7 @@ export default function WeatherIntelligenceCenter() {
   // Fetch prediction dashboard data  
   const { data: predictionData, isLoading: predictionLoading } = useQuery({
     queryKey: ['/api/prediction-dashboard', { 
-      state: selectedState, 
+      state: selectedState === "all" ? "" : selectedState, 
       forecastHours,
       ...(dynamicLocation && { 
         latitude: dynamicLocation.latitude, 
@@ -409,7 +409,7 @@ export default function WeatherIntelligenceCenter() {
                     <SelectValue placeholder="Select State" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All States</SelectItem>
+                    <SelectItem value="all">All States</SelectItem>
                     {Object.entries(stateCoordinates).map(([code, _]) => (
                       <SelectItem key={code} value={code}>{code}</SelectItem>
                     ))}
