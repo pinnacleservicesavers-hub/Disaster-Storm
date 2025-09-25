@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -68,7 +68,7 @@ export function WeatherAIAssistant({ currentLocation, weatherData, className = '
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [selectedVoice, setSelectedVoice] = useState<string>('');
   
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const recognitionRef = useRef<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Initialize speech synthesis voices
@@ -103,7 +103,7 @@ export function WeatherAIAssistant({ currentLocation, weatherData, className = '
   // Initialize speech recognition
   useEffect(() => {
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       recognitionRef.current = new SpeechRecognition();
       
       recognitionRef.current.continuous = false;
@@ -137,12 +137,15 @@ export function WeatherAIAssistant({ currentLocation, weatherData, className = '
     mutationFn: async ({ question, mode }: { question: string; mode: 'text' | 'voice' }) => {
       return apiRequest('/api/weather-ai/query', {
         method: 'POST',
-        body: {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
           question,
           location: currentLocation,
           currentData: weatherData,
           mode
-        }
+        })
       });
     },
     onSuccess: (data, variables) => {
