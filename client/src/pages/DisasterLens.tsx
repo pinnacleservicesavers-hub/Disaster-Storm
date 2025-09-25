@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { getAuthHeaders } from "@/lib/queryClient";
-import { AssistantDock } from "@/components/AssistantDock";
+import AssistantDock from '../components/AssistantDock';
 
 // Single-file demo UI for Disaster Lens
 // Tabs: Capture, Timeline, Annotator, Report Builder
@@ -533,7 +533,7 @@ export default function App() {
       </footer>
       
       {/* AI Assistant Dock */}
-      <AssistantDock projectId="demo-project-001" mediaId="demo-media-001" />
+      <AssistantDock />
     </div>
   );
 }
