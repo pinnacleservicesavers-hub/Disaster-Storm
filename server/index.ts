@@ -1,17 +1,16 @@
-// Just the essential imports and setup to get the server running
-import express from 'express';
 import http from 'http';
+import express from 'express';
 import { WebSocketServer } from 'ws';
 import cors from 'cors';
 import crypto from 'crypto';
 import { storage } from './storage.js';
-import { attachAssistantWSS } from '../apps/server/src/ws/assistant.js';
 
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
-const httpServer = http.createServer(app);
+const port = Number(process.env.PORT || 5175);
+const server = http.createServer(app);
 
 // Basic API routes
 app.get('/health', (req, res) => {
@@ -81,44 +80,8 @@ app.get('/api/ai/tools', (req, res) => {
   });
 });
 
-// Setup WebSocket for real-time communications
-const wss = new WebSocketServer({ server: httpServer, path: '/realtime' });
-const wsClients = new Set();
+// Attach WS
+import { attachAssistantWSS } from './ws/assistant.js';
+attachAssistantWSS(server);
 
-wss.on('connection', (ws) => {
-  console.log('🔌 New WebSocket connection established');
-  wsClients.add(ws);
-
-  ws.send(JSON.stringify({
-    type: 'welcome',
-    message: 'Connected to DisasterDirect Storm Intelligence',
-    timestamp: new Date().toISOString(),
-    services: {
-      ai_assistant: 'active',
-      clean_tools: 'active'
-    }
-  }));
-
-  ws.on('close', () => {
-    console.log('🔌 WebSocket connection closed');
-    wsClients.delete(ws);
-  });
-
-  ws.on('error', (error) => {
-    console.error('❌ WebSocket error:', error);
-    wsClients.delete(ws);
-  });
-});
-
-// Setup AI Assistant WebSocket Server using clean pattern
-attachAssistantWSS(httpServer, storage);
-
-const PORT = process.env.PORT || 5000;
-httpServer.listen(PORT, () => {
-  console.log('🌟 DisasterDirect running on port', PORT);
-  console.log('🌐 Frontend available at http://localhost:' + PORT);
-  console.log('🔧 API endpoints available at http://localhost:' + PORT + '/api/*');
-  console.log('⚡ WebSocket available at ws://localhost:' + PORT + '/realtime');
-  console.log('🤖 AI Assistant available at ws://localhost:' + PORT + '/ws/assistant');
-  console.log('✅ Simplified AI Assistant handler integrated');
-});
+server.listen(port, () => console.log(`[server] http://localhost:${port}`));
