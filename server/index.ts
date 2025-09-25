@@ -11,7 +11,7 @@ import PDFDocument from 'pdfkit';
 import fetch from 'node-fetch';
 import { storage } from './storage.js';
 import crypto from 'crypto';
-import AssistantToolExecutor, { TOOL_REGISTRY, ToolCall } from '../apps/server/src/ws/assistant.js';
+import { TOOL_REGISTRY, ToolCall, attachAssistantWSS } from '../apps/server/src/ws/assistant.js';
 
 const app = express();
 app.use(cors());
@@ -816,96 +816,9 @@ async function startServer() {
     });
   });
   
-  // Setup AI Assistant WebSocket Server
-  const aiWss = new WebSocketServer({
-    server: httpServer,
-    path: '/ws/assistant'
-  });
+  // Setup AI Assistant WebSocket Server using clean pattern
+  attachAssistantWSS(httpServer, storage);
   
-  const aiClients = new Set<any>();
-  const aiSessions = new Map<string, { sessionId: string, projectId: string, mode: string }>();
-  const toolExecutor = new AssistantToolExecutor(storage);
-  
-  aiWss.on('connection', (ws: any, req: IncomingMessage) => {
-    console.log('🤖 AI Assistant WebSocket connection established');
-    aiClients.add(ws);
-    
-    // Handle incoming messages
-    ws.on('message', async (data: Buffer) => {
-      try {
-        const message = JSON.parse(data.toString());
-        console.log('🤖 AI Assistant received message:', message);
-        
-        // Handle different message types
-        switch (message.type) {
-          case 'start':
-            await handleAIStart(ws, message);
-            break;
-          case 'user_text':
-            await handleUserText(ws, message);
-            break;
-          case 'user_audio':
-            await handleVoiceData(ws, message);
-            break;
-          case 'partial_transcript':
-            await handlePartialTranscript(ws, message);
-            break;
-          case 'assistant_text':
-            await handleAssistantText(ws, message);
-            break;
-          case 'tool_call':
-            await handleToolCall(ws, message);
-            break;
-          case 'tool_result':
-            await handleToolResult(ws, message);
-            break;
-          default:
-            ws.send(JSON.stringify({
-              type: 'error',
-              message: `Unknown message type: ${message.type}`
-            }));
-        }
-      } catch (error) {
-        console.error('❌ AI Assistant message error:', error);
-        ws.send(JSON.stringify({
-          type: 'error',
-          message: 'Failed to process message'
-        }));
-      }
-    });
-    
-    // Handle connection close
-    ws.on('close', () => {
-      console.log('🤖 AI Assistant WebSocket connection closed');
-      aiClients.delete(ws);
-    });
-    
-    // Handle errors
-    ws.on('error', (error: any) => {
-      console.error('❌ AI Assistant WebSocket error:', error);
-      aiClients.delete(ws);
-    });
-  });
-  
-  // AI Assistant Message Handlers
-  async function handleAIStart(ws: any, message: any) {
-    const { projectId, mode, sessionId } = message;
-    
-    // Store session context
-    const sessionKey = sessionId || `${projectId}_${Date.now()}`;
-    aiSessions.set(sessionKey, { sessionId: sessionKey, projectId, mode });
-    
-    // Send confirmation
-    ws.send(JSON.stringify({
-      type: 'session_started',
-      sessionId: sessionKey,
-      projectId,
-      mode,
-      message: `AI Assistant ready in ${mode} mode for project ${projectId}`
-    }));
-    
-    console.log(`🤖 AI session started: ${sessionKey} for project ${projectId} in ${mode} mode`);
-  }
   
   async function handleUserText(ws: any, message: any) {
     const { text, sessionId } = message;

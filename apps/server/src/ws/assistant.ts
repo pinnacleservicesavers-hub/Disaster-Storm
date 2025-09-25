@@ -1,5 +1,6 @@
 import { WebSocketServer } from 'ws';
-import { IncomingMessage } from 'http';
+import type { IncomingMessage } from 'http';
+import { v4 as uuid } from 'uuid';
 import crypto from 'crypto';
 
 // Tool Registry - Explicit definitions for LLM provider flexibility
@@ -179,8 +180,8 @@ export const ALLOMETRIC_EQUATIONS: Record<string, AllometricEquation> = {
   }
 };
 
-// Tool Execution - Server Authority
-export class AssistantToolExecutor {
+// Tool Execution Engine - Server maintains authority
+class ToolExecutor {
   private storage: any;
   private calibrations: Map<string, CalibrationData> = new Map();
   private damageRegions: Map<string, DamageRegion> = new Map();
@@ -220,7 +221,7 @@ export class AssistantToolExecutor {
           throw new Error(`Unknown tool: ${toolCall.name}`);
       }
 
-      // Log successful tool execution
+      // Log successful tool execution for audit trail
       await this.storage.createAiAction({
         sessionId,
         action: toolCall.name,
@@ -260,26 +261,11 @@ export class AssistantToolExecutor {
     const uncertainty = this.calculateUncertainty(method);
     
     const calibration: CalibrationData = {
-      method,
-      pixelDistance,
-      realWorldDistance,
-      units,
-      uncertainty,
-      timestamp: new Date().toISOString(),
-      calibrationId
+      method, pixelDistance, realWorldDistance, units, uncertainty,
+      timestamp: new Date().toISOString(), calibrationId
     };
 
     this.calibrations.set(calibrationId, calibration);
-
-    // Store calibration in database
-    await this.storage.createAiAction({
-      sessionId,
-      action: 'calibration.created',
-      input: { calibrationId, method, units },
-      output: { calibrationId, pixelsPerUnit: pixelDistance / realWorldDistance },
-      mediaId,
-      sha256: crypto.createHash('sha256').update(JSON.stringify(calibration)).digest('hex')
-    });
 
     return {
       id: toolCall.id,
@@ -288,12 +274,9 @@ export class AssistantToolExecutor {
         calibrationId,
         pixelsPerUnit: pixelDistance / realWorldDistance,
         uncertainty: `±${uncertainty}%`,
-        method,
-        units
+        method, units
       },
-      metadata: {
-        watermark: 'AI-estimated measurement calibration'
-      }
+      metadata: { watermark: 'AI-estimated measurement calibration' }
     };
   }
 
@@ -308,18 +291,16 @@ export class AssistantToolExecutor {
     const pixelDistance = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
     const realWorldDistance = pixelDistance / (calibration.pixelDistance / calibration.realWorldDistance);
     
-    const measurement = {
-      pixelDistance: Math.round(pixelDistance * 100) / 100,
-      realWorldDistance: Math.round(realWorldDistance * 100) / 100,
-      units: calibration.units,
-      uncertainty: calibration.uncertainty,
-      calibrationId
-    };
-
     return {
       id: toolCall.id,
       success: true,
-      data: measurement,
+      data: {
+        pixelDistance: Math.round(pixelDistance * 100) / 100,
+        realWorldDistance: Math.round(realWorldDistance * 100) / 100,
+        units: calibration.units,
+        uncertainty: calibration.uncertainty,
+        calibrationId
+      },
       metadata: {
         watermark: `AI-estimated ${calibration.uncertainty}% uncertainty`,
         tapeMeasure: true
@@ -330,7 +311,6 @@ export class AssistantToolExecutor {
   private async estimateTreeWeight(toolCall: ToolCall, sessionId: string): Promise<ToolResult> {
     const { species, dbh_inches, length_ft, equation_id } = toolCall.arguments;
     
-    // Find equation by species or ID
     const equationKey = equation_id || this.findEquationBySpecies(species);
     const equation = ALLOMETRIC_EQUATIONS[equationKey];
     
@@ -338,25 +318,22 @@ export class AssistantToolExecutor {
       throw new Error(`No allometric equation found for species: ${species}`);
     }
 
-    // Calculate weight using equation
     const { base, dbh_exponent, density } = equation.coefficients;
     const weight = base * Math.pow(dbh_inches, dbh_exponent) * length_ft * density;
-
-    const result = {
-      weight_lbs: Math.round(weight * 100) / 100,
-      species: equation.species,
-      equation: equation.equation,
-      formula: equation.formula,
-      coefficients: equation.coefficients,
-      inputs: { dbh_inches, length_ft },
-      accuracy: equation.accuracy,
-      source: equation.source
-    };
 
     return {
       id: toolCall.id,
       success: true,
-      data: result,
+      data: {
+        weight_lbs: Math.round(weight * 100) / 100,
+        species: equation.species,
+        equation: equation.equation,
+        formula: equation.formula,
+        coefficients: equation.coefficients,
+        inputs: { dbh_inches, length_ft },
+        accuracy: equation.accuracy,
+        source: equation.source
+      },
       metadata: {
         watermark: `AI-estimated tree weight ${equation.accuracy} accuracy`,
         equation_audit: equation.equation
@@ -367,7 +344,7 @@ export class AssistantToolExecutor {
   private async detectDamageRegions(toolCall: ToolCall, sessionId: string): Promise<ToolResult> {
     const { mediaId, damageTypes = [], confidence_threshold = 0.7 } = toolCall.arguments;
     
-    // Simulate AI damage detection (in production, this would call TF.js or server models)
+    // AI damage detection simulation (would call TensorFlow.js or vision models in production)
     const detectedRegions: DamageRegion[] = [
       {
         type: 'cracked_limb',
@@ -385,7 +362,6 @@ export class AssistantToolExecutor {
       }
     ];
 
-    // Filter by confidence threshold and requested types
     const filteredRegions = detectedRegions.filter(region => 
       region.confidence >= confidence_threshold &&
       (damageTypes.length === 0 || damageTypes.includes(region.type))
@@ -431,15 +407,11 @@ export class AssistantToolExecutor {
       id: toolCall.id,
       success: true,
       data: {
-        regionId,
-        confirmed,
-        userAnnotation,
+        regionId, confirmed, userAnnotation,
         original_confidence: region.confidence,
         damage_type: region.type
       },
-      metadata: {
-        user_override: userAnnotation ? true : false
-      }
+      metadata: { user_override: userAnnotation ? true : false }
     };
   }
 
@@ -447,15 +419,9 @@ export class AssistantToolExecutor {
     const { mediaId, x, y, r, label, metadata = {} } = toolCall.arguments;
     
     const annotationId = `annotation_${Date.now()}`;
-    
-    // This would integrate with existing annotation system
     const annotation = {
-      id: annotationId,
-      type: 'circle',
-      mediaId,
-      coordinates: { x, y, r },
-      label,
-      metadata,
+      id: annotationId, type: 'circle', mediaId,
+      coordinates: { x, y, r }, label, metadata,
       createdAt: new Date().toISOString()
     };
 
@@ -484,4 +450,121 @@ export class AssistantToolExecutor {
   }
 }
 
-export default AssistantToolExecutor;
+// WebSocket Server Implementation - Your Clean Pattern
+export function attachAssistantWSS(server: any, storage: any) {
+  const wss = new WebSocketServer({ noServer: true });
+  const toolExecutor = new ToolExecutor(storage);
+
+  server.on('upgrade', (req: IncomingMessage, socket, head) => {
+    if (req.url?.startsWith('/ws/assistant')) {
+      wss.handleUpgrade(req, socket, head, (ws) => wss.emit('connection', ws, req));
+    }
+  });
+
+  wss.on('connection', (ws) => {
+    let sessionId = uuid();
+
+    ws.on('message', async (raw) => {
+      const msg = safeParse(raw);
+      if (!msg) return;
+
+      if (msg.type === 'start') {
+        // Initialize session: load project context, embeddings, etc.
+        ws.send(JSON.stringify({ 
+          type: 'assistant_text', 
+          text: 'AI Assistant ready. I can help with measurements, tree weight estimation, damage detection, and annotations.' 
+        }));
+      }
+
+      if (msg.type === 'user_text') {
+        // TODO: Send to LLM + tools planner
+        // For now, demo tool call based on user input
+        if (msg.text.toLowerCase().includes('damage')) {
+          ws.send(JSON.stringify({ 
+            type: 'assistant_text', 
+            text: 'I\'ll analyze this image for damage and highlight suspected areas.' 
+          }));
+          
+          // Execute damage detection tool
+          const toolCall: ToolCall = {
+            id: uuid(),
+            name: 'damage.detect_regions',
+            arguments: { 
+              mediaId: 'demo-media', 
+              damageTypes: ['cracked_limb', 'roof_damage'],
+              confidence_threshold: 0.7 
+            }
+          };
+
+          const result = await toolExecutor.executeTool(toolCall, sessionId);
+          
+          ws.send(JSON.stringify({ 
+            type: 'tool_call', 
+            name: toolCall.name, 
+            args: toolCall.arguments 
+          }));
+          
+          ws.send(JSON.stringify({ 
+            type: 'tool_result', 
+            result 
+          }));
+
+        } else if (msg.text.toLowerCase().includes('measure')) {
+          ws.send(JSON.stringify({ 
+            type: 'assistant_text', 
+            text: 'I\'ll help you calibrate measurements and add a circle annotation.' 
+          }));
+          
+          ws.send(JSON.stringify({ 
+            type: 'tool_call', 
+            name: 'annotate.addCircle', 
+            args: { 
+              mediaId: 'demo-media', 
+              x: 420, y: 260, r: 58, 
+              label: 'Measurement reference point' 
+            } 
+          }));
+        } else {
+          ws.send(JSON.stringify({ 
+            type: 'assistant_text', 
+            text: 'I can help with damage detection, measurements, tree weight estimation, and annotations. What would you like to analyze?' 
+          }));
+        }
+      }
+
+      if (msg.type === 'user_audio') {
+        // TODO: Stream to STT service; emit partial_transcript messages
+        // For now, simulate processing
+        ws.send(JSON.stringify({ 
+          type: 'partial_transcript', 
+          text: 'Processing audio...' 
+        }));
+        
+        // Hash audio for chain-of-custody (critical for legal compliance)
+        const audioHash = crypto.createHash('sha256')
+          .update(Buffer.from(msg.pcm))
+          .digest('hex');
+          
+        // Store audio with reversible base64 encoding
+        await storage.createAiAction({
+          sessionId,
+          action: 'audio.received',
+          input: { audio_base64: Buffer.from(msg.pcm).toString('base64') },
+          output: { transcript: 'Processing...' },
+          mediaId: 'voice-input',
+          sha256: audioHash
+        });
+      }
+    });
+  });
+}
+
+function safeParse(raw: any) {
+  try { 
+    return JSON.parse(raw.toString()); 
+  } catch { 
+    return null; 
+  }
+}
+
+export default TOOL_REGISTRY;
