@@ -6,6 +6,112 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 // NOTE: This is a front-end scaffold. Buttons are now wired to your Express API.
 
 // ------------------------------
+// AI Assistant Dock Component
+// ------------------------------
+function AssistantDock() {
+  const [open, setOpen] = useState(true);
+  const [msgs, setMsgs] = useState<{role:'user'|'assistant'|'system', text:string}[]>([]);
+  const wsRef = useRef<WebSocket|null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder|null>(null);
+
+  useEffect(() => {
+    const ws = new WebSocket(`${location.protocol==='https:'?'wss':'ws'}://${location.host}/ws/assistant`);
+    wsRef.current = ws;
+    ws.addEventListener('open', () => ws.send(JSON.stringify({ type:'start', projectId:'DEMO', mode:'ask' })));
+    ws.addEventListener('message', (ev) => {
+      const m = JSON.parse(ev.data);
+      if (m.type === 'assistant_text') setMsgs((s)=>[...s,{role:'assistant',text:m.text}]);
+      if (m.type === 'partial_transcript') setMsgs((s)=>[...s,{role:'system',text:`…${m.text}` }]);
+      if (m.type === 'tool_call') {
+        // Optimistically show intent
+        setMsgs((s)=>[...s,{role:'system', text:`[Tool] ${m.name}` }]);
+        // Optionally call REST endpoint to perform
+      }
+    });
+    return () => ws.close();
+  }, []);
+
+  const sendText = (text:string) => {
+    wsRef.current?.send(JSON.stringify({ type:'user_text', text }));
+    setMsgs((s)=>[...s,{role:'user',text}]);
+  };
+
+  const startPTT = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio:true });
+      const mr = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+      mediaRecorderRef.current = mr;
+      mr.ondataavailable = (e) => e.data.arrayBuffer().then(buf => wsRef.current?.send(JSON.stringify({ type:'user_audio', pcm: Array.from(new Uint8Array(buf)) })));
+      mr.start(250);
+    } catch (err) {
+      console.error('Microphone access denied:', err);
+    }
+  };
+  const stopPTT = () => mediaRecorderRef.current?.stop();
+
+  return (
+    <div className={`fixed right-4 bottom-4 w-96 ${open?'':'translate-y-[calc(100%+16px)]'} transition z-50`}>
+      <div className="rounded-2xl shadow-xl border bg-white overflow-hidden">
+        <div className="px-3 py-2 flex items-center justify-between bg-black text-white">
+          <div className="font-medium">🤖 AI Assistant</div>
+          <button onClick={()=>setOpen(false)} className="text-sm hover:text-gray-300">×</button>
+        </div>
+        <div className="h-64 overflow-auto space-y-2 px-3 py-2 bg-gray-50">
+          {msgs.length === 0 && (
+            <div className="text-sm text-gray-500 text-center py-8">
+              <div className="mb-2">🎙️ Assistant ready</div>
+              <div>Try: "Circle the damage area" or "Measure the tree diameter"</div>
+            </div>
+          )}
+          {msgs.map((m,i)=> (
+            <div key={i} className={`text-sm ${m.role==='user'?'text-right':''}`}>
+              <span className={`inline-block px-2 py-1 rounded-xl max-w-[280px] ${
+                m.role==='user'?'bg-black text-white':
+                m.role==='system'?'bg-blue-100 text-blue-800':
+                'bg-white border'
+              }`}>{m.text}</span>
+            </div>
+          ))}
+        </div>
+        <div className="p-2 border-t flex items-center gap-2">
+          <button 
+            onMouseDown={startPTT} 
+            onMouseUp={stopPTT} 
+            className="px-3 py-1.5 rounded-xl border hover:bg-gray-50"
+            data-testid="button-voice-ptt"
+          >
+            🎙️ Hold to talk
+          </button>
+          <input 
+            id="aiText" 
+            placeholder="Ask about this project…" 
+            className="flex-1 rounded-xl border px-2 py-1.5" 
+            onKeyDown={(e)=>{
+              if(e.key==='Enter'){
+                const v=(e.target as HTMLInputElement).value.trim();
+                if(v){ sendText(v); (e.target as HTMLInputElement).value=''; }
+              }
+            }} 
+            data-testid="input-ai-text"
+          />
+          <button 
+            className="px-3 py-1.5 rounded-xl bg-black text-white hover:bg-gray-800" 
+            onClick={()=>{
+              const el = document.getElementById('aiText') as HTMLInputElement; 
+              const v=el.value.trim(); 
+              if(v){ sendText(v); el.value=''; }
+            }}
+            data-testid="button-ai-send"
+          >
+            Send
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ------------------------------
 // Inline SHA-256 Web Worker (chain-of-custody)
 // ------------------------------
 const hashingWorkerUrl = (() => {
@@ -506,6 +612,9 @@ export default function App() {
       <footer className="py-6 text-center text-xs text-gray-500">
         © {new Date().getFullYear()} Disaster Lens Module — UI Demo
       </footer>
+      
+      {/* AI Assistant Dock */}
+      <AssistantDock />
     </div>
   );
 }

@@ -10491,6 +10491,120 @@ What specific area or type of incident would you like me to focus on? I can prov
     }
   });
 
+  // ===== AI ASSISTANT ENDPOINTS =====
+  
+  // Add circle annotation (AI assistant)
+  app.post('/api/ai/annotate/circle', authenticate, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { mediaId, x, y, r, label } = req.body;
+      
+      if (!mediaId || x === undefined || y === undefined || r === undefined || !label) {
+        return res.status(400).json({ error: 'mediaId, x, y, r, and label are required' });
+      }
+      
+      // Create annotation in database
+      const annotation = await storage.createAnnotation({
+        mediaId,
+        type: 'circle',
+        coordinates: { x, y, r },
+        content: label,
+        createdBy: req.user.id
+      });
+      
+      // Log AI action for audit trail
+      console.log(`AI Assistant created circle annotation: ${label} at (${x}, ${y}) r=${r} for media ${mediaId}`);
+      
+      res.status(201).json({ 
+        ok: true, 
+        annotationId: annotation.id,
+        message: `Circle annotation "${label}" added at coordinates (${x}, ${y})`
+      });
+      
+    } catch (error) {
+      console.error('Error creating circle annotation:', error);
+      res.status(500).json({ error: 'Failed to create annotation' });
+    }
+  });
+
+  // Calibrate measurement scale (AI assistant)
+  app.post('/api/ai/measure/calibrate', authenticate, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { mediaId, x1, y1, x2, y2, realInches } = req.body;
+      
+      if (!mediaId || x1 === undefined || y1 === undefined || x2 === undefined || y2 === undefined || !realInches) {
+        return res.status(400).json({ error: 'mediaId, x1, y1, x2, y2, and realInches are required' });
+      }
+      
+      // Calculate pixel distance
+      const pixelDistance = Math.hypot(x2 - x1, y2 - y1);
+      const pixelsPerInch = pixelDistance / realInches;
+      
+      // Store calibration data (could be in a separate table or as metadata)
+      console.log(`AI Assistant calibrated measurement for media ${mediaId}: ${pixelDistance}px = ${realInches}" (${pixelsPerInch.toFixed(2)} px/inch)`);
+      
+      res.status(200).json({ 
+        ok: true, 
+        pixelsPerInch,
+        pixelDistance,
+        realInches,
+        message: `Calibration set: ${pixelsPerInch.toFixed(2)} pixels per inch`
+      });
+      
+    } catch (error) {
+      console.error('Error calibrating measurement:', error);
+      res.status(500).json({ error: 'Failed to calibrate measurement' });
+    }
+  });
+
+  // Measure diameter (AI assistant)
+  app.post('/api/ai/measure/diameter', authenticate, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { mediaId, x1, y1, x2, y2, pixelsPerInch } = req.body;
+      
+      if (!mediaId || x1 === undefined || y1 === undefined || x2 === undefined || y2 === undefined) {
+        return res.status(400).json({ error: 'mediaId, x1, y1, x2, y2 are required' });
+      }
+      
+      // Calculate pixel distance
+      const pixelDistance = Math.hypot(x2 - x1, y2 - y1);
+      
+      // Convert to inches if calibration is provided
+      let inches = null;
+      let uncertaintyPct = 15; // Default uncertainty
+      
+      if (pixelsPerInch) {
+        inches = pixelDistance / pixelsPerInch;
+        uncertaintyPct = 8; // Lower uncertainty with calibration
+      }
+      
+      // Create measurement annotation
+      const annotation = await storage.createAnnotation({
+        mediaId,
+        type: 'measurement',
+        coordinates: { x1, y1, x2, y2 },
+        content: inches ? `${inches.toFixed(1)}" diameter (±${uncertaintyPct}%)` : `${pixelDistance.toFixed(0)}px measurement`,
+        createdBy: req.user.id
+      });
+      
+      console.log(`AI Assistant measured diameter: ${inches ? inches.toFixed(1) + ' inches' : pixelDistance.toFixed(0) + 'px'} for media ${mediaId}`);
+      
+      res.status(201).json({ 
+        ok: true, 
+        annotationId: annotation.id,
+        inches,
+        pixelDistance,
+        uncertaintyPct,
+        message: inches ? 
+          `Diameter: ${inches.toFixed(1)}" (±${uncertaintyPct}%)` : 
+          `Measurement: ${pixelDistance.toFixed(0)} pixels`
+      });
+      
+    } catch (error) {
+      console.error('Error measuring diameter:', error);
+      res.status(500).json({ error: 'Failed to measure diameter' });
+    }
+  });
+
   // Public share view
   app.get('/s/:token', async (req, res) => {
     try {
