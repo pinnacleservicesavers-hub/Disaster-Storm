@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, numeric, boolean, jsonb, integer, uuid, unique, foreignKey } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, numeric, boolean, jsonb, integer, uuid, unique, foreignKey, serial } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -169,6 +169,18 @@ export const contractorMarineRequestSchema = z.object({
   lat: z.string().transform(Number).optional(),
   lon: z.string().transform(Number).optional(),
   radius: z.string().transform(Number).optional()
+});
+
+// Species Coefficients for Tree Weight Estimation
+export const speciesCoeffs = pgTable("species_coeffs", {
+  id: serial("id").primaryKey(),
+  species: text("species").notNull().unique(),
+  commonName: text("common_name"),
+  densityLbft3: numeric("density_lbft3").notNull().default("55"),
+  a: numeric("a").notNull().default("0.15"),
+  b: numeric("b").notNull().default("2.4"),
+  c: numeric("c").notNull().default("0.9"),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const users = pgTable("users", {
@@ -3806,6 +3818,12 @@ export const insertMediaFrameSchema = createInsertSchema(mediaFrames).omit({
   id: true,
 });
 
+// Species Coefficients Insert Schema
+export const insertSpeciesCoeffsSchema = createInsertSchema(speciesCoeffs).omit({
+  id: true,
+  updatedAt: true,
+});
+
 // ===== DISASTER LENS TYPES =====
 
 export type Organization = typeof organizations.$inferSelect;
@@ -3828,6 +3846,10 @@ export type Share = typeof shares.$inferSelect;
 export type InsertShare = z.infer<typeof insertShareSchema>;
 export type AuditLogEntry = typeof auditLog.$inferSelect;
 export type InsertAuditLogEntry = z.infer<typeof insertAuditLogSchema>;
+
+// Species Coefficients Types
+export type SpeciesCoeffs = typeof speciesCoeffs.$inferSelect;
+export type InsertSpeciesCoeffs = z.infer<typeof insertSpeciesCoeffsSchema>;
 
 // AI Assistant Types
 export type AiSession = typeof aiSessions.$inferSelect;
