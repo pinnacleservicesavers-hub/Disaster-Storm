@@ -27,6 +27,24 @@ import { Cloud, Home, Menu, Camera, Heart, Eye, Zap, Users, FileText, User, Plan
 import { motion } from 'framer-motion';
 import { useState, useEffect } from 'react';
 import { FadeIn } from '@/components/ui/animations';
+import { ArrowLeft } from 'lucide-react';
+
+// Back button component for modules
+function BackButton() {
+  return (
+    <Link href="/">
+      <motion.button
+        whileHover={{ scale: 1.05, x: -2 }}
+        whileTap={{ scale: 0.95 }}
+        className="flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-sm border border-white/20 text-white rounded-lg hover:bg-white/20 transition-all duration-200"
+        data-testid="button-back-to-hub"
+      >
+        <ArrowLeft className="w-4 h-4" />
+        <span className="text-sm font-medium">Back to Hub</span>
+      </motion.button>
+    </Link>
+  );
+}
 
 // Role selector component
 function RoleSelector(){

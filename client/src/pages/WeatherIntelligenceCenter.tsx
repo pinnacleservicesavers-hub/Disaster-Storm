@@ -9,6 +9,7 @@ import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Link } from 'wouter';
 import { 
   CloudRain, 
   Zap, 
@@ -50,7 +51,8 @@ import {
   Tornado,
   Video,
   Brain,
-  Bot
+  Bot,
+  ArrowLeft
 } from 'lucide-react';
 import { 
   FadeIn, 
@@ -346,6 +348,23 @@ export default function WeatherIntelligenceCenter() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 dark:from-slate-900 dark:via-blue-900 dark:to-cyan-900">
       <div className="container mx-auto px-4 py-8">
+        {/* Back Button */}
+        <FadeIn>
+          <div className="mb-6">
+            <Link href="/">
+              <motion.button
+                whileHover={{ scale: 1.05, x: -2 }}
+                whileTap={{ scale: 0.95 }}
+                className="flex items-center gap-2 px-4 py-2 bg-white/80 backdrop-blur-sm border border-gray-200 text-gray-700 rounded-lg hover:bg-white hover:shadow-md transition-all duration-200"
+                data-testid="button-back-to-hub"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span className="text-sm font-medium">Back to Hub</span>
+              </motion.button>
+            </Link>
+          </div>
+        </FadeIn>
+
         {/* Header */}
         <FadeIn>
           <div className="text-center mb-8">

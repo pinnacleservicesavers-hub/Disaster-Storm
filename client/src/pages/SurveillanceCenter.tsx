@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Link } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -41,7 +42,8 @@ import {
   Home,
   Monitor,
   Zap,
-  TrendingUp
+  TrendingUp,
+  ArrowLeft
 } from 'lucide-react';
 import { FadeIn, CountUp, StaggerContainer, StaggerItem, HoverLift, ScaleIn, SlideIn, PulseAlert } from '@/components/ui/animations';
 import { apiRequest } from '@/lib/queryClient';
@@ -324,6 +326,23 @@ export default function SurveillanceCenter() {
 
   return (
     <div className="container mx-auto px-4 py-8 space-y-6" data-testid="surveillance-center">
+      {/* Back Button */}
+      <FadeIn>
+        <div className="mb-6">
+          <Link href="/">
+            <motion.button
+              whileHover={{ scale: 1.05, x: -2 }}
+              whileTap={{ scale: 0.95 }}
+              className="flex items-center gap-2 px-4 py-2 bg-white/80 backdrop-blur-sm border border-gray-200 text-gray-700 rounded-lg hover:bg-white hover:shadow-md transition-all duration-200"
+              data-testid="button-back-to-hub"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span className="text-sm font-medium">Back to Hub</span>
+            </motion.button>
+          </Link>
+        </div>
+      </FadeIn>
+
       {/* Header */}
       <FadeIn>
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
