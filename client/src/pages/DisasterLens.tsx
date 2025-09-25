@@ -711,7 +711,7 @@ const TaskManagement = ({ projects }: { projects: Project[] }) => {
             <p className="text-gray-500">Create tasks to organize your project workflow.</p>
           </div>
         ) : (
-          <>
+          <div>
             {/* Task Creation Form */}
             {showCreateTask && (
               <div className="mb-6 border rounded-lg p-4 bg-gray-50">
@@ -764,7 +764,7 @@ const TaskManagement = ({ projects }: { projects: Project[] }) => {
             
             <div className="space-y-3">
               {tasks.map((task: any) => (
-              <div key={task.id} className="border rounded-lg p-4">
+                <div key={task.id} className="border rounded-lg p-4">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
@@ -788,8 +788,9 @@ const TaskManagement = ({ projects }: { projects: Project[] }) => {
                     {task.status === 'completed' ? 'Completed' : 'Mark Complete'}
                   </Button>
                 </div>
-              </div>
-            ))}
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </CardContent>
