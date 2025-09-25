@@ -622,10 +622,8 @@ function AnnotatorTab({ scalePxPerInch }: { scalePxPerInch: number | null }) {
                   Complete Polygon ({areaPoints.length} pts)
                 </button>
               )}
-              <button onClick={copyMath} 
-                className="px-3 py-1.5 rounded border text-sm hover:bg-gray-50"
-                data-testid="button-copy-math">
-                📋 Copy Math {lastMath ? `(${lastMath.kind})` : ''}
+              <button onClick={copyMath} className="rounded-xl border py-2" data-testid="button-copy-math">
+                Copy Math
               </button>
               <label className="ml-auto text-sm flex items-center gap-2 cursor-pointer">
                 <span className="hidden sm:inline">Change image</span>
