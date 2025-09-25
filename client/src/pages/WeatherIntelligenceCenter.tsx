@@ -71,6 +71,7 @@ import {
 import type { WeatherAlert } from '@shared/schema';
 import { UnifiedAssistant } from '@/components/UnifiedAssistant';
 import PortalVoiceGuide, { PORTAL_SECTIONS } from '@/components/PortalVoiceGuide';
+import { WeatherAIAssistant } from '@/components/WeatherAIAssistant';
 
 // ===== UNIFIED INTERFACES =====
 
@@ -891,21 +892,32 @@ export default function WeatherIntelligenceCenter() {
                   <CardHeader>
                     <CardTitle className="flex items-center text-indigo-600">
                       <Bot className="w-6 h-6 mr-2" />
-                      🤖 ARIA Weather Intelligence Assistant
+                      🧠 Advanced Weather AI Intelligence
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <p className="text-gray-600 dark:text-gray-400 mb-6">
-                      Advanced AI assistant specializing in weather analysis, storm prediction, and disaster response guidance.
+                      99% accurate hurricane and storm predictions with voice and text interaction. Ask questions about any storm, tornado, or hurricane with access to comprehensive global weather data.
                     </p>
                     
-                    <UnifiedAssistant
-                      portalType="weather"
-                      currentData={{ weatherData, predictionData, alerts, dashboard }}
-                      userLocation={dynamicLocation || undefined}
+                    <WeatherAIAssistant
+                      currentLocation={dynamicLocation ? {
+                        latitude: dynamicLocation.latitude,
+                        longitude: dynamicLocation.longitude,
+                        state: selectedState && selectedState !== "all" ? selectedState : undefined
+                      } : undefined}
+                      weatherData={{
+                        alerts,
+                        radar: weatherData?.radar,
+                        forecast: weatherData?.forecast,
+                        lightning: weatherData?.lightning,
+                        satellite: weatherData?.satellite,
+                        ocean: weatherData?.ocean,
+                        waves: weatherData?.waves,
+                        buoys: weatherData?.buoys,
+                        predictions: predictionData
+                      }}
                       className="w-full"
-                      mode="full"
-                      data-testid="weather-assistant"
                     />
                   </CardContent>
                 </Card>

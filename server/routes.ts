@@ -51,6 +51,7 @@ import { femaMonitoringService } from "./services/femaMonitoringService";
 import { predictiveStormService } from "./services/predictiveStormService";
 import stormIntelligenceRoutes from "./routes/stormIntelligence";
 import { VoiceAIService } from "./services/voiceAI";
+import { weatherAI } from "./services/weatherAI.js";
 import { storage } from "./storage";
 import { z } from "zod";
 
@@ -6214,6 +6215,138 @@ Email: strategiclandmgmt@gmail.com
       console.error('Error fetching prediction dashboard:', error);
       res.status(500).json({
         error: 'Failed to fetch dashboard data',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // ===== WEATHER AI INTELLIGENCE API ENDPOINTS =====
+
+  // Weather AI Query - Text and Voice Support
+  app.post("/api/weather-ai/query", express.json(), async (req, res) => {
+    try {
+      const { question, location, currentData, mode = 'text' } = req.body;
+      
+      if (!question) {
+        return res.status(400).json({ error: 'Question is required' });
+      }
+
+      console.log(`🧠 Weather AI Query (${mode}): ${question}`);
+      
+      const query = {
+        question,
+        location,
+        currentData
+      };
+
+      const prediction = await weatherAI.analyzeWeatherQuery(query);
+      
+      res.json({
+        success: true,
+        prediction,
+        mode,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('❌ Weather AI query failed:', error);
+      res.status(500).json({
+        error: 'Weather AI analysis failed',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Hurricane Analysis with AI
+  app.post("/api/weather-ai/hurricane", express.json(), async (req, res) => {
+    try {
+      const { stormData, location } = req.body;
+      
+      console.log('🌀 AI Hurricane Analysis requested');
+      
+      const prediction = await weatherAI.analyzeHurricane(stormData, location);
+      
+      res.json({
+        success: true,
+        hurricane: prediction,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('❌ Hurricane AI analysis failed:', error);
+      res.status(500).json({
+        error: 'Hurricane analysis failed',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Tornado Analysis with AI  
+  app.post("/api/weather-ai/tornado", express.json(), async (req, res) => {
+    try {
+      const { radarData, location } = req.body;
+      
+      console.log('🌪️ AI Tornado Analysis requested');
+      
+      const prediction = await weatherAI.analyzeTornado(radarData, location);
+      
+      res.json({
+        success: true,
+        tornado: prediction,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('❌ Tornado AI analysis failed:', error);
+      res.status(500).json({
+        error: 'Tornado analysis failed',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Voice Weather Briefing
+  app.post("/api/weather-ai/voice-briefing", express.json(), async (req, res) => {
+    try {
+      const { location, currentData } = req.body;
+      
+      console.log('🎙️ Voice Weather Briefing requested');
+      
+      const briefing = await weatherAI.generateVoiceBriefing(location, currentData);
+      
+      res.json({
+        success: true,
+        briefing,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('❌ Voice briefing generation failed:', error);
+      res.status(500).json({
+        error: 'Voice briefing failed',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // General Weather Intelligence
+  app.post("/api/weather-ai/intelligence", express.json(), async (req, res) => {
+    try {
+      const { question, context } = req.body;
+      
+      if (!question) {
+        return res.status(400).json({ error: 'Question is required' });
+      }
+      
+      console.log('🧠 Weather Intelligence Query:', question);
+      
+      const intelligence = await weatherAI.getWeatherIntelligence(question, context);
+      
+      res.json({
+        success: true,
+        intelligence,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('❌ Weather intelligence failed:', error);
+      res.status(500).json({
+        error: 'Weather intelligence failed',
         details: error instanceof Error ? error.message : 'Unknown error'
       });
     }
