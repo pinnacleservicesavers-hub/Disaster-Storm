@@ -3451,3 +3451,241 @@ export type DetectionJob = typeof detectionJobs.$inferSelect;
 export type InsertDetectionJob = z.infer<typeof insertDetectionJobSchema>;
 export type DetectionResult = typeof detectionResults.$inferSelect;
 export type InsertDetectionResult = z.infer<typeof insertDetectionResultSchema>;
+
+// ===== DISASTER LENS CORE TABLES =====
+
+// Projects table (core container for disaster documentation)
+export const projects = pgTable("projects", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description"),
+  status: text("status").default("active"), // active, completed, archived
+  projectType: text("project_type").default("storm_response"), // storm_response, claim, assessment
+  clientName: text("client_name"),
+  propertyAddress: text("property_address"),
+  latitude: numeric("latitude", { precision: 10, scale: 8 }),
+  longitude: numeric("longitude", { precision: 10, scale: 8 }),
+  insuranceCompany: text("insurance_company"),
+  claimNumber: text("claim_number"),
+  userId: varchar("user_id").notNull(), // owner
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Media table (unified photos/videos/audio)
+export const media = pgTable("media", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull(),
+  fileName: text("file_name").notNull(),
+  fileUrl: text("file_url").notNull(),
+  thumbnailUrl: text("thumbnail_url"),
+  mediaType: text("media_type").notNull(), // photo, video, audio
+  originalName: text("original_name"),
+  fileSize: integer("file_size"),
+  mimeType: text("mime_type"),
+  latitude: numeric("latitude", { precision: 10, scale: 8 }),
+  longitude: numeric("longitude", { precision: 10, scale: 8 }),
+  capturedAt: timestamp("captured_at"),
+  metadata: jsonb("metadata").$type<JsonObject>(), // EXIF data, GPS coords, auto-stamping info
+  aiDescription: text("ai_description"),
+  tags: text("tags").array(), // searchable tags
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  mediaProjectFkey: foreignKey({
+    columns: [table.projectId],
+    foreignColumns: [projects.id],
+    name: "fk_media_project"
+  }),
+}));
+
+// Annotations table (drawing tools on media)
+export const annotations = pgTable("annotations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  mediaId: varchar("media_id").notNull(),
+  kind: text("kind").notNull(), // arrow, box, text, blur, measure
+  payload: jsonb("payload").$type<JsonObject>().notNull(), // positions, text, pixels
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  annotationMediaFkey: foreignKey({
+    columns: [table.mediaId],
+    foreignColumns: [media.id],
+    name: "fk_annotation_media"
+  }),
+}));
+
+// Comments table (project-level, optionally tied to media)
+export const comments = pgTable("comments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull(),
+  mediaId: varchar("media_id"), // optional - can be project-level or media-specific
+  authorId: varchar("author_id").notNull(),
+  body: text("body").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  commentProjectFkey: foreignKey({
+    columns: [table.projectId],
+    foreignColumns: [projects.id],
+    name: "fk_comment_project"
+  }),
+  commentMediaFkey: foreignKey({
+    columns: [table.mediaId],
+    foreignColumns: [media.id],
+    name: "fk_comment_media"
+  }),
+  commentAuthorFkey: foreignKey({
+    columns: [table.authorId],
+    foreignColumns: [users.id],
+    name: "fk_comment_author"
+  }),
+}));
+
+// Tasks & Checklists (renamed to avoid conflict with existing tasks table)
+export const disasterTasks = pgTable("disaster_tasks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull(),
+  title: text("title").notNull(),
+  requiresPhoto: boolean("requires_photo").default(false),
+  assigneeId: varchar("assignee_id"),
+  dueDate: timestamp("due_date"),
+  status: text("status").default("todo"), // todo, doing, blocked, done
+  createdAt: timestamp("created_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+}, (table) => ({
+  taskProjectFkey: foreignKey({
+    columns: [table.projectId],
+    foreignColumns: [projects.id],
+    name: "fk_disaster_task_project"
+  }),
+  taskAssigneeFkey: foreignKey({
+    columns: [table.assigneeId],
+    foreignColumns: [users.id],
+    name: "fk_disaster_task_assignee"
+  }),
+}));
+
+// Reports table (PDF generation)
+export const disasterReports = pgTable("disaster_reports", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull(),
+  title: text("title").notNull(),
+  kind: text("kind").notNull(), // photo, daily, final, insurance_packet
+  payload: jsonb("payload").$type<JsonObject>().notNull(), // selection, ordering, captions, template
+  pdfStorageKey: text("pdf_storage_key"), // generated PDF storage key
+  createdBy: varchar("created_by").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  reportProjectFkey: foreignKey({
+    columns: [table.projectId],
+    foreignColumns: [projects.id],
+    name: "fk_disaster_report_project"
+  }),
+  reportCreatorFkey: foreignKey({
+    columns: [table.createdBy],
+    foreignColumns: [users.id],
+    name: "fk_disaster_report_creator"
+  }),
+}));
+
+// Shares table (public links for reports/projects)
+export const shares = pgTable("shares", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id"),
+  reportId: varchar("report_id"),
+  token: text("token").notNull().unique(),
+  expiresAt: timestamp("expires_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  shareProjectFkey: foreignKey({
+    columns: [table.projectId],
+    foreignColumns: [projects.id],
+    name: "fk_share_project"
+  }),
+  shareReportFkey: foreignKey({
+    columns: [table.reportId],
+    foreignColumns: [disasterReports.id],
+    name: "fk_share_report"
+  }),
+}));
+
+// Audit log table (track all system actions)
+export const auditLog = pgTable("audit_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orgId: varchar("org_id"), // for future multi-tenant support
+  userId: varchar("user_id"),
+  action: text("action").notNull(),
+  entity: text("entity").notNull(),
+  entityId: varchar("entity_id"),
+  meta: jsonb("meta").$type<JsonObject>(),
+  at: timestamp("at").defaultNow(),
+}, (table) => ({
+  auditUserFkey: foreignKey({
+    columns: [table.userId],
+    foreignColumns: [users.id],
+    name: "fk_audit_user"
+  }),
+}));
+
+// ===== DISASTER LENS INSERT SCHEMAS =====
+
+export const insertProjectSchema = createInsertSchema(projects).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertMediaSchema = createInsertSchema(media).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertAnnotationSchema = createInsertSchema(annotations).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertCommentSchema = createInsertSchema(comments).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertDisasterTaskSchema = createInsertSchema(disasterTasks).omit({
+  id: true,
+  createdAt: true,
+  completedAt: true,
+}).extend({
+  requiresPhoto: z.boolean().optional(),
+});
+
+export const insertDisasterReportSchema = createInsertSchema(disasterReports).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertShareSchema = createInsertSchema(shares).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertAuditLogSchema = createInsertSchema(auditLog).omit({
+  id: true,
+  at: true,
+});
+
+// ===== DISASTER LENS TYPES =====
+
+export type Project = typeof projects.$inferSelect;
+export type InsertProject = z.infer<typeof insertProjectSchema>;
+export type Media = typeof media.$inferSelect;
+export type InsertMedia = z.infer<typeof insertMediaSchema>;
+export type Annotation = typeof annotations.$inferSelect;
+export type InsertAnnotation = z.infer<typeof insertAnnotationSchema>;
+export type Comment = typeof comments.$inferSelect;
+export type InsertComment = z.infer<typeof insertCommentSchema>;
+export type DisasterTask = typeof disasterTasks.$inferSelect;
+export type InsertDisasterTask = z.infer<typeof insertDisasterTaskSchema>;
+export type DisasterReport = typeof disasterReports.$inferSelect;
+export type InsertDisasterReport = z.infer<typeof insertDisasterReportSchema>;
+export type Share = typeof shares.$inferSelect;
+export type InsertShare = z.infer<typeof insertShareSchema>;
+export type AuditLogEntry = typeof auditLog.$inferSelect;
+export type InsertAuditLogEntry = z.infer<typeof insertAuditLogSchema>;
