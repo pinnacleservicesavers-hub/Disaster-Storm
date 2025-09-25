@@ -1,0 +1,52 @@
+if (brunnotator Tab — Copy‑math + Server Area Overlay (drop‑in Replacement)
+
+
+// Paste this file's component into your main UI where AnnotatorTab is defined. // It adds: // 1) Copy‑Math button (copies equations for Diameter/Length/Area) // 2) Server area overlay via POST /api/area/overlay (audit‑friendly) // 3) Sets window.__DL_LAST_MATH so you don't need to thread extra state
+
+
+import React, { useEffect, useState } from 'react';
+
+
+export default function AnnotatorTab({ scalePxPerInch }: { scalePxPerInch: number | null }) { const [brush, setBrush] = useState<'arrow'|'box'|'text'|'blur'|'measure'|'length'|'area'>("box"); const [caption, setCaption] = useState("Cracked limb over structure — immediate removal recommended."); const [selectedImage, setSelectedImage] = useState("https://picsum.photos/seed/annotate/1200/675"); const [hints, setHints] = useState<{x:number,y:number,w:number,h:number, score:number, label?:string, picked?:boolean}[]>([]); const [loadingHints, setLoadingHints] = useState(false);
+
+
+// --- Diameter (two‑click) const [mPt1, setMPt1] = useState<{x:number,y:number}|null>(null); const [measurePreview, setMeasurePreview] = useState<string|null>(null); // --- Length (two‑click) const [lPt1, setLPt1] = useState<{x:number,y:number}|null>(null); const [lengthPreview, setLengthPreview] = useState<string|null>(null); // --- Area (multi‑click) const [polyPts, setPolyPts] = useState<{x:number,y:number}[]>([]); const [areaPreview, setAreaPreview] = useState<string|null>(null);
+
+
+async function fileToBase64(f: File): Promise{ return new Promise((resolve,reject)=>{ const r = new FileReader(); r.onload=()=>resolve(String(r.result)); r.onerror=reject; r.readAsDataURL(f); }); } async function ensureBase64(img: string): Promise { if (img.startsWith('data:')) return img; const resp = await fetch(img); const blob = await resp.blob(); return await fileToBase64(new File([blob], 'img.jpg', { type: blob.type||'image/jpeg' })); } async function drawOverlayBase64(baseImage: string, draw: (ctx: CanvasRenderingContext2D, w:number, h:number)=>void){ const img = document.createElement('img'); img.src = baseImage; await img.decode(); const canvas = document.createElement('canvas'); canvas.width = img.naturalWidth; canvas.height = img.naturalHeight; const ctx = canvas.getContext('2d')!; ctx.drawImage(img, 0, 0); draw(ctx, canvas.width, canvas.height); return canvas.toDataURL('image/png'); }
+
+
+async function getDamageHints(){ try { setLoadingHints(true); const imageBase64 = await ensureBase64(selectedImage); const res = await fetch('/api/hints/damage', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ imageBase64 }) }); const data = await res.json(); setHints((data?.hints||[]).map((h:any)=>({ ...h }))); } finally { setLoadingHints(false); } } function suggestLabels(){ setHints((prev)=> prev.map(h => { let label = 'Damage'; if (h.w>h.h && h.score>20) label = 'Fallen limb impact'; if (h.h>h.w && h.score>20) label = 'Uprooted root plate'; if (h.score<10) label = 'Minor disturbance'; return { ...h, label }; })); } async function confirmHint(h: any){ const cx = h.x + h.h/2; const cy = h.y + h.h/2; const r = Math.round(Math.min(h.w,h.h)/2); const res = await fetch('/api/annotate/circle', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ mediaId:'demo-media', x: Math.round(cx), y: Math.round(cy), r, label: h.label||'Damage' }) }); if (res.ok) setHints(prev => prev.map(it => it===h? { ...it, picked:true }: it)); }
+
+
+// ------- MEASURE: Diameter (server overlay) async function doDiameter(pt1:{x:number,y:number}, pt2:{x:number,y:number}){ if (!scalePxPerInch) { alert('No calibration set. Open the Calibrate tab to scan a QR and lock scale.'); return; } const imageBase64 = await ensureBase64(selectedImage); const px = Math.hypot(pt2.x-pt1.x, pt2.y-pt1.y); const res = await fetch('/api/tape/overlay', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ imageBase64, x1: Math.round(pt1.x), y1: Math.round(pt1.y), x2: Math.round(pt2.x), y2: Math.round(pt2.y), scalePxPerInch, label: 'Diameter' }) }); if (!res.ok) { alert('Overlay failed'); return; } const inches = Number(res.headers.get('X-Measurement-Inches') || '0'); const blob = await res.blob(); const url = URL.createObjectURL(blob); setMeasurePreview(url); const arrBuf = await blob.arrayBuffer(); const b64 = data:image/png;base64,${btoa(String.fromCharCode(...new Uint8Array(arrBuf)))}; window.dispatchEvent(new CustomEvent('DL_ADD_OVERLAY_TO_REPORT', { detail: { imageBase64: b64, caption: Diameter: ${inches.toFixed(1)} in (AI-estimated) } })); (window as any).__DL_LAST_MATH = { kind: 'diameter', text: Diameter = pixel_distance / (px/in)\n= ${px.toFixed(2)} px / ${scalePxPerInch.toFixed(2)} px/in\n= ${inches.toFixed(2)} in }; }
+
+
+// ------- MEASURE: Length (client overlay) async function doLength(pt1:{x:number,y:number}, pt2:{x:number,y:number}){ if (!scalePxPerInch) { alert('No calibration set. Open the Calibrate tab to scan a QR and lock scale.'); return; } const px = Math.hypot(pt2.x-pt1.x, pt2.y-pt1.y); const inches = px / scalePxPerInch; const feet = inches/12; const base64 = await ensureBase64(selectedImage); const out = await drawOverlayBase64(base64, (ctx)=>{ ctx.save(); ctx.strokeStyle = 'yellow'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(pt1.x, pt1.y); ctx.lineTo(pt2.x, pt2.y); ctx.stroke(); const midx = (pt1.x+pt2.x)/2, midy=(pt1.y+pt2.y)/2; ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(midx-80, midy-16, 160, 24); ctx.fillStyle = '#fff'; ctx.font = '16px sans-serif'; ctx.textAlign='center'; ctx.fillText(${feet.toFixed(2)} ft, midx, midy+2); ctx.restore(); }); setLengthPreview(out); window.dispatchEvent(new CustomEvent('DL_ADD_OVERLAY_TO_REPORT', { detail: { imageBase64: out, caption: Length: ${feet.toFixed(2)} ft (AI-estimated) } })); (window as any).__DL_LAST_MATH = { kind: 'length', text: Length = pixel_distance / (px/in)\n= ${px.toFixed(2)} px / ${scalePxPerInch.toFixed(2)} px/in\n= ${inches.toFixed(2)} in ≈ ${feet.toFixed(2)} ft }; }
+
+
+// ------- MEASURE: Area (server overlay) async function completePolygon(){ if (!scalePxPerInch) return alert('Calibrate first'); if (polyPts.length < 3) return alert('Add at least 3 points'); const base64 = await ensureBase64(selectedImage); const res = await fetch('/api/area/overlay', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ imageBase64: base64, points: polyPts, scalePxPerInch, color:'#ffd700' }) }); if (!res.ok) return alert('Area overlay failed'); const ft2 = Number(res.headers.get('X-Area-SqFt')||'0'); const blob = await res.blob(); const url = URL.createObjectURL(blob); setAreaPreview(url); const arrBuf = await blob.arrayBuffer(); const b64 = data:image/png;base64,${btoa(String.fromCharCode(...new Uint8Array(arrBuf)))}; window.dispatchEvent(new CustomEvent('DL_ADD_OVERLAY_TO_REPORT', { detail: { imageBase64: b64, caption: Area: ${ft2.toFixed(2)} sq ft (AI-estimated) } })); (window as any).__DL_LAST_MATH = { kind:'area', text: Area_ft² (server) = ${ft2.toFixed(2)} ft² (QR-calibrated) }; setPolyPts([]); }
+
+
+function resetPreviews(){ setMeasurePreview(null); setLengthPreview(null); setAreaPreview(null); }
+
+
+async function handleCanvasClick(e: React.MouseEvent<HTMLDivElement, MouseEvent>) { const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect(); const x = e.clientX - rect.left; const y = e.clientY - rect.top;
+
+
+sh === 'measure'){
+if (!mPt1) { setMPt1({x,y}); return; }
+const pt1 = mPt1; const pt2 = {x,y}; setMPt1(null);
+await doDiameter(pt1, pt2);
+return;
+}
+if (brush === 'length'){
+if (!lPt1) { setLPt1({x,y}); return; }
+const a = lPt1; const b = {x,y}; setLPt1(null);
+await doLength(a, b);
+return;
+}
+if (brush === 'area'){
+setPolyPts(prev => [...prev, {x,y}]);
+return;
+}

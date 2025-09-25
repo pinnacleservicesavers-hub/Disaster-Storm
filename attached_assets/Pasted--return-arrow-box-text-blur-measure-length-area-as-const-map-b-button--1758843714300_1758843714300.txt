@@ -1,0 +1,33 @@
+}
+
+return ( {(["arrow","box","text","blur","measure","length","area"] as const).map((b)=> ( <button key={b} onClick={()=>{ setBrush(b); setMPt1(null); setLPt1(null); setPolyPts([]); resetPreviews(); }} className={px-3 py-1.5 rounded-xl border text-sm ${brush===b?"bg-black text-white":""}}>{b} ))} Change image <input type="file" accept="image/*" className="hidden" onChange={async (e)=>{ const f = e.target.files?.[0]; if (!f) return; const b64 = await fileToBase64(f); setSelectedImage(b64); setHints([]); setMPt1(null); setLPt1(null); setPolyPts([]); resetPreviews(); }} /> Upload <img src={areaPreview || lengthPreview || measurePreview || selectedImage} className="w-full h-full object-cover" /> {brush==='measure' && mPt1 && ( <div className="absolute" style={{ left:mPt1.x-6, top:mPt1.y-6 }}> First point set )} {brush==='length' && lPt1 && ( <div className="absolute" style={{ left:lPt1.x-6, top:lPt1.y-6 }}> First point set )} {brush==='area' && polyPts.length>0 && ( <polyline points={polyPts.map(p=>${p.x},${p.y}).join(' ')} fill="rgba(255,215,0,0.2)" stroke="gold" strokeWidth="2" /> )} {hints.map((h, i)=> ( <div key={i} className={absolute border-2 ${h.picked? 'border-green-500' : 'border-yellow-400'} bg-yellow-300/10} style={{ left:h.x, top:h.y, width:h.w, height:h.h }}> {h.label && ( {h.label} )} ))} {loadingHints? 'Finding hints…':'Get Damage Hints'} Suggest Labels <button onClick={()=>{ setBrush('measure'); setMPt1(null); resetPreviews(); }} className={rounded-xl border py-2 ${brush==='measure'?'bg-black text-white':''}}>Diameter <button onClick={()=>{ setBrush('length'); setLPt1(null); resetPreviews(); }} className={rounded-xl border py-2 ${brush==='length'?'bg-black text-white':''}}>Length <button onClick={()=>{ setBrush('area'); setPolyPts([]); resetPreviews(); }} className={rounded-xl border py-2 ${brush==='area'?'bg-black text-white':''}}>Area <button onClick={() => { const m=(window as any).__DL_LAST_MATH; if(!m){alert('Nothing to copy yet'); return;} navigator.clipboard.writeText(m.text).then(()=>alert('Math copied to clipboard')).catch(()=>alert(m.text)); }} className="rounded-xl border py-2 px-3">Copy Math {brush==='area' && ( Complete Area <button onClick={()=> setPolyPts([])} className="rounded-xl border py-1.5 px-3">Reset Click points on the image to outline the impact area, then "Complete Area". )} Caption <input value={caption} onChange={(e)=>setCaption(e.target.value)} className="mt-1 w-full rounded-xl border p-2" /> Calibration {scalePxPerInch? Scale locked: ${scalePxPerInch.toFixed(2)} px/in (AI-estimated) : 'No scale set. Use Calibrate tab (QR) for accurate measurements.'} Actions <button onClick={() => { const m=(window as any).__DL_LAST_MATH; if(!m){alert('Nothing to copy yet'); return;} navigator.clipboard.writeText(m.text).then(()=>alert('Math copied to clipboard')).catch(()=>alert(m.text)); }} className="mb-3 w-full rounded-xl border py-2">Copy Math {hints.map((h,i)=> ( Box {i+1} — {h.label||'Unlabeled'} <button className="px-2 py-1 rounded-lg border" onClick={()=>confirmHint(h)}>Add <button className="px-2 py-1 rounded-lg border" onClick={()=> setHints(prev => prev.filter((_,idx)=>idx!==i))}>Dismiss ))} {hints.length===0 && No hints yet.} Annotation Notes Use blur on house numbers/license plates for public shares. Measurements are estimates; ensure QR calibration for accuracy. ); }
+
+I tried patching your main canvas in-place to add Copy Math and switch Area to the server overlay, but the update failed (couldn’t match the right code blocks for replacement).
+
+So I dropped a clean, drop-in file instead: “AnnotatorTab — Copy-Math + Server Area Overlay (Drop-in Replacement)”. It contains a full AnnotatorTab component that:
+
+Adds a Copy Math button (copies the exact equations and numbers adjusters love).
+
+Uses the server POST /api/area/overlay for polygon areas (better audit trail + consistent hashing).
+
+Keeps your Diameter (server overlay) and Length (client overlay) tools working.
+
+Stores the latest math in window.__DL_LAST_MATH so you don’t have to thread new state through your app.
+
+How to apply
+
+In your UI project, open the file where AnnotatorTab is defined.
+
+Replace that component with the one in the new canvas doc.
+
+Ensure these server routes are present (we already added them earlier):
+
+/api/tape/overlay
+
+/api/area/overlay
+
+/api/hints/damage
+
+/api/annotate/circle
+
+Want me to try another automated in-place patch to your existing canvas, or are you good to paste this drop-in component yourself?
