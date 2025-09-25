@@ -4,6 +4,8 @@ import { WebSocketServer } from 'ws';
 import cors from 'cors';
 import crypto from 'crypto';
 import { storage } from './storage.js';
+import { router as annotate } from '../apps/server/src/routes/annotate.js';
+import { router as measure } from '../apps/server/src/routes/measure.js';
 
 const app = express();
 app.use(cors());
@@ -16,6 +18,9 @@ const server = http.createServer(app);
 app.get('/health', (req, res) => {
   res.json({ ok: true, timestamp: new Date().toISOString() });
 });
+
+app.use('/api/annotate', annotate);
+app.use('/api/measure', measure);
 
 // Tool registry endpoint for LLM provider flexibility
 app.get('/api/ai/tools', (req, res) => {
