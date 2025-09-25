@@ -1400,69 +1400,6 @@ export default function ContractorPortal() {
               }}
               className="w-full"
             />
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="bg-green-50 p-4 rounded-lg">
-                    <h4 className="font-semibold text-green-900 mb-2">AI Capabilities</h4>
-                    <ul className="text-sm text-green-700 space-y-1">
-                      <li>• Compliance guidance</li>
-                      <li>• Contract review assistance</li>
-                      <li>• Pricing recommendations</li>
-                      <li>• Claims process help</li>
-                      <li>• Legal deadline reminders</li>
-                    </ul>
-                  </div>
-                  <div className="bg-blue-50 p-4 rounded-lg">
-                    <h4 className="font-semibold text-blue-900 mb-2">Quick AI Actions</h4>
-                    <div className="space-y-2">
-                      <Button size="sm" variant="outline" className="w-full justify-start" data-testid="button-ai-estimate">
-                        Generate Cost Estimate
-                      </Button>
-                      <Button size="sm" variant="outline" className="w-full justify-start" data-testid="button-ai-contract">
-                        Review Contract
-                      </Button>
-                      <Button size="sm" variant="outline" className="w-full justify-start" data-testid="button-ai-compliance">
-                        Check Compliance
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Recent AI Interactions</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      <div className="flex items-start space-x-3">
-                        <Bot className="w-5 h-5 text-blue-600 mt-0.5" />
-                        <div>
-                          <p className="text-sm font-medium">Cost estimate for tree removal</p>
-                          <p className="text-xs text-gray-500">Generated pricing for 60ft oak tree removal in Miami area</p>
-                          <p className="text-xs text-gray-400">2 hours ago</p>
-                        </div>
-                      </div>
-                      <div className="flex items-start space-x-3">
-                        <Bot className="w-5 h-5 text-blue-600 mt-0.5" />
-                        <div>
-                          <p className="text-sm font-medium">Florida lien law guidance</p>
-                          <p className="text-xs text-gray-500">Provided step-by-step filing instructions for Project #CH-2024-089</p>
-                          <p className="text-xs text-gray-400">1 day ago</p>
-                        </div>
-                      </div>
-                      <div className="flex items-start space-x-3">
-                        <Bot className="w-5 h-5 text-blue-600 mt-0.5" />
-                        <div>
-                          <p className="text-sm font-medium">Insurance claim optimization</p>
-                          <p className="text-xs text-gray-500">Reviewed claim documentation and suggested improvements</p>
-                          <p className="text-xs text-gray-400">3 days ago</p>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </CardContent>
-            </Card>
           </TabsContent>
         </Tabs>
       </div>
