@@ -49,6 +49,7 @@ import { FadeIn, CountUp, StaggerContainer, StaggerItem, HoverLift, ScaleIn, Sli
 import { apiRequest } from '@/lib/queryClient';
 import { UnifiedAssistant } from '@/components/UnifiedAssistant';
 import { UniversalAIAssistant } from '@/components/UniversalAIAssistant';
+import { ComprehensiveIntelligenceSystem } from '@/components/ComprehensiveIntelligenceSystem';
 
 interface SurveillanceData {
   cameras: CameraFeed[];
@@ -495,8 +496,9 @@ export default function SurveillanceCenter() {
       {/* Main Content Tabs */}
       <FadeIn delay={0.3}>
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="overview" data-testid="tab-overview">Overview</TabsTrigger>
+            <TabsTrigger value="ai-intelligence" data-testid="tab-ai-intelligence" className="bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold animate-pulse">🧠 AI INTELLIGENCE</TabsTrigger>
             <TabsTrigger value="cameras" data-testid="tab-cameras">Cameras</TabsTrigger>
             <TabsTrigger value="drones" data-testid="tab-drones">Drones</TabsTrigger>
             <TabsTrigger value="opportunities" data-testid="tab-opportunities">Opportunities</TabsTrigger>
@@ -566,6 +568,17 @@ export default function SurveillanceCenter() {
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+
+          {/* 🧠 AI INTELLIGENCE TAB - Ask About Anything Nationwide */}
+          <TabsContent value="ai-intelligence" className="mt-6">
+            <ComprehensiveIntelligenceSystem
+              className="w-full"
+              onIncidentAlert={(incident) => {
+                console.log('Critical incident detected in Surveillance:', incident);
+                // Could trigger surveillance-specific alerts, camera redirects, drone deployment, etc.
+              }}
+            />
           </TabsContent>
 
           {/* Cameras Tab */}

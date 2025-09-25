@@ -72,6 +72,7 @@ import type { WeatherAlert } from '@shared/schema';
 import { UnifiedAssistant } from '@/components/UnifiedAssistant';
 import PortalVoiceGuide, { PORTAL_SECTIONS } from '@/components/PortalVoiceGuide';
 import { WeatherAIAssistant } from '@/components/WeatherAIAssistant';
+import { ComprehensiveIntelligenceSystem } from '@/components/ComprehensiveIntelligenceSystem';
 
 // ===== UNIFIED INTERFACES =====
 
@@ -581,10 +582,13 @@ export default function WeatherIntelligenceCenter() {
         {/* Main Content Tabs */}
         <FadeIn delay={0.6}>
           <Tabs defaultValue="live-weather" className="w-full">
-            <TabsList className="grid w-full grid-cols-4 mb-8" data-testid="tabs-weather-sections">
+            <TabsList className="grid w-full grid-cols-5 mb-8" data-testid="tabs-weather-sections">
               <TabsTrigger value="live-weather" className="text-sm" data-testid="tab-live-weather">
                 <Radar className="w-4 h-4 mr-2" />
                 Live Weather
+              </TabsTrigger>
+              <TabsTrigger value="nationwide-intelligence" className="text-sm bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold animate-pulse" data-testid="tab-nationwide-intelligence">
+                🌍 NATIONWIDE AI
               </TabsTrigger>
               <TabsTrigger value="ai-predictions" className="text-sm" data-testid="tab-ai-predictions">
                 <Brain className="w-4 h-4 mr-2" />
@@ -701,6 +705,17 @@ export default function WeatherIntelligenceCenter() {
                   </CardContent>
                 </Card>
               </motion.div>
+            </TabsContent>
+
+            {/* 🌍 NATIONWIDE AI INTELLIGENCE TAB - Ask About Anything Anywhere */}
+            <TabsContent value="nationwide-intelligence">
+              <ComprehensiveIntelligenceSystem
+                className="w-full"
+                onIncidentAlert={(incident) => {
+                  console.log('Critical incident detected in Weather Intelligence:', incident);
+                  // Could trigger weather-specific analysis, storm correlation, contractor deployment, etc.
+                }}
+              />
             </TabsContent>
 
             {/* AI Predictions Tab */}

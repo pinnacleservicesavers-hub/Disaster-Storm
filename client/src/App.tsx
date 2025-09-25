@@ -1,4 +1,6 @@
 import { Route, Switch, Link, useLocation } from 'wouter';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { queryClient } from '@/lib/queryClient';
 import StormOpsProHub from "./StormOpsProHub";
 import WeatherIntelligenceCenter from "./pages/WeatherIntelligenceCenter";
 import SurveillanceCenter from "./pages/SurveillanceCenter";
@@ -21,6 +23,7 @@ import CalendarBooking from "./pages/CalendarBooking";
 import WorkflowBuilder from "./pages/WorkflowBuilder";
 import StormShare from "./pages/StormShare";
 import DisasterEssentialsMarketplace from "./pages/DisasterEssentialsMarketplace";
+import { FloatingAIAssistant } from '@/components/FloatingAIAssistant';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Cloud, Home, Menu, Camera, Heart, Eye, Zap, Users, FileText, User, Plane, Scale, Settings, Briefcase, Video, Target, Share2, Shield, Bell, Search, TrendingUp, ShoppingBag } from 'lucide-react';
@@ -452,12 +455,13 @@ function Navigation() {
 
 export default function App() {
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Set page title and meta tags */}
-      <title>DisasterDirect - Storm Operations Platform</title>
-      <meta name="description" content="Comprehensive storm operations and claims management platform for contractors and property restoration professionals" />
-      
-      <Navigation />
+    <QueryClientProvider client={queryClient}>
+      <div className="min-h-screen bg-gray-50">
+        {/* Set page title and meta tags */}
+        <title>DisasterDirect - Storm Operations Platform</title>
+        <meta name="description" content="Comprehensive storm operations and claims management platform for contractors and property restoration professionals" />
+        
+        <Navigation />
       
       <Switch>
         <Route path="/weather">
@@ -599,6 +603,10 @@ export default function App() {
           </div>
         </Route>
       </Switch>
-    </div>
+        
+        {/* 🌍 FLOATING AI INTELLIGENCE PORTAL - Available on All Modules */}
+        <FloatingAIAssistant />
+      </div>
+    </QueryClientProvider>
   );
 }
