@@ -25,8 +25,29 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Cloud, Home, Menu, Camera, Heart, Eye, Zap, Users, FileText, User, Plane, Scale, Settings, Briefcase, Video, Target, Share2, Shield, Bell, Search, TrendingUp, ShoppingBag } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { FadeIn } from '@/components/ui/animations';
+
+// Role selector component
+function RoleSelector(){
+  const [role, setRole] = useState(localStorage.getItem('role')||'ops');
+  useEffect(()=>{ localStorage.setItem('role', role); }, [role]);
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-sm text-white/90">Active Role:</span>
+      <select 
+        className="border rounded-md px-2 py-1 text-sm bg-white text-gray-900" 
+        value={role} 
+        onChange={(e)=>setRole(e.target.value)}
+        data-testid="role-selector"
+      >
+        <option value="ops">Ops</option>
+        <option value="field">Field</option>
+        <option value="admin">Admin</option>
+      </select>
+    </div>
+  );
+}
 
 function Navigation() {
   const [location] = useLocation();
@@ -263,6 +284,11 @@ function Navigation() {
 
             {/* Right side actions */}
             <div className="flex items-center space-x-4">
+              {/* Role Selector */}
+              <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg px-3 py-2">
+                <RoleSelector />
+              </div>
+
               {/* Search */}
               <motion.button
                 whileHover={{ scale: 1.1 }}
