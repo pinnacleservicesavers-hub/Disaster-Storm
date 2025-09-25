@@ -305,14 +305,31 @@ function TimelineTab() {
   );
 }
 
-// --- Annotator Tab with Damage Hints & Measure Diameter ---
+// --- Annotator Tab with Damage Hints & Professional Measurements ---
 function AnnotatorTab({ scalePxPerInch }: { scalePxPerInch: number | null }) {
-  const [brush, setBrush] = useState<'arrow'|'box'|'text'|'blur'|'measure'|'diameter'>("box");
+  const [brush, setBrush] = useState<'arrow'|'box'|'text'|'blur'|'measure'|'length'|'area'>("box");
   const [caption, setCaption] = useState("Cracked limb over structure — immediate removal recommended.");
   const [selectedImage, setSelectedImage] = useState("https://picsum.photos/seed/annotate/1200/675");
   const [hints, setHints] = useState<{x:number,y:number,w:number,h:number, score:number, label?:string, picked?:boolean}[]>([]);
   const [loadingHints, setLoadingHints] = useState(false);
+  
+  // Measurement states
   const [measureClicks, setMeasureClicks] = useState<{x:number,y:number}[]>([]);
+  const [lengthClicks, setLengthClicks] = useState<{x:number,y:number}[]>([]);
+  const [areaPoints, setAreaPoints] = useState<{x:number,y:number}[]>([]);
+  
+  // Track last computed measurements for clipboard
+  const [lastMath, setLastMath] = useState<{ kind:'diameter'|'length'|'area', text:string }|null>(null);
+
+  async function copyMath(){
+    if (!lastMath) return alert('Nothing to copy yet');
+    try { 
+      await navigator.clipboard.writeText(lastMath.text); 
+      alert('Math copied to clipboard'); 
+    } catch { 
+      alert(lastMath.text); 
+    }
+  }
 
   async function getDamageHints(){
     try {
@@ -357,14 +374,37 @@ function AnnotatorTab({ scalePxPerInch }: { scalePxPerInch: number | null }) {
     if (res.ok) setHints(prev => prev.map(it => it===h? { ...it, picked:true }: it));
   }
 
+  // Utility to ensure base64 format
+  async function ensureBase64(img: string): Promise<string> {
+    if (img.startsWith('data:')) return img;
+    const resp = await fetch(img);
+    const blob = await resp.blob();
+    return await fileToBase64(new File([blob], 'img.jpg', { type: blob.type||'image/jpeg' }));
+  }
+
+  // Client-side canvas drawing utility
+  async function drawOverlayBase64(baseImage: string, draw: (ctx: CanvasRenderingContext2D, w:number, h:number)=>void): Promise<string> {
+    const img = document.createElement('img');
+    img.src = baseImage;
+    await img.decode();
+    const canvas = document.createElement('canvas');
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    const ctx = canvas.getContext('2d')!;
+    ctx.drawImage(img, 0, 0);
+    draw(ctx, canvas.width, canvas.height);
+    return canvas.toDataURL();
+  }
+
   const handleImageClick = async (e: React.MouseEvent) => {
     const rect = e.currentTarget.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
     
-    if (brush === 'diameter') {
+    // Diameter measurement (server-powered)
+    if (brush === 'measure') {
       if (!scalePxPerInch) {
-        alert('Please calibrate with QR first for accurate measurements');
+        alert('No calibration set. Open the Calibrate tab to scan a QR and lock scale.');
         return;
       }
       
@@ -372,19 +412,21 @@ function AnnotatorTab({ scalePxPerInch }: { scalePxPerInch: number | null }) {
       setMeasureClicks(newClicks);
       
       if (newClicks.length === 2) {
-        // Two clicks = diameter measurement
-        const [p1, p2] = newClicks;
+        const [pt1, pt2] = newClicks;
+        const px = Math.hypot(pt2.x-pt1.x, pt2.y-pt1.y);
+        const inches = px / scalePxPerInch;
         
         try {
+          const imageBase64 = await ensureBase64(selectedImage);
           const response = await fetch('/api/tape/overlay', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              imageBase64: selectedImage,
-              x1: p1.x, y1: p1.y,
-              x2: p2.x, y2: p2.y,
+              imageBase64,
+              x1: Math.round(pt1.x), y1: Math.round(pt1.y),
+              x2: Math.round(pt2.x), y2: Math.round(pt2.y),
               scalePxPerInch,
-              label: 'Diameter'
+              label: `${inches.toFixed(2)}"`
             })
           });
           
@@ -395,18 +437,162 @@ function AnnotatorTab({ scalePxPerInch }: { scalePxPerInch: number | null }) {
             window.dispatchEvent(new CustomEvent('DL_ADD_OVERLAY_TO_REPORT', {
               detail: {
                 imageBase64: result.overlayImageBase64,
-                caption: `Diameter: ${result.measurementInches}" (AI-measured)`
+                caption: `Diameter: ${inches.toFixed(2)}" (QR-calibrated)`
               }
             }));
             
-            alert(`Measurement complete: ${result.measurementInches}" diameter`);
+            // Set math for clipboard
+            setLastMath({
+              kind: 'diameter',
+              text: `Diameter = pixel_distance / (px/in)\n= ${px.toFixed(2)} px / ${scalePxPerInch.toFixed(2)} px/in\n= ${(inches).toFixed(2)} in`
+            });
           }
         } catch (error) {
-          console.error('Measurement failed:', error);
+          console.error('Diameter measurement failed:', error);
         }
         
         setMeasureClicks([]);
       }
+    }
+
+    // Length measurement (client-side)
+    else if (brush === 'length') {
+      if (!scalePxPerInch) {
+        alert('No calibration set. Open the Calibrate tab to scan a QR and lock scale.');
+        return;
+      }
+      
+      const newClicks = [...lengthClicks, {x, y}];
+      setLengthClicks(newClicks);
+      
+      if (newClicks.length === 2) {
+        const [pt1, pt2] = newClicks;
+        const px = Math.hypot(pt2.x-pt1.x, pt2.y-pt1.y);
+        const inches = px / scalePxPerInch;
+        const feet = inches / 12;
+        
+        try {
+          const base64 = await ensureBase64(selectedImage);
+          const overlayUrl = await drawOverlayBase64(base64, (ctx) => {
+            ctx.save();
+            ctx.strokeStyle = 'yellow';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(pt1.x, pt1.y);
+            ctx.lineTo(pt2.x, pt2.y);
+            ctx.stroke();
+            
+            // Label
+            const mx = (pt1.x + pt2.x) / 2;
+            const my = (pt1.y + pt2.y) / 2;
+            ctx.fillStyle = 'black';
+            ctx.fillRect(mx-40, my-12, 80, 20);
+            ctx.fillStyle = 'white';
+            ctx.font = '12px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(`${inches.toFixed(1)}"`, mx, my+2);
+            ctx.restore();
+          });
+          
+          // Auto-inject into Report Builder
+          window.dispatchEvent(new CustomEvent('DL_ADD_OVERLAY_TO_REPORT', {
+            detail: {
+              imageBase64: overlayUrl,
+              caption: `Length: ${inches.toFixed(2)}" ≈ ${feet.toFixed(2)} ft (QR-calibrated)`
+            }
+          }));
+          
+          // Set math for clipboard
+          setLastMath({
+            kind: 'length',
+            text: `Length = pixel_distance / (px/in)\n= ${px.toFixed(2)} px / ${scalePxPerInch.toFixed(2)} px/in\n= ${(inches).toFixed(2)} in ≈ ${(feet).toFixed(2)} ft`
+          });
+          
+        } catch (error) {
+          console.error('Length measurement failed:', error);
+        }
+        
+        setLengthClicks([]);
+      }
+    }
+
+    // Area measurement (multi-click polygon)
+    else if (brush === 'area') {
+      if (!scalePxPerInch) {
+        alert('No calibration set. Open the Calibrate tab to scan a QR and lock scale.');
+        return;
+      }
+      
+      setAreaPoints(prev => [...prev, {x, y}]);
+    }
+  };
+
+  // Complete area polygon measurement
+  const completeAreaMeasurement = async () => {
+    if (!scalePxPerInch) {
+      alert('No calibration set. Open the Calibrate tab to scan a QR and lock scale.');
+      return;
+    }
+    if (areaPoints.length < 3) {
+      alert('Add at least 3 points');
+      return;
+    }
+
+    try {
+      const base64 = await ensureBase64(selectedImage);
+      const response = await fetch('/api/area/overlay', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          imageBase64: base64,
+          points: areaPoints,
+          scalePxPerInch,
+          color: '#ffd700',
+          label: undefined
+        })
+      });
+
+      if (!response.ok) {
+        alert('Area overlay failed');
+        return;
+      }
+
+      const ft2 = Number(response.headers.get('X-Area-SqFt') || '0');
+      const blob = await response.blob();
+      const overlayUrl = URL.createObjectURL(blob);
+
+      // Convert blob to base64 for report injection
+      const arrBuf = await blob.arrayBuffer();
+      const b64 = `data:image/png;base64,${btoa(String.fromCharCode(...new Uint8Array(arrBuf)))}`;
+
+      // Auto-inject into Report Builder
+      window.dispatchEvent(new CustomEvent('DL_ADD_OVERLAY_TO_REPORT', {
+        detail: {
+          imageBase64: b64,
+          caption: `Area: ${ft2.toFixed(2)} sq ft (QR-calibrated)`
+        }
+      }));
+
+      // Calculate detailed math for clipboard
+      let sum = 0;
+      for (let i = 0; i < areaPoints.length; i++) {
+        const a = areaPoints[i], b = areaPoints[(i + 1) % areaPoints.length];
+        sum += (a.x * b.y - b.x * a.y);
+      }
+      const areaPx2 = Math.abs(sum) / 2;
+      const inchesPerPx = 1 / scalePxPerInch;
+      const areaIn2 = areaPx2 * (inchesPerPx * inchesPerPx);
+      const areaFt2 = areaIn2 / 144;
+
+      // Set math for clipboard
+      setLastMath({
+        kind: 'area',
+        text: `Area_px² = |∑(x_i*y_{i+1} − x_{i+1}*y_i)|/2 = ${areaPx2.toFixed(2)} px²\nArea_in² = Area_px² * (in/px)² = ${(areaIn2).toFixed(2)} in²\nArea_ft² = Area_in² / 144 = ${(areaFt2).toFixed(2)} ft²`
+      });
+
+      setAreaPoints([]);
+    } catch (error) {
+      console.error('Area measurement failed:', error);
     }
   };
 
@@ -416,13 +602,31 @@ function AnnotatorTab({ scalePxPerInch }: { scalePxPerInch: number | null }) {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2">
             <div className="mb-4 flex items-center gap-2 flex-wrap">
-              {(["arrow","box","text","blur","measure","diameter"] as const).map((b)=> (
-                <button key={b} onClick={()=>setBrush(b)} 
+              {(["arrow","box","text","blur","measure","length","area"] as const).map((b)=> (
+                <button key={b} onClick={()=>{
+                  setBrush(b);
+                  setMeasureClicks([]);
+                  setLengthClicks([]);
+                  setAreaPoints([]);
+                }} 
                   className={`px-3 py-1.5 rounded border text-sm ${brush===b?"bg-black text-white":"hover:bg-gray-50"}`}
                   data-testid={`brush-${b}`}>
-                  {b === 'diameter' ? `Diameter ${scalePxPerInch ? '(calibrated)' : '(needs QR)'}` : b}
+                  {b === 'measure' ? `Diameter ${scalePxPerInch ? '(cal)' : '(QR?)'}` : 
+                   b === 'length' ? `Length ${scalePxPerInch ? '(cal)' : '(QR?)'}` :
+                   b === 'area' ? `Area ${scalePxPerInch ? '(cal)' : '(QR?)'}` : b}
                 </button>
               ))}
+              {brush === 'area' && areaPoints.length >= 3 && (
+                <button onClick={completeAreaMeasurement} 
+                  className="px-3 py-1.5 rounded bg-green-600 text-white text-sm">
+                  Complete Polygon ({areaPoints.length} pts)
+                </button>
+              )}
+              <button onClick={copyMath} 
+                className="px-3 py-1.5 rounded border text-sm hover:bg-gray-50"
+                data-testid="button-copy-math">
+                📋 Copy Math {lastMath ? `(${lastMath.kind})` : ''}
+              </button>
               <label className="ml-auto text-sm flex items-center gap-2 cursor-pointer">
                 <span className="hidden sm:inline">Change image</span>
                 <input type="file" accept="image/*" className="hidden" onChange={async (e)=>{
@@ -437,7 +641,7 @@ function AnnotatorTab({ scalePxPerInch }: { scalePxPerInch: number | null }) {
             <div className="aspect-video w-full rounded border overflow-hidden relative bg-gray-100">
               <img src={selectedImage} className="w-full h-full object-cover" 
                 onClick={handleImageClick}
-                style={{ cursor: brush === 'diameter' ? 'crosshair' : 'default' }}
+                style={{ cursor: ['measure', 'length', 'area'].includes(brush) ? 'crosshair' : 'default' }}
                 data-testid="image-annotator" />
               {/* Hints overlay */}
               <div className="absolute inset-0">
@@ -449,15 +653,56 @@ function AnnotatorTab({ scalePxPerInch }: { scalePxPerInch: number | null }) {
                     )}
                   </div>
                 ))}
-                {/* Measure clicks visualization */}
+                
+                {/* Diameter measurement clicks visualization */}
                 {measureClicks.map((click, i) => (
-                  <div key={i} className="absolute w-2 h-2 bg-blue-500 rounded-full -translate-x-1 -translate-y-1"
+                  <div key={`measure-${i}`} className="absolute w-3 h-3 bg-blue-500 rounded-full -translate-x-1.5 -translate-y-1.5 border-2 border-white"
                     style={{ left: click.x, top: click.y }} />
                 ))}
                 {measureClicks.length === 1 && (
                   <div className="absolute top-2 left-2 bg-blue-500 text-white text-xs px-2 py-1 rounded">
                     Click endpoint to measure diameter
                   </div>
+                )}
+
+                {/* Length measurement clicks visualization */}
+                {lengthClicks.map((click, i) => (
+                  <div key={`length-${i}`} className="absolute w-3 h-3 bg-yellow-500 rounded-full -translate-x-1.5 -translate-y-1.5 border-2 border-white"
+                    style={{ left: click.x, top: click.y }} />
+                ))}
+                {lengthClicks.length === 1 && (
+                  <div className="absolute top-2 left-2 bg-yellow-500 text-white text-xs px-2 py-1 rounded">
+                    Click endpoint to measure length
+                  </div>
+                )}
+
+                {/* Area polygon points visualization */}
+                {areaPoints.map((point, i) => (
+                  <div key={`area-${i}`} className="absolute w-3 h-3 bg-yellow-400 rounded-full -translate-x-1.5 -translate-y-1.5 border-2 border-white"
+                    style={{ left: point.x, top: point.y }} />
+                ))}
+                {areaPoints.length >= 1 && areaPoints.length < 3 && (
+                  <div className="absolute top-2 left-2 bg-yellow-600 text-white text-xs px-2 py-1 rounded">
+                    {areaPoints.length === 1 ? 'Add more points for polygon area' : `${3 - areaPoints.length} more points needed`}
+                  </div>
+                )}
+                {areaPoints.length >= 3 && (
+                  <div className="absolute top-2 left-2 bg-green-600 text-white text-xs px-2 py-1 rounded">
+                    {areaPoints.length} points • Click "Complete Polygon"
+                  </div>
+                )}
+                
+                {/* Draw polygon preview lines */}
+                {areaPoints.length > 1 && (
+                  <svg className="absolute inset-0 w-full h-full pointer-events-none">
+                    <polygon 
+                      points={areaPoints.map(p => `${p.x},${p.y}`).join(' ')}
+                      fill="rgba(255, 215, 0, 0.1)"
+                      stroke="gold"
+                      strokeWidth="2"
+                      strokeDasharray="5,5"
+                    />
+                  </svg>
                 )}
               </div>
             </div>

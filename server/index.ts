@@ -11,6 +11,7 @@ import { router as weight } from '../apps/server/src/routes/weight.js';
 import { router as tape } from '../apps/server/src/routes/tape.js';
 import { router as calibrate } from './routes/calibrate.js';
 import { router as hints } from './routes/hints.js';
+import { router as area } from './routes/area.js';
 import { router as damage } from '../apps/server/src/routes/damage.js';
 import { setupVite, log } from './vite.js';
 
@@ -33,6 +34,7 @@ app.use('/api/weight', weight);
 app.use('/api/tape', tape);
 app.use('/api/calibrate', calibrate);
 app.use('/api/hints', hints);
+app.use('/api/area', area);
 app.use('/api/damage', damage);
 
 // Tool registry endpoint for LLM provider flexibility
