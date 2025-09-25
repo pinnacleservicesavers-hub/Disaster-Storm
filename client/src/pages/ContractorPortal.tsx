@@ -53,6 +53,8 @@ import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import { UniversalAIAssistant } from '@/components/UniversalAIAssistant';
 import { UltimateAIIntelligenceSystem } from '@/components/UltimateAIIntelligenceSystem';
+import { RealTimeDamageAlert } from '@/components/RealTimeDamageAlert';
+import { StormPathWarningSystem } from '@/components/StormPathWarningSystem';
 import {
   FadeIn,
   SlideIn,
@@ -1388,6 +1390,28 @@ export default function ContractorPortal() {
 
           {/* AI Tools Tab */}
           <TabsContent value="ai" className="space-y-6">
+            {/* 🚨 REAL-TIME DAMAGE DETECTION & ALERTS - Live Incident Intelligence */}
+            <RealTimeDamageAlert
+              className="w-full"
+              onIncident={(incident) => {
+                console.log('New damage incident detected:', incident);
+                // Handle new incident - could trigger notifications, update database, etc.
+              }}
+              onContractorAlert={(alert) => {
+                console.log('Contractor alert:', alert);
+                // Handle contractor positioning alert
+              }}
+            />
+
+            {/* 🌪️ STORM PATH WARNING SYSTEM - Contractor Safety & Positioning */}
+            <StormPathWarningSystem
+              className="w-full"
+              contractorLocation={currentLocation ? {
+                lat: currentLocation.latitude,
+                lng: currentLocation.longitude
+              } : undefined}
+            />
+
             {/* 🚀 ULTIMATE AI INTELLIGENCE SYSTEM - Most Advanced Ever Created */}
             <UltimateAIIntelligenceSystem
               module="contractor"
