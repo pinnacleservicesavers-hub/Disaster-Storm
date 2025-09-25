@@ -1,0 +1,365 @@
+# Disaster Lense — AI Voice & Vision Assistant (Spec + Starter Code)
+
+Goal: Add an **advanced multimodal AI assistant** inside Disaster Lense that supports **voice & text chat** about project photos/videos and can **perform actions**: annotate damage, place a measuring tape, estimate stump diameter, (configurable) tree weight estimation, circle water/gas/electrical damage areas, blur PII, and auto‑draft insurer‑ready snippets — all while keeping **chain‑of‑custody** and **role‑based permissions**.
+
+> This is an implementation‑ready spec with UI/Server stubs you can paste into your Replit monorepo from the previous canvases.
+
+---
+
+## 1) User Experience (UX)
+
+**Assistant Dock**
+
+* A floating panel on every Project page: mic button (push‑to‑talk), transcript stream, and an action log.
+* Modes: **Ask** (Q\&A), **Mark** (annotations), **Measure** (tape), **Summarize** (report text), **Inspect** (AI scans for risks/hazards), **Blur** (PII).
+* Voice in/out: speech‑to‑text (STT) and text‑to‑speech (TTS). If poor network, falls back to text.
+
+**Sample Voice Prompts**
+
+* “Show me the largest stump diameter and label it.”
+* “Circle the broken water line and add ‘Possible water main damage’.”
+* “Estimate the weight of this oak trunk section at 12 ft — add the math to the report.”
+* “Create an insurance summary for USAA with before/during/after bullets.”
+* “Blur house number and license plate, then make a client‑share link.”
+
+**Audit & Safety**
+
+* Every AI action writes an **audit\_log** row with inputs/outputs and the **media sha256**.
+* Visual outputs watermark: **“AI‑assisted estimate — verify before use.”**
+
+---
+
+## 2) Architecture Overview
+
+**Client (web/PWA)**
+
+* `AssistantDock` React component with **WebSocket** to `/ws/assistant`.
+* STT: browser MediaStream → VAD (basic) → PCM chunks over WS.
+* TTS: receives audio (optional) or uses browser `speechSynthesis`.
+* Tool invocations: messages returned from server as **“tool calls”**; the client renders the effect or asks server to apply.
+
+**Server (Node/Express + WS)**
+
+* `/ws/assistant` upgrades to WebSocket.
+* AI Orchestrator interprets user utterances, referencing project media via **embeddings/captions**.
+* Tool executor modules:
+
+  * `annotate.addBox`, `annotate.arrow`, `annotate.text`, `annotate.blur`
+  * `measure.diameterFromFrame` (needs scale calibration)
+  * `video.markAndExport` (FFmpeg overlay pipeline)
+  * `detect.damageHints` (TF.js / server model optional)
+  * `estimate.treeWeight` (uses species + DBH + length params)
+  * `report.snippet` (insurer style)
+* Persist generated annotations in DB and store edited media derivatives with **new storage keys** (never overwrite original).
+
+---
+
+## 3) Data Model Additions
+
+```sql
+create table ai_sessions (
+  id uuid primary key default gen_random_uuid(),
+  project_id uuid references projects(id) on delete cascade,
+  started_by uuid references users(id),
+  mode text check (mode in ('ask','mark','measure','summarize','inspect','blur')),
+  started_at timestamptz default now()
+);
+
+create table ai_actions (
+  id uuid primary key default gen_random_uuid(),
+  session_id uuid references ai_sessions(id) on delete cascade,
+  action text not null,            -- e.g. annotate.box, measure.diameter
+  input jsonb not null,
+  output jsonb,
+  media_id uuid references media(id),
+  sha256 text,                     -- hash of source asset used
+  created_at timestamptz default now()
+);
+
+-- Optional: store per‑frame analysis caches for videos
+create table media_frames (
+  id uuid primary key default gen_random_uuid(),
+  media_id uuid references media(id) on delete cascade,
+  t_ms int not null,               -- timestamp (ms)
+  thumb_key text not null,         -- storage key for frame thumbnail
+  analysis jsonb                   -- detections, keypoints, etc.
+);
+```
+
+---
+
+## 4) Assistant Protocol (WebSocket JSON)
+
+**Client → Server**
+
+```json
+{ "type": "start", "projectId": "...", "mode": "ask" }
+```
+
+```json
+{ "type": "user_text", "text": "Circle the broken water line and label it" }
+```
+
+```json
+{ "type": "user_audio", "pcm": "<ArrayBuffer binary frame>" }
+```
+
+**Server → Client**
+
+```json
+{ "type": "partial_transcript", "text": "Circle the broken..." }
+```
+
+```json
+{ "type": "assistant_text", "text": "I’ll highlight the suspected water line rupture near the root ball." }
+```
+
+```json
+{ "type": "tool_call", "name": "annotate.addCircle", "args": {"mediaId":"...","x":420,"y":260,"r":58,"label":"Possible water line damage"} }
+```
+
+```json
+{ "type": "tool_result", "name":"annotate.addCircle", "ok": true, "annotationId":"..." }
+```
+
+> Keep tool calls explicit so you can swap LLM providers. The server is the only authority that mutates data.
+
+---
+
+## 5) Vision & Measurement Strategies
+
+### 5.1 Measuring Tape (Diameter)
+
+* **Calibration** options (choose any):
+
+  1. User draws a line across a known reference (e.g., actual measuring tape in frame) → enters real‑world length.
+  2. Use phone camera **EXIF focal length + sensor size** with **AR one‑plane assumption** (approximate).
+  3. Place a standard marker (QR or AprilTag) with known size → compute scale.
+* After calibration, a pixel distance → **inches/cm**; overlay a **tape** graphic and store the numeric value.
+* Store measurement with **uncertainty %**; watermark “AI‑estimated”.
+
+### 5.2 Tree Weight Estimate (Configurable)
+
+* Use **species‑specific allometric equations** (configurable table) with inputs like **DBH (diameter at breast height)** and **section length** to compute **green weight** approximation. Persist the chosen formula + coefficients in DB for audit.
+* Output example: `weight_estimate = f_species(DBH_inches, length_ft, wood_density)`; include the equation in the report snippet.
+
+### 5.3 Damage Highlighting
+
+* Optional on‑device models (TF.js) or server models to suggest regions for: cracked limbs, uprooted root plates, roof/shingle damage, downed lines, broken fences, standing water. Results are **assists**; user confirms.
+
+---
+
+## 6) Server Stubs (TypeScript)
+
+**Route: `apps/server/src/ws/assistant.ts`**
+
+```ts
+import { WebSocketServer } from 'ws';
+import type { IncomingMessage } from 'http';
+import { v4 as uuid } from 'uuid';
+
+export function attachAssistantWSS(server: any){
+  const wss = new WebSocketServer({ noServer: true });
+
+  server.on('upgrade', (req: IncomingMessage, socket, head) => {
+    if (req.url?.startsWith('/ws/assistant')) {
+      wss.handleUpgrade(req, socket, head, (ws) => wss.emit('connection', ws, req));
+    }
+  });
+
+  wss.on('connection', (ws) => {
+    let sessionId = uuid();
+    ws.on('message', async (raw) => {
+      const msg = safeParse(raw);
+      if (!msg) return;
+
+      if (msg.type === 'start') {
+        // init session: load project context, embeddings, etc.
+        ws.send(JSON.stringify({ type: 'assistant_text', text: 'Assistant ready.' }));
+      }
+
+      if (msg.type === 'user_text') {
+        // TODO: send to LLM + tools planner
+        // For now, echo & fake a tool call
+        ws.send(JSON.stringify({ type: 'assistant_text', text: 'Highlighting suspected damage area.' }));
+        ws.send(JSON.stringify({ type: 'tool_call', name: 'annotate.addCircle', args: { mediaId: 'demo-media', x: 420, y: 260, r: 58, label: 'Possible water line damage' } }));
+      }
+
+      if (msg.type === 'user_audio') {
+        // TODO: stream to STT; emit partial_transcript messages
+      }
+    });
+  });
+}
+
+function safeParse(raw: any){
+  try { return JSON.parse(raw.toString()); } catch { return null; }
+}
+```
+
+**Tool Executor Skeleton: `apps/server/src/ai/tools.ts`**
+
+```ts
+export const tools = {
+  async annotate_addCircle({ mediaId, x, y, r, label }: any){
+    // persist annotation row; return id
+    return { annotationId: crypto.randomUUID() };
+  },
+  async measure_diameterFromFrame({ mediaId, x1, y1, x2, y2, scalePxPerInch }: any){
+    const px = Math.hypot(x2-x1, y2-y1);
+    const inches = px / scalePxPerInch;
+    return { inches, uncertaintyPct: 8 };
+  },
+  async estimate_treeWeight({ species, dbhIn, lengthFt, method }: any){
+    // Look up coefficients from DB table (configurable)
+    // Example placeholder: w = a * (dbhIn ** b) * (lengthFt ** c)
+    const a=0.15, b=2.4, c=0.9; // placeholder
+    const weight = a * Math.pow(dbhIn, b) * Math.pow(lengthFt, c);
+    return { weightLb: weight, formula: { a, b, c, method } };
+  }
+};
+```
+
+**FFmpeg Overlay Template (video mark‑up)**
+
+```bash
+ffmpeg -i input.mp4 -vf "drawbox=x=420:y=260:w=116:h=116:color=red@0.5:t=5, drawtext=text='Water line damage':x=430:y=380:fontsize=24:fontcolor=white:box=1:boxcolor=black@0.6" -codec:a copy output_marked.mp4
+```
+
+> In code, generate filter graphs based on tool calls; never overwrite originals — save as new storage keys.
+
+---
+
+## 7) Client UI: Assistant Dock (React)
+
+```tsx
+// apps/web/src/components/AssistantDock.tsx
+import React, { useEffect, useRef, useState } from 'react';
+
+export default function AssistantDock(){
+  const [open, setOpen] = useState(true);
+  const [msgs, setMsgs] = useState<{role:'user'|'assistant'|'system', text:string}[]>([]);
+  const wsRef = useRef<WebSocket|null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder|null>(null);
+
+  useEffect(() => {
+    const ws = new WebSocket(`${location.protocol==='https:'?'wss':'ws'}://${location.host}/ws/assistant`);
+    wsRef.current = ws;
+    ws.addEventListener('open', () => ws.send(JSON.stringify({ type:'start', projectId:'DEMO', mode:'ask' })));
+    ws.addEventListener('message', (ev) => {
+      const m = JSON.parse(ev.data);
+      if (m.type === 'assistant_text') setMsgs((s)=>[...s,{role:'assistant',text:m.text}]);
+      if (m.type === 'partial_transcript') setMsgs((s)=>[...s,{role:'system',text:`…${m.text}` }]);
+      if (m.type === 'tool_call') {
+        // Optimistically show intent
+        setMsgs((s)=>[...s,{role:'system', text:`[Tool] ${m.name}` }]);
+        // Optionally call REST endpoint to perform
+      }
+    });
+    return () => ws.close();
+  }, []);
+
+  const sendText = (text:string) => {
+    wsRef.current?.send(JSON.stringify({ type:'user_text', text }));
+    setMsgs((s)=>[...s,{role:'user',text}]);
+  };
+
+  const startPTT = async () => {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio:true });
+    const mr = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+    mediaRecorderRef.current = mr;
+    mr.ondataavailable = (e) => e.data.arrayBuffer().then(buf => wsRef.current?.send(JSON.stringify({ type:'user_audio', pcm: Array.from(new Uint8Array(buf)) })));
+    mr.start(250);
+  };
+  const stopPTT = () => mediaRecorderRef.current?.stop();
+
+  return (
+    <div className={`fixed right-4 bottom-4 w-96 ${open?'':'translate-y-[calc(100%+16px)]'} transition`}>
+      <div className="rounded-2xl shadow-xl border bg-white overflow-hidden">
+        <div className="px-3 py-2 flex items-center justify-between">
+          <div className="font-medium">AI Assistant</div>
+          <button onClick={()=>setOpen(false)} className="text-sm">×</button>
+        </div>
+        <div className="h-64 overflow-auto space-y-2 px-3 py-2 bg-gray-50">
+          {msgs.map((m,i)=> (
+            <div key={i} className={`text-sm ${m.role==='user'?'text-right':''}`}>
+              <span className={`inline-block px-2 py-1 rounded-xl ${m.role==='user'?'bg-black text-white':'bg-white border'}`}>{m.text}</span>
+            </div>
+          ))}
+        </div>
+        <div className="p-2 border-t flex items-center gap-2">
+          <button onMouseDown={startPTT} onMouseUp={stopPTT} className="px-3 py-1.5 rounded-xl border">🎙️ Hold to talk</button>
+          <input id="aiText" placeholder="Ask about this project…" className="flex-1 rounded-xl border px-2 py-1.5" onKeyDown={(e)=>{
+            if(e.key==='Enter'){
+              const v=(e.target as HTMLInputElement).value.trim();
+              if(v){ sendText(v); (e.target as HTMLInputElement).value=''; }
+            }
+          }} />
+          <button className="px-3 py-1.5 rounded-xl bg-black text-white" onClick={()=>{
+            const el = document.getElementById('aiText') as HTMLInputElement; const v=el.value.trim(); if(v){ sendText(v); el.value=''; }
+          }}>Send</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+```
+
+> Mount `<AssistantDock />` in your `App` so it’s available on Project pages.
+
+---
+
+## 8) Tool Catalog (LLM Function Signatures)
+
+Provide these to your LLM as **JSON schemas** so it can plan actions:
+
+```json
+{
+  "annotate.addCircle": {"args": {"mediaId":"string","x":"number","y":"number","r":"number","label":"string"}},
+  "annotate.addArrow":  {"args": {"mediaId":"string","x1":"number","y1":"number","x2":"number","y2":"number","label":"string"}},
+  "annotate.text":      {"args": {"mediaId":"string","x":"number","y":"number","text":"string"}},
+  "annotate.blur":      {"args": {"mediaId":"string","x":"number","y":"number","w":"number","h":"number"}},
+  "measure.calibrate":  {"args": {"mediaId":"string","x1":"number","y1":"number","x2":"number","y2":"number","realInches":"number"}},
+  "measure.diameter":   {"args": {"mediaId":"string","x1":"number","y1":"number","x2":"number","y2":"number"}},
+  "estimate.treeWeight":{"args": {"species":"string","dbhIn":"number","lengthFt":"number","method":"string"}},
+  "video.markAndExport":{"args": {"mediaId":"string","marks":"array"}},
+  "report.snippet":    {"args": {"style":"string","bullets":"number","includeMath":"boolean"}}
+}
+```
+
+---
+
+## 9) Insurance‑Ready Output Templates
+
+**USAA / State Farm style (example fields)**
+
+* Claim #: \_\_\_\_  | Project: \_\_\_\_ | Address: \_\_\_\_ | Date: \_\_\_\_
+* **Damage Summary**: bullet points with references to annotated photo IDs
+* **Measurements**: stump diameters (in), limb lengths (ft), roof impact area (sq ft)
+* **Estimates**: formulas used for weight → disposal/rigging plans
+* **Safety & Pre‑Existing Conditions**: items identified **before** work (protects contractor)
+* Footer: chain‑of‑custody hashes of referenced media
+
+---
+
+## 10) Privacy, Safety, and Disclaimers
+
+* Always preserve **originals**; edits/overlays are derivatives with new keys.
+* Place a subtle watermark: “AI‑assisted estimate. Verify before use.”
+* Measurement/weight are **estimates**; include method & uncertainty.
+* Blur PII by default on public shares.
+* Log all AI actions with parameters and model versions used.
+
+---
+
+## 11) Next Steps (Incremental Build)
+
+1. Mount `AssistantDock` and connect WS.
+2. Implement `annotate.addCircle` → DB row + live overlay in UI.
+3. Add `measure.calibrate` + `measure.diameter` with tape overlay.
+4. Wire `report.snippet` → append to Report Builder captions/notes.
+5. Add FFmpeg pipeline for `video.markAndExport`.
+6. Add configurable **species equation table** for tree weight.
+7. Add hazard‑hint (optional TF.js) for assistive bounding boxes.
+
+This delivers a powerful, auditable AI assistant that talks, listens, and **works** on your media — exactly what your contractors and adjusters will love.
