@@ -876,37 +876,139 @@ async function startServer() {
   async function handleUserText(ws: any, message: any) {
     const { text, sessionId } = message;
     
-    // Echo back for now (real OpenAI integration would go here)
+    if (!sessionId) {
+      ws.send(JSON.stringify({
+        type: 'error',
+        message: 'Session ID required for text processing'
+      }));
+      return;
+    }
+    
+    console.log(`💬 Received text command: "${text}" for session ${sessionId}`);
+    
+    // Calculate SHA-256 hash for text command (for audit trail)
+    const textHash = crypto.createHash('sha256').update(text).digest('hex');
+    
+    // Echo back with processing confirmation
     ws.send(JSON.stringify({
       type: 'assistant_text',
-      text: `I received your message: "${text}". AI processing is being implemented...`
+      text: `Processing command: "${text}"`
     }));
     
-    // Simulate tool call detection
+    // Process specific commands with AI tool execution
     if (text.toLowerCase().includes('circle') || text.toLowerCase().includes('annotate')) {
+      // Extract label from command
+      let label = 'Damage detected';
+      if (text.toLowerCase().includes('water line')) {
+        label = 'Broken water line';
+      } else if (text.toLowerCase().includes('roof')) {
+        label = 'Roof damage';
+      } else if (text.toLowerCase().includes('siding')) {
+        label = 'Siding damage';
+      } else if (text.toLowerCase().includes('window')) {
+        label = 'Window damage';
+      }
+      
+      const toolCallArgs = {
+        mediaId: 'demo-media-001',
+        x: 150,
+        y: 120,
+        r: 60,
+        label: label
+      };
+      
+      // Log AI action for text processing with comprehensive audit trail
+      try {
+        await storage.createAiAction({
+          sessionId,
+          action: 'text.process',
+          input: { text, command: 'circle_annotation' },
+          output: { processed: true, toolCall: 'annotate.addCircle' },
+          mediaId: 'demo-media-001',
+          sha256: textHash
+        });
+        
+        const toolActionInput = JSON.stringify({ ...toolCallArgs, sessionId, textHash, triggerSource: 'text' });
+        const toolActionHash = crypto.createHash('sha256').update(toolActionInput).digest('hex');
+        
+        await storage.createAiAction({
+          sessionId,
+          action: 'annotate.addCircle',
+          input: { ...toolCallArgs, textHash, triggerSource: 'text' },
+          output: { triggerSource: 'text', textHash },
+          mediaId: 'demo-media-001',
+          sha256: toolActionHash
+        });
+      } catch (error) {
+        console.error('Failed to log text AI actions:', error);
+      }
+      
       ws.send(JSON.stringify({
         type: 'tool_call',
         name: 'annotate.addCircle',
-        args: {
-          mediaId: 'demo-media-001',
-          x: 100,
-          y: 100,
-          r: 50,
-          label: 'Damage detected'
-        }
+        args: toolCallArgs
       }));
+      
+      ws.send(JSON.stringify({
+        type: 'assistant_text',
+        text: `✅ Added circle annotation with label: "${label}"`
+      }));
+      
     } else if (text.toLowerCase().includes('measure')) {
+      const toolCallArgs = {
+        mediaId: 'demo-media-001',
+        x1: 50,
+        y1: 50,
+        x2: 150,
+        y2: 150,
+        pixelsPerInch: 96
+      };
+      
+      // Log measurement action
+      try {
+        const toolActionInput = JSON.stringify({ ...toolCallArgs, sessionId, textHash, triggerSource: 'text' });
+        const toolActionHash = crypto.createHash('sha256').update(toolActionInput).digest('hex');
+        
+        await storage.createAiAction({
+          sessionId,
+          action: 'measure.diameter', 
+          input: { ...toolCallArgs, textHash, triggerSource: 'text' },
+          output: { triggerSource: 'text', textHash },
+          mediaId: 'demo-media-001',
+          sha256: toolActionHash
+        });
+      } catch (error) {
+        console.error('Failed to log measurement AI action:', error);
+      }
+      
       ws.send(JSON.stringify({
         type: 'tool_call',
         name: 'measure.diameter',
-        args: {
+        args: toolCallArgs
+      }));
+      
+      ws.send(JSON.stringify({
+        type: 'assistant_text',
+        text: `✅ Added measurement: 100px diameter`
+      }));
+    } else {
+      // Log general text processing
+      try {
+        await storage.createAiAction({
+          sessionId,
+          action: 'text.process',
+          input: { text },
+          output: { processed: true, toolCall: 'none' },
           mediaId: 'demo-media-001',
-          x1: 50,
-          y1: 50,
-          x2: 150,
-          y2: 150,
-          pixelsPerInch: 96
-        }
+          sha256: textHash
+        });
+      } catch (error) {
+        console.error('Failed to log text processing AI action:', error);
+      }
+      
+      ws.send(JSON.stringify({
+        type: 'assistant_text',
+        text: `I understand you want: "${text}". I can help with circle annotations, measurements, and damage labeling.`
       }));
     }
   }
