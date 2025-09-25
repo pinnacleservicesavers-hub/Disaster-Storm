@@ -1,0 +1,35 @@
+3.3 Assistant flow
+
+User says: “Calibrate with the QR tag and measure that stump.”
+
+Assistant calls /api/calibrate/qr → stores scalePxPerInch in session.
+
+Assistant then calls /api/tape/overlay with (x1,y1,x2,y2) → returns PNG → pushes to Report Builder with caption Stump diameter: 22.4 in (AI‑estimated).
+
+For discovery: Assistant calls /api/hints/damage → offers “I found 3 likely damage regions — add labels?”
+
+4) Notes
+
+QR works great if you keep a printed 2‑inch square laminated card in trucks. AprilTag works similarly and is more robust to angle; keep it optional to avoid heavy deps.
+
+Always show an uncertainty note unless calibrated.
+
+Write each calibration/measurement as an ai_actions row with the source media sha256 for audit.
+
+This gives you hands‑free, accurate scale calibration via QR (or optional AprilTag), and quick damage‑hint suggestions your crews can confirm on site.
+
+Added! I dropped a new canvas doc “Disaster Lense — QR/AprilTag Calibration & Damage Hints.” It includes:
+
+QR calibration API (POST /api/calibrate/qr with jsqr) → returns scalePxPerInch using a known-size square QR (e.g., 2 in).
+
+Optional AprilTag endpoint (same API shape; returns 501 unless you install apriltag-wasm), so you can upgrade later without breaking anything.
+
+Damage-hints API (POST /api/hints/damage) → fast edge/texture heuristic that proposes top regions to review; you confirm & label.
+
+UI snippets showing how to calibrate from a photo, apply tape overlays with your existing endpoint, and let the Assistant chain these calls to auto-measure and push overlays/snippets into the report.
+
+If you want, I can now:
+
+add a tiny “Suggest Labels” function that takes the hint boxes and proposes likely labels (“root plate uplift,” “busted water line,” “fence impact”) for one-tap confirmation, and
+
+insert a Calibration panel into your current React UI (I see you edited “Disaster Lense — Api Stub & Supabase Seed” to house the UI) so crews can scan a QR, lock scale, and immediately measure.

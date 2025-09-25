@@ -180,11 +180,31 @@ export const ALLOMETRIC_EQUATIONS: Record<string, AllometricEquation> = {
   }
 };
 
-// Tool Execution Engine - Server maintains authority
+// Clean Tools Implementation - Your Simplified Pattern
+export const tools = {
+  async annotate_addCircle({ mediaId, x, y, r, label }: any) {
+    // persist annotation row; return id
+    return { annotationId: crypto.randomUUID() };
+  },
+  
+  async measure_diameterFromFrame({ mediaId, x1, y1, x2, y2, scalePxPerInch }: any) {
+    const px = Math.hypot(x2-x1, y2-y1);
+    const inches = px / scalePxPerInch;
+    return { inches, uncertaintyPct: 8 };
+  },
+  
+  async estimate_treeWeight({ species, dbhIn, lengthFt, method }: any) {
+    // Look up coefficients from DB table (configurable)
+    // Example placeholder: w = a * (dbhIn ** b) * (lengthFt ** c)
+    const a=0.15, b=2.4, c=0.9; // placeholder
+    const weight = a * Math.pow(dbhIn, b) * Math.pow(lengthFt, c);
+    return { weightLb: weight, formula: { a, b, c, method } };
+  }
+};
+
+// Clean Tool Executor - Maintains Audit Logging with Your Pattern
 class ToolExecutor {
   private storage: any;
-  private calibrations: Map<string, CalibrationData> = new Map();
-  private damageRegions: Map<string, DamageRegion> = new Map();
 
   constructor(storage: any) {
     this.storage = storage;
@@ -196,29 +216,21 @@ class ToolExecutor {
       .digest('hex');
 
     try {
-      let result: ToolResult;
-
-      switch (toolCall.name) {
-        case 'measure.calibrate':
-          result = await this.calibrateMeasurement(toolCall, sessionId);
-          break;
-        case 'measure.diameter': 
-          result = await this.measureDiameter(toolCall, sessionId);
-          break;
-        case 'tree.estimate_weight':
-          result = await this.estimateTreeWeight(toolCall, sessionId);
-          break;
-        case 'damage.detect_regions':
-          result = await this.detectDamageRegions(toolCall, sessionId);
-          break;
-        case 'damage.confirm_region':
-          result = await this.confirmDamageRegion(toolCall, sessionId);
-          break;
-        case 'annotate.addCircle':
-          result = await this.addCircleAnnotation(toolCall, sessionId);
-          break;
-        default:
-          throw new Error(`Unknown tool: ${toolCall.name}`);
+      let result: any;
+      
+      // Map tool names to your clean function names
+      const toolMap = {
+        'annotate.addCircle': 'annotate_addCircle',
+        'measure.diameter': 'measure_diameterFromFrame', 
+        'tree.estimate_weight': 'estimate_treeWeight'
+      };
+      
+      const cleanToolName = toolMap[toolCall.name as keyof typeof toolMap];
+      
+      if (cleanToolName && tools[cleanToolName as keyof typeof tools]) {
+        result = await tools[cleanToolName as keyof typeof tools](toolCall.arguments);
+      } else {
+        throw new Error(`Unknown tool: ${toolCall.name}`);
       }
 
       // Log successful tool execution for audit trail
@@ -226,12 +238,16 @@ class ToolExecutor {
         sessionId,
         action: toolCall.name,
         input: toolCall.arguments,
-        output: result.data || {},
+        output: result || {},
         mediaId: toolCall.arguments.mediaId || 'unknown',
         sha256: toolHash
       });
 
-      return result;
+      return {
+        id: toolCall.id,
+        success: true,
+        data: result
+      };
 
     } catch (error) {
       const errorResult: ToolResult = {
@@ -252,201 +268,6 @@ class ToolExecutor {
 
       return errorResult;
     }
-  }
-
-  private async calibrateMeasurement(toolCall: ToolCall, sessionId: string): Promise<ToolResult> {
-    const { method, pixelDistance, realWorldDistance, units, mediaId } = toolCall.arguments;
-    
-    const calibrationId = `cal_${Date.now()}`;
-    const uncertainty = this.calculateUncertainty(method);
-    
-    const calibration: CalibrationData = {
-      method, pixelDistance, realWorldDistance, units, uncertainty,
-      timestamp: new Date().toISOString(), calibrationId
-    };
-
-    this.calibrations.set(calibrationId, calibration);
-
-    return {
-      id: toolCall.id,
-      success: true,
-      data: {
-        calibrationId,
-        pixelsPerUnit: pixelDistance / realWorldDistance,
-        uncertainty: `±${uncertainty}%`,
-        method, units
-      },
-      metadata: { watermark: 'AI-estimated measurement calibration' }
-    };
-  }
-
-  private async measureDiameter(toolCall: ToolCall, sessionId: string): Promise<ToolResult> {
-    const { mediaId, x1, y1, x2, y2, calibrationId } = toolCall.arguments;
-    
-    const calibration = this.calibrations.get(calibrationId);
-    if (!calibration) {
-      throw new Error(`Calibration ${calibrationId} not found`);
-    }
-
-    const pixelDistance = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
-    const realWorldDistance = pixelDistance / (calibration.pixelDistance / calibration.realWorldDistance);
-    
-    return {
-      id: toolCall.id,
-      success: true,
-      data: {
-        pixelDistance: Math.round(pixelDistance * 100) / 100,
-        realWorldDistance: Math.round(realWorldDistance * 100) / 100,
-        units: calibration.units,
-        uncertainty: calibration.uncertainty,
-        calibrationId
-      },
-      metadata: {
-        watermark: `AI-estimated ${calibration.uncertainty}% uncertainty`,
-        tapeMeasure: true
-      }
-    };
-  }
-
-  private async estimateTreeWeight(toolCall: ToolCall, sessionId: string): Promise<ToolResult> {
-    const { species, dbh_inches, length_ft, equation_id } = toolCall.arguments;
-    
-    const equationKey = equation_id || this.findEquationBySpecies(species);
-    const equation = ALLOMETRIC_EQUATIONS[equationKey];
-    
-    if (!equation) {
-      throw new Error(`No allometric equation found for species: ${species}`);
-    }
-
-    const { base, dbh_exponent, density } = equation.coefficients;
-    const weight = base * Math.pow(dbh_inches, dbh_exponent) * length_ft * density;
-
-    return {
-      id: toolCall.id,
-      success: true,
-      data: {
-        weight_lbs: Math.round(weight * 100) / 100,
-        species: equation.species,
-        equation: equation.equation,
-        formula: equation.formula,
-        coefficients: equation.coefficients,
-        inputs: { dbh_inches, length_ft },
-        accuracy: equation.accuracy,
-        source: equation.source
-      },
-      metadata: {
-        watermark: `AI-estimated tree weight ${equation.accuracy} accuracy`,
-        equation_audit: equation.equation
-      }
-    };
-  }
-
-  private async detectDamageRegions(toolCall: ToolCall, sessionId: string): Promise<ToolResult> {
-    const { mediaId, damageTypes = [], confidence_threshold = 0.7 } = toolCall.arguments;
-    
-    // AI damage detection simulation (would call TensorFlow.js or vision models in production)
-    const detectedRegions: DamageRegion[] = [
-      {
-        type: 'cracked_limb',
-        confidence: 0.85,
-        bbox: { x: 120, y: 80, width: 60, height: 40 },
-        suggested: true,
-        userConfirmed: false
-      },
-      {
-        type: 'uprooted_root',
-        confidence: 0.92,
-        bbox: { x: 200, y: 300, width: 80, height: 60 },
-        suggested: true,
-        userConfirmed: false
-      }
-    ];
-
-    const filteredRegions = detectedRegions.filter(region => 
-      region.confidence >= confidence_threshold &&
-      (damageTypes.length === 0 || damageTypes.includes(region.type))
-    );
-
-    // Store regions for user confirmation
-    filteredRegions.forEach(region => {
-      const regionId = `damage_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      this.damageRegions.set(regionId, region);
-    });
-
-    return {
-      id: toolCall.id,
-      success: true,
-      data: {
-        regions: filteredRegions.map((region, idx) => ({
-          regionId: `damage_${Date.now()}_${idx}`,
-          ...region
-        })),
-        total_detected: detectedRegions.length,
-        filtered_count: filteredRegions.length,
-        confidence_threshold
-      },
-      metadata: {
-        requires_user_confirmation: true,
-        detection_model: 'TensorFlow.js damage detection v1.0'
-      }
-    };
-  }
-
-  private async confirmDamageRegion(toolCall: ToolCall, sessionId: string): Promise<ToolResult> {
-    const { regionId, confirmed, userAnnotation } = toolCall.arguments;
-    
-    const region = this.damageRegions.get(regionId);
-    if (!region) {
-      throw new Error(`Damage region ${regionId} not found`);
-    }
-
-    region.userConfirmed = confirmed;
-    this.damageRegions.set(regionId, region);
-
-    return {
-      id: toolCall.id,
-      success: true,
-      data: {
-        regionId, confirmed, userAnnotation,
-        original_confidence: region.confidence,
-        damage_type: region.type
-      },
-      metadata: { user_override: userAnnotation ? true : false }
-    };
-  }
-
-  private async addCircleAnnotation(toolCall: ToolCall, sessionId: string): Promise<ToolResult> {
-    const { mediaId, x, y, r, label, metadata = {} } = toolCall.arguments;
-    
-    const annotationId = `annotation_${Date.now()}`;
-    const annotation = {
-      id: annotationId, type: 'circle', mediaId,
-      coordinates: { x, y, r }, label, metadata,
-      createdAt: new Date().toISOString()
-    };
-
-    return {
-      id: toolCall.id,
-      success: true,
-      data: annotation
-    };
-  }
-
-  private calculateUncertainty(method: string): number {
-    switch (method) {
-      case 'reference_line': return 5;  // ±5%
-      case 'exif_focal': return 15;     // ±15%
-      case 'marker_tag': return 3;      // ±3%
-      default: return 20;               // ±20%
-    }
-  }
-
-  private findEquationBySpecies(species: string): string {
-    const normalized = species.toLowerCase();
-    if (normalized.includes('oak')) return 'oak_general';
-    if (normalized.includes('pine')) return 'pine_loblolly';
-    if (normalized.includes('maple')) return 'maple_sugar';
-    return 'oak_general'; // Default fallback
   }
 }
 

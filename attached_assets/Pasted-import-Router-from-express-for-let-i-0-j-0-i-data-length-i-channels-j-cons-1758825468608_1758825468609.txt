@@ -1,0 +1,74 @@
+import { Router } from 'express';
+for (let i = 0, j = 0; i < data.length; i += channels, j++) {
+const r = data[i], g = data[i+1], b = data[i+2];
+gray[j] = (r * 0.299 + g * 0.587 + b * 0.114) | 0;
+}
+
+
+const code = jsQR(gray, width, height);
+if (!code || !code.location) return res.status(404).json({ ok:false, error:'QR not found' });
+
+
+const loc = code.location;
+const corners = [loc.topLeftCorner, loc.topRightCorner, loc.bottomRightCorner, loc.bottomLeftCorner];
+// Approximate side length (average of four sides)
+function dist(a: any, b: any){ return Math.hypot(a.x - b.x, a.y - b.y); }
+const sides = [dist(corners[0], corners[1]), dist(corners[1], corners[2]), dist(corners[2], corners[3]), dist(corners[3], corners[0])];
+const avgSidePx = sides.reduce((a,b)=>a+b,0) / sides.length;
+
+
+const scalePxPerInch = avgSidePx / Number(markerInches);
+const confidence = Math.min(1, (avgSidePx / 40)); // rough heuristic
+
+
+res.json({ ok:true, scalePxPerInch, corners, confidence, payload: code.data });
+} catch (e:any) {
+res.status(500).json({ ok:false, error: String(e.message||e) });
+}
+});
+
+
+/* Optional AprilTag endpoint — requires apriltag-wasm */
+router.post('/apriltag', async (req, res) => {
+try {
+// @ts-ignore dynamic import to avoid hard dependency
+let at: any; try { at = await import('apriltag-wasm'); } catch { at = null; }
+if (!at) return res.status(501).json({ ok:false, error:'apriltag module not installed' });
+
+
+const { imageBase64, tagInches = 2.0 } = req.body || {};
+if (!imageBase64) return res.status(400).json({ ok:false, error:'imageBase64 required' });
+const b64 = String(imageBase64).split(',').pop();
+const buf = Buffer.from(b64!, 'base64');
+
+
+const { data, info } = await sharp(buf).resize({ width: 1600, withoutEnlargement: true }).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+const { width, height, channels } = info;
+
+
+// Build grayscale buffer for WASM
+const gray = new Uint8Array(width * height);
+for (let i = 0, j = 0; i < data.length; i += channels, j++) {
+const r = data[i], g = data[i+1], b = data[i+2];
+gray[j] = (r * 0.299 + g * 0.587 + b * 0.114) & 0xff;
+}
+
+
+const detector = await at.AprilTagDetector();
+const dets = detector.detect(gray, width, height);
+if (!dets || dets.length === 0) return res.status(404).json({ ok:false, error:'tag not found' });
+
+
+// Use first tag; compute average pixel side length
+const d = dets[0];
+const pts = d.corners; // [{x,y}*4]
+function dist(a:any,b:any){ return Math.hypot(a.x-b.x, a.y-b.y); }
+const sides = [dist(pts[0],pts[1]),dist(pts[1],pts[2]),dist(pts[2],pts[3]),dist(pts[3],pts[0])];
+const scalePxPerInch = (sides.reduce((a,b)=>a+b,0)/4) / Number(tagInches);
+
+
+res.json({ ok:true, scalePxPerInch, tagId: d.id, corners: pts });
+} catch (e:any) {
+res.status(500).json({ ok:false, error: String(e.message||e) });
+}
+});
