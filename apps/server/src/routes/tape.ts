@@ -31,28 +31,41 @@ router.post('/overlay', async (req, res) => {
     if (!k) return res.status(400).json({ ok:false, error:'Provide scalePxPerInch or realInches for calibration' });
     const inches = px / k;
 
-    const img = sharp(input);
-    const meta = await img.metadata();
-    const imgWidth = meta.width || 1000;
-    const imgHeight = meta.height || 1000;
+    // Build SVG overlay (line + ticks + label)
+    // Basic tick spacing ~ every inch (scaled to px)
+    const tickPx = Math.max(10, k); // at least 10px between ticks
+    const len = px;
+    const dx = (x2 - x1) / len;
+    const dy = (y2 - y1) / len;
 
-    // Build simple SVG overlay (just line + label)
+    const ticks: string[] = [];
+    for (let s = 0; s <= len; s += tickPx) {
+      const tx = x1 + dx * s;
+      const ty = y1 + dy * s;
+      const nx = -dy; const ny = dx; // normal
+      const tlen = (s % (tickPx*12) === 0) ? 10 : 6; // foot-ish accent if k ~ px/in
+      ticks.push(`<line x1="${tx - nx*tlen}" y1="${ty - ny*tlen}" x2="${tx + nx*tlen}" y2="${ty + ny*tlen}" stroke="${color}" stroke-width="2" />`);
+    }
+
     const midx = (x1+x2)/2; const midy = (y1+y2)/2;
     const textLabel = label || `${inches.toFixed(1)} in`;
 
-    // Create SVG overlay
-    const svg = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${imgWidth}" height="${imgHeight}">
-        <line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${color}" stroke-width="4" />
-        <rect x="${Math.max(0, midx-40)}" y="${Math.max(0, midy-12)}" width="80" height="24" rx="4" ry="4" fill="black" fill-opacity="0.7" />
-        <text x="${midx}" y="${midy+4}" fill="white" font-size="14" font-family="Arial, sans-serif" text-anchor="middle">${textLabel}</text>
+    const svg = Buffer.from(`<?xml version="1.0"?>
+      <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 4000 4000" preserveAspectRatio="none">
+        <g>
+          <line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${color}" stroke-width="4" />
+          ${ticks.join('\n')}
+          <rect x="${midx-80}" y="${midy-26}" width="160" height="24" rx="6" ry="6" fill="black" fill-opacity="0.6" />
+          <text x="${midx}" y="${midy-8}" fill="white" font-size="18" font-family="Arial" text-anchor="middle">${textLabel}</text>
+        </g>
       </svg>`);
 
-    // Convert SVG to PNG first, then composite
-    const svgImg = await sharp(svg).png().toBuffer();
-    
-    // Composite with svg overlay
+    const img = sharp(input);
+    const meta = await img.metadata();
+
+    // Composite with svg; use image size as canvas to avoid scaling issues
     const out = await img
-      .composite([{ input: svgImg, top: 0, left: 0 }])
+      .composite([{ input: svg, gravity: 'northwest' }])
       .png()
       .toBuffer();
 
