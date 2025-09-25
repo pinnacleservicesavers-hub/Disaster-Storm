@@ -94,7 +94,28 @@ import {
   type Mission,
   type InsertMission,
   type Telemetry,
-  type InsertTelemetry
+  type InsertTelemetry,
+  // Disaster Lens entities
+  type Organization,
+  type InsertOrganization,
+  type OrganizationMember,
+  type InsertOrganizationMember,
+  type Project,
+  type InsertProject,
+  type Media,
+  type InsertMedia,
+  type Annotation,
+  type InsertAnnotation,
+  type Comment,
+  type InsertComment,
+  type DisasterTask,
+  type InsertDisasterTask,
+  type DisasterReport,
+  type InsertDisasterReport,
+  type Share,
+  type InsertShare,
+  type AuditLogEntry,
+  type InsertAuditLogEntry
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import fs from "fs";
@@ -496,6 +517,77 @@ export interface IStorage {
   deleteStormShareAdCampaign(id: string): Promise<boolean>;
   incrementAdImpressions(campaignId: string): Promise<void>;
   incrementAdClicks(campaignId: string): Promise<void>;
+
+  // ===== DISASTER LENS METHODS =====
+  
+  // Organization methods
+  getOrganizations(): Promise<Organization[]>;
+  getOrganization(id: string): Promise<Organization | undefined>;
+  createOrganization(org: InsertOrganization): Promise<Organization>;
+  updateOrganization(id: string, updates: Partial<Organization>): Promise<Organization>;
+  
+  // Organization Member methods
+  getOrganizationMembers(orgId: string): Promise<OrganizationMember[]>;
+  getOrganizationMembership(userId: string, orgId: string): Promise<OrganizationMember | undefined>;
+  getUserOrganizations(userId: string): Promise<OrganizationMember[]>;
+  createOrganizationMember(member: InsertOrganizationMember): Promise<OrganizationMember>;
+  updateOrganizationMember(orgId: string, userId: string, updates: Partial<OrganizationMember>): Promise<OrganizationMember>;
+  deleteOrganizationMember(orgId: string, userId: string): Promise<boolean>;
+
+  // Project methods
+  getProjects(query?: { orgId?: string; status?: string; search?: string }): Promise<Project[]>;
+  getProject(id: string): Promise<Project | undefined>;
+  createProject(project: InsertProject): Promise<Project>;
+  updateProject(id: string, updates: Partial<Project>): Promise<Project>;
+  deleteProject(id: string): Promise<boolean>;
+  
+  // Media methods
+  getMediaByProject(projectId: string): Promise<Media[]>;
+  getMedia(id: string): Promise<Media | undefined>;
+  createMedia(media: InsertMedia): Promise<Media>;
+  updateMedia(id: string, updates: Partial<Media>): Promise<Media>;
+  deleteMedia(id: string): Promise<boolean>;
+  
+  // Annotation methods
+  getAnnotationsByMedia(mediaId: string): Promise<Annotation[]>;
+  getAnnotation(id: string): Promise<Annotation | undefined>;
+  createAnnotation(annotation: InsertAnnotation): Promise<Annotation>;
+  updateAnnotation(id: string, updates: Partial<Annotation>): Promise<Annotation>;
+  deleteAnnotation(id: string): Promise<boolean>;
+  
+  // Comment methods
+  getCommentsByProject(projectId: string): Promise<Comment[]>;
+  getCommentsByMedia(mediaId: string): Promise<Comment[]>;
+  getComment(id: string): Promise<Comment | undefined>;
+  createComment(comment: InsertComment): Promise<Comment>;
+  updateComment(id: string, updates: Partial<Comment>): Promise<Comment>;
+  deleteComment(id: string): Promise<boolean>;
+  
+  // Disaster Task methods
+  getDisasterTasksByProject(projectId: string): Promise<DisasterTask[]>;
+  getDisasterTask(id: string): Promise<DisasterTask | undefined>;
+  createDisasterTask(task: InsertDisasterTask): Promise<DisasterTask>;
+  updateDisasterTask(id: string, updates: Partial<DisasterTask>): Promise<DisasterTask>;
+  deleteDisasterTask(id: string): Promise<boolean>;
+  
+  // Disaster Report methods
+  getDisasterReportsByProject(projectId: string): Promise<DisasterReport[]>;
+  getDisasterReport(id: string): Promise<DisasterReport | undefined>;
+  createDisasterReport(report: InsertDisasterReport): Promise<DisasterReport>;
+  updateDisasterReport(id: string, updates: Partial<DisasterReport>): Promise<DisasterReport>;
+  deleteDisasterReport(id: string): Promise<boolean>;
+  
+  // Share methods
+  getSharesByProject(projectId: string): Promise<Share[]>;
+  getShare(id: string): Promise<Share | undefined>;
+  getShareByToken(token: string): Promise<Share | undefined>;
+  createShare(share: InsertShare): Promise<Share>;
+  updateShare(id: string, updates: Partial<Share>): Promise<Share>;
+  deleteShare(id: string): Promise<boolean>;
+  
+  // Audit Log methods
+  createAuditLog(entry: InsertAuditLogEntry): Promise<AuditLogEntry>;
+  getAuditLogByProject(projectId: string): Promise<AuditLogEntry[]>;
 }
 
 export class MemStorage implements IStorage {
@@ -561,6 +653,18 @@ export class MemStorage implements IStorage {
   private helpRequests: Map<string, HelpRequest> = new Map();
   private stormShareMediaAssets: Map<string, StormShareMediaAsset> = new Map();
   private stormShareAdCampaigns: Map<string, StormShareAdCampaign> = new Map();
+
+  // Disaster Lens Storage
+  private organizations: Map<string, Organization> = new Map();
+  private organizationMembers: Map<string, OrganizationMember> = new Map();
+  private projects: Map<string, Project> = new Map();
+  private media: Map<string, Media> = new Map();
+  private annotations: Map<string, Annotation> = new Map();
+  private comments: Map<string, Comment> = new Map();
+  private disasterTasks: Map<string, DisasterTask> = new Map();
+  private disasterReports: Map<string, DisasterReport> = new Map();
+  private shares: Map<string, Share> = new Map();
+  private auditLog: Map<string, AuditLogEntry> = new Map();
 
   constructor() {
     console.log('🏗️ Initializing MemStorage...');
@@ -769,6 +873,9 @@ export class MemStorage implements IStorage {
     });
 
     console.log('👥 Seeded sample StormShare groups:', sampleGroups.length);
+    
+    // Initialize Disaster Lens sample data
+    this.initializeDisasterLensSampleData();
   }
 
   // User methods
@@ -2966,6 +3073,498 @@ export class MemStorage implements IStorage {
       campaign.updatedAt = new Date();
       this.stormShareAdCampaigns.set(campaignId, campaign);
     }
+  }
+
+  // ===== DISASTER LENS IMPLEMENTATIONS =====
+
+  // Organization methods
+  async getOrganizations(): Promise<Organization[]> {
+    return Array.from(this.organizations.values());
+  }
+
+  async getOrganization(id: string): Promise<Organization | undefined> {
+    return this.organizations.get(id);
+  }
+
+  async createOrganization(insertOrg: InsertOrganization): Promise<Organization> {
+    const id = randomUUID();
+    const organization: Organization = {
+      ...insertOrg,
+      id,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.organizations.set(id, organization);
+    return organization;
+  }
+
+  async updateOrganization(id: string, updates: Partial<Organization>): Promise<Organization> {
+    const organization = this.organizations.get(id);
+    if (!organization) throw new Error("Organization not found");
+    
+    const updatedOrg = { ...organization, ...updates, updatedAt: new Date() };
+    this.organizations.set(id, updatedOrg);
+    return updatedOrg;
+  }
+
+  // Organization Member methods
+  async getOrganizationMembers(orgId: string): Promise<OrganizationMember[]> {
+    return Array.from(this.organizationMembers.values()).filter(member => member.organizationId === orgId);
+  }
+
+  async getOrganizationMembership(userId: string, orgId: string): Promise<OrganizationMember | undefined> {
+    return Array.from(this.organizationMembers.values()).find(
+      member => member.userId === userId && member.organizationId === orgId
+    );
+  }
+
+  async getUserOrganizations(userId: string): Promise<OrganizationMember[]> {
+    return Array.from(this.organizationMembers.values()).filter(member => member.userId === userId);
+  }
+
+  async createOrganizationMember(insertMember: InsertOrganizationMember): Promise<OrganizationMember> {
+    const id = randomUUID();
+    const member: OrganizationMember = {
+      ...insertMember,
+      id,
+      createdAt: new Date(),
+      joinedAt: new Date()
+    };
+    this.organizationMembers.set(id, member);
+    return member;
+  }
+
+  async updateOrganizationMember(orgId: string, userId: string, updates: Partial<OrganizationMember>): Promise<OrganizationMember> {
+    const member = await this.getOrganizationMembership(userId, orgId);
+    if (!member) throw new Error("Organization member not found");
+    
+    const updatedMember = { ...member, ...updates };
+    this.organizationMembers.set(member.id, updatedMember);
+    return updatedMember;
+  }
+
+  async deleteOrganizationMember(orgId: string, userId: string): Promise<boolean> {
+    const member = await this.getOrganizationMembership(userId, orgId);
+    if (!member) return false;
+    
+    return this.organizationMembers.delete(member.id);
+  }
+
+  // Project methods
+  async getProjects(query?: { orgId?: string; status?: string; search?: string }): Promise<Project[]> {
+    let projects = Array.from(this.projects.values());
+    
+    if (query?.orgId) {
+      projects = projects.filter(project => project.organizationId === query.orgId);
+    }
+    
+    if (query?.status) {
+      projects = projects.filter(project => project.status === query.status);
+    }
+    
+    if (query?.search) {
+      const searchTerm = query.search.toLowerCase();
+      projects = projects.filter(project =>
+        project.name.toLowerCase().includes(searchTerm) ||
+        (project.description && project.description.toLowerCase().includes(searchTerm)) ||
+        (project.clientName && project.clientName.toLowerCase().includes(searchTerm)) ||
+        (project.propertyAddress && project.propertyAddress.toLowerCase().includes(searchTerm))
+      );
+    }
+    
+    return projects;
+  }
+
+  async getProject(id: string): Promise<Project | undefined> {
+    return this.projects.get(id);
+  }
+
+  async createProject(insertProject: InsertProject): Promise<Project> {
+    const id = randomUUID();
+    const project: Project = {
+      ...insertProject,
+      id,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.projects.set(id, project);
+    return project;
+  }
+
+  async updateProject(id: string, updates: Partial<Project>): Promise<Project> {
+    const project = this.projects.get(id);
+    if (!project) throw new Error("Project not found");
+    
+    const updatedProject = { ...project, ...updates, updatedAt: new Date() };
+    this.projects.set(id, updatedProject);
+    return updatedProject;
+  }
+
+  async deleteProject(id: string): Promise<boolean> {
+    return this.projects.delete(id);
+  }
+
+  // Media methods
+  async getMediaByProject(projectId: string): Promise<Media[]> {
+    return Array.from(this.media.values()).filter(media => media.projectId === projectId);
+  }
+
+  async getMedia(id: string): Promise<Media | undefined> {
+    return this.media.get(id);
+  }
+
+  async createMedia(insertMedia: InsertMedia): Promise<Media> {
+    const id = randomUUID();
+    const media: Media = {
+      ...insertMedia,
+      id,
+      createdAt: new Date()
+    };
+    this.media.set(id, media);
+    return media;
+  }
+
+  async updateMedia(id: string, updates: Partial<Media>): Promise<Media> {
+    const media = this.media.get(id);
+    if (!media) throw new Error("Media not found");
+    
+    const updatedMedia = { ...media, ...updates };
+    this.media.set(id, updatedMedia);
+    return updatedMedia;
+  }
+
+  async deleteMedia(id: string): Promise<boolean> {
+    return this.media.delete(id);
+  }
+
+  // Annotation methods
+  async getAnnotationsByMedia(mediaId: string): Promise<Annotation[]> {
+    return Array.from(this.annotations.values()).filter(annotation => annotation.mediaId === mediaId);
+  }
+
+  async getAnnotation(id: string): Promise<Annotation | undefined> {
+    return this.annotations.get(id);
+  }
+
+  async createAnnotation(insertAnnotation: InsertAnnotation): Promise<Annotation> {
+    const id = randomUUID();
+    const annotation: Annotation = {
+      ...insertAnnotation,
+      id,
+      createdAt: new Date()
+    };
+    this.annotations.set(id, annotation);
+    return annotation;
+  }
+
+  async updateAnnotation(id: string, updates: Partial<Annotation>): Promise<Annotation> {
+    const annotation = this.annotations.get(id);
+    if (!annotation) throw new Error("Annotation not found");
+    
+    const updatedAnnotation = { ...annotation, ...updates };
+    this.annotations.set(id, updatedAnnotation);
+    return updatedAnnotation;
+  }
+
+  async deleteAnnotation(id: string): Promise<boolean> {
+    return this.annotations.delete(id);
+  }
+
+  // Comment methods
+  async getCommentsByProject(projectId: string): Promise<Comment[]> {
+    return Array.from(this.comments.values()).filter(comment => comment.projectId === projectId);
+  }
+
+  async getCommentsByMedia(mediaId: string): Promise<Comment[]> {
+    return Array.from(this.comments.values()).filter(comment => comment.mediaId === mediaId);
+  }
+
+  async getComment(id: string): Promise<Comment | undefined> {
+    return this.comments.get(id);
+  }
+
+  async createComment(insertComment: InsertComment): Promise<Comment> {
+    const id = randomUUID();
+    const comment: Comment = {
+      ...insertComment,
+      id,
+      createdAt: new Date()
+    };
+    this.comments.set(id, comment);
+    return comment;
+  }
+
+  async updateComment(id: string, updates: Partial<Comment>): Promise<Comment> {
+    const comment = this.comments.get(id);
+    if (!comment) throw new Error("Comment not found");
+    
+    const updatedComment = { ...comment, ...updates };
+    this.comments.set(id, updatedComment);
+    return updatedComment;
+  }
+
+  async deleteComment(id: string): Promise<boolean> {
+    return this.comments.delete(id);
+  }
+
+  // Disaster Task methods
+  async getDisasterTasksByProject(projectId: string): Promise<DisasterTask[]> {
+    return Array.from(this.disasterTasks.values()).filter(task => task.projectId === projectId);
+  }
+
+  async getDisasterTask(id: string): Promise<DisasterTask | undefined> {
+    return this.disasterTasks.get(id);
+  }
+
+  async createDisasterTask(insertTask: InsertDisasterTask): Promise<DisasterTask> {
+    const id = randomUUID();
+    const task: DisasterTask = {
+      ...insertTask,
+      id,
+      createdAt: new Date()
+    };
+    this.disasterTasks.set(id, task);
+    return task;
+  }
+
+  async updateDisasterTask(id: string, updates: Partial<DisasterTask>): Promise<DisasterTask> {
+    const task = this.disasterTasks.get(id);
+    if (!task) throw new Error("Disaster task not found");
+    
+    const updatedTask = { ...task, ...updates };
+    if (updates.status === 'done' && !task.completedAt) {
+      updatedTask.completedAt = new Date();
+    }
+    this.disasterTasks.set(id, updatedTask);
+    return updatedTask;
+  }
+
+  async deleteDisasterTask(id: string): Promise<boolean> {
+    return this.disasterTasks.delete(id);
+  }
+
+  // Disaster Report methods
+  async getDisasterReportsByProject(projectId: string): Promise<DisasterReport[]> {
+    return Array.from(this.disasterReports.values()).filter(report => report.projectId === projectId);
+  }
+
+  async getDisasterReport(id: string): Promise<DisasterReport | undefined> {
+    return this.disasterReports.get(id);
+  }
+
+  async createDisasterReport(insertReport: InsertDisasterReport): Promise<DisasterReport> {
+    const id = randomUUID();
+    const report: DisasterReport = {
+      ...insertReport,
+      id,
+      createdAt: new Date()
+    };
+    this.disasterReports.set(id, report);
+    return report;
+  }
+
+  async updateDisasterReport(id: string, updates: Partial<DisasterReport>): Promise<DisasterReport> {
+    const report = this.disasterReports.get(id);
+    if (!report) throw new Error("Disaster report not found");
+    
+    const updatedReport = { ...report, ...updates };
+    this.disasterReports.set(id, updatedReport);
+    return updatedReport;
+  }
+
+  async deleteDisasterReport(id: string): Promise<boolean> {
+    return this.disasterReports.delete(id);
+  }
+
+  // Share methods
+  async getSharesByProject(projectId: string): Promise<Share[]> {
+    return Array.from(this.shares.values()).filter(share => share.projectId === projectId);
+  }
+
+  async getShare(id: string): Promise<Share | undefined> {
+    return this.shares.get(id);
+  }
+
+  async getShareByToken(token: string): Promise<Share | undefined> {
+    return Array.from(this.shares.values()).find(share => share.token === token);
+  }
+
+  async createShare(insertShare: InsertShare): Promise<Share> {
+    const id = randomUUID();
+    const share: Share = {
+      ...insertShare,
+      id,
+      createdAt: new Date()
+    };
+    this.shares.set(id, share);
+    return share;
+  }
+
+  async updateShare(id: string, updates: Partial<Share>): Promise<Share> {
+    const share = this.shares.get(id);
+    if (!share) throw new Error("Share not found");
+    
+    const updatedShare = { ...share, ...updates };
+    this.shares.set(id, updatedShare);
+    return updatedShare;
+  }
+
+  async deleteShare(id: string): Promise<boolean> {
+    return this.shares.delete(id);
+  }
+
+  // Audit Log methods
+  async createAuditLog(insertEntry: InsertAuditLogEntry): Promise<AuditLogEntry> {
+    const id = randomUUID();
+    const entry: AuditLogEntry = {
+      ...insertEntry,
+      id,
+      at: new Date()
+    };
+    this.auditLog.set(id, entry);
+    return entry;
+  }
+
+  async getAuditLogByProject(projectId: string): Promise<AuditLogEntry[]> {
+    return Array.from(this.auditLog.values()).filter(entry => entry.entityId === projectId);
+  }
+
+  // Initialize Disaster Lens sample data
+  private initializeDisasterLensSampleData() {
+    // Create sample organization
+    const sampleOrg: Organization = {
+      id: 'dl-org-001',
+      name: 'Demo Construction Company',
+      slug: 'demo-construction',
+      type: 'contractor',
+      description: 'Professional storm damage restoration and construction services',
+      ownerId: 'contractor-001',
+      settings: {
+        defaultPermissions: ['project_read', 'media_read'],
+        brandingColor: '#2563eb'
+      },
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.organizations.set(sampleOrg.id, sampleOrg);
+
+    // Add organization member
+    const sampleMember: OrganizationMember = {
+      id: 'dl-member-001',
+      organizationId: 'dl-org-001',
+      userId: 'contractor-001',
+      role: 'owner',
+      permissions: ['project_read', 'project_write', 'media_read', 'media_write'],
+      createdAt: new Date(),
+      joinedAt: new Date()
+    };
+    this.organizationMembers.set(sampleMember.id, sampleMember);
+
+    // Create sample project
+    const sampleProject: Project = {
+      id: 'dl-project-001',
+      organizationId: 'dl-org-001',
+      name: 'Hurricane Damage Assessment - Miami Beach Property',
+      description: 'Complete damage documentation for insurance claim following Hurricane Alexandra',
+      clientName: 'Johnson Family',
+      propertyAddress: '1234 Ocean Drive, Miami Beach, FL 33139',
+      latitude: 25.7817,
+      longitude: -80.1778,
+      tags: ['hurricane', 'residential', 'roof-damage', 'water-damage'],
+      status: 'active',
+      createdBy: 'contractor-001',
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.projects.set(sampleProject.id, sampleProject);
+
+    // Create sample media
+    const sampleMedia: Media = {
+      id: 'dl-media-001',
+      projectId: 'dl-project-001',
+      uploadedBy: 'contractor-001',
+      fileKey: 'dl-project-001/sample-roof-damage.jpg',
+      fileName: 'roof-damage-northeast-corner.jpg',
+      fileType: 'image/jpeg',
+      fileSize: 2453670,
+      sha256: 'a1b2c3d4e5f6789012345678901234567890abcdef',
+      latitude: 25.7817,
+      longitude: -80.1778,
+      metadata: {
+        exif: {
+          camera: 'iPhone 14 Pro',
+          capturedAt: '2024-09-25T10:30:00Z'
+        },
+        gps: {
+          latitude: 25.7817,
+          longitude: -80.1778
+        }
+      },
+      createdAt: new Date()
+    };
+    this.media.set(sampleMedia.id, sampleMedia);
+
+    // Create sample annotation
+    const sampleAnnotation: Annotation = {
+      id: 'dl-annotation-001',
+      mediaId: 'dl-media-001',
+      userId: 'contractor-001',
+      type: 'damage_highlight',
+      data: {
+        severity: 'high',
+        damageType: 'missing_shingles',
+        description: 'Multiple shingles missing from northeast corner, exposing underlayment'
+      },
+      coordinates: {
+        x: 120,
+        y: 80,
+        width: 150,
+        height: 100
+      },
+      createdAt: new Date()
+    };
+    this.annotations.set(sampleAnnotation.id, sampleAnnotation);
+
+    // Create sample task
+    const sampleTask: DisasterTask = {
+      id: 'dl-task-001',
+      projectId: 'dl-project-001',
+      title: 'Complete exterior documentation',
+      description: 'Capture comprehensive photos of all exterior damage for insurance claim',
+      assignedTo: 'contractor-001',
+      createdBy: 'contractor-001',
+      status: 'in_progress',
+      priority: 'high',
+      dueDate: new Date(Date.now() + 24 * 60 * 60 * 1000), // Tomorrow
+      completedAt: null,
+      createdAt: new Date()
+    };
+    this.disasterTasks.set(sampleTask.id, sampleTask);
+
+    // Create sample report
+    const sampleReport: DisasterReport = {
+      id: 'dl-report-001',
+      projectId: 'dl-project-001',
+      title: 'Hurricane Alexandra Damage Assessment Report',
+      template: 'insurance_claim',
+      mediaIds: ['dl-media-001'],
+      sections: [
+        {
+          title: 'Executive Summary',
+          content: 'Property sustained significant damage from Hurricane Alexandra on September 20, 2024.'
+        },
+        {
+          title: 'Roof Damage Assessment',
+          content: 'Northeast corner shows severe shingle loss requiring immediate attention.'
+        }
+      ],
+      createdBy: 'contractor-001',
+      status: 'draft',
+      createdAt: new Date()
+    };
+    this.disasterReports.set(sampleReport.id, sampleReport);
+
+    console.log('📸 Initialized Disaster Lens sample data: 1 org, 1 project, 1 media, 1 annotation, 1 task, 1 report');
   }
   // ===== SAMPLE DATA INITIALIZATION =====
   

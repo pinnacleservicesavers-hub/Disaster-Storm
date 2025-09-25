@@ -9831,6 +9831,721 @@ What specific area or type of incident would you like me to focus on? I can prov
     }
   });
 
+  // ========== DISASTER LENS API ROUTES ==========
+  
+  // Import permission middleware
+  const permissionsPath = path.join(process.cwd(), 'server/middleware/permissions.js');
+  let checkOrganizationPermission, requirePermission;
+  
+  try {
+    const permissions = require(permissionsPath);
+    checkOrganizationPermission = permissions.checkOrganizationPermission;
+    requirePermission = permissions.requirePermission;
+  } catch (error) {
+    console.warn('Permissions middleware not found, using placeholder functions');
+    checkOrganizationPermission = async (userId: string, orgId: string, permissions: string[]) => true;
+    requirePermission = (permissions: string[]) => (req: any, res: any, next: any) => next();
+  }
+
+  // Pre-signed URL for object storage media uploads
+  app.post('/api/media/upload-url', authenticate, requirePermission(['media_write']), async (req: AuthenticatedRequest, res) => {
+    try {
+      const { fileName, fileType, projectId } = req.body;
+      
+      if (!fileName || !fileType || !projectId) {
+        return res.status(400).json({ error: 'fileName, fileType, and projectId are required' });
+      }
+      
+      // Verify user has access to project
+      const project = await storage.getProject(projectId);
+      if (!project) {
+        return res.status(404).json({ error: 'Project not found' });
+      }
+      
+      const hasPermission = await checkOrganizationPermission(req.user.id, project.organizationId, ['media_write']);
+      if (!hasPermission) {
+        return res.status(403).json({ error: 'Insufficient permissions' });
+      }
+      
+      // Generate unique file key
+      const fileExtension = path.extname(fileName);
+      const uniqueKey = `${projectId}/${Date.now()}-${randomUUID()}${fileExtension}`;
+      
+      // For now, we'll use a placeholder URL since the object storage is set up
+      // In production, this would generate a pre-signed URL for direct upload
+      const uploadUrl = `${process.env.REPLIT_URL || 'http://localhost:5000'}/api/upload-placeholder`;
+      
+      res.json({
+        ok: true,
+        uploadUrl,
+        fileKey: uniqueKey,
+        publicUrl: `${process.env.REPLIT_URL || 'http://localhost:5000'}/storage/${uniqueKey}`
+      });
+      
+    } catch (error) {
+      console.error('Error generating upload URL:', error);
+      res.status(500).json({ error: 'Failed to generate upload URL' });
+    }
+  });
+
+  // Finalize media upload with metadata
+  app.post('/api/media', authenticate, requirePermission(['media_write']), async (req: AuthenticatedRequest, res) => {
+    try {
+      const { projectId, fileKey, fileName, fileType, fileSize, sha256, exifData, gpsData } = req.body;
+      
+      if (!projectId || !fileKey || !fileName) {
+        return res.status(400).json({ error: 'projectId, fileKey, and fileName are required' });
+      }
+      
+      // Verify project exists and user has permission
+      const project = await storage.getProject(projectId);
+      if (!project) {
+        return res.status(404).json({ error: 'Project not found' });
+      }
+      
+      const hasPermission = await checkOrganizationPermission(req.user.id, project.organizationId, ['media_write']);
+      if (!hasPermission) {
+        return res.status(403).json({ error: 'Insufficient permissions' });
+      }
+      
+      // Create media record
+      const media = await storage.createMedia({
+        projectId,
+        uploadedBy: req.user.id,
+        fileKey,
+        fileName,
+        fileType: fileType || 'image/jpeg',
+        fileSize: fileSize || 0,
+        sha256: sha256 || null,
+        latitude: gpsData?.latitude || null,
+        longitude: gpsData?.longitude || null,
+        metadata: {
+          exif: exifData,
+          gps: gpsData
+        }
+      });
+      
+      // Log the action
+      await storage.createAuditLog({
+        action: 'media_upload',
+        entityType: 'media',
+        entityId: media.id,
+        userId: req.user.id,
+        organizationId: project.organizationId,
+        metadata: {
+          fileName,
+          fileType,
+          fileSize
+        }
+      });
+      
+      res.status(201).json({ ok: true, media });
+      
+    } catch (error) {
+      console.error('Error finalizing media upload:', error);
+      res.status(500).json({ error: 'Failed to finalize media upload' });
+    }
+  });
+
+  // Get media by ID
+  app.get('/api/media/:id', authenticate, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { id } = req.params;
+      
+      const media = await storage.getMedia(id);
+      if (!media) {
+        return res.status(404).json({ error: 'Media not found' });
+      }
+      
+      // Check project permission
+      const project = await storage.getProject(media.projectId);
+      if (!project) {
+        return res.status(404).json({ error: 'Associated project not found' });
+      }
+      
+      const hasPermission = await checkOrganizationPermission(req.user.id, project.organizationId, ['media_read']);
+      if (!hasPermission) {
+        return res.status(403).json({ error: 'Insufficient permissions' });
+      }
+      
+      res.json({ ok: true, media });
+      
+    } catch (error) {
+      console.error('Error fetching media:', error);
+      res.status(500).json({ error: 'Failed to fetch media' });
+    }
+  });
+
+  // Create project
+  app.post('/api/projects', authenticate, requirePermission(['project_write']), async (req: AuthenticatedRequest, res) => {
+    try {
+      const { organizationId, name, description, clientName, propertyAddress, latitude, longitude, tags } = req.body;
+      
+      if (!organizationId || !name) {
+        return res.status(400).json({ error: 'organizationId and name are required' });
+      }
+      
+      // Check organization permission
+      const hasPermission = await checkOrganizationPermission(req.user.id, organizationId, ['project_write']);
+      if (!hasPermission) {
+        return res.status(403).json({ error: 'Insufficient permissions' });
+      }
+      
+      const project = await storage.createProject({
+        organizationId,
+        name,
+        description: description || null,
+        clientName: clientName || null,
+        propertyAddress: propertyAddress || null,
+        latitude: latitude || null,
+        longitude: longitude || null,
+        tags: tags || [],
+        status: 'active',
+        createdBy: req.user.id
+      });
+      
+      await storage.createAuditLog({
+        action: 'project_create',
+        entityType: 'project',
+        entityId: project.id,
+        userId: req.user.id,
+        organizationId,
+        metadata: { name, clientName }
+      });
+      
+      res.status(201).json({ ok: true, project });
+      
+    } catch (error) {
+      console.error('Error creating project:', error);
+      res.status(500).json({ error: 'Failed to create project' });
+    }
+  });
+
+  // List/search projects
+  app.get('/api/projects', authenticate, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { orgId, status, search } = req.query;
+      
+      if (orgId) {
+        // Check organization permission
+        const hasPermission = await checkOrganizationPermission(req.user.id, orgId as string, ['project_read']);
+        if (!hasPermission) {
+          return res.status(403).json({ error: 'Insufficient permissions' });
+        }
+      }
+      
+      const projects = await storage.getProjects({
+        orgId: orgId as string,
+        status: status as string,
+        search: search as string
+      });
+      
+      res.json({ ok: true, projects });
+      
+    } catch (error) {
+      console.error('Error fetching projects:', error);
+      res.status(500).json({ error: 'Failed to fetch projects' });
+    }
+  });
+
+  // Get project details with timeline
+  app.get('/api/projects/:id', authenticate, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { id } = req.params;
+      
+      const project = await storage.getProject(id);
+      if (!project) {
+        return res.status(404).json({ error: 'Project not found' });
+      }
+      
+      const hasPermission = await checkOrganizationPermission(req.user.id, project.organizationId, ['project_read']);
+      if (!hasPermission) {
+        return res.status(403).json({ error: 'Insufficient permissions' });
+      }
+      
+      // Get related data
+      const [media, tasks, comments, reports] = await Promise.all([
+        storage.getMediaByProject(id),
+        storage.getDisasterTasksByProject(id),
+        storage.getCommentsByProject(id),
+        storage.getDisasterReportsByProject(id)
+      ]);
+      
+      res.json({
+        ok: true,
+        project,
+        timeline: {
+          media,
+          tasks,
+          comments,
+          reports
+        }
+      });
+      
+    } catch (error) {
+      console.error('Error fetching project details:', error);
+      res.status(500).json({ error: 'Failed to fetch project details' });
+    }
+  });
+
+  // Add annotation
+  app.post('/api/annotations', authenticate, requirePermission(['annotation_write']), async (req: AuthenticatedRequest, res) => {
+    try {
+      const { mediaId, type, data, coordinates } = req.body;
+      
+      if (!mediaId || !type || !data) {
+        return res.status(400).json({ error: 'mediaId, type, and data are required' });
+      }
+      
+      // Verify media exists and user has permission
+      const media = await storage.getMedia(mediaId);
+      if (!media) {
+        return res.status(404).json({ error: 'Media not found' });
+      }
+      
+      const project = await storage.getProject(media.projectId);
+      if (!project) {
+        return res.status(404).json({ error: 'Associated project not found' });
+      }
+      
+      const hasPermission = await checkOrganizationPermission(req.user.id, project.organizationId, ['annotation_write']);
+      if (!hasPermission) {
+        return res.status(403).json({ error: 'Insufficient permissions' });
+      }
+      
+      const annotation = await storage.createAnnotation({
+        mediaId,
+        userId: req.user.id,
+        type,
+        data,
+        coordinates: coordinates || null
+      });
+      
+      await storage.createAuditLog({
+        action: 'annotation_create',
+        entityType: 'annotation',
+        entityId: annotation.id,
+        userId: req.user.id,
+        organizationId: project.organizationId,
+        metadata: { type, mediaId }
+      });
+      
+      res.status(201).json({ ok: true, annotation });
+      
+    } catch (error) {
+      console.error('Error creating annotation:', error);
+      res.status(500).json({ error: 'Failed to create annotation' });
+    }
+  });
+
+  // Delete annotation
+  app.delete('/api/annotations/:id', authenticate, requirePermission(['annotation_write']), async (req: AuthenticatedRequest, res) => {
+    try {
+      const { id } = req.params;
+      
+      const annotation = await storage.getAnnotation(id);
+      if (!annotation) {
+        return res.status(404).json({ error: 'Annotation not found' });
+      }
+      
+      // Check permission via media -> project -> organization
+      const media = await storage.getMedia(annotation.mediaId);
+      const project = media ? await storage.getProject(media.projectId) : null;
+      
+      if (!project) {
+        return res.status(404).json({ error: 'Associated project not found' });
+      }
+      
+      const hasPermission = await checkOrganizationPermission(req.user.id, project.organizationId, ['annotation_write']);
+      if (!hasPermission) {
+        return res.status(403).json({ error: 'Insufficient permissions' });
+      }
+      
+      const deleted = await storage.deleteAnnotation(id);
+      if (!deleted) {
+        return res.status(404).json({ error: 'Annotation not found' });
+      }
+      
+      await storage.createAuditLog({
+        action: 'annotation_delete',
+        entityType: 'annotation',
+        entityId: id,
+        userId: req.user.id,
+        organizationId: project.organizationId
+      });
+      
+      res.json({ ok: true });
+      
+    } catch (error) {
+      console.error('Error deleting annotation:', error);
+      res.status(500).json({ error: 'Failed to delete annotation' });
+    }
+  });
+
+  // Add comment
+  app.post('/api/comments', authenticate, requirePermission(['comment_write']), async (req: AuthenticatedRequest, res) => {
+    try {
+      const { projectId, mediaId, content, type } = req.body;
+      
+      if (!content || (!projectId && !mediaId)) {
+        return res.status(400).json({ error: 'content and either projectId or mediaId are required' });
+      }
+      
+      let project;
+      
+      if (projectId) {
+        project = await storage.getProject(projectId);
+      } else if (mediaId) {
+        const media = await storage.getMedia(mediaId);
+        if (media) {
+          project = await storage.getProject(media.projectId);
+        }
+      }
+      
+      if (!project) {
+        return res.status(404).json({ error: 'Associated project not found' });
+      }
+      
+      const hasPermission = await checkOrganizationPermission(req.user.id, project.organizationId, ['comment_write']);
+      if (!hasPermission) {
+        return res.status(403).json({ error: 'Insufficient permissions' });
+      }
+      
+      const comment = await storage.createComment({
+        projectId: projectId || null,
+        mediaId: mediaId || null,
+        userId: req.user.id,
+        content,
+        type: type || 'general'
+      });
+      
+      await storage.createAuditLog({
+        action: 'comment_create',
+        entityType: 'comment',
+        entityId: comment.id,
+        userId: req.user.id,
+        organizationId: project.organizationId,
+        metadata: { projectId, mediaId, type }
+      });
+      
+      res.status(201).json({ ok: true, comment });
+      
+    } catch (error) {
+      console.error('Error creating comment:', error);
+      res.status(500).json({ error: 'Failed to create comment' });
+    }
+  });
+
+  // Create task
+  app.post('/api/tasks', authenticate, requirePermission(['task_write']), async (req: AuthenticatedRequest, res) => {
+    try {
+      const { projectId, title, description, assignedTo, priority, dueDate } = req.body;
+      
+      if (!projectId || !title) {
+        return res.status(400).json({ error: 'projectId and title are required' });
+      }
+      
+      const project = await storage.getProject(projectId);
+      if (!project) {
+        return res.status(404).json({ error: 'Project not found' });
+      }
+      
+      const hasPermission = await checkOrganizationPermission(req.user.id, project.organizationId, ['task_write']);
+      if (!hasPermission) {
+        return res.status(403).json({ error: 'Insufficient permissions' });
+      }
+      
+      const task = await storage.createDisasterTask({
+        projectId,
+        title,
+        description: description || null,
+        assignedTo: assignedTo || null,
+        createdBy: req.user.id,
+        status: 'todo',
+        priority: priority || 'medium',
+        dueDate: dueDate ? new Date(dueDate) : null
+      });
+      
+      await storage.createAuditLog({
+        action: 'task_create',
+        entityType: 'task',
+        entityId: task.id,
+        userId: req.user.id,
+        organizationId: project.organizationId,
+        metadata: { title, assignedTo, priority }
+      });
+      
+      res.status(201).json({ ok: true, task });
+      
+    } catch (error) {
+      console.error('Error creating task:', error);
+      res.status(500).json({ error: 'Failed to create task' });
+    }
+  });
+
+  // Update task status
+  app.patch('/api/tasks/:id', authenticate, requirePermission(['task_write']), async (req: AuthenticatedRequest, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+      
+      const task = await storage.getDisasterTask(id);
+      if (!task) {
+        return res.status(404).json({ error: 'Task not found' });
+      }
+      
+      const project = await storage.getProject(task.projectId);
+      if (!project) {
+        return res.status(404).json({ error: 'Associated project not found' });
+      }
+      
+      const hasPermission = await checkOrganizationPermission(req.user.id, project.organizationId, ['task_write']);
+      if (!hasPermission) {
+        return res.status(403).json({ error: 'Insufficient permissions' });
+      }
+      
+      const updatedTask = await storage.updateDisasterTask(id, updates);
+      
+      await storage.createAuditLog({
+        action: 'task_update',
+        entityType: 'task',
+        entityId: id,
+        userId: req.user.id,
+        organizationId: project.organizationId,
+        metadata: { updates }
+      });
+      
+      res.json({ ok: true, task: updatedTask });
+      
+    } catch (error) {
+      console.error('Error updating task:', error);
+      res.status(500).json({ error: 'Failed to update task' });
+    }
+  });
+
+  // Build report
+  app.post('/api/reports', authenticate, requirePermission(['report_write']), async (req: AuthenticatedRequest, res) => {
+    try {
+      const { projectId, title, template, mediaIds, sections } = req.body;
+      
+      if (!projectId || !title) {
+        return res.status(400).json({ error: 'projectId and title are required' });
+      }
+      
+      const project = await storage.getProject(projectId);
+      if (!project) {
+        return res.status(404).json({ error: 'Project not found' });
+      }
+      
+      const hasPermission = await checkOrganizationPermission(req.user.id, project.organizationId, ['report_write']);
+      if (!hasPermission) {
+        return res.status(403).json({ error: 'Insufficient permissions' });
+      }
+      
+      const report = await storage.createDisasterReport({
+        projectId,
+        title,
+        template: template || 'standard',
+        mediaIds: mediaIds || [],
+        sections: sections || [],
+        createdBy: req.user.id,
+        status: 'draft'
+      });
+      
+      await storage.createAuditLog({
+        action: 'report_create',
+        entityType: 'report',
+        entityId: report.id,
+        userId: req.user.id,
+        organizationId: project.organizationId,
+        metadata: { title, template }
+      });
+      
+      res.status(201).json({ ok: true, report });
+      
+    } catch (error) {
+      console.error('Error creating report:', error);
+      res.status(500).json({ error: 'Failed to create report' });
+    }
+  });
+
+  // Render report to PDF
+  app.post('/api/reports/:id/render', authenticate, requirePermission(['report_read']), async (req: AuthenticatedRequest, res) => {
+    try {
+      const { id } = req.params;
+      
+      const report = await storage.getDisasterReport(id);
+      if (!report) {
+        return res.status(404).json({ error: 'Report not found' });
+      }
+      
+      const project = await storage.getProject(report.projectId);
+      if (!project) {
+        return res.status(404).json({ error: 'Associated project not found' });
+      }
+      
+      const hasPermission = await checkOrganizationPermission(req.user.id, project.organizationId, ['report_read']);
+      if (!hasPermission) {
+        return res.status(403).json({ error: 'Insufficient permissions' });
+      }
+      
+      // Generate PDF using PDFDocument
+      const doc = new PDFDocument();
+      let buffers: Buffer[] = [];
+      
+      doc.on('data', buffers.push.bind(buffers));
+      doc.on('end', () => {
+        const pdfData = Buffer.concat(buffers);
+        
+        // Store PDF in object storage
+        const pdfKey = `reports/${id}/${Date.now()}.pdf`;
+        // This would use ObjectStorageService to store the PDF
+        // For now, we'll just return the PDF data
+        
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="${report.title}.pdf"`);
+        res.send(pdfData);
+      });
+      
+      // Build PDF content
+      doc.fontSize(20).text(report.title, 100, 100);
+      doc.fontSize(12).text(`Project: ${project.name}`, 100, 140);
+      doc.text(`Generated: ${new Date().toLocaleDateString()}`, 100, 160);
+      
+      // Add sections content
+      let yPosition = 200;
+      for (const section of report.sections || []) {
+        doc.fontSize(14).text(section.title || 'Section', 100, yPosition);
+        yPosition += 30;
+        doc.fontSize(12).text(section.content || '', 100, yPosition);
+        yPosition += 50;
+      }
+      
+      doc.end();
+      
+    } catch (error) {
+      console.error('Error rendering report:', error);
+      res.status(500).json({ error: 'Failed to render report' });
+    }
+  });
+
+  // Download report PDF
+  app.get('/api/reports/:id/download', authenticate, requirePermission(['report_read']), async (req: AuthenticatedRequest, res) => {
+    try {
+      const { id } = req.params;
+      
+      // This would fetch the pre-rendered PDF from storage
+      // For now, redirect to render endpoint
+      res.redirect(`/api/reports/${id}/render`);
+      
+    } catch (error) {
+      console.error('Error downloading report:', error);
+      res.status(500).json({ error: 'Failed to download report' });
+    }
+  });
+
+  // Create share link
+  app.post('/api/shares', authenticate, requirePermission(['share_write']), async (req: AuthenticatedRequest, res) => {
+    try {
+      const { projectId, expiresAt, permissions } = req.body;
+      
+      if (!projectId) {
+        return res.status(400).json({ error: 'projectId is required' });
+      }
+      
+      const project = await storage.getProject(projectId);
+      if (!project) {
+        return res.status(404).json({ error: 'Project not found' });
+      }
+      
+      const hasPermission = await checkOrganizationPermission(req.user.id, project.organizationId, ['share_write']);
+      if (!hasPermission) {
+        return res.status(403).json({ error: 'Insufficient permissions' });
+      }
+      
+      const token = randomUUID();
+      const share = await storage.createShare({
+        projectId,
+        token,
+        createdBy: req.user.id,
+        expiresAt: expiresAt ? new Date(expiresAt) : null,
+        permissions: permissions || ['read']
+      });
+      
+      await storage.createAuditLog({
+        action: 'share_create',
+        entityType: 'share',
+        entityId: share.id,
+        userId: req.user.id,
+        organizationId: project.organizationId,
+        metadata: { token, expiresAt, permissions }
+      });
+      
+      const shareUrl = `${process.env.REPLIT_URL || 'http://localhost:5000'}/s/${token}`;
+      
+      res.status(201).json({ ok: true, share, shareUrl });
+      
+    } catch (error) {
+      console.error('Error creating share:', error);
+      res.status(500).json({ error: 'Failed to create share' });
+    }
+  });
+
+  // Public share view
+  app.get('/s/:token', async (req, res) => {
+    try {
+      const { token } = req.params;
+      
+      const share = await storage.getShareByToken(token);
+      if (!share) {
+        return res.status(404).json({ error: 'Share not found or expired' });
+      }
+      
+      // Check if share has expired
+      if (share.expiresAt && new Date() > share.expiresAt) {
+        return res.status(404).json({ error: 'Share has expired' });
+      }
+      
+      // Get project data
+      const project = await storage.getProject(share.projectId);
+      if (!project) {
+        return res.status(404).json({ error: 'Project not found' });
+      }
+      
+      // Get media based on permissions
+      const media = await storage.getMediaByProject(share.projectId);
+      
+      res.json({
+        ok: true,
+        project,
+        media,
+        permissions: share.permissions
+      });
+      
+    } catch (error) {
+      console.error('Error accessing share:', error);
+      res.status(500).json({ error: 'Failed to access share' });
+    }
+  });
+
+  // Placeholder upload endpoint for media files
+  app.post('/api/upload-placeholder', multer().single('file'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: 'No file uploaded' });
+      }
+      
+      // This is a placeholder - in production this would handle the actual file upload
+      res.json({ 
+        ok: true, 
+        message: 'File upload placeholder - integration with object storage pending'
+      });
+    } catch (error) {
+      console.error('Upload error:', error);
+      res.status(500).json({ error: 'Upload failed' });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

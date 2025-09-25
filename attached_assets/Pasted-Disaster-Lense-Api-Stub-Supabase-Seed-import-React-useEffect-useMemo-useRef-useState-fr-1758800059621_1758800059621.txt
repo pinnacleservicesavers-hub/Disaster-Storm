@@ -1,0 +1,151 @@
+Disaster Lense — Api Stub & Supabase Seed
+
+import React, { useEffect, useMemo, useRef, useState } from "react";
+
+// Single-file demo UI for Disaster Lense // Tabs: Capture, Timeline, Annotator, Report Builder // Styling: TailwindCSS classes // NOTE: This is a front-end scaffold. Buttons are now wired to your Express API.
+
+// ------------------------------ // Inline SHA-256 Web Worker (chain-of-custody) // ------------------------------ const hashingWorkerUrl = (() => { const src = self.onmessage = async (e) => { try { const buf = e.data; const digest = await crypto.subtle.digest('SHA-256', buf); const bytes = new Uint8Array(digest); const hex = Array.from(bytes).map(b => b.toString(16).padStart(2,'0')).join(''); self.postMessage({ ok: true, hex }); } catch (err) { self.postMessage({ ok: false, error: String(err) }); } }; const blob = new Blob([src], { type: "text/javascript" }); return URL.createObjectURL(blob); })();
+
+function useHashWorker() { const workerRef = useRef<Worker | null>(null); useEffect(() => { const w = new Worker(hashingWorkerUrl); workerRef.current = w; return () => w.terminate(); }, []);
+
+return async function hashArrayBuffer(buf: ArrayBuffer): Promise { return new Promise((resolve, reject) => { const w = workerRef.current; if (!w) return reject(new Error("worker not ready")); const onMessage = (ev: MessageEvent) => { const { ok, hex, error } = ev.data || {}; w.removeEventListener('message', onMessage); if (ok) resolve(hex); else reject(new Error(error || 'hash failed')); }; w.addEventListener('message', onMessage); w.postMessage(buf, [buf as any]); }); }; }
+
+function TabButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) { return ( <button onClick={onClick} className={px-4 py-2 rounded-2xl text-sm font-medium shadow-sm transition hover:shadow ${active ? "bg-black text-white" : "bg-white text-gray-800 border"}} > {children} ); }
+
+function StatCard({ label, value, sub }: { label: string; value: string; sub?: string }) { return ( {label} {value} {sub && {sub}} ); }
+
+// --- Capture Tab --- function CaptureTab() { const videoRef = useRef<HTMLVideoElement | null>(null); const canvasRef = useRef<HTMLCanvasElement | null>(null); const [streamOn, setStreamOn] = useState(false); const [shots, setShots] = useState<{ url: string; hash: string }[]>([]); const [useRear, setUseRear] = useState(true); const [note, setNote] = useState(""); const hashWorker = useHashWorker();
+
+async function startCamera() { try { const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: useRear ? { ideal: "environment" } : "user" }, audio: false, }); if (videoRef.current) { videoRef.current.srcObject = stream; await (videoRef.current as HTMLVideoElement).play(); setStreamOn(true); } } catch (e) { alert("Camera not available in preview. You can still use the UI."); } } function stopCamera() { const vid = videoRef.current as HTMLVideoElement | null; const stream = vid && (vid.srcObject as MediaStream); stream?.getTracks().forEach((t) => t.stop()); setStreamOn(false); } async function takeShot() { const video = videoRef.current as HTMLVideoElement | null; const canvas = canvasRef.current as HTMLCanvasElement | null; if (!video || !canvas) return; const w = video.videoWidth || 640; const h = video.videoHeight || 360; canvas.width = w; canvas.height = h; const ctx = canvas.getContext("2d"); if (!ctx) return; ctx.drawImage(video, 0, 0, w, h); // Watermark sample ctx.fillStyle = "rgba(0,0,0,0.6)"; ctx.fillRect(0, h - 26, w, 26); ctx.fillStyle = "#fff"; ctx.font = "14px sans-serif"; const ts = new Date().toISOString(); ctx.fillText(Disaster Lense • ${ts}, 8, h - 8);
+
+// Convert to Blob → ArrayBuffer for hashing
+canvas.toBlob(async (blob) => {
+  if (!blob) return;
+  const ab = await blob.arrayBuffer();
+  const hex = await hashWorker(ab);
+  const url = URL.createObjectURL(blob);
+  setShots((s) => [{ url, hash: hex }, ...s]);
+}, 'image/png');
+
+}
+
+return ( Capture <button className="px-3 py-1.5 rounded-xl border" onClick={() => setUseRear((v) => !v)}> {useRear ? "Rear" : "Front"} {!streamOn ? ( Start ) : ( Stop )} Snap Quick note (auto-caption) <textarea value={note} onChange={(e)=>setNote(e.target.value)} placeholder="e.g., Split trunk over fence; live line nearby" className="mt-1 w-full rounded-xl border p-2" rows={3}/> Recent Shots {shots.map((s, i) => ( {s.hash.slice(0,16)}… ))} ); }
+
+// --- Timeline Tab --- function TimelineItem({ img, title, meta }: { img: string; title: string; meta: string }) { return ( {title} {meta} ); }
+
+function TimelineTab() { const demo = new Array(6).fill(0).map((_, i) => ({ img: https://picsum.photos/seed/${i + 2}/320/180, title: i === 0 ? "Before — Split trunk over fence" : i < 4 ? "During — sectional lowering" : "After — cleanup complete", meta: By Brian • ${new Date(Date.now() - i * 3.6e6).toLocaleString()}, }));
+
+return ( {demo.map((d, i) => ( <TimelineItem key={i} {...d} /> ))} Filters {["hazard", "estimate", "work", "complete"].map((t) => ( #{t} ))} Photos Videos Mine Crew Pinned Notes Use crane access only — soft yard. Call homeowner before arrival. Document fence damage thoroughly. ); }
+
+// --- Annotator Tab (simple mock) --- function AnnotatorTab() { const [brush, setBrush] = useState<'arrow'|'box'|'text'|'blur'|'measure'>("box"); const [caption, setCaption] = useState("Cracked limb over structure — immediate removal recommended.");
+
+return ( {(["arrow","box","text","blur","measure"] as const).map((b)=> ( <button key={b} onClick={()=>setBrush(b)} className={px-3 py-1.5 rounded-xl border text-sm ${brush===b?"bg-black text-white":""}}>{b} ))} {/* Mock overlay */} {brush === "box" && ( )} {brush === "arrow" && ( )} {brush === "blur" && ( )} Caption <input value={caption} onChange={(e)=>setCaption(e.target.value)} className="mt-1 w-full rounded-xl border p-2" /> Annotation Notes Use blur on house numbers/license plates for public shares. Measurements are estimates. Save Actions Save Annotation Download Marked Image ); }
+
+// --- Report Builder Tab --- function ReportBuilderTab() { const [title, setTitle] = useState("Storm Tree Removal — Final Report"); const [kind, setKind] = useState("final"); const [sections, setSections] = useState([ { title: "Before", media: ["https://picsum.photos/seed/b1/600/340", "https://picsum.photos/seed/b2/600/340"] }, { title: "During", media: ["https://picsum.photos/seed/d1/600/340"] }, { title: "After", media: ["https://picsum.photos/seed/a1/600/340", "https://picsum.photos/seed/a2/600/340"] }, ]);
+
+function addSection() { setSections((s) => [...s, { title: Section ${s.length + 1}, media: [] }]); }
+
+// ---- Wired Buttons ---- async function onRenderPdf() { const payload = { title, projectTitle: "Michael Thomas — Pecan Removal", items: sections.flatMap((s) => s.media.map((_, idx) => ({ caption: ${s.title} — item ${idx+1} }))) }; const res = await fetch(/api/reports/demo/render, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); const blob = await res.blob(); const url = URL.createObjectURL(blob); window.open(url, '_blank'); }
+
+async function onCreateShare() { const res = await fetch(/api/shares, { method: 'POST' }); const data = await res.json(); try { await navigator.clipboard.writeText(data.url); alert(Share link copied to clipboard! ${data.url}); } catch { alert(Share link: ${data.url}); } }
+
+return ( <input value={title} onChange={(e)=>setTitle(e.target.value)} className="flex-1 rounded-xl border p-2" /> <select value={kind} onChange={(e)=>setKind(e.target.value)} className="rounded-xl border p-2"> Photo Daily Final Insurance Packet Add Section
+
+
+    <div className="space-y-4">
+      {sections.map((s, i) => (
+        <div key={i} className="rounded-xl border p-3">
+          <div className="flex items-center justify-between mb-2">
+            <input defaultValue={s.title} className="text-lg font-semibold bg-transparent" onBlur={(e)=>{
+              const v = e.target.value; setSections((prev)=> prev.map((it,idx)=> idx===i? {...it, title:v}: it));
+            }} />
+            <button className="text-sm text-red-600" onClick={()=> setSections((prev)=> prev.filter((_,idx)=> idx!==i))}>Remove</button>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+            {s.media.map((m, j) => (
+              <div key={j} className="relative">
+                <img src={m} className="w-full h-32 object-cover rounded-lg border" />
+                <button className="absolute -top-2 -right-2 bg-white border rounded-full w-6 h-6 text-xs" onClick={()=>{
+                  setSections((prev)=> prev.map((it,idx)=> idx!==i? it: { ...it, media: it.media.filter((_,k)=>k!==j) }));
+                }}>×</button>
+              </div>
+            ))}
+            <label className="h-32 border-2 border-dashed rounded-lg flex items-center justify-center text-sm text-gray-500 cursor-pointer">
+              + Add
+              <input type="file" accept="image/*" className="hidden" onChange={(e)=>{
+                const file = e.target.files?.[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = () => {
+                  setSections((prev)=> prev.map((it,idx)=> idx!==i? it: { ...it, media: [...it.media, String(reader.result)] }));
+                };
+                reader.readAsDataURL(file);
+              }} />
+            </label>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+  <div className="space-y-3">
+    <div className="rounded-2xl border p-4 bg-white">
+      <div className="font-semibold mb-2">Branding</div>
+      <div className="flex items-center gap-2">
+        <div className="w-10 h-10 rounded-xl bg-black" />
+        <div>
+          <div className="text-sm font-medium">Strategic Land Management LLC</div>
+          <div className="text-xs text-gray-500">Logo + primary color</div>
+        </div>
+      </div>
+    </div>
+    <div className="rounded-2xl border p-4 bg-white">
+      <div className="font-semibold mb-2">Export</div>
+      <button onClick={onRenderPdf} className="w-full rounded-xl bg-black text-white py-2">Render PDF</button>
+      <button onClick={onCreateShare} className="w-full rounded-xl border py-2 mt-2">Create Share Link</button>
+      <p className="text-xs text-gray-500 mt-2">PDF footer includes chain-of-custody hash and GPS/time.</p>
+    </div>
+  </div>
+</div>
+
+); }
+
+export default function App() { const tabs = ["Capture", "Timeline", "Annotator", "Report Builder"] as const; const [tab, setTab] = useState<typeof tabs[number]>("Capture");
+
+return ( Disaster Lense Photo • Video • Reports {tabs.map((t) => ( <TabButton key={t} active={t===tab} onClick={()=>setTab(t)}>{t} ))}
+
+
+  <main className="max-w-6xl mx-auto px-4 py-6 space-y-6">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <StatCard label="Project Status" value="Active" sub="Job #DL-000271" />
+      <StatCard label="Media" value="128 items" sub="Today + Yesterday" />
+      <StatCard label="Reports" value="3 drafts" sub="1 final, 2 daily" />
+    </div>
+
+
+    {tab === "Capture" && <CaptureTab />}
+    {tab === "Timeline" && <TimelineTab />}
+    {tab === "Annotator" && <AnnotatorTab />}
+    {tab === "Report Builder" && <ReportBuilderTab />}
+  </main>
+
+
+  <footer className="py-6 text-center text-xs text-gray-500">© {new Date().getFullYear()} Disaster Lense Module — UI Demo</footer>
+</div>
+
+); }
+
+Hooked up! Your canvas UI now:
+
+Computes a SHA-256 hash of each captured image using an inline Web Worker (chain-of-custody). Hover a thumbnail to see the hash prefix.
+
+Wires Render PDF → POST /api/reports/demo/render and opens the returned PDF in a new tab.
+
+Wires Create Share Link → POST /api/shares, then copies the URL to clipboard (or shows it).
+
+If you want, I can also:
+
+Add a tiny upload flow: /api/media/upload-url → PUT → /api/media with {sha256, exif, gps}.
+
+Inject GPS capture + EXIF parsing and include both in the PDF footer.
+
+Swap the simple pdf-lib output for full HTML→PDF via Puppeteer templates (Before/During/After with captions + a watermark & hash).

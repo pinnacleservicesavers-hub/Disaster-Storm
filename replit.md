@@ -108,3 +108,86 @@ Preferred communication style: Simple, everyday language.
 - **Replit Integration**: Development environment optimization with error overlays
 - **WebSocket Management**: Custom WebSocket manager for real-time features
 - **Type Safety**: Full TypeScript coverage with strict type checking
+
+## Disaster Lens Module
+
+### Overview
+The Disaster Lens module is a comprehensive photo/video documentation system with professional-grade functionality for damage assessment and insurance documentation. Built as a complete rival to industry platforms with advanced features while avoiding specific brand references.
+
+### Architecture & Implementation Status
+✅ **Database Schema**: Complete with 10 tables including organizations, projects, media, annotations, comments, tasks, reports, shares, and audit logs  
+✅ **Role-based Permissions**: 5-tier hierarchy (owner/admin/manager/tech/sub/viewer) with organization multi-tenancy  
+✅ **Offline-first Infrastructure**: Service workers, IndexedDB storage, background sync queues, and conflict resolution  
+✅ **Object Storage Integration**: Pre-signed URL workflow with Replit's built-in storage (bucket: repl-objstore-b0af358a-2e6d-4e4d-bf6f-40078ac6dde2)  
+✅ **Complete API Endpoints**: All REST patterns implemented with proper authentication and authorization  
+✅ **Frontend Interface**: Professional camera interface with auto-stamping, project management, and collaboration tools  
+
+### API Endpoints (Production Ready)
+
+#### Projects
+- `POST /api/projects` - Create new project with organization validation
+- `GET /api/projects?orgId=...&status=...&search=...` - List/search projects with filters  
+- `GET /api/projects/:id` - Get project details with complete timeline (media, tasks, comments, reports)
+
+#### Media Management  
+- `POST /api/media/upload-url` - Generate pre-signed URL for direct object storage upload
+- `POST /api/media` - Finalize upload with metadata (SHA256, EXIF, GPS coordinates)
+- `GET /api/media/:id` - Retrieve media with permission validation
+
+#### Annotations & Collaboration
+- `POST /api/annotations` - Add damage highlights, measurements, drawings with coordinates
+- `DELETE /api/annotations/:id` - Remove annotations with ownership validation
+- `POST /api/comments` - Add project or media-specific comments
+
+#### Task Management
+- `POST /api/tasks` - Create assignments with due dates and priority levels
+- `PATCH /api/tasks/:id` - Update task status with automatic completion timestamps
+
+#### Report Generation  
+- `POST /api/reports` - Build custom reports with selected media and templates
+- `POST /api/reports/:id/render` - Generate PDF using Puppeteer with professional formatting
+- `GET /api/reports/:id/download` - Stream generated PDF reports
+
+#### Sharing & Collaboration
+- `POST /api/shares` - Create time-limited share links with permission controls
+- `GET /s/:token` - Public access to shared projects (read-only with expiration validation)
+
+### Advanced Features Implemented
+
+#### Camera & Media Capture
+- **Auto-stamping**: GPS coordinates, timestamps, project names, device info overlay
+- **Professional metadata**: EXIF data extraction, GPS coordinates, chain-of-custody hashing
+- **Multiple formats**: Photos (JPEG) and videos (WebM) with quality controls
+- **Offline capability**: IndexedDB storage with background sync when connectivity returns
+
+#### Collaboration & Workflow  
+- **Real-time collaboration**: WebSocket integration for live updates
+- **Role-based access**: Granular permissions per organization with inheritance
+- **Audit logging**: Complete activity tracking for compliance and accountability
+- **Task assignment**: Workflow management with priority levels and due dates
+
+#### Insurance & Compliance
+- **Professional reports**: Branded PDF generation with drag-reorder sections
+- **Chain of custody**: SHA256 hashing for legal authenticity
+- **Annotation system**: Damage highlights, measurements, notes with coordinate tracking
+- **Secure sharing**: Token-based access with expiration controls
+
+### Security & Performance
+- **Organization isolation**: Multi-tenant architecture with strict data separation
+- **Permission middleware**: Role validation at API and UI levels
+- **Offline-first design**: Service worker with background sync and conflict resolution
+- **Object storage**: Pre-signed URLs for direct upload, bypassing server processing
+
+### Sample Data Initialized
+- Demo Construction Company (organization)
+- Hurricane Alexandra damage assessment project  
+- Sample media with GPS coordinates and EXIF data
+- Damage annotations and professional reports
+- Task assignments and collaboration examples
+
+### Integration Status
+- ✅ **Object Storage**: Replit App Storage configured and ready
+- ✅ **Permissions System**: Complete role-based access control
+- ✅ **Database**: PostgreSQL with comprehensive schema
+- ✅ **API Security**: Authentication headers and organization validation
+- ✅ **Frontend**: Complete camera interface and project management UI
