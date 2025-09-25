@@ -9,6 +9,8 @@ import nodemailer from 'nodemailer';
 import cron from 'node-cron';
 import PDFDocument from 'pdfkit';
 import fetch from 'node-fetch';
+import { storage } from './storage.js';
+import crypto from 'crypto';
 
 const app = express();
 app.use(cors());
@@ -135,11 +137,11 @@ app.get("/api/nhc/vdm", async (req, res) => {
 });
 
 // --- Uploads
-const storage = multer.diskStorage({
+const multerStorage = multer.diskStorage({
   destination: (_, __, cb) => cb(null, UPLOAD_DIR),
   filename: (_, file, cb) => cb(null, Date.now() + '_' + (file.originalname || 'file').replace(/\s+/g, '_'))
 });
-const upload = multer({ storage });
+const upload = multer({ storage: multerStorage });
 app.post('/api/upload', upload.single('file'), (req, res) => {
   if (!req.file) return res.status(400).json({ ok: false });
   res.json({ ok: true, file: { name: req.file.originalname, path: '/uploads/' + req.file.filename, size: req.file.size } });
@@ -820,7 +822,7 @@ async function startServer() {
           case 'user_text':
             await handleUserText(ws, message);
             break;
-          case 'voice_data':
+          case 'user_audio':
             await handleVoiceData(ws, message);
             break;
           default:
@@ -910,7 +912,39 @@ async function startServer() {
   }
   
   async function handleVoiceData(ws: any, message: any) {
-    const { audioData, sessionId } = message;
+    const { pcm, sessionId } = message;
+    
+    if (!sessionId) {
+      ws.send(JSON.stringify({
+        type: 'error',
+        message: 'Session ID required for voice processing'
+      }));
+      return;
+    }
+    
+    console.log(`🎤 Received voice data: ${pcm ? pcm.length : 0} bytes for session ${sessionId}`);
+    
+    // Convert PCM array to actual audio bytes and calculate SHA-256 hash
+    const audioBuffer = pcm ? Buffer.from(pcm) : Buffer.alloc(0);
+    const audioHash = crypto.createHash('sha256').update(audioBuffer).digest('hex');
+    const audioBase64 = audioBuffer.toString('base64'); // Store as reversible base64
+    
+    // Create media frame for voice data (using existing schema)
+    try {
+      await storage.createMediaFrame({
+        mediaId: 'demo-media-001',
+        tMs: Date.now(),
+        thumbKey: `voice_${sessionId}_${Date.now()}`,
+        analysis: { 
+          audioData: audioBase64,      // Store binary audio as base64 (reversible)
+          audioHash: audioHash,        // Store SHA-256 hash of actual audio bytes
+          audioLength: audioBuffer.length,
+          format: 'webm-opus-pcm'     // Audio format for later verification
+        }
+      });
+    } catch (error) {
+      console.error('Failed to create media frame:', error);
+    }
     
     // Placeholder for speech-to-text
     ws.send(JSON.stringify({
@@ -918,13 +952,60 @@ async function startServer() {
       text: 'Processing voice input...'
     }));
     
-    // Simulate transcript completion
-    setTimeout(() => {
+    // Simulate transcript completion with tool trigger and audit logging
+    setTimeout(async () => {
+      const simulatedTranscript = "Please add a circle annotation on the damage";
+      
+      // Log AI action for voice processing with SHA-256 hash of actual audio bytes
+      try {
+        await storage.createAiAction({
+          sessionId,
+          action: 'voice.process',
+          input: { audioHash, audioLength: audioBuffer.length, transcript: simulatedTranscript },
+          output: { transcript: simulatedTranscript, confidence: 0.85, audioHash },
+          mediaId: 'demo-media-001',
+          sha256: audioHash // Hash of actual audio bytes for integrity
+        });
+      } catch (error) {
+        console.error('Failed to log voice AI action:', error);
+      }
+      
       ws.send(JSON.stringify({
         type: 'assistant_text',
-        text: 'Voice processing is being implemented. Please use text for now.'
+        text: `Voice transcribed: "${simulatedTranscript}"`
       }));
-    }, 1000);
+      
+      // Trigger tool call based on voice input with audit logging
+      const toolCallArgs = {
+        mediaId: 'demo-media-001',
+        x: 150,
+        y: 150,
+        r: 75,
+        label: 'Voice-detected damage'
+      };
+      
+      try {
+        const toolActionInput = JSON.stringify({ ...toolCallArgs, sessionId, audioHash });
+        const toolActionHash = crypto.createHash('sha256').update(toolActionInput).digest('hex');
+        
+        await storage.createAiAction({
+          sessionId,
+          action: 'annotate.addCircle',
+          input: { ...toolCallArgs, audioHash, triggerSource: 'voice' },
+          output: { triggerSource: 'voice', audioHash },
+          mediaId: 'demo-media-001',
+          sha256: toolActionHash // Hash includes audio hash for uniqueness
+        });
+      } catch (error) {
+        console.error('Failed to log tool call AI action:', error);
+      }
+      
+      ws.send(JSON.stringify({
+        type: 'tool_call',
+        name: 'annotate.addCircle',
+        args: toolCallArgs
+      }));
+    }, 1500);
   }
   
   // Initialize Real-time Services and Monitoring

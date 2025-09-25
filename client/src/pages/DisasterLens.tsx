@@ -134,7 +134,15 @@ function AssistantDock({ projectId, currentMediaId }: { projectId?: string, curr
       const stream = await navigator.mediaDevices.getUserMedia({ audio:true });
       const mr = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
       mediaRecorderRef.current = mr;
-      mr.ondataavailable = (e) => e.data.arrayBuffer().then(buf => wsRef.current?.send(JSON.stringify({ type:'user_audio', pcm: Array.from(new Uint8Array(buf)) })));
+      mr.ondataavailable = (e) => e.data.arrayBuffer().then(buf => {
+        if (wsRef.current && sessionId) {
+          wsRef.current.send(JSON.stringify({ 
+            type: 'user_audio', 
+            pcm: Array.from(new Uint8Array(buf)),
+            sessionId: sessionId
+          }));
+        }
+      });
       mr.start(250);
     } catch (err) {
       console.error('Microphone access denied:', err);

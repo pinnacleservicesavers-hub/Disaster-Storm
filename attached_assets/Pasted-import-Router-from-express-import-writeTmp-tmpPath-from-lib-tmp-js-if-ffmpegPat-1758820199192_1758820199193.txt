@@ -1,0 +1,74 @@
+import { Router } from 'express';
+import { writeTmp, tmpPath } from '../lib/tmp.js';
+
+
+if (ffmpegPath) ffmpeg.setFfmpegPath(ffmpegPath);
+export const router = Router();
+
+
+/*
+POST /api/video/mark
+Body: {
+"videoBase64": "data:video/mp4;base64,..." | omitted if you plan to fetch from storage later,
+"marks": [
+{ "type":"circle", "x":420, "y":260, "r":58, "color":"red", "label":"Water line" },
+{ "type":"arrow", "x1":100, "y1":100, "x2":220, "y2":120, "color":"yellow" },
+{ "type":"text", "x":430, "y":380, "text":"Possible damage", "size":24 }
+],
+"w":1280, "h":720 // optional canvas reference size
+}
+*/
+router.post('/mark', async (req, res) => {
+try {
+const { videoBase64, marks = [], w, h } = req.body || {};
+if (!videoBase64) return res.status(400).json({ ok:false, error:'videoBase64 required for demo endpoint' });
+
+
+const base64 = String(videoBase64).split(',').pop();
+const inputBuf = Buffer.from(base64!, 'base64');
+const inPath = await writeTmp(inputBuf, 'mp4');
+const outPath = await tmpPath('mp4');
+
+
+// Build draw filters
+const filters: string[] = [];
+for (const m of marks) {
+if (m.type === 'circle') {
+const r = Math.max(1, Number(m.r||40));
+const color = (m.color||'red').replace('#','');
+filters.push(`drawbox=x=${(m.x||0)-r}:y=${(m.y||0)-r}:w=${r*2}:h=${r*2}:t=4:color=${color}`);
+if (m.label) {
+const text = (m.label as string).replace(/:/g,'\\:');
+filters.push(`drawtext=text='${text}':x=${(m.x||0)+r+8}:y=${(m.y||0)}:fontsize=24:fontcolor=white:box=1:boxcolor=black@0.6`);
+}
+}
+if (m.type === 'arrow') {
+const x1=m.x1||0, y1=m.y1||0, x2=m.x2||0, y2=m.y2||0;
+const color=(m.color||'red');
+filters.push(`drawline=x1=${x1}:y1=${y1}:x2=${x2}:y2=${y2}:color=${color}:thickness=5`);
+}
+if (m.type === 'text') {
+const t = (m.text||'').replace(/:/g,'\\:');
+filters.push(`drawtext=text='${t}':x=${m.x||20}:y=${m.y||20}:fontsize=${m.size||24}:fontcolor=white:box=1:boxcolor=black@0.6`);
+}
+}
+
+
+const vf = filters.join(',');
+
+
+await new Promise<void>((resolve, reject) => {
+let cmd = ffmpeg(inPath).outputOptions('-movflags +faststart');
+if (vf) cmd = cmd.videoFilters(vf);
+cmd.on('end', resolve).on('error', reject).save(outPath);
+});
+
+
+const out = await fs.readFile(outPath);
+res.setHeader('Content-Type','video/mp4');
+res.setHeader('Content-Disposition','inline; filename="output_marked.mp4"');
+res.send(out);
+} catch (e:any) {
+res.status(500).json({ ok:false, error: String(e.message||e) });
+}
+});

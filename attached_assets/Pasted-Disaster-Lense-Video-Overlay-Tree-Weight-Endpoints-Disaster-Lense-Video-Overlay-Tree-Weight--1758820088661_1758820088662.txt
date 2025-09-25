@@ -1,0 +1,280 @@
+Disaster Lense — Video Overlay & Tree Weight Endpoints
+Disaster Lense — Video Overlay & Tree Weight Endpoints (Replit‑Ready)
+
+This patch adds:
+
+FFmpeg overlay endpoint to draw circles/arrows/labels onto a video and return output_marked.mp4.
+
+Species → weight tables + endpoint to estimate tree section weight from species, DBH, and length (allometric formula).
+
+Paste these files into your existing apps/server project from our earlier canvases. No breaking changes.
+
+0) Install deps
+pnpm -C apps/server add ffmpeg-static fluent-ffmpeg
+
+fluent-ffmpeg will use ffmpeg-static binary on Replit.
+
+1) SQL: Species Coefficients & Densities
+
+Add a small table for configurable formulas. Paste into your DB (Supabase SQL editor or Postgres).
+
+create table if not exists species_coeffs (
+  id serial primary key,
+  species text unique not null,               -- e.g. 'southern_live_oak'
+  common_name text,
+  -- Basic green wood density in lb/ft^3 (approx). You can refine by moisture.
+  density_lbft3 numeric not null default 55,
+  -- Allometric placeholders (for trunk/section weight). Adjust per species.
+  a numeric not null default 0.15,
+  b numeric not null default 2.4,
+  c numeric not null default 0.9,
+  updated_at timestamptz default now()
+);
+
+
+-- Seed a few common species (edit values as you refine in ops)
+insert into species_coeffs (species, common_name, density_lbft3, a, b, c) values
+  ('southern_live_oak','Southern Live Oak', 62, 0.18, 2.45, 0.95),
+  ('red_maple','Red Maple', 44, 0.14, 2.35, 0.9),
+  ('loblolly_pine','Loblolly Pine', 41, 0.12, 2.30, 0.88)
+  on conflict (species) do update set common_name=excluded.common_name,
+    density_lbft3=excluded.density_lbft3, a=excluded.a, b=excluded.b, c=excluded.c, updated_at=now();
+
+Two methods supported below: (A) simple cylindrical volume × density, (B) species allometric a·DBH^b·L^c. We return both.
+
+2) Server Util: safe tmp files
+
+Create apps/server/src/lib/tmp.ts:
+
+import { promises as fs } from 'fs';
+import path from 'path';
+import os from 'os';
+import { randomUUID } from 'crypto';
+
+
+export async function tmpPath(ext: string){
+  const p = path.join(os.tmpdir(), `${randomUUID()}${ext.startsWith('.')?ext:`.${ext}`}`);
+  return p;
+}
+export async function writeTmp(buf: Buffer, ext: string){
+  const p = await tmpPath(ext);
+  await fs.writeFile(p, buf);
+  return p;
+}
+3) Video Overlay Route (FFmpeg)
+
+Create apps/server/src/routes/video.ts:
+
+import { Router } from 'express';
+import { writeTmp, tmpPath } from '../lib/tmp.js';
+
+
+if (ffmpegPath) ffmpeg.setFfmpegPath(ffmpegPath);
+export const router = Router();
+
+
+/*
+POST /api/video/mark
+Body: {
+  "videoBase64": "data:video/mp4;base64,..." | omitted if you plan to fetch from storage later,
+  "marks": [
+    { "type":"circle", "x":420, "y":260, "r":58, "color":"red", "label":"Water line" },
+    { "type":"arrow",  "x1":100, "y1":100, "x2":220, "y2":120, "color":"yellow" },
+    { "type":"text",   "x":430, "y":380, "text":"Possible damage", "size":24 }
+  ],
+  "w":1280, "h":720   // optional canvas reference size
+}
+*/
+router.post('/mark', async (req, res) => {
+  try {
+    const { videoBase64, marks = [], w, h } = req.body || {};
+    if (!videoBase64) return res.status(400).json({ ok:false, error:'videoBase64 required for demo endpoint' });
+
+
+    const base64 = String(videoBase64).split(',').pop();
+    const inputBuf = Buffer.from(base64!, 'base64');
+    const inPath = await writeTmp(inputBuf, 'mp4');
+    const outPath = await tmpPath('mp4');
+
+
+    // Build draw filters
+    const filters: string[] = [];
+    for (const m of marks) {
+      if (m.type === 'circle') {
+        const r = Math.max(1, Number(m.r||40));
+        const color = (m.color||'red').replace('#','');
+        filters.push(`drawbox=x=${(m.x||0)-r}:y=${(m.y||0)-r}:w=${r*2}:h=${r*2}:t=4:color=${color}`);
+        if (m.label) {
+          const text = (m.label as string).replace(/:/g,'\\:');
+          filters.push(`drawtext=text='${text}':x=${(m.x||0)+r+8}:y=${(m.y||0)}:fontsize=24:fontcolor=white:box=1:boxcolor=black@0.6`);
+        }
+      }
+      if (m.type === 'arrow') {
+        const x1=m.x1||0, y1=m.y1||0, x2=m.x2||0, y2=m.y2||0;
+        const color=(m.color||'red');
+        filters.push(`drawline=x1=${x1}:y1=${y1}:x2=${x2}:y2=${y2}:color=${color}:thickness=5`);
+      }
+      if (m.type === 'text') {
+        const t = (m.text||'').replace(/:/g,'\\:');
+        filters.push(`drawtext=text='${t}':x=${m.x||20}:y=${m.y||20}:fontsize=${m.size||24}:fontcolor=white:box=1:boxcolor=black@0.6`);
+      }
+    }
+
+
+    const vf = filters.join(',');
+
+
+    await new Promise<void>((resolve, reject) => {
+      let cmd = ffmpeg(inPath).outputOptions('-movflags +faststart');
+      if (vf) cmd = cmd.videoFilters(vf);
+      cmd.on('end', resolve).on('error', reject).save(outPath);
+    });
+
+
+    const out = await fs.readFile(outPath);
+    res.setHeader('Content-Type','video/mp4');
+    res.setHeader('Content-Disposition','inline; filename="output_marked.mp4"');
+    res.send(out);
+  } catch (e:any) {
+    res.status(500).json({ ok:false, error: String(e.message||e) });
+  }
+});
+
+Register in apps/server/src/index.ts:
+
+import { router as video } from './routes/video.js';
+...
+app.use('/api/video', video);
+4) Tree Weight Endpoint
+
+Create apps/server/src/routes/weight.ts:
+
+import { Router } from 'express';
+import { db } from '../lib/db.js';
+
+
+export const router = Router();
+
+
+/*
+POST /api/weight/estimate
+Body: { species: 'southern_live_oak', dbhIn: 28, lengthFt: 12 }
+Returns both methods:
+- volume*density (cylindrical)
+- species allometric a*DBH^b*L^c
+*/
+router.post('/estimate', async (req, res) => {
+  const { species, dbhIn, lengthFt } = req.body || {};
+  if (!species || !dbhIn || !lengthFt) return res.status(400).json({ ok:false, error:'species, dbhIn, lengthFt required' });
+
+
+  const r = await db.query('select * from species_coeffs where species=$1', [species]);
+  if (!r.rows[0]) return res.status(404).json({ ok:false, error:'unknown species' });
+  const { density_lbft3, a, b, c, common_name } = r.rows[0];
+
+
+  // (A) Cylinder volume * density
+  // DBH inches -> radius feet -> cross-section area ft^2
+  const radiusFt = (dbhIn / 12) / 2;
+  const areaFt2 = Math.PI * radiusFt * radiusFt;
+  const volumeFt3 = areaFt2 * Number(lengthFt);
+  const massA = volumeFt3 * Number(density_lbft3); // lb
+
+
+  // (B) Allometric estimate
+  const massB = Number(a) * Math.pow(Number(dbhIn), Number(b)) * Math.pow(Number(lengthFt), Number(c));
+
+
+  return res.json({
+    ok: true,
+    species,
+    commonName: common_name,
+    inputs: { dbhIn: Number(dbhIn), lengthFt: Number(lengthFt) },
+    density_lbft3: Number(density_lbft3),
+    methods: {
+      cylinder_volume: { volumeFt3, weightLb: massA },
+      allometric: { a: Number(a), b: Number(b), c: Number(c), weightLb: massB }
+    },
+    disclaimer: 'Engineering estimate only. Verify before use.'
+  });
+});
+
+Register in apps/server/src/index.ts:
+
+import { router as weight } from './routes/weight.js';
+...
+app.use('/api/weight', weight);
+5) Client Examples
+5.1 Mark a video with overlays
+const base64 = await fileToBase64(selectedVideoFile); // convert in UI
+const res = await fetch('/api/video/mark', {
+  method: 'POST', headers: { 'Content-Type':'application/json' },
+  body: JSON.stringify({
+    videoBase64: base64,
+    marks: [
+      { type:'circle', x:420, y:260, r:58, color:'red', label:'Water line' },
+      { type:'arrow', x1:100, y1:100, x2:220, y2:120, color:'yellow' }
+    ]
+  })
+});
+const blob = await res.blob();
+const url = URL.createObjectURL(blob);
+const a = document.createElement('a'); a.href=url; a.download='output_marked.mp4'; a.click();
+function fileToBase64(f: File): Promise<string>{
+  return new Promise((resolve,reject)=>{ const r = new FileReader(); r.onload=()=>resolve(String(r.result)); r.onerror=reject; r.readAsDataURL(f); });
+}
+5.2 Estimate tree weight
+const res = await fetch('/api/weight/estimate', {
+  method: 'POST', headers: { 'Content-Type':'application/json' },
+  body: JSON.stringify({ species: 'southern_live_oak', dbhIn: 28, lengthFt: 12 })
+});
+const data = await res.json();
+console.log('Weight (cylinder):', data.methods.cylinder_volume.weightLb, 'lb');
+console.log('Weight (allometric):', data.methods.allometric.weightLb, 'lb');
+6) cURL Tests
+# Video overlay (send a tiny mp4 base64 if you have one)
+curl -X POST http://localhost:5175/api/video/mark \
+  -H 'Content-Type: application/json' \
+  -d '{"videoBase64":"DATA:video/mp4;base64,....","marks":[{"type":"text","x":30,"y":30,"text":"Demo"}]}' --output output_marked.mp4
+
+
+# Tree weight
+curl -X POST http://localhost:5175/api/weight/estimate \
+  -H 'Content-Type: application/json' \
+  -d '{"species":"southern_live_oak","dbhIn":28,"lengthFt":12}'
+7) Notes & Next Upgrades
+
+The overlay route uses drawbox/drawline/drawtext for speed. You can switch to PNG overlay sprites for styled arrows/markers.
+
+Consider saving the output video to your object storage and returning a storage key, not the raw bytes.
+
+Add RBAC + audit_log writes for every mark and weight request (attach asset sha256 + params).
+
+Build an LLM tool wrapper so the Assistant can call /api/video/mark and /api/weight/estimate hands‑free.
+
+Add a /api/measure/tape-overlay that renders a virtual measuring tape and the numeric diameter onto a still frame for reports.
+
+This gives you end‑to‑end, insurer‑friendly video markups and auditable weight estimates inside Disaster Lense.
+
+Absolutely. I added a new canvas doc “Disaster Lense — Video Overlay & Tree Weight Endpoints” with everything you asked for:
+
+FFmpeg overlay API (POST /api/video/mark)
+Draw circles/arrows/labels directly onto a video and return output_marked.mp4. Ready to plug into the Assistant so it can auto-mark footage for adjusters/homeowners.
+
+Tree-weight estimate API (POST /api/weight/estimate)
+Takes species, dbhIn, lengthFt and returns two methods:
+
+Cylinder volume × species density (green weight),
+
+Species allometric a·DBH^b·L^c (coefficients stored in DB).
+Includes a seed SQL table for species_coeffs so you can tune per species.
+
+Server helpers for temp files, index.ts registrations, and client examples to call both endpoints.
+
+cURL tests and notes on RBAC/audit logging + storing outputs to object storage.
+
+If you want, I can also:
+
+Add a “Tape Overlay” still-frame endpoint that renders a virtual measuring tape + diameter text onto a photo, and
+
+Wire the Assistant to automatically choose frames, call /api/video/mark + /api/weight/estimate, and drop the outputs right into the Report Builder.
