@@ -825,6 +825,9 @@ async function startServer() {
           case 'user_audio':
             await handleVoiceData(ws, message);
             break;
+          case 'partial_transcript':
+            await handlePartialTranscript(ws, message);
+            break;
           default:
             ws.send(JSON.stringify({
               type: 'error',
@@ -1009,6 +1012,58 @@ async function startServer() {
       ws.send(JSON.stringify({
         type: 'assistant_text',
         text: `I understand you want: "${text}". I can help with circle annotations, measurements, and damage labeling.`
+      }));
+    }
+  }
+  
+  async function handlePartialTranscript(ws: any, message: any) {
+    const { text, sessionId } = message;
+    
+    if (!sessionId) {
+      ws.send(JSON.stringify({
+        type: 'error',
+        message: 'Session ID required for partial transcript processing'
+      }));
+      return;
+    }
+    
+    console.log(`🎤 Received partial transcript: "${text}" for session ${sessionId}`);
+    
+    // Calculate SHA-256 hash for partial transcript (for audit trail)
+    const partialHash = crypto.createHash('sha256').update(text).digest('hex');
+    
+    // Log partial transcript for audit trail
+    try {
+      await storage.createAiAction({
+        sessionId,
+        action: 'speech.partial',
+        input: { partialText: text, timestamp: new Date().toISOString() },
+        output: { processed: true, stage: 'partial_transcription' },
+        mediaId: 'demo-media-001',
+        sha256: partialHash
+      });
+    } catch (error) {
+      console.error('Failed to log partial transcript AI action:', error);
+    }
+    
+    // Send acknowledgment with context awareness
+    ws.send(JSON.stringify({
+      type: 'partial_received',
+      text: text,
+      sessionId: sessionId,
+      message: `Partial transcript received: "${text}"`
+    }));
+    
+    // Check if partial contains command keywords and provide preview
+    if (text.toLowerCase().includes('circle') || text.toLowerCase().includes('annotate')) {
+      ws.send(JSON.stringify({
+        type: 'assistant_preview',
+        text: `I see you're saying "${text}" - I can help with circle annotations when you finish speaking.`
+      }));
+    } else if (text.toLowerCase().includes('measure')) {
+      ws.send(JSON.stringify({
+        type: 'assistant_preview', 
+        text: `I see you're saying "${text}" - I can help with measurements when you finish speaking.`
       }));
     }
   }
