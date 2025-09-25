@@ -130,68 +130,61 @@ export function ComprehensiveIntelligenceSystem({ className = '', onIncidentAler
     refetchInterval: liveMonitoring ? 120000 : false, // 2 minutes
   });
 
-  // Comprehensive AI Query System
+  // Comprehensive AI Query System - FIXED
   const comprehensiveAIMutation = useMutation({
     mutationFn: async (query: string) => {
+      console.log('🧠 Sending AI Query:', query);
       setProcessingIntensity(99);
       
-      return apiRequest('/api/comprehensive-intelligence', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          query,
-          includeLiveIncidents: true,
-          includeTrafficData: true,
-          includeWeatherData: true,
-          includeInfrastructureData: true,
-          includeHomeownerData: true,
-          conversationalMode: true,
-          realTimeData: {
-            incidents: activeIncidents,
-            traffic: trafficData,
-            infrastructure: infrastructureData,
-            timestamp: new Date()
-          },
-          analysisOptions: {
-            nationwide: true,
-            allStates: true,
-            allCounties: true,
-            allCities: true,
-            personalizedResponse: true,
-            humanLikeConversation: true,
-            includeAlerts: true,
-            predictiveInsights: true
-          }
-        })
-      });
+      try {
+        const response = await apiRequest('/api/comprehensive-intelligence', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            query,
+            includeLiveIncidents: true,
+            includeTrafficData: true,
+            includeWeatherData: true,
+            includeInfrastructureData: true,
+            realTimeAnalysis: true
+          })
+        });
+        
+        console.log('🧠 AI Response received:', response);
+        return response;
+      } catch (error) {
+        console.error('🧠 AI Query failed:', error);
+        throw error;
+      }
     },
     onSuccess: (data) => {
+      console.log('🧠 Processing AI success:', data);
       setProcessingIntensity(90);
       
       const aiMessage: ConversationMessage = {
         id: Date.now().toString(),
         type: 'ai',
-        content: data.response,
+        content: data.response || data.analysis || 'I received your question but had trouble processing it. Please try again.',
         timestamp: new Date(),
-        incidents: data.relatedIncidents || [],
-        relatedAlerts: data.alerts || [],
+        incidents: data.incidents || [],
+        relatedAlerts: data.relatedAlerts || [],
         confidence: data.confidence || 0.95,
-        sources: data.sources || []
+        sources: data.sources || ['Live Intelligence System']
       };
       
       setMessages(prev => [...prev, aiMessage]);
       
       // Update active incidents if new ones are discovered
-      if (data.relatedIncidents && data.relatedIncidents.length > 0) {
+      if (data.incidents && data.incidents.length > 0) {
         setActiveIncidents(prev => {
-          const newIncidents = data.relatedIncidents.filter(
+          const newIncidents = data.incidents.filter(
             (incident: LiveIncident) => !prev.find(p => p.id === incident.id)
           );
           return [...newIncidents, ...prev.slice(0, 49)]; // Keep last 50
         });
         
         // Alert about critical incidents
-        data.relatedIncidents.forEach((incident: LiveIncident) => {
+        data.incidents.forEach((incident: LiveIncident) => {
           if (incident.severity === 'critical' || incident.severity === 'emergency') {
             if (onIncidentAlert) onIncidentAlert(incident);
             if (voiceEnabled) speakIncidentAlert(incident);
@@ -199,10 +192,32 @@ export function ComprehensiveIntelligenceSystem({ className = '', onIncidentAler
         });
       }
       
-      // Speak the AI response if voice is enabled
-      if (voiceEnabled) {
-        speakResponse(data.response);
+      // Speak the AI response if voice is enabled (with error handling)
+      if (voiceEnabled && data.response) {
+        try {
+          speakResponse(data.response);
+        } catch (speechError) {
+          console.warn('Speech synthesis failed:', speechError);
+        }
       }
+    },
+    onError: (error) => {
+      console.error('🧠 AI Query mutation error:', error);
+      setProcessingIntensity(90);
+      
+      // Show error message to user
+      const errorMessage: ConversationMessage = {
+        id: Date.now().toString(),
+        type: 'ai',
+        content: 'I apologize, but I encountered an issue processing your question. The intelligent analysis system is experiencing temporary difficulties. Please try asking your question again.',
+        timestamp: new Date(),
+        incidents: [],
+        relatedAlerts: ['System temporarily unavailable'],
+        confidence: 0.1,
+        sources: ['Error Handler']
+      };
+      
+      setMessages(prev => [...prev, errorMessage]);
     }
   });
 
@@ -293,6 +308,8 @@ export function ComprehensiveIntelligenceSystem({ className = '', onIncidentAler
   const handleSubmit = (text: string = inputText) => {
     if (!text.trim()) return;
 
+    console.log('🧠 User submitted question:', text);
+
     const userMessage: ConversationMessage = {
       id: Date.now().toString(),
       type: 'user',
@@ -305,6 +322,7 @@ export function ComprehensiveIntelligenceSystem({ className = '', onIncidentAler
     setMessages(prev => [...prev, userMessage]);
     setInputText('');
 
+    console.log('🧠 Calling comprehensiveAIMutation with:', text);
     comprehensiveAIMutation.mutate(text);
   };
 
