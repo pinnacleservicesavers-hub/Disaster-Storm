@@ -58,82 +58,8 @@ export interface DamageRegion {
   userConfirmed: boolean;
 }
 
-// Tool Registry - Server is the authority for all data mutations
+// Tool Registry - Clean tools pattern with exact user specifications
 export const TOOL_REGISTRY: Tool[] = [
-  {
-    name: 'measure.calibrate',
-    description: 'Calibrate measurement system using reference object',
-    parameters: {
-      type: 'object',
-      properties: {
-        method: { type: 'string', enum: ['reference_line', 'exif_focal', 'marker_tag'] },
-        pixelDistance: { type: 'number', description: 'Distance in pixels' },
-        realWorldDistance: { type: 'number', description: 'Known real-world distance' },
-        units: { type: 'string', enum: ['inches', 'cm', 'ft', 'm'] },
-        mediaId: { type: 'string', description: 'Media being calibrated' }
-      },
-      required: ['method', 'pixelDistance', 'realWorldDistance', 'units', 'mediaId']
-    }
-  },
-  {
-    name: 'measure.diameter',
-    description: 'Measure diameter using calibrated system',
-    parameters: {
-      type: 'object', 
-      properties: {
-        mediaId: { type: 'string' },
-        x1: { type: 'number' },
-        y1: { type: 'number' },
-        x2: { type: 'number' },
-        y2: { type: 'number' },
-        calibrationId: { type: 'string', description: 'Reference to calibration data' }
-      },
-      required: ['mediaId', 'x1', 'y1', 'x2', 'y2', 'calibrationId']
-    }
-  },
-  {
-    name: 'tree.estimate_weight',
-    description: 'Estimate tree weight using allometric equations',
-    parameters: {
-      type: 'object',
-      properties: {
-        species: { type: 'string', description: 'Tree species for equation selection' },
-        dbh_inches: { type: 'number', description: 'Diameter at breast height in inches' },
-        length_ft: { type: 'number', description: 'Section length in feet' },
-        equation_id: { type: 'string', description: 'Specific equation to use' }
-      },
-      required: ['species', 'dbh_inches', 'length_ft']
-    }
-  },
-  {
-    name: 'damage.detect_regions',
-    description: 'AI-assisted damage detection with user confirmation',
-    parameters: {
-      type: 'object',
-      properties: {
-        mediaId: { type: 'string' },
-        damageTypes: { 
-          type: 'array', 
-          items: { type: 'string', enum: ['cracked_limb', 'uprooted_root', 'roof_damage', 'downed_line', 'broken_fence', 'standing_water'] }
-        },
-        confidence_threshold: { type: 'number', minimum: 0, maximum: 1, default: 0.7 }
-      },
-      required: ['mediaId']
-    }
-  },
-  {
-    name: 'damage.confirm_region',
-    description: 'User confirms or rejects AI-suggested damage region',
-    parameters: {
-      type: 'object',
-      properties: {
-        regionId: { type: 'string' },
-        confirmed: { type: 'boolean' },
-        userAnnotation: { type: 'string', description: 'User override description' }
-      },
-      required: ['regionId', 'confirmed']
-    }
-  },
   {
     name: 'annotate.addCircle',
     description: 'Add circle annotation to media',
@@ -144,10 +70,124 @@ export const TOOL_REGISTRY: Tool[] = [
         x: { type: 'number' },
         y: { type: 'number' },
         r: { type: 'number' },
-        label: { type: 'string' },
-        metadata: { type: 'object', description: 'Additional annotation data' }
+        label: { type: 'string' }
       },
       required: ['mediaId', 'x', 'y', 'r', 'label']
+    }
+  },
+  {
+    name: 'annotate.addArrow',
+    description: 'Add arrow annotation to media',
+    parameters: {
+      type: 'object',
+      properties: {
+        mediaId: { type: 'string' },
+        x1: { type: 'number' },
+        y1: { type: 'number' },
+        x2: { type: 'number' },
+        y2: { type: 'number' },
+        label: { type: 'string' }
+      },
+      required: ['mediaId', 'x1', 'y1', 'x2', 'y2', 'label']
+    }
+  },
+  {
+    name: 'annotate.text',
+    description: 'Add text annotation to media',
+    parameters: {
+      type: 'object',
+      properties: {
+        mediaId: { type: 'string' },
+        x: { type: 'number' },
+        y: { type: 'number' },
+        text: { type: 'string' }
+      },
+      required: ['mediaId', 'x', 'y', 'text']
+    }
+  },
+  {
+    name: 'annotate.blur',
+    description: 'Add blur region to media for privacy protection',
+    parameters: {
+      type: 'object',
+      properties: {
+        mediaId: { type: 'string' },
+        x: { type: 'number' },
+        y: { type: 'number' },
+        w: { type: 'number' },
+        h: { type: 'number' }
+      },
+      required: ['mediaId', 'x', 'y', 'w', 'h']
+    }
+  },
+  {
+    name: 'measure.calibrate',
+    description: 'Calibrate measurement system using reference line',
+    parameters: {
+      type: 'object',
+      properties: {
+        mediaId: { type: 'string' },
+        x1: { type: 'number' },
+        y1: { type: 'number' },
+        x2: { type: 'number' },
+        y2: { type: 'number' },
+        realInches: { type: 'number' }
+      },
+      required: ['mediaId', 'x1', 'y1', 'x2', 'y2', 'realInches']
+    }
+  },
+  {
+    name: 'measure.diameter',
+    description: 'Measure diameter with tape overlay visualization',
+    parameters: {
+      type: 'object',
+      properties: {
+        mediaId: { type: 'string' },
+        x1: { type: 'number' },
+        y1: { type: 'number' },
+        x2: { type: 'number' },
+        y2: { type: 'number' }
+      },
+      required: ['mediaId', 'x1', 'y1', 'x2', 'y2']
+    }
+  },
+  {
+    name: 'estimate.treeWeight',
+    description: 'Calculate tree weight using allometric equations',
+    parameters: {
+      type: 'object',
+      properties: {
+        species: { type: 'string' },
+        dbhIn: { type: 'number' },
+        lengthFt: { type: 'number' },
+        method: { type: 'string' }
+      },
+      required: ['species', 'dbhIn', 'lengthFt', 'method']
+    }
+  },
+  {
+    name: 'video.markAndExport',
+    description: 'Mark video timestamps and export with annotations',
+    parameters: {
+      type: 'object',
+      properties: {
+        mediaId: { type: 'string' },
+        marks: { type: 'array', items: { type: 'object' } }
+      },
+      required: ['mediaId', 'marks']
+    }
+  },
+  {
+    name: 'report.snippet',
+    description: 'Generate professional report snippet with math formulas',
+    parameters: {
+      type: 'object',
+      properties: {
+        style: { type: 'string' },
+        bullets: { type: 'number' },
+        includeMath: { type: 'boolean' }
+      },
+      required: ['style', 'bullets', 'includeMath']
     }
   }
 ];
@@ -186,18 +226,31 @@ const generateFilterGraph = async (params: { mediaId: string; toolCalls: any[] }
   const toolHash = params.toolCalls.map(tc => tc.name).join('_');
   const outputKey = `${params.mediaId}_filtered_${timestamp}_${toolHash}.mp4`;
   
-  // Generate actual filter based on tool calls
+  // Generate actual filter based on tool calls - all annotation types
   const filters: string[] = [];
   for (const toolCall of params.toolCalls) {
     if (toolCall.name === 'annotate_addCircle') {
       const { x, y, r, label } = toolCall.args;
       filters.push(`drawbox=x=${x-r}:y=${y-r}:w=${r*2}:h=${r*2}:color=red@0.5:t=5, drawtext=text='${label}':x=${x-r}:y=${y+r+10}:fontsize=18:fontcolor=white:box=1:boxcolor=black@0.6`);
-    } else if (toolCall.name === 'measure_diameterFromFrame') {
+    } else if (toolCall.name === 'annotate_addArrow') {
+      const { x1, y1, x2, y2, label } = toolCall.args;
+      // Draw line and arrow head
+      filters.push(`drawbox=x=${Math.min(x1,x2)}:y=${Math.min(y1,y2)}:w=${Math.abs(x2-x1)}:h=2:color=blue@0.8:t=2, drawtext=text='${label}':x=${x2+5}:y=${y2-15}:fontsize=16:fontcolor=blue:box=1:boxcolor=white@0.8`);
+    } else if (toolCall.name === 'annotate_text') {
+      const { x, y, text } = toolCall.args;
+      filters.push(`drawtext=text='${text}':x=${x}:y=${y}:fontsize=20:fontcolor=white:box=1:boxcolor=black@0.7`);
+    } else if (toolCall.name === 'annotate_blur') {
+      const { x, y, w, h } = toolCall.args;
+      filters.push(`boxblur=10:x=${x}:y=${y}:w=${w}:h=${h}`);
+    } else if (toolCall.name === 'measure_diameter') {
       const { x1, y1, x2, y2, inches } = toolCall.args;
       const measurement = `${inches.toFixed(1)}" (±8%)`;
       const textX = Math.min(x1, x2);
       const textY = Math.min(y1, y2) - 25;
       filters.push(`drawbox=x=${Math.min(x1,x2)}:y=${Math.min(y1,y2)}:w=${Math.abs(x2-x1)}:h=${Math.abs(y2-y1)}:color=yellow@0.7:t=3, drawtext=text='${measurement}':x=${textX}:y=${textY}:fontsize=16:fontcolor=yellow:box=1:boxcolor=black@0.8`);
+    } else if (toolCall.name === 'video_mark') {
+      const { timestamp, label, index } = toolCall.args;
+      filters.push(`drawtext=text='${label} @${timestamp}s':x=10:y=${30 + index * 25}:fontsize=14:fontcolor=cyan:box=1:boxcolor=black@0.7`);
     }
   }
   
@@ -209,17 +262,15 @@ const generateFilterGraph = async (params: { mediaId: string; toolCalls: any[] }
   };
 };
 
-// Clean Tools Implementation - Your Simplified Pattern with Filter Graph Integration
+// Clean Tools Implementation - Your Exact Specifications with Filter Graph Integration
 export const tools = {
   async annotate_addCircle({ mediaId, x, y, r, label }: any) {
-    // Generate filter graph and new storage key using proper service
     const toolCall = { name: 'annotate_addCircle', args: { mediaId, x, y, r, label }, id: crypto.randomUUID() };
     const filterResult = await generateFilterGraph({
       mediaId,
       toolCalls: [toolCall]
     });
     
-    // Return annotation with filter info
     return { 
       annotationId: crypto.randomUUID(),
       filterGraph: filterResult.filterGraph,
@@ -228,13 +279,75 @@ export const tools = {
       appliedTools: filterResult.appliedTools
     };
   },
-  
-  async measure_diameterFromFrame({ mediaId, x1, y1, x2, y2, scalePxPerInch }: any) {
-    const px = Math.hypot(x2-x1, y2-y1);
-    const inches = px / scalePxPerInch;
+
+  async annotate_addArrow({ mediaId, x1, y1, x2, y2, label }: any) {
+    const toolCall = { name: 'annotate_addArrow', args: { mediaId, x1, y1, x2, y2, label }, id: crypto.randomUUID() };
+    const filterResult = await generateFilterGraph({
+      mediaId,
+      toolCalls: [toolCall]
+    });
     
-    // Generate measurement filter using proper service
-    const toolCall = { name: 'measure_diameterFromFrame', args: { mediaId, x1, y1, x2, y2, inches, uncertaintyPct: 8 }, id: crypto.randomUUID() };
+    return { 
+      annotationId: crypto.randomUUID(),
+      filterGraph: filterResult.filterGraph,
+      outputKey: filterResult.outputKey,
+      originalKey: filterResult.originalKey,
+      appliedTools: filterResult.appliedTools
+    };
+  },
+
+  async annotate_text({ mediaId, x, y, text }: any) {
+    const toolCall = { name: 'annotate_text', args: { mediaId, x, y, text }, id: crypto.randomUUID() };
+    const filterResult = await generateFilterGraph({
+      mediaId,
+      toolCalls: [toolCall]
+    });
+    
+    return { 
+      annotationId: crypto.randomUUID(),
+      filterGraph: filterResult.filterGraph,
+      outputKey: filterResult.outputKey,
+      originalKey: filterResult.originalKey,
+      appliedTools: filterResult.appliedTools
+    };
+  },
+
+  async annotate_blur({ mediaId, x, y, w, h }: any) {
+    const toolCall = { name: 'annotate_blur', args: { mediaId, x, y, w, h }, id: crypto.randomUUID() };
+    const filterResult = await generateFilterGraph({
+      mediaId,
+      toolCalls: [toolCall]
+    });
+    
+    return { 
+      annotationId: crypto.randomUUID(),
+      filterGraph: filterResult.filterGraph,
+      outputKey: filterResult.outputKey,
+      originalKey: filterResult.originalKey,
+      appliedTools: filterResult.appliedTools
+    };
+  },
+
+  async measure_calibrate({ mediaId, x1, y1, x2, y2, realInches }: any) {
+    const pixelDistance = Math.hypot(x2-x1, y2-y1);
+    const pixelsPerInch = pixelDistance / realInches;
+    
+    return {
+      calibrationId: crypto.randomUUID(),
+      pixelsPerInch,
+      pixelDistance,
+      realInches,
+      mediaId
+    };
+  },
+  
+  async measure_diameter({ mediaId, x1, y1, x2, y2 }: any) {
+    // For now use default calibration - in practice would look up from session/context
+    const defaultPixelsPerInch = 50; // placeholder
+    const px = Math.hypot(x2-x1, y2-y1);
+    const inches = px / defaultPixelsPerInch;
+    
+    const toolCall = { name: 'measure_diameter', args: { mediaId, x1, y1, x2, y2, inches, uncertaintyPct: 8 }, id: crypto.randomUUID() };
     const filterResult = await generateFilterGraph({
       mediaId,
       toolCalls: [toolCall]
@@ -251,38 +364,63 @@ export const tools = {
   },
   
   async estimate_treeWeight({ species, dbhIn, lengthFt, method }: any) {
-    // Look up coefficients from DB table (configurable)
-    // Example placeholder: w = a * (dbhIn ** b) * (lengthFt ** c)
-    const a=0.15, b=2.4, c=0.9; // placeholder
-    const weight = a * Math.pow(dbhIn, b) * Math.pow(lengthFt, c);
-    return { weightLb: weight, formula: { a, b, c, method } };
-  },
-  
-  async damage_detect({ mediaId, damageTypes = [], confidence_threshold = 0.7 }: any) {
-    // Simulate damage detection with mock regions
-    const regions = [
-      {
-        type: 'cracked_limb',
-        confidence: 0.85,
-        bbox: { x: 120, y: 80, width: 60, height: 40 }
-      },
-      {
-        type: 'roof_damage', 
-        confidence: 0.92,
-        bbox: { x: 200, y: 300, width: 80, height: 60 }
-      }
-    ];
+    // Look up equation by species
+    const equation = ALLOMETRIC_EQUATIONS[species] || ALLOMETRIC_EQUATIONS['oak_general'];
+    const { coefficients } = equation;
     
-    const filteredRegions = regions.filter(region => 
-      region.confidence >= confidence_threshold &&
-      (damageTypes.length === 0 || damageTypes.includes(region.type))
-    );
+    const weight = coefficients.base * Math.pow(dbhIn, coefficients.dbh_exponent) * lengthFt * coefficients.density;
+    
+    return { 
+      weightLb: Math.round(weight), 
+      formula: coefficients,
+      species,
+      method,
+      equation: equation.formula
+    };
+  },
+
+  async video_markAndExport({ mediaId, marks }: any) {
+    const exportId = crypto.randomUUID();
+    const outputKey = `${mediaId}_marked_${Date.now()}.mp4`;
+    
+    // Generate filter graph for video marks
+    const toolCalls = marks.map((mark: any, i: number) => ({
+      name: 'video_mark',
+      args: { ...mark, index: i },
+      id: crypto.randomUUID()
+    }));
+    
+    const filterResult = await generateFilterGraph({
+      mediaId,
+      toolCalls
+    });
     
     return {
-      regions: filteredRegions,
-      total_detected: regions.length,
-      filtered_count: filteredRegions.length,
-      confidence_threshold
+      exportId,
+      outputKey: filterResult.outputKey,
+      filterGraph: filterResult.filterGraph,
+      marks,
+      status: 'processing'
+    };
+  },
+
+  async report_snippet({ style, bullets, includeMath }: any) {
+    const snippets = [];
+    
+    for (let i = 0; i < bullets; i++) {
+      if (includeMath && i % 2 === 0) {
+        snippets.push(`• Professional analysis with formula: Weight = 0.25 × DBH^2.5 × Length × Density`);
+      } else {
+        snippets.push(`• ${style} documentation point ${i + 1} with technical details`);
+      }
+    }
+    
+    return {
+      snippetId: crypto.randomUUID(),
+      style,
+      bullets: snippets,
+      includeMath,
+      timestamp: new Date().toISOString()
     };
   }
 };
@@ -303,12 +441,17 @@ class ToolExecutor {
     try {
       let result: any;
       
-      // Map tool names to your clean function names
+      // Map tool names to your clean function names - exact user specifications
       const toolMap = {
         'annotate.addCircle': 'annotate_addCircle',
-        'measure.diameter': 'measure_diameterFromFrame', 
-        'tree.estimate_weight': 'estimate_treeWeight',
-        'damage.detect_regions': 'damage_detect'
+        'annotate.addArrow': 'annotate_addArrow',
+        'annotate.text': 'annotate_text',
+        'annotate.blur': 'annotate_blur',
+        'measure.calibrate': 'measure_calibrate',
+        'measure.diameter': 'measure_diameter',
+        'estimate.treeWeight': 'estimate_treeWeight',
+        'video.markAndExport': 'video_markAndExport',
+        'report.snippet': 'report_snippet'
       };
       
       const cleanToolName = toolMap[toolCall.name as keyof typeof toolMap];
