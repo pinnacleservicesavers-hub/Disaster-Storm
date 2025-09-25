@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { getAuthHeaders } from "@/lib/queryClient";
 import AssistantDock from '../components/AssistantDock';
-import { Volume2, VolumeX, Play, Pause, RotateCcw } from 'lucide-react';
+import { Volume2, VolumeX, Play, Pause, RotateCcw, X, Plus } from 'lucide-react';
 
 // Single-file demo UI for Disaster Lens
 // Tabs: Capture, Timeline, Annotator, Report Builder
@@ -83,7 +83,7 @@ function StatCard({ label, value, sub }: { label: string; value: string; sub?: s
 }
 
 // --- Capture Tab ---
-function CaptureTab() {
+function CaptureTab({ currentProject }: { currentProject: any }) {
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   const [selectedCamera, setSelectedCamera] = useState<string>("");
   const [isCapturing, setIsCapturing] = useState(false);
@@ -138,6 +138,11 @@ function CaptureTab() {
   };
 
   const takePhoto = async () => {
+    if (!currentProject) {
+      alert('Please select or create a project first before taking photos.');
+      return;
+    }
+
     const video = videoRef.current;
     const canvas = canvasRef.current;
     if (!video || !canvas) return;
@@ -153,29 +158,66 @@ function CaptureTab() {
     canvas.toBlob(async (blob) => {
       if (!blob) return;
       
-      const buffer = await blob.arrayBuffer();
-      const hash = await hashWorker(buffer);
-      
-      // Upload to backend
-      const formData = new FormData();
-      formData.append('file', blob, `photo_${Date.now()}.jpg`);
-      formData.append('metadata', JSON.stringify({
-        timestamp: new Date().toISOString(),
-        location,
-        sha256: hash,
-        type: 'photo'
-      }));
-
       try {
-        const response = await fetch('/api/media/upload', {
+        const buffer = await blob.arrayBuffer();
+        const hash = await hashWorker(buffer);
+        
+        const fileName = `photo_${Date.now()}.jpg`;
+        const headers = getAuthHeaders();
+        
+        // Step 1: Get upload URL
+        const uploadUrlResponse = await fetch('/api/media/upload-url', {
           method: 'POST',
-          headers: getAuthHeaders(),
-          body: formData
+          headers: {
+            ...headers,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            fileName,
+            fileType: 'image/jpeg',
+            projectId: currentProject.id
+          })
         });
-        const result = await response.json();
-        console.log('Photo uploaded:', result);
+
+        if (!uploadUrlResponse.ok) {
+          throw new Error('Failed to get upload URL');
+        }
+
+        const uploadData = await uploadUrlResponse.json();
+        
+        // Step 2: Finalize media record
+        const mediaResponse = await fetch('/api/media', {
+          method: 'POST',
+          headers: {
+            ...headers,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            projectId: currentProject.id,
+            fileKey: uploadData.fileKey,
+            fileName,
+            fileType: 'image/jpeg',
+            fileSize: blob.size,
+            sha256: hash,
+            exifData: {
+              timestamp: new Date().toISOString(),
+              location,
+              device: selectedCamera
+            }
+          })
+        });
+
+        if (mediaResponse.ok) {
+          const result = await mediaResponse.json();
+          console.log('Photo captured and saved:', result.media);
+          alert(`Photo saved to project: ${currentProject.name}`);
+        } else {
+          console.error('Failed to save media record');
+          alert('Photo captured but failed to save to project');
+        }
       } catch (error) {
         console.error('Upload failed:', error);
+        alert('Failed to capture photo. Please try again.');
       }
     }, 'image/jpeg', 0.9);
   };
@@ -183,7 +225,18 @@ function CaptureTab() {
   return (
     <div className="space-y-6">
       <div className="bg-white p-6 border rounded shadow">
-        <h2 className="text-xl font-bold mb-4">Camera Capture</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-bold">Camera Capture</h2>
+          {currentProject ? (
+            <div className="text-sm text-green-700 bg-green-50 px-3 py-1 rounded">
+              📸 Capturing for: <strong>{currentProject.name}</strong>
+            </div>
+          ) : (
+            <div className="text-sm text-red-700 bg-red-50 px-3 py-1 rounded">
+              ⚠️ No project selected
+            </div>
+          )}
+        </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
@@ -1113,6 +1166,12 @@ export default function App() {
   const [tab, setTab] = useState<typeof tabs[number]>("Capture");
   const [scalePxPerInch, setScalePxPerInchState] = useState<number | null>(null);
   
+  // Project Management State
+  const [currentProject, setCurrentProject] = useState<any>(null);
+  const [projects, setProjects] = useState<any[]>([]);
+  const [showProjectModal, setShowProjectModal] = useState(false);
+  const [loadingProjects, setLoadingProjects] = useState(false);
+  
   // Voice Guide State
   const [isVoiceGuideActive, setIsVoiceGuideActive] = useState(false);
   const [currentVoiceScript, setCurrentVoiceScript] = useState<string | null>(null);
@@ -1127,11 +1186,88 @@ export default function App() {
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       setSpeechSynthesis(window.speechSynthesis);
     }
+    
+    // Load projects on mount
+    loadProjects();
   },[]);
 
   const setScalePxPerInch = (v:number) => {
     setScalePxPerInchState(v);
     localStorage.setItem('DL_scalePxPerInch', String(v));
+  };
+
+  // Project Management Functions
+  const loadProjects = async () => {
+    try {
+      setLoadingProjects(true);
+      const headers = getAuthHeaders();
+      
+      // Use demo organization for now
+      const orgId = 'org-demo-construction';
+      
+      const response = await fetch(`/api/projects?orgId=${orgId}`, {
+        headers
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setProjects(data.projects || []);
+        
+        // Auto-select first project if none selected
+        if (!currentProject && data.projects?.length > 0) {
+          setCurrentProject(data.projects[0]);
+        }
+      } else {
+        console.error('Failed to load projects');
+      }
+    } catch (error) {
+      console.error('Error loading projects:', error);
+    } finally {
+      setLoadingProjects(false);
+    }
+  };
+
+  const createProject = async (projectData: {
+    name: string;
+    description: string;
+    location: string;
+    clientName: string;
+  }) => {
+    try {
+      const headers = getAuthHeaders();
+      
+      const response = await fetch('/api/projects', {
+        method: 'POST',
+        headers: {
+          ...headers,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          ...projectData,
+          organizationId: 'org-demo-construction', // Demo organization
+          status: 'active',
+          priority: 'medium'
+        })
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        const newProject = data.project;
+        
+        // Add to projects list and select it
+        setProjects(prev => [...prev, newProject]);
+        setCurrentProject(newProject);
+        setShowProjectModal(false);
+        
+        return newProject;
+      } else {
+        console.error('Failed to create project');
+        return null;
+      }
+    } catch (error) {
+      console.error('Error creating project:', error);
+      return null;
+    }
   };
 
   // Voice Guide Functions
@@ -1301,10 +1437,66 @@ export default function App() {
       </header>
 
       <main className="max-w-6xl mx-auto px-4 py-6 space-y-6">
+        {/* Project Selection Bar */}
+        <div className="bg-white p-4 border rounded-lg shadow-sm">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <h3 className="font-semibold text-gray-900">Current Project:</h3>
+              {currentProject ? (
+                <div className="flex items-center gap-3">
+                  <select
+                    value={currentProject.id}
+                    onChange={(e) => {
+                      const selected = projects.find(p => p.id === e.target.value);
+                      if (selected) setCurrentProject(selected);
+                    }}
+                    className="border rounded px-3 py-1 text-sm"
+                    data-testid="select-current-project"
+                  >
+                    {projects.map((project) => (
+                      <option key={project.id} value={project.id}>
+                        {project.name} - {project.location}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="text-sm text-gray-600">
+                    Client: {currentProject.clientName || 'N/A'}
+                  </span>
+                </div>
+              ) : (
+                <span className="text-gray-500">No project selected</span>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowProjectModal(true)}
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
+                data-testid="button-new-project"
+              >
+                + New Project
+              </button>
+              {projects.length > 0 && (
+                <button
+                  onClick={loadProjects}
+                  className="px-3 py-2 border rounded hover:bg-gray-50 text-sm"
+                  data-testid="button-refresh-projects"
+                  disabled={loadingProjects}
+                >
+                  {loadingProjects ? '...' : '↻'}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-          <StatCard label="Project Status" value="Active" sub="Job #DL-000271" />
-          <StatCard label="Media" value="128 items" sub="Today + Yesterday" />
-          <StatCard label="Reports" value="3 drafts" sub="1 final, 2 daily" />
+          <StatCard 
+            label="Project Status" 
+            value={currentProject ? currentProject.status || 'Active' : 'No Project'} 
+            sub={currentProject ? `ID: ${currentProject.id.slice(0, 8)}...` : 'Select or create a project'} 
+          />
+          <StatCard label="Media" value="0 items" sub="Photos will appear here" />
+          <StatCard label="Reports" value="0 drafts" sub="Generated reports" />
           <StatCard 
             label="Calibration" 
             value={scalePxPerInch? `${scalePxPerInch.toFixed(2)} px/in` : 'Not set'} 
@@ -1312,7 +1504,7 @@ export default function App() {
           />
         </div>
 
-        {tab === "Capture" && <CaptureTab />}
+        {tab === "Capture" && <CaptureTab currentProject={currentProject} />}
         {tab === "Timeline" && <TimelineTab />}
         {tab === "Annotator" && <AnnotatorTab scalePxPerInch={scalePxPerInch} />}
         {tab === "Calibrate" && <CalibrateTab scalePxPerInch={scalePxPerInch} setScalePxPerInch={setScalePxPerInch} />}
@@ -1322,6 +1514,115 @@ export default function App() {
       <footer className="py-6 text-center text-xs text-gray-500">
         © {new Date().getFullYear()} Disaster Lens Module — UI Demo
       </footer>
+      
+      {/* Project Creation Modal */}
+      {showProjectModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Create New Project</h3>
+              <button
+                onClick={() => setShowProjectModal(false)}
+                className="p-1 hover:bg-gray-100 rounded"
+                data-testid="button-close-project-modal"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              const formData = new FormData(e.currentTarget);
+              const projectData = {
+                name: formData.get('name') as string,
+                description: formData.get('description') as string,
+                location: formData.get('location') as string,
+                clientName: formData.get('clientName') as string
+              };
+              
+              if (projectData.name && projectData.location) {
+                await createProject(projectData);
+              } else {
+                alert('Please fill in all required fields');
+              }
+            }}>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Project Name *
+                  </label>
+                  <input
+                    type="text"
+                    name="name"
+                    required
+                    className="w-full border rounded px-3 py-2 text-sm"
+                    placeholder="e.g., Hurricane Alexandra - Johnson Residence"
+                    data-testid="input-project-name"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Location *
+                  </label>
+                  <input
+                    type="text"
+                    name="location"
+                    required
+                    className="w-full border rounded px-3 py-2 text-sm"
+                    placeholder="e.g., 123 Main St, Miami, FL"
+                    data-testid="input-project-location"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Client Name
+                  </label>
+                  <input
+                    type="text"
+                    name="clientName"
+                    className="w-full border rounded px-3 py-2 text-sm"
+                    placeholder="e.g., Sarah Johnson"
+                    data-testid="input-project-client"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Description
+                  </label>
+                  <textarea
+                    name="description"
+                    rows={3}
+                    className="w-full border rounded px-3 py-2 text-sm"
+                    placeholder="Brief description of the damage assessment project..."
+                    data-testid="textarea-project-description"
+                  />
+                </div>
+              </div>
+              
+              <div className="flex gap-2 mt-6">
+                <button
+                  type="submit"
+                  className="flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
+                  data-testid="button-create-project"
+                >
+                  Create Project
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowProjectModal(false)}
+                  className="px-4 py-2 border rounded hover:bg-gray-50"
+                  data-testid="button-cancel-project"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
       
       {/* AI Assistant Dock */}
       <AssistantDock />
