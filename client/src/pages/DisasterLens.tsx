@@ -28,7 +28,9 @@ import {
   CheckSquare,
   Edit3,
   Save,
-  Trash2
+  Trash2,
+  Shield,
+  Building2
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -42,6 +44,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
 
 // Types matching the specification
 interface Project {
@@ -555,6 +558,346 @@ const ProjectModal: React.FC<{
   );
 };
 
+// Media Library Component
+const MediaLibrary = ({ projects }: { projects: Project[] }) => {
+  const [selectedProject, setSelectedProject] = useState<string>('all');
+  const [mediaType, setMediaType] = useState<string>('all');
+  
+  // Fetch media items from API
+  const { data: mediaData, isLoading } = useQuery({
+    queryKey: ['disaster-lense-media', selectedProject, mediaType],
+    queryFn: () => {
+      const params = new URLSearchParams();
+      if (selectedProject !== 'all') params.set('projectId', selectedProject);
+      if (mediaType !== 'all') params.set('type', mediaType);
+      return fetch(`/api/disaster-lense/media?${params.toString()}`).then(res => res.json());
+    }
+  });
+
+  const mediaItems = mediaData?.media || [];
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex justify-between items-center">
+          <CardTitle>Media Library</CardTitle>
+          <div className="flex gap-2">
+            <select
+              value={selectedProject}
+              onChange={(e) => setSelectedProject(e.target.value)}
+              className="px-3 py-1 border rounded text-sm"
+            >
+              <option value="all">All Projects</option>
+              {projects.map(project => (
+                <option key={project.id} value={project.id}>{project.name}</option>
+              ))}
+            </select>
+            <select
+              value={mediaType}
+              onChange={(e) => setMediaType(e.target.value)}
+              className="px-3 py-1 border rounded text-sm"
+            >
+              <option value="all">All Media</option>
+              <option value="photo">Photos</option>
+              <option value="video">Videos</option>
+            </select>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="text-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+          </div>
+        ) : mediaItems.length === 0 ? (
+          <div className="text-center py-12">
+            <Camera className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No media yet</h3>
+            <p className="text-gray-500">Capture photos and videos to see them here.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {mediaItems.map((media: any) => (
+              <div key={media.id} className="border rounded-lg p-3 hover:bg-gray-50">
+                <div className="aspect-square bg-gray-100 rounded mb-2 flex items-center justify-center">
+                  {media.type === 'photo' ? (
+                    <Camera className="w-8 h-8 text-gray-400" />
+                  ) : (
+                    <Video className="w-8 h-8 text-gray-400" />
+                  )}
+                </div>
+                <div className="text-sm">
+                  <div className="font-medium truncate">{media.originalName}</div>
+                  <div className="text-gray-500 text-xs">
+                    {new Date(media.capturedAt).toLocaleDateString()}
+                  </div>
+                  {media.coords && (
+                    <div className="text-green-600 text-xs">📍 GPS</div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
+
+// Task Management Component
+const TaskManagement = ({ projects }: { projects: Project[] }) => {
+  const [selectedProject, setSelectedProject] = useState<string>('all');
+  const [showCreateTask, setShowCreateTask] = useState(false);
+  
+  // Fetch tasks from API
+  const { data: tasksData, isLoading } = useQuery({
+    queryKey: ['disaster-lense-tasks', selectedProject],
+    queryFn: () => {
+      const params = new URLSearchParams();
+      if (selectedProject !== 'all') params.set('projectId', selectedProject);
+      return fetch(`/api/disaster-lense/tasks?${params.toString()}`).then(res => res.json());
+    }
+  });
+
+  const tasks = tasksData?.tasks || [];
+
+  const queryClient = useQueryClient();
+  
+  const createTaskMutation = useMutation({
+    mutationFn: (taskData: any) =>
+      apiRequest('/api/disaster-lense/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(taskData)
+      }),
+    onSuccess: () => {
+      setShowCreateTask(false);
+      queryClient.invalidateQueries({ queryKey: ['disaster-lense-tasks'] });
+    }
+  });
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex justify-between items-center">
+          <CardTitle>Tasks & Checklists</CardTitle>
+          <div className="flex gap-2">
+            <select
+              value={selectedProject}
+              onChange={(e) => setSelectedProject(e.target.value)}
+              className="px-3 py-1 border rounded text-sm"
+            >
+              <option value="all">All Projects</option>
+              {projects.map(project => (
+                <option key={project.id} value={project.id}>{project.name}</option>
+              ))}
+            </select>
+            <Button size="sm" onClick={() => setShowCreateTask(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              New Task
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="text-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+          </div>
+        ) : tasks.length === 0 ? (
+          <div className="text-center py-12">
+            <CheckSquare className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No tasks yet</h3>
+            <p className="text-gray-500">Create tasks to organize your project workflow.</p>
+          </div>
+        ) : (
+          <>
+            {/* Task Creation Form */}
+            {showCreateTask && (
+              <div className="mb-6 border rounded-lg p-4 bg-gray-50">
+                <h4 className="font-medium mb-3">Create New Task</h4>
+                <form onSubmit={(e) => {
+                  e.preventDefault();
+                  const formData = new FormData(e.currentTarget);
+                  createTaskMutation.mutate({
+                    projectId: formData.get('projectId'),
+                    title: formData.get('title'),
+                    description: formData.get('description'),
+                    requiresPhoto: formData.get('requiresPhoto') === 'on'
+                  });
+                }}>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="title">Task Title</Label>
+                      <Input name="title" id="title" required />
+                    </div>
+                    <div>
+                      <Label htmlFor="project">Project</Label>
+                      <select name="projectId" className="w-full px-3 py-2 border rounded">
+                        {projects.map(project => (
+                          <option key={project.id} value={project.id}>{project.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  <div className="mt-4">
+                    <Label htmlFor="description">Description</Label>
+                    <Textarea name="description" id="description" />
+                  </div>
+                  <div className="mt-4">
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" name="requiresPhoto" />
+                      <span className="text-sm">Requires photo documentation</span>
+                    </label>
+                  </div>
+                  <div className="flex gap-2 mt-4">
+                    <Button type="submit" disabled={createTaskMutation.isPending}>
+                      Create Task
+                    </Button>
+                    <Button type="button" variant="outline" onClick={() => setShowCreateTask(false)}>
+                      Cancel
+                    </Button>
+                  </div>
+                </form>
+              </div>
+            )}
+            
+            <div className="space-y-3">
+              {tasks.map((task: any) => (
+              <div key={task.id} className="border rounded-lg p-4">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-3 h-3 rounded-full ${task.status === 'completed' ? 'bg-green-500' : task.status === 'in_progress' ? 'bg-yellow-500' : 'bg-gray-300'}`} />
+                      <h4 className="font-medium">{task.title}</h4>
+                    </div>
+                    {task.description && (
+                      <p className="text-sm text-gray-600 mt-1">{task.description}</p>
+                    )}
+                    <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
+                      <span>{projects.find(p => p.id === task.projectId)?.name}</span>
+                      {task.requiresPhoto && (
+                        <span className="flex items-center gap-1">
+                          <Camera className="w-3 h-3" />
+                          Photo required
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <Button variant="outline" size="sm">
+                    {task.status === 'completed' ? 'Completed' : 'Mark Complete'}
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
+
+// Reports Center Component
+const ReportsCenter = ({ projects }: { projects: Project[] }) => {
+  const [selectedProject, setSelectedProject] = useState<string>('all');
+  
+  // Fetch reports from API  
+  const { data: reportsData, isLoading } = useQuery({
+    queryKey: ['disaster-lense-reports', selectedProject],
+    queryFn: () => {
+      const params = new URLSearchParams();
+      if (selectedProject !== 'all') params.set('projectId', selectedProject);
+      return fetch(`/api/disaster-lense/reports?${params.toString()}`).then(res => res.json()).catch(() => ({ reports: [] }));
+    }
+  });
+
+  const reports = reportsData?.reports || [];
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex justify-between items-center">
+          <CardTitle>Reports & Documentation</CardTitle>
+          <div className="flex gap-2">
+            <select
+              value={selectedProject}
+              onChange={(e) => setSelectedProject(e.target.value)}
+              className="px-3 py-1 border rounded text-sm"
+            >
+              <option value="all">All Projects</option>
+              {projects.map(project => (
+                <option key={project.id} value={project.id}>{project.name}</option>
+              ))}
+            </select>
+            <Button size="sm">
+              <FileText className="w-4 h-4 mr-2" />
+              Generate Report
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="text-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+          </div>
+        ) : reports.length === 0 ? (
+          <div className="text-center py-12">
+            <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No reports generated</h3>
+            <p className="text-gray-500 mb-6">
+              Generate professional reports from your captured media and project data.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-2xl mx-auto">
+              <div className="border rounded-lg p-4 text-center">
+                <Clock className="w-8 h-8 text-blue-500 mx-auto mb-2" />
+                <h4 className="font-medium">Daily Log</h4>
+                <p className="text-sm text-gray-500">Progress documentation</p>
+              </div>
+              <div className="border rounded-lg p-4 text-center">
+                <Shield className="w-8 h-8 text-green-500 mx-auto mb-2" />
+                <h4 className="font-medium">Before/After</h4>
+                <p className="text-sm text-gray-500">Damage assessment</p>
+              </div>
+              <div className="border rounded-lg p-4 text-center">
+                <Building2 className="w-8 h-8 text-purple-500 mx-auto mb-2" />
+                <h4 className="font-medium">Insurance Packet</h4>
+                <p className="text-sm text-gray-500">Claims documentation</p>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {reports.map((report: any) => (
+              <div key={report.id} className="border rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-medium">{report.name}</h4>
+                    <p className="text-sm text-gray-500">
+                      {projects.find(p => p.id === report.projectId)?.name} • 
+                      {new Date(report.createdAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm">
+                      <Eye className="w-4 h-4 mr-1" />
+                      View
+                    </Button>
+                    <Button variant="outline" size="sm">
+                      <Download className="w-4 h-4 mr-1" />
+                      Download
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
+
 // Main DisasterLens Component
 export default function DisasterLens() {
   const [activeTab, setActiveTab] = useState('projects');
@@ -880,54 +1223,15 @@ export default function DisasterLens() {
           </TabsContent>
 
           <TabsContent value="media">
-            <Card>
-              <CardHeader>
-                <CardTitle>Media Library</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-12">
-                  <Camera className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No media yet</h3>
-                  <p className="text-gray-500 mb-6">
-                    Capture photos and videos from your projects to see them here.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
+            <MediaLibrary projects={projects} />
           </TabsContent>
 
           <TabsContent value="tasks">
-            <Card>
-              <CardHeader>
-                <CardTitle>Tasks & Checklists</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-12">
-                  <CheckSquare className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No tasks yet</h3>
-                  <p className="text-gray-500 mb-6">
-                    Create tasks and checklists to organize your project workflow.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
+            <TaskManagement projects={projects} />
           </TabsContent>
 
           <TabsContent value="reports">
-            <Card>
-              <CardHeader>
-                <CardTitle>Reports & Documentation</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-12">
-                  <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No reports generated</h3>
-                  <p className="text-gray-500 mb-6">
-                    Generate professional reports from your captured media and annotations.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
+            <ReportsCenter projects={projects} />
           </TabsContent>
         </Tabs>
       </div>
