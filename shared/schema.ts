@@ -3454,9 +3454,45 @@ export type InsertDetectionResult = z.infer<typeof insertDetectionResultSchema>;
 
 // ===== DISASTER LENS CORE TABLES =====
 
+// Organizations table (multi-tenant support)
+export const organizations = pgTable("organizations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  slug: text("slug").notNull().unique(),
+  planType: text("plan_type").default("basic"), // basic, pro, enterprise
+  settings: jsonb("settings").$type<JsonObject>(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Organization memberships with roles
+export const organizationMembers = pgTable("organization_members", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  role: text("role").notNull(), // owner, admin, manager, tech, sub, viewer
+  invitedBy: varchar("invited_by"),
+  invitedAt: timestamp("invited_at"),
+  joinedAt: timestamp("joined_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  orgMembershipUnique: unique().on(table.organizationId, table.userId),
+  memberOrgFkey: foreignKey({
+    columns: [table.organizationId],
+    foreignColumns: [organizations.id],
+    name: "fk_member_org"
+  }),
+  memberUserFkey: foreignKey({
+    columns: [table.userId],
+    foreignColumns: [users.id],
+    name: "fk_member_user"
+  }),
+}));
+
 // Projects table (core container for disaster documentation)
 export const projects = pgTable("projects", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").notNull(),
   name: text("name").notNull(),
   description: text("description"),
   status: text("status").default("active"), // active, completed, archived
@@ -3467,10 +3503,22 @@ export const projects = pgTable("projects", {
   longitude: numeric("longitude", { precision: 10, scale: 8 }),
   insuranceCompany: text("insurance_company"),
   claimNumber: text("claim_number"),
-  userId: varchar("user_id").notNull(), // owner
+  createdBy: varchar("created_by").notNull(), // creator
+  assignedTechIds: varchar("assigned_tech_ids").array(), // assigned techs and subs
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => ({
+  projectOrgFkey: foreignKey({
+    columns: [table.organizationId],
+    foreignColumns: [organizations.id],
+    name: "fk_project_org"
+  }),
+  projectCreatorFkey: foreignKey({
+    columns: [table.createdBy],
+    foreignColumns: [users.id],
+    name: "fk_project_creator"
+  }),
+}));
 
 // Media table (unified photos/videos/audio)
 export const media = pgTable("media", {
@@ -3627,6 +3675,18 @@ export const auditLog = pgTable("audit_log", {
 
 // ===== DISASTER LENS INSERT SCHEMAS =====
 
+export const insertOrganizationSchema = createInsertSchema(organizations).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertOrganizationMemberSchema = createInsertSchema(organizationMembers).omit({
+  id: true,
+  createdAt: true,
+  joinedAt: true,
+});
+
 export const insertProjectSchema = createInsertSchema(projects).omit({
   id: true,
   createdAt: true,
@@ -3673,6 +3733,10 @@ export const insertAuditLogSchema = createInsertSchema(auditLog).omit({
 
 // ===== DISASTER LENS TYPES =====
 
+export type Organization = typeof organizations.$inferSelect;
+export type InsertOrganization = z.infer<typeof insertOrganizationSchema>;
+export type OrganizationMember = typeof organizationMembers.$inferSelect;
+export type InsertOrganizationMember = z.infer<typeof insertOrganizationMemberSchema>;
 export type Project = typeof projects.$inferSelect;
 export type InsertProject = z.infer<typeof insertProjectSchema>;
 export type Media = typeof media.$inferSelect;
