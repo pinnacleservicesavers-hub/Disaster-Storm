@@ -1,0 +1,16 @@
+Key Features & Functions
+
+Here’s what you can do with CompanyCam (and how it might help you in your line of work):
+
+Feature	What It Does	Why It Helps / Use Cases for Tree Removal & Emergency Services
+Photo & Video Capture	Take photos & videos directly in the app, with GPS and timestamp	You can document damage, work progress, before/after, hazards, etc.
+Annotations / Markups	Draw, add text, measurements, highlight parts of photos	Clarify where a branch was cut, mark dangerous limbs, show what needs attention
+Automatic Organization / Labels / Tags	Photos get organized by project, date, location; tags let you filter	You won’t waste time sorting images; easy to find a specific crew’s photos or a certain job
+Project Feed / Timeline	You see a live feed of what’s happening across all projects; updates flow in	Helps you supervise multiple jobs, see what crew did today, track delays or issues
+In-App Communication / Comments	Comments, @mentions, conversations tied to photos/projects	You and your crew can discuss issues right in context (e.g. “look at this limb here”)
+Pages / Digital Notebook	Freeform pages to write notes, compile photos + commentary	Use this for job summaries, site notes, meeting logs, etc.
+Checklists / Tasks	Create and assign checklists or tasks, sometimes with required photo checkoffs	For tree removal, you could have a safety checklist, job stages, or post-job review list
+AI & Automated Reports	Generate summaries, daily logs, “walkthrough notes” using AI tools	Saves you from writing long reports manually; good for insurance or client updates
+Share & Collaborate (Guests / Clients / Subs)	Share galleries, timelines, or reports with clients or subcontractors	Clients can see progress without needing access to the full internal app
+Documents / Signatures / Payments	Upload contracts, get signatures, request payments (depending on plan)	For emergency jobs you can confirm approvals, get signatures on site, or bill faster
+Integrations	Connect with other software: CRMs, estimating, job management, etc.	Helps to keep your workflow smooth (don’t have to re-enter data)

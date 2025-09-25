@@ -5,8 +5,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { useQuery } from '@tanstack/react-query';
-import { FileText, Plus, Search, Settings, DollarSign, Clock, CheckCircle, AlertTriangle, TrendingUp, Eye, Volume2, VolumeX, ArrowLeft } from 'lucide-react';
+// Using custom modal implementation instead of Dialog component
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { FileText, Plus, Search, Settings, DollarSign, Clock, CheckCircle, AlertTriangle, TrendingUp, Eye, Volume2, VolumeX, ArrowLeft, UserPlus, FileSearch } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { apiRequest } from '@/lib/queryClient';
 import { DashboardSection } from '@/components/DashboardSection';
 import { FadeIn, PulseAlert, StaggerContainer, StaggerItem, HoverLift, CountUp } from '@/components/ui/animations';
 import { XactimateComparables } from '@/components/XactimateComparables';
@@ -29,6 +36,27 @@ export default function Claims() {
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [isVoiceGuideActive, setIsVoiceGuideActive] = useState(false);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  
+  // Add New Claim Modal States
+  const [isAddClaimModalOpen, setIsAddClaimModalOpen] = useState(false);
+  const [claimMode, setClaimMode] = useState<'select' | 'manual' | 'search'>('select');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const { toast } = useToast();
+
+  // New Claim Form Data
+  const [newClaim, setNewClaim] = useState({
+    claimNumber: '',
+    insuranceCompany: '',
+    policyNumber: '',
+    claimantName: '',
+    propertyAddress: '',
+    damageType: '',
+    incidentDate: '',
+    estimatedAmount: '',
+    state: '',
+    notes: ''
+  });
 
   // Mock claims data with React Query
   const { data: claims = [], isLoading } = useQuery({
@@ -48,6 +76,89 @@ export default function Claims() {
     },
     refetchInterval: 30000,
   });
+
+  // Create Claim Mutation
+  const createClaimMutation = useMutation({
+    mutationFn: async (claimData: any) => {
+      return apiRequest('/api/claims', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(claimData)
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Claim Created Successfully",
+        description: "New claim has been added to the system."
+      });
+      setIsAddClaimModalOpen(false);
+      resetClaimForm();
+      // Refetch claims data
+      // queryClient.invalidateQueries({ queryKey: ['claims'] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to Create Claim",
+        description: error?.message || "Please try again.",
+        variant: "destructive"
+      });
+    }
+  });
+
+  // Form Handlers
+  const handleClaimSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    
+    try {
+      await createClaimMutation.mutateAsync(newClaim);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleCustomerSearch = async () => {
+    if (!searchQuery.trim()) {
+      toast({
+        title: "Search Required",
+        description: "Please enter customer name, phone, or claim number to search.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Mock customer search - in real app, this would call an API
+    toast({
+      title: "Customer Search",
+      description: `Searching for: ${searchQuery}`,
+    });
+    
+    // Simulate finding customer and pre-filling form
+    setNewClaim({
+      ...newClaim,
+      claimantName: searchQuery,
+      insuranceCompany: 'State Farm',
+      policyNumber: 'POL-' + Math.random().toString(36).substr(2, 9)
+    });
+    setClaimMode('manual');
+  };
+
+  const resetClaimForm = () => {
+    setNewClaim({
+      claimNumber: '',
+      insuranceCompany: '',
+      policyNumber: '',
+      claimantName: '',
+      propertyAddress: '',
+      damageType: '',
+      incidentDate: '',
+      estimatedAmount: '',
+      state: '',
+      notes: ''
+    });
+    setClaimMode('select');
+    setSearchQuery('');
+  };
 
   // Initialize voice loading
   useEffect(() => {
@@ -172,6 +283,275 @@ export default function Claims() {
   const avgProcessingTime = 4.2; // Mock average
 
   return (
+    <>
+      {/* Add New Claim Modal */}
+      {isAddClaimModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Backdrop */}
+          <div 
+            className="fixed inset-0 bg-black bg-opacity-50 transition-opacity" 
+            onClick={() => {
+              setIsAddClaimModalOpen(false);
+              resetClaimForm();
+            }}
+          />
+          
+          {/* Modal Content */}
+          <div className="relative bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="mb-4">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100" data-testid="modal-title-add-claim">
+                Add New Claim
+              </h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                Choose how you'd like to add a new claim to the system.
+              </p>
+            </div>
+
+          {claimMode === 'select' && (
+            <div className="grid grid-cols-1 gap-4 py-4">
+              <Button
+                onClick={() => setClaimMode('manual')}
+                className="h-20 flex-col space-y-2"
+                variant="outline"
+                data-testid="button-manual-claim"
+              >
+                <UserPlus className="h-8 w-8" />
+                <div className="text-center">
+                  <div className="font-semibold">Manual Entry</div>
+                  <div className="text-sm text-muted-foreground">Enter claim details manually</div>
+                </div>
+              </Button>
+              
+              <Button
+                onClick={() => setClaimMode('search')}
+                className="h-20 flex-col space-y-2"
+                variant="outline"
+                data-testid="button-search-customer"
+              >
+                <FileSearch className="h-8 w-8" />
+                <div className="text-center">
+                  <div className="font-semibold">Search Customer</div>
+                  <div className="text-sm text-muted-foreground">Find existing customer to add claim</div>
+                </div>
+              </Button>
+            </div>
+          )}
+
+          {claimMode === 'search' && (
+            <div className="space-y-4 py-4">
+              <div>
+                <Label htmlFor="search-customer">Search for Customer</Label>
+                <div className="flex space-x-2 mt-2">
+                  <Input
+                    id="search-customer"
+                    placeholder="Enter customer name, phone, or existing claim number..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    data-testid="input-customer-search"
+                  />
+                  <Button onClick={handleCustomerSearch} data-testid="button-search-execute">
+                    Search
+                  </Button>
+                </div>
+              </div>
+              
+              <div className="flex space-x-2">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setClaimMode('select')}
+                  data-testid="button-back-to-select"
+                >
+                  Back
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {claimMode === 'manual' && (
+            <form onSubmit={handleClaimSubmit} className="space-y-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="claim-number">Claim Number</Label>
+                  <Input
+                    id="claim-number"
+                    value={newClaim.claimNumber}
+                    onChange={(e) => setNewClaim({...newClaim, claimNumber: e.target.value})}
+                    placeholder="CLM-2024-###"
+                    required
+                    data-testid="input-claim-number"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="insurance-company">Insurance Company</Label>
+                  <Select
+                    value={newClaim.insuranceCompany}
+                    onValueChange={(value) => setNewClaim({...newClaim, insuranceCompany: value})}
+                  >
+                    <SelectTrigger data-testid="select-insurance-company">
+                      <SelectValue placeholder="Select insurance company" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="State Farm">State Farm</SelectItem>
+                      <SelectItem value="Allstate">Allstate</SelectItem>
+                      <SelectItem value="GEICO">GEICO</SelectItem>
+                      <SelectItem value="Progressive">Progressive</SelectItem>
+                      <SelectItem value="USAA">USAA</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="policy-number">Policy Number</Label>
+                  <Input
+                    id="policy-number"
+                    value={newClaim.policyNumber}
+                    onChange={(e) => setNewClaim({...newClaim, policyNumber: e.target.value})}
+                    placeholder="Policy number"
+                    data-testid="input-policy-number"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="claimant-name">Claimant Name</Label>
+                  <Input
+                    id="claimant-name"
+                    value={newClaim.claimantName}
+                    onChange={(e) => setNewClaim({...newClaim, claimantName: e.target.value})}
+                    placeholder="Customer name"
+                    required
+                    data-testid="input-claimant-name"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="property-address">Property Address</Label>
+                <Input
+                  id="property-address"
+                  value={newClaim.propertyAddress}
+                  onChange={(e) => setNewClaim({...newClaim, propertyAddress: e.target.value})}
+                  placeholder="Full property address"
+                  required
+                  data-testid="input-property-address"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="damage-type">Damage Type</Label>
+                  <Select
+                    value={newClaim.damageType}
+                    onValueChange={(value) => setNewClaim({...newClaim, damageType: value})}
+                  >
+                    <SelectTrigger data-testid="select-damage-type">
+                      <SelectValue placeholder="Select damage type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="storm">Storm Damage</SelectItem>
+                      <SelectItem value="water">Water Damage</SelectItem>
+                      <SelectItem value="wind">Wind Damage</SelectItem>
+                      <SelectItem value="hail">Hail Damage</SelectItem>
+                      <SelectItem value="tree">Tree Damage</SelectItem>
+                      <SelectItem value="fire">Fire Damage</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="incident-date">Incident Date</Label>
+                  <Input
+                    id="incident-date"
+                    type="date"
+                    value={newClaim.incidentDate}
+                    onChange={(e) => setNewClaim({...newClaim, incidentDate: e.target.value})}
+                    required
+                    data-testid="input-incident-date"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="estimated-amount">Estimated Amount</Label>
+                  <Input
+                    id="estimated-amount"
+                    type="number"
+                    step="0.01"
+                    value={newClaim.estimatedAmount}
+                    onChange={(e) => setNewClaim({...newClaim, estimatedAmount: e.target.value})}
+                    placeholder="0.00"
+                    data-testid="input-estimated-amount"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="state">State</Label>
+                  <Select
+                    value={newClaim.state}
+                    onValueChange={(value) => setNewClaim({...newClaim, state: value})}
+                  >
+                    <SelectTrigger data-testid="select-state">
+                      <SelectValue placeholder="Select state" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="FL">Florida</SelectItem>
+                      <SelectItem value="TX">Texas</SelectItem>
+                      <SelectItem value="GA">Georgia</SelectItem>
+                      <SelectItem value="AL">Alabama</SelectItem>
+                      <SelectItem value="NC">North Carolina</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="notes">Notes</Label>
+                <Textarea
+                  id="notes"
+                  value={newClaim.notes}
+                  onChange={(e) => setNewClaim({...newClaim, notes: e.target.value})}
+                  placeholder="Additional notes about the claim..."
+                  data-testid="textarea-notes"
+                />
+              </div>
+
+              <div className="flex justify-end space-x-2 mt-6">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setClaimMode('select')}
+                  data-testid="button-back-to-select-from-form"
+                >
+                  Back
+                </Button>
+                <Button 
+                  type="submit" 
+                  disabled={isSubmitting || createClaimMutation.isPending}
+                  data-testid="button-submit-claim"
+                >
+                  {isSubmitting ? 'Creating...' : 'Create Claim'}
+                </Button>
+              </div>
+            </form>
+          )}
+
+          {claimMode === 'select' && (
+              <div className="flex justify-end mt-6">
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    setIsAddClaimModalOpen(false);
+                    resetClaimForm();
+                  }}
+                  data-testid="button-cancel-add-claim"
+                >
+                  Cancel
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
     <DashboardSection
       title="Claims Management"
       description="Process insurance claims, track settlements, and manage documentation with real-time status updates"
@@ -184,7 +564,13 @@ export default function Claims() {
         { label: 'Total Value', value: 12.4, change: 'This quarter', color: 'default', suffix: 'M', testId: 'text-claims-value' }
       ]}
       actions={[
-        { icon: Plus, label: 'New Claim', variant: 'default', testId: 'button-new-claim' },
+        { 
+          icon: Plus, 
+          label: 'New Claim', 
+          variant: 'default', 
+          testId: 'button-new-claim',
+          onClick: () => setIsAddClaimModalOpen(true)
+        },
         { icon: Search, label: 'Search Claims', variant: 'outline', testId: 'button-search-claims' },
         { icon: TrendingUp, label: 'Analytics', variant: 'outline', testId: 'button-claims-analytics' },
         { 
@@ -456,5 +842,6 @@ export default function Claims() {
       {/* Xactimate Comparables Section */}
       <XactimateComparables />
     </DashboardSection>
+    </>
   );
 }
