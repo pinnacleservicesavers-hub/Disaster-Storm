@@ -111,6 +111,14 @@ function Navigation() {
           badgeColor: "bg-emerald-500"
         },
         { 
+          href: "/disaster-lens", 
+          label: "Disaster Lens", 
+          icon: Camera, 
+          testId: "nav-disaster-lens",
+          badge: "AI+Photo",
+          badgeColor: "bg-gradient-to-r from-purple-500 to-pink-500"
+        },
+        { 
           href: "/leads", 
           label: "Leads", 
           icon: Target, 
