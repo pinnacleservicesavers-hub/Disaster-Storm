@@ -483,11 +483,7 @@ export default function SurveillanceCenter() {
       <FadeIn delay={0.2}>
         <UniversalAIAssistant
           module="surveillance"
-          currentLocation={userLocation ? {
-            latitude: userLocation.latitude,
-            longitude: userLocation.longitude,
-            state: userLocation.state
-          } : undefined}
+          currentLocation={undefined}
           currentData={currentData}
           className="mb-6"
         />

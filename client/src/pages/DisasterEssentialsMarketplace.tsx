@@ -38,6 +38,7 @@ import { getPrimaryServicePhoto, hasServicePhotos } from "@/utils/photoManager";
 import VoiceGuide from "@/components/VoiceGuide";
 import PortalVoiceGuide, { PORTAL_SECTIONS } from "@/components/PortalVoiceGuide";
 import AIAssistant from "@/components/AIAssistant";
+import { MarketplaceAIIntelligence } from "@/components/MarketplaceAIIntelligence";
 import { Link } from "wouter";
 
 // State selection data
@@ -413,8 +414,12 @@ export default function DisasterEssentialsMarketplace() {
         </motion.div>
 
         {/* Main Content Tabs */}
-        <Tabs defaultValue="hotels" onValueChange={handlePortalChange} className="w-full">
-          <TabsList className="category-tabs grid w-full grid-cols-8 mb-8" data-testid="tabs-dem-sections">
+        <Tabs defaultValue="ai-intelligence" onValueChange={handlePortalChange} className="w-full">
+          <TabsList className="category-tabs grid w-full grid-cols-9 mb-8" data-testid="tabs-dem-sections">
+            <TabsTrigger value="ai-intelligence" className="text-xs bg-gradient-to-r from-green-600 to-blue-600 text-white font-bold animate-pulse" data-testid="tab-ai-intelligence">
+              <Brain className="w-4 h-4 mr-1" />
+              💰 AI INTELLIGENCE
+            </TabsTrigger>
             <TabsTrigger value="hotels" className="text-xs" data-testid="tab-hotels">
               <Hotel className="w-4 h-4 mr-1" />
               Hotels
@@ -448,6 +453,25 @@ export default function DisasterEssentialsMarketplace() {
               Logistics
             </TabsTrigger>
           </TabsList>
+
+          {/* 💰 AI INTELLIGENCE TAB - Advanced Marketplace Intelligence */}
+          <TabsContent value="ai-intelligence">
+            <motion.div
+              variants={staggerContainer}
+              initial="hidden"
+              animate="show"
+            >
+              <MarketplaceAIIntelligence 
+                selectedState={selectedState}
+                searchLocation={searchLocation}
+                onLocationCall={(phone, businessName) => {
+                  console.log(`Calling ${businessName} at ${phone}`);
+                  // Handle calling functionality - could integrate with device calling capability
+                }}
+                className="w-full"
+              />
+            </motion.div>
+          </TabsContent>
 
           {/* Hotels & Campgrounds Tab */}
           <TabsContent value="hotels">
