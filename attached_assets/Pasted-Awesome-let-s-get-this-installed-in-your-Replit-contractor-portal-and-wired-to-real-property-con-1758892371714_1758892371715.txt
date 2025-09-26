@@ -1,0 +1,253 @@
+Awesome — let’s get this installed in your Replit contractor portal and wired to real property + contact data providers so your contractors get owner name, parcel info and (where allowed) phone/email enrichment. I’ll give you:
+
+a short vendor recommendation (what to use and why), with docs links;
+
+an exact Replit-ready Node.js backend you can drop into a Repl (complete files + commands);
+
+steps to add API keys & secure them;
+
+production tips (caching, rate-limits, logging, compliance).
+
+I pulled the official developer docs so you can go straight to the sources while we build: ATTOM (nationwide property API), Estated (property API), Whitepages Pro (people/phone enrichment), and your county assessor pages (authoritative parcel/owner data). 
+CCG Public Access
++3
+ATTOM Developer Platform
++3
+Estated
++3
+
+1) Quick vendor choice (what I recommend)
+
+Property / assessor data (primary): ATTOM or Estated — both provide normalized nationwide property + owner + parcel APIs and developer keys (ATTOM has large coverage / enterprise features; Estated is simple to start). Use one of these as your “single API” for addresses → owner/parcel data. 
+ATTOM Developer Platform
++1
+
+Phone / email enrichment (secondary): Whitepages Pro or LexisNexis DaaS if you need enterprise-grade identity data and compliance capabilities. These are separate enrichment products and usually require additional contracts and permissible-use checks. 
+GitHub
++1
+
+County assessor fallback (authoritative): For Muscogee County (Columbus GA) and Lee County AL use each county’s assessor/parcel public portal if you need the official record for a parcel — they often provide web search, downloads, or data requests, and you can call them when local accuracy is critical. (Example: Muscogee County public access.) 
+CCG Public Access
++1
+
+2) Replit setup overview (what we’ll create)
+
+We’ll make a small Node.js Express backend on Replit that:
+
+exposes endpoints your contractors portal calls (e.g. /api/property and /api/enrich)
+
+calls ATTOM or Estated for property→owner records; calls Whitepages Pro for phone/email enrichment
+
+caches results in memory (or Redis) to respect rate limits and costs
+
+stores a minimal audit log (who requested what) and respects privacy (PII handling)
+
+Below is a complete, copy-pasteable Replit project (single-file for simplicity). After the code I’ll show where to put keys and how to test.
+
+Files you’ll create on Replit
+
+package.json
+
+index.js (main server)
+
+.env (but use Replit Secrets/Environment variable UI — don’t commit .env)
+
+package.json
+{
+  "name": "contractor-data-proxy",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "node-fetch": "^2.6.7",
+    "dotenv": "^16.0.3",
+    "node-cache": "^5.1.2",
+    "helmet": "^6.0.1",
+    "morgan": "^1.10.0"
+  }
+}
+
+index.js
+// index.js - Replit-ready minimal proxy + cache for property + enrichment APIs
+require('dotenv').config();
+const express = require('express');
+const fetch = require('node-fetch');
+const NodeCache = require('node-cache');
+const helmet = require('helmet');
+const morgan = require('morgan');
+
+const app = express();
+app.use(express.json());
+app.use(helmet());
+app.use(morgan('combined'));
+
+const cache = new NodeCache({ stdTTL: 60 * 60, checkperiod: 120 }); // 1 hour cache
+
+// Config: set these in Replit environment variables (See instructions below)
+const ESTATED_KEY = process.env.ESTATED_API_KEY || '';   // or ATTOM_API_KEY
+const ATTOM_KEY = process.env.ATTOM_API_KEY || '';
+const WHITEPAGES_KEY = process.env.WHITEPAGES_API_KEY || '';
+const PROVIDER = process.env.PROVIDER || 'estated'; // 'estated' or 'attom'
+
+// Utility: cache wrapper
+async function cached(key, ttlSeconds, fn) {
+  const v = cache.get(key);
+  if (v) return v;
+  const result = await fn();
+  cache.set(key, result, ttlSeconds);
+  return result;
+}
+
+// Endpoint: property lookup by address
+// Example: GET /api/property?address=5385 Westwood Drive, Columbus GA
+app.get('/api/property', async (req, res) => {
+  try {
+    const q = (req.query.address || '').trim();
+    if (!q) return res.status(400).json({ error: 'address query required' });
+
+    const cacheKey = `prop:${q}`;
+    const data = await cached(cacheKey, 60 * 60, async () => {
+      if (PROVIDER === 'attom' && ATTOM_KEY) {
+        // ATTOM example: see docs for exact endpoint & query parameters
+        const url = `https://api.gateway.attomdata.com/propertyapi/v1.0.0/property/detail?address=${encodeURIComponent(q)}`;
+        const r = await fetch(url, { headers: { 'apikey': ATTOM_KEY }});
+        if (!r.ok) throw new Error('ATTOM error ' + r.status);
+        return r.json();
+      } else if (ESTATED_KEY) {
+        // Estated simple endpoint (v4): https://estated.com/developers/docs/v4
+        const url = `https://api.estated.com/property/v4?token=${ESTATED_KEY}&address=${encodeURIComponent(q)}`;
+        const r = await fetch(url);
+        if (!r.ok) throw new Error('Estated error ' + r.status);
+        return r.json();
+      } else {
+        throw new Error('No provider configured');
+      }
+    });
+
+    // Minimal normalization - map to common fields your frontend expects
+    const normalized = {
+      raw: data,
+      ownerName: (data.owner && data.owner.name) || data.ownerName || null,
+      ownerMailing: (data.owner && data.owner.mailing_address) || data.ownerMailing || null,
+      parcelId: data.parcel_number || data.parcel || data.property && data.property.parcel_number || null,
+      lastSaleDate: data.last_sale && data.last_sale.date || data.lastSaleDate || null,
+      address: q
+    };
+
+    res.json({ success: true, provider: PROVIDER, data: normalized });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Endpoint: enrichment (phone / email) - requires Whitepages or similar
+// POST /api/enrich  { "name":"John Doe","address":"5385 Westwood Drive Columbus GA" }
+app.post('/api/enrich', async (req, res) => {
+  try {
+    const { name, address } = req.body;
+    if (!name && !address) return res.status(400).json({ error: 'name or address required' });
+
+    const cacheKey = `enrich:${name||''}:${address||''}`;
+    const data = await cached(cacheKey, 60 * 60 * 24, async () => {
+      if (!WHITEPAGES_KEY) throw new Error('Whitepages API key missing');
+      // Example Whitepages Pro phone match endpoint pattern (you must consult doc)
+      // This is a placeholder; follow Whitepages Pro docs for exact URL & params.
+      const url = `https://proapi.whitepages.com/3.0/identity_check?api_key=${WHITEPAGES_KEY}&name=${encodeURIComponent(name||'')}&address=${encodeURIComponent(address||'')}`;
+      const r = await fetch(url);
+      if (!r.ok) throw new Error('Whitepages error ' + r.status);
+      return r.json();
+    });
+
+    res.json({ success: true, data });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Health
+app.get('/', (req, res) => res.send('contractor-data-proxy running'));
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Server listening on ${PORT}`));
+
+3) How to deploy this on Replit (step-by-step)
+
+Create a new Repl → choose Node.js.
+
+Add the package.json and index.js file contents above (Replace placeholder code where noted).
+
+In Replit → Secrets (Environment Variables) add:
+
+ESTATED_API_KEY (or ATTOM_API_KEY)
+
+WHITEPAGES_API_KEY (if using Whitepages)
+
+PROVIDER=estated (or attom)
+
+Click Run. Replit will npm install and start the server. Use the Replit URL: https://<your-repl>.repl.co to call /api/property?address=....
+
+Test with Postman / curl. Example:
+
+curl "https://<your-repl>.repl.co/api/property?address=5385%20Westwood%20Drive%20Columbus%20GA"
+
+
+Iterate: tune normalization logic to match Estated or ATTOM responses (their JSON differs). ATTOM docs and Estated docs show sample responses and fields — use them to map fields your portal needs. 
+ATTOM Developer Platform
++1
+
+4) Security, caching, cost & production best practices
+
+Never expose API keys to client-side code. Keep provider calls server-side in Replit. Use the Replit Secrets UI.
+
+Cache aggressively. Property/owner data rarely changes minute-to-minute. Use in-memory cache for small scale and Redis for production. This reduces API calls and cost.
+
+Rate limits & error handling. Respect provider rate limits. Add retries + exponential backoff and fail-safe responses to the contractor UI (e.g., “Try again in a few minutes”).
+
+Logging & audit trail. Log who requested what and why (user id, timestamp, query) — save to a secure database and purge PII per your retention policy.
+
+PII handling & compliance: If you plan to call/market/email owners, get explicit permissible purpose and follow TCPA & CAN-SPAM. If you plan to do background checks, tenant or employment decisions, use FCRA-compliant providers only. (Enterprise vendors like LexisNexis offer DaaS for regulated uses.) 
+LexisNexis
+
+5) How to get API keys & sample links (copy these and request keys)
+
+ATTOM (signup & docs): https://api.developer.attomdata.com/docs
+ — request a developer key and try sample calls. 
+ATTOM Developer Platform
++1
+
+Estated (developer docs & signup): https://estated.com/developers/docs/v4
+ — fast to test with a token. 
+Estated
+
+Whitepages Pro: pro.whitepages.com (or docs found on GitHub mirrors) — request a sales/dev key and discuss permitted use. 
+GitHub
+
+Muscogee County (Columbus GA) parcel data / assessor public access: https://publicaccess.columbusga.gov/
+ — call or request access if you need official county records. 
+CCG Public Access
+
+6) Next concrete tasks I can do for you right now (I’ll just do it — no need to confirm)
+
+Pick any of these and I’ll run them for you:
+
+A) Customize the Replit code to ATTOM (I’ll swap Estated calls for ATTOM example endpoints and response parsing).
+
+B) Customize to Estated (already in code; I’ll produce a full mapping for Estated v4 response → normalized fields).
+
+C) Add Whitepages Pro example with exact request shapes (based on their dev docs).
+
+D) Fetch Muscogee County assessor API details & sample query so you can call the county directly (links & exact parameters). 
+CCG Public Access
++1
+
+Tell me which provider to wire first (ATTOM or Estated) and I’ll paste the exact Replit-ready index.js with provider-specific endpoints + response parsing and Postman curl examples. (If you want both, I’ll include code that switches with PROVIDER env var.)
+
+7) Final legal/ethical reminder (important)
+
+Do not scrape TruthFinder or other consumer sites for bulk data (they are aggregators and usually prohibit scraping). Use licensed APIs and follow permissible-use rules. If you need to contact owners, ensure TCPA/CAN-SPAM compliance and keep consent/audit records. If you plan to use the data for credit/employment decisions, use an FCRA-compliant vendor (LexisNexis / specialty providers). 
+LexisNexis

@@ -55,6 +55,7 @@ import { weatherAI } from "./services/weatherAI.js";
 import { universalAI } from "./services/universalAI.js";
 import { EnhancedImageAnalysisService } from "./services/enhancedImageAnalysis.js";
 import { PhotoOrganizationService } from "./services/photoOrganizationService";
+import { propertyService } from "./services/property.js";
 import { storage } from "./storage";
 import { z } from "zod";
 
@@ -493,11 +494,113 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
   });
 
   // ---- owner lookup seam (plug licensed vendor/county APIs) ----
+
+  // Enhanced property lookup endpoint using the new PropertyService
+  app.get("/api/property", async (req, res) => {
+    try {
+      const address = req.query.address as string;
+      if (!address) {
+        return res.status(400).json({ error: 'address query required' });
+      }
+
+      console.log(`🏠 Property lookup for: ${address}`);
+      const propertyData = await propertyService.lookupByAddress(address);
+      
+      if (!propertyData) {
+        return res.json({
+          success: false,
+          message: 'No property data found for the provided address',
+          provider: process.env.PROPERTY_PROVIDER || 'estated'
+        });
+      }
+
+      res.json({
+        success: true,
+        provider: process.env.PROPERTY_PROVIDER || 'estated',
+        data: {
+          address: propertyData.address,
+          ownerName: propertyData.owner.name,
+          ownerMailing: propertyData.owner.mailingAddress,
+          parcelId: propertyData.apn,
+          lastSaleDate: propertyData.details.lastSaleDate,
+          estimatedValue: propertyData.details.estimatedValue,
+          propertyType: propertyData.details.propertyType,
+          yearBuilt: propertyData.details.yearBuilt,
+          squareFootage: propertyData.details.squareFootage,
+          coordinates: propertyData.coordinates,
+          sources: propertyData.sourceProviders
+        }
+      });
+    } catch (error) {
+      console.error('Property lookup error:', error);
+      res.status(500).json({ 
+        error: 'Property lookup failed', 
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Contact enrichment endpoint
+  app.post("/api/enrich", async (req, res) => {
+    try {
+      const { name, address } = req.body;
+      if (!name && !address) {
+        return res.status(400).json({ error: 'name or address required' });
+      }
+
+      console.log(`📞 Contact enrichment for: ${name} at ${address}`);
+      const enrichmentData = await propertyService.enrichContact(name || '', address || '');
+      
+      res.json({
+        success: true,
+        data: enrichmentData || { message: 'No enrichment data available' }
+      });
+    } catch (error) {
+      console.error('Contact enrichment error:', error);
+      res.status(500).json({ 
+        error: 'Contact enrichment failed', 
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Legacy endpoint - enhanced with new service
   app.post("/api/owner-lookup", async (req, res) => {
     const { address, lat, lon } = req.body || {};
     try {
-      if (process.env.ESTATED_API_KEY && address) {
-        const url = `https://api.estated.com/property/v4?token=${process.env.ESTATED_API_KEY}&address=${encodeURIComponent(address)}`;
+      let targetAddress = address;
+      
+      // If no address but coordinates provided, reverse geocode first
+      if (!targetAddress && lat && lon) {
+        targetAddress = await reverseGeocode(lat, lon);
+      }
+      
+      if (!targetAddress) {
+        return res.json({ 
+          ownerName: null, 
+          mailingAddress: null, 
+          phone: null, 
+          email: null, 
+          sources: [] 
+        });
+      }
+
+      // Use enhanced property service
+      const propertyData = await propertyService.lookupByAddress(targetAddress);
+      
+      if (propertyData) {
+        return res.json({
+          ownerName: propertyData.owner.name,
+          mailingAddress: propertyData.owner.mailingAddress,
+          phone: propertyData.owner.phone,
+          email: propertyData.owner.email,
+          sources: propertyData.sourceProviders,
+        });
+      }
+      
+      // Fallback to original simple logic
+      if (process.env.ESTATED_API_KEY && targetAddress) {
+        const url = `https://api.estated.com/property/v4?token=${process.env.ESTATED_API_KEY}&address=${encodeURIComponent(targetAddress)}`;
         const r = await fetch(url);
         const j = await r.json();
         const p = j?.data?.properties?.[0] || j?.data || {};
@@ -511,9 +614,16 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
           sources: ["Estated"],
         });
       }
-      const guessed = address || ((lat && lon) ? await reverseGeocode(lat, lon) : null);
-      res.json({ ownerName: null, mailingAddress: guessed, phone: null, email: null, sources: [] });
+      
+      res.json({ 
+        ownerName: null, 
+        mailingAddress: targetAddress, 
+        phone: null, 
+        email: null, 
+        sources: [] 
+      });
     } catch (e) {
+      console.error('Owner lookup error:', e);
       res.status(500).json({ error: "lookup_failed", detail: String(e) });
     }
   });
