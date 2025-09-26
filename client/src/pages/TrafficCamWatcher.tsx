@@ -197,7 +197,7 @@ export default function TrafficCamWatcher() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* System Status Overview */}
           <StaggerContainer className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <StaggerItem index={0}>
+            <StaggerItem>
               <Card className="bg-white/10 backdrop-blur-md border-white/20">
                 <CardContent className="p-6 text-center">
                   <Camera className="w-8 h-8 text-blue-400 mx-auto mb-2" />
@@ -206,7 +206,7 @@ export default function TrafficCamWatcher() {
                 </CardContent>
               </Card>
             </StaggerItem>
-            <StaggerItem index={1}>
+            <StaggerItem>
               <Card className="bg-white/10 backdrop-blur-md border-white/20">
                 <CardContent className="p-6 text-center">
                   <CheckCircle className="w-8 h-8 text-green-400 mx-auto mb-2" />
@@ -215,7 +215,7 @@ export default function TrafficCamWatcher() {
                 </CardContent>
               </Card>
             </StaggerItem>
-            <StaggerItem index={2}>
+            <StaggerItem>
               <Card className="bg-white/10 backdrop-blur-md border-white/20">
                 <CardContent className="p-6 text-center">
                   <Route className="w-8 h-8 text-yellow-400 mx-auto mb-2" />
@@ -224,7 +224,7 @@ export default function TrafficCamWatcher() {
                 </CardContent>
               </Card>
             </StaggerItem>
-            <StaggerItem index={3}>
+            <StaggerItem>
               <Card className="bg-white/10 backdrop-blur-md border-white/20">
                 <CardContent className="p-6 text-center">
                   <AlertTriangle className="w-8 h-8 text-red-400 mx-auto mb-2" />
