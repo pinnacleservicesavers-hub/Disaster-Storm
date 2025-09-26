@@ -46,12 +46,14 @@ import {
   Star,
   TrendingUp,
   Volume2,
-  VolumeX
+  VolumeX,
+  ArrowLeft
 } from 'lucide-react';
 import { DashboardSection } from '@/components/DashboardSection';
 import { FadeIn, PulseAlert, StaggerContainer, StaggerItem, HoverLift } from '@/components/ui/animations';
 import { getPrimaryServicePhoto, getServicePhoto } from '@/utils/photoManager';
 import { z } from 'zod';
+import { Link } from 'wouter';
 import type { 
   StormShareGroup, 
   HelpRequest,
@@ -84,6 +86,23 @@ const messageSchema = z.object({
 
 type HelpRequestForm = z.infer<typeof helpRequestSchema>;
 type MessageForm = z.infer<typeof messageSchema>;
+
+// Back button component for returning to dashboard
+function BackButton() {
+  return (
+    <Link href="/">
+      <motion.button
+        whileHover={{ scale: 1.05, x: -2 }}
+        whileTap={{ scale: 0.95 }}
+        className="flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-sm border border-white/20 text-white rounded-lg hover:bg-white/20 transition-all duration-200 mb-4"
+        data-testid="button-back-to-hub"
+      >
+        <ArrowLeft className="w-4 h-4" />
+        <span className="text-sm font-medium">Back to Hub</span>
+      </motion.button>
+    </Link>
+  );
+}
 
 export default function StormShare() {
   const [activeTab, setActiveTab] = useState('feed');
@@ -288,25 +307,28 @@ export default function StormShare() {
   const totalMembers = groups.reduce((sum: number, group: StormShareGroup) => sum + (group.memberCount || 0), 0);
 
   return (
-    <DashboardSection
-      title="StormShare Community"
-      description="Connect, share, and get help in the storm response community. For victims and contractors working together."
-      icon={Share2}
-      badge={{ text: `${urgentRequests} URGENT`, variant: urgentRequests > 0 ? 'destructive' : 'secondary' }}
-      kpis={[
-        { label: 'Active Members', value: totalMembers, change: 'Online now', color: 'blue', testId: 'text-active-members' },
-        { label: 'Help Requests', value: openHelpRequests, change: 'Need assistance', color: 'red', testId: 'text-help-requests' },
-        { label: 'Contractor Groups', value: contractorGroups, change: 'Available', color: 'green', testId: 'text-contractor-groups' },
-        { label: 'Weekly Helps', value: 127, change: 'People assisted', color: 'amber', testId: 'text-weekly-helps' }
-      ]}
-      actions={[
-        { icon: Heart, label: 'Request Help', variant: 'default', testId: 'button-request-help' },
-        { icon: MessageCircle, label: 'Join Chat', variant: 'outline', testId: 'button-join-chat' },
-        { icon: Share2, label: 'Share Story', variant: 'outline', testId: 'button-share-story' },
-        { icon: isVoiceGuideActive ? VolumeX : Volume2, label: isVoiceGuideActive ? 'Stop Guide' : 'Voice Guide', variant: 'outline', testId: 'button-voice-guide', onClick: startVoiceGuide, 'aria-label': 'Voice guide for StormShare', 'aria-pressed': isVoiceGuideActive }
-      ]}
-      testId="stormshare-section"
-    >
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-indigo-950">
+      <div className="container mx-auto px-4 py-6">
+        <BackButton />
+        <DashboardSection
+          title="StormShare Community"
+          description="Connect, share, and get help in the storm response community. For victims and contractors working together."
+          icon={Share2}
+          badge={{ text: `${urgentRequests} URGENT`, variant: urgentRequests > 0 ? 'destructive' : 'secondary' }}
+          kpis={[
+            { label: 'Active Members', value: totalMembers, change: 'Online now', color: 'blue', testId: 'text-active-members' },
+            { label: 'Help Requests', value: openHelpRequests, change: 'Need assistance', color: 'red', testId: 'text-help-requests' },
+            { label: 'Contractor Groups', value: contractorGroups, change: 'Available', color: 'green', testId: 'text-contractor-groups' },
+            { label: 'Weekly Helps', value: 127, change: 'People assisted', color: 'amber', testId: 'text-weekly-helps' }
+          ]}
+          actions={[
+            { icon: Heart, label: 'Request Help', variant: 'default', testId: 'button-request-help' },
+            { icon: MessageCircle, label: 'Join Chat', variant: 'outline', testId: 'button-join-chat' },
+            { icon: Share2, label: 'Share Story', variant: 'outline', testId: 'button-share-story' },
+            { icon: isVoiceGuideActive ? VolumeX : Volume2, label: isVoiceGuideActive ? 'Stop Guide' : 'Voice Guide', variant: 'outline', testId: 'button-voice-guide', onClick: startVoiceGuide, 'aria-label': 'Voice guide for StormShare', 'aria-pressed': isVoiceGuideActive }
+          ]}
+          testId="stormshare-section"
+        >
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="feed" data-testid="tab-feed">
@@ -1641,5 +1663,7 @@ export default function StormShare() {
         </TabsContent>
       </Tabs>
     </DashboardSection>
+      </div>
+    </div>
   );
 }
