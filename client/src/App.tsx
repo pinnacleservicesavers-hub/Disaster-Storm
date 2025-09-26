@@ -7,6 +7,7 @@ import WeatherIntelligenceCenter from "./pages/WeatherIntelligenceCenter";
 import PredictionDashboard from "./pages/PredictionDashboard";
 import StormPredictions from "./pages/StormPredictions";
 import SurveillanceCenter from "./pages/SurveillanceCenter";
+import EyesInSky from "./pages/EyesInSky";
 import TrafficCamWatcher from "./pages/TrafficCamWatcher";
 import DroneOperation from "./pages/DroneOperation";
 import VictimLogin from "./pages/VictimLogin";
@@ -601,8 +602,8 @@ export default function App() {
         
         <Route path="/eyes-in-the-sky">
           <title>Eyes in the Sky - DisasterDirect</title>
-          <meta name="description" content="Drone operations and aerial imaging for comprehensive surveillance" />
-          <SurveillanceCenter />
+          <meta name="description" content="Real-time storm chasing coverage and professional weather monitoring from across the United States" />
+          <EyesInSky />
         </Route>
         
         <Route path="/drone-operation">
