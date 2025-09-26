@@ -642,13 +642,6 @@ export default function App() {
         </Route>
         
         <Route path="/">
-          <title>Storm Operations Dashboard - DisasterDirect</title>
-          <meta name="description" content="Comprehensive storm operations workflow organized by operational phases for disaster response professionals" />
-          <StormOpsDashboard />
-        </Route>
-        
-        {/* Legacy hub route for backward compatibility */}
-        <Route path="/hub">
           <title>DisasterDirect - Storm Operations Platform</title>
           <meta name="description" content="Comprehensive storm operations and claims management platform for contractors and property restoration professionals" />
           <StormOpsProHub />
