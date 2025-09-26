@@ -1209,6 +1209,31 @@ export default function App() {
     localStorage.setItem('DL_scalePxPerInch', String(v));
   };
 
+  // Filter and search states
+  const [projectFilter, setProjectFilter] = useState('');
+  const [filterBy, setFilterBy] = useState<'all' | 'client' | 'address'>('all');
+
+  // Filter projects based on search and filter type
+  const filteredProjects = projects.filter(project => {
+    if (!projectFilter) return true;
+    
+    const searchLower = projectFilter.toLowerCase();
+    
+    switch (filterBy) {
+      case 'client':
+        return project.clientName?.toLowerCase().includes(searchLower) ?? false;
+      case 'address':
+        return project.propertyAddress?.toLowerCase().includes(searchLower) ?? false;
+      case 'all':
+      default:
+        return (
+          project.name.toLowerCase().includes(searchLower) ||
+          project.clientName?.toLowerCase().includes(searchLower) ||
+          project.propertyAddress?.toLowerCase().includes(searchLower)
+        );
+    }
+  });
+
   // Project Management Functions
   const loadProjects = async () => {
     try {
@@ -1450,6 +1475,40 @@ export default function App() {
       </header>
 
       <main className="max-w-6xl mx-auto px-4 py-6 space-y-6">
+        {/* Project Organization Controls */}
+        <div className="bg-white border rounded p-4">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold text-gray-800">📋 Organize Projects by Customer & Address</h3>
+            <div className="text-sm text-gray-600">
+              {filteredProjects.length} of {projects.length} projects
+            </div>
+          </div>
+          
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="flex-1">
+              <input
+                type="text"
+                placeholder="Search by customer name, address, or project name..."
+                value={projectFilter}
+                onChange={(e) => setProjectFilter(e.target.value)}
+                className="w-full border rounded px-3 py-2 text-sm"
+                data-testid="input-project-search"
+              />
+            </div>
+            
+            <select
+              value={filterBy}
+              onChange={(e) => setFilterBy(e.target.value as 'all' | 'client' | 'address')}
+              className="border rounded px-3 py-2 text-sm"
+              data-testid="select-filter-by"
+            >
+              <option value="all">🔍 All Fields</option>
+              <option value="client">👤 Customer Name</option>
+              <option value="address">🏠 Address</option>
+            </select>
+          </div>
+        </div>
+
         {/* Project Selection Bar */}
         <div className="bg-white p-4 border rounded-lg shadow-sm">
           <div className="flex items-center justify-between">
@@ -1460,13 +1519,13 @@ export default function App() {
                   <select
                     value={currentProject.id}
                     onChange={(e) => {
-                      const selected = projects.find(p => p.id === e.target.value);
+                      const selected = filteredProjects.find(p => p.id === e.target.value);
                       if (selected) setCurrentProject(selected);
                     }}
                     className="border rounded px-3 py-1 text-sm"
                     data-testid="select-current-project"
                   >
-                    {projects.map((project) => (
+                    {filteredProjects.map((project) => (
                       <option key={project.id} value={project.id}>
                         {project.clientName ? `${project.clientName} - ` : ''}{project.name} ({project.propertyAddress})
                       </option>
