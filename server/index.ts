@@ -13,6 +13,7 @@ import { router as calibrate } from './routes/calibrate.js';
 import { router as hints } from './routes/hints.js';
 import { router as area } from './routes/area.js';
 import { router as damage } from '../apps/server/src/routes/damage.js';
+import { registerRoutes } from './routes.js';
 import { setupVite, log } from './vite.js';
 
 const app = express();
@@ -36,6 +37,9 @@ app.use('/api/calibrate', calibrate);
 app.use('/api/hints', hints);
 app.use('/api/area', area);
 app.use('/api/damage', damage);
+
+// Register main application routes (including property API endpoints)
+await registerRoutes(app);
 
 // Tool registry endpoint for LLM provider flexibility
 app.get('/api/ai/tools', (req, res) => {
