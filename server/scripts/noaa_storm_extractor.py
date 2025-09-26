@@ -30,9 +30,70 @@ class NOAAStormExtractor:
             'fatalities': re.compile(r"^StormEvents_fatalities-ftp_v1\.0_d(\d{4})_c\d{8}\.csv\.gz$")
         }
     
-    def fetch_all_urls(self, yr_min: int = 1950, yr_max: int = 2025) -> Dict[str, List[str]]:
-        """Generate all NOAA Storm Events CSV URLs using correct date ranges for each dataset type"""
-        print(f"🌪️ Generating NOAA Storm Events URLs for all datasets...")
+    def fetch_all_urls(self, yr_min: int = 1950, yr_max: int = 2025, use_dynamic_scraping: bool = True) -> Dict[str, List[str]]:
+        """Fetch all NOAA Storm Events CSV URLs - future-proof with dynamic index scraping"""
+        
+        if use_dynamic_scraping:
+            return self._fetch_urls_from_index(yr_min, yr_max)
+        else:
+            return self._generate_urls_with_known_dates(yr_min, yr_max)
+    
+    def _fetch_urls_from_index(self, yr_min: int, yr_max: int) -> Dict[str, List[str]]:
+        """Future-proof approach: scrape the NOAA index page for current URLs"""
+        print(f"🌪️ Scraping NOAA index page for current URLs ({yr_min}-{yr_max})...")
+        
+        try:
+            resp = requests.get(self.INDEX_URL, headers=self.headers, timeout=60)
+            resp.raise_for_status()
+            soup = BeautifulSoup(resp.text, "html.parser")
+            
+            # Extract all href links
+            hrefs = [a.get("href") for a in soup.find_all("a") if a.get("href")]
+            
+            urls = {
+                'details': [],
+                'locations': [],
+                'fatalities': []
+            }
+            
+            # Process each file type with known date ranges
+            dataset_ranges = {
+                'details': (1950, yr_max),
+                'locations': (1963, yr_max), 
+                'fatalities': (1951, yr_max)
+            }
+            
+            for file_type, pattern in self.patterns.items():
+                start_year, end_year = dataset_ranges[file_type]
+                actual_start = max(yr_min, start_year)
+                
+                for href in hrefs:
+                    match = pattern.match(href)
+                    if match:
+                        year = int(match.group(1))
+                        if actual_start <= year <= end_year:
+                            full_url = self.INDEX_URL + href
+                            urls[file_type].append((year, full_url))
+            
+            # Sort by year ascending and extract URLs
+            for file_type in urls:
+                urls[file_type].sort(key=lambda x: x[0])
+                urls[file_type] = [url for _, url in urls[file_type]]
+            
+            print(f"✅ Scraped current URLs from index:")
+            print(f"   📋 Details: {len(urls['details'])} files ({dataset_ranges['details'][0]}-{yr_max})")
+            print(f"   📍 Locations: {len(urls['locations'])} files ({dataset_ranges['locations'][0]}-{yr_max})")
+            print(f"   ⚰️  Fatalities: {len(urls['fatalities'])} files ({dataset_ranges['fatalities'][0]}-{yr_max})")
+            return urls
+            
+        except Exception as e:
+            print(f"❌ Error scraping index page: {str(e)}")
+            print("🔄 Falling back to known creation date patterns...")
+            return self._generate_urls_with_known_dates(yr_min, yr_max)
+    
+    def _generate_urls_with_known_dates(self, yr_min: int, yr_max: int) -> Dict[str, List[str]]:
+        """Fallback approach: generate URLs using known creation date patterns (as of 2025-09-26)"""
+        print(f"🌪️ Generating URLs with known creation dates ({yr_min}-{yr_max})...")
         
         urls = {
             'details': [],
@@ -40,38 +101,31 @@ class NOAAStormExtractor:
             'fatalities': []
         }
         
-        # Generate Details URLs (1950-2025)
-        details_urls = []
-        details_start = max(yr_min, 1950)  # Details available from 1950
-        for year in range(details_start, yr_max + 1):
-            creation_date = "20250818" if year >= 2024 else "20250520"
-            url = f"https://www.ncei.noaa.gov/pub/data/swdi/stormevents/csvfiles/StormEvents_details-ftp_v1.0_d{year}_c{creation_date}.csv.gz"
-            details_urls.append(url)
+        # Dataset ranges and URL generation
+        datasets = [
+            ('details', 1950, 'StormEvents_details-ftp_v1.0_d{}_c{}.csv.gz'),
+            ('locations', 1963, 'StormEvents_locations-ftp_v1.0_d{}_c{}.csv.gz'),
+            ('fatalities', 1951, 'StormEvents_fatalities-ftp_v1.0_d{}_c{}.csv.gz')
+        ]
         
-        # Generate Locations URLs (1963-2025)
-        locations_urls = []
-        locations_start = max(yr_min, 1963)  # Locations available from 1963
-        for year in range(locations_start, yr_max + 1):
-            creation_date = "20250818" if year >= 2024 else "20250520"
-            url = f"https://www.ncei.noaa.gov/pub/data/swdi/stormevents/csvfiles/StormEvents_locations-ftp_v1.0_d{year}_c{creation_date}.csv.gz"
-            locations_urls.append(url)
+        for dataset_type, start_year, url_template in datasets:
+            dataset_urls = []
+            actual_start = max(yr_min, start_year)
+            
+            for year in range(actual_start, yr_max + 1):
+                # Creation dates as of 2025-09-26
+                creation_date = "20250818" if year >= 2024 else "20250520"
+                filename = url_template.format(year, creation_date)
+                url = self.INDEX_URL + filename
+                dataset_urls.append(url)
+            
+            urls[dataset_type] = dataset_urls
         
-        # Generate Fatalities URLs (1951-2025)
-        fatalities_urls = []
-        fatalities_start = max(yr_min, 1951)  # Fatalities available from 1951
-        for year in range(fatalities_start, yr_max + 1):
-            creation_date = "20250818" if year >= 2024 else "20250520"
-            url = f"https://www.ncei.noaa.gov/pub/data/swdi/stormevents/csvfiles/StormEvents_fatalities-ftp_v1.0_d{year}_c{creation_date}.csv.gz"
-            fatalities_urls.append(url)
-        
-        urls['details'] = details_urls
-        urls['locations'] = locations_urls  
-        urls['fatalities'] = fatalities_urls
-        
-        print(f"✅ Generated URLs:")
-        print(f"   📋 Details: {len(urls['details'])} files (1950-2025)")
-        print(f"   📍 Locations: {len(urls['locations'])} files (1963-2025)")
-        print(f"   ⚰️  Fatalities: {len(urls['fatalities'])} files (1951-2025)")
+        print(f"✅ Generated URLs with known dates:")
+        print(f"   📋 Details: {len(urls['details'])} files (1950-{yr_max})")
+        print(f"   📍 Locations: {len(urls['locations'])} files (1963-{yr_max})")
+        print(f"   ⚰️  Fatalities: {len(urls['fatalities'])} files (1951-{yr_max})")
+        print(f"⚠️  Note: Creation dates may change when NOAA regenerates files")
         return urls
     
     def download_and_parse_csv(self, url: str, file_type: str) -> List[Dict[str, Any]]:
