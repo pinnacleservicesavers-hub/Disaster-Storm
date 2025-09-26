@@ -5163,6 +5163,121 @@ Email: strategiclandmgmt@gmail.com
     }
   });
 
+  // ===== ENHANCED NOAA STORM EVENTS API ENDPOINTS =====
+  
+  // Process NOAA storm data and create enhanced hot zones
+  app.post('/api/noaa/process-storm-data', async (req, res) => {
+    try {
+      const { dataPath } = req.body;
+      
+      console.log('🌪️ Processing NOAA storm events data via API...');
+      const result = await noaaStormEventsService.processNOAAData(dataPath);
+      
+      res.json({
+        success: result.success,
+        summary: {
+          countiesProcessed: result.countiesProcessed,
+          hotZonesCreated: result.hotZonesCreated,
+          hotZonesUpdated: result.hotZonesUpdated,
+          contractorOpportunities: result.contractorOpportunities,
+          processingTimeMs: result.processingDuration,
+          extractionTime: result.extractionTime
+        },
+        errors: result.errors.length > 0 ? result.errors : undefined
+      });
+    } catch (error) {
+      console.error('❌ Error processing NOAA data:', error);
+      res.status(500).json({ error: 'Failed to process NOAA storm data' });
+    }
+  });
+  
+  // Generate contractor opportunities from NOAA-enhanced data
+  app.get('/api/noaa/contractor-opportunities', async (req, res) => {
+    try {
+      const { limit = 50, riskThreshold = 65 } = req.query;
+      
+      console.log(`💰 Generating ${limit} contractor opportunities from NOAA data...`);
+      const opportunities = await noaaStormEventsService.generateContractorOpportunities(Number(limit));
+      
+      // Filter by risk threshold if specified
+      const filtered = opportunities.filter(opp => Number(opp.opportunityScore) >= Number(riskThreshold));
+      
+      res.json({
+        opportunities: filtered,
+        count: filtered.length,
+        dataSource: 'NOAA Storm Events Enhanced',
+        generatedAt: new Date().toISOString(),
+        filters: {
+          limit: Number(limit),
+          riskThreshold: Number(riskThreshold)
+        }
+      });
+    } catch (error) {
+      console.error('❌ Error generating contractor opportunities:', error);
+      res.status(500).json({ error: 'Failed to generate contractor opportunities' });
+    }
+  });
+
+  // ===== STORM-TO-PARCEL CONVERSION API ENDPOINTS =====
+  
+  // Convert storm zones to parcel-level contractor opportunities
+  app.post('/api/storm-to-parcel/convert', async (req, res) => {
+    try {
+      const filter = req.body || {};
+      
+      console.log('🏠 Converting storm zones to parcel opportunities...');
+      const result = await stormToParcelConverter.convertStormDataToParcels(filter);
+      
+      res.json({
+        success: result.success,
+        opportunities: result.opportunities,
+        totalProcessed: result.totalProcessed,
+        filtered: result.filtered,
+        conversionRate: Math.round(result.conversionRate * 100) / 100,
+        processingTimeMs: result.processingTimeMs,
+        countyBreakdown: result.countyBreakdown,
+        errors: result.errors.length > 0 ? result.errors : undefined,
+        appliedFilters: filter
+      });
+    } catch (error) {
+      console.error('❌ Error in storm-to-parcel conversion:', error);
+      res.status(500).json({ error: 'Failed to convert storm data to parcels' });
+    }
+  });
+  
+  // Get parcel opportunities with advanced filtering
+  app.get('/api/storm-to-parcel/opportunities', async (req, res) => {
+    try {
+      const filter = {
+        stateCode: req.query.stateCode as string,
+        county: req.query.county as string,
+        minRiskScore: req.query.minRiskScore ? Number(req.query.minRiskScore) : undefined,
+        maxResults: req.query.maxResults ? Number(req.query.maxResults) : 25,
+        stormTypes: req.query.stormTypes ? String(req.query.stormTypes).split(',') : undefined,
+        propertyTypes: req.query.propertyTypes ? String(req.query.propertyTypes).split(',') : undefined,
+        minPropertyValue: req.query.minPropertyValue ? Number(req.query.minPropertyValue) : undefined,
+        maxPropertyAge: req.query.maxPropertyAge ? Number(req.query.maxPropertyAge) : undefined,
+        requireContactInfo: req.query.requireContactInfo === 'true'
+      };
+
+      console.log('🎯 Fetching filtered parcel opportunities...');
+      const result = await stormToParcelConverter.convertStormDataToParcels(filter);
+      
+      res.json({
+        opportunities: result.opportunities,
+        count: result.opportunities.length,
+        totalProcessed: result.totalProcessed,
+        conversionRate: Math.round(result.conversionRate * 100) / 100,
+        appliedFilters: filter,
+        countyBreakdown: result.countyBreakdown,
+        processingTimeMs: result.processingTimeMs
+      });
+    } catch (error) {
+      console.error('❌ Error fetching parcel opportunities:', error);
+      res.status(500).json({ error: 'Failed to fetch parcel opportunities' });
+    }
+  });
+
   // Real-time disaster opportunities for contractors
   app.get('/api/fema/contractor-opportunities', async (req, res) => {
     try {
