@@ -1,0 +1,82 @@
+This document defines the module order, phases, and high-level interactions for the Storm Ops app. Build the dashboard and navigation in this order and wire the modules to communicate as indicated below.
+
+🚀 Recommended Workflow & Module Order
+Phase 1: Awareness & Monitoring (before the storm hits)
+
+Weather Center – Live weather radar, alerts, forecasts.
+
+Storm Predictions – AI storm modeling and risk mapping.
+
+Eyes in the Sky – Drone operations + aerial imaging.
+
+Traffic Cam Watcher – Road conditions & evacuation routes.
+
+Phase 2: Active Storm Operations (during/after impact)
+
+Drone Operation – Real-time drone deployments with AI overlays.
+
+AI Damage Detection – Automatic detection & measurement of damages (trees, roofs, flooding, etc.).
+
+Disaster Lens – Contractor field photo/video capture with AI tools (measurements, highlights, water/gas line circles).
+
+Claims Central – Auto-generate reports, measurements, adjuster packets.
+
+Phase 3: Response & Coordination
+
+Lead Management – Assign incoming jobs, track estimates.
+
+Victim Portal – Homeowners/customers submit photos, see claim status, track crews.
+
+Customer Hub – Customer communication, updates, billing.
+
+Contractor Portal – Subcontractors manage work orders, submit compliance docs.
+
+Contractor Command – HQ command dashboard for scheduling, payroll, crew coordination.
+
+Phase 4: Support & Long-Term Recovery
+
+Disaster Essentials Marketplace – Supplies, rentals, food, fuel, PPE for contractors & victims.
+
+Storm Share – Community engagement: photos, updates, live maps, insurance/contractor collaboration.
+
+🔗 Module Interactions
+
+Weather Center & Storm Predictions feed into Eyes in the Sky and Traffic Cam Watcher.
+
+Eyes in the Sky + Drone Operation push data into AI Damage Detection and Disaster Lens.
+
+Disaster Lens feeds evidence into Claims Central and Victim Portal.
+
+Lead Management assigns jobs pulled in from Victim Portal.
+
+Contractor Portal & Contractor Command sync together (compliance, job dispatch, payments).
+
+Customer Hub syncs with Claims Central (adjuster reports + homeowner updates).
+
+Storm Share pulls highlights from Disaster Lens, Victim Portal, and Traffic Cams to share externally.
+
+Marketplace connects to both Contractor Portal (supplies for crews) and Victim Portal (homeowner recovery supplies).
+
+🧑‍🏫 Onboarding Explanation (simple for contractors)
+
+When onboarding contractors, explain the workflow like this:
+
+Monitor the storm (Modules 1–4).
+
+Capture & detect damages (Modules 5–7).
+
+Process claims & jobs (Modules 8–13).
+
+Support recovery & community sharing (Modules 14–15).
+
+Dev Notes (for Replit)
+
+Build the dashboard with four phase sections in the order above.
+
+Each module should be its own route/page (e.g., /weather, /predictions, /eyes, /traffic, …).
+
+Implement a lightweight event bus (pub/sub) so modules can pass data without tight coupling (e.g., WEATHER.FORECAST, STORM.RISKMAP, DRONE.MEDIA.NEW, DAMAGE.FINDINGS, CLAIM.STATUS.UPDATE, JOB.NEW).
+
+Keep labels exactly as written here for now.
+
+No drag-and-drop needed at this stage—simple ordered layout is fine.

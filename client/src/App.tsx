@@ -2,8 +2,12 @@ import { Route, Switch, Link, useLocation } from 'wouter';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from '@/lib/queryClient';
 import StormOpsProHub from "./StormOpsProHub";
+import StormOpsDashboard from "./pages/StormOpsDashboard";
 import WeatherIntelligenceCenter from "./pages/WeatherIntelligenceCenter";
+import StormPredictions from "./pages/StormPredictions";
 import SurveillanceCenter from "./pages/SurveillanceCenter";
+import TrafficCamWatcher from "./pages/TrafficCamWatcher";
+import DroneOperation from "./pages/DroneOperation";
 import VictimLogin from "./pages/VictimLogin";
 import VictimRegister from "./pages/VictimRegister";
 import VictimDashboard from "./pages/VictimDashboard";
@@ -581,6 +585,38 @@ export default function App() {
           <Legal />
         </Route>
         
+        {/* New Storm Ops Phase-Based Routes */}
+        <Route path="/storm-predictions">
+          <title>Storm Predictions - DisasterDirect</title>
+          <meta name="description" content="AI storm modeling and risk mapping for advanced storm prediction" />
+          <StormPredictions />
+        </Route>
+        
+        <Route path="/traffic-cam-watcher">
+          <title>Traffic Cam Watcher - DisasterDirect</title>
+          <meta name="description" content="Road conditions and evacuation routes monitoring" />
+          <TrafficCamWatcher />
+        </Route>
+        
+        <Route path="/eyes-in-the-sky">
+          <title>Eyes in the Sky - DisasterDirect</title>
+          <meta name="description" content="Drone operations and aerial imaging for comprehensive surveillance" />
+          <SurveillanceCenter />
+        </Route>
+        
+        <Route path="/drone-operation">
+          <title>Drone Operation - DisasterDirect</title>
+          <meta name="description" content="Real-time drone deployments with AI overlays for active storm operations" />
+          <DroneOperation />
+        </Route>
+        
+        {/* Storm Ops Dashboard Route */}
+        <Route path="/storm-ops">
+          <title>Storm Operations Dashboard - DisasterDirect</title>
+          <meta name="description" content="Comprehensive storm operations workflow organized by operational phases for disaster response professionals" />
+          <StormOpsDashboard />
+        </Route>
+        
         <Route path="/victim/login">
           <VictimLogin />
         </Route>
@@ -606,6 +642,15 @@ export default function App() {
         </Route>
         
         <Route path="/">
+          <title>Storm Operations Dashboard - DisasterDirect</title>
+          <meta name="description" content="Comprehensive storm operations workflow organized by operational phases for disaster response professionals" />
+          <StormOpsDashboard />
+        </Route>
+        
+        {/* Legacy hub route for backward compatibility */}
+        <Route path="/hub">
+          <title>DisasterDirect - Storm Operations Platform</title>
+          <meta name="description" content="Comprehensive storm operations and claims management platform for contractors and property restoration professionals" />
           <StormOpsProHub />
         </Route>
         

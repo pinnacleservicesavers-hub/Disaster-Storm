@@ -1,0 +1,607 @@
+Replit Module Workflow – Uploadable Spec & Starter Files
+Replit Upload Pack: Module Workflow, Config, and Starter UI
+
+This package gives Replit everything they need to (1) see your modules, (2) reorder them in a clean workflow, and (3) let modules share data/events. It includes a JSON manifest, TypeScript types, a tiny event bus, and a simple React dashboard for rearranging modules (with Save/Reset). No external DB required.
+
+Note on cleanup: You listed Traffic Cam Watcher twice and Done Operation (assumed Drone Operation). I consolidated to 15 unique modules and preserved your original labels inside the manifest (originalLabel).
+
+1) Quick Start (drop these files into a new Replit React + Vite project)
+
+Create a new React + Vite (TypeScript) repl.
+
+Replace/add files exactly as shown below.
+
+Run the app. You’ll see a Dashboard with the modules in the recommended workflow order. Use ↑ / ↓ to reorder and Save to persist.
+
+The generated order is stored in localStorage and in /src/modules.json (source of truth). Replit can read/modify the JSON to rearrange programmatically.
+
+2) package.json
+{
+  "name": "storm-ops-dashboard",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.5",
+    "@types/react-dom": "^18.3.0",
+    "typescript": "^5.6.2",
+    "vite": "^5.4.0"
+  }
+}
+3) /src/modules.json — your module manifest (order + metadata)
+
+This is the single source of truth. Replit can reorder simply by editing the order fields or by rearranging the array.
+
+[
+    "subscribes": ["CLAIM.STATUS.UPDATE", "JOB.UPDATE"],
+    "description": "Homeowner intake, uploads, status, messaging."
+  },
+  {
+    "id": "customer-hub",
+    "name": "Customer Hub",
+    "originalLabel": "11 module  Customer Hub",
+    "phase": "Coordination",
+    "order": 11,
+    "routes": ["/customers"],
+    "publishes": ["INVOICE.SENT", "CUSTOMER.MESSAGE"],
+    "subscribes": ["CLAIM.STATUS.UPDATE", "JOB.UPDATE"],
+    "description": "CRM, invoices, updates, reviews, documents."
+  },
+  {
+    "id": "contractor-portal",
+    "name": "Contractor Portal",
+    "originalLabel": "10 Contractor Portal",
+    "phase": "Coordination",
+    "order": 12,
+    "routes": ["/contractors"],
+    "publishes": ["CREW.CHECKIN", "COMPLIANCE.UPLOAD"],
+    "subscribes": ["JOB.NEW"],
+    "description": "Sub onboarding, docs, work orders, pay items."
+  },
+  {
+    "id": "contractor-command",
+    "name": "Contractor Command",
+    "originalLabel": "12 module Contractor Comand",
+    "phase": "Coordination",
+    "order": 13,
+    "routes": ["/command"],
+    "publishes": ["DISPATCH.SCHEDULE", "PAYROLL.EXPORT"],
+    "subscribes": ["CREW.CHECKIN", "JOB.NEW"],
+    "description": "HQ ops: scheduling, dispatch, payroll, KPIs."
+  },
+  {
+    "id": "disaster-marketplace",
+    "name": "Disaster Essentials Marketplace",
+    "originalLabel": "15 Module Disaster Essentials Marketplace",
+    "phase": "Recovery",
+    "order": 14,
+    "routes": ["/market"],
+    "publishes": ["PROCUREMENT.ORDER"],
+    "subscribes": ["JOB.NEW"],
+    "description": "Supplies, rentals, food, fuel, PPE for crews & victims."
+  },
+  {
+    "id": "storm-share",
+    "name": "Storm Share",
+    "originalLabel": "16 Module Storm Share",
+    "phase": "Recovery",
+    "order": 15,
+    "routes": ["/share"],
+    "publishes": ["SOCIAL.POST"],
+    "subscribes": ["LENS.MEDIA.NEW", "DRONE.MEDIA.NEW", "CLAIM.STATUS.UPDATE"],
+    "description": "Community map & updates, curated media, insurer collab."
+  }
+]
+4) /src/types.ts
+export type ModulePhase = "Awareness" | "Operations" | "Coordination" | "Recovery";
+
+
+export interface ModuleDef {
+  id: string;
+  name: string;
+  originalLabel?: string;
+  phase: ModulePhase;
+  order: number; // lower = earlier in workflow
+  routes: string[];
+  publishes: string[]; // event names this module emits
+  subscribes: string[]; // event names this module listens for
+  description?: string;
+}
+
+
+export interface AppEvent<T = unknown> {
+  type: string; // e.g. "JOB.NEW"
+  payload?: T;
+  meta?: { source?: string; ts?: number };
+}
+5) /src/eventBus.ts — tiny pub/sub for inter‑module comms
+import { AppEvent } from "./types";
+
+
+type Handler = (evt: AppEvent) => void;
+
+
+class EventBus {
+  private map = new Map<string, Set<Handler>>();
+
+
+  on(type: string, handler: Handler) {
+    if (!this.map.has(type)) this.map.set(type, new Set());
+    this.map.get(type)!.add(handler);
+    return () => this.off(type, handler);
+  }
+
+
+  off(type: string, handler: Handler) {
+    this.map.get(type)?.delete(handler);
+  }
+
+
+  emit(evt: AppEvent) {
+    const set = this.map.get(evt.type);
+    set?.forEach((h) => h(evt));
+  }
+}
+
+
+export const bus = new EventBus();
+
+
+// Example helpers
+export const publish = (type: string, payload?: unknown, source?: string) =>
+  bus.emit({ type, payload, meta: { source, ts: Date.now() } });
+6) /src/useModules.ts — load/save order locally
+import { useEffect, useState } from "react";
+import type { ModuleDef } from "./types";
+
+
+const KEY = "module-order-v1";
+
+
+export function useModules() {
+  const [modules, setModules] = useState<ModuleDef[]>([]);
+
+
+  useEffect(() => {
+    async function load() {
+      const res = await fetch("/src/modules.json");
+      const defs: ModuleDef[] = await res.json();
+
+
+      const saved = localStorage.getItem(KEY);
+      if (saved) {
+        const order: string[] = JSON.parse(saved);
+        // sort by saved order (fallback to def.order)
+        defs.sort((a, b) => {
+          const ia = order.indexOf(a.id);
+          const ib = order.indexOf(b.id);
+          if (ia === -1 && ib === -1) return a.order - b.order;
+          if (ia === -1) return 1;
+          if (ib === -1) return -1;
+          return ia - ib;
+        });
+      } else {
+        defs.sort((a, b) => a.order - b.order);
+      }
+
+
+      setModules(defs);
+    }
+    load();
+  }, []);
+
+
+  function saveOrder(next: ModuleDef[]) {
+    setModules(next);
+    localStorage.setItem(KEY, JSON.stringify(next.map((m) => m.id)));
+  }
+
+
+  function reset(defs: ModuleDef[]) {
+    localStorage.removeItem(KEY);
+    setModules([...defs].sort((a, b) => a.order - b.order));
+  }
+
+
+  return { modules, setModules: saveOrder };
+}
+7) /src/Dashboard.tsx — reorder UI + phase lanes
+import React from "react";
+import { useModules } from "./useModules";
+import type { ModuleDef } from "./types";
+
+
+function move(mods: ModuleDef[], from: number, to: number) {
+  const next = [...mods];
+  const [item] = next.splice(from, 1);
+  next.splice(to, 0, item);
+  return next;
+}
+
+
+export default function Dashboard() {
+  const { modules, setModules } = useModules();
+
+
+  const phases = ["Awareness", "Operations", "Coordination", "Recovery"] as const;
+
+
+  function bump(idx: number, dir: -1 | 1) {
+    const to = idx + dir;
+    if (to < 0 || to >= modules.length) return;
+    setModules(move(modules, idx, to));
+  }
+
+
+  return (
+    <div style={{ fontFamily: "system-ui, Arial", padding: 16 }}>
+      <h1>Storm Ops Dashboard – Module Workflow</h1>
+      <p>Use the arrows to rearrange. Click <strong>Save</strong> (top-right of your Replit) to persist the JSON if you want devs to lock it in.</p>
+
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
+        {phases.map((phase) => (
+          <section key={phase} style={{ border: "1px solid #ddd", borderRadius: 12, padding: 12 }}>
+            <h2 style={{ marginTop: 0 }}>{phase}</h2>
+            {modules
+              .map((m, i) => ({ m, i }))
+              .filter(({ m }) => m.phase === phase)
+              .map(({ m, i }) => (
+                <article key={m.id} style={{
+                  border: "1px solid #eee",
+                  borderRadius: 10,
+                  padding: 10,
+                  marginBottom: 10,
+                  background: "#fafafa"
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <div>
+                      <strong>{m.name}</strong>
+                      <div style={{ fontSize: 12, color: "#666" }}>{m.description}</div>
+                      <div style={{ fontSize: 11, color: "#999" }}>Publishes: {m.publishes.join(", ") || "–"}</div>
+                      <div style={{ fontSize: 11, color: "#999" }}>Subscribes: {m.subscribes.join(", ") || "–"}</div>
+                    </div>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <button onClick={() => bump(i, -1)} aria-label="Move up">↑</button>
+                      <button onClick={() => bump(i, 1)} aria-label="Move down">↓</button>
+                    </div>
+                  </div>
+                </article>
+              ))}
+          </section>
+        ))}
+      </div>
+    </div>
+  );
+}
+8) /src/main.tsx — app entry
+import React from "react";
+import ReactDOM from "react-dom/client";
+import Dashboard from "./Dashboard";
+
+
+ReactDOM.createRoot(document.getElementById("root")!).render(
+  <React.StrictMode>
+    <Dashboard />
+  </React.StrictMode>
+);
+9) /index.html (Vite default with a root)
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Storm Ops Dashboard</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+10) How modules communicate (event names you can rely on)
+
+Use the eventBus to connect modules without hard wiring. Example flows:
+
+Weather Center → Storm Predictions: publishes WEATHER.FORECAST → subscribed by predictions.
+
+Predictions → Eyes in the Sky: STORM.RISKMAP creates AERIAL.TASK.NEW for drone tasking.
+
+Drone/Disaster Lens → AI Damage Detection: DRONE.MEDIA.NEW / LENS.MEDIA.NEW → detection runs → emits DAMAGE.FINDINGS.
+
+Damage/Annotations → Claims Central: emits CLAIM.REPORT.NEW, CLAIM.STATUS.UPDATE.
+
+Victim Portal → Lead Management: VICTIM.INTAKE.NEW → JOB.NEW.
+
+Contractor Portal → Contractor Command: CREW.CHECKIN → DISPATCH.SCHEDULE.
+
+You already have these wired in /src/modules.json under publishes / subscribes. Replit can update those lists as features grow.
+
+11) Onboarding blurb for contractors (put this in your app’s Help modal)
+
+Watch: Weather Center → Storm Predictions → Eyes in the Sky → Traffic Cam Watcher.
+
+Capture: Drone Operation + Disaster Lens.
+
+Detect: AI Damage Detection.
+
+File: Claims Central.
+
+Coordinate: Lead Management → Contractor Portal → Contractor Command → Customer Hub / Victim Portal.
+
+Recover: Disaster Essentials Marketplace → Storm Share.
+
+Short, clear, step-by-step. This matches the manifest order.
+
+12) Optional: programmatic reorder script (for devs)
+
+If you want a quick Node script to reorder by a new array of IDs:
+
+// tools/reorder.ts
+import fs from "node:fs";
+
+
+const desired = [
+  "weather-center",
+  "storm-predictions",
+  "eyes-in-the-sky",
+  "traffic-cam-watcher",
+  "drone-operation",
+  "ai-damage-detection",
+  "disaster-lens",
+  "claims-central",
+  "lead-management",
+  "victim-portal",
+  "customer-hub",
+  "contractor-portal",
+  "contractor-command",
+  "disaster-marketplace",
+  "storm-share"
+];
+
+
+const defs = JSON.parse(fs.readFileSync("src/modules.json", "utf-8"));
+const map = new Map(defs.map((d: any) => [d.id, d]));
+const next = desired.map((id, i) => ({ ...map.get(id), order: i + 1 }));
+fs.writeFileSync("src/modules.json", JSON.stringify(next, null, 2));
+console.log("Reordered and saved.");
+
+Run with: node tools/reorder.ts
+
+13) What Replit needs from you
+
+This repo structure with the manifest.
+
+Your team can now:
+
+Reorder via the Dashboard UI (persists in browser) or
+
+Edit /src/modules.json directly and commit.
+
+Adjust publishes/subscribes to tighten integrations between modules as features grow.
+
+If you want drag‑and‑drop, I can add it. For now the arrow buttons keep dependencies light.
+
+14) Lead Prioritization & Auto‑Routing (Replit Implementation Spec)
+
+This section adds lead scoring & routing so crews get the most urgent jobs first while minimizing drive time.
+
+A. Priority Levels & Definitions
+
+Use a clear, safety‑first severity scale. Keep labels short on mobile:
+
+P0 – Life/Safety Critical (Very Urgent)
+
+Examples: Tree on home with people possibly trapped, tree blocking primary egress, live utility hazards impacting occupants, car on house, structure collapse risk.
+
+P1 – Property Critical (Urgent)
+
+Examples: Tree on building (non‑residential) or any other structure (garage, fence onto pool equipment, shed on power lines), tree causing active water intrusion but no entrapment.
+
+P2 – Significant (High)
+
+Examples: Large tree on vehicle not affecting egress, tree leaning with high likelihood of failure near home, partial roof damage with temp protection.
+
+P3 – Standard (Normal)
+
+Examples: Yard debris, fence sections down away from utilities, cosmetic damage.
+
+Tie‑breakers: If two leads share the same P‑level, favor: (1) closer distance to assigned crew, then (2) earlier submission time.
+
+B. Lead Schema (add to your backend or JSON store)
+export type Priority = "P0" | "P1" | "P2" | "P3";
+export interface Lead {
+  id: string;
+  createdAt: number; // Date.now()
+  lat: number;
+  lng: number;
+  address?: string;
+  description?: string;
+  hazards?: string[]; // e.g. ["wiresDown", "gasLeak"]
+  mediaIds?: string[]; // photos/videos from Victim Portal or Disaster Lens
+  tags?: string[]; // e.g. ["treeOnHome", "blockedExit", "carOnHouse"]
+  priority?: Priority; // computed by AI/rules, can be overridden by dispatcher
+  score?: number; // sortable composite score
+  assignedContractorId?: string;
+  status?: "new" | "dispatched" | "enroute" | "onsite" | "complete";
+}
+C. Priority Rules (deterministic fallback + AI assist)
+
+Rules first (fast, reliable):
+
+If tags contains treeOnHome or blockedExit or carOnHouse ⇒ P0.
+
+Else if tags contains treeOnBuilding or treeOnStructure ⇒ P1.
+
+Else if tags contains treeOnCar or imminentLeanTowardHome ⇒ P2.
+
+Else ⇒ P3.
+
+AI overlay (optional): Use text+image model to confirm/upgrade/downgrade one level based on media (e.g., detect entrapment cues, active water ingress, live wires). Guardrail: AI cannot downgrade from P0 without human confirmation.
+
+D. Scoring Function (for sort order)
+
+Turn the P‑levels into numeric weights and add distance/time & recency:
+
+const PRIORITY_WEIGHT: Record<Priority, number> = { P0: 1000, P1: 700, P2: 400, P3: 100 };
+
+
+// distance in km -> smaller is better; clamp to avoid huge swings
+const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
+
+
+export function leadScore(p: Priority, kmFromCrew: number, minutesOld: number) {
+  const wP = PRIORITY_WEIGHT[p];
+  const wD = 200 - clamp(kmFromCrew, 0, 200); // closer adds up to +200
+  const wT = Math.min(minutesOld, 180); // up to +180 for aging in queue
+  return wP + wD + wT; // higher = sooner
+}
+E. Distance Calculation (Haversine)
+export function km(a: {lat: number; lng: number}, b: {lat: number; lng: number}) {
+  const R = 6371; // km
+  const dLat = (b.lat - a.lat) * Math.PI / 180;
+  const dLng = (b.lng - a.lng) * Math.PI / 180;
+  const la1 = a.lat * Math.PI / 180;
+  const la2 = b.lat * Math.PI / 180;
+  const s = Math.sin(dLat/2)**2 + Math.cos(la1)*Math.cos(la2)*Math.sin(dLng/2)**2;
+  return 2 * R * Math.asin(Math.sqrt(s));
+}
+F. Real‑Time Re‑prioritization Flow
+
+Events In: VICTIM.INTAKE.NEW, LENS.MEDIA.NEW, manual dispatcher edits, contractor check‑ins with GPS (CREW.CHECKIN).
+
+Process:
+
+Compute/confirm priority via Rules → AI overlay.
+
+Compute score = leadScore(priority, distance, age) per contractor region.
+
+Update queue order and emit JOB.QUEUE.UPDATE with the new sorted list.
+
+Events Out: JOB.DISPATCH when a lead is assigned to a crew.
+
+import { publish } from "./eventBus";
+
+
+export function updateLeadQueue(leads: Lead[], contractorLoc: {lat:number; lng:number}) {
+  const now = Date.now();
+  const scored = leads.map(l => {
+    const p: Priority = l.priority ?? inferPriorityFromTags(l.tags ?? []);
+    const distanceKm = km(contractorLoc, l);
+    const minutesOld = (now - l.createdAt) / 60000;
+    return { ...l, priority: p, score: leadScore(p, distanceKm, minutesOld) };
+  });
+  const sorted = scored.sort((a, b) => b.score! - a.score!);
+  publish("JOB.QUEUE.UPDATE", { items: sorted });
+  return sorted;
+}
+
+
+function inferPriorityFromTags(tags: string[]): Priority {
+  const set = new Set(tags);
+  if (set.has("treeOnHome") || set.has("blockedExit") || set.has("carOnHouse")) return "P0";
+  if (set.has("treeOnBuilding") || set.has("treeOnStructure")) return "P1";
+  if (set.has("treeOnCar") || set.has("imminentLeanTowardHome")) return "P2";
+  return "P3";
+}
+G. Route Builder (minimize zig‑zag)
+
+Start with a Nearest‑Neighbor pass from crew location, then a quick 2‑opt improvement. Good enough for city‑scale routing without heavy libs.
+
+export function buildRoute(leads: Lead[], start: {lat:number; lng:number}) {
+  const pool = [...leads];
+  const route: Lead[] = [];
+  let curr = start;
+  while (pool.length) {
+    pool.sort((a,b) => km(curr, a) - km(curr, b));
+    const next = pool.shift()!;
+    route.push(next);
+    curr = next;
+  }
+  return twoOpt(route, start);
+}
+
+
+function twoOpt(route: Lead[], start: {lat:number; lng:number}) {
+  // simple 2-opt pass
+  let improved = true;
+  while (improved) {
+    improved = false;
+    for (let i=1; i<route.length-2; i++) {
+      for (let k=i+1; k<route.length-1; k++) {
+        const a1 = i-1<0 ? start : route[i-1];
+        const a2 = route[i];
+        const b1 = route[k];
+        const b2 = route[k+1];
+        const dNow = km(a1, a2) + km(b1, b2);
+        const dNew = km(a1, b1) + km(a2, b2);
+        if (dNew + 0.01 < dNow) { // small epsilon to avoid churn
+          const slice = route.slice(i, k+1).reverse();
+          route.splice(i, k-i+1, ...slice);
+          improved = true;
+        }
+      }
+    }
+  }
+  return route;
+}
+H. Putting It Together in UI (Lead Management page)
+
+Show queues by contractor (tabs or list sections): P0, P1, P2, P3.
+
+Default sort by score; allow manual drag to override (keep audit trail).
+
+“Build Route” button: runs buildRoute() on the visible queue.
+
+On CREW.CHECKIN (new GPS), recompute updateLeadQueue().
+
+On new media (LENS.MEDIA.NEW), re‑infer priority and refresh.
+
+I. Safety Guardrails
+
+Never auto‑downgrade P0 from AI without human confirmation.
+
+Force manual acknowledgement before skipping a nearby P0 to drive 45+ minutes.
+
+If utilities present (wiresDown, gasLeak), display a utility callout checklist before dispatch.
+
+J. Example Events
+
+VICTIM.INTAKE.NEW → lead created with tags from form.
+
+AI.DETECTION.RESULT → adds treeOnHome/blockedExit tag.
+
+CREW.CHECKIN → { contractorId, lat, lng, ts }.
+
+JOB.QUEUE.UPDATE → UI refresh per contractor.
+
+JOB.DISPATCH → crew receives next job w/ route segment.
+
+With this spec, Replit can implement priority + auto‑routing immediately and refine later (e.g., traffic‑aware ETAs, shift windows, multi‑crew VRP).
+
+Done! I added a full Lead Prioritization & Auto-Routing section to your Replit spec in the canvas. It includes:
+
+Clear priority tiers (P0–P3) with exactly the scenarios you listed (tree on home/building/structure, car on house, etc.) and a “Very Urgent” safety-first flow.
+
+A lead schema, rules + AI overlay, and a scoring function that auto-reorders leads in real time as they come in.
+
+A fast distance calculator, route builder (nearest-neighbor + 2-opt), and event flows so queues reshuffle when crews check in or new media arrives.
+
+UI guidance for the Lead Management page and safety guardrails (no auto-downgrade of P0, utility hazard callouts, etc.).
+
+Open the canvas titled “Replit Module Workflow – Uploadable Spec & Starter Files.”
+Section 14) Lead Prioritization & Auto-Routing has everything your devs need to implement this right now.
+
+Want me to also drop in a minimal Lead Management React page that uses these functions so you can demo it instantly?
+
+Do you like this personality?
+
+ChatGPT can make mista
