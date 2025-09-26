@@ -72,6 +72,7 @@ export default function ContractorPortal() {
   const [showCalendar, setShowCalendar] = useState(false);
   const [isVoiceGuideActive, setIsVoiceGuideActive] = useState(false);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [currentLocation, setCurrentLocation] = useState<GeolocationPosition | null>(null);
   const { toast } = useToast();
   
   // Quick actions for dashboard
@@ -110,6 +111,26 @@ export default function ContractorPortal() {
         window.speechSynthesis.onvoiceschanged = null;
       }
     };
+  }, []);
+
+  // Initialize location tracking
+  useEffect(() => {
+    if ('geolocation' in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setCurrentLocation(position);
+        },
+        (error) => {
+          console.log('Location access denied or failed:', error);
+          // Continue without location - components will handle gracefully
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 5000,
+          maximumAge: 60000
+        }
+      );
+    }
   }, []);
 
   // Contractor ID - In a real app, this would come from auth context
@@ -1420,15 +1441,18 @@ export default function ContractorPortal() {
             <StormPathWarningSystem
               className="w-full"
               contractorLocation={currentLocation ? {
-                lat: currentLocation.latitude,
-                lng: currentLocation.longitude
+                lat: currentLocation.coords.latitude,
+                lng: currentLocation.coords.longitude
               } : undefined}
             />
 
             {/* 🚀 ULTIMATE AI INTELLIGENCE SYSTEM - Most Advanced Ever Created */}
             <UltimateAIIntelligenceSystem
               module="contractor"
-              currentLocation={currentLocation || undefined}
+              currentLocation={currentLocation ? {
+                latitude: currentLocation.coords.latitude,
+                longitude: currentLocation.coords.longitude
+              } : undefined}
               currentData={{
                 // Real-time contractor intelligence data
                 opportunities: [], // Live storm opportunities with precise timing
