@@ -1,0 +1,293 @@
+Got you. Here’s a drop-in FastAPI service you can run on Replit (or any box) that serves your NOAA StormEvents data as an API, with filters, priority sorting, and distance-aware results for contractor routing.
+
+1) Add to requirements.txt
+fastapi
+uvicorn
+pandas
+pyarrow
+numpy
+python-multipart
+
+
+(Plus what you already added for the pipeline: requests beautifulsoup4.)
+
+2) Save as app.py
+import os
+import math
+import pandas as pd
+import numpy as np
+from datetime import datetime
+from fastapi import FastAPI, Query, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from typing import List, Optional, Literal
+
+# ---------- CONFIG ----------
+PARQUET_PATH = os.getenv("NOAA_PARQUET", "storm_events_filtered.parquet")
+COUNTY_SUMMARY_CSV = os.getenv("NOAA_COUNTY_SUMMARY", "storm_events_county_summary.csv")
+EVENT_SUMMARY_CSV = os.getenv("NOAA_EVENT_SUMMARY", "storm_events_event_summary.csv")
+
+DEFAULT_LIMIT = 100
+MAX_LIMIT = 1000
+
+# ---------- APP ----------
+app = FastAPI(title="StormEvents API", version="1.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # tighten later for production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# ---------- DATA LOADING / CACHE ----------
+_df_cache = {"events": None, "mtime": None}
+
+def _load_events() -> pd.DataFrame:
+    """Load parquet to memory with lightweight caching."""
+    if not os.path.exists(PARQUET_PATH):
+        raise FileNotFoundError(f"Data file not found: {PARQUET_PATH}")
+    mtime = os.path.getmtime(PARQUET_PATH)
+    if _df_cache["events"] is None or _df_cache["mtime"] != mtime:
+        df = pd.read_parquet(PARQUET_PATH)
+        # normalize columns we will use for filters/sorts
+        if "STATE" in df.columns:
+            df["STATE"] = df["STATE"].astype(str).str.upper()
+        if "CZ_NAME" in df.columns:
+            df["CZ_NAME"] = df["CZ_NAME"].astype(str).str.title()
+        if "BEGIN_TS" in df.columns and not np.issubdtype(df["BEGIN_TS"].dtype, np.datetime64):
+            df["BEGIN_TS"] = pd.to_datetime(df["BEGIN_TS"], errors="coerce")
+        if "EVENT_PRIORITY" not in df.columns and "EVENT_TYPE" in df.columns:
+            def priority_label(s: str) -> int:
+                s = (s or "").upper()
+                if s in ("TORNADO", "HURRICANE (TYPHOON)"):
+                    return 1
+                if s == "TROPICAL STORM":
+                    return 2
+                return 3
+            df["EVENT_PRIORITY"] = df["EVENT_TYPE"].map(priority_label)
+        _df_cache["events"] = df
+        _df_cache["mtime"] = mtime
+    return _df_cache["events"]
+
+def _haversine_miles(lat1, lon1, lat2, lon2):
+    """Great-circle distance in miles."""
+    R = 3958.7613  # Earth radius (miles)
+    lat1, lon1, lat2, lon2 = map(np.radians, [lat1, lon1, lat2, lon2])
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+    a = np.sin(dlat/2.0)**2 + np.cos(lat1)*np.cos(lat2)*np.sin(dlon/2.0)**2
+    c = 2 * np.arcsin(np.sqrt(a))
+    return R * c
+
+# ---------- ROUTES ----------
+@app.get("/health")
+def health():
+    return {"ok": True, "parquet": PARQUET_PATH, "loaded": os.path.exists(PARQUET_PATH)}
+
+@app.get("/api/events")
+def get_events(
+    state: Optional[str] = Query(None, description="State (e.g., GA, AL)"),
+    county: Optional[str] = Query(None, description="County/zone name (title case OK)"),
+    event_types: Optional[List[str]] = Query(None, description="Repeatable: &event_types=TORNADO&event_types=HURRICANE (TYPHOON)"),
+    start: Optional[str] = Query(None, description="ISO date (e.g., 2020-01-01)"),
+    end: Optional[str] = Query(None, description="ISO date (e.g., 2025-09-26)"),
+    near_lat: Optional[float] = Query(None, description="Contractor lat"),
+    near_lon: Optional[float] = Query(None, description="Contractor lon"),
+    max_miles: Optional[float] = Query(None, description="Max distance from contractor"),
+    sort: Optional[Literal["priority","time","distance"]] = Query("priority"),
+    ascending: bool = Query(False),
+    limit: int = Query(DEFAULT_LIMIT, ge=1, le=MAX_LIMIT),
+    offset: int = Query(0, ge=0),
+):
+    """
+    Filter, prioritize, and (optionally) distance-sort events.
+    """
+    df = _load_events()
+
+    q = df
+
+    if state:
+        q = q[q["STATE"] == state.upper()]
+
+    if county:
+        # accept loose match on county substring
+        needle = county.strip().lower()
+        q = q[q["CZ_NAME"].str.lower().str.contains(needle, na=False)]
+
+    if event_types:
+        upper_types = [e.upper() for e in event_types]
+        q = q[q["EVENT_TYPE"].str.upper().isin(upper_types)]
+
+    # date range
+    if start:
+        try:
+            start_ts = pd.to_datetime(start)
+            q = q[q["BEGIN_TS"] >= start_ts]
+        except Exception:
+            raise HTTPException(400, detail="Invalid 'start' date format")
+
+    if end:
+        try:
+            end_ts = pd.to_datetime(end)
+            q = q[q["BEGIN_TS"] <= end_ts]
+        except Exception:
+            raise HTTPException(400, detail="Invalid 'end' date format")
+
+    # distance calc (uses LATITUDE/LONGITUDE or BEGIN_LAT/BEGIN_LON if available)
+    if near_lat is not None and near_lon is not None:
+        # try common columns
+        lat_col = None
+        lon_col = None
+        for a, b in (("BEGIN_LAT", "BEGIN_LON"), ("LAT", "LON"), ("BEGIN_LATITUDE","BEGIN_LONGITUDE")):
+            if a in q.columns and b in q.columns:
+                lat_col, lon_col = a, b
+                break
+        if lat_col is None:
+            # If locations table didn't join, distance won't work
+            q = q.copy()
+            q["DIST_MILES"] = np.nan
+        else:
+            q = q.copy()
+            valid = q[lat_col].notna() & q[lon_col].notna()
+            q.loc[valid, "DIST_MILES"] = _haversine_miles(
+                near_lat, near_lon, q.loc[valid, lat_col].astype(float), q.loc[valid, lon_col].astype(float)
+            )
+            if max_miles is not None:
+                q = q[(q["DIST_MILES"].notna()) & (q["DIST_MILES"] <= max_miles)]
+
+    # sorting
+    if sort == "priority":
+        by = ["EVENT_PRIORITY", "BEGIN_TS"]
+    elif sort == "time":
+        by = ["BEGIN_TS"]
+    else:  # distance
+        if "DIST_MILES" not in q.columns:
+            # user asked for distance sort without near_* params
+            raise HTTPException(400, detail="Distance sort requires near_lat and near_lon")
+        by = ["DIST_MILES", "EVENT_PRIORITY", "BEGIN_TS"]
+
+    q = q.sort_values(by=by, ascending=ascending).reset_index(drop=True)
+
+    total = int(q.shape[0])
+    q = q.iloc[offset: offset + limit]
+
+    # Select a compact shape for API response
+    cols = [c for c in [
+        "EVENT_ID","EPISODE_ID","STATE","CZ_NAME","EVENT_TYPE",
+        "BEGIN_TS","END_TS","EVENT_PRIORITY",
+        "WFO","SOURCE","MAGNITUDE","TOR_F_SCALE",
+        "FATALITIES_TOTAL","FATALITIES_DIRECT","FATALITIES_INDIRECT",
+        "DIST_MILES",
+        "BEGIN_LAT","BEGIN_LON","LAT","LON",
+        "BEGIN_DATE_TIME","END_DATE_TIME","BEGIN_DATE","BEGIN_TIME","END_DATE","END_TIME",
+        "INJURIES_DIRECT","INJURIES_INDIRECT","DAMAGE_PROPERTY","DAMAGE_CROPS","CZ_TYPE"
+    ] if c in q.columns]
+
+    records = q[cols].to_dict(orient="records")
+
+    return {
+        "count": len(records),
+        "total": total,
+        "offset": offset,
+        "limit": limit,
+        "sort": sort,
+        "ascending": ascending,
+        "items": records,
+    }
+
+@app.get("/api/summary/county")
+def county_summary(
+    state: Optional[str] = Query(None),
+    year: Optional[int] = Query(None, ge=1950, le=2100),
+    event_types: Optional[List[str]] = Query(None),
+    top: int = Query(50, ge=1, le=500),
+):
+    """
+    Quick rollup by county/year/type using the CSV produced by the pipeline.
+    """
+    if not os.path.exists(COUNTY_SUMMARY_CSV):
+        raise HTTPException(404, detail="County summary CSV not found. Run the pipeline first.")
+    df = pd.read_csv(COUNTY_SUMMARY_CSV)
+    df["STATE"] = df["STATE"].astype(str).str.upper()
+    df["CZ_NAME"] = df["CZ_NAME"].astype(str).str.title()
+    if state:
+        df = df[df["STATE"] == state.upper()]
+    if year:
+        df = df[df["YEAR"] == year]
+    if event_types:
+        df = df[df["EVENT_TYPE"].str.upper().isin([e.upper() for e in event_types])]
+    df = df.sort_values(["YEAR","EVENTS"], ascending=[True, False]).head(top)
+    return {"items": df.to_dict(orient="records")}
+
+@app.get("/api/summary/events")
+def event_summary(
+    start_year: Optional[int] = Query(None, ge=1950, le=2100),
+    end_year: Optional[int] = Query(None, ge=1950, le=2100),
+):
+    """
+    Year x EventType totals using CSV produced by the pipeline.
+    """
+    if not os.path.exists(EVENT_SUMMARY_CSV):
+        raise HTTPException(404, detail="Event summary CSV not found. Run the pipeline first.")
+    df = pd.read_csv(EVENT_SUMMARY_CSV)
+    if start_year:
+        df = df[df["YEAR"] >= start_year]
+    if end_year:
+        df = df[df["YEAR"] <= end_year]
+    df = df.sort_values(["YEAR","EVENT_TYPE"])
+    return {"items": df.to_dict(orient="records")}
+
+3) Run it (Replit)
+
+In the shell:
+
+python noaa_stormevents_pipeline.py   # (from earlier step) builds the parquet + CSVs
+uvicorn app:app --host 0.0.0.0 --port 8000
+
+4) Quick tests
+
+Health:
+
+GET https://<your-repl-url>/health
+
+
+Recent tornado + hurricane in GA, time-sorted:
+
+GET /api/events?state=GA&event_types=TORNADO&event_types=HURRICANE%20(TYPHOON)&sort=time&ascending=false&limit=50
+
+
+Events near a contractor (lat/lon) within 40 miles, sorted by distance:
+
+GET /api/events?near_lat=32.46098&near_lon=-84.98771&max_miles=40&sort=distance
+
+
+Muscogee county only, July 2020 → Sept 2025:
+
+GET /api/events?state=GA&county=Muscogee&start=2020-07-01&end=2025-09-26&sort=priority
+
+
+County summary for GA 2023 (top 100 rows):
+
+GET /api/summary/county?state=GA&year=2023&top=100
+
+
+Year × event totals (2017–2025):
+
+GET /api/summary/events?start_year=2017&end_year=2025
+
+5) How this maps to your contractor workflow
+
+Use /api/events?...sort=priority to queue most urgent (Tornado/Hurricane first), then by time.
+
+Use near_lat/near_lon/max_miles&sort=distance to feed each contractor the closest next job to avoid zig-zagging across town.
+
+Keep your dataset fresh by rerunning noaa_stormevents_pipeline.py (e.g., daily cron on Replit “Always On”).
+
+If you’d like, I can also add:
+
+An /admin/update endpoint that re-runs the NOAA pipeline (protected by a token).
+
+A /api/next-job endpoint that, given a contractor’s current GPS, returns the best next job using priority → distance → timestamp tie-breakers.
+
+A /api/routes endpoint draft (Google/Mapbox Distance Matrix ready).

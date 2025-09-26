@@ -1,0 +1,382 @@
+Awesome — here’s a drop-in Python script that:
+
+Scrapes NOAA’s Storm Events index (no hard-coding)
+
+Pulls 1950–2025 CSVs for Details / Locations / Fatalities
+
+Filters to Tornado + Hurricane/Tropical Storm events
+
+Filters to your date range (1950-01-01 → 2025-09-26)
+
+Merges by EVENT_ID
+
+Writes clean outputs you can plug into your contractors portal:
+
+storm_events_filtered.parquet (full joined rows)
+
+storm_events_county_summary.csv (by State/County/Year)
+
+storm_events_event_summary.csv (by Year/EventType)
+
+Replit requirements (add to requirements.txt):
+pandas requests beautifulsoup4 pyarrow
+
+noaa_stormevents_pipeline.py
+import os
+import io
+import re
+import sys
+import time
+import gzip
+import math
+import queue
+import shutil
+import signal
+import typing as t
+from datetime import datetime, date
+from dataclasses import dataclass
+
+import requests
+import pandas as pd
+from bs4 import BeautifulSoup
+
+# ---------- CONFIG ----------
+INDEX_URL = "https://www.ncei.noaa.gov/pub/data/swdi/stormevents/csvfiles/"
+YEAR_MIN, YEAR_MAX = 1950, 2025
+DATE_MIN = pd.Timestamp("1950-01-01")
+DATE_MAX = pd.Timestamp("2025-09-26")  # <- adjust any time
+# Keep tornadoes + hurricanes (tropical storm often relevant to hurricane ops)
+TARGET_EVENT_TYPES = {
+    "TORNADO",
+    "HURRICANE (TYPHOON)",
+    "TROPICAL STORM",
+}
+# Output files
+OUT_PARQUET = "storm_events_filtered.parquet"
+OUT_COUNTY_SUMMARY = "storm_events_county_summary.csv"
+OUT_EVENT_SUMMARY = "storm_events_event_summary.csv"
+# Networking
+TIMEOUT = 60
+RETRY = 4
+BACKOFF = 2.0
+# Memory: process year-by-year to keep ram low
+CHUNK_ROWS = None  # not chunking remote reads (pandas handles gz streams well)
+# ----------------------------
+
+# ---------- UTIL ----------
+def http_get(url: str, timeout: int = TIMEOUT, retry: int = RETRY) -> requests.Response:
+    delay = 1.0
+    for attempt in range(1, retry + 1):
+        try:
+            r = requests.get(url, timeout=timeout)
+            r.raise_for_status()
+            return r
+        except Exception as e:
+            if attempt >= retry:
+                raise
+            time.sleep(delay)
+            delay *= BACKOFF
+
+def scrape_index() -> list[str]:
+    """Return list of filenames present in the NOAA index directory."""
+    resp = http_get(INDEX_URL)
+    soup = BeautifulSoup(resp.text, "html.parser")
+    hrefs = [a.get("href") for a in soup.find_all("a") if a.get("href")]
+    return [h for h in hrefs if h.startswith("StormEvents_") and h.endswith(".csv.gz")]
+
+@dataclass
+class FileSet:
+    year: int
+    details_url: str | None
+    locations_url: str | None
+    fatalities_url: str | None
+
+DETAILS_RE = re.compile(r"^StormEvents_details-ftp_v1\.0_d(\d{4})_c\d{8}\.csv\.gz$")
+LOCATIONS_RE = re.compile(r"^StormEvents_locations-ftp_v1\.0_d(\d{4})_c\d{8}\.csv\.gz$")
+FATALITIES_RE = re.compile(r"^StormEvents_fatalities-ftp_v1\.0_d(\d{4})_c\d{8}\.csv\.gz$")
+
+def build_year_files(index_names: list[str]) -> dict[int, FileSet]:
+    years: dict[int, FileSet] = {}
+    def ensure(y: int) -> FileSet:
+        if y not in years:
+            years[y] = FileSet(year=y, details_url=None, locations_url=None, fatalities_url=None)
+        return years[y]
+
+    for name in index_names:
+        m = DETAILS_RE.match(name)
+        if m:
+            y = int(m.group(1))
+            if YEAR_MIN <= y <= YEAR_MAX:
+                ensure(y).details_url = INDEX_URL + name
+            continue
+        m = LOCATIONS_RE.match(name)
+        if m:
+            y = int(m.group(1))
+            if YEAR_MIN <= y <= YEAR_MAX:
+                ensure(y).locations_url = INDEX_URL + name
+            continue
+        m = FATALITIES_RE.match(name)
+        if m:
+            y = int(m.group(1))
+            if YEAR_MIN <= y <= YEAR_MAX:
+                ensure(y).fatalities_url = INDEX_URL + name
+            continue
+    return years
+
+def read_noaa_csv(url: str) -> pd.DataFrame:
+    # Let pandas stream and decompress .gz via URL
+    # dtype inference can be messy; we’ll coerce after filtering
+    return pd.read_csv(url, low_memory=False, compression="gzip")
+
+def normalize_cols(df: pd.DataFrame) -> pd.DataFrame:
+    # Uppercase columns for consistent joins
+    df.columns = [c.upper() for c in df.columns]
+    return df
+
+def parse_begin_end_time(df: pd.DataFrame) -> pd.DataFrame:
+    # Some files split date and time; combine if present, else keep DATE only
+    # Known columns:
+    # BEGIN_DATE_TIME, END_DATE_TIME, or BEGIN_DATE + BEGIN_TIME, etc.
+    def to_ts(d, t):
+        s = (pd.Series(d).astype(str).str.strip().replace("nan", pd.NA))
+        u = (pd.Series(t).astype(str).str.strip().replace("nan", pd.NA))
+        out = pd.to_datetime(s + " " + u, errors="coerce")
+        # Fallback if only date present
+        mask = out.isna()
+        if mask.any():
+            out.loc[mask] = pd.to_datetime(s[mask], errors="coerce")
+        return out
+
+    if "BEGIN_DATE_TIME" in df.columns:
+        df["BEGIN_TS"] = pd.to_datetime(df["BEGIN_DATE_TIME"], errors="coerce")
+    elif "BEGIN_DATE" in df.columns and "BEGIN_TIME" in df.columns:
+        df["BEGIN_TS"] = to_ts(df["BEGIN_DATE"], df["BEGIN_TIME"])
+    elif "BEGIN_DATE" in df.columns:
+        df["BEGIN_TS"] = pd.to_datetime(df["BEGIN_DATE"], errors="coerce")
+    else:
+        df["BEGIN_TS"] = pd.NaT
+
+    if "END_DATE_TIME" in df.columns:
+        df["END_TS"] = pd.to_datetime(df["END_DATE_TIME"], errors="coerce")
+    elif "END_DATE" in df.columns and "END_TIME" in df.columns:
+        df["END_TS"] = to_ts(df["END_DATE"], df["END_TIME"])
+    elif "END_DATE" in df.columns:
+        df["END_TS"] = pd.to_datetime(df["END_DATE"], errors="coerce")
+    else:
+        df["END_TS"] = pd.NaT
+
+    return df
+
+def clean_details(df: pd.DataFrame) -> pd.DataFrame:
+    df = normalize_cols(df)
+    # Harmonize event type & ids
+    if "EVENT_TYPE" in df.columns:
+        df["EVENT_TYPE"] = df["EVENT_TYPE"].astype(str).str.upper().str.strip()
+    if "STATE" in df.columns:
+        df["STATE"] = df["STATE"].astype(str).str.strip()
+    if "CZ_NAME" in df.columns:
+        df["CZ_NAME"] = df["CZ_NAME"].astype(str).str.title().str.strip()  # county/zone name
+    df = parse_begin_end_time(df)
+    # Filter by date + event types
+    mask_type = df["EVENT_TYPE"].isin(TARGET_EVENT_TYPES) if "EVENT_TYPE" in df.columns else True
+    mask_date = df["BEGIN_TS"].between(DATE_MIN, DATE_MAX, inclusive="both")
+    df = df[mask_type & mask_date].copy()
+    # Ensure EVENT_ID present
+    if "EVENT_ID" in df.columns:
+        df["EVENT_ID"] = pd.to_numeric(df["EVENT_ID"], errors="coerce").astype("Int64")
+    return df
+
+def clean_locations(df: pd.DataFrame) -> pd.DataFrame:
+    df = normalize_cols(df)
+    # EVENT_ID & county fields
+    if "EVENT_ID" in df.columns:
+        df["EVENT_ID"] = pd.to_numeric(df["EVENT_ID"], errors="coerce").astype("Int64")
+    for col in ("STATE", "CZ_NAME"):
+        if col in df.columns:
+            df[col] = df[col].astype(str).str.strip()
+    # Keep only useful columns to avoid bloat
+    keep = [c for c in df.columns if c in {
+        "EVENT_ID", "EPISODE_ID", "STATE", "CZ_NAME", "WFO", "LOCATION", "LAT", "LON"
+    }]
+    return df[keep].copy() if keep else df
+
+def clean_fatalities(df: pd.DataFrame) -> pd.DataFrame:
+    df = normalize_cols(df)
+    if "EVENT_ID" in df.columns:
+        df["EVENT_ID"] = pd.to_numeric(df["EVENT_ID"], errors="coerce").astype("Int64")
+    for c in ("FATALITY_TYPE", "FATALITY_SEX"):
+        if c in df.columns:
+            df[c] = df[c].astype(str).str.upper().str.strip()
+    # Keep compact
+    keep = [c for c in df.columns if c in {
+        "EVENT_ID", "FATALITY_ID", "FATALITY_TYPE", "FATALITY_AGE", "FATALITY_SEX", "FATALITY_DATE"
+    }]
+    out = df[keep].copy() if keep else df
+    if "FATALITY_DATE" in out.columns:
+        out["FATALITY_TS"] = pd.to_datetime(out["FATALITY_DATE"], errors="coerce")
+    return out
+
+def safe_merge(left: pd.DataFrame, right: pd.DataFrame, on: str) -> pd.DataFrame:
+    if left.empty or right.empty:
+        return left.copy()
+    return left.merge(right, on=on, how="left", suffixes=("", "_LOC"))
+
+# ---------- MAIN PIPELINE ----------
+def main():
+    print("Scraping NOAA index …")
+    names = scrape_index()
+    years = build_year_files(names)
+
+    # Master frames (append year-by-year)
+    combined_rows = []
+
+    for y in sorted(years.keys()):
+        fs = years[y]
+        if fs.details_url is None:
+            continue  # no data for that year
+
+        print(f"\nYear {y} — downloading:")
+        print(f"  details:    {fs.details_url}")
+        if fs.locations_url:
+            print(f"  locations:  {fs.locations_url}")
+        else:
+            print("  locations:  (missing in index for this year)")
+        if fs.fatalities_url:
+            print(f"  fatalities: {fs.fatalities_url}")
+        else:
+            print("  fatalities: (missing in index for this year)")
+
+        # DETAILS (filter early to control memory)
+        ddf = read_noaa_csv(fs.details_url)
+        ddf = clean_details(ddf)
+        if ddf.empty:
+            print(f"  -> no matching events after filters for {y}")
+            continue
+
+        # LOCATIONS (optional per year)
+        if fs.locations_url:
+            ldf = read_noaa_csv(fs.locations_url)
+            ldf = clean_locations(ldf)
+            ddf = safe_merge(ddf, ldf, on="EVENT_ID")
+
+        # FATALITIES (optional per year, aggregate per event to keep lean)
+        if fs.fatalities_url:
+            fdf = read_noaa_csv(fs.fatalities_url)
+            fdf = clean_fatalities(fdf)
+            if not fdf.empty and "EVENT_ID" in fdf.columns:
+                agg = fdf.groupby("EVENT_ID").agg(
+                    FATALITIES_TOTAL=("FATALITY_ID", "count"),
+                    FATALITIES_DIRECT=("FATALITY_TYPE", lambda s: int((s == "D").sum())),
+                    FATALITIES_INDIRECT=("FATALITY_TYPE", lambda s: int((s == "I").sum())),
+                ).reset_index()
+                ddf = ddf.merge(agg, on="EVENT_ID", how="left")
+
+        combined_rows.append(ddf)
+
+    if not combined_rows:
+        print("No data matched filters; nothing to write.")
+        return
+
+    full = pd.concat(combined_rows, ignore_index=True)
+
+    # Basic normalization of county/state fields for summaries
+    if "STATE" in full.columns:
+        full["STATE"] = full["STATE"].astype(str).str.upper()
+    if "CZ_NAME" in full.columns:
+        full["CZ_NAME"] = full["CZ_NAME"].astype(str).str.title()
+
+    # Write Parquet (fast for your app to query)
+    print(f"\nWriting {OUT_PARQUET} …")
+    full.to_parquet(OUT_PARQUET, index=False)
+
+    # County summary (helps prioritize by where events occurred)
+    # Use BEGIN_TS's year
+    full["YEAR"] = full["BEGIN_TS"].dt.year
+    # Event priority tag for your lead logic
+    def priority_label(s: str) -> int:
+        # 1 = most urgent (tornado/hurricane), 2 = tropical storm (still serious)
+        s = (s or "").upper()
+        if s == "TORNADO" or s == "HURRICANE (TYPHOON)":
+            return 1
+        if s == "TROPICAL STORM":
+            return 2
+        return 3
+    full["EVENT_PRIORITY"] = full["EVENT_TYPE"].map(priority_label)
+
+    # County summary
+    county_summary = (
+        full.groupby(["STATE", "CZ_NAME", "YEAR", "EVENT_TYPE"], dropna=False)
+            .agg(
+                EVENTS=("EVENT_ID", "nunique"),
+                DIRECT_FATALITIES=("FATALITIES_DIRECT", "sum"),
+                INDIRECT_FATALITIES=("FATALITIES_INDIRECT", "sum"),
+            )
+            .reset_index()
+            .sort_values(["YEAR", "STATE", "CZ_NAME", "EVENT_TYPE"])
+    )
+    # Fill NaNs with 0 for sums
+    for c in ("DIRECT_FATALITIES", "INDIRECT_FATALITIES"):
+        if c in county_summary.columns:
+            county_summary[c] = county_summary[c].fillna(0).astype(int)
+
+    print(f"Writing {OUT_COUNTY_SUMMARY} …")
+    county_summary.to_csv(OUT_COUNTY_SUMMARY, index=False)
+
+    # Event summary by year (quick high-level dashboard)
+    event_summary = (
+        full.groupby(["YEAR", "EVENT_TYPE"], dropna=False)
+            .agg(
+                EVENTS=("EVENT_ID", "nunique"),
+                DIRECT_FATALITIES=("FATALITIES_DIRECT", "sum"),
+                INDIRECT_FATALITIES=("FATALITIES_INDIRECT", "sum"),
+            )
+            .reset_index()
+            .sort_values(["YEAR", "EVENT_TYPE"])
+    )
+    for c in ("DIRECT_FATALITIES", "INDIRECT_FATALITIES"):
+        if c in event_summary.columns:
+            event_summary[c] = event_summary[c].fillna(0).astype(int)
+
+    print(f"Writing {OUT_EVENT_SUMMARY} …")
+    event_summary.to_csv(OUT_EVENT_SUMMARY, index=False)
+
+    print("\n✅ Done.")
+    print(f"- Full joined rows: {OUT_PARQUET}")
+    print(f"- County summary:   {OUT_COUNTY_SUMMARY}")
+    print(f"- Event summary:    {OUT_EVENT_SUMMARY}")
+
+if __name__ == "__main__":
+    main()
+
+How to run (Replit or local)
+
+Create requirements.txt with:
+
+pandas
+requests
+beautifulsoup4
+pyarrow
+
+
+Add the script as noaa_stormevents_pipeline.py.
+
+Run:
+
+python noaa_stormevents_pipeline.py
+
+
+You’ll get:
+
+storm_events_filtered.parquet (fast to query in your app)
+
+storm_events_county_summary.csv
+
+storm_events_event_summary.csv
+
+Hooking into your portal (quick ideas)
+
+Load storm_events_filtered.parquet server-side and expose /api/events?state=GA&county=MUSCOGEE&from=2020-01-01.
+
+Use EVENT_PRIORITY and BEGIN_TS to auto-prioritize leads (tornado/hurricane first, then distance logic).
+
+Join with your contractor locations to produce nearest-job routing (Haversine or Mapbox/Google Distance Matrix).

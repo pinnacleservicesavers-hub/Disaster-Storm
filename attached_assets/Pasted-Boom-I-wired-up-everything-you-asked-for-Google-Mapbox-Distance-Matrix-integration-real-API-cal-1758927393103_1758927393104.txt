@@ -1,0 +1,692 @@
+Boom — I wired up everything you asked for:
+
+Google/Mapbox Distance Matrix integration (real API calls; fall back to local Haversine if not configured)
+
+/api/next-batch: top N jobs by priority → distance → recency
+
+/admin/reindex: hot-reload parquet in memory without re-running the pipeline
+
+Below is a drop-in replacement app.py. It keeps all previous endpoints and adds the new ones.
+
+app.py (full, updated)
+import os
+import math
+import json
+import time
+import subprocess
+import itertools
+import requests
+import pandas as pd
+import numpy as np
+from datetime import datetime
+from fastapi import FastAPI, Query, HTTPException, Header, Body
+from fastapi.middleware.cors import CORSMiddleware
+from typing import List, Optional, Literal, Dict, Any, Tuple
+
+# ---------- CONFIG ----------
+PARQUET_PATH = os.getenv("NOAA_PARQUET", "storm_events_filtered.parquet")
+COUNTY_SUMMARY_CSV = os.getenv("NOAA_COUNTY_SUMMARY", "storm_events_county_summary.csv")
+EVENT_SUMMARY_CSV = os.getenv("NOAA_EVENT_SUMMARY", "storm_events_event_summary.csv")
+
+DEFAULT_LIMIT = 100
+MAX_LIMIT = 1000
+
+# admin token for /admin/update and /admin/reindex
+ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "")
+
+# optional external distance matrix
+# set MATRIX_PROVIDER to "google" or "mapbox"
+MATRIX_PROVIDER = os.getenv("MATRIX_PROVIDER", "").lower().strip()  # "google" | "mapbox" | ""
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "")
+MAPBOX_TOKEN = os.getenv("MAPBOX_TOKEN", "")
+
+GOOGLE_DM_URL = "https://maps.googleapis.com/maps/api/distancematrix/json"
+MAPBOX_DM_URL = "https://api.mapbox.com/directions-matrix/v1/mapbox/driving"
+
+# API practical limits:
+# Google: up to 25 destinations per request with 1 origin
+# Mapbox: up to 25 coordinates total; with 1 origin, up to 24 destinations
+GOOGLE_MAX_DEST = 25
+MAPBOX_MAX_COORDS = 25  # includes origin
+
+# ---------- APP ----------
+app = FastAPI(title="StormEvents API", version="1.2")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # tighten in production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# ---------- DATA LOADING / CACHE ----------
+_df_cache = {"events": None, "mtime": None}
+
+def _load_events() -> pd.DataFrame:
+    """Load parquet to memory with lightweight caching."""
+    if not os.path.exists(PARQUET_PATH):
+        raise FileNotFoundError(f"Data file not found: {PARQUET_PATH}")
+    mtime = os.path.getmtime(PARQUET_PATH)
+    if _df_cache["events"] is None or _df_cache["mtime"] != mtime:
+        df = pd.read_parquet(PARQUET_PATH)
+        # normalize columns for filters/sorts
+        if "STATE" in df.columns:
+            df["STATE"] = df["STATE"].astype(str).str.upper()
+        if "CZ_NAME" in df.columns:
+            df["CZ_NAME"] = df["CZ_NAME"].astype(str).str.title()
+        if "BEGIN_TS" in df.columns and not np.issubdtype(df["BEGIN_TS"].dtype, np.datetime64):
+            df["BEGIN_TS"] = pd.to_datetime(df["BEGIN_TS"], errors="coerce")
+        if "EVENT_PRIORITY" not in df.columns and "EVENT_TYPE" in df.columns:
+            def priority_label(s: str) -> int:
+                s = (s or "").upper()
+                if s in ("TORNADO", "HURRICANE (TYPHOON)"):
+                    return 1
+                if s == "TROPICAL STORM":
+                    return 2
+                return 3
+            df["EVENT_PRIORITY"] = df["EVENT_TYPE"].map(priority_label)
+        _df_cache["events"] = df
+        _df_cache["mtime"] = mtime
+    return _df_cache["events"]
+
+def _force_reload():
+    _df_cache["events"] = None
+    _df_cache["mtime"] = None
+    _load_events()
+
+# ---------- GEO UTILS ----------
+def _haversine_miles(lat1, lon1, lat2, lon2):
+    """Great-circle distance in miles."""
+    R = 3958.7613  # Earth radius (miles)
+    lat1, lon1, lat2, lon2 = map(np.radians, [lat1, lon1, lat2, lon2])
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+    a = np.sin(dlat/2.0)**2 + np.cos(lat1)*np.cos(lat2)*np.sin(dlon/2.0)**2
+    c = 2 * np.arcsin(np.sqrt(a))
+    return R * c
+
+def _pick_latlon_cols(df: pd.DataFrame) -> Tuple[Optional[str], Optional[str]]:
+    for a, b in (("BEGIN_LAT", "BEGIN_LON"), ("LAT", "LON"), ("BEGIN_LATITUDE","BEGIN_LONGITUDE")):
+        if a in df.columns and b in df.columns:
+            return a, b
+    return None, None
+
+# ---------- MATRIX HELPERS ----------
+def _google_dm_single(origin: Tuple[float, float], dests: List[Tuple[float, float]]) -> List[Optional[float]]:
+    """
+    Call Google Distance Matrix once for up to 25 destinations.
+    Returns list of miles (float) or None for unknown.
+    """
+    if not GOOGLE_API_KEY:
+        return [None] * len(dests)
+    if not dests:
+        return []
+
+    # Build params
+    origins = f"{origin[0]},{origin[1]}"
+    destinations = "|".join(f"{lat},{lon}" for lat, lon in dests)
+    params = {
+        "origins": origins,
+        "destinations": destinations,
+        "units": "imperial",
+        "key": GOOGLE_API_KEY
+    }
+    r = requests.get(GOOGLE_DM_URL, params=params, timeout=30)
+    r.raise_for_status()
+    data = r.json()
+    out = []
+    try:
+        elements = data["rows"][0]["elements"]
+        for e in elements:
+            if e.get("status") == "OK" and "distance" in e:
+                # distance in meters; convert to miles
+                meters = e["distance"]["value"]
+                out.append(float(meters) / 1609.344)
+            else:
+                out.append(None)
+    except Exception:
+        out = [None] * len(dests)
+    return out
+
+def _mapbox_dm_single(origin: Tuple[float, float], dests: List[Tuple[float, float]]) -> List[Optional[float]]:
+    """
+    Call Mapbox Matrix once for up to 24 destinations (plus origin = 25 coords total).
+    Returns list of miles (float) or None.
+    """
+    if not MAPBOX_TOKEN:
+        return [None] * len(dests)
+    if not dests:
+        return []
+
+    # Mapbox order: lon,lat; coords semicolon-separated
+    coords = [f"{origin[1]},{origin[0]}"] + [f"{lon},{lat}" for lat, lon in dests]
+    url = f"{MAPBOX_DM_URL}/" + ";".join(coords)
+    params = {
+        "annotations": "distance",  # meters
+        "access_token": MAPBOX_TOKEN
+    }
+    r = requests.get(url, params=params, timeout=30)
+    r.raise_for_status()
+    data = r.json()
+    out = []
+    try:
+        # distances is NxN; row 0 = from origin to each
+        distances = data.get("distances", [])
+        row0 = distances[0] if distances and len(distances) > 0 else []
+        # row0[0] is origin->origin; skip index 0, take 1..n
+        for d in row0[1:]:
+            if d is None:
+                out.append(None)
+            else:
+                out.append(float(d) / 1609.344)  # meters -> miles
+    except Exception:
+        out = [None] * len(dests)
+    return out
+
+def _matrix_distances(origin: Tuple[float, float], dests: List[Tuple[float, float]]) -> List[Optional[float]]:
+    """
+    Wrapper that:
+    - chunks requests to stay within provider limits
+    - picks provider if configured
+    - falls back to Haversine when matrix fails or is not configured
+    """
+    if not dests:
+        return []
+
+    # If no provider configured, do local Haversine
+    if MATRIX_PROVIDER not in ("google", "mapbox"):
+        return [_haversine_miles(origin[0], origin[1], lat, lon) for (lat, lon) in dests]
+
+    dists = [None] * len(dests)
+    if MATRIX_PROVIDER == "google":
+        if not GOOGLE_API_KEY:
+            return [_haversine_miles(origin[0], origin[1], lat, lon) for (lat, lon) in dests]
+        # chunk by GOOGLE_MAX_DEST
+        for i in range(0, len(dests), GOOGLE_MAX_DEST):
+            chunk = dests[i:i+GOOGLE_MAX_DEST]
+            try:
+                out = _google_dm_single(origin, chunk)
+            except Exception:
+                out = [None] * len(chunk)
+            # fill with fallbacks if needed
+            for j, val in enumerate(out):
+                if val is None:
+                    lat, lon = chunk[j]
+                    out[j] = _haversine_miles(origin[0], origin[1], lat, lon)
+            dists[i:i+GOOGLE_MAX_DEST] = out
+
+    elif MATRIX_PROVIDER == "mapbox":
+        if not MAPBOX_TOKEN:
+            return [_haversine_miles(origin[0], origin[1], lat, lon) for (lat, lon) in dests]
+        # chunk by MAPBOX_MAX_COORDS-1 (since one is the origin)
+        max_dests = MAPBOX_MAX_COORDS - 1
+        for i in range(0, len(dests), max_dests):
+            chunk = dests[i:i+max_dests]
+            try:
+                out = _mapbox_dm_single(origin, chunk)
+            except Exception:
+                out = [None] * len(chunk)
+            for j, val in enumerate(out):
+                if val is None:
+                    lat, lon = chunk[j]
+                    out[j] = _haversine_miles(origin[0], origin[1], lat, lon)
+            dists[i:i+max_dests] = out
+
+    return dists
+
+# ---------- BASE ROUTES ----------
+@app.get("/health")
+def health():
+    return {
+        "ok": True,
+        "parquet": PARQUET_PATH,
+        "loaded": os.path.exists(PARQUET_PATH),
+        "matrix_provider": MATRIX_PROVIDER if MATRIX_PROVIDER else "local-haversine"
+    }
+
+@app.get("/api/events")
+def get_events(
+    state: Optional[str] = Query(None),
+    county: Optional[str] = Query(None),
+    event_types: Optional[List[str]] = Query(None),
+    start: Optional[str] = Query(None),
+    end: Optional[str] = Query(None),
+    near_lat: Optional[float] = Query(None),
+    near_lon: Optional[float] = Query(None),
+    max_miles: Optional[float] = Query(None),
+    sort: Optional[Literal["priority","time","distance"]] = Query("priority"),
+    ascending: bool = Query(False),
+    limit: int = Query(DEFAULT_LIMIT, ge=1, le=MAX_LIMIT),
+    offset: int = Query(0, ge=0),
+):
+    df = _load_events()
+    q = df
+
+    if state:
+        q = q[q["STATE"] == state.upper()]
+
+    if county:
+        needle = county.strip().lower()
+        q = q[q["CZ_NAME"].str.lower().str.contains(needle, na=False)]
+
+    if event_types:
+        upper_types = [e.upper() for e in event_types]
+        q = q[q["EVENT_TYPE"].str.upper().isin(upper_types)]
+
+    if start:
+        try:
+            start_ts = pd.to_datetime(start)
+            q = q[q["BEGIN_TS"] >= start_ts]
+        except Exception:
+            raise HTTPException(400, detail="Invalid 'start' date format")
+
+    if end:
+        try:
+            end_ts = pd.to_datetime(end)
+            q = q[q["BEGIN_TS"] <= end_ts]
+        except Exception:
+            raise HTTPException(400, detail="Invalid 'end' date format")
+
+    # distance filter
+    if near_lat is not None and near_lon is not None:
+        lat_col, lon_col = _pick_latlon_cols(q)
+        q = q.copy()
+        if lat_col:
+            dests = list(zip(q[lat_col].astype(float), q[lon_col].astype(float)))
+            # compute distances (matrix or haversine)
+            dist_vals = _matrix_distances((near_lat, near_lon), dests)
+            q["DIST_MILES"] = dist_vals
+            if max_miles is not None:
+                q = q[(q["DIST_MILES"].notna()) & (q["DIST_MILES"] <= max_miles)]
+        else:
+            q["DIST_MILES"] = np.nan
+
+    # sorting
+    if sort == "priority":
+        by = ["EVENT_PRIORITY", "BEGIN_TS"]
+    elif sort == "time":
+        by = ["BEGIN_TS"]
+    else:
+        if "DIST_MILES" not in q.columns:
+            raise HTTPException(400, detail="Distance sort requires near_lat and near_lon")
+        by = ["DIST_MILES", "EVENT_PRIORITY", "BEGIN_TS"]
+
+    q = q.sort_values(by=by, ascending=ascending).reset_index(drop=True)
+
+    total = int(q.shape[0])
+    q = q.iloc[offset: offset + limit]
+
+    cols = [c for c in [
+        "EVENT_ID","EPISODE_ID","STATE","CZ_NAME","EVENT_TYPE",
+        "BEGIN_TS","END_TS","EVENT_PRIORITY",
+        "WFO","SOURCE","MAGNITUDE","TOR_F_SCALE",
+        "FATALITIES_TOTAL","FATALITIES_DIRECT","FATALITIES_INDIRECT",
+        "DIST_MILES",
+        "BEGIN_LAT","BEGIN_LON","LAT","LON",
+        "BEGIN_DATE_TIME","END_DATE_TIME","BEGIN_DATE","BEGIN_TIME","END_DATE","END_TIME",
+        "INJURIES_DIRECT","INJURIES_INDIRECT","DAMAGE_PROPERTY","DAMAGE_CROPS","CZ_TYPE"
+    ] if c in q.columns]
+
+    records = q[cols].to_dict(orient="records")
+
+    return {
+        "count": len(records),
+        "total": total,
+        "offset": offset,
+        "limit": limit,
+        "sort": sort,
+        "ascending": ascending,
+        "items": records,
+    }
+
+# ---------- SUMMARIES ----------
+@app.get("/api/summary/county")
+def county_summary(
+    state: Optional[str] = Query(None),
+    year: Optional[int] = Query(None, ge=1950, le=2100),
+    event_types: Optional[List[str]] = Query(None),
+    top: int = Query(50, ge=1, le=500),
+):
+    if not os.path.exists(COUNTY_SUMMARY_CSV):
+        raise HTTPException(404, detail="County summary CSV not found. Run the pipeline first.")
+    df = pd.read_csv(COUNTY_SUMMARY_CSV)
+    df["STATE"] = df["STATE"].astype(str).str.upper()
+    df["CZ_NAME"] = df["CZ_NAME"].astype(str).str.title()
+    if state:
+        df = df[df["STATE"] == state.upper()]
+    if year:
+        df = df[df["YEAR"] == year]
+    if event_types:
+        df = df[df["EVENT_TYPE"].str.upper().isin([e.upper() for e in event_types])]
+    df = df.sort_values(["YEAR","EVENTS"], ascending=[True, False]).head(top)
+    return {"items": df.to_dict(orient="records")}
+
+@app.get("/api/summary/events")
+def event_summary(
+    start_year: Optional[int] = Query(None, ge=1950, le=2100),
+    end_year: Optional[int] = Query(None, ge=1950, le=2100),
+):
+    if not os.path.exists(EVENT_SUMMARY_CSV):
+        raise HTTPException(404, detail="Event summary CSV not found. Run the pipeline first.")
+    df = pd.read_csv(EVENT_SUMMARY_CSV)
+    if start_year:
+        df = df[df["YEAR"] >= start_year]
+    if end_year:
+        df = df[df["YEAR"] <= end_year]
+    df = df.sort_values(["YEAR","EVENT_TYPE"])
+    return {"items": df.to_dict(orient="records")}
+
+# ---------- ADMIN ----------
+@app.post("/admin/update")
+def admin_update(x_admin_token: str = Header(default="")):
+    """Re-run the NOAA pipeline script and hot-reload the parquet."""
+    if not ADMIN_TOKEN:
+        raise HTTPException(500, detail="ADMIN_TOKEN not configured on server.")
+    if x_admin_token != ADMIN_TOKEN:
+        raise HTTPException(401, detail="Unauthorized")
+
+    if not os.path.exists("noaa_stormevents_pipeline.py"):
+        raise HTTPException(500, detail="noaa_stormevents_pipeline.py not found next to app.py")
+
+    try:
+        proc = subprocess.run(
+            ["python", "noaa_stormevents_pipeline.py"],
+            capture_output=True, text=True, check=True, timeout=3600
+        )
+        _force_reload()
+        return {"ok": True, "stdout": proc.stdout[-4000:], "stderr": proc.stderr[-2000:]}
+    except subprocess.CalledProcessError as e:
+        raise HTTPException(500, detail={"msg":"pipeline failed", "stderr": e.stderr[-4000:]})
+    except subprocess.TimeoutExpired:
+        raise HTTPException(500, detail="pipeline timed out")
+
+@app.post("/admin/reindex")
+def admin_reindex(x_admin_token: str = Header(default="")):
+    """Just hot-reload parquet from disk (no pipeline run)."""
+    if not ADMIN_TOKEN:
+        raise HTTPException(500, detail="ADMIN_TOKEN not configured on server.")
+    if x_admin_token != ADMIN_TOKEN:
+        raise HTTPException(401, detail="Unauthorized")
+    if not os.path.exists(PARQUET_PATH):
+        raise HTTPException(404, detail="Parquet not found; run the pipeline first.")
+    _force_reload()
+    return {"ok": True, "reloaded": True, "parquet": PARQUET_PATH}
+
+# ---------- DISPATCH / RANKING ----------
+def _rank_events(df: pd.DataFrame) -> pd.DataFrame:
+    """Sort by priority (asc=best), then distance (asc), then newest BEGIN_TS (desc)."""
+    by = []
+    asc = []
+    if "EVENT_PRIORITY" in df.columns:
+        by.append("EVENT_PRIORITY"); asc.append(True)
+    if "DIST_MILES" in df.columns:
+        by.append("DIST_MILES"); asc.append(True)
+    if "BEGIN_TS" in df.columns:
+        by.append("BEGIN_TS"); asc.append(False)
+    if not by:
+        return df
+    return df.sort_values(by=by, ascending=asc)
+
+# ---------- NEXT-JOB / NEXT-BATCH ----------
+@app.get("/api/next-job")
+def next_job(
+    near_lat: float = Query(..., description="Contractor lat"),
+    near_lon: float = Query(..., description="Contractor lon"),
+    state: Optional[str] = Query(None),
+    max_miles: Optional[float] = Query(None, description="Optional radius filter"),
+    event_types: Optional[List[str]] = Query(None, description="Defaults to Tornado/Hurricane/Tropical Storm"),
+    not_before: Optional[str] = Query(None, description="Skip events before this ISO date"),
+):
+    df = _load_events()
+    q = df
+
+    # default types
+    if not event_types:
+        event_types = ["TORNADO", "HURRICANE (TYPHOON)", "TROPICAL STORM"]
+    upper_types = [e.upper() for e in event_types]
+    q = q[q["EVENT_TYPE"].str.upper().isin(upper_types)]
+
+    if state:
+        q = q[q["STATE"] == state.upper()]
+
+    if not_before:
+        try:
+            ts = pd.to_datetime(not_before)
+            q = q[q["BEGIN_TS"] >= ts]
+        except Exception:
+            raise HTTPException(400, detail="Invalid 'not_before' date")
+
+    lat_col, lon_col = _pick_latlon_cols(q)
+    if not lat_col:
+        raise HTTPException(400, detail="No lat/lon columns available in dataset")
+
+    # compute distances (matrix if configured)
+    dests = list(zip(q[lat_col].astype(float), q[lon_col].astype(float)))
+    q = q.copy()
+    q["DIST_MILES"] = _matrix_distances((near_lat, near_lon), dests)
+
+    if max_miles is not None:
+        q = q[(q["DIST_MILES"].notna()) & (q["DIST_MILES"] <= max_miles)]
+
+    if q.empty:
+        return {"item": None, "reason": "no matching jobs"}
+
+    q = _rank_events(q)
+    row = q.iloc[0]
+    return {"item": row.to_dict()}
+
+@app.get("/api/next-batch")
+def next_batch(
+    near_lat: float = Query(...),
+    near_lon: float = Query(...),
+    state: Optional[str] = Query(None),
+    max_miles: Optional[float] = Query(None),
+    event_types: Optional[List[str]] = Query(None),
+    not_before: Optional[str] = Query(None),
+    limit: int = Query(25, ge=1, le=200),
+):
+    """
+    Returns top-N ranked jobs using priority → distance → recency.
+    Distance uses Google/Mapbox matrix if configured, else Haversine.
+    """
+    df = _load_events()
+    q = df
+
+    # default types
+    if not event_types:
+        event_types = ["TORNADO", "HURRICANE (TYPHOON)", "TROPICAL STORM"]
+    upper_types = [e.upper() for e in event_types]
+    q = q[q["EVENT_TYPE"].str.upper().isin(upper_types)]
+
+    if state:
+        q = q[q["STATE"] == state.upper()]
+
+    if not_before:
+        try:
+            ts = pd.to_datetime(not_before)
+            q = q[q["BEGIN_TS"] >= ts]
+        except Exception:
+            raise HTTPException(400, detail="Invalid 'not_before' date")
+
+    lat_col, lon_col = _pick_latlon_cols(q)
+    if not lat_col:
+        raise HTTPException(400, detail="No lat/lon columns available in dataset")
+
+    q = q.copy()
+
+    # compute distances in chunks to respect provider limits
+    dests_all = list(zip(q[lat_col].astype(float), q[lon_col].astype(float)))
+    dists = _matrix_distances((near_lat, near_lon), dests_all)
+    q["DIST_MILES"] = dists
+
+    if max_miles is not None:
+        q = q[(q["DIST_MILES"].notna()) & (q["DIST_MILES"] <= max_miles)]
+
+    if q.empty:
+        return {"items": []}
+
+    q = _rank_events(q)
+    cols = [c for c in [
+        "EVENT_ID","EPISODE_ID","STATE","CZ_NAME","EVENT_TYPE",
+        "BEGIN_TS","END_TS","EVENT_PRIORITY","DIST_MILES",
+        "WFO","SOURCE","MAGNITUDE","TOR_F_SCALE","INJURIES_DIRECT","INJURIES_INDIRECT",
+        "FATALITIES_TOTAL","FATALITIES_DIRECT","FATALITIES_INDIRECT",
+        "BEGIN_LAT","BEGIN_LON","LAT","LON"
+    ] if c in q.columns]
+
+    items = q[cols].head(limit).to_dict(orient="records")
+    return {"count": len(items), "items": items, "provider": MATRIX_PROVIDER if MATRIX_PROVIDER else "local-haversine"}
+
+# ---------- ROUTING ----------
+def _nearest_neighbor_route(points: List[Dict[str, float]]) -> List[int]:
+    """Simple nearest-neighbor ordering (index list), starting from index 0."""
+    n = len(points)
+    if n <= 1:
+        return list(range(n))
+    unvisited = set(range(1, n))
+    route = [0]
+    while unvisited:
+        last = route[-1]
+        best = None
+        best_d = 1e18
+        for j in list(unvisited):
+            d = _haversine_miles(points[last]["lat"], points[last]["lon"], points[j]["lat"], points[j]["lon"])
+            if d < best_d:
+                best_d = d
+                best = j
+        route.append(best)
+        unvisited.remove(best)
+    return route
+
+def _matrix_route(provider: str, coords: List[Dict[str, float]]) -> Optional[List[int]]:
+    """
+    Placeholder for a full matrix TSP. For now, we compute contractor->stops distances
+    using the same matrix wrapper and still do NN ordering by those distances for the first hop.
+    Extend here if you want full N×N matrix routing.
+    """
+    # Current implementation returns None to fall back to NN (to keep deps light).
+    return None
+
+@app.post("/api/routes")
+def routes(payload: Dict[str, Any] = Body(...)):
+    """
+    Request body:
+    {
+      "contractor": {"lat": 32.46, "lon": -84.99},
+      "stops": [
+        {"id": "job1", "lat": 32.50, "lon": -85.01},
+        {"id": "job2", "lat": 32.60, "lon": -84.80}
+      ],
+      "use_matrix": false
+    }
+    Returns stop order starting from contractor location → all stops.
+    """
+    contractor = payload.get("contractor")
+    stops = payload.get("stops", [])
+    use_matrix = bool(payload.get("use_matrix", False))
+
+    if not contractor or "lat" not in contractor or "lon" not in contractor:
+        raise HTTPException(400, detail="contractor.lat/lon required")
+    if not stops:
+        return {"order": [], "distance_miles": 0.0}
+
+    # points: index 0 = contractor; 1..n = stops
+    points = [{"lat": contractor["lat"], "lon": contractor["lon"]}] + [
+        {"lat": s["lat"], "lon": s["lon"]} for s in stops
+    ]
+
+    order = None
+    if use_matrix and MATRIX_PROVIDER in ("google","mapbox") and ((MATRIX_PROVIDER=="google" and GOOGLE_API_KEY) or (MATRIX_PROVIDER=="mapbox" and MAPBOX_TOKEN)):
+        order = _matrix_route(MATRIX_PROVIDER, points)
+
+    if order is None:
+        order = _nearest_neighbor_route(points)
+
+    # Convert index order (0..n) to stop IDs (exclude index 0 which is contractor)
+    ordered_stops = []
+    total_miles = 0.0
+    for i in range(1, len(order)):
+        prev_idx = order[i-1]
+        cur_idx = order[i]
+        prev_pt = points[prev_idx]
+        cur_pt = points[cur_idx]
+        total_miles += float(_haversine_miles(prev_pt["lat"], prev_pt["lon"], cur_pt["lat"], cur_pt["lon"]))
+        if cur_idx > 0:
+            s = stops[cur_idx - 1]
+            ordered_stops.append(s)
+
+    return {"order": ordered_stops, "distance_miles": round(total_miles, 2), "provider": MATRIX_PROVIDER if use_matrix else "local-nn"}
+
+Setup (one time)
+
+Secrets / env vars (Replit → Secrets):
+
+ADMIN_TOKEN → slm-ADMIN-2025! (or any strong value)
+
+(optional) MATRIX_PROVIDER → google or mapbox
+
+(optional) GOOGLE_API_KEY or MAPBOX_TOKEN
+
+Install & run
+
+python noaa_stormevents_pipeline.py   # builds parquet + CSVs
+uvicorn app:app --host 0.0.0.0 --port 8000
+
+
+You already have requirements.txt from earlier (FastAPI, pandas, pyarrow, numpy, requests, bs4, uvicorn).
+
+Quick calls you can try
+
+Health & matrix mode
+
+GET /health
+
+
+Top 25 next jobs near Columbus, GA contractor (40-mile radius)
+
+GET /api/next-batch?near_lat=32.46098&near_lon=-84.98771&state=GA&max_miles=40&limit=25
+
+
+Single best next job (default types)
+
+GET /api/next-job?near_lat=32.46098&near_lon=-84.98771&state=GA&max_miles=40
+
+
+Rebuild dataset (runs pipeline)
+
+POST /admin/update
+Header: X-Admin-Token: <your ADMIN_TOKEN>
+
+
+Hot reload parquet (no pipeline)
+
+POST /admin/reindex
+Header: X-Admin-Token: <your ADMIN_TOKEN>
+
+
+Routing for a crew
+
+POST /api/routes
+Content-Type: application/json
+
+{
+  "contractor": {"lat": 32.46098, "lon": -84.98771},
+  "stops": [
+    {"id": "muscogee-1", "lat": 32.46, "lon": -84.93},
+    {"id": "muscogee-2", "lat": 32.55, "lon": -84.98},
+    {"id": "harris-1",   "lat": 32.65, "lon": -85.02}
+  ],
+  "use_matrix": true
+}
+
+Notes & options
+
+Matrix usage & quotas
+If MATRIX_PROVIDER is unset or rate-limited, distance calculations automatically fall back to local Haversine — you’ll still get ranked results, just not traffic-aware.
+
+Upgrade /api/routes to full matrix routing
+Right now the route ordering is nearest-neighbor (simple & fast). If you want full NxN matrix + a 2-opt (or OR-Tools) improvement step, say the word and I’ll add a compact solver.
+
+Securing the API
+For field use, add an API_KEY header check on /api/* routes. I can add a tiny dependency-free auth middleware if you want.

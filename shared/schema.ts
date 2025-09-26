@@ -663,6 +663,12 @@ export const stormHotZones = pgTable("storm_hot_zones", {
   marketPotential: text("market_potential"), // "High", "Medium", "Low" - contractor market opportunity
   seasonalPeak: text("seasonal_peak"), // Peak season months (e.g., "Jun-Nov", "Mar-Jun")
   
+  // NOAA Storm Events Data (enhanced fields)
+  totalDamage: numeric("total_damage", { precision: 15, scale: 2 }), // Total property damage in USD from NOAA data
+  totalEvents: integer("total_events"), // Total number of storm events from NOAA database
+  totalInjuries: integer("total_injuries"), // Total injuries from NOAA storm events
+  totalDeaths: integer("total_deaths"), // Total fatalities from NOAA storm events
+  
   // Metadata
   dataSource: text("data_source").default("FEMA Historical Analysis"),
   lastUpdated: timestamp("last_updated").defaultNow(),

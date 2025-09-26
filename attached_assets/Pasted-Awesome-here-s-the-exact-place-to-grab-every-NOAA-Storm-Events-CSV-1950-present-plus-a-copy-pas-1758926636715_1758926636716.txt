@@ -1,0 +1,90 @@
+Awesome — here’s the exact place to grab every NOAA Storm Events CSV (1950–present), plus a copy-paste Python snippet that builds the full URL lists for all three files per year (details, locations, fatalities) straight from NOAA’s directory.
+
+The master directory (bookmark this)
+
+Index (HTTP/HTTPS): https://www.ncei.noaa.gov/pub/data/swdi/stormevents/csvfiles/ 
+NCEI
+
+(This folder contains one CSV per year for each of the three tables; files are named like StormEvents_details-ftp_v1.0_dYYYY_cYYYYMMDD.csv.gz. “d” = data year, “c” = creation date.) 
+NCEI
+
+Coverage note: NOAA lists Storm Events data from Jan 1950 through ~May 2025 (as of today). 
+NCEI
++1
+
+Quick proof with a few direct URLs
+
+1950 (details):
+https://www.ncei.noaa.gov/pub/data/swdi/stormevents/csvfiles/StormEvents_details-ftp_v1.0_d1950_c20250520.csv.gz 
+NCEI
+
+1996 (locations):
+https://www.ncei.noaa.gov/pub/data/swdi/stormevents/csvfiles/StormEvents_locations-ftp_v1.0_d1996_c20250520.csv.gz 
+NCEI
+
+2025 (details):
+https://www.ncei.noaa.gov/pub/data/swdi/stormevents/csvfiles/StormEvents_details-ftp_v1.0_d2025_c20250818.csv.gz 
+NCEI
+
+One-shot Python to fetch all URLs (1950–2025)
+
+Paste this into your environment. It reads NOAA’s index and returns three lists you can use immediately in your pipeline.
+
+import re, requests
+from bs4 import BeautifulSoup
+
+INDEX = "https://www.ncei.noaa.gov/pub/data/swdi/stormevents/csvfiles/"
+resp = requests.get(INDEX, timeout=60)
+resp.raise_for_status()
+soup = BeautifulSoup(resp.text, "html.parser")
+
+# Pull all hrefs in directory listing
+hrefs = [a.get("href") for a in soup.find_all("a") if a.get("href")]
+
+# Helper to fully qualify NOAA paths
+to_url = lambda fname: INDEX + fname
+
+# Regex for each file family
+re_details    = re.compile(r"^StormEvents_details-ftp_v1\.0_d(\d{4})_c\d{8}\.csv\.gz$")
+re_locations  = re.compile(r"^StormEvents_locations-ftp_v1\.0_d(\d{4})_c\d{8}\.csv\.gz$")
+re_fatalities = re.compile(r"^StormEvents_fatalities-ftp_v1\.0_d(\d{4})_c\d{8}\.csv\.gz$")
+
+def collect(pattern, yr_min=None, yr_max=None):
+    out = []
+    for h in hrefs:
+        m = pattern.match(h)
+        if not m:
+            continue
+        y = int(m.group(1))
+        if yr_min and y < yr_min:  # filter by year range (optional)
+            continue
+        if yr_max and y > yr_max:
+            continue
+        out.append((y, to_url(h)))
+    # Sort by year ascending
+    out.sort(key=lambda t: t[0])
+    return [u for _, u in out]
+
+# Your requested range:
+YR_MIN, YR_MAX = 1950, 2025
+
+details_urls    = collect(re_details,    YR_MIN, YR_MAX)
+locations_urls  = collect(re_locations,  YR_MIN, YR_MAX)
+fatalities_urls = collect(re_fatalities, YR_MIN, YR_MAX)
+
+print("DETAILS ({} files)".format(len(details_urls)))
+print("\n".join(details_urls[:5] + ["..."] + details_urls[-5:]))
+print("\nLOCATIONS ({} files)".format(len(locations_urls)))
+print("\n".join(locations_urls[:5] + ["..."] + locations_urls[-5:]))
+print("\nFATALITIES ({} files)".format(len(fatalities_urls)))
+print("\n".join(fatalities_urls[:5] + ["..."] + fatalities_urls[-5:]))
+
+What this gives you
+
+details_urls: one URL per year (1950–2025).
+
+locations_urls: one URL per year (first year available in the directory appears to be 1963+, with full coverage from the mid-’90s onward). 
+NCEI
+
+fatalities_urls: one URL per year (starts in 1951 per directory contents). 
+NCEI
