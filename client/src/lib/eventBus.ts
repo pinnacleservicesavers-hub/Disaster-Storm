@@ -208,8 +208,10 @@ export const leadEventEmitter = {
 };
 
 // Hook for React components to easily subscribe to events
+import { useEffect } from 'react';
+
 export const useStormOpsEvent = (event: string, callback: EventCallback) => {
-  React.useEffect(() => {
+  useEffect(() => {
     const unsubscribe = stormOpsEventBus.on(event, callback);
     return unsubscribe;
   }, [event, callback]);
