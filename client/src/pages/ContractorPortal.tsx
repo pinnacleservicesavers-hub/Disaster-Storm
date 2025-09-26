@@ -1402,10 +1402,12 @@ export default function ContractorPortal() {
                   </div>
                 </div>
 
-                <Button variant="outline" className="w-full" data-testid="button-victim-portal-access">
-                  <Heart className="w-4 h-4 mr-2" />
-                  Access Victim Portal
-                </Button>
+                <Link href="/victim/login">
+                  <Button variant="outline" className="w-full" data-testid="button-victim-portal-access">
+                    <Heart className="w-4 h-4 mr-2" />
+                    Access Victim Portal
+                  </Button>
+                </Link>
               </CardContent>
             </Card>
           </TabsContent>
