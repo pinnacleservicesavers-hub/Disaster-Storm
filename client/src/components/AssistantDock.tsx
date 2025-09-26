@@ -6,7 +6,7 @@ interface AssistantDockProps {
 }
 
 export default function AssistantDock({ projectId = 'DEMO', mediaId }: AssistantDockProps = {}) {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
   const [msgs, setMsgs] = useState<{role:'user'|'assistant'|'system', text:string}[]>([]);
   const wsRef = useRef<WebSocket|null>(null);
   const mediaRecorderRef = useRef<MediaRecorder|null>(null);

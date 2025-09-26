@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -157,6 +157,41 @@ function UserSwitcherWrapper() {
 function UserSwitcher() {
   const { user, switchUser, availableUsers } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen]);
+
+  // Close dropdown when escape key is pressed
+  useEffect(() => {
+    function handleEscapeKey(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setIsOpen(false);
+      }
+    }
+
+    if (isOpen) {
+      document.addEventListener('keydown', handleEscapeKey);
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleEscapeKey);
+    };
+  }, [isOpen]);
 
   if (!user) return null;
 
@@ -183,7 +218,7 @@ function UserSwitcher() {
   };
 
   return (
-    <div className="fixed top-4 right-4 z-50">
+    <div ref={dropdownRef} className="fixed top-4 right-4 z-50">
       <Button
         variant="outline"
         size="sm"
@@ -204,7 +239,10 @@ function UserSwitcher() {
             <CardTitle className="text-lg">Switch User (Dev Mode)</CardTitle>
           </CardHeader>
           <CardContent>
-            <Select value={user.id} onValueChange={switchUser}>
+            <Select value={user.id} onValueChange={(userId) => {
+              switchUser(userId);
+              setIsOpen(false);
+            }}>
               <SelectTrigger data-testid="select-user-switcher">
                 <SelectValue />
               </SelectTrigger>
