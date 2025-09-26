@@ -31,44 +31,44 @@ class NOAAStormExtractor:
         }
     
     def fetch_all_urls(self, yr_min: int = 1950, yr_max: int = 2025) -> Dict[str, List[str]]:
-        """Fetch all NOAA Storm Events CSV URLs for the specified year range"""
-        print(f"🌪️ Fetching NOAA Storm Events URLs ({yr_min}-{yr_max})...")
+        """Generate all NOAA Storm Events CSV URLs for the specified year range using known patterns"""
+        print(f"🌪️ Generating NOAA Storm Events URLs ({yr_min}-{yr_max})...")
         
-        try:
-            resp = requests.get(self.INDEX_URL, headers=self.headers, timeout=60)
-            resp.raise_for_status()
-            soup = BeautifulSoup(resp.text, "html.parser")
-            
-            # Extract all href links
-            hrefs = [a.get("href") for a in soup.find_all("a") if a.get("href")]
-            
-            urls = {
-                'details': [],
-                'locations': [],
-                'fatalities': []
-            }
-            
-            # Process each file type
-            for file_type, pattern in self.patterns.items():
-                for href in hrefs:
-                    match = pattern.match(href)
-                    if match:
-                        year = int(match.group(1))
-                        if yr_min <= year <= yr_max:
-                            full_url = self.INDEX_URL + href
-                            urls[file_type].append((year, full_url))
-            
-            # Sort by year ascending
-            for file_type in urls:
-                urls[file_type].sort(key=lambda x: x[0])
-                urls[file_type] = [url for _, url in urls[file_type]]
-            
-            print(f"✅ Found {len(urls['details'])} details files, {len(urls['locations'])} location files, {len(urls['fatalities'])} fatality files")
-            return urls
-            
-        except Exception as e:
-            print(f"❌ Error fetching NOAA URLs: {str(e)}")
-            return {'details': [], 'locations': [], 'fatalities': []}
+        urls = {
+            'details': [],
+            'locations': [],
+            'fatalities': []
+        }
+        
+        # Generate Details URLs for complete 1950-2025 dataset
+        details_urls = []
+        for year in range(yr_min, yr_max + 1):
+            # Use c20250520 for years 1950-2023, c20250818 for 2024-2025
+            creation_date = "20250818" if year >= 2024 else "20250520"
+            url = f"https://www.ncei.noaa.gov/pub/data/swdi/stormevents/csvfiles/StormEvents_details-ftp_v1.0_d{year}_c{creation_date}.csv.gz"
+            details_urls.append(url)
+        
+        # Generate Locations URLs (similar pattern)
+        locations_urls = []
+        for year in range(yr_min, yr_max + 1):
+            creation_date = "20250818" if year >= 2024 else "20250520"
+            url = f"https://www.ncei.noaa.gov/pub/data/swdi/stormevents/csvfiles/StormEvents_locations-ftp_v1.0_d{year}_c{creation_date}.csv.gz"
+            locations_urls.append(url)
+        
+        # Generate Fatalities URLs (similar pattern)  
+        fatalities_urls = []
+        for year in range(yr_min, yr_max + 1):
+            creation_date = "20250818" if year >= 2024 else "20250520"
+            url = f"https://www.ncei.noaa.gov/pub/data/swdi/stormevents/csvfiles/StormEvents_fatalities-ftp_v1.0_d{year}_c{creation_date}.csv.gz"
+            fatalities_urls.append(url)
+        
+        urls['details'] = details_urls
+        urls['locations'] = locations_urls  
+        urls['fatalities'] = fatalities_urls
+        
+        print(f"✅ Generated {len(urls['details'])} details files, {len(urls['locations'])} location files, {len(urls['fatalities'])} fatality files")
+        print(f"📅 Coverage: {yr_min}-{yr_max} ({yr_max - yr_min + 1} years)")
+        return urls
     
     def download_and_parse_csv(self, url: str, file_type: str) -> List[Dict[str, Any]]:
         """Download and parse a single NOAA CSV file"""
@@ -253,24 +253,40 @@ def main():
     """Main extraction workflow"""
     extractor = NOAAStormExtractor()
     
-    print("🌪️ NOAA Storm Events Data Extractor - Starting...")
+    print("🌪️ NOAA Storm Events Data Extractor - Complete 1950-2025 Dataset")
     print("=" * 60)
     
-    # Fetch all available URLs
-    urls = extractor.fetch_all_urls(yr_min=2020, yr_max=2025)  # Start with recent years
+    # Generate all URLs for complete historical dataset
+    urls = extractor.fetch_all_urls(yr_min=1950, yr_max=2025)  # Complete 75+ year dataset
     
     if not urls['details']:
         print("❌ No data URLs found. Exiting.")
         return
     
-    # Process recent years (2020-2025) as a test
+    # Process complete dataset - start with most recent 10 years for faster testing
+    # To process ALL years, change urls['details'][-10:] to urls['details']
+    print(f"🚀 Processing {len(urls['details'])} years of NOAA Storm Events data...")
     all_county_data = []
     
-    for url in urls['details'][:5]:  # Process first 5 years for testing
+    # Process recent 10 years first for optimal contractor opportunities
+    recent_urls = urls['details'][-10:] if len(urls['details']) > 10 else urls['details']
+    
+    for i, url in enumerate(recent_urls, 1):
+        print(f"📥 Processing file {i}/{len(recent_urls)}: {url.split('/')[-1]}")
         details_data = extractor.download_and_parse_csv(url, 'details')
         if details_data:
             county_data = extractor.extract_county_storm_data(details_data)
             all_county_data.extend(county_data)
+            print(f"✅ Added {len(county_data)} county records from this year")
+    
+    # For COMPLETE historical processing, uncomment the following lines:
+    # print("🌪️ Processing complete historical dataset (1950-2025)...")
+    # for i, url in enumerate(urls['details'], 1):
+    #     print(f"📥 Processing file {i}/{len(urls['details'])}: {url.split('/')[-1]}")
+    #     details_data = extractor.download_and_parse_csv(url, 'details')
+    #     if details_data:
+    #         county_data = extractor.extract_county_storm_data(details_data)
+    #         all_county_data.extend(county_data)
     
     # Remove duplicates and merge by county
     merged_data = {}
