@@ -185,7 +185,20 @@ function CaptureTab({ currentProject }: { currentProject: any }) {
 
         const uploadData = await uploadUrlResponse.json();
         
-        // Step 2: Finalize media record
+        // Step 2: Upload blob to pre-signed URL
+        const uploadResponse = await fetch(uploadData.uploadUrl, {
+          method: 'PUT',
+          body: blob,
+          headers: {
+            'Content-Type': 'image/jpeg'
+          }
+        });
+
+        if (!uploadResponse.ok) {
+          throw new Error('Failed to upload photo to storage');
+        }
+        
+        // Step 3: Finalize media record
         const mediaResponse = await fetch('/api/media', {
           method: 'POST',
           headers: {
