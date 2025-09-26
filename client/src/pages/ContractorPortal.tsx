@@ -46,7 +46,8 @@ import {
   Briefcase,
   Volume2,
   VolumeX,
-  ArrowLeft
+  ArrowLeft,
+  Search
 } from 'lucide-react';
 import { Link } from 'wouter';
 import { useQuery, useMutation } from '@tanstack/react-query';
