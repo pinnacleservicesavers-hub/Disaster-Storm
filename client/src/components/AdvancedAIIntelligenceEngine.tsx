@@ -232,11 +232,12 @@ export function AdvancedAIIntelligenceEngine({
     }) => {
       setProcessingIntensity(95);
       
+      console.log('🧠 Advanced AI sending request with module:', module);
       return apiRequest('/api/universal-ai/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          module,
+          module: module || 'contractor', // Ensure module is always set
           location: currentLocation,
           timeframe: depth === 'expert' ? '72hour' : depth === 'advanced' ? '24hour' : '6hour',
           currentData: {

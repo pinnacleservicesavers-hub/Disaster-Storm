@@ -187,13 +187,14 @@ export function UniversalAIAssistant({
   // Universal AI Analysis Mutation
   const universalAIMutation = useMutation({
     mutationFn: async ({ query, mode }: { query: string; mode: 'text' | 'voice' }) => {
+      console.log('🧠 Universal AI sending request with module:', module);
       return apiRequest('/api/universal-ai/analyze', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          module,
+          module: module || 'contractor', // Ensure module is always set
           location: currentLocation,
           timeframe,
           currentData: {
