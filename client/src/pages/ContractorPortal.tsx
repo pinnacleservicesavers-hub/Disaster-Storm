@@ -1524,8 +1524,8 @@ export default function ContractorPortal() {
                 <div className="bg-purple-50 p-4 rounded-lg">
                   <h4 className="font-semibold text-purple-900 mb-2">Homeowner Data Integration</h4>
                   <div className="text-sm text-purple-700 space-y-1">
-                    <p>• Tax Assessor API → Homeowner name/address</p>
-                    <p>• TruthFinder API → Phone number/email contact</p>
+                    <p>• ATTOM/Estated APIs → Property owner data</p>
+                    <p>• Whitepages Pro API → Licensed contact enrichment</p>
                     <p>• Location-based damage filing with owner details</p>
                   </div>
                 </div>
