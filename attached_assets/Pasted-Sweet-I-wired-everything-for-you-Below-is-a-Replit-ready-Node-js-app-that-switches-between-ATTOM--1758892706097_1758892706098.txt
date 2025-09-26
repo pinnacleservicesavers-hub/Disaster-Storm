@@ -1,0 +1,326 @@
+Sweet — I wired everything for you. Below is a Replit-ready Node.js app that switches between ATTOM and Estated (toggle with PROVIDER env var), plus an optional placeholder for Whitepages/identity enrichment. I also included concrete Postman / curl examples, exact env vars to set in Replit Secrets, and links to the official docs so you can get API keys and test tokens right away.
+
+Quick notes up front (sources):
+
+ATTOM is a production property data API with apikey in request headers and endpoints such as property/basicprofile and property/detail. 
+ATTOM Cloud Help
++1
+
+Estated v4 uses https://apis.estated.com/v4/property and accepts a token= query parameter; they also provide a Sandbox for testing. 
+Estated
++1
+
+For authoritative local data, use the county assessor / public access portal (e.g., Muscogee County public access). Use county APIs when you need the official record. 
+CCG Public Access
++1
+
+Whitepages Pro (and other enrichment vendors) provide phone/email identity enrichment — you’ll need to request keys and check permitted uses. 
+whitepages.github.io
+
+What you’ll deploy on Replit
+
+Files: package.json, index.js (below). Use Replit Secrets (Environment Variables) for keys:
+
+PROVIDER = attom or estated
+
+ATTOM_API_KEY
+
+ESTATED_API_TOKEN
+
+WHITEPAGES_API_KEY (optional)
+
+PORT (optional)
+
+package.json
+{
+  "name": "contractor-data-proxy",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": { "start": "node index.js" },
+  "dependencies": {
+    "express": "^4.18.2",
+    "node-fetch": "^2.6.7",
+    "dotenv": "^16.0.3",
+    "node-cache": "^5.1.2",
+    "helmet": "^6.0.1",
+    "morgan": "^1.10.0"
+  }
+}
+
+Full index.js (drop into Replit and set your secrets)
+// index.js - Replit-ready property + enrichment proxy (ATTOM <> Estated)
+require('dotenv').config();
+const express = require('express');
+const fetch = require('node-fetch');
+const NodeCache = require('node-cache');
+const helmet = require('helmet');
+const morgan = require('morgan');
+
+const app = express();
+app.use(express.json());
+app.use(helmet());
+app.use(morgan('combined'));
+
+const cache = new NodeCache({ stdTTL: 60 * 60, checkperiod: 120 }); // 1 hour default cache
+
+// Environment
+const PROVIDER = (process.env.PROVIDER || 'estated').toLowerCase(); // 'attom' or 'estated'
+const ATTOM_API_KEY = process.env.ATTOM_API_KEY || '';
+const ESTATED_API_TOKEN = process.env.ESTATED_API_TOKEN || '';
+const WHITEPAGES_API_KEY = process.env.WHITEPAGES_API_KEY || '';
+const PORT = process.env.PORT || 3000;
+
+// Cache helper
+async function cached(key, ttlSeconds, fn) {
+  const v = cache.get(key);
+  if (v) return v;
+  const value = await fn();
+  cache.set(key, value, ttlSeconds);
+  return value;
+}
+
+// Normalizer utility: try to extract common fields from provider responses
+function normalizePropertyResponse(providerName, raw) {
+  const out = { raw, ownerName: null, ownerMailing: null, parcelId: null, lastSaleDate: null, normalizedAddress: null };
+
+  try {
+    if (!raw) return out;
+
+    if (providerName === 'attom') {
+      // ATTOM responses often include property and assessor/ownership objects
+      const prop = raw.property || raw.property && raw.property[0] || raw;
+      // Try multiple common locations
+      out.normalizedAddress = prop.address && (prop.address.address1 || prop.address.streetNumber || prop.address.line) || prop.address1 || prop.fullAddress || null;
+      // owner info could be at raw.property.owner or raw.property.owner.name etc - defensive
+      const owners = (raw.owners && raw.owners[0]) || (raw.property && raw.property[0] && raw.property[0].owners && raw.property[0].owners[0]);
+      if (owners) {
+        out.ownerName = owners.name || owners.ownerName || out.ownerName;
+        out.ownerMailing = owners.mailingAddress || owners.mailing_address || out.ownerMailing;
+      } else {
+        // fallback fields
+        out.ownerName = raw.owner && raw.owner.name || raw.ownerName || out.ownerName;
+      }
+      out.parcelId = raw.parcel_number || raw.property && raw.property[0] && raw.property[0].parcel_number || raw.property && raw.property.parcel_number || out.parcelId;
+      out.lastSaleDate = raw.lastSale && raw.lastSale.date || raw.last_sale && raw.last_sale.date || raw.property && raw.property[0] && raw.property[0].lastSale && raw.property[0].lastSale.date || out.lastSaleDate;
+    }
+
+    if (providerName === 'estated') {
+      // Estated v4 response shape: { data: { property: { ... } } } OR older: { property: { ... } }
+      const property = raw.data && raw.data.property || raw.property || raw;
+      out.normalizedAddress = property.address && (property.address.formatted || `${property.address.street} ${property.address.city}`) || property.address;
+      if (property.owner) {
+        out.ownerName = property.owner.name || property.owner;
+        out.ownerMailing = property.owner.mailing_address || property.owner.mailing || out.ownerMailing;
+      } else {
+        // sometimes Estated lists owners array
+        const ownerObj = property.owners && property.owners[0];
+        if (ownerObj) {
+          out.ownerName = ownerObj.name || out.ownerName;
+          out.ownerMailing = ownerObj.mailing_address || out.ownerMailing;
+        }
+      }
+      out.parcelId = property.parcel_number || property.parcel || out.parcelId;
+      out.lastSaleDate = property.last_sale && property.last_sale.date || property.lastSaleDate || out.lastSaleDate;
+    }
+
+    return out;
+  } catch (e) {
+    console.warn('normalize error', e);
+    return out;
+  }
+}
+
+// Endpoint: GET /api/property?address=... OR provide street_address,city,state,zip for Estated
+app.get('/api/property', async (req, res) => {
+  try {
+    const address = (req.query.address || '').trim();
+    const street = (req.query.street_address || '').trim();
+    const city = (req.query.city || '').trim();
+    const state = (req.query.state || '').trim();
+    const zip = (req.query.zip || '').trim();
+
+    if (!address && !(street && city && state)) {
+      return res.status(400).json({ error: 'Provide address OR street_address, city, state (zip optional)' });
+    }
+
+    const cacheKey = `property:${PROVIDER}:${address || `${street}|${city}|${state}|${zip}`}`;
+    const raw = await cached(cacheKey, 60 * 60, async () => {
+      if (PROVIDER === 'attom') {
+        if (!ATTOM_API_KEY) throw new Error('ATTOM_API_KEY not set');
+        // Use ATTOM BasicProfile endpoint (simple & broad)
+        // Example endpoint from ATTOM docs:
+        // https://api.gateway.attomdata.com/propertyapi/v1.0.0/property/basicprofile?address=4529%20Winona%20Court%2C%20Denver%2C%20CO
+        const q = address || `${street}, ${city}, ${state} ${zip}`;
+        const url = `https://api.gateway.attomdata.com/propertyapi/v1.0.0/property/basicprofile?address=${encodeURIComponent(q)}`;
+        const r = await fetch(url, { headers: { 'accept': 'application/json', 'apikey': ATTOM_API_KEY }});
+        if (!r.ok) {
+          const txt = await r.text().catch(()=>String(r.status));
+          throw new Error(`ATTOM request failed ${r.status} ${txt}`);
+        }
+        return r.json();
+      } else { // default => estated
+        if (!ESTATED_API_TOKEN) throw new Error('ESTATED_API_TOKEN not set');
+        // Estated v4 expects token & street_address+city+state
+        // Example: https://apis.estated.com/v4/property?token=TOKEN&street_address=151 Battle Green Dr&city=Rochester&state=NY
+        if (address) {
+          // attempt to split address into components (best-effort). If split fails, pass whole address to Estated 'query' param if supported.
+          const parts = address.split(',');
+          const streetPart = parts[0] || '';
+          const cityPart = (parts[1] || '').trim().split(' ')[0] || '';
+          const statePart = (parts[1] || '').trim().split(' ')[1] || '';
+          const url = `https://apis.estated.com/v4/property?token=${ESTATED_API_TOKEN}&street_address=${encodeURIComponent(streetPart)}&city=${encodeURIComponent(cityPart)}&state=${encodeURIComponent(statePart)}`;
+          const r = await fetch(url);
+          if (!r.ok) {
+            const txt = await r.text().catch(()=>String(r.status));
+            throw new Error(`Estated request failed ${r.status} ${txt}`);
+          }
+          return r.json();
+        } else {
+          const url = `https://apis.estated.com/v4/property?token=${ESTATED_API_TOKEN}&street_address=${encodeURIComponent(street)}&city=${encodeURIComponent(city)}&state=${encodeURIComponent(state)}${zip ? `&zip_code=${encodeURIComponent(zip)}`: ''}`;
+          const r = await fetch(url);
+          if (!r.ok) {
+            const txt = await r.text().catch(()=>String(r.status));
+            throw new Error(`Estated request failed ${r.status} ${txt}`);
+          }
+          return r.json();
+        }
+      }
+    });
+
+    const normalized = normalizePropertyResponse(PROVIDER, raw);
+    return res.json({ success: true, provider: PROVIDER, data: normalized });
+  } catch (err) {
+    console.error('property error', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Endpoint: POST /api/enrich  { name, address } -> identity enrichment (Whitepages placeholder)
+app.post('/api/enrich', async (req, res) => {
+  try {
+    const { name, address } = req.body;
+    if (!name && !address) return res.status(400).json({ error: 'name or address required' });
+
+    const cacheKey = `enrich:${name||''}:${address||''}`;
+    const data = await cached(cacheKey, 60 * 60 * 24, async () => {
+      if (!WHITEPAGES_API_KEY) throw new Error('WHITEPAGES_API_KEY not set (or you chose not to use enrichment)');
+      // NOTE: replace this placeholder URL with the exact Whitepages Pro endpoint you have access to.
+      // Example Whitepages Pro endpoints vary by account; check your Whitepages Pro docs after signup.
+      const url = `https://proapi.whitepages.com/3.0/identity_check.json?api_key=${WHITEPAGES_API_KEY}&name=${encodeURIComponent(name||'')}&address=${encodeURIComponent(address||'')}`;
+      const r = await fetch(url);
+      if (!r.ok) {
+        const t = await r.text().catch(()=>String(r.status));
+        throw new Error(`Whitepages error ${r.status} ${t}`);
+      }
+      return r.json();
+    });
+
+    return res.json({ success: true, data });
+  } catch (err) {
+    console.error('enrich error', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/', (req, res) => res.send(`contractor-data-proxy running. Provider=${PROVIDER}`));
+
+app.listen(PORT, () => console.log(`Server listening on port ${PORT} (Provider=${PROVIDER})`));
+
+How to configure Replit (exact steps)
+
+Create a new Repl → choose Node.js.
+
+Add package.json and index.js as above.
+
+Open Secrets (lock icon) and add:
+
+PROVIDER = attom or estated
+
+ATTOM_API_KEY = your ATTOM key (only if PROVIDER=attom)
+
+ESTATED_API_TOKEN = your Estated token (only if PROVIDER=estated)
+
+WHITEPAGES_API_KEY = optional (if you want phone/email enrichment)
+
+Click Run. Replit will install packages and run node index.js. The console will show the Repl URL.
+
+Test with curl / Postman.
+
+Test examples (curl / Postman)
+
+ATTOM (example):
+
+# Provider must be set to 'attom' and ATTOM_API_KEY in Replit Secrets
+curl "https://<your-repl>.repl.co/api/property?address=4529%20Winona%20Court%2C%20Denver%2C%20CO"
+
+
+ATTOM header usage is handled server-side by the Repl (no client keys exposed). See ATTOM docs for exact header usage. 
+ATTOM Developer Platform
++1
+
+Estated (example):
+
+# Provider=estated and ESTATED_API_TOKEN set in Replit Secrets
+curl "https://<your-repl>.repl.co/api/property?address=151%20Battle%20Green%20Dr%2C%20Rochester%2C%20NY"
+# or provide components:
+curl "https://<your-repl>.repl.co/api/property?street_address=151%20Battle%20Green%20Dr&city=Rochester&state=NY"
+
+
+Estated sandbox and docs: they provide a sandbox token & example endpoints. 
+Estated
++1
+
+Enrichment (Whitepages placeholder):
+
+curl -X POST "https://<your-repl>.repl.co/api/enrich" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"John Doe","address":"5385 Westwood Drive Columbus GA"}'
+
+
+You must replace the placeholder Whitepages URL with the exact endpoint from your Whitepages Pro developer docs & key. 
+whitepages.github.io
+
+Post-deploy checklist & production tips
+
+Use Replit Secrets — never commit keys.
+
+Cache aggressively (we use 1 hour by default). Increase TTL for parcel/owner data (24 hr) if you want fewer calls.
+
+Rate limiting & exponential backoff — add client-side throttle & server-side queuing if you scale to many contractors.
+
+Audit log & consent capture — store who performed the lookup, timestamp, and purpose. Keep minimal PII retention policies.
+
+Legal — don’t scrape TruthFinder or other consumer sites. Use licensed APIs. If you plan to call/text/email owners, ensure TCPA & CAN-SPAM compliance and check state privacy laws. If you plan to use data for regulated decisions (tenant/employer/credit), use an FCRA-compliant data provider (LexisNexis / specialized screening vendors). 
+Estated
++1
+
+Links (click to request keys / read docs)
+
+ATTOM Developer Docs / signup. 
+ATTOM Developer Platform
++1
+
+Estated v4 Docs & Sandbox. 
+Estated
++1
+
+Muscogee County public access (authoritative local assessor/parcel search). 
+CCG Public Access
++1
+
+Whitepages Pro developer resources (enrichment). 
+whitepages.github.io
+
+Next I’ll do automatically (pick-one style — I already prepared both)
+
+I already prepared the code that supports both ATTOM and Estated. Tell me if you want any of these done next and I’ll paste the exact Replit UI values and a sample Postman collection (JSON) you can import immediately:
+
+A) Postman collection for the Repl endpoints + example ATTOM/Estated sample calls (ready to import).
+
+B) A fully ATTOM-parsed index.js that returns more ATTOM-specific fields (zoning, assessed value, tax info).
+
+C) A full Estated mapping with data.property -> flattened fields (owner mailing, owner history, APN, lat/lng).
+
+D) I can also draft the exact vendor email (sales/dev) to ATTOM/Estated/Whitepages to request API access with permissible use language so they'll sign you up fast.
+
+Pick one (A/B/C/D) and I’ll paste it now. If you want me to proceed with A (Postman collection) I’ll paste the import JSON.

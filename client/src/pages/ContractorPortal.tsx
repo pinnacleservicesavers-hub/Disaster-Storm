@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -65,6 +66,216 @@ import {
   CountUp,
   PulseAlert
 } from '@/components/ui/animations';
+
+// Property Lookup Tool Component
+function PropertyLookupTool() {
+  const [searchAddress, setSearchAddress] = useState('');
+  const [propertyData, setPropertyData] = useState<any>(null);
+  const [isSearching, setIsSearching] = useState(false);
+  const { toast } = useToast();
+
+  const propertySearchMutation = useMutation({
+    mutationFn: async (address: string) => {
+      const response = await fetch(`/api/property?address=${encodeURIComponent(address)}`);
+      if (!response.ok) {
+        throw new Error('Property lookup failed');
+      }
+      return response.json();
+    },
+    onSuccess: (data) => {
+      setPropertyData(data);
+      toast({
+        title: "Property Found",
+        description: `Retrieved property details for ${data.data?.address || searchAddress}`
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: "Search Failed",
+        description: error.message || "Failed to find property information"
+      });
+    }
+  });
+
+  const enrichmentMutation = useMutation({
+    mutationFn: async ({ name, address }: { name: string; address: string }) => {
+      const response = await fetch('/api/enrich', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, address })
+      });
+      if (!response.ok) {
+        throw new Error('Contact enrichment failed');
+      }
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Contact Enhanced",
+        description: "Additional contact information retrieved"
+      });
+      // Update property data with enrichment
+      setPropertyData((prev: any) => ({
+        ...prev,
+        enrichment: data.data
+      }));
+    }
+  });
+
+  const handleSearch = () => {
+    if (!searchAddress.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Invalid Input",
+        description: "Please enter a property address"
+      });
+      return;
+    }
+    setIsSearching(true);
+    propertySearchMutation.mutate(searchAddress.trim());
+  };
+
+  const handleEnrichContact = () => {
+    if (propertyData?.data?.ownerName && propertyData?.data?.address) {
+      enrichmentMutation.mutate({
+        name: propertyData.data.ownerName,
+        address: propertyData.data.address
+      });
+    }
+  };
+
+  const handleExampleSearch = (address: string) => {
+    setSearchAddress(address);
+    setIsSearching(true);
+    propertySearchMutation.mutate(address);
+  };
+
+  return (
+    <Card className="mb-6">
+      <CardHeader>
+        <CardTitle className="flex items-center">
+          <Search className="w-5 h-5 mr-2" />
+          Property Owner Lookup
+        </CardTitle>
+        <CardDescription>
+          Find property owner information, contact details, and property data for lead conversion
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Search Input */}
+        <div className="flex space-x-2">
+          <Input
+            placeholder="Enter property address (e.g., 123 Main St, Atlanta, GA)"
+            value={searchAddress}
+            onChange={(e) => setSearchAddress(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+            data-testid="input-property-search"
+            className="flex-1"
+          />
+          <Button 
+            onClick={handleSearch}
+            disabled={propertySearchMutation.isPending}
+            data-testid="button-search-property"
+          >
+            {propertySearchMutation.isPending ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Search className="w-4 h-4" />
+            )}
+          </Button>
+        </div>
+
+        {/* Example Searches */}
+        <div className="flex flex-wrap gap-2">
+          <span className="text-sm text-gray-600">Try examples:</span>
+          {[
+            "5385 Westwood Drive, Columbus, GA",
+            "123 Main Street, Atlanta, GA",
+            "456 Oak Avenue, Miami, FL"
+          ].map((address, index) => (
+            <Button
+              key={index}
+              variant="outline"
+              size="sm"
+              onClick={() => handleExampleSearch(address)}
+              disabled={propertySearchMutation.isPending}
+              data-testid={`button-example-${index}`}
+            >
+              {address.split(',')[0]}
+            </Button>
+          ))}
+        </div>
+
+        {/* Results */}
+        {propertyData && (
+          <div className="border rounded-lg p-4 bg-gray-50">
+            <div className="flex justify-between items-start mb-4">
+              <h3 className="text-lg font-semibold">Property Details</h3>
+              <Badge variant={propertyData.success ? "default" : "destructive"}>
+                {propertyData.provider || 'Unknown'} API
+              </Badge>
+            </div>
+
+            {propertyData.success && propertyData.data ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Owner Information */}
+                <div className="space-y-2">
+                  <h4 className="font-medium text-green-700">Owner Information</h4>
+                  <div className="space-y-1 text-sm">
+                    <div><strong>Name:</strong> {propertyData.data.ownerName || 'Not available'}</div>
+                    <div><strong>Mailing Address:</strong> {propertyData.data.ownerMailing || 'Not available'}</div>
+                    {propertyData.enrichment && (
+                      <>
+                        <div><strong>Phone:</strong> {propertyData.enrichment.phone || 'Not available'}</div>
+                        <div><strong>Email:</strong> {propertyData.enrichment.email || 'Not available'}</div>
+                      </>
+                    )}
+                  </div>
+                  
+                  {!propertyData.enrichment && propertyData.data.ownerName && (
+                    <Button
+                      size="sm"
+                      onClick={handleEnrichContact}
+                      disabled={enrichmentMutation.isPending}
+                      data-testid="button-enrich-contact"
+                    >
+                      {enrichmentMutation.isPending ? (
+                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      ) : (
+                        <Phone className="w-4 h-4 mr-2" />
+                      )}
+                      Find Contact Info
+                    </Button>
+                  )}
+                </div>
+
+                {/* Property Details */}
+                <div className="space-y-2">
+                  <h4 className="font-medium text-blue-700">Property Details</h4>
+                  <div className="space-y-1 text-sm">
+                    <div><strong>Type:</strong> {propertyData.data.propertyType || 'Unknown'}</div>
+                    <div><strong>Year Built:</strong> {propertyData.data.yearBuilt || 'Unknown'}</div>
+                    <div><strong>Square Footage:</strong> {propertyData.data.squareFootage ? `${propertyData.data.squareFootage.toLocaleString()} sq ft` : 'Unknown'}</div>
+                    <div><strong>Estimated Value:</strong> {propertyData.data.estimatedValue ? `$${propertyData.data.estimatedValue.toLocaleString()}` : 'Unknown'}</div>
+                    <div><strong>Last Sale:</strong> {propertyData.data.lastSaleDate ? new Date(propertyData.data.lastSaleDate).toLocaleDateString() : 'Unknown'}</div>
+                    {propertyData.data.parcelId && (
+                      <div><strong>Parcel ID:</strong> {propertyData.data.parcelId}</div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-4">
+                <p className="text-gray-600">{propertyData.message || 'No property data found'}</p>
+              </div>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function ContractorPortal() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -906,6 +1117,9 @@ export default function ContractorPortal() {
 
           {/* Leads & Contracts Tab */}
           <TabsContent value="leads" className="space-y-6">
+            {/* Property Owner Lookup Tool */}
+            <PropertyLookupTool />
+            
             <div className="flex justify-between items-center">
               <h2 className="text-2xl font-bold">Available Leads</h2>
               <Button data-testid="button-filter-leads">
