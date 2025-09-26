@@ -1243,7 +1243,7 @@ export default function App() {
   const createProject = async (projectData: {
     name: string;
     description: string;
-    location: string;
+    propertyAddress: string;
     clientName: string;
   }) => {
     try {
@@ -1468,7 +1468,7 @@ export default function App() {
                   >
                     {projects.map((project) => (
                       <option key={project.id} value={project.id}>
-                        {project.name} - {project.location}
+                        {project.clientName ? `${project.clientName} - ` : ''}{project.name} ({project.propertyAddress})
                       </option>
                     ))}
                   </select>
@@ -1549,11 +1549,11 @@ export default function App() {
               const projectData = {
                 name: formData.get('name') as string,
                 description: formData.get('description') as string,
-                location: formData.get('location') as string,
+                propertyAddress: formData.get('location') as string,
                 clientName: formData.get('clientName') as string
               };
               
-              if (projectData.name && projectData.location) {
+              if (projectData.name && projectData.propertyAddress) {
                 await createProject(projectData);
               } else {
                 alert('Please fill in all required fields');
