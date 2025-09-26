@@ -50,6 +50,7 @@ import { femaDisasterService } from "./services/femaDisasterService";
 import { femaMonitoringService } from "./services/femaMonitoringService";
 import { predictiveStormService } from "./services/predictiveStormService";
 import { noaaStormEventsService } from "./services/noaaStormEventsService";
+import { stormToParcelConverter } from "./services/stormToParcelConverter";
 import stormIntelligenceRoutes from "./routes/stormIntelligence";
 import { VoiceAIService } from "./services/voiceAI";
 import { weatherAI } from "./services/weatherAI.js";
