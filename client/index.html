@@ -1,27 +1,12 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Storm App</title>
-  </head>
-  <body>
-    <!-- React mounts here -->
-    <div id="root"></div>
-
-    <!-- Loads your React app -->
-    <script type="module" src="/src/main.tsx"></script>
-
-    <!-- GOOGLE MAPS: API key now securely managed via environment variables -->
-    <script>
-      // Only load Google Maps if API key is configured
-      if (window.VITE_GOOGLE_MAPS_KEY) {
-        const script = document.createElement('script');
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${window.VITE_GOOGLE_MAPS_KEY}&libraries=places&callback=initMap`;
-        script.async = true;
-        script.defer = true;
-        document.head.appendChild(script);
-      }
-    </script>
-  </body>
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Storm Ops Dashboard</title>
+</head>
+<body>
+<div id="root"></div>
+<script type="module" src="/src/main.tsx"></script>
+</body>
 </html>
