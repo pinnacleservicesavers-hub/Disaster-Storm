@@ -1,0 +1,152 @@
+[
+  {
+    "id": "weather-center",
+    "name": "Weather Center",
+    "phase": "Awareness",
+    "order": 1,
+    "routes": ["/weather"],
+    "publishes": ["WEATHER.ALERT", "WEATHER.UPDATE"],
+    "subscribes": [],
+    "description": "Real-time weather monitoring and alert system"
+  },
+  {
+    "id": "storm-predictions",
+    "name": "Storm Predictions",
+    "phase": "Awareness",
+    "order": 2,
+    "routes": ["/predictions"],
+    "publishes": ["STORM.PREDICTION", "DAMAGE.FORECAST"],
+    "subscribes": ["WEATHER.ALERT"],
+    "description": "AI-powered storm path and damage prediction"
+  },
+  {
+    "id": "eyes-in-the-sky",
+    "name": "Eyes in the Sky",
+    "phase": "Awareness",
+    "order": 3,
+    "routes": ["/satellites"],
+    "publishes": ["SATELLITE.IMAGE", "IMAGERY.UPDATE"],
+    "subscribes": ["STORM.PREDICTION"],
+    "description": "Satellite imagery and aerial monitoring"
+  },
+  {
+    "id": "traffic-cam-watcher",
+    "name": "Traffic Cam Watcher",
+    "phase": "Awareness",
+    "order": 4,
+    "routes": ["/traffic-cams"],
+    "publishes": ["TRAFFIC.ALERT", "DAMAGE.DETECTED"],
+    "subscribes": ["WEATHER.ALERT", "STORM.PREDICTION"],
+    "description": "Traffic camera monitoring for real-time damage assessment"
+  },
+  {
+    "id": "drone-operation",
+    "name": "Drone Operation",
+    "phase": "Operations",
+    "order": 5,
+    "routes": ["/drones"],
+    "publishes": ["DRONE.FOOTAGE", "AERIAL.ASSESSMENT"],
+    "subscribes": ["DAMAGE.DETECTED", "LEAD.NEW"],
+    "description": "Autonomous drone fleet for damage assessment"
+  },
+  {
+    "id": "ai-damage-detection",
+    "name": "AI Damage Detection",
+    "phase": "Operations",
+    "order": 6,
+    "routes": ["/ai-detection"],
+    "publishes": ["DAMAGE.CONFIRMED", "PRIORITY.ASSIGNED"],
+    "subscribes": ["DRONE.FOOTAGE", "SATELLITE.IMAGE", "TRAFFIC.ALERT"],
+    "description": "AI-powered damage detection and classification"
+  },
+  {
+    "id": "disaster-lens",
+    "name": "Disaster Lens",
+    "phase": "Operations",
+    "order": 7,
+    "routes": ["/lens"],
+    "publishes": ["MEDIA.CAPTURED", "ANNOTATION.ADDED"],
+    "subscribes": ["DAMAGE.CONFIRMED"],
+    "description": "Professional photo/video documentation system"
+  },
+  {
+    "id": "claims-central",
+    "name": "Claims Central",
+    "phase": "Operations",
+    "order": 8,
+    "routes": ["/claims"],
+    "publishes": ["CLAIM.CREATED", "CLAIM.UPDATED"],
+    "subscribes": ["DAMAGE.CONFIRMED", "MEDIA.CAPTURED"],
+    "description": "Insurance claims management and tracking"
+  },
+  {
+    "id": "victim-portal",
+    "name": "Victim Portal",
+    "phase": "Operations",
+    "order": 9,
+    "routes": ["/victim"],
+    "publishes": ["HELP.REQUEST", "DAMAGE.REPORTED"],
+    "subscribes": ["WEATHER.ALERT", "DAMAGE.CONFIRMED"],
+    "description": "Self-service portal for storm victims"
+  },
+  {
+    "id": "lead-management",
+    "name": "Lead Management",
+    "phase": "Coordination",
+    "order": 10,
+    "routes": ["/leads"],
+    "publishes": ["JOB.QUEUE.UPDATE", "LEAD.ASSIGNED"],
+    "subscribes": ["DAMAGE.CONFIRMED", "CLAIM.CREATED", "HELP.REQUEST"],
+    "description": "Intelligent lead scoring and contractor routing"
+  },
+  {
+    "id": "customer-hub",
+    "name": "Customer Hub",
+    "phase": "Coordination",
+    "order": 11,
+    "routes": ["/customers"],
+    "publishes": ["CUSTOMER.UPDATE", "SERVICE.REQUEST"],
+    "subscribes": ["LEAD.ASSIGNED", "JOB.QUEUE.UPDATE"],
+    "description": "Customer relationship and communication management"
+  },
+  {
+    "id": "contractor-portal",
+    "name": "Contractor Portal",
+    "phase": "Coordination",
+    "order": 12,
+    "routes": ["/contractor"],
+    "publishes": ["JOB.ACCEPTED", "STATUS.UPDATE"],
+    "subscribes": ["JOB.QUEUE.UPDATE", "LEAD.ASSIGNED"],
+    "description": "Field contractor interface and job management"
+  },
+  {
+    "id": "contractor-command",
+    "name": "Contractor Command",
+    "phase": "Recovery",
+    "order": 13,
+    "routes": ["/command"],
+    "publishes": ["CREW.DISPATCHED", "RESOURCE.ALLOCATED"],
+    "subscribes": ["JOB.ACCEPTED", "STATUS.UPDATE"],
+    "description": "Contractor fleet management and dispatch"
+  },
+  {
+    "id": "disaster-marketplace",
+    "name": "Disaster Marketplace",
+    "phase": "Recovery",
+    "order": 14,
+    "routes": ["/marketplace"],
+    "publishes": ["RESOURCE.AVAILABLE", "SERVICE.LISTED"],
+    "subscribes": ["RESOURCE.ALLOCATED", "SERVICE.REQUEST"],
+    "description": "Equipment and service marketplace"
+  },
+  {
+    "id": "storm-share",
+    "name": "Storm Share",
+    "phase": "Recovery",
+    "order": 15,
+    "routes": ["/share"],
+    "publishes": ["KNOWLEDGE.SHARED", "COLLABORATION.UPDATE"],
+    "subscribes": ["RESOURCE.AVAILABLE", "CREW.DISPATCHED"],
+    "description": "Industry collaboration and knowledge sharing"
+  }
+]
