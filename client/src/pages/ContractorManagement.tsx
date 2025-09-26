@@ -4,10 +4,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { useQuery } from '@tanstack/react-query';
-import { Users, Plus, Search, Settings, Shield, AlertTriangle, CheckCircle, TrendingUp, Star, MapPin, Calendar, Clock, Zap, Award, Target, ChevronRight, Briefcase, UserPlus, Phone, Mail, MessageSquare, Filter, Volume2, VolumeX } from 'lucide-react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Users, Plus, Search, Settings, Shield, AlertTriangle, CheckCircle, TrendingUp, Star, MapPin, Calendar, Clock, Zap, Award, Target, ChevronRight, Briefcase, UserPlus, Phone, Mail, MessageSquare, Filter, Volume2, VolumeX, X } from 'lucide-react';
 import { DashboardSection } from '@/components/DashboardSection';
 import { FadeIn, PulseAlert, StaggerContainer, StaggerItem, HoverLift, CountUp, ScaleIn, SlideIn } from '@/components/ui/animations';
+import { getAuthHeaders } from '@/lib/queryClient';
 
 interface ContractorStatus {
   id: string;
@@ -49,21 +50,85 @@ export default function ContractorManagement() {
   const [showScheduler, setShowScheduler] = useState(false);
   const [isVoiceGuideActive, setIsVoiceGuideActive] = useState(false);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newContractor, setNewContractor] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    specialty: '',
+    location: ''
+  });
+  
+  const queryClient = useQueryClient();
 
-  // Mock contractor data with React Query
+  // Add contractor mutation
+  const addContractorMutation = useMutation({
+    mutationFn: async (contractor: typeof newContractor) => {
+      const response = await fetch('/api/contractors/save', {
+        method: 'POST',
+        headers: {
+          ...getAuthHeaders(),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(contractor)
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to add contractor');
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['contractors'] });
+      setShowAddModal(false);
+      setNewContractor({ name: '', email: '', phone: '', specialty: '', location: '' });
+      alert('Contractor added successfully!');
+    },
+    onError: (error) => {
+      console.error('Error adding contractor:', error);
+      alert('Failed to add contractor. Please try again.');
+    }
+  });
+
+  // Real contractor data from API
   const { data: contractors = [], isLoading } = useQuery({
     queryKey: ['contractors', selectedRegion],
     queryFn: async (): Promise<ContractorStatus[]> => {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      return [
-        { id: '1', name: 'Mike\'s Tree Service', specialty: 'Tree Removal', status: 'available', location: 'Tampa, FL', rating: 4.8, completedJobs: 45, responseTime: '15 min', lastActive: '2 min ago', skills: ['Tree Removal', 'Emergency Response', 'Storm Cleanup'], certifications: ['ISA Certified', 'OSHA 30'], availability: 'full-time', hourlyRate: 85, phoneNumber: '(813) 555-0123', email: 'mike@treeservice.com', joinDate: '2023-01-15' },
-        { id: '2', name: 'Roof Masters Inc', specialty: 'Roofing', status: 'busy', location: 'Orlando, FL', rating: 4.9, completedJobs: 67, responseTime: '22 min', lastActive: '1 hour ago', skills: ['Roofing', 'Storm Damage', 'Insurance Claims'], certifications: ['GAF Master Elite', 'HAAG Certified'], availability: 'full-time', hourlyRate: 95, phoneNumber: '(407) 555-0456', email: 'info@roofmasters.com', joinDate: '2022-08-20' },
-        { id: '3', name: 'Emergency Cleanup Pro', specialty: 'Debris Removal', status: 'available', location: 'Jacksonville, FL', rating: 4.7, completedJobs: 38, responseTime: '18 min', lastActive: '5 min ago', skills: ['Debris Removal', 'Emergency Response', 'Heavy Equipment'], certifications: ['Commercial Driver License', 'Heavy Equipment Operator'], availability: 'full-time', hourlyRate: 75, phoneNumber: '(904) 555-0789', email: 'emergency@cleanup.com', joinDate: '2023-03-10' },
-        { id: '4', name: 'Storm Restoration LLC', specialty: 'Water Damage', status: 'offline', location: 'Miami, FL', rating: 4.6, completedJobs: 29, responseTime: '35 min', lastActive: '2 hours ago', skills: ['Water Damage', 'Mold Remediation', 'Structural Drying'], certifications: ['IICRC Water Damage', 'Mold Remediation'], availability: 'part-time', hourlyRate: 70, phoneNumber: '(305) 555-0321', email: 'restore@storm.com', joinDate: '2023-05-15' },
-        { id: '5', name: 'Lightning Fast Repairs', specialty: 'Electrical', status: 'available', location: 'Fort Myers, FL', rating: 4.9, completedJobs: 52, responseTime: '12 min', lastActive: '1 min ago', skills: ['Electrical', 'Generator Installation', 'Emergency Repairs'], certifications: ['Master Electrician', 'NECA Certified'], availability: 'full-time', hourlyRate: 110, phoneNumber: '(239) 555-0654', email: 'fast@electrical.com', joinDate: '2022-11-05' },
-      ];
+      try {
+        const response = await fetch('/api/contractors', {
+          headers: getAuthHeaders()
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch contractors');
+        }
+        
+        const data = await response.json();
+        
+        // Map API data to our interface (add defaults for missing fields)
+        return data.map((contractor: any) => ({
+          id: contractor.id,
+          name: contractor.name || 'Unnamed Contractor',
+          specialty: contractor.specialty || 'General Services',
+          status: contractor.status || 'available',
+          location: contractor.location || 'Location TBD',
+          rating: contractor.rating || 4.5,
+          completedJobs: contractor.completedJobs || 0,
+          responseTime: contractor.responseTime || '30 min',
+          lastActive: contractor.lastActive || 'Just now',
+          skills: contractor.skills || ['General Services'],
+          certifications: contractor.certifications || [],
+          availability: contractor.availability || 'full-time',
+          hourlyRate: contractor.hourlyRate || 75,
+          phoneNumber: contractor.phone || 'No phone provided',
+          email: contractor.email || 'No email provided',
+          joinDate: contractor.joinDate || new Date().toISOString().split('T')[0]
+        }));
+      } catch (error) {
+        console.error('Error fetching contractors:', error);
+        return []; // Return empty array on error
+      }
     },
     refetchInterval: 30000, // Refetch every 30 seconds for live status
   });
@@ -247,10 +312,10 @@ export default function ContractorManagement() {
         { label: 'Avg Rating', value: avgRating, change: 'Customer satisfaction', color: 'default', suffix: '/5.0', testId: 'text-avg-rating' }
       ]}
       actions={[
-        { icon: Plus, label: 'Add Contractor', variant: 'default', testId: 'button-add-contractor' },
+        { icon: Plus, label: 'Add Contractor', variant: 'default', testId: 'button-add-contractor', onClick: () => setShowAddModal(true) },
         { icon: Calendar, label: 'Schedule', variant: 'outline', testId: 'button-schedule-contractors', onClick: () => setShowScheduler(!showScheduler) },
-        { icon: Briefcase, label: 'Jobs', variant: 'outline', testId: 'button-view-jobs' },
-        { icon: TrendingUp, label: 'Analytics', variant: 'outline', testId: 'button-contractor-analytics' },
+        { icon: Briefcase, label: 'Jobs', variant: 'outline', testId: 'button-view-jobs', onClick: () => setSelectedView('assignment') },
+        { icon: TrendingUp, label: 'Analytics', variant: 'outline', testId: 'button-contractor-analytics', onClick: () => setSelectedView('analytics') },
         { 
           icon: isVoiceGuideActive ? VolumeX : Volume2, 
           label: isVoiceGuideActive ? 'Stop Guide' : 'Voice Guide', 
@@ -1212,6 +1277,126 @@ export default function ContractorManagement() {
             </CardContent>
           </Card>
         </>
+      )}
+
+      {/* Add Contractor Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Add New Contractor</h3>
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+                data-testid="button-close-add-modal"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              if (newContractor.name && newContractor.email) {
+                addContractorMutation.mutate(newContractor);
+              } else {
+                alert('Please fill in name and email fields');
+              }
+            }}>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Company Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={newContractor.name}
+                    onChange={(e) => setNewContractor({ ...newContractor, name: e.target.value })}
+                    className="w-full border rounded px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600"
+                    placeholder="e.g., Emergency Cleanup Services"
+                    data-testid="input-contractor-name"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Email *
+                  </label>
+                  <input
+                    type="email"
+                    value={newContractor.email}
+                    onChange={(e) => setNewContractor({ ...newContractor, email: e.target.value })}
+                    className="w-full border rounded px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600"
+                    placeholder="contact@contractor.com"
+                    data-testid="input-contractor-email"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Phone
+                  </label>
+                  <input
+                    type="tel"
+                    value={newContractor.phone}
+                    onChange={(e) => setNewContractor({ ...newContractor, phone: e.target.value })}
+                    className="w-full border rounded px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600"
+                    placeholder="(555) 123-4567"
+                    data-testid="input-contractor-phone"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Specialty
+                  </label>
+                  <input
+                    type="text"
+                    value={newContractor.specialty}
+                    onChange={(e) => setNewContractor({ ...newContractor, specialty: e.target.value })}
+                    className="w-full border rounded px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600"
+                    placeholder="e.g., Tree Removal, Roofing, Water Damage"
+                    data-testid="input-contractor-specialty"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Location
+                  </label>
+                  <input
+                    type="text"
+                    value={newContractor.location}
+                    onChange={(e) => setNewContractor({ ...newContractor, location: e.target.value })}
+                    className="w-full border rounded px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600"
+                    placeholder="City, State"
+                    data-testid="input-contractor-location"
+                  />
+                </div>
+              </div>
+              
+              <div className="flex gap-2 mt-6">
+                <button
+                  type="submit"
+                  disabled={addContractorMutation.isPending}
+                  className="flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:opacity-50"
+                  data-testid="button-submit-contractor"
+                >
+                  {addContractorMutation.isPending ? 'Adding...' : 'Add Contractor'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowAddModal(false)}
+                  className="px-4 py-2 border rounded hover:bg-gray-50 dark:hover:bg-gray-700"
+                  data-testid="button-cancel-add-contractor"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </DashboardSection>
   );
