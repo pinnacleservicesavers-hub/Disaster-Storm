@@ -56,9 +56,9 @@ class NOAAStormExtractor:
             url = f"https://www.ncei.noaa.gov/pub/data/swdi/stormevents/csvfiles/StormEvents_locations-ftp_v1.0_d{year}_c{creation_date}.csv.gz"
             locations_urls.append(url)
         
-        # Generate Fatalities URLs (assume similar pattern, waiting for date range confirmation)
+        # Generate Fatalities URLs (1951-2025)
         fatalities_urls = []
-        fatalities_start = max(yr_min, 1950)  # Assuming 1950 start, will update when confirmed
+        fatalities_start = max(yr_min, 1951)  # Fatalities available from 1951
         for year in range(fatalities_start, yr_max + 1):
             creation_date = "20250818" if year >= 2024 else "20250520"
             url = f"https://www.ncei.noaa.gov/pub/data/swdi/stormevents/csvfiles/StormEvents_fatalities-ftp_v1.0_d{year}_c{creation_date}.csv.gz"
@@ -71,7 +71,7 @@ class NOAAStormExtractor:
         print(f"✅ Generated URLs:")
         print(f"   📋 Details: {len(urls['details'])} files (1950-2025)")
         print(f"   📍 Locations: {len(urls['locations'])} files (1963-2025)")
-        print(f"   ⚰️  Fatalities: {len(urls['fatalities'])} files (awaiting range confirmation)")
+        print(f"   ⚰️  Fatalities: {len(urls['fatalities'])} files (1951-2025)")
         return urls
     
     def download_and_parse_csv(self, url: str, file_type: str) -> List[Dict[str, Any]]:
