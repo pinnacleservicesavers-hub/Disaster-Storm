@@ -4,6 +4,7 @@ import { queryClient } from '@/lib/queryClient';
 import StormOpsProHub from "./StormOpsProHub";
 import StormOpsDashboard from "./pages/StormOpsDashboard";
 import WeatherIntelligenceCenter from "./pages/WeatherIntelligenceCenter";
+import PredictionDashboard from "./pages/PredictionDashboard";
 import StormPredictions from "./pages/StormPredictions";
 import SurveillanceCenter from "./pages/SurveillanceCenter";
 import TrafficCamWatcher from "./pages/TrafficCamWatcher";
@@ -502,9 +503,9 @@ export default function App() {
         </Route>
         
         <Route path="/prediction-dashboard">
-          <title>Weather Intelligence Center - DisasterDirect</title>
-          <meta name="description" content="AI-powered storm prediction and damage forecasting integrated with live weather monitoring" />
-          <WeatherIntelligenceCenter />
+          <title>Storm Prediction Dashboard - DisasterDirect</title>
+          <meta name="description" content="AI-powered storm prediction and damage forecasting with comprehensive analytics and contractor opportunities" />
+          <PredictionDashboard />
         </Route>
         
         <Route path="/contractors">
