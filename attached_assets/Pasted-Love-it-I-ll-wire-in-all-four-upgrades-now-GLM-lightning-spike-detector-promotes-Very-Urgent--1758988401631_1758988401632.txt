@@ -1,0 +1,395 @@
+Love it. I’ll wire in all four upgrades now:
+
+GLM lightning spike detector → promotes “Very Urgent”
+
+NWS alerts cron → pushes Tornado/Severe/Wind alerts as events
+
+Route optimizer (OSRM) → best next stop per crew when new leads arrive
+
+3D Eyes in the Sky (Cesium) → same time slider on a globe
+
+Below are drop-in files/edits for your existing React + Express app.
+
+0) Installs
+npm i nanoid cesium
+
+
+nanoid is already added; this ensures Cesium is ready for the 3D view.
+
+1) Server: NWS Alerts cron (publishes nws_alert events)
+
+server/nws.js
+
+// Poll active NWS alerts and publish as SSE events.
+// Area filter: GA, AL (adjust to your footprint)
+import { publish } from "./events.js";
+
+const AREAS = ["GA", "AL"];
+const URL = `https://api.weather.gov/alerts/active?area=${AREAS.join(",")}`;
+
+const seen = new Set();
+
+export async function pollNWS() {
+  try {
+    const r = await fetch(URL, {
+      headers: {
+        "User-Agent": "SLM-StormOps/1.0 (support@strategiclandmgt.com)",
+        "Accept": "application/geo+json"
+      }
+    });
+    if (!r.ok) throw new Error(`NWS ${r.status}`);
+    const data = await r.json();
+    if (!data?.features) return;
+
+    for (const f of data.features) {
+      const id = f?.id || f?.properties?.id;
+      if (!id || seen.has(id)) continue;
+      seen.add(id);
+
+      const props = f.properties || {};
+      publish({
+        type: "nws_alert",
+        id,
+        event: props.event,
+        severity: props.severity,
+        urgency: props.urgency,
+        headline: props.headline,
+        areaDesc: props.areaDesc,
+        sent: props.sent,
+        effective: props.effective,
+        expires: props.expires
+      });
+    }
+  } catch (e) {
+    publish({ type: "nws_error", message: e.message });
+  }
+}
+
+
+server/index.js (add imports + interval)
+
+import express from "express";
+import cors from "cors";
+import { sseHandler, postEventHandler, publish } from "./events.js";
+import { pollNWS } from "./nws.js"; // NEW
+
+const app = express();
+app.use(cors());
+
+// ... your existing /proxy route remains ...
+
+app.get("/events/stream", sseHandler);
+app.post("/events", postEventHandler);
+
+// heartbeats
+setInterval(() => publish({ type: "heartbeat" }), 60000);
+
+// poll NWS every 2 min
+await pollNWS();
+setInterval(pollNWS, 2 * 60 * 1000);
+
+const port = process.env.PORT || 3001;
+app.listen(port, () => console.log(`Proxy+Events listening on ${port}`));
+
+2) Client: Lightning spike detector → “Very Urgent” events
+
+We’ll estimate lightning intensity by sampling GLM tiles covering current map bounds with an offscreen canvas (non-transparent pixels ≈ more flashes). When intensity jumps beyond a rolling baseline, we broadcast lightning_spike.
+
+src/lib/lightningSample.js
+
+// Sample GLM tile brightness within the current map view.
+export async function sampleGLMIntensity({ map, z=6, urlTemplate, iso }) {
+  // compute visible tile range for zoom z
+  const bounds = map.getBounds();
+  const nw = map.project(bounds.getNorthWest(), z);
+  const se = map.project(bounds.getSouthEast(), z);
+  const tileSize = 256;
+
+  const xStart = Math.floor(nw.x / tileSize);
+  const yStart = Math.floor(nw.y / tileSize);
+  const xEnd = Math.floor(se.x / tileSize);
+  const yEnd = Math.floor(se.y / tileSize);
+
+  let count = 0;
+  let tiles = 0;
+
+  const toURL = (x, y) => {
+    const u = urlTemplate
+      .replace("{z}", z)
+      .replace("{x}", x)
+      .replace("{y}", y)
+      .replace("{time}", encodeURIComponent(iso));
+    return `/proxy?url=${encodeURIComponent(u)}`;
+  };
+
+  // sample up to 6 tiles to keep it light
+  const samples = [];
+  for (let x = xStart; x <= xEnd; x++) {
+    for (let y = yStart; y <= yEnd; y++) {
+      samples.push([x, y]);
+      if (samples.length >= 6) break;
+    }
+    if (samples.length >= 6) break;
+  }
+
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  canvas.width = 256; canvas.height = 256;
+
+  for (const [x, y] of samples) {
+    tiles++;
+    try {
+      const img = await loadImg(toURL(x, y));
+      ctx.clearRect(0,0,256,256);
+      ctx.drawImage(img, 0,0);
+      const data = ctx.getImageData(0,0,256,256).data;
+      // count non-transparent pixels
+      for (let i=0;i<data.length;i+=4) {
+        const a = data[i+3];
+        if (a > 10) count++;
+      }
+    } catch {}
+  }
+
+  return tiles ? Math.round(count / tiles) : 0;
+}
+
+function loadImg(src) {
+  return new Promise((res, rej) => {
+    const i = new Image();
+    i.crossOrigin = "anonymous";
+    i.onload = () => res(i);
+    i.onerror = rej;
+    i.src = src;
+  });
+}
+
+
+src/modules/WeatherCenter.jsx – add spike detection inside onFrame:
+
+Import helper at top:
+
+import { sampleGLMIntensity } from "../lib/lightningSample.js";
+
+
+Update onFrame to compute intensity when GLM is visible:
+
+const onFrame = async (iso, i) => {
+  publishEvent({
+    type: "frame_advanced",
+    module: "WeatherCenter",
+    iso, index: i,
+    layers: { goes: showGOES, glm: showGLM, radar: showRadar }
+  });
+
+  if (map && showGLM) {
+    const intensity = await sampleGLMIntensity({
+      map,
+      z: Math.max(5, Math.min(8, map.getZoom())),
+      urlTemplate: GOES_EAST_GLM,
+      iso
+    });
+    // rolling baseline
+    window.__glmRoll = window.__glmRoll || [];
+    const roll = window.__glmRoll;
+    roll.push(intensity); if (roll.length > 12) roll.shift();
+    const avg = roll.reduce((a,b)=>a+b,0) / roll.length || 0;
+
+    publishEvent({ type: "lightning_intensity", iso, intensity, avg });
+
+    // Spike rule: > 2.0x baseline and absolute > 10k pixels
+    if (intensity > 10000 && avg > 0 && intensity > avg * 2.0) {
+      publishEvent({
+        type: "lightning_spike",
+        level: "very_urgent",
+        iso, intensity, baseline: Math.round(avg)
+      });
+    }
+  }
+};
+
+3) Route optimizer hook (OSRM): best next stop per crew
+
+src/lib/routeOptimize.js
+
+// Use public OSRM for quick routing (best for testing).
+const OSRM = "https://router.project-osrm.org";
+
+export async function bestNextStop({ crew, leads }) {
+  // crew: { id, name, lon, lat }
+  // leads: [{id, lon, lat, priority}, ...]
+  if (!leads?.length) return null;
+
+  // pick top by priority first, then distance
+  const sorted = leads.slice().sort((a,b) => (b.priority||0)-(a.priority||0));
+
+  // query ETA for the first 10 candidates, pick the fastest
+  const candidates = sorted.slice(0, 10);
+  let best = null;
+
+  for (const lead of candidates) {
+    const coords = `${crew.lon},${crew.lat};${lead.lon},${lead.lat}`;
+    const url = `${OSRM}/route/v1/driving/${coords}?overview=false&annotations=duration`;
+    try {
+      const r = await fetch(url);
+      const j = await r.json();
+      const sec = j?.routes?.[0]?.duration;
+      if (sec != null) {
+        if (!best || sec < best.duration) best = { lead, duration: sec };
+      }
+    } catch {}
+  }
+
+  return best; // { lead, duration (seconds) }
+}
+
+
+src/modules/StormPredictions.jsx – listen for new_lead and publish route suggestion:
+
+import { bestNextStop } from "../lib/routeOptimize.js";
+
+export default function StormPredictions() {
+  const [events, setEvents] = useState([]);
+  const [crew, setCrew] = useState({ id: "crew-1", name: "Alpha", lon: -84.98, lat: 32.46 }); // Columbus, GA (sample)
+  const [leads, setLeads] = useState([]);
+
+  useEffect(() => {
+    const src = new EventSource("/events/stream");
+    const add = (e) => {
+      const data = JSON.parse(e.data);
+      setEvents((prev) => [...prev.slice(-199), data]);
+
+      if (data.type === "new_lead") {
+        // expect { id, lon, lat, priority }
+        setLeads((L) => [...L, data]);
+        optimizeForCrew(data);
+      }
+    };
+    src.addEventListener("storm", add);
+    ["frame_advanced","lightning_frame","heartbeat","nws_alert","new_lead","lightning_spike"].forEach(t => src.addEventListener(t, add));
+    return () => src.close();
+  }, []);
+
+  async function optimizeForCrew() {
+    const best = await bestNextStop({ crew, leads });
+    if (best) {
+      // publish route suggestion back on the bus
+      await fetch("/events", { method: "POST", body: JSON.stringify({
+        type: "route_suggestion",
+        crewId: crew.id,
+        leadId: best.lead.id,
+        etaSec: Math.round(best.duration)
+      })});
+    }
+  }
+
+  return (
+    <div style={{ padding: 16 }}>
+      <h2>Storm Predictions – Live Events</h2>
+      <p>Now reacting to lightning spikes, NWS alerts, and new leads → route suggestions.</p>
+      <div style={{ maxHeight: "70vh", overflow: "auto", border: "1px solid #ddd", borderRadius: 8, padding: 8 }}>
+        {events.slice().reverse().map((e, i) => (
+          <pre key={i} style={{ margin: 0, padding: 8, borderBottom: "1px dashed #eee" }}>
+            {JSON.stringify(e, null, 2)}
+          </pre>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+
+When your Lead Management module creates a lead, have it POST /events with:
+{ type:"new_lead", id, lon, lat, priority }. That will trigger the optimizer.
+
+4) Eyes in the Sky — 3D globe with the same timeline (Cesium)
+
+src/modules/EyesInTheSky3D.jsx
+
+import { useEffect, useRef, useState } from "react";
+import * as Cesium from "cesium";
+import "cesium/Build/Cesium/Widgets/widgets.css";
+
+function buildTimes({ hours=3, stepMin=10 }) {
+  const arr = [];
+  const end = Date.now();
+  const steps = Math.ceil((hours*60)/stepMin);
+  for (let i = steps-1; i >= 0; i--) {
+    arr.push(new Date(end - i*stepMin*60*1000).toISOString());
+  }
+  return arr;
+}
+
+const GOES = "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/GOES-East_ABI_GeoColor/default/{time}/GoogleMapsCompatible_Level6/{z}/{y}/{x}.jpg";
+const GLM  = "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/GOES-East_GLM_Flash_Extent_Density/default/{time}/GoogleMapsCompatible_Level8/{z}/{y}/{x}.png";
+
+export default function EyesInTheSky3D() {
+  const ref = useRef(null);
+  const [viewer, setViewer] = useState(null);
+  const [times] = useState(() => buildTimes({ hours: 3, stepMin: 10 }));
+  const [idx, setIdx] = useState(0);
+
+  useEffect(() => {
+    if (viewer) return;
+    const v = new Cesium.Viewer(ref.current, {
+      baseLayer: Cesium.ImageryLayer.fromProviderAsync(
+        new Cesium.UrlTemplateImageryProvider({
+          url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+        })
+      ),
+      timeline: false, animation: false
+    });
+    v.scene.globe.enableLighting = false;
+    v.camera.setView({ destination: Cesium.Cartesian3.fromDegrees(-84.0, 32.5, 3.5e6) });
+    setViewer(v);
+  }, [viewer]);
+
+  useEffect(() => {
+    if (!viewer) return;
+
+    const mk = (url) => new Cesium.UrlTemplateImageryProvider({
+      url: url.replace("{time}", () => times[idx]),
+      // Cesium trick: dynamically compute {time} each frame using customTags is only in newer builds for other templaters,
+      // so here we re-create the provider when idx changes (simple & reliable).
+      maximumLevel: 8
+    });
+
+    // clear old
+    viewer.imageryLayers.removeAll(true);
+    viewer.imageryLayers.addImageryProvider(new Cesium.UrlTemplateImageryProvider({ url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png" }));
+    viewer.imageryLayers.addImageryProvider(mk(GOES));
+    viewer.imageryLayers.addImageryProvider(mk(GLM));
+
+  }, [viewer, idx, times]);
+
+  useEffect(() => {
+    const t = setInterval(() => setIdx((i) => (i + 1) % times.length), 700);
+    return () => clearInterval(t);
+  }, [times]);
+
+  return <div ref={ref} style={{ width: "100%", height: "calc(100vh - 120px)" }} />;
+}
+
+
+Add a route/button for /eyes-3d:
+
+import EyesInTheSky3D from "./modules/EyesInTheSky3D.jsx";
+<Route path="/eyes-3d" element={<EyesInTheSky3D />} />
+
+5) How it now behaves
+
+Weather Center
+
+Time slider, GOES + GLM + Radar
+
+Computes GLM intensity over your current view; publishes lightning_spike if it jumps.
+
+Storm Predictions
+
+Receives lightning_spike, nws_alert, new_lead
+
+Runs OSRM optimizer and emits route_suggestion for the fastest urgent lead.
+
+Eyes in the Sky (3D)
+
+Cesium globe animating GOES + GLM.

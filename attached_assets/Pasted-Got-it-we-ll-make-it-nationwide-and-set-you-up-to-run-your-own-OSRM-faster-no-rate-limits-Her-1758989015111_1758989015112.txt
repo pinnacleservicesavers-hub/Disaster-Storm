@@ -1,0 +1,233 @@
+Got it — we’ll make it nationwide and set you up to run your own OSRM (faster + no rate limits). Here’s everything you need, ready to paste.
+
+A) NWS alerts: nationwide + only the signals you care about
+
+Replace server/nws.js with this:
+
+// Nationwide NWS alerts, filtered to high-value storm ops events.
+// Polls every 2 min from server/index.js and publishes SSE events.
+import { publish } from "./events.js";
+
+const NWS_URL = "https://api.weather.gov/alerts/active?status=actual";
+const WANTED = new Set([
+  "Tornado Warning",
+  "Tornado Emergency",
+  "Severe Thunderstorm Warning",
+  "Hurricane Warning",
+  "Hurricane Watch",
+  "Tropical Storm Warning",
+  "Tropical Storm Watch",
+  "Storm Surge Warning",
+  "Storm Surge Watch",
+  "Flash Flood Warning",
+  "Extreme Wind Warning"
+]);
+
+const seen = new Set();
+
+export async function pollNWS() {
+  try {
+    const r = await fetch(NWS_URL, {
+      headers: {
+        "User-Agent": "SLM-StormOps/1.0 (ops@strategiclandmgt.com)",
+        Accept: "application/geo+json"
+      }
+    });
+    if (!r.ok) throw new Error(`NWS ${r.status}`);
+    const data = await r.json();
+    if (!data?.features) return;
+
+    for (const f of data.features) {
+      const id = f?.id || f?.properties?.id;
+      if (!id || seen.has(id)) continue;
+
+      const p = f.properties || {};
+      if (!WANTED.has(p.event)) continue; // keep only hurricane/tornado/severe
+
+      seen.add(id);
+
+      publish({
+        type: "nws_alert",
+        id,
+        event: p.event,
+        severity: p.severity,
+        urgency: p.urgency,
+        certainty: p.certainty,
+        headline: p.headline,
+        areaDesc: p.areaDesc,
+        sent: p.sent,
+        effective: p.effective,
+        expires: p.expires,
+        polygon: f.geometry // you can draw this on the map if you want
+      });
+    }
+  } catch (e) {
+    publish({ type: "nws_error", message: e.message });
+  }
+}
+
+
+Nothing is state-limited now — you’ll see alerts anywhere in the U.S. (CONUS, AK, HI, PR, etc.), but only the types that matter for hurricanes/tornadoes/severe.
+
+B) Optional: GOES-West auto-switch (covering the whole U.S.)
+
+In WeatherCenter.jsx, add these two URLs and choose by longitude:
+
+const GOES_EAST_GEOCOLOR =
+  "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/GOES-East_ABI_GeoColor/default/{time}/GoogleMapsCompatible_Level6/{z}/{y}/{x}.jpg";
+const GOES_WEST_GEOCOLOR =
+  "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/GOES-West_ABI_GeoColor/default/{time}/GoogleMapsCompatible_Level6/{z}/{y}/{x}.jpg";
+
+function goesByLon(lon){
+  // east of ~ -110 => use GOES-East, otherwise GOES-West
+  return lon > -110 ? GOES_EAST_GEOCOLOR : GOES_WEST_GEOCOLOR;
+}
+
+
+Then where you pass urlTemplate={GOES_EAST_GEOCOLOR}, change it to:
+
+urlTemplate={goesByLon(map.getCenter().lng)}
+
+
+(Do the same if you add a GLM lightning layer for GOES-West.)
+
+C) Route optimizer: point to your OSRM (or fall back to public)
+
+Server config endpoint so the client knows your OSRM base URL.
+
+Add this to server/index.js (top: import process from "process"; if needed):
+
+app.get("/config", (req, res) => {
+  res.json({
+    osrm_url: process.env.OSRM_URL || "https://router.project-osrm.org" // fallback
+  });
+});
+
+
+Client: use that base URL in the optimizer.
+
+Replace src/lib/routeOptimize.js with:
+
+let OSRM_BASE = "https://router.project-osrm.org"; // default
+(async () => {
+  try {
+    const j = await fetch("/config").then(r => r.json());
+    if (j?.osrm_url) OSRM_BASE = j.osrm_url.replace(/\/$/, "");
+  } catch {}
+})();
+
+export async function bestNextStop({ crew, leads }) {
+  if (!leads?.length) return null;
+  const sorted = leads.slice().sort((a,b) => (b.priority||0)-(a.priority||0));
+  const candidates = sorted.slice(0, 10);
+
+  let best = null;
+  for (const lead of candidates) {
+    const coords = `${crew.lon},${crew.lat};${lead.lon},${lead.lat}`;
+    const url = `${OSRM_BASE}/route/v1/driving/${coords}?overview=false&annotations=duration`;
+    try {
+      const r = await fetch(url);
+      if (!r.ok) continue;
+      const j = await r.json();
+      const sec = j?.routes?.[0]?.duration;
+      if (sec != null) best = !best || sec < best.duration ? { lead, duration: sec } : best;
+    } catch {}
+  }
+  return best;
+}
+
+
+Set your OSRM_URL in Replit Secrets once you deploy your own server (see next section).
+Key: OSRM_URL
+Value: https://<your-domain-or-ip>:<port>
+
+D) Run your own OSRM (production-ready)
+
+The public OSRM is great for testing but is rate-limited and not guaranteed. Running your own instance gives you speed and control.
+
+Minimum you’ll want
+
+A small cloud VM (AWS/GCP/Azure) in the Southeast or Central U.S.
+
+RAM: 8–16 GB for us-latest (more RAM = faster).
+
+Disk: 40–80 GB SSD.
+
+CPU: 2–4 vCPU.
+
+1) Spin up OSRM with Docker
+
+SSH to your VM and run:
+
+# Get the road graph (United States only). For full North America, swap the URL.
+wget https://download.geofabrik.de/north-america/us-latest.osm.pbf -O us-latest.osm.pbf
+
+# Pull OSRM
+docker pull ghcr.io/project-osrm/osrm-backend:latest
+
+# Extract + partition + customize (MLD)
+docker run -t -v $(pwd):/data ghcr.io/project-osrm/osrm-backend osrm-extract -p /opt/car.lua /data/us-latest.osm.pbf
+docker run -t -v $(pwd):/data ghcr.io/project-osrm/osrm-backend osrm-partition /data/us-latest.osrm
+docker run -t -v $(pwd):/data ghcr.io/project-osrm/osrm-backend osrm-customize /data/us-latest.osrm
+
+# Serve API on port 5000
+docker run -t -i -p 5000:5000 -v $(pwd):/data ghcr.io/project-osrm/osrm-backend osrm-routed --algorithm mld /data/us-latest.osrm
+
+
+The service will be at http://YOUR_VM_IP:5000/route/v1/driving/{lon1},{lat1};{lon2},{lat2}
+
+2) Keep it running (docker compose)
+
+Create docker-compose.yml on the VM:
+
+services:
+  osrm:
+    image: ghcr.io/project-osrm/osrm-backend:latest
+    command: osrm-routed --algorithm mld /data/us-latest.osrm
+    ports: ["5000:5000"]
+    volumes:
+      - ./data:/data
+    restart: always
+
+
+Start it:
+
+docker compose up -d
+
+3) Put it behind HTTPS (optional but recommended)
+
+Point a domain (e.g., routes.slmops.com) to the VM.
+
+Use a reverse proxy with TLS (Caddy or Nginx + Let’s Encrypt).
+Caddy (easiest):
+
+sudo apt-get install -y caddy
+sudo bash -c 'cat >/etc/caddy/Caddyfile <<EOF
+routes.slmops.com {
+  reverse_proxy 127.0.0.1:5000
+}
+EOF'
+sudo systemctl restart caddy
+
+
+Then set OSRM_URL=https://routes.slmops.com in Replit Secrets.
+
+That’s it — your app will auto-use your server via /config.
+
+E) What you get now
+
+Alerts for every U.S. state/territory that matter to hurricanes/tornadoes — flowing into your event bus.
+
+GOES East/West coverage so the satellite layer looks right anywhere you pan.
+
+Routing that scales: your own OSRM gives you quick ETAs and no throttling.
+
+All changes fit into the modules we already wired: Weather Center (map + GLM), Storm Predictions (events + optimizer), and Eyes in the Sky (3D).
+
+If you want, I can also:
+
+draw NWS polygons on the Leaflet map,
+
+auto-promote leads to “Very Urgent” when an active Tornado/Hurricane warning polygon intersects their coordinates,
+
+batch-optimize multi-stop routes per crew (TSP-light).

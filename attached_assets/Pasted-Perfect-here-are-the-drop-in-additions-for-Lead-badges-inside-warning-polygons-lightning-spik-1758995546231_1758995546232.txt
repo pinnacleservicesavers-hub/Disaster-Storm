@@ -1,0 +1,334 @@
+Perfect — here are the drop-in additions for:
+
+Lead badges (inside warning polygons + lightning spike status + priority).
+
+A Crew Map that draws the current route plan polyline, ordered stop markers, and one-click directions.
+
+Run this one-time install if you haven’t already:
+
+npm i @turf/turf
+
+1) Badges for Lead Management
+a) Tiny badge component
+
+src/components/Badge.jsx
+
+export default function Badge({ children, tone="info" }) {
+  const styles = {
+    base: {
+      display: "inline-block",
+      padding: "2px 8px",
+      borderRadius: 999,
+      fontSize: 12,
+      fontWeight: 700,
+      marginRight: 6,
+      marginBottom: 6,
+      border: "1px solid transparent"
+    },
+    info:   { background: "#eef5ff", color: "#1b4fd1", borderColor: "#cfe0ff" },
+    warn:   { background: "#fff8e1", color: "#a66a00", borderColor: "#ffe2a1" },
+    danger: { background: "#ffe9e9", color: "#b00020", borderColor: "#ffc6c6" },
+    ok:     { background: "#e9fff1", color: "#0d7a43", borderColor: "#b7f0d0" }
+  };
+  return <span style={{ ...styles.base, ...styles[tone] }}>{children}</span>;
+}
+
+b) Lead Management with badges
+
+This listens to your event bus, tracks leads, tracks NWS alerts, does point-in-polygon checks with Turf, and renders badges. It updates when lead_promoted, lead_priority_hint, or new alerts arrive.
+
+src/modules/LeadManagement.jsx
+
+import { useEffect, useMemo, useState } from "react";
+import * as turf from "@turf/turf";
+import Badge from "../components/Badge.jsx";
+
+function priorityTone(p) {
+  if (p === "very_urgent" || p === "Very Urgent" || p === 3) return "danger";
+  if (p === "urgent" || p === 2) return "warn";
+  return "info";
+}
+
+function intersectsWarning(lead, alert) {
+  if (!alert?.polygon) return false;
+  try {
+    const pt = turf.point([lead.lon, lead.lat]);
+    return turf.booleanPointInPolygon(pt, turf.feature(alert.polygon));
+  } catch { return false; }
+}
+
+export default function LeadManagement() {
+  const [leads, setLeads] = useState({}); // id -> {id, lat, lon, priority, tags:Set<string>, meta:{}}
+  const [alerts, setAlerts] = useState([]);
+
+  useEffect(() => {
+    const src = new EventSource("/events/stream");
+
+    const onEvent = (e) => {
+      const data = JSON.parse(e.data || "{}");
+      if (data.type === "new_lead") {
+        setLeads((L) => {
+          const prev = L[data.id] || { ...data, tags: new Set() };
+          const merged = { ...prev, ...data, tags: new Set(prev.tags) };
+          return { ...L, [data.id]: merged };
+        });
+      }
+
+      if (data.type === "lead_promoted") {
+        setLeads((L) => {
+          const prev = L[data.leadId]; if (!prev) return L;
+          const next = { ...prev, priority: data.newPriority };
+          next.tags = new Set(prev.tags);
+          next.tags.add(`Promoted: ${data.reason || "system"}`);
+          return { ...L, [data.leadId]: next };
+        });
+      }
+
+      if (data.type === "lead_priority_hint") {
+        setLeads((L) => {
+          const out = { ...L };
+          for (const k of Object.keys(out)) {
+            const n = { ...out[k] };
+            n.tags = new Set(n.tags);
+            n.tags.add(`Hint: ${data.reason}`);
+            out[k] = n;
+          }
+          return out;
+        });
+      }
+
+      if (data.type === "nws_alert") {
+        setAlerts((A) => {
+          if (A.find(a => a.id === data.id)) return A;
+          const next = [...A, data].slice(-1000);
+
+          // re-check all leads for intersection and tag them
+          setLeads((L) => {
+            const out = { ...L };
+            for (const id of Object.keys(out)) {
+              const lead = out[id];
+              if (intersectsWarning(lead, data)) {
+                const n = { ...lead };
+                n.tags = new Set(lead.tags);
+                n.tags.add(`Inside ${data.event}`);
+                // optional auto bump local display priority (actual system promotion happens in StormPredictions)
+                out[id] = n;
+              }
+            }
+            return out;
+          });
+
+          return next;
+        });
+      }
+    };
+
+    ["new_lead","lead_promoted","lead_priority_hint","nws_alert"].forEach(t => src.addEventListener(t, onEvent));
+    return () => src.close();
+  }, []);
+
+  const rows = useMemo(() => Object.values(leads), [leads]);
+
+  return (
+    <div style={{ padding: 16 }}>
+      <h2>Lead Management</h2>
+      <p>Badges show warning intersections, lightning hints, and promotions.</p>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12 }}>
+        {rows.map(ld => (
+          <div key={ld.id} style={{
+            border: "1px solid #e5e7eb", borderRadius: 12, padding: 12, boxShadow: "0 2px 8px rgba(0,0,0,.04)"
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ fontWeight: 800 }}>{ld.name || `Lead ${ld.id}`}</div>
+              <Badge tone={priorityTone(ld.priority)}>{String(ld.priority).toUpperCase()}</Badge>
+            </div>
+
+            <div style={{ marginTop: 6, fontSize: 13, color: "#555" }}>
+              {ld.address ? ld.address : `${ld.lat?.toFixed?.(4)}, ${ld.lon?.toFixed?.(4)}`}
+            </div>
+
+            <div style={{ marginTop: 8 }}>
+              {[...(ld.tags || new Set())].map((t, i) => {
+                const tone = /Tornado|Hurricane|Storm Surge/i.test(t) ? "danger"
+                           : /Watch|Severe|Flash Flood/i.test(t) ? "warn"
+                           : /Lightning|Hint/i.test(t) ? "info" : "ok";
+                return <Badge key={i} tone={tone}>{t}</Badge>;
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+
+Add a route to your router:
+
+import LeadManagement from "./modules/LeadManagement.jsx";
+<Route path="/lead-management" element={<LeadManagement />} />
+
+2) Crew Map with route polyline + ordered markers + 1-click directions
+a) Leaflet route map
+
+src/components/CrewMap.jsx
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+
+async function getConfig() {
+  try { return await fetch("/config").then(r => r.json()); } catch { return {}; }
+}
+
+function markerLabel(n) {
+  return L.divIcon({
+    className: "lead-step",
+    html: `<div style="background:#111;color:#fff;font-weight:800;border-radius:999px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 1px 6px rgba(0,0,0,.35)">${n}</div>`,
+    iconSize: [28, 28],
+    iconAnchor: [14, 14]
+  });
+}
+
+export default function CrewMap() {
+  const mapDiv = useRef(null);
+  const [map, setMap] = useState(null);
+  const [crew, setCrew] = useState({ id: "crew-1", name: "Alpha", lon: -84.98, lat: 32.46 }); // Columbus, GA example
+  const [order, setOrder] = useState([]);     // leadIds in visit order
+  const [leadLookup, setLeadLookup] = useState({}); // id -> {lon,lat,name}
+  const routeLayerRef = useRef(null);
+  const stopLayersRef = useRef([]);
+
+  const [osrmBase, setOsrmBase] = useState("https://router.project-osrm.org");
+
+  useEffect(() => {
+    if (map) return;
+    const m = L.map(mapDiv.current).setView([32.46, -84.98], 10);
+    L.tileLayer("/proxy?url=" + encodeURIComponent("https://tile.openstreetmap.org/{z}/{x}/{y}.png"), {
+      maxZoom: 19, attribution: "&copy; OpenStreetMap"
+    }).addTo(m);
+    setMap(m);
+    (async () => {
+      const cfg = await getConfig();
+      if (cfg?.osrm_url) setOsrmBase(cfg.osrm_url.replace(/\/$/, ""));
+    })();
+  }, [map]);
+
+  // Subscribe to events: keep leads, crew (optional), and latest route_plan
+  useEffect(() => {
+    const src = new EventSource("/events/stream");
+    const onAny = (e) => {
+      const data = JSON.parse(e.data || "{}");
+      if (data.type === "new_lead") {
+        setLeadLookup((D) => ({ ...D, [data.id]: data }));
+      }
+      if (data.type === "lead_update") {
+        setLeadLookup((D) => ({ ...D, [data.id]: { ...(D[data.id]||{}), ...data } }));
+      }
+      if (data.type === "crew_update") {
+        if (data.id === crew.id) setCrew(c => ({ ...c, ...data }));
+      }
+      if (data.type === "route_plan" && data.crewId === crew.id) {
+        setOrder(data.order || []);
+      }
+    };
+    ["new_lead","lead_update","crew_update","route_plan"].forEach(t => src.addEventListener(t, onAny));
+    return () => src.close();
+  }, [crew.id]);
+
+  // Build and draw polyline when order changes
+  useEffect(() => {
+    if (!map) return;
+    if (!order.length) {
+      clearRoute();
+      return;
+    }
+    drawRoute();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [map, order, leadLookup, osrmBase, crew]);
+
+  function clearRoute() {
+    if (routeLayerRef.current) { map.removeLayer(routeLayerRef.current); routeLayerRef.current = null; }
+    stopLayersRef.current.forEach(mk => map.removeLayer(mk));
+    stopLayersRef.current = [];
+  }
+
+  async function drawRoute() {
+    clearRoute();
+
+    const coords = [
+      [crew.lon, crew.lat],
+      ...order.map(id => [leadLookup[id]?.lon, leadLookup[id]?.lat]).filter(p => p[0] != null && p[1] != null)
+    ];
+    if (coords.length < 2) return;
+
+    // Request a single route for the whole ordered path
+    const qs = coords.map(p => p.join(",")).join(";");
+    const url = `${osrmBase}/route/v1/driving/${qs}?overview=full&geometries=geojson`;
+    try {
+      const r = await fetch(url);
+      const j = await r.json();
+      const geom = j?.routes?.[0]?.geometry;
+      if (geom) {
+        const line = L.geoJSON(geom, { style: { color: "#0b74de", weight: 5, opacity: 0.85 } });
+        line.addTo(map);
+        routeLayerRef.current = line;
+        try { map.fitBounds(line.getBounds(), { padding: [40,40] }); } catch {}
+      }
+    } catch {}
+
+    // Crew marker (#0)
+    const crewMarker = L.marker([crew.lat, crew.lon], { title: `${crew.name} (start)` });
+    crewMarker.addTo(map);
+    stopLayersRef.current.push(crewMarker);
+
+    // Stop markers 1..N
+    order.forEach((id, idx) => {
+      const Ld = leadLookup[id];
+      if (!Ld) return;
+      const mk = L.marker([Ld.lat, Ld.lon], { icon: markerLabel(idx + 1), title: Ld.name || `Lead ${id}` });
+      mk.addTo(map);
+      mk.bindPopup(`
+        <b>${Ld.name || `Lead ${id}`}</b><br/>
+        ${Ld.address || `${Ld.lat?.toFixed?.(4)}, ${Ld.lon?.toFixed?.(4)}`}<br/>
+        <a target="_blank" href="${googleDirLink([crew.lat, crew.lon], [Ld.lat, Ld.lon])}">Open in Google Maps</a>
+      `);
+      stopLayersRef.current.push(mk);
+    });
+  }
+
+  function googleDirLink(originLatLon, destLatLon, waypointLatLons=[]) {
+    const o = `${originLatLon[0]},${originLatLon[1]}`;
+    const d = `${destLatLon[0]},${destLatLon[1]}`;
+    const w = waypointLatLons.map(p => `${p[0]},${p[1]}`).join("|");
+    const base = "https://www.google.com/maps/dir/?api=1";
+    return `${base}&origin=${encodeURIComponent(o)}&destination=${encodeURIComponent(d)}${w ? `&waypoints=${encodeURIComponent(w)}` : ""}`;
+  }
+
+  return <div style={{ height: "calc(100vh - 120px)", width: "100%" }} ref={mapDiv} />;
+}
+
+b) Crew Map wrapper page
+
+src/modules/CrewMapPage.jsx
+
+import CrewMap from "../components/CrewMap.jsx";
+
+export default function CrewMapPage() {
+  return (
+    <div style={{ height: "100%", width: "100%" }}>
+      <div style={{ position: "absolute", zIndex: 1000, left: 12, top: 12, background: "white", padding: 10, borderRadius: 10, boxShadow: "0 2px 10px rgba(0,0,0,.15)" }}>
+        <div style={{ fontWeight: 800 }}>Crew Route</div>
+        <div style={{ fontSize: 12, color: "#555" }}>Automatically updates on <code>route_plan</code></div>
+      </div>
+      <CrewMap />
+    </div>
+  );
+}
+
+
+Add a route:
+
+import CrewMapPage from "./modules/CrewMapPage.jsx";
+<Route path="/crew-map" element={<CrewMapPage />} />

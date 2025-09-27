@@ -1,0 +1,277 @@
+You got it. I’m wiring three things now:
+
+Draw NWS polygons on the map (nationwide).
+
+Auto-promote leads to Very Urgent when they fall inside an active Tornado/Hurricane/Severe polygon (and also when a lightning spike hits that area).
+
+Batch route planning (multi-stop “best order”) using your own OSRM with the /trip API.
+
+Run this one-time install:
+
+npm i @turf/turf
+
+1) Show NWS alerts as polygons (Leaflet overlay)
+
+src/components/AlertsOverlay.jsx
+
+import { useEffect, useRef } from "react";
+import L from "leaflet";
+
+function styleFor(event, severity="Moderate"){
+  const color = /Tornado/.test(event) ? "#d0021b"
+      : /Hurricane|Tropical/.test(event) ? "#f5a623"
+      : /Severe Thunderstorm/.test(event) ? "#f8e71c"
+      : /Flash Flood|Storm Surge/.test(event) ? "#50e3c2"
+      : "#4a90e2";
+  const weight = (/Tornado/.test(event) ? 3 : 2);
+  const dashArray = (/Watch/.test(event) ? "6,4" : null);
+  const fillOpacity = (/Warning/.test(event) ? 0.20 : 0.10);
+  return { color, weight, dashArray, fillOpacity, fillColor: color };
+}
+
+/**
+ * alerts: [{ id, event, severity, polygon (GeoJSON geometry) }, ...]
+ */
+export default function AlertsOverlay({ map, alerts=[] }) {
+  const layerRef = useRef(null);
+
+  useEffect(() => {
+    if (!map) return;
+    if (layerRef.current) {
+      map.removeLayer(layerRef.current);
+      layerRef.current = null;
+    }
+    const fc = {
+      type: "FeatureCollection",
+      features: alerts.filter(a => a.polygon).map(a => ({
+        type: "Feature",
+        geometry: a.polygon,
+        properties: { id: a.id, event: a.event, severity: a.severity }
+      }))
+    };
+    const layer = L.geoJSON(fc, {
+      style: f => styleFor(f.properties.event, f.properties.severity),
+      onEachFeature: (f, lyr) => {
+        const p = f.properties;
+        lyr.bindPopup(`<b>${p.event}</b><br/>Severity: ${p.severity || "n/a"}`);
+      }
+    });
+    layer.addTo(map);
+    layerRef.current = layer;
+    return () => { if (layerRef.current) map.removeLayer(layerRef.current); };
+  }, [map, alerts]);
+
+  return null;
+}
+
+
+Weather Center: subscribe to SSE alerts and render overlay.
+
+Add to the imports at top of src/modules/WeatherCenter.jsx:
+
+import AlertsOverlay from "../components/AlertsOverlay.jsx";
+
+
+Add state + SSE tap (inside component):
+
+const [alerts, setAlerts] = useState([]);
+
+useEffect(() => {
+  const src = new EventSource("/events/stream");
+  const onAny = (e) => {
+    const data = JSON.parse(e.data || "{}");
+    if (data.type === "nws_alert") {
+      setAlerts(a => {
+        const seen = new Set(a.map(x => x.id));
+        if (seen.has(data.id)) return a;
+        return [...a, data].slice(-500);
+      });
+    }
+  };
+  ["nws_alert"].forEach(t => src.addEventListener(t, onAny));
+  return () => src.close();
+}, []);
+
+
+Render overlay near the bottom of JSX (just before closing </div> of the page):
+
+{map && alerts.length > 0 && <AlertsOverlay map={map} alerts={alerts} />}
+
+2) Auto-promote leads inside warning polygons (+ lightning spike assist)
+
+src/modules/StormPredictions.jsx – enhance to track alerts, test intersections, and emit promotions.
+
+Add imports at the top:
+
+import * as turf from "@turf/turf";
+
+
+Inside the component, add:
+
+const [alerts, setAlerts] = useState([]); // active NWS polygons
+
+
+Update the SSE listener to capture alerts and test leads:
+
+useEffect(() => {
+  const src = new EventSource("/events/stream");
+
+  const handle = async (e) => {
+    const data = JSON.parse(e.data || "{}");
+    setEvents((prev) => [...prev.slice(-199), data]);
+
+    if (data.type === "nws_alert") {
+      setAlerts((A) => {
+        const seen = new Set(A.map(x => x.id));
+        if (seen.has(data.id)) return A;
+        // On new alert, test all current leads and promote if inside
+        setLeads((L) => {
+          L.forEach(ld => maybePromoteLead(ld, data));
+          return L;
+        });
+        return [...A, data].slice(-1000);
+      });
+    }
+
+    if (data.type === "new_lead") {
+      setLeads((L) => {
+        const next = [...L, data];
+        // test this new lead against all known alerts
+        alerts.forEach(al => maybePromoteLead(data, al));
+        return next;
+      });
+      // re-run route suggestion
+      optimizeForCrew();
+    }
+
+    if (data.type === "lightning_spike") {
+      // boost any leads within current map AOI (simple broadcast to Lead Mgmt)
+      await fetch("/events", { method: "POST", body: JSON.stringify({
+        type: "lead_priority_hint",
+        reason: "lightning_spike",
+        level: "very_urgent"
+      })});
+    }
+  };
+
+  ["storm","frame_advanced","lightning_frame","heartbeat","nws_alert","new_lead","lightning_spike"]
+    .forEach(t => src.addEventListener(t, handle));
+  return () => src.close();
+}, [alerts]); // rebind if alerts changes
+
+function insideGeo(lead, geometry){
+  const pt = turf.point([lead.lon, lead.lat]);
+  const feat = turf.feature(geometry);
+  return turf.booleanPointInPolygon(pt, feat);
+}
+
+async function maybePromoteLead(lead, alert){
+  if (!alert?.polygon) return;
+  if (!insideGeo(lead, alert.polygon)) return;
+
+  // Promote and notify
+  await fetch("/events", { method: "POST", body: JSON.stringify({
+    type: "lead_promoted",
+    leadId: lead.id,
+    newPriority: "very_urgent",
+    reason: `Inside ${alert.event}`,
+    alertId: alert.id
+  })});
+}
+
+
+Your Lead Management module should listen for lead_promoted and update the record + reorder the visible queue.
+
+3) Batch route planning (multi-stop) with OSRM /trip
+
+src/lib/routeTrip.js
+
+let OSRM_BASE = "https://router.project-osrm.org";
+(async () => {
+  try {
+    const j = await fetch("/config").then(r => r.json());
+    if (j?.osrm_url) OSRM_BASE = j.osrm_url.replace(/\/$/, "");
+  } catch {}
+})();
+
+/**
+ * Plan best order for N leads from crew position.
+ * @param crew {lon,lat}
+ * @param leads [{id,lon,lat,priority}], limit 12 recommended
+ * @returns { order:[leadIds], seconds:number, distance:number }
+ */
+export async function planTrip({ crew, leads }) {
+  if (!leads?.length) return null;
+
+  // Take top by priority, then nearest (quick heuristic)
+  const sorted = leads.slice().sort((a,b) => (b.priority||0)-(a.priority||0)).slice(0, 12);
+
+  const coords = [
+    `${crew.lon},${crew.lat}`,
+    ...sorted.map(p => `${p.lon},${p.lat}`)
+  ].join(";");
+
+  const url = `${OSRM_BASE}/trip/v1/driving/${coords}?source=first&roundtrip=false&overview=false`;
+  const r = await fetch(url);
+  if (!r.ok) return null;
+  const j = await r.json();
+  const trip = j?.trips?.[0];
+  if (!trip) return null;
+
+  // waypoints[0] is the crew start; others map to input points by "waypoint_index"
+  const order = j.waypoints
+    .slice(1)
+    .sort((a,b) => a.waypoint_index - b.waypoint_index)
+    .map(wp => {
+      const idx = wp.waypoint_index - 1; // offset because we sliced(1)
+      return sorted[idx]?.id;
+    });
+
+  return { order, seconds: Math.round(trip.duration), distance: Math.round(trip.distance) };
+}
+
+
+src/modules/StormPredictions.jsx – emit a route_plan whenever leads change significantly:
+
+Add import:
+
+import { planTrip } from "../lib/routeTrip.js";
+
+
+Add a small debounced planner:
+
+useEffect(() => {
+  const t = setTimeout(async () => {
+    if (!leads.length) return;
+    const plan = await planTrip({ crew, leads });
+    if (plan) {
+      await fetch("/events", { method: "POST", body: JSON.stringify({
+        type: "route_plan",
+        crewId: crew.id,
+        order: plan.order,
+        etaSec: plan.seconds,
+        distanceM: plan.distance
+      })});
+    }
+  }, 800);
+  return () => clearTimeout(t);
+}, [leads, crew]);
+
+
+Your Lead Management UI can subscribe to route_plan and visually order “Next Stops” for each crew.
+
+What’s live now
+
+Weather Center: nationwide NWS polygons painted on the map.
+
+Storm Predictions: promotes leads to Very Urgent if they’re inside active warnings; reacts to lightning spikes; and emits route_plan based on the best stop order using your own OSRM (set OSRM_URL in Secrets to your server).
+
+Eyes in the Sky (3D): already running with GOES/GLM timeline.
+
+If you want, I can also drop:
+
+drawing the alert polygons in Lead Management next to each lead,
+
+an “Intersects Warning” badge and filter,
+
+and a crew map that shows the route_plan as a polyline with turn-by-turn links.

@@ -1,0 +1,272 @@
+Perfect—this belongs in Weather Center first (that’s your “live map” hub). We’ll wire GOES + NEXRAD layers there, then the same components can be re-used in Eyes in the Sky later.
+
+Below is a drop-in install for a typical Replit React app with a tiny Node/Express proxy (for CORS-friendly tiles). If your app is not React+Express, just tell me and I’ll adapt it.
+
+1) Install packages (in Replit Shell)
+npm i leaflet react-leaflet axios hls.js express cors
+
+2) Server: lightweight proxy (avoids CORS headaches)
+
+Create server/index.js:
+
+import express from "express";
+import cors from "cors";
+
+const app = express();
+app.use(cors());
+
+// Simple passthrough proxy for tile servers (configure allowlist as needed)
+app.get("/proxy", async (req, res) => {
+  try {
+    const target = req.query.url;
+    if (!target) return res.status(400).send("Missing url");
+
+    // Basic allowlist (edit as you add providers)
+    const allowed = [
+      "gibs.earthdata.nasa.gov",
+      "mesonet.agron.iastate.edu",
+      "tile.openstreetmap.org"
+    ];
+    const host = new URL(target).host;
+    if (!allowed.some(d => host.endsWith(d))) {
+      return res.status(403).send("Host not allowed");
+    }
+
+    const r = await fetch(target);
+    if (!r.ok) return res.status(r.status).send(await r.text());
+
+    // forward content-type for images
+    res.set("content-type", r.headers.get("content-type") || "application/octet-stream");
+    const buf = Buffer.from(await r.arrayBuffer());
+    res.send(buf);
+  } catch (e) {
+    res.status(500).send(e.message);
+  }
+});
+
+const port = process.env.PORT || 3001;
+app.listen(port, () => console.log(`Proxy listening on ${port}`));
+
+
+In package.json, add a concurrent start (or run in a second Replit tab):
+
+{
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node server/index.js"
+  },
+  "type": "module"
+}
+
+
+If you already have an Express server, just merge the /proxy route.
+
+3) Frontend: reusable time-animated map layers
+3a) Add Leaflet styles (once)
+
+In src/main.jsx (or App.jsx):
+
+import "leaflet/dist/leaflet.css";
+
+3b) Create src/components/TimeTileLayer.jsx
+import { useEffect, useRef } from "react";
+import L from "leaflet";
+
+/**
+ * TimeTileLayer: adds a Leaflet tile layer with a changing {time} param.
+ * Props:
+ *  - map: Leaflet map instance
+ *  - urlTemplate: string URL template with {z}/{x}/{y} and a {time} placeholder (or ?time={time})
+ *  - timestamps: array of ISO strings (ascending)
+ *  - frameMs: number (default 800)
+ *  - opacity: number
+ *  - zIndex: number
+ */
+export default function TimeTileLayer({ map, urlTemplate, timestamps, frameMs=800, opacity=0.85, zIndex=500 }) {
+  const layerRef = useRef(null);
+  const idxRef = useRef(0);
+  const timerRef = useRef(null);
+
+  useEffect(() => {
+    if (!map || !timestamps?.length) return;
+
+    const buildUrl = (iso) => {
+      const encodedTime = encodeURIComponent(iso);
+      const direct = urlTemplate.replace("{time}", encodedTime);
+      // route through our proxy to bypass CORS
+      return `/proxy?url=${encodeURIComponent(direct)}`;
+    };
+
+    const step = () => {
+      const t = timestamps[idxRef.current];
+      const url = buildUrl(t);
+
+      if (layerRef.current) map.removeLayer(layerRef.current);
+      layerRef.current = L.tileLayer(url, { opacity, zIndex, maxZoom: 12, crossOrigin: true });
+      layerRef.current.addTo(map);
+
+      idxRef.current = (idxRef.current + 1) % timestamps.length;
+      timerRef.current = setTimeout(step, frameMs);
+    };
+
+    step();
+    return () => { if (timerRef.current) clearTimeout(timerRef.current); if (layerRef.current) map.removeLayer(layerRef.current); };
+  }, [map, timestamps, urlTemplate, frameMs, opacity, zIndex]);
+
+  return null;
+}
+
+3c) Weather Center page
+
+Create src/modules/WeatherCenter.jsx
+
+import { useEffect, useRef, useState } from "react";
+import L from "leaflet";
+import TimeTileLayer from "../components/TimeTileLayer";
+
+/**
+ * Data sources used here:
+ * - NASA GIBS GOES-East GeoColor (near-real-time, ~10–15 min cadence)
+ *   URL pattern (WMTS/XYZ-like via GIBS Tiled): replace {time} with ISO
+ *   https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/GOES-East_ABI_GeoColor/default/{time}/GoogleMapsCompatible_Level6/{z}/{y}/{x}.jpg
+ *
+ * - NEXRAD mosaic (Iowa State Mesonet “nexrad-n0q-900913” PNG tiles)
+ *   No time param (auto updates) – we still run through proxy for CORS:
+ *   https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png
+ *
+ * Notes:
+ * - You can swap GOES layer to IR, GLM lightning, etc., by changing the GIBS layer id.
+ */
+
+function lastMinutesISO(count = 12, stepMin = 10) {
+  const arr = [];
+  const now = Date.now();
+  for (let i = count - 1; i >= 0; i--) {
+    const d = new Date(now - i * stepMin * 60 * 1000);
+    // GIBS expects full ISO, but truncation to minutes is fine
+    arr.push(d.toISOString());
+  }
+  return arr;
+}
+
+export default function WeatherCenter() {
+  const mapDiv = useRef(null);
+  const [map, setMap] = useState(null);
+
+  const [showGOES, setShowGOES] = useState(true);
+  const [showRadar, setShowRadar] = useState(true);
+
+  const goesURL =
+    "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/GOES-East_ABI_GeoColor/default/{time}/GoogleMapsCompatible_Level6/{z}/{y}/{x}.jpg";
+
+  // Fixed-refresh radar tiles (no time param)
+  const radarURL =
+    "/proxy?url=" +
+    encodeURIComponent(
+      "https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png"
+    );
+
+  useEffect(() => {
+    if (map) return;
+    const m = L.map(mapDiv.current, { zoomControl: true }).setView([31.5, -84.0], 6); // GA/AL focus
+    L.tileLayer("/proxy?url=" + encodeURIComponent("https://tile.openstreetmap.org/{z}/{x}/{y}.png"), {
+      maxZoom: 19,
+      attribution: "&copy; OpenStreetMap"
+    }).addTo(m);
+    setMap(m);
+  }, [map]);
+
+  const goesTimes = lastMinutesISO(18, 10); // last 3 hours @10-min
+
+  return (
+    <div style={{ height: "calc(100vh - 120px)", width: "100%", position: "relative" }}>
+      <div ref={mapDiv} style={{ height: "100%", width: "100%" }} />
+
+      {/* Controls */}
+      <div
+        style={{
+          position: "absolute", top: 12, left: 12, background: "white",
+          padding: 12, borderRadius: 12, boxShadow: "0 4px 12px rgba(0,0,0,.15)", minWidth: 220
+        }}
+      >
+        <div style={{ fontWeight: 700, marginBottom: 8 }}>Layers</div>
+        <label style={{ display: "block", marginBottom: 6 }}>
+          <input type="checkbox" checked={showGOES} onChange={() => setShowGOES(v => !v)} /> GOES GeoColor (animated)
+        </label>
+        <label style={{ display: "block" }}>
+          <input type="checkbox" checked={showRadar} onChange={() => setShowRadar(v => !v)} /> NEXRAD Radar (composite)
+        </label>
+      </div>
+
+      {/* GOES animation */}
+      {map && showGOES && (
+        <TimeTileLayer
+          map={map}
+          urlTemplate={goesURL}
+          timestamps={goesTimes}
+          frameMs={700}
+          opacity={0.80}
+          zIndex={500}
+        />
+      )}
+
+      {/* Radar (static refresh from source) */}
+      {map && showRadar && L && (() => {
+        // add/remove radar layer based on showRadar
+        const layer = L.tileLayer(radarURL, { opacity: 0.8, zIndex: 600 });
+        layer.addTo(map);
+        return () => map.removeLayer(layer);
+      })()}
+    </div>
+  );
+}
+
+3d) Route it to your “Weather Center” card
+
+If you’re using React Router, add a route:
+
+// src/App.jsx (example)
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import WeatherCenter from "./modules/WeatherCenter.jsx";
+// ... other imports
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/weather-center" element={<WeatherCenter />} />
+        {/* …other modules */}
+      </Routes>
+    </BrowserRouter>
+  );
+}
+
+
+Make your Weather Center card’s “Launch Module” button link to /weather-center.
+
+What this gives you right now
+
+Weather Center shows:
+
+Animated GOES-East GeoColor (near-real-time satellite; loops the last ~3 hours).
+
+Live NEXRAD radar mosaic laid over your basemap.
+
+Both are CORS-safe via your /proxy route.
+
+You can swap GOES layer IDs for IR bands or lightning later.
+
+Add it to “Eyes in the Sky” (optional now)
+
+Reuse the same TimeTileLayer in src/modules/EyesInTheSky.jsx but center wider (CONUS) and add a layer toggle for other GIBS products. I can drop that file in next if you want it live in both places.
+
+Notes & switches you may want
+
+GOES-West (for Pacific): change layer name to GOES-West_ABI_GeoColor.
+
+Infrared: GOES-East_ABI_CMI_IR_13 (great for cloud tops at night).
+
+GIBS tile path sometimes prefers /png vs /jpg; both shown above are the common forms for those layers.
+
+Attribution: add a small footer “Imagery: NASA GIBS; Radar: Iowa State Mesonet”.

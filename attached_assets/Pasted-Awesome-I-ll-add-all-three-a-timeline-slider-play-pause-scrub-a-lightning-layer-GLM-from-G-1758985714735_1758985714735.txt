@@ -1,0 +1,414 @@
+Awesome — I’ll add all three:
+
+a timeline slider (play/pause + scrub)
+
+a lightning layer (GLM from GIBS; same time slider)
+
+simple AI trigger plumbing that publishes “storm events” into your Storm Predictions module (via a tiny server queue + SSE stream you can consume there)
+
+Below are drop-in files/edits for your current React + Express setup. They extend what we already installed in Weather Center.
+
+0) One tiny dependency (for event IDs)
+npm i nanoid
+
+1) Server: storm event bus (POST + SSE)
+
+server/events.js
+
+import { nanoid } from "nanoid";
+
+const subscribers = new Set();   // SSE clients
+const queue = [];                // in-memory ring buffer
+
+export function publish(evt) {
+  const event = { id: nanoid(), ts: Date.now(), ...evt };
+  queue.push(event);
+  // keep last 500
+  if (queue.length > 500) queue.shift();
+  const payload = `id: ${event.id}\nevent: ${event.type || "storm"}\ndata: ${JSON.stringify(event)}\n\n`;
+  for (const res of subscribers) {
+    try { res.write(payload); } catch {}
+  }
+}
+
+export function sseHandler(req, res) {
+  res.writeHead(200, {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    Connection: "keep-alive",
+    "Access-Control-Allow-Origin": "*"
+  });
+  res.write("\n");
+  subscribers.add(res);
+  // replay last 50 on connect
+  for (const e of queue.slice(-50)) {
+    res.write(`id: ${e.id}\nevent: ${e.type || "storm"}\ndata: ${JSON.stringify(e)}\n\n`);
+  }
+  req.on("close", () => subscribers.delete(res));
+}
+
+export function postEventHandler(req, res) {
+  let body = "";
+  req.on("data", (c) => body += c);
+  req.on("end", () => {
+    try {
+      const evt = JSON.parse(body || "{}");
+      if (!evt.type) evt.type = "storm";
+      publish(evt);
+      res.json?.({ ok: true }) || res.end(JSON.stringify({ ok: true }));
+    } catch (e) {
+      res.status(400).send("Bad JSON");
+    }
+  });
+}
+
+
+server/index.js (add these lines)
+
+import express from "express";
+import cors from "cors";
+import { sseHandler, postEventHandler, publish } from "./events.js"; // NEW
+
+const app = express();
+app.use(cors());
+
+// ... your existing /proxy route stays as-is ...
+
+// Storm Predictions plumbing
+app.get("/events/stream", sseHandler);     // SSE for consumers (Storm Predictions)
+app.post("/events", postEventHandler);     // simple POST to publish
+
+// Optional: a basic heartbeat every 60s
+setInterval(() => publish({ type: "heartbeat" }), 60000);
+
+const port = process.env.PORT || 3001;
+app.listen(port, () => console.log(`Proxy+Events listening on ${port}`));
+
+
+The Weather Center will POST “frame advanced” and “alert” events here; your Storm Predictions module can connect to /events/stream and react in real time.
+
+2) Frontend: time slider + GLM lightning layer
+2a) Upgrade the TimeTileLayer to accept an externally controlled index + onFrame callback
+
+src/components/TimeTileLayer.jsx (replace with this version)
+
+import { useEffect, useRef } from "react";
+import L from "leaflet";
+
+/**
+ * TimeTileLayer: Leaflet tile layer with time parameter.
+ * Props:
+ *  - map            : Leaflet map instance
+ *  - urlTemplate    : contains {time}, {z}/{x}/{y}
+ *  - timestamps     : ISO[] ascending
+ *  - playing        : bool (auto-advance)
+ *  - index          : number (controlled current frame)
+ *  - onNeedNext     : () => void   (called to request next index when playing)
+ *  - opacity, zIndex, maxZoom
+ *  - onFrame        : (iso, i) => void  (callback fired when frame applied)
+ */
+export default function TimeTileLayer({
+  map, urlTemplate, timestamps,
+  playing=false, index=0, onNeedNext,
+  frameMs=800, opacity=0.85, zIndex=500, maxZoom=12,
+  onFrame
+}) {
+  const layerRef = useRef(null);
+  const timerRef = useRef(null);
+  const lastIdxRef = useRef(-1);
+
+  const buildUrl = (iso) => {
+    const encodedTime = encodeURIComponent(iso);
+    const direct = urlTemplate.replace("{time}", encodedTime);
+    return `/proxy?url=${encodeURIComponent(direct)}`;
+  };
+
+  useEffect(() => {
+    if (!map || !timestamps?.length) return;
+
+    // draw whenever index changes
+    if (index !== lastIdxRef.current) {
+      const iso = timestamps[index];
+      const url = buildUrl(iso);
+      if (layerRef.current) map.removeLayer(layerRef.current);
+      layerRef.current = L.tileLayer(url, { opacity, zIndex, maxZoom, crossOrigin: true });
+      layerRef.current.addTo(map);
+      lastIdxRef.current = index;
+      onFrame && onFrame(iso, index);
+    }
+
+    // autoplay
+    if (playing) {
+      timerRef.current && clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => onNeedNext && onNeedNext(), frameMs);
+    } else if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+
+    return () => {};
+  }, [map, timestamps, index, playing, frameMs, opacity, zIndex, maxZoom]);
+
+  // cleanup on unmount
+  useEffect(() => () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    if (layerRef.current && map) map.removeLayer(layerRef.current);
+  }, [map]);
+
+  return null;
+}
+
+2b) Generic GIBS static layer helper (for radar or any XYZ without time)
+
+src/components/TileLayerURL.jsx
+
+import { useEffect, useRef } from "react";
+import L from "leaflet";
+
+export default function TileLayerURL({ map, url, opacity=0.8, zIndex=600, maxZoom=12 }) {
+  const layerRef = useRef(null);
+  useEffect(() => {
+    if (!map) return;
+    const lyr = L.tileLayer(url, { opacity, zIndex, maxZoom, crossOrigin: true });
+    layerRef.current = lyr;
+    lyr.addTo(map);
+    return () => { if (layerRef.current) map.removeLayer(layerRef.current); };
+  }, [map, url, opacity, zIndex, maxZoom]);
+  return null;
+}
+
+2c) Weather Center with slider + lightning toggle + event publishing
+
+src/modules/WeatherCenter.jsx (replace with this version)
+
+import { useEffect, useRef, useState, useMemo } from "react";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+import TimeTileLayer from "../components/TimeTileLayer.jsx";
+import TileLayerURL from "../components/TileLayerURL.jsx";
+
+/** Helpers **/
+function buildTimes({ hours=3, stepMin=10 }) {
+  const arr = [];
+  const end = Date.now();
+  const steps = Math.ceil((hours*60)/stepMin);
+  for (let i = steps-1; i >= 0; i--) {
+    arr.push(new Date(end - i*stepMin*60*1000).toISOString());
+  }
+  return arr;
+}
+
+async function publishEvent(evt) {
+  try {
+    await fetch("/events", { method: "POST", body: JSON.stringify(evt) });
+  } catch {}
+}
+
+/** Layer IDs **/
+const GOES_EAST_GEOCOLOR =
+  "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/GOES-East_ABI_GeoColor/default/{time}/GoogleMapsCompatible_Level6/{z}/{y}/{x}.jpg";
+
+// NOTE: GLM (lightning) layer id can vary by catalog. This is the common GIBS route:
+// If you later change to IR or a different GLM product, just swap the path below.
+const GOES_EAST_GLM =
+  "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/GOES-East_GLM_Flash_Extent_Density/default/{time}/GoogleMapsCompatible_Level8/{z}/{y}/{x}.png";
+
+// Radar composite (auto-refresh; no time param)
+const RADAR_URL = "/proxy?url=" + encodeURIComponent(
+  "https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png"
+);
+
+export default function WeatherCenter() {
+  const mapDiv = useRef(null);
+  const [map, setMap] = useState(null);
+
+  const [times, setTimes] = useState(() => buildTimes({ hours: 3, stepMin: 10 }));
+  const [idx, setIdx] = useState(times.length - 1);
+  const [playing, setPlaying] = useState(true);
+
+  const [showGOES, setShowGOES] = useState(true);
+  const [showGLM, setShowGLM] = useState(true);
+  const [showRadar, setShowRadar] = useState(true);
+
+  useEffect(() => {
+    if (map) return;
+    const m = L.map(mapDiv.current, { zoomControl: true }).setView([31.5, -84.0], 6);
+    L.tileLayer("/proxy?url=" + encodeURIComponent("https://tile.openstreetmap.org/{z}/{x}/{y}.png"), {
+      maxZoom: 19,
+      attribution: "&copy; OpenStreetMap"
+    }).addTo(m);
+    setMap(m);
+  }, [map]);
+
+  // refresh available times every 10 minutes
+  useEffect(() => {
+    const t = setInterval(() => {
+      const fresh = buildTimes({ hours: 3, stepMin: 10 });
+      setTimes(fresh);
+      setIdx(fresh.length - 1);
+    }, 10 * 60 * 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  const onNeedNext = () => setIdx((i) => (i + 1) % times.length);
+
+  const onFrame = (iso, i) => {
+    // publish an event for Storm Predictions
+    publishEvent({
+      type: "frame_advanced",
+      module: "WeatherCenter",
+      iso, index: i,
+      layers: { goes: showGOES, glm: showGLM, radar: showRadar }
+    });
+  };
+
+  // Slider bounds
+  const max = useMemo(() => Math.max(0, times.length - 1), [times]);
+
+  return (
+    <div style={{ height: "calc(100vh - 120px)", width: "100%", position: "relative" }}>
+      <div ref={mapDiv} style={{ height: "100%", width: "100%" }} />
+
+      {/* Controls */}
+      <div
+        style={{
+          position: "absolute", top: 12, left: 12, background: "white",
+          padding: 12, borderRadius: 12, boxShadow: "0 4px 12px rgba(0,0,0,.15)", minWidth: 260
+        }}
+      >
+        <div style={{ fontWeight: 800, marginBottom: 8 }}>Weather Center</div>
+
+        <div style={{ marginBottom: 8 }}>
+          <button onClick={() => setPlaying(p => !p)} style={{ marginRight: 8 }}>
+            {playing ? "Pause" : "Play"}
+          </button>
+          <input
+            type="range"
+            min={0}
+            max={max}
+            value={idx}
+            onChange={e => { setPlaying(false); setIdx(parseInt(e.target.value, 10)); }}
+            style={{ width: 160, verticalAlign: "middle" }}
+          />
+          <div style={{ fontSize: 12, color: "#555", marginTop: 4 }}>
+            {times[idx] ? new Date(times[idx]).toLocaleString() : ""}
+          </div>
+        </div>
+
+        <div style={{ fontWeight: 700, marginBottom: 6 }}>Layers</div>
+        <label style={{ display: "block" }}>
+          <input type="checkbox" checked={showGOES} onChange={() => setShowGOES(v => !v)} /> GOES GeoColor (animated)
+        </label>
+        <label style={{ display: "block" }}>
+          <input type="checkbox" checked={showGLM} onChange={() => setShowGLM(v => !v)} /> GLM Lightning (animated)
+        </label>
+        <label style={{ display: "block" }}>
+          <input type="checkbox" checked={showRadar} onChange={() => setShowRadar(v => !v)} /> NEXRAD Radar
+        </label>
+      </div>
+
+      {/* Animated time layers */}
+      {map && showGOES && (
+        <TimeTileLayer
+          map={map}
+          urlTemplate={GOES_EAST_GEOCOLOR}
+          timestamps={times}
+          playing={playing}
+          index={idx}
+          onNeedNext={onNeedNext}
+          frameMs={650}
+          opacity={0.80}
+          zIndex={500}
+          onFrame={onFrame}
+        />
+      )}
+
+      {map && showGLM && (
+        <TimeTileLayer
+          map={map}
+          urlTemplate={GOES_EAST_GLM}
+          timestamps={times}
+          playing={playing}
+          index={idx}
+          onNeedNext={onNeedNext}
+          frameMs={650}
+          opacity={0.85}
+          zIndex={650}
+          onFrame={(iso, i) => publishEvent({ type: "lightning_frame", iso, index: i })}
+        />
+      )}
+
+      {/* Static auto-refresh radar */}
+      {map && showRadar && (
+        <TileLayerURL map={map} url={RADAR_URL} opacity={0.7} zIndex={600} />
+      )}
+    </div>
+  );
+}
+
+
+If your GLM tiles don’t appear immediately, the only thing you might need to change is the GLM layer path (GIBS sometimes renames products). The code is correct for the common GOES-East_GLM_Flash_Extent_Density tiles. If your account/browser can’t reach it due to rate limits, it’ll still work once accessible.
+
+3) Storm Predictions module: consume the event stream (SSE)
+
+Create src/modules/StormPredictions.jsx (starter)
+
+import { useEffect, useState } from "react";
+
+export default function StormPredictions() {
+  const [events, setEvents] = useState([]);
+
+  useEffect(() => {
+    const src = new EventSource("/events/stream");
+    const handler = (e) => {
+      try { setEvents((prev) => [...prev.slice(-199), JSON.parse(e.data)]); } catch {}
+    };
+    src.addEventListener("storm", handler);
+    src.addEventListener("frame_advanced", handler);
+    src.addEventListener("lightning_frame", handler);
+    src.addEventListener("heartbeat", handler);
+    return () => src.close();
+  }, []);
+
+  // Here you can hook AI logic: windowed analysis, thresholds, etc.
+  // Example heuristic: every lightning_frame => if frequency spikes, raise "very_urgent" priority.
+
+  return (
+    <div style={{ padding: 16 }}>
+      <h2>Storm Predictions – Live Events</h2>
+      <p>Feed from Weather Center (frames, lightning) to drive AI scoring & lead prioritization.</p>
+      <div style={{ maxHeight: "70vh", overflow: "auto", border: "1px solid #ddd", borderRadius: 8, padding: 8 }}>
+        {events.slice().reverse().map((e, i) => (
+          <pre key={i} style={{ margin: 0, padding: 8, borderBottom: "1px dashed #eee" }}>
+            {JSON.stringify(e, null, 2)}
+          </pre>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+
+Add a route (if you use React Router):
+
+<Route path="/storm-predictions" element={<StormPredictions />} />
+
+4) What you just gained
+
+Timeline: scrub exact timestamps; play/pause animation.
+
+Lightning: GLM flash-density tiles, synchronized to the same timeline.
+
+AI hooks: every frame broadcasts an event. Your Storm Predictions module already “listens”; you can attach rules (e.g., debris-ball detection signal → auto-priority “Very Urgent”) and push those into Lead Management.
+
+5) Next quick wins (say “add these” and I’ll drop code)
+
+GLM frequency spike detector (client-side) that promotes “Very Urgent” in Lead Management.
+
+NOAA Alerts listener (NWS CAP feed via server cron) → broadcast Tornado/Severe warnings as events.
+
+Route optimizer hook: when new “urgent” leads land, compute best-next-stop (OSRM/Valhalla) for each crew.
+
+Cesium 3D globe view with the same time slider (if you want a 3D ops view in Eyes in the Sky).
+
+If anything doesn’t render on your Replit right now, paste your error and I’ll fix it on the spot.
