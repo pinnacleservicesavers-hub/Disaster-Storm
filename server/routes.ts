@@ -10061,12 +10061,11 @@ What specific area or type of incident would you like me to focus on? I can prov
   // ========== DISASTER LENS API ROUTES ==========
   
   // Import permission middleware
-  const permissionsPath = path.join(process.cwd(), 'server/middleware/permissions.js');
   let checkOrganizationPermission, requirePermission;
   
   try {
-    const permissions = require(permissionsPath);
-    checkOrganizationPermission = permissions.checkOrganizationPermission;
+    const permissions = await import('./middleware/permissions.js');
+    checkOrganizationPermission = permissions.requireOrgMembership;
     requirePermission = permissions.requirePermission;
   } catch (error) {
     console.warn('Permissions middleware not found, using placeholder functions');
