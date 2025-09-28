@@ -1,0 +1,54 @@
+Great thinking — the Google Maps / Google Cloud ecosystem is rich, and you can bolt on several APIs to supercharge your app. Here are some that would be especially useful for a storm / damage / disaster-response app, plus ideas on how to use them:
+
+✅ Top Google APIs to consider adding & how they help
+API / Feature	What it gives you	How you might use it in your app
+Geocoding / Reverse Geocoding	Convert addresses ↔ latitude & longitude	If a homeowner types an address, you can drop a pin on the globe and fetch lat/lng; or convert lat/lng (e.g. drone GPS) into a human address for display.
+Places API / Autocomplete	List of nearby places (businesses, landmarks, etc.) + autocomplete suggestions	When a user begins typing “123 Main St”, offer address completions. Show nearby repair shops, supply stores, hotels, etc.
+Routes / Directions / Distance Matrix	Driving / walking / shortest routes, travel time, best path	If your contractors or crews go to a site, compute travel time. Or suggest best path avoiding flooded or blocked roads.
+Elevation API	Elevation data for given coordinates	For storm/damage modelling, you can find low-lying areas, flood risk zones, or determine the “drop” in land for water flow predictions.
+Roads API	Snap noisy GPS paths to real roads, get speed limits	If your drones or service vehicles report paths, you can clean up the tracks. Also useful for estimating travel constraints.
+Time Zone API	Time zone for any lat/lng	If your app shows schedules, timestamps, or local times (for different states/regions), it helps to convert to “local time.”
+Maps JavaScript API (2D / Hybrid / Satellite)	For fallback or map mode	If some parts of the web app want a “flat map” view instead of globe, you can embed or toggle between map and globe views.
+Maps Static / Street View APIs	Simple images, street panoramas	For quick snapshots (low complexity) or showing a street view of damage sites in 2D.
+Maps Tiles / Photorealistic 3D Tiles	What you already set up — high resolution 3D imagery	Use this as your base layer + combine with overlays (radar, damage, paths).
+Imagery Insights / Roads & Places Insights (Google’s new tools)	Analytics / infrastructure state / traffic history	Potential for macro insights: e.g. which infrastructure is damaged, which roads are active, patterns of usage. (Google is expanding these tools) 
+The Verge
+
+Google Cloud / Satellite / Earth Engine	Processing large geospatial data, machine learning, time-series imagery	For example, detect changes over time (pre-storm vs post-storm), classify damage automatically, and integrate with Google’s satellite imagery datasets.
+🔍 Prioritize based on what you need now
+
+You don’t have to add all of them upfront. Here’s a staged approach:
+
+Phase 1 (must-haves):
+
+Geocoding / Reverse Geocoding
+
+Places / Autocomplete
+
+Routes / Directions / Distance
+
+Elevation
+
+Phase 2 (advanced):
+
+Roads API
+
+Time Zone API
+
+Static / Street View snapshots
+
+Phase 3 (analytics / AI / scale):
+
+Imagery Insights / Places Insights / Roads Insights
+
+Earth Engine / Cloud ML pipelines
+
+🛠 Example: Use case mashups
+
+A property owner enters “456 Oak Street, City, State” → you geocode it → drop a marker on the globe → fetch elevation → highlight flood risk → suggest route for a team to get there.
+
+A contractor’s app sends its current GPS track → you snap it to roads (Roads API) → show the clean path on the map.
+
+After a major storm, you load pre and post satellite imagery via Earth Engine / imagery APIs → compute difference → automatically flag damaged buildings.
+
+A user sees a 3D Earth view but also wants a 2D “zoomed-in street map” overlay → toggle to Maps JS + Street View.
