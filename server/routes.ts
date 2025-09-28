@@ -850,9 +850,12 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
   // Homeowner Contact Database Endpoints
   app.get('/api/homeowners', authenticate, async (req: AuthenticatedRequest, res) => {
     try {
-      const fs = require('fs');
-      const path = require('path');
+      const fs = await import('fs');
+      const path = await import('path');
+      const { fileURLToPath } = await import('url');
       
+      const __filename = fileURLToPath(import.meta.url);
+      const __dirname = path.dirname(__filename);
       const homeownersPath = path.join(__dirname, '..', 'data', 'homeowners.json');
       
       if (!fs.existsSync(homeownersPath)) {
@@ -872,9 +875,12 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
     try {
       const { query, damageType, city, state, insuranceCompany } = req.query;
       
-      const fs = require('fs');
-      const path = require('path');
+      const fs = await import('fs');
+      const path = await import('path');
+      const { fileURLToPath } = await import('url');
       
+      const __filename = fileURLToPath(import.meta.url);
+      const __dirname = path.dirname(__filename);
       const homeownersPath = path.join(__dirname, '..', 'data', 'homeowners.json');
       const homeownersData = JSON.parse(fs.readFileSync(homeownersPath, 'utf-8'));
       
