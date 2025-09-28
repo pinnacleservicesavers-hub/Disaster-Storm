@@ -11,6 +11,8 @@ export default function EyesTools(){
   const [dest, setDest] = useState<LatLng|null>(null);
   const [eta, setEta] = useState<string>('');
   const [distance, setDistance] = useState<number>(0);
+  const [elevation, setElevation] = useState<number | null>(null);
+  const [cursorPos, setCursorPos] = useState<{x: number, y: number} | null>(null);
 
   useEffect(() => {
     let v: Cesium.Viewer;
@@ -26,6 +28,24 @@ export default function EyesTools(){
       }
       v.camera.flyTo({ destination: Cesium.Cartesian3.fromDegrees(-84.9877, 32.46, 55000) });
       setViewer(v);
+
+      // Elevation readout at cursor
+      v.canvas.addEventListener('mousemove', async (event) => {
+        const pick = v.camera.getPickRay(new Cesium.Cartesian2(event.offsetX, event.offsetY));
+        const globe = v.scene.globe;
+        const intersection = globe.pick(pick!, v.scene);
+        if (intersection) {
+          const cartographic = Cesium.Cartographic.fromCartesian(intersection);
+          const elevationMeters = globe.getHeight(cartographic);
+          setElevation(elevationMeters || 0);
+          setCursorPos({ x: event.clientX, y: event.clientY });
+        }
+      });
+
+      v.canvas.addEventListener('mouseleave', () => {
+        setElevation(null);
+        setCursorPos(null);
+      });
     })();
     return () => { if (v && !v.isDestroyed()) v.destroy(); };
   }, []);
@@ -81,11 +101,26 @@ export default function EyesTools(){
         {distance>0 && (<span className="pill">Distance: {(distance/1609.34).toFixed(1)} mi</span>)}
       </div>
       <div ref={ref} className="globe" />
+      {elevation !== null && cursorPos && (
+        <div 
+          className="elevation-readout"
+          style={{
+            position: 'fixed',
+            left: cursorPos.x + 10,
+            top: cursorPos.y - 30,
+            pointerEvents: 'none',
+            zIndex: 1000
+          }}
+        >
+          {elevation.toFixed(0)}m
+        </div>
+      )}
       <style>{`
         .wrap{ height:100vh; display:flex; flex-direction:column; }
         .toolbar{ display:flex; gap:12px; align-items:center; padding:10px; border-bottom:1px solid #eee; background:#fff; }
         .pill{ background:#111; color:#fff; padding:6px 10px; border-radius:999px; font-size:12px; }
         .globe{ flex:1; }
+        .elevation-readout{ background:#000; color:#fff; padding:4px 8px; border-radius:4px; font-size:12px; font-weight:bold; }
       `}</style>
     </div>
   );
