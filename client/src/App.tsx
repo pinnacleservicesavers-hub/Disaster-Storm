@@ -30,6 +30,7 @@ import CalendarBooking from "./pages/CalendarBooking";
 import WorkflowBuilder from "./pages/WorkflowBuilder";
 import StormShare from "./pages/StormShare";
 import DisasterEssentialsMarketplace from "./pages/DisasterEssentialsMarketplace";
+import HomeownerContacts from "./pages/HomeownerContacts";
 import XRayRealityModule from "./modules/xray-reality/XRayRealityModule";
 import { FloatingAIAssistant } from '@/components/FloatingAIAssistant';
 import { Button } from '@/components/ui/button';
@@ -538,6 +539,12 @@ export default function App() {
           <title>Customer Management - DisasterDirect</title>
           <meta name="description" content="Manage customer relationships, communications, service history and project tracking for property restoration services" />
           <Customers />
+        </Route>
+        
+        <Route path="/homeowner-contacts">
+          <title>Homeowner Contact Database - DisasterDirect</title>
+          <meta name="description" content="Search and contact homeowners with property damage claims. Complete contact information, damage details, insurance companies, and claim numbers for efficient storm restoration outreach" />
+          <HomeownerContacts />
         </Route>
         
         <Route path="/leads">
