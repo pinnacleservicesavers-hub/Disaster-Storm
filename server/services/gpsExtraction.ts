@@ -1,4 +1,4 @@
-import { ExifImage } from 'exif';
+import ExifImage from 'exif';
 import sharp from 'sharp';
 
 export interface GPSCoordinates {
