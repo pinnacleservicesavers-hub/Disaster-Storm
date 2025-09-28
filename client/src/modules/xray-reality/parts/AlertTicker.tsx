@@ -143,20 +143,12 @@ export default function AlertTicker() {
         </div>
       )}
       
-      <motion.div
-        className="flex space-x-8 whitespace-nowrap"
-        animate={{ x: '-100%' }}
-        transition={{
-          duration: 600,
-          repeat: Infinity,
-          ease: 'linear'
-        }}
-        style={{ width: 'fit-content' }}
-      >
-        {alerts.map((alert, index) => (
-          <div key={`${alert.id}-${index}`} className="flex items-center space-x-4 min-w-max">
+      {/* Static alert display - no animation to prevent flashing */}
+      <div className="flex items-center justify-center px-4">
+        {alerts.slice(0, 1).map((alert, index) => (
+          <div key={`${alert.id}-static`} className="flex items-center space-x-4 text-center">
             <div className="flex items-center space-x-2">
-              <AlertTriangle className="h-4 w-4" style={{ animation: 'pulse 4s infinite' }} />
+              <AlertTriangle className="h-4 w-4" />
               <span className={`px-2 py-1 rounded text-xs font-bold ${getSeverityColor(alert.severity)}`}>
                 {alert.type.toUpperCase()}
               </span>
@@ -173,39 +165,15 @@ export default function AlertTicker() {
             <span className="text-xs opacity-75">
               Expires: {formatTime(alert.expires)}
             </span>
-            
-            {/* Separator */}
-            <div className="w-px h-4 bg-white/30 mx-4"></div>
           </div>
         ))}
         
-        {/* Duplicate for seamless loop */}
-        {alerts.map((alert, index) => (
-          <div key={`${alert.id}-dup-${index}`} className="flex items-center space-x-4 min-w-max">
-            <div className="flex items-center space-x-2">
-              <AlertTriangle className="h-4 w-4" style={{ animation: 'pulse 4s infinite' }} />
-              <span className={`px-2 py-1 rounded text-xs font-bold ${getSeverityColor(alert.severity)}`}>
-                {alert.type.toUpperCase()}
-              </span>
-            </div>
-            
-            <span className="font-medium text-sm">
-              {alert.headline}
-            </span>
-            
-            <span className="text-xs opacity-75">
-              {alert.area}
-            </span>
-            
-            <span className="text-xs opacity-75">
-              Expires: {formatTime(alert.expires)}
-            </span>
-            
-            {/* Separator */}
-            <div className="w-px h-4 bg-white/30 mx-4"></div>
-          </div>
-        ))}
-      </motion.div>
+        {alerts.length > 1 && (
+          <span className="ml-4 text-xs opacity-75">
+            +{alerts.length - 1} more alerts
+          </span>
+        )}
+      </div>
       
       {/* Update indicator */}
       <div className="absolute right-4 top-1/2 transform -translate-y-1/2 flex items-center space-x-1 text-xs opacity-75">
