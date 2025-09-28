@@ -62,6 +62,35 @@ export default function LiveStormView() {
       const gridHelper = new THREE.GridHelper(20, 20, 0x333333, 0x333333);
       scene.add(gridHelper);
 
+      // Add placeholder content while weather data loads
+      const radarPlaceholder = new THREE.PlaneGeometry(12, 8);
+      const radarMaterial = new THREE.MeshLambertMaterial({ 
+        color: 0x00ff00, 
+        transparent: true, 
+        opacity: 0.6,
+        side: THREE.DoubleSide
+      });
+      const radarMesh = new THREE.Mesh(radarPlaceholder, radarMaterial);
+      radarMesh.position.set(-3, 1, 0);
+      radarMesh.rotation.x = -Math.PI / 2;
+      scene.add(radarMesh);
+
+      // Add text labels for context
+      const loader = new THREE.FontLoader();
+      
+      // Add placeholder GOES satellite data
+      const goesPlaceholder = new THREE.PlaneGeometry(12, 8);
+      const goesMaterial = new THREE.MeshLambertMaterial({ 
+        color: 0x0088ff, 
+        transparent: true, 
+        opacity: 0.6,
+        side: THREE.DoubleSide
+      });
+      const goesMesh = new THREE.Mesh(goesPlaceholder, goesMaterial);
+      goesMesh.position.set(3, 1, 0);
+      goesMesh.rotation.x = -Math.PI / 2;
+      scene.add(goesMesh);
+
       // Add auto-refreshing radar plane
       radarHandleRef.current = addAutoRefreshingRasterPlane(
         scene,
@@ -96,8 +125,8 @@ export default function LiveStormView() {
       const animate = () => {
         frameId.current = requestAnimationFrame(animate);
         
-        // Rotate camera around the scene for dynamic view
-        const time = Date.now() * 0.0005;
+        // Rotate camera around the scene for dynamic view (slower rotation)
+        const time = Date.now() * 0.0001;
         camera.position.x = Math.cos(time) * 15;
         camera.position.z = Math.sin(time) * 15;
         camera.lookAt(0, 0, 0);
