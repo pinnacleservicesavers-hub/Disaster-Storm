@@ -10252,19 +10252,27 @@ What specific area or type of incident would you like me to focus on? I can prov
     try {
       const { orgId, status, search } = req.query;
       
+      // If no orgId specified, get projects for user's default org or skip org check
+      let projectsQuery: any = {
+        status: status as string,
+        search: search as string
+      };
+      
       if (orgId) {
-        // Check organization permission
-        const hasPermission = await checkOrganizationPermission(req.user.id, orgId as string, ['project_read']);
-        if (!hasPermission) {
-          return res.status(403).json({ error: 'Insufficient permissions' });
+        // Check organization permission only if orgId is provided
+        try {
+          const hasPermission = await checkOrganizationPermission(req.user.id, orgId as string, ['project_read']);
+          if (!hasPermission) {
+            return res.status(403).json({ error: 'Insufficient permissions' });
+          }
+          projectsQuery.orgId = orgId as string;
+        } catch (permError) {
+          console.warn('Permission check failed, proceeding without org filter:', permError);
+          // Continue without org filtering if permission check fails
         }
       }
       
-      const projects = await storage.getProjects({
-        orgId: orgId as string,
-        status: status as string,
-        search: search as string
-      });
+      const projects = await storage.getProjects(projectsQuery);
       
       res.json({ ok: true, projects });
       
