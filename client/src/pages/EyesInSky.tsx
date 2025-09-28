@@ -1,9 +1,10 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Link } from 'wouter';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FadeIn, ScaleIn, SlideIn } from '@/components/ui/animations';
-import { Video, ExternalLink, AlertCircle, DollarSign, Play, Users, Signal, Zap, Heart, Filter, Search, Clock, Volume2, VolumeX } from 'lucide-react';
+import { Video, ExternalLink, AlertCircle, DollarSign, Play, Users, Signal, Zap, Heart, Filter, Search, Clock, Volume2, VolumeX, Globe } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect } from 'react';
 
@@ -228,7 +229,18 @@ export default function EyesInSky() {
               <p className="text-xl text-slate-600 dark:text-slate-300 max-w-3xl mx-auto mb-4">
                 Real-time storm chasing coverage and professional weather monitoring from across the United States
               </p>
-              <div className="flex justify-center">
+              <div className="flex justify-center gap-4">
+                <Link href="/eyes-globe">
+                  <Button
+                    variant="default"
+                    size="sm"
+                    className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white border-0 backdrop-blur-sm transition-all duration-300 shadow-lg hover:shadow-xl"
+                    data-testid="button-3d-globe"
+                  >
+                    <Globe className="h-4 w-4" />
+                    Launch 3D Globe
+                  </Button>
+                </Link>
                 <Button
                   variant="outline"
                   size="sm"

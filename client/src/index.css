@@ -75,6 +75,10 @@
   --portal-overlay-hover-dark: rgba(0, 0, 0, 0.5);
 }
 
+/* Cesium global styles for full-height container */
+html, body, #root { height: 100%; margin: 0; }
+.cesium-root { width: 100%; height: 100vh; }
+
 .dark {
   --background: 222 84% 5%;
   --foreground: 210 40% 98%;
