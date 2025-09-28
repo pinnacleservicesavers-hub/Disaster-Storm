@@ -58,6 +58,7 @@ import { universalAI } from "./services/universalAI.js";
 import { EnhancedImageAnalysisService } from "./services/enhancedImageAnalysis.js";
 import { PhotoOrganizationService } from "./services/photoOrganizationService";
 import { propertyService } from "./services/property.js";
+import { PropertyOwnerLookupService } from "./services/propertyOwnerLookup.js";
 import { storage } from "./storage";
 import { z } from "zod";
 
@@ -929,6 +930,92 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
     } catch (error) {
       console.error('Error searching homeowner data:', error);
       res.status(500).json({ error: 'Failed to search homeowner data' });
+    }
+  });
+
+  // Initialize GPS property owner lookup service
+  const propertyOwnerLookup = new PropertyOwnerLookupService();
+
+  // GPS-based property owner identification from uploaded images
+  app.post('/api/identify-property-owner/image', authenticate, async (req: AuthenticatedRequest, res) => {
+    try {
+      console.log('📸 GPS property identification request received');
+      
+      if (!req.files || !req.files.image) {
+        return res.status(400).json({ 
+          success: false, 
+          error: 'No image file provided. Please upload an image with GPS data.' 
+        });
+      }
+
+      const imageFile = Array.isArray(req.files.image) ? req.files.image[0] : req.files.image;
+      
+      if (!imageFile.data) {
+        return res.status(400).json({ 
+          success: false, 
+          error: 'Invalid image file format' 
+        });
+      }
+
+      const result = await propertyOwnerLookup.identifyPropertyOwnerFromImage(imageFile.data);
+      
+      if (result.success) {
+        console.log('✅ Property owner identified successfully:', result.propertyOwner?.name);
+      } else {
+        console.log('❌ Property owner identification failed:', result.error);
+      }
+
+      res.json(result);
+
+    } catch (error) {
+      console.error('❌ Error in GPS property identification:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: 'Internal server error during property identification' 
+      });
+    }
+  });
+
+  // GPS-based property owner identification by coordinates
+  app.get('/api/identify-property-owner/coordinates', authenticate, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { lat, lng } = req.query;
+      
+      if (!lat || !lng) {
+        return res.status(400).json({
+          success: false,
+          error: 'Latitude and longitude parameters are required'
+        });
+      }
+
+      const latitude = parseFloat(lat as string);
+      const longitude = parseFloat(lng as string);
+
+      if (isNaN(latitude) || isNaN(longitude)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid latitude or longitude values'
+        });
+      }
+
+      console.log(`📍 Looking up property owner for coordinates: ${latitude}, ${longitude}`);
+
+      const result = await propertyOwnerLookup.getPropertyOwnerByCoordinates(latitude, longitude);
+      
+      if (result.success) {
+        console.log('✅ Property owner found:', result.propertyOwner?.name);
+      } else {
+        console.log('❌ No property owner found for coordinates');
+      }
+
+      res.json(result);
+
+    } catch (error) {
+      console.error('❌ Error in coordinate property lookup:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: 'Internal server error during coordinate lookup' 
+      });
     }
   });
 
