@@ -1,0 +1,224 @@
+Below is a **copy‑paste** guide with exact files/snippets to add a 3D Earth (CesiumJS + Google Photorealistic 3D Tiles) to your **Eyes in the Sky** module in Replit.
+
+---
+
+# 0) One‑time setup (Replit)
+
+**Install packages (Shell):**
+
+```bash
+npm i cesium vite-plugin-cesium
+```
+
+**Enable env secret (Replit → Secrets):**
+
+* Key: `VITE_GOOGLE_MAPS_KEY`
+* Value: *your Google Maps Platform API key*
+
+**Make sure APIs are enabled in Google Cloud:**
+
+* Maps **Photorealistic 3D Tiles** (aka "Map Tiles API")
+
+---
+
+# 1) Vite config (top level)
+
+Create or update **`vite.config.ts`** (or `.js`) at project root:
+
+```ts
+// vite.config.ts
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import cesium from 'vite-plugin-cesium';
+
+export default defineConfig({
+  plugins: [react(), cesium()],
+  server: {
+    port: 3000,
+  },
+});
+```
+
+> If you already have a vite config, just **add** `vite-plugin-cesium` to `plugins`.
+
+---
+
+# 2) Global styles (ensure full-height container)
+
+Append to **`src/index.css`** (or your global CSS):
+
+```css
+html, body, #root { height: 100%; margin: 0; }
+.cesium-root { width: 100%; height: 100vh; }
+```
+
+---
+
+# 3) Eyes in the Sky Globe component
+
+Create **`src/modules/EyesInTheSky/EyesInTheSkyGlobe.tsx`**:
+
+```tsx
+import { useEffect, useRef } from 'react';
+import * as Cesium from 'cesium';
+
+export default function EyesInTheSkyGlobe() {
+  const elRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    let viewer: Cesium.Viewer | undefined;
+
+    (async () => {
+      const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_KEY as string;
+      if (!GOOGLE_MAPS_API_KEY) {
+        console.error('Missing VITE_GOOGLE_MAPS_KEY');
+        return;
+      }
+
+      // Optional: improve lighting & performance defaults
+      Cesium.Ion.defaultAccessToken = '';// not required for Google tiles
+      Cesium.Camera.DEFAULT_VIEW_RECTANGLE = Cesium.Rectangle.fromDegrees(-125, 24, -66, 49);
+
+      viewer = new Cesium.Viewer(elRef.current as HTMLDivElement, {
+        animation: false,
+        timeline: false,
+        geocoder: false,
+        homeButton: false,
+        sceneModePicker: false,
+        baseLayerPicker: false,
+        navigationHelpButton: false,
+        terrainProvider: undefined, // Google tiles include their own ground surfaces
+      });
+
+      // Load Google Photorealistic 3D Tiles (buildings/trees/terrain)
+      const url = `https://tile.googleapis.com/v1/3dtiles/root.json?key=${GOOGLE_MAPS_API_KEY}`;
+      const tileset = await Cesium.Cesium3DTileset.fromUrl(url);
+      viewer.scene.primitives.add(tileset);
+
+      // Fly to SE US (GA/AL/FL) on start
+      viewer.camera.flyTo({
+        destination: Cesium.Cartesian3.fromDegrees(-84.9877, 32.46098, 55000), // Columbus, GA-ish
+        duration: 1.6,
+      });
+
+      // Basic click handler placeholder (you can connect leads, radar overlays, etc.)
+      const handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
+      handler.setInputAction((movement: any) => {
+        const picked = viewer!.scene.pick(movement.position);
+        if (picked) console.log('Picked:', picked);
+      }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+    })();
+
+    return () => {
+      if (viewer && !viewer.isDestroyed()) viewer.destroy();
+    };
+  }, []);
+
+  return <div ref={elRef} className="cesium-root" />;
+}
+```
+
+---
+
+# 4) Hook it into your module launcher
+
+Below are **two** common patterns. Use the one that matches your project.
+
+## A) If you have a central Router (recommended)
+
+### 4A.1 Add a route
+
+Edit **`src/router/AppRoutes.tsx`** (or wherever your routes live):
+
+```tsx
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import Home from '@/screens/Home';
+import EyesInTheSkyGlobe from '@/modules/EyesInTheSky/EyesInTheSkyGlobe';
+
+export default function AppRoutes(){
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/eyes" element={<EyesInTheSkyGlobe />} />
+      </Routes>
+    </BrowserRouter>
+  );
+}
+```
+
+### 4A.2 Make the card button open `/eyes`
+
+Where your dashboard cards are rendered (e.g., **`src/screens/Home.tsx`**), set the button link:
+
+```tsx
+import { useNavigate } from 'react-router-dom';
+
+function EyesInTheSkyCard(){
+  const navigate = useNavigate();
+  return (
+    <div className="card">
+      <h3>Eyes in the Sky</h3>
+      <p>Satellite surveillance and aerial recon...</p>
+      <button onClick={() => navigate('/eyes')}>Launch Module →</button>
+    </div>
+  );
+}
+```
+
+## B) If you toggle modules with local state (no router)
+
+Edit your **Dashboard** container (e.g., `src/App.tsx`):
+
+```tsx
+import { useState } from 'react';
+import EyesInTheSkyGlobe from '@/modules/EyesInTheSky/EyesInTheSkyGlobe';
+import DashboardGrid from '@/screens/DashboardGrid';
+
+type ModuleKey = 'DASH' | 'EYES' | 'WEATHER' | 'TRAFFIC' | 'LEADS';
+
+export default function App(){
+  const [active, setActive] = useState<ModuleKey>('DASH');
+
+  if (active === 'EYES') return <EyesInTheSkyGlobe/>;
+
+  return <DashboardGrid onLaunchEyes={() => setActive('EYES')} />;
+}
+```
+
+And in **`DashboardGrid`** where the card is:
+
+```tsx
+export default function DashboardGrid({ onLaunchEyes }: { onLaunchEyes: () => void }){
+  return (
+    <div className="grid">
+      {/* other cards... */}
+      <div className="card">
+        <h3>Eyes in the Sky</h3>
+        <p>Satellite surveillance and aerial recon...</p>
+        <button onClick={onLaunchEyes}>Launch Module →</button>
+      </div>
+    </div>
+  );
+}
+```
+
+---
+
+# 5) Quick validation
+
+1. **Secrets** → confirm `VITE_GOOGLE_MAPS_KEY` exists
+2. **Run** → open the app
+3. Click **Eyes in the Sky → Launch Module**
+4. You should see a 3D globe. Use mouse to pan/zoom. Open console for logs.
+
+---
+
+# 6) Next overlays (drop-ins you can add later)
+
+* **NOAA NEXRAD radar** as a WMTS/XYZ imagery layer (wrap in a `Cesium.UrlTemplateImageryProvider`).
+* **Storm prediction cones / tracks**: draw with `Cesium.Entity` polylines and billboards.
+* **Leads**: display pins using entities, color by priority (Tree on Home, etc.), cluster by region.
+* **Drone live video**: open a floating `<video>` overlay synced to the current camera.
+
+If you paste these files exactly where specified, your **Eyes in the Sky** card will open a photoreal 3D Earth backed by Google’s 3D Tiles. Ready for your storm ops overlays.
