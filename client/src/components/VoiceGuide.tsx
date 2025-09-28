@@ -127,6 +127,19 @@ export const PORTAL_EXPLANATIONS: Record<string, VoiceExplanation> = {
     navigation: 'Compare equipment specifications, check vendor availability, or contact suppliers directly for emergency orders.',
     benefits: ['Backup communication systems', 'Global coverage capability', 'Disaster-proof connectivity'],
     duration: 35
+  },
+  goes17: {
+    id: 'goes17',
+    portal: 'goes17',
+    title: 'GOES-17 Satellite Weather Intelligence Portal',
+    content: `The GOES-17 portal provides real-time satellite weather intelligence from NOAA's GOES-17 satellite positioned over the Western United States. 
+    Access live infrared imagery, lightning detection data, atmospheric temperature profiles, and storm tracking information. This portal delivers 
+    professional-grade meteorological data every 15 minutes, including GLM lightning mapper data, ABI atmospheric imaging, and SUVI solar monitoring. 
+    Essential for contractors tracking storm systems and weather patterns across the western regions.`,
+    keyFeatures: ['Real-time GOES-17 satellite imagery', 'GLM lightning detection data', 'Atmospheric temperature profiles', '15-minute update intervals'],
+    navigation: 'View live satellite loops, analyze lightning strike patterns, monitor temperature gradients, and track storm development in real-time.',
+    benefits: ['Professional weather intelligence', 'Western US regional coverage', 'Lightning strike prediction', 'Advanced storm tracking'],
+    duration: 45
   }
 };
 
@@ -262,7 +275,7 @@ ${explanation.benefits ? `Benefits include: ${explanation.benefits.join(', ')}.`
   }, [explanations, speakText]);
 
   const startGuidedTour = useCallback(() => {
-    const portalOrder = ['welcome', 'hotels', 'gas', 'hardware', 'shelters', 'fema', 'alerts', 'satellite'];
+    const portalOrder = ['welcome', 'hotels', 'gas', 'hardware', 'shelters', 'fema', 'alerts', 'satellite', 'goes17'];
     let currentIndex = 0;
 
     const speakNext = () => {

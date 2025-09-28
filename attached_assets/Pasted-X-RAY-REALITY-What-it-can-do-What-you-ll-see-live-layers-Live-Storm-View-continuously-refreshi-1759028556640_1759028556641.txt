@@ -1,0 +1,92 @@
+X-RAY REALITY — What it can do
+What you’ll see (live layers)
+
+Live Storm View: continuously refreshing radar (1–5 min cadence) and GOES satellite (5–10 min; faster in rapid scan) on a 3D stage so it feels live.
+
+Traffic & DOT cams: 3×3 camera grids by state (FL/GA/AL) with one-click switching.
+
+Storm-chaser feeds: embedded YouTube Live tiles (best-of chasers).
+
+Your drone feeds: WebRTC/RTMP→HLS panels for on-scene video.
+
+Alerts ticker: active NWS warnings/advisories scrolling across the top.
+
+Ocean view: sea-surface temperature and wave height overlays for coastal ops.
+
+What you can do (tools in the module)
+
+AR Measure & Mark (phones/computers/headsets):
+
+Drop hazard markers (e.g., “energized line,” “split trunk,” “blocked egress”).
+
+Draw cut lines and safe zones.
+
+Measure diameters, spans, and distances visually in AR.
+
+Lead triage overlay: auto-labels critical jobs (tree on home/building first), and reorders by urgency + proximity to the crew.
+
+Routing helper: suggests a smart sequence to avoid criss-crossing town; opens in your maps app if needed.
+
+Time scrub/replays: flip through the last 6–24 hours of radar/GOES to show how a cell moved across a property.
+
+Evidence capture: snapshot/record the AR view (markers, lines, measurements) and save to the job file.
+
+Automation & AI (when connected)
+
+AI damage hints: optional overlays (e.g., probable roof strike, lean angle, crown split) from uploaded photos/drone frames.
+
+Auto-measure assist: detects trunk/limb edges and proposes diameter/length.
+
+Auto-narration: a voice guide explains each tab and gives tips (“place a marker,” “draw a cut line,” “scan for hazards”).
+
+Collaboration & sharing
+
+“See what I see” mode: share a link so a supervisor/adjuster watches live.
+
+One-tap export: generate a claim packet (PDF/ZIP) with photos, AR annotations, timestamps, GPS, and a short text summary.
+
+Job timeline: keeps a per-site history of markers, clips, and notes.
+
+Reliability & safety features
+
+Continuous refresh: radar/GOES tiles auto-update with cache-busting so it looks live.
+
+Offline grace: keeps the last N frames locally; tools still work if signal drops.
+
+Accuracy tips in voice: quick calibration guidance (compass, visual anchor, steady hold).
+
+Role-based options: limit who can broadcast, annotate, or export.
+
+Admin & settings
+
+State presets: maintain per-state camera presets (FL/GA/AL) and favorite chasers.
+
+Data sources: toggle which layers show (radar, satellite, ocean, alerts).
+
+Branding: your logo/colors on the module card and headers.
+
+Privacy controls: choose what’s shared in external links (blur faces/plates option).
+
+What it won’t do (so expectations are clear)
+
+True “live satellite video” over neighborhoods doesn’t exist; we blend fast radar, rapid-scan satellite, and live cameras to create a live feel.
+
+See through walls/trees—AR augments the camera view; it doesn’t X-ray interiors.
+
+Guarantee public camera availability—some DOT streams change or block embedding; you can swap presets anytime.
+
+Tabs inside the module (at a glance)
+
+Live Storm View (default): Radar + GOES + Alerts, with quick AR actions.
+
+Traffic Cams: 3×3 grid, one-click state switch (FL/GA/AL).
+
+Storm Chasers: best-of YouTube Live chasers.
+
+Drone Feeds: your HLS/WebRTC streams.
+
+Ocean View: SST & wave overlays for coastal ops.
+
+AR Measure & Mark: markers, cut lines, measurement tools + voice guide.
+
+Replays: time scrub of recent radar/GOES for evidence and planning.
