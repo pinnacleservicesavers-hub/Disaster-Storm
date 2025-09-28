@@ -1,0 +1,73 @@
+import React, { useEffect, useRef } from "react";
+import { useARSupport } from "./useARSupport";
+import * as THREE from "three";
+import { OrbitControls } from "three-stdlib";
+import { addGeoMarker, addCutLine } from "./arLayers";
+
+type Props = {
+  title?: string;
+  overlays?: {
+    markers?: Array<{lat:number; lng:number; alt?:number; label?:string}>;
+    cutlines?: Array<{coords: Array<{lat:number; lng:number; alt?:number}>}>;
+  };
+};
+
+const UniversalAR: React.FC<Props> = ({ title="X-RAY REALITY — AR LIVE", overlays }) => {
+  const mountRef = useRef<HTMLDivElement>(null);
+  const support = useARSupport();
+
+  useEffect(() => {
+    const mount = mountRef.current!;
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0f1115);
+
+    const camera = new THREE.PerspectiveCamera(70, mount.clientWidth/mount.clientHeight, 0.01, 1000);
+    camera.position.set(0, 2, 6);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(mount.clientWidth, mount.clientHeight);
+    mount.appendChild(renderer.domElement);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+
+    scene.add(new THREE.AmbientLight(0xffffff, 1.0));
+    const grid = new THREE.GridHelper(50, 50);
+    scene.add(grid);
+
+    overlays?.markers?.forEach(m => addGeoMarker(scene, m.lat, m.lng, m.alt||0));
+    overlays?.cutlines?.forEach(cl => addCutLine(scene, cl.coords));
+
+    let raf = 0;
+    const tick = () => { controls.update(); renderer.render(scene, camera); raf = requestAnimationFrame(tick); };
+    tick();
+
+    const onResize = () => {
+      camera.aspect = mount.clientWidth / mount.clientHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(mount.clientWidth, mount.clientHeight);
+    };
+    window.addEventListener("resize", onResize);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("resize", onResize);
+      mount.removeChild(renderer.domElement);
+      renderer.dispose();
+    };
+  }, [overlays]);
+
+  return (
+    <div className="w-full h-full flex flex-col">
+      <div className="px-4 py-2 border-b flex items-center justify-between">
+        <div className="font-semibold">{title}</div>
+        <div className="text-xs opacity-70">Mode: {support}</div>
+      </div>
+      <div ref={mountRef} className="flex-1" />
+      <div className="px-4 py-2 text-xs opacity-70">
+        Tip: On phones/headsets allow camera permissions. On laptops this uses the webcam viewer fallback.
+      </div>
+    </div>
+  );
+};
+export default UniversalAR;

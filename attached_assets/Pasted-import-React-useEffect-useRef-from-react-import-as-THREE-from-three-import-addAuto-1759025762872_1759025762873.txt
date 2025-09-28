@@ -1,0 +1,57 @@
+import React, { useEffect, useRef } from "react";
+import * as THREE from "three";
+import { addAutoRefreshingRasterPlane } from "../../../ar/arLayers";
+
+export default function OceanView() {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const mount = ref.current!;
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0b1220);
+
+    const cam = new THREE.PerspectiveCamera(70, mount.clientWidth/mount.clientHeight, 0.01, 2000);
+    cam.position.set(0, 10, 16);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(mount.clientWidth, mount.clientHeight);
+    mount.appendChild(renderer.domElement);
+
+    scene.add(new THREE.GridHelper(80, 80));
+
+    // SST (sea-surface temperature) raster
+    addAutoRefreshingRasterPlane(
+      scene,
+      "sst",
+      () => `https://YOUR_TILE_HOST/ocean/latest_sst_conus.png`,
+      { width: 60, height: 40, opacity: 0.8, y: 0.02, refreshMs: 180_000 }
+    );
+
+    // Waves raster (significant wave height)
+    addAutoRefreshingRasterPlane(
+      scene,
+      "waves",
+      () => `https://YOUR_TILE_HOST/ocean/latest_waves_conus.png`,
+      { width: 60, height: 40, opacity: 0.6, y: 0.03, refreshMs: 180_000 }
+    );
+
+    let raf = 0;
+    const tick = () => { renderer.render(scene, cam); raf = requestAnimationFrame(tick); };
+    tick();
+
+    const onResize = () => {
+      cam.aspect = mount.clientWidth / mount.clientHeight;
+      cam.updateProjectionMatrix();
+      renderer.setSize(mount.clientWidth, mount.clientHeight);
+    };
+    window.addEventListener("resize", onResize);
+    return () => { cancelAnimationFrame(raf); window.removeEventListener("resize", onResize); mount.removeChild(renderer.domElement); renderer.dispose(); };
+  }, []);
+
+  return (
+    <div className="h-full w-full">
+      <div className="p-3 border-b text-sm opacity-70">Sea Surface Temp & Waves (auto-refresh)</div>
+      <div ref={ref} className="h-[70vh]" />
+    </div>
+  );
+}

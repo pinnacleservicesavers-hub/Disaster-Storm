@@ -1,0 +1,81 @@
+import React, { useEffect, useRef } from "react";
+import AlertTicker from "../parts/AlertTicker";
+import { useARSupport } from "../../../ar/useARSupport";
+import * as THREE from "three";
+import { addAutoRefreshingRasterPlane, addGeoMarker } from "../../../ar/arLayers";
+
+export default function LiveStormView() {
+  const mountRef = useRef<HTMLDivElement>(null);
+  const support = useARSupport();
+
+  useEffect(() => {
+    // --- Three.js bootstrap ---
+    const mount = mountRef.current!;
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0f1115);
+
+    const camera = new THREE.PerspectiveCamera(70, mount.clientWidth/mount.clientHeight, 0.01, 2000);
+    camera.position.set(0, 10, 16);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(mount.clientWidth, mount.clientHeight);
+    mount.appendChild(renderer.domElement);
+
+    const light = new THREE.DirectionalLight(0xffffff, 1);
+    light.position.set(5, 10, 5);
+    scene.add(light);
+    scene.add(new THREE.GridHelper(80, 80));
+
+    // DEMO marker where a storm cell might be
+    addGeoMarker(scene, 32.46, -84.98, 0);
+
+    // --- RADAR (MRMS mosaic) plane (auto-refresh ~60s) ---
+    // Replace with your real XYZ or PNG endpoint(s)
+    const radarHandle = addAutoRefreshingRasterPlane(
+      scene,
+      "radar",
+      () => `https://YOUR_TILE_HOST/mrms/latest_conus.png`, // TODO: your URL builder
+      { width: 50, height: 30, opacity: 0.6, y: 0.02, refreshMs: 60_000 }
+    );
+
+    // --- GOES satellite plane (auto-refresh ~2–5 min) ---
+    const goesHandle = addAutoRefreshingRasterPlane(
+      scene,
+      "goes",
+      () => `https://YOUR_TILE_HOST/goes/latest_conus_truecolor.png`, // TODO: your URL builder
+      { width: 50, height: 30, opacity: 0.55, y: 0.03, refreshMs: 120_000 }
+    );
+
+    // Animate
+    let raf = 0;
+    const tick = () => { renderer.render(scene, camera); raf = requestAnimationFrame(tick); };
+    tick();
+
+    const onResize = () => {
+      camera.aspect = mount.clientWidth / mount.clientHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(mount.clientWidth, mount.clientHeight);
+    };
+    window.addEventListener("resize", onResize);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("resize", onResize);
+      mount.removeChild(renderer.domElement);
+      renderer.dispose();
+      // clean planes if desired:
+      // removeRasterLayer(scene, radarHandle);
+      // removeRasterLayer(scene, goesHandle);
+    };
+  }, []);
+
+  return (
+    <div className="h-full w-full flex flex-col">
+      <AlertTicker />
+      <div className="p-3 text-xs opacity-70 border-b">
+        Mode: {support} • Live radar + rapid GOES refresh automatically
+      </div>
+      <div ref={mountRef} className="flex-1" />
+    </div>
+  );
+}

@@ -1,0 +1,269 @@
+Sweet — here’s the upgrade that colors your route wherever it crosses active NWS warnings (red for Tornado, orange for Hurricane/Tropical, yellow for Severe T-storm, teal for Flood/Surge, blue elsewhere).
+
+🔁 Replace src/components/CrewMap.jsx with this
+
+(Full file; drop-in replacement.)
+
+import { useEffect, useRef, useState } from "react";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+import * as turf from "@turf/turf";
+import AlertsOverlay from "../components/AlertsOverlay.jsx";
+
+async function getConfig() {
+  try { return await fetch("/config").then(r => r.json()); } catch { return {}; }
+}
+
+function markerLabel(n, inAlert=false) {
+  const bg = inAlert ? "#d0021b" : "#111";   // red if inside active warning
+  return L.divIcon({
+    className: "lead-step",
+    html: `<div style="
+      background:${bg};
+      color:#fff;font-weight:800;border-radius:999px;
+      width:28px;height:28px;display:flex;align-items:center;justify-content:center;
+      border:2px solid #fff;box-shadow:0 1px 6px rgba(0,0,0,.35)
+    ">${n}</div>`,
+    iconSize: [28, 28],
+    iconAnchor: [14, 14]
+  });
+}
+
+function intersectsWarning(lat, lon, alert) {
+  if (!alert?.polygon) return false;
+  try {
+    const pt = turf.point([lon, lat]);
+    return turf.booleanPointInPolygon(pt, turf.feature(alert.polygon));
+  } catch { return false; }
+}
+
+function colorForEvent(event) {
+  if (!event) return { color: "#0b74de", weight: 5 };           // default blue
+  if (/Tornado/i.test(event))              return { color: "#d0021b", weight: 6 }; // red
+  if (/Hurricane|Tropical/i.test(event))   return { color: "#f5a623", weight: 6 }; // orange
+  if (/Severe Thunderstorm/i.test(event))  return { color: "#f8e71c", weight: 6 }; // yellow
+  if (/Flash Flood|Storm Surge/i.test(event)) return { color: "#50e3c2", weight: 6 }; // teal
+  return { color: "#0b74de", weight: 5 };
+}
+
+/** Split the OSRM route line by all alert polygons, then color each segment based on which alert it sits in. */
+function buildColoredSegments(geom, alerts) {
+  // Normalize route to array of LineString features
+  let segs = [];
+  if (geom?.type === "LineString") {
+    segs = [turf.lineString(geom.coordinates)];
+  } else if (geom?.type === "MultiLineString") {
+    segs = geom.coordinates.map(c => turf.lineString(c));
+  } else {
+    return [];
+  }
+
+  // Iteratively split by each alert polygon boundary
+  for (const a of alerts) {
+    if (!a?.polygon) continue;
+    try {
+      const poly = turf.feature(a.polygon);
+      const next = [];
+      for (const s of segs) {
+        const fc = turf.lineSplit(s, poly);
+        if (fc?.features?.length) next.push(...fc.features);
+        else next.push(s);
+      }
+      segs = next;
+    } catch { /* keep original seg if split fails */ }
+  }
+
+  // Classify each segment by checking its midpoint against polygons
+  return segs.map(s => {
+    const len = turf.length(s, { units: "kilometers" });
+    const mid = turf.along(s, Math.max(0.0001, len / 2), { units: "kilometers" });
+    const hit = alerts.find(a => a?.polygon && turf.booleanPointInPolygon(mid, turf.feature(a.polygon)));
+    const sty = colorForEvent(hit?.event);
+    return { feature: s, style: sty };
+  });
+}
+
+export default function CrewMap() {
+  const mapDiv = useRef(null);
+  const [map, setMap] = useState(null);
+
+  const [crew, setCrew] = useState({ id: "crew-1", name: "Alpha", lon: -84.98, lat: 32.46 }); // Columbus, GA
+  const [order, setOrder] = useState([]);        // leadIds in visit order
+  const [leadLookup, setLeadLookup] = useState({}); // id -> {lon,lat,name,address}
+  const [alerts, setAlerts] = useState([]);      // active nationwide NWS alerts
+  const [showAlerts, setShowAlerts] = useState(true);
+
+  const routeLayerRef = useRef(null);            // L.LayerGroup of route segments
+  const stopLayersRef = useRef([]);              // markers
+
+  const [osrmBase, setOsrmBase] = useState("https://router.project-osrm.org");
+
+  // init map + config
+  useEffect(() => {
+    if (map) return;
+    const m = L.map(mapDiv.current).setView([32.46, -84.98], 10);
+    L.tileLayer("/proxy?url=" + encodeURIComponent("https://tile.openstreetmap.org/{z}/{x}/{y}.png"), {
+      maxZoom: 19, attribution: "&copy; OpenStreetMap"
+    }).addTo(m);
+    setMap(m);
+    (async () => {
+      const cfg = await getConfig();
+      if (cfg?.osrm_url) setOsrmBase(cfg.osrm_url.replace(/\/$/, ""));
+    })();
+  }, [map]);
+
+  // subscribe to SSE for leads, routes, crew, alerts
+  useEffect(() => {
+    const src = new EventSource("/events/stream");
+    const onAny = (e) => {
+      const data = JSON.parse(e.data || "{}");
+      if (data.type === "new_lead") {
+        setLeadLookup((D) => ({ ...D, [data.id]: data }));
+      }
+      if (data.type === "lead_update") {
+        setLeadLookup((D) => ({ ...D, [data.id]: { ...(D[data.id]||{}), ...data } }));
+      }
+      if (data.type === "crew_update") {
+        if (data.id === crew.id) setCrew(c => ({ ...c, ...data }));
+      }
+      if (data.type === "route_plan" && data.crewId === crew.id) {
+        setOrder(data.order || []);
+      }
+      if (data.type === "nws_alert") {
+        setAlerts((A) => A.find(a => a.id === data.id) ? A : [...A, data].slice(-1000));
+      }
+    };
+    ["new_lead","lead_update","crew_update","route_plan","nws_alert"].forEach(t => src.addEventListener(t, onAny));
+    return () => src.close();
+  }, [crew.id]);
+
+  // redraw route & markers whenever inputs change
+  useEffect(() => {
+    if (!map) return;
+    drawRoute();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [map, order, leadLookup, osrmBase, crew, alerts, showAlerts]);
+
+  function clearRoute() {
+    if (routeLayerRef.current) { map.removeLayer(routeLayerRef.current); routeLayerRef.current = null; }
+    stopLayersRef.current.forEach(mk => map.removeLayer(mk));
+    stopLayersRef.current = [];
+  }
+
+  async function drawRoute() {
+    clearRoute();
+
+    const coords = [
+      [crew.lon, crew.lat],
+      ...order.map(id => [leadLookup[id]?.lon, leadLookup[id]?.lat]).filter(p => p[0] != null && p[1] != null)
+    ];
+    if (coords.length < 2) {
+      const cm = L.marker([crew.lat, crew.lon], { title: `${crew.name} (start)` });
+      cm.addTo(map);
+      stopLayersRef.current.push(cm);
+      return;
+    }
+
+    // Get OSRM polyline for the full ordered path
+    let geom = null;
+    try {
+      const qs = coords.map(p => p.join(",")).join(";");
+      const url = `${osrmBase}/route/v1/driving/${qs}?overview=full&geometries=geojson`;
+      const r = await fetch(url);
+      const j = await r.json();
+      geom = j?.routes?.[0]?.geometry || null;
+    } catch {}
+
+    // Draw colored segments (alert-aware) OR fallback to single blue line
+    routeLayerRef.current = L.layerGroup().addTo(map);
+
+    if (geom) {
+      try {
+        const segments = buildColoredSegments(geom, alerts);
+        if (segments.length) {
+          const layers = [];
+          segments.forEach(({ feature, style }) => {
+            const layer = L.geoJSON(feature, { style });
+            layer.addTo(routeLayerRef.current);
+            layers.push(layer);
+          });
+          try {
+            const group = L.featureGroup(layers);
+            map.fitBounds(group.getBounds(), { padding: [40,40] });
+          } catch {}
+        } else {
+          const layer = L.geoJSON(geom, { style: { color: "#0b74de", weight: 5, opacity: 0.85 } });
+          layer.addTo(routeLayerRef.current);
+          try { map.fitBounds(layer.getBounds(), { padding: [40,40] }); } catch {}
+        }
+      } catch {
+        const layer = L.geoJSON(geom, { style: { color: "#0b74de", weight: 5, opacity: 0.85 } });
+        layer.addTo(routeLayerRef.current);
+        try { map.fitBounds(layer.getBounds(), { padding: [40,40] }); } catch {}
+      }
+    }
+
+    // Crew marker (#0)
+    const crewMarker = L.marker([crew.lat, crew.lon], { title: `${crew.name} (start)` });
+    crewMarker.addTo(map);
+    stopLayersRef.current.push(crewMarker);
+
+    // Stop markers 1..N (red badge if inside active warning)
+    order.forEach((id, idx) => {
+      const Ld = leadLookup[id];
+      if (!Ld) return;
+      const inAlert = alerts.some(a => intersectsWarning(Ld.lat, Ld.lon, a));
+      const mk = L.marker([Ld.lat, Ld.lon], {
+        icon: markerLabel(idx + 1, inAlert),
+        title: Ld.name || `Lead ${id}`
+      });
+      mk.addTo(map);
+      mk.bindPopup(`
+        <b>${Ld.name || `Lead ${id}`}</b><br/>
+        ${Ld.address || `${Ld.lat?.toFixed?.(4)}, ${Ld.lon?.toFixed?.(4)}`}<br/>
+        ${inAlert ? `<span style="color:#b00020;font-weight:700">Inside Active Weather Warning</span><br/>` : ""}
+        <a target="_blank" href="${googleDirLink([crew.lat, crew.lon], [Ld.lat, Ld.lon])}">Open in Google Maps</a>
+      `);
+      stopLayersRef.current.push(mk);
+    });
+  }
+
+  function googleDirLink(originLatLon, destLatLon, waypointLatLons=[]) {
+    const o = `${originLatLon[0]},${originLatLon[1]}`;
+    const d = `${destLatLon[0]},${destLatLon[1]}`;
+    const w = waypointLatLons.map(p => `${p[0]},${p[1]}`).join("|");
+    const base = "https://www.google.com/maps/dir/?api=1";
+    return `${base}&origin=${encodeURIComponent(o)}&destination=${encodeURIComponent(d)}${w ? `&waypoints=${encodeURIComponent(w)}` : ""}`;
+  }
+
+  return (
+    <div style={{ position: "relative", height: "calc(100vh - 120px)", width: "100%" }}>
+      {/* Controls */}
+      <div style={{
+        position: "absolute", zIndex: 1000, left: 12, top: 12,
+        background: "white", padding: 10, borderRadius: 10, boxShadow: "0 2px 10px rgba(0,0,0,.15)"
+      }}>
+        <div style={{ fontWeight: 800, marginBottom: 6 }}>Crew Route</div>
+        <label style={{ fontSize: 13 }}>
+          <input type="checkbox" checked={showAlerts} onChange={() => setShowAlerts(v => !v)} /> Show Weather Alerts
+        </label>
+        <div style={{ marginTop: 8, fontSize: 12, color: "#555" }}>
+          <div><span style={{ display:"inline-block", width:10, height:10, background:"#d0021b", borderRadius:2, marginRight:6 }} /> Tornado</div>
+          <div><span style={{ display:"inline-block", width:10, height:10, background:"#f5a623", borderRadius:2, marginRight:6 }} /> Hurricane/Tropical</div>
+          <div><span style={{ display:"inline-block", width:10, height:10, background:"#f8e71c", borderRadius:2, marginRight:6 }} /> Severe T-storm</div>
+          <div><span style={{ display:"inline-block", width:10, height:10, background:"#50e3c2", borderRadius:2, marginRight:6 }} /> Flood/Surge</div>
+          <div><span style={{ display:"inline-block", width:10, height:10, background:"#0b74de", borderRadius:2, marginRight:6 }} /> No Active Warning</div>
+          <div style={{ marginTop:6 }}><em>Route is auto-colored where it enters warnings. Stops inside warnings show a red number.</em></div>
+        </div>
+      </div>
+
+      {/* Map */}
+      <div ref={mapDiv} style={{ height: "100%", width: "100%" }} />
+
+      {/* Alert polygons overlay */}
+      {map && showAlerts && alerts.length > 0 && (
+        <AlertsOverlay map={map} alerts={alerts} />
+      )}
+    </div>
+  );
+}

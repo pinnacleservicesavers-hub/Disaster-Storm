@@ -1,0 +1,65 @@
+import React, { useState } from "react";
+
+type Cam = { title: string; type: "youtube" | "hls" | "img"; url: string };
+
+const PRESETS: Record<string, Cam[]> = {
+  FL: [
+    { title: "FDOT I-95 N Miami", type: "img", url: "https://.../fdot_cam_95N.jpg" },
+    { title: "FDOT I-4 Tampa", type: "img", url: "https://.../fdot_cam_i4.jpg" },
+    { title: "Storm Chaser A", type: "youtube", url: "https://www.youtube.com/embed/LIVE_ID_A?autoplay=1&mute=1" },
+    // ...add up to 9
+  ],
+  GA: [
+    { title: "GDOT I-75 ATL", type: "img", url: "https://.../gdot_i75.jpg" },
+    { title: "GDOT I-16 Savannah", type: "img", url: "https://.../gdot_i16.jpg" },
+    { title: "Storm Chaser B", type: "youtube", url: "https://www.youtube.com/embed/LIVE_ID_B?autoplay=1&mute=1" },
+  ],
+  AL: [
+    { title: "ALDOT I-65", type: "img", url: "https://.../aldot_i65.jpg" },
+    { title: "Mobile Bay", type: "img", url: "https://.../aldot_mobile_bay.jpg" },
+    { title: "Storm Chaser C", type: "youtube", url: "https://www.youtube.com/embed/LIVE_ID_C?autoplay=1&mute=1" },
+  ]
+};
+
+export default function TrafficCams() {
+  const [stateKey, setStateKey] = useState<"FL"|"GA"|"AL">("FL");
+  const cams = PRESETS[stateKey];
+
+  return (
+    <div className="h-full w-full flex flex-col">
+      <div className="p-3 border-b flex gap-2 items-center">
+        <div className="font-semibold">Traffic Cams / Live Feeds</div>
+        <div className="ml-auto flex gap-2">
+          <button className={`px-3 py-1 rounded ${stateKey==="FL"?"bg-black text-white":"border"}`} onClick={()=>setStateKey("FL")}>FL</button>
+          <button className={`px-3 py-1 rounded ${stateKey==="GA"?"bg-black text-white":"border"}`} onClick={()=>setStateKey("GA")}>GA</button>
+          <button className={`px-3 py-1 rounded ${stateKey==="AL"?"bg-black text-white":"border"}`} onClick={()=>setStateKey("AL")}>AL</button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-2 p-3">
+        {cams.map((cam, i) => (
+          <div key={i} className="border rounded-2xl overflow-hidden bg-black text-white">
+            <div className="px-2 py-1 text-xs opacity-80 border-b">{cam.title}</div>
+            <div className="aspect-video">
+              {cam.type === "youtube" && (
+                <iframe className="w-full h-full"
+                  src={cam.url}
+                  title={cam.title}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen />
+              )}
+              {cam.type === "hls" && (
+                // If your HLS is allowed by CORS, the native <video> can play it (Safari),
+                // or use hls.js for MSE support in Chrome:
+                <video className="w-full h-full" src={cam.url} autoPlay muted controls />
+              )}
+              {cam.type === "img" && (
+                <img className="w-full h-full object-cover" src={cam.url} alt={cam.title} />
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
