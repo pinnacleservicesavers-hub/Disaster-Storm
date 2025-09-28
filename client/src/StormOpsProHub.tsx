@@ -375,8 +375,8 @@ const DASHBOARD_PORTAL_EXPLANATIONS: Record<string, VoiceExplanation> = {
     id: 'welcome',
     portal: 'welcome',
     title: 'Welcome to DisasterDirect Operations Hub',
-    content: `Welcome to DisasterDirect, the ultimate storm operations platform! I'm your voice guide, ready to walk you through our comprehensive 15-module disaster management system. This platform monitors weather conditions, detects damage using AI, generates contractor leads, helps victims, and coordinates complete storm response operations. Each portal is designed to work together, creating a seamless workflow from storm prediction to recovery completion.`,
-    keyFeatures: ['15 integrated modules', 'Real-time monitoring', 'AI-powered damage detection', 'Complete storm workflow'],
+    content: `Welcome to DisasterDirect, the ultimate storm operations platform! I'm your voice guide, ready to walk you through our comprehensive 17-module disaster management system. This platform monitors weather conditions, detects damage using AI, generates contractor leads, helps victims, and coordinates complete storm response operations. Each portal is designed to work together, creating a seamless workflow from storm prediction to recovery completion.`,
+    keyFeatures: ['17 integrated modules', 'Real-time monitoring', 'AI-powered damage detection', 'Complete storm workflow'],
     navigation: 'Click any portal card below to launch that module, or let me guide you through each one.',
     benefits: ['Complete storm operations management', 'Automated lead generation', 'Multi-state coordination', 'Real-time data insights'],
     duration: 50
@@ -804,6 +804,20 @@ export default function StormOpsProHub() {
       testId: 'portal-disaster-lens',
       priority: 'high',
       liveData: false
+    },
+    // 17. X-RAY REALITY - Augmented Reality Storm Operations
+    {
+      id: 'xray-reality',
+      title: 'X-RAY REALITY',
+      description: 'Watch the storm in real time with live 3D radar, satellite data, traffic cameras, drone feeds, and AR measurement tools',
+      icon: Eye,
+      link: '/modules/xray-reality',
+      color: 'purple',
+      bgClass: 'from-purple-500 to-pink-500',
+      borderClass: 'border-purple-200',
+      testId: 'portal-xray-reality',
+      priority: 'high',
+      liveData: true
     }
   ];
 
@@ -857,7 +871,7 @@ export default function StormOpsProHub() {
                     <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
                       <div className="flex items-center gap-2 text-green-300 font-semibold">
                         <Activity className={`w-5 h-5 ${showEffects ? 'animate-pulse' : ''}`} />
-                        <CountUp end={16} suffix=" Active Modules" />
+                        <CountUp end={17} suffix=" Active Modules" />
                       </div>
                       <div className="flex items-center gap-2 text-blue-300 font-semibold">
                         <MapPin className={`w-5 h-5 ${showEffects ? 'animate-pulse' : ''}`} />

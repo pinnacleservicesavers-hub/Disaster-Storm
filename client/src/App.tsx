@@ -30,7 +30,7 @@ import CalendarBooking from "./pages/CalendarBooking";
 import WorkflowBuilder from "./pages/WorkflowBuilder";
 import StormShare from "./pages/StormShare";
 import DisasterEssentialsMarketplace from "./pages/DisasterEssentialsMarketplace";
-import XRayRealityPortal from "./pages/XRayRealityPortal";
+import XRayRealityModule from "./modules/xray-reality/XRayRealityModule";
 import { FloatingAIAssistant } from '@/components/FloatingAIAssistant';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -582,10 +582,10 @@ export default function App() {
           <DisasterEssentialsMarketplace />
         </Route>
         
-        <Route path="/xray-reality">
+        <Route path="/modules/xray-reality">
           <title>X-RAY REALITY - DisasterDirect</title>
           <meta name="description" content="Augmented reality storm operations with live 3D storm views, AR measurement tools, traffic cameras, storm chaser feeds, drone integration, and time scrub replays" />
-          <XRayRealityPortal />
+          <XRayRealityModule />
         </Route>
         
         <Route path="/legal">
