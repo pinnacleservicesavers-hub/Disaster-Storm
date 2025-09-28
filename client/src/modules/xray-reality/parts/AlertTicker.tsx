@@ -24,7 +24,7 @@ export default function AlertTicker() {
       // Fetch from NWS API
       const response = await fetch('https://api.weather.gov/alerts/active?status=actual', {
         headers: {
-          'User-Agent': 'DisasterDirect/1.0 (contact@disasterdirect.org)',
+          'User-Agent': 'Disaster Direct/1.0 (contact@disasterdirect.org)',
           'Accept': 'application/geo+json'
         }
       });

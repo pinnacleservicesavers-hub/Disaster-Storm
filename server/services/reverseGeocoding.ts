@@ -50,7 +50,7 @@ export class ReverseGeocodingService {
       
       const response = await fetch(url, {
         headers: {
-          'User-Agent': 'DisasterDirect/1.0 (contact@disasterdirect.com)'
+          'User-Agent': 'Disaster Direct/1.0 (contact@disasterdirect.com)'
         }
       });
 
@@ -96,7 +96,7 @@ export class ReverseGeocodingService {
       
       const response = await fetch(url, {
         headers: {
-          'User-Agent': 'DisasterDirect/1.0 (contact@disasterdirect.com)'
+          'User-Agent': 'Disaster Direct/1.0 (contact@disasterdirect.com)'
         }
       });
 

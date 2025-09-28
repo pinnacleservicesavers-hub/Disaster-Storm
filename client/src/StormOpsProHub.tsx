@@ -374,8 +374,8 @@ const DASHBOARD_PORTAL_EXPLANATIONS: Record<string, VoiceExplanation> = {
   welcome: {
     id: 'welcome',
     portal: 'welcome',
-    title: 'Welcome to DisasterDirect Operations Hub',
-    content: `Welcome to DisasterDirect, the ultimate storm operations platform! I'm your voice guide, ready to walk you through our comprehensive 17-module disaster management system. This platform monitors weather conditions, detects damage using AI, generates contractor leads, helps victims, and coordinates complete storm response operations. Each portal is designed to work together, creating a seamless workflow from storm prediction to recovery completion.`,
+    title: 'Welcome to Disaster Direct Operations Hub',
+    content: `Welcome to Disaster Direct, the ultimate storm operations platform! I'm your voice guide, ready to walk you through our comprehensive 17-module disaster management system. This platform monitors weather conditions, detects damage using AI, generates contractor leads, helps victims, and coordinates complete storm response operations. Each portal is designed to work together, creating a seamless workflow from storm prediction to recovery completion.`,
     keyFeatures: ['17 integrated modules', 'Real-time monitoring', 'AI-powered damage detection', 'Complete storm workflow'],
     navigation: 'Click any portal card below to launch that module, or let me guide you through each one.',
     benefits: ['Complete storm operations management', 'Automated lead generation', 'Multi-state coordination', 'Real-time data insights'],
@@ -858,7 +858,7 @@ export default function StormOpsProHub() {
                     <SpinningTornado size={64} showEffects={showEffects} />
                     <h1 className="text-6xl md:text-7xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-blue-200 to-indigo-300 tracking-tight" 
                         data-testid="heading-main">
-                      DisasterDirect
+                      Disaster Direct
                     </h1>
                     <SpinningTornado size={64} showEffects={showEffects} />
                   </div>

@@ -1,8 +1,8 @@
-# DisasterDirect
+# Disaster Direct
 
 ## Overview
 
-DisasterDirect is a comprehensive storm operations and claims management platform designed for contractors and property restoration professionals. The application provides real-time weather monitoring, claims management, insurance company tracking, legal compliance tools, drone integration, AI-powered assistance, and field reporting capabilities. Built with a modern React frontend and Express.js backend, the platform integrates with multiple external services to streamline storm response operations and maximize insurance claim success rates.
+Disaster Direct is a comprehensive storm operations and claims management platform designed for contractors and property restoration professionals. The application provides real-time weather monitoring, claims management, insurance company tracking, legal compliance tools, drone integration, AI-powered assistance, and field reporting capabilities. Built with a modern React frontend and Express.js backend, the platform integrates with multiple external services to streamline storm response operations and maximize insurance claim success rates.
 
 ## User Preferences
 

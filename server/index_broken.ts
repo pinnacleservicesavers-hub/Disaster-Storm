@@ -121,7 +121,7 @@ app.get('/api/status', (req, res) => {
   ];
   res.json({
     ok: true,
-    server: 'DisasterDirect',
+    server: 'Disaster Direct',
     port: process.env.PORT || 5000,
     available_endpoints: endpoints,
     note: 'All APIs are working on port 5000. Use http://localhost:5000 for all requests.',
@@ -794,7 +794,7 @@ async function startServer() {
     // Send welcome message with current status
     ws.send(JSON.stringify({
       type: 'welcome',
-      message: 'Connected to DisasterDirect Storm Intelligence',
+      message: 'Connected to Disaster Direct Storm Intelligence',
       timestamp: new Date().toISOString(),
       services: {
         fema: 'active',
@@ -1339,7 +1339,7 @@ async function startServer() {
   
   const PORT = process.env.PORT || 5000;
   httpServer.listen(PORT, () => {
-    console.log('🌟 DisasterDirect running on port', PORT);
+    console.log('🌟 Disaster Direct running on port', PORT);
     console.log('🌐 Frontend available at http://localhost:' + PORT);
     console.log('🔧 API endpoints available at http://localhost:' + PORT + '/api/*');
     console.log('⚡ WebSocket available at ws://localhost:' + PORT + '/realtime');

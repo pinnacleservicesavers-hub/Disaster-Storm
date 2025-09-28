@@ -594,7 +594,7 @@ export class CountyParcelService {
         
         const response = await fetch(queryUrl, {
           headers: {
-            'User-Agent': 'DisasterDirect/1.0 Storm Response System',
+            'User-Agent': 'Disaster Direct/1.0 Storm Response System',
             'Accept': acceptHeader
           }
         });
@@ -719,7 +719,7 @@ export class CountyParcelService {
       
       const response = await fetch(fullUrl, {
         headers: {
-          'User-Agent': 'DisasterDirect/1.0 Storm Response System',
+          'User-Agent': 'Disaster Direct/1.0 Storm Response System',
           'Accept': acceptHeader
         }
       });

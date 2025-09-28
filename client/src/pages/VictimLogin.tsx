@@ -65,7 +65,7 @@ export default function VictimLogin() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-      <title>Victim Portal Login - DisasterDirect</title>
+      <title>Victim Portal Login - Disaster Direct</title>
       <meta name="description" content="Login to the Storm Victim Portal to report damage and request emergency assistance from verified contractors" />
       
       <Card className="w-full max-w-md">

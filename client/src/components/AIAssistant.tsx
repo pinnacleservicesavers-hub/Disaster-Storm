@@ -401,8 +401,8 @@ export default function AIAssistant({ portalContext, userLocation, className }: 
               speak(`FEMA Update: ${data.data.title} declared for ${data.data.state}. Estimated damage: ${data.data.estimatedDamage}`);
               break;
             case 'welcome':
-              console.log('🔌 Connected to DisasterDirect Storm Intelligence:', data.message);
-              speak('Connected to DisasterDirect real-time storm intelligence. You will now receive live updates on weather, damage detection, and disaster information.');
+              console.log('🔌 Connected to Disaster Direct Storm Intelligence:', data.message);
+              speak('Connected to Disaster Direct real-time storm intelligence. You will now receive live updates on weather, damage detection, and disaster information.');
               break;
           }
         };

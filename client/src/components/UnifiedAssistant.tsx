@@ -44,7 +44,7 @@ interface VoiceResponse {
 }
 
 /**
- * UnifiedAssistant - The single AI assistant component for all DisasterDirect portals
+ * UnifiedAssistant - The single AI assistant component for all Disaster Direct portals
  * Consolidates VoiceAIAssistant, AIAssistant, ChatWidget, VoiceGuide, StormIntelligenceChat, and PortalVoiceGuide
  * into one clean, consistent interface that adapts to different portal needs
  */
@@ -348,7 +348,7 @@ export function UnifiedAssistant({
       'leads': 'Lead Intelligence',
       'surveillance': 'Surveillance Center',
       'weather': 'Weather Center',
-      'all': 'DisasterDirect'
+      'all': 'Disaster Direct'
     };
     return names[portalType] || 'Portal';
   };

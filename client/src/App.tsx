@@ -249,7 +249,7 @@ function Navigation() {
                 </motion.div>
                 <div>
                   <h1 className="text-xl font-bold tracking-tight">
-                    DisasterDirect
+                    Disaster Direct
                   </h1>
                   <p className="text-xs text-white/80 hidden sm:block">
                     Storm Operations Platform
@@ -433,7 +433,7 @@ function Navigation() {
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                 <input
                   type="text"
-                  placeholder="Search across all DisasterDirect modules..."
+                  placeholder="Search across all Disaster Direct modules..."
                   className="w-full pl-10 pr-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                   autoFocus
                 />
@@ -478,178 +478,178 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <div className="min-h-screen bg-gray-50">
         {/* Set page title and meta tags */}
-        <title>DisasterDirect - Storm Operations Platform</title>
+        <title>Disaster Direct - Storm Operations Platform</title>
         <meta name="description" content="Comprehensive storm operations and claims management platform for contractors and property restoration professionals" />
         
         <Navigation />
       
       <Switch>
         <Route path="/weather">
-          <title>Weather Intelligence Center - DisasterDirect</title>
+          <title>Weather Intelligence Center - Disaster Direct</title>
           <meta name="description" content="Live weather monitoring, alerts, radar data, and AI-powered storm predictions for emergency response operations" />
           <WeatherIntelligenceCenter />
         </Route>
         
         <Route path="/weather-intelligence">
-          <title>Weather Intelligence Center - DisasterDirect</title>
+          <title>Weather Intelligence Center - Disaster Direct</title>
           <meta name="description" content="Unified weather monitoring and AI-powered storm prediction for disaster response professionals" />
           <WeatherIntelligenceCenter />
         </Route>
         
         <Route path="/surveillance">
-          <title>Surveillance Center - DisasterDirect</title>
+          <title>Surveillance Center - Disaster Direct</title>
           <meta name="description" content="Unified surveillance portal with live cameras, drone operations, traffic monitoring, and contractor opportunity detection across all states" />
           <SurveillanceCenter />
         </Route>
         
         <Route path="/damage-detection">
-          <title>AI Damage Detection - DisasterDirect</title>
+          <title>AI Damage Detection - Disaster Direct</title>
           <meta name="description" content="Real-time AI-powered damage detection system analyzing traffic camera feeds to identify storm damage and generate contractor leads automatically" />
           <DamageDetectionDashboard />
         </Route>
         
         <Route path="/prediction-dashboard">
-          <title>Storm Prediction Dashboard - DisasterDirect</title>
+          <title>Storm Prediction Dashboard - Disaster Direct</title>
           <meta name="description" content="AI-powered storm prediction and damage forecasting with comprehensive analytics and contractor opportunities" />
           <PredictionDashboard />
         </Route>
         
         <Route path="/contractors">
-          <title>Contractor Portal - DisasterDirect</title>
+          <title>Contractor Portal - Disaster Direct</title>
           <meta name="description" content="Professional contractor portal with AI-powered tools, lead management, photo documentation, invoicing, insurance claims, and compliance tracking for storm restoration professionals" />
           <ContractorPortal />
         </Route>
         
         <Route path="/contractor-management">
-          <title>Contractor Management - DisasterDirect</title>
+          <title>Contractor Management - Disaster Direct</title>
           <meta name="description" content="Administrative oversight and management of contractor network, qualifications, assignments, and performance tracking for storm restoration projects" />
           <ContractorManagement />
         </Route>
         
         <Route path="/claims">
-          <title>Claims Management - DisasterDirect</title>
+          <title>Claims Management - Disaster Direct</title>
           <meta name="description" content="Process insurance claims, track settlements, manage documentation and communicate with insurance carriers" />
           <Claims />
         </Route>
         
         <Route path="/disaster-lens">
-          <title>Disaster Lens - DisasterDirect</title>
+          <title>Disaster Lens - Disaster Direct</title>
           <meta name="description" content="AI-powered disaster documentation and damage assessment with real-time photo/video analysis, automatic tagging, and professional reporting" />
           <DisasterLens />
         </Route>
         
         <Route path="/customers">
-          <title>Customer Management - DisasterDirect</title>
+          <title>Customer Management - Disaster Direct</title>
           <meta name="description" content="Manage customer relationships, communications, service history and project tracking for property restoration services" />
           <Customers />
         </Route>
         
         <Route path="/homeowner-contacts">
-          <title>Homeowner Contact Database - DisasterDirect</title>
+          <title>Homeowner Contact Database - Disaster Direct</title>
           <meta name="description" content="Search and contact homeowners with property damage claims. Complete contact information, damage details, insurance companies, and claim numbers for efficient storm restoration outreach" />
           <HomeownerContacts />
         </Route>
         
         <Route path="/leads">
-          <title>Damage Leads - DisasterDirect</title>
+          <title>Damage Leads - Disaster Direct</title>
           <meta name="description" content="AI-powered damage detection leads from live footage with property owner information and contractor assignments" />
           <Leads />
         </Route>
         
         <Route path="/funnel-builder">
-          <title>Funnel Builder - DisasterDirect</title>
+          <title>Funnel Builder - Disaster Direct</title>
           <meta name="description" content="Create high-converting lead capture funnels with drag-and-drop simplicity for storm damage restoration leads" />
           <FunnelBuilder />
         </Route>
         
         <Route path="/form-builder">
-          <title>Form Builder - DisasterDirect</title>
+          <title>Form Builder - Disaster Direct</title>
           <meta name="description" content="Build intelligent forms with conditional logic and automated workflows for lead capture and qualification" />
           <FormBuilder />
         </Route>
         
         <Route path="/calendar-booking">
-          <title>Calendar Booking - DisasterDirect</title>
+          <title>Calendar Booking - Disaster Direct</title>
           <meta name="description" content="Manage appointments, consultations, and property inspections with advanced calendar booking system" />
           <CalendarBooking />
         </Route>
         
         <Route path="/workflow-builder">
-          <title>Workflow Builder - DisasterDirect</title>
+          <title>Workflow Builder - Disaster Direct</title>
           <meta name="description" content="Create automated sequences to nurture leads and streamline communication across multiple channels" />
           <WorkflowBuilder />
         </Route>
         
         <Route path="/stormshare">
-          <title>StormShare Community - DisasterDirect</title>
+          <title>StormShare Community - Disaster Direct</title>
           <meta name="description" content="Community platform for storm victims and contractors to share stories, request help, connect with local assistance, and access resources" />
           <StormShare />
         </Route>
         
         <Route path="/disaster-essentials-marketplace">
-          <title>Disaster Essentials Marketplace - DisasterDirect</title>
+          <title>Disaster Essentials Marketplace - Disaster Direct</title>
           <meta name="description" content="Real-time disaster resource hub with hotels, gas stations, hardware supplies, shelters, critical alerts, and satellite communication vendors for contractors and victims" />
           <DisasterEssentialsMarketplace />
         </Route>
         
         <Route path="/modules/xray-reality">
-          <title>X-RAY REALITY - DisasterDirect</title>
+          <title>X-RAY REALITY - Disaster Direct</title>
           <meta name="description" content="Augmented reality storm operations with live 3D storm views, AR measurement tools, traffic cameras, storm chaser feeds, drone integration, and time scrub replays" />
           <XRayRealityModule />
         </Route>
         
         <Route path="/eyes-in-sky">
-          <title>Eyes in the Sky - DisasterDirect</title>
+          <title>Eyes in the Sky - Disaster Direct</title>
           <meta name="description" content="Aerial surveillance and reconnaissance with real-time satellite imagery and storm tracking capabilities" />
           <EyesInSky />
         </Route>
         
         <Route path="/legal">
-          <title>Legal Compliance - DisasterDirect</title>
+          <title>Legal Compliance - Disaster Direct</title>
           <meta name="description" content="Manage legal compliance, contracts, liens, regulatory requirements and documentation for storm restoration business" />
           <Legal />
         </Route>
         
         {/* New Storm Ops Phase-Based Routes */}
         <Route path="/storm-predictions">
-          <title>Storm Predictions - DisasterDirect</title>
+          <title>Storm Predictions - Disaster Direct</title>
           <meta name="description" content="AI storm modeling and risk mapping for advanced storm prediction" />
           <StormPredictions />
         </Route>
         
         <Route path="/traffic-cam-watcher">
-          <title>Traffic Cam Watcher - DisasterDirect</title>
+          <title>Traffic Cam Watcher - Disaster Direct</title>
           <meta name="description" content="Road conditions and evacuation routes monitoring" />
           <TrafficCamWatcher />
         </Route>
         
         <Route path="/eyes-in-the-sky">
-          <title>Eyes in the Sky - DisasterDirect</title>
+          <title>Eyes in the Sky - Disaster Direct</title>
           <meta name="description" content="Real-time storm chasing coverage and professional weather monitoring from across the United States" />
           <EyesInSky />
         </Route>
         
         <Route path="/eyes-globe">
-          <title>3D Earth Globe - Eyes in the Sky - DisasterDirect</title>
+          <title>3D Earth Globe - Eyes in the Sky - Disaster Direct</title>
           <meta name="description" content="Interactive 3D Earth globe with Google Photorealistic tiles for advanced storm tracking and satellite surveillance" />
           <EyesInTheSkyGlobe />
         </Route>
         
         <Route path="/eyes-tools">
-          <title>Storm Operations Tools - Eyes in the Sky - DisasterDirect</title>
+          <title>Storm Operations Tools - Eyes in the Sky - Disaster Direct</title>
           <meta name="description" content="Advanced storm operations with route planning, elevation data, address search, and Google Maps integration on 3D Earth globe" />
           <EyesTabs contractors={sampleContractors} leads={sampleLeads} />
         </Route>
         
         <Route path="/drone-operation">
-          <title>Drone Operation - DisasterDirect</title>
+          <title>Drone Operation - Disaster Direct</title>
           <meta name="description" content="Real-time drone deployments with AI overlays for active storm operations" />
           <DroneOperation />
         </Route>
         
         {/* Storm Ops Dashboard Route */}
         <Route path="/storm-ops">
-          <title>Storm Operations Dashboard - DisasterDirect</title>
+          <title>Storm Operations Dashboard - Disaster Direct</title>
           <meta name="description" content="Comprehensive storm operations workflow organized by operational phases for disaster response professionals" />
           <StormOpsDashboard />
         </Route>
@@ -679,7 +679,7 @@ export default function App() {
         </Route>
         
         <Route path="/">
-          <title>DisasterDirect - Storm Operations Platform</title>
+          <title>Disaster Direct - Storm Operations Platform</title>
           <meta name="description" content="Comprehensive storm operations and claims management platform for contractors and property restoration professionals" />
           <StormOpsProHub />
         </Route>
