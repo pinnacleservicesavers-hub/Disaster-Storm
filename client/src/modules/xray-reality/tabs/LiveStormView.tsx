@@ -62,34 +62,122 @@ export default function LiveStormView() {
       const gridHelper = new THREE.GridHelper(20, 20, 0x333333, 0x333333);
       scene.add(gridHelper);
 
-      // Add placeholder content while weather data loads
-      const radarPlaceholder = new THREE.PlaneGeometry(12, 8);
-      const radarMaterial = new THREE.MeshLambertMaterial({ 
-        color: 0x00ff00, 
-        transparent: true, 
-        opacity: 0.6,
-        side: THREE.DoubleSide
-      });
-      const radarMesh = new THREE.Mesh(radarPlaceholder, radarMaterial);
-      radarMesh.position.set(-3, 1, 0);
-      radarMesh.rotation.x = -Math.PI / 2;
-      scene.add(radarMesh);
+      // Create realistic weather radar display
+      const createRadarDisplay = () => {
+        const radarGroup = new THREE.Group();
+        
+        // Radar base (dark background)
+        const radarBase = new THREE.CircleGeometry(6, 64);
+        const baseMaterial = new THREE.MeshLambertMaterial({ 
+          color: 0x001122, 
+          transparent: true, 
+          opacity: 0.9
+        });
+        const baseMesh = new THREE.Mesh(radarBase, baseMaterial);
+        baseMesh.rotation.x = -Math.PI / 2;
+        radarGroup.add(baseMesh);
 
-      // Add text labels for context
-      const loader = new THREE.FontLoader();
+        // Range rings (like real radar)
+        for (let i = 1; i <= 3; i++) {
+          const ringGeometry = new THREE.RingGeometry(i * 2, i * 2 + 0.05, 64);
+          const ringMaterial = new THREE.MeshLambertMaterial({ 
+            color: 0x00ff00, 
+            transparent: true, 
+            opacity: 0.3
+          });
+          const ringMesh = new THREE.Mesh(ringGeometry, ringMaterial);
+          ringMesh.rotation.x = -Math.PI / 2;
+          radarGroup.add(ringMesh);
+        }
+
+        // Weather precipitation patterns
+        const precipitationPatterns = [
+          { radius: 1.5, color: 0x00ff00, intensity: 0.4 }, // Light rain (green)
+          { radius: 1.0, color: 0xffff00, intensity: 0.6 }, // Moderate rain (yellow)
+          { radius: 0.7, color: 0xff8800, intensity: 0.8 }, // Heavy rain (orange)
+          { radius: 0.4, color: 0xff0000, intensity: 0.9 }  // Severe (red)
+        ];
+
+        precipitationPatterns.forEach((pattern, index) => {
+          for (let i = 0; i < 3 + index; i++) {
+            const angle = (i / (3 + index)) * Math.PI * 2;
+            const distance = 2 + Math.random() * 3;
+            
+            const precipGeometry = new THREE.CircleGeometry(pattern.radius, 16);
+            const precipMaterial = new THREE.MeshLambertMaterial({
+              color: pattern.color,
+              transparent: true,
+              opacity: pattern.intensity
+            });
+            const precipMesh = new THREE.Mesh(precipGeometry, precipMaterial);
+            precipMesh.position.set(
+              Math.cos(angle) * distance,
+              0.01,
+              Math.sin(angle) * distance
+            );
+            precipMesh.rotation.x = -Math.PI / 2;
+            radarGroup.add(precipMesh);
+          }
+        });
+
+        // Radar sweep line (rotating)
+        const sweepGeometry = new THREE.PlaneGeometry(0.1, 6);
+        const sweepMaterial = new THREE.MeshLambertMaterial({
+          color: 0x00ff00,
+          transparent: true,
+          opacity: 0.8
+        });
+        const sweepMesh = new THREE.Mesh(sweepGeometry, sweepMaterial);
+        sweepMesh.position.set(0, 0.02, 3);
+        sweepMesh.rotation.x = -Math.PI / 2;
+        radarGroup.add(sweepMesh);
+
+        // Animate radar sweep
+        const animateRadarSweep = () => {
+          const time = Date.now() * 0.002;
+          sweepMesh.rotation.z = time;
+          requestAnimationFrame(animateRadarSweep);
+        };
+        animateRadarSweep();
+
+        radarGroup.position.set(-3, 1, 0);
+        return radarGroup;
+      };
+
+      const radarDisplay = createRadarDisplay();
+      scene.add(radarDisplay);
       
-      // Add placeholder GOES satellite data
-      const goesPlaceholder = new THREE.PlaneGeometry(12, 8);
-      const goesMaterial = new THREE.MeshLambertMaterial({ 
-        color: 0x0088ff, 
-        transparent: true, 
-        opacity: 0.6,
-        side: THREE.DoubleSide
-      });
-      const goesMesh = new THREE.Mesh(goesPlaceholder, goesMaterial);
-      goesMesh.position.set(3, 1, 0);
-      goesMesh.rotation.x = -Math.PI / 2;
-      scene.add(goesMesh);
+      // Create satellite cloud view
+      const createSatelliteView = () => {
+        const satGroup = new THREE.Group();
+        
+        // Cloud formations
+        const cloudPatterns = [
+          { x: 0, z: 0, size: 2.5, color: 0xffffff, opacity: 0.8 },
+          { x: -2, z: 1, size: 1.8, color: 0xcccccc, opacity: 0.6 },
+          { x: 1.5, z: -1.5, size: 2.0, color: 0x888888, opacity: 0.7 },
+          { x: -1, z: -2, size: 1.5, color: 0x666666, opacity: 0.5 }
+        ];
+
+        cloudPatterns.forEach(cloud => {
+          const cloudGeometry = new THREE.CircleGeometry(cloud.size, 32);
+          const cloudMaterial = new THREE.MeshLambertMaterial({
+            color: cloud.color,
+            transparent: true,
+            opacity: cloud.opacity
+          });
+          const cloudMesh = new THREE.Mesh(cloudGeometry, cloudMaterial);
+          cloudMesh.position.set(cloud.x, 0.01, cloud.z);
+          cloudMesh.rotation.x = -Math.PI / 2;
+          satGroup.add(cloudMesh);
+        });
+
+        satGroup.position.set(3, 1, 0);
+        return satGroup;
+      };
+
+      const satelliteView = createSatelliteView();
+      scene.add(satelliteView);
 
       // Add auto-refreshing radar plane
       radarHandleRef.current = addAutoRefreshingRasterPlane(
@@ -125,8 +213,8 @@ export default function LiveStormView() {
       const animate = () => {
         frameId.current = requestAnimationFrame(animate);
         
-        // Rotate camera around the scene for dynamic view (slower rotation)
-        const time = Date.now() * 0.0001;
+        // Rotate camera around the scene for dynamic view (much slower rotation)
+        const time = Date.now() * 0.00005;
         camera.position.x = Math.cos(time) * 15;
         camera.position.z = Math.sin(time) * 15;
         camera.lookAt(0, 0, 0);
