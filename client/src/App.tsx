@@ -33,6 +33,7 @@ import DisasterEssentialsMarketplace from "./pages/DisasterEssentialsMarketplace
 import HomeownerContacts from "./pages/HomeownerContacts";
 import XRayRealityModule from "./modules/xray-reality/XRayRealityModule";
 import EyesInTheSkyGlobe from "./modules/EyesInTheSky/EyesInTheSkyGlobe";
+import EyesTools from "./modules/EyesInTheSky/EyesTools";
 import { FloatingAIAssistant } from '@/components/FloatingAIAssistant';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -631,6 +632,12 @@ export default function App() {
           <title>3D Earth Globe - Eyes in the Sky - DisasterDirect</title>
           <meta name="description" content="Interactive 3D Earth globe with Google Photorealistic tiles for advanced storm tracking and satellite surveillance" />
           <EyesInTheSkyGlobe />
+        </Route>
+        
+        <Route path="/eyes-tools">
+          <title>Storm Operations Tools - Eyes in the Sky - DisasterDirect</title>
+          <meta name="description" content="Advanced storm operations with route planning, elevation data, address search, and Google Maps integration on 3D Earth globe" />
+          <EyesTools />
         </Route>
         
         <Route path="/drone-operation">
