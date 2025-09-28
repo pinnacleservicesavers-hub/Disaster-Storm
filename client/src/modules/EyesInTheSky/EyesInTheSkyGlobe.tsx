@@ -1,5 +1,8 @@
 import { useEffect, useRef } from 'react';
 import * as Cesium from 'cesium';
+import { directions, type LatLng } from '@/lib/google';
+import { decode } from '@googlemaps/polyline-codec';
+import { sampleContractors } from '@/data/sampleData';
 
 export default function EyesInTheSkyGlobe() {
   const elRef = useRef<HTMLDivElement | null>(null);
@@ -48,18 +51,57 @@ export default function EyesInTheSkyGlobe() {
         if (picked) console.log('Picked:', picked);
       }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
 
-      // Globe listener (fly to ranked lead)
-      function flyTo(lat: number, lng: number) {
-        viewer?.camera.flyTo({ 
-          destination: Cesium.Cartesian3.fromDegrees(lng, lat, 3500), 
+      // Ops Kit methods for route drawing
+      const addPin = (p: LatLng, color: Cesium.Color, label: string) => {
+        viewer.entities.add({
+          position: Cesium.Cartesian3.fromDegrees(p.lng, p.lat),
+          point: { pixelSize: 10, color },
+          label: { text: label, pixelOffset: new Cesium.Cartesian2(0, -18), scale: 0.6, fillColor: color }
+        });
+      };
+
+      const drawRoute = (coords: LatLng[]) => {
+        const positions = coords.map(c => Cesium.Cartesian3.fromDegrees(c.lng, c.lat));
+        viewer.entities.add({
+          polyline: { positions, width: 4, material: Cesium.Color.CYAN.withAlpha(0.9) }
+        });
+        viewer.zoomTo(viewer.entities);
+      };
+
+      // Enhanced lead handler with route drawing
+      leadHandler = async (e: any) => { 
+        const lead = e.detail; 
+        if (!lead) return;
+
+        // Clear existing entities
+        viewer.entities.removeAll();
+
+        // Find contractor location
+        const contractor = sampleContractors.find(c => c.id === lead.bestContractorId);
+        if (!contractor) return;
+
+        // Fly to lead location
+        viewer.camera.flyTo({ 
+          destination: Cesium.Cartesian3.fromDegrees(lead.location.lng, lead.location.lat, 3500), 
           duration: 1.3 
         });
-      }
 
-      leadHandler = (e: any) => { 
-        const lead = e.detail; 
-        if (!lead) return; 
-        flyTo(lead.location.lat, lead.location.lng); 
+        // Draw route from contractor to lead
+        try {
+          const dir = await directions(contractor.location, lead.location);
+          const route = dir.routes?.[0];
+          if (route) {
+            const decoded = decode(route.polyline.encodedPolyline).map(([lat,lng]) => ({ lat, lng }));
+            addPin(contractor.location, Cesium.Color.LIME, contractor.name);
+            addPin(lead.location, Cesium.Color.RED, 'Lead');
+            drawRoute(decoded);
+          }
+        } catch (error) {
+          console.warn('Route drawing failed:', error);
+          // Fallback: just show pins
+          addPin(contractor.location, Cesium.Color.LIME, contractor.name);
+          addPin(lead.location, Cesium.Color.RED, 'Lead');
+        }
       };
       window.addEventListener('open-lead', leadHandler);
     })();
