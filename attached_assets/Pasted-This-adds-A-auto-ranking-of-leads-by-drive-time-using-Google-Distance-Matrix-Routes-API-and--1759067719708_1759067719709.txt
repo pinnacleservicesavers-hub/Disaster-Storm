@@ -1,0 +1,306 @@
+This adds (A) **auto‑ranking of leads by drive time** using Google Distance Matrix (Routes API) and (B) a **2D Map tab** (Maps JS) alongside your Cesium globe.
+
+---
+
+# 0) Enable & install
+
+**Google Cloud**: Ensure these are enabled (same project/key):
+
+* Routes API (for **Distance Matrix**)
+* Places API (for Autocomplete)
+* Maps JavaScript API (for 2D Map)
+
+**Replit Shell**
+
+```bash
+npm i @googlemaps/js-api-loader
+```
+
+We keep using your secret `VITE_GOOGLE_MAPS_KEY`.
+
+---
+
+# 1) Shared types
+
+Create **`src/types/geo.ts`**
+
+```ts
+export type LatLng = { lat: number; lng: number };
+export type Lead = {
+  id: string;
+  address: string;
+  location: LatLng; // geocoded lat/lng
+  priority: "TREE_ON_HOME" | "TREE_ON_BUILDING" | "TREE_ON_STRUCTURE" | "CAR_ON_HOUSE" | "OTHER";
+};
+export type Contractor = {
+  id: string; name: string; location: LatLng;
+};
+export type RankedLead = Lead & { bestContractorId: string; etaSec: number; distanceMeters: number };
+```
+
+---
+
+# 2) Rank leads by drive time
+
+Create **`src/lib/leadRanker.ts`**
+
+```ts
+import { distanceMatrix } from '@/lib/google';
+import { Contractor, Lead, RankedLead } from '@/types/geo';
+
+export async function rankLeadsByDriveTime(contractors: Contractor[], leads: Lead[]): Promise<RankedLead[]> {
+  if (!contractors.length || !leads.length) return [];
+
+  // Build batched Distance Matrix calls (Google caps size; this keeps it simple)
+  const batchSize = 20; // tune if needed
+  const results: RankedLead[] = [];
+
+  for (let i = 0; i < leads.length; i += batchSize) {
+    const chunk = leads.slice(i, i + batchSize);
+    const mat = await distanceMatrix(
+      contractors.map(c => c.location),
+      chunk.map(l => l.location)
+    );
+
+    // mat returns a stream; but in REST we shaped JSON list in lib/google.ts
+    // Expect array of rows with originIndex/destinationIndex
+    const best: Record<number, { contractorIdx: number; duration: number; distance: number }> = {};
+
+    for (const row of mat) {
+      const oi = row.originIndex, di = row.destinationIndex;
+      if (oi == null || di == null) continue;
+      const durSec = parseIsoDurationSeconds(row.duration || '0s');
+      const dist = row.distanceMeters || 0;
+      const prev = best[di];
+      if (!prev || durSec < prev.duration) {
+        best[di] = { contractorIdx: oi, duration: durSec, distance: dist };
+      }
+    }
+
+    chunk.forEach((lead, idx) => {
+      const b = best[idx];
+      if (!b) return;
+      const c = contractors[b.contractorIdx];
+      results.push({ ...lead, bestContractorId: c.id, etaSec: b.duration, distanceMeters: b.distance });
+    });
+  }
+
+  // Sort by custom priority first, then by ETA
+  const weight = (p: Lead['priority']) => (
+    p === 'TREE_ON_HOME' ? 0 :
+    p === 'TREE_ON_BUILDING' ? 1 :
+    p === 'TREE_ON_STRUCTURE' ? 2 :
+    p === 'CAR_ON_HOUSE' ? 3 : 4
+  );
+
+  return results.sort((a,b) => weight(a.priority) - weight(b.priority) || a.etaSec - b.etaSec);
+}
+
+function parseIsoDurationSeconds(iso: string){
+  // Google returns e.g. "1234s"; minimal parser
+  if (iso.endsWith('s')) return parseInt(iso.slice(0,-1),10) || 0;
+  return 0;
+}
+```
+
+---
+
+# 3) UI: Lead board with auto‑assignment suggestion
+
+Create **`src/modules/Leads/LeadBoard.tsx`**
+
+```tsx
+import { useEffect, useState } from 'react';
+import { rankLeadsByDriveTime } from '@/lib/leadRanker';
+import { Contractor, Lead, RankedLead } from '@/types/geo';
+
+const pillColor: Record<Lead['priority'], string> = {
+  TREE_ON_HOME: '#e11d48',      // red
+  TREE_ON_BUILDING: '#f97316',  // orange
+  TREE_ON_STRUCTURE: '#f59e0b', // amber
+  CAR_ON_HOUSE: '#06b6d4',      // cyan
+  OTHER: '#64748b',             // slate
+};
+
+export default function LeadBoard({ contractors, leads, onOpenOnGlobe }:{
+  contractors: Contractor[];
+  leads: Lead[];
+  onOpenOnGlobe: (lead: RankedLead) => void;
+}){
+  const [ranked, setRanked] = useState<RankedLead[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      const r = await rankLeadsByDriveTime(contractors, leads);
+      setRanked(r);
+      setLoading(false);
+    })();
+  }, [contractors, leads]);
+
+  return (
+    <div className="lead-board">
+      <header>
+        <h2>Lead Auto‑Ranking</h2>
+        {loading && <span className="spinner">Ranking…</span>}
+      </header>
+      <table>
+        <thead>
+          <tr>
+            <th>Priority</th><th>Address</th><th>Best Contractor</th><th>ETA</th><th>Distance</th><th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {ranked.map(l => (
+            <tr key={l.id}>
+              <td><span className="pill" style={{background:pillColor[l.priority]}}>{l.priority.replaceAll('_',' ')}</span></td>
+              <td>{l.address}</td>
+              <td>{l.bestContractorId}</td>
+              <td>{(l.etaSec/60).toFixed(0)} min</td>
+              <td>{(l.distanceMeters/1609.34).toFixed(1)} mi</td>
+              <td><button onClick={()=> onOpenOnGlobe(l)}>Open on Globe</button></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <style>{`
+        .lead-board{ padding:12px; }
+        .spinner{ font-size:12px; opacity:0.7; margin-left:8px; }
+        table{ width:100%; border-collapse:collapse; }
+        th,td{ padding:8px 10px; border-bottom:1px solid #eee; text-align:left; }
+        .pill{ color:#fff; padding:4px 8px; border-radius:999px; font-size:12px; white-space:nowrap; }
+      `}</style>
+    </div>
+  );
+}
+```
+
+> Hook `onOpenOnGlobe` to your Cesium view: fly camera to the lead and draw a route from the chosen contractor (reuse the Ops Kit methods).
+
+---
+
+# 4) 2D Map Tab with Google Maps JS
+
+Create **`src/modules/Map2D/Map2DView.tsx`**
+
+```tsx
+import { useEffect, useRef } from 'react';
+import { Loader } from '@googlemaps/js-api-loader';
+import type { Lead, Contractor } from '@/types/geo';
+
+export default function Map2DView({ leads, contractors }:{ leads: Lead[]; contractors: Contractor[]; }){
+  const ref = useRef<HTMLDivElement|null>(null);
+
+  useEffect(() => {
+    (async () => {
+      const loader = new Loader({ apiKey: import.meta.env.VITE_GOOGLE_MAPS_KEY as string, version: 'weekly', libraries: ['places'] });
+      const { Map } = await loader.importLibrary('maps');
+      const map = new Map(ref.current as HTMLDivElement, {
+        center: { lat: 32.46, lng: -84.9877 },
+        zoom: 8,
+        mapId: 'DEMO_MAP_ID', // optional: configure a custom style in Cloud Console
+        mapTypeControl: true,
+        fullscreenControl: true,
+        streetViewControl: true,
+      });
+
+      // Render contractors (blue) and leads (priority colors)
+      const blue = '#2563eb';
+      contractors.forEach(c => new google.maps.Marker({ position: c.location, map, title: c.name, icon: { path: google.maps.SymbolPath.CIRCLE, scale: 6, fillColor: blue, fillOpacity: 1, strokeWeight: 0 } }));
+
+      const colorFor = (p: Lead['priority']) => (
+        p === 'TREE_ON_HOME' ? '#e11d48' :
+        p === 'TREE_ON_BUILDING' ? '#f97316' :
+        p === 'TREE_ON_STRUCTURE' ? '#f59e0b' :
+        p === 'CAR_ON_HOUSE' ? '#06b6d4' : '#64748b'
+      );
+
+      leads.forEach(l => new google.maps.Marker({ position: l.location, map, title: l.address, icon: { path: google.maps.SymbolPath.BACKWARD_CLOSED_ARROW, scale: 6, fillColor: colorFor(l.priority), fillOpacity: 1, strokeWeight: 0 } }));
+    })();
+  }, [leads, contractors]);
+
+  return <div ref={ref} style={{ width: '100%', height: '100vh' }} />;
+}
+```
+
+---
+
+# 5) Tab switcher (Globe ⇄ Map)
+
+Create **`src/modules/EyesInTheSky/EyesTabs.tsx`**
+
+```tsx
+import { useState } from 'react';
+import EyesInTheSkyGlobe from './EyesInTheSkyGlobe';
+import Map2DView from '@/modules/Map2D/Map2DView';
+import LeadBoard from '@/modules/Leads/LeadBoard';
+import type { Contractor, Lead, RankedLead } from '@/types/geo';
+
+export default function EyesTabs({ contractors, leads }:{ contractors: Contractor[]; leads: Lead[]; }){
+  const [tab, setTab] = useState<'GLOBE'|'MAP'|'LEADS'>('GLOBE');
+
+  const openOnGlobe = (lead: RankedLead) => {
+    // Dispatch an event or use a global store to ask the globe view to fly to this lead
+    window.dispatchEvent(new CustomEvent('open-lead', { detail: lead }));
+    setTab('GLOBE');
+  };
+
+  return (
+    <div className="wrap">
+      <div className="tabs">
+        <button className={tab==='GLOBE'?'on':''} onClick={()=>setTab('GLOBE')}>🌍 Globe</button>
+        <button className={tab==='MAP'?'on':''} onClick={()=>setTab('MAP')}>🗺️ 2D Map</button>
+        <button className={tab==='LEADS'?'on':''} onClick={()=>setTab('LEADS')}>📋 Leads</button>
+      </div>
+      <div className="view">
+        {tab==='GLOBE' && <EyesInTheSkyGlobe/>}
+        {tab==='MAP' && <Map2DView leads={leads} contractors={contractors}/>}
+        {tab==='LEADS' && <LeadBoard contractors={contractors} leads={leads} onOpenOnGlobe={openOnGlobe}/>}
+      </div>
+      <style>{`
+        .tabs{ display:flex; gap:8px; padding:8px; border-bottom:1px solid #eee; background:#fff; }
+        .tabs button{ padding:8px 12px; border-radius:10px; border:1px solid #ddd; background:#fafafa; }
+        .tabs button.on{ background:#111; color:#fff; border-color:#111; }
+        .view{ height: calc(100vh - 50px); }
+      `}</style>
+    </div>
+  );
+}
+```
+
+> Swap your Eyes‑in‑the‑Sky card to open `EyesTabs` instead of the bare globe. Provide `contractors` and `leads` from your store/DB.
+
+---
+
+# 6) Globe listener (fly to ranked lead)
+
+Inside your `EyesInTheSkyGlobe.tsx` `useEffect`, add:
+
+```ts
+function flyTo(lat:number,lng:number){
+  viewer?.camera.flyTo({ destination: Cesium.Cartesian3.fromDegrees(lng, lat, 3500), duration: 1.3 });
+}
+
+const handler = (e:any) => { const lead = e.detail; if (!lead) return; flyTo(lead.location.lat, lead.location.lng); };
+window.addEventListener('open-lead', handler);
+return () => window.removeEventListener('open-lead', handler);
+```
+
+---
+
+# 7) Security & quotas
+
+* Restrict the API key to your domain (HTTP referrer) and to approved APIs.
+* Use server‑side proxies if you later need to hide requests/keys for paid traffic.
+* Monitor **Routes API** usage; Distance Matrix can add up—batch wisely.
+
+---
+
+# 8) Suggested UX polish
+
+* Add **“Assign & Dispatch”** button next to each ranked lead: opens SMS (Twilio) with address + route link for the selected contractor.
+* Add **“Cluster by neighborhood”** in 2D Map to prevent zig‑zag routing.
+* Show **flood elevation badge** (call Elevation API for the parcel center and color‑code low elevation).
+
+Wire these files and your **Eyes in the Sky** card becomes a 3‑tab control center: Globe view, 2D street map, and a ranked lead board with one‑click “open on globe.”
