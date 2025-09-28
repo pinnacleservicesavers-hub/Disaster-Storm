@@ -92,8 +92,8 @@ export default function AlertTicker() {
     // Initial fetch
     fetchAlerts();
 
-    // Set up auto-refresh every 5 minutes
-    const interval = setInterval(fetchAlerts, 300000);
+    // Set up auto-refresh every 10 minutes
+    const interval = setInterval(fetchAlerts, 600000);
 
     return () => clearInterval(interval);
   }, []);
@@ -147,7 +147,7 @@ export default function AlertTicker() {
         className="flex space-x-8 whitespace-nowrap"
         animate={{ x: '-100%' }}
         transition={{
-          duration: 240,
+          duration: 600,
           repeat: Infinity,
           ease: 'linear'
         }}
