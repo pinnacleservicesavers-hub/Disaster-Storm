@@ -46,10 +46,26 @@ export default function EyesInTheSkyGlobe() {
         const picked = viewer!.scene.pick(movement.position);
         if (picked) console.log('Picked:', picked);
       }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+
+      // Globe listener (fly to ranked lead)
+      function flyTo(lat: number, lng: number) {
+        viewer?.camera.flyTo({ 
+          destination: Cesium.Cartesian3.fromDegrees(lng, lat, 3500), 
+          duration: 1.3 
+        });
+      }
+
+      const leadHandler = (e: any) => { 
+        const lead = e.detail; 
+        if (!lead) return; 
+        flyTo(lead.location.lat, lead.location.lng); 
+      };
+      window.addEventListener('open-lead', leadHandler);
     })();
 
     return () => {
       if (viewer && !viewer.isDestroyed()) viewer.destroy();
+      window.removeEventListener('open-lead', leadHandler);
     };
   }, []);
 
