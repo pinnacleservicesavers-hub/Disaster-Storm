@@ -588,6 +588,12 @@ export default function App() {
           <XRayRealityModule />
         </Route>
         
+        <Route path="/eyes-in-sky">
+          <title>Eyes in the Sky - DisasterDirect</title>
+          <meta name="description" content="Aerial surveillance and reconnaissance with real-time satellite imagery and storm tracking capabilities" />
+          <EyesInSky />
+        </Route>
+        
         <Route path="/legal">
           <title>Legal Compliance - DisasterDirect</title>
           <meta name="description" content="Manage legal compliance, contracts, liens, regulatory requirements and documentation for storm restoration business" />

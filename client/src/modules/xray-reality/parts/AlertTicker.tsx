@@ -92,8 +92,8 @@ export default function AlertTicker() {
     // Initial fetch
     fetchAlerts();
 
-    // Set up auto-refresh every 60 seconds
-    const interval = setInterval(fetchAlerts, 60000);
+    // Set up auto-refresh every 5 minutes
+    const interval = setInterval(fetchAlerts, 300000);
 
     return () => clearInterval(interval);
   }, []);
@@ -147,7 +147,7 @@ export default function AlertTicker() {
         className="flex space-x-8 whitespace-nowrap"
         animate={{ x: '-100%' }}
         transition={{
-          duration: 30,
+          duration: 90,
           repeat: Infinity,
           ease: 'linear'
         }}
@@ -156,7 +156,7 @@ export default function AlertTicker() {
         {alerts.map((alert, index) => (
           <div key={`${alert.id}-${index}`} className="flex items-center space-x-4 min-w-max">
             <div className="flex items-center space-x-2">
-              <AlertTriangle className="h-4 w-4 animate-pulse" />
+              <AlertTriangle className="h-4 w-4" style={{ animation: 'pulse 3s infinite' }} />
               <span className={`px-2 py-1 rounded text-xs font-bold ${getSeverityColor(alert.severity)}`}>
                 {alert.type.toUpperCase()}
               </span>
@@ -183,7 +183,7 @@ export default function AlertTicker() {
         {alerts.map((alert, index) => (
           <div key={`${alert.id}-dup-${index}`} className="flex items-center space-x-4 min-w-max">
             <div className="flex items-center space-x-2">
-              <AlertTriangle className="h-4 w-4 animate-pulse" />
+              <AlertTriangle className="h-4 w-4" style={{ animation: 'pulse 3s infinite' }} />
               <span className={`px-2 py-1 rounded text-xs font-bold ${getSeverityColor(alert.severity)}`}>
                 {alert.type.toUpperCase()}
               </span>

@@ -481,6 +481,16 @@ const DASHBOARD_PORTAL_EXPLANATIONS: Record<string, VoiceExplanation> = {
     benefits: ['One-stop resource access', 'Real-time availability', 'Professional guidance', 'Emergency preparedness'],
     duration: 35
   },
+  'xray-reality': {
+    id: 'xray-reality',
+    portal: 'xray-reality',
+    title: 'X-RAY REALITY Portal',
+    content: `X-RAY REALITY is your augmented reality storm operations command center. This cutting-edge module provides live 3D storm views with continuously refreshing radar and GOES satellite data. You'll access traffic cameras in a 3x3 grid organized by state, storm chaser YouTube feeds, your drone HLS streams, ocean surface temperature data, and powerful AR measurement tools. The system includes voice guidance throughout, AR measurement capabilities for phones and computers, and time-scrub replays showing the last 6 to 24 hours of storm movement across properties.`,
+    keyFeatures: ['Live 3D storm visualization', 'AR measurement tools', '7 specialized tabs', 'Voice guidance system'],
+    navigation: 'Click the purple X-RAY REALITY portal to enter augmented reality storm operations.',
+    benefits: ['Real-time storm monitoring', 'AR damage assessment', 'Multi-source intelligence', 'Professional documentation'],
+    duration: 40
+  },
   'customers': {
     id: 'customers',
     portal: 'customers',
