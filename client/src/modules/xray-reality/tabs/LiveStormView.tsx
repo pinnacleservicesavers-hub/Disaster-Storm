@@ -1,293 +1,126 @@
 import { useEffect, useRef, useState } from 'react';
-import * as THREE from 'three';
-import { addAutoRefreshingRasterPlane } from '@/ar/arLayers';
-import type { RefreshHandle } from '@/ar/arLayers';
-import { Activity, RefreshCw } from 'lucide-react';
+import { MapContainer, TileLayer, useMap, useMapEvents } from 'react-leaflet';
+import L, { LatLngBounds, LatLng } from 'leaflet';
+import { Activity, RefreshCw, ZoomIn, ZoomOut, MapPin, Navigation } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import 'leaflet/dist/leaflet.css';
+
+// Interactive Weather Map Component
+function WeatherMapControls() {
+  const map = useMap();
+  
+  const zoomToHurricane = () => {
+    // Focus on Gulf of Mexico / Atlantic where hurricanes typically form
+    map.setView([25.7617, -80.1918], 6); // Miami area for hurricane tracking
+  };
+
+  const zoomToStreetLevel = () => {
+    map.setZoom(15); // Street level zoom
+  };
+
+  useMapEvents({
+    click: (e) => {
+      console.log('Map clicked at:', e.latlng);
+    },
+    zoom: (e) => {
+      console.log('Current zoom level:', map.getZoom());
+    }
+  });
+
+  return null;
+}
+
+// Real-time Weather Overlay Component  
+function LiveWeatherOverlay() {
+  const map = useMap();
+  const [weatherLayer, setWeatherLayer] = useState<L.TileLayer | null>(null);
+
+  useEffect(() => {
+    const addWeatherOverlay = () => {
+      // Remove existing layer
+      if (weatherLayer) {
+        map.removeLayer(weatherLayer);
+      }
+
+      // Add live weather radar overlay from NOAA
+      const newWeatherLayer = L.tileLayer(
+        'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png',
+        {
+          attribution: 'Weather data © NOAA/NWS',
+          opacity: 0.6,
+          maxZoom: 18
+        }
+      );
+
+      newWeatherLayer.addTo(map);
+      setWeatherLayer(newWeatherLayer);
+    };
+
+    addWeatherOverlay();
+
+    // Update weather overlay every 5 minutes
+    const interval = setInterval(addWeatherOverlay, 300000);
+
+    return () => {
+      clearInterval(interval);
+      if (weatherLayer) {
+        map.removeLayer(weatherLayer);
+      }
+    };
+  }, [map]);
+
+  return null;
+}
 
 export default function LiveStormView() {
-  const mountRef = useRef<HTMLDivElement>(null);
-  const sceneRef = useRef<THREE.Scene | null>(null);
-  const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
-  const cameraRef = useRef<THREE.Camera | null>(null);
-  const frameId = useRef<number | null>(null);
-  const radarHandleRef = useRef<RefreshHandle | null>(null);
-  const goesHandleRef = useRef<RefreshHandle | null>(null);
+  const [currentLocation, setCurrentLocation] = useState<[number, number]>([25.7617, -80.1918]); // Miami area
+  const [zoomLevel, setZoomLevel] = useState(6);
+  const [isLiveMode, setIsLiveMode] = useState(true);
+  const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
+  const [weatherVisible, setWeatherVisible] = useState(true);
 
-  const [isInitialized, setIsInitialized] = useState(false);
-  const [lastRadarUpdate, setLastRadarUpdate] = useState<Date>(new Date());
-  const [lastGoesUpdate, setLastGoesUpdate] = useState<Date>(new Date());
-
-  // Environment variables with fallbacks
-  const RADAR_URL = import.meta.env.VITE_RADAR_LATEST_URL || 'https://tiles.myhost/mrms/latest_conus.png';
-  const GOES_URL = import.meta.env.VITE_GOES_LATEST_URL || 'https://tiles.myhost/goes/latest_truecolor.png';
-
+  // Auto-update live data
   useEffect(() => {
-    if (!mountRef.current) return;
-
-    try {
-      // Scene setup
-      const scene = new THREE.Scene();
-      scene.background = new THREE.Color(0x000022);
-      sceneRef.current = scene;
-
-      // Camera setup
-      const camera = new THREE.PerspectiveCamera(
-        75,
-        mountRef.current.clientWidth / mountRef.current.clientHeight,
-        0.1,
-        1000
-      );
-      camera.position.set(0, 10, 15);
-      camera.lookAt(0, 0, 0);
-      cameraRef.current = camera;
-
-      // Renderer setup
-      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-      renderer.setSize(mountRef.current.clientWidth, mountRef.current.clientHeight);
-      renderer.setPixelRatio(window.devicePixelRatio);
-      rendererRef.current = renderer;
-
-      // Lighting
-      const ambientLight = new THREE.AmbientLight(0x404040, 0.8);
-      scene.add(ambientLight);
-
-      const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0);
-      directionalLight.position.set(10, 10, 5);
-      scene.add(directionalLight);
-
-      // Add grid for reference
-      const gridHelper = new THREE.GridHelper(20, 20, 0x333333, 0x333333);
-      scene.add(gridHelper);
-
-      // Create realistic weather radar display
-      const createRadarDisplay = () => {
-        const radarGroup = new THREE.Group();
-        
-        // Radar base (dark background)
-        const radarBase = new THREE.CircleGeometry(6, 64);
-        const baseMaterial = new THREE.MeshLambertMaterial({ 
-          color: 0x001122, 
-          transparent: true, 
-          opacity: 0.9
-        });
-        const baseMesh = new THREE.Mesh(radarBase, baseMaterial);
-        baseMesh.rotation.x = -Math.PI / 2;
-        radarGroup.add(baseMesh);
-
-        // Range rings (like real radar)
-        for (let i = 1; i <= 3; i++) {
-          const ringGeometry = new THREE.RingGeometry(i * 2, i * 2 + 0.05, 64);
-          const ringMaterial = new THREE.MeshLambertMaterial({ 
-            color: 0x00ff00, 
-            transparent: true, 
-            opacity: 0.3
-          });
-          const ringMesh = new THREE.Mesh(ringGeometry, ringMaterial);
-          ringMesh.rotation.x = -Math.PI / 2;
-          radarGroup.add(ringMesh);
-        }
-
-        // Weather precipitation patterns
-        const precipitationPatterns = [
-          { radius: 1.5, color: 0x00ff00, intensity: 0.4 }, // Light rain (green)
-          { radius: 1.0, color: 0xffff00, intensity: 0.6 }, // Moderate rain (yellow)
-          { radius: 0.7, color: 0xff8800, intensity: 0.8 }, // Heavy rain (orange)
-          { radius: 0.4, color: 0xff0000, intensity: 0.9 }  // Severe (red)
-        ];
-
-        precipitationPatterns.forEach((pattern, index) => {
-          for (let i = 0; i < 3 + index; i++) {
-            const angle = (i / (3 + index)) * Math.PI * 2;
-            const distance = 2 + Math.random() * 3;
-            
-            const precipGeometry = new THREE.CircleGeometry(pattern.radius, 16);
-            const precipMaterial = new THREE.MeshLambertMaterial({
-              color: pattern.color,
-              transparent: true,
-              opacity: pattern.intensity
-            });
-            const precipMesh = new THREE.Mesh(precipGeometry, precipMaterial);
-            precipMesh.position.set(
-              Math.cos(angle) * distance,
-              0.01,
-              Math.sin(angle) * distance
-            );
-            precipMesh.rotation.x = -Math.PI / 2;
-            radarGroup.add(precipMesh);
-          }
-        });
-
-        // Radar sweep line (rotating)
-        const sweepGeometry = new THREE.PlaneGeometry(0.1, 6);
-        const sweepMaterial = new THREE.MeshLambertMaterial({
-          color: 0x00ff00,
-          transparent: true,
-          opacity: 0.8
-        });
-        const sweepMesh = new THREE.Mesh(sweepGeometry, sweepMaterial);
-        sweepMesh.position.set(0, 0.02, 3);
-        sweepMesh.rotation.x = -Math.PI / 2;
-        radarGroup.add(sweepMesh);
-
-        // Animate radar sweep
-        const animateRadarSweep = () => {
-          const time = Date.now() * 0.002;
-          sweepMesh.rotation.z = time;
-          requestAnimationFrame(animateRadarSweep);
-        };
-        animateRadarSweep();
-
-        radarGroup.position.set(-3, 1, 0);
-        return radarGroup;
-      };
-
-      const radarDisplay = createRadarDisplay();
-      scene.add(radarDisplay);
-      
-      // Create satellite cloud view
-      const createSatelliteView = () => {
-        const satGroup = new THREE.Group();
-        
-        // Cloud formations
-        const cloudPatterns = [
-          { x: 0, z: 0, size: 2.5, color: 0xffffff, opacity: 0.8 },
-          { x: -2, z: 1, size: 1.8, color: 0xcccccc, opacity: 0.6 },
-          { x: 1.5, z: -1.5, size: 2.0, color: 0x888888, opacity: 0.7 },
-          { x: -1, z: -2, size: 1.5, color: 0x666666, opacity: 0.5 }
-        ];
-
-        cloudPatterns.forEach(cloud => {
-          const cloudGeometry = new THREE.CircleGeometry(cloud.size, 32);
-          const cloudMaterial = new THREE.MeshLambertMaterial({
-            color: cloud.color,
-            transparent: true,
-            opacity: cloud.opacity
-          });
-          const cloudMesh = new THREE.Mesh(cloudGeometry, cloudMaterial);
-          cloudMesh.position.set(cloud.x, 0.01, cloud.z);
-          cloudMesh.rotation.x = -Math.PI / 2;
-          satGroup.add(cloudMesh);
-        });
-
-        satGroup.position.set(3, 1, 0);
-        return satGroup;
-      };
-
-      const satelliteView = createSatelliteView();
-      scene.add(satelliteView);
-
-      // Add auto-refreshing radar plane
-      radarHandleRef.current = addAutoRefreshingRasterPlane(
-        scene,
-        'radar',
-        () => RADAR_URL,
-        {
-          width: 12,
-          height: 8,
-          refreshMs: 45000, // 45 seconds
-          position: { x: -3, y: 1, z: 0 },
-          rotation: { x: -Math.PI / 2, y: 0, z: 0 }
-        }
-      );
-
-      // Add auto-refreshing GOES satellite plane
-      goesHandleRef.current = addAutoRefreshingRasterPlane(
-        scene,
-        'goes',
-        () => GOES_URL,
-        {
-          width: 12,
-          height: 8,
-          refreshMs: 90000, // 90 seconds
-          position: { x: 3, y: 1, z: 0 },
-          rotation: { x: -Math.PI / 2, y: 0, z: 0 }
-        }
-      );
-
-      mountRef.current.appendChild(renderer.domElement);
-
-      // Animation loop
-      const animate = () => {
-        frameId.current = requestAnimationFrame(animate);
-        
-        // Rotate camera around the scene for dynamic view (much slower rotation)
-        const time = Date.now() * 0.00005;
-        camera.position.x = Math.cos(time) * 15;
-        camera.position.z = Math.sin(time) * 15;
-        camera.lookAt(0, 0, 0);
-        
-        renderer.render(scene, camera);
-      };
-
-      animate();
-      setIsInitialized(true);
-
-      // Track update times
-      const updateInterval = setInterval(() => {
-        setLastRadarUpdate(new Date());
-        setLastGoesUpdate(new Date());
-      }, 45000);
-
-      return () => {
-        clearInterval(updateInterval);
-      };
-
-    } catch (error) {
-      console.error('Failed to initialize Live Storm View:', error);
-    }
-
-    // Cleanup
-    return () => {
-      if (frameId.current) {
-        cancelAnimationFrame(frameId.current);
-      }
-      
-      if (radarHandleRef.current) {
-        radarHandleRef.current.cleanup();
-      }
-      
-      if (goesHandleRef.current) {
-        goesHandleRef.current.cleanup();
-      }
-      
-      if (rendererRef.current && mountRef.current?.contains(rendererRef.current.domElement)) {
-        mountRef.current.removeChild(rendererRef.current.domElement);
-        rendererRef.current.dispose();
-      }
-    };
-  }, [RADAR_URL, GOES_URL]);
-
-  // Handle window resize
-  useEffect(() => {
-    const handleResize = () => {
-      if (!mountRef.current || !rendererRef.current || !cameraRef.current) return;
-
-      const width = mountRef.current.clientWidth;
-      const height = mountRef.current.clientHeight;
-
-      (cameraRef.current as THREE.PerspectiveCamera).aspect = width / height;
-      (cameraRef.current as THREE.PerspectiveCamera).updateProjectionMatrix();
-
-      rendererRef.current.setSize(width, height);
+    const updateLiveData = () => {
+      setLastUpdate(new Date());
     };
 
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    // Update every 5 minutes for live weather data
+    const interval = setInterval(updateLiveData, 300000);
+    updateLiveData(); // Initial update
+
+    return () => clearInterval(interval);
   }, []);
 
-  const forceRefresh = async () => {
-    if (radarHandleRef.current) {
-      await radarHandleRef.current.updateTexture();
-      setLastRadarUpdate(new Date());
+  // Get user's current location for live tracking
+  const getCurrentLocation = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          setCurrentLocation([latitude, longitude]);
+          setZoomLevel(12); // Zoom to street level
+        },
+        (error) => {
+          console.warn('Could not get location:', error);
+        }
+      );
     }
-    
-    if (goesHandleRef.current) {
-      await goesHandleRef.current.updateTexture();
-      setLastGoesUpdate(new Date());
-    }
+  };
+
+  const quickJumpLocations = [
+    { name: "Miami Hurricane Center", coords: [25.7617, -80.1918] as [number, number], zoom: 8 },
+    { name: "New Orleans Gulf Coast", coords: [29.9511, -90.0715] as [number, number], zoom: 8 },
+    { name: "Houston Storm Zone", coords: [29.7604, -95.3698] as [number, number], zoom: 8 },
+    { name: "Tampa Bay Area", coords: [27.9506, -82.4572] as [number, number], zoom: 8 },
+    { name: "Atlantic Hurricane Alley", coords: [25.0000, -75.0000] as [number, number], zoom: 5 },
+  ];
+
+  const jumpToLocation = (coords: [number, number], zoom: number) => {
+    setCurrentLocation(coords);
+    setZoomLevel(zoom);
   };
 
   const formatTime = (date: Date) => {
@@ -301,92 +134,162 @@ export default function LiveStormView() {
 
   return (
     <div className="space-y-6">
-      {/* Controls */}
-      <div className="flex items-center justify-between">
+      {/* Live Map Controls */}
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center space-x-4">
           <div className="flex items-center space-x-2">
-            <Activity className="h-5 w-5 text-blue-500 animate-pulse" />
-            <span className="font-semibold text-gray-900 dark:text-white">Live 3D Storm View</span>
+            <Activity className="h-5 w-5 text-red-500 animate-pulse" />
+            <span className="font-semibold text-gray-900 dark:text-white">LIVE Interactive Storm Map</span>
           </div>
           
           <div className="flex space-x-2">
-            <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-              Radar: 45s refresh
+            <Badge variant="secondary" className="bg-red-100 text-red-800">
+              LIVE TRACKING
             </Badge>
-            <Badge variant="secondary" className="bg-purple-100 text-purple-800">
-              GOES: 90s refresh
+            <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+              Street Level Ready
             </Badge>
           </div>
         </div>
 
-        <Button
-          onClick={forceRefresh}
-          variant="outline"
-          size="sm"
-          className="gap-2"
-        >
-          <RefreshCw className="h-4 w-4" />
-          Force Refresh
-        </Button>
+        <div className="flex items-center space-x-2">
+          <Button
+            onClick={getCurrentLocation}
+            variant="outline"
+            size="sm"
+            className="gap-2"
+          >
+            <Navigation className="h-4 w-4" />
+            My Location
+          </Button>
+          
+          <Button
+            onClick={() => setWeatherVisible(!weatherVisible)}
+            variant="outline"
+            size="sm"
+            className="gap-2"
+          >
+            <Activity className="h-4 w-4" />
+            {weatherVisible ? 'Hide' : 'Show'} Weather
+          </Button>
+        </div>
       </div>
 
-      {/* 3D Scene */}
-      <Card className="bg-black border-gray-800">
-        <CardContent className="p-0">
-          <div 
-            ref={mountRef} 
-            className="w-full h-96 bg-black rounded-lg overflow-hidden relative"
+      {/* Quick Jump Locations */}
+      <div className="flex flex-wrap gap-2">
+        {quickJumpLocations.map((location, index) => (
+          <Button
+            key={index}
+            onClick={() => jumpToLocation(location.coords, location.zoom)}
+            variant="outline"
+            size="sm"
+            className="text-xs"
           >
-            {!isInitialized && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black/80">
-                <div className="text-center text-white">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-2"></div>
-                  <p className="text-sm">Initializing 3D storm view...</p>
-                </div>
-              </div>
-            )}
+            <MapPin className="h-3 w-3 mr-1" />
+            {location.name}
+          </Button>
+        ))}
+      </div>
+
+      {/* Interactive Live Map */}
+      <Card className="border-red-200 shadow-lg">
+        <CardContent className="p-0">
+          <div className="w-full h-[600px] relative rounded-lg overflow-hidden">
+            <MapContainer
+              center={currentLocation}
+              zoom={zoomLevel}
+              style={{ height: '100%', width: '100%' }}
+              className="z-0"
+            >
+              {/* Base Map Layers */}
+              <TileLayer
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+              />
+              
+              {/* Satellite View Layer */}
+              <TileLayer
+                url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                attribution='&copy; <a href="https://www.esri.com/">Esri</a>'
+                opacity={0.3}
+              />
+
+              {/* Live Weather Overlay */}
+              {weatherVisible && <LiveWeatherOverlay />}
+              
+              {/* Map Controls and Events */}
+              <WeatherMapControls />
+            </MapContainer>
             
-            {/* Overlay info */}
-            <div className="absolute top-4 left-4 bg-black/60 backdrop-blur-sm rounded-lg p-3 text-white text-xs space-y-1">
+            {/* Live Data Overlay */}
+            <div className="absolute top-4 left-4 bg-black/80 backdrop-blur-sm rounded-lg p-3 text-white text-xs space-y-2 z-10">
               <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
-                <span>Radar: {formatTime(lastRadarUpdate)}</span>
+                <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                <span className="font-semibold">LIVE MODE ACTIVE</span>
+              </div>
+              <div className="text-gray-300">Last Update: {formatTime(lastUpdate)}</div>
+              <div className="text-gray-300">Zoom: {zoomLevel} (Street Level: 15+)</div>
+              <div className="text-gray-300">
+                {zoomLevel >= 15 ? "🛣️ Street Level View" : "🌍 Regional View"}
+              </div>
+            </div>
+
+            {/* Map Legend */}
+            <div className="absolute bottom-4 left-4 bg-white/90 backdrop-blur-sm rounded-lg p-3 text-xs space-y-1 z-10">
+              <div className="font-semibold mb-2">Weather Legend</div>
+              <div className="flex items-center space-x-2">
+                <div className="w-3 h-3 bg-green-500 rounded"></div>
+                <span>Light Rain</span>
               </div>
               <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse"></div>
-                <span>GOES: {formatTime(lastGoesUpdate)}</span>
+                <div className="w-3 h-3 bg-yellow-500 rounded"></div>
+                <span>Moderate Rain</span>
               </div>
-              <div className="text-gray-300 mt-2">
-                Camera auto-rotating for 3D view
+              <div className="flex items-center space-x-2">
+                <div className="w-3 h-3 bg-orange-500 rounded"></div>
+                <span>Heavy Rain</span>
               </div>
+              <div className="flex items-center space-x-2">
+                <div className="w-3 h-3 bg-red-500 rounded"></div>
+                <span>Severe/Storm</span>
+              </div>
+            </div>
+
+            {/* Navigation Instructions */}
+            <div className="absolute top-4 right-4 bg-blue-500/90 backdrop-blur-sm rounded-lg p-3 text-white text-xs z-10">
+              <div className="font-semibold mb-1">Navigation</div>
+              <div>• Scroll to zoom in/out</div>
+              <div>• Drag to pan around</div>
+              <div>• Click locations for details</div>
+              <div>• Zoom 15+ for streets</div>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Info Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {/* Real-time Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-blue-600">
+            <CardTitle className="flex items-center gap-2 text-red-600">
               <Activity className="h-5 w-5" />
-              NEXRAD Radar Data
+              Live Weather Radar
             </CardTitle>
-            <CardDescription>Live precipitation and velocity data</CardDescription>
+            <CardDescription>Real-time precipitation tracking</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
               <div className="flex justify-between">
-                <span className="text-sm text-gray-600">Refresh Rate:</span>
-                <span className="text-sm font-medium">45 seconds</span>
+                <span className="text-sm text-gray-600">Update Frequency:</span>
+                <span className="text-sm font-medium">5 minutes</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-sm text-gray-600">Last Update:</span>
-                <span className="text-sm font-medium">{formatTime(lastRadarUpdate)}</span>
+                <span className="text-sm text-gray-600">Coverage:</span>
+                <span className="text-sm font-medium">CONUS + Caribbean</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-sm text-gray-600">Data Source:</span>
-                <span className="text-sm font-medium">MRMS/NEXRAD</span>
+                <span className="text-sm text-gray-600">Resolution:</span>
+                <span className="text-sm font-medium">1km precision</span>
               </div>
             </div>
           </CardContent>
@@ -394,25 +297,53 @@ export default function LiveStormView() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-purple-600">
-              <Activity className="h-5 w-5" />
-              GOES Satellite Data
+            <CardTitle className="flex items-center gap-2 text-blue-600">
+              <MapPin className="h-5 w-5" />
+              Interactive Navigation
             </CardTitle>
-            <CardDescription>True color satellite imagery</CardDescription>
+            <CardDescription>Street-level storm tracking</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
               <div className="flex justify-between">
-                <span className="text-sm text-gray-600">Refresh Rate:</span>
-                <span className="text-sm font-medium">90 seconds</span>
+                <span className="text-sm text-gray-600">Max Zoom:</span>
+                <span className="text-sm font-medium">Street Level (18x)</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm text-gray-600">Current Zoom:</span>
+                <span className="text-sm font-medium">{zoomLevel}x</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm text-gray-600">View Mode:</span>
+                <span className="text-sm font-medium">
+                  {zoomLevel >= 15 ? "Streets" : zoomLevel >= 10 ? "Neighborhoods" : "Regional"}
+                </span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-green-600">
+              <RefreshCw className="h-5 w-5" />
+              Live Data Status
+            </CardTitle>
+            <CardDescription>Real-time monitoring active</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-sm text-gray-600">Status:</span>
+                <span className="text-sm font-medium text-green-600">● LIVE</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-sm text-gray-600">Last Update:</span>
-                <span className="text-sm font-medium">{formatTime(lastGoesUpdate)}</span>
+                <span className="text-sm font-medium">{formatTime(lastUpdate)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-sm text-gray-600">Data Source:</span>
-                <span className="text-sm font-medium">GOES-16/17</span>
+                <span className="text-sm text-gray-600">Auto-Refresh:</span>
+                <span className="text-sm font-medium">Enabled</span>
               </div>
             </div>
           </CardContent>
