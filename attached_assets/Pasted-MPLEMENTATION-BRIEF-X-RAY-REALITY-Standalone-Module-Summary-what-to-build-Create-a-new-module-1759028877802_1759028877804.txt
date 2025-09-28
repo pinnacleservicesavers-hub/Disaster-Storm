@@ -1,0 +1,255 @@
+MPLEMENTATION BRIEF — X-RAY REALITY (Standalone Module)
+Summary (what to build)
+
+Create a new module X-RAY REALITY at /client/src/modules/xray-reality/ that lets users watch storms “live” and annotate the real world with AR. It must work on phones, laptops/desktops, and headsets with a built-in voice guide.
+
+Install (one time)
+npm i three three-stdlib webxr-polyfill maplibre-gl
+npm i -D @types/three
+
+File tree (must match exactly)
+/client/src/ar/
+  useARSupport.ts
+  arLayers.ts
+  UniversalAR.tsx
+  index.ts
+
+/client/src/modules/xray-reality/
+  XRayRealityModule.tsx
+  parts/AlertTicker.tsx
+  tabs/LiveStormView.tsx
+  tabs/TrafficCams.tsx
+  tabs/StormChasers.tsx
+  tabs/DroneFeeds.tsx
+  tabs/OceanView.tsx
+  tabs/MeasureAndMark.tsx       // simple AR tools page (stub ok)
+  tabs/Replays.tsx              // stub ok
+
+Routes & navigation
+
+Add route: path="/modules/xray-reality" → <XRayRealityModule />
+
+Add a dashboard card linking to that route.
+
+Title: X-RAY REALITY
+
+Subtitle: “Watch the storm in real time.”
+
+Badges: Radar • Satellite • Cams • AR • Voice
+
+Tabs (order + labels)
+
+Live Storm View (default)
+
+Traffic Cams
+
+Storm Chasers
+
+Drone Feeds
+
+Ocean View
+
+AR Measure & Mark
+
+Replays
+
+Must-have features (non-negotiable)
+
+Live radar & GOES drawn into a Three.js scene and auto-refreshed (feels live).
+
+Radar refresh: every 30–60s
+
+GOES refresh: every 60–120s
+
+Use cache-busting ?_=${Date.now()} to avoid stale images.
+
+Live Alerts Ticker (NWS active alerts) across the top, refresh every 60s.
+
+3×3 Traffic Cam grids with a state switcher (FL / GA / AL) at the top.
+
+Storm Chasers: 3+ YouTube Live embeds (IDs configurable).
+
+Drone Feeds: Accept HLS (.m3u8) URLs (we will supply), autoplay muted.
+
+Ocean View: Sea-surface temp + waves as auto-refresh raster planes.
+
+AR Measure & Mark:
+
+Drop hazard markers
+
+Draw cut lines
+
+Measure distance/diameter (UI stub ok; visuals update in scene)
+
+Voice guide (Web Speech): Buttons “Voice Tour”, “What is this?”, “How to use”, “Accuracy tips” that speak scripted lines.
+
+Environment variables (create and use)
+
+Put these in your config and reference in code (fallback to placeholders gracefully):
+
+VITE_RADAR_LATEST_URL              # e.g., https://tiles.myhost/mrms/latest_conus.png
+VITE_GOES_LATEST_URL               # e.g., https://tiles.myhost/goes/latest_truecolor.png
+VITE_OCEAN_SST_URL                 # e.g., https://tiles.myhost/ocean/latest_sst_conus.png
+VITE_OCEAN_WAVES_URL               # e.g., https://tiles.myhost/ocean/latest_waves_conus.png
+
+# Camera presets (example HLS or image URLs)
+VITE_CAM_FL_1  VITE_CAM_FL_2  ...  VITE_CAM_FL_9
+VITE_CAM_GA_1  ... GA_9
+VITE_CAM_AL_1  ... AL_9
+
+# Storm chaser YouTube embed URLs
+VITE_CHASER_1  VITE_CHASER_2  VITE_CHASER_3
+
+# Drone feeds (HLS)
+VITE_DRONE_1   VITE_DRONE_2   VITE_DRONE_3
+
+Key components (what to implement)
+/client/src/ar/useARSupport.ts
+
+Detect WebXR; fall back to “inline” (webcam) if not available.
+
+/client/src/ar/arLayers.ts
+
+Provide addAutoRefreshingRasterPlane(scene, id, urlBuilder, opts) that:
+
+Creates a textured plane (width/height from opts)
+
+Fetches a new texture on an interval (refreshMs)
+
+Appends cache-buster to URL
+
+Returns a handle so we can clean up on unmount
+
+Provide simple addGeoMarker(scene, lat, lng, alt) and addCutLine(scene, coords[]).
+
+/client/src/ar/UniversalAR.tsx
+
+Bootstrap Three.js scene; show title + mode (immersive-ar/inline).
+
+Accept overlays props to draw markers and lines.
+
+This is reused in Measure & Mark and can be embedded elsewhere.
+
+Live Storm View
+
+Build a local Three scene (or reuse UniversalAR) and add two planes:
+
+Radar plane → VITE_RADAR_LATEST_URL
+
+GOES plane → VITE_GOES_LATEST_URL
+
+Both auto-refresh (intervals above).
+
+Show the AlertTicker on top.
+
+Traffic Cams
+
+State selector (FL/GA/AL) → renders a 3×3 grid using env URLs.
+
+Support types: youtube, hls, img (use <iframe>, <video>, <img>).
+
+Storm Chasers
+
+3 tiles using VITE_CHASER_* YouTube embed URLs (autoplay muted).
+
+Drone Feeds
+
+3 tiles using VITE_DRONE_* HLS URLs (<video autoPlay muted controls>).
+
+Do not break if a feed is offline; show “Feed unavailable” placeholder.
+
+Ocean View
+
+Two auto-refreshed planes (SST and Waves) using the ocean env URLs.
+
+AR Measure & Mark
+
+Reuse UniversalAR + three buttons: Add Marker, Draw Cut Line, Measure.
+
+For now, place a marker at a fixed demo coordinate and draw a short demo line; wire real geo later.
+
+Replays (stub ok)
+
+Placeholder explaining time-scrub (we’ll provide API later).
+
+AlertTicker.tsx
+
+Fetch https://api.weather.gov/alerts/active?status=actual every 60s
+
+Scroll events like: “Tornado Warning • Harris County GA”
+
+Voice Guide
+
+Implement in the module with Web Speech API (speechSynthesis):
+
+“Welcome to X-RAY REALITY. This shows live radar, satellite, and cameras. Use AR to tag hazards, draw cut lines, and measure.”
+
+“How to use…”
+
+“Accuracy tips…”
+
+“You’re ready…”
+
+UX rules
+
+Default open tab: Live Storm View.
+
+Buttons: rounded, bold labels, high contrast.
+
+If a URL is missing, show a friendly placeholder tile (no crashes).
+
+On mobile, prompt for camera permission once (don’t spam).
+
+All auto-refresh intervals clear on unmount to avoid leaks.
+
+QA — Definition of Done
+
+Route loads: /modules/xray-reality renders the tab bar + Live Storm View by default.
+
+Radar & GOES planes refresh on their own (you can see textures change over time).
+
+Ticker shows at least one live alert line.
+
+Traffic Cams: switching FL/GA/AL swaps a 3×3 grid without page reload.
+
+Storm Chasers: all 3 tiles load (or show placeholder if offline).
+
+Drone Feeds: HLS video tiles play (or show placeholder).
+
+Ocean View: both SST and Waves planes visible and auto-refresh.
+
+AR Measure & Mark:
+
+Clicking Add Marker adds a visible marker.
+
+Draw Cut Line shows a line in scene.
+
+Measure displays a numeric readout (stub acceptable).
+
+Voice Guide: clicking Voice Tour audibly narrates the intro; other buttons speak their lines.
+
+No console errors after 60 minutes idle with auto-refresh running.
+
+Handoff deliverables
+
+Updated repo with all files above.
+
+.env.example containing all required VITE_* keys.
+
+Short README_XRAY_REALITY.md with:
+
+How to run, where to set URLs, refresh intervals, and how to add new cameras/chasers.
+
+Known limitations (e.g., public DOT cams may change URLs/CORS).
+
+Guardrails (don’t do this)
+
+Don’t hit public OSM/Nominatim or random tile servers directly in production.
+
+Don’t block the UI while fetching refreshed textures.
+
+Don’t hard-code any secret keys in the codebase.
+
+TL;DR to the agent
+
+Build the X-RAY REALITY module exactly as specified (files, tabs, routes). Radar/GOES must auto-refresh and feel live, ticker must pull NWS, cams/chasers/drones must render via env URLs, Ocean View must show SST + Waves, AR page must drop markers/lines and speak a voice tour. Ship with .env.example, README, and zero console errors.

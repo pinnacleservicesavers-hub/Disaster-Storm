@@ -140,6 +140,19 @@ export const PORTAL_EXPLANATIONS: Record<string, VoiceExplanation> = {
     navigation: 'View live satellite loops, analyze lightning strike patterns, monitor temperature gradients, and track storm development in real-time.',
     benefits: ['Professional weather intelligence', 'Western US regional coverage', 'Lightning strike prediction', 'Advanced storm tracking'],
     duration: 45
+  },
+  xray: {
+    id: 'xray',
+    portal: 'xray',
+    title: 'X-RAY REALITY Augmented Reality Portal',
+    content: `X-RAY REALITY provides augmented reality storm operations with live storm views, continuously refreshing radar and GOES satellite data on a 3D stage. 
+    Access traffic and DOT cameras in 3×3 grids by state, storm-chaser feeds, your drone feeds, and ocean views for coastal operations. Use AR tools to 
+    drop hazard markers for energized lines and split trunks, draw cut lines and safe zones, and measure diameters and distances visually in augmented reality. 
+    Features lead triage overlay that auto-labels critical jobs, routing helper for smart sequences, and time scrub replays of the last 6 to 24 hours.`,
+    keyFeatures: ['Live 3D storm view', 'AR measurement and marking tools', 'Traffic camera grids', 'Storm chaser feeds', 'Drone feed integration', 'Time scrub replays'],
+    navigation: 'Use AR tools to mark hazards, draw cut lines, measure distances, view live feeds, and scrub through storm history for evidence capture.',
+    benefits: ['Augmented reality storm ops', 'Real-time situational awareness', 'Evidence capture and reporting', 'Smart routing and triage'],
+    duration: 50
   }
 };
 
@@ -275,7 +288,7 @@ ${explanation.benefits ? `Benefits include: ${explanation.benefits.join(', ')}.`
   }, [explanations, speakText]);
 
   const startGuidedTour = useCallback(() => {
-    const portalOrder = ['welcome', 'hotels', 'gas', 'hardware', 'shelters', 'fema', 'alerts', 'satellite', 'goes17'];
+    const portalOrder = ['welcome', 'hotels', 'gas', 'hardware', 'shelters', 'fema', 'alerts', 'satellite', 'goes17', 'xray'];
     let currentIndex = 0;
 
     const speakNext = () => {
