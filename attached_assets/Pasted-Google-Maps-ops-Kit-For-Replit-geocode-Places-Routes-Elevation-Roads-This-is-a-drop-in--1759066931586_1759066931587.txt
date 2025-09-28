@@ -1,0 +1,72 @@
+Google Maps “ops Kit” For Replit (geocode + Places + Routes + Elevation + Roads)
+
+This is a drop‑in Ops Kit to supercharge your app with key Google APIs: Geocoding, Places Autocomplete, Routes/Directions, Distance Matrix, Elevation, and Roads (snap‑to‑road). It renders on your Cesium globe (Eyes in the Sky) and works fine without the 2D Maps JS SDK.
+
+Uses REST endpoints so you can keep your current Cesium setup. You can later add the 2D Maps SDK if you want a flat‑map tab.
+
+0) Enable these Google APIs
+
+In your Google Cloud project (same key you already created):
+
+Geocoding API
+
+Places API (for Autocomplete)
+
+Routes API (Directions + Distance Matrix)
+
+Elevation API
+
+Roads API (optional but recommended)
+
+Keep using your existing secret: VITE_GOOGLE_MAPS_KEY
+
+1) Install packages (Replit Shell)
+npm i @googlemaps/polyline-codec
+
+(We use this tiny lib to decode the encoded route polylines.)
+
+2) Reusable Google client (REST helpers)
+
+Create src/lib/google.ts
+
+// src/lib/google.ts
+const API_KEY = import.meta.env.VITE_GOOGLE_MAPS_KEY as string;
+if (!API_KEY) console.warn("Missing VITE_GOOGLE_MAPS_KEY env var");
+
+
+export type LatLng = { lat: number; lng: number };
+
+
+export async function geocodeAddress(address: string) {
+  const url = new URL("https://maps.googleapis.com/maps/api/geocode/json");
+  url.searchParams.set("address", address);
+  url.searchParams.set("key", API_KEY);
+  const r = await fetch(url);
+  if (!r.ok) throw new Error("Geocode failed");
+  return r.json();
+}
+
+
+export async function reverseGeocode(lat: number, lng: number) {
+  const url = new URL("https://maps.googleapis.com/maps/api/geocode/json");
+  url.searchParams.set("latlng", `${lat},${lng}`);
+  url.searchParams.set("key", API_KEY);
+  const r = await fetch(url);
+  if (!r.ok) throw new Error("Reverse geocode failed");
+  return r.json();
+}
+
+
+export async function placesAutocomplete(input: string) {
+  const url = new URL("https://maps.googleapis.com/maps/api/place/autocomplete/json");
+  url.searchParams.set("input", input);
+  url.searchParams.set("key", API_KEY);
+  url.searchParams.set("types", "address");
+  const r = await fetch(url);
+  if (!r.ok) throw new Error("Autocomplete failed");
+  return r.json();
+}
+
+
+export async function placeDetails(place_id: string) {
+  const url = new URL("https://maps.googleapis.com/maps/api/place/details/json");
