@@ -46,6 +46,19 @@ export default function EyesTools(){
         setElevation(null);
         setCursorPos(null);
       });
+
+      // Click for precise elevation using Google Maps API
+      const handler = new Cesium.ScreenSpaceEventHandler(v.scene.canvas);
+      handler.setInputAction(async (movement:any) => {
+        const cartesian = v.camera.pickEllipsoid(movement.position, v.scene.globe.ellipsoid);
+        if (!cartesian) return;
+        const carto = Cesium.Cartographic.fromCartesian(cartesian);
+        const lat = Cesium.Math.toDegrees(carto.latitude);
+        const lng = Cesium.Math.toDegrees(carto.longitude);
+        const elev = await elevationFor([{lat,lng}]);
+        const meters = elev.results?.[0]?.elevation ?? 0;
+        console.log(`Lat ${lat.toFixed(5)}, Lng ${lng.toFixed(5)} — Elev ${meters.toFixed(1)} m`);
+      }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
     })();
     return () => { if (v && !v.isDestroyed()) v.destroy(); };
   }, []);
