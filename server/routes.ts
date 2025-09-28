@@ -847,6 +847,85 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
   });
 
   // Export customers to CSV
+  // Homeowner Contact Database Endpoints
+  app.get('/api/homeowners', authenticate, async (req: AuthenticatedRequest, res) => {
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      
+      const homeownersPath = path.join(__dirname, '..', 'data', 'homeowners.json');
+      
+      if (!fs.existsSync(homeownersPath)) {
+        return res.status(404).json({ error: 'Homeowner contact data not found' });
+      }
+      
+      const homeownersData = JSON.parse(fs.readFileSync(homeownersPath, 'utf-8'));
+      res.json(homeownersData.homeowners);
+    } catch (error) {
+      console.error('Error reading homeowner data:', error);
+      res.status(500).json({ error: 'Failed to load homeowner data' });
+    }
+  });
+
+  // Search homeowners by damage type, location, or contact info
+  app.get('/api/homeowners/search', authenticate, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { query, damageType, city, state, insuranceCompany } = req.query;
+      
+      const fs = require('fs');
+      const path = require('path');
+      
+      const homeownersPath = path.join(__dirname, '..', 'data', 'homeowners.json');
+      const homeownersData = JSON.parse(fs.readFileSync(homeownersPath, 'utf-8'));
+      
+      let filteredHomeowners = homeownersData.homeowners;
+      
+      // Apply filters
+      if (query) {
+        const searchQuery = (query as string).toLowerCase();
+        filteredHomeowners = filteredHomeowners.filter((homeowner: any) =>
+          homeowner.name.toLowerCase().includes(searchQuery) ||
+          homeowner.address.toLowerCase().includes(searchQuery) ||
+          homeowner.propertyDamage.toLowerCase().includes(searchQuery) ||
+          homeowner.insuranceCompany.toLowerCase().includes(searchQuery)
+        );
+      }
+      
+      if (damageType) {
+        const damageSearch = (damageType as string).toLowerCase();
+        filteredHomeowners = filteredHomeowners.filter((homeowner: any) =>
+          homeowner.propertyDamage.toLowerCase().includes(damageSearch)
+        );
+      }
+      
+      if (city) {
+        const citySearch = (city as string).toLowerCase();
+        filteredHomeowners = filteredHomeowners.filter((homeowner: any) =>
+          homeowner.address.toLowerCase().includes(citySearch)
+        );
+      }
+      
+      if (state) {
+        const stateSearch = (state as string).toLowerCase();
+        filteredHomeowners = filteredHomeowners.filter((homeowner: any) =>
+          homeowner.address.toLowerCase().includes(stateSearch)
+        );
+      }
+      
+      if (insuranceCompany) {
+        const insuranceSearch = (insuranceCompany as string).toLowerCase();
+        filteredHomeowners = filteredHomeowners.filter((homeowner: any) =>
+          homeowner.insuranceCompany.toLowerCase().includes(insuranceSearch)
+        );
+      }
+      
+      res.json(filteredHomeowners);
+    } catch (error) {
+      console.error('Error searching homeowner data:', error);
+      res.status(500).json({ error: 'Failed to search homeowner data' });
+    }
+  });
+
   app.get('/api/customers/export', (req, res) => {
     try {
       const db = readCustomers();

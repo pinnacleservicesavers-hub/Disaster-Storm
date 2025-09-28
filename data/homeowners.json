@@ -1,0 +1,124 @@
+{
+  "homeowners": [
+    {
+      "id": "homeowner-001",
+      "name": "Sarah Johnson",
+      "address": "2847 Bayshore Drive, Tampa, FL 33609",
+      "phone": "(813) 555-0123",
+      "email": "sarah.johnson@email.com",
+      "propertyDamage": "Roof damage, water intrusion, siding replacement needed",
+      "insuranceCompany": "State Farm",
+      "claimNumber": "SF-2024-8834567",
+      "estimatedCost": "$45,000",
+      "coordinates": { "lat": 27.9475, "lng": -82.4584 }
+    },
+    {
+      "id": "homeowner-002", 
+      "name": "Michael Chen",
+      "address": "8392 Oak Ridge Court, Orlando, FL 32801",
+      "phone": "(407) 555-0456",
+      "email": "m.chen.home@gmail.com",
+      "propertyDamage": "Tree fell on garage, structural damage",
+      "insuranceCompany": "Allstate",
+      "claimNumber": "AL-2024-9947234",
+      "estimatedCost": "$28,000",
+      "coordinates": { "lat": 28.5383, "lng": -81.3792 }
+    },
+    {
+      "id": "homeowner-003",
+      "name": "Emma Rodriguez", 
+      "address": "1456 Hurricane Boulevard, Miami, FL 33101",
+      "phone": "(305) 555-0789",
+      "email": "emma.rodriguez.claims@yahoo.com",
+      "propertyDamage": "Extensive water damage throughout home, roof replacement",
+      "insuranceCompany": "USAA",
+      "claimNumber": "USAA-2024-5523891",
+      "estimatedCost": "$78,000",
+      "coordinates": { "lat": 25.7617, "lng": -80.1918 }
+    },
+    {
+      "id": "homeowner-004",
+      "name": "David Williams",
+      "address": "7239 Storm Creek Lane, Jacksonville, FL 32225",
+      "phone": "(904) 555-0321", 
+      "email": "d.williams.insurance@outlook.com",
+      "propertyDamage": "Wind damage to roof and windows",
+      "insuranceCompany": "Progressive",
+      "claimNumber": "PG-2024-7745623",
+      "estimatedCost": "$32,000",
+      "coordinates": { "lat": 30.3322, "lng": -81.6557 }
+    },
+    {
+      "id": "homeowner-005",
+      "name": "Lisa Martinez",
+      "address": "5847 Bayview Avenue, St. Petersburg, FL 33704",
+      "phone": "(727) 555-0654",
+      "email": "lisa.martinez.home@gmail.com",
+      "propertyDamage": "Flooding in basement and first floor",
+      "insuranceCompany": "Farmers",
+      "claimNumber": "FM-2024-3367890",
+      "estimatedCost": "$52,000",
+      "coordinates": { "lat": 27.7676, "lng": -82.6403 }
+    },
+    {
+      "id": "homeowner-006",
+      "name": "Robert Thompson",
+      "address": "9234 Pine Valley Drive, Tallahassee, FL 32308",
+      "phone": "(850) 555-0987",
+      "email": "r.thompson.claims@email.com",
+      "propertyDamage": "Hail damage to roof and vehicles",
+      "insuranceCompany": "Liberty Mutual",
+      "claimNumber": "LM-2024-8892456",
+      "estimatedCost": "$39,000",
+      "coordinates": { "lat": 30.4518, "lng": -84.2807 }
+    },
+    {
+      "id": "homeowner-007",
+      "name": "Jennifer Davis",
+      "address": "3456 Coastal Highway, Panama City, FL 32401",
+      "phone": "(850) 555-0234",
+      "email": "jennifer.davis.storm@yahoo.com",
+      "propertyDamage": "Storm surge damage to first floor",
+      "insuranceCompany": "Nationwide",
+      "claimNumber": "NW-2024-4456789",
+      "estimatedCost": "$67,000",
+      "coordinates": { "lat": 30.1588, "lng": -85.6602 }
+    },
+    {
+      "id": "homeowner-008",
+      "name": "Mark Johnson",
+      "address": "6789 Thunderbolt Circle, Tampa, FL 33612",
+      "phone": "(813) 555-0567",
+      "email": "mark.johnson.home@outlook.com",
+      "propertyDamage": "Tree damage to roof and pool area",
+      "insuranceCompany": "State Farm",
+      "claimNumber": "SF-2024-7789234",
+      "estimatedCost": "$41,000",
+      "coordinates": { "lat": 28.0636, "lng": -82.4194 }
+    },
+    {
+      "id": "homeowner-009",
+      "name": "Ashley Brown",
+      "address": "1234 Windswept Lane, Fort Lauderdale, FL 33301",
+      "phone": "(954) 555-0890",
+      "email": "ashley.brown.claims@gmail.com",
+      "propertyDamage": "Water damage from broken windows",
+      "insuranceCompany": "Geico",
+      "claimNumber": "GC-2024-5567123",
+      "estimatedCost": "$24,000",
+      "coordinates": { "lat": 26.1224, "lng": -80.1373 }
+    },
+    {
+      "id": "homeowner-010",
+      "name": "Christopher Garcia",
+      "address": "8765 Hurricane Ridge Road, Miami, FL 33155",
+      "phone": "(305) 555-0123",
+      "email": "c.garcia.storm@email.com",
+      "propertyDamage": "Roof collapse and structural damage",
+      "insuranceCompany": "USAA",
+      "claimNumber": "USAA-2024-9934567",
+      "estimatedCost": "$89,000",
+      "coordinates": { "lat": 25.6866, "lng": -80.3256 }
+    }
+  ]
+}
