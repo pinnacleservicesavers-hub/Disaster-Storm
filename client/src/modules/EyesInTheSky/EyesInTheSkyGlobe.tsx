@@ -6,6 +6,7 @@ export default function EyesInTheSkyGlobe() {
 
   useEffect(() => {
     let viewer: Cesium.Viewer | undefined;
+    let leadHandler: ((e: any) => void) | undefined;
 
     (async () => {
       const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_KEY as string;
@@ -55,7 +56,7 @@ export default function EyesInTheSkyGlobe() {
         });
       }
 
-      const leadHandler = (e: any) => { 
+      leadHandler = (e: any) => { 
         const lead = e.detail; 
         if (!lead) return; 
         flyTo(lead.location.lat, lead.location.lng); 
@@ -65,7 +66,7 @@ export default function EyesInTheSkyGlobe() {
 
     return () => {
       if (viewer && !viewer.isDestroyed()) viewer.destroy();
-      window.removeEventListener('open-lead', leadHandler);
+      if (leadHandler) window.removeEventListener('open-lead', leadHandler);
     };
   }, []);
 
