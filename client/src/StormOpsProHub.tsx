@@ -637,9 +637,9 @@ export default function StormOpsProHub() {
     {
       id: 'eyes-in-sky',
       title: 'Eyes in the Sky',
-      description: 'Satellite surveillance and aerial reconnaissance with real-time storm tracking and damage assessment',
+      description: 'Interactive 3D Earth globe with Google Photorealistic tiles for satellite surveillance and aerial reconnaissance',
       icon: Eye,
-      link: '/eyes-in-sky',
+      link: '/eyes-globe',
       color: 'sky',
       bgClass: 'from-sky-500 to-sky-600',
       borderClass: 'border-sky-200',
