@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { MapContainer, TileLayer, useMap, useMapEvents } from 'react-leaflet';
 import L, { LatLngBounds, LatLng } from 'leaflet';
-import { Activity, RefreshCw, ZoomIn, ZoomOut, MapPin, Navigation } from 'lucide-react';
+import { Activity, RefreshCw, ZoomIn, ZoomOut, MapPin, Navigation, Globe, Map as MapIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import Earth3DGlobe from '../components/Earth3DGlobe';
 import 'leaflet/dist/leaflet.css';
 
 // Interactive Weather Map Component
@@ -80,6 +82,7 @@ export default function LiveStormView() {
   const [isLiveMode, setIsLiveMode] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   const [weatherVisible, setWeatherVisible] = useState(true);
+  const [viewMode, setViewMode] = useState<'2d' | '3d'>('2d');
 
   // Auto-update live data
   useEffect(() => {
@@ -147,12 +150,22 @@ export default function LiveStormView() {
               LIVE TRACKING
             </Badge>
             <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-              Street Level Ready
+              {viewMode === '3d' ? '3D Globe View' : 'Street Level Ready'}
             </Badge>
           </div>
         </div>
 
         <div className="flex items-center space-x-2">
+          <Button
+            onClick={() => setViewMode(viewMode === '2d' ? '3d' : '2d')}
+            variant={viewMode === '3d' ? "default" : "outline"}
+            size="sm"
+            className="gap-2"
+          >
+            {viewMode === '2d' ? <Globe className="h-4 w-4" /> : <MapIcon className="h-4 w-4" />}
+            {viewMode === '2d' ? '3D Globe' : '2D Map'}
+          </Button>
+          
           <Button
             onClick={getCurrentLocation}
             variant="outline"
@@ -163,15 +176,17 @@ export default function LiveStormView() {
             My Location
           </Button>
           
-          <Button
-            onClick={() => setWeatherVisible(!weatherVisible)}
-            variant="outline"
-            size="sm"
-            className="gap-2"
-          >
-            <Activity className="h-4 w-4" />
-            {weatherVisible ? 'Hide' : 'Show'} Weather
-          </Button>
+          {viewMode === '2d' && (
+            <Button
+              onClick={() => setWeatherVisible(!weatherVisible)}
+              variant="outline"
+              size="sm"
+              className="gap-2"
+            >
+              <Activity className="h-4 w-4" />
+              {weatherVisible ? 'Hide' : 'Show'} Weather
+            </Button>
+          )}
         </div>
       </div>
 
@@ -191,81 +206,85 @@ export default function LiveStormView() {
         ))}
       </div>
 
-      {/* Interactive Live Map */}
-      <Card className="border-red-200 shadow-lg">
-        <CardContent className="p-0">
-          <div className="w-full h-[600px] relative rounded-lg overflow-hidden">
-            <MapContainer
-              center={currentLocation}
-              zoom={zoomLevel}
-              style={{ height: '100%', width: '100%' }}
-              className="z-0"
-            >
-              {/* Base Map Layers */}
-              <TileLayer
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-              />
+      {/* Interactive Live Map - 2D/3D View */}
+      {viewMode === '2d' ? (
+        <Card className="border-red-200 shadow-lg">
+          <CardContent className="p-0">
+            <div className="w-full h-[600px] relative rounded-lg overflow-hidden">
+              <MapContainer
+                center={currentLocation}
+                zoom={zoomLevel}
+                style={{ height: '100%', width: '100%' }}
+                className="z-0"
+              >
+                {/* Base Map Layers */}
+                <TileLayer
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                />
+                
+                {/* Satellite View Layer */}
+                <TileLayer
+                  url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                  attribution='&copy; <a href="https://www.esri.com/">Esri</a>'
+                  opacity={0.3}
+                />
+
+                {/* Live Weather Overlay */}
+                {weatherVisible && <LiveWeatherOverlay />}
+                
+                {/* Map Controls and Events */}
+                <WeatherMapControls />
+              </MapContainer>
               
-              {/* Satellite View Layer */}
-              <TileLayer
-                url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-                attribution='&copy; <a href="https://www.esri.com/">Esri</a>'
-                opacity={0.3}
-              />
-
-              {/* Live Weather Overlay */}
-              {weatherVisible && <LiveWeatherOverlay />}
-              
-              {/* Map Controls and Events */}
-              <WeatherMapControls />
-            </MapContainer>
-            
-            {/* Live Data Overlay */}
-            <div className="absolute top-4 left-4 bg-black/80 backdrop-blur-sm rounded-lg p-3 text-white text-xs space-y-2 z-10">
-              <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-                <span className="font-semibold">LIVE MODE ACTIVE</span>
+              {/* Live Data Overlay */}
+              <div className="absolute top-4 left-4 bg-black/80 backdrop-blur-sm rounded-lg p-3 text-white text-xs space-y-2 z-10">
+                <div className="flex items-center space-x-2">
+                  <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                  <span className="font-semibold">LIVE MODE ACTIVE</span>
+                </div>
+                <div className="text-gray-300">Last Update: {formatTime(lastUpdate)}</div>
+                <div className="text-gray-300">Zoom: {zoomLevel} (Street Level: 15+)</div>
+                <div className="text-gray-300">
+                  {zoomLevel >= 15 ? "🛣️ Street Level View" : "🌍 Regional View"}
+                </div>
               </div>
-              <div className="text-gray-300">Last Update: {formatTime(lastUpdate)}</div>
-              <div className="text-gray-300">Zoom: {zoomLevel} (Street Level: 15+)</div>
-              <div className="text-gray-300">
-                {zoomLevel >= 15 ? "🛣️ Street Level View" : "🌍 Regional View"}
+
+              {/* Map Legend */}
+              <div className="absolute bottom-4 left-4 bg-white/90 backdrop-blur-sm rounded-lg p-3 text-xs space-y-1 z-10">
+                <div className="font-semibold mb-2">Weather Legend</div>
+                <div className="flex items-center space-x-2">
+                  <div className="w-3 h-3 bg-green-500 rounded"></div>
+                  <span>Light Rain</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <div className="w-3 h-3 bg-yellow-500 rounded"></div>
+                  <span>Moderate Rain</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <div className="w-3 h-3 bg-orange-500 rounded"></div>
+                  <span>Heavy Rain</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <div className="w-3 h-3 bg-red-500 rounded"></div>
+                  <span>Severe/Storm</span>
+                </div>
+              </div>
+
+              {/* Navigation Instructions */}
+              <div className="absolute top-4 right-4 bg-blue-500/90 backdrop-blur-sm rounded-lg p-3 text-white text-xs z-10">
+                <div className="font-semibold mb-1">Navigation</div>
+                <div>• Scroll to zoom in/out</div>
+                <div>• Drag to pan around</div>
+                <div>• Click locations for details</div>
+                <div>• Zoom 15+ for streets</div>
               </div>
             </div>
-
-            {/* Map Legend */}
-            <div className="absolute bottom-4 left-4 bg-white/90 backdrop-blur-sm rounded-lg p-3 text-xs space-y-1 z-10">
-              <div className="font-semibold mb-2">Weather Legend</div>
-              <div className="flex items-center space-x-2">
-                <div className="w-3 h-3 bg-green-500 rounded"></div>
-                <span>Light Rain</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <div className="w-3 h-3 bg-yellow-500 rounded"></div>
-                <span>Moderate Rain</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <div className="w-3 h-3 bg-orange-500 rounded"></div>
-                <span>Heavy Rain</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <div className="w-3 h-3 bg-red-500 rounded"></div>
-                <span>Severe/Storm</span>
-              </div>
-            </div>
-
-            {/* Navigation Instructions */}
-            <div className="absolute top-4 right-4 bg-blue-500/90 backdrop-blur-sm rounded-lg p-3 text-white text-xs z-10">
-              <div className="font-semibold mb-1">Navigation</div>
-              <div>• Scroll to zoom in/out</div>
-              <div>• Drag to pan around</div>
-              <div>• Click locations for details</div>
-              <div>• Zoom 15+ for streets</div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      ) : (
+        <Earth3DGlobe />
+      )}
 
       {/* Real-time Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -298,27 +317,44 @@ export default function LiveStormView() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-blue-600">
-              <MapPin className="h-5 w-5" />
+              {viewMode === '2d' ? <MapPin className="h-5 w-5" /> : <Globe className="h-5 w-5" />}
               Interactive Navigation
             </CardTitle>
-            <CardDescription>Street-level storm tracking</CardDescription>
+            <CardDescription>
+              {viewMode === '2d' ? 'Street-level storm tracking' : '3D global storm visualization'}
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
               <div className="flex justify-between">
-                <span className="text-sm text-gray-600">Max Zoom:</span>
-                <span className="text-sm font-medium">Street Level (18x)</span>
+                <span className="text-sm text-gray-600">View Type:</span>
+                <span className="text-sm font-medium">{viewMode === '2d' ? '2D Map' : '3D Globe'}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-600">Current Zoom:</span>
-                <span className="text-sm font-medium">{zoomLevel}x</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-600">View Mode:</span>
-                <span className="text-sm font-medium">
-                  {zoomLevel >= 15 ? "Streets" : zoomLevel >= 10 ? "Neighborhoods" : "Regional"}
-                </span>
-              </div>
+              {viewMode === '2d' ? (
+                <>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">Current Zoom:</span>
+                    <span className="text-sm font-medium">{zoomLevel}x</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">View Mode:</span>
+                    <span className="text-sm font-medium">
+                      {zoomLevel >= 15 ? "Streets" : zoomLevel >= 10 ? "Neighborhoods" : "Regional"}
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">Globe View:</span>
+                    <span className="text-sm font-medium">Real-time 3D</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">Storm Tracking:</span>
+                    <span className="text-sm font-medium">Global Scale</span>
+                  </div>
+                </>
+              )}
             </div>
           </CardContent>
         </Card>
