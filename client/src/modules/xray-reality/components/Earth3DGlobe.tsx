@@ -14,9 +14,10 @@ function EarthSphere({ stormData, showStorms = true }: { stormData?: any[], show
   const [earthTexture, setEarthTexture] = useState<THREE.Texture | null>(null);
   const [cloudsTexture, setCloudsTexture] = useState<THREE.Texture | null>(null);
 
-  // Create Earth textures
+  // Create Earth textures with proper cleanup
   useEffect(() => {
-    const loader = new THREE.TextureLoader();
+    let earthTex: THREE.Texture | null = null;
+    let cloudsTex: THREE.Texture | null = null;
     
     // Use NASA Blue Marble texture (fallback to colored sphere if texture fails)
     const earthImg = new Image();
@@ -24,8 +25,9 @@ function EarthSphere({ stormData, showStorms = true }: { stormData?: any[], show
     earthImg.onload = () => {
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
-      canvas.width = 2048;
-      canvas.height = 1024;
+      // Reduced resolution for better performance
+      canvas.width = 1024;
+      canvas.height = 512;
       
       if (ctx) {
         // Create a blue-green Earth-like texture
@@ -39,50 +41,60 @@ function EarthSphere({ stormData, showStorms = true }: { stormData?: any[], show
         ctx.fillStyle = gradient;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         
-        // Add some continents-like shapes
+        // Add some continents-like shapes (scaled down)
         ctx.fillStyle = '#22c55e';
         ctx.beginPath();
-        ctx.ellipse(400, 300, 200, 150, 0, 0, Math.PI * 2);
+        ctx.ellipse(200, 150, 100, 75, 0, 0, Math.PI * 2);
         ctx.fill();
         
         ctx.beginPath();
-        ctx.ellipse(1200, 400, 300, 200, 0, 0, Math.PI * 2);
+        ctx.ellipse(600, 200, 150, 100, 0, 0, Math.PI * 2);
         ctx.fill();
         
         ctx.beginPath();
-        ctx.ellipse(800, 600, 250, 180, 0, 0, Math.PI * 2);
+        ctx.ellipse(400, 300, 125, 90, 0, 0, Math.PI * 2);
         ctx.fill();
         
-        const texture = new THREE.CanvasTexture(canvas);
-        setEarthTexture(texture);
+        earthTex = new THREE.CanvasTexture(canvas);
+        setEarthTexture(earthTex);
       }
     };
     earthImg.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
 
-    // Create clouds texture
+    // Create clouds texture with reduced resolution
     const cloudsCanvas = document.createElement('canvas');
     const cloudsCtx = cloudsCanvas.getContext('2d');
-    cloudsCanvas.width = 2048;
-    cloudsCanvas.height = 1024;
+    cloudsCanvas.width = 1024;
+    cloudsCanvas.height = 512;
     
     if (cloudsCtx) {
       cloudsCtx.fillStyle = 'rgba(255, 255, 255, 0.0)';
       cloudsCtx.fillRect(0, 0, cloudsCanvas.width, cloudsCanvas.height);
       
-      // Add cloud-like patterns
+      // Add cloud-like patterns (fewer clouds for performance)
       cloudsCtx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-      for (let i = 0; i < 50; i++) {
+      for (let i = 0; i < 30; i++) {
         const x = Math.random() * cloudsCanvas.width;
         const y = Math.random() * cloudsCanvas.height;
-        const radius = Math.random() * 100 + 20;
+        const radius = Math.random() * 50 + 10;
         cloudsCtx.beginPath();
         cloudsCtx.arc(x, y, radius, 0, Math.PI * 2);
         cloudsCtx.fill();
       }
       
-      const cloudsTexture = new THREE.CanvasTexture(cloudsCanvas);
-      setCloudsTexture(cloudsTexture);
+      cloudsTex = new THREE.CanvasTexture(cloudsCanvas);
+      setCloudsTexture(cloudsTex);
     }
+
+    // Cleanup function to dispose textures and prevent memory leaks
+    return () => {
+      if (earthTex) {
+        earthTex.dispose();
+      }
+      if (cloudsTex) {
+        cloudsTex.dispose();
+      }
+    };
   }, []);
 
   // Rotation animation
@@ -96,7 +108,7 @@ function EarthSphere({ stormData, showStorms = true }: { stormData?: any[], show
     <group>
       {/* Earth surface */}
       <mesh ref={meshRef}>
-        <sphereGeometry args={[2, 64, 64]} />
+        <sphereGeometry args={[2, 48, 48]} />
         <meshPhongMaterial
           map={earthTexture}
           shininess={100}
@@ -107,7 +119,7 @@ function EarthSphere({ stormData, showStorms = true }: { stormData?: any[], show
       {/* Clouds layer */}
       {cloudsTexture && (
         <mesh>
-          <sphereGeometry args={[2.02, 64, 64]} />
+          <sphereGeometry args={[2.02, 48, 48]} />
           <meshPhongMaterial
             map={cloudsTexture}
             transparent={true}
@@ -225,6 +237,33 @@ export default function Earth3DGlobe({ className = "" }: { className?: string })
   const [showStorms, setShowStorms] = useState(true);
   const [showSatellites, setShowSatellites] = useState(true);
   const [isRotating, setIsRotating] = useState(true);
+  const [webglError, setWebglError] = useState(false);
+  const canvasRef = useRef<HTMLDivElement>(null);
+
+  // Handle WebGL context loss and restoration
+  useEffect(() => {
+    const handleContextLost = (event: Event) => {
+      event.preventDefault();
+      console.warn('WebGL context lost - attempting recovery...');
+      setWebglError(true);
+    };
+
+    const handleContextRestored = () => {
+      console.log('WebGL context restored');
+      setWebglError(false);
+    };
+
+    const canvasElement = canvasRef.current?.querySelector('canvas');
+    if (canvasElement) {
+      canvasElement.addEventListener('webglcontextlost', handleContextLost);
+      canvasElement.addEventListener('webglcontextrestored', handleContextRestored);
+
+      return () => {
+        canvasElement.removeEventListener('webglcontextlost', handleContextLost);
+        canvasElement.removeEventListener('webglcontextrestored', handleContextRestored);
+      };
+    }
+  }, []);
 
   // Mock storm data
   const stormData = [
@@ -294,18 +333,40 @@ export default function Earth3DGlobe({ className = "" }: { className?: string })
         </div>
 
         {/* 3D Globe View */}
-        <div className="w-full h-[600px] bg-black relative">
-          <Canvas camera={{ position: [0, 0, 8], fov: 45 }}>
+        <div ref={canvasRef} className="w-full h-[600px] bg-black relative">
+          {webglError && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/80 backdrop-blur-sm z-50">
+              <div className="text-center text-white p-6">
+                <div className="text-red-500 text-xl mb-4">⚠️ WebGL Context Lost</div>
+                <p className="mb-4">The 3D globe encountered a graphics issue.</p>
+                <Button onClick={() => window.location.reload()} variant="outline" className="text-white border-white hover:bg-white/20">
+                  Reload Page
+                </Button>
+              </div>
+            </div>
+          )}
+          <Canvas 
+            camera={{ position: [0, 0, 8], fov: 45 }}
+            gl={{ 
+              preserveDrawingBuffer: true,
+              antialias: true,
+              alpha: false,
+              powerPreference: "high-performance"
+            }}
+            onCreated={({ gl }) => {
+              gl.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            }}
+          >
             {/* Lighting */}
             <ambientLight intensity={0.2} />
             <directionalLight position={[5, 5, 5]} intensity={1} />
             <pointLight position={[-5, -5, -5]} intensity={0.5} />
 
-            {/* Stars background */}
+            {/* Stars background - reduced count for performance */}
             <Stars 
               radius={100}
               depth={50}
-              count={5000}
+              count={2000}
               factor={4}
               saturation={0}
               fade={true}
