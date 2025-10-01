@@ -61,6 +61,8 @@ import { propertyService } from "./services/property.js";
 import { PropertyOwnerLookupService } from "./services/propertyOwnerLookup.js";
 import { storage } from "./storage";
 import { z } from "zod";
+import session from "express-session";
+import passport from "./passport";
 
 // ===== AUTHORIZATION MIDDLEWARE =====
 
@@ -420,6 +422,23 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
   app.use('/api/storm-intelligence', stormIntelligenceRoutes);
   console.log('🧠 Storm Intelligence AI routes registered');
 
+  // ---- Session and Passport setup ----
+  app.use(
+    session({
+      secret: process.env.SESSION_SECRET || "disaster-direct-secret-key",
+      resave: false,
+      saveUninitialized: false,
+      cookie: {
+        secure: process.env.NODE_ENV === "production",
+        httpOnly: true,
+        maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      },
+    })
+  );
+  
+  app.use(passport.initialize());
+  app.use(passport.session());
+  
   // ---- static assets setup ----
   app.use("/uploads", express.static(UPLOAD_DIR));
   app.use("/assets", express.static(ASSETS_DIR));
@@ -427,6 +446,37 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
   // ---- health/version ----
   app.get("/health", (req, res) => res.json({ ok: true }));
   app.get("/api/version", (req, res) => res.json({ name: "storm-ops-backend", version: 2 }));
+  
+  // ---- Google OAuth Routes ----
+  app.get("/auth/google", 
+    passport.authenticate("google", { 
+      scope: ["profile", "email"] 
+    })
+  );
+  
+  app.get("/auth/callback",
+    passport.authenticate("google", { 
+      failureRedirect: "/?error=auth_failed" 
+    }),
+    (req, res) => {
+      res.redirect("/");
+    }
+  );
+  
+  // ---- Current user endpoint ----
+  app.get("/api/me", (req, res) => {
+    if (req.user) {
+      res.json({ 
+        ok: true, 
+        user: req.user 
+      });
+    } else {
+      res.status(401).json({ 
+        ok: false, 
+        error: "Not authenticated" 
+      });
+    }
+  });
 
   // ---- SSE: stream Inbox items live to clients ----
   app.get("/api/stream", (req, res) => {
