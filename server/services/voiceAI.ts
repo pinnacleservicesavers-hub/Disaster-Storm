@@ -74,23 +74,21 @@ export class VoiceAIService {
   }
 
   /**
-   * Generate intelligent analysis text using GPT-4
+   * Generate intelligent analysis text using GPT-5 (new Responses API)
    */
   private async generateIntelligentAnalysis(request: VoiceAnalysisRequest): Promise<string> {
     const systemPrompt = this.buildSystemPrompt(request.portalType);
     const userPrompt = this.buildUserPrompt(request);
 
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o',
-      messages: [
+    const response = await openai.responses.create({
+      model: 'gpt-5', // Latest model with enhanced intelligence
+      input: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
-      ],
-      temperature: 0.7,
-      max_tokens: 1500
+      ]
     });
 
-    return completion.choices[0]?.message?.content || 'Analysis unavailable';
+    return response.output_text || 'Analysis unavailable';
   }
 
   /**
