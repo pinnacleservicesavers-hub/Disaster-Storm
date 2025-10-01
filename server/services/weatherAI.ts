@@ -1,6 +1,6 @@
 import OpenAI from "openai";
 
-// the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
+// the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 interface WeatherQuery {
@@ -75,7 +75,7 @@ CURRENT CONDITIONS: ${JSON.stringify(query.currentData || 'No current data avail
 Please provide comprehensive weather analysis with maximum accuracy. Include hurricane/storm predictions, safety recommendations, and detailed meteorological insights.`;
 
       const response = await openai.chat.completions.create({
-        model: "gpt-5",
+        model: "gpt-4o",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt }

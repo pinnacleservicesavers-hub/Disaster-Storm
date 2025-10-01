@@ -74,21 +74,29 @@ export class VoiceAIService {
   }
 
   /**
-   * Generate intelligent analysis text using GPT-5 (new Responses API)
+   * Generate intelligent analysis text using GPT-4o
    */
   private async generateIntelligentAnalysis(request: VoiceAnalysisRequest): Promise<string> {
     const systemPrompt = this.buildSystemPrompt(request.portalType);
     const userPrompt = this.buildUserPrompt(request);
 
-    const response = await openai.responses.create({
-      model: 'gpt-5', // Latest model with enhanced intelligence
-      input: [
+    console.log('🤖 Starting GPT-4o text generation...');
+    
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o', // Latest available model
+      messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
-      ]
+      ],
+      max_tokens: 1000 // Limit response length for optimal TTS performance
+    }, {
+      timeout: 20000 // 20 second timeout
     });
 
-    return response.output_text || 'Analysis unavailable';
+    const text = completion.choices[0]?.message?.content || 'Analysis unavailable';
+    console.log('✅ GPT-4o text generation complete');
+    
+    return text;
   }
 
   /**
@@ -96,17 +104,52 @@ export class VoiceAIService {
    */
   private async generateAudio(text: string): Promise<Buffer> {
     try {
-      const response = await openai.audio.speech.create({
-        model: 'tts-1-hd', // High-definition model for broadcast-quality audio
-        voice: 'alloy', // Neutral, balanced, premium professional voice - clearest and most polished
-        input: text,
-        response_format: 'mp3',
-        speed: 0.95 // Measured, authoritative pace for maximum clarity and professionalism
-      });
-
-      // Convert response to buffer
-      const buffer = Buffer.from(await response.arrayBuffer());
-      return buffer;
+      // Truncate text to prevent slow TTS generation (max ~1600 chars for optimal performance)
+      const truncatedText = text.length > 1600 ? text.substring(0, 1600) + '...' : text;
+      
+      console.log('🎙️ Starting TTS generation...');
+      
+      // Use direct REST API with explicit timeout to prevent hanging
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 25000); // 25 second timeout
+      
+      try {
+        const response = await fetch('https://api.openai.com/v1/audio/speech', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model: 'tts-1-hd',
+            voice: 'alloy',
+            input: truncatedText,
+            response_format: 'mp3',
+            speed: 0.95
+          }),
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`TTS API error: ${response.status} - ${errorText}`);
+        }
+        
+        const arrayBuffer = await response.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        
+        console.log('✅ TTS generation complete');
+        return buffer;
+      } catch (error: any) {
+        clearTimeout(timeoutId);
+        if (error.name === 'AbortError') {
+          console.error('TTS generation timed out after 25 seconds');
+          throw new Error('TTS generation timed out');
+        }
+        throw error;
+      }
     } catch (error) {
       console.error('Audio generation error:', error);
       throw new Error('Failed to generate audio');

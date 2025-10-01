@@ -1,0 +1,159 @@
+0) What we’re aiming for
+
+Your live URL is:
+
+https://claimcraft.pinnacle-service-savers.replit.app
+
+
+Google + your server must all point to that exact domain and the same callback:
+
+/auth/callback
+
+1) Secrets in Replit (double-check)
+
+In Secrets add/update exactly:
+
+GOOGLE_CLIENT_ID= <from Google>
+GOOGLE_CLIENT_SECRET= <from Google>
+SESSION_SECRET= <any long random string>
+BASE_URL= https://claimcraft.pinnacle-service-savers.replit.app
+
+
+(Keep your Maps keys as they are.)
+
+2) Google Console URLs (must match letter-for-letter)
+
+Authorized JavaScript origins
+
+http://localhost:5000
+https://claimcraft.pinnacle-service-savers.replit.app
+
+
+Authorized redirect URIs
+
+http://localhost:5000/auth/callback
+https://claimcraft.pinnacle-service-savers.replit.app/auth/callback
+
+
+If any error says “mismatch,” one of these four strings is off by a single character.
+
+3) Patch your server so HTTPS/cookies don’t break login
+
+Open server/index.ts and add/verify these blocks.
+
+A) Trust the proxy & (temporarily) stop forcing HTTPS
+
+// after: const app = express();
+app.set("trust proxy", 1);
+
+// TEMP: do NOT force HTTPS until we confirm SSL is good
+// (If you previously added a redirect to https, comment it out for now)
+
+
+B) Session cookies (work in both dev and Replit)
+
+import session from "express-session";
+
+const isProd = /^https:\/\//.test(process.env.BASE_URL ?? "");
+
+app.use(session({
+  secret: process.env.SESSION_SECRET!,
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: isProd,       // Replit uses https → true
+    sameSite: isProd ? "lax" : "lax"
+  }
+}));
+
+
+C) Health route must return 200 (no redirects)
+
+app.get("/health", (_req, res) => {
+  res.status(200).json({ ok: true, ts: new Date().toISOString() });
+});
+
+4) Make the Google callback absolute (prevents http/https confusion)
+
+In server/auth/google.ts (or wherever you configure Passport):
+
+import passport from "passport";
+import { Strategy as GoogleStrategy } from "passport-google-oauth20";
+
+const CALLBACK_URL = `${process.env.BASE_URL}/auth/callback`;
+
+passport.use(new GoogleStrategy(
+  {
+    clientID: process.env.GOOGLE_CLIENT_ID!,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+    callbackURL: CALLBACK_URL,  // absolute URL
+  },
+  (_at, _rt, profile, done) => {
+    const user = {
+      id: profile.id,
+      name: profile.displayName,
+      email: profile.emails?.[0]?.value,
+      photo: profile.photos?.[0]?.value,
+    };
+    return done(null, user);
+  }
+));
+
+// routes
+app.get("/auth/google", passport.authenticate("google", { scope: ["profile", "email"] }));
+app.get("/auth/callback",
+  passport.authenticate("google", { failureRedirect: "/login?error=oauth" }),
+  (_req, res) => res.redirect("/")
+);
+
+5) Restart clean
+
+In Replit Console: click the red Stop.
+
+Start again:
+
+npm run dev
+
+
+Wait for “Server running …” and make sure it shows the replit.app domain.
+
+6) Test in this exact order
+
+Health (must be 200):
+https://claimcraft.pinnacle-service-savers.replit.app/health
+
+Start login:
+https://claimcraft.pinnacle-service-savers.replit.app/auth/google
+
+After login, verify session (if you have this route):
+https://claimcraft.pinnacle-service-savers.replit.app/api/me
+
+If you still get the “Connection isn’t private” page, open a new Incognito window or try Firefox once. Replit certs occasionally need a short sync; incognito ignores old HSTS/cache. Make sure the address bar is .replit.app (not .repl.co / .replit.dev).
+
+7) If it’s still not working, match the symptom:
+
+redirect_uri_mismatch
+Fix the Redirect URIs in Google to the two values in step 2 (including /auth/callback).
+
+origin_mismatch
+Fix the JavaScript origins in Google to the two values in step 2 (no path, no trailing slash).
+
+Loops back to login / user not saved
+Session cookie likely blocked. Ensure session code exactly matches step 3B and you didn’t force HTTPS redirect. Clear cookies for replit.app and retry.
+
+“Your connection isn’t private” won’t go away
+Confirm URL is https://claimcraft.pinnacle-service-savers.replit.app
+. Try incognito. If your code had an HTTPS redirect middleware, keep it disabled for now.
+
+8) Replit “routes to verify”
+
+Provide this list (all should return 200):
+
+/
+ /health
+ /auth/google
+ /auth/callback
+ /api/me
+
+
+(Keep it minimal while debugging.)

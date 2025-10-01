@@ -1,0 +1,151 @@
+Awesome—let’s lock this in with copy-paste–ready commands and code using your real domain:
+
+https://claimcraft.pinnacle-service-savers.replit.app
+
+1) Google Cloud → paste these EXACT values
+
+Authorized JavaScript origins
+
+http://localhost:5000
+https://claimcraft.pinnacle-service-savers.replit.app
+
+
+Authorized redirect URIs
+
+http://localhost:5000/auth/callback
+https://claimcraft.pinnacle-service-savers.replit.app/auth/callback
+
+
+Click Save (or Create), then copy the Client ID and Client Secret.
+
+2) Replit → Secrets (add/update)
+
+Create these secrets (keys on the left, values on the right):
+
+GOOGLE_CLIENT_ID = <paste from Google>
+GOOGLE_CLIENT_SECRET = <paste from Google>
+SESSION_SECRET = change-this-to-a-long-random-string-123!@#
+BASE_URL = https://claimcraft.pinnacle-service-savers.replit.app
+
+
+(Keep your Maps keys as they are.)
+
+3) Install auth deps (Replit Console)
+npm i passport passport-google-oauth20 express-session
+npm i -D @types/express-session
+
+4) Add the Google auth strategy
+
+Create server/auth/google.ts:
+
+// server/auth/google.ts
+import passport from "passport";
+import { Strategy as GoogleStrategy } from "passport-google-oauth20";
+
+passport.serializeUser((user: any, done) => done(null, user));
+passport.deserializeUser((obj: any, done) => done(null, obj));
+
+const CALLBACK_URL = `${process.env.BASE_URL}/auth/callback`;
+
+passport.use(new GoogleStrategy(
+  {
+    clientID: process.env.GOOGLE_CLIENT_ID!,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+    callbackURL: CALLBACK_URL, // absolute URL avoids http/https mismatch
+  },
+  (_accessToken, _refreshToken, profile, done) => {
+    const user = {
+      id: profile.id,
+      name: profile.displayName,
+      email: profile.emails?.[0]?.value,
+      photo: profile.photos?.[0]?.value,
+    };
+    return done(null, user);
+  }
+));
+
+export default passport;
+
+5) Wire it into your server
+
+Open server/index.ts and make sure these blocks exist (adjust imports to your file paths). Place them after you create app = express() and before your routes:
+
+import session from "express-session";
+import passport from "./auth/google.js"; // path must match the file you created
+
+// Trust Replit proxy so req.protocol is 'https'
+app.set("trust proxy", 1);
+
+const isProd = /^https:\/\//.test(process.env.BASE_URL ?? "");
+
+// Sessions (cookie works in both localhost and Replit)
+app.use(session({
+  secret: process.env.SESSION_SECRET!,
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: isProd,         // true on Replit HTTPS
+    sameSite: "lax"
+  }
+}));
+
+app.use(passport.initialize());
+app.use(passport.session());
+
+// --- Auth routes ---
+app.get("/auth/google",
+  passport.authenticate("google", { scope: ["profile", "email"] })
+);
+
+app.get("/auth/callback",
+  passport.authenticate("google", { failureRedirect: "/login?error=oauth" }),
+  (_req, res) => res.redirect("/")
+);
+
+// --- Health + WhoAmI (handy for Replit route verification) ---
+app.get("/health", (_req, res) =>
+  res.status(200).json({ ok: true, ts: new Date().toISOString() })
+);
+
+app.get("/api/me", (req: any, res) =>
+  res.json({ user: req.user ?? null })
+);
+
+
+If you previously added any middleware that forces HTTPS redirects, comment it out for now so /health and auth won’t loop while we verify.
+
+6) Replit “routes to verify”
+
+Give Replit this list (every one should return 200):
+
+/
+ /health
+ /auth/google
+ /auth/callback
+ /api/me
+
+7) Restart and test (exact order)
+
+Stop the app (red square), then run:
+
+npm run dev
+
+
+Open:
+
+https://claimcraft.pinnacle-service-savers.replit.app/health
+→ expect: { "ok": true, ... }
+
+https://claimcraft.pinnacle-service-savers.replit.app/auth/google
+→ should show the Google sign-in screen
+
+After signing in, open https://claimcraft.pinnacle-service-savers.replit.app/api/me
+→ expect: { user: { ... } }
+
+If you see a browser privacy warning: use an Incognito window and be sure the domain is .replit.app (not .repl.co / .replit.dev).
+
+If you get a Google error:
+
+redirect_uri_mismatch → one of the two Redirect URIs in Google doesn’t match exactly (fix step #1).
+
+origin_mismatch → one of the two JavaScript origins in Google doesn’t match exactly (fix step #1).

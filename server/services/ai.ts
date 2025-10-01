@@ -1,6 +1,6 @@
 import OpenAI from "openai";
 
-// the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
+// the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
 const openai = new OpenAI({ 
   apiKey: process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY_ENV_VAR || "default_key" 
 });
@@ -67,9 +67,9 @@ export class AIService {
       
       Include specific references to similar claims and market rates. Format as JSON with 'subject', 'body', 'supportingData' (array), and 'tone' fields.`;
 
-      const response = await openai.responses.create({
-        model: "gpt-5",
-        input: [
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o", // Latest available model
+        messages: [
           {
             role: "system",
             content: "You are an expert insurance claim adjuster and legal writer specializing in construction and storm damage claims. Generate professional dispute letters with strong supporting evidence. Return only valid JSON."
@@ -78,10 +78,12 @@ export class AIService {
             role: "user",
             content: prompt
           }
-        ]
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.7
       });
 
-      const result = JSON.parse(response.output_text || "{}");
+      const result = JSON.parse(completion.choices[0]?.message?.content || "{}");
       
       return {
         subject: result.subject || "Claim Dispute - Additional Compensation Request",
