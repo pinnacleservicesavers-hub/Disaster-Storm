@@ -2,13 +2,24 @@ import passport from "passport";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import { storage } from "./storage";
 
+// Determine the callback URL based on environment
+const getCallbackURL = () => {
+  if (process.env.BASE_URL) {
+    return `${process.env.BASE_URL}/auth/callback`;
+  }
+  // Fallback for local development
+  return process.env.NODE_ENV === "production"
+    ? "https://claimcraft.pinnacle-service-savers.replit.app/auth/callback"
+    : "http://localhost:5000/auth/callback";
+};
+
 // Configure Google OAuth Strategy
 passport.use(
   new GoogleStrategy(
     {
       clientID: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-      callbackURL: "/auth/callback",
+      callbackURL: getCallbackURL(),
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
