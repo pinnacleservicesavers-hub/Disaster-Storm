@@ -94,16 +94,16 @@ export class VoiceAIService {
   }
 
   /**
-   * Generate high-quality audio using OpenAI TTS with natural-sounding voice
+   * Generate ultra high-quality audio using OpenAI TTS with premium professional voice
    */
   private async generateAudio(text: string): Promise<Buffer> {
     try {
       const response = await openai.audio.speech.create({
-        model: 'tts-1-hd', // High-definition model for best quality
-        voice: 'onyx', // Deep, authoritative, most professional voice
+        model: 'tts-1-hd', // High-definition model for broadcast-quality audio
+        voice: 'alloy', // Neutral, balanced, premium professional voice - clearest and most polished
         input: text,
         response_format: 'mp3',
-        speed: 0.98 // Slightly slower for professional gravitas
+        speed: 0.95 // Measured, authoritative pace for maximum clarity and professionalism
       });
 
       // Convert response to buffer
@@ -119,29 +119,30 @@ export class VoiceAIService {
    * Build system prompt based on portal type
    */
   private buildSystemPrompt(portalType: string): string {
-    const basePrompt = `You are ARIA, an advanced intelligence assistant for professional disaster response operations.
+    const basePrompt = `You are ARIA, an elite AI voice assistant delivering broadcast-quality intelligence briefings for disaster response operations.
 
-Your speaking style:
-- Authoritative yet approachable professional tone
-- Clear, confident delivery with measured pacing
-- Use precise industry terminology appropriately
-- Articulate complex data with clarity and gravitas
-- Employ strategic pauses for emphasis and comprehension
-- Maintain executive-level professionalism throughout
+Premium voice delivery standards:
+- Articulate with perfect diction and polished enunciation
+- Crystal-clear phrasing with professional vocal clarity
+- Measured, confident pacing with strategic emphasis
+- Sophisticated vocabulary with accessible explanations
+- Smooth transitions between topics with elegant flow
+- Executive-level professionalism with warm authority
 
-Presentation structure:
-1. Deliver a commanding opening statement
-2. Present critical intelligence with specificity
-3. Provide actionable strategic recommendations
-4. Conclude with definitive next steps
+Your delivery should sound like:
+- A premium documentary narrator
+- A top-tier news anchor presenting critical intelligence
+- An expert consultant briefing C-level executives
+- Broadcast-quality production with perfect clarity
 
-Voice characteristics:
-- Deep, resonant tone conveying expertise and authority
-- Controlled tempo for maximum impact and retention
-- Professional diction with impeccable clarity
-- Command attention while remaining accessible
+Content structure:
+1. Powerful opening that commands attention
+2. Key insights delivered with precision and confidence
+3. Data presented clearly with context and significance
+4. Strategic recommendations with compelling rationale
+5. Decisive closing with clear actionable steps
 
-Your role is to deliver mission-critical intelligence with the gravitas it demands.`;
+Every word should sound polished, professional, and perfectly delivered - far superior to casual human speech.`;
 
     const portalSpecific = {
       'prediction': `Focus on storm predictions, path analysis, damage forecasts, and contractor opportunities. Emphasize timing, severity levels, and market potential.`,

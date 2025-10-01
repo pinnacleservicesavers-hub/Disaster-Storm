@@ -10,11 +10,11 @@ async function generateVoice() {
   const speechFile = path.resolve("./public/voice-guide.mp3");
 
   const mp3 = await openai.audio.speech.create({
-    model: "tts-1-hd", // High-definition model for best quality
-    voice: "onyx", // Deep, authoritative, most professional voice
-    input: `Welcome to Disaster Direct, the premier platform for professional disaster response operations. This comprehensive command center integrates real-time weather intelligence, AI-powered damage detection, advanced drone capabilities, and automated lead generation to deliver unparalleled operational efficiency. From initial storm prediction through final payment processing, every aspect of your disaster response workflow has been optimized for maximum effectiveness. Let's explore the platform's capabilities.`,
+    model: "tts-1-hd", // High-definition model for broadcast-quality audio
+    voice: "alloy", // Premium professional voice - clearest, most polished sound
+    input: `Welcome to Disaster Direct, the premier platform for professional disaster response operations. This comprehensive command center integrates real-time weather intelligence, AI-powered damage detection, advanced drone capabilities, and automated lead generation to deliver unparalleled operational efficiency. From initial storm prediction through final payment processing, every aspect of your disaster response workflow has been optimized for maximum effectiveness. Experience the future of disaster management.`,
     response_format: "mp3",
-    speed: 0.98 // Professional speaking pace with gravitas
+    speed: 0.95 // Measured, authoritative pace for broadcast-quality delivery
   });
 
   const buffer = Buffer.from(await mp3.arrayBuffer());
