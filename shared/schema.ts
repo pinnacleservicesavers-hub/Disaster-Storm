@@ -3751,6 +3751,43 @@ export const mediaFrames = pgTable("media_frames", {
   }),
 }));
 
+// Voice Profiles table (manage AI voice configurations for TTS)
+export const voiceProfiles = pgTable("voice_profiles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  provider: text("provider").notNull(), // 'openai', 'elevenlabs', 'playht'
+  providerVoiceId: text("provider_voice_id"), // Voice ID from the provider
+  isDefault: boolean("is_default").default(false),
+  isActive: boolean("is_active").default(true),
+  settings: jsonb("settings").$type<{
+    model?: string;
+    speed?: number;
+    stability?: number;
+    similarityBoost?: number;
+    style?: number;
+    useSpeakerBoost?: boolean;
+  }>(),
+  metadata: jsonb("metadata").$type<{
+    description?: string;
+    language?: string;
+    accent?: string;
+    gender?: string;
+    ageRange?: string;
+    voiceCharacteristics?: string[];
+    sampleAudioUrl?: string;
+    clonedFrom?: string;
+  }>(),
+  createdBy: varchar("created_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  voiceProfileCreatorFkey: foreignKey({
+    columns: [table.createdBy],
+    foreignColumns: [users.id],
+    name: "fk_voice_profile_creator"
+  }),
+}));
+
 // ===== DISASTER LENS INSERT SCHEMAS =====
 
 export const insertOrganizationSchema = createInsertSchema(organizations).omit({
@@ -3830,6 +3867,13 @@ export const insertSpeciesCoeffsSchema = createInsertSchema(speciesCoeffs).omit(
   updatedAt: true,
 });
 
+// Voice Profiles Insert Schema
+export const insertVoiceProfileSchema = createInsertSchema(voiceProfiles).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // ===== DISASTER LENS TYPES =====
 
 export type Organization = typeof organizations.$inferSelect;
@@ -3864,3 +3908,7 @@ export type AiAction = typeof aiActions.$inferSelect;
 export type InsertAiAction = z.infer<typeof insertAiActionSchema>;
 export type MediaFrame = typeof mediaFrames.$inferSelect;
 export type InsertMediaFrame = z.infer<typeof insertMediaFrameSchema>;
+
+// Voice Profile Types
+export type VoiceProfile = typeof voiceProfiles.$inferSelect;
+export type InsertVoiceProfile = z.infer<typeof insertVoiceProfileSchema>;

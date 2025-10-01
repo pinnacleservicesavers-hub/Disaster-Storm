@@ -122,7 +122,7 @@ export class VoiceAIService {
           },
           body: JSON.stringify({
             model: 'tts-1-hd',
-            voice: 'alloy',
+            voice: 'nova', // Professional, energetic, broadcast-quality voice
             input: truncatedText,
             response_format: 'mp3',
             speed: 0.95
