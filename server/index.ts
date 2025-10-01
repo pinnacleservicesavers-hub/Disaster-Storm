@@ -18,6 +18,10 @@ import { registerRoutes } from "./routes.js";
 import { setupVite, log } from "./vite.js";
 
 const app = express();
+
+// Trust Replit proxy so req.protocol is 'https'
+app.set("trust proxy", 1);
+
 app.use(cors());
 app.use(express.json({ limit: "10mb" }));
 

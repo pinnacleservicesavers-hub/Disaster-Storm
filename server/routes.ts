@@ -423,15 +423,18 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
   console.log('🧠 Storm Intelligence AI routes registered');
 
   // ---- Session and Passport setup ----
+  const isProd = /^https:\/\//.test(process.env.BASE_URL ?? "");
+  
   app.use(
     session({
       secret: process.env.SESSION_SECRET || "disaster-direct-secret-key",
       resave: false,
       saveUninitialized: false,
       cookie: {
-        secure: process.env.NODE_ENV === "production",
+        secure: isProd, // true on Replit HTTPS
         httpOnly: true,
         maxAge: 24 * 60 * 60 * 1000, // 24 hours
+        sameSite: "lax"
       },
     })
   );
