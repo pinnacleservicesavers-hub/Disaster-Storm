@@ -50,6 +50,17 @@ app.use("/api/hints", hints);
 app.use("/api/area", area);
 app.use("/api/damage", damage);
 
+// Claims Agent routes
+import claimsIntake from "./routes/claimsIntake.js";
+import claimsPacket from "./routes/claimsPacket.js";
+import claimsAgent from "./routes/claimsAgent.js";
+import claimsWebhooks from "./routes/claimsWebhooks.js";
+
+app.use("/api/claims-intake", claimsIntake);
+app.use("/api/claims-packet", claimsPacket);
+app.use("/api/claims-agent", claimsAgent);
+app.use("/api/claims-webhooks", claimsWebhooks);
+
 // Register main application routes (including property API endpoints)
 await registerRoutes(app);
 
@@ -130,4 +141,20 @@ server.listen(port, () => {
   if (process.env.NODE_ENV === "development") {
     log("Vite development server enabled with HMR");
   }
+  
+  const baseUrl = process.env.PUBLIC_BASE_URL || `http://localhost:${port}`;
+  
+  setInterval(async () => {
+    try {
+      const response = await fetch(`${baseUrl}/api/claims-agent/run`);
+      const result = await response.json();
+      if (result.ran > 0) {
+        console.log(`Claims Agent: Processed ${result.ran} follow-ups`);
+      }
+    } catch (err) {
+      console.error('Claims Agent scheduler error:', err);
+    }
+  }, 60_000);
+  
+  console.log('✅ Claims Agent scheduler started (runs every 60 seconds)');
 });
