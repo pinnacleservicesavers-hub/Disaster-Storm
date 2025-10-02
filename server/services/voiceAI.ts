@@ -1,5 +1,7 @@
 import OpenAI from 'openai';
 import { Readable } from 'stream';
+import { elevenLabsVoice } from './elevenLabsVoice.js';
+import { storage } from '../storage.js';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY_ENV_VAR
@@ -100,7 +102,7 @@ export class VoiceAIService {
   }
 
   /**
-   * Generate ultra high-quality audio using OpenAI TTS with premium professional voice
+   * Generate ultra high-quality audio using selected voice profile (OpenAI or ElevenLabs)
    */
   private async generateAudio(text: string): Promise<Buffer> {
     try {
@@ -108,6 +110,43 @@ export class VoiceAIService {
       const truncatedText = text.length > 1600 ? text.substring(0, 1600) + '...' : text;
       
       console.log('🎙️ Starting TTS generation...');
+      
+      // Get the default voice profile
+      const voiceProfile = await storage.getDefaultVoiceProfile();
+      
+      if (voiceProfile && voiceProfile.provider === 'elevenlabs' && elevenLabsVoice.isAvailable()) {
+        // Try ElevenLabs for broadcast-quality cloned voice
+        console.log('🎤 Attempting ElevenLabs voice:', voiceProfile.name);
+        try {
+          return await elevenLabsVoice.generateSpeech({
+            text: truncatedText,
+            voiceId: voiceProfile.providerVoiceId!,
+            settings: {
+              stability: voiceProfile.settings?.stability,
+              similarityBoost: voiceProfile.settings?.similarityBoost,
+              style: voiceProfile.settings?.style,
+              useSpeakerBoost: voiceProfile.settings?.useSpeakerBoost
+            }
+          });
+        } catch (elevenLabsError: any) {
+          // If voice is still training or unavailable, fallback to OpenAI
+          if (elevenLabsError.statusCode === 400 && 
+              (elevenLabsError.body?.detail?.status === 'voice_not_fine_tuned' ||
+               elevenLabsError.body?.detail?.status === 'voice_not_ready')) {
+            console.log('⏳ ElevenLabs voice still training, falling back to OpenAI nova...');
+          } else {
+            console.error('❌ ElevenLabs error:', elevenLabsError.message);
+          }
+          // Continue to OpenAI fallback below
+        }
+      }
+      
+      // Fallback to OpenAI TTS (or if ElevenLabs failed)
+      console.log('🎤 Using OpenAI voice: nova (high-quality)');
+      
+      // Always use 'nova' for OpenAI (don't use ElevenLabs voice ID)
+      const openaiVoice = voiceProfile?.provider === 'openai' ? voiceProfile.providerVoiceId : 'nova';
+      const speed = voiceProfile?.settings?.speed || 0.95;
       
       // Use direct REST API with explicit timeout to prevent hanging
       const controller = new AbortController();
@@ -122,10 +161,10 @@ export class VoiceAIService {
           },
           body: JSON.stringify({
             model: 'tts-1-hd',
-            voice: 'nova', // Professional, energetic, broadcast-quality voice
+            voice: openaiVoice,
             input: truncatedText,
             response_format: 'mp3',
-            speed: 0.95
+            speed
           }),
           signal: controller.signal
         });

@@ -122,7 +122,10 @@ import {
   type AiAction,
   type InsertAiAction,
   type MediaFrame,
-  type InsertMediaFrame
+  type InsertMediaFrame,
+  // Voice Profile entities
+  type VoiceProfile,
+  type InsertVoiceProfile
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import fs from "fs";
@@ -604,6 +607,15 @@ export interface IStorage {
   // Audit Log methods
   createAuditLog(entry: InsertAuditLogEntry): Promise<AuditLogEntry>;
   getAuditLogByProject(projectId: string): Promise<AuditLogEntry[]>;
+  
+  // Voice Profile methods
+  getVoiceProfiles(): Promise<VoiceProfile[]>;
+  getActiveVoiceProfiles(): Promise<VoiceProfile[]>;
+  getVoiceProfile(id: string): Promise<VoiceProfile | undefined>;
+  getDefaultVoiceProfile(): Promise<VoiceProfile | undefined>;
+  createVoiceProfile(profile: InsertVoiceProfile): Promise<VoiceProfile>;
+  updateVoiceProfile(id: string, updates: Partial<VoiceProfile>): Promise<VoiceProfile>;
+  deleteVoiceProfile(id: string): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
@@ -686,6 +698,9 @@ export class MemStorage implements IStorage {
   private aiSessions: Map<string, AiSession> = new Map();
   private aiActions: Map<string, AiAction> = new Map();
   private mediaFrames: Map<string, MediaFrame> = new Map();
+  
+  // Voice Profile Storage
+  private voiceProfiles: Map<string, VoiceProfile> = new Map();
 
   constructor() {
     console.log('🏗️ Initializing MemStorage...');
@@ -4047,6 +4062,48 @@ export class MemStorage implements IStorage {
 
   async getMediaFramesByMedia(mediaId: string): Promise<MediaFrame[]> {
     return Array.from(this.mediaFrames.values()).filter(frame => frame.mediaId === mediaId);
+  }
+
+  // Voice Profile methods
+  async getVoiceProfiles(): Promise<VoiceProfile[]> {
+    return Array.from(this.voiceProfiles.values());
+  }
+
+  async getActiveVoiceProfiles(): Promise<VoiceProfile[]> {
+    return Array.from(this.voiceProfiles.values()).filter(p => p.isActive);
+  }
+
+  async getVoiceProfile(id: string): Promise<VoiceProfile | undefined> {
+    return this.voiceProfiles.get(id);
+  }
+
+  async getDefaultVoiceProfile(): Promise<VoiceProfile | undefined> {
+    return Array.from(this.voiceProfiles.values()).find(p => p.isDefault && p.isActive);
+  }
+
+  async createVoiceProfile(insertProfile: InsertVoiceProfile): Promise<VoiceProfile> {
+    const profile: VoiceProfile = {
+      id: randomUUID(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      ...insertProfile
+    };
+    this.voiceProfiles.set(profile.id, profile);
+    return profile;
+  }
+
+  async updateVoiceProfile(id: string, updates: Partial<VoiceProfile>): Promise<VoiceProfile> {
+    const profile = this.voiceProfiles.get(id);
+    if (!profile) {
+      throw new Error(`Voice profile ${id} not found`);
+    }
+    const updated = { ...profile, ...updates, updatedAt: new Date() };
+    this.voiceProfiles.set(id, updated);
+    return updated;
+  }
+
+  async deleteVoiceProfile(id: string): Promise<boolean> {
+    return this.voiceProfiles.delete(id);
   }
 }
 

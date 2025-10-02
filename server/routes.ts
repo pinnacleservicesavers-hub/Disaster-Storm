@@ -10054,6 +10054,236 @@ What specific area or type of incident would you like me to focus on? I can prov
     });
   });
 
+  // ===== VOICE PROFILE MANAGEMENT ENDPOINTS =====
+
+  // Get all voice profiles
+  app.get('/api/voices', async (req, res) => {
+    try {
+      const profiles = await storage.getVoiceProfiles();
+      res.json({ profiles, count: profiles.length });
+    } catch (error) {
+      console.error('Error fetching voice profiles:', error);
+      res.status(500).json({ error: 'Failed to fetch voice profiles' });
+    }
+  });
+
+  // Get active voice profiles
+  app.get('/api/voices/active', async (req, res) => {
+    try {
+      const profiles = await storage.getActiveVoiceProfiles();
+      res.json({ profiles, count: profiles.length });
+    } catch (error) {
+      console.error('Error fetching active voice profiles:', error);
+      res.status(500).json({ error: 'Failed to fetch active voice profiles' });
+    }
+  });
+
+  // Get default voice profile
+  app.get('/api/voices/default', async (req, res) => {
+    try {
+      const profile = await storage.getDefaultVoiceProfile();
+      res.json({ profile });
+    } catch (error) {
+      console.error('Error fetching default voice profile:', error);
+      res.status(500).json({ error: 'Failed to fetch default voice profile' });
+    }
+  });
+
+  // Create voice profile (preset)
+  app.post('/api/voices', express.json(), async (req, res) => {
+    try {
+      const { name, provider, providerVoiceId, settings, metadata } = req.body;
+      
+      const profile = await storage.createVoiceProfile({
+        name,
+        provider,
+        providerVoiceId,
+        settings,
+        metadata,
+        isDefault: false,
+        isActive: true,
+        createdBy: (req.user as any)?.id
+      });
+      
+      res.status(201).json({ profile });
+    } catch (error) {
+      console.error('Error creating voice profile:', error);
+      res.status(500).json({ error: 'Failed to create voice profile' });
+    }
+  });
+
+  // Update voice profile
+  app.patch('/api/voices/:id', express.json(), async (req, res) => {
+    try {
+      const { isDefault, ...updates } = req.body;
+      
+      // If setting as default, unset all other defaults
+      if (isDefault) {
+        const profiles = await storage.getVoiceProfiles();
+        for (const p of profiles) {
+          if (p.isDefault) {
+            await storage.updateVoiceProfile(p.id, { isDefault: false });
+          }
+        }
+      }
+      
+      const profile = await storage.updateVoiceProfile(req.params.id, {
+        ...updates,
+        isDefault
+      });
+      
+      res.json({ profile });
+    } catch (error) {
+      console.error('Error updating voice profile:', error);
+      res.status(500).json({ error: 'Failed to update voice profile' });
+    }
+  });
+
+  // Delete voice profile
+  app.delete('/api/voices/:id', async (req, res) => {
+    try {
+      const success = await storage.deleteVoiceProfile(req.params.id);
+      if (!success) {
+        return res.status(404).json({ error: 'Voice profile not found' });
+      }
+      res.json({ success });
+    } catch (error) {
+      console.error('Error deleting voice profile:', error);
+      res.status(500).json({ error: 'Failed to delete voice profile' });
+    }
+  });
+
+  // Clone voice from audio file
+  app.post('/api/voices/clone', upload.single('audio'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: 'No audio file provided' });
+      }
+
+      const { name, description } = req.body;
+      
+      // Import ElevenLabs service
+      const { elevenLabsVoice } = await import('./services/elevenLabsVoice.js');
+      
+      if (!elevenLabsVoice.isAvailable()) {
+        return res.status(503).json({ 
+          error: 'Voice cloning not available - ElevenLabs API key not configured' 
+        });
+      }
+
+      console.log('🎙️ Cloning voice from file:', req.file.path);
+      
+      // Clone the voice with ElevenLabs
+      const cloneResult = await elevenLabsVoice.cloneVoice({
+        name: name || 'Custom Voice',
+        description: description || 'Cloned voice from audio upload',
+        audioFilePath: req.file.path,
+        labels: {
+          cloned: 'true',
+          uploadDate: new Date().toISOString()
+        }
+      });
+
+      // Create voice profile in database
+      const profile = await storage.createVoiceProfile({
+        name: name || 'Custom Voice',
+        provider: 'elevenlabs',
+        providerVoiceId: cloneResult.voiceId,
+        settings: {
+          stability: 0.5,
+          similarityBoost: 0.75,
+          style: 0.3,
+          useSpeakerBoost: true
+        },
+        metadata: {
+          description: description || 'Cloned voice from audio upload',
+          clonedFrom: req.file.originalname,
+          language: 'en'
+        },
+        isDefault: false,
+        isActive: true,
+        createdBy: (req.user as any)?.id
+      });
+
+      // Clean up uploaded file
+      fs.unlinkSync(req.file.path);
+
+      res.status(201).json({ 
+        profile,
+        message: 'Voice cloned successfully! Set it as default to use it for all AI briefings.'
+      });
+
+    } catch (error) {
+      console.error('Error cloning voice:', error);
+      res.status(500).json({ 
+        error: 'Failed to clone voice',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Preview voice with sample text
+  app.post('/api/voices/:id/preview', express.json(), async (req, res) => {
+    try {
+      const { text } = req.body;
+      const sampleText = text || "Hello! This is a preview of your custom AI voice. I'm ready to deliver professional, broadcast-quality intelligence briefings for your storm operations.";
+      
+      const profile = await storage.getVoiceProfile(req.params.id);
+      if (!profile) {
+        return res.status(404).json({ error: 'Voice profile not found' });
+      }
+
+      let audioBuffer: Buffer;
+
+      if (profile.provider === 'elevenlabs') {
+        const { elevenLabsVoice } = await import('./services/elevenLabsVoice.js');
+        audioBuffer = await elevenLabsVoice.generateSpeech({
+          text: sampleText,
+          voiceId: profile.providerVoiceId!,
+          settings: {
+            stability: profile.settings?.stability,
+            similarityBoost: profile.settings?.similarityBoost,
+            style: profile.settings?.style,
+            useSpeakerBoost: profile.settings?.useSpeakerBoost
+          }
+        });
+      } else {
+        // OpenAI TTS
+        const response = await fetch('https://api.openai.com/v1/audio/speech', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model: 'tts-1-hd',
+            voice: profile.providerVoiceId || 'nova',
+            input: sampleText,
+            response_format: 'mp3',
+            speed: profile.settings?.speed || 0.95
+          })
+        });
+
+        const arrayBuffer = await response.arrayBuffer();
+        audioBuffer = Buffer.from(arrayBuffer);
+      }
+
+      const audioBase64 = audioBuffer.toString('base64');
+      res.json({ 
+        audioBase64,
+        text: sampleText,
+        profile: {
+          name: profile.name,
+          provider: profile.provider
+        }
+      });
+
+    } catch (error) {
+      console.error('Error previewing voice:', error);
+      res.status(500).json({ error: 'Failed to preview voice' });
+    }
+  });
+
   // ===== DRONE FLEET MANAGEMENT ENDPOINTS =====
 
   // Get all drones
