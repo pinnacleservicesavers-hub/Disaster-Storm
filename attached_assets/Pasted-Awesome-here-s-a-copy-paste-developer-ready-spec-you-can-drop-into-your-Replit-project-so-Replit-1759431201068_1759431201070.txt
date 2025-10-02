@@ -1,0 +1,634 @@
+Awesome — here’s a copy-paste, developer-ready spec you can drop into your Replit project so “Replit understands what you want.” It wires up a Claims Agent that: answers calls, collects claim info, emails the adjuster a claim packet, places follow-up calls, and uses ElevenLabs for natural-sounding voice (played in calls) + Twilio for phone, SendGrid for email, and Supabase for storage.
+
+📣 “READ ME, REPLIT” — Claims Agent (Voice + Email + Follow-ups)
+✅ What to build
+
+An AI-assisted Claims Agent that:
+
+Answers homeowner calls → collects name, address, insurer, policy, damage type, photos link.
+
+Creates a claim record in Supabase.
+
+Gets adjuster contact (we provide an input form for adjuster name/email/phone if unknown).
+
+Emails the claim packet (invoice, photos, notes) to the adjuster.
+
+Calls and emails follow-ups on an automated schedule, escalating smartly.
+
+Uses ElevenLabs voice to sound human on outbound messages and follow-ups.
+
+🧰 Stack & Services
+
+Runtime: Node + Express (TypeScript)
+
+Telephony: Twilio (calls, SMS, status webhooks)
+
+Voice: ElevenLabs (generate MP3 voice lines we can play in Twilio calls)
+
+Email: SendGrid (transactional claim emails)
+
+DB/Auth/Storage: Supabase
+
+Scheduler: lightweight in-app agent (polls for due follow-ups)
+
+🔐 Environment Variables (add in Replit → Secrets)
+PORT=5000
+
+# Twilio
+TWILIO_ACCOUNT_SID=ACxxxxxxxx
+TWILIO_AUTH_TOKEN=xxxxxxxx
+TWILIO_PHONE_NUMBER=+1xxxxxxxxxx
+PUBLIC_BASE_URL=https://<your-replit-url>.replit.app
+
+# ElevenLabs
+ELEVENLABS_API_KEY=xxxxxxxx
+ELEVENLABS_VOICE_ID=<preferred_voice_id>
+
+# SendGrid
+SENDGRID_API_KEY=xxxxxxxx
+CLAIMS_FROM_EMAIL=claims@yourdomain.com
+CLAIMS_FROM_NAME=Strategic Land Management Claims
+
+# Supabase
+SUPABASE_URL=https://xxxxxx.supabase.co
+SUPABASE_SERVICE_ROLE=xxxxxx
+
+📦 Install
+npm init -y
+npm i express twilio @sendgrid/mail @supabase/supabase-js multer node-fetch
+npm i -D typescript ts-node @types/express @types/node nodemon
+npx tsc --init
+
+
+package.json (scripts):
+
+{
+  "scripts": {
+    "dev": "nodemon --watch server --exec ts-node server/index.ts"
+  }
+}
+
+🗂️ File structure
+server/
+  index.ts
+  lib/
+    twilio.ts
+    email.ts
+    db.ts
+    eleven.ts
+  routes/
+    intake.ts
+    claims.ts
+    webhooks.ts
+    agent.ts
+  views/
+    twiml/
+      intake-hello.xml.ts
+      intake-next.xml.ts
+
+🧱 Supabase schema (run in Supabase SQL editor)
+-- Homeowner/customer
+create table customers (
+  id uuid primary key default gen_random_uuid(),
+  name text,
+  phone text,
+  email text,
+  address text,
+  city text,
+  state text,
+  zip text,
+  created_at timestamptz default now()
+);
+
+-- Adjusters
+create table adjusters (
+  id uuid primary key default gen_random_uuid(),
+  name text,
+  email text,
+  phone text,
+  carrier text,
+  notes text,
+  created_at timestamptz default now()
+);
+
+-- Claims
+create table claims (
+  id uuid primary key default gen_random_uuid(),
+  customer_id uuid references customers(id) on delete cascade,
+  adjuster_id uuid references adjusters(id),
+  insurer text,
+  policy_number text,
+  claim_number text,
+  status text default 'intake',  -- intake|packet_sent|in_review|approved|paid|escalation
+  damage_type text,              -- tree on home/building/structure/vehicle, etc.
+  severity text,                 -- very_urgent|urgent|standard
+  photos_url text,               -- link to photo folder
+  invoice_url text,
+  packet_email_id text,          -- SendGrid message id
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+-- Contact log (calls/sms/emails)
+create table contact_log (
+  id uuid primary key default gen_random_uuid(),
+  claim_id uuid references claims(id) on delete cascade,
+  channel text,   -- call|sms|email
+  direction text, -- in|out
+  to_addr text,
+  from_addr text,
+  status text,
+  summary text,
+  meta jsonb,
+  created_at timestamptz default now()
+);
+
+-- Follow-up tasks
+create table tasks (
+  id uuid primary key default gen_random_uuid(),
+  claim_id uuid references claims(id) on delete cascade,
+  type text,           -- followup_call|followup_email|escalation_call|final_notice
+  due_at timestamptz,
+  status text default 'pending', -- pending|done|skipped
+  payload jsonb,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+create index tasks_due_idx on tasks (due_at) where status='pending';
+
+⚙️ Core libs
+
+server/lib/db.ts
+
+import { createClient } from '@supabase/supabase-js';
+export const supabase = createClient(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE!
+);
+
+
+server/lib/twilio.ts
+
+import Twilio from 'twilio';
+export const twilio = Twilio(
+  process.env.TWILIO_ACCOUNT_SID!,
+  process.env.TWILIO_AUTH_TOKEN!
+);
+export const TWILIO_FROM = process.env.TWILIO_PHONE_NUMBER!;
+
+
+server/lib/email.ts
+
+import sg from '@sendgrid/mail';
+sg.setApiKey(process.env.SENDGRID_API_KEY!);
+
+export async function sendClaimPacket(opts: {
+  toEmail: string;
+  toName?: string;
+  subject: string;
+  html: string;
+  attachments?: { filename: string; type: string; content: string }[];
+}) {
+  const msg = {
+    to: { email: opts.toEmail, name: opts.toName },
+    from: { email: process.env.CLAIMS_FROM_EMAIL!, name: process.env.CLAIMS_FROM_NAME! },
+    subject: opts.subject,
+    html: opts.html,
+    attachments: opts.attachments
+  };
+  const res = await sg.send(msg as any);
+  return res[0]?.headers?.['x-message-id'] || res[0]?.headers?.['x-message-id'.toLowerCase()];
+}
+
+
+server/lib/eleven.ts
+
+import fetch from 'node-fetch';
+
+const BASE = 'https://api.elevenlabs.io/v1';
+
+export async function synthesizeLine(text: string): Promise<string> {
+  // Returns a public URL to an MP3 (we’ll store to Supabase storage or temp host in Replit).
+  // For simplicity, request the audio buffer and write to /tmp, then serve via /media route.
+  const voiceId = process.env.ELEVENLABS_VOICE_ID!;
+  const resp = await fetch(`${BASE}/text-to-speech/${voiceId}`, {
+    method: 'POST',
+    headers: {
+      'xi-api-key': process.env.ELEVENLABS_API_KEY!,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      text,
+      model_id: "eleven_multilingual_v2",
+      voice_settings: { stability: 0.5, similarity_boost: 0.8 }
+    })
+  });
+
+  const buf = Buffer.from(await resp.arrayBuffer());
+  const file = `/tmp/line-${Date.now()}.mp3`;
+  await Bun.write(file, buf); // If Bun not available, use fs. If error, switch to fs:
+  return file;
+}
+
+
+If Bun isn’t available on your Replit, replace the last two lines with Node fs:
+
+// import { writeFileSync } from 'fs';
+const fs = await import('fs');
+fs.writeFileSync(file, buf);
+
+
+Also add a simple static handler to serve /tmp files in index.ts.
+
+📞 Twilio voice intake (gathers claim details)
+
+server/routes/intake.ts
+
+import { Router } from 'express';
+import { supabase } from '../lib/db';
+import { TWILIO_FROM } from '../lib/twilio';
+
+const router = Router();
+
+/**
+ * Twilio Voice Webhook (POST)
+ * Set Voice URL in Twilio number to: {PUBLIC_BASE_URL}/intake/voice
+ */
+router.post('/voice', async (req, res) => {
+  // Simple IVR using TwiML Gather (speech)
+  const hello = `
+    <Response>
+      <Gather input="speech" action="/intake/step1" method="POST" timeout="6">
+        <Say>Hi, this is Strategic Land Management Claims Assistant.
+        Please say your full name after the beep.</Say>
+      </Gather>
+      <Say>Sorry, I didn't catch that.</Say>
+      <Redirect>/intake/voice</Redirect>
+    </Response>`;
+  res.type('text/xml').send(hello);
+});
+
+router.post('/step1', async (req, res) => {
+  const name = req.body.SpeechResult || 'Unknown';
+  const twiml = `
+    <Response>
+      <Gather input="speech" action="/intake/step2?name=${encodeURIComponent(name)}" method="POST" timeout="6">
+        <Say>Thanks, ${name}. Please say your phone number slowly.</Say>
+      </Gather>
+      <Say>Sorry, I didn't catch that.</Say>
+      <Redirect>/intake/voice</Redirect>
+    </Response>`;
+  res.type('text/xml').send(twiml);
+});
+
+router.post('/step2', async (req, res) => {
+  const { name } = req.query as any;
+  const phone = req.body.SpeechResult || req.body.From || '';
+  const twiml = `
+    <Response>
+      <Gather input="speech" action="/intake/step3?name=${encodeURIComponent(name)}&phone=${encodeURIComponent(phone)}" method="POST" timeout="8">
+        <Say>Please say your full street address, city, and state.</Say>
+      </Gather>
+      <Say>Sorry, I didn't catch that.</Say>
+      <Redirect>/intake/voice</Redirect>
+    </Response>`;
+  res.type('text/xml').send(twiml);
+});
+
+router.post('/step3', async (req, res) => {
+  const { name, phone } = req.query as any;
+  const address = req.body.SpeechResult || '';
+  const twiml = `
+    <Response>
+      <Gather input="speech" action="/intake/step4?name=${encodeURIComponent(name)}&phone=${encodeURIComponent(phone)}&address=${encodeURIComponent(address)}" method="POST" timeout="8">
+        <Say>What insurer? For example, State Farm, USAA, or Allstate.</Say>
+      </Gather>
+      <Say>Sorry, I didn't catch that.</Say>
+      <Redirect>/intake/voice</Redirect>
+    </Response>`;
+  res.type('text/xml').send(twiml);
+});
+
+router.post('/step4', async (req, res) => {
+  const { name, phone, address } = req.query as any;
+  const insurer = req.body.SpeechResult || '';
+  const twiml = `
+    <Response>
+      <Gather input="speech" action="/intake/finish?name=${encodeURIComponent(name)}&phone=${encodeURIComponent(phone)}&address=${encodeURIComponent(address)}&insurer=${encodeURIComponent(insurer)}" method="POST" timeout="8">
+        <Say>Briefly describe the damage. For example, tree on home or tree on shed.</Say>
+      </Gather>
+      <Say>Sorry, I didn't catch that.</Say>
+      <Redirect>/intake/voice</Redirect>
+    </Response>`;
+  res.type('text/xml').send(twiml);
+});
+
+router.post('/finish', async (req, res) => {
+  const { name, phone, address, insurer } = req.query as any;
+  const damage_type = (req.body.SpeechResult || '').toLowerCase();
+  const severity = /(tree on home|house)/.test(damage_type) ? 'very_urgent'
+                 : /(tree on|structure|building)/.test(damage_type) ? 'urgent'
+                 : 'standard';
+
+  // create customer + claim
+  const { data: cust } = await supabase
+    .from('customers')
+    .insert([{ name, phone, address }])
+    .select()
+    .single();
+
+  const { data: claim } = await supabase
+    .from('claims')
+    .insert([{ customer_id: cust.id, insurer, damage_type, severity, status: 'intake' }])
+    .select()
+    .single();
+
+  // create first follow-up task: request adjuster contact if missing
+  await supabase.from('tasks').insert([{
+    claim_id: claim.id,
+    type: 'followup_email',
+    due_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(), -- /* 1h */
+    payload: { reason: 'request_adjuster_contact' }
+  }]);
+
+  const done = `
+    <Response>
+      <Say>Thank you. Your claim intake is complete. Our team will email your insurer and follow up. Goodbye.</Say>
+      <Hangup/>
+    </Response>`;
+  res.type('text/xml').send(done);
+});
+
+export default router;
+
+✉️ Send claim packet to adjuster
+
+server/routes/claims.ts
+
+import { Router } from 'express';
+import { supabase } from '../lib/db';
+import { sendClaimPacket } from '../lib/email';
+
+const router = Router();
+
+/**
+ * POST /claims/:id/send-packet
+ * body: { adjuster: { name, email, phone }, claim_number?, policy_number?, invoice_url?, photos_url? }
+ */
+router.post('/:id/send-packet', async (req, res) => {
+  const claimId = req.params.id;
+  const { data: claim } = await supabase.from('claims').select(`
+    id, insurer, claim_number, policy_number,
+    customers ( name, phone, email, address )
+  `).eq('id', claimId).single();
+
+  if (!claim) return res.status(404).json({ error: 'Claim not found' });
+
+  // upsert adjuster
+  const adjPayload = req.body.adjuster || {};
+  const { data: adj } = await supabase.from('adjusters')
+    .upsert({ name: adjPayload.name, email: adjPayload.email, phone: adjPayload.phone, carrier: claim.insurer })
+    .select().single();
+
+  await supabase.from('claims').update({
+    adjuster_id: adj.id,
+    claim_number: req.body.claim_number || claim.claim_number,
+    policy_number: req.body.policy_number || claim.policy_number,
+    invoice_url: req.body.invoice_url,
+    photos_url: req.body.photos_url,
+    status: 'packet_sent'
+  }).eq('id', claimId);
+
+  const html = `
+    <p>Dear ${adj.name || 'Adjuster'},</p>
+    <p>Please find the claim packet for the insured below:</p>
+    <ul>
+      <li><b>Name:</b> ${claim.customers.name}</li>
+      <li><b>Phone:</b> ${claim.customers.phone}</li>
+      <li><b>Address:</b> ${claim.customers.address}</li>
+      <li><b>Insurer:</b> ${claim.insurer}</li>
+      <li><b>Policy #:</b> ${req.body.policy_number || claim.policy_number || '(pending)'}</li>
+      <li><b>Claim #:</b> ${req.body.claim_number || claim.claim_number || '(pending)'}</li>
+      <li><b>Invoice:</b> <a href="${req.body.invoice_url}">View Invoice</a></li>
+      <li><b>Photos:</b> <a href="${req.body.photos_url}">View Photos</a></li>
+    </ul>
+    <p>Please confirm receipt and advise on payment or next steps.</p>
+    <p>Thank you,<br/>Strategic Land Management Claims</p>
+  `;
+
+  const msgId = await sendClaimPacket({
+    toEmail: adj.email,
+    toName: adj.name,
+    subject: `Claim Packet – ${claim.customers.name} – ${claim.insurer}`,
+    html
+  });
+
+  await supabase.from('claims').update({ packet_email_id: msgId }).eq('id', claimId);
+
+  // schedule follow-ups: 48h email, 72h call
+  const now = Date.now();
+  await supabase.from('tasks').insert([
+    { claim_id: claimId, type: 'followup_email', due_at: new Date(now + 48*3600*1000).toISOString(), payload: { template: 'gentle_reminder' } },
+    { claim_id: claimId, type: 'followup_call',  due_at: new Date(now + 72*3600*1000).toISOString(), payload: { script: 'status_check' } }
+  ]);
+
+  res.json({ ok: true, message_id: msgId });
+});
+
+export default router;
+
+🤖 Agent loop (runs every minute; executes due tasks)
+
+server/routes/agent.ts
+
+import { Router } from 'express';
+import { supabase } from '../lib/db';
+import { twilio, TWILIO_FROM } from '../lib/twilio';
+import { sendClaimPacket } from '../lib/email';
+// import { synthesizeLine } from '../lib/eleven';  // optional: generate spoken lines
+
+const router = Router();
+
+router.get('/run', async (_req, res) => {
+  const now = new Date().toISOString();
+  const { data: tasks } = await supabase.from('tasks')
+    .select('id, type, claim_id, payload')
+    .lte('due_at', now)
+    .eq('status', 'pending')
+    .limit(10);
+
+  for (const t of tasks || []) {
+    const { data: claim } = await supabase.from('claims').select(`
+      id, insurer, claim_number, policy_number, status,
+      customers ( name, phone, email, address ),
+      adjusters ( name, email, phone )
+    `).eq('id', t.claim_id).single();
+
+    try {
+      if (t.type === 'followup_email') {
+        const html = `
+          <p>Hi ${claim.adjusters?.name || 'Adjuster'},</p>
+          <p>Following up on claim for ${claim.customers.name} (${claim.insurer}). Please advise on payment status or next steps.</p>
+          <p>Thanks,<br/>SLM Claims</p>`;
+        await sendClaimPacket({
+          toEmail: claim.adjusters?.email,
+          toName: claim.adjusters?.name,
+          subject: `Follow-up: ${claim.customers.name} – ${claim.insurer}`,
+          html
+        });
+      }
+
+      if (t.type === 'followup_call' && claim.adjusters?.phone) {
+        // Simple Twilio outbound call playing a polite status line.
+        const statusLine = encodeURIComponent(
+          `Hello, this is Strategic Land Management following up on ${claim.customers.name}'s claim with ${claim.insurer}. ` +
+          `Please return this call or reply to our email with payment status. Thank you.`
+        );
+        await twilio.calls.create({
+          to: claim.adjusters.phone,
+          from: TWILIO_FROM,
+          url: `${process.env.PUBLIC_BASE_URL}/webhooks/twilio/playline?text=${statusLine}`
+        });
+      }
+
+      await supabase.from('tasks').update({ status: 'done', updated_at: new Date().toISOString() }).eq('id', t.id);
+    } catch (e) {
+      // keep pending or log error
+      await supabase.from('tasks').update({ status: 'pending', updated_at: new Date().toISOString() }).eq('id', t.id);
+    }
+  }
+
+  res.json({ ran: (tasks || []).length });
+});
+
+export default router;
+
+
+server/routes/webhooks.ts
+
+import { Router } from 'express';
+import { createReadStream } from 'fs';
+import { synthesizeLine } from '../lib/eleven';
+
+const router = Router();
+
+/**
+ * Twilio will fetch this URL to play a spoken line to the adjuster.
+ * We synthesize with ElevenLabs to /tmp and then serve it.
+ */
+router.post('/twilio/status', (_req, res) => res.sendStatus(200));
+
+router.get('/twilio/playline', async (req, res) => {
+  const text = decodeURIComponent((req.query.text as string) || 'Hello from S L M');
+  const mp3Path = await synthesizeLine(text);
+  const twiml = `
+    <Response>
+      <Play>${process.env.PUBLIC_BASE_URL}/media?file=${encodeURIComponent(mp3Path)}</Play>
+      <Hangup/>
+    </Response>`;
+  res.type('text/xml').send(twiml);
+});
+
+// serve synthesized mp3s from /tmp
+router.get('/media', (req, res) => {
+  const file = req.query.file as string;
+  if (!file?.startsWith('/tmp/')) return res.sendStatus(403);
+  res.type('audio/mpeg');
+  createReadStream(file).pipe(res);
+});
+
+export default router;
+
+🚀 App entry
+
+server/index.ts
+
+import express from 'express';
+import intake from './routes/intake';
+import claims from './routes/claims';
+import webhooks from './routes/webhooks';
+import agent from './routes/agent';
+
+const app = express();
+app.use(express.urlencoded({ extended: true })); // Twilio form posts
+app.use(express.json());
+
+app.get('/health', (_req, res) => res.json({ ok: true }));
+
+app.use('/intake', intake);
+app.use('/claims', claims);
+app.use('/webhooks', webhooks);
+app.use('/agent', agent);
+
+const port = process.env.PORT || 5000;
+app.listen(port, () => {
+  console.log(`Server running at ${port}`);
+  // simple scheduler tick (every 60s)
+  setInterval(async () => {
+    try {
+      await fetch(`${process.env.PUBLIC_BASE_URL}/agent/run`);
+    } catch {}
+  }, 60_000);
+});
+
+🧪 How to wire it up (step-by-step)
+
+Set the Twilio Voice Webhook
+
+In your Twilio phone number → Voice → “A Call Comes In” → Webhook:
+POST https://<your-replit-url>.replit.app/intake/voice
+
+Test an intake call
+
+Call your Twilio number.
+
+Answer questions → a claim row should appear in Supabase.
+
+Send the claim packet
+
+Manually POST (via Postman or a front-end) to:
+
+POST /claims/<claimId>/send-packet
+{
+  "adjuster": { "name": "Jane Smith", "email": "jane@carrier.com", "phone": "+15551234567" },
+  "policy_number": "ABC123",
+  "claim_number": "CLM-9999",
+  "invoice_url": "https://link-to-invoice.pdf",
+  "photos_url": "https://link-to-photos-folder"
+}
+
+
+This emails the adjuster and schedules 48h email + 72h call follow-ups.
+
+Follow-ups auto-run
+
+The mini-scheduler hits /agent/run every 60s.
+
+Twilio will place the call; it will Play an ElevenLabs-generated MP3.
+
+🧠 “Say it to get paid” — Built-in phrasing (you can tweak)
+
+Email subject: “Follow-up: [Insured Name] – [Carrier]”
+
+Email line: “Please confirm receipt of the invoice and photo documentation and advise on payment status or next steps.”
+
+Call line: “Following up on payment status for the claim — please reply with the current status or required documentation.”
+
+⚖️ Compliance notes (important)
+
+Call recording / consent laws: If you record or transcribe calls, play a consent line first and store a yes/no flag. (Two-party consent states require both parties’ consent.)
+
+Adjuster systems: We’re contacting via email and phone; we are not logging into carrier systems.
+
+PHI/PII: Store only what you need (name, address, policy/claim) and lock down Supabase RLS if you expose a front-end.
+
+🧩 Optional next upgrades
+
+Front-end “Claim Command” screen (search, send packet, one-click follow-ups).
+
+Inbound email ingestion (parse adjuster replies to auto-update status).
+
+Document generator: auto-PDF cover letter + invoice merge.
+
+AI note summarizer that rewrites call summaries into professional memos.

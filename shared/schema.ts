@@ -3788,6 +3788,52 @@ export const voiceProfiles = pgTable("voice_profiles", {
   }),
 }));
 
+// ===== CLAIMS AGENT TABLES =====
+
+// Customers table (homeowners calling for claims)
+export const customers = pgTable("customers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name"),
+  phone: text("phone"),
+  email: text("email"),
+  address: text("address"),
+  city: text("city"),
+  state: text("state"),
+  zip: text("zip"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Adjusters table (insurance adjusters)
+export const adjusters = pgTable("adjusters", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name"),
+  email: text("email"),
+  phone: text("phone"),
+  carrier: text("carrier"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Contact Log table (track all communications)
+export const contactLog = pgTable("contact_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  claimId: varchar("claim_id"),
+  channel: text("channel"), // 'call', 'sms', 'email'
+  direction: text("direction"), // 'in', 'out'
+  toAddr: text("to_addr"),
+  fromAddr: text("from_addr"),
+  status: text("status"),
+  summary: text("summary"),
+  meta: jsonb("meta").$type<JsonObject>(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  contactLogClaimFkey: foreignKey({
+    columns: [table.claimId],
+    foreignColumns: [claims.id],
+    name: "fk_contact_log_claim"
+  }).onDelete("cascade"),
+}));
+
 // ===== DISASTER LENS INSERT SCHEMAS =====
 
 export const insertOrganizationSchema = createInsertSchema(organizations).omit({
@@ -3912,3 +3958,27 @@ export type InsertMediaFrame = z.infer<typeof insertMediaFrameSchema>;
 // Voice Profile Types
 export type VoiceProfile = typeof voiceProfiles.$inferSelect;
 export type InsertVoiceProfile = z.infer<typeof insertVoiceProfileSchema>;
+
+// Claims Agent Insert Schemas
+export const insertCustomerSchema = createInsertSchema(customers).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertAdjusterSchema = createInsertSchema(adjusters).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertContactLogSchema = createInsertSchema(contactLog).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Claims Agent Types
+export type Customer = typeof customers.$inferSelect;
+export type InsertCustomer = z.infer<typeof insertCustomerSchema>;
+export type Adjuster = typeof adjusters.$inferSelect;
+export type InsertAdjuster = z.infer<typeof insertAdjusterSchema>;
+export type ContactLog = typeof contactLog.$inferSelect;
+export type InsertContactLog = z.infer<typeof insertContactLogSchema>;
