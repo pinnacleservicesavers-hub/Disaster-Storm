@@ -4078,6 +4078,25 @@ export class MemStorage implements IStorage {
   }
 
   async getDefaultVoiceProfile(): Promise<VoiceProfile | undefined> {
+    // First try database
+    try {
+      const { db } = await import('./db.js');
+      const { voiceProfiles } = await import('../shared/schema.js');
+      const { eq, and } = await import('drizzle-orm');
+      
+      const dbProfiles = await db.select().from(voiceProfiles)
+        .where(and(eq(voiceProfiles.isDefault, true), eq(voiceProfiles.isActive, true)))
+        .limit(1);
+      
+      if (dbProfiles.length > 0) {
+        return dbProfiles[0];
+      }
+    } catch (error) {
+      // Database not available, fall back to memory
+      console.log('Using in-memory voice profiles (database not available)');
+    }
+    
+    // Fall back to memory
     return Array.from(this.voiceProfiles.values()).find(p => p.isDefault && p.isActive);
   }
 
