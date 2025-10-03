@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Link } from 'wouter';
+import { Link, useLocation } from 'wouter';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -98,6 +98,12 @@ export default function VictimDashboard() {
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, setLocation] = useLocation();
+
+  // Navigate to new request form
+  const handleNewRequest = () => {
+    setLocation('/victim/request-help');
+  };
 
   // Initialize voice loading with enhanced cleanup
   useEffect(() => {
@@ -1737,7 +1743,11 @@ You can ask our AI assistant about any of these resources, and it will guide you
                     <h3 className="font-bold text-lg text-blue-900 dark:text-blue-100 mb-1">Need Additional Help?</h3>
                     <p className="text-sm text-blue-700 dark:text-blue-300">Submit a request for contractor services, legal assistance, or emergency support</p>
                   </div>
-                  <Button className="bg-blue-600 hover:bg-blue-700">
+                  <Button 
+                    className="bg-blue-600 hover:bg-blue-700" 
+                    onClick={handleNewRequest}
+                    data-testid="button-new-request"
+                  >
                     <Plus className="h-4 w-4 mr-2" />
                     New Request
                   </Button>
