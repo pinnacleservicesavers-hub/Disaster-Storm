@@ -755,18 +755,18 @@ export default function StormShare() {
                         <Filter className="w-4 h-4 mr-2" />
                         <SelectValue placeholder="Category" />
                       </SelectTrigger>
-                      <SelectContent className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-                        <SelectItem value="all">All Categories</SelectItem>
-                        <SelectItem value="roof-damage">Roof Damage</SelectItem>
-                        <SelectItem value="tree-removal">Tree Removal</SelectItem>
-                        <SelectItem value="flooding">Flooding</SelectItem>
-                        <SelectItem value="power-outage">Power Outage</SelectItem>
-                        <SelectItem value="debris-cleanup">Debris Cleanup</SelectItem>
-                        <SelectItem value="fence-crew">Fence Crew</SelectItem>
-                        <SelectItem value="plumbing">Plumbing Services</SelectItem>
-                        <SelectItem value="remodeling">Remodeling Services & Repairs</SelectItem>
-                        <SelectItem value="pool-services">Pool Services</SelectItem>
-                        <SelectItem value="other">Other</SelectItem>
+                      <SelectContent className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 z-50 shadow-lg">
+                        <SelectItem value="all" className="text-gray-900 dark:text-gray-100">All Categories</SelectItem>
+                        <SelectItem value="roof-damage" className="text-gray-900 dark:text-gray-100">Roof Damage</SelectItem>
+                        <SelectItem value="tree-removal" className="text-gray-900 dark:text-gray-100">Tree Removal</SelectItem>
+                        <SelectItem value="flooding" className="text-gray-900 dark:text-gray-100">Flooding</SelectItem>
+                        <SelectItem value="power-outage" className="text-gray-900 dark:text-gray-100">Power Outage</SelectItem>
+                        <SelectItem value="debris-cleanup" className="text-gray-900 dark:text-gray-100">Debris Cleanup</SelectItem>
+                        <SelectItem value="fence-crew" className="text-gray-900 dark:text-gray-100">Fence Crew</SelectItem>
+                        <SelectItem value="plumbing" className="text-gray-900 dark:text-gray-100">Plumbing Services</SelectItem>
+                        <SelectItem value="remodeling" className="text-gray-900 dark:text-gray-100">Remodeling Services & Repairs</SelectItem>
+                        <SelectItem value="pool-services" className="text-gray-900 dark:text-gray-100">Pool Services</SelectItem>
+                        <SelectItem value="other" className="text-gray-900 dark:text-gray-100">Other</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -962,17 +962,17 @@ export default function StormShare() {
                                     <SelectValue placeholder="Select category" />
                                   </SelectTrigger>
                                 </FormControl>
-                                <SelectContent className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-                                  <SelectItem value="roof-damage">Roof Damage</SelectItem>
-                                  <SelectItem value="tree-removal">Tree Removal</SelectItem>
-                                  <SelectItem value="flooding">Flooding</SelectItem>
-                                  <SelectItem value="power-outage">Power Outage</SelectItem>
-                                  <SelectItem value="debris-cleanup">Debris Cleanup</SelectItem>
-                                  <SelectItem value="fence-crew">Fence Crew</SelectItem>
-                                  <SelectItem value="plumbing">Plumbing Services</SelectItem>
-                                  <SelectItem value="remodeling">Remodeling Services & Repairs</SelectItem>
-                                  <SelectItem value="pool-services">Pool Services</SelectItem>
-                                  <SelectItem value="other">Other</SelectItem>
+                                <SelectContent className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 z-50 shadow-lg">
+                                  <SelectItem value="roof-damage" className="text-gray-900 dark:text-gray-100">Roof Damage</SelectItem>
+                                  <SelectItem value="tree-removal" className="text-gray-900 dark:text-gray-100">Tree Removal</SelectItem>
+                                  <SelectItem value="flooding" className="text-gray-900 dark:text-gray-100">Flooding</SelectItem>
+                                  <SelectItem value="power-outage" className="text-gray-900 dark:text-gray-100">Power Outage</SelectItem>
+                                  <SelectItem value="debris-cleanup" className="text-gray-900 dark:text-gray-100">Debris Cleanup</SelectItem>
+                                  <SelectItem value="fence-crew" className="text-gray-900 dark:text-gray-100">Fence Crew</SelectItem>
+                                  <SelectItem value="plumbing" className="text-gray-900 dark:text-gray-100">Plumbing Services</SelectItem>
+                                  <SelectItem value="remodeling" className="text-gray-900 dark:text-gray-100">Remodeling Services & Repairs</SelectItem>
+                                  <SelectItem value="pool-services" className="text-gray-900 dark:text-gray-100">Pool Services</SelectItem>
+                                  <SelectItem value="other" className="text-gray-900 dark:text-gray-100">Other</SelectItem>
                                 </SelectContent>
                               </Select>
                               <FormMessage />
@@ -992,10 +992,10 @@ export default function StormShare() {
                                     <SelectValue placeholder="Select urgency" />
                                   </SelectTrigger>
                                 </FormControl>
-                                <SelectContent className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-                                  <SelectItem value="normal">Normal</SelectItem>
-                                  <SelectItem value="urgent">Urgent (within 24 hours)</SelectItem>
-                                  <SelectItem value="emergency">Emergency (immediate)</SelectItem>
+                                <SelectContent className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 z-50 shadow-lg">
+                                  <SelectItem value="normal" className="text-gray-900 dark:text-gray-100">Normal</SelectItem>
+                                  <SelectItem value="urgent" className="text-gray-900 dark:text-gray-100">Urgent (within 24 hours)</SelectItem>
+                                  <SelectItem value="emergency" className="text-gray-900 dark:text-gray-100">Emergency (immediate)</SelectItem>
                                 </SelectContent>
                               </Select>
                               <FormMessage />
