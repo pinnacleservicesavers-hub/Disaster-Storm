@@ -56,7 +56,16 @@ export default function EyesInSky() {
       utterance.volume = 0.8;
       
       if (voices.length > 0) {
-        utterance.voice = voices.find(voice => voice.lang.includes('en')) || voices[0];
+        // Prefer natural female voices
+        const femaleVoice = voices.find(voice => 
+          voice.lang.includes('en') && 
+          (voice.name.toLowerCase().includes('female') || 
+           voice.name.toLowerCase().includes('zira') ||
+           voice.name.toLowerCase().includes('samantha') ||
+           voice.name.toLowerCase().includes('google uk') ||
+           voice.name.toLowerCase().includes('fiona'))
+        );
+        utterance.voice = femaleVoice || voices.find(voice => voice.lang.includes('en')) || voices[0];
       }
       
       utterance.onend = () => {
