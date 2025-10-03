@@ -4649,6 +4649,74 @@ Email: strategiclandmgmt@gmail.com
     }
   });
 
+  // Contact homeowner from damage detection alert
+  app.post('/api/damage-detection/contact-homeowner', express.json(), async (req, res) => {
+    try {
+      const { coordinates, address, damageDescription, estimatedCost, contractorId } = req.body;
+      
+      if (!coordinates && !address) {
+        return res.status(400).json({ error: 'Either coordinates or address must be provided' });
+      }
+      
+      console.log('📞 Initiating homeowner contact from damage detection...');
+      
+      // Identify property owner
+      let ownerInfo;
+      if (coordinates) {
+        const response = await fetch(`${req.protocol}://${req.get('host')}/api/identify-property-owner/coordinates`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(coordinates)
+        });
+        ownerInfo = await response.json();
+      } else if (address) {
+        const response = await fetch(`${req.protocol}://${req.get('host')}/api/identify-property-owner/address`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ address })
+        });
+        ownerInfo = await response.json();
+      }
+      
+      if (!ownerInfo || ownerInfo.error) {
+        return res.status(404).json({ 
+          error: 'Property owner not found',
+          suggestion: 'You can manually contact the property owner or use the lead information' 
+        });
+      }
+      
+      // Send notification via Twilio SMS (if phone number available)
+      if (ownerInfo.phoneNumber) {
+        const contactMessage = `DISASTER DIRECT ALERT: Storm damage detected at your property (${address || 'your location'}). ${damageDescription}. Estimated repair cost: ${estimatedCost}. A licensed contractor is ready to assist. Reply YES to connect.`;
+        
+        // Import Twilio service if available
+        try {
+          const twilioService = await import('./services/twilioService.js');
+          await twilioService.sendSMS(ownerInfo.phoneNumber, contactMessage);
+          console.log('✅ SMS sent to homeowner');
+        } catch (error) {
+          console.warn('⚠️ Twilio not configured, skipping SMS');
+        }
+      }
+      
+      res.json({
+        success: true,
+        owner: ownerInfo,
+        contactInitiated: true,
+        message: 'Homeowner contact initiated successfully. They will receive notification and your contact information.',
+        nextSteps: [
+          'Homeowner will be notified via SMS/email',
+          'Wait for homeowner response',
+          'Prepare damage assessment report',
+          'Schedule property inspection'
+        ]
+      });
+    } catch (error) {
+      console.error('Error contacting homeowner:', error);
+      res.status(500).json({ error: 'Failed to contact homeowner' });
+    }
+  });
+
   // ===== UNIFIED 511 DIRECTORY ENDPOINTS =====
   
   // Get state directory with camera and incident counts per state

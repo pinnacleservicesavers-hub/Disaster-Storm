@@ -4101,6 +4101,17 @@ export class MemStorage implements IStorage {
   }
 
   async createVoiceProfile(insertProfile: InsertVoiceProfile): Promise<VoiceProfile> {
+    // If setting as default, unset all other defaults first
+    if (insertProfile.isDefault) {
+      const profiles = Array.from(this.voiceProfiles.values());
+      for (const p of profiles) {
+        if (p.isDefault) {
+          p.isDefault = false;
+          p.updatedAt = new Date();
+        }
+      }
+    }
+    
     const profile: VoiceProfile = {
       id: randomUUID(),
       createdAt: new Date(),
