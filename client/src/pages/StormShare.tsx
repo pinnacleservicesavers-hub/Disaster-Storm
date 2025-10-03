@@ -310,6 +310,14 @@ export default function StormShare() {
     window.open('https://www.fema.gov/disaster/recover', '_blank');
   };
 
+  const handleOshaSafety = () => {
+    if (currentUserType !== 'contractor') {
+      toast({ title: 'Contractor Access Only', description: 'This resource is only available to contractors', variant: 'destructive' });
+      return;
+    }
+    window.open('https://www.osha.gov/emergency-preparedness', '_blank');
+  };
+
   // Use real authenticated user
   const currentUserId = user?.id || '';
   const currentUserType = user?.role as 'victim' | 'contractor' | 'business' || 'victim';
@@ -1715,7 +1723,7 @@ export default function StormShare() {
                               <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
                                 Storm response safety guidelines and OSHA compliance.
                               </p>
-                              <Button size="sm" variant="outline" data-testid="button-osha-safety">
+                              <Button size="sm" variant="outline" onClick={handleOshaSafety} data-testid="button-osha-safety">
                                 View Guidelines
                               </Button>
                             </CardContent>
