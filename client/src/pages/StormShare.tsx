@@ -335,6 +335,21 @@ export default function StormShare() {
     }
   });
 
+  const joinGroupMutation = useMutation({
+    mutationFn: (groupId: string) => 
+      apiRequest(`/api/stormshare/groups/${groupId}/members`, {
+        method: 'POST',
+        body: JSON.stringify({ userId: currentUserId })
+      }),
+    onSuccess: () => {
+      toast({ title: 'Successfully joined the group!' });
+      queryClient.invalidateQueries({ queryKey: ['/api/stormshare/groups'] });
+    },
+    onError: () => {
+      toast({ title: 'Failed to join group', variant: 'destructive' });
+    }
+  });
+
   // Forms
   const helpRequestForm = useForm<HelpRequestForm>({
     resolver: zodResolver(helpRequestSchema),
@@ -1222,9 +1237,11 @@ export default function StormShare() {
                         <Button 
                           className="w-full"
                           variant={currentUserType === 'contractor' ? 'default' : 'outline'}
+                          onClick={() => joinGroupMutation.mutate(group.id)}
+                          disabled={joinGroupMutation.isPending}
                           data-testid={`button-join-group-${group.id}`}
                         >
-                          {currentUserType === 'contractor' ? 'Join Group' : 'View Group'}
+                          {joinGroupMutation.isPending ? 'Joining...' : currentUserType === 'contractor' ? 'Join Group' : 'View Group'}
                         </Button>
                       </div>
                     </CardContent>
@@ -1309,9 +1326,11 @@ export default function StormShare() {
                       <Button 
                         className="w-full"
                         variant={currentUserType === 'contractor' ? 'default' : 'outline'}
+                        onClick={() => joinGroupMutation.mutate(group.id)}
+                        disabled={joinGroupMutation.isPending}
                         data-testid={`button-join-group-${group.id}`}
                       >
-                        {currentUserType === 'contractor' ? 'Join Group' : 'View Group'}
+                        {joinGroupMutation.isPending ? 'Joining...' : currentUserType === 'contractor' ? 'Join Group' : 'View Group'}
                       </Button>
                     </div>
                   </CardContent>
