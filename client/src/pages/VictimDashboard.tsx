@@ -683,6 +683,39 @@ You can ask our AI assistant about any of these resources, and it will guide you
           'State Contractor Licensing Board: Verify licenses',
           'FEMA Contractor Fraud Alert: Learn warning signs'
         ]
+      },
+      '6': {
+        steps: [
+          'Go to https://www.disasterassistance.gov or call 1-800-621-3362',
+          'Have your insurance information ready before applying',
+          'Provide Social Security number for all household members',
+          'Document all disaster-related expenses and losses',
+          'Include proof of occupancy (deed, mortgage, lease)',
+          'Upload photos of damage through the FEMA mobile app',
+          'Apply within 60 days of the disaster declaration',
+          'Check application status online regularly'
+        ],
+        tips: [
+          'FEMA assistance is available even if you have insurance',
+          'You can apply online, by phone, or through the mobile app',
+          'Keep copies of all documentation submitted to FEMA',
+          'FEMA may inspect your property - document everything',
+          'Assistance can include temporary housing, home repairs, and other needs',
+          'Apply early - the 60-day deadline is firm'
+        ],
+        resources: [
+          '🌐 Apply Online: Click "Start Now" to go to https://www.disasterassistance.gov',
+          '📱 FEMA Mobile App: Download from app store for easy application',
+          '☎️ Apply by Phone: 1-800-621-3362 (TTY: 1-800-462-7585)',
+          '🕐 Hours: 7am-10pm EST, 7 days a week',
+          '',
+          '📋 What You Need:',
+          '• Social Security number',
+          '• Current address & contact info',
+          '• Insurance information',
+          '• Household income details',
+          '• Bank account info for direct deposit'
+        ]
       }
     };
     
@@ -1225,7 +1258,15 @@ You can ask our AI assistant about any of these resources, and it will guide you
                                     {expandedStepId === step.id ? 'Hide Details' : 'Details'}
                                   </Button>
                                   {step.status === 'pending' && (
-                                    <Button size="sm" data-testid={`button-start-${step.id}`}>
+                                    <Button 
+                                      size="sm" 
+                                      data-testid={`button-start-${step.id}`}
+                                      onClick={() => {
+                                        if (step.id === '6') {
+                                          window.open('https://www.disasterassistance.gov', '_blank');
+                                        }
+                                      }}
+                                    >
                                       Start Now
                                     </Button>
                                   )}
