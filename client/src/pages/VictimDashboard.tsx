@@ -1127,6 +1127,120 @@ You can ask our AI assistant about any of these resources, and it will guide you
                   </HoverLift>
                 </div>
 
+                {/* Financial Assistance Programs */}
+                <Card className="mt-6 bg-gradient-to-br from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20 border-green-200 dark:border-green-800">
+                  <CardHeader>
+                    <CardTitle className="flex items-center text-green-800 dark:text-green-200">
+                      <DollarSign className="h-6 w-6 mr-2" />
+                      Financial Assistance Available
+                    </CardTitle>
+                    <CardDescription className="text-green-700 dark:text-green-300">
+                      Multiple programs can help cover bills, rent, and basic needs after a disaster
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {/* FEMA IHP */}
+                    <div className="p-4 bg-white dark:bg-gray-800 rounded-lg border border-green-200 dark:border-green-700">
+                      <div className="flex items-start justify-between mb-2">
+                        <div>
+                          <h4 className="font-bold text-lg text-green-800 dark:text-green-200">1. FEMA Disaster Assistance (Grants)</h4>
+                          <p className="text-sm text-green-600 dark:text-green-400 font-medium">Individuals & Households Program (IHP)</p>
+                        </div>
+                        <Badge className="bg-green-600 text-white">FREE MONEY</Badge>
+                      </div>
+                      <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">
+                        Provides grants (you don't pay back) for temporary housing, repairs, and essential expenses not covered by insurance.
+                      </p>
+                      <div className="space-y-1 text-sm text-gray-600 dark:text-gray-400 mb-3">
+                        <div>✅ Covers: Rent, utilities, household needs, temporary housing</div>
+                        <div>✅ You do NOT need to repay this money</div>
+                        <div>✅ Available even if you have insurance</div>
+                      </div>
+                      <Button size="sm" className="w-full bg-green-600 hover:bg-green-700" onClick={() => window.open('https://www.disasterassistance.gov', '_blank')}>
+                        Apply at DisasterAssistance.gov
+                      </Button>
+                    </div>
+
+                    {/* DUA */}
+                    <div className="p-4 bg-white dark:bg-gray-800 rounded-lg border border-blue-200 dark:border-blue-700">
+                      <div className="flex items-start justify-between mb-2">
+                        <div>
+                          <h4 className="font-bold text-lg text-blue-800 dark:text-blue-200">2. Disaster Unemployment Assistance (DUA)</h4>
+                          <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">If you lost your job due to the disaster</p>
+                        </div>
+                        <Badge className="bg-blue-600 text-white">WEEKLY PAY</Badge>
+                      </div>
+                      <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">
+                        Temporary weekly payments to help cover living expenses while you're out of work. Funded by FEMA, administered by your state workforce agency.
+                      </p>
+                      <div className="space-y-1 text-sm text-gray-600 dark:text-gray-400 mb-3">
+                        <div>✅ For those who don't qualify for regular unemployment</div>
+                        <div>✅ Weekly payments for essential expenses</div>
+                        <div>✅ Available if disaster disrupted your work</div>
+                      </div>
+                      <Button size="sm" className="w-full bg-blue-600 hover:bg-blue-700" onClick={() => window.open('https://www.benefits.gov/benefit/597', '_blank')}>
+                        Learn About DUA Benefits
+                      </Button>
+                    </div>
+
+                    {/* SBA Loans */}
+                    <div className="p-4 bg-white dark:bg-gray-800 rounded-lg border border-purple-200 dark:border-purple-700">
+                      <div className="flex items-start justify-between mb-2">
+                        <div>
+                          <h4 className="font-bold text-lg text-purple-800 dark:text-purple-200">3. SBA Disaster Loans</h4>
+                          <p className="text-sm text-purple-600 dark:text-purple-400 font-medium">Low-interest loans for recovery</p>
+                        </div>
+                        <Badge className="bg-purple-600 text-white">LOW RATES</Badge>
+                      </div>
+                      <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">
+                        Low-interest loans (as low as 2.688%) for homeowners, renters, and businesses. You pay them back, but terms are very favorable (up to 30 years).
+                      </p>
+                      <div className="space-y-1 text-sm text-gray-600 dark:text-gray-400 mb-3">
+                        <div>✅ Physical Damage Loans: Repair/replace property</div>
+                        <div>✅ Economic Injury Loans: Cover business operating expenses</div>
+                        <div>✅ Covers gaps insurance doesn't cover</div>
+                      </div>
+                      <Button size="sm" className="w-full bg-purple-600 hover:bg-purple-700" onClick={() => window.open('https://www.sba.gov/funding-programs/disaster-assistance', '_blank')}>
+                        Apply for SBA Disaster Loan
+                      </Button>
+                    </div>
+
+                    {/* State & Local Aid */}
+                    <div className="p-4 bg-white dark:bg-gray-800 rounded-lg border border-orange-200 dark:border-orange-700">
+                      <div className="flex items-start justify-between mb-2">
+                        <div>
+                          <h4 className="font-bold text-lg text-orange-800 dark:text-orange-200">4. State & Local Aid</h4>
+                          <p className="text-sm text-orange-600 dark:text-orange-400 font-medium">Nonprofit & community assistance</p>
+                        </div>
+                        <Badge className="bg-orange-600 text-white">IMMEDIATE</Badge>
+                      </div>
+                      <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">
+                        Emergency funds for utility bills, food, rent, and medical expenses from state agencies and nonprofits.
+                      </p>
+                      <div className="space-y-1 text-sm text-gray-600 dark:text-gray-400 mb-3">
+                        <div>✅ Red Cross: Emergency assistance</div>
+                        <div>✅ Salvation Army: Food, shelter, utilities</div>
+                        <div>✅ State/County: Emergency relief funds</div>
+                      </div>
+                      <Button size="sm" className="w-full bg-orange-600 hover:bg-orange-700" onClick={() => window.open('tel:211')}>
+                        <Phone className="h-4 w-4 mr-2" />
+                        Dial 211 for Local Resources
+                      </Button>
+                    </div>
+
+                    {/* Quick Summary */}
+                    <div className="p-4 bg-gradient-to-r from-green-100 to-blue-100 dark:from-green-900/30 dark:to-blue-900/30 rounded-lg">
+                      <h4 className="font-bold text-gray-900 dark:text-gray-100 mb-2">✅ Quick Summary:</h4>
+                      <div className="space-y-1 text-sm text-gray-700 dark:text-gray-300">
+                        <div>💰 <strong>Immediate cash for essentials:</strong> FEMA IHP (grants)</div>
+                        <div>💼 <strong>Lost your job:</strong> Disaster Unemployment Assistance (DUA)</div>
+                        <div>🏠 <strong>Loans for recovery & bills:</strong> SBA disaster loans</div>
+                        <div>🤝 <strong>Extra local help:</strong> State, county, or nonprofit programs</div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
                 {/* Progress Overview */}
                 <Card className="mt-6">
                   <CardHeader>
