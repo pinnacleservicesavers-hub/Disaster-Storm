@@ -221,9 +221,15 @@ export default function PortalVoiceGuide({
   // ARIA STORM voice synthesis using server API
   const speak = useCallback(async (text: string, onComplete?: () => void) => {
     try {
+      // Stop any existing audio first
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+      
       setIsPlaying(true);
       
-      // Call server API to generate ARIA STORM voice
+      // Call server API to generate ARIA STORM voice (Lily - Female Voice)
       const response = await fetch('/api/voice-ai/generate', {
         method: 'POST',
         headers: {
@@ -245,11 +251,13 @@ export default function PortalVoiceGuide({
         
         audio.onended = () => {
           setIsPlaying(false);
+          audioRef.current = null;
           onComplete?.();
         };
         
         audio.onerror = () => {
           setIsPlaying(false);
+          audioRef.current = null;
           console.error('Audio playback error');
           onComplete?.();
         };
@@ -262,6 +270,7 @@ export default function PortalVoiceGuide({
     } catch (error) {
       console.error('ARIA voice error:', error);
       setIsPlaying(false);
+      audioRef.current = null;
       onComplete?.();
     }
   }, []);
@@ -360,14 +369,22 @@ export default function PortalVoiceGuide({
 
   // Toggle voice guide
   const toggleVoiceGuide = useCallback(() => {
+    // Prevent toggling while audio is playing
+    if (isPlaying && !isEnabled) {
+      return;
+    }
+    
     if (isEnabled) {
       stopSpeaking();
       setIsEnabled(false);
     } else {
       setIsEnabled(true);
-      explainSection(0);
+      // Small delay to ensure state is updated before speaking
+      setTimeout(() => {
+        explainSection(0);
+      }, 100);
     }
-  }, [isEnabled, explainSection, stopSpeaking]);
+  }, [isEnabled, isPlaying, explainSection, stopSpeaking]);
 
   // Skip to next section
   const skipToNext = useCallback(() => {

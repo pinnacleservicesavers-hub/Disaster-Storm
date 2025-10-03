@@ -82,6 +82,7 @@ export default function VictimDashboard() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [expandedStepId, setExpandedStepId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<string>('overview');
   const [claimForm, setClaimForm] = useState({
     insuranceCompany: '',
     policyNumber: '',
@@ -1030,11 +1031,19 @@ You can ask our AI assistant about any of these resources, and it will guide you
       {/* Emergency Alert Banner */}
       {criticalAlerts > 0 && (
         <PulseAlert intensity="strong">
-          <Alert className="bg-red-100 dark:bg-red-900/20 border-red-500">
+          <Alert className="bg-red-100 dark:bg-red-900/20 border-red-500 cursor-pointer" onClick={() => setActiveTab('alerts')} data-testid="alert-critical-banner">
             <Siren className="h-4 w-4 text-red-600" />
             <AlertDescription className="text-red-800 dark:text-red-200 font-medium">
               <strong>CRITICAL ALERT:</strong> You have {criticalAlerts} urgent notification(s) requiring immediate attention.
-              <Button variant="link" className="text-red-800 dark:text-red-200 p-0 h-auto font-semibold ml-2">
+              <Button 
+                variant="link" 
+                className="text-red-800 dark:text-red-200 p-0 h-auto font-semibold ml-2"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setActiveTab('alerts');
+                }}
+                data-testid="button-view-alerts"
+              >
                 View All Alerts →
               </Button>
             </AlertDescription>
@@ -1043,7 +1052,7 @@ You can ask our AI assistant about any of these resources, and it will guide you
       )}
 
       {/* Main Content Tabs */}
-      <Tabs defaultValue="overview" className="space-y-6">
+      <Tabs defaultValue="overview" className="space-y-6" value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid grid-cols-4 w-fit">
           <TabsTrigger value="overview" data-testid="tab-overview">Overview</TabsTrigger>
           <TabsTrigger value="steps" data-testid="tab-steps">Recovery Steps</TabsTrigger>
