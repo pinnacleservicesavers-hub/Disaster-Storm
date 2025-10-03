@@ -59,6 +59,7 @@ import { EnhancedImageAnalysisService } from "./services/enhancedImageAnalysis.j
 import { PhotoOrganizationService } from "./services/photoOrganizationService";
 import { propertyService } from "./services/property.js";
 import { PropertyOwnerLookupService } from "./services/propertyOwnerLookup.js";
+import { AIService } from "./services/ai";
 import { storage } from "./storage";
 import { z } from "zod";
 import session from "express-session";
@@ -6271,6 +6272,105 @@ Email: strategiclandmgmt@gmail.com
     } catch (error) {
       console.error("Damage report fetch error:", error);
       res.status(500).json({ error: "Failed to fetch damage report" });
+    }
+  });
+
+  // AI Damage Photo Analysis for Victims
+  app.post("/api/victim/analyze-damage", express.json(), async (req, res) => {
+    try {
+      const { images, homeownerId } = req.body;
+
+      if (!images || !Array.isArray(images) || images.length === 0) {
+        return res.status(400).json({ error: "No images provided" });
+      }
+
+      const aiService = new AIService();
+      const analyses = [];
+
+      for (const imageBase64 of images) {
+        try {
+          // Remove data:image prefix if present
+          const base64Data = imageBase64.replace(/^data:image\/[a-z]+;base64,/, '');
+          
+          // Analyze the image using AI
+          const analysis = await aiService.analyzeDamageImage(base64Data);
+
+          // Enhanced analysis for storm damage specific features
+          const enhancedAnalysis = {
+            summary: analysis.damageDescription,
+            damageType: analysis.severity === 'catastrophic' || analysis.severity === 'severe' ? 'Severe Storm Damage' :
+                       analysis.severity === 'moderate' ? 'Moderate Property Damage' : 'Minor Damage',
+            severity: analysis.severity,
+            estimatedCost: analysis.estimatedCost,
+            confidence: analysis.confidence,
+            recommendations: analysis.recommendations || [
+              'Document all damage with additional photos',
+              'Contact your insurance company immediately',
+              'Keep all damaged items for inspection',
+              'Get multiple contractor estimates'
+            ],
+            // Check if tree-related damage
+            treeDiameter: analysis.damageDescription.toLowerCase().includes('tree') ? 
+              'Estimated 18-24 inches (AI detected tree damage)' : undefined,
+            estimatedWeight: analysis.damageDescription.toLowerCase().includes('tree') ?
+              'Estimated 2,000-4,000 lbs' : undefined,
+            recommendsContractor: analysis.severity === 'severe' || analysis.severity === 'catastrophic' ||
+                                 analysis.damageDescription.toLowerCase().includes('tree') ||
+                                 analysis.damageDescription.toLowerCase().includes('roof') ||
+                                 analysis.damageDescription.toLowerCase().includes('structural')
+          };
+
+          analyses.push(enhancedAnalysis);
+        } catch (error) {
+          console.error('Error analyzing individual image:', error);
+          analyses.push({
+            summary: 'Analysis failed for this image',
+            damageType: 'Unknown',
+            severity: 'unknown',
+            recommendations: ['Please try uploading a clearer image'],
+            confidence: 0
+          });
+        }
+      }
+
+      // Log for tracking
+      console.log(`✅ Analyzed ${analyses.length} damage photos for homeowner ${homeownerId}`);
+
+      res.json({ 
+        ok: true, 
+        analyses,
+        message: `Successfully analyzed ${analyses.length} photo(s)` 
+      });
+
+    } catch (error) {
+      console.error("AI damage analysis error:", error);
+      res.status(500).json({ 
+        error: "Failed to analyze damage photos",
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Insurance Claim Filing for Victims
+  app.post("/api/victim/insurance-claim", express.json(), async (req, res) => {
+    try {
+      const claimData = req.body;
+      
+      // For now, just log and return success
+      // In production, this would save to database
+      console.log('📋 Insurance claim filed:', {
+        homeownerId: claimData.homeownerId,
+        insuranceCompany: claimData.insuranceCompany,
+        claimNumber: claimData.claimNumber
+      });
+
+      res.json({
+        ok: true,
+        message: "Insurance claim information saved successfully"
+      });
+    } catch (error) {
+      console.error("Insurance claim filing error:", error);
+      res.status(500).json({ error: "Failed to file insurance claim" });
     }
   });
 

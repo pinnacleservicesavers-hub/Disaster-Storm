@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'wouter';
@@ -22,7 +22,8 @@ import {
   Smartphone, Globe, Wind, Thermometer, Gauge, Eye,
   RefreshCw, Search, Filter, Calendar, TrendingUp,
   Clipboard, DollarSign, Award, Target, Radio, Siren,
-  Briefcase, FileCheck, PersonStanding, Lightbulb, Volume2, VolumeX
+  Briefcase, FileCheck, PersonStanding, Lightbulb, Volume2, VolumeX,
+  Image as ImageIcon, X, Loader2, Sparkles, Upload
 } from 'lucide-react';
 import { FadeIn, PulseAlert, StaggerContainer, StaggerItem, HoverLift, CountUp, ScaleIn, SlideIn } from '@/components/ui/animations';
 import { apiRequest } from '@/lib/queryClient';
@@ -76,6 +77,10 @@ export default function VictimDashboard() {
   const [isContractorModalOpen, setIsContractorModalOpen] = useState(false);
   const [isShelterModalOpen, setIsShelterModalOpen] = useState(false);
   const [isSBAModalOpen, setIsSBAModalOpen] = useState(false);
+  const [isPhotoUploadModalOpen, setIsPhotoUploadModalOpen] = useState(false);
+  const [uploadedPhotos, setUploadedPhotos] = useState<Array<{file: File, preview: string, analyzing: boolean, analysis?: any}>>([]);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [claimForm, setClaimForm] = useState({
     insuranceCompany: '',
     policyNumber: '',
@@ -433,6 +438,99 @@ You can ask our AI assistant about any of these resources, and it will guide you
     }
   };
 
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    const newPhotos = Array.from(files).map(file => ({
+      file,
+      preview: URL.createObjectURL(file),
+      analyzing: false
+    }));
+
+    setUploadedPhotos(prev => [...prev, ...newPhotos]);
+    
+    toast({
+      title: "Photos Added",
+      description: `${files.length} photo(s) added. Click "Analyze with AI" to get damage assessment.`
+    });
+  };
+
+  const handlePhotoAnalysis = async () => {
+    if (uploadedPhotos.length === 0) {
+      toast({
+        title: "No Photos",
+        description: "Please upload photos first"
+      });
+      return;
+    }
+
+    setIsAnalyzing(true);
+    
+    try {
+      // Mark all photos as analyzing
+      setUploadedPhotos(prev => prev.map(p => ({ ...p, analyzing: true })));
+
+      // Convert files to base64
+      const photoPromises = uploadedPhotos.map(async (photo) => {
+        return new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(photo.file);
+        });
+      });
+
+      const base64Images = await Promise.all(photoPromises);
+
+      // Send to backend for AI analysis
+      const response = await apiRequest('/api/victim/analyze-damage', {
+        method: 'POST',
+        body: JSON.stringify({
+          images: base64Images,
+          homeownerId: user?.id
+        })
+      });
+
+      // Update photos with analysis results
+      setUploadedPhotos(prev => prev.map((photo, index) => ({
+        ...photo,
+        analyzing: false,
+        analysis: response.analyses[index]
+      })));
+
+      toast({
+        title: "✨ AI Analysis Complete",
+        description: `Analyzed ${uploadedPhotos.length} photo(s). Review the damage assessment below.`
+      });
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Analysis Failed",
+        description: error.message || "Failed to analyze photos"
+      });
+      
+      // Reset analyzing state
+      setUploadedPhotos(prev => prev.map(p => ({ ...p, analyzing: false })));
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  const handleCameraCapture = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  const removePhoto = (index: number) => {
+    setUploadedPhotos(prev => {
+      const newPhotos = [...prev];
+      URL.revokeObjectURL(newPhotos[index].preview);
+      newPhotos.splice(index, 1);
+      return newPhotos;
+    });
+  };
+
   const getStepStatusBadge = (status: string) => {
     switch (status) {
       case 'completed': return { text: 'COMPLETE', variant: 'default' as const, color: 'bg-green-500' };
@@ -736,7 +834,11 @@ You can ask our AI assistant about any of these resources, and it will guide you
                 </h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <HoverLift>
-                    <Card className="cursor-pointer hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-300 group">
+                    <Card 
+                      className="cursor-pointer hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-300 group"
+                      onClick={() => setIsPhotoUploadModalOpen(true)}
+                      data-testid="card-report-damage"
+                    >
                       <CardContent className="p-4 text-center">
                         <div className="w-12 h-12 mx-auto mb-3 bg-red-100 dark:bg-red-900/50 rounded-full flex items-center justify-center group-hover:bg-red-200 dark:group-hover:bg-red-800/50 transition-colors">
                           <Camera className="h-6 w-6 text-red-600" />
@@ -1673,6 +1775,226 @@ You can ask our AI assistant about any of these resources, and it will guide you
                   >
                     Close
                   </Button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Photo Upload & AI Analysis Modal */}
+      <AnimatePresence>
+        {isPhotoUploadModalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+            onClick={() => setIsPhotoUploadModalOpen(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto"
+            >
+              <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+                <h2 className="text-2xl font-bold flex items-center gap-2">
+                  <Camera className="h-5 w-5 text-red-600" />
+                  Document Damage - AI Photo Analysis
+                </h2>
+                <p className="text-gray-600 dark:text-gray-400 mt-2">
+                  Upload photos of damage for instant AI analysis. Our AI will identify damage types, measure objects, and provide recommendations.
+                </p>
+              </div>
+
+              <div className="p-6 space-y-6">
+                {/* Hidden File Input */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  capture="environment"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                  data-testid="input-file-upload"
+                />
+
+                {/* Upload Buttons */}
+                <div className="grid md:grid-cols-2 gap-4">
+                  <Card className="cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all" onClick={handleCameraCapture}>
+                    <CardContent className="p-6 text-center">
+                      <Camera className="h-12 w-12 text-blue-600 mx-auto mb-3" />
+                      <h3 className="font-semibold mb-1">Take Photo</h3>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Use your device camera</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="cursor-pointer hover:bg-green-50 dark:hover:bg-green-900/20 transition-all" onClick={handleCameraCapture}>
+                    <CardContent className="p-6 text-center">
+                      <Upload className="h-12 w-12 text-green-600 mx-auto mb-3" />
+                      <h3 className="font-semibold mb-1">Upload Photos</h3>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Select from gallery</p>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Photo Grid */}
+                {uploadedPhotos.length > 0 && (
+                  <div>
+                    <h3 className="font-semibold mb-3 flex items-center justify-between">
+                      <span>Uploaded Photos ({uploadedPhotos.length})</span>
+                      {!isAnalyzing && (
+                        <Button 
+                          onClick={handlePhotoAnalysis}
+                          className="bg-purple-600 hover:bg-purple-700"
+                          data-testid="button-analyze-photos"
+                        >
+                          <Sparkles className="h-4 w-4 mr-2" />
+                          Analyze with AI
+                        </Button>
+                      )}
+                    </h3>
+                    
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                      {uploadedPhotos.map((photo, index) => (
+                        <div key={index} className="relative group">
+                          <div className="aspect-square rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700">
+                            <img 
+                              src={photo.preview} 
+                              alt={`Damage photo ${index + 1}`}
+                              className="w-full h-full object-cover"
+                            />
+                            {photo.analyzing && (
+                              <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                                <Loader2 className="h-8 w-8 text-white animate-spin" />
+                              </div>
+                            )}
+                            <button
+                              onClick={() => removePhoto(index)}
+                              className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                              data-testid={`button-remove-photo-${index}`}
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </div>
+                          {photo.analysis && (
+                            <div className="mt-2 text-xs">
+                              <Badge className="bg-green-600 mb-1">✓ Analyzed</Badge>
+                              <p className="text-gray-600 dark:text-gray-400 line-clamp-2">{photo.analysis.summary}</p>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* AI Analysis Results */}
+                {uploadedPhotos.some(p => p.analysis) && (
+                  <Card className="border-2 border-purple-500 bg-purple-50 dark:bg-purple-900/20">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Sparkles className="h-5 w-5 text-purple-600" />
+                        AI Damage Assessment
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {uploadedPhotos.filter(p => p.analysis).map((photo, index) => (
+                        <div key={index} className="border-b pb-4 last:border-0">
+                          <h4 className="font-semibold mb-2">Photo {index + 1} Analysis</h4>
+                          <div className="grid md:grid-cols-2 gap-4">
+                            <div>
+                              <p className="text-sm mb-2"><strong>Damage Type:</strong> {photo.analysis.damageType || 'Not detected'}</p>
+                              <p className="text-sm mb-2"><strong>Severity:</strong> {photo.analysis.severity || 'N/A'}</p>
+                              {photo.analysis.treeDiameter && (
+                                <p className="text-sm mb-2"><strong>Tree Diameter:</strong> {photo.analysis.treeDiameter}</p>
+                              )}
+                              {photo.analysis.estimatedWeight && (
+                                <p className="text-sm mb-2"><strong>Estimated Weight:</strong> {photo.analysis.estimatedWeight}</p>
+                              )}
+                            </div>
+                            <div>
+                              <p className="text-sm font-semibold mb-1">AI Recommendations:</p>
+                              <ul className="text-sm text-gray-600 dark:text-gray-400 list-disc list-inside space-y-1">
+                                {photo.analysis.recommendations?.map((rec: string, i: number) => (
+                                  <li key={i}>{rec}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+
+                      {/* Contractor Recommendation */}
+                      {uploadedPhotos.some(p => p.analysis?.recommendsContractor) && (
+                        <Alert className="bg-blue-50 dark:bg-blue-900/20 border-blue-200">
+                          <AlertDescription>
+                            <p className="font-bold mb-2">🏗️ Professional Help Recommended</p>
+                            <p className="text-sm mb-3">Based on the damage analysis, we recommend contacting a professional contractor.</p>
+                            <Button 
+                              size="sm"
+                              onClick={() => {
+                                setIsPhotoUploadModalOpen(false);
+                                setIsContractorModalOpen(true);
+                              }}
+                            >
+                              Find Contractors
+                            </Button>
+                          </AlertDescription>
+                        </Alert>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Tips */}
+                {uploadedPhotos.length === 0 && (
+                  <Alert>
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      <strong>Photography Tips:</strong>
+                      <ul className="text-sm mt-2 space-y-1 list-disc list-inside">
+                        <li>Take photos from multiple angles</li>
+                        <li>Include a reference object (ruler, hand) for scale</li>
+                        <li>Capture close-ups and wide shots</li>
+                        <li>Document all visible damage</li>
+                        <li>Take photos before any cleanup or repairs</li>
+                      </ul>
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                {/* Action Buttons */}
+                <div className="flex justify-end gap-3 pt-4 border-t">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => {
+                      setIsPhotoUploadModalOpen(false);
+                      uploadedPhotos.forEach(photo => URL.revokeObjectURL(photo.preview));
+                      setUploadedPhotos([]);
+                    }}
+                    data-testid="button-close-photo-upload"
+                  >
+                    Close
+                  </Button>
+                  {uploadedPhotos.length > 0 && uploadedPhotos.some(p => p.analysis) && (
+                    <Button 
+                      className="bg-green-600 hover:bg-green-700"
+                      onClick={() => {
+                        toast({
+                          title: "Report Saved",
+                          description: "Your damage documentation has been saved to your claim."
+                        });
+                        setIsPhotoUploadModalOpen(false);
+                      }}
+                      data-testid="button-save-damage-report"
+                    >
+                      <FileCheck className="h-4 w-4 mr-2" />
+                      Save to Claim
+                    </Button>
+                  )}
                 </div>
               </div>
             </motion.div>
