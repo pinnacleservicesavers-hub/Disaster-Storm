@@ -1715,11 +1715,139 @@ You can ask our AI assistant about any of these resources, and it will guide you
         {/* Requests Tab */}
         <TabsContent value="requests" className="space-y-6">
           <FadeIn>
-            <div className="text-center py-12">
-              <Clipboard className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-xl font-semibold mb-2">My Assistance Requests</h3>
+            <div className="mb-6">
+              <h2 className="text-xl font-semibold mb-2">My Assistance Requests</h2>
               <p className="text-muted-foreground">Track your requests for help and monitor progress</p>
             </div>
+
+            {/* Request a New Service */}
+            <Card className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 border-blue-200 dark:border-blue-700">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-bold text-lg text-blue-900 dark:text-blue-100 mb-1">Need Additional Help?</h3>
+                    <p className="text-sm text-blue-700 dark:text-blue-300">Submit a request for contractor services, legal assistance, or emergency support</p>
+                  </div>
+                  <Button className="bg-blue-600 hover:bg-blue-700">
+                    <Plus className="h-4 w-4 mr-2" />
+                    New Request
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Active Requests */}
+            <StaggerContainer className="space-y-4">
+              {assistanceRequests.map((request, index) => (
+                <StaggerItem key={request.id}>
+                  <HoverLift>
+                    <Card className={`border-l-4 ${
+                      request.status === 'completed' ? 'border-l-green-500 bg-green-50 dark:bg-green-900/20' :
+                      request.status === 'in_progress' ? 'border-l-blue-500 bg-blue-50 dark:bg-blue-900/20' :
+                      request.status === 'assigned' ? 'border-l-purple-500 bg-purple-50 dark:bg-purple-900/20' :
+                      'border-l-gray-500 bg-gray-50 dark:bg-gray-900/20'
+                    }`}>
+                      <CardContent className="p-6">
+                        <div className="flex items-start justify-between mb-4">
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-3 mb-2">
+                              <h3 className="font-bold text-lg text-gray-900 dark:text-gray-100">{request.title}</h3>
+                              <Badge className={`${
+                                request.priority === 'urgent' ? 'bg-red-600' :
+                                request.priority === 'high' ? 'bg-orange-600' :
+                                request.priority === 'medium' ? 'bg-blue-600' :
+                                'bg-gray-600'
+                              } text-white`}>
+                                {request.priority.toUpperCase()}
+                              </Badge>
+                            </div>
+                            <div className="flex items-center space-x-4 text-sm text-muted-foreground mb-3">
+                              <div className="flex items-center">
+                                <Calendar className="h-4 w-4 mr-1" />
+                                Submitted: {request.submittedAt}
+                              </div>
+                              {request.estimatedCompletion && (
+                                <div className="flex items-center text-orange-600">
+                                  <Clock className="h-4 w-4 mr-1" />
+                                  Est. Completion: {request.estimatedCompletion}
+                                </div>
+                              )}
+                            </div>
+                            <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">{request.notes}</p>
+                            {request.assignedTo && (
+                              <div className="flex items-center text-sm">
+                                <User className="h-4 w-4 mr-1 text-blue-600" />
+                                <span className="text-blue-600 dark:text-blue-400">Assigned to: {request.assignedTo}</span>
+                              </div>
+                            )}
+                          </div>
+                          <Badge className={`${
+                            request.status === 'completed' ? 'bg-green-500' :
+                            request.status === 'in_progress' ? 'bg-blue-500' :
+                            request.status === 'assigned' ? 'bg-purple-500' :
+                            'bg-gray-500'
+                          } text-white text-sm px-3 py-1`}>
+                            {request.status === 'in_progress' ? 'IN PROGRESS' :
+                             request.status === 'completed' ? 'COMPLETED' :
+                             request.status === 'assigned' ? 'ASSIGNED' :
+                             'SUBMITTED'}
+                          </Badge>
+                        </div>
+                        
+                        {/* Progress Bar for Active Requests */}
+                        {(request.status === 'assigned' || request.status === 'in_progress') && (
+                          <div className="mt-4">
+                            <div className="flex items-center justify-between text-xs mb-2">
+                              <span className="text-muted-foreground">Progress</span>
+                              <span className="text-muted-foreground">
+                                {request.status === 'assigned' ? '25%' : '60%'}
+                              </span>
+                            </div>
+                            <Progress 
+                              value={request.status === 'assigned' ? 25 : 60} 
+                              className="h-2"
+                            />
+                          </div>
+                        )}
+
+                        {/* Action Buttons */}
+                        <div className="flex space-x-2 mt-4">
+                          <Button size="sm" variant="outline">
+                            <MessageSquare className="h-4 w-4 mr-2" />
+                            Message
+                          </Button>
+                          {request.type === 'contractor' && (
+                            <Button size="sm" variant="outline">
+                              <Phone className="h-4 w-4 mr-2" />
+                              Call Contractor
+                            </Button>
+                          )}
+                          <Button size="sm" variant="outline">
+                            <Eye className="h-4 w-4 mr-2" />
+                            View Details
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </HoverLift>
+                </StaggerItem>
+              ))}
+            </StaggerContainer>
+
+            {/* Empty State if No Requests */}
+            {assistanceRequests.length === 0 && (
+              <Card className="text-center py-12">
+                <CardContent>
+                  <Clipboard className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-xl font-semibold mb-2">No Requests Yet</h3>
+                  <p className="text-muted-foreground mb-4">Submit your first assistance request to get started</p>
+                  <Button className="bg-blue-600 hover:bg-blue-700">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Submit Request
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
           </FadeIn>
         </TabsContent>
       </Tabs>
