@@ -53,7 +53,7 @@ import { DashboardSection } from '@/components/DashboardSection';
 import { FadeIn, PulseAlert, StaggerContainer, StaggerItem, HoverLift } from '@/components/ui/animations';
 import { getPrimaryServicePhoto, getServicePhoto } from '@/utils/photoManager';
 import { z } from 'zod';
-import { Link } from 'wouter';
+import { Link, useLocation } from 'wouter';
 import type { 
   StormShareGroup, 
   HelpRequest,
@@ -115,6 +115,7 @@ export default function StormShare() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, setLocation] = useLocation();
 
   const startVoiceGuide = async () => {
     if (!isVoiceGuideActive) {
@@ -168,6 +169,11 @@ export default function StormShare() {
       setIsVoiceGuideActive(false);
       setIsPlayingVoice(false);
     }
+  };
+
+  // Navigate to victim dashboard for help request
+  const handleRequestHelp = () => {
+    setLocation('/victim-dashboard');
   };
 
   // Use real authenticated user
@@ -318,7 +324,7 @@ export default function StormShare() {
             { label: 'Weekly Helps', value: 127, change: 'People assisted', color: 'amber', testId: 'text-weekly-helps' }
           ]}
           actions={[
-            { icon: Heart, label: 'Request Help', variant: 'default', testId: 'button-request-help' },
+            { icon: Heart, label: 'Request Help', variant: 'default', testId: 'button-request-help', onClick: handleRequestHelp },
             { icon: MessageCircle, label: 'Join Chat', variant: 'outline', testId: 'button-join-chat' },
             { icon: Share2, label: 'Share Story', variant: 'outline', testId: 'button-share-story' },
             { icon: isVoiceGuideActive ? VolumeX : Volume2, label: isVoiceGuideActive ? 'Stop Guide' : 'Voice Guide', variant: 'outline', testId: 'button-voice-guide', onClick: startVoiceGuide, 'aria-label': 'Voice guide for StormShare', 'aria-pressed': isVoiceGuideActive }
@@ -1347,7 +1353,7 @@ export default function StormShare() {
                     <AlertCircle className="w-4 h-4 mr-2" />
                     Report Issue
                   </Button>
-                  <Button variant="outline" size="sm" className="w-full justify-start" data-testid="button-request-help">
+                  <Button onClick={handleRequestHelp} variant="outline" size="sm" className="w-full justify-start" data-testid="button-request-help">
                     <Heart className="w-4 h-4 mr-2" />
                     Request Help
                   </Button>
