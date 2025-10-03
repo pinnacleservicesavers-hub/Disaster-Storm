@@ -189,6 +189,16 @@ export const users = pgTable("users", {
   password: text("password").notNull(),
   email: text("email"),
   role: text("role").default("contractor"), // contractor, admin, crew_member
+  
+  // Contractor Availability Settings
+  workAreas: jsonb("work_areas").$type<string[]>(), // Array of zip codes or counties where contractor works
+  inAreaEnabled: boolean("in_area_enabled").default(false), // Toggle to show availability in current area
+  serviceTypes: jsonb("service_types").$type<string[]>(), // Array of service types they offer
+  companyName: text("company_name"),
+  phone: text("phone"),
+  licenseNumber: text("license_number"),
+  isInsured: boolean("is_insured").default(false),
+  
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -755,6 +765,23 @@ export const damageReports = pgTable("damage_reports", {
   // Weather Context
   weatherConditions: text("weather_conditions"), // Weather at time of damage
   stormEventId: varchar("storm_event_id"), // Link to weather event if applicable
+  
+  // AI Analysis Results
+  aiAnalysis: jsonb("ai_analysis").$type<JsonObject>(), // Complete AI analysis results
+  treeStumpDiameter: numeric("tree_stump_diameter", { precision: 6, scale: 2 }), // inches
+  estimatedTreeWeight: numeric("estimated_tree_weight", { precision: 8, scale: 2 }), // pounds
+  damageAssessment: jsonb("damage_assessment").$type<JsonObject>(), // Detailed damage breakdown by AI
+  recommendedContractors: jsonb("recommended_contractors").$type<string[]>(), // Array of contractor IDs
+  aiConfidenceScore: numeric("ai_confidence_score", { precision: 3, scale: 2 }), // 0.00 - 1.00
+  aiAnalyzedAt: timestamp("ai_analyzed_at"),
+  photoLabels: jsonb("photo_labels").$type<JsonArray<JsonObject>>(), // AI-generated labels for each photo
+  
+  // Customer Consent for Contractor Contact
+  customerConsentGiven: boolean("customer_consent_given").default(false),
+  consentGivenAt: timestamp("consent_given_at"),
+  consentMethod: text("consent_method"), // "button_click", "voice", "text_message"
+  contractorsNotified: boolean("contractors_notified").default(false),
+  contractorsNotifiedAt: timestamp("contractors_notified_at"),
   
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

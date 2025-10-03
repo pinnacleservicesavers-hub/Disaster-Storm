@@ -8,6 +8,11 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useToast } from '@/hooks/use-toast';
 import { homeowners } from '@shared/schema';
 import { 
   Home, Camera, FileText, Users, AlertTriangle, MapPin, Clock, 
@@ -67,7 +72,24 @@ export default function VictimDashboard() {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [isVoiceGuideActive, setIsVoiceGuideActive] = useState(false);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [isClaimModalOpen, setIsClaimModalOpen] = useState(false);
+  const [isContractorModalOpen, setIsContractorModalOpen] = useState(false);
+  const [isShelterModalOpen, setIsShelterModalOpen] = useState(false);
+  const [isSBAModalOpen, setIsSBAModalOpen] = useState(false);
+  const [claimForm, setClaimForm] = useState({
+    insuranceCompany: '',
+    policyNumber: '',
+    claimNumber: '',
+    dateOfLoss: '',
+    damageType: '',
+    estimatedDamage: '',
+    adjusterName: '',
+    adjusterPhone: '',
+    adjusterEmail: '',
+    notes: ''
+  });
 
+  const { toast } = useToast();
   const queryClient = useQueryClient();
 
   // Initialize voice loading with enhanced cleanup
@@ -319,17 +341,17 @@ You can ask our AI assistant about any of these resources, and it will guide you
       setUser(JSON.parse(userData));
     } else {
       // Set mock user data for demo
-      const mockUser: VictimUser = {
+      const mockUser: any = {
         id: 'victim-user-001',
-        firstName: 'Sarah',
-        lastName: 'Johnson',
-        email: 'sarah.johnson@email.com',
+        firstName: 'Stacey',
+        lastName: 'Ballard',
+        email: 'stacey.ballard@email.com',
         phone: '(813) 555-0123',
         propertyAddress: '2847 Bayshore Drive',
         city: 'Tampa',
         state: 'FL',
         zipCode: '33602',
-        propertyType: 'single-family',
+        propertyType: 'residential',
         createdAt: new Date(),
         updatedAt: new Date()
       };
@@ -346,6 +368,68 @@ You can ask our AI assistant about any of these resources, and it will guide you
   const handleEmergencyCall = () => {
     if (confirm('This will call emergency services (911). Continue?')) {
       window.open('tel:911', '_self');
+    }
+  };
+
+  const handleClaimSubmit = async () => {
+    try {
+      // Validate required fields
+      if (!claimForm.insuranceCompany || !claimForm.dateOfLoss) {
+        toast({
+          variant: "destructive",
+          title: "Missing Information",
+          description: "Please fill in required fields: Insurance Company and Date of Loss"
+        });
+        return;
+      }
+
+      // Submit claim to backend
+      const response = await apiRequest('/api/victim/insurance-claim', {
+        method: 'POST',
+        body: JSON.stringify({
+          homeownerId: user?.id,
+          ...claimForm
+        })
+      });
+
+      toast({
+        title: "Claim Filed Successfully",
+        description: "Your insurance claim information has been saved. A copy has been sent to your email."
+      });
+
+      // Reset form and close modal
+      setClaimForm({
+        insuranceCompany: '',
+        policyNumber: '',
+        claimNumber: '',
+        dateOfLoss: '',
+        damageType: '',
+        estimatedDamage: '',
+        adjusterName: '',
+        adjusterPhone: '',
+        adjusterEmail: '',
+        notes: ''
+      });
+      setIsClaimModalOpen(false);
+      
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error Filing Claim",
+        description: error.message || "Failed to save claim information"
+      });
+    }
+  };
+
+  const handleCallInsurance = () => {
+    if (claimForm.insuranceCompany) {
+      const phone = '18006213362'; // Default to FEMA, or use user's insurance company number
+      window.open(`tel:${phone}`, '_self');
+    } else {
+      toast({
+        title: "Select Insurance Company",
+        description: "Please select your insurance company first"
+      });
     }
   };
 
@@ -664,7 +748,11 @@ You can ask our AI assistant about any of these resources, and it will guide you
                   </HoverLift>
                   
                   <HoverLift>
-                    <Card className="cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all duration-300 group">
+                    <Card 
+                      className="cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all duration-300 group"
+                      onClick={() => setIsContractorModalOpen(true)}
+                      data-testid="card-get-help-contractors"
+                    >
                       <CardContent className="p-4 text-center">
                         <div className="w-12 h-12 mx-auto mb-3 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center group-hover:bg-blue-200 dark:group-hover:bg-blue-800/50 transition-colors">
                           <Users className="h-6 w-6 text-blue-600" />
@@ -676,7 +764,11 @@ You can ask our AI assistant about any of these resources, and it will guide you
                   </HoverLift>
 
                   <HoverLift>
-                    <Card className="cursor-pointer hover:bg-green-50 dark:hover:bg-green-900/20 transition-all duration-300 group">
+                    <Card 
+                      className="cursor-pointer hover:bg-green-50 dark:hover:bg-green-900/20 transition-all duration-300 group"
+                      onClick={() => setIsClaimModalOpen(true)}
+                      data-testid="card-file-insurance-claim"
+                    >
                       <CardContent className="p-4 text-center">
                         <div className="w-12 h-12 mx-auto mb-3 bg-green-100 dark:bg-green-900/50 rounded-full flex items-center justify-center group-hover:bg-green-200 dark:group-hover:bg-green-800/50 transition-colors">
                           <Phone className="h-6 w-6 text-green-600" />
@@ -688,7 +780,11 @@ You can ask our AI assistant about any of these resources, and it will guide you
                   </HoverLift>
 
                   <HoverLift>
-                    <Card className="cursor-pointer hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all duration-300 group">
+                    <Card 
+                      className="cursor-pointer hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all duration-300 group"
+                      onClick={() => setIsShelterModalOpen(true)}
+                      data-testid="card-find-shelter"
+                    >
                       <CardContent className="p-4 text-center">
                         <div className="w-12 h-12 mx-auto mb-3 bg-purple-100 dark:bg-purple-900/50 rounded-full flex items-center justify-center group-hover:bg-purple-200 dark:group-hover:bg-purple-800/50 transition-colors">
                           <Home className="h-6 w-6 text-purple-600" />
@@ -931,6 +1027,658 @@ You can ask our AI assistant about any of these resources, and it will guide you
           </FadeIn>
         </TabsContent>
       </Tabs>
+
+      {/* Insurance Claim Filing Modal */}
+      <AnimatePresence>
+        {isClaimModalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+            onClick={() => setIsClaimModalOpen(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+            >
+              <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+                <h2 className="text-2xl font-bold flex items-center gap-2">
+                  <Phone className="h-5 w-5 text-green-600" />
+                  File Insurance Claim
+                </h2>
+                <p className="text-gray-600 dark:text-gray-400 mt-2">
+                  Report your claim to your insurance company and enter the claim details here. We'll keep track of everything for you.
+                </p>
+              </div>
+
+          <div className="space-y-4 p-6">
+            {/* Call Insurance Button */}
+            <Alert className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
+              <AlertDescription className="flex items-center justify-between">
+                <div className="flex-1">
+                  <p className="font-medium text-blue-900 dark:text-blue-200 mb-1">Need to call your insurance company?</p>
+                  <p className="text-sm text-blue-700 dark:text-blue-300">Click to dial their claims hotline</p>
+                </div>
+                <Button 
+                  onClick={handleCallInsurance}
+                  className="bg-green-600 hover:bg-green-700"
+                  data-testid="button-call-insurance"
+                >
+                  <Phone className="h-4 w-4 mr-2" />
+                  Call Now
+                </Button>
+              </AlertDescription>
+            </Alert>
+
+            {/* Claim Form */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="insuranceCompany">Insurance Company *</Label>
+                <Input
+                  id="insuranceCompany"
+                  placeholder="e.g., State Farm, Allstate"
+                  value={claimForm.insuranceCompany}
+                  onChange={(e) => setClaimForm({ ...claimForm, insuranceCompany: e.target.value })}
+                  data-testid="input-insurance-company"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="policyNumber">Policy Number</Label>
+                <Input
+                  id="policyNumber"
+                  placeholder="Your policy number"
+                  value={claimForm.policyNumber}
+                  onChange={(e) => setClaimForm({ ...claimForm, policyNumber: e.target.value })}
+                  data-testid="input-policy-number"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="claimNumber">Claim Number</Label>
+                <Input
+                  id="claimNumber"
+                  placeholder="Claim # (if assigned)"
+                  value={claimForm.claimNumber}
+                  onChange={(e) => setClaimForm({ ...claimForm, claimNumber: e.target.value })}
+                  data-testid="input-claim-number"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="dateOfLoss">Date of Loss *</Label>
+                <Input
+                  id="dateOfLoss"
+                  type="date"
+                  value={claimForm.dateOfLoss}
+                  onChange={(e) => setClaimForm({ ...claimForm, dateOfLoss: e.target.value })}
+                  data-testid="input-date-of-loss"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="damageType">Type of Damage</Label>
+                <Select 
+                  value={claimForm.damageType}
+                  onValueChange={(value) => setClaimForm({ ...claimForm, damageType: value })}
+                >
+                  <SelectTrigger id="damageType" data-testid="select-damage-type">
+                    <SelectValue placeholder="Select damage type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="wind">Wind Damage</SelectItem>
+                    <SelectItem value="hail">Hail Damage</SelectItem>
+                    <SelectItem value="tree">Tree Fall / Tree Damage</SelectItem>
+                    <SelectItem value="flood">Flood / Water Damage</SelectItem>
+                    <SelectItem value="roof">Roof Damage</SelectItem>
+                    <SelectItem value="structural">Structural Damage</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="estimatedDamage">Estimated Damage Amount</Label>
+                <Input
+                  id="estimatedDamage"
+                  type="text"
+                  placeholder="e.g., $15,000"
+                  value={claimForm.estimatedDamage}
+                  onChange={(e) => setClaimForm({ ...claimForm, estimatedDamage: e.target.value })}
+                  data-testid="input-estimated-damage"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="adjusterName">Adjuster Name</Label>
+                <Input
+                  id="adjusterName"
+                  placeholder="Assigned adjuster"
+                  value={claimForm.adjusterName}
+                  onChange={(e) => setClaimForm({ ...claimForm, adjusterName: e.target.value })}
+                  data-testid="input-adjuster-name"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="adjusterPhone">Adjuster Phone</Label>
+                <Input
+                  id="adjusterPhone"
+                  type="tel"
+                  placeholder="(555) 123-4567"
+                  value={claimForm.adjusterPhone}
+                  onChange={(e) => setClaimForm({ ...claimForm, adjusterPhone: e.target.value })}
+                  data-testid="input-adjuster-phone"
+                />
+              </div>
+
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="adjusterEmail">Adjuster Email</Label>
+                <Input
+                  id="adjusterEmail"
+                  type="email"
+                  placeholder="adjuster@insurance.com"
+                  value={claimForm.adjusterEmail}
+                  onChange={(e) => setClaimForm({ ...claimForm, adjusterEmail: e.target.value })}
+                  data-testid="input-adjuster-email"
+                />
+              </div>
+
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="notes">Additional Notes</Label>
+                <Textarea
+                  id="notes"
+                  placeholder="Any additional information about the claim..."
+                  rows={3}
+                  value={claimForm.notes}
+                  onChange={(e) => setClaimForm({ ...claimForm, notes: e.target.value })}
+                  data-testid="textarea-claim-notes"
+                />
+              </div>
+            </div>
+
+            <Alert className="mt-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                <strong>Tip:</strong> Make sure to take photos of all damage before repairs begin. Our AI can analyze damage photos to help you document everything properly.
+              </AlertDescription>
+            </Alert>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <Button 
+                variant="outline" 
+                onClick={() => setIsClaimModalOpen(false)}
+                data-testid="button-cancel-claim"
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleClaimSubmit}
+                className="bg-green-600 hover:bg-green-700"
+                data-testid="button-submit-claim"
+              >
+                <FileCheck className="h-4 w-4 mr-2" />
+                Save Claim Information
+              </Button>
+            </div>
+          </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Contractor Help Modal */}
+      <AnimatePresence>
+        {isContractorModalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+            onClick={() => setIsContractorModalOpen(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto"
+            >
+              <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+                <h2 className="text-2xl font-bold flex items-center gap-2">
+                  <Users className="h-5 w-5 text-blue-600" />
+                  Find Help - Contractors in Your Area
+                </h2>
+                <p className="text-gray-600 dark:text-gray-400 mt-2">
+                  We've found qualified contractors near you. You choose who to work with - you're in control!
+                </p>
+              </div>
+
+              <div className="p-6 space-y-4">
+                {/* Strategic Land Management LLC - Priority Listing */}
+                <Card className="border-2 border-green-500 bg-green-50 dark:bg-green-900/20">
+                  <CardHeader>
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <Badge className="mb-2 bg-green-600">Recommended</Badge>
+                        <CardTitle className="text-xl">Strategic Land Management LLC</CardTitle>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                          Tree Removal & Storm Cleanup Specialists
+                        </p>
+                      </div>
+                      <Star className="h-6 w-6 text-yellow-500 fill-yellow-500" />
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <p className="text-sm">
+                      <strong>Specialties:</strong> Emergency tree removal, storm cleanup, debris removal
+                    </p>
+                    <p className="text-sm">
+                      <strong>Service Area:</strong> Tampa Bay & surrounding areas
+                    </p>
+                    <p className="text-sm">
+                      <strong>Insurance:</strong> Works directly with insurance companies - little to no out-of-pocket cost
+                    </p>
+                    <div className="flex gap-3 pt-3">
+                      <Button className="bg-green-600 hover:bg-green-700" data-testid="button-contact-slm">
+                        <Phone className="h-4 w-4 mr-2" />
+                        Call Now
+                      </Button>
+                      <Button variant="outline" onClick={() => {
+                        setIsContractorModalOpen(false);
+                        toast({
+                          title: "AI Agent Activated",
+                          description: "Would you like the AI agent to contact Strategic Land Management LLC on your behalf?"
+                        });
+                      }}>
+                        <Mail className="h-4 w-4 mr-2" />
+                        Let AI Contact Them
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Other Contractors */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Tampa Bay Roofing & Restoration</CardTitle>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Roofing, Siding, Windows</p>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <p className="text-sm"><strong>Rating:</strong> ⭐⭐⭐⭐⭐ (4.8/5)</p>
+                    <p className="text-sm"><strong>Licensed & Insured:</strong> Yes</p>
+                    <div className="flex gap-3 pt-2">
+                      <Button size="sm">
+                        <Phone className="h-4 w-4 mr-2" />
+                        Contact
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">FloodMasters Recovery</CardTitle>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Water Damage & Flood Restoration</p>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <p className="text-sm"><strong>Rating:</strong> ⭐⭐⭐⭐ (4.5/5)</p>
+                    <p className="text-sm"><strong>Licensed & Insured:</strong> Yes</p>
+                    <div className="flex gap-3 pt-2">
+                      <Button size="sm">
+                        <Phone className="h-4 w-4 mr-2" />
+                        Contact
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Alert className="mt-4 bg-blue-50 dark:bg-blue-900/20">
+                  <AlertDescription>
+                    <strong>Your Choice Matters!</strong> Review contractor qualifications, ask for references, and always get multiple estimates. You decide who works on your property.
+                  </AlertDescription>
+                </Alert>
+
+                <div className="flex justify-end gap-3 mt-6">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setIsContractorModalOpen(false)}
+                    data-testid="button-close-contractors"
+                  >
+                    Close
+                  </Button>
+                  <Button 
+                    className="bg-blue-600 hover:bg-blue-700"
+                    onClick={() => setIsSBAModalOpen(true)}
+                  >
+                    <DollarSign className="h-4 w-4 mr-2" />
+                    Learn About SBA Loans
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Shelter & Housing Modal */}
+      <AnimatePresence>
+        {isShelterModalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+            onClick={() => setIsShelterModalOpen(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto"
+            >
+              <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+                <h2 className="text-2xl font-bold flex items-center gap-2">
+                  <Home className="h-5 w-5 text-purple-600" />
+                  Emergency Shelters & Housing
+                </h2>
+                <p className="text-gray-600 dark:text-gray-400 mt-2">
+                  Find emergency shelters, temporary housing, and resources near you
+                </p>
+              </div>
+
+              <div className="p-6 space-y-4">
+                <Alert className="bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800">
+                  <AlertDescription className="flex items-center justify-between">
+                    <div>
+                      <p className="font-bold text-red-900 dark:text-red-200">American Red Cross Emergency Shelter</p>
+                      <p className="text-sm text-red-700 dark:text-red-300 mt-1">24/7 Open - No ID Required</p>
+                    </div>
+                    <Button className="bg-red-600 hover:bg-red-700">
+                      <MapPin className="h-4 w-4 mr-2" />
+                      Get Directions
+                    </Button>
+                  </AlertDescription>
+                </Alert>
+
+                <div className="grid gap-4">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Tampa Convention Center - Emergency Shelter</CardTitle>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">333 S Franklin St, Tampa, FL</p>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      <p className="text-sm"><strong>Capacity:</strong> Open beds available</p>
+                      <p className="text-sm"><strong>Services:</strong> Meals, cots, showers, medical assistance</p>
+                      <p className="text-sm"><strong>Pet Friendly:</strong> Yes (separate area)</p>
+                      <div className="flex gap-3 pt-2">
+                        <Button size="sm">
+                          <Phone className="h-4 w-4 mr-2" />
+                          Call: (813) 555-HELP
+                        </Button>
+                        <Button size="sm" variant="outline">
+                          <MapPin className="h-4 w-4 mr-2" />
+                          Directions
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>FEMA Temporary Housing Assistance</CardTitle>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Financial help for temporary housing</p>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      <p className="text-sm">FEMA can help with hotel costs, temporary rental assistance, and repairs to make your home habitable.</p>
+                      <p className="text-sm"><strong>Eligibility:</strong> Homeowners, renters, and business owners affected by disasters</p>
+                      <div className="flex gap-3 pt-2">
+                        <Button size="sm" className="bg-blue-600 hover:bg-blue-700">
+                          <Phone className="h-4 w-4 mr-2" />
+                          Call FEMA: 1-800-621-3362
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Salvation Army - Family Services</CardTitle>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Emergency housing & family support</p>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      <p className="text-sm">Short-term housing for families, case management, and disaster relief services</p>
+                      <div className="flex gap-3 pt-2">
+                        <Button size="sm">
+                          <Phone className="h-4 w-4 mr-2" />
+                          Contact
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <div className="flex justify-end gap-3 mt-6">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setIsShelterModalOpen(false)}
+                    data-testid="button-close-shelters"
+                  >
+                    Close
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* SBA Disaster Loan Information Modal */}
+      <AnimatePresence>
+        {isSBAModalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+            onClick={() => setIsSBAModalOpen(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+            >
+              <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+                <h2 className="text-2xl font-bold flex items-center gap-2">
+                  <DollarSign className="h-5 w-5 text-green-600" />
+                  SBA Disaster Loans - Complete Guide
+                </h2>
+                <p className="text-gray-600 dark:text-gray-400 mt-2">
+                  Low-interest disaster loans for homeowners, renters, and business owners
+                </p>
+              </div>
+
+              <div className="p-6 space-y-6">
+                <Alert className="bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800">
+                  <AlertDescription>
+                    <p className="font-bold text-green-900 dark:text-green-200 mb-2">✅ You May Qualify For Financial Help!</p>
+                    <p className="text-sm text-green-800 dark:text-green-300">SBA offers low-interest, long-term disaster loans to help you recover from disaster-related losses.</p>
+                  </AlertDescription>
+                </Alert>
+
+                <div className="grid md:grid-cols-2 gap-4">
+                  {/* Homeowners */}
+                  <Card>
+                    <CardHeader className="bg-blue-50 dark:bg-blue-900/20">
+                      <CardTitle className="flex items-center gap-2">
+                        <Home className="h-5 w-5 text-blue-600" />
+                        Homeowners
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-4 space-y-3">
+                      <div>
+                        <p className="font-semibold">Home & Property Loans</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">Up to $500,000 to repair/replace your primary residence</p>
+                      </div>
+                      <div>
+                        <p className="font-semibold">Personal Property Loans</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">Up to $100,000 for personal belongings (furniture, appliances, vehicles)</p>
+                      </div>
+                      <div>
+                        <p className="font-semibold">Interest Rate</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">As low as 2.688% fixed rate</p>
+                      </div>
+                      <div>
+                        <p className="font-semibold">Repayment Terms</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">Up to 30 years</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Renters */}
+                  <Card>
+                    <CardHeader className="bg-purple-50 dark:bg-purple-900/20">
+                      <CardTitle className="flex items-center gap-2">
+                        <User className="h-5 w-5 text-purple-600" />
+                        Renters
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-4 space-y-3">
+                      <div>
+                        <p className="font-semibold">Personal Property Loans</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">Up to $100,000 to replace damaged belongings</p>
+                      </div>
+                      <div>
+                        <p className="font-semibold">What's Covered</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">Clothing, furniture, cars, appliances, tools, computers, and more</p>
+                      </div>
+                      <div>
+                        <p className="font-semibold">Interest Rate</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">As low as 2.688% fixed rate</p>
+                      </div>
+                      <div>
+                        <p className="font-semibold">Repayment Terms</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">Up to 30 years</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Business Owners */}
+                  <Card className="md:col-span-2">
+                    <CardHeader className="bg-orange-50 dark:bg-orange-900/20">
+                      <CardTitle className="flex items-center gap-2">
+                        <Building2 className="h-5 w-5 text-orange-600" />
+                        Business Owners
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-4">
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <div>
+                          <p className="font-semibold">Business Physical Disaster Loans</p>
+                          <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Up to $2 million to repair/replace business property</p>
+                          <ul className="text-sm text-gray-600 dark:text-gray-400 list-disc list-inside space-y-1">
+                            <li>Real estate</li>
+                            <li>Machinery & equipment</li>
+                            <li>Inventory</li>
+                            <li>Fixtures & leasehold improvements</li>
+                          </ul>
+                        </div>
+                        <div>
+                          <p className="font-semibold">Economic Injury Disaster Loans (EIDL)</p>
+                          <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Up to $2 million for working capital</p>
+                          <ul className="text-sm text-gray-600 dark:text-gray-400 list-disc list-inside space-y-1">
+                            <li>Pay fixed debts, payroll, accounts payable</li>
+                            <li>Available even if no physical damage</li>
+                            <li>Nonprofit organizations also eligible</li>
+                            <li>Interest rate: 4% (businesses), 3.25% (nonprofits)</li>
+                          </ul>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* How to Apply */}
+                <Card className="border-2 border-green-500">
+                  <CardHeader>
+                    <CardTitle className="text-xl">How to Apply</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid md:grid-cols-3 gap-4">
+                      <div>
+                        <div className="w-10 h-10 bg-green-100 dark:bg-green-900/50 rounded-full flex items-center justify-center mb-2">
+                          <span className="font-bold text-green-700 dark:text-green-300">1</span>
+                        </div>
+                        <p className="font-semibold">Apply Online</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">Visit disasterloanassistance.sba.gov</p>
+                      </div>
+                      <div>
+                        <div className="w-10 h-10 bg-green-100 dark:bg-green-900/50 rounded-full flex items-center justify-center mb-2">
+                          <span className="font-bold text-green-700 dark:text-green-300">2</span>
+                        </div>
+                        <p className="font-semibold">Submit Documents</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">Tax returns, proof of ownership, insurance info</p>
+                      </div>
+                      <div>
+                        <div className="w-10 h-10 bg-green-100 dark:bg-green-900/50 rounded-full flex items-center justify-center mb-2">
+                          <span className="font-bold text-green-700 dark:text-green-300">3</span>
+                        </div>
+                        <p className="font-semibold">Get Decision</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">Usually within 2-3 weeks</p>
+                      </div>
+                    </div>
+
+                    <div className="pt-4 border-t">
+                      <p className="font-semibold mb-2">Important Notes:</p>
+                      <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1 list-disc list-inside">
+                        <li>No collateral required for loans up to $25,000</li>
+                        <li>Credit history considered, but flexible for disaster victims</li>
+                        <li>Apply even if you have insurance - SBA can cover uninsured losses</li>
+                        <li>First payment may be deferred up to 12 months</li>
+                        <li>No prepayment penalty</li>
+                      </ul>
+                    </div>
+
+                    <div className="flex gap-3 pt-4">
+                      <Button className="bg-green-600 hover:bg-green-700">
+                        <Globe className="h-4 w-4 mr-2" />
+                        Apply Online Now
+                      </Button>
+                      <Button variant="outline">
+                        <Phone className="h-4 w-4 mr-2" />
+                        Call SBA: 1-800-659-2955
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Alert>
+                  <AlertDescription>
+                    <strong>Need Help Applying?</strong> Our AI assistant can guide you through the application process and answer any questions you have about SBA disaster loans.
+                  </AlertDescription>
+                </Alert>
+
+                <div className="flex justify-end gap-3">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setIsSBAModalOpen(false)}
+                    data-testid="button-close-sba"
+                  >
+                    Close
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
