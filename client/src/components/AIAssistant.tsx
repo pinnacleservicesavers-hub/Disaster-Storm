@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { motion, AnimatePresence } from 'framer-motion';
+import { AIDisclaimerBanner, AttorneyDisclaimerBanner } from '@/components/LegalDisclaimer';
 import { 
   Bot, 
   Volume2, 
@@ -871,6 +872,12 @@ export default function AIAssistant({ portalContext, userLocation, className }: 
                 {/* Conversation History */}
                 {(isExpanded || conversation.length > 0) && (
                   <div className="space-y-3">
+                    {/* AI Disclaimers */}
+                    <div className="space-y-2">
+                      <AIDisclaimerBanner />
+                      <AttorneyDisclaimerBanner />
+                    </div>
+
                     <div className={`bg-gray-50 dark:bg-gray-800/30 rounded-lg p-3 space-y-2 max-h-64 overflow-y-auto ${
                       !isExpanded ? 'max-h-32' : ''
                     }`}>

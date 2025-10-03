@@ -91,15 +91,9 @@ export default function VictimDashboard() {
     };
   }, []);
 
-  const startVoiceGuide = () => {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
-      console.warn('Speech synthesis not supported in this browser');
-      return;
-    }
-
+  const startVoiceGuide = async () => {
     if (!isVoiceGuideActive) {
       setIsVoiceGuideActive(true);
-      window.speechSynthesis.cancel();
       
       const voiceContent = `Welcome to the Storm Victim Portal. We're here to help you through this difficult time. You are not alone. 
 
@@ -117,36 +111,44 @@ For emergency tree removal, Strategic Land Management LLC specializes in storm c
 
 You can ask our AI assistant about any of these resources, and it will guide you to the help you need. Remember, help is out there, and we're here to connect you with it. Take a deep breath - we'll get through this together.`;
       
-      const utterance = new SpeechSynthesisUtterance(voiceContent);
-      utterance.rate = 0.85;
-      utterance.pitch = 1.0;
-      utterance.volume = 0.9;
-      
-      if (voices.length > 0) {
-        // Prefer natural female voices for empathetic delivery
-        const femaleVoice = voices.find(voice => 
-          voice.lang.includes('en') && 
-          (voice.name.toLowerCase().includes('female') || 
-           voice.name.toLowerCase().includes('zira') ||
-           voice.name.toLowerCase().includes('samantha') ||
-           voice.name.toLowerCase().includes('google uk') ||
-           voice.name.toLowerCase().includes('fiona'))
-        );
-        utterance.voice = femaleVoice || voices.find(voice => voice.lang.includes('en')) || voices[0];
+      try {
+        // Call server API to generate natural-sounding voice using ElevenLabs Lily (natural female voice)
+        const response = await fetch('/api/voice-ai/generate', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ text: voiceContent }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Voice generation failed');
+        }
+
+        const data = await response.json();
+        
+        if (data.audioBase64) {
+          // Create and play audio
+          const audio = new Audio(`data:audio/mpeg;base64,${data.audioBase64}`);
+          
+          audio.onended = () => {
+            setIsVoiceGuideActive(false);
+          };
+          
+          audio.onerror = () => {
+            console.error('Audio playback error');
+            setIsVoiceGuideActive(false);
+          };
+          
+          await audio.play();
+        } else {
+          setIsVoiceGuideActive(false);
+        }
+      } catch (error) {
+        console.error('Voice guide error:', error);
+        setIsVoiceGuideActive(false);
       }
-      
-      utterance.onend = () => {
-        setIsVoiceGuideActive(false);
-      };
-      
-      utterance.onerror = (event) => {
-        console.error('Speech synthesis error:', event);
-        setIsVoiceGuideActive(false);
-      };
-      
-      window.speechSynthesis.speak(utterance);
     } else {
-      window.speechSynthesis.cancel();
       setIsVoiceGuideActive(false);
     }
   };

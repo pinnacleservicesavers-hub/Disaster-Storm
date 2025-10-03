@@ -17,6 +17,7 @@ import { apiRequest } from '@/lib/queryClient';
 import { DashboardSection } from '@/components/DashboardSection';
 import { FadeIn, PulseAlert, StaggerContainer, StaggerItem, HoverLift, CountUp } from '@/components/ui/animations';
 import { XactimateComparables } from '@/components/XactimateComparables';
+import { LegalDisclaimer } from '@/components/LegalDisclaimer';
 
 interface Claim {
   id: string;
@@ -594,6 +595,13 @@ export default function Claims() {
       ]}
       testId="claims-section"
     >
+      {/* Legal Disclaimers */}
+      <div className="mb-6 space-y-3">
+        <LegalDisclaimer type="attorney" compact />
+        <LegalDisclaimer type="insurance" compact />
+        <LegalDisclaimer type="ai" compact />
+      </div>
+
       {/* Real-time Processing Pipeline */}
       <div className="mb-8">
         <h3 className="text-xl font-semibold mb-4 flex items-center">
