@@ -250,6 +250,17 @@ You can ask our AI assistant about any of these resources, and it will guide you
           icon: FileText,
           category: 'insurance',
           dueDate: '30 days'
+        },
+        {
+          id: '7',
+          title: 'Apply for SBA Disaster Loan',
+          description: 'Low-interest loans for homeowners, renters, and businesses',
+          status: 'pending',
+          priority: 'medium',
+          estimatedTime: '45 min',
+          icon: DollarSign,
+          category: 'insurance',
+          dueDate: '30 days'
         }
       ];
     },
@@ -715,6 +726,52 @@ You can ask our AI assistant about any of these resources, and it will guide you
           '• Insurance information',
           '• Household income details',
           '• Bank account info for direct deposit'
+        ]
+      },
+      '7': {
+        steps: [
+          'Check if your area has been declared a disaster zone by the SBA',
+          'Visit https://www.sba.gov/funding-programs/disaster-assistance to apply online',
+          'Submit your application if your home, rental property, or business was affected',
+          'Track your application status through the MySBA Loan Portal',
+          'Check your email regularly for SBA updates and requests',
+          'Visit an SBA Recovery Center in person if you need assistance',
+          'Respond promptly to any SBA requests for additional documentation'
+        ],
+        tips: [
+          'SBA disaster loans have LOW INTEREST RATES (as low as 2.688%)',
+          'Covers uninsured losses that insurance and FEMA don\'t cover',
+          'Can include Mitigation Assistance for future disaster prevention',
+          'Physical Damage Loans: Repair or replace homes, businesses, equipment',
+          'Economic Injury Loans (EIDL): Cover operating expenses for businesses',
+          'Military Reservist Loans: Help when key employees called to active duty',
+          'Apply even if you have insurance - SBA covers gaps'
+        ],
+        resources: [
+          '💰 WHO CAN APPLY:',
+          '• Homeowners - Repair or replace your primary residence',
+          '• Renters - Replace damaged personal property and belongings',
+          '• Businesses (all sizes) - Repair property and cover operating expenses',
+          '• Private Nonprofit Organizations - Recovery assistance',
+          '',
+          '📋 LOAN TYPES & WHAT THEY COVER:',
+          '1. Physical Damage Loans',
+          '   • Repairs or replacement of homes, businesses, equipment, inventory',
+          '   • Includes mitigation to prevent future damage',
+          '',
+          '2. Economic Injury Disaster Loans (EIDL)',
+          '   • Small businesses: Pay bills, payroll, rent, utilities',
+          '   • Working capital needs during recovery',
+          '',
+          '3. Military Reservist Loans',
+          '   • Cover operating costs when employees called to active duty',
+          '',
+          '🌐 APPLY NOW: Click "Start Now" to visit https://www.sba.gov/funding-programs/disaster-assistance',
+          '🏢 Find Recovery Center: In-person assistance available',
+          '📱 MySBA Portal: Track application and manage your loan online',
+          '',
+          '✅ Covers disasters including:',
+          '• Texas Floods • California Wildfires • Hurricane Milton • Hurricane Helene'
         ]
       }
     };
@@ -1264,6 +1321,8 @@ You can ask our AI assistant about any of these resources, and it will guide you
                                       onClick={() => {
                                         if (step.id === '6') {
                                           window.open('https://www.disasterassistance.gov', '_blank');
+                                        } else if (step.id === '7') {
+                                          window.open('https://www.sba.gov/funding-programs/disaster-assistance', '_blank');
                                         }
                                       }}
                                     >
