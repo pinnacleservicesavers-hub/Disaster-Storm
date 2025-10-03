@@ -165,52 +165,29 @@ export default function VoiceGuide({
   const [isEnabled, setIsEnabled] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentText, setCurrentText] = useState('');
-  const [voice, setVoice] = useState<SpeechSynthesisVoice | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [progress, setProgress] = useState(0);
-  const synthRef = useRef<SpeechSynthesis | null>(null);
-  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Initialize speech synthesis
   useEffect(() => {
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      synthRef.current = window.speechSynthesis;
-      
-      // Load voices
-      const loadVoices = () => {
-        const voices = synthRef.current?.getVoices() || [];
-        // Prefer female voices, then English voices
-        const preferredVoice = voices.find(v => 
-          (v.name.toLowerCase().includes('female') || 
-           v.name.toLowerCase().includes('zira') || 
-           v.name.toLowerCase().includes('hazel') ||
-           v.name.toLowerCase().includes('samantha')) && 
-          v.lang.startsWith('en')
-        ) || voices.find(v => v.lang.startsWith('en') && v.default) || voices[0];
-        
-        setVoice(preferredVoice);
-      };
-
-      // Some browsers load voices asynchronously
-      if (synthRef.current.getVoices().length > 0) {
-        loadVoices();
-      } else {
-        synthRef.current.addEventListener('voiceschanged', loadVoices);
-      }
-    }
-
     return () => {
       stopSpeaking();
       if (progressIntervalRef.current) {
         clearInterval(progressIntervalRef.current);
       }
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
     };
   }, []);
 
   const stopSpeaking = useCallback(() => {
-    if (synthRef.current) {
-      synthRef.current.cancel();
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      audioRef.current = null;
     }
     setIsPlaying(false);
     setProgress(0);
@@ -219,58 +196,84 @@ export default function VoiceGuide({
     }
   }, []);
 
-  const speakText = useCallback((text: string, onComplete?: () => void) => {
-    if (!synthRef.current || !voice) return;
-
-    stopSpeaking();
-    
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.voice = voice;
-    utterance.rate = 0.9; // Slightly slower for clarity
-    utterance.pitch = 1.1; // Slightly higher pitch for pleasant tone
-    utterance.volume = 0.8;
-
-    utterance.onstart = () => {
-      setIsPlaying(true);
+  const speakText = useCallback(async (text: string, onComplete?: () => void) => {
+    try {
+      stopSpeaking();
+      
       setCurrentText(text);
       setProgress(0);
       
-      // Simulate progress for better UX
-      const estimatedDuration = text.length * 50; // roughly 50ms per character
-      const intervalTime = estimatedDuration / 100;
-      progressIntervalRef.current = setInterval(() => {
-        setProgress(prev => {
-          if (prev >= 100) {
-            if (progressIntervalRef.current) {
-              clearInterval(progressIntervalRef.current);
-            }
-            return 100;
-          }
-          return prev + 1;
-        });
-      }, intervalTime);
-    };
+      // Call server API to generate ARIA STORM voice
+      const response = await fetch('/api/voice-ai/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ text }),
+      });
 
-    utterance.onend = () => {
+      if (!response.ok) {
+        throw new Error('Voice generation failed');
+      }
+
+      const data = await response.json();
+      
+      if (data.audioBase64) {
+        setIsPlaying(true);
+        
+        // Create audio element and play
+        const audio = new Audio(`data:audio/mpeg;base64,${data.audioBase64}`);
+        audioRef.current = audio;
+        
+        // Estimate duration and update progress
+        const estimatedDuration = text.length * 50;
+        const intervalTime = estimatedDuration / 100;
+        progressIntervalRef.current = setInterval(() => {
+          setProgress(prev => {
+            if (prev >= 100) {
+              if (progressIntervalRef.current) {
+                clearInterval(progressIntervalRef.current);
+              }
+              return 100;
+            }
+            return prev + 1;
+          });
+        }, intervalTime);
+        
+        audio.onended = () => {
+          setIsPlaying(false);
+          setProgress(100);
+          if (progressIntervalRef.current) {
+            clearInterval(progressIntervalRef.current);
+          }
+          onComplete?.();
+        };
+        
+        audio.onerror = () => {
+          setIsPlaying(false);
+          setProgress(0);
+          if (progressIntervalRef.current) {
+            clearInterval(progressIntervalRef.current);
+          }
+          console.error('Audio playback error');
+          onComplete?.();
+        };
+        
+        await audio.play();
+      } else {
+        setIsPlaying(false);
+        onComplete?.();
+      }
+    } catch (error) {
+      console.error('ARIA voice error:', error);
       setIsPlaying(false);
-      setProgress(100);
+      setProgress(0);
       if (progressIntervalRef.current) {
         clearInterval(progressIntervalRef.current);
       }
       onComplete?.();
-    };
-
-    utterance.onerror = () => {
-      setIsPlaying(false);
-      setProgress(0);
-      if (progressIntervalRef.current) {
-        clearInterval(progressIntervalRef.current);
-      }
-    };
-
-    utteranceRef.current = utterance;
-    synthRef.current.speak(utterance);
-  }, [voice, stopSpeaking]);
+    }
+  }, [stopSpeaking]);
 
   const explainPortal = useCallback((portalId: string) => {
     const explanation = explanations[portalId];
@@ -287,18 +290,10 @@ ${explanation.benefits ? `Benefits include: ${explanation.benefits.join(', ')}.`
     speakText(fullText);
   }, [explanations, speakText]);
 
-  const startGuidedTour = useCallback(() => {
+  const startGuidedTour = useCallback(async () => {
     const portalOrder = ['welcome', 'hotels', 'gas', 'hardware', 'shelters', 'fema', 'alerts', 'satellite', 'goes17', 'xray'];
-    let currentIndex = 0;
-
-    const speakNext = () => {
-      if (currentIndex >= portalOrder.length) {
-        speakText("This completes your guided tour of the Disaster Essentials Marketplace. You can now explore any portal in detail or start the tour again. I'm here to help whenever you need guidance.", () => {
-          setIsEnabled(false);
-        });
-        return;
-      }
-
+    
+    for (let currentIndex = 0; currentIndex < portalOrder.length; currentIndex++) {
       const portalId = portalOrder[currentIndex];
       const explanation = explanations[portalId];
       
@@ -307,17 +302,25 @@ ${explanation.benefits ? `Benefits include: ${explanation.benefits.join(', ')}.`
           onPortalChange(portalId);
         }
         
-        speakText(explanation.content, () => {
-          currentIndex++;
-          setTimeout(speakNext, 1500); // Brief pause between portals
+        // Wait for ARIA to complete speaking before moving to next portal
+        await new Promise<void>((resolve) => {
+          speakText(explanation.content, () => {
+            setTimeout(resolve, 1500);
+          });
         });
-      } else {
-        currentIndex++;
-        speakNext();
       }
-    };
+    }
 
-    speakNext();
+    // Tour complete message
+    await new Promise<void>((resolve) => {
+      speakText(
+        "This completes your guided tour of the Disaster Essentials Marketplace. You can now explore any portal in detail or start the tour again. I'm here to help whenever you need guidance.",
+        () => {
+          setIsEnabled(false);
+          resolve();
+        }
+      );
+    });
   }, [explanations, onPortalChange, speakText]);
 
   const toggleVoiceGuide = useCallback(() => {
@@ -330,9 +333,6 @@ ${explanation.benefits ? `Benefits include: ${explanation.benefits.join(', ')}.`
     }
   }, [isEnabled, currentPortal, explainPortal, stopSpeaking]);
 
-  if (!synthRef.current || !voice) {
-    return null; // Speech synthesis not supported
-  }
 
   return (
     <motion.div 
@@ -509,14 +509,14 @@ ${explanation.benefits ? `Benefits include: ${explanation.benefits.join(', ')}.`
                 <div className="space-y-3">
                   <div>
                     <label className="text-xs text-gray-600 dark:text-gray-400 mb-1 block">
-                      Voice: {voice?.name || 'System Default'}
+                      Voice: ARIA STORM AI
                     </label>
-                    <Badge variant="outline" className="text-xs">
-                      Professional Female Assistant
+                    <Badge variant="outline" className="text-xs bg-purple-100 dark:bg-purple-900">
+                      ElevenLabs Broadcast Pro
                     </Badge>
                   </div>
                   <div className="text-xs text-gray-500 dark:text-gray-400">
-                    Speech rate: Optimized for clarity<br />
+                    Premium broadcast-quality voice synthesis<br />
                     Pitch: Professional tone<br />
                     Language: English (US)
                   </div>

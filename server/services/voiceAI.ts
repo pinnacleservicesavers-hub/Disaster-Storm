@@ -76,6 +76,13 @@ export class VoiceAIService {
   }
 
   /**
+   * PUBLIC: Generate ARIA STORM voice from simple text (for voice guides)
+   */
+  async generateTextToSpeech(text: string): Promise<Buffer> {
+    return this.generateAudio(text);
+  }
+
+  /**
    * Generate intelligent analysis text using GPT-4o
    */
   private async generateIntelligentAnalysis(request: VoiceAnalysisRequest): Promise<string> {

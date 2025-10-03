@@ -9913,14 +9913,34 @@ What specific area or type of incident would you like me to focus on? I can prov
 
   // ===== VOICE AI INTELLIGENCE ROUTES =====
 
-  // Generate voice response for portal intelligence
+  // Generate voice response for portal intelligence OR simple text-to-speech
   app.post("/api/voice-ai/generate", async (req, res) => {
     try {
-      const { portalType, requestType, question, currentData, userLocation } = req.body;
+      const { text, portalType, requestType, question, currentData, userLocation } = req.body;
       
+      // If simple text is provided, use direct ARIA STORM synthesis
+      if (text && !portalType) {
+        console.log(`🎤 ARIA STORM: Generating voice for text (${text.substring(0, 50)}...)`);
+        
+        const voiceAI = VoiceAIService.getInstance();
+        const audioBuffer = await voiceAI.generateTextToSpeech(text);
+        
+        if (audioBuffer) {
+          const audioBase64 = audioBuffer.toString('base64');
+          return res.json({
+            text,
+            audioBase64,
+            timestamp: new Date()
+          });
+        } else {
+          return res.status(500).json({ error: 'Voice generation failed' });
+        }
+      }
+      
+      // Otherwise, use the full portal intelligence system
       if (!portalType || !requestType) {
         return res.status(400).json({ 
-          error: 'Missing required fields: portalType and requestType are required' 
+          error: 'Missing required fields: either "text" or "portalType and requestType" are required' 
         });
       }
 
