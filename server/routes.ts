@@ -10101,7 +10101,33 @@ What specific area or type of incident would you like me to focus on? I can prov
   // Get default voice profile
   app.get('/api/voices/default', async (req, res) => {
     try {
-      const profile = await storage.getDefaultVoiceProfile();
+      let profile = await storage.getDefaultVoiceProfile();
+      
+      // Initialize default voice if none exists
+      if (!profile) {
+        console.log('📢 No default voice profile found, creating natural-sounding female voice...');
+        profile = await storage.createVoiceProfile({
+          name: 'Lily - Natural Voice',
+          provider: 'elevenlabs',
+          providerVoiceId: 'pNInz6obpgDQGcFmaJgB', // Lily - very natural sounding female voice
+          settings: {
+            stability: 0.5,
+            similarityBoost: 0.75,
+            style: 0.0, // No style exaggeration for natural sound
+            useSpeakerBoost: true
+          },
+          metadata: {
+            description: 'Natural, warm, conversational female voice',
+            language: 'en',
+            category: 'professional'
+          },
+          isDefault: true,
+          isActive: true,
+          createdBy: null
+        });
+        console.log('✅ Created default voice profile: Lily');
+      }
+      
       res.json({ profile });
     } catch (error) {
       console.error('Error fetching default voice profile:', error);
