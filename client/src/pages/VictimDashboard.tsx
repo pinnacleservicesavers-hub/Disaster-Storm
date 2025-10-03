@@ -81,6 +81,7 @@ export default function VictimDashboard() {
   const [uploadedPhotos, setUploadedPhotos] = useState<Array<{file: File, preview: string, analyzing: boolean, analysis?: any}>>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [expandedStepId, setExpandedStepId] = useState<string | null>(null);
   const [claimForm, setClaimForm] = useState({
     insuranceCompany: '',
     policyNumber: '',
@@ -556,6 +557,113 @@ You can ask our AI assistant about any of these resources, and it will guide you
       case 'medium': return 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 border-yellow-200 dark:border-yellow-800';
       default: return 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 border-blue-200 dark:border-blue-800';
     }
+  };
+
+  const getStepDetails = (stepId: string) => {
+    const detailsMap: Record<string, { steps: string[], tips: string[], resources: string[] }> = {
+      '1': {
+        steps: [
+          'Move to a safe, dry location away from damaged areas',
+          'Stay away from downed power lines and standing water',
+          'Check for gas leaks - if you smell gas, leave immediately',
+          'Avoid damaged buildings and unstable structures',
+          'Keep emergency supplies accessible (water, food, first aid)',
+          'Listen to local authorities for evacuation orders'
+        ],
+        tips: [
+          'Keep a battery-powered radio for updates',
+          'Have a flashlight ready - avoid using candles',
+          'Stay on high ground if flooding occurred',
+          'Wear sturdy shoes and protective clothing when outside'
+        ],
+        resources: [
+          'Emergency: Call 911',
+          'Red Cross: 1-800-RED-CROSS',
+          'Local Emergency Services: Check local government website'
+        ]
+      },
+      '2': {
+        steps: [
+          'Take photos and videos of ALL damage from multiple angles',
+          'Document damage before any cleanup or repairs',
+          'Include close-up shots and wide shots showing context',
+          'Photograph damaged items, structures, and belongings',
+          'Use the "Report Damage" button above to upload photos for AI analysis',
+          'Keep a written inventory of damaged items with descriptions and values',
+          'Save all receipts for emergency repairs and expenses'
+        ],
+        tips: [
+          'Include a reference object (ruler, coin) in photos for scale',
+          'Take photos in good lighting conditions',
+          'Date-stamp your photos if possible',
+          'Our AI can identify damage types, estimate measurements, and suggest contractors',
+          'Make copies of all documentation and store safely'
+        ],
+        resources: [
+          'Use the Report Damage feature above for AI-powered analysis',
+          'FEMA App: Download for damage reporting',
+          'Insurance company mobile apps often have photo upload features'
+        ]
+      },
+      '3': {
+        steps: [
+          'Call your insurance company immediately - use the "Insurance" button above',
+          'Have your policy number ready',
+          'Request a claim number and write it down',
+          'Ask about temporary housing coverage if needed',
+          'Request immediate authorization for emergency repairs',
+          'Get the adjuster\'s name and contact information',
+          'Ask about your coverage limits and deductibles',
+          'Inquire about advance payments for living expenses'
+        ],
+        tips: [
+          'Call as soon as possible - don\'t wait for cleanup',
+          'Keep detailed notes of all conversations with dates and times',
+          'Ask about your Additional Living Expenses (ALE) coverage',
+          'Get everything in writing when possible',
+          'Use the Insurance Claim Filing form above to track all details'
+        ],
+        resources: [
+          'Click "Insurance" card above to file claim details',
+          'Your insurance company\'s 24/7 claims hotline',
+          'State Insurance Department if you need help: Check your state website'
+        ]
+      },
+      '4': {
+        steps: [
+          'Get at least 3 written estimates from licensed contractors',
+          'Verify contractor licenses and insurance before hiring',
+          'Click "Get Help" above to find qualified contractors in your area',
+          'Check references and online reviews',
+          'Never pay full amount upfront - use a payment schedule',
+          'Get a detailed written contract before work begins',
+          'Ensure permits are obtained where required'
+        ],
+        tips: [
+          'Beware of door-to-door contractors after disasters',
+          'Strategic Land Management LLC is prioritized in our system for tree removal',
+          'Don\'t sign anything under pressure',
+          'Legitimate contractors won\'t demand cash payments',
+          'Many contractors work directly with insurance companies'
+        ],
+        resources: [
+          'Click "Get Help" card above to see recommended contractors',
+          'Better Business Bureau: Check contractor ratings',
+          'State Contractor Licensing Board: Verify licenses',
+          'FEMA Contractor Fraud Alert: Learn warning signs'
+        ]
+      }
+    };
+    
+    return detailsMap[stepId] || {
+      steps: ['More information coming soon'],
+      tips: ['Contact support for additional guidance'],
+      resources: ['Check back for updates']
+    };
+  };
+
+  const toggleStepDetails = (stepId: string) => {
+    setExpandedStepId(expandedStepId === stepId ? null : stepId);
   };
 
   if (!user) {
@@ -1076,9 +1184,14 @@ You can ask our AI assistant about any of these resources, and it will guide you
                                   )}
                                 </div>
                                 <div className="flex space-x-2">
-                                  <Button size="sm" variant="outline" data-testid={`button-details-${step.id}`}>
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline" 
+                                    onClick={() => toggleStepDetails(step.id)}
+                                    data-testid={`button-details-${step.id}`}
+                                  >
                                     <Eye className="h-4 w-4 mr-2" />
-                                    Details
+                                    {expandedStepId === step.id ? 'Hide Details' : 'Details'}
                                   </Button>
                                   {step.status === 'pending' && (
                                     <Button size="sm" data-testid={`button-start-${step.id}`}>
@@ -1087,6 +1200,76 @@ You can ask our AI assistant about any of these resources, and it will guide you
                                   )}
                                 </div>
                               </div>
+
+                              {/* Expandable Details Section */}
+                              <AnimatePresence>
+                                {expandedStepId === step.id && (
+                                  <motion.div
+                                    initial={{ height: 0, opacity: 0 }}
+                                    animate={{ height: 'auto', opacity: 1 }}
+                                    exit={{ height: 0, opacity: 0 }}
+                                    transition={{ duration: 0.3 }}
+                                    className="mt-6 border-t pt-4 space-y-4"
+                                  >
+                                    {(() => {
+                                      const details = getStepDetails(step.id);
+                                      return (
+                                        <div className="grid md:grid-cols-2 gap-6">
+                                          {/* Step-by-Step Instructions */}
+                                          <div>
+                                            <h4 className="font-semibold text-lg mb-3 flex items-center">
+                                              <Clipboard className="h-5 w-5 mr-2 text-blue-600" />
+                                              Step-by-Step Instructions
+                                            </h4>
+                                            <ul className="space-y-2">
+                                              {details.steps.map((instruction, idx) => (
+                                                <li key={idx} className="flex items-start">
+                                                  <CheckCircle className="h-5 w-5 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
+                                                  <span className="text-sm text-gray-700 dark:text-gray-300">{instruction}</span>
+                                                </li>
+                                              ))}
+                                            </ul>
+                                          </div>
+
+                                          {/* Tips and Resources */}
+                                          <div className="space-y-4">
+                                            <div>
+                                              <h4 className="font-semibold text-lg mb-3 flex items-center">
+                                                <Lightbulb className="h-5 w-5 mr-2 text-yellow-500" />
+                                                Helpful Tips
+                                              </h4>
+                                              <ul className="space-y-2">
+                                                {details.tips.map((tip, idx) => (
+                                                  <li key={idx} className="flex items-start">
+                                                    <Star className="h-5 w-5 text-yellow-500 mr-2 mt-0.5 flex-shrink-0" />
+                                                    <span className="text-sm text-gray-700 dark:text-gray-300">{tip}</span>
+                                                  </li>
+                                                ))}
+                                              </ul>
+                                            </div>
+
+                                            <div>
+                                              <h4 className="font-semibold text-lg mb-3 flex items-center">
+                                                <Info className="h-5 w-5 mr-2 text-purple-600" />
+                                                Resources & Contacts
+                                              </h4>
+                                              <ul className="space-y-2">
+                                                {details.resources.map((resource, idx) => (
+                                                  <li key={idx} className="flex items-start">
+                                                    <Phone className="h-5 w-5 text-purple-600 mr-2 mt-0.5 flex-shrink-0" />
+                                                    <span className="text-sm text-gray-700 dark:text-gray-300">{resource}</span>
+                                                  </li>
+                                                ))}
+                                              </ul>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      );
+                                    })()}
+                                  </motion.div>
+                                )}
+                              </AnimatePresence>
+
                               {step.status === 'completed' && (
                                 <motion.div
                                   initial={{ width: 0 }}
