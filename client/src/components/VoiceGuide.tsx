@@ -169,6 +169,7 @@ export default function VoiceGuide({
   const [progress, setProgress] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const isGeneratingRef = useRef(false);
 
   useEffect(() => {
     return () => {
@@ -198,6 +199,13 @@ export default function VoiceGuide({
 
   const speakText = useCallback(async (text: string, onComplete?: () => void) => {
     try {
+      // Prevent multiple simultaneous voice generation calls
+      if (isGeneratingRef.current) {
+        console.log('Voice generation already in progress, skipping duplicate call');
+        return;
+      }
+      
+      isGeneratingRef.current = true;
       stopSpeaking();
       
       setCurrentText(text);
@@ -213,6 +221,7 @@ export default function VoiceGuide({
       });
 
       if (!response.ok) {
+        isGeneratingRef.current = false;
         throw new Error('Voice generation failed');
       }
 
@@ -243,6 +252,7 @@ export default function VoiceGuide({
         audio.onended = () => {
           setIsPlaying(false);
           setProgress(100);
+          isGeneratingRef.current = false;
           if (progressIntervalRef.current) {
             clearInterval(progressIntervalRef.current);
           }
@@ -252,6 +262,7 @@ export default function VoiceGuide({
         audio.onerror = () => {
           setIsPlaying(false);
           setProgress(0);
+          isGeneratingRef.current = false;
           if (progressIntervalRef.current) {
             clearInterval(progressIntervalRef.current);
           }
@@ -261,11 +272,13 @@ export default function VoiceGuide({
         
         await audio.play();
       } else {
+        isGeneratingRef.current = false;
         setIsPlaying(false);
         onComplete?.();
       }
     } catch (error) {
       console.error('ARIA voice error:', error);
+      isGeneratingRef.current = false;
       setIsPlaying(false);
       setProgress(0);
       if (progressIntervalRef.current) {

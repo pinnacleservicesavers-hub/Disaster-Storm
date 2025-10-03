@@ -124,15 +124,37 @@ export default function VictimRegister() {
         method: 'POST',
         body: JSON.stringify(homeownerPayload)
       });
-      return response;
+      return { registrationResponse: response, email: formData.email, password };
     },
-    onSuccess: (data) => {
-      toast({
-        title: "Registration Successful",
-        description: "Your account has been created. Please login to continue."
-      });
-      // Redirect to login page
-      window.location.href = '/victim/login';
+    onSuccess: async (data) => {
+      // Auto-login after successful registration
+      try {
+        const loginResponse = await apiRequest('/api/victim/login', {
+          method: 'POST',
+          body: JSON.stringify({ 
+            email: data.email, 
+            password: data.password 
+          })
+        });
+
+        // Store user data
+        localStorage.setItem('victimUser', JSON.stringify(loginResponse.homeowner));
+
+        toast({
+          title: "Welcome!",
+          description: "Your account has been created and you're now logged in."
+        });
+
+        // Redirect to dashboard
+        window.location.href = '/victim/dashboard';
+      } catch (loginError) {
+        // If auto-login fails, redirect to login page
+        toast({
+          title: "Registration Successful",
+          description: "Your account has been created. Please login to continue."
+        });
+        window.location.href = '/victim/login';
+      }
     },
     onError: (error: any) => {
       toast({

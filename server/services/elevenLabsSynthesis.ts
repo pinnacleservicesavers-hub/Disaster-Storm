@@ -2,7 +2,8 @@ import { promises as fs } from 'fs';
 import path from 'path';
 
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
-const ELEVENLABS_VOICE_ID = process.env.ELEVENLABS_VOICE_ID || 'E8qtV3izSOr5vmxy1BHV';
+// Rachel - Premium female voice (widely available)
+const ELEVENLABS_VOICE_ID = process.env.ELEVENLABS_VOICE_ID || '21m00Tcm4TlvDq8ikWAM';
 const BASE_URL = 'https://api.elevenlabs.io/v1';
 
 export async function synthesizeLine(text: string): Promise<string> {
