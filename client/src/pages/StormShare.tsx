@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -111,6 +111,7 @@ export default function StormShare() {
   const [filterCategory, setFilterCategory] = useState('all');
   const [isVoiceGuideActive, setIsVoiceGuideActive] = useState(false);
   const [isPlayingVoice, setIsPlayingVoice] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   
   const { user } = useAuth();
   const { toast } = useToast();
@@ -118,14 +119,25 @@ export default function StormShare() {
   const [, setLocation] = useLocation();
 
   const startVoiceGuide = async () => {
+    // Prevent multiple clicks while processing
+    if (isPlayingVoice) {
+      return;
+    }
+
     if (!isVoiceGuideActive) {
       setIsVoiceGuideActive(true);
       setIsPlayingVoice(true);
       
+      // Stop any existing audio first
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+      
       const voiceContent = `Welcome to StormShare Community Platform! This collaborative network connects storm victims, contractors, and businesses for mutual assistance during weather emergencies. The community feed displays help requests, resource sharing, and recovery updates from your local area. You can post assistance needs, offer services, or share resources with verified community members. The help request system categorizes needs by urgency - normal, urgent, high priority, or emergency - with contact information and location details. Group messaging enables neighborhood coordination and resource sharing. Contractor matching connects verified professionals with people needing services. The platform includes reputation systems, insurance verification, and secure payment processing. Local business directories provide essential services during recovery. All interactions are monitored for safety and authenticity.`;
       
       try {
-        // Call server API to generate natural-sounding voice using ElevenLabs Lily (natural female voice)
+        // Call server API to generate natural-sounding FEMALE voice using ElevenLabs Lily
         const response = await fetch('/api/voice-ai/generate', {
           method: 'POST',
           headers: {
@@ -141,18 +153,21 @@ export default function StormShare() {
         const data = await response.json();
         
         if (data.audioBase64) {
-          // Create and play audio
+          // Create and play audio with proper cleanup
           const audio = new Audio(`data:audio/mpeg;base64,${data.audioBase64}`);
+          audioRef.current = audio;
           
           audio.onended = () => {
             setIsVoiceGuideActive(false);
             setIsPlayingVoice(false);
+            audioRef.current = null;
           };
           
           audio.onerror = () => {
             console.error('Audio playback error');
             setIsVoiceGuideActive(false);
             setIsPlayingVoice(false);
+            audioRef.current = null;
           };
           
           await audio.play();
@@ -164,8 +179,14 @@ export default function StormShare() {
         console.error('Voice guide error:', error);
         setIsVoiceGuideActive(false);
         setIsPlayingVoice(false);
+        audioRef.current = null;
       }
     } else {
+      // Stop playing
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
       setIsVoiceGuideActive(false);
       setIsPlayingVoice(false);
     }
