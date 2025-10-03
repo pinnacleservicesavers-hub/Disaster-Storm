@@ -5,8 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { RefreshCw, Camera, AlertTriangle, CheckCircle, Eye } from 'lucide-react';
+import { RefreshCw, Camera, AlertTriangle, CheckCircle, Eye, Phone } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
+import { useToast } from '@/hooks/use-toast';
 
 interface SnapshotCamProps {
   cameraId: string;
@@ -58,6 +59,7 @@ export function SnapshotCam({
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const imgRef = useRef<HTMLImageElement>(null);
   const intervalRef = useRef<NodeJS.Timeout>();
+  const { toast } = useToast();
 
   // Damage detection mutation
   const damageAnalysisMutation = useMutation({
@@ -83,6 +85,35 @@ export function SnapshotCam({
     onError: (error) => {
       console.error('Damage analysis failed:', error);
       setIsAnalyzing(false);
+    }
+  });
+
+  // Contact homeowner mutation
+  const contactHomeownerMutation = useMutation({
+    mutationFn: async (detection: DamageDetection) => {
+      return apiRequest('/api/damage-detection/contact-homeowner', {
+        method: 'POST',
+        body: JSON.stringify({
+          address: location || title,
+          damageDescription: detection.description,
+          estimatedCost: '$5,000-$15,000',
+          contractorId: 'current-user'
+        })
+      });
+    },
+    onSuccess: (result) => {
+      toast({
+        title: 'Homeowner Contact Initiated',
+        description: result.message || 'The property owner will be notified about the detected damage. They will receive your contact information.',
+        variant: 'default'
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Contact Failed',
+        description: error.message || 'Unable to contact homeowner. Property owner information may not be available.',
+        variant: 'destructive'
+      });
     }
   });
 
@@ -296,10 +327,25 @@ export function SnapshotCam({
         {/* Damage Detection Results */}
         {analysisResult && analysisResult.hasDetection && (
           <div className="p-4 space-y-2">
-            <h4 className="font-semibold text-red-600 flex items-center">
-              <AlertTriangle className="h-4 w-4 mr-2" />
-              Damage Detected
-            </h4>
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="font-semibold text-red-600 flex items-center">
+                <AlertTriangle className="h-4 w-4 mr-2" />
+                Damage Detected
+              </h4>
+              {analysisResult.detections.length > 0 && (
+                <Button
+                  size="sm"
+                  variant="default"
+                  className="bg-orange-600 hover:bg-orange-700"
+                  onClick={() => contactHomeownerMutation.mutate(analysisResult.detections[0])}
+                  disabled={contactHomeownerMutation.isPending}
+                  data-testid="button-contact-homeowner"
+                >
+                  <Phone className="h-3 w-3 mr-1" />
+                  {contactHomeownerMutation.isPending ? 'Contacting...' : 'Contact Homeowner'}
+                </Button>
+              )}
+            </div>
             {analysisResult.detections.map((detection, index) => (
               <Alert key={index} className="border-l-4 border-red-500">
                 <AlertDescription>
