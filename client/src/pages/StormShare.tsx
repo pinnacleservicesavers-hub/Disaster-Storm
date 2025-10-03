@@ -176,6 +176,11 @@ export default function StormShare() {
     setLocation('/victim/dashboard');
   };
 
+  // Switch to chat tab
+  const handleJoinChat = () => {
+    setActiveTab('chat');
+  };
+
   // Use real authenticated user
   const currentUserId = user?.id || '';
   const currentUserType = user?.role as 'victim' | 'contractor' | 'business' || 'victim';
@@ -325,7 +330,7 @@ export default function StormShare() {
           ]}
           actions={[
             { icon: Heart, label: 'Request Help', variant: 'default', testId: 'button-request-help', onClick: handleRequestHelp },
-            { icon: MessageCircle, label: 'Join Chat', variant: 'outline', testId: 'button-join-chat' },
+            { icon: MessageCircle, label: 'Join Chat', variant: 'outline', testId: 'button-join-chat', onClick: handleJoinChat },
             { icon: Share2, label: 'Share Story', variant: 'outline', testId: 'button-share-story' },
             { icon: isVoiceGuideActive ? VolumeX : Volume2, label: isVoiceGuideActive ? 'Stop Guide' : 'Voice Guide', variant: 'outline', testId: 'button-voice-guide', onClick: startVoiceGuide, 'aria-label': 'Voice guide for StormShare', 'aria-pressed': isVoiceGuideActive }
           ]}
