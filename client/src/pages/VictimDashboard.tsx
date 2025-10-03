@@ -101,15 +101,38 @@ export default function VictimDashboard() {
       setIsVoiceGuideActive(true);
       window.speechSynthesis.cancel();
       
-      const voiceContent = `Welcome to Victim Portal! This assistance platform helps storm victims navigate recovery with step-by-step guidance and resource coordination. The emergency checklist displays critical safety steps, documentation requirements, insurance procedures, and repair priorities. Each step shows completion status, estimated timeframes, and detailed instructions. Emergency alerts provide real-time safety information, evacuation notices, and service updates. The assistance request system connects victims with qualified contractors, legal help, insurance support, and emergency services. Progress tracking shows request status, assigned personnel, and estimated completion times. Resource directories include emergency contacts, shelter information, and financial assistance programs. The portal prioritizes safety procedures while streamlining the recovery process with clear guidance at every step.`;
+      const voiceContent = `Welcome to the Storm Victim Portal. We're here to help you through this difficult time. You are not alone. 
+
+First, know that help is available. We have many qualified contractors ready to assist you, and you have the power to choose who works on your property. You can browse our contractor directory, review their qualifications, and select the professionals you trust most.
+
+With your consent, our system can share your information with contractors so they can reach out to help you quickly. You remain in control - you decide who gets your information and when.
+
+Our AI assistant is available 24/7 to answer any questions you have. Ask about contractors, what repairs you need, insurance claims, or anything else. The AI can respond by text or voice, providing helpful information exactly when you need it.
+
+Important resources available to you: FEMA disaster assistance is available by calling 1-800-621-3362. FEMA can help homeowners, renters, and business owners with temporary housing, home repairs, and other disaster-related expenses. 
+
+We also have information about emergency shelters, SBA disaster loans for businesses and homeowners, and contractors who work with little to no out-of-pocket costs - they bill your insurance company directly.
+
+For emergency tree removal, Strategic Land Management LLC specializes in storm cleanup and works directly with insurance companies.
+
+You can ask our AI assistant about any of these resources, and it will guide you to the help you need. Remember, help is out there, and we're here to connect you with it. Take a deep breath - we'll get through this together.`;
       
       const utterance = new SpeechSynthesisUtterance(voiceContent);
-      utterance.rate = 0.9;
+      utterance.rate = 0.85;
       utterance.pitch = 1.0;
-      utterance.volume = 0.8;
+      utterance.volume = 0.9;
       
       if (voices.length > 0) {
-        utterance.voice = voices.find(voice => voice.lang.includes('en')) || voices[0];
+        // Prefer natural female voices for empathetic delivery
+        const femaleVoice = voices.find(voice => 
+          voice.lang.includes('en') && 
+          (voice.name.toLowerCase().includes('female') || 
+           voice.name.toLowerCase().includes('zira') ||
+           voice.name.toLowerCase().includes('samantha') ||
+           voice.name.toLowerCase().includes('google uk') ||
+           voice.name.toLowerCase().includes('fiona'))
+        );
+        utterance.voice = femaleVoice || voices.find(voice => voice.lang.includes('en')) || voices[0];
       }
       
       utterance.onend = () => {

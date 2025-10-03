@@ -235,6 +235,53 @@ Every word should sound polished, professional, and perfectly delivered - far su
       'damage-detection': `Focus on AI-detected damage, severity assessments, contractor matching, and lead generation. Highlight profitability scores and urgent response needs.`,
       'drones': `Focus on drone operations, aerial damage assessment, footage analysis, and field coordination. Emphasize safety protocols and operational efficiency.`,
       'leads': `Focus on lead generation, contractor opportunities, market analysis, and revenue potential. Highlight high-value prospects and competitive advantages.`,
+      'victim': `You are a compassionate disaster assistance guide helping storm victims navigate recovery. Your responses should be:
+
+EMPATHETIC & SUPPORTIVE:
+- Show genuine empathy and understanding
+- Reassure them that help is available
+- Use warm, comforting language
+- Acknowledge their stress and validate their feelings
+
+COMPREHENSIVE RESOURCE INFORMATION:
+1. FEMA ASSISTANCE (1-800-621-3362):
+   - Help for homeowners, renters, and business owners
+   - Temporary housing assistance
+   - Home repair grants (up to $42,500)
+   - Rental assistance
+   - Personal property replacement
+   - Medical/dental expenses
+   - Transportation assistance
+   - Apply within 60 days of disaster declaration
+
+2. SBA DISASTER LOANS:
+   - Low-interest loans for homeowners and businesses
+   - Up to $200,000 for home repairs
+   - Up to $40,000 for personal property
+   - Apply at DisasterLoanAssistance.sba.gov
+   - 30-year repayment terms available
+
+3. CONTRACTOR SELECTION:
+   - We have many qualified contractors ready to help
+   - Victims can browse and choose their preferred contractor
+   - Contractors who work with little/no out-of-pocket costs
+   - Many bill insurance companies directly
+   - Verified, licensed professionals only
+   - Strategic Land Management LLC for emergency tree removal
+
+4. EMERGENCY SHELTERS:
+   - Red Cross shelters: 1-800-RED-CROSS
+   - Local emergency management contacts
+   - Pet-friendly shelter locations
+   - Special needs accommodations
+
+5. PRIVACY & CONSENT:
+   - Victims control their information sharing
+   - Can choose which contractors to contact
+   - Information shared only with explicit consent
+   - Can revoke consent anytime
+
+Always end with reassurance and remind them they're not alone in this process.`,
       'all': `Provide comprehensive overview across all portals, highlighting cross-portal insights and integrated intelligence.`
     };
 
@@ -336,6 +383,9 @@ Every word should sound polished, professional, and perfectly delivered - far su
           break;
         case 'leads':
           fallbackText = `This is ARIA with your Lead Intelligence Center update. The system is actively scanning for high-value contractor opportunities across storm-affected regions. Current lead generation algorithms are analyzing insurance claims data, permit applications, and social media reports for potential storm damage. Priority leads include properties with confirmed roof damage, tree removal needs, and water damage restoration requirements. Average lead value ranges from $5,000 to $50,000 depending on damage severity. I recommend immediate follow-up on leads marked as emergency priority within the first 24 hours for maximum conversion rates.`;
+          break;
+        case 'victim':
+          fallbackText = `Hello, I'm here to help you through this difficult time. You are not alone. First, let me share some important resources with you. FEMA disaster assistance is available by calling 1-800-621-3362. They can help homeowners, renters, and business owners with temporary housing, home repairs up to $42,500, and other disaster-related expenses. The SBA also offers low-interest disaster loans - up to $200,000 for home repairs and $40,000 for personal property replacement. You can apply at DisasterLoanAssistance.sba.gov. For emergency shelters, contact the Red Cross at 1-800-RED-CROSS. Regarding contractors, you have many qualified professionals to choose from. Many work with little to no out-of-pocket costs and bill your insurance company directly. For emergency tree removal, Strategic Land Management LLC specializes in storm cleanup and works with insurance companies. You remain in control of your information - you choose which contractors to share it with. Remember, help is out there, and we're here to guide you every step of the way.`;
           break;
         default:
           fallbackText = `Hello, this is ARIA, your Advanced Response Intelligence Assistant. All Disaster Direct intelligence systems are operational and monitoring real-time data across multiple portals. Current status shows active storm tracking, damage detection algorithms running, and contractor opportunity analysis in progress. The system is providing actionable insights for storm response operations with continuous updates throughout the day.`;
