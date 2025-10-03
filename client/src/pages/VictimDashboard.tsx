@@ -1617,11 +1617,98 @@ You can ask our AI assistant about any of these resources, and it will guide you
         {/* Alerts Tab */}
         <TabsContent value="alerts" className="space-y-6">
           <FadeIn>
-            <div className="text-center py-12">
-              <Bell className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-xl font-semibold mb-2">Emergency Alerts & Updates</h3>
-              <p className="text-muted-foreground">Real-time weather, safety, and service updates for your area</p>
+            <div className="mb-6">
+              <h2 className="text-xl font-semibold mb-2">Emergency Alerts & Updates</h2>
+              <p className="text-muted-foreground">Real-time weather, safety, and service updates for Tampa Bay Area</p>
             </div>
+
+            <StaggerContainer className="space-y-4">
+              {emergencyAlerts.map((alert, index) => (
+                <StaggerItem key={alert.id}>
+                  <HoverLift>
+                    <Alert className={`${getAlertSeverityColor(alert.severity)}`}>
+                      <div className="flex items-start space-x-3">
+                        <div className="flex-shrink-0 mt-0.5">
+                          {alert.type === 'weather' && <Cloud className="h-5 w-5" />}
+                          {alert.type === 'evacuation' && <AlertTriangle className="h-5 w-5" />}
+                          {alert.type === 'safety' && <Shield className="h-5 w-5" />}
+                          {alert.type === 'service' && <Wrench className="h-5 w-5" />}
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between mb-2">
+                            <h3 className="font-bold text-lg">{alert.title}</h3>
+                            <Badge 
+                              className={`${
+                                alert.severity === 'critical' ? 'bg-red-600' :
+                                alert.severity === 'high' ? 'bg-orange-600' :
+                                alert.severity === 'medium' ? 'bg-yellow-600' :
+                                'bg-blue-600'
+                              } text-white`}
+                            >
+                              {alert.severity.toUpperCase()}
+                            </Badge>
+                          </div>
+                          <AlertDescription className="text-sm mb-3">
+                            {alert.message}
+                          </AlertDescription>
+                          <div className="flex items-center justify-between text-xs">
+                            <div className="flex items-center space-x-4">
+                              <div className="flex items-center">
+                                <MapPin className="h-3 w-3 mr-1" />
+                                {alert.location}
+                              </div>
+                              <div className="flex items-center">
+                                <Clock className="h-3 w-3 mr-1" />
+                                {new Date(alert.timestamp).toLocaleString()}
+                              </div>
+                            </div>
+                            {alert.actionRequired && (
+                              <Badge className="bg-red-600 text-white text-xs">
+                                ACTION REQUIRED
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </Alert>
+                  </HoverLift>
+                </StaggerItem>
+              ))}
+            </StaggerContainer>
+
+            {/* Additional Alert Resources */}
+            <Card className="mt-6 bg-blue-50 dark:bg-blue-900/20">
+              <CardHeader>
+                <CardTitle className="flex items-center text-blue-800 dark:text-blue-200">
+                  <Radio className="h-5 w-5 mr-2" />
+                  Stay Informed
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-center justify-between p-2 bg-white dark:bg-gray-800 rounded">
+                    <span className="font-medium">📻 NOAA Weather Radio</span>
+                    <span className="text-muted-foreground">162.550 MHz</span>
+                  </div>
+                  <div className="flex items-center justify-between p-2 bg-white dark:bg-gray-800 rounded">
+                    <span className="font-medium">📱 Emergency Alerts</span>
+                    <span className="text-muted-foreground">WEA Enabled</span>
+                  </div>
+                  <div className="flex items-center justify-between p-2 bg-white dark:bg-gray-800 rounded">
+                    <span className="font-medium">🌐 Local News</span>
+                    <Button size="sm" variant="outline" onClick={() => window.open('https://www.baynews9.com', '_blank')}>
+                      Bay News 9
+                    </Button>
+                  </div>
+                  <div className="flex items-center justify-between p-2 bg-white dark:bg-gray-800 rounded">
+                    <span className="font-medium">🌪️ National Weather Service</span>
+                    <Button size="sm" variant="outline" onClick={() => window.open('https://www.weather.gov/tbw', '_blank')}>
+                      NWS Tampa Bay
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </FadeIn>
         </TabsContent>
 
