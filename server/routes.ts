@@ -10084,12 +10084,42 @@ What specific area or type of incident would you like me to focus on? I can prov
   // Generate voice response for portal intelligence OR simple text-to-speech
   app.post("/api/voice-ai/generate", async (req, res) => {
     try {
-      const { text, portalType, requestType, question, currentData, userLocation } = req.body;
+      const { text, portalType, requestType, question, currentData, userLocation, voiceId, provider } = req.body;
       
       // If simple text is provided, use direct ARIA STORM synthesis
       if (text && !portalType) {
         console.log(`🎤 ARIA STORM: Generating voice for text (${text.substring(0, 50)}...)`);
         
+        // If explicit ElevenLabs voice is requested (ARIA female voice)
+        if (provider === 'elevenlabs' && voiceId) {
+          console.log(`🎙️ Using ElevenLabs ARIA female voice ID: ${voiceId}`);
+          const { elevenLabsVoice } = await import('./services/elevenLabsVoice.js');
+          
+          if (elevenLabsVoice.isAvailable()) {
+            try {
+              const audioBuffer = await elevenLabsVoice.generateSpeech({
+                text,
+                voiceId,
+                settings: {
+                  stability: 0.5,
+                  similarityBoost: 0.8,
+                  useSpeakerBoost: true
+                }
+              });
+              
+              const audioBase64 = audioBuffer.toString('base64');
+              return res.json({
+                text,
+                audioBase64,
+                timestamp: new Date()
+              });
+            } catch (error) {
+              console.error('❌ ElevenLabs error, falling back to default:', error);
+            }
+          }
+        }
+        
+        // Default voice generation
         const voiceAI = VoiceAIService.getInstance();
         const audioBuffer = await voiceAI.generateTextToSpeech(text);
         
