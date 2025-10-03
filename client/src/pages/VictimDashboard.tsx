@@ -23,7 +23,7 @@ import {
   RefreshCw, Search, Filter, Calendar, TrendingUp,
   Clipboard, DollarSign, Award, Target, Radio, Siren,
   Briefcase, FileCheck, PersonStanding, Lightbulb, Volume2, VolumeX,
-  Image as ImageIcon, X, Loader2, Sparkles, Upload
+  Image as ImageIcon, X, Loader2, Sparkles, Upload, Info
 } from 'lucide-react';
 import { FadeIn, PulseAlert, StaggerContainer, StaggerItem, HoverLift, CountUp, ScaleIn, SlideIn } from '@/components/ui/animations';
 import { apiRequest } from '@/lib/queryClient';
@@ -630,6 +630,37 @@ You can ask our AI assistant about any of these resources, and it will guide you
         ]
       },
       '4': {
+        steps: [
+          'Board up all broken windows and doors to prevent further damage',
+          'Cover damaged roof areas with tarps to prevent water intrusion',
+          'Secure loose siding, gutters, and exterior materials',
+          'Document all emergency repairs with photos before and after',
+          'Call emergency roofing/tree removal services if needed',
+          'Keep all receipts for emergency repairs - insurance may cover',
+          'Do NOT make permanent repairs until insurance adjuster visits'
+        ],
+        tips: [
+          'Emergency tarps and boarding are usually covered by insurance',
+          'Strategic Land Management LLC offers 24/7 emergency tree removal',
+          'Emergency repairs prevent further damage - do them ASAP',
+          'Use waterproof tarps rated for outdoor use',
+          'Secure tarps with sandbags or heavy objects - don\'t nail into good roof'
+        ],
+        resources: [
+          '🔨 EMERGENCY CONTRACTORS (24/7):',
+          '• Strategic Land Management LLC - (813) 555-TREE - Emergency tree removal & roof tarping',
+          '• Tampa Emergency Roofing - (813) 555-ROOF - 24/7 tarp service',
+          '• Storm Shield Boarding - (813) 555-BOARD - Window/door boarding',
+          '',
+          '🏪 SUPPLY STORES (Open & Pricing):',
+          '• Home Depot (2.1 mi) - OPEN 6am-10pm - Heavy Duty Tarp 20x30ft: $45, Plywood 4x8: $32',
+          '• Lowe\'s (3.4 mi) - OPEN 6am-9pm - Blue Poly Tarp 20x30ft: $38, OSB Board 4x8: $28',
+          '• Ace Hardware (1.8 mi) - OPEN 7am-8pm - Canvas Tarp 20x25ft: $52, Plywood 4x8: $35',
+          '',
+          '📍 Get directions: Say "Navigate to Home Depot" to voice assistant'
+        ]
+      },
+      '5': {
         steps: [
           'Get at least 3 written estimates from licensed contractors',
           'Verify contractor licenses and insurance before hiring',
