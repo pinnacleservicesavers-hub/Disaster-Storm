@@ -755,7 +755,7 @@ export default function StormShare() {
                         <Filter className="w-4 h-4 mr-2" />
                         <SelectValue placeholder="Category" />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
                         <SelectItem value="all">All Categories</SelectItem>
                         <SelectItem value="roof-damage">Roof Damage</SelectItem>
                         <SelectItem value="tree-removal">Tree Removal</SelectItem>
@@ -962,7 +962,7 @@ export default function StormShare() {
                                     <SelectValue placeholder="Select category" />
                                   </SelectTrigger>
                                 </FormControl>
-                                <SelectContent>
+                                <SelectContent className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
                                   <SelectItem value="roof-damage">Roof Damage</SelectItem>
                                   <SelectItem value="tree-removal">Tree Removal</SelectItem>
                                   <SelectItem value="flooding">Flooding</SelectItem>
@@ -992,7 +992,7 @@ export default function StormShare() {
                                     <SelectValue placeholder="Select urgency" />
                                   </SelectTrigger>
                                 </FormControl>
-                                <SelectContent>
+                                <SelectContent className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
                                   <SelectItem value="normal">Normal</SelectItem>
                                   <SelectItem value="urgent">Urgent (within 24 hours)</SelectItem>
                                   <SelectItem value="emergency">Emergency (immediate)</SelectItem>
