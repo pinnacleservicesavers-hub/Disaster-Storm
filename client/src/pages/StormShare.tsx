@@ -264,6 +264,52 @@ export default function StormShare() {
     setAttachedFiles([]);
   };
 
+  // Resource handlers for contractors
+  const handleXactimateTraining = () => {
+    if (currentUserType !== 'contractor') {
+      toast({ title: 'Contractor Access Only', description: 'This resource is only available to contractors', variant: 'destructive' });
+      return;
+    }
+    window.open('https://www.xactware.com/en-us/training/', '_blank');
+  };
+
+  const handleLicensingInfo = () => {
+    if (currentUserType !== 'contractor') {
+      toast({ title: 'Contractor Access Only', description: 'This resource is only available to contractors', variant: 'destructive' });
+      return;
+    }
+    window.open('https://www.contractors-license.org/', '_blank');
+  };
+
+  // Resource handlers for victims
+  const handleEmergencyAssistance = () => {
+    window.open('https://www.fema.gov/assistance/individual', '_blank');
+  };
+
+  const handleInsuranceGuidance = () => {
+    window.open('https://www.naic.org/consumer.htm', '_blank');
+  };
+
+  const handleLocalAid = () => {
+    toast({
+      title: 'Local Aid Programs',
+      description: 'Contact your local Red Cross chapter or visit 211.org for community assistance programs',
+    });
+  };
+
+  // General resource handlers
+  const handlePreparednessChecklist = () => {
+    window.open('https://www.ready.gov/kit', '_blank');
+  };
+
+  const handleDocumentationGuide = () => {
+    window.open('https://www.iii.org/article/how-to-make-home-inventory', '_blank');
+  };
+
+  const handleRecoveryTimeline = () => {
+    window.open('https://www.fema.gov/disaster/recover', '_blank');
+  };
+
   // Use real authenticated user
   const currentUserId = user?.id || '';
   const currentUserType = user?.role as 'victim' | 'contractor' | 'business' || 'victim';
@@ -512,6 +558,7 @@ export default function StormShare() {
                     ref={photoInputRef}
                     type="file"
                     accept="image/*"
+                    capture="environment"
                     multiple
                     className="hidden"
                     onChange={handleFileSelect}
@@ -521,6 +568,7 @@ export default function StormShare() {
                     ref={videoInputRef}
                     type="file"
                     accept="video/*"
+                    capture="environment"
                     multiple
                     className="hidden"
                     onChange={handleFileSelect}
@@ -1598,7 +1646,7 @@ export default function StormShare() {
                               <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
                                 Apply for federal disaster assistance and emergency funding.
                               </p>
-                              <Button size="sm" variant="outline" data-testid="button-fema-info">
+                              <Button size="sm" variant="outline" onClick={handleEmergencyAssistance} data-testid="button-fema-info">
                                 Learn More
                               </Button>
                             </CardContent>
@@ -1613,7 +1661,7 @@ export default function StormShare() {
                               <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
                                 Low-interest disaster loans for recovery and rebuilding.
                               </p>
-                              <Button size="sm" variant="outline" data-testid="button-sba-info">
+                              <Button size="sm" variant="outline" onClick={handleEmergencyAssistance} data-testid="button-sba-info">
                                 Apply Now
                               </Button>
                             </CardContent>
@@ -1628,7 +1676,7 @@ export default function StormShare() {
                               <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
                                 Guide to filing and managing insurance claims effectively.
                               </p>
-                              <Button size="sm" variant="outline" data-testid="button-insurance-guide">
+                              <Button size="sm" variant="outline" onClick={handleInsuranceGuidance} data-testid="button-insurance-guide">
                                 View Guide
                               </Button>
                             </CardContent>
@@ -1643,7 +1691,7 @@ export default function StormShare() {
                               <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
                                 Community resources and local assistance programs in your area.
                               </p>
-                              <Button size="sm" variant="outline" data-testid="button-local-aid">
+                              <Button size="sm" variant="outline" onClick={handleLocalAid} data-testid="button-local-aid">
                                 Find Help
                               </Button>
                             </CardContent>
@@ -1682,7 +1730,7 @@ export default function StormShare() {
                               <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
                                 Insurance estimating software training and certification.
                               </p>
-                              <Button size="sm" variant="outline" data-testid="button-xactimate-training">
+                              <Button size="sm" variant="outline" onClick={handleXactimateTraining} data-testid="button-xactimate-training">
                                 Get Certified
                               </Button>
                             </CardContent>
@@ -1697,7 +1745,7 @@ export default function StormShare() {
                               <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
                                 Contractor licensing requirements by state and specialty.
                               </p>
-                              <Button size="sm" variant="outline" data-testid="button-licensing-info">
+                              <Button size="sm" variant="outline" onClick={handleLicensingInfo} data-testid="button-licensing-info">
                                 Check Requirements
                               </Button>
                             </CardContent>
@@ -1735,7 +1783,7 @@ export default function StormShare() {
                                   Complete guide to preparing for severe weather events.
                                 </p>
                               </div>
-                              <Button size="sm" variant="outline" data-testid="button-preparedness-checklist">
+                              <Button size="sm" variant="outline" onClick={handlePreparednessChecklist} data-testid="button-preparedness-checklist">
                                 Download
                               </Button>
                             </div>
@@ -1751,7 +1799,7 @@ export default function StormShare() {
                                   How to properly document damage for insurance claims.
                                 </p>
                               </div>
-                              <Button size="sm" variant="outline" data-testid="button-documentation-guide">
+                              <Button size="sm" variant="outline" onClick={handleDocumentationGuide} data-testid="button-documentation-guide">
                                 View Guide
                               </Button>
                             </div>
@@ -1767,7 +1815,7 @@ export default function StormShare() {
                                   Step-by-step recovery process and prioritization guide.
                                 </p>
                               </div>
-                              <Button size="sm" variant="outline" data-testid="button-recovery-timeline">
+                              <Button size="sm" variant="outline" onClick={handleRecoveryTimeline} data-testid="button-recovery-timeline">
                                 Read More
                               </Button>
                             </div>
