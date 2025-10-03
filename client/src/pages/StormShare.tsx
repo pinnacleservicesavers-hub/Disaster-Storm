@@ -310,12 +310,15 @@ export default function StormShare() {
   const sendMessageMutation = useMutation({
     mutationFn: (data: MessageForm) => apiRequest('/api/stormshare/messages', {
       method: 'POST',
-      body: JSON.stringify(data)
+      body: JSON.stringify({ ...data, userId: currentUserId })
     }),
     onSuccess: () => {
+      toast({ title: 'Message sent!' });
       queryClient.invalidateQueries({ queryKey: ['/api/stormshare/messages'] });
+      messageForm.reset();
     },
-    onError: () => {
+    onError: (error) => {
+      console.error('Message send error:', error);
       toast({ title: 'Failed to send message', variant: 'destructive' });
     }
   });
@@ -384,8 +387,8 @@ export default function StormShare() {
   };
 
   const onSendMessage = (data: MessageForm) => {
+    console.log('Sending message:', data);
     sendMessageMutation.mutate(data);
-    messageForm.reset();
   };
 
   const handleClaimHelpRequest = (helpRequestId: string) => {
@@ -1432,7 +1435,19 @@ export default function StormShare() {
 
                   {/* Message Input */}
                   <Form {...messageForm}>
-                    <form onSubmit={messageForm.handleSubmit(onSendMessage)} className="flex space-x-2">
+                    <form 
+                      onSubmit={messageForm.handleSubmit(
+                        onSendMessage,
+                        (errors) => {
+                          console.log('Message form errors:', errors);
+                          toast({
+                            title: 'Please enter a message',
+                            variant: 'destructive',
+                          });
+                        }
+                      )} 
+                      className="flex space-x-2"
+                    >
                       <FormField
                         control={messageForm.control}
                         name="content"
