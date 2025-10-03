@@ -173,7 +173,7 @@ export default function StormShare() {
 
   // Navigate to victim dashboard for help request
   const handleRequestHelp = () => {
-    setLocation('/victim-dashboard');
+    setLocation('/victim/dashboard');
   };
 
   // Use real authenticated user
