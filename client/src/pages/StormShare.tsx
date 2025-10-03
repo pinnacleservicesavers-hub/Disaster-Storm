@@ -110,67 +110,63 @@ export default function StormShare() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
   const [isVoiceGuideActive, setIsVoiceGuideActive] = useState(false);
-  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [isPlayingVoice, setIsPlayingVoice] = useState(false);
   
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Initialize voice loading with enhanced cleanup
-  useEffect(() => {
-    const loadVoices = () => {
-      if ('speechSynthesis' in window) {
-        setVoices(window.speechSynthesis.getVoices());
-      }
-    };
-    
-    loadVoices();
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.onvoiceschanged = loadVoices;
-    }
-    
-    return () => {
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-        window.speechSynthesis.onvoiceschanged = null;
-      }
-    };
-  }, []);
-
-  const startVoiceGuide = () => {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
-      console.warn('Speech synthesis not supported in this browser');
-      return;
-    }
-
+  const startVoiceGuide = async () => {
     if (!isVoiceGuideActive) {
       setIsVoiceGuideActive(true);
-      window.speechSynthesis.cancel();
+      setIsPlayingVoice(true);
       
       const voiceContent = `Welcome to StormShare Community Platform! This collaborative network connects storm victims, contractors, and businesses for mutual assistance during weather emergencies. The community feed displays help requests, resource sharing, and recovery updates from your local area. You can post assistance needs, offer services, or share resources with verified community members. The help request system categorizes needs by urgency - normal, urgent, high priority, or emergency - with contact information and location details. Group messaging enables neighborhood coordination and resource sharing. Contractor matching connects verified professionals with people needing services. The platform includes reputation systems, insurance verification, and secure payment processing. Local business directories provide essential services during recovery. All interactions are monitored for safety and authenticity.`;
       
-      const utterance = new SpeechSynthesisUtterance(voiceContent);
-      utterance.rate = 0.9;
-      utterance.pitch = 1.0;
-      utterance.volume = 0.8;
-      
-      if (voices.length > 0) {
-        utterance.voice = voices.find(voice => voice.lang.includes('en')) || voices[0];
+      try {
+        // Call server API to generate natural-sounding voice using ElevenLabs Rachel
+        const response = await fetch('/api/voice-ai/generate', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ text: voiceContent }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Voice generation failed');
+        }
+
+        const data = await response.json();
+        
+        if (data.audioBase64) {
+          // Create and play audio
+          const audio = new Audio(`data:audio/mpeg;base64,${data.audioBase64}`);
+          
+          audio.onended = () => {
+            setIsVoiceGuideActive(false);
+            setIsPlayingVoice(false);
+          };
+          
+          audio.onerror = () => {
+            console.error('Audio playback error');
+            setIsVoiceGuideActive(false);
+            setIsPlayingVoice(false);
+          };
+          
+          await audio.play();
+        } else {
+          setIsVoiceGuideActive(false);
+          setIsPlayingVoice(false);
+        }
+      } catch (error) {
+        console.error('Voice guide error:', error);
+        setIsVoiceGuideActive(false);
+        setIsPlayingVoice(false);
       }
-      
-      utterance.onend = () => {
-        setIsVoiceGuideActive(false);
-      };
-      
-      utterance.onerror = (event) => {
-        console.error('Speech synthesis error:', event);
-        setIsVoiceGuideActive(false);
-      };
-      
-      window.speechSynthesis.speak(utterance);
     } else {
-      window.speechSynthesis.cancel();
       setIsVoiceGuideActive(false);
+      setIsPlayingVoice(false);
     }
   };
 
