@@ -181,6 +181,11 @@ export default function StormShare() {
     setActiveTab('chat');
   };
 
+  // Switch to feed tab for sharing story
+  const handleShareStory = () => {
+    setActiveTab('feed');
+  };
+
   // Use real authenticated user
   const currentUserId = user?.id || '';
   const currentUserType = user?.role as 'victim' | 'contractor' | 'business' || 'victim';
@@ -331,7 +336,7 @@ export default function StormShare() {
           actions={[
             { icon: Heart, label: 'Request Help', variant: 'default', testId: 'button-request-help', onClick: handleRequestHelp },
             { icon: MessageCircle, label: 'Join Chat', variant: 'outline', testId: 'button-join-chat', onClick: handleJoinChat },
-            { icon: Share2, label: 'Share Story', variant: 'outline', testId: 'button-share-story' },
+            { icon: Share2, label: 'Share Story', variant: 'outline', testId: 'button-share-story', onClick: handleShareStory },
             { icon: isVoiceGuideActive ? VolumeX : Volume2, label: isVoiceGuideActive ? 'Stop Guide' : 'Voice Guide', variant: 'outline', testId: 'button-voice-guide', onClick: startVoiceGuide, 'aria-label': 'Voice guide for StormShare', 'aria-pressed': isVoiceGuideActive }
           ]}
           testId="stormshare-section"
