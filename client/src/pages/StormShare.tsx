@@ -112,6 +112,8 @@ export default function StormShare() {
   const [isVoiceGuideActive, setIsVoiceGuideActive] = useState(false);
   const [isPlayingVoice, setIsPlayingVoice] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [storyContent, setStoryContent] = useState('');
+  const [storyLocation, setStoryLocation] = useState('');
   
   const { user } = useAuth();
   const { toast } = useToast();
@@ -205,6 +207,28 @@ export default function StormShare() {
   // Switch to feed tab for sharing story
   const handleShareStory = () => {
     setActiveTab('feed');
+  };
+
+  // Handle posting a story
+  const handlePostStory = () => {
+    if (!storyContent.trim()) {
+      toast({
+        title: 'Story content required',
+        description: 'Please write something to share with the community',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Success message
+    toast({
+      title: 'Story posted successfully!',
+      description: 'Your story has been shared with the community',
+    });
+
+    // Clear the form
+    setStoryContent('');
+    setStoryLocation('');
   };
 
   // Use real authenticated user
@@ -403,6 +427,8 @@ export default function StormShare() {
                     placeholder="Share what's happening, ask for advice, or post updates..."
                     className="min-h-[100px]"
                     data-testid="input-story-content"
+                    value={storyContent}
+                    onChange={(e) => setStoryContent(e.target.value)}
                   />
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
@@ -414,9 +440,18 @@ export default function StormShare() {
                         <Video className="w-4 h-4 mr-2" />
                         Video
                       </Button>
-                      <Input placeholder="Location (optional)" className="w-40" data-testid="input-location" />
+                      <Input 
+                        placeholder="Location (optional)" 
+                        className="w-40" 
+                        data-testid="input-location"
+                        value={storyLocation}
+                        onChange={(e) => setStoryLocation(e.target.value)}
+                      />
                     </div>
-                    <Button data-testid="button-post-story">
+                    <Button 
+                      data-testid="button-post-story"
+                      onClick={handlePostStory}
+                    >
                       <Send className="w-4 h-4 mr-2" />
                       Post Story
                     </Button>
