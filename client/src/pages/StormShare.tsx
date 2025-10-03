@@ -604,6 +604,10 @@ export default function StormShare() {
                         <SelectItem value="flooding">Flooding</SelectItem>
                         <SelectItem value="power-outage">Power Outage</SelectItem>
                         <SelectItem value="debris-cleanup">Debris Cleanup</SelectItem>
+                        <SelectItem value="fence-crew">Fence Crew</SelectItem>
+                        <SelectItem value="plumbing">Plumbing Services</SelectItem>
+                        <SelectItem value="remodeling">Remodeling Services & Repairs</SelectItem>
+                        <SelectItem value="pool-services">Pool Services</SelectItem>
                         <SelectItem value="other">Other</SelectItem>
                       </SelectContent>
                     </Select>
@@ -806,6 +810,10 @@ export default function StormShare() {
                                   <SelectItem value="flooding">Flooding</SelectItem>
                                   <SelectItem value="power-outage">Power Outage</SelectItem>
                                   <SelectItem value="debris-cleanup">Debris Cleanup</SelectItem>
+                                  <SelectItem value="fence-crew">Fence Crew</SelectItem>
+                                  <SelectItem value="plumbing">Plumbing Services</SelectItem>
+                                  <SelectItem value="remodeling">Remodeling Services & Repairs</SelectItem>
+                                  <SelectItem value="pool-services">Pool Services</SelectItem>
                                   <SelectItem value="other">Other</SelectItem>
                                 </SelectContent>
                               </Select>
