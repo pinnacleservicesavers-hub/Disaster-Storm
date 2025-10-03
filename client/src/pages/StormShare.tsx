@@ -992,10 +992,10 @@ export default function StormShare() {
                                     <SelectValue placeholder="Select urgency" />
                                   </SelectTrigger>
                                 </FormControl>
-                                <SelectContent className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 z-50 shadow-lg">
-                                  <SelectItem value="normal" className="text-gray-900 dark:text-gray-100">Normal</SelectItem>
-                                  <SelectItem value="urgent" className="text-gray-900 dark:text-gray-100">Urgent (within 24 hours)</SelectItem>
-                                  <SelectItem value="emergency" className="text-gray-900 dark:text-gray-100">Emergency (immediate)</SelectItem>
+                                <SelectContent className="bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 z-[100] shadow-2xl">
+                                  <SelectItem value="normal" className="text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700">Normal</SelectItem>
+                                  <SelectItem value="urgent" className="text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700">Urgent (within 24 hours)</SelectItem>
+                                  <SelectItem value="emergency" className="text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700">Emergency (immediate)</SelectItem>
                                 </SelectContent>
                               </Select>
                               <FormMessage />
