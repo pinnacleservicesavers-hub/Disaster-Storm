@@ -1209,16 +1209,95 @@ You can ask our AI assistant about any of these resources, and it will guide you
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    <div className="space-y-2">
-                      <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                    {/* Emergency Shelter */}
+                    <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                      <div className="flex items-center justify-between mb-2">
                         <div className="font-medium text-blue-900 dark:text-blue-100">Community Shelter</div>
-                        <div className="text-sm text-blue-700 dark:text-blue-300">Tampa Community Center - 0.5 mi</div>
-                        <Badge className="mt-1 bg-green-500 text-white text-xs">Open</Badge>
+                        <Badge className="bg-green-500 text-white text-xs">Open 24/7</Badge>
                       </div>
-                      <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                        <div className="font-medium text-green-900 dark:text-green-100">Medical Clinic</div>
-                        <div className="text-sm text-green-700 dark:text-green-300">Bay Area Emergency - 1.2 mi</div>
-                        <Badge className="mt-1 bg-yellow-500 text-white text-xs">Limited Hours</Badge>
+                      <div className="text-sm text-blue-700 dark:text-blue-300 mb-2">
+                        Tampa Community Center - 0.5 mi<br/>
+                        1234 Community Dr, Tampa, FL 33602
+                      </div>
+                      <Button size="sm" variant="outline" className="w-full" onClick={() => setIsShelterModalOpen(true)} data-testid="button-view-shelter">
+                        <Building2 className="h-4 w-4 mr-2" />
+                        View Shelter Info
+                      </Button>
+                    </div>
+
+                    {/* Medical Clinics */}
+                    <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                      <div className="font-medium text-green-900 dark:text-green-100 mb-2">Medical Clinics</div>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="text-sm text-green-700 dark:text-green-300">
+                            <div className="font-medium">Bay Area Emergency Clinic</div>
+                            <div className="text-xs">1.2 mi • Open 8am-6pm</div>
+                          </div>
+                          <Button size="sm" onClick={() => window.open('tel:+18135551234')} data-testid="button-call-clinic-1">
+                            <Phone className="h-4 w-4 mr-1" />
+                            Call
+                          </Button>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="text-sm text-green-700 dark:text-green-300">
+                            <div className="font-medium">Tampa Health Center</div>
+                            <div className="text-xs">2.3 mi • Open 24/7</div>
+                          </div>
+                          <Button size="sm" onClick={() => window.open('tel:+18135555678')} data-testid="button-call-clinic-2">
+                            <Phone className="h-4 w-4 mr-1" />
+                            Call
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Red Cross */}
+                    <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                      <div className="font-medium text-red-900 dark:text-red-100 mb-2">American Red Cross</div>
+                      <div className="text-sm text-red-700 dark:text-red-300 mb-2">
+                        Tampa Bay Chapter<br/>
+                        4502 N Armenia Ave, Tampa, FL 33603<br/>
+                        1.8 mi
+                      </div>
+                      <Button size="sm" className="w-full bg-red-600 hover:bg-red-700" onClick={() => window.open('tel:+18007332767')} data-testid="button-call-redcross">
+                        <Phone className="h-4 w-4 mr-2" />
+                        Call 1-800-RED-CROSS
+                      </Button>
+                    </div>
+
+                    {/* Food Resources */}
+                    <div className="p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
+                      <div className="font-medium text-orange-900 dark:text-orange-100 mb-2">Food Assistance</div>
+                      <div className="space-y-2 text-sm text-orange-700 dark:text-orange-300">
+                        <div>📍 <strong>Feeding Tampa Bay</strong> - 4001 N Florida Ave (1.5 mi)</div>
+                        <div>📍 <strong>Metropolitan Ministries</strong> - Hot meals daily (0.8 mi)</div>
+                        <div>📍 <strong>Salvation Army</strong> - Food pantry & meals (1.2 mi)</div>
+                        <Button size="sm" variant="outline" className="w-full mt-2" onClick={() => window.open('tel:211')}>
+                          <Phone className="h-4 w-4 mr-2" />
+                          Dial 211 for Food Resources
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Clothing & Essential Items */}
+                    <div className="p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                      <div className="font-medium text-purple-900 dark:text-purple-100 mb-2">Clothing & Essentials</div>
+                      <div className="space-y-2 text-sm text-purple-700 dark:text-purple-300">
+                        <div>👕 <strong>Salvation Army Thrift</strong> - Free clothing vouchers (1.2 mi)</div>
+                        <div>🧺 <strong>St. Vincent de Paul</strong> - Clothing & household items (1.7 mi)</div>
+                        <div>🛍️ <strong>Tampa Hope Center</strong> - Personal care items (0.9 mi)</div>
+                      </div>
+                    </div>
+
+                    {/* Additional Resources */}
+                    <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                      <div className="font-medium text-gray-900 dark:text-gray-100 mb-2">Additional Support</div>
+                      <div className="space-y-1 text-sm text-gray-700 dark:text-gray-300">
+                        <div>💊 <strong>Prescription Assistance:</strong> Call 211</div>
+                        <div>🚿 <strong>Shower Facilities:</strong> YMCA (0.6 mi)</div>
+                        <div>📱 <strong>Phone Charging:</strong> Public libraries (various locations)</div>
+                        <div>🚌 <strong>Transportation:</strong> HART bus passes available at shelters</div>
                       </div>
                     </div>
                   </CardContent>
