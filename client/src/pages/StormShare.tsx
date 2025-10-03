@@ -298,9 +298,11 @@ export default function StormShare() {
     onSuccess: () => {
       toast({ title: 'Help request posted successfully!' });
       queryClient.invalidateQueries({ queryKey: ['/api/stormshare/help'] });
+      helpRequestForm.reset();
       setActiveTab('help');
     },
-    onError: () => {
+    onError: (error) => {
+      console.error('Help request error:', error);
       toast({ title: 'Failed to post help request', variant: 'destructive' });
     }
   });
@@ -362,6 +364,7 @@ export default function StormShare() {
   });
 
   const onSubmitHelpRequest = (data: HelpRequestForm) => {
+    console.log('Submitting help request:', data);
     createHelpRequestMutation.mutate(data);
   };
 
@@ -915,7 +918,20 @@ export default function StormShare() {
                 </CardHeader>
                 <CardContent>
                   <Form {...helpRequestForm}>
-                    <form onSubmit={helpRequestForm.handleSubmit(onSubmitHelpRequest)} className="space-y-4">
+                    <form 
+                      onSubmit={helpRequestForm.handleSubmit(
+                        onSubmitHelpRequest,
+                        (errors) => {
+                          console.log('Form validation errors:', errors);
+                          toast({
+                            title: 'Please fill in all required fields',
+                            description: 'Check the form for any missing information',
+                            variant: 'destructive',
+                          });
+                        }
+                      )} 
+                      className="space-y-4"
+                    >
                       <FormField
                         control={helpRequestForm.control}
                         name="title"
