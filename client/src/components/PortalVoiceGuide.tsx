@@ -206,63 +206,72 @@ export default function PortalVoiceGuide({
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showSettings, setShowSettings] = useState(false);
   
-  const synthRef = useRef<SpeechSynthesis | null>(null);
-  const [voice, setVoice] = useState<SpeechSynthesisVoice | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [isAudioReady, setIsAudioReady] = useState(true);
 
-  // Initialize Speech Synthesis with female voice
   useEffect(() => {
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      synthRef.current = window.speechSynthesis;
-      
-      const loadVoices = () => {
-        const voices = synthRef.current?.getVoices() || [];
-        const femaleVoice = voices.find(v => 
-          v.name.toLowerCase().includes('female') ||
-          v.name.toLowerCase().includes('zira') ||
-          v.name.toLowerCase().includes('hazel') ||
-          v.name.toLowerCase().includes('samantha') ||
-          v.name.toLowerCase().includes('karen') ||
-          v.name.toLowerCase().includes('victoria') ||
-          v.name.toLowerCase().includes('english')
-        ) || voices.find(v => v.lang.startsWith('en')) || voices[0];
-        
-        setVoice(femaleVoice);
-      };
-
-      if (synthRef.current.getVoices().length === 0) {
-        synthRef.current.addEventListener('voiceschanged', loadVoices);
-      } else {
-        loadVoices();
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
       }
+    };
+  }, []);
+
+  // ARIA STORM voice synthesis using server API
+  const speak = useCallback(async (text: string, onComplete?: () => void) => {
+    try {
+      setIsPlaying(true);
+      
+      // Call server API to generate ARIA STORM voice
+      const response = await fetch('/api/voice-ai/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ text }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Voice generation failed');
+      }
+
+      const data = await response.json();
+      
+      if (data.audioBase64) {
+        // Create audio element and play
+        const audio = new Audio(`data:audio/mpeg;base64,${data.audioBase64}`);
+        audioRef.current = audio;
+        
+        audio.onended = () => {
+          setIsPlaying(false);
+          onComplete?.();
+        };
+        
+        audio.onerror = () => {
+          setIsPlaying(false);
+          console.error('Audio playback error');
+          onComplete?.();
+        };
+        
+        await audio.play();
+      } else {
+        setIsPlaying(false);
+        onComplete?.();
+      }
+    } catch (error) {
+      console.error('ARIA voice error:', error);
+      setIsPlaying(false);
+      onComplete?.();
     }
   }, []);
 
-  // Speech synthesis function
-  const speak = useCallback((text: string, onComplete?: () => void) => {
-    if (!synthRef.current || !voice) return;
-
-    synthRef.current.cancel();
-    
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.voice = voice;
-    utterance.rate = 0.9;
-    utterance.pitch = 1.1;
-    utterance.volume = 0.8;
-    
-    utterance.onstart = () => setIsPlaying(true);
-    utterance.onend = () => {
-      setIsPlaying(false);
-      onComplete?.();
-    };
-    utterance.onerror = () => setIsPlaying(false);
-    
-    synthRef.current.speak(utterance);
-  }, [voice]);
-
   // Stop speaking
   const stopSpeaking = useCallback(() => {
-    if (synthRef.current) {
-      synthRef.current.cancel();
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      audioRef.current = null;
       setIsPlaying(false);
     }
   }, []);
@@ -302,19 +311,11 @@ export default function PortalVoiceGuide({
     speak(explanation);
   }, [sections, onSectionChange, speak]);
 
-  // Start guided tour
-  const startGuidedTour = useCallback(() => {
+  // Start guided tour with ARIA STORM voice
+  const startGuidedTour = useCallback(async () => {
     setCurrentIndex(0);
-    let currentIdx = 0;
-
-    const explainNext = () => {
-      if (currentIdx >= sections.length) {
-        speak(`This completes your guided tour of the ${portalName}. You can now explore the features in detail or restart the tour. I'm here to help whenever you need guidance.`, () => {
-          setIsEnabled(false);
-        });
-        return;
-      }
-
+    
+    for (let currentIdx = 0; currentIdx < sections.length; currentIdx++) {
       const section = sections[currentIdx];
       setCurrentIndex(currentIdx);
       
@@ -337,13 +338,24 @@ export default function PortalVoiceGuide({
         explanation += ` Key features: ${section.keyFeatures.join(', ')}.`;
       }
 
-      speak(explanation, () => {
-        currentIdx++;
-        setTimeout(explainNext, 1500);
+      // Wait for ARIA to complete speaking before moving to next section
+      await new Promise<void>((resolve) => {
+        speak(explanation, () => {
+          setTimeout(resolve, 1500);
+        });
       });
-    };
+    }
 
-    explainNext();
+    // Tour complete message
+    await new Promise<void>((resolve) => {
+      speak(
+        `This completes your guided tour of the ${portalName}. You can now explore the features in detail or restart the tour. I'm here to help whenever you need guidance.`,
+        () => {
+          setIsEnabled(false);
+          resolve();
+        }
+      );
+    });
   }, [sections, portalName, onSectionChange, speak]);
 
   // Toggle voice guide
@@ -364,7 +376,7 @@ export default function PortalVoiceGuide({
     explainSection(nextIndex);
   }, [currentIndex, sections.length, stopSpeaking, explainSection]);
 
-  if (!synthRef.current || !voice || sections.length === 0) {
+  if (!isAudioReady || sections.length === 0) {
     return null;
   }
 

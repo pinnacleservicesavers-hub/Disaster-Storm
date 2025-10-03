@@ -48,6 +48,7 @@ Preferred communication style: Simple, everyday language.
 
 ### Advanced Features
 - **Voice Cloning System**: Provider-agnostic architecture (ElevenLabs, OpenAI), 'nova' voice, PVC, smart fallback.
+- **ARIA STORM AI Voice**: ElevenLabs "Broadcast Pro Voice" (ID: E8qtV3izSOr5vmxy1BHV) used globally for all AI voice interactions, including Portal Voice Guide, Voice AI Assistant, Claims Agent, and all TTS features. Superior quality to browser-based speech synthesis.
 - **QR/AprilTag Calibration**: Automatic scale detection for precise measurements in images using jsQR, with AprilTag support framework.
 
 ## External Dependencies
