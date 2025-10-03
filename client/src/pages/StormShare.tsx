@@ -114,6 +114,9 @@ export default function StormShare() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [storyContent, setStoryContent] = useState('');
   const [storyLocation, setStoryLocation] = useState('');
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   
   const { user } = useAuth();
   const { toast } = useToast();
@@ -209,6 +212,34 @@ export default function StormShare() {
     setActiveTab('feed');
   };
 
+  // Handle photo upload
+  const handlePhotoClick = () => {
+    photoInputRef.current?.click();
+  };
+
+  // Handle video upload
+  const handleVideoClick = () => {
+    videoInputRef.current?.click();
+  };
+
+  // Handle file selection
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (files) {
+      const newFiles = Array.from(files);
+      setAttachedFiles(prev => [...prev, ...newFiles]);
+      toast({
+        title: 'Files attached',
+        description: `${newFiles.length} file(s) added to your post`,
+      });
+    }
+  };
+
+  // Remove attached file
+  const removeFile = (index: number) => {
+    setAttachedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
   // Handle posting a story
   const handlePostStory = () => {
     if (!storyContent.trim()) {
@@ -221,14 +252,16 @@ export default function StormShare() {
     }
 
     // Success message
+    const fileCount = attachedFiles.length;
     toast({
       title: 'Story posted successfully!',
-      description: 'Your story has been shared with the community',
+      description: `Your story${fileCount > 0 ? ` with ${fileCount} file(s)` : ''} has been shared with the community`,
     });
 
     // Clear the form
     setStoryContent('');
     setStoryLocation('');
+    setAttachedFiles([]);
   };
 
   // Use real authenticated user
@@ -430,13 +463,66 @@ export default function StormShare() {
                     value={storyContent}
                     onChange={(e) => setStoryContent(e.target.value)}
                   />
+                  
+                  {/* Attached Files Preview */}
+                  {attachedFiles.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {attachedFiles.map((file, index) => (
+                        <Badge key={index} variant="secondary" className="flex items-center gap-2">
+                          {file.type.startsWith('image/') ? (
+                            <Camera className="w-3 h-3" />
+                          ) : (
+                            <Video className="w-3 h-3" />
+                          )}
+                          <span className="text-xs">{file.name}</span>
+                          <button
+                            onClick={() => removeFile(index)}
+                            className="ml-1 hover:text-destructive"
+                          >
+                            ×
+                          </button>
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                  
+                  {/* Hidden File Inputs */}
+                  <input
+                    ref={photoInputRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                    onChange={handleFileSelect}
+                    data-testid="input-photo-file"
+                  />
+                  <input
+                    ref={videoInputRef}
+                    type="file"
+                    accept="video/*"
+                    multiple
+                    className="hidden"
+                    onChange={handleFileSelect}
+                    data-testid="input-video-file"
+                  />
+                  
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
-                      <Button variant="outline" size="sm" data-testid="button-add-photo">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        data-testid="button-add-photo"
+                        onClick={handlePhotoClick}
+                      >
                         <Camera className="w-4 h-4 mr-2" />
                         Photo
                       </Button>
-                      <Button variant="outline" size="sm" data-testid="button-add-video">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        data-testid="button-add-video"
+                        onClick={handleVideoClick}
+                      >
                         <Video className="w-4 h-4 mr-2" />
                         Video
                       </Button>
