@@ -756,25 +756,25 @@ export class MemStorage implements IStorage {
     // Debug: log all users in storage
     console.log('🔍 Users in storage after seeding:', Array.from(this.users.keys()));
 
-    // Initialize default FEMALE VOICE PROFILES (ARIA & Lily from ElevenLabs)
+    // Initialize default FEMALE VOICE PROFILES (Rachel & Lily from ElevenLabs)
     const defaultVoiceProfiles = [
       {
-        id: 'voice-aria-default',
-        name: 'ARIA - Broadcast Pro Female Voice',
+        id: 'voice-rachel-default',
+        name: 'Rachel - Professional Female Voice',
         provider: 'elevenlabs',
-        providerVoiceId: 'E8qtV3izSOr5vmxy1BHV',
+        providerVoiceId: '21m00Tcm4TlvDq8ikWAM',
         isDefault: true,
         isActive: true,
         settings: {
           stability: 0.5,
-          similarityBoost: 0.8,
+          similarityBoost: 0.75,
           useSpeakerBoost: true
         },
         metadata: {
-          description: 'Professional female broadcast voice with natural delivery',
+          description: 'Professional female voice with natural delivery',
           language: 'en-US',
           gender: 'female',
-          voiceCharacteristics: ['professional', 'clear', 'empathetic', 'broadcast-quality']
+          voiceCharacteristics: ['professional', 'clear', 'natural', 'warm']
         },
         createdBy: 'system',
         createdAt: new Date(),
@@ -829,7 +829,7 @@ export class MemStorage implements IStorage {
       this.voiceProfiles.set(profile.id, profile as VoiceProfile);
     });
     
-    console.log('🎤 Seeded default FEMALE voice profiles: ARIA (default), Lily, Nova (fallback)');
+    console.log('🎤 Seeded default FEMALE voice profiles: Rachel (default), Lily, Nova (fallback)');
 
     // Initialize with some basic insurance companies
     const companies = [
