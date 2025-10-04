@@ -89,11 +89,9 @@ export default function AIAssistant({ portalContext, userLocation, className }: 
   const [realTimeAlerts, setRealTimeAlerts] = useState<string[]>([]);
   
   // Refs
-  const synthRef = useRef<SpeechSynthesis | null>(null);
   const recognitionRef = useRef<any>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
-  const [voice, setVoice] = useState<SpeechSynthesisVoice | null>(null);
 
   // Portal-specific knowledge base
   const portalKnowledgeBase = {
@@ -279,35 +277,14 @@ export default function AIAssistant({ portalContext, userLocation, className }: 
     }
   };
 
-  // Initialize Speech Synthesis with female voice
+  // Cleanup audio on unmount
   useEffect(() => {
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      synthRef.current = window.speechSynthesis;
-      
-      const loadVoices = () => {
-        const voices = synthRef.current?.getVoices() || [];
-        const femaleVoice = voices.find(v => {
-          const name = v.name.toLowerCase();
-          return name.includes('female') || name.includes('woman') ||
-                 name.includes('zira') || name.includes('hazel') ||
-                 name.includes('samantha') || name.includes('karen') ||
-                 name.includes('victoria') || name.includes('susan') ||
-                 name.includes('mary') || name.includes('anna') ||
-                 name.includes('emma') || name.includes('alice');
-        }) || 
-        voices.find(v => v.lang.startsWith('en-') && v.name.toLowerCase().includes('english')) ||
-        voices.find(v => v.lang.startsWith('en')) ||
-        voices[0];
-        
-        setVoice(femaleVoice);
-      };
-
-      if (synthRef.current.getVoices().length === 0) {
-        synthRef.current.addEventListener('voiceschanged', loadVoices);
-      } else {
-        loadVoices();
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
       }
-    }
+    };
   }, []);
 
   // Initialize Speech Recognition
@@ -352,25 +329,61 @@ export default function AIAssistant({ portalContext, userLocation, className }: 
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [conversation]);
 
-  // Speech synthesis function
-  const speak = useCallback((text: string) => {
-    if (!synthRef.current || !voice) return;
+  // Speech synthesis function using ARIA STORM female voice
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  
+  const speak = useCallback(async (text: string) => {
+    try {
+      // Stop any existing audio
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+      
+      setIsSpeaking(true);
+      setCurrentMessage(text);
+      
+      // Call server API to generate ARIA STORM female voice
+      const response = await fetch('/api/voice-ai/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ text }),
+      });
 
-    synthRef.current.cancel();
-    
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.voice = voice;
-    utterance.rate = 0.9;
-    utterance.pitch = 1.1;
-    utterance.volume = 0.8;
-    
-    utterance.onstart = () => setIsSpeaking(true);
-    utterance.onend = () => setIsSpeaking(false);
-    utterance.onerror = () => setIsSpeaking(false);
-    
-    synthRef.current.speak(utterance);
-    setCurrentMessage(text);
-  }, [voice]);
+      if (!response.ok) {
+        throw new Error('Voice generation failed');
+      }
+
+      const data = await response.json();
+      
+      if (data.audioBase64) {
+        // Create audio element and play
+        const audio = new Audio(`data:audio/mpeg;base64,${data.audioBase64}`);
+        audioRef.current = audio;
+        
+        audio.onended = () => {
+          setIsSpeaking(false);
+          audioRef.current = null;
+        };
+        
+        audio.onerror = () => {
+          setIsSpeaking(false);
+          audioRef.current = null;
+          console.error('Audio playback error');
+        };
+        
+        await audio.play();
+      } else {
+        setIsSpeaking(false);
+      }
+    } catch (error) {
+      console.error('ARIA voice error:', error);
+      setIsSpeaking(false);
+      audioRef.current = null;
+    }
+  }, []);
 
   // Initialize WebSocket for real-time data
   useEffect(() => {
@@ -665,18 +678,27 @@ export default function AIAssistant({ portalContext, userLocation, className }: 
     speak(guidance);
   }, [portalContext, stormData, damageLocations.length, realTimeAlerts.length, speak]);
 
+  // Stop speaking function
+  const stopSpeaking = useCallback(() => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+      setIsSpeaking(false);
+    }
+  }, []);
+
   // Toggle AI assistant
   const toggleAssistant = useCallback(() => {
     if (isActive) {
       setIsActive(false);
       setIsExpanded(false);
-      synthRef.current?.cancel();
+      stopSpeaking();
       if (wsRef.current) wsRef.current.close();
     } else {
       setIsActive(true);
       setTimeout(() => providePortalGuidance(), 500);
     }
-  }, [isActive, providePortalGuidance]);
+  }, [isActive, providePortalGuidance, stopSpeaking]);
 
   // Handle text message send
   const handleSendMessage = useCallback(() => {
@@ -740,14 +762,6 @@ export default function AIAssistant({ portalContext, userLocation, className }: 
   const currentPortal = portalKnowledgeBase[portalContext as keyof typeof portalKnowledgeBase] || portalKnowledgeBase['weather-center'];
   const smartSuggestions = getSmartSuggestions();
   const quickActions = getQuickActions();
-
-  if (!synthRef.current || !voice) {
-    return (
-      <div className="p-4 text-center text-gray-500">
-        Speech features not available in this browser
-      </div>
-    );
-  }
 
   return (
     <motion.div
@@ -858,7 +872,7 @@ export default function AIAssistant({ portalContext, userLocation, className }: 
                       {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
                     </Button>
                     <Button
-                      onClick={() => synthRef.current?.cancel()}
+                      onClick={stopSpeaking}
                       variant="ghost"
                       size="sm"
                       className="p-2 hover:bg-purple-50"
