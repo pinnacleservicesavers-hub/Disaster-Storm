@@ -56,6 +56,7 @@ export function FloatingAIAssistant({ className = '' }: FloatingAIAssistantProps
 
   const recognitionRef = useRef<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Initialize speech recognition
   useEffect(() => {
@@ -85,6 +86,16 @@ export function FloatingAIAssistant({ className = '' }: FloatingAIAssistantProps
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // Cleanup audio on unmount
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
+  }, []);
 
   // Comprehensive AI Query
   const aiQueryMutation = useMutation({
@@ -159,10 +170,17 @@ export function FloatingAIAssistant({ className = '' }: FloatingAIAssistantProps
     }
   });
 
-  // Text-to-speech function
-  const speakResponse = (text: string) => {
-    if ('speechSynthesis' in window && voiceEnabled) {
-      window.speechSynthesis.cancel();
+  // Text-to-speech using Rachel's natural voice via backend API
+  const speakResponse = async (text: string) => {
+    if (!voiceEnabled) return;
+
+    try {
+      // Stop any existing audio
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+      
       setIsSpeaking(true);
       
       // Clean up text for natural speech
@@ -175,29 +193,45 @@ export function FloatingAIAssistant({ className = '' }: FloatingAIAssistantProps
         .replace(/\s+/g, ' ') // Clean up extra spaces
         .trim();
       
-      const utterance = new SpeechSynthesisUtterance(cleanText);
-      
-      // Natural, conversational voice settings
-      utterance.rate = 1.0; // Natural speed
-      utterance.pitch = 1.0; // Natural pitch
-      utterance.volume = 1.0;
-      
-      // Try to get a natural voice
-      const voices = speechSynthesis.getVoices();
-      const preferredVoice = voices.find(voice => 
-        voice.name.includes('Natural') || 
-        voice.name.includes('Enhanced') ||
-        voice.name.includes('Premium') ||
-        (voice.lang.startsWith('en') && voice.localService)
-      );
-      if (preferredVoice) {
-        utterance.voice = preferredVoice;
+      // Call backend API to generate Rachel's natural voice
+      const response = await fetch('/api/voice-ai/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ text: cleanText }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Voice generation failed');
       }
+
+      const data = await response.json();
       
-      utterance.onend = () => setIsSpeaking(false);
-      utterance.onerror = () => setIsSpeaking(false);
-      
-      window.speechSynthesis.speak(utterance);
+      if (data.audioBase64) {
+        // Create audio element and play
+        const audio = new Audio(`data:audio/mpeg;base64,${data.audioBase64}`);
+        audioRef.current = audio;
+        
+        audio.onended = () => {
+          setIsSpeaking(false);
+          audioRef.current = null;
+        };
+        
+        audio.onerror = () => {
+          setIsSpeaking(false);
+          audioRef.current = null;
+          console.error('Audio playback error');
+        };
+        
+        await audio.play();
+      } else {
+        setIsSpeaking(false);
+      }
+    } catch (error) {
+      console.error('Rachel voice error:', error);
+      setIsSpeaking(false);
+      audioRef.current = null;
     }
   };
 
