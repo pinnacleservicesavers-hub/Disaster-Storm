@@ -47,8 +47,8 @@ Preferred communication style: Simple, everyday language.
 - **Background Workers**: Scheduled tasks for deadline reminders, data synchronization.
 
 ### Advanced Features
-- **Voice Cloning System**: Provider-agnostic architecture (ElevenLabs, OpenAI), 'nova' voice, PVC, smart fallback.
-- **ARIA STORM AI Voice**: ElevenLabs "Broadcast Pro Voice" (ID: E8qtV3izSOr5vmxy1BHV) used globally for all AI voice interactions, including Portal Voice Guide, Voice AI Assistant, Claims Agent, and all TTS features. Superior quality to browser-based speech synthesis.
+- **Voice System**: Provider-agnostic architecture (ElevenLabs, OpenAI), smart fallback.
+- **Rachel AI Voice**: Natural female voice using ElevenLabs "Rachel" (ID: 21m00Tcm4TlvDq8ikWAM) as default for all AI voice interactions, including Portal Voice Guide, Voice AI Assistant, Claims Agent, and all TTS features. Provides professional, warm, and natural-sounding female voice throughout the entire application. Falls back to OpenAI's "nova" female voice when ElevenLabs is unavailable. Voice generation takes approximately 2 seconds for high-quality audio.
 - **QR/AprilTag Calibration**: Automatic scale detection for precise measurements in images using jsQR, with AprilTag support framework.
 
 ## External Dependencies
