@@ -756,6 +756,81 @@ export class MemStorage implements IStorage {
     // Debug: log all users in storage
     console.log('🔍 Users in storage after seeding:', Array.from(this.users.keys()));
 
+    // Initialize default FEMALE VOICE PROFILES (ARIA & Lily from ElevenLabs)
+    const defaultVoiceProfiles = [
+      {
+        id: 'voice-aria-default',
+        name: 'ARIA - Broadcast Pro Female Voice',
+        provider: 'elevenlabs',
+        providerVoiceId: 'E8qtV3izSOr5vmxy1BHV',
+        isDefault: true,
+        isActive: true,
+        settings: {
+          stability: 0.5,
+          similarityBoost: 0.8,
+          useSpeakerBoost: true
+        },
+        metadata: {
+          description: 'Professional female broadcast voice with natural delivery',
+          language: 'en-US',
+          gender: 'female',
+          voiceCharacteristics: ['professional', 'clear', 'empathetic', 'broadcast-quality']
+        },
+        createdBy: 'system',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: 'voice-lily-backup',
+        name: 'Lily - Natural Female Voice',
+        provider: 'elevenlabs',
+        providerVoiceId: 'pNInz6obpgDQGcFmaJgB',
+        isDefault: false,
+        isActive: true,
+        settings: {
+          stability: 0.5,
+          similarityBoost: 0.75,
+          useSpeakerBoost: true
+        },
+        metadata: {
+          description: 'Natural, warm female voice',
+          language: 'en-US',
+          gender: 'female',
+          voiceCharacteristics: ['natural', 'warm', 'friendly']
+        },
+        createdBy: 'system',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: 'voice-nova-fallback',
+        name: 'Nova - OpenAI Female Voice (Fallback)',
+        provider: 'openai',
+        providerVoiceId: 'nova',
+        isDefault: false,
+        isActive: true,
+        settings: {
+          model: 'tts-1-hd',
+          speed: 0.95
+        },
+        metadata: {
+          description: 'OpenAI Nova female voice - used as fallback when ElevenLabs is unavailable',
+          language: 'en-US',
+          gender: 'female',
+          voiceCharacteristics: ['clear', 'professional']
+        },
+        createdBy: 'system',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }
+    ];
+
+    defaultVoiceProfiles.forEach(profile => {
+      this.voiceProfiles.set(profile.id, profile as VoiceProfile);
+    });
+    
+    console.log('🎤 Seeded default FEMALE voice profiles: ARIA (default), Lily, Nova (fallback)');
+
     // Initialize with some basic insurance companies
     const companies = [
       { name: "State Farm", code: "SF", avgPayout: 4850, totalClaims: 127, successRate: 92, payoutTrend: 8 },

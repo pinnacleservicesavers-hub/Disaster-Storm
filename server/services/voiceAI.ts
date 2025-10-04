@@ -120,6 +120,7 @@ export class VoiceAIService {
       
       // Get the default voice profile
       const voiceProfile = await storage.getDefaultVoiceProfile();
+      console.log('🔍 Retrieved voice profile:', voiceProfile ? { name: voiceProfile.name, provider: voiceProfile.provider, voiceId: voiceProfile.providerVoiceId, isDefault: voiceProfile.isDefault } : 'NONE FOUND');
       
       if (voiceProfile && voiceProfile.provider === 'elevenlabs' && elevenLabsVoice.isAvailable()) {
         // Try ElevenLabs for broadcast-quality cloned voice
