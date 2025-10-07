@@ -443,6 +443,17 @@ export default function PredictionDashboard() {
   const [hurricaneRefreshKey, setHurricaneRefreshKey] = useState(0);
   const [hurricaneLoadError, setHurricaneLoadError] = useState(false);
   
+  // Basin-specific URLs for Weather Underground
+  const getHurricaneTrackerUrl = (basin: string): string => {
+    const basinUrls: Record<string, string> = {
+      'atlantic': 'https://www.wunderground.com/maps/tropical/atlantic-forecast',
+      'eastern-pacific': 'https://www.wunderground.com/hurricane', // Main page shows EP storms
+      'western-pacific': 'https://www.wunderground.com/hurricane', // Main page shows WP storms
+      'global': 'https://www.wunderground.com/hurricane' // All active systems
+    };
+    return basinUrls[basin] || basinUrls['global'];
+  };
+  
   // Webcam state
   const [webcamRegion, setWebcamRegion] = useState<string>('southeast');
   const [webcamLoadError, setWebcamLoadError] = useState(false);
@@ -1976,8 +1987,8 @@ export default function PredictionDashboard() {
                         >
                           {/* Weather Underground Hurricane Tracker Iframe */}
                           <iframe
-                            key={hurricaneRefreshKey}
-                            src="https://www.wunderground.com/hurricane"
+                            key={`${selectedBasin}-${hurricaneRefreshKey}`}
+                            src={getHurricaneTrackerUrl(selectedBasin)}
                             className="w-full h-[800px] border-0"
                             title="Weather Underground Hurricane Tracker"
                             data-testid="iframe-hurricane-tracker"
@@ -2003,7 +2014,7 @@ export default function PredictionDashboard() {
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  onClick={() => window.open('https://www.wunderground.com/hurricane', '_blank')}
+                                  onClick={() => window.open(getHurricaneTrackerUrl(selectedBasin), '_blank')}
                                   data-testid="button-open-external-tracker"
                                   className="text-xs h-7"
                                 >
