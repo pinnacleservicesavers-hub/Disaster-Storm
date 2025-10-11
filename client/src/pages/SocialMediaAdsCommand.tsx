@@ -13,7 +13,8 @@ import {
   DollarSign, Clock, Activity, Play, Pause, Edit, Trash2,
   Plus, Eye, BarChart3, Facebook, Youtube, Instagram, 
   Search, CheckCircle, XCircle, AlertTriangle, Settings,
-  Map, Crosshair, Circle, Radar, Smartphone, MousePointer
+  Map, Crosshair, Circle, Radar, Smartphone, MousePointer,
+  Sparkles, MessageSquare, Wand2, Image as ImageIcon, Send
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FadeIn, ScaleIn, StaggerContainer, StaggerItem } from '@/components/ui/animations';
@@ -62,6 +63,10 @@ export default function SocialMediaAdsCommand() {
   const [activeTab, setActiveTab] = useState('overview');
   const [showCreateGeoFence, setShowCreateGeoFence] = useState(false);
   const [showCreateCampaign, setShowCreateCampaign] = useState(false);
+  const [showAIAssistant, setShowAIAssistant] = useState(false);
+  const [aiChatMessages, setAiChatMessages] = useState<Array<{role: string; content: string}>>([]);
+  const [aiChatInput, setAiChatInput] = useState('');
+  const [aiGenerating, setAiGenerating] = useState(false);
   
   // New geo-fence form state
   const [newGeoFence, setNewGeoFence] = useState({
@@ -175,6 +180,59 @@ export default function SocialMediaAdsCommand() {
         ? prev.platforms.filter(p => p !== platform)
         : [...prev.platforms, platform]
     }));
+  };
+
+  // AI Ad Copy Generation
+  const generateAICopy = async () => {
+    setAiGenerating(true);
+    try {
+      const response = await apiRequest('/api/ai-ads/generate-copy', {
+        method: 'POST',
+        body: JSON.stringify({
+          businessType: 'Storm Restoration Services',
+          targetAudience: 'Homeowners with storm damage',
+          urgency: 'high',
+          serviceType: 'Emergency restoration',
+          location: newGeoFence.name || 'Storm-affected area',
+          stormType: 'Hurricane/Storm',
+          budget: newCampaign.totalBudget,
+          platform: newCampaign.platforms[0] || 'Facebook'
+        })
+      });
+      
+      if (response.variations && response.variations.length > 0) {
+        setNewCampaign(prev => ({ ...prev, adCopy: response.variations[0] }));
+        setAiChatMessages(prev => [...prev, 
+          { role: 'assistant', content: `Here are compelling ad copy options:\n\n${response.variations.map((v, i) => `${i + 1}. ${v}`).join('\n\n')}` }
+        ]);
+      }
+    } catch (error) {
+      console.error('Error generating AI copy:', error);
+    }
+    setAiGenerating(false);
+  };
+
+  // AI Chat
+  const sendAIMessage = async () => {
+    if (!aiChatInput.trim()) return;
+    
+    const userMessage = aiChatInput;
+    setAiChatInput('');
+    setAiChatMessages(prev => [...prev, { role: 'user', content: userMessage }]);
+    
+    try {
+      const response = await apiRequest('/api/ai-ads/chat', {
+        method: 'POST',
+        body: JSON.stringify({ 
+          message: userMessage,
+          context: { previousMessages: aiChatMessages }
+        })
+      });
+      
+      setAiChatMessages(prev => [...prev, { role: 'assistant', content: response.response }]);
+    } catch (error) {
+      console.error('Error in AI chat:', error);
+    }
   };
 
   const getPlatformIcon = (platform: string) => {
@@ -569,7 +627,20 @@ export default function SocialMediaAdsCommand() {
                           </div>
 
                           <div>
-                            <Label>Ad Copy</Label>
+                            <div className="flex items-center justify-between mb-2">
+                              <Label>Ad Copy</Label>
+                              <Button
+                                onClick={generateAICopy}
+                                disabled={aiGenerating}
+                                size="sm"
+                                variant="outline"
+                                className="text-purple-600 border-purple-300 hover:bg-purple-50"
+                                data-testid="button-generate-ai-copy"
+                              >
+                                <Wand2 className="w-4 h-4 mr-1" />
+                                {aiGenerating ? 'Generating...' : 'AI Generate'}
+                              </Button>
+                            </div>
                             <Textarea 
                               value={newCampaign.adCopy}
                               onChange={(e) => setNewCampaign({ ...newCampaign, adCopy: e.target.value })}
@@ -577,6 +648,9 @@ export default function SocialMediaAdsCommand() {
                               placeholder="Your ad text..."
                               data-testid="textarea-ad-copy"
                             />
+                            <p className="text-xs text-gray-500 mt-1">
+                              💡 Click "AI Generate" for attention-grabbing copy that stops scrollers
+                            </p>
                           </div>
 
                           <div className="grid grid-cols-2 gap-4">
@@ -904,6 +978,122 @@ export default function SocialMediaAdsCommand() {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* AI Assistant Floating Button */}
+      <motion.div
+        initial={{ opacity: 0, scale: 0 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ delay: 0.5 }}
+        className="fixed bottom-6 right-6 z-50"
+      >
+        <Button
+          onClick={() => setShowAIAssistant(!showAIAssistant)}
+          size="lg"
+          className="rounded-full w-14 h-14 shadow-2xl bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+          data-testid="button-ai-assistant"
+        >
+          <Sparkles className="w-6 h-6" />
+        </Button>
+      </motion.div>
+
+      {/* AI Assistant Chat Panel */}
+      <AnimatePresence>
+        {showAIAssistant && (
+          <motion.div
+            initial={{ opacity: 0, x: 300 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 300 }}
+            className="fixed bottom-24 right-6 w-96 z-50"
+          >
+            <Card className="shadow-2xl">
+              <CardHeader className="bg-gradient-to-r from-purple-600 to-blue-600 text-white">
+                <CardTitle className="flex items-center justify-between">
+                  <span className="flex items-center">
+                    <Sparkles className="w-5 h-5 mr-2" />
+                    AI Ads Assistant
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setShowAIAssistant(false)}
+                    className="text-white hover:text-white/80"
+                  >
+                    ×
+                  </Button>
+                </CardTitle>
+                <CardDescription className="text-white/90">
+                  Ask me anything about Facebook/Meta ads, creating campaigns, or optimizing performance
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="h-96 overflow-y-auto p-4 space-y-3">
+                  {aiChatMessages.length === 0 ? (
+                    <div className="text-center text-gray-500 mt-20">
+                      <MessageSquare className="w-12 h-12 mx-auto mb-3 text-gray-400" />
+                      <p>Start a conversation!</p>
+                      <p className="text-sm mt-2">Try asking:</p>
+                      <div className="mt-3 space-y-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setAiChatInput('How do I set up Facebook ads for storm restoration?');
+                            sendAIMessage();
+                          }}
+                        >
+                          How to set up Facebook ads?
+                        </Button>
+                        <br />
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setAiChatInput('What makes a great ad that stops people from scrolling?');
+                            sendAIMessage();
+                          }}
+                        >
+                          What makes ads grab attention?
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    aiChatMessages.map((msg, idx) => (
+                      <div
+                        key={idx}
+                        className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                      >
+                        <div
+                          className={`max-w-[80%] rounded-lg p-3 ${
+                            msg.role === 'user'
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100'
+                          }`}
+                        >
+                          <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+                <div className="p-4 border-t">
+                  <div className="flex gap-2">
+                    <Input
+                      value={aiChatInput}
+                      onChange={(e) => setAiChatInput(e.target.value)}
+                      onKeyPress={(e) => e.key === 'Enter' && sendAIMessage()}
+                      placeholder="Ask about ads, campaigns, targeting..."
+                      data-testid="input-ai-chat"
+                    />
+                    <Button onClick={sendAIMessage} size="sm" data-testid="button-send-ai-message">
+                      <Send className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
