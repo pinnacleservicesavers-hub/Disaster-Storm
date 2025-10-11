@@ -37,6 +37,17 @@ Preferred communication style: Simple, everyday language.
 ### Service Layer Architecture
 - **Weather Service**: NWS APIs for real-time alerts and radar.
 - **AI Service**: OpenAI for claim letter generation, image analysis, market comparables, and AI-powered damage hints (with confidence scoring and visual feedback).
+- **AI Storm Expert**: Advanced educational meteorology analysis with GPT-4:
+  - **GLM Lightning Burst Analysis**: Monitors GOES GLM lightning data inside eye-core, explains rapid intensification indicators, reveals insider forecasting secrets
+  - **7 Tripwire Monitoring System**: Tracks critical storm indicators (eye structure, sea-surface anomalies, wind shear, track variance, rainfall, dry air) with real-time status and educational explanations
+  - **AI Landfall Prediction**: Makes specific predictions based on real data (SST, wind shear, steering currents, model consensus) with detailed reasoning and wildcard scenarios
+  - **Continuous Educational Insights**: Progressively deeper insider knowledge about what professionals watch, hidden indicators, and advanced forecasting techniques
+  - **Contractor-Friendly Explanations**: Translates complex meteorology into actionable intelligence with GO/CAUTION/PREPARE/HOLD recommendations
+- **AI Ads Assistant**: OpenAI GPT-4 and DALL-E integration for Social Media Ads:
+  - **Automatic Ad Copy Generation**: Creates compelling, attention-grabbing storm restoration ad copy
+  - **Creative Generation**: DALL-E image generation for ad visuals
+  - **Interactive Chat Assistant**: Real-time help with Facebook/Meta advertising setup and strategy
+  - **Campaign Optimization**: Strategic recommendations for targeting, budgets, and performance
 - **Property Service**: Multi-provider property lookup (Smarty, Regrid, ATTOM, Melissa).
 - **Legal Service**: State-specific lien deadline calculations, attorney directory.
 - **Translation Service**: Bilingual support for construction/insurance terminology.
