@@ -1,0 +1,92 @@
+What “Geo-Capture” Means
+Geo-capture (or geo-fencing) means digitally drawing a fence on a map so you can tag every smartphone or device that enters or lives inside that area.
+Once you tag them, you can:
+	1	Show ads on their phones, social apps, or YouTube later.
+	2	Build an audience list for follow-up ads or text/email campaigns.
+	3	Trigger messages or calls-to-action the moment a storm passes.
+It’s like placing a digital billboard in someone’s pocket—but only in the exact neighborhood that just got hit.
+
+⚙️ How Geo-Capture Works Step-by-Step
+1. Define the Target Area
+When a storm like Jerry forms, use a storm-impact map (from RadarOmega, Windy, or Stormers.io) to see:
+	•	Counties with gusts 55+ mph
+	•	ZIPs in the projected cone
+	•	or a 3-mile buffer around the forecasted damage path
+You can literally outline that polygon in ad software.
+📍 Example: Draw a 25-mile circle around Panama City → that becomes your “geo-fence.”
+
+2. Choose the Platform
+You can geo-capture through:
+Platform
+What It Does
+Cost Range
+Google Ads
+Run search/display ads only visible to devices inside your drawn area
+$10–$50/day
+Facebook / Meta Ads Manager
+Create “location radius” audiences (as small as 1 mile)
+$10–$20/day
+WeatherAds.io
+Triggers your ad when a weather event (like wind >45 mph) hits that area
+~$99/mo
+GroundTruth or Simpli.fi
+Enterprise-grade geo-fencing that stores device IDs for remarketing even after they leave the zone
+per-impression billing
+HighLevel + Zapier + Google My Business
+Lets you tag form submissions or calls by location and auto-send follow-up texts
+minimal extra cost
+
+3. Capture the Devices
+As soon as a phone’s GPS or IP ping enters your geo-fenced area, the ad network logs it (privacy-safe).
+That device is now part of your “custom audience.”
+Even after the person leaves the zone (e.g., evacuates or travels), they still see your ads for up to 30 days.
+
+4. Serve Precision Ads
+Once the storm passes:
+	•	Send ads that say things like:
+“Tree on your home? Our emergency crews are already in your neighborhood — Call Shannon 706-840-8949.”
+
+	•	Include a short video of your team working local storm jobs for credibility.
+	•	The ad only appears on phones from that geo-fence.
+If you’re using GroundTruth or WeatherAds, you can even make the ad auto-activate the moment wind gusts exceed 45 mph in that zone.
+
+5. Layer More Smart Filters
+You can combine geo-capture with:
+	•	Keyword filters: “tree service,” “roof repair,” “storm cleanup.”
+	•	Demographics: homeowners age 30-65 with home-value >$150 k.
+	•	Interest layers: insurance, home improvement, gardening.
+That ensures you only spend money on homeowners with storm damage — not random passers-by.
+
+6. Follow Up for Weeks
+Everyone who entered the geo-fence now forms a retargeting list.
+So even a week later, when they finally start searching “tree removal near me,” your ad appears first because the system already “knows” their device came from the damaged zone.
+
+💡 Real-World Example for SLM
+Scenario:
+Hurricane (or strong tropical storm) makes landfall near Panama City.
+What SLM does:
+	1	In Meta Ads Manager, create a 25-mile radius around Bay County.
+	2	Set your ad copy:
+“🚨 Storm Damage? We’re Local, Licensed, and Already Clearing Roads. Free Estimate – Call Shannon at 706-840-8949.”
+
+	3	Activate with WeatherAds trigger: “Show ad when wind gusts >45 mph.”
+	4	After landfall, tighten the radius to ZIPs where outages >50%.
+	5	Keep retargeting those device IDs for 30 days with videos of your crews at work.
+Within 24 hours you’re the first company every local homeowner sees when they open Facebook, Instagram, YouTube, or Google.
+
+🧭 Key Takeaways
+Goal
+What You Do
+Result
+Be first to contact storm victims
+Set up geo-fences in likely hit ZIPs before landfall
+You already “own” those phones
+Capture leads silently
+Ads tag phones even before they search
+You build your storm-zone audience automatically
+Outpace competitors
+Turn ads on with WeatherAds triggers
+You appear the moment wind dies down
+Re-market long-term
+Keep showing clean-up videos & free-estimate ads for 30 days
+You close jobs others never knew existed
