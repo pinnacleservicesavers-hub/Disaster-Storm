@@ -125,7 +125,14 @@ import {
   type InsertMediaFrame,
   // Voice Profile entities
   type VoiceProfile,
-  type InsertVoiceProfile
+  type InsertVoiceProfile,
+  // Ad Campaign entities
+  type AdGeoFence,
+  type InsertAdGeoFence,
+  type AdCampaign,
+  type InsertAdCampaign,
+  type DeviceAudience,
+  type InsertDeviceAudience
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import fs from "fs";
@@ -616,6 +623,24 @@ export interface IStorage {
   createVoiceProfile(profile: InsertVoiceProfile): Promise<VoiceProfile>;
   updateVoiceProfile(id: string, updates: Partial<VoiceProfile>): Promise<VoiceProfile>;
   deleteVoiceProfile(id: string): Promise<boolean>;
+  
+  // Ad Campaign methods
+  createAdGeoFence(fence: InsertAdGeoFence): Promise<AdGeoFence>;
+  getAdGeoFence(id: string): Promise<AdGeoFence | undefined>;
+  getAllAdGeoFences(): Promise<AdGeoFence[]>;
+  updateAdGeoFence(id: string, updates: Partial<AdGeoFence>): Promise<AdGeoFence>;
+  deleteAdGeoFence(id: string): Promise<boolean>;
+  
+  createAdCampaign(campaign: InsertAdCampaign): Promise<AdCampaign>;
+  getAdCampaign(id: string): Promise<AdCampaign | undefined>;
+  getAllAdCampaigns(): Promise<AdCampaign[]>;
+  getAdCampaignsByGeoFence(geoFenceId: string): Promise<AdCampaign[]>;
+  updateAdCampaign(id: string, updates: Partial<AdCampaign>): Promise<AdCampaign>;
+  deleteAdCampaign(id: string): Promise<boolean>;
+  
+  createDeviceAudience(device: InsertDeviceAudience): Promise<DeviceAudience>;
+  getDeviceAudiencesByGeoFence(geoFenceId: string): Promise<DeviceAudience[]>;
+  getDeviceAudiencesByCampaign(campaignId: string): Promise<DeviceAudience[]>;
 }
 
 export class MemStorage implements IStorage {
@@ -701,6 +726,11 @@ export class MemStorage implements IStorage {
   
   // Voice Profile Storage
   private voiceProfiles: Map<string, VoiceProfile> = new Map();
+  
+  // Ad Campaign Storage
+  private adGeoFences: Map<string, AdGeoFence> = new Map();
+  private adCampaigns: Map<string, AdCampaign> = new Map();
+  private deviceAudiences: Map<string, DeviceAudience> = new Map();
 
   constructor() {
     console.log('🏗️ Initializing MemStorage...');
@@ -4209,6 +4239,99 @@ export class MemStorage implements IStorage {
 
   async deleteVoiceProfile(id: string): Promise<boolean> {
     return this.voiceProfiles.delete(id);
+  }
+  
+  // Ad Campaign methods
+  async createAdGeoFence(insertFence: InsertAdGeoFence): Promise<AdGeoFence> {
+    const fence: AdGeoFence = {
+      id: randomUUID(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      ...insertFence
+    };
+    this.adGeoFences.set(fence.id, fence);
+    return fence;
+  }
+
+  async getAdGeoFence(id: string): Promise<AdGeoFence | undefined> {
+    return this.adGeoFences.get(id);
+  }
+
+  async getAllAdGeoFences(): Promise<AdGeoFence[]> {
+    return Array.from(this.adGeoFences.values());
+  }
+
+  async updateAdGeoFence(id: string, updates: Partial<AdGeoFence>): Promise<AdGeoFence> {
+    const fence = this.adGeoFences.get(id);
+    if (!fence) {
+      throw new Error(`Geo-fence ${id} not found`);
+    }
+    const updated = { ...fence, ...updates, updatedAt: new Date() };
+    this.adGeoFences.set(id, updated);
+    return updated;
+  }
+
+  async deleteAdGeoFence(id: string): Promise<boolean> {
+    return this.adGeoFences.delete(id);
+  }
+
+  async createAdCampaign(insertCampaign: InsertAdCampaign): Promise<AdCampaign> {
+    const campaign: AdCampaign = {
+      id: randomUUID(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      impressions: 0,
+      clicks: 0,
+      conversions: 0,
+      spend: '0',
+      ...insertCampaign
+    };
+    this.adCampaigns.set(campaign.id, campaign);
+    return campaign;
+  }
+
+  async getAdCampaign(id: string): Promise<AdCampaign | undefined> {
+    return this.adCampaigns.get(id);
+  }
+
+  async getAllAdCampaigns(): Promise<AdCampaign[]> {
+    return Array.from(this.adCampaigns.values());
+  }
+
+  async getAdCampaignsByGeoFence(geoFenceId: string): Promise<AdCampaign[]> {
+    return Array.from(this.adCampaigns.values()).filter(c => c.geoFenceId === geoFenceId);
+  }
+
+  async updateAdCampaign(id: string, updates: Partial<AdCampaign>): Promise<AdCampaign> {
+    const campaign = this.adCampaigns.get(id);
+    if (!campaign) {
+      throw new Error(`Campaign ${id} not found`);
+    }
+    const updated = { ...campaign, ...updates, updatedAt: new Date() };
+    this.adCampaigns.set(id, updated);
+    return updated;
+  }
+
+  async deleteAdCampaign(id: string): Promise<boolean> {
+    return this.adCampaigns.delete(id);
+  }
+
+  async createDeviceAudience(insertDevice: InsertDeviceAudience): Promise<DeviceAudience> {
+    const device: DeviceAudience = {
+      id: randomUUID(),
+      createdAt: new Date(),
+      ...insertDevice
+    };
+    this.deviceAudiences.set(device.id, device);
+    return device;
+  }
+
+  async getDeviceAudiencesByGeoFence(geoFenceId: string): Promise<DeviceAudience[]> {
+    return Array.from(this.deviceAudiences.values()).filter(d => d.geoFenceId === geoFenceId);
+  }
+
+  async getDeviceAudiencesByCampaign(campaignId: string): Promise<DeviceAudience[]> {
+    return Array.from(this.deviceAudiences.values()).filter(d => d.campaignId === campaignId);
   }
 }
 
