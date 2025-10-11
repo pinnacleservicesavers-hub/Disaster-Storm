@@ -4009,3 +4009,125 @@ export type Adjuster = typeof adjusters.$inferSelect;
 export type InsertAdjuster = z.infer<typeof insertAdjusterSchema>;
 export type ContactLog = typeof contactLog.$inferSelect;
 export type InsertContactLog = z.infer<typeof insertContactLogSchema>;
+
+// ===== AD CAMPAIGN & GEO-FENCE MANAGEMENT =====
+
+// Ad Geo-Fences Table
+export const adGeoFences = pgTable("ad_geo_fences", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description"),
+  stormId: text("storm_id"),
+  centerLat: numeric("center_lat").notNull(),
+  centerLng: numeric("center_lng").notNull(),
+  radiusMiles: numeric("radius_miles").notNull(),
+  polygon: jsonb("polygon"), // GeoJSON polygon for custom shapes
+  status: text("status").notNull().default('active'), // active, paused, expired
+  devicesCaptured: integer("devices_captured").default(0),
+  impressions: integer("impressions").default(0),
+  clicks: integer("clicks").default(0),
+  conversions: integer("conversions").default(0),
+  spend: numeric("spend").default('0'),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  expiresAt: timestamp("expires_at")
+});
+
+// Ad Campaigns Table
+export const adCampaigns = pgTable("ad_campaigns", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description"),
+  geoFenceId: varchar("geo_fence_id").references(() => adGeoFences.id),
+  stormId: text("storm_id"),
+  
+  // Campaign details
+  platforms: jsonb("platforms").notNull(), // ['meta', 'google', 'instagram', 'youtube']
+  adCopy: text("ad_copy").notNull(),
+  callToAction: text("call_to_action").notNull(),
+  targetUrl: text("target_url"),
+  phoneNumber: text("phone_number"),
+  
+  // Media
+  imageUrl: text("image_url"),
+  videoUrl: text("video_url"),
+  
+  // Targeting
+  demographics: jsonb("demographics"), // age, income, homeowner status
+  keywords: jsonb("keywords"), // search keywords
+  interests: jsonb("interests"), // targeting interests
+  
+  // Budget & Schedule
+  dailyBudget: numeric("daily_budget"),
+  totalBudget: numeric("total_budget"),
+  startDate: timestamp("start_date"),
+  endDate: timestamp("end_date"),
+  
+  // Weather Triggers
+  weatherTriggers: jsonb("weather_triggers"), // wind speed, conditions
+  autoActivate: boolean("auto_activate").default(false),
+  
+  // Status & Performance
+  status: text("status").notNull().default('draft'), // draft, active, paused, completed
+  impressions: integer("impressions").default(0),
+  clicks: integer("clicks").default(0),
+  conversions: integer("conversions").default(0),
+  spend: numeric("spend").default('0'),
+  
+  // Platform-specific IDs
+  metaAdId: text("meta_ad_id"),
+  googleAdId: text("google_ad_id"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull()
+});
+
+// Device Audiences (for retargeting)
+export const deviceAudiences = pgTable("device_audiences", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  geoFenceId: varchar("geo_fence_id").references(() => adGeoFences.id),
+  campaignId: varchar("campaign_id").references(() => adCampaigns.id),
+  
+  // Device info (hashed/privacy-safe)
+  deviceHash: text("device_hash").notNull(),
+  platform: text("platform"), // ios, android, web
+  
+  // Engagement
+  firstSeen: timestamp("first_seen").defaultNow().notNull(),
+  lastSeen: timestamp("last_seen").defaultNow().notNull(),
+  impressionCount: integer("impression_count").default(0),
+  clickCount: integer("click_count").default(0),
+  converted: boolean("converted").default(false),
+  
+  // Retargeting
+  retargetingActive: boolean("retargeting_active").default(true),
+  retargetingExpires: timestamp("retargeting_expires"), // 30 days default
+  
+  createdAt: timestamp("created_at").defaultNow().notNull()
+});
+
+// Insert schemas
+export const insertAdGeoFenceSchema = createInsertSchema(adGeoFences).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
+});
+
+export const insertAdCampaignSchema = createInsertSchema(adCampaigns).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
+});
+
+export const insertDeviceAudienceSchema = createInsertSchema(deviceAudiences).omit({
+  id: true,
+  createdAt: true
+});
+
+// Select types
+export type AdGeoFence = typeof adGeoFences.$inferSelect;
+export type InsertAdGeoFence = z.infer<typeof insertAdGeoFenceSchema>;
+export type AdCampaign = typeof adCampaigns.$inferSelect;
+export type InsertAdCampaign = z.infer<typeof insertAdCampaignSchema>;
+export type DeviceAudience = typeof deviceAudiences.$inferSelect;
+export type InsertDeviceAudience = z.infer<typeof insertDeviceAudienceSchema>;

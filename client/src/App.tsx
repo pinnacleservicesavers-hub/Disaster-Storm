@@ -25,6 +25,7 @@ import DisasterLens from "./pages/DisasterLens";
 import Legal from "./pages/Legal";
 import Leads from "./pages/Leads";
 import StormLeadCommand from "./pages/StormLeadCommand";
+import SocialMediaAdsCommand from "./pages/SocialMediaAdsCommand";
 import FunnelBuilder from "./pages/FunnelBuilder";
 import FormBuilder from "./pages/FormBuilder";
 import CalendarBooking from "./pages/CalendarBooking";
@@ -569,6 +570,12 @@ export default function App() {
           <title>Storm Lead Intelligence - Disaster Direct</title>
           <meta name="description" content="Automated storm lead generation using AI predictions, social media monitoring, geo-capture automation, and weather triggers" />
           <StormLeadCommand />
+        </Route>
+        
+        <Route path="/social-media-ads">
+          <title>Social Media Ads Command Center - Disaster Direct</title>
+          <meta name="description" content="Multi-platform geo-fencing and weather-triggered ad campaigns across Meta, Google, Instagram, and YouTube for storm damage marketing" />
+          <SocialMediaAdsCommand />
         </Route>
         
         <Route path="/funnel-builder">
