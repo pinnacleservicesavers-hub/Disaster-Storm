@@ -1,0 +1,57 @@
+Dashboard” for Tropical Storm Jerry based on the latest model guidance and what pros quietly watch to spot sudden changes.
+It’s written so you and the SLM team can glance at it, know what each sign means, and decide instantly whether to act or just observe.
+
+🌀 Tropical Storm Jerry – 72-Hour Tripwire Dashboard
+#
+Tripwire (What to Look For)
+What It Really Means
+Expected Timing
+SLM Action
+1
+⚡ Lightning burst inside the eye-core (seen on GOES GLM or lightning-density maps)
+Strong inner-core convection forming → central pressure likely to drop 10–20 mb in 6–12 h
+Anytime during Oct 11–13
+🟡 Prepare: note in ops log; monitor next satellite update
+2
+🌀 Perfectly round, well-defined eye on visible/IR satellite
+Storm structure tightening → likely rapid intensification
+12–36 h window
+🔴 GO: treat forecast intensity + 1 category higher
+3
+🌊 Sea-surface height anomaly > +0.25 m under track (warm-eddy signature on NOAA altimetry)
+Deep ocean heat → storm can sustain stronger winds
+24–48 h
+🟡 Shift: if Jerry surprises and trends west, start early Gulf-readiness checklist
+4
+🌬️ Shear < 10 kt with clear NE outflow tail on satellite upper-level winds
+Storm “venting” efficiently → intensity jump likely
+24–48 h
+🔴 GO: expect Cat 1–2 status; notify crews of potential resource redeployments
+5
+🧭 Track bends WNW instead of NW → N on official cone
+Ridge holding stronger → storm tracks closer to Caribbean or Bahamas
+Check every NHC update
+🟠 Caution: start 48-hr resource pre-stage for possible mainland effects
+6
+🌧️ Outer-band rainfall > 2 in/hr on radar near Leewards
+Moist inflow robust → heavy flooding risk for islands
+Ongoing
+🟢 Monitor: humanitarian readiness; no direct SLM risk
+7
+🌡️ Mid-level dry air intrusion on water-vapor imagery
+Dry air entering core → weakening trend
+If seen post-Oct 13
+🟢 Hold: downgrade readiness; monitor only
+
+🧩 Simplified Outlook
+	•	Current position: Central Atlantic, moving WNW around 16 mph.
+	•	Steering: A subtropical ridge to the north will steer it WNW, then a trough by Oct 15 should pull it north → NE into open Atlantic.
+	•	Land risk: Leeward Islands → some rain + surf; U.S. landfall low (< 10%).
+	•	Wild card: If ridge remains stronger for another 48 h, the bend north delays, letting Jerry move 200–300 miles farther west before recurving — that’s the “surprise” case that could later bring it closer to the Bahamas.
+
+🔭 How You Use This
+	1	Shannon / John check each new NHC advisory.
+	2	Mark each tripwire that turns “active.”
+	3	Two active tripwires = GO Trigger → assume storm will intensify one category and update crew staging plans.
+	4	One or zero tripwires = Hold → observation only.
+	5	After 72 h, if none of the red/yellow tripwires activate, Jerry becomes an “open-water system,” and the dashboard resets for the next storm.
