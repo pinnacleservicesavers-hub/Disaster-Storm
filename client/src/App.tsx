@@ -40,7 +40,7 @@ import { sampleContractors, sampleLeads } from "./data/sampleData";
 import { FloatingAIAssistant } from '@/components/FloatingAIAssistant';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Cloud, Home, Menu, Camera, Heart, Eye, Zap, Users, FileText, User, Plane, Scale, Settings, Briefcase, Video, Target, Share2, Shield, Bell, Search, TrendingUp, ShoppingBag } from 'lucide-react';
+import { Cloud, Home, Menu, Camera, Heart, Eye, Zap, Users, FileText, User, Plane, Scale, Settings, Briefcase, Video, Target, Share2, Shield, Bell, Search, TrendingUp, ShoppingBag, Radio } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useState, useEffect } from 'react';
 import { FadeIn } from '@/components/ui/animations';
@@ -146,6 +146,14 @@ function Navigation() {
           testId: "nav-storm-lead-command",
           badge: "AI",
           badgeColor: "bg-gradient-to-r from-purple-500 to-blue-500"
+        },
+        { 
+          href: "/social-media-ads", 
+          label: "Social Media Ads", 
+          icon: Radio, 
+          testId: "nav-social-media-ads",
+          badge: "Geo-Capture",
+          badgeColor: "bg-gradient-to-r from-pink-500 to-purple-500"
         }
       ]
     },

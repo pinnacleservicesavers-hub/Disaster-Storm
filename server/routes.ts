@@ -53,6 +53,7 @@ import { noaaStormEventsService } from "./services/noaaStormEventsService";
 import { stormToParcelConverter } from "./services/stormToParcelConverter";
 import stormIntelligenceRoutes from "./routes/stormIntelligence";
 import stormLeadIntelligenceRoutes from "./routes/stormLeadIntelligence";
+import { registerAdCampaignRoutes } from "./routes/adCampaigns";
 import { VoiceAIService } from "./services/voiceAI";
 import { weatherAI } from "./services/weatherAI.js";
 import { universalAI } from "./services/universalAI.js";
@@ -427,6 +428,9 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
   // ---- Storm Lead Intelligence Routes ----
   app.use('/api/storm-leads', stormLeadIntelligenceRoutes);
   console.log('🎯 Storm Lead Intelligence routes registered');
+  
+  // ---- Ad Campaign Management Routes ----
+  registerAdCampaignRoutes(app, storage);
 
   // ---- Session and Passport setup ----
   const isProd = /^https:\/\//.test(process.env.BASE_URL ?? "");
