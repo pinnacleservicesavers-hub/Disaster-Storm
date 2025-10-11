@@ -55,6 +55,7 @@ import stormIntelligenceRoutes from "./routes/stormIntelligence";
 import stormLeadIntelligenceRoutes from "./routes/stormLeadIntelligence";
 import { registerAdCampaignRoutes } from "./routes/adCampaigns";
 import { registerAIAdsRoutes } from "./routes/aiAdsRoutes";
+import { registerAIStormExpertRoutes } from "./routes/aiStormExpertRoutes";
 import { VoiceAIService } from "./services/voiceAI";
 import { weatherAI } from "./services/weatherAI.js";
 import { universalAI } from "./services/universalAI.js";
@@ -435,6 +436,9 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
   
   // ---- AI Ads Assistant Routes ----
   registerAIAdsRoutes(app);
+  
+  // ---- AI Storm Expert Routes ----
+  registerAIStormExpertRoutes(app);
 
   // ---- Session and Passport setup ----
   const isProd = /^https:\/\//.test(process.env.BASE_URL ?? "");
