@@ -24,6 +24,7 @@ import Customers from "./pages/Customers";
 import DisasterLens from "./pages/DisasterLens";
 import Legal from "./pages/Legal";
 import Leads from "./pages/Leads";
+import StormLeadCommand from "./pages/StormLeadCommand";
 import FunnelBuilder from "./pages/FunnelBuilder";
 import FormBuilder from "./pages/FormBuilder";
 import CalendarBooking from "./pages/CalendarBooking";
@@ -136,6 +137,14 @@ function Navigation() {
           testId: "nav-leads",
           badge: "157",
           badgeColor: "bg-orange-500"
+        },
+        { 
+          href: "/storm-lead-command", 
+          label: "Storm Lead Intelligence", 
+          icon: Zap, 
+          testId: "nav-storm-lead-command",
+          badge: "AI",
+          badgeColor: "bg-gradient-to-r from-purple-500 to-blue-500"
         }
       ]
     },
@@ -554,6 +563,12 @@ export default function App() {
           <title>Damage Leads - Disaster Direct</title>
           <meta name="description" content="AI-powered damage detection leads from live footage with property owner information and contractor assignments" />
           <Leads />
+        </Route>
+        
+        <Route path="/storm-lead-command">
+          <title>Storm Lead Intelligence - Disaster Direct</title>
+          <meta name="description" content="Automated storm lead generation using AI predictions, social media monitoring, geo-capture automation, and weather triggers" />
+          <StormLeadCommand />
         </Route>
         
         <Route path="/funnel-builder">
