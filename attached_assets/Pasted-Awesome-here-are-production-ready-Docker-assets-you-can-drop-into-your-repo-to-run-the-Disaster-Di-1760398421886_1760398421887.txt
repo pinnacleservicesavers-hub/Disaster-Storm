@@ -1,0 +1,163 @@
+Awesome — here are production-ready Docker assets you can drop into your repo to run the Disaster Direct proxy anywhere (Render, Railway, EC2, Fly, k8s). They include a slim image, healthchecks, non-root user, and environment placeholders.
+
+1) Dockerfile (Node 20, Alpine, non-root, healthcheck-ready)
+# ---- base build stage ----
+FROM node:20-alpine AS base
+ENV NODE_ENV=production
+WORKDIR /app
+
+# Install tini for proper signal handling
+RUN apk add --no-cache tini
+
+# Install only prod deps (works for pnpm/yarn/npm – pick one)
+# If you use pnpm or yarn, uncomment the matching block and remove the npm one.
+
+# --- npm ---
+COPY package*.json ./
+RUN npm ci --omit=dev
+
+# --- yarn ---
+# COPY package.json yarn.lock ./
+# RUN yarn install --frozen-lockfile --production
+
+# --- pnpm ---
+# COPY package.json pnpm-lock.yaml ./
+# RUN corepack enable && pnpm install --prod --frozen-lockfile
+
+# Copy source
+COPY . .
+
+# Optionally build (uncomment if you transpile TypeScript or build Next.js)
+# RUN npm run build
+
+# Create non-root user
+RUN addgroup -S app && adduser -S app -G app \
+  && chown -R app:app /app
+USER app
+
+# Expose port (Replit/Railway/Render will map it)
+EXPOSE 3001
+
+# Healthcheck is configured at the platform or via docker-compose (below)
+ENTRYPOINT ["/sbin/tini","--"]
+CMD ["node","server.js"]
+
+
+Works for your existing Express server that mounts createDisasterDirectProxy(...). If your entry file is different, change CMD.
+
+2) .dockerignore (keeps images tiny)
+node_modules
+npm-debug.log
+yarn.lock
+pnpm-lock.yaml
+.DS_Store
+.git
+.gitignore
+.env
+.env.*
+coverage
+dist-*
+.tmp
+.cache
+
+3) docker-compose.yml (local dev + prod-like healthchecks)
+version: "3.9"
+
+services:
+  disaster-direct:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: disaster-direct:latest
+    restart: unless-stopped
+    ports:
+      - "3001:3001"     # host:container
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      # === required ===
+      AMBEE_API_KEY: ${AMBEE_API_KEY}
+      # === auth (pick your setup; optional) ===
+      DD_BEARER_TOKEN: ${DD_BEARER_TOKEN}
+      DD_INTERNAL_KEY: ${DD_INTERNAL_KEY}
+      AUTH0_DOMAIN: ${AUTH0_DOMAIN}
+      AUTH0_AUDIENCE: ${AUTH0_AUDIENCE}
+      JWT_JWKS_URL: ${JWT_JWKS_URL}
+      JWT_SCOPE_CLAIM: ${JWT_SCOPE_CLAIM:-permissions}
+      JWT_JWKS_CACHE_MS: ${JWT_JWKS_CACHE_MS:-600000}
+      # === cors & ops ===
+      CORS_ORIGINS: ${CORS_ORIGINS:-https://your-frontend.example.com}
+      RATE_WINDOW_MS: ${RATE_WINDOW_MS:-60000}
+      RATE_LIMIT: ${RATE_LIMIT:-60}
+      CACHE_TTL_MS: ${CACHE_TTL_MS:-60000}
+      CIRCUIT_THRESHOLD: ${CIRCUIT_THRESHOLD:-8}
+      CIRCUIT_COOLDOWN_MS: ${CIRCUIT_COOLDOWN_MS:-60000}
+      COORD_SNAP_DEG: ${COORD_SNAP_DEG:-0.01}
+      # === tiles/legend signing ===
+      DD_TILE_HMAC_SECRET: ${DD_TILE_HMAC_SECRET}
+      # optional metadata for /healthz
+      DD_VERSION: ${DD_VERSION:-1.0.0}
+      DD_GIT_SHA: ${DD_GIT_SHA:-dev}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3001/healthz || exit 1"]
+      interval: 15s
+      timeout: 3s
+      retries: 5
+      start_period: 20s
+
+
+Put secrets in a local .env (listed in .dockerignore) and docker compose will substitute them automatically.
+
+4) Optional k8s probes (if you deploy to Kubernetes)
+livenessProbe:
+  httpGet: { path: /healthz, port: 3001 }
+  initialDelaySeconds: 10
+  periodSeconds: 15
+readinessProbe:
+  httpGet: { path: /readyz, port: 3001 }
+  initialDelaySeconds: 10
+  periodSeconds: 15
+
+5) Build & run locally
+# Build
+docker compose build
+
+# Run
+docker compose up -d
+
+# Check logs
+docker compose logs -f
+
+# Smoke test (basic)
+curl -s http://localhost:3001/healthz | jq .
+curl -s "http://localhost:3001/api/impact?lat=33.749&lng=-84.388" | jq .
+
+6) Environment checklist (same as earlier, condensed)
+
+AMBEE_API_KEY (required)
+
+Auth (choose any): DD_BEARER_TOKEN, DD_INTERNAL_KEY, or JWT (AUTH0_DOMAIN, AUTH0_AUDIENCE or JWT_JWKS_URL, JWT_SCOPE_CLAIM)
+
+Tiles signing (optional but recommended): DD_TILE_HMAC_SECRET
+
+Ops: RATE_WINDOW_MS, RATE_LIMIT, CACHE_TTL_MS, CIRCUIT_THRESHOLD, CIRCUIT_COOLDOWN_MS, COORD_SNAP_DEG
+
+CORS: CORS_ORIGINS (comma-separated)
+
+7) Production tips
+
+Autoscale-friendly: the /readyz probe prevents traffic until the app can reach Ambee (or breaker is closed).
+
+Non-root: image runs as app user. If your platform requires a specific UID, set USER 10001.
+
+Tiny & fast: Alpine + npm ci --omit=dev keeps layers slim.
+
+Metrics: if you added prom-client, expose /metrics to your Prometheus.
+
+CDN in front: cache /api/impact/tiles and /api/legend with TTLs from our plan; enable stale-while-revalidate.
+
+8) Quick “works anywhere” entrypoint (if your file differs)
+
+If your server entry isn’t server.js, change CMD:
+
+CMD ["node","src/index.js"]
