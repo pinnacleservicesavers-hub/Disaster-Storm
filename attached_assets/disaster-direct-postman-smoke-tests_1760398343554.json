@@ -1,0 +1,527 @@
+{
+  "info": {
+    "name": "Disaster Direct \u2013 Smoke Tests",
+    "_postman_id": "6c7c347e-4711-4abd-804b-1db1247b7f49",
+    "description": "One-click smoke tests for Disaster Direct proxy. Set environment variables: baseUrl, bearerToken/xApiKey if needed, lat, lng, maxLatencyMs (default 2000).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "01 Health & Docs",
+      "item": [
+        {
+          "name": "Healthz",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/healthz",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "healthz"
+              ],
+              "query": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "const maxMs = parseInt(pm.environment.get(\"maxLatencyMs\") || pm.collectionVariables.get(\"maxLatencyMs\") || \"2000\", 10);",
+                  "pm.test(\"Latency under \"+maxMs+\" ms\", function () {",
+                  "  pm.expect(pm.response.responseTime).to.be.below(maxMs);",
+                  "});",
+                  "",
+                  "pm.test(\"JSON has ok\", function () {",
+                  "  pm.response.to.be.withBody;",
+                  "  var json = pm.response.json();",
+                  "  pm.expect(json).to.have.property(\"ok\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Readyz",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/readyz",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "readyz"
+              ],
+              "query": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "const maxMs = parseInt(pm.environment.get(\"maxLatencyMs\") || pm.collectionVariables.get(\"maxLatencyMs\") || \"2000\", 10);",
+                  "pm.test(\"Latency under \"+maxMs+\" ms\", function () {",
+                  "  pm.expect(pm.response.responseTime).to.be.below(maxMs);",
+                  "});",
+                  "",
+                  "pm.test(\"JSON has ready\", function () {",
+                  "  pm.response.to.be.withBody;",
+                  "  var json = pm.response.json();",
+                  "  pm.expect(json).to.have.property(\"ready\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "OpenAPI",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/openapi.json",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "openapi.json"
+              ],
+              "query": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", function () { pm.response.to.have.status(200); });",
+                  "var j = pm.response.json();",
+                  "pm.test(\"OpenAPI object present\", function(){ pm.expect(j).to.have.property(\"openapi\"); });",
+                  "pm.test(\"Has paths\", function(){ pm.expect(j).to.have.property(\"paths\"); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "02 Core APIs",
+      "item": [
+        {
+          "name": "Impact (no pollen)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{xApiKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/impact?lat={{lat}}&lng={{lng}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "impact"
+              ],
+              "query": [
+                {
+                  "key": "lat",
+                  "value": "{{lat}}"
+                },
+                {
+                  "key": "lng",
+                  "value": "{{lng}}"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "const maxMs = parseInt(pm.environment.get(\"maxLatencyMs\") || pm.collectionVariables.get(\"maxLatencyMs\") || \"2000\", 10);",
+                  "pm.test(\"Latency under \"+maxMs+\" ms\", function () {",
+                  "  pm.expect(pm.response.responseTime).to.be.below(maxMs);",
+                  "});",
+                  "",
+                  "pm.test(\"JSON has impactScore\", function () {",
+                  "  pm.response.to.be.withBody;",
+                  "  var json = pm.response.json();",
+                  "  pm.expect(json).to.have.property(\"impactScore\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Impact (with pollen)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{xApiKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/impact?lat={{lat}}&lng={{lng}}&pollen=1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "impact"
+              ],
+              "query": [
+                {
+                  "key": "lat",
+                  "value": "{{lat}}"
+                },
+                {
+                  "key": "lng",
+                  "value": "{{lng}}"
+                },
+                {
+                  "key": "pollen",
+                  "value": "1"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "const maxMs = parseInt(pm.environment.get(\"maxLatencyMs\") || pm.collectionVariables.get(\"maxLatencyMs\") || \"2000\", 10);",
+                  "pm.test(\"Latency under \"+maxMs+\" ms\", function () {",
+                  "  pm.expect(pm.response.responseTime).to.be.below(maxMs);",
+                  "});",
+                  "",
+                  "pm.test(\"JSON has components\", function () {",
+                  "  pm.response.to.be.withBody;",
+                  "  var json = pm.response.json();",
+                  "  pm.expect(json).to.have.property(\"components\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Pollen (normalized)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{xApiKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/pollen?lat={{lat}}&lng={{lng}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "pollen"
+              ],
+              "query": [
+                {
+                  "key": "lat",
+                  "value": "{{lat}}"
+                },
+                {
+                  "key": "lng",
+                  "value": "{{lng}}"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "const maxMs = parseInt(pm.environment.get(\"maxLatencyMs\") || pm.collectionVariables.get(\"maxLatencyMs\") || \"2000\", 10);",
+                  "pm.test(\"Latency under \"+maxMs+\" ms\", function () {",
+                  "  pm.expect(pm.response.responseTime).to.be.below(maxMs);",
+                  "});",
+                  "",
+                  "pm.test(\"JSON has risk\", function () {",
+                  "  pm.response.to.be.withBody;",
+                  "  var json = pm.response.json();",
+                  "  pm.expect(json).to.have.property(\"risk\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Impact GeoJSON",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{xApiKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/impact/geojson?lat={{lat}}&lng={{lng}}&pollen=1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "impact",
+                "geojson"
+              ],
+              "query": [
+                {
+                  "key": "lat",
+                  "value": "{{lat}}"
+                },
+                {
+                  "key": "lng",
+                  "value": "{{lng}}"
+                },
+                {
+                  "key": "pollen",
+                  "value": "1"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Content is GeoJSON FeatureCollection\", function () {",
+                  "  var j = pm.response.json();",
+                  "  pm.expect(j).to.have.property(\"type\", \"FeatureCollection\");",
+                  "  pm.expect(j.features).to.be.an(\"array\");",
+                  "  if (j.features.length) {",
+                  "    pm.expect(j.features[0]).to.have.property(\"type\", \"Feature\");",
+                  "    pm.expect(j.features[0]).to.have.property(\"properties\");",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "03 Tiles & Legend",
+      "item": [
+        {
+          "name": "Legend (PNG)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{xApiKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/legend.png?scheme=traffic&width=256&height=48&bg=solid",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "legend.png"
+              ],
+              "query": [
+                {
+                  "key": "scheme",
+                  "value": "traffic"
+                },
+                {
+                  "key": "width",
+                  "value": "256"
+                },
+                {
+                  "key": "height",
+                  "value": "48"
+                },
+                {
+                  "key": "bg",
+                  "value": "solid"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Is image/png\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"image/png\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Tile (PNG)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{xApiKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/impact/tiles/10/293/394.png?pollen=1&grid=3&scheme=viridis&ttl=180",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "impact",
+                "tiles",
+                "10",
+                "293",
+                "394.png"
+              ],
+              "query": [
+                {
+                  "key": "pollen",
+                  "value": "1"
+                },
+                {
+                  "key": "grid",
+                  "value": "3"
+                },
+                {
+                  "key": "scheme",
+                  "value": "viridis"
+                },
+                {
+                  "key": "ttl",
+                  "value": "180"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Is image/png\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"image/png\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "maxLatencyMs",
+      "value": "2000",
+      "type": "string"
+    }
+  ]
+}
