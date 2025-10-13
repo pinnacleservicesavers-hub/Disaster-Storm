@@ -101,6 +101,44 @@ Integrated xAI's Grok-2 as the main AI across the entire platform:
    - `/api/grok/intelligence-briefing` - Real-time storm briefings
    - `/api/grok/enhance-module` - Module enhancement recommendations
 
+### EagleView Aerial Imagery Integration
+Integrated professional-grade aerial imagery and roof measurement capabilities:
+- **High-Resolution Imagery**: Orthogonal and oblique (N/S/E/W) aerial views at 3-6 inch resolution
+- **Automated Roof Measurements**: AI-powered calculations for square footage, pitch, facets, ridge/valley/eave/rake/hip lengths
+- **Material Estimation**: Automatic calculations for shingles (in squares), underlayment (rolls), and ridge cap (linear feet)
+- **Damage Assessment**: AI-based property damage detection with severity analysis (minor/moderate/severe/catastrophic)
+- **Before/After Comparison**: Historical imagery analysis to detect storm damage
+- **Comprehensive Reports**: Combined imagery + measurements + damage assessment in single API call
+- **Mock Mode**: Realistic demo data when API key not configured for development/testing
+
+Available EagleView Endpoints:
+- `/api/eagleview/imagery` - Get aerial imagery (orthogonal + 4 oblique views)
+- `/api/eagleview/measurements` - Get automated roof measurements
+- `/api/eagleview/damage-assessment` - AI damage detection and severity analysis
+- `/api/eagleview/report` - Comprehensive property report (imagery + measurements + damage)
+
+Integration Points:
+- **Disaster Lens**: Enhances photo documentation with aerial context
+- **Claims Module**: Provides professional roof measurements for insurance claims
+- **Field Reports**: Adds aerial perspective to ground-level damage assessments
+- **Lead Generation**: Identifies damaged properties for contractor outreach
+
+### Geo-Fencing & Device Audience Tracking (Ad Module)
+Law enforcement-grade device tracking for targeted advertising:
+- **Geographic Fence Management**: Create and manage circular geo-fences with radius-based boundaries
+- **Privacy-Safe Device Tracking**: Hashed device IDs (not personally identifiable)
+- **Platform Detection**: iOS, Android, Web device identification
+- **Entry/Exit Timestamps**: Track when devices enter/leave geo-fenced areas
+- **Campaign Association**: Link devices to specific ad campaigns for retargeting
+- **Real-time Analytics**: Track impressions, clicks, conversions, spend, and device capture rates
+- **Multi-Platform Support**: Facebook/Meta, Google, Instagram, YouTube campaign integration
+
+Available Geo-Fencing Endpoints:
+- `/api/ad-campaigns/geo-fences` - CRUD operations for geo-fences
+- `/api/ad-campaigns/device-audience` - Track device entry into geo-fence
+- `/api/ad-campaigns/:id/analytics` - Campaign performance with device metrics
+- `/api/ad-campaigns/analytics/overview` - Platform-wide analytics dashboard
+
 ## External Dependencies
 
 ### Core Infrastructure

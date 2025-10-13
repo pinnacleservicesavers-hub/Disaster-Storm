@@ -1,0 +1,177 @@
+Option A — You already have an Express server running (ESM: import syntax)
+
+1) Create routes/grok.js
+
+// routes/grok.js
+import fetch from "node-fetch";
+
+export const grokRouter = (app) => {
+  app.post("/api/grok", async (req, res) => {
+    try {
+      const { prompt } = req.body;
+
+      const r = await fetch("https://api.x.ai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${process.env.XAI_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: "grok-beta", // use exact model name from your xAI Console
+          messages: [{ role: "user", content: prompt || "Say hello" }],
+          temperature: 0.3,
+        }),
+      });
+
+      if (!r.ok) {
+        const text = await r.text();
+        return res.status(r.status).json({ error: text });
+      }
+
+      const data = await r.json();
+      res.json(data);
+    } catch (err) {
+      res.status(500).json({ error: err?.message || "Unknown error" });
+    }
+  });
+};
+
+
+2) Update your index.js (or server.js)
+
+// index.js (or server.js)
+import express from "express";
+import "dotenv/config";            // if running locally with a .env
+import { grokRouter } from "./routes/grok.js";
+
+const app = express();
+app.use(express.json({ limit: "10mb" }));
+
+// (Optional) If you need CORS for a separate frontend:
+// import cors from "cors";
+// app.use(cors());
+
+grokRouter(app); // <-- registers /api/grok
+
+// If you already call app.listen elsewhere, keep that. Otherwise:
+const port = process.env.PORT || 3000;
+app.listen(port, () => {
+  console.log(`Server running on http://localhost:${port}`);
+});
+
+export default app;
+
+Option B — CommonJS project (require syntax)
+
+1) Create routes/grok.cjs
+
+// routes/grok.cjs
+const fetch = (...args) => import("node-fetch").then(({default: f}) => f(...args));
+
+function grokRouter(app) {
+  app.post("/api/grok", async (req, res) => {
+    try {
+      const { prompt } = req.body;
+
+      const r = await fetch("https://api.x.ai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${process.env.XAI_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: "grok-beta",
+          messages: [{ role: "user", content: prompt || "Say hello" }],
+          temperature: 0.3,
+        }),
+      });
+
+      if (!r.ok) {
+        const text = await r.text();
+        return res.status(r.status).json({ error: text });
+      }
+
+      const data = await r.json();
+      res.json(data);
+    } catch (err) {
+      res.status(500).json({ error: err?.message || "Unknown error" });
+    }
+  });
+}
+
+module.exports = { grokRouter };
+
+
+2) Update index.cjs (or server.cjs)
+
+// index.cjs
+require("dotenv/config");
+const express = require("express");
+const { grokRouter } = require("./routes/grok.cjs");
+
+const app = express();
+app.use(express.json({ limit: "10mb" }));
+
+grokRouter(app);
+
+const port = process.env.PORT || 3000;
+app.listen(port, () => {
+  console.log(`Server running on http://localhost:${port}`);
+});
+
+module.exports = app;
+
+Option C — Next.js API Route (if you don’t run a separate Express server)
+
+Create pages/api/grok.ts (or .js)
+
+// pages/api/grok.ts
+import type { NextApiRequest, NextApiResponse } from "next";
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+
+  try {
+    const { prompt } = req.body;
+
+    const r = await fetch("https://api.x.ai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${process.env.XAI_API_KEY as string}`,
+      },
+      body: JSON.stringify({
+        model: "grok-beta",
+        messages: [{ role: "user", content: prompt || "Say hello" }],
+        temperature: 0.3,
+      }),
+    });
+
+    if (!r.ok) {
+      const text = await r.text();
+      return res.status(r.status).json({ error: text });
+    }
+
+    const data = await r.json();
+    res.status(200).json(data);
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message || "Unknown error" });
+  }
+}
+
+Front-end helper (works with any option above)
+export async function askGrok(prompt) {
+  const r = await fetch("/api/grok", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ prompt }),
+  });
+  const data = await r.json();
+  // adapt to xAI’s exact response shape
+  return data?.choices?.[0]?.message?.content ?? JSON.stringify(data);
+}
+
+Sanity check
+curl -X POST https://<your-domain-or-repl>/api/grok \
+  -H "Content-Type: application/json" \
+  -d '{"prompt":"Analyze this storm cell’s likely path in simple terms."}'
