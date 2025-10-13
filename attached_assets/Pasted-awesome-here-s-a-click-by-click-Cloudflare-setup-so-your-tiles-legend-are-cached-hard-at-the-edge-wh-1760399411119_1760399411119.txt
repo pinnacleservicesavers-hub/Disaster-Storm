@@ -1,0 +1,130 @@
+awesome—here’s a click-by-click Cloudflare setup so your tiles/legend are cached hard at the edge while JSON stays uncached. No code changes required. I’ll also show quick curl checks so you can prove it’s working.
+
+Prereqs (2 mins)
+
+Your domain is on Cloudflare and your app’s DNS record is proxied (orange cloud).
+
+Your API is live at https://your-domain.com (or a subdomain like api.your-domain.com).
+
+A) Cache Rule — Bypass JSON APIs
+
+This keeps /api/impact, /api/impact/geojson, /api/pollen, /api/incidents, and the signing endpoints un-cached.
+
+Dashboard path: Rules → Cache Rules → Create rule
+
+Rule name: Bypass JSON (impact/pollen/incidents/sign)
+
+When incoming requests match…
+Click Edit expression and paste:
+
+(http.request.uri.path contains "/api/impact" 
+ or http.request.uri.path contains "/api/pollen" 
+ or http.request.uri.path contains "/api/incidents" 
+ or http.request.uri.path contains "/api/sign/")
+
+
+Then…
+
+Cache eligibility: Bypass
+
+(Leave other fields default)
+
+Save.
+
+B) Cache Rule — Cache tiles & legend by full query
+
+This aggressively caches images under /api/impact/tiles/* and /api/legend.*, honors your ttl query, and ignores cookies/auth for caching.
+
+Dashboard path: Rules → Cache Rules → Create rule
+
+Rule name: Cache tiles + legend
+
+When incoming requests match… (Expression editor)
+
+(http.request.uri.path contains "/api/impact/tiles/" 
+ or http.request.uri.path starts_with "/api/legend")
+
+
+Then…
+
+Cache eligibility: Eligible
+
+Edge TTL: Expression → paste:
+
+clamp(to_integer(http.request.uri.query["ttl"]), 10, 600)
+
+
+(If ttl isn’t present, Cloudflare treats it as 0 → clamped to 10s. You can lift the max if you want longer edge caching.)
+
+Browser TTL: 60 seconds
+
+Respect origin Cache-Control: Off (we’re overriding)
+
+Cache key: Custom → Query parameters = Include all
+
+Bypass cache on cookie: Off
+
+Bypass cache on Authorization: Off
+
+Save.
+
+Why: Tiles/legend use HMAC-signed URLs (or are public images), so it’s safe to ignore cookies/Authorization and key strictly on the full query string (which includes your _sig when HMAC is on).
+
+C) (Optional) Response header polish
+
+If you want the browser to also see explicit cache headers:
+
+Rules → Transform Rules → Response Header Modification → Create rule
+
+If… (http.request.uri.path contains "/api/impact/tiles/" or http.request.uri.path starts_with "/api/legend")
+
+Then add header:
+
+Header name: Cache-Control
+
+Value: public, max-age=180, stale-while-revalidate=60
+
+Cloudflare can’t compute a dynamic value from ttl here, so pick a reasonable static (e.g., 180). Edge TTL from the Cache Rule still follows your dynamic ttl—this header is just a browser hint.
+
+D) (Optional) Worker signer passthrough (only if you want max control)
+
+You do not need a Worker if the two Cache Rules above are enough. If you later want to add custom logic (e.g., alternative TTLs by zoom/scheme) use a Worker as previously provided.
+
+E) Rule order
+
+In Cache Rules, make sure the Bypass JSON rule is above the Cache tiles + legend rule. (Drag to reorder if needed.)
+
+F) Quick verification (curl)
+
+Replace API=https://api.your-domain.com.
+
+JSON is bypassed
+
+API=https://api.your-domain.com
+curl -sSI "$API/api/impact?lat=33.749&lng=-84.388" | grep -Ei "cf-cache-status|cache-control|age"
+# Expect: CF-Cache-Status: BYPASS (or DYNAMIC), low/zero Age
+
+
+Tiles are cached by full query
+
+# Use a stable z/x/y you tested earlier:
+TILE="$API/api/impact/tiles/10/293/394.png?pollen=1&grid=3&scheme=viridis&ttl=180"
+curl -sSI "$TILE" | grep -Ei "cf-cache-status|cache-control|age"
+# First hit: CF-Cache-Status: MISS (Age: 0)
+curl -sSI "$TILE" | grep -Ei "cf-cache-status|cache-control|age"
+# Second hit: CF-Cache-Status: HIT (Age increases on subsequent requests)
+
+
+Legend is cached
+
+LEG="$API/api/legend.png?scheme=traffic&width=256&height=48&bg=solid"
+curl -sSI "$LEG" | grep -Ei "cf-cache-status|cache-control|age"
+# Expect MISS then HIT on second call
+
+Tips / knobs
+
+Want longer edge cache? Raise the clamp max in your Edge TTL expression: clamp(..., 10, 1200).
+
+Signed URLs rotating too often? Increase your signer’s expiresInSec to 300–600s.
+
+Need purge? Purge by URL of the signed asset in Cloudflare (Caching → Configuration → Purge).
