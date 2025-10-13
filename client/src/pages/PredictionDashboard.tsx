@@ -41,6 +41,7 @@ import {
   Bot
 } from 'lucide-react';
 import { UnifiedAssistant } from '@/components/UnifiedAssistant';
+import GrokLandfallPredictor from '@/components/GrokLandfallPredictor';
 
 // ===== INTERFACES =====
 
@@ -1176,6 +1177,9 @@ export default function PredictionDashboard() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
+                  {/* Grok AI Landfall Prediction */}
+                  <GrokLandfallPredictor stormData={dashboardData?.data} />
+                  
                   {/* Unified AI Assistant - Consolidates VoiceAI + Storm Intelligence */}
                   <UnifiedAssistant 
                     portalType="prediction" 
