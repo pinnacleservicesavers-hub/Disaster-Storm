@@ -60,7 +60,8 @@ Preferred communication style: Simple, everyday language.
 
 ### Advanced Features
 - **Voice System**: Provider-agnostic architecture (ElevenLabs, OpenAI), smart fallback.
-- **Rachel AI Voice**: Natural female voice using ElevenLabs "Rachel" (ID: 21m00Tcm4TlvDq8ikWAM) as default for all AI voice interactions, including Portal Voice Guide, Voice AI Assistant, Claims Agent, and all TTS features. Provides professional, warm, and natural-sounding female voice throughout the entire application. Falls back to OpenAI's "nova" female voice when ElevenLabs is unavailable. Voice generation takes approximately 2 seconds for high-quality audio.
+- **Rachel AI Voice**: Natural female voice using ElevenLabs "Rachel" (ID: 21m00Tcm4TlvDq8ikWAM) as default for all AI voice interactions, including Portal Voice Guide, Voice AI Assistant, Claims Agent, Weather Center Nationwide AI, and all TTS features. Provides professional, warm, and natural-sounding female voice throughout the entire application. Falls back to OpenAI's "nova" female voice when ElevenLabs is unavailable. Voice generation takes approximately 2 seconds for high-quality audio.
+- **Fixed October 13, 2025**: Weather Center's "Nationwide AI" feature now uses Rachel voice (ElevenLabs) instead of browser's robotic text-to-speech for natural-sounding responses.
 - **QR/AprilTag Calibration**: Automatic scale detection for precise measurements in images using jsQR, with AprilTag support framework.
 
 ## Recent Updates (October 13, 2025)
