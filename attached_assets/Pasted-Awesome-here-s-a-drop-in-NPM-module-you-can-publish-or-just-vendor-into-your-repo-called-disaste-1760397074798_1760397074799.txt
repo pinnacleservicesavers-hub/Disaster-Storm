@@ -1,0 +1,504 @@
+Awesome — here’s a drop-in NPM module you can publish (or just vendor into your repo) called disaster-direct-proxy. It mounts all the routes we built: secure Ambee proxy, /api/impact, /api/pollen, /api/impact/geojson, /api/impact/tiles (SVG/PNG + grid + schemes), and /api/legend.
+
+1) Package layout
+disaster-direct-proxy/
+├─ package.json
+├─ README.md
+├─ index.js           // ESM export
+├─ index.d.ts         // TypeScript types
+
+2) package.json
+{
+  "name": "disaster-direct-proxy",
+  "version": "1.0.0",
+  "description": "Production-safe Ambee proxy + impact aggregation and map tile endpoints for Disaster Direct",
+  "type": "module",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "license": "MIT",
+  "exports": {
+    ".": {
+      "import": "./index.js"
+    }
+  },
+  "peerDependencies": {
+    "express": ">=4",
+    "node-fetch": ">=3"
+  },
+  "dependencies": {
+    "@resvg/resvg-js": "^2.6.2",
+    "cors": "^2.8.5"
+  },
+  "keywords": ["ambee", "air-quality", "pollen", "wildfire", "proxy", "tiles", "geojson", "disaster"]
+}
+
+
+Notes
+• express and node-fetch are peer deps so your app controls their versions.
+• @resvg/resvg-js is used to render PNG tiles/legend; SVG will work even if PNG isn’t needed.
+
+3) index.js (library)
+import cors from "cors";
+import { Resvg } from "@resvg/resvg-js";
+
+/** Helpers */
+const clamp01 = v => Math.max(0, Math.min(1, v));
+const defaultAllowed = new Set([
+  "latest/by-lat-lng",
+  "weather/latest/by-lat-lng",
+  "pollen/latest/by-lat-lng",
+  "disasters/latest/by-lat-lng",
+  "wildfires/latest/by-lat-lng"
+]);
+
+function tile2lon(x, z) { return (x / Math.pow(2, z)) * 360 - 180; }
+function tile2lat(y, z) {
+  const n = Math.PI - (2 * Math.PI * y) / Math.pow(2, z);
+  return (180 / Math.PI) * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n)));
+}
+
+/** Palettes */
+function palTraffic(s){ return s>=70?"#d32f2f":s>=40?"#f9a825":"#388e3c"; }
+function palViridis(s){ return s>=80?"#440154":s>=60?"#3b518b":s>=40?"#20908d":s>=20?"#5dc963":"#fde725"; }
+function palFire(s){ return s>=70?"#c62828":s>=40?"#ef6c00":"#fdd835"; }
+function getPalette(name){ const n=(name||"traffic").toLowerCase(); return n==="viridis"?palViridis:n==="fire"?palFire:palTraffic; }
+
+/**
+ * Create and mount Disaster Direct proxy routes on an existing Express app.
+ * @param {import("express").Express} app
+ * @param {{
+ *   fetchImpl?: typeof fetch,
+ *   ambeeApiKey: string,
+ *   basePath?: string,              // default "/api"
+ *   corsOrigins?: string[]|null,    // null disables CORS middleware
+ *   cacheTtlMs?: number,            // default 60_000
+ *   rateLimit?: { windowMs:number, limit:number } // default 60 req/min/IP
+ *   allowEndpoints?: string[],      // allow-list of Ambee endpoints
+ *   tiles?: { enable?: boolean, defaultScheme?: "traffic"|"viridis"|"fire", maxGrid?: 5 }
+ * }} options
+ */
+export function createDisasterDirectProxy(app, options){
+  const {
+    fetchImpl,
+    ambeeApiKey,
+    basePath = "/api",
+    corsOrigins = [],
+    cacheTtlMs = 60_000,
+    rateLimit = { windowMs: 60_000, limit: 60 },
+    allowEndpoints = Array.from(defaultAllowed),
+    tiles = { enable: true, defaultScheme: "traffic", maxGrid: 5 }
+  } = options || {};
+  if (!ambeeApiKey) throw new Error("ambeeApiKey is required");
+
+  const fetchFn = fetchImpl || globalThis.fetch || (awaitImportNodeFetch());
+
+  // ---- CORS (optional) ----
+  if (Array.isArray(corsOrigins)) {
+    app.use(cors({
+      origin: (origin, cb) => {
+        if (!origin || corsOrigins.length === 0 || corsOrigins.includes(origin)) return cb(null, true);
+        cb(new Error("Not allowed by CORS"));
+      }
+    }));
+  }
+
+  // ---- in-memory cache ----
+  const cache = new Map();
+  const getCache = k => {
+    const v = cache.get(k);
+    if (!v) return null;
+    if (Date.now() > v.expireAt){ cache.delete(k); return null; }
+    return v.data;
+  };
+  const setCache = (k, data, ms = cacheTtlMs) => cache.set(k, { data, expireAt: Date.now() + ms });
+
+  // ---- simple rate limit ----
+  const hits = new Map();
+  app.use((req, res, next) => {
+    const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress || "unknown";
+    const now = Date.now();
+    const arr = (hits.get(ip) || []).filter(t => now - t < rateLimit.windowMs);
+    arr.push(now); hits.set(ip, arr);
+    if (arr.length > rateLimit.limit) return res.status(429).json({ error: "Rate limit exceeded" });
+    next();
+  });
+
+  // ---- utils ----
+  const AMBEE = "https://api.ambeedata.com";
+  const allowed = new Set(allowEndpoints);
+
+  function requireLatLng(req, res){
+    const lat = Number(req.query.lat), lng = Number(req.query.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat)>90 || Math.abs(lng)>180){
+      res.status(400).json({ error: "Valid lat and lng required" });
+      return null;
+    }
+    return { lat, lng };
+  }
+
+  async function ambeeGET(path, q={}){
+    const qp = new URLSearchParams(q);
+    const url = `${AMBEE}/${path}?${qp.toString()}`;
+    const hit = getCache(url); if (hit) return hit;
+
+    const r = await fetchFn(url, { headers: { "x-api-key": ambeeApiKey, "Content-Type": "application/json" } });
+    const data = await r.json().catch(()=> ({}));
+    if (!r.ok) { const err = new Error("Upstream error"); err.status = r.status; err.data = data; throw err; }
+    setCache(url, data);
+    return data;
+  }
+
+  async function computeImpactAt(lat, lng, { includePollen }){
+    const qs = { lat, lng };
+    const [air, weather, wildfires, polMaybe] = await Promise.all([
+      ambeeGET("latest/by-lat-lng", qs),
+      ambeeGET("weather/latest/by-lat-lng", qs),
+      ambeeGET("wildfires/latest/by-lat-lng", qs),
+      includePollen ? ambeeGET("pollen/latest/by-lat-lng", qs) : Promise.resolve(null)
+    ]);
+
+    const station = air?.stations?.[0] || {};
+    const AQI = Number(station?.AQI) || 0;
+
+    const wxPoint = weather?.stations?.[0] || weather?.data || {};
+    const windGust = Number(wxPoint?.windGust || wxPoint?.wind_gust || 0) || 0;
+
+    const wfList = wildfires?.data || wildfires?.wildfires || [];
+    const minWfKm = Array.isArray(wfList) && wfList.length
+      ? wfList.map(f => Number(f?.distance || f?.distance_km || Infinity)).reduce((a,b)=>Math.min(a,b), Infinity)
+      : Infinity;
+
+    const polRow = (polMaybe?.data?.[0] || polMaybe?.stations?.[0] || {});
+    const pollenRiskStr = (polRow?.Risk || polRow?.risk || "").toString().toLowerCase();
+    const pollenRisk = includePollen
+      ? (/high/.test(pollenRiskStr) ? 1 : /moderate/.test(pollenRiskStr) ? 0.6 : /low/.test(pollenRiskStr) ? 0.2 : 0)
+      : 0;
+
+    const AQI_norm = clamp01(AQI/300);
+    const wind_norm = clamp01(windGust/25);
+    const wf_norm = clamp01(1 - (isFinite(minWfKm) ? (minWfKm/50) : 1));
+    const pollen_norm = clamp01(pollenRisk);
+
+    const w1=0.45, w2=0.25, w3=0.15, w4=0.15;
+    const score = Math.round(100*(w1*AQI_norm + w2*wind_norm + w3*wf_norm + w4*pollen_norm));
+
+    return { score, details: { AQI, windGust, minWfKm, pollenRiskLabel: polRow?.Risk || polRow?.risk || null } };
+  }
+
+  async function sampleTileAverage(z,x,y,grid,includePollen){
+    const lonLeft = tile2lon(x,z), lonRight = tile2lon(x+1,z);
+    const latTop = tile2lat(y,z), latBottom = tile2lat(y+1,z);
+    const points = [];
+    for(let r=0;r<grid;r++){
+      const lat = latTop + ((r+0.5)/grid)*(latBottom-latTop);
+      for(let c=0;c<grid;c++){
+        const lng = lonLeft + ((c+0.5)/grid)*(lonRight-lonLeft);
+        points.push(computeImpactAt(lat,lng,{includePollen}));
+      }
+    }
+    const res = await Promise.allSettled(points);
+    const vals = res.filter(r=>r.status==="fulfilled").map(r=>r.value.score);
+    const score = vals.length ? Math.round(vals.reduce((a,b)=>a+b,0)/vals.length) : 0;
+    const center = await computeImpactAt((latTop+latBottom)/2,(lonLeft+lonRight)/2,{includePollen}).catch(()=>({score}));
+    return { score, details: center.details };
+  }
+
+  const base = (p) => `${basePath.replace(/\/+$/,"")}/${p.replace(/^\/+/,"")}`;
+
+  /** Pass-through to allowed Ambee endpoints */
+  app.get(base("/ambee/*"), async (req,res)=>{
+    const endpoint = req.params[0];
+    if (!allowed.has(endpoint)) return res.status(400).json({ error: "Endpoint not allowed" });
+    const latlng = requireLatLng(req,res); if (!latlng) return;
+    try {
+      const data = await ambeeGET(endpoint, latlng);
+      res.json(data);
+    } catch(e){ res.status(e.status||502).json({ error:"Upstream error", details: e.data||String(e) }); }
+  });
+
+  /** /impact */
+  app.get(base("/impact"), async (req,res)=>{
+    const latlng = requireLatLng(req,res); if (!latlng) return;
+    const includePollen = req.query.pollen === "1";
+    try {
+      const [aq, wx, dz, wf, pl] = await Promise.allSettled([
+        ambeeGET("latest/by-lat-lng", latlng),
+        ambeeGET("weather/latest/by-lat-lng", latlng),
+        ambeeGET("disasters/latest/by-lat-lng", latlng),
+        ambeeGET("wildfires/latest/by-lat-lng", latlng),
+        includePollen ? ambeeGET("pollen/latest/by-lat-lng", latlng) : Promise.resolve(null)
+      ]);
+      const air = aq.value ?? null, weather = wx.value ?? null, disasters = dz.value ?? null, wildfires = wf.value ?? null, pollen = pl?.value ?? null;
+
+      const { score: impactScore, details } = await computeImpactAt(latlng.lat, latlng.lng, { includePollen });
+      res.json({
+        coords: latlng,
+        impactScore,
+        components: {
+          aqi: { AQI: details.AQI, norm: clamp01(details.AQI/300) },
+          wind: { gust: details.windGust, norm: clamp01(details.windGust/25) },
+          wildfire: { minDistanceKm: isFinite(details.minWfKm)?details.minWfKm:null, norm: clamp01(1 - (isFinite(details.minWfKm)?details.minWfKm/50:1)) },
+          ...(includePollen ? { pollen: { riskLabel: details.pollenRiskLabel ?? null } } : {})
+        },
+        raw: { air, weather, disasters, wildfires, ...(includePollen ? { pollen } : {}) }
+      });
+    } catch(e){ res.status(502).json({ error:"Impact aggregation failed", details: e.data||String(e) }); }
+  });
+
+  /** /pollen (normalized) */
+  app.get(base("/pollen"), async (req,res)=>{
+    const latlng = requireLatLng(req,res); if (!latlng) return;
+    try {
+      const data = await ambeeGET("pollen/latest/by-lat-lng", latlng);
+      const row = (data?.data?.[0] || data?.stations?.[0] || {});
+      res.json({
+        coords: latlng,
+        risk: row?.Risk || row?.risk || null,
+        tree: row?.Count?.tree ?? row?.tree_pollen ?? null,
+        grass: row?.Count?.grass ?? row?.grass_pollen ?? null,
+        weed: row?.Count?.weed ?? row?.weed_pollen ?? null,
+        updatedAt: row?.updatedAt || row?.updated_at || null,
+        raw: data
+      });
+    } catch(e){ res.status(e.status||502).json({ error:"Pollen fetch failed", details: e.data||String(e) }); }
+  });
+
+  /** /impact/geojson */
+  app.get(base("/impact/geojson"), async (req,res)=>{
+    const latlng = requireLatLng(req,res); if (!latlng) return;
+    const includePollen = req.query.pollen === "1";
+    try {
+      const { score, details } = await computeImpactAt(latlng.lat, latlng.lng, { includePollen });
+      const risk = score>=70?"high":score>=40?"moderate":"low";
+      res.json({
+        type:"FeatureCollection",
+        features:[{
+          type:"Feature",
+          geometry:{ type:"Point", coordinates:[latlng.lng, latlng.lat] },
+          properties:{
+            impactScore: score, risk,
+            aqi:{ value: details.AQI, norm: clamp01(details.AQI/300) },
+            wind:{ gust: details.windGust, norm: clamp01(details.windGust/25) },
+            wildfire:{ minDistanceKm: isFinite(details.minWfKm)?details.minWfKm:null, norm: clamp01(1 - (isFinite(details.minWfKm)?details.minWfKm/50:1)) },
+            ...(includePollen ? { pollen:{ riskLabel: details.pollenRiskLabel ?? null } } : {})
+          }
+        }]
+      });
+    } catch(e){ res.status(502).json({ error:"GeoJSON build failed", details: e.data||String(e) }); }
+  });
+
+  /** Tiles + Legend (SVG/PNG) */
+  if (tiles?.enable !== false) {
+    app.get(base("/impact/tiles/:z/:x/:y.:fmt?"), async (req,res)=>{
+      const z = Number(req.params.z), x = Number(req.params.x), y = Number(req.params.y);
+      if (![z,x,y].every(Number.isFinite) || z<0 || x<0 || y<0) return res.status(400).send("Bad tile coords");
+
+      const fmt = (req.params.fmt||"svg").toLowerCase();
+      const includePollen = req.query.pollen === "1";
+      const gridReq = Number(req.query.grid) || 1;
+      const grid = [1,3,5].includes(gridReq) ? Math.min(gridReq, tiles.maxGrid||5) : 1;
+      const scheme = String(req.query.scheme || tiles.defaultScheme || "traffic");
+      const drawLabel = req.query.label !== "0";
+      const bg = (req.query.bg || "transparent").toString().toLowerCase();
+      const ttl = Math.max(10, Math.min(600, Number(req.query.ttl) || 60));
+
+      const cacheKey = `tile:v1:${z}/${x}/${y}:${fmt}:p${includePollen}:g${grid}:s${scheme}:l${drawLabel}:bg${bg}`;
+      const hit = getCache(cacheKey);
+      if (hit){ res.setHeader("Content-Type", fmt==="png"?"image/png":"image/svg+xml"); return res.send(hit); }
+
+      try {
+        const { score } = await sampleTileAverage(z,x,y,grid,includePollen);
+        const fill = getPalette(scheme)(score);
+        const textColor = score>=70 ? "#fff" : "#000";
+        const bgFill = bg==="solid" ? (fmt==="png" ? "#ffffff" : "white") : "none";
+
+        const svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <rect x="0" y="0" width="256" height="256" fill="${bgFill}"/>
+  <rect x="0" y="0" width="256" height="256" fill="${fill}" fill-opacity="${bg==="solid"?0.75:0.5}"/>
+  ${drawLabel?`
+  <text x="128" y="138" font-family="system-ui,sans-serif" font-size="64" text-anchor="middle" fill="${textColor}" font-weight="700">${score}</text>
+  <text x="128" y="170" font-family="system-ui,sans-serif" font-size="16" text-anchor="middle" fill="${textColor}">${includePollen?"impact (pollen)":"impact"}</text>`:""}
+</svg>`;
+
+        if (fmt==="png") {
+          const r = new Resvg(svg, { fitTo: { mode: "width", value: 256 }});
+          const png = r.render().asPng();
+          const buf = Buffer.from(png);
+          setCache(cacheKey, buf, ttl*1000);
+          res.setHeader("Content-Type","image/png");
+          return res.send(buf);
+        } else {
+          setCache(cacheKey, svg, ttl*1000);
+          res.setHeader("Content-Type","image/svg+xml");
+          return res.send(svg);
+        }
+      } catch(e){
+        const errSvg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <rect x="0" y="0" width="256" height="256" fill="#9e9e9e"/>
+  <text x="128" y="140" font-family="system-ui, sans-serif" font-size="28" text-anchor="middle" fill="#212121">ERR</text>
+</svg>`;
+        setCache(cacheKey, errSvg, 30_000);
+        res.setHeader("Content-Type","image/svg+xml");
+        res.status(200).send(errSvg);
+      }
+    });
+
+    app.get(base("/legend.:fmt?"), async (req,res)=>{
+      const fmt = (req.params.fmt||"png").toLowerCase();
+      const scheme = String(req.query.scheme || tiles.defaultScheme || "traffic");
+      const w = Math.max(160, Math.min(1024, Number(req.query.width)||256));
+      const h = Math.max(32, Math.min(200, Number(req.query.height)||48));
+      const showLabels = req.query.showLabels !== "0";
+      const bg = (req.query.bg || "transparent").toString().toLowerCase();
+
+      const pal = getPalette(scheme);
+      const pad = 8, barH = Math.max(10, h - (showLabels ? 22 : 16)), barY = pad, textY = barY + barH + 12;
+      let rects = "";
+      for(let s=0;s<=100;s++){ const x = pad + Math.round((w - pad*2)*(s/100)); rects += `<rect x="${x}" y="${barY}" width="1" height="${barH}" fill="${pal(s)}"/>`; }
+      const x40 = pad + Math.round((w - pad*2)*(40/100));
+      const x70 = pad + Math.round((w - pad*2)*(70/100));
+      const marker = (x,label)=>`
+        <line x1="${x}" y1="${barY - 2}" x2="${x}" y2="${barY + barH + 2}" stroke="#000" stroke-opacity="0.7" stroke-width="2"/>
+        ${showLabels?`<text x="${x}" y="${textY}" font-family="system-ui,sans-serif" font-size="10" text-anchor="middle" fill="#000">${label}</text>`:""}
+      `;
+      const bgFill = bg==="solid" ? "white" : "none";
+      const labels = showLabels ? `
+        <text x="${pad}" y="${textY}" font-family="system-ui,sans-serif" font-size="10" text-anchor="start" fill="#000">0</text>
+        <text x="${w/2}" y="${textY}" font-family="system-ui,sans-serif" font-size="10" text-anchor="middle" fill="#000">50</text>
+        <text x="${w - pad}" y="${textY}" font-family="system-ui,sans-serif" font-size="10" text-anchor="end" fill="#000">100</text>
+        <text x="${w - pad}" y="${barY - 4}" font-family="system-ui,sans-serif" font-size="11" text-anchor="end" fill="#000">${scheme} impact</text>
+      ` : "";
+
+      const svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
+  <rect x="0" y="0" width="${w}" height="${h}" fill="${bgFill}"/>
+  ${rects}
+  ${marker(x40,"40")}
+  ${marker(x70,"70")}
+  ${labels}
+</svg>`;
+
+      try {
+        if (fmt==="svg"){ res.setHeader("Content-Type","image/svg+xml"); return res.send(svg); }
+        const r = new Resvg(svg, { fitTo: { mode: "width", value: w }});
+        const png = r.render().asPng();
+        res.setHeader("Content-Type","image/png");
+        return res.send(Buffer.from(png));
+      } catch(e){ res.status(500).json({ error:"Legend render failed", details:String(e) }); }
+    });
+  }
+
+  return { ambeeGET }; // expose if host wants to compose
+}
+
+async function awaitImportNodeFetch(){
+  const mod = await import("node-fetch");
+  return mod.default;
+}
+
+4) index.d.ts (types)
+import type { Express } from "express";
+
+export type TileScheme = "traffic" | "viridis" | "fire";
+
+export interface DisasterDirectOptions {
+  fetchImpl?: typeof fetch;
+  ambeeApiKey: string;
+  basePath?: string;              // default "/api"
+  corsOrigins?: string[] | null;  // null disables CORS middleware
+  cacheTtlMs?: number;            // default 60_000
+  rateLimit?: { windowMs: number; limit: number }; // default 60/min/IP
+  allowEndpoints?: string[];      // default includes AQ, weather, pollen, disasters, wildfires
+  tiles?: { enable?: boolean; defaultScheme?: TileScheme; maxGrid?: 5|3|1 };
+}
+
+export function createDisasterDirectProxy(app: Express, options: DisasterDirectOptions): { ambeeGET: (path: string, q?: Record<string, any>) => Promise<any> };
+
+5) README.md (quick usage)
+# disaster-direct-proxy
+
+Production-safe Ambee proxy + impact aggregation and mapping endpoints for Disaster Direct.
+
+## Install
+
+```bash
+npm i disaster-direct-proxy express node-fetch
+# optional (already included as dep of this package): @resvg/resvg-js cors
+
+Use
+// server.js
+import express from "express";
+import { createDisasterDirectProxy } from "disaster-direct-proxy";
+
+const app = express();
+
+createDisasterDirectProxy(app, {
+  ambeeApiKey: process.env.AMBEE_API_KEY,
+  basePath: "/api",
+  corsOrigins: ["http://localhost:5173", "https://your-frontend.example.com"],
+  cacheTtlMs: 60_000,
+  rateLimit: { windowMs: 60_000, limit: 60 },
+  tiles: { enable: true, defaultScheme: "traffic", maxGrid: 5 }
+});
+
+app.listen(process.env.PORT || 3001, () => console.log("Disaster Direct API running"));
+
+Endpoints
+
+GET /api/ambee/<allowed-endpoint>?lat=&lng=
+
+GET /api/impact?lat=&lng=&pollen=0|1
+
+GET /api/pollen?lat=&lng=
+
+GET /api/impact/geojson?lat=&lng=&pollen=0|1
+
+GET /api/impact/tiles/{z}/{x}/{y}.(svg|png)?pollen=0|1&grid=1|3|5&scheme=traffic|viridis|fire&label=0|1&bg=transparent|solid&ttl=60
+
+GET /api/legend.(png|svg)?scheme=traffic|viridis|fire&width=256&height=48&bg=transparent|solid&showLabels=1
+
+Security
+
+API key never leaves the server.
+
+Basic IP rate-limiting + in-memory caching.
+
+Ambee endpoints are allow-listed. Use allowEndpoints to restrict further.
+
+Add your own auth middleware before calling createDisasterDirectProxy if needed.
+
+
+---
+
+# 6) How to publish (or vendor)
+
+**Publish to npm:**
+```bash
+cd disaster-direct-proxy
+npm publish --access public
+
+
+Vendor directly into your Replit project:
+
+Create a /lib/disaster-direct-proxy folder, drop these four files, and import with:
+
+import { createDisasterDirectProxy } from "./lib/disaster-direct-proxy/index.js";
+
+7) Plug into your existing Replit app (example)
+// existing server.js
+import express from "express";
+import { createDisasterDirectProxy } from "disaster-direct-proxy";
+import dotenv from "dotenv";
+dotenv.config();
+
+const app = express();
+
+createDisasterDirectProxy(app, {
+  ambeeApiKey: process.env.AMBEE_API_KEY,
+  corsOrigins: ["https://your-replit-url.repl.co"],
+  tiles: { enable: true, defaultScheme: "viridis", maxGrid: 5 }
+});
+
+app.listen(3001, () => console.log("Disaster Direct API on :3001"));

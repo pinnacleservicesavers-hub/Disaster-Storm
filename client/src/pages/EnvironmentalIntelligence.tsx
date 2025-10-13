@@ -104,20 +104,28 @@ export default function EnvironmentalIntelligence() {
   const [place, setPlace] = useState('Miami, FL');
   const [lat, setLat] = useState('25.7617');
   const [lng, setLng] = useState('-80.1918');
-  const [activeLocation, setActiveLocation] = useState('Miami, FL');
+  const [searchParams, setSearchParams] = useState<{ place?: string; lat?: string; lng?: string }>({ place: 'Miami, FL' });
 
-  const { data: report, isLoading, refetch } = useQuery<EnvironmentalReport>({
-    queryKey: ['/api/ambee/environmental-report', activeLocation],
-    enabled: !!activeLocation,
+  // Build query URL with parameters
+  const buildQueryUrl = () => {
+    if ('place' in searchParams && searchParams.place) {
+      return `/api/ambee/environmental-report?place=${encodeURIComponent(searchParams.place)}`;
+    } else if ('lat' in searchParams && 'lng' in searchParams) {
+      return `/api/ambee/environmental-report?lat=${searchParams.lat}&lng=${searchParams.lng}`;
+    }
+    return '/api/ambee/environmental-report?place=Miami, FL';
+  };
+
+  const { data: report, isLoading } = useQuery<EnvironmentalReport>({
+    queryKey: [buildQueryUrl()],
   });
 
   const handleSearch = () => {
     if (searchType === 'place' && place) {
-      setActiveLocation(place);
+      setSearchParams({ place });
     } else if (searchType === 'coordinates' && lat && lng) {
-      setActiveLocation(`${lat}, ${lng}`);
+      setSearchParams({ lat, lng });
     }
-    refetch();
   };
 
   const getAQIColor = (aqi: number) => {

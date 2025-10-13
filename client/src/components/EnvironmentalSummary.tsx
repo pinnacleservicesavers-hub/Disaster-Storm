@@ -12,10 +12,18 @@ interface EnvironmentalSummaryProps {
 }
 
 export function EnvironmentalSummary({ lat = 25.7617, lng = -80.1918, place }: EnvironmentalSummaryProps) {
-  const location = place || `${lat},${lng}`;
+  // Build query URL with parameters
+  const buildQueryUrl = () => {
+    if (place) {
+      return `/api/ambee/environmental-report?place=${encodeURIComponent(place)}`;
+    } else if (lat && lng) {
+      return `/api/ambee/environmental-report?lat=${lat}&lng=${lng}`;
+    }
+    return '/api/ambee/environmental-report?lat=25.7617&lng=-80.1918';
+  };
   
   const { data, isLoading } = useQuery<any>({
-    queryKey: ['/api/ambee/environmental-report', { lat, lng, place }],
+    queryKey: [buildQueryUrl()],
     enabled: !!(lat && lng) || !!place,
   });
 
