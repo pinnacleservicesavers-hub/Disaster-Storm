@@ -1,0 +1,197 @@
+1) Backend: add tile endpoint (SVG)
+
+Paste this below your other routes in server.js.
+
+// --- XYZ → lon/lat helpers ---
+function tile2lon(x, z) { return (x / Math.pow(2, z)) * 360 - 180; }
+function tile2lat(y, z) {
+  const n = Math.PI - (2 * Math.PI * y) / Math.pow(2, z);
+  return (180 / Math.PI) * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n)));
+}
+
+// Simple palette (low→moderate→high). Return hex.
+function scoreToHex(score) {
+  if (score >= 70) return "#d32f2f";     // red
+  if (score >= 40) return "#f9a825";     // yellow-ish
+  return "#388e3c";                      // green
+}
+
+// Optional label color for contrast
+function labelColor(score) {
+  return score >= 70 ? "#fff" : "#000";
+}
+
+/**
+ * GET /api/impact/tiles/:z/:x/:y.svg
+ * Query:
+ *   pollen=0|1  (default 0)
+ *   ttl=secs    (cache lifetime, default 60s)
+ *
+ * Notes:
+ * - We sample the tile center only (fast!). For smoother tiles, sample a small grid and average.
+ * - SVG is ~4KB per tile and quick to render (no native deps).
+ */
+app.get("/api/impact/tiles/:z/:x/:y.svg", async (req, res) => {
+  const z = Number(req.params.z), x = Number(req.params.x), y = Number(req.params.y);
+  if (![z, x, y].every(Number.isFinite) || z < 0 || x < 0 || y < 0) {
+    return res.status(400).send("Bad tile coords");
+  }
+
+  const pollen = req.query.pollen === "1";
+  const ttl = Math.max(10, Math.min(600, Number(req.query.ttl) || 60)); // 10..600s
+  const cacheKey = `tile:${z}/${x}/${y}:p${pollen}`;
+  const hit = getCache(cacheKey);
+  if (hit) {
+    res.setHeader("Content-Type", "image/svg+xml");
+    return res.send(hit);
+  }
+
+  // Center of the tile in lon/lat
+  const lonLeft = tile2lon(x, z);
+  const lonRight = tile2lon(x + 1, z);
+  const latTop = tile2lat(y, z);
+  const latBottom = tile2lat(y + 1, z);
+  const lat = (latTop + latBottom) / 2;
+  const lng = (lonLeft + lonRight) / 2;
+
+  // Reuse your existing aggregation (same math as /api/impact).
+  const qs = { lat, lng };
+
+  try {
+    const [air, weather, wildfires, polMaybe] = await Promise.all([
+      ambeeGET("latest/by-lat-lng", qs),
+      ambeeGET("weather/latest/by-lat-lng", qs),
+      ambeeGET("wildfires/latest/by-lat-lng", qs),
+      pollen ? ambeeGET("pollen/latest/by-lat-lng", qs) : Promise.resolve(null)
+    ]);
+
+    const station = air?.stations?.[0] || {};
+    const AQI = Number(station?.AQI) || 0;
+
+    const wxPoint = weather?.stations?.[0] || weather?.data || {};
+    const windGust = Number(wxPoint?.windGust || wxPoint?.wind_gust || 0) || 0;
+
+    const wfList = wildfires?.data || wildfires?.wildfires || [];
+    const minWfKm = Array.isArray(wfList) && wfList.length
+      ? wfList.map(f => Number(f?.distance || f?.distance_km || Infinity)).reduce((a, b) => Math.min(a, b), Infinity)
+      : Infinity;
+
+    const polRow = (polMaybe?.data?.[0] || polMaybe?.stations?.[0] || {});
+    const pollenRiskStr = (polRow?.Risk || polRow?.risk || "").toString().toLowerCase();
+    const pollenRisk = pollen
+      ? (/high/.test(pollenRiskStr) ? 1 : /moderate/.test(pollenRiskStr) ? 0.6 : /low/.test(pollenRiskStr) ? 0.2 : 0)
+      : 0;
+
+    const clamp01 = v => Math.max(0, Math.min(1, v));
+    const AQI_norm = clamp01(AQI / 300);
+    const wind_norm = clamp01(windGust / 25);
+    const wf_norm = clamp01(1 - (isFinite(minWfKm) ? (minWfKm / 50) : 1));
+    const pollen_norm = clamp01(pollenRisk);
+
+    const w1 = 0.45, w2 = 0.25, w3 = 0.15, w4 = 0.15;
+    const score = Math.round(100 * (w1 * AQI_norm + w2 * wind_norm + w3 * wf_norm + w4 * pollen_norm));
+
+    const fill = scoreToHex(score);
+    const textColor = labelColor(score);
+
+    // Simple 256×256 tile with a label
+    const svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <rect x="0" y="0" width="256" height="256" fill="${fill}"/>
+  <text x="128" y="136" font-family="system-ui, sans-serif" font-size="64" text-anchor="middle" fill="${textColor}" font-weight="700">${score}</text>
+  <text x="128" y="170" font-family="system-ui, sans-serif" font-size="18" text-anchor="middle" fill="${textColor}">
+    ${pollen ? "impact (pollen)" : "impact"}
+  </text>
+</svg>`;
+
+    setCache(cacheKey, svg, ttl * 1000);
+    res.setHeader("Content-Type", "image/svg+xml");
+    res.send(svg);
+  } catch (e) {
+    // Render a gray error tile so maps don't show 404 gaps
+    const svgErr = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <rect x="0" y="0" width="256" height="256" fill="#9e9e9e"/>
+  <text x="128" y="140" font-family="system-ui, sans-serif" font-size="28" text-anchor="middle" fill="#212121">ERR</text>
+</svg>`;
+    setCache(cacheKey, svgErr, 30_000);
+    res.setHeader("Content-Type", "image/svg+xml");
+    res.status(200).send(svgErr);
+  }
+});
+
+
+Why SVG?
+
+No native modules (unlike node-canvas), so it’s Replit-friendly.
+
+Lightweight and fast. You can swap to PNG later if needed.
+
+2) Frontend: plug in as a map tile layer
+Leaflet example
+// ImpactTileLayer.tsx
+import { useEffect } from "react";
+import L from "leaflet";
+
+export default function ImpactTileLayer({ map, includePollen = false }: { map: L.Map | null; includePollen?: boolean }) {
+  useEffect(() => {
+    if (!map) return;
+
+    const url = `/api/impact/tiles/{z}/{x}/{y}.svg?pollen=${includePollen ? 1 : 0}&ttl=60`;
+    const layer = L.tileLayer(url, {
+      minZoom: 2,
+      maxZoom: 14,
+      opacity: 0.5
+    }).addTo(map);
+
+    return () => {
+      map.removeLayer(layer);
+    };
+  }, [map, includePollen]);
+
+  return null;
+}
+
+// MapView.tsx (snippet)
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+import { useEffect, useState } from "react";
+import ImpactTileLayer from "./ImpactTileLayer";
+
+export default function MapView({ lat, lng }: { lat: number; lng: number }) {
+  const [map, setMap] = useState<L.Map | null>(null);
+
+  useEffect(() => {
+    if (map) return;
+    const m = L.map("map-root").setView([lat, lng], 9);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: "© OSM" }).addTo(m);
+    setMap(m);
+  }, [map, lat, lng]);
+
+  return (
+    <div style={{ height: 500 }}>
+      <div id="map-root" style={{ height: "100%" }} />
+      <ImpactTileLayer map={map} includePollen />
+    </div>
+  );
+}
+
+Mapbox GL JS (optional)
+map.addSource("impact", {
+  type: "raster",
+  tiles: [`${window.location.origin}/api/impact/tiles/{z}/{x}/{y}.svg?pollen=1&ttl=60`],
+  tileSize: 256
+});
+map.addLayer({ id: "impact", type: "raster", source: "impact", paint: { "raster-opacity": 0.5 } });
+
+3) Ops & scaling tips
+
+Cache: Tiles cache for ttl seconds; at z≤10 this keeps upstream calls modest. Increase TTL to reduce Ambee usage.
+
+Throttle: Your global 60 req/min/IP limiter still applies—good for tile bursts.
+
+Heatmap look: To avoid “blocky” tiles, later sample a 3×3 grid of points per tile and average the impact score.
+
+Attribution: If you ship publicly, add a small corner watermark (e.g., “Environmental data © Ambee”) to the SVG.
+
+CORS: Not needed for tiles if same-origin; if you host tiles separately, add that origin to CORS_ORIGINS.

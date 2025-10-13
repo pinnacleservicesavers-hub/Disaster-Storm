@@ -33,6 +33,7 @@ import WorkflowBuilder from "./pages/WorkflowBuilder";
 import StormShare from "./pages/StormShare";
 import DisasterEssentialsMarketplace from "./pages/DisasterEssentialsMarketplace";
 import HomeownerContacts from "./pages/HomeownerContacts";
+import EnvironmentalIntelligence from "./pages/EnvironmentalIntelligence";
 import XRayRealityModule from "./modules/xray-reality/XRayRealityModule";
 import EyesInTheSkyGlobe from "./modules/EyesInTheSky/EyesInTheSkyGlobe";
 import EyesTabs from "./modules/EyesInTheSky/EyesTabs";
@@ -530,6 +531,12 @@ export default function App() {
           <title>Storm Prediction Dashboard - Disaster Direct</title>
           <meta name="description" content="AI-powered storm prediction and damage forecasting with comprehensive analytics and contractor opportunities" />
           <PredictionDashboard />
+        </Route>
+        
+        <Route path="/environmental-intelligence">
+          <title>Environmental Intelligence - Disaster Direct</title>
+          <meta name="description" content="Real-time air quality, pollen, weather, and environmental hazard monitoring for contractor safety and field operations" />
+          <EnvironmentalIntelligence />
         </Route>
         
         <Route path="/contractors">
