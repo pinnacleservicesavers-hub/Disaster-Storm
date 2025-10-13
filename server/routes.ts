@@ -452,6 +452,102 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
   // ---- Ambee Environmental Intelligence Routes ----
   app.use('/api/ambee', ambeeRoutes);
 
+  // ---- Impact GeoJSON Endpoint (must come BEFORE /api/impact) ----
+  app.get('/api/impact/geojson', async (req, res) => {
+    try {
+      const { lat, lng } = req.query;
+      
+      if (!lat || !lng) {
+        return res.status(400).json({ error: 'Valid lat and lng required' });
+      }
+
+      const latitude = parseFloat(lat as string);
+      const longitude = parseFloat(lng as string);
+
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || 
+          Math.abs(latitude) > 90 || Math.abs(longitude) > 180) {
+        return res.status(400).json({ error: 'Invalid coordinates' });
+      }
+
+      const { ambeeService } = await import('./services/ambeeService.js');
+
+      // Fetch all data in parallel
+      const [aqResult, wxResult, fireResult, pollenResult] = await Promise.allSettled([
+        ambeeService.getAirQualityByCoordinates(latitude, longitude),
+        ambeeService.getWeatherByCoordinates(latitude, longitude),
+        ambeeService.getFireDataByCoordinates(latitude, longitude),
+        ambeeService.getPollenByCoordinates(latitude, longitude),
+      ]);
+
+      const airQuality = aqResult.status === 'fulfilled' ? aqResult.value : null;
+      const weather = wxResult.status === 'fulfilled' ? wxResult.value : null;
+      const fire = fireResult.status === 'fulfilled' ? fireResult.value : null;
+      const pollen = pollenResult.status === 'fulfilled' ? pollenResult.value : null;
+
+      // Calculate impact score (same logic as /api/impact)
+      const AQI = Number(airQuality?.AQI) || 0;
+      const windGust = Number(weather?.windSpeed) || 0;
+      
+      const fires = fire?.fires || [];
+      const minFireKm = fires.length > 0
+        ? Math.min(...fires.map((f: any) => {
+            const fLat = f.latitude || 0;
+            const fLng = f.longitude || 0;
+            const dLat = (fLat - latitude) * 111;
+            const dLng = (fLng - longitude) * 111 * Math.cos(latitude * Math.PI / 180);
+            return Math.sqrt(dLat * dLat + dLng * dLng);
+          }))
+        : Infinity;
+
+      const pollenRiskStr = (pollen?.tree_pollen?.risk || pollen?.grass_pollen?.risk || pollen?.weed_pollen?.risk || '').toString().toLowerCase();
+      const pollenRisk = /high|very high/.test(pollenRiskStr) ? 1 : /moderate/.test(pollenRiskStr) ? 0.6 : /low/.test(pollenRiskStr) ? 0.2 : 0;
+
+      const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
+      const AQI_norm = clamp01(AQI / 300);
+      const wind_norm = clamp01(windGust / 25);
+      const fire_norm = clamp01(1 - (isFinite(minFireKm) ? (minFireKm / 50) : 1));
+      const pollen_norm = clamp01(pollenRisk);
+
+      const w1 = 0.45, w2 = 0.25, w3 = 0.15, w4 = 0.15;
+      const impactScore = Math.round(100 * (w1 * AQI_norm + w2 * wind_norm + w3 * fire_norm + w4 * pollen_norm));
+      const risk = impactScore >= 70 ? 'high' : impactScore >= 40 ? 'moderate' : 'low';
+
+      // Create GeoJSON feature
+      const feature = {
+        type: 'Feature',
+        geometry: { 
+          type: 'Point', 
+          coordinates: [longitude, latitude] // GeoJSON uses [lng, lat]
+        },
+        properties: {
+          impactScore,
+          risk,
+          aqi: { value: AQI, norm: AQI_norm },
+          wind: { gust: windGust, norm: wind_norm },
+          wildfire: { minDistanceKm: isFinite(minFireKm) ? minFireKm : null, norm: fire_norm },
+          pollen: {
+            riskLabel: pollen?.tree_pollen?.risk || pollen?.grass_pollen?.risk || pollen?.weed_pollen?.risk || null,
+            norm: pollen_norm,
+            tree: pollen?.tree_pollen?.count ?? null,
+            grass: pollen?.grass_pollen?.count ?? null,
+            weed: pollen?.weed_pollen?.count ?? null
+          }
+        }
+      };
+
+      res.json({ 
+        type: 'FeatureCollection', 
+        features: [feature] 
+      });
+    } catch (error: any) {
+      console.error('Error generating GeoJSON:', error);
+      res.status(502).json({ 
+        error: 'GeoJSON build failed', 
+        details: error.message 
+      });
+    }
+  });
+
   // ---- Impact Score Endpoint (Merged Environmental Data) ----
   app.get('/api/impact', async (req, res) => {
     try {
@@ -544,102 +640,6 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
       console.error('Error calculating impact score:', error);
       res.status(502).json({ 
         error: 'Impact aggregation failed', 
-        details: error.message 
-      });
-    }
-  });
-
-  // ---- Impact GeoJSON Endpoint (for mapping) ----
-  app.get('/api/impact/geojson', async (req, res) => {
-    try {
-      const { lat, lng } = req.query;
-      
-      if (!lat || !lng) {
-        return res.status(400).json({ error: 'Valid lat and lng required' });
-      }
-
-      const latitude = parseFloat(lat as string);
-      const longitude = parseFloat(lng as string);
-
-      if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || 
-          Math.abs(latitude) > 90 || Math.abs(longitude) > 180) {
-        return res.status(400).json({ error: 'Invalid coordinates' });
-      }
-
-      const { ambeeService } = await import('./services/ambeeService.js');
-
-      // Fetch all data in parallel
-      const [aqResult, wxResult, fireResult, pollenResult] = await Promise.allSettled([
-        ambeeService.getAirQualityByCoordinates(latitude, longitude),
-        ambeeService.getWeatherByCoordinates(latitude, longitude),
-        ambeeService.getFireDataByCoordinates(latitude, longitude),
-        ambeeService.getPollenByCoordinates(latitude, longitude),
-      ]);
-
-      const airQuality = aqResult.status === 'fulfilled' ? aqResult.value : null;
-      const weather = wxResult.status === 'fulfilled' ? wxResult.value : null;
-      const fire = fireResult.status === 'fulfilled' ? fireResult.value : null;
-      const pollen = pollenResult.status === 'fulfilled' ? pollenResult.value : null;
-
-      // Calculate impact score (same logic as /api/impact)
-      const AQI = Number(airQuality?.AQI) || 0;
-      const windGust = Number(weather?.windSpeed) || 0;
-      
-      const fires = fire?.fires || [];
-      const minFireKm = fires.length > 0
-        ? Math.min(...fires.map((f: any) => {
-            const fLat = f.latitude || 0;
-            const fLng = f.longitude || 0;
-            const dLat = (fLat - latitude) * 111;
-            const dLng = (fLng - longitude) * 111 * Math.cos(latitude * Math.PI / 180);
-            return Math.sqrt(dLat * dLat + dLng * dLng);
-          }))
-        : Infinity;
-
-      const pollenRiskStr = (pollen?.tree_pollen?.risk || pollen?.grass_pollen?.risk || pollen?.weed_pollen?.risk || '').toString().toLowerCase();
-      const pollenRisk = /high|very high/.test(pollenRiskStr) ? 1 : /moderate/.test(pollenRiskStr) ? 0.6 : /low/.test(pollenRiskStr) ? 0.2 : 0;
-
-      const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
-      const AQI_norm = clamp01(AQI / 300);
-      const wind_norm = clamp01(windGust / 25);
-      const fire_norm = clamp01(1 - (isFinite(minFireKm) ? (minFireKm / 50) : 1));
-      const pollen_norm = clamp01(pollenRisk);
-
-      const w1 = 0.45, w2 = 0.25, w3 = 0.15, w4 = 0.15;
-      const impactScore = Math.round(100 * (w1 * AQI_norm + w2 * wind_norm + w3 * fire_norm + w4 * pollen_norm));
-      const risk = impactScore >= 70 ? 'high' : impactScore >= 40 ? 'moderate' : 'low';
-
-      // Create GeoJSON feature
-      const feature = {
-        type: 'Feature',
-        geometry: { 
-          type: 'Point', 
-          coordinates: [longitude, latitude] // GeoJSON uses [lng, lat]
-        },
-        properties: {
-          impactScore,
-          risk,
-          aqi: { value: AQI, norm: AQI_norm },
-          wind: { gust: windGust, norm: wind_norm },
-          wildfire: { minDistanceKm: isFinite(minFireKm) ? minFireKm : null, norm: fire_norm },
-          pollen: {
-            riskLabel: pollen?.tree_pollen?.risk || pollen?.grass_pollen?.risk || pollen?.weed_pollen?.risk || null,
-            norm: pollen_norm,
-            tree: pollen?.tree_pollen?.count ?? null,
-            grass: pollen?.grass_pollen?.count ?? null,
-            weed: pollen?.weed_pollen?.count ?? null
-          }
-        }
-      };
-
-      res.json({ 
-        type: 'FeatureCollection', 
-        features: [feature] 
-      });
-    } catch (error: any) {
-      console.error('Error generating GeoJSON:', error);
-      res.status(502).json({ 
-        error: 'GeoJSON build failed', 
         details: error.message 
       });
     }

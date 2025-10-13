@@ -24,6 +24,8 @@ import {
   CloudRain,
   Shield
 } from 'lucide-react';
+import ImpactScoreCard from '@/components/ImpactScoreCard';
+import PollenCard from '@/components/PollenCard';
 
 interface AirQualityData {
   AQI: number;
@@ -235,6 +237,18 @@ export default function EnvironmentalIntelligence() {
             <Badge variant="outline" data-testid="text-last-updated">
               Updated: {new Date(report.timestamp).toLocaleString()}
             </Badge>
+          </div>
+
+          {/* Impact Score and Pollen Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <ImpactScoreCard 
+              lat={parseFloat(searchParams.lat || '25.7617')} 
+              lng={parseFloat(searchParams.lng || '-80.1918')} 
+            />
+            <PollenCard 
+              lat={parseFloat(searchParams.lat || '25.7617')} 
+              lng={parseFloat(searchParams.lng || '-80.1918')} 
+            />
           </div>
 
           {/* Air Quality & Health Impact */}
