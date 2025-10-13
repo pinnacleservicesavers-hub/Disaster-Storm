@@ -1,0 +1,178 @@
+Perfect — here’s a drop-in /api/incidents stub you can add to your disaster-direct-proxy package. It serves a configurable, in-memory list of incidents that your prewarmer can consume. No database required.
+
+It includes:
+
+A tiny in-memory store with optional TTL
+
+GET (JSON or GeoJSON) and POST/DELETE for quick demos
+
+Type additions so it’s easy to turn on/off
+
+Auth & scopes work the same as your other routes
+
+1) Types: add options (in index.d.ts)
+export interface DisasterDirectOptions extends DisasterDirectHooks {
+  // ...existing fields...
+  incidents?: {
+    /** Enable the built-in stub route. Default: false */
+    enable?: boolean;
+    /** Default incidents when the server starts */
+    seed?: Array<{ lat: number; lng: number; radiusKm?: number }>;
+    /** Optional TTL (ms) for incidents (auto-purge). Default: 0 = forever */
+    ttlMs?: number;
+    /** If true, GET /api/incidents returns GeoJSON instead of array */
+    returnGeoJSON?: boolean;
+    /** Allow POST/DELETE to modify the list (useful for demos). Default: true */
+    allowMutations?: boolean;
+    /** Optional max items kept in memory. Default: 200 */
+    maxItems?: number;
+  };
+}
+
+2) Library: add the in-memory stub (in index.js inside createDisasterDirectProxy)
+
+Paste this near your other helpers (after you define base() and before route definitions):
+
+// ---------- Incidents stub (optional) ----------
+const incidentsCfg = options?.incidents || {};
+const incidentsEnabled = !!incidentsCfg.enable;
+const incidents = []; // { lat, lng, radiusKm, createdAt }
+const INC_MAX = Number(incidentsCfg.maxItems ?? 200);
+const INC_TTL = Number(incidentsCfg.ttlMs ?? 0);
+
+function purgeExpiredIncidents() {
+  if (!INC_TTL) return;
+  const now = Date.now();
+  for (let i = incidents.length - 1; i >= 0; i--) {
+    if (now - incidents[i].createdAt > INC_TTL) incidents.splice(i, 1);
+  }
+}
+function seedIncidents() {
+  if (Array.isArray(incidentsCfg.seed)) {
+    for (const s of incidentsCfg.seed) {
+      const lat = Number(s.lat), lng = Number(s.lng);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+      incidents.push({ lat, lng, radiusKm: Number(s.radiusKm || 25), createdAt: Date.now() });
+    }
+    if (incidents.length > INC_MAX) incidents.splice(0, incidents.length - INC_MAX);
+  }
+}
+if (incidentsEnabled) seedIncidents();
+
+
+Add a small helper to format GeoJSON:
+
+function incidentsAsGeoJSON() {
+  return {
+    type: "FeatureCollection",
+    features: incidents.map(i => ({
+      type: "Feature",
+      geometry: { type: "Point", coordinates: [i.lng, i.lat] },
+      properties: { radiusKm: i.radiusKm, createdAt: i.createdAt }
+    }))
+  };
+}
+
+
+Now the routes. Attach them after your other app.get(...) definitions and apply ensureAuth so they’re protected like the rest:
+
+if (incidentsEnabled) {
+  // GET /api/incidents  -> array or GeoJSON
+  app.get(base("/incidents"), ensureAuth, (req, res) => {
+    purgeExpiredIncidents();
+    if (options?.incidents?.returnGeoJSON) {
+      return res.json(incidentsAsGeoJSON());
+    }
+    return res.json(incidents.map(({createdAt, ...rest}) => rest));
+  });
+
+  // POST /api/incidents  -> add one or many
+  // body: { lat, lng, radiusKm? } OR [{...}, {...}]
+  if (options?.incidents?.allowMutations !== false) {
+    app.use(express.json({ limit: "256kb" }));
+    app.post(base("/incidents"), ensureAuth, (req, res) => {
+      purgeExpiredIncidents();
+      const input = Array.isArray(req.body) ? req.body : [req.body || {}];
+      let added = 0, bad = 0;
+      for (const row of input) {
+        const lat = Number(row.lat), lng = Number(row.lng);
+        const radiusKm = Number(row.radiusKm || 25);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) { bad++; continue; }
+        incidents.push({ lat, lng, radiusKm, createdAt: Date.now() });
+        added++;
+      }
+      if (incidents.length > INC_MAX) incidents.splice(0, incidents.length - INC_MAX);
+      return res.status(201).json({ added, bad, total: incidents.length });
+    });
+
+    // DELETE /api/incidents  -> clear all
+    app.delete(base("/incidents"), ensureAuth, (_req, res) => {
+      incidents.splice(0, incidents.length);
+      return res.json({ ok: true, total: 0 });
+    });
+  }
+}
+
+
+Scope-gating: if you’re using per-route scopes, you can add a mapping like "/incidents": ["dd:incidents:read"] and for POST/DELETE use custom checks in beforeHandle or extend your scope mapper similarly.
+
+3) Server usage (enable in your app)
+createDisasterDirectProxy(app, {
+  // ...your existing config...
+  incidents: {
+    enable: true,
+    seed: [
+      { lat: 33.749, lng: -84.388, radiusKm: 25 }, // Atlanta
+      { lat: 34.0522, lng: -118.2437, radiusKm: 30 } // LA
+    ],
+    ttlMs: 0,                 // keep forever; set e.g. 24h => 86_400_000
+    returnGeoJSON: false,     // set true if your prewarmer expects GeoJSON
+    allowMutations: true,     // allow POST/DELETE while demoing
+    maxItems: 200
+  }
+});
+
+
+If you’re using route scopes, consider:
+
+routeScopes: {
+  "/incidents": ["dd:incidents:read"],    // for GET
+  // For POST/DELETE, either enforce via beforeHandle or add separate routes/verbs in your mapper.
+}
+
+4) Point the prewarmer at the stub
+
+Set these envs where you run prewarm.js:
+
+export INCIDENTS_URL="https://your-api.example.com/api/incidents"
+# If your incidents route returns array (default), you’re done.
+# If you toggled returnGeoJSON: true, the prewarmer already handles GeoJSON too.
+
+# If your API is protected, include headers:
+export INCIDENTS_BEARER="YOUR_JWT_OR_BEARER"
+export INCIDENTS_XKEY="YOUR_INTERNAL_KEY"
+
+5) Quick curl tests
+# Read incidents (array)
+curl -s -H "Authorization: Bearer $DD_BEARER_TOKEN" \
+  https://your-api.example.com/api/incidents | jq .
+
+# Add one incident
+curl -s -X POST -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $DD_BEARER_TOKEN" \
+  -d '{"lat": 29.7604, "lng": -95.3698, "radiusKm": 20}' \
+  https://your-api.example.com/api/incidents | jq .
+
+# Clear all
+curl -s -X DELETE -H "Authorization: Bearer $DD_BEARER_TOKEN" \
+  https://your-api.example.com/api/incidents | jq .
+
+Why this helps
+
+Instant demo data: You can run the full pipeline (incidents → prewarm → cached tiles/impact) without wiring a real DB yet.
+
+Flexible format: Array or GeoJSON, both supported by the prewarmer.
+
+Safe by default: Protected by your existing auth middleware; optional TTL/limits to avoid runaway growth.
+
+Zero lock-in: When you ship a real incidents API, just point INCIDENTS_URL there and turn this stub off.

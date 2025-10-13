@@ -1,0 +1,194 @@
+Perfect — let’s make your OpenAPI crystal-clear on failures by defining reusable error schemas and plugging them into every route.
+
+Below are drop-in additions to your buildDisasterDirectOpenApi(...) so Swagger shows consistent shapes for 400/401/403/429/5xx with realistic examples.
+
+1) Add error schemas (in components.schemas)
+// Add inside components.schemas
+ErrorResponse: {
+  type: "object",
+  required: ["error"],
+  properties: {
+    error:        { type: "string", example: "Unauthorized (jwt)" },
+    details:      { type: "string", nullable: true, example: "JWT missing" },
+    code:         { type: "integer", nullable: true, example: 401 },
+    requestId:    { type: "string", nullable: true, example: "req_8b2a3d" },
+    hint:         { type: "string", nullable: true, example: "Check Authorization header or token scope" }
+  },
+  example: {
+    error: "Unauthorized (jwt)",
+    details: "JWT missing",
+    code: 401,
+    requestId: "req_8b2a3d",
+    hint: "Check Authorization header or token scope"
+  }
+},
+RateLimitedResponse: {
+  allOf: [
+    { $ref: "#/components/schemas/ErrorResponse" },
+    { type: "object",
+      properties: {
+        retryAfterSec: { type: "integer", example: 30 }
+      },
+      example: {
+        error: "Too Many Requests",
+        details: "Upstream 429",
+        code: 429,
+        retryAfterSec: 30,
+        hint: "Back off and retry after Retry-After"
+      }
+    }
+  ]
+}
+
+2) Add reusable responses (in components.responses)
+// Add inside components (sibling to securitySchemes & schemas)
+responses: {
+  Error400: {
+    description: "Bad request (validation failed or missing params)",
+    content: {
+      "application/json": {
+        schema: { $ref: "#/components/schemas/ErrorResponse" },
+        examples: {
+          missingLatLng: {
+            summary: "lat/lng required",
+            value: {
+              error: "Bad Request",
+              details: "lat and lng required",
+              code: 400,
+              hint: "Include ?lat=<number>&lng=<number>"
+            }
+          }
+        }
+      }
+    }
+  },
+  Error401: {
+    description: "Unauthorized (missing/invalid credentials)",
+    content: {
+      "application/json": {
+        schema: { $ref: "#/components/schemas/ErrorResponse" },
+        examples: {
+          bearer: { value: { error: "Unauthorized (bearer)", code: 401 } },
+          jwt:    { value: { error: "Unauthorized (jwt)", details: "invalid signature", code: 401 } }
+        }
+      }
+    }
+  },
+  Error403: {
+    description: "Forbidden (insufficient scope/entitlement)",
+    content: {
+      "application/json": {
+        schema: { $ref: "#/components/schemas/ErrorResponse" },
+        examples: {
+          scope: {
+            value: {
+              error: "Forbidden (insufficient_scope)",
+              details: "Required any of: dd:tiles:read",
+              code: 403,
+              hint: "Ask admin to grant the scope"
+            }
+          }
+        }
+      }
+    }
+  },
+  Error404: {
+    description: "Not found",
+    content: {
+      "application/json": {
+        schema: { $ref: "#/components/schemas/ErrorResponse" },
+        examples: { generic: { value: { error: "Not Found", code: 404 } } }
+      }
+    }
+  },
+  Error429: {
+    description: "Too many requests (rate limited / upstream 429)",
+    headers: {
+      "Retry-After": { description: "Seconds to wait before retrying", schema: { type: "string" } }
+    },
+    content: {
+      "application/json": {
+        schema: { $ref: "#/components/schemas/RateLimitedResponse" }
+      }
+    }
+  },
+  Error5xx: {
+    description: "Server or upstream failure",
+    content: {
+      "application/json": {
+        schema: { $ref: "#/components/schemas/ErrorResponse" },
+        examples: {
+          circuitOpen: { value: { error: "Service Unavailable", details: "Circuit open", code: 503 } },
+          upstream:    { value: { error: "Upstream error", details: "Ambee 502", code: 502 } }
+        }
+      }
+    }
+  }
+}
+
+3) Wire errors into every path
+
+Replace each inline error response with references:
+
+responses: {
+  "200": { /* existing success shape */ },
+  "400": { $ref: "#/components/responses/Error400" },
+  "401": { $ref: "#/components/responses/Error401" },
+  "403": { $ref: "#/components/responses/Error403" },
+  "429": { $ref: "#/components/responses/Error429" },
+  "500": { $ref: "#/components/responses/Error5xx" }
+}
+
+
+Do this for:
+
+/api/impact
+
+/api/impact/geojson
+
+/api/pollen
+
+/api/ambee/{endpoint}
+
+/api/impact/tiles/{z}/{x}/{y}.{fmt}
+
+/api/legend.{fmt}
+
+/api/incidents (GET/POST/DELETE)
+
+(If some routes can’t 429, you can omit it—but keeping it harmonized helps clients.)
+
+4) (Optional) include requestId and Retry-After at runtime
+
+Make sure your middleware sets:
+
+a requestId (in logs + error body),
+
+Retry-After header on 429 (if known).
+
+Example error sender you can call anywhere:
+
+function sendError(res, code, err, hint) {
+  const body = {
+    error: typeof err === "string" ? err : (err?.error || "Error"),
+    details: err?.details || (typeof err === "string" ? undefined : err?.message),
+    code,
+    requestId: res.req?.requestId,
+    hint
+  };
+  res.status(code).json(body);
+}
+
+
+And when rate-limiting:
+
+res.setHeader("Retry-After", String(retryAfterSec));
+sendError(res, 429, { error: "Too Many Requests", details: "Rate limit exceeded" });
+
+5) Why this helps
+
+Predictable client handling: one error shape everywhere → simpler error UI & retries.
+
+Self-documenting: Swagger shows realistic examples (missing lat/lng, bad scope, 429 with Retry-After).
+
+Support speed: requestId in the payload ties user reports to logs instantly.

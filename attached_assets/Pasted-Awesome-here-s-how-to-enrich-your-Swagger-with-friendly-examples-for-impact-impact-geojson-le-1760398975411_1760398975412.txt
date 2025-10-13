@@ -1,0 +1,256 @@
+Awesome — here’s how to enrich your Swagger with friendly examples for /impact, /impact/geojson, /legend and /impact/tiles. This makes your docs “try it”–ready and self-explanatory for teammates and integrators.
+
+What you’ll add
+
+A reusable ImpactResponse schema with a realistic example.
+
+Response examples for /impact (JSON) and /impact/geojson (GeoJSON).
+
+Image examples for /legend and /impact/tiles using externalValue (so the UI shows real images from your running API).
+
+1) Add schemas + examples (in your buildDisasterDirectOpenApi(...))
+
+Inside the function where you already build components.schemas, add ImpactResponse (and a compact example):
+
+// inside components.schemas
+ImpactResponse: {
+  type: "object",
+  required: ["impactScore","components"],
+  properties: {
+    impactScore: { type: "number", minimum: 0, maximum: 100, example: 62.3 },
+    components: {
+      type: "object",
+      properties: {
+        airQuality: {
+          type: "object",
+          properties: {
+            AQI: { type: "number", example: 78 },
+            category: { type: "string", example: "Moderate" },
+            PM25: { type: "number", example: 22.1 },
+            OZONE: { type: "number", example: 31.2 },
+            updatedAt: { type: "string", example: "2025-08-03T14:25:18Z" }
+          }
+        },
+        weather: {
+          type: "object",
+          properties: {
+            windGust: { type: "number", example: 14.2 },
+            temperatureC: { type: "number", example: 29.4 },
+            humidity: { type: "number", example: 62 }
+          }
+        },
+        wildfire: {
+          type: "object",
+          properties: {
+            distanceKm: { type: "number", example: 38.7 },
+            bearingDeg: { type: "number", example: 112 }
+          }
+        },
+        pollen: {
+          type: "object",
+          properties: {
+            risk: { type: "string", example: "High" },
+            tree: { type: "number", example: 312 },
+            grass: { type: "number", example: 45 },
+            weed: { type: "number", example: 121 }
+          }
+        }
+      }
+    },
+    meta: {
+      type: "object",
+      properties: {
+        lat: { type: "number", example: 33.749 },
+        lng: { type: "number", example: -84.388 },
+        snapped: { type: "boolean", example: true }
+      }
+    }
+  },
+  example: {
+    impactScore: 62.3,
+    components: {
+      airQuality: { AQI: 78, category: "Moderate", PM25: 22.1, OZONE: 31.2, updatedAt: "2025-08-03T14:25:18Z" },
+      weather: { windGust: 14.2, temperatureC: 29.4, humidity: 62 },
+      wildfire: { distanceKm: 38.7, bearingDeg: 112 },
+      pollen: { risk: "High", tree: 312, grass: 45, weed: 121 }
+    },
+    meta: { lat: 33.749, lng: -84.388, snapped: true }
+  }
+}
+
+
+You already have GeoJSONFeatureCollection in your builder; we’ll reuse it for /impact/geojson.
+
+2) Enrich /impact with an example
+
+Find the path you already defined for paths[b("/impact")] and attach the example:
+
+paths[b("/impact")] = {
+  get: {
+    // ...existing tags/summary/params/security...
+    responses: {
+      "200": {
+        description: "Impact score JSON",
+        content: {
+          "application/json": {
+            schema: { $ref: "#/components/schemas/ImpactResponse" },
+            examples: {
+              sample: {
+                summary: "Typical urban location, pollen on",
+                value: {
+                  impactScore: 62.3,
+                  components: {
+                    airQuality: { AQI: 78, category: "Moderate", PM25: 22.1, OZONE: 31.2, updatedAt: "2025-08-03T14:25:18Z" },
+                    weather: { windGust: 14.2, temperatureC: 29.4, humidity: 62 },
+                    wildfire: { distanceKm: 38.7, bearingDeg: 112 },
+                    pollen: { risk: "High", tree: 312, grass: 45, weed: 121 }
+                  },
+                  meta: { lat: 33.749, lng: -84.388, snapped: true }
+                }
+              }
+            }
+          }
+        }
+      },
+      "400": { description: "Bad request" },
+      "401": { description: "Unauthorized" }
+    }
+  }
+};
+
+3) Enrich /impact/geojson with an example
+
+In paths[b("/impact/geojson")], point to your GeoJSON schema and add a compact example:
+
+paths[b("/impact/geojson")] = {
+  get: {
+    // ...existing...
+    responses: {
+      "200": {
+        description: "GeoJSON FeatureCollection",
+        content: {
+          "application/geo+json": {
+            schema: { $ref: "#/components/schemas/GeoJSONFeatureCollection" },
+            examples: {
+              sample: {
+                summary: "Point feature with impact properties",
+                value: {
+                  type: "FeatureCollection",
+                  features: [
+                    {
+                      type: "Feature",
+                      geometry: { type: "Point", coordinates: [-84.388, 33.749] },
+                      properties: {
+                        impactScore: 62.3,
+                        AQI: 78,
+                        PM25: 22.1,
+                        OZONE: 31.2,
+                        windGust: 14.2,
+                        pollenRisk: "High",
+                        snapped: true,
+                        updatedAt: "2025-08-03T14:25:18Z"
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "400": { description: "Bad request" },
+      "401": { description: "Unauthorized" }
+    }
+  }
+};
+
+4) Show real image examples for /legend and /impact/tiles
+
+OpenAPI can reference live image examples via externalValue. That way Swagger UI displays actual images from your API.
+
+/legend.{fmt}
+
+In paths[b("/legend.{fmt}")]:
+
+responses: {
+  "200": {
+    description: "Legend image",
+    content: {
+      "image/png": {
+        schema: { type: "string", format: "binary" },
+        examples: {
+          traffic: {
+            summary: "Traffic palette (PNG)",
+            externalValue: `${b("/legend.png")}?scheme=traffic&width=256&height=48&bg=solid`
+          },
+          viridis: {
+            summary: "Viridis palette (PNG)",
+            externalValue: `${b("/legend.png")}?scheme=viridis&width=256&height=48&bg=solid`
+          }
+        }
+      },
+      "image/svg+xml": {
+        schema: { type: "string", format: "binary" },
+        examples: {
+          trafficSvg: {
+            summary: "Traffic palette (SVG)",
+            externalValue: `${b("/legend.svg")}?scheme=traffic&width=256&height=48&bg=transparent`
+          }
+        }
+      }
+    }
+  },
+  "401": { description: "Unauthorized" }
+}
+
+/impact/tiles/{z}/{x}/{y}.{fmt}
+
+In paths[b("/impact/tiles/{z}/{x}/{y}.{fmt}")], add one PNG example (choose a stable z/x/y for docs):
+
+responses: {
+  "200": {
+    description: "Tile image",
+    content: {
+      "image/png": {
+        schema: { type: "string", format: "binary" },
+        examples: {
+          exampleTile: {
+            summary: "z10, x293, y394 (PNG, viridis)",
+            externalValue: `${b("/impact/tiles/10/293/394.png")}?pollen=1&grid=3&scheme=viridis&ttl=180`
+          }
+        }
+      }
+    }
+  },
+  "400": { description: "Bad request" },
+  "401": { description: "Unauthorized" }
+}
+
+
+If you enabled HMAC signing, you can pre-sign these example URLs at server boot and inject them into the spec (e.g., pass a signedExampleUrls map into the builder and use those instead of the raw query strings).
+
+5) (Optional) Wire signed image examples (when HMAC is on)
+
+Where you assemble the spec in your server:
+
+import { buildDisasterDirectOpenApi, signTileUrl } from "disaster-direct-proxy";
+
+const legendExample = signTileUrl(
+  "/api/legend.png?scheme=traffic&width=256&height=48&bg=solid",
+  { secret: process.env.DD_TILE_HMAC_SECRET, expiresInSec: 600 }
+);
+// Likewise for a tile:
+const tileExample = signTileUrl(
+  "/api/impact/tiles/10/293/394.png?pollen=1&grid=3&scheme=viridis&ttl=180",
+  { secret: process.env.DD_TILE_HMAC_SECRET, expiresInSec: 600 }
+);
+
+// Pass them to your builder (extend your builder signature if you want full control)
+
+6) Why this helps
+
+Faster onboarding: Devs see real shapes immediately (not just empty schemas).
+
+Clickable visual context: Tiles & legend examples render right in Swagger UI.
+
+Lower support load: Example schemas reduce “what does this field mean?” questions.

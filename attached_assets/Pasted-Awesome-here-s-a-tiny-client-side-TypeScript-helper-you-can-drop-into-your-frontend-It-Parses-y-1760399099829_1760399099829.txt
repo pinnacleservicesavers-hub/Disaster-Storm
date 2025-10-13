@@ -1,0 +1,219 @@
+Awesome — here’s a tiny client-side TypeScript helper you can drop into your frontend. It:
+
+Parses your standardized error JSON (ErrorResponse)
+
+Reads and respects Retry-After (for 429s)
+
+Maps common statuses 401 / 403 / 429 / 5xx to friendly messages
+
+Offers an auto-retry option with jitter/backoff (honors Retry-After if present)
+
+ddClient.ts (drop-in)
+// ddClient.ts
+export type DDSuccess<T = unknown> = { ok: true; data: T; status: number };
+export type DDError = {
+  ok: false;
+  status: number;
+  code?: number;
+  error: string;
+  details?: string;
+  requestId?: string;
+  retryAfterSec?: number;
+  hint?: string;
+  userMessage: string;
+  retryable: boolean;
+};
+
+export type DDResult<T = unknown> = DDSuccess<T> | DDError;
+
+export interface FetchOpts extends RequestInit {
+  /** How many retry attempts on transient errors (429/5xx). Default 0 (off). */
+  retries?: number;
+  /** Base delay in ms for backoff. Default 250. */
+  backoffBaseMs?: number;
+  /** Max cap for backoff. Default 3000. */
+  backoffCapMs?: number;
+}
+
+/** Extract Retry-After (seconds) from headers, if present. */
+export function getRetryAfterSec(res: Response): number | undefined {
+  const h = res.headers.get("Retry-After");
+  if (!h) return;
+  const sec = Number(h);
+  return Number.isFinite(sec) ? sec : undefined;
+}
+
+/** Decide if status is retryable (transient). */
+export function isRetryableStatus(status: number): boolean {
+  return status === 429 || status >= 500;
+}
+
+/** Map error to a friendly, actionable message for UI. */
+export function errorToUserMessage(e: {
+  status: number; error?: string; details?: string; hint?: string;
+}): string {
+  const { status, error, hint } = e;
+  if (status === 401) return "You’re not signed in or your session expired. Please sign in and try again.";
+  if (status === 403) return "You don’t have access to this data. Ask an admin for the required permission.";
+  if (status === 429) return "We’re receiving too many requests right now. Please wait a moment and try again.";
+  if (status >= 500) return "Service is temporarily unavailable. We’re working to restore it.";
+  return hint || error || "Request failed. Please try again.";
+}
+
+/** Sleep helper */
+function sleep(ms: number) { return new Promise(res => setTimeout(res, ms)); }
+
+/**
+ * Fetch wrapper that decodes Disaster Direct responses, returns DDResult<T>.
+ * - On 2xx: parses JSON (if JSON) or returns raw text/ArrayBuffer fallback.
+ * - On errors: parses your ErrorResponse schema when possible.
+ * - Optional retries with backoff + Retry-After.
+ */
+export async function apiFetch<T = unknown>(url: string, opts: FetchOpts = {}): Promise<DDResult<T>> {
+  const {
+    retries = 0,
+    backoffBaseMs = 250,
+    backoffCapMs = 3000,
+    headers,
+    ...rest
+  } = opts;
+
+  let attempt = 0;
+  // Always send JSON Accept unless overridden
+  const hdrs = new Headers(headers || {});
+  if (!hdrs.has("Accept")) hdrs.set("Accept", "application/json");
+
+  const doOnce = async (): Promise<DDResult<T>> => {
+    let res: Response;
+    try {
+      res = await fetch(url, { ...rest, headers: hdrs });
+    } catch (networkErr: any) {
+      // Network failure (no HTTP status)
+      const userMessage = "Network error. Check your connection and try again.";
+      return { ok: false, status: 0, error: "NetworkError", details: String(networkErr), userMessage, retryable: true };
+    }
+
+    const contentType = res.headers.get("Content-Type") || "";
+    const retryAfterSec = getRetryAfterSec(res);
+
+    if (res.ok) {
+      if (contentType.includes("application/json")) {
+        const data = (await res.json()) as T;
+        return { ok: true, data, status: res.status };
+      }
+      if (contentType.startsWith("image/")) {
+        // For image endpoints you probably won't use JSON; caller can refetch as <img src=url>.
+        return { ok: true, data: (await res.blob()) as any as T, status: res.status };
+      }
+      // Fallback to text
+      const data = (await res.text()) as any as T;
+      return { ok: true, data, status: res.status };
+    }
+
+    // Decode ErrorResponse shape if provided
+    let parsed: any = undefined;
+    if (contentType.includes("application/json")) {
+      try { parsed = await res.json(); } catch {}
+    }
+
+    const status = res.status;
+    const error = parsed?.error || res.statusText || "Error";
+    const details = parsed?.details;
+    const requestId = parsed?.requestId;
+    const hint = parsed?.hint;
+    const userMessage = errorToUserMessage({ status, error, hint });
+    const retryable = isRetryableStatus(status);
+
+    const err: DDError = {
+      ok: false,
+      status,
+      code: parsed?.code ?? status,
+      error,
+      details,
+      requestId,
+      hint,
+      userMessage,
+      retryable,
+      retryAfterSec
+    };
+    return err;
+  };
+
+  // first try
+  let result = await doOnce();
+
+  while (!result.ok && result.retryable && attempt < retries) {
+    attempt++;
+    const jitter = Math.random() * backoffBaseMs;
+    const backoffMs = Math.min(backoffBaseMs * Math.pow(2, attempt - 1) + jitter, backoffCapMs);
+    const waitSec = (result as DDError).retryAfterSec ?? backoffMs / 1000;
+    await sleep(waitSec * 1000);
+    result = await doOnce();
+  }
+
+  return result;
+}
+
+/** Thin helpers for your most common calls */
+export async function getImpact(baseUrl: string, lat: number, lng: number, pollen = false, init?: FetchOpts) {
+  const u = new URL("/api/impact", baseUrl);
+  u.searchParams.set("lat", String(lat));
+  u.searchParams.set("lng", String(lng));
+  if (pollen) u.searchParams.set("pollen", "1");
+  return apiFetch<{
+    impactScore: number;
+    components: any;
+    meta?: any;
+  }>(u.toString(), { retries: 2, ...init });
+}
+
+Example usage (React)
+import { useEffect, useState } from "react";
+import { getImpact, DDResult } from "./ddClient";
+
+export function ImpactCard({ baseUrl, lat, lng }: { baseUrl: string; lat: number; lng: number }) {
+  const [res, setRes] = useState<DDResult<any> | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      const r = await getImpact(baseUrl, lat, lng, true, {
+        headers: {
+          // If your API uses JWT auth, attach it here
+          Authorization: `Bearer ${localStorage.getItem("accessToken") || ""}`,
+          // Or header token:
+          // "x-api-key": "..."
+        },
+        retries: 2
+      });
+      setRes(r);
+    })();
+  }, [baseUrl, lat, lng]);
+
+  if (!res) return <div>Loading…</div>;
+  if (!res.ok) {
+    return (
+      <div role="alert" style={{ color: "#b00020" }}>
+        {res.userMessage}
+        {res.requestId ? <div style={{ opacity: 0.7 }}>Request ID: {res.requestId}</div> : null}
+      </div>
+    );
+  }
+
+  const { impactScore, components } = res.data;
+  return (
+    <div className="card">
+      <h3>Impact: {Math.round(impactScore)}</h3>
+      <div>AQI: {components?.airQuality?.AQI} ({components?.airQuality?.category})</div>
+      <div>Wind gust: {components?.weather?.windGust} m/s</div>
+      <div>Pollen risk: {components?.pollen?.risk || "—"}</div>
+    </div>
+  );
+}
+
+Why this helps
+
+Consistent UX: Users get clear messages for expired sessions, missing scopes, rate limits, and outages.
+
+Fewer edge bugs: Client respects Retry-After automatically and only retries when it makes sense.
+
+Simple integration: One wrapper for all endpoints; typed helper for common calls.

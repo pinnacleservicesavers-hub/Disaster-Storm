@@ -1,0 +1,233 @@
+Awesome — here’s a cache prewarmer you can run on the server plus a systemd timer that triggers it on a schedule. It warms tiles + legend + /impact JSON around your active areas so your crews see instant maps.
+
+1) prewarm.js (drop into your repo root)
+
+Warms a ring of points around one or more centers.
+
+Hits tiles (PNG), legend, and /impact.
+
+Honors HMAC-signed URLs (same signature scheme we added).
+
+Concurrency-limited, retries with backoff.
+
+// prewarm.js
+import crypto from "crypto";
+import fetch from "node-fetch";
+
+// ========= CONFIG (env or defaults) =========
+const BASE = process.env.DD_BASE_URL || "http://localhost:3001";
+const BEARER = process.env.DD_BEARER_TOKEN || "";
+const XKEY = process.env.DD_INTERNAL_KEY || "";
+const HMAC_SECRET = process.env.DD_TILE_HMAC_SECRET || ""; // optional
+const MAX_CONCURRENCY = Number(process.env.PREWARM_CONCURRENCY || 8);
+const RETRIES = Number(process.env.PREWARM_RETRIES || 2);
+const ZOOMS = (process.env.PREWARM_ZOOMS || "8,9,10,11,12").split(",").map(z => Number(z.trim()));
+const POLLEN = (process.env.PREWARM_POLLEN || "1") === "1";
+const GRID = Number(process.env.PREWARM_GRID || 3);
+const SCHEME = process.env.PREWARM_SCHEME || "traffic";
+const TILE_TTL = Number(process.env.PREWARM_TILE_TTL || 180);
+const LEGEND = (process.env.PREWARM_LEGEND || "1") === "1";
+const IMPACT_JSON = (process.env.PREWARM_IMPACT || "1") === "1";
+
+// Centers format: "lat:lng:radius_km;lat:lng:radius_km"
+const CENTERS = (process.env.PREWARM_CENTERS || "33.749:-84.388:30").split(";").map(s => {
+  const [lat, lng, r] = s.split(":").map(Number);
+  return { lat, lng, radiusKm: r || 30 };
+});
+
+// Density of sample points per ring (per km)
+const POINTS_PER_KM = Number(process.env.PREWARM_POINTS_PER_KM || 0.4); // ~12 pts on 30km radius
+
+// ========= helpers =========
+function signUrl(pathAndQuery) {
+  if (!HMAC_SECRET) return pathAndQuery;
+  const u = new URL(pathAndQuery, BASE);
+  const exp = Math.floor(Date.now() / 1000) + 5 * 60; // 5 min
+  u.searchParams.set("_exp", String(exp));
+  const qp = [];
+  for (const [k, v] of u.searchParams.entries()) qp.push([k, v]);
+  qp.sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : (a[1] < b[1] ? -1 : 1)));
+  const canonical = `GET\n${u.pathname}\n${qp.map(([k, v]) => `${k}=${v}`).join("&")}`;
+  const sig = crypto.createHmac("sha256", HMAC_SECRET).update(canonical).digest("hex");
+  u.searchParams.set("_sig", sig);
+  return u.pathname + "?" + u.searchParams.toString();
+}
+
+function headers() {
+  const h = { };
+  if (BEARER) h["Authorization"] = `Bearer ${BEARER}`;
+  if (XKEY) h["x-api-key"] = XKEY;
+  return h;
+}
+
+async function get(path) {
+  let lastErr;
+  for (let a = 0; a <= RETRIES; a++) {
+    try {
+      const r = await fetch(BASE + path, { headers: headers() });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      // drain to keep connection healthy
+      if ((r.headers.get("content-type") || "").includes("application/json")) await r.json().catch(() => null);
+      else await r.arrayBuffer().catch(() => null);
+      return;
+    } catch (e) {
+      lastErr = e;
+      const backoff = 150 * (a + 1) + Math.random() * 200;
+      await new Promise(res => setTimeout(res, backoff));
+    }
+  }
+  throw lastErr;
+}
+
+// Rough lat/lng offsets
+const KM_PER_DEG_LAT = 110.574;
+function kmToDegLat(km) { return km / KM_PER_DEG_LAT; }
+function kmToDegLng(km, lat) { return km / (111.320 * Math.cos(lat * Math.PI / 180)); }
+
+function ringPoints({ lat, lng, radiusKm }) {
+  const n = Math.max(8, Math.round(radiusKm * POINTS_PER_KM));
+  const pts = [];
+  for (let i = 0; i < n; i++) {
+    const theta = (i / n) * 2 * Math.PI;
+    const dLat = kmToDegLat(radiusKm) * Math.sin(theta);
+    const dLng = kmToDegLng(radiusKm, lat) * Math.cos(theta);
+    pts.push({ lat: lat + dLat, lng: lng + dLng });
+  }
+  // include center
+  pts.push({ lat, lng });
+  return pts;
+}
+
+function tilePath(z, lat, lng) {
+  // Convert lat/lng to XYZ
+  const sinLat = Math.sin((lat * Math.PI) / 180);
+  const n = Math.pow(2, z);
+  const x = Math.floor(((lng + 180) / 360) * n);
+  const y = Math.floor((1 - Math.log((1 + sinLat) / (1 - sinLat)) / Math.PI) / 2 * n);
+  const base = `/api/impact/tiles/${z}/${x}/${y}.png?pollen=${POLLEN ? 1 : 0}&grid=${GRID}&scheme=${SCHEME}&ttl=${TILE_TTL}`;
+  return signUrl(base);
+}
+
+function legendPath() {
+  const base = `/api/legend.png?scheme=${SCHEME}&width=256&height=48&bg=solid`;
+  return signUrl(base);
+}
+
+// ========= executor (limited concurrency) =========
+async function run() {
+  const queue = [];
+
+  // Legend once
+  if (LEGEND) queue.push(legendPath());
+
+  for (const c of CENTERS) {
+    const pts = ringPoints(c);
+    for (const p of pts) {
+      // Impact JSON (warms calculation + cache)
+      if (IMPACT_JSON) {
+        const path = `/api/impact?lat=${p.lat.toFixed(5)}&lng=${p.lng.toFixed(5)}&pollen=${POLLEN ? 1 : 0}`;
+        queue.push(path);
+      }
+      // Tiles across zooms
+      for (const z of ZOOMS) {
+        queue.push(tilePath(z, p.lat, p.lng));
+      }
+    }
+  }
+
+  let inFlight = 0, idx = 0, ok = 0, fail = 0;
+  await new Promise((resolve) => {
+    const tick = () => {
+      while (inFlight < MAX_CONCURRENCY && idx < queue.length) {
+        const path = queue[idx++];
+        inFlight++;
+        get(path)
+          .then(() => ok++)
+          .catch(() => fail++)
+          .finally(() => { inFlight--; if (idx >= queue.length && inFlight === 0) resolve(); else tick(); });
+      }
+    };
+    tick();
+  });
+
+  console.log(JSON.stringify({ ok, fail, total: queue.length }, null, 2));
+  if (fail > 0) process.exitCode = 1;
+}
+
+run().catch(e => { console.error(e); process.exit(1); });
+
+
+Run locally
+
+node prewarm.js \
+  DD_BASE_URL="https://api.your-domain.com" \
+  PREWARM_CENTERS="33.749:-84.388:30;34.052:-118.244:30"
+
+2) systemd service + timer (EC2/VM)
+
+Create the files, enable, and you’re done.
+
+/etc/systemd/system/disaster-prewarm.service
+[Unit]
+Description=Disaster Direct Cache Prewarmer
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+Environment=NODE_ENV=production
+Environment=DD_BASE_URL=https://api.your-domain.com
+Environment=PREWARM_CENTERS=33.749:-84.388:30
+Environment=PREWARM_ZOOMS=8,9,10,11,12
+Environment=PREWARM_GRID=3
+Environment=PREWARM_SCHEME=traffic
+Environment=PREWARM_TILE_TTL=300
+Environment=PREWARM_CONCURRENCY=10
+Environment=PREWARM_RETRIES=2
+# Optional auth/HMAC if you enabled them on the API:
+# Environment=DD_BEARER_TOKEN=...
+# Environment=DD_INTERNAL_KEY=...
+# Environment=DD_TILE_HMAC_SECRET=...
+WorkingDirectory=/opt/disaster-direct        # <— path to your repo
+ExecStart=/usr/bin/node prewarm.js
+User=app
+Group=app
+
+/etc/systemd/system/disaster-prewarm.timer
+[Unit]
+Description=Run Disaster Direct Prewarmer on schedule
+
+[Timer]
+# Every 10 minutes, with 1-minute random spread to avoid thundering herd
+OnUnitActiveSec=10min
+RandomizedDelaySec=60
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+
+
+Enable & test
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now disaster-prewarm.timer
+sudo systemctl start disaster-prewarm.service  # run once now
+journalctl -u disaster-prewarm.service -n 100 -f
+
+3) Why this helps
+
+Instant maps where your crews operate (no cold tile latencies).
+
+Lower Ambee costs thanks to warmed caches (plus your coordinate snapping).
+
+Resiliency: during provider hiccups, users still see fresh-enough tiles.
+
+Control: tune zooms, grid density, TTLs, and regions with env vars — no code changes.
+
+4) Handy variations
+
+Radius sweep: add inner rings (e.g., 10km, 20km, 30km) by duplicating centers with different radiusKm.
+
+Incident-driven: if you keep active tickets in a DB, generate the PREWARM_CENTERS string from those coordinates in a tiny cron before the timer fires.
+
+Nightly deep warm: run once nightly with ZOOMS="5,6,7,8,9,10" and high TTL to prime broad areas.

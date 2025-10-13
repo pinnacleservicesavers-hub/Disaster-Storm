@@ -1,0 +1,266 @@
+Awesome — here’s how to add /api/incidents to your OpenAPI so it shows up in Swagger (with examples for both array and GeoJSON responses, plus POST/DELETE bodies).
+
+1) Types: extend the OpenAPI builder signature
+
+In index.d.ts, extend the OpenApiBuildOptions so we can describe the incidents route:
+
+export interface OpenApiBuildOptions {
+  basePath?: string;
+  title?: string;
+  version?: string;
+  description?: string;
+  schemes?: string[];
+  security?: { bearer?: boolean; apiKeyHeader?: string | false; jwt?: boolean };
+  routeScopes?: Record<
+    "/ambee/*"|"/impact"|"/pollen"|"/impact/geojson"|"/impact/tiles"|"/legend"|"/incidents",
+    string[]
+  >;
+  requireAllScopes?: boolean;
+  /** If your incidents stub returns GeoJSON instead of array */
+  incidentsReturnGeoJSON?: boolean;
+}
+
+2) OpenAPI builder: add schemas + paths
+
+Update your buildDisasterDirectOpenApi(...) in index.js:
+
+export function buildDisasterDirectOpenApi({
+  basePath = "/api",
+  title = "Disaster Direct Proxy API",
+  version = "1.0.0",
+  description = "Production-safe Ambee proxy + impact aggregation and mapping endpoints.",
+  schemes = ["https"],
+  security = { bearer: true, apiKeyHeader: "x-api-key", jwt: true },
+  routeScopes = {},
+  requireAllScopes = false,
+  incidentsReturnGeoJSON = false,   // 👈 new
+} = {}) {
+  const b = (p) => `${basePath.replace(/\/+$/,"")}/${p.replace(/^\/+/,"")}`;
+
+  const securitySchemes = {};
+  if (security?.bearer || security?.jwt) {
+    securitySchemes.bearerAuth = { type: "http", scheme: "bearer", bearerFormat: "JWT" };
+  }
+  if (security?.apiKeyHeader) {
+    securitySchemes.apiKeyHeader = { type: "apiKey", in: "header", name: security.apiKeyHeader };
+  }
+
+  const withSec = (_) => {
+    const sec = [];
+    if (securitySchemes.bearerAuth) sec.push({ bearerAuth: [] });
+    if (securitySchemes.apiKeyHeader) sec.push({ apiKeyHeader: [] });
+    return sec.length ? sec : undefined;
+  };
+
+  const scopeNote = (routeKey) => {
+    const scopes = routeScopes?.[routeKey] || [];
+    if (!scopes.length) return undefined;
+    const mode = requireAllScopes ? "ALL" : "ANY";
+    return `Requires ${mode} of scopes: ${scopes.join(", ")}`;
+  };
+
+  // ---------- Components: schemas ----------
+  const components = {
+    securitySchemes,
+    schemas: {
+      Incident: {
+        type: "object",
+        required: ["lat", "lng"],
+        properties: {
+          lat: { type: "number", minimum: -90, maximum: 90, example: 33.749 },
+          lng: { type: "number", minimum: -180, maximum: 180, example: -84.388 },
+          radiusKm: { type: "number", minimum: 0, example: 25 }
+        }
+      },
+      IncidentArray: {
+        type: "array",
+        items: { $ref: "#/components/schemas/Incident" },
+        example: [
+          { "lat": 33.749, "lng": -84.388, "radiusKm": 25 },
+          { "lat": 34.0522, "lng": -118.2437, "radiusKm": 30 }
+        ]
+      },
+      GeoJSONFeatureCollection: {
+        type: "object",
+        required: ["type","features"],
+        properties: {
+          type: { type: "string", enum: ["FeatureCollection"] },
+          features: {
+            type: "array",
+            items: {
+              type: "object",
+              required: ["type","geometry"],
+              properties: {
+                type: { type: "string", enum: ["Feature"] },
+                geometry: {
+                  type: "object",
+                  required: ["type","coordinates"],
+                  properties: {
+                    type: { type: "string", enum: ["Point"] },
+                    coordinates: {
+                      type: "array",
+                      items: { type: "number" },
+                      minItems: 2,
+                      example: [-84.388, 33.749]
+                    }
+                  }
+                },
+                properties: {
+                  type: "object",
+                  properties: {
+                    radiusKm: { type: "number", example: 25 },
+                    createdAt: { type: "integer", format: "int64", example: 1713388800000 }
+                  }
+                }
+              }
+            }
+          }
+        },
+        example: {
+          "type": "FeatureCollection",
+          "features": [
+            {
+              "type": "Feature",
+              "geometry": { "type": "Point", "coordinates": [-84.388, 33.749] },
+              "properties": { "radiusKm": 25 }
+            }
+          ]
+        }
+      }
+    }
+  };
+
+  const paths = {
+    // ... keep your existing paths here ...
+  };
+
+  // ---------- /incidents ----------
+  paths[b("/incidents")] = {
+    get: {
+      tags: ["incidents"],
+      summary: "List incidents (stub)",
+      description: `Returns in-memory incidents for demos/prewarming. ${scopeNote("/incidents") || ""}`.trim(),
+      responses: {
+        "200": {
+          description: incidentsReturnGeoJSON
+            ? "GeoJSON FeatureCollection of incident points"
+            : "Array of incidents",
+          content: incidentsReturnGeoJSON
+            ? { "application/geo+json": { schema: { $ref: "#/components/schemas/GeoJSONFeatureCollection" } } }
+            : { "application/json": { schema: { $ref: "#/components/schemas/IncidentArray" } } }
+        },
+        "401": { description: "Unauthorized" }
+      },
+      security: withSec("/incidents")
+    },
+    post: {
+      tags: ["incidents"],
+      summary: "Add incident(s) (stub)",
+      description: "Add one or many incidents to in-memory store. Accepts an object or an array.",
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: {
+              oneOf: [
+                { $ref: "#/components/schemas/Incident" },
+                { $ref: "#/components/schemas/IncidentArray" }
+              ]
+            },
+            examples: {
+              single: { value: { lat: 29.7604, lng: -95.3698, radiusKm: 20 } },
+              many: { value: [{ lat: 33.749, lng: -84.388, radiusKm: 25 }] }
+            }
+          }
+        }
+      },
+      responses: {
+        "201": { description: "Created" },
+        "400": { description: "Bad request" },
+        "401": { description: "Unauthorized" }
+      },
+      security: withSec("/incidents")
+    },
+    delete: {
+      tags: ["incidents"],
+      summary: "Clear incidents (stub)",
+      description: "Delete all incidents from the in-memory store.",
+      responses: {
+        "200": { description: "Cleared" },
+        "401": { description: "Unauthorized" }
+      },
+      security: withSec("/incidents")
+    }
+  };
+
+  return {
+    openapi: "3.0.3",
+    info: { title, version, description },
+    servers: [
+      { url: "{scheme}://{host}", variables: { scheme: { default: schemes[0] || "https", enum: schemes }, host: { default: "localhost:3001" } } }
+    ],
+    components,
+    security: withSec("global"),
+    paths
+  };
+}
+
+
+The builder now toggles the GET response between array and GeoJSON via the incidentsReturnGeoJSON flag so your Swagger matches whatever you configured in the stub (incidents.returnGeoJSON).
+
+3) Wire it up where you serve Swagger
+
+In your server (where you do /api/openapi.json and /api/docs), pass the new options:
+
+const routeScopes = {
+  "/impact": ["dd:impact:read"],
+  "/impact/geojson": ["dd:impact:read"],
+  "/impact/tiles": ["dd:tiles:read"],
+  "/pollen": ["dd:pollen:read"],
+  "/ambee/*": ["dd:proxy:read"],
+  "/legend": [],
+  "/incidents": ["dd:incidents:read"]   // 👈 secure your stub
+};
+
+const spec = buildDisasterDirectOpenApi({
+  basePath: "/api",
+  title: "Disaster Direct Proxy",
+  version: "1.0.0",
+  routeScopes,
+  requireAllScopes: false,
+  incidentsReturnGeoJSON: false  // set true if your stub returns GeoJSON
+});
+
+app.get("/api/openapi.json", (_req, res) => res.json(spec));
+
+
+If you use Swagger UI:
+
+import swaggerUi from "swagger-ui-express";
+app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(spec));
+
+4) Quick curls to verify
+# GET (array by default)
+curl -s -H "Authorization: Bearer $DD_BEARER_TOKEN" \
+  https://your-api.example.com/api/incidents | jq .
+
+# POST one
+curl -s -X POST -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $DD_BEARER_TOKEN" \
+  -d '{"lat": 29.7604, "lng": -95.3698, "radiusKm": 20}' \
+  https://your-api.example.com/api/incidents
+
+# DELETE all
+curl -s -X DELETE -H "Authorization: Bearer $DD_BEARER_TOKEN" \
+  https://your-api.example.com/api/incidents
+
+
+Open /api/docs and you’ll see a full Incidents section with examples and schema.
+
+Why this helps
+
+Keeps Swagger truthy with your actual responses (array vs GeoJSON).
+
+Documents auth & scopes for incidents too.
+
+Makes it trivial for teammates (and Postman users) to try incident workflows.
