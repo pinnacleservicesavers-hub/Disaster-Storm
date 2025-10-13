@@ -1,0 +1,233 @@
+You got it — here are the three enhancements wired into your existing Express backend:
+
+PNG tiles (pure WASM renderer, no native deps)
+
+Grid sampling (?grid=1|3|5) for smoother tiles
+
+Style params (?scheme=traffic|viridis|fire, ?label=0|1, ?bg=transparent|solid)
+
+1) Install one extra dependency (pure WASM → Replit-friendly)
+npm i @resvg/resvg-js
+
+
+This lets the server render your SVG tile to PNG on the fly (no native build).
+
+2) Drop-in: replace your current tile route with this upgraded version
+
+Paste below your other routes in server.js (it reuses your existing ambeeGET, getCache, setCache, requireLatLng helpers).
+
+import { Resvg } from "@resvg/resvg-js";
+
+// --- XYZ → lon/lat helpers ---
+function tile2lon(x, z) { return (x / Math.pow(2, z)) * 360 - 180; }
+function tile2lat(y, z) {
+  const n = Math.PI - (2 * Math.PI * y) / Math.pow(2, z);
+  return (180 / Math.PI) * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n)));
+}
+
+// ---- color palettes (0..100 → hex) ----
+function paletteTraffic(score) { // green → yellow → red
+  if (score >= 70) return "#d32f2f";
+  if (score >= 40) return "#f9a825";
+  return "#388e3c";
+}
+function paletteViridis(score) { // coarse viridis-like
+  if (score >= 80) return "#440154";
+  if (score >= 60) return "#3b518b";
+  if (score >= 40) return "#20908d";
+  if (score >= 20) return "#5dc963";
+  return "#fde725";
+}
+function paletteFire(score) { // yellow → orange → red
+  if (score >= 70) return "#c62828";
+  if (score >= 40) return "#ef6c00";
+  return "#fdd835";
+}
+function getPalette(scheme) {
+  switch ((scheme || "traffic").toLowerCase()) {
+    case "viridis": return paletteViridis;
+    case "fire": return paletteFire;
+    default: return paletteTraffic;
+  }
+}
+
+// --- compute impact score for a single point (reuses your Ambee calls/caching) ---
+async function computeImpactAt(lat, lng, { includePollen }) {
+  const qs = { lat, lng };
+  const [air, weather, wildfires, polMaybe] = await Promise.all([
+    ambeeGET("latest/by-lat-lng", qs),
+    ambeeGET("weather/latest/by-lat-lng", qs),
+    ambeeGET("wildfires/latest/by-lat-lng", qs),
+    includePollen ? ambeeGET("pollen/latest/by-lat-lng", qs) : Promise.resolve(null)
+  ]);
+
+  const station = air?.stations?.[0] || {};
+  const AQI = Number(station?.AQI) || 0;
+
+  const wxPoint = weather?.stations?.[0] || weather?.data || {};
+  const windGust = Number(wxPoint?.windGust || wxPoint?.wind_gust || 0) || 0;
+
+  const wfList = wildfires?.data || wildfires?.wildfires || [];
+  const minWfKm = Array.isArray(wfList) && wfList.length
+    ? wfList.map(f => Number(f?.distance || f?.distance_km || Infinity)).reduce((a, b) => Math.min(a, b), Infinity)
+    : Infinity;
+
+  const polRow = (polMaybe?.data?.[0] || polMaybe?.stations?.[0] || {});
+  const pollenRiskStr = (polRow?.Risk || polRow?.risk || "").toString().toLowerCase();
+  const pollenRisk = includePollen
+    ? (/high/.test(pollenRiskStr) ? 1 : /moderate/.test(pollenRiskStr) ? 0.6 : /low/.test(pollenRiskStr) ? 0.2 : 0)
+    : 0;
+
+  const clamp01 = v => Math.max(0, Math.min(1, v));
+  const AQI_norm = clamp01(AQI / 300);
+  const wind_norm = clamp01(windGust / 25);
+  const wf_norm = clamp01(1 - (isFinite(minWfKm) ? (minWfKm / 50) : 1));
+  const pollen_norm = clamp01(pollenRisk);
+
+  const w1 = 0.45, w2 = 0.25, w3 = 0.15, w4 = 0.15;
+  const score = Math.round(100 * (w1 * AQI_norm + w2 * wind_norm + w3 * wf_norm + w4 * pollen_norm));
+
+  return { score, details: { AQI, windGust, minWfKm, pollenRiskLabel: polRow?.Risk || polRow?.risk || null } };
+}
+
+// --- grid sampling across tile (n x n) ---
+async function sampleTileAverage(z, x, y, grid, includePollen) {
+  // tile bounds
+  const lonLeft = tile2lon(x, z);
+  const lonRight = tile2lon(x + 1, z);
+  const latTop = tile2lat(y, z);
+  const latBottom = tile2lat(y + 1, z);
+
+  // build grid points (centered within each cell)
+  const rows = grid;
+  const cols = grid;
+  const tasks = [];
+  for (let r = 0; r < rows; r++) {
+    const lat = latTop + ((r + 0.5) / rows) * (latBottom - latTop);
+    for (let c = 0; c < cols; c++) {
+      const lng = lonLeft + ((c + 0.5) / cols) * (lonRight - lonLeft);
+      tasks.push(computeImpactAt(lat, lng, { includePollen }));
+    }
+  }
+  const results = await Promise.allSettled(tasks);
+  const scores = results.filter(r => r.status === "fulfilled").map(r => r.value.score);
+  const score = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
+
+  // carry some representative detail (center of tile)
+  const centerLat = (latTop + latBottom) / 2;
+  const centerLng = (lonLeft + lonRight) / 2;
+  const center = await computeImpactAt(centerLat, centerLng, { includePollen }).catch(() => ({ score }));
+  return { score, details: center.details };
+}
+
+/**
+ * GET /api/impact/tiles/:z/:x/:y.:fmt
+ * :fmt = svg | png  (default svg if omitted)
+ *
+ * Query:
+ *   pollen=0|1         include pollen in scoring (default 0)
+ *   grid=1|3|5         sampling grid (default 1; 3 is smoother; 5 is heavier)
+ *   scheme=traffic|viridis|fire  (default traffic)
+ *   label=0|1          draw big score label (default 1)
+ *   bg=transparent|solid  SVG background (default transparent)
+ *   ttl=10..600        cache seconds (default 60)
+ */
+app.get("/api/impact/tiles/:z/:x/:y.:fmt?", async (req, res) => {
+  const z = Number(req.params.z), x = Number(req.params.x), y = Number(req.params.y);
+  if (![z, x, y].every(Number.isFinite) || z < 0 || x < 0 || y < 0) {
+    return res.status(400).send("Bad tile coords");
+  }
+
+  const fmt = (req.params.fmt || "svg").toLowerCase();
+  const includePollen = req.query.pollen === "1";
+  const grid = [1, 3, 5].includes(Number(req.query.grid)) ? Number(req.query.grid) : 1;
+  const scheme = String(req.query.scheme || "traffic");
+  const drawLabel = req.query.label !== "0";
+  const bg = (req.query.bg || "transparent").toString().toLowerCase(); // "transparent" | "solid"
+  const ttl = Math.max(10, Math.min(600, Number(req.query.ttl) || 60)); // 10..600s
+
+  const cacheKey = `tile:v2:${z}/${x}/${y}:${fmt}:p${includePollen}:g${grid}:s${scheme}:l${drawLabel}:bg${bg}`;
+  const hit = getCache(cacheKey);
+  if (hit) {
+    if (fmt === "png") res.setHeader("Content-Type", "image/png");
+    else res.setHeader("Content-Type", "image/svg+xml");
+    return res.send(hit);
+  }
+
+  try {
+    const { score, details } = await sampleTileAverage(z, x, y, grid, includePollen);
+    const fill = getPalette(scheme)(score);
+    const textColor = score >= 70 ? "#fff" : "#000";
+    const bgFill = bg === "solid" ? (fmt === "png" ? "#ffffff" : "white") : "none";
+
+    // SVG template (256x256)
+    const svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <rect x="0" y="0" width="256" height="256" fill="${bgFill}"/>
+  <rect x="0" y="0" width="256" height="256" fill="${fill}" fill-opacity="${bg === "solid" ? 0.75 : 0.5}"/>
+  ${drawLabel ? `
+  <text x="128" y="138" font-family="system-ui, sans-serif" font-size="64" text-anchor="middle" fill="${textColor}" font-weight="700">${score}</text>
+  <text x="128" y="170" font-family="system-ui, sans-serif" font-size="16" text-anchor="middle" fill="${textColor}">
+    ${includePollen ? "impact (pollen)" : "impact"}
+  </text>` : ``}
+</svg>`;
+
+    if (fmt === "png") {
+      const resvg = new Resvg(svg, { fitTo: { mode: "width", value: 256 } });
+      const png = resvg.render().asPng(); // Uint8Array
+      setCache(cacheKey, Buffer.from(png), ttl * 1000);
+      res.setHeader("Content-Type", "image/png");
+      return res.send(Buffer.from(png));
+    } else {
+      setCache(cacheKey, svg, ttl * 1000);
+      res.setHeader("Content-Type", "image/svg+xml");
+      return res.send(svg);
+    }
+  } catch (e) {
+    // Graceful error tile
+    const errSvg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <rect x="0" y="0" width="256" height="256" fill="#9e9e9e"/>
+  <text x="128" y="140" font-family="system-ui, sans-serif" font-size="28" text-anchor="middle" fill="#212121">ERR</text>
+</svg>`;
+    setCache(cacheKey, errSvg, 30_000);
+    res.setHeader("Content-Type", "image/svg+xml");
+    res.status(200).send(errSvg);
+  }
+});
+
+3) How to use it
+
+SVG tiles (default):
+/api/impact/tiles/{z}/{x}/{y}.svg?pollen=1&grid=3&scheme=viridis&label=1&bg=transparent&ttl=120
+
+PNG tiles:
+/api/impact/tiles/{z}/{x}/{y}.png?pollen=1&grid=3&scheme=fire&label=0&bg=solid&ttl=300
+
+In Leaflet
+L.tileLayer('/api/impact/tiles/{z}/{x}/{y}.png?pollen=1&grid=3&scheme=viridis&ttl=180', {
+  tileSize: 256,
+  opacity: 0.5,
+  minZoom: 2,
+  maxZoom: 14
+}).addTo(map);
+
+In Mapbox GL
+map.addSource("impact", {
+  type: "raster",
+  tiles: [`${location.origin}/api/impact/tiles/{z}/{x}/{y}.png?pollen=1&grid=3&scheme=traffic&ttl=180`],
+  tileSize: 256
+});
+map.addLayer({ id: "impact", type: "raster", source: "impact", paint: { "raster-opacity": 0.5 }});
+
+4) Notes / best practices
+
+Upstream usage: grid=3 makes 9 samples per tile (more Ambee calls). Use higher ttl (e.g., 180–600) at zooms ≤ 10 to keep usage sane.
+
+Transparency: bg=transparent gives overlay-style tiles. Use bg=solid if you want an opaque raster.
+
+Styling: scheme=traffic (default), viridis, or fire. Add your own palette easily in getPalette.
+
+Labels: Disable with label=0 for a cleaner heatmap look.
+
+Perf: If you ever want even smoother tiles without increasing API calls, we can add a sampling cache or quantize coordinates.

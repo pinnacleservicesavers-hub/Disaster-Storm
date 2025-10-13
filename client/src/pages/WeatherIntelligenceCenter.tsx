@@ -73,6 +73,7 @@ import { UnifiedAssistant } from '@/components/UnifiedAssistant';
 import PortalVoiceGuide, { PORTAL_SECTIONS } from '@/components/PortalVoiceGuide';
 import { WeatherAIAssistant } from '@/components/WeatherAIAssistant';
 import { ComprehensiveIntelligenceSystem } from '@/components/ComprehensiveIntelligenceSystem';
+import { EnvironmentalSummary } from '@/components/EnvironmentalSummary';
 
 // ===== UNIFIED INTERFACES =====
 
@@ -699,8 +700,20 @@ export default function WeatherIntelligenceCenter() {
                       </div>
                     )}
 
+                    {/* Environmental Intelligence */}
+                    <div className="mb-6">
+                      <h3 className="text-lg font-semibold mb-4 flex items-center">
+                        <Activity className="w-5 h-5 mr-2 text-green-600" />
+                        Environmental Intelligence
+                      </h3>
+                      <EnvironmentalSummary 
+                        lat={selectedState === 'all' ? 39.8283 : stateCoordinates[selectedState]?.latitude || 39.8283}
+                        lng={selectedState === 'all' ? -98.5795 : stateCoordinates[selectedState]?.longitude || -98.5795}
+                      />
+                    </div>
+
                     <div className="text-center text-sm text-gray-500">
-                      Data sources: NOAA, NWS, GOES Satellites, NDBC Buoys, WAVEWATCH III
+                      Data sources: NOAA, NWS, GOES Satellites, NDBC Buoys, WAVEWATCH III, Ambee Environmental API
                     </div>
                   </CardContent>
                 </Card>

@@ -1,0 +1,139 @@
+Perfect — here’s a drop-in /api/legend endpoint that returns a tiny PNG (or SVG) legend for your current color scheme. It matches the palettes you already use for tiles (traffic, viridis, fire) and marks the Disaster Direct thresholds at 40 and 70.
+
+1) Add this route to your existing server.js
+
+Requires @resvg/resvg-js (you already installed it for PNG tiles).
+
+import { Resvg } from "@resvg/resvg-js";
+
+/**
+ * GET /api/legend.:fmt?
+ * :fmt = png | svg (default png)
+ *
+ * Query:
+ *   scheme=traffic|viridis|fire   (default traffic)
+ *   width=number                  (default 256)
+ *   height=number                 (default 48)
+ *   showLabels=0|1                (default 1)
+ *   bg=transparent|solid          (default transparent)
+ *
+ * Notes:
+ * - The legend is a horizontal bar mapping score 0..100 to color.
+ * - We draw markers at 40 (moderate) and 70 (high).
+ */
+app.get("/api/legend.:fmt?", async (req, res) => {
+  const fmt = (req.params.fmt || "png").toLowerCase();
+  const scheme = String(req.query.scheme || "traffic").toLowerCase();
+  const w = Math.max(160, Math.min(1024, Number(req.query.width) || 256));
+  const h = Math.max(32, Math.min(200, Number(req.query.height) || 48));
+  const showLabels = req.query.showLabels !== "0";
+  const bg = (req.query.bg || "transparent").toString().toLowerCase(); // transparent | solid
+
+  // same palettes as the tile endpoint
+  function paletteTraffic(score) { if (score >= 70) return "#d32f2f"; if (score >= 40) return "#f9a825"; return "#388e3c"; }
+  function paletteViridis(score) { if (score >= 80) return "#440154"; if (score >= 60) return "#3b518b"; if (score >= 40) return "#20908d"; if (score >= 20) return "#5dc963"; return "#fde725"; }
+  function paletteFire(score) { if (score >= 70) return "#c62828"; if (score >= 40) return "#ef6c00"; return "#fdd835"; }
+  function getPalette(name) { return name === "viridis" ? paletteViridis : name === "fire" ? paletteFire : paletteTraffic; }
+  const pal = getPalette(scheme);
+
+  // Build gradient by drawing 100 tiny vertical rects (0..100)
+  const pad = 8;               // outer padding
+  const barH = Math.max(10, h - (showLabels ? 22 : 16));
+  const barY = pad;
+  const textY = barY + barH + 12;
+
+  let rects = "";
+  for (let s = 0; s <= 100; s++) {
+    const x = pad + Math.round((w - pad * 2) * (s / 100));
+    rects += `<rect x="${x}" y="${barY}" width="1" height="${barH}" fill="${pal(s)}"/>`;
+  }
+
+  // Threshold markers (40, 70)
+  const x40 = pad + Math.round((w - pad * 2) * (40 / 100));
+  const x70 = pad + Math.round((w - pad * 2) * (70 / 100));
+  const marker = (x, label) => `
+    <line x1="${x}" y1="${barY - 2}" x2="${x}" y2="${barY + barH + 2}" stroke="#000" stroke-opacity="0.7" stroke-width="2"/>
+    ${showLabels ? `<text x="${x}" y="${textY}" font-family="system-ui,sans-serif" font-size="10" text-anchor="middle" fill="#000">${label}</text>` : "" }
+  `;
+
+  const bgFill = bg === "solid" ? "white" : "none";
+
+  const labels = showLabels ? `
+    <text x="${pad}" y="${textY}" font-family="system-ui,sans-serif" font-size="10" text-anchor="start" fill="#000">0</text>
+    <text x="${w/2}" y="${textY}" font-family="system-ui,sans-serif" font-size="10" text-anchor="middle" fill="#000">50</text>
+    <text x="${w - pad}" y="${textY}" font-family="system-ui,sans-serif" font-size="10" text-anchor="end" fill="#000">100</text>
+    <text x="${w - pad}" y="${barY - 4}" font-family="system-ui,sans-serif" font-size="11" text-anchor="end" fill="#000">${scheme} impact</text>
+  ` : "";
+
+  const svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
+  <rect x="0" y="0" width="${w}" height="${h}" fill="${bgFill}"/>
+  ${rects}
+  ${marker(x40, "40")}
+  ${marker(x70, "70")}
+  ${labels}
+</svg>`;
+
+  try {
+    if (fmt === "svg") {
+      res.setHeader("Content-Type", "image/svg+xml");
+      return res.send(svg);
+    }
+    // PNG via resvg (WASM)
+    const r = new Resvg(svg, { fitTo: { mode: "width", value: w } });
+    const png = r.render().asPng();
+    res.setHeader("Content-Type", "image/png");
+    return res.send(Buffer.from(png));
+  } catch (e) {
+    res.status(500).json({ error: "Legend render failed", details: String(e) });
+  }
+});
+
+2) How to use it
+
+PNG (default):
+/api/legend.png?scheme=traffic&width=256&height=48&bg=transparent&showLabels=1
+
+SVG:
+/api/legend.svg?scheme=viridis&width=320&height=56&bg=solid&showLabels=1
+
+You can keep it same-origin and just <img src="/api/legend.png?scheme=traffic" /> in your UI or place it as a corner overlay on your map.
+
+3) Quick UI snippets
+Leaflet control with legend
+// create a simple legend control
+const LegendControl = L.Control.extend({
+  onAdd: function () {
+    const img = L.DomUtil.create("img");
+    img.src = "/api/legend.png?scheme=traffic&width=256&height=48&bg=solid&showLabels=1";
+    img.style.width = "256px";
+    img.style.height = "48px";
+    img.style.boxShadow = "0 2px 6px rgba(0,0,0,0.2)";
+    img.style.borderRadius = "6px";
+    img.style.background = "#fff";
+    return img;
+  },
+  onRemove: function () {}
+});
+
+map.addControl(new LegendControl({ position: "bottomright" }));
+
+React: simple legend component
+export function ImpactLegend({ scheme = "traffic" }: { scheme?: "traffic"|"viridis"|"fire" }) {
+  const url = `/api/legend.png?scheme=${scheme}&width=256&height=48&bg=solid&showLabels=1`;
+  return (
+    <img
+      src={url}
+      alt="Impact legend"
+      style={{ width: 256, height: 48, borderRadius: 6, boxShadow: "0 2px 6px rgba(0,0,0,0.2)" }}
+    />
+  );
+}
+
+4) Consistency tips
+
+The legend’s threshold lines at 40 and 70 align with your “moderate” and “high” tile colors.
+
+If you tweak tile palettes or thresholds later, update this endpoint to match.
+
+You can add ?scheme=fire or ?scheme=viridis to the legend URL when you switch tile schemes.
