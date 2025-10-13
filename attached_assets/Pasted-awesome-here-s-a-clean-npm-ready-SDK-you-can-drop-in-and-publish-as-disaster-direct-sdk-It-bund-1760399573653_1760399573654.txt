@@ -1,0 +1,309 @@
+awesome — here’s a clean, npm-ready SDK you can drop in and publish as @disaster-direct/sdk. It bundles your safe fetch wrapper, impact helper, and tiles/legend helpers, with ESM+CJS builds and full TypeScript types.
+
+1) Folder layout
+disaster-direct-sdk/
+├─ package.json
+├─ tsconfig.json
+├─ tsup.config.ts
+├─ src/
+│  ├─ index.ts
+│  ├─ ddClient.ts     // fetch wrapper + getImpact (typed)
+│  └─ ddTiles.ts      // tile/legend helpers (unsigned + HMAC signer endpoints)
+├─ README.md
+└─ LICENSE
+
+2) package.json
+{
+  "name": "@disaster-direct/sdk",
+  "version": "0.1.0",
+  "description": "Client utilities for Disaster Direct: safe API fetch, impact helpers, and map tile/legend utilities (HMAC-ready).",
+  "license": "MIT",
+  "author": "Disaster Direct",
+  "repository": { "type": "git", "url": "https://github.com/your-org/disaster-direct-sdk.git" },
+  "bugs": { "url": "https://github.com/your-org/disaster-direct-sdk/issues" },
+  "homepage": "https://github.com/your-org/disaster-direct-sdk#readme",
+  "sideEffects": false,
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": ["dist", "README.md", "LICENSE"],
+  "scripts": {
+    "build": "tsup",
+    "clean": "rimraf dist",
+    "prepublishOnly": "npm run clean && npm run build",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "tsup": "^8.1.0",
+    "typescript": "^5.6.3",
+    "rimraf": "^6.0.1"
+  },
+  "peerDependencies": {
+    "mapbox-gl": ">=2.0.0 || >=3.0.0"
+  },
+  "peerDependenciesMeta": {
+    "mapbox-gl": { "optional": true }
+  }
+}
+
+3) tsconfig.json
+{
+  "extends": "./node_modules/tsconfig/base.json",
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "declaration": true,
+    "declarationMap": false,
+    "sourceMap": false,
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "outDir": "dist"
+  },
+  "include": ["src"]
+}
+
+
+(If you don’t have tsconfig/base.json, remove the extends line.)
+
+4) tsup.config.ts
+import { defineConfig } from "tsup";
+
+export default defineConfig({
+  entry: ["src/index.ts"],
+  dts: true,
+  format: ["esm", "cjs"],
+  sourcemap: false,
+  clean: true,
+  minify: false,
+  treeshake: true,
+  target: "es2020"
+});
+
+5) src/ddClient.ts
+export type DDSuccess<T = unknown> = { ok: true; data: T; status: number };
+export type DDError = {
+  ok: false; status: number; code?: number;
+  error: string; details?: string; requestId?: string; retryAfterSec?: number; hint?: string;
+  userMessage: string; retryable: boolean;
+};
+export type DDResult<T = unknown> = DDSuccess<T> | DDError;
+
+export interface FetchOpts extends RequestInit {
+  retries?: number; backoffBaseMs?: number; backoffCapMs?: number;
+}
+
+export function getRetryAfterSec(res: Response): number | undefined {
+  const h = res.headers.get("Retry-After"); if (!h) return;
+  const sec = Number(h); return Number.isFinite(sec) ? sec : undefined;
+}
+export function isRetryableStatus(status: number): boolean { return status === 429 || status >= 500; }
+
+export function errorToUserMessage(e: { status: number; error?: string; hint?: string; }): string {
+  const { status, error, hint } = e;
+  if (status === 401) return "Sign in to continue. Your session may have expired.";
+  if (status === 403) return "You don’t have permission to view this data.";
+  if (status === 429) return "Too many requests right now. Please wait and try again.";
+  if (status >= 500) return "Service is temporarily unavailable.";
+  return hint || error || "Request failed. Please try again.";
+}
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+
+export async function apiFetch<T = unknown>(url: string, opts: FetchOpts = {}): Promise<DDResult<T>> {
+  const { retries = 0, backoffBaseMs = 250, backoffCapMs = 3000, headers, ...rest } = opts;
+  let attempt = 0;
+  const hdrs = new Headers(headers); if (!hdrs.has("Accept")) hdrs.set("Accept", "application/json");
+
+  const once = async (): Promise<DDResult<T>> => {
+    let res: Response;
+    try { res = await fetch(url, { ...rest, headers: hdrs }); }
+    catch (e: any) { return { ok: false, status: 0, error: "NetworkError", details: String(e), userMessage: "Network error. Check your connection.", retryable: true }; }
+
+    const ct = res.headers.get("Content-Type") || ""; const ra = getRetryAfterSec(res);
+    if (res.ok) {
+      if (ct.includes("application/json")) return { ok: true, data: await res.json() as T, status: res.status };
+      if (ct.startsWith("image/")) return { ok: true, data: await res.blob() as any as T, status: res.status };
+      return { ok: true, data: await res.text() as any as T, status: res.status };
+    }
+    let parsed: any; if (ct.includes("application/json")) { try { parsed = await res.json(); } catch {} }
+    const status = res.status; const error = parsed?.error || res.statusText || "Error";
+    const details = parsed?.details; const requestId = parsed?.requestId; const hint = parsed?.hint;
+    const userMessage = errorToUserMessage({ status, error, hint }); const retryable = isRetryableStatus(status);
+    return { ok: false, status, code: parsed?.code ?? status, error, details, requestId, hint, userMessage, retryable, retryAfterSec: ra };
+  };
+
+  let result = await once();
+  while (!result.ok && result.retryable && attempt < retries) {
+    attempt++;
+    const jitter = Math.random() * backoffBaseMs;
+    const backoffMs = Math.min(backoffBaseMs * Math.pow(2, attempt - 1) + jitter, backoffCapMs);
+    const waitSec = (result as DDError).retryAfterSec ?? backoffMs / 1000;
+    await sleep(waitSec * 1000);
+    result = await once();
+  }
+  return result;
+}
+
+export async function getImpact(baseUrl: string, lat: number, lng: number, pollen = false, init?: FetchOpts) {
+  const u = new URL("/api/impact", baseUrl);
+  u.searchParams.set("lat", String(lat));
+  u.searchParams.set("lng", String(lng));
+  if (pollen) u.searchParams.set("pollen", "1");
+  return apiFetch<{
+    impactScore: number;
+    components: Record<string, unknown>;
+    meta?: Record<string, unknown>;
+  }>(u.toString(), { retries: 2, ...init });
+}
+
+6) src/ddTiles.ts
+type LegendOpts = { scheme?: string; width?: number; height?: number; bg?: "solid"|"transparent"; fmt?: "png"|"svg" };
+
+/** Unsigned tile template (CDN-friendly). */
+export function makeUnsignedTileTemplate(base = "/api/impact/tiles/{z}/{x}/{y}.png", qp: Record<string,string|number> = {}) {
+  const qs = new URLSearchParams(qp as Record<string,string>).toString();
+  return qs ? `${base}?${qs}` : base;
+}
+
+/** Very small memo for signed URLs */
+function memo<T>(max = 200) {
+  const m = new Map<string, { v:T; exp?: number }>();
+  return {
+    async getOrSet(key: string, exp: number|undefined, make: () => Promise<T>): Promise<T> {
+      const hit = m.get(key); const now = Math.floor(Date.now()/1000);
+      if (hit && (!hit.exp || hit.exp - 10 > now)) return hit.v;
+      const v = await make(); if (m.size > max) m.delete(m.keys().next().value);
+      m.set(key, { v, exp }); return v;
+    }
+  };
+}
+
+/** Mapbox GL: transformRequest that auto-signs /api/impact/tiles with your backend signer. */
+export function makeMapboxTransformRequest(baseUrl = "", signEndpoint = "/api/sign/tile") {
+  const cache = memo<string>(500);
+  return async function transformRequest(url: string, resourceType: string) {
+    if (resourceType !== "Tile" && resourceType !== "Image") return { url };
+    if (!url.includes("/api/impact/tiles/")) return { url };
+
+    try {
+      const u = new URL(url, typeof window !== "undefined" ? window.location.origin : baseUrl || "http://localhost");
+      const m = u.pathname.match(/\/api\/impact\/tiles\/(\d+)\/(\d+)\/(\d+)\.(png|svg)/);
+      if (!m) return { url };
+      const [ , z, x, y, fmt ] = m;
+      const p = u.searchParams;
+      const pollen = p.get("pollen") ?? "1"; const grid = p.get("grid") ?? "3";
+      const scheme = p.get("scheme") ?? "viridis"; const ttl = p.get("ttl") ?? "180";
+      const key = `${z}/${x}/${y}.${fmt}?p=${pollen}&g=${grid}&s=${scheme}&t=${ttl}`;
+
+      const signed = await cache.getOrSet(key, undefined, async () => {
+        const sig = new URL(signEndpoint, baseUrl || u.origin);
+        sig.searchParams.set("z", z); sig.searchParams.set("x", x); sig.searchParams.set("y", y);
+        sig.searchParams.set("fmt", fmt); sig.searchParams.set("pollen", pollen);
+        sig.searchParams.set("grid", grid); sig.searchParams.set("scheme", scheme); sig.searchParams.set("ttl", ttl);
+        const r = await fetch(sig.toString(), { credentials: "include" });
+        if (!r.ok) throw new Error(`sign ${r.status}`);
+        const j = await r.json(); return j.url as string;
+      });
+
+      return { url: signed };
+    } catch { return { url }; }
+  };
+}
+
+/** Legend URL helper (works unsigned, or via /api/sign/legend when HMAC enabled). */
+export async function getLegendUrl(baseUrl = "", opts: LegendOpts = {}, hmac = false): Promise<string> {
+  const { scheme = "traffic", width = 256, height = 48, bg = "solid", fmt = "png" } = opts;
+  if (!hmac) {
+    const u = new URL(`/api/legend.${fmt}`, baseUrl || (typeof window !== "undefined" ? window.location.origin : "http://localhost"));
+    u.searchParams.set("scheme", scheme); u.searchParams.set("width", String(width));
+    u.searchParams.set("height", String(height)); u.searchParams.set("bg", bg);
+    return u.pathname + "?" + u.searchParams.toString();
+  }
+  const sign = new URL("/api/sign/legend", baseUrl || (typeof window !== "undefined" ? window.location.origin : "http://localhost"));
+  sign.searchParams.set("scheme", scheme);
+  sign.searchParams.set("width", String(width));
+  sign.searchParams.set("height", String(height));
+  sign.searchParams.set("bg", bg);
+  const r = await fetch(sign.toString(), { credentials: "include" });
+  if (!r.ok) throw new Error("legend sign failed");
+  const { url } = await r.json();
+  return url;
+}
+
+7) src/index.ts
+export * from "./ddClient";
+export * from "./ddTiles";
+
+8) README.md (short)
+# @disaster-direct/sdk
+
+Client utilities for Disaster Direct:
+- Safe fetch wrapper with retries + `Retry-After`
+- `getImpact(baseUrl, lat, lng, pollen?)`
+- Tile/legend helpers for Mapbox/Leaflet
+- Optional HMAC support via backend signing endpoints
+
+## Install
+```bash
+npm i @disaster-direct/sdk
+# or
+pnpm add @disaster-direct/sdk
+
+Usage (React)
+import { getImpact, makeUnsignedTileTemplate, makeMapboxTransformRequest, getLegendUrl } from "@disaster-direct/sdk";
+
+const res = await getImpact("https://api.your-domain.com", 33.749, -84.388, true);
+if (res.ok) console.log(res.data.impactScore);
+
+
+Tiles (unsigned):
+
+const template = makeUnsignedTileTemplate("/api/impact/tiles/{z}/{x}/{y}.png", { pollen: 1, grid: 3, scheme: "viridis", ttl: 180 });
+
+
+Tiles (HMAC signed via /api/sign/tile):
+
+const transformRequest = makeMapboxTransformRequest("", "/api/sign/tile");
+
+
+Legend:
+
+const url = await getLegendUrl("", { scheme: "traffic", width: 256, height: 48, bg: "solid" }, /*hmac*/ true);
+
+Types
+
+Fully typed; ESM + CJS exports.
+
+License
+
+MIT
+
+
+---
+
+# 9) Publish
+
+```bash
+# in disaster-direct-sdk/
+npm login
+npm publish --access public
+
+
+(For GitHub Packages, set "publishConfig": { "registry": "https://npm.pkg.github.com" } and npm publish with NODE_AUTH_TOKEN.)
+
+10) Drop-in in your Replit/React app
+import { getImpact, makeUnsignedTileTemplate } from "@disaster-direct/sdk";
+
+const res = await getImpact(import.meta.env.VITE_API_BASE, 33.749, -84.388, true, {
+  headers: { Authorization: `Bearer ${token}`, "x-api-key": internalKey }
+});
