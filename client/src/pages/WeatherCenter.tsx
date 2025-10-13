@@ -32,7 +32,8 @@ import {
   Sun,
   CloudLightning,
   Volume2,
-  VolumeX
+  VolumeX,
+  BookOpen
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -50,6 +51,7 @@ import {
 } from '@/components/ui/animations';
 import type { WeatherAlert } from '@shared/schema';
 import AIAssistant from '@/components/AIAssistant';
+import EducationalPanel from '@/components/EducationalPanel';
 
 // API response interfaces that extend shared schema types
 interface SPCData {
@@ -827,7 +829,7 @@ export default function WeatherCenter() {
               transition={{ delay: 0.6 }}
             >
               <TabsList 
-                className="grid w-full grid-cols-8 bg-white/70 backdrop-blur-sm border border-blue-200/50 p-1 rounded-xl" 
+                className="grid w-full grid-cols-9 bg-white/70 backdrop-blur-sm border border-blue-200/50 p-1 rounded-xl" 
                 data-testid="tabs-weather"
               >
                 <HoverLift>
@@ -864,6 +866,12 @@ export default function WeatherCenter() {
                   <TabsTrigger value="models" data-testid="tab-models" className="rounded-lg transition-all duration-300">
                     <CloudRain className="w-4 h-4 mr-2" />
                     Models+External
+                  </TabsTrigger>
+                </HoverLift>
+                <HoverLift>
+                  <TabsTrigger value="education" data-testid="tab-education" className="rounded-lg transition-all duration-300">
+                    <BookOpen className="w-4 h-4 mr-2" />
+                    Learn
                   </TabsTrigger>
                 </HoverLift>
                 <HoverLift>
@@ -1606,6 +1614,10 @@ export default function WeatherCenter() {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        <TabsContent value="education" className="space-y-6">
+          <EducationalPanel stormContext={{ nhcStorms: nhcData.storms, alerts: alerts }} />
         </TabsContent>
           </Tabs>
         </FadeIn>
