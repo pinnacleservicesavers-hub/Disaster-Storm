@@ -1,0 +1,267 @@
+Awesome — here’s a built-in OpenAPI (Swagger) spec you can add to disaster-direct-proxy, plus an optional Swagger UI route. It documents every endpoint we created, including query params, security, and per-route scopes.
+
+1) Add an OpenAPI builder to the library
+index.js — add this function (and export it)
+// --- OpenAPI (Swagger) spec builder ---
+export function buildDisasterDirectOpenApi({
+  basePath = "/api",
+  title = "Disaster Direct Proxy API",
+  version = "1.0.0",
+  description = "Production-safe Ambee proxy + impact aggregation and mapping endpoints.",
+  schemes = ["https"],
+  security = { bearer: true, apiKeyHeader: "x-api-key", jwt: true },
+  routeScopes = {},             // same shape you pass to createDisasterDirectProxy
+  requireAllScopes = false,
+} = {}) {
+  const b = (p) => `${basePath.replace(/\/+$/,"")}/${p.replace(/^\/+/,"")}`;
+
+  const securitySchemes = {};
+  if (security?.bearer || security?.jwt) {
+    securitySchemes.bearerAuth = { type: "http", scheme: "bearer", bearerFormat: "JWT" };
+  }
+  if (security?.apiKeyHeader) {
+    securitySchemes.apiKeyHeader = { type: "apiKey", in: "header", name: security.apiKeyHeader };
+  }
+
+  const withSec = (routeKey) => {
+    const sec = [];
+    if (securitySchemes.bearerAuth) sec.push({ bearerAuth: [] });
+    if (securitySchemes.apiKeyHeader) sec.push({ apiKeyHeader: [] });
+    return sec.length ? sec : undefined;
+  };
+
+  const scopeNote = (routeKey) => {
+    const scopes = routeScopes?.[routeKey] || [];
+    if (!scopes.length) return undefined;
+    const mode = requireAllScopes ? "ALL" : "ANY";
+    return `Requires ${mode} of scopes: ${scopes.join(", ")}`;
+  };
+
+  const latLngParams = [
+    { name: "lat", in: "query", required: true, schema: { type: "number", minimum: -90, maximum: 90 } },
+    { name: "lng", in: "query", required: true, schema: { type: "number", minimum: -180, maximum: 180 } },
+  ];
+
+  return {
+    openapi: "3.0.3",
+    info: { title, version, description },
+    servers: [{ url: "{scheme}://{host}", variables: { scheme: { default: schemes[0] || "https", enum: schemes }, host: { default: "localhost:3001" } } }],
+    components: { securitySchemes },
+    security: withSec("global"),
+    paths: {
+      [b("/ambee/{endpoint}")]: {
+        get: {
+          tags: ["proxy"],
+          summary: "Pass-through to allowed Ambee endpoint",
+          description: `Allowed endpoints are configured on the server allow-list. ${scopeNote("/ambee/*") || ""}`.trim(),
+          parameters: [
+            { name: "endpoint", in: "path", required: true, schema: { type: "string", example: "latest/by-lat-lng" } },
+            ...latLngParams
+          ],
+          responses: { "200": { description: "Upstream Ambee response" }, "400": { description: "Bad request" }, "401": { description: "Unauthorized" } },
+          security: withSec("/ambee/*"),
+        }
+      },
+
+      [b("/impact")]: {
+        get: {
+          tags: ["impact"],
+          summary: "Aggregated impact score at a coordinate",
+          description: `Combines air quality, weather, wildfires (and optional pollen) into a 0..100 score. ${scopeNote("/impact") || ""}`.trim(),
+          parameters: [
+            ...latLngParams,
+            { name: "pollen", in: "query", required: false, schema: { type: "string", enum: ["0", "1"], default: "0" } }
+          ],
+          responses: { "200": { description: "Impact score JSON" }, "400": { description: "Bad request" }, "401": { description: "Unauthorized" } },
+          security: withSec("/impact"),
+        }
+      },
+
+      [b("/pollen")]: {
+        get: {
+          tags: ["pollen"],
+          summary: "Normalized pollen near a coordinate",
+          description: `Returns a consistent shape for pollen risk and counts. ${scopeNote("/pollen") || ""}`.trim(),
+          parameters: latLngParams,
+          responses: { "200": { description: "Pollen JSON" }, "400": { description: "Bad request" }, "401": { description: "Unauthorized" } },
+          security: withSec("/pollen"),
+        }
+      },
+
+      [b("/impact/geojson")]: {
+        get: {
+          tags: ["impact", "geo"],
+          summary: "Impact as GeoJSON FeatureCollection",
+          description: `Single Point feature with rich properties for mapping. ${scopeNote("/impact/geojson") || ""}`.trim(),
+          parameters: [
+            ...latLngParams,
+            { name: "pollen", in: "query", required: false, schema: { type: "string", enum: ["0", "1"], default: "0" } }
+          ],
+          responses: { "200": { description: "GeoJSON FeatureCollection" }, "400": { description: "Bad request" }, "401": { description: "Unauthorized" } },
+          security: withSec("/impact/geojson"),
+        }
+      },
+
+      [b("/impact/tiles/{z}/{x}/{y}.{fmt}")]: {
+        get: {
+          tags: ["tiles"],
+          summary: "Impact raster tiles (SVG/PNG)",
+          description: `Heatmap tiles colored by impact score with optional label and styles. ${scopeNote("/impact/tiles") || ""}`.trim(),
+          parameters: [
+            { name: "z", in: "path", required: true, schema: { type: "integer", minimum: 0 } },
+            { name: "x", in: "path", required: true, schema: { type: "integer", minimum: 0 } },
+            { name: "y", in: "path", required: true, schema: { type: "integer", minimum: 0 } },
+            { name: "fmt", in: "path", required: true, schema: { type: "string", enum: ["svg", "png"] } },
+            { name: "pollen", in: "query", required: false, schema: { type: "string", enum: ["0", "1"], default: "0" } },
+            { name: "grid", in: "query", required: false, schema: { type: "integer", enum: [1, 3, 5], default: 1 } },
+            { name: "scheme", in: "query", required: false, schema: { type: "string", enum: ["traffic", "viridis", "fire"], default: "traffic" } },
+            { name: "label", in: "query", required: false, schema: { type: "string", enum: ["0", "1"], default: "1" } },
+            { name: "bg", in: "query", required: false, schema: { type: "string", enum: ["transparent", "solid"], default: "transparent" } },
+            { name: "ttl", in: "query", required: false, schema: { type: "integer", minimum: 10, maximum: 600, default: 60 } }
+          ],
+          responses: { "200": { description: "Tile image" }, "400": { description: "Bad request" }, "401": { description: "Unauthorized" } },
+          security: withSec("/impact/tiles"),
+        }
+      },
+
+      [b("/legend.{fmt}")]: {
+        get: {
+          tags: ["ui"],
+          summary: "Color legend image (PNG/SVG)",
+          description: `Legend bar matching your tile color scheme and thresholds. ${scopeNote("/legend") || ""}`.trim(),
+          parameters: [
+            { name: "fmt", in: "path", required: true, schema: { type: "string", enum: ["png", "svg"] } },
+            { name: "scheme", in: "query", required: false, schema: { type: "string", enum: ["traffic", "viridis", "fire"], default: "traffic" } },
+            { name: "width", in: "query", required: false, schema: { type: "integer", default: 256 } },
+            { name: "height", in: "query", required: false, schema: { type: "integer", default: 48 } },
+            { name: "showLabels", in: "query", required: false, schema: { type: "string", enum: ["0", "1"], default: "1" } },
+            { name: "bg", in: "query", required: false, schema: { type: "string", enum: ["transparent", "solid"], default: "transparent" } }
+          ],
+          responses: { "200": { description: "Legend image" }, "401": { description: "Unauthorized" } },
+          security: withSec("/legend"),
+        }
+      }
+    }
+  };
+}
+
+
+This keeps the spec dynamic: you pass the same basePath, routeScopes, and security you used for the server, so docs always match your deployment.
+
+2) Serve the spec from your server (and optional Swagger UI)
+Minimal JSON route (no new deps)
+
+In your host app (or inside the package if you prefer), add:
+
+// server.js (host app)
+import express from "express";
+import dotenv from "dotenv";
+import { createDisasterDirectProxy, buildDisasterDirectOpenApi } from "disaster-direct-proxy";
+dotenv.config();
+
+const app = express();
+
+const routeScopes = {
+  "/impact": ["dd:impact:read"],
+  "/impact/geojson": ["dd:impact:read"],
+  "/impact/tiles": ["dd:tiles:read"],
+  "/pollen": ["dd:pollen:read"],
+  "/ambee/*": ["dd:proxy:read"],
+  "/legend": []
+};
+
+createDisasterDirectProxy(app, {
+  ambeeApiKey: process.env.AMBEE_API_KEY,
+  basePath: "/api",
+  corsOrigins: ["https://your-frontend.example.com"],
+  auth: {
+    jwt: {
+      jwksUrl: `https://${process.env.AUTH0_DOMAIN}/.well-known/jwks.json`,
+      issuer: `https://${process.env.AUTH0_DOMAIN}/`,
+      audience: process.env.AUTH0_AUDIENCE,
+      scopeClaim: "permissions",
+      jwksCacheMaxAgeMs: 10 * 60_000
+    }
+  },
+  routeScopes
+});
+
+// 🔎 OpenAPI JSON
+app.get("/api/openapi.json", (_req, res) => {
+  const spec = buildDisasterDirectOpenApi({
+    basePath: "/api",
+    title: "Disaster Direct Proxy",
+    version: "1.0.0",
+    description: "Ambee proxy + Impact aggregation + Tiles + Legend",
+    security: { bearer: true, apiKeyHeader: "x-api-key", jwt: true },
+    routeScopes,
+    requireAllScopes: false
+  });
+  res.json(spec);
+});
+
+app.listen(process.env.PORT || 3001, () =>
+  console.log("Disaster Direct API + OpenAPI on :3001")
+);
+
+Optional: Swagger UI route
+npm i swagger-ui-express
+
+import swaggerUi from "swagger-ui-express";
+
+const spec = buildDisasterDirectOpenApi({
+  basePath: "/api",
+  title: "Disaster Direct Proxy",
+  version: "1.0.0",
+  routeScopes
+});
+
+app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(spec, {
+  swaggerOptions: { docExpansion: "list", displayRequestDuration: true }
+}));
+
+
+Now you have:
+
+OpenAPI JSON → /api/openapi.json
+
+Interactive docs → /api/docs
+
+3) Types: add to index.d.ts
+
+Append the OpenAPI builder signature:
+
+export interface OpenApiBuildOptions {
+  basePath?: string;
+  title?: string;
+  version?: string;
+  description?: string;
+  schemes?: string[];
+  security?: { bearer?: boolean; apiKeyHeader?: string | false; jwt?: boolean };
+  routeScopes?: Record<"/ambee/*"|"/impact"|"/pollen"|"/impact/geojson"|"/impact/tiles"|"/legend", string[]>;
+  requireAllScopes?: boolean;
+}
+
+export function buildDisasterDirectOpenApi(opts?: OpenApiBuildOptions): Record<string, any>;
+
+4) README snippet (for your package)
+### OpenAPI / Swagger
+
+Serve JSON:
+
+```js
+import { buildDisasterDirectOpenApi } from "disaster-direct-proxy";
+app.get("/api/openapi.json", (_req, res) => res.json(buildDisasterDirectOpenApi({ basePath: "/api", routeScopes })));
+
+
+Optional Swagger UI:
+
+import swaggerUi from "swagger-ui-express";
+const spec = buildDisasterDirectOpenApi({ basePath: "/api", routeScopes });
+app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(spec));
+
+
+---
+
+If you want, I can also generate a **Postman Collection** from the same config, or add a tiny `/api/healthz` that validates the Ambee key with a cheap call and reports cache/rate-limit stats.
+::contentReference[oaicite:0]{index=0}

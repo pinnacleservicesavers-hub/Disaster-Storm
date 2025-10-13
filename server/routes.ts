@@ -452,6 +452,88 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
   // ---- Ambee Environmental Intelligence Routes ----
   app.use('/api/ambee', ambeeRoutes);
 
+  // ---- Impact Score Endpoint (Merged Environmental Data) ----
+  app.get('/api/impact', async (req, res) => {
+    try {
+      const { lat, lng } = req.query;
+      
+      if (!lat || !lng) {
+        return res.status(400).json({ error: 'Valid lat and lng required' });
+      }
+
+      const latitude = parseFloat(lat as string);
+      const longitude = parseFloat(lng as string);
+
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || 
+          Math.abs(latitude) > 90 || Math.abs(longitude) > 180) {
+        return res.status(400).json({ error: 'Invalid coordinates' });
+      }
+
+      // Import dynamically to access ambeeService
+      const { ambeeService } = await import('./services/ambeeService.js');
+
+      // Fetch all data in parallel with error handling
+      const [aqResult, wxResult, fireResult] = await Promise.allSettled([
+        ambeeService.getAirQualityByCoordinates(latitude, longitude),
+        ambeeService.getWeatherByCoordinates(latitude, longitude),
+        ambeeService.getFireDataByCoordinates(latitude, longitude),
+      ]);
+
+      const airQuality = aqResult.status === 'fulfilled' ? aqResult.value : null;
+      const weather = wxResult.status === 'fulfilled' ? wxResult.value : null;
+      const fire = fireResult.status === 'fulfilled' ? fireResult.value : null;
+
+      // Extract signal values (defensive)
+      const AQI = Number(airQuality?.AQI) || 0;
+      const windGust = Number(weather?.windSpeed) || 0; // m/s
+      
+      // Calculate minimum fire distance
+      const fires = fire?.fires || [];
+      const minFireKm = fires.length > 0
+        ? Math.min(...fires.map((f: any) => {
+            const fLat = f.latitude || 0;
+            const fLng = f.longitude || 0;
+            // Haversine distance approximation
+            const dLat = (fLat - latitude) * 111; // km per degree
+            const dLng = (fLng - longitude) * 111 * Math.cos(latitude * Math.PI / 180);
+            return Math.sqrt(dLat * dLat + dLng * dLng);
+          }))
+        : Infinity;
+
+      // Normalize to 0-1
+      const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
+      const AQI_norm = clamp01(AQI / 300);              // 300+ = hazardous
+      const wind_norm = clamp01(windGust / 25);         // 25 m/s = ~56 mph gust
+      const fire_norm = clamp01(1 - (isFinite(minFireKm) ? (minFireKm / 50) : 1)); // closer = higher risk
+
+      // Weighted impact score (0-100)
+      // AQI: 50%, Wind: 30%, Fire: 20%
+      const w1 = 0.5, w2 = 0.3, w3 = 0.2;
+      const impactScore = Math.round(100 * (w1 * AQI_norm + w2 * wind_norm + w3 * fire_norm));
+
+      res.json({
+        coords: { lat: latitude, lng: longitude },
+        impactScore,       // 0-100 (higher = more dangerous)
+        components: {
+          aqi: { AQI, norm: AQI_norm },
+          wind: { gust: windGust, norm: wind_norm },
+          fire: { minDistanceKm: isFinite(minFireKm) ? minFireKm : null, norm: fire_norm }
+        },
+        raw: {
+          airQuality,
+          weather,
+          fire
+        }
+      });
+    } catch (error: any) {
+      console.error('Error calculating impact score:', error);
+      res.status(502).json({ 
+        error: 'Impact aggregation failed', 
+        details: error.message 
+      });
+    }
+  });
+
   // ---- Session and Passport setup ----
   const isProd = /^https:\/\//.test(process.env.BASE_URL ?? "");
   

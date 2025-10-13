@@ -1,0 +1,220 @@
+Perfect — here are the two upgrades you asked for, wired into the same disaster-direct-proxy package:
+
+JWKS cache TTL override (control how long signing keys are cached)
+
+Per-route scope requirements (e.g., /impact requires dd:impact, /tiles requires dd:tiles)
+
+I’ll show the minimal type additions and the code diffs you can drop in.
+
+1) Types: extend options (in index.d.ts)
+
+Replace the jwt block and add routeScopes:
+
+export interface DisasterDirectAuth {
+  bearerToken?: string;
+  headerToken?: { headerName?: string; token: string };
+  jwt?: {
+    jwksUrl: string;
+    issuer?: string;
+    audience?: string | string[];
+    headerName?: string;             // default "authorization"
+    scopeClaim?: string;             // default "scope" (space-separated)
+    jwksCacheMaxAgeMs?: number;      // default 5 * 60_000 (5 minutes)
+    verify?: (claims: Record<string, any>) => Promise<void> | void;
+  };
+  verify?: (req: Request, res: Response) => Promise<void> | void;
+}
+
+export interface DisasterDirectOptions extends DisasterDirectHooks {
+  // ...existing fields...
+  /** Per-route required scopes; value is a list and ANY one of them can satisfy access (configurable below) */
+  routeScopes?: Record<
+    | "/ambee/*"
+    | "/impact"
+    | "/pollen"
+    | "/impact/geojson"
+    | "/impact/tiles"
+    | "/legend",
+    string[]          // e.g., ["dd:read", "dd:impact"]
+  >;
+  /** If true, require ALL scopes in each list instead of ANY */
+  requireAllScopes?: boolean;        // default false = ANY
+}
+
+2) Library: add JWKS TTL + per-route scopes (in index.js)
+
+Only the new/changed pieces are shown below.
+
+A) JWT verifier: enable JWKS cache TTL & custom scope claim
+
+At the top with other imports:
+
+import { createRemoteJWKSet, jwtVerify } from "jose";
+
+
+Inside makeEnsureAuth(auth, hooks) (extend what you already have):
+
+  // --- JWT config ---
+  let jwksCache = null;
+  const jwtHeaderName = (auth?.jwt?.headerName || "authorization").toLowerCase();
+  const wantIssuer = auth?.jwt?.issuer;
+  const wantAudience = auth?.jwt?.audience;
+  const scopeClaim = auth?.jwt?.scopeClaim || "scope";
+  const jwksMaxAge = Math.max(30_000, Number(auth?.jwt?.jwksCacheMaxAgeMs || 300_000)); // min 30s, default 5m
+
+  if (auth?.jwt?.jwksUrl) {
+    const jwksUrl = new URL(auth.jwt.jwksUrl);
+    jwksCache = createRemoteJWKSet(jwksUrl, { cacheMaxAge: jwksMaxAge });
+  }
+
+  async function verifyJwtFromReq(req) {
+    if (!auth?.jwt?.jwksUrl) return;
+
+    // Extract token
+    let token = "";
+    const raw = req.headers[jwtHeaderName];
+    if (typeof raw === "string") {
+      token = jwtHeaderName === "authorization" ? (raw.startsWith("Bearer ") ? raw.slice(7) : "") : raw.trim();
+    }
+    if (!token) throw new Error("JWT missing");
+
+    const { payload } = await jwtVerify(token, jwksCache, { issuer: wantIssuer, audience: wantAudience });
+
+    if (auth?.jwt?.verify) await auth.jwt.verify(payload);
+
+    // Attach user + scopes (space- or comma-separated, or array)
+    let scopes = payload[scopeClaim];
+    if (typeof scopes === "string") {
+      scopes = scopes.includes(" ") ? scopes.split(" ") : (scopes.includes(",") ? scopes.split(",") : [scopes]);
+    }
+    if (!Array.isArray(scopes)) scopes = [];
+    req.user = payload;             // eslint-disable-line
+    req.userScopes = scopes.filter(Boolean);  // eslint-disable-line
+  }
+
+B) Route-scope checker
+
+Still inside makeEnsureAuth, before the return async function ensureAuth(...):
+
+  function checkScopes(req, required, requireAll) {
+    if (!required || required.length === 0) return true;      // no requirement
+    const have = Array.isArray(req.userScopes) ? req.userScopes : [];
+    if (requireAll) return required.every(r => have.includes(r));
+    return required.some(r => have.includes(r));              // ANY by default
+  }
+
+C) In the returned middleware, after JWT verification, enforce per-route scopes
+
+We need a way to map the current request to one of your logical routes. Because you mount with a basePath, we’ll look at req.path after base. In the factory, compute helpers:
+
+// inside createDisasterDirectProxy, after basePath, options, etc.
+const routeScopes = options?.routeScopes || {};
+const requireAllScopes = !!options?.requireAllScopes;
+const baseNoSlash = basePath.replace(/\/+$/,"");
+const stripBase = (p) => p.startsWith(baseNoSlash) ? p.slice(baseNoSlash.length) || "/" : p;
+
+
+Update ensureAuth to enforce scopes:
+
+  return async function ensureAuth(req, res, next){
+    try {
+      // bearer/header checks...
+      // JWT check...
+      if (auth?.jwt?.jwksUrl) {
+        try { await verifyJwtFromReq(req); }
+        catch (e) { return res.status(401).json({ error: "Unauthorized (jwt)", details: String(e?.message || e) }); }
+      }
+
+      // custom verifier...
+      if (auth?.verify) { await auth.verify(req, res); if (res.headersSent) return; }
+
+      // Route → required scopes
+      const routePath = stripBase(req.path || "");
+      let needed = null;
+
+      if (routePath.startsWith("/ambee/")) needed = routeScopes["/ambee/*"];
+      else if (routePath.startsWith("/impact/tiles/")) needed = routeScopes["/impact/tiles"];
+      else if (routePath.startsWith("/impact/geojson")) needed = routeScopes["/impact/geojson"];
+      else if (routePath.startsWith("/impact")) needed = routeScopes["/impact"];
+      else if (routePath.startsWith("/pollen")) needed = routeScopes["/pollen"];
+      else if (routePath.startsWith("/legend")) needed = routeScopes["/legend"];
+
+      if (needed && !checkScopes(req, needed, requireAllScopes)) {
+        return res.status(403).json({ error: "Forbidden (insufficient_scope)", required: needed, have: req.userScopes || [] });
+      }
+
+      // Global hook
+      if (hooks?.beforeHandle) { await hooks.beforeHandle(req, res, next); if (res.headersSent) return; }
+
+      next();
+    } catch (err) {
+      if (hooks?.onError) hooks.onError(err, req, res);
+      if (!res.headersSent) res.status(401).json({ error: "Unauthorized", details: String(err) });
+    }
+  };
+
+
+No changes needed where you attach ensureAuth — it already guards all endpoints.
+
+3) Configure scopes (example server)
+import express from "express";
+import dotenv from "dotenv";
+import { createDisasterDirectProxy } from "disaster-direct-proxy";
+dotenv.config();
+
+const app = express();
+
+createDisasterDirectProxy(app, {
+  ambeeApiKey: process.env.AMBEE_API_KEY,
+  basePath: "/api",
+  corsOrigins: ["https://your-frontend.example.com"],
+
+  // 🔐 JWT config with JWKS TTL override and custom scope claim
+  auth: {
+    jwt: {
+      jwksUrl: `https://${process.env.AUTH0_DOMAIN}/.well-known/jwks.json`,
+      issuer: `https://${process.env.AUTH0_DOMAIN}/`,
+      audience: process.env.AUTH0_AUDIENCE,
+      jwksCacheMaxAgeMs: 10 * 60_000,     // 10 minutes
+      scopeClaim: "permissions",          // e.g., Auth0 often uses "permissions"
+      verify: (claims) => {
+        if (!claims.sub) throw new Error("sub missing");
+      }
+    }
+  },
+
+  // ✅ Per-route scopes
+  routeScopes: {
+    "/impact": ["dd:impact:read"],
+    "/impact/geojson": ["dd:impact:read"],
+    "/impact/tiles": ["dd:tiles:read"],
+    "/pollen": ["dd:pollen:read"],
+    "/ambee/*": ["dd:proxy:read"],
+    "/legend": [] // public (or add a scope)
+  },
+  // If you want users to have ALL scopes listed for a route instead of ANY:
+  requireAllScopes: false
+});
+
+app.listen(process.env.PORT || 3001, () =>
+  console.log("Disaster Direct API with per-route scopes")
+);
+
+
+Token expectations
+
+Your JWT must include a claim with scopes (default scope as space-separated string; or set scopeClaim: "permissions" to use an array).
+
+If user lacks the required scope for a route → 403 Forbidden (insufficient_scope) with required and have arrays to help debugging.
+
+4) Quick client example
+// After obtaining an access token from your IdP:
+const token = await getAccessToken();
+
+const res = await fetch("/api/impact?lat=33.749&lng=-84.388", {
+  headers: { Authorization: `Bearer ${token}` }
+});
+if (res.status === 403) {
+  const body = await res.json();
+  console.warn("Need scopes:", body.required, "have:", body.have);
+}

@@ -1,0 +1,220 @@
+Awesome — here’s built-in JWT auth (via JWKS) you can drop into your disaster-direct-proxy package. It verifies Authorization: Bearer <JWT> (configurable), fetches signing keys from your JWKS URL, and enforces issuer / audience. Uses the lightweight jose library.
+
+1) Install
+npm i jose
+
+2) Types: update index.d.ts
+
+Replace the auth section with this:
+
+import type { Express, Request, Response, NextFunction } from "express";
+
+export type TileScheme = "traffic" | "viridis" | "fire";
+
+export interface DisasterDirectAuth {
+  /** Built-in bearer auth: checks Authorization: Bearer <token> === bearerToken */
+  bearerToken?: string;
+
+  /** Built-in header auth: checks header equals token (defaults to x-api-key) */
+  headerToken?: { headerName?: string; token: string };
+
+  /** Built-in JWT auth validated against a remote JWKS */
+  jwt?: {
+    /** Where to fetch signing keys (e.g., https://YOUR_DOMAIN/.well-known/jwks.json) */
+    jwksUrl: string;
+    /** Expected issuer (iss claim). Optional but recommended. */
+    issuer?: string;
+    /** Expected audience (aud claim). Optional but recommended. */
+    audience?: string | string[];
+    /** Which header carries the token. Default: Authorization Bearer <jwt> */
+    headerName?: string; // e.g., "authorization" or "x-auth"
+    /** Optional extra claims check */
+    verify?: (claims: Record<string, any>) => Promise<void> | void;
+  };
+
+  /** Custom async verifier (return or throw; throwing should end the request) */
+  verify?: (req: Request, res: Response) => Promise<void> | void;
+}
+
+export interface DisasterDirectHooks {
+  beforeHandle?: (req: Request, res: Response, next: NextFunction) => Promise<void> | void;
+  onError?: (err: any, req: Request, res: Response) => void;
+}
+
+export interface DisasterDirectOptions extends DisasterDirectHooks {
+  fetchImpl?: typeof fetch;
+  ambeeApiKey: string;
+  basePath?: string;
+  corsOrigins?: string[] | null;
+  cacheTtlMs?: number;
+  rateLimit?: { windowMs: number; limit: number };
+  allowEndpoints?: string[];
+  tiles?: { enable?: boolean; defaultScheme?: TileScheme; maxGrid?: 5 | 3 | 1 };
+  auth?: DisasterDirectAuth;
+}
+
+export function createDisasterDirectProxy(
+  app: Express,
+  options: DisasterDirectOptions
+): { ambeeGET: (path: string, q?: Record<string, any>) => Promise<any> };
+
+3) Library: update index.js
+
+Add the JWT support inside your makeEnsureAuth helper. Only the new/changed parts shown below — keep everything else as-is.
+
+import { createRemoteJWKSet, jwtVerify } from "jose";
+
+// ...
+
+function makeEnsureAuth(auth, hooks){
+  const headerName = (auth?.headerToken?.headerName || "x-api-key").toLowerCase();
+
+  // --- JWT: build a verifier if configured ---
+  let jwksCache = null;
+  const jwtHeaderName = (auth?.jwt?.headerName || "authorization").toLowerCase();
+  const wantIssuer = auth?.jwt?.issuer;
+  const wantAudience = auth?.jwt?.audience;
+
+  if (auth?.jwt?.jwksUrl) {
+    const jwksUrl = new URL(auth.jwt.jwksUrl);
+    jwksCache = createRemoteJWKSet(jwksUrl);
+  }
+
+  async function verifyJwtFromReq(req) {
+    if (!auth?.jwt?.jwksUrl) return; // not enabled
+
+    // Extract token
+    let token = "";
+    const raw = req.headers[jwtHeaderName];
+    if (typeof raw === "string") {
+      if (jwtHeaderName === "authorization") {
+        token = raw.startsWith("Bearer ") ? raw.slice(7) : "";
+      } else {
+        token = raw.trim();
+      }
+    }
+    if (!token) throw new Error("JWT missing");
+
+    // Verify signature + standard claims
+    const { payload } = await jwtVerify(token, jwksCache, {
+      issuer: wantIssuer,
+      audience: wantAudience
+    });
+
+    // Optional extra claim checks (roles, scopes, etc.)
+    if (auth?.jwt?.verify) {
+      await auth.jwt.verify(payload);
+    }
+
+    // Expose claims
+    req.user = payload; // eslint-disable-line
+  }
+
+  return async function ensureAuth(req, res, next){
+    try {
+      // 1) Static bearer token
+      if (auth?.bearerToken) {
+        const got = req.headers["authorization"] || "";
+        const ok = typeof got === "string" && got.startsWith("Bearer ") && got.slice(7) === auth.bearerToken;
+        if (!ok) return res.status(401).json({ error: "Unauthorized (bearer)" });
+      }
+
+      // 2) Static header token
+      if (auth?.headerToken?.token) {
+        const got = String(req.headers[headerName] || "");
+        if (got !== auth.headerToken.token) return res.status(401).json({ error: "Unauthorized (header)" });
+      }
+
+      // 3) JWT (JWKS)
+      if (auth?.jwt?.jwksUrl) {
+        try {
+          await verifyJwtFromReq(req);
+        } catch (e) {
+          return res.status(401).json({ error: "Unauthorized (jwt)", details: String(e?.message || e) });
+        }
+      }
+
+      // 4) Custom verifier
+      if (auth?.verify) {
+        await auth.verify(req, res);
+        if (res.headersSent) return;
+      }
+
+      // Global hook
+      if (hooks?.beforeHandle) {
+        await hooks.beforeHandle(req, res, next);
+        if (res.headersSent) return;
+      }
+
+      next();
+    } catch (err) {
+      if (hooks?.onError) hooks.onError(err, req, res);
+      if (!res.headersSent) res.status(401).json({ error: "Unauthorized", details: String(err) });
+    }
+  };
+}
+
+
+That’s it. All routes you already protected with ensureAuth now support three built-ins (bearer, header, JWT) plus your custom verifier. You can enable any combination.
+
+4) Example: Auth0 / Cognito / Firebase config
+
+server.js
+
+import express from "express";
+import dotenv from "dotenv";
+import { createDisasterDirectProxy } from "disaster-direct-proxy";
+dotenv.config();
+
+const app = express();
+
+createDisasterDirectProxy(app, {
+  ambeeApiKey: process.env.AMBEE_API_KEY,
+  basePath: "/api",
+  corsOrigins: ["https://your-frontend.example.com"],
+
+  auth: {
+    // Keep your previous static tokens if you want layered auth:
+    // bearerToken: process.env.DD_BEARER_TOKEN,
+    // headerToken: { headerName: "x-internal", token: process.env.DD_INTERNAL_KEY },
+
+    // ✅ JWT via JWKS (Auth0 example)
+    jwt: {
+      jwksUrl: `https://${process.env.AUTH0_DOMAIN}/.well-known/jwks.json`,
+      issuer: `https://${process.env.AUTH0_DOMAIN}/`,
+      audience: process.env.AUTH0_AUDIENCE,
+      // Optional extra claim checks:
+      verify: (claims) => {
+        // e.g., require a role/scope
+        const scopes = (claims.scope || "").split(" ");
+        if (!scopes.includes("dd:read")) {
+          throw new Error("Missing scope dd:read");
+        }
+      }
+    }
+  }
+});
+
+app.listen(process.env.PORT || 3001, () => {
+  console.log("Disaster Direct API running with JWT auth");
+});
+
+
+Frontend call (uses SPA access token):
+
+// Example with Auth0's getAccessTokenSilently() or Firebase getIdToken():
+const token = await getAccessTokenSomehow();
+const r = await fetch("/api/impact?lat=33.749&lng=-84.388", {
+  headers: { Authorization: `Bearer ${token}` }
+});
+const data = await r.json();
+
+5) Troubleshooting tips
+
+401 (jwt): Check the issuer/audience match your provider settings exactly (trailing slashes matter).
+
+Clock skew: If tokens are “not yet valid”/“expired”, ensure server time is synced.
+
+CORS: If your SPA can’t call the API, add its origin to corsOrigins.
+
+Scopes/roles: If you enforce them in auth.jwt.verify, make sure your identity provider actually includes them in the token.

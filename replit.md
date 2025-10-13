@@ -67,6 +67,12 @@ Preferred communication style: Simple, everyday language.
 - **Storm Prediction Center**: Local storm reports.
 - **LocationIQ**: Reverse geocoding.
 - **Ambee**: Environmental intelligence (air quality, pollen, weather, fire, soil).
+  - **Production-Safe API Routes**:
+    - `/api/ambee/latest/by-lat-lng` - Air quality data (AQI, pollutants)
+    - `/api/ambee/weather/latest/by-lat-lng` - Weather conditions
+    - `/api/ambee/disasters/latest/by-lat-lng` - Disaster/fire detection
+    - `/api/ambee/wildfires/latest/by-lat-lng` - Wildfire proximity
+    - `/api/impact` - Merged impact score (0-100) with weighted risk calculation (AQI 50%, Wind 30%, Fire 20%)
 
 ### Payment & Legal Integration
 - **Stripe**: Payment processing.

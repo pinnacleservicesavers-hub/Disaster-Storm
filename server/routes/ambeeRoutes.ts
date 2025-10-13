@@ -266,4 +266,117 @@ router.get('/environmental-report', async (req, res) => {
   }
 });
 
+// ==================== SECURE PROXY ROUTES ====================
+// Production-safe pass-through endpoints for direct Ambee API access
+
+router.get('/latest/by-lat-lng', async (req, res) => {
+  try {
+    const { lat, lng } = req.query;
+    
+    if (!lat || !lng) {
+      return res.status(400).json({ error: 'Valid lat and lng required' });
+    }
+
+    const latitude = parseFloat(lat as string);
+    const longitude = parseFloat(lng as string);
+
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || 
+        Math.abs(latitude) > 90 || Math.abs(longitude) > 180) {
+      return res.status(400).json({ error: 'Invalid coordinates' });
+    }
+
+    const data = await ambeeService.getAirQualityByCoordinates(latitude, longitude);
+    res.json(data);
+  } catch (error: any) {
+    console.error('Error in /latest/by-lat-lng:', error);
+    res.status(error.status || 502).json({ 
+      error: 'Upstream error', 
+      details: error.message 
+    });
+  }
+});
+
+router.get('/weather/latest/by-lat-lng', async (req, res) => {
+  try {
+    const { lat, lng } = req.query;
+    
+    if (!lat || !lng) {
+      return res.status(400).json({ error: 'Valid lat and lng required' });
+    }
+
+    const latitude = parseFloat(lat as string);
+    const longitude = parseFloat(lng as string);
+
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || 
+        Math.abs(latitude) > 90 || Math.abs(longitude) > 180) {
+      return res.status(400).json({ error: 'Invalid coordinates' });
+    }
+
+    const data = await ambeeService.getWeatherByCoordinates(latitude, longitude);
+    res.json(data);
+  } catch (error: any) {
+    console.error('Error in /weather/latest/by-lat-lng:', error);
+    res.status(error.status || 502).json({ 
+      error: 'Upstream error', 
+      details: error.message 
+    });
+  }
+});
+
+router.get('/disasters/latest/by-lat-lng', async (req, res) => {
+  try {
+    const { lat, lng } = req.query;
+    
+    if (!lat || !lng) {
+      return res.status(400).json({ error: 'Valid lat and lng required' });
+    }
+
+    const latitude = parseFloat(lat as string);
+    const longitude = parseFloat(lng as string);
+
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || 
+        Math.abs(latitude) > 90 || Math.abs(longitude) > 180) {
+      return res.status(400).json({ error: 'Invalid coordinates' });
+    }
+
+    // Note: Using fire data as disaster proxy
+    const data = await ambeeService.getFireDataByCoordinates(latitude, longitude);
+    res.json(data);
+  } catch (error: any) {
+    console.error('Error in /disasters/latest/by-lat-lng:', error);
+    res.status(error.status || 502).json({ 
+      error: 'Upstream error', 
+      details: error.message 
+    });
+  }
+});
+
+router.get('/wildfires/latest/by-lat-lng', async (req, res) => {
+  try {
+    const { lat, lng } = req.query;
+    
+    if (!lat || !lng) {
+      return res.status(400).json({ error: 'Valid lat and lng required' });
+    }
+
+    const latitude = parseFloat(lat as string);
+    const longitude = parseFloat(lng as string);
+
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || 
+        Math.abs(latitude) > 90 || Math.abs(longitude) > 180) {
+      return res.status(400).json({ error: 'Invalid coordinates' });
+    }
+
+    const data = await ambeeService.getFireDataByCoordinates(latitude, longitude);
+    res.json(data);
+  } catch (error: any) {
+    console.error('Error in /wildfires/latest/by-lat-lng:', error);
+    res.status(error.status || 502).json({ 
+      error: 'Upstream error', 
+      details: error.message 
+    });
+  }
+});
+
+
 export default router;
