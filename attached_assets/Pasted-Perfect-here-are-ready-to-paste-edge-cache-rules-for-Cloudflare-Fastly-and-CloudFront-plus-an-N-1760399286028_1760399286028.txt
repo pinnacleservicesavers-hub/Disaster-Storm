@@ -1,0 +1,184 @@
+Perfect — here are ready-to-paste edge cache rules for Cloudflare, Fastly, and CloudFront (plus an Nginx fallback). They’re tuned for your HMAC-signed tiles/legend so the CDN can cache safely, while bypassing cache for JSON endpoints like /api/impact and /api/impact/geojson.
+
+Cloudflare (Rules + optional Worker)
+A) Cache Rules (no code, fast setup)
+
+What it does
+
+Cache images under /api/impact/tiles/* and /api/legend.*
+
+Honor your ttl query param for tiles
+
+Ignore cookies/Authorization (HMAC in URL is the gate)
+
+Bypass cache for JSON endpoints
+
+Create two Cache Rules (Ruleset → Cache Rules):
+
+Bypass JSON
+
+If: http.request.uri.path contains "/api/impact" OR "/api/pollen" OR "/api/incidents"
+
+Then: Cache status = Bypass
+
+Cache tiles & legend
+
+If: (http.request.uri.path contains "/api/impact/tiles/") OR (http.request.uri.path starts_with "/api/legend")
+
+Then:
+
+Cache eligibility: Eligible
+
+Edge TTL: Expression → use int(http.request.uri.query["ttl"]) default 180
+
+Browser TTL: 60
+
+Respect origin Cache-Control: Off (override)
+
+Origin cache key: Include full query string (VERY IMPORTANT)
+
+Bypass cache on Cookie / Authorization: Off (i.e., ignore)
+
+That’s it. If you want stale-while-revalidate, set Browser TTL small (e.g., 30–60s) and keep Edge TTL higher.
+
+B) Optional Worker (fine-grained control)
+// wrangler.toml -> routes = ["your-domain.com/*"]
+export default {
+  async fetch(req, env, ctx) {
+    const url = new URL(req.url);
+
+    // Bypass JSON
+    if (url.pathname.startsWith("/api/impact") || url.pathname.startsWith("/api/pollen") || url.pathname.startsWith("/api/incidents")) {
+      return fetch(req, { cf: { cacheTtl: 0, cacheEverything: false }});
+    }
+
+    // Tiles & legend
+    if (url.pathname.includes("/api/impact/tiles/") || url.pathname.startsWith("/api/legend")) {
+      // Parse TTL from query or default
+      const ttl = Math.max(10, Math.min(600, parseInt(url.searchParams.get("ttl") || "180", 10)));
+      // Full-URL key (includes sig + query) — great for HMAC
+      const cacheKey = new Request(url.toString(), req);
+
+      // Try edge cache
+      const cache = caches.default;
+      let res = await cache.match(cacheKey);
+      if (res) return res;
+
+      // Fetch from origin
+      res = await fetch(req, { cf: { cacheTtl: ttl, cacheEverything: true } });
+      // Add cache headers (optional, cosmetic)
+      const newRes = new Response(res.body, res);
+      newRes.headers.set("Cache-Control", `public, max-age=${ttl}, stale-while-revalidate=60`);
+      newRes.headers.delete("Set-Cookie");
+      await cache.put(cacheKey, newRes.clone());
+      return newRes;
+    }
+
+    // default
+    return fetch(req);
+  }
+};
+
+Fastly (VCL Snippets)
+
+Goal: cache tiles/legend by full query; bypass JSON.
+
+vcl_recv (request phase)
+if (req.url.path ~ "^/api/impact/tiles/" || req.url.path ~ "^/api/legend(\.(png|svg))?$") {
+  # Ignore cookies and auth for caching (HMAC in URL grants access)
+  unset req.http.Cookie;
+  unset req.http.Authorization;
+  set req.hash += req.url;      # include full query in hash
+}
+
+if (req.url.path ~ "^/api/(impact|pollen|incidents)") {
+  return (pass);
+}
+
+vcl_backend_response (origin response handling)
+if (bereq.url.path ~ "^/api/impact/tiles/" || bereq.url.path ~ "^/api/legend(\.(png|svg))?$") {
+  declare local var.ttl INTEGER;
+  set var.ttl = std.atoi(querystring.get(bereq.url, "ttl"));
+  if (var.ttl <= 0) { set var.ttl = 180; }
+  set beresp.ttl = std.integer2time(var.ttl) s;
+  set beresp.grace = 60s;  # stale-while-revalidate window
+  unset beresp.http.Set-Cookie;
+  set beresp.http.Cache-Control = "public, max-age=" + var.ttl + ", stale-while-revalidate=60";
+}
+
+vcl_deliver (optional debug header)
+if (req.url.path ~ "^/api/impact/tiles/" || req.url.path ~ "^/api/legend") {
+  set resp.http.X-Cache-Note = "DD tiles/legend cached by query";
+}
+
+AWS CloudFront (Behaviors + Lambda@Edge optional)
+
+Behaviors
+
+Default behavior → your origin (Node app)
+
+/api/impact/tiles* behavior:
+
+Cache Policy: create one that whitelists all query strings (Forward all, cache based on all)
+
+Header/Cookie forwarding: None (unless your origin demands it)
+
+TTL: set Minimum=10, Default=180, Maximum=600
+
+/api/legend* behavior: same cache policy (queries matter).
+
+/api/impact* and /api/pollen* behavior:
+
+Cache Policy: no caching (Minimum/Default/Maximum = 0) or use Managed “CachingDisabled”.
+
+Optional Lambda@Edge (Viewer Response) to enforce headers:
+
+export const handler = async (event) => {
+  const r = event.Records[0].cf.response;
+  const req = event.Records[0].cf.request;
+  const path = req.uri || "";
+
+  if (path.startsWith("/api/impact/tiles/") || path.startsWith("/api/legend")) {
+    const ttl = Math.max(10, Math.min(600, parseInt((req.querystring.match(/(?:^|&)ttl=(\d+)/)||[])[1] || "180",10)));
+    r.headers['cache-control'] = [{ key: 'Cache-Control', value: `public, max-age=${ttl}, stale-while-revalidate=60` }];
+    delete r.headers['set-cookie'];
+  }
+  return r;
+};
+
+Nginx (self-hosted edge/proxy)
+# Bypass JSON
+location ~ ^/api/(impact|pollen|incidents) {
+  proxy_pass http://app:3001;
+  proxy_set_header Host $host;
+  proxy_set_header X-Forwarded-For $remote_addr;
+  add_header Cache-Control "no-store";
+}
+
+# Cache tiles/legend by full query
+location ~ ^/api/(impact/tiles/|legend) {
+  # proxy cache (define a cache zone elsewhere)
+  proxy_cache dd_tiles;
+  proxy_cache_key "$scheme$proxy_host$request_uri";  # includes full query (and HMAC sig)
+  proxy_cache_valid 200 302 10s;
+  proxy_cache_valid 404 1m;
+  proxy_ignore_headers Set-Cookie;
+  add_header X-Cache-Status $upstream_cache_status;
+
+  # TTL override from ?ttl= (fallback 180)
+  set $ttl 180;
+  if ($arg_ttl) { set $ttl $arg_ttl; }
+  add_header Cache-Control "public, max-age=$ttl, stale-while-revalidate=60";
+
+  proxy_pass http://app:3001;
+  proxy_set_header Host $host;
+}
+
+
+And define the cache zone (e.g., in http block):
+
+proxy_cache_path /var/cache/nginx/dd_tiles levels=1:2 keys_zone=dd_tiles:128m max_size=2g inactive=1h use_temp_path=off;
+
+Purging / Invalidation
+
+Cloudflare: Purge by URL (the signed URL string). If you need wider purges, adopt a short TTL (e.g., 180s) + `st
