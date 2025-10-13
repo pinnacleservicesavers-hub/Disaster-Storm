@@ -1,0 +1,188 @@
+Great—let’s add auth hooks so you can gate every endpoint behind a token or your own logic.
+
+Below are drop-in updates to the library we just made. You can copy these into your disaster-direct-proxy package (or your vendored copy).
+
+1) Add auth options to the factory
+index.d.ts (replace the interface section)
+import type { Express, Request, Response, NextFunction } from "express";
+
+export type TileScheme = "traffic" | "viridis" | "fire";
+
+export interface DisasterDirectAuth {
+  /** Built-in bearer auth: checks Authorization: Bearer <token> */
+  bearerToken?: string;
+  /** Built-in header auth: checks X-Api-Key (or custom) equals token */
+  headerToken?: { headerName?: string; token: string };
+  /** Custom async verifier (return or throw; throwing should end the request) */
+  verify?: (req: Request, res: Response) => Promise<void> | void;
+}
+
+export interface DisasterDirectHooks {
+  /** Runs before every route (after rate limit). Throw or write a response to block. */
+  beforeHandle?: (req: Request, res: Response, next: NextFunction) => Promise<void> | void;
+  /** Runs on any caught error */
+  onError?: (err: any, req: Request, res: Response) => void;
+}
+
+export interface DisasterDirectOptions extends DisasterDirectHooks {
+  fetchImpl?: typeof fetch;
+  ambeeApiKey: string;
+  basePath?: string;
+  corsOrigins?: string[] | null;
+  cacheTtlMs?: number;
+  rateLimit?: { windowMs: number; limit: number };
+  allowEndpoints?: string[];
+  tiles?: { enable?: boolean; defaultScheme?: TileScheme; maxGrid?: 5 | 3 | 1 };
+  /** Authentication configuration (any of the three may be set) */
+  auth?: DisasterDirectAuth;
+}
+
+export function createDisasterDirectProxy(
+  app: Express,
+  options: DisasterDirectOptions
+): { ambeeGET: (path: string, q?: Record<string, any>) => Promise<any> };
+
+index.js (only the new bits you need to add/replace)
+A) Add an ensureAuth helper near the top (after options parsing)
+function makeEnsureAuth(auth, hooks){
+  const headerName = (auth?.headerToken?.headerName || "x-api-key").toLowerCase();
+
+  return async function ensureAuth(req, res, next){
+    try {
+      // 1) Bearer token
+      if (auth?.bearerToken) {
+        const got = req.headers["authorization"] || "";
+        const ok = typeof got === "string" && got.startsWith("Bearer ") && got.slice(7) === auth.bearerToken;
+        if (!ok) return res.status(401).json({ error: "Unauthorized (bearer)" });
+      }
+
+      // 2) Header token
+      if (auth?.headerToken?.token) {
+        const got = String(req.headers[headerName] || "");
+        if (got !== auth.headerToken.token) return res.status(401).json({ error: "Unauthorized (header)" });
+      }
+
+      // 3) Custom verifier
+      if (auth?.verify) {
+        await auth.verify(req, res); // throw or write response to block
+        if (res.headersSent) return; // custom verifier handled it
+      }
+
+      // Optional global hook
+      if (hooks?.beforeHandle) {
+        await hooks.beforeHandle(req, res, next);
+        if (res.headersSent) return;
+      }
+
+      next();
+    } catch (err) {
+      if (hooks?.onError) hooks.onError(err, req, res);
+      if (!res.headersSent) res.status(401).json({ error: "Unauthorized", details: String(err) });
+    }
+  };
+}
+
+B) Build the middleware once in the factory and apply to all routes
+
+Right after you compute basePath etc., add:
+
+const ensureAuth = makeEnsureAuth(options?.auth || null, { beforeHandle: options?.beforeHandle, onError: options?.onError });
+
+C) Apply ensureAuth to every route
+
+Add ensureAuth as the second argument to each app.get(...) you already have:
+
+app.get(base("/ambee/*"), ensureAuth, async (req, res) => { /* ... */ });
+app.get(base("/impact"), ensureAuth, async (req, res) => { /* ... */ });
+app.get(base("/pollen"), ensureAuth, async (req, res) => { /* ... */ });
+app.get(base("/impact/geojson"), ensureAuth, async (req, res) => { /* ... */ });
+
+if (tiles?.enable !== false) {
+  app.get(base("/impact/tiles/:z/:x/:y.:fmt?"), ensureAuth, async (req, res) => { /* ... */ });
+  app.get(base("/legend.:fmt?"), ensureAuth, async (req, res) => { /* ... */ });
+}
+
+
+That’s it—now every endpoint is protected by bearer token, header token, your custom verifier, and/or a global beforeHandle hook.
+
+2) Example: secure your Replit deployment
+
+server.js
+
+import express from "express";
+import dotenv from "dotenv";
+import { createDisasterDirectProxy } from "disaster-direct-proxy";
+dotenv.config();
+
+const app = express();
+
+createDisasterDirectProxy(app, {
+  ambeeApiKey: process.env.AMBEE_API_KEY,
+  basePath: "/api",
+  corsOrigins: ["https://your-frontend.replit.app"],
+
+  // Rate limit + cache defaults are fine
+  cacheTtlMs: 60_000,
+  rateLimit: { windowMs: 60_000, limit: 60 },
+
+  // 🔐 Auth: choose any or all
+  auth: {
+    // option A: simple bearer
+    bearerToken: process.env.DD_BEARER_TOKEN,
+    // option B: header token (defaults to x-api-key)
+    headerToken: { token: process.env.DD_INTERNAL_KEY }, // or { headerName: "x-internal", token: "..." }
+    // option C: custom verifier (e.g., check JWT, IP allowlist)
+    verify: async (req, res) => {
+      // Example: allow only specific IP range
+      const ip = (req.headers["x-forwarded-for"] || "").toString().split(",")[0].trim();
+      const allow = ["123.45.67.89"]; // replace with your ops IPs
+      if (ip && !allow.includes(ip)) {
+        // You could also just return; but throwing is simplest here
+        throw new Error("IP not allowed");
+      }
+    }
+  },
+
+  // Optional: global pre-handler
+  beforeHandle: (req, _res, next) => {
+    // Add request id / logging
+    req.requestId = crypto.randomUUID?.() || Math.random().toString(36).slice(2);
+    next();
+  },
+
+  onError: (err, req, _res) => {
+    console.error(`[${req.requestId || "-"}]`, err);
+  },
+
+  tiles: { enable: true, defaultScheme: "traffic", maxGrid: 5 }
+});
+
+app.listen(process.env.PORT || 3001, () =>
+  console.log("Disaster Direct API running with auth")
+);
+
+
+Frontend calls
+
+// Bearer example:
+fetch("/api/impact?lat=33.749&lng=-84.388", {
+  headers: { Authorization: `Bearer ${import.meta.env.VITE_DD_BEARER_TOKEN}` }
+});
+
+// Or header token example:
+fetch("/api/impact/geojson?lat=33.749&lng=-84.388", {
+  headers: { "x-api-key": import.meta.env.VITE_DD_INTERNAL_KEY }
+});
+
+
+On Replit, store DD_BEARER_TOKEN / DD_INTERNAL_KEY in Secrets. In the browser, never expose true server tokens—if you must call from a public client, proxy through your own backend or use short-lived tokens you mint server-side.
+
+3) Quick testing checklist
+
+Missing/invalid token → 401 Unauthorized (bearer|header)
+
+Bad IP (in custom verifier) → 401 Unauthorized
+
+Valid token → all routes work as before
+
+Logs show your requestId from beforeHandle
