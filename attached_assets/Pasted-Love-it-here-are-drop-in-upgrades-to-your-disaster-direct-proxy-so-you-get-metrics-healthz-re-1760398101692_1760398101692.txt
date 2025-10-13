@@ -1,0 +1,363 @@
+Love it — here are drop-in upgrades to your disaster-direct-proxy so you get /metrics, /healthz, /readyz, /config, and HMAC-signed tiles as first-class, toggleable features.
+
+I’m giving you:
+
+What each feature does & why it helps (quick).
+
+Minimal type additions.
+
+Focused code snippets to paste into your package.
+
+How to enable with one config block.
+
+A tiny signing helper you’ll use from your map frontend.
+
+What you’re adding (in plain English)
+
+/metrics (Prometheus): live counts, error rates, latency, cache hits → real dashboards & alerts.
+
+/healthz: “I’m alive” (uptime, version, git SHA) → k8s/container liveness checks.
+
+/readyz: “I can serve traffic” (Ambee check + circuit breaker state) → safe rollouts.
+
+/config: one JSON for UI (palette, thresholds, tile defaults, flags) → no redeploy for small changes.
+
+HMAC tile signing: short-lived signatures on tile/legend URLs → blocks hotlinking/scraping.
+
+1) Type additions (index.d.ts)
+
+Add the new options:
+
+export interface DisasterDirectOptions extends DisasterDirectHooks {
+  // ...existing fields...
+  enableMetrics?: boolean;         // default true → /metrics
+  enableHealth?: boolean;          // default true → /healthz
+  enableReady?: boolean;           // default true → /readyz
+  enableConfig?: boolean;          // default true → /config
+  // A lightweight circuit breaker (used by /readyz and upstream calls)
+  circuit?: { threshold?: number; cooldownMs?: number };
+
+  // UI config surfaced at /config (safe, non-secret)
+  uiConfig?: {
+    palette?: "traffic"|"viridis"|"fire";
+    thresholds?: { moderate?: number; high?: number };
+    tiles?: { defaultGrid?: 1|3|5; ttlByZoom?: Record<string, number> };
+    pollen?: boolean;
+    accessibility?: { highContrast?: boolean; largeLabels?: boolean };
+    legendUrl?: string;
+  };
+
+  // HMAC signing for tile/legend URLs
+  hmac?: {
+    secret: string;                 // shared secret
+    param?: string;                 // signature query name, default "_sig"
+    ttlParam?: string;              // expiry query name, default "_exp" (unix seconds)
+    algo?: "sha256"|"sha512";       // default sha256
+    clockSkewSec?: number;          // default 60
+    enabledFor?: ("tiles"|"legend")[]; // default ["tiles","legend"]
+  };
+}
+
+2) Library code (paste into index.js)
+A) Small utilities (top of file)
+import crypto from "crypto";
+
+function hmacSign({ secret, algo = "sha256" }, msg) {
+  return crypto.createHmac(algo, secret).update(msg).digest("hex");
+}
+function unixNow() { return Math.floor(Date.now() / 1000); }
+
+B) Circuit breaker (near other helpers, inside createDisasterDirectProxy)
+const cb = {
+  failures: 0,
+  openUntil: 0,
+  threshold: options?.circuit?.threshold ?? Number(process.env.CIRCUIT_THRESHOLD ?? 8),
+  cooldownMs: options?.circuit?.cooldownMs ?? Number(process.env.CIRCUIT_COOLDOWN_MS ?? 60_000),
+  state() { return (Date.now() < this.openUntil) ? "open" : "closed"; },
+  markSuccess() { this.failures = 0; },
+  markFailure() {
+    this.failures++;
+    if (this.failures >= this.threshold) {
+      this.openUntil = Date.now() + this.cooldownMs;
+      this.failures = 0; // reset counter after opening
+    }
+  }
+};
+
+
+Wrap every Ambee fetch (ambeeGET) with breaker + retries:
+
+async function ambeeGET(path, q = {}) {
+  const qp = new URLSearchParams(q);
+  const url = `${AMBEE}/${path}?${qp.toString()}`;
+  const hit = getCache(url); if (hit) return hit;
+
+  // Circuit breaker: if open, try to serve stale cache; otherwise throw
+  if (cb.state() === "open") {
+    const stale = getCache(url); // (same as hit here; simple breaker still returns miss)
+    if (stale) return stale;
+    const err = new Error("Circuit open");
+    err.status = 503;
+    throw err;
+  }
+
+  // Retries with backoff
+  const maxAttempts = 3;
+  let lastErr;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const r = await fetchFn(url, { headers: { "x-api-key": ambeeApiKey, "Content-Type": "application/json" } });
+      const data = await r.json().catch(() => ({}));
+
+      if (r.status === 429 || r.status >= 500) {
+        lastErr = new Error(`Upstream ${r.status}`);
+        lastErr.status = r.status; lastErr.data = data;
+        const retryAfter = Number(r.headers.get("retry-after")) || 0;
+        const backoff = retryAfter ? retryAfter * 1000 : (200 * attempt + Math.random() * 300);
+        await new Promise(res => setTimeout(res, backoff));
+        continue;
+      }
+      if (!r.ok) { const e = new Error("Upstream error"); e.status = r.status; e.data = data; throw e; }
+
+      setCache(url, data);
+      cb.markSuccess();
+      return data;
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  cb.markFailure();
+  throw lastErr;
+}
+
+C) /metrics (Prometheus) (inside createDisasterDirectProxy)
+let prom;
+if (options?.enableMetrics !== false) {
+  try {
+    // lazy require to keep dep optional
+    prom = await (async () => {
+      const mod = await import("prom-client");
+      const client = mod.default || mod;
+      client.collectDefaultMetrics();
+      const reqCounter = new client.Counter({ name: "dd_requests_total", help: "Requests", labelNames: ["route","code"] });
+      const upstreamStatus = new client.Counter({ name: "dd_upstream_status_total", help: "Upstream statuses", labelNames: ["status"] });
+      const duration = new client.Histogram({ name: "dd_request_duration_ms", help: "Duration ms", buckets: [50,100,200,400,800,1600,3200] });
+      const cacheHit = new client.Counter({ name: "dd_cache_hits_total", help: "Cache hits" });
+      app.use((req, res, next) => {
+        const start = Date.now();
+        const oldJson = res.json.bind(res);
+        res.json = (body) => { return oldJson(body); }; // placeholder for labeling
+        res.on("finish", () => {
+          const rt = (req.path || "").split("?")[0];
+          reqCounter.inc({ route: rt, code: String(res.statusCode) });
+          duration.observe(Date.now() - start);
+        });
+        next();
+      });
+      app.get("/metrics", async (_req, res) => {
+        res.set("Content-Type", client.register.contentType);
+        res.end(await client.register.metrics());
+      });
+      // expose helpers
+      app.locals.ddMetrics = { upstreamStatus, cacheHit };
+      return client;
+    })();
+  } catch (_) {
+    // prom-client not installed; /metrics disabled
+  }
+}
+
+
+Optional: npm i prom-client if you want this live.
+
+Where you register cache hits (e.g., when getCache(url) succeeds), call:
+
+app.locals?.ddMetrics?.cacheHit?.inc?.();
+
+
+Where you process upstream responses, increment:
+
+app.locals?.ddMetrics?.upstreamStatus?.inc?.({ status: String(r.status) });
+
+D) /healthz and /readyz
+const version = process.env.DD_VERSION || "1.0.0";
+const gitSha = process.env.DD_GIT_SHA || "dev";
+
+if (options?.enableHealth !== false) {
+  app.get("/healthz", (_req, res) => {
+    res.json({ ok: true, uptime: process.uptime(), version, gitSha, time: new Date().toISOString() });
+  });
+}
+
+if (options?.enableReady !== false) {
+  app.get("/readyz", async (_req, res) => {
+    // cheap probe: AQ at 0,0 (or skip network if breaker is open)
+    const probe = { ambee: "skipped", code: 200 };
+    if (cb.state() === "closed") {
+      try {
+        await ambeeGET("latest/by-lat-lng", { lat: 0, lng: 0 });
+        probe.ambee = "ok";
+      } catch (e) {
+        probe.ambee = "fail";
+        probe.code = 503;
+      }
+    }
+    res.status(probe.code).json({ ready: probe.code === 200, ambee: probe.ambee, breaker: cb.state(), version, gitSha });
+  });
+}
+
+E) /config (for the frontend)
+if (options?.enableConfig !== false) {
+  const cfg = {
+    palette: options?.uiConfig?.palette ?? "traffic",
+    thresholds: { moderate: 40, high: 70, ...(options?.uiConfig?.thresholds || {}) },
+    tiles: { defaultGrid: 3, ttlByZoom: { "7": 900, "10": 300, "12": 180, "14": 90 }, ...(options?.uiConfig?.tiles || {}) },
+    pollen: options?.uiConfig?.pollen ?? true,
+    accessibility: options?.uiConfig?.accessibility ?? { highContrast: false, largeLabels: false },
+    legendUrl: options?.uiConfig?.legendUrl ?? "/api/legend.png?scheme=traffic&width=256&height=48&bg=solid"
+  };
+  app.get("/config", (_req, res) => res.json(cfg));
+}
+
+F) HMAC-signed tiles & legend
+
+1) Verify on incoming requests (inside the tiles and legend routes, before generating the image):
+
+function verifyHmacIfEnabled(kind, req) {
+  const hmacCfg = options?.hmac;
+  if (!hmacCfg || !hmacCfg.secret) return; // disabled
+  const enabledFor = hmacCfg.enabledFor || ["tiles","legend"];
+  if (!enabledFor.includes(kind)) return;
+
+  const sigParam = hmacCfg.param || "_sig";
+  const expParam = hmacCfg.ttlParam || "_exp";
+  const algo = hmacCfg.algo || "sha256";
+  const skew = Number(hmacCfg.clockSkewSec || 60);
+
+  const url = new URL(req.protocol + "://" + req.get("host") + req.originalUrl);
+  const sig = url.searchParams.get(sigParam);
+  const exp = Number(url.searchParams.get(expParam) || 0);
+  if (!sig || !exp) return req.res.status(401).json({ error: "signature required" });
+
+  // Expiration
+  const now = unixNow();
+  if (now > exp + skew) return req.res.status(401).json({ error: "signature expired" });
+
+  // Canonical string: method + path + sorted query (excluding signature)
+  const qp = [];
+  for (const [k, v] of url.searchParams.entries()) {
+    if (k === sigParam) continue;
+    qp.push([k, v]);
+  }
+  qp.sort((a,b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : (a[1] < b[1] ? -1 : 1));
+  const canonical = `${req.method}\n${url.pathname}\n${qp.map(([k,v]) => `${k}=${v}`).join("&")}`;
+
+  const expect = hmacSign({ secret: hmacCfg.secret, algo }, canonical);
+  if (!crypto.timingSafeEqual(Buffer.from(expect, "hex"), Buffer.from(sig, "hex"))) {
+    return req.res.status(401).json({ error: "bad signature" });
+  }
+}
+
+
+Call it at the top of each route:
+
+// tiles route handler
+verifyHmacIfEnabled("tiles", req);
+if (res.headersSent) return;
+
+// legend route handler
+verifyHmacIfEnabled("legend", req);
+if (res.headersSent) return;
+
+
+2) Export a tiny signer (so your server can mint URLs for your frontend):
+
+At bottom of index.js, export:
+
+export function signTileUrl(baseUrl, { secret, algo = "sha256", param = "_sig", ttlParam = "_exp", expiresInSec = 300 }) {
+  const url = new URL(baseUrl, "http://x"); // base to parse even relative paths
+  const exp = unixNow() + expiresInSec;
+  url.searchParams.set(ttlParam, String(exp));
+  const qp = [];
+  for (const [k,v] of url.searchParams.entries()) qp.push([k,v]);
+  qp.sort((a,b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : (a[1] < b[1] ? -1 : 1));
+  const canonical = `GET\n${url.pathname}\n${qp.map(([k,v]) => `${k}=${v}`).join("&")}`;
+  const sig = hmacSign({ secret, algo }, canonical);
+  url.searchParams.set(param, sig);
+  return url.pathname + "?" + url.searchParams.toString(); // relative path for same-origin calls
+}
+
+
+You can use the same function for legend URLs.
+
+3) How to enable everything (server usage)
+import express from "express";
+import dotenv from "dotenv";
+import { createDisasterDirectProxy, buildDisasterDirectOpenApi, signTileUrl } from "disaster-direct-proxy";
+dotenv.config();
+
+const app = express();
+
+createDisasterDirectProxy(app, {
+  ambeeApiKey: process.env.AMBEE_API_KEY,
+  basePath: "/api",
+  corsOrigins: ["https://your-frontend.example.com"],
+
+  // Observability & ops
+  enableMetrics: true,
+  enableHealth: true,
+  enableReady: true,
+  circuit: { threshold: Number(process.env.CIRCUIT_THRESHOLD || 8), cooldownMs: Number(process.env.CIRCUIT_COOLDOWN_MS || 60000) },
+
+  // UI config surfaced at /config
+  enableConfig: true,
+  uiConfig: {
+    palette: "traffic",
+    thresholds: { moderate: 40, high: 70 },
+    tiles: { defaultGrid: 3, ttlByZoom: { "7": 900, "10": 300, "12": 180, "14": 90 } },
+    pollen: true,
+    accessibility: { highContrast: false, largeLabels: false },
+    legendUrl: "/api/legend.png?scheme=traffic&width=256&height=48&bg=solid"
+  },
+
+  // HMAC signing for tiles & legend
+  hmac: {
+    secret: process.env.DD_TILE_HMAC_SECRET,    // put in Secrets
+    enabledFor: ["tiles","legend"],
+    algo: "sha256",
+    clockSkewSec: 60
+  },
+
+  // (Auth, scopes, JWT, routeScopes from earlier remain the same)
+});
+
+
+Signing example (server-side) to hand URLs to your frontend:
+
+// Generate a signed tile template (Mapbox GL / Leaflet)
+const base = "/api/impact/tiles/{z}/{x}/{y}.png?pollen=1&grid=3&scheme=viridis&ttl=180";
+const signedTemplate = signTileUrl(base, {
+  secret: process.env.DD_TILE_HMAC_SECRET,
+  expiresInSec: 300 // 5 minutes
+});
+// -> use `signedTemplate` as your tile URL
+
+
+Legend (signed)
+
+const legend = signTileUrl("/api/legend.png?scheme=traffic&width=256&height=48&bg=solid", {
+  secret: process.env.DD_TILE_HMAC_SECRET,
+  expiresInSec: 300
+});
+
+4) Why this helps (quick recap)
+
+/metrics → real visibility (alert on 429/5xx, latency, breaker).
+
+/healthz /readyz → stable rollouts & auto-healing.
+
+/config → change palettes/thresholds without redeploys.
+
+HMAC → only your clients (that get signed URLs from your server) can fetch tiles/legend; stops scraping & hotlinking.
+
+Circuit breaker & retries → survive provider blips gracefully.
