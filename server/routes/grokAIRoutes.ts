@@ -3,6 +3,23 @@ import { grokAI } from "../services/grokAI";
 
 export function registerGrokAIRoutes(app: Express) {
   
+  // Simple proxy endpoint for general Grok queries (accepts "prompt" field)
+  app.post('/api/grok', async (req: Request, res: Response) => {
+    try {
+      const { prompt } = req.body;
+      
+      if (!prompt) {
+        return res.status(400).json({ error: 'Prompt is required' });
+      }
+
+      const answer = await grokAI.answerQuestion(prompt, {});
+      res.json({ success: true, answer });
+    } catch (error) {
+      console.error('Error with Grok proxy:', error);
+      res.status(500).json({ error: 'Failed to process Grok request', details: error instanceof Error ? error.message : 'Unknown error' });
+    }
+  });
+  
   // Educational concept explanations
   app.post('/api/grok/explain-concept', async (req: Request, res: Response) => {
     try {
