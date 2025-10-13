@@ -1,0 +1,555 @@
+{
+  "info": {
+    "name": "Disaster Direct Proxy \u2013 Postman",
+    "_postman_id": "6c5811f5-9643-44e4-93c7-4fab1923e45a",
+    "description": "Postman collection for Disaster Direct proxy: Ambee pass-through, impact aggregation, tiles, legend, health/ready, and OpenAPI. Use the variables `baseUrl`, `bearerToken`, and `xApiKey`.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health & Docs",
+      "item": [
+        {
+          "name": "Healthz",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/healthz",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "healthz"
+              ],
+              "query": []
+            },
+            "description": ""
+          },
+          "response": []
+        },
+        {
+          "name": "Readyz",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/readyz",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "readyz"
+              ],
+              "query": []
+            },
+            "description": ""
+          },
+          "response": []
+        },
+        {
+          "name": "OpenAPI JSON",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/openapi.json",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "openapi.json"
+              ],
+              "query": []
+            },
+            "description": ""
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Core (Impact/Pollen/GeoJSON)",
+      "item": [
+        {
+          "name": "Impact (no pollen)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{xApiKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/impact?lat={{lat}}&lng={{lng}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "impact"
+              ],
+              "query": [
+                {
+                  "key": "lat",
+                  "value": "{{lat}}"
+                },
+                {
+                  "key": "lng",
+                  "value": "{{lng}}"
+                }
+              ]
+            },
+            "description": "Aggregated impact score."
+          },
+          "response": []
+        },
+        {
+          "name": "Impact (with pollen)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{xApiKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/impact?lat={{lat}}&lng={{lng}}&pollen=1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "impact"
+              ],
+              "query": [
+                {
+                  "key": "lat",
+                  "value": "{{lat}}"
+                },
+                {
+                  "key": "lng",
+                  "value": "{{lng}}"
+                },
+                {
+                  "key": "pollen",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "Aggregated impact score including pollen."
+          },
+          "response": []
+        },
+        {
+          "name": "Pollen (normalized)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{xApiKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/pollen?lat={{lat}}&lng={{lng}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "pollen"
+              ],
+              "query": [
+                {
+                  "key": "lat",
+                  "value": "{{lat}}"
+                },
+                {
+                  "key": "lng",
+                  "value": "{{lng}}"
+                }
+              ]
+            },
+            "description": "Normalized pollen at coordinate."
+          },
+          "response": []
+        },
+        {
+          "name": "Impact GeoJSON",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{xApiKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/impact/geojson?lat={{lat}}&lng={{lng}}&pollen=1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "impact",
+                "geojson"
+              ],
+              "query": [
+                {
+                  "key": "lat",
+                  "value": "{{lat}}"
+                },
+                {
+                  "key": "lng",
+                  "value": "{{lng}}"
+                },
+                {
+                  "key": "pollen",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "GeoJSON FeatureCollection with impact properties."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Ambee Proxy",
+      "item": [
+        {
+          "name": "Ambee: Air Quality latest/by-lat-lng",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{xApiKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/ambee/latest/by-lat-lng?lat={{lat}}&lng={{lng}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "ambee",
+                "latest",
+                "by-lat-lng"
+              ],
+              "query": [
+                {
+                  "key": "lat",
+                  "value": "{{lat}}"
+                },
+                {
+                  "key": "lng",
+                  "value": "{{lng}}"
+                }
+              ]
+            },
+            "description": "Pass-through to Ambee air quality endpoint."
+          },
+          "response": []
+        },
+        {
+          "name": "Ambee: Weather latest/by-lat-lng",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{xApiKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/ambee/weather/latest/by-lat-lng?lat={{lat}}&lng={{lng}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "ambee",
+                "weather",
+                "latest",
+                "by-lat-lng"
+              ],
+              "query": [
+                {
+                  "key": "lat",
+                  "value": "{{lat}}"
+                },
+                {
+                  "key": "lng",
+                  "value": "{{lng}}"
+                }
+              ]
+            },
+            "description": "Pass-through to Ambee weather endpoint."
+          },
+          "response": []
+        },
+        {
+          "name": "Ambee: Pollen latest/by-lat-lng",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{xApiKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/ambee/pollen/latest/by-lat-lng?lat={{lat}}&lng={{lng}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "ambee",
+                "pollen",
+                "latest",
+                "by-lat-lng"
+              ],
+              "query": [
+                {
+                  "key": "lat",
+                  "value": "{{lat}}"
+                },
+                {
+                  "key": "lng",
+                  "value": "{{lng}}"
+                }
+              ]
+            },
+            "description": "Pass-through to Ambee pollen endpoint."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Tiles & Legend",
+      "item": [
+        {
+          "name": "Legend (PNG)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{xApiKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/legend.png?scheme=traffic&width=256&height=48&bg=solid",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "legend.png"
+              ],
+              "query": [
+                {
+                  "key": "scheme",
+                  "value": "traffic"
+                },
+                {
+                  "key": "width",
+                  "value": "256"
+                },
+                {
+                  "key": "height",
+                  "value": "48"
+                },
+                {
+                  "key": "bg",
+                  "value": "solid"
+                }
+              ]
+            },
+            "description": "Legend image matching tile palette."
+          },
+          "response": []
+        },
+        {
+          "name": "Tile (PNG, viridis, grid=3)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "type": "text"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{xApiKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/impact/tiles/10/293/394.png?pollen=1&grid=3&scheme=viridis&ttl=180",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "impact",
+                "tiles",
+                "10",
+                "293",
+                "394.png"
+              ],
+              "query": [
+                {
+                  "key": "pollen",
+                  "value": "1"
+                },
+                {
+                  "key": "grid",
+                  "value": "3"
+                },
+                {
+                  "key": "scheme",
+                  "value": "viridis"
+                },
+                {
+                  "key": "ttl",
+                  "value": "180"
+                }
+              ]
+            },
+            "description": "Impact tile at z/x/y."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Config & Metrics",
+      "item": [
+        {
+          "name": "UI Config",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/config",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "config"
+              ],
+              "query": []
+            },
+            "description": ""
+          },
+          "response": []
+        },
+        {
+          "name": "Metrics (Prometheus)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/metrics",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "metrics"
+              ],
+              "query": []
+            },
+            "description": ""
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3001",
+      "type": "string"
+    },
+    {
+      "key": "bearerToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "xApiKey",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "lat",
+      "value": "33.749",
+      "type": "string"
+    },
+    {
+      "key": "lng",
+      "value": "-84.388",
+      "type": "string"
+    }
+  ]
+}
