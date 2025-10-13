@@ -15,6 +15,7 @@ Preferred communication style: Simple, everyday language.
 - **Routing**: Wouter.
 - **Real-time**: WebSocket integration.
 - **Internationalization**: Context-based system (English, Spanish).
+- **Grok AI Integration**: xAI's Grok-2 powers all intelligence features across every module with real-time predictions, educational insights, and interactive Q&A.
 - **Disaster Lens Module**: Offline-first design with service workers, IndexedDB, and background sync for media capture and collaboration. Professional camera interface with auto-stamping and project management.
 
 ### Backend Architecture
@@ -62,6 +63,44 @@ Preferred communication style: Simple, everyday language.
 - **Rachel AI Voice**: Natural female voice using ElevenLabs "Rachel" (ID: 21m00Tcm4TlvDq8ikWAM) as default for all AI voice interactions, including Portal Voice Guide, Voice AI Assistant, Claims Agent, and all TTS features. Provides professional, warm, and natural-sounding female voice throughout the entire application. Falls back to OpenAI's "nova" female voice when ElevenLabs is unavailable. Voice generation takes approximately 2 seconds for high-quality audio.
 - **QR/AprilTag Calibration**: Automatic scale detection for precise measurements in images using jsQR, with AprilTag support framework.
 
+## Recent Updates (October 13, 2025)
+
+### Grok AI Integration - Primary Intelligence Engine
+Integrated xAI's Grok-2 as the main AI across the entire platform:
+- **Educational System**: Explains meteorology concepts (tripwires, lightning bursts, outflow tails, eddies, eye walls) in simple contractor-friendly language
+- **US Landfall Prediction**: Real-time predictions based on satellite data, sea surface temps, wind shear, and steering currents with confidence scores
+- **Interactive Q&A**: Ask Grok any storm-related question and get expert educational answers
+- **Storm Intelligence Briefings**: Real-time situational awareness with GO/CAUTION/PREPARE/HOLD action recommendations
+- **Tripwire Monitoring**: AI analysis of all 7 critical hurricane indicators with insider professional knowledge
+- **Image Analysis**: Grok-2-Vision for damage assessment and storm imagery analysis
+- **Module Enhancement**: Grok provides deeper real-time insights across Weather Center, Prediction Dashboard, and all intelligence modules
+- **Voice Consistency**: Rachel (ElevenLabs) maintained as the natural-sounding female voice for all text-to-speech features
+
+### Key Grok Features Implemented
+1. **Educational Panel in Weather Center**: 
+   - Concept explanations for all meteorology terms
+   - Real-world examples from past storms
+   - Insider tips that meteorologists use
+   - Interactive Q&A with suggested questions
+
+2. **Grok Landfall Predictor in Storm Prediction Dashboard**:
+   - Predicts if storm will hit US (Yes/No with confidence %)
+   - Specific landfall location, state, and GPS coordinates
+   - Timing estimates
+   - Detailed satellite data analysis
+   - Key atmospheric factors
+   - Wildcard scenarios that could change predictions
+   - Real-time intelligence briefings
+
+3. **Available Grok API Endpoints**:
+   - `/api/grok/explain-concept` - Educational meteorology explanations
+   - `/api/grok/predict-us-landfall` - US landfall predictions
+   - `/api/grok/ask-question` - Interactive Q&A
+   - `/api/grok/analyze-image` - Vision-based image analysis
+   - `/api/grok/analyze-tripwire` - Hurricane tripwire analysis
+   - `/api/grok/intelligence-briefing` - Real-time storm briefings
+   - `/api/grok/enhance-module` - Module enhancement recommendations
+
 ## External Dependencies
 
 ### Core Infrastructure
@@ -86,6 +125,7 @@ Preferred communication style: Simple, everyday language.
 - **Melissa**: Address verification.
 
 ### AI & Communication Services
+- **xAI Grok**: Primary AI intelligence engine (Grok-2-1212 text, Grok-2-vision-1212 image analysis)
 - **OpenAI**: GPT-4 for various AI tasks.
 - **Twilio**: SMS alerts, voice calls.
 - **ElevenLabs**: Voice cloning and TTS.

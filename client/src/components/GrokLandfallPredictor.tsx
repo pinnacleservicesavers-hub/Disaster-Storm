@@ -147,9 +147,11 @@ export default function GrokLandfallPredictor({ stormData }: GrokPredictionProps
                       <div>
                         <p className="font-semibold text-lg">{prediction.predictedLandfall.location}</p>
                         <p className="text-sm text-muted-foreground">{prediction.predictedLandfall.state}</p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Coordinates: {prediction.predictedLandfall.coordinates.lat.toFixed(2)}°N, {prediction.predictedLandfall.coordinates.lng.toFixed(2)}°W
-                        </p>
+                        {prediction.predictedLandfall.coordinates && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Coordinates: {prediction.predictedLandfall.coordinates.lat.toFixed(2)}°N, {prediction.predictedLandfall.coordinates.lng.toFixed(2)}°W
+                          </p>
+                        )}
                       </div>
                     </div>
 
