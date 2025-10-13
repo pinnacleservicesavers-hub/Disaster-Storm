@@ -1,0 +1,165 @@
+import express from "express";
+import fetch from "node-fetch";
+import dotenv from "dotenv";
+import cors from "cors";
+
+dotenv.config();
+
+const app = express();
+const PORT = process.env.PORT || 3001;
+
+// ----------- CORS allow-list -----------
+const allowed = (process.env.CORS_ORIGINS || "").split(",").map(s => s.trim()).filter(Boolean);
+app.use(cors({
+  origin: (origin, cb) => {
+    if (!origin || allowed.length === 0 || allowed.includes(origin)) return cb(null, true);
+    return cb(new Error("Not allowed by CORS"));
+  }
+}));
+
+// ----------- tiny in-memory cache -----------
+const cache = new Map();
+const ttlMs = 60_000; // 1 minute
+const getCache = k => {
+  const v = cache.get(k);
+  if (!v) return null;
+  if (Date.now() > v.expireAt) { cache.delete(k); return null; }
+  return v.data;
+};
+const setCache = (k, data, ms = ttlMs) => cache.set(k, { data, expireAt: Date.now() + ms });
+
+// ----------- simple per-IP rate limit -----------
+const hits = new Map();
+const WINDOW = 60_000; // 1 min
+const LIMIT = 60; // 60 req/min/IP
+app.use((req, res, next) => {
+  const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress || "unknown";
+  const now = Date.now();
+  const arr = (hits.get(ip) || []).filter(t => now - t < WINDOW);
+  arr.push(now);
+  hits.set(ip, arr);
+  if (arr.length > LIMIT) return res.status(429).json({ error: "Rate limit exceeded" });
+  next();
+});
+
+// ----------- helpers -----------
+const AMBEE = "https://api.ambeedata.com";
+const ALLOWED = new Set([
+  "latest/by-lat-lng",
+  "weather/latest/by-lat-lng",
+  "pollen/latest/by-lat-lng",
+  "disasters/latest/by-lat-lng",
+  "wildfires/latest/by-lat-lng"
+]);
+
+function requireLatLng(req, res) {
+  const lat = Number(req.query.lat);
+  const lng = Number(req.query.lng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) {
+    res.status(400).json({ error: "Valid lat and lng required" });
+    return null;
+  }
+  return { lat, lng };
+}
+
+async function ambeeGET(path, q = {}) {
+  const qp = new URLSearchParams(q);
+  const url = `${AMBEE}/${path}?${qp.toString()}`;
+  const cacheHit = getCache(url);
+  if (cacheHit) return cacheHit;
+
+  const r = await fetch(url, {
+    headers: {
+      "x-api-key": process.env.AMBEE_API_KEY,
+      "Content-Type": "application/json"
+    },
+    timeout: 15000
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) {
+    const err = { status: r.status, data };
+    throw err;
+  }
+  setCache(url, data);
+  return data;
+}
+
+// ----------- pass-through proxy -----------
+app.get("/api/ambee/*", async (req, res) => {
+  const endpoint = req.params[0]; // e.g. 'latest/by-lat-lng'
+  if (!ALLOWED.has(endpoint)) return res.status(400).json({ error: "Endpoint not allowed" });
+
+  const latlng = requireLatLng(req, res);
+  if (!latlng) return;
+
+  try {
+    const data = await ambeeGET(endpoint, { lat: latlng.lat, lng: latlng.lng });
+    res.json(data);
+  } catch (e) {
+    res.status(e.status || 502).json({ error: "Upstream error", details: e.data || String(e) });
+  }
+});
+
+// ----------- /api/impact (merged response) -----------
+/**
+ * Returns a single object combining:
+ *  - air quality: /latest/by-lat-lng
+ *  - weather:     /weather/latest/by-lat-lng
+ *  - disasters:   /disasters/latest/by-lat-lng
+ *  - wildfires:   /wildfires/latest/by-lat-lng
+ *
+ * Also computes a simple impactScore (0..100):
+ *   score = w1*AQI_norm + w2*wind_norm + w3*wildfire_norm
+ *   where:
+ *     AQI_norm: clamp(AQI / 300)
+ *     wind_norm: clamp(gust / 25 m/s)
+ *     wildfire_norm: 1 - clamp(minDistanceKm / 50)
+ */
+app.get("/api/impact", async (req, res) => {
+  const latlng = requireLatLng(req, res);
+  if (!latlng) return;
+
+  const q = { lat: latlng.lat, lng: latlng.lng };
+
+  try {
+    const [aq, wx, dz, wf] = await Promise.allSettled([
+      ambeeGET("latest/by-lat-lng", q),
+      ambeeGET("weather/latest/by-lat-lng", q),
+      ambeeGET("disasters/latest/by-lat-lng", q),
+      ambeeGET("wildfires/latest/by-lat-lng", q)
+    ]);
+
+    const air = aq.status === "fulfilled" ? aq.value : null;
+    const weather = wx.status === "fulfilled" ? wx.value : null;
+    const disasters = dz.status === "fulfilled" ? dz.value : null;
+    const wildfires = wf.status === "fulfilled" ? wf.value : null;
+
+    // --- extract signal values (defensive) ---
+    const station = air?.stations?.[0] || {};
+    const AQI = Number(station?.AQI) || 0;
+
+    const wxPoint = weather?.stations?.[0] || weather?.data || {};
+    const windGust = Number(wxPoint?.windGust || wxPoint?.wind_gust || 0) || 0; // m/s if available
+
+    const wfList = wildfires?.data || wildfires?.wildfires || [];
+    const minWfKm = Array.isArray(wfList) && wfList.length
+      ? wfList
+          .map(f => Number(f?.distance || f?.distance_km || Infinity))
+          .reduce((a, b) => Math.min(a, b), Infinity)
+      : Infinity;
+
+    // --- normalize (0..1) ---
+    const clamp01 = v => Math.max(0, Math.min(1, v));
+    const AQI_norm = clamp01(AQI / 300);              // 300 ~ very unhealthy+
+    const wind_norm = clamp01(windGust / 25);         // 25 m/s ~ 56 mph gust
+    const wf_norm = clamp01(1 - (isFinite(minWfKm) ? (minWfKm / 50) : 1)); // closer = higher risk
+
+    // weights (tune for your ops)
+    const w1 = 0.5, w2 = 0.3, w3 = 0.2;
+    const impactScore = Math.round(100 * (w1 * AQI_norm + w2 * wind_norm + w3 * wf_norm));
+
+    res.json({
+      coords: q,
+      impactScore,       // 0..100
+      components: {
+        aqi: { AQI, nor
