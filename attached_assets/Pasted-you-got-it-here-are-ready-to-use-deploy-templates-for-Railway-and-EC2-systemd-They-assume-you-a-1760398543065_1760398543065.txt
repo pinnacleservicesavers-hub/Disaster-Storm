@@ -1,0 +1,211 @@
+you got it — here are ready-to-use deploy templates for Railway and EC2 (systemd). They assume you already have the repo with your Dockerfile, server.js, and the proxy wired in.
+
+Railway (Dockerfile deploy)
+What this gives you
+
+Zero-infra deploy from GitHub repo
+
+Built from your Dockerfile (or Nixpacks if you prefer)
+
+Healthcheck to /healthz
+
+Easy secrets management
+
+Quick path (CLI or Dashboard)
+Option A — Railway Dashboard (fastest)
+
+Push your code to GitHub.
+
+In Railway: New Project → Deploy from GitHub Repo.
+
+Railway will detect your Dockerfile.
+
+Set Environment Variables (same list you’ve been using):
+
+Required: AMBEE_API_KEY, PORT=3001
+
+Recommended: CORS_ORIGINS, DD_TILE_HMAC_SECRET
+
+Auth (pick any): DD_BEARER_TOKEN, DD_INTERNAL_KEY, or JWT (AUTH0_DOMAIN, AUTH0_AUDIENCE or JWT_JWKS_URL, JWT_SCOPE_CLAIM)
+
+Ops: RATE_WINDOW_MS, RATE_LIMIT, CACHE_TTL_MS, CIRCUIT_THRESHOLD, CIRCUIT_COOLDOWN_MS, COORD_SNAP_DEG
+
+In Healthchecks, set path to /healthz.
+
+Deploy. Test:
+
+curl -s https://<your-railway-app>.up.railway.app/healthz | jq .
+
+Option B — Nixpacks (no Dockerfile)
+
+Add a Procfile:
+
+web: node server.js
+
+
+Railway will build automatically. Keep the same env vars as above.
+
+EC2 (systemd + Docker Compose)
+What this gives you
+
+Single-VM deploy with auto-start on boot, healthchecks, and log retention via journald
+
+Optional Nginx + Let’s Encrypt TLS proxy
+
+0) Provision & open ports
+
+Create an Ubuntu 22.04/24.04 EC2 instance (t3.small+ recommended).
+
+Security group: open 80 and 443 to the internet (or your CIDR), optionally keep 3001 internal-only.
+
+1) Install Docker & Compose plugin
+sudo apt-get update -y
+sudo apt-get install -y ca-certificates curl gnupg
+sudo install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
+  https://download.docker.com/linux/ubuntu $(. /etc/os-release; echo $VERSION_CODENAME) stable" \
+  | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+sudo apt-get update -y
+sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+sudo usermod -aG docker $USER
+
+
+Log out/in (or newgrp docker) to use docker without sudo.
+
+2) Create app directory & env file
+sudo mkdir -p /etc/disaster-direct
+sudo nano /etc/disaster-direct/.env
+
+
+Put your secrets (example):
+
+NODE_ENV=production
+PORT=3001
+AMBEE_API_KEY=xxxx
+CORS_ORIGINS=https://your-frontend.example.com
+DD_TILE_HMAC_SECRET=xxxx
+# Optional auth
+# DD_BEARER_TOKEN=...
+# DD_INTERNAL_KEY=...
+# AUTH0_DOMAIN=...
+# AUTH0_AUDIENCE=...
+# JWT_JWKS_URL=...
+JWT_SCOPE_CLAIM=permissions
+# Ops
+RATE_WINDOW_MS=60000
+RATE_LIMIT=60
+CACHE_TTL_MS=60000
+CIRCUIT_THRESHOLD=8
+CIRCUIT_COOLDOWN_MS=60000
+COORD_SNAP_DEG=0.01
+DD_VERSION=1.0.0
+DD_GIT_SHA=ec2
+
+3) Drop in Compose file
+sudo tee /etc/disaster-direct/compose.yaml >/dev/null <<'YAML'
+version: "3.9"
+services:
+  proxy:
+    image: ghcr.io/your-org/disaster-direct:latest   # or build from repo; see note below
+    restart: unless-stopped
+    env_file: /etc/disaster-direct/.env
+    ports:
+      - "3001:3001"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3001/healthz || exit 1"]
+      interval: 15s
+      timeout: 3s
+      retries: 5
+      start_period: 20s
+YAML
+
+
+If you don’t have a prebuilt image, add a build section instead:
+
+build:
+  context: /opt/disaster-direct     # path where you git clone the repo
+  dockerfile: Dockerfile
+
+
+Then git clone your repo to /opt/disaster-direct on the instance.
+
+4) Systemd unit to manage the stack
+sudo tee /etc/systemd/system/disaster-direct.service >/dev/null <<'UNIT'
+[Unit]
+Description=Disaster Direct Proxy (Docker Compose)
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=true
+WorkingDirectory=/etc/disaster-direct
+ExecStart=/usr/bin/docker compose up -d
+ExecStop=/usr/bin/docker compose down
+TimeoutStartSec=0
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now disaster-direct
+
+5) Verify
+docker ps
+curl -s http://localhost:3001/healthz | jq .
+curl -s "http://localhost:3001/api/impact?lat=33.749&lng=-84.388" | jq .impactScore
+journalctl -u disaster-direct -f
+
+6) (Optional) Nginx TLS reverse proxy + Certbot
+sudo apt-get install -y nginx
+sudo tee /etc/nginx/sites-available/disaster-direct >/dev/null <<'NGINX'
+server {
+  listen 80;
+  server_name api.your-domain.com;
+
+  location /.well-known/acme-challenge/ { root /var/www/certbot; }
+
+  location / {
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $remote_addr;
+    proxy_pass http://127.0.0.1:3001;
+  }
+}
+NGINX
+sudo ln -s /etc/nginx/sites-available/disaster-direct /etc/nginx/sites-enabled/
+sudo mkdir -p /var/www/certbot
+sudo nginx -t && sudo systemctl reload nginx
+
+# Issue cert
+sudo snap install core; sudo snap refresh core
+sudo snap install --classic certbot
+sudo ln -s /snap/bin/certbot /usr/bin/certbot
+sudo certbot --nginx -d api.your-domain.com --redirect --agree-tos -m you@your-domain.com
+
+
+Now your API is on https://api.your-domain.com.
+
+Optional: signed tile URLs (server helper)
+
+If you enabled HMAC signing, mint a template on the server and feed it to the frontend:
+
+import { signTileUrl } from "disaster-direct-proxy";
+
+const template = signTileUrl(
+  "/api/impact/tiles/{z}/{x}/{y}.png?pollen=1&grid=3&scheme=viridis&ttl=180",
+  { secret: process.env.DD_TILE_HMAC_SECRET, expiresInSec: 300 }
+);
+// use `template` in Mapbox GL / Leaflet
+
+Smoke test (external)
+
+Once DNS/TLS is live:
+
+BASE=https://api.your-domain.com
+curl -s $BASE/healthz | jq .
+curl -s "$BASE/api/impact?lat=33.749&lng=-84.388" | jq .impactScore
+curl -sI "$BASE/api/legend.png?scheme=traffic&width=256&height=48&bg=solid" | grep Content-Type
