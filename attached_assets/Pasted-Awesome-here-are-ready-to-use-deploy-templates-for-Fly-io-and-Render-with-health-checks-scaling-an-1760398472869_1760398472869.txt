@@ -1,0 +1,161 @@
+Awesome—here are ready-to-use deploy templates for Fly.io and Render with health checks, scaling, and env placeholders. Copy them into your repo and tweak the app/service names + env vars.
+
+Fly.io
+fly.toml
+# fly.toml — Disaster Direct Proxy
+app = "disaster-direct-yourname"   # <— change this
+primary_region = "atl"
+kill_signal = "SIGINT"
+
+[build]
+  # If using Dockerfile in repo, Fly will auto-detect; else uncomment:
+  # dockerfile = "Dockerfile"
+
+[env]
+  NODE_ENV = "production"
+  PORT = "3001"
+  # Required
+  AMBEE_API_KEY = "REPLACE_ME"
+  # (Optional auth)
+  # DD_BEARER_TOKEN = ""
+  # DD_INTERNAL_KEY = ""
+  # AUTH0_DOMAIN = ""
+  # AUTH0_AUDIENCE = ""
+  # JWT_JWKS_URL = ""
+  # JWT_SCOPE_CLAIM = "permissions"
+  # JWT_JWKS_CACHE_MS = "600000"
+  # (Ops)
+  CORS_ORIGINS = "https://your-frontend.example.com"
+  RATE_WINDOW_MS = "60000"
+  RATE_LIMIT = "60"
+  CACHE_TTL_MS = "60000"
+  CIRCUIT_THRESHOLD = "8"
+  CIRCUIT_COOLDOWN_MS = "60000"
+  COORD_SNAP_DEG = "0.01"
+  # Tiles/legend HMAC
+  # DD_TILE_HMAC_SECRET = ""
+
+[[vm]]
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1
+
+[http_service]
+  internal_port = 3001
+  force_https = true
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ["app"]
+
+  [http_service.concurrency]
+    type = "requests"
+    soft_limit = 100
+    hard_limit = 200
+
+  [[http_service.checks]]
+    grace_period = "10s"
+    interval = "15s"
+    method = "get"
+    timeout = "3s"
+    path = "/healthz"
+
+  [[http_service.checks]]
+    name = "ready"
+    grace_period = "20s"
+    interval = "15s"
+    method = "get"
+    timeout = "4s"
+    path = "/readyz"
+
+[metrics]
+  port = 3001
+  path = "/metrics"   # enable only if prom-client is installed
+
+Deploy (CLI)
+# One-time
+fly auth signup   # or: fly auth login
+fly launch --no-deploy    # to generate fly.toml if you haven’t
+# Deploy
+fly deploy --ha=false
+# Tail logs
+fly logs
+
+Render
+render.yaml
+# render.yaml — Disaster Direct Proxy
+services:
+  - type: web
+    name: disaster-direct-proxy
+    env: docker
+    plan: starter          # free, starter, standard …
+    autoDeploy: true
+    healthCheckPath: /healthz
+    dockerCommand: ["node","server.js"]   # adjust if your entrypoint differs
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3001
+      - key: AMBEE_API_KEY
+        sync: false          # set in Render dashboard
+      - key: CORS_ORIGINS
+        value: https://your-frontend.example.com
+      # Optional auth
+      - key: DD_BEARER_TOKEN
+        sync: false
+      - key: DD_INTERNAL_KEY
+        sync: false
+      - key: AUTH0_DOMAIN
+        sync: false
+      - key: AUTH0_AUDIENCE
+        sync: false
+      - key: JWT_JWKS_URL
+        sync: false
+      - key: JWT_SCOPE_CLAIM
+        value: permissions
+      - key: JWT_JWKS_CACHE_MS
+        value: 600000
+      # Ops knobs
+      - key: RATE_WINDOW_MS
+        value: 60000
+      - key: RATE_LIMIT
+        value: 60
+      - key: CACHE_TTL_MS
+        value: 60000
+      - key: CIRCUIT_THRESHOLD
+        value: 8
+      - key: CIRCUIT_COOLDOWN_MS
+        value: 60000
+      - key: COORD_SNAP_DEG
+        value: 0.01
+      # HMAC signing (recommended)
+      - key: DD_TILE_HMAC_SECRET
+        sync: false
+
+Deploy (dashboard or CLI)
+
+Dashboard: New → Blueprint → connect repo → Render reads render.yaml.
+
+CLI: render blueprint launch (if you use the Render CLI).
+
+After first deploy, add secrets in Environment tab (sync: false vars).
+
+Quick post-deploy checks (works on both Fly/Render)
+# Replace with your public URL (https)
+BASE="https://your-app.fly.dev"  # or Render URL
+
+curl -s $BASE/healthz | jq .
+curl -s "$BASE/api/impact?lat=33.749&lng=-84.388" | jq .impactScore
+curl -s -I "$BASE/api/legend.png?scheme=traffic&width=256&height=48&bg=solid" | grep Content-Type
+# If using JWT/bearer/header auth, add headers accordingly.
+
+Tips
+
+Scaling: On Fly, increase min_machines_running for more concurrency; on Render, bump the plan or add autoscaling.
+
+Metrics: If you enabled /metrics, point Prometheus at https://your-app/metrics.
+
+CDN: Put Cloudflare/Fastly in front and cache /api/impact/tiles + /api/legend based on query params with TTLs from our earlier guide.
+
+Security: Keep secrets in provider’s dashboard; never commit them. For HMAC tile URLs, only your backend should generate the signed URL templates.
