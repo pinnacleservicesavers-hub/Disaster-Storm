@@ -58,6 +58,7 @@ import { registerAIAdsRoutes } from "./routes/aiAdsRoutes";
 import { registerAIStormExpertRoutes } from "./routes/aiStormExpertRoutes";
 import { registerGrokAIRoutes } from "./routes/grokAIRoutes";
 import { registerEagleViewRoutes } from "./routes/eagleViewRoutes";
+import ambeeRoutes from "./routes/ambeeRoutes";
 import { VoiceAIService } from "./services/voiceAI";
 import { weatherAI } from "./services/weatherAI.js";
 import { universalAI } from "./services/universalAI.js";
@@ -447,6 +448,9 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
   
   // ---- EagleView Aerial Imagery Routes ----
   registerEagleViewRoutes(app);
+  
+  // ---- Ambee Environmental Intelligence Routes ----
+  app.use('/api/ambee', ambeeRoutes);
 
   // ---- Session and Passport setup ----
   const isProd = /^https:\/\//.test(process.env.BASE_URL ?? "");

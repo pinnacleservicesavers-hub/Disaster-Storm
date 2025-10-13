@@ -1,0 +1,289 @@
+/api/impact/geojson → a ready-to-map GeoJSON FeatureCollection (Point with rich properties)
+
+/api/pollen → a safe proxy to Ambee’s pollen endpoint (and wired into an /api/impact variant)
+
+Below are drop-in snippets to extend the Express backend you already have, plus quick frontend examples for a map (Leaflet) and a pollen card.
+
+1) Backend updates (Express)
+1) Allow pollen in the pass-through allow-list
+
+Add “pollen/latest/by-lat-lng” to your ALLOWED set (if it isn’t already):
+
+const ALLOWED = new Set([
+  "latest/by-lat-lng",
+  "weather/latest/by-lat-lng",
+  "pollen/latest/by-lat-lng",      // ← add this
+  "disasters/latest/by-lat-lng",
+  "wildfires/latest/by-lat-lng"
+]);
+
+2) New: /api/pollen
+
+A small helper route to fetch local pollen in a consistent shape.
+
+app.get("/api/pollen", async (req, res) => {
+  const latlng = requireLatLng(req, res);
+  if (!latlng) return;
+
+  try {
+    const data = await ambeeGET("pollen/latest/by-lat-lng", { lat: latlng.lat, lng: latlng.lng });
+    // normalize a few common fields safely
+    const row = (data?.data?.[0] || data?.stations?.[0] || {});
+    const out = {
+      coords: latlng,
+      risk: row?.Risk || row?.risk || null,
+      tree: row?.Count?.tree || row?.tree_pollen || null,
+      grass: row?.Count?.grass || row?.grass_pollen || null,
+      weed: row?.Count?.weed || row?.weed_pollen || null,
+      updatedAt: row?.updatedAt || row?.updated_at || null,
+      raw: data
+    };
+    res.json(out);
+  } catch (e) {
+    res.status(e.status || 502).json({ error: "Pollen fetch failed", details: e.data || String(e) });
+  }
+});
+
+3) Enhance /api/impact to include pollen (optional)
+
+If you want pollen considered in the score, drop this version in place of your current /api/impact route.
+
+app.get("/api/impact", async (req, res) => {
+  const latlng = requireLatLng(req, res);
+  if (!latlng) return;
+  const q = { lat: latlng.lat, lng: latlng.lng };
+
+  try {
+    const [aq, wx, dz, wf, pl] = await Promise.allSettled([
+      ambeeGET("latest/by-lat-lng", q),
+      ambeeGET("weather/latest/by-lat-lng", q),
+      ambeeGET("disasters/latest/by-lat-lng", q),
+      ambeeGET("wildfires/latest/by-lat-lng", q),
+      ambeeGET("pollen/latest/by-lat-lng", q)
+    ]);
+
+    const air = aq.status === "fulfilled" ? aq.value : null;
+    const weather = wx.status === "fulfilled" ? wx.value : null;
+    const disasters = dz.status === "fulfilled" ? dz.value : null;
+    const wildfires = wf.status === "fulfilled" ? wf.value : null;
+    const pollen = pl.status === "fulfilled" ? pl.value : null;
+
+    const station = air?.stations?.[0] || {};
+    const AQI = Number(station?.AQI) || 0;
+
+    const wxPoint = weather?.stations?.[0] || weather?.data || {};
+    const windGust = Number(wxPoint?.windGust || wxPoint?.wind_gust || 0) || 0;
+
+    const wfList = wildfires?.data || wildfires?.wildfires || [];
+    const minWfKm = Array.isArray(wfList) && wfList.length
+      ? wfList.map(f => Number(f?.distance || f?.distance_km || Infinity)).reduce((a, b) => Math.min(a, b), Infinity)
+      : Infinity;
+
+    const polRow = (pollen?.data?.[0] || pollen?.stations?.[0] || {});
+    const pollenRiskStr = (polRow?.Risk || polRow?.risk || "").toString().toLowerCase();
+    const pollenRisk = /high/.test(pollenRiskStr) ? 1 : /moderate/.test(pollenRiskStr) ? 0.6 : /low/.test(pollenRiskStr) ? 0.2 : 0;
+
+    const clamp01 = v => Math.max(0, Math.min(1, v));
+    const AQI_norm = clamp01(AQI / 300);
+    const wind_norm = clamp01(windGust / 25);
+    const wf_norm = clamp01(1 - (isFinite(minWfKm) ? (minWfKm / 50) : 1));
+    const pollen_norm = clamp01(pollenRisk); // already 0..1-ish
+
+    // weights (tune for ops): include pollen
+    const w1 = 0.45, w2 = 0.25, w3 = 0.15, w4 = 0.15; // AQI, wind, wildfire, pollen
+    const impactScore = Math.round(100 * (w1 * AQI_norm + w2 * wind_norm + w3 * wf_norm + w4 * pollen_norm));
+
+    res.json({
+      coords: q,
+      impactScore,
+      components: {
+        aqi: { AQI, norm: AQI_norm },
+        wind: { gust: windGust, norm: wind_norm },
+        wildfire: { minDistanceKm: isFinite(minWfKm) ? minWfKm : null, norm: wf_norm },
+        pollen: {
+          riskLabel: polRow?.Risk || polRow?.risk || null,
+          norm: pollen_norm,
+          tree: polRow?.Count?.tree ?? polRow?.tree_pollen ?? null,
+          grass: polRow?.Count?.grass ?? polRow?.grass_pollen ?? null,
+          weed: polRow?.Count?.weed ?? polRow?.weed_pollen ?? null
+        }
+      },
+      raw: { air, weather, disasters, wildfires, pollen }
+    });
+  } catch (e) {
+    res.status(502).json({ error: "Impact aggregation failed", details: e.data || String(e) });
+  }
+});
+
+4) New: /api/impact/geojson
+
+Returns a FeatureCollection (one Point) with everything you need to style a pin by risk.
+
+app.get("/api/impact/geojson", async (req, res) => {
+  const latlng = requireLatLng(req, res);
+  if (!latlng) return;
+
+  const url = new URL(req.originalUrl, "http://local"); // to parse optional query
+  const includePollen = url.searchParams.get("pollen") === "1";
+
+  const qs = { lat: latlng.lat, lng: latlng.lng };
+  const promises = [
+    ambeeGET("latest/by-lat-lng", qs),
+    ambeeGET("weather/latest/by-lat-lng", qs),
+    ambeeGET("disasters/latest/by-lat-lng", qs),
+    ambeeGET("wildfires/latest/by-lat-lng", qs),
+    includePollen ? ambeeGET("pollen/latest/by-lat-lng", qs) : Promise.resolve(null)
+  ];
+
+  try {
+    const [air, weather, disasters, wildfires, pollen] = await Promise.all(promises);
+
+    // reuse the same scoring from /api/impact (simplified)
+    const station = air?.stations?.[0] || {};
+    const AQI = Number(station?.AQI) || 0;
+    const wxPoint = weather?.stations?.[0] || weather?.data || {};
+    const windGust = Number(wxPoint?.windGust || wxPoint?.wind_gust || 0) || 0;
+    const wfList = wildfires?.data || wildfires?.wildfires || [];
+    const minWfKm = Array.isArray(wfList) && wfList.length
+      ? wfList.map(f => Number(f?.distance || f?.distance_km || Infinity)).reduce((a, b) => Math.min(a, b), Infinity)
+      : Infinity;
+
+    const polRow = (pollen?.data?.[0] || pollen?.stations?.[0] || {});
+    const pollenRiskStr = (polRow?.Risk || polRow?.risk || "").toString().toLowerCase();
+    const pollenRisk = includePollen
+      ? (/high/.test(pollenRiskStr) ? 1 : /moderate/.test(pollenRiskStr) ? 0.6 : /low/.test(pollenRiskStr) ? 0.2 : 0)
+      : 0;
+
+    const clamp01 = v => Math.max(0, Math.min(1, v));
+    const AQI_norm = clamp01(AQI / 300);
+    const wind_norm = clamp01(windGust / 25);
+    const wf_norm = clamp01(1 - (isFinite(minWfKm) ? (minWfKm / 50) : 1));
+    const pollen_norm = clamp01(pollenRisk);
+
+    const w1 = 0.45, w2 = 0.25, w3 = 0.15, w4 = 0.15;
+    const impactScore = Math.round(100 * (w1 * AQI_norm + w2 * wind_norm + w3 * wf_norm + w4 * pollen_norm));
+    const risk = impactScore >= 70 ? "high" : impactScore >= 40 ? "moderate" : "low";
+
+    const feature = {
+      type: "Feature",
+      geometry: { type: "Point", coordinates: [latlng.lng, latlng.lat] },
+      properties: {
+        impactScore,
+        risk,
+        aqi: { value: AQI, norm: AQI_norm },
+        wind: { gust: windGust, norm: wind_norm },
+        wildfire: { minDistanceKm: isFinite(minWfKm) ? minWfKm : null, norm: wf_norm },
+        ...(includePollen ? {
+          pollen: {
+            riskLabel: polRow?.Risk || polRow?.risk || null,
+            norm: pollen_norm,
+            tree: polRow?.Count?.tree ?? polRow?.tree_pollen ?? null,
+            grass: polRow?.Count?.grass ?? polRow?.grass_pollen ?? null,
+            weed: polRow?.Count?.weed ?? polRow?.weed_pollen ?? null
+          }
+        } : {})
+      }
+    };
+
+    res.json({ type: "FeatureCollection", features: [feature] });
+  } catch (e) {
+    res.status(502).json({ error: "GeoJSON build failed", details: e.data || String(e) });
+  }
+});
+
+2) Frontend examples
+A) Map pin (Leaflet)
+# if not installed
+npm i leaflet
+
+// MapView.tsx
+import { useEffect, useState } from "react";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+
+export default function MapView({ lat, lng }: { lat: number; lng: number }) {
+  const id = "map-root";
+  const [map, setMap] = useState<L.Map | null>(null);
+
+  useEffect(() => {
+    if (map) return;
+    const m = L.map(id).setView([lat, lng], 12);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: "© OSM" }).addTo(m);
+    setMap(m);
+  }, [map, lat, lng]);
+
+  useEffect(() => {
+    if (!map) return;
+    fetch(`/api/impact/geojson?lat=${lat}&lng=${lng}&pollen=1`)
+      .then(r => r.json())
+      .then(fc => {
+        const f = fc.features?.[0];
+        if (!f) return;
+        const risk = f.properties?.risk || "low";
+        const color = risk === "high" ? "red" : risk === "moderate" ? "orange" : "green";
+        const marker = L.circleMarker([lat, lng], { radius: 10, color, weight: 2 }).addTo(map);
+        marker.bindPopup(
+          `<b>Impact: ${f.properties.impactScore}</b><br/>
+           AQI: ${f.properties.aqi.value}<br/>
+           Wind gust: ${f.properties.wind.gust} m/s<br/>
+           Nearest wildfire: ${f.properties.wildfire.minDistanceKm ?? "n/a"} km<br/>
+           Pollen: ${f.properties?.pollen?.riskLabel ?? "n/a"}`
+        );
+      })
+      .catch(console.error);
+  }, [map, lat, lng]);
+
+  return <div id={id} style={{ height: 400, width: "100%" }} />;
+}
+
+B) Pollen card
+// PollenCard.tsx
+import { useEffect, useState } from "react";
+
+export default function PollenCard({ lat, lng }: { lat: number; lng: number }) {
+  const [data, setData] = useState<any>(null);
+  const [err, setErr] = useState("");
+
+  useEffect(() => {
+    fetch(`/api/pollen?lat=${lat}&lng=${lng}`)
+      .then(r => { if (!r.ok) throw new Error(`Pollen failed: ${r.status}`); return r.json(); })
+      .then(setData)
+      .catch(e => setErr(e.message));
+  }, [lat, lng]);
+
+  if (err) return <div>⚠️ {err}</div>;
+  if (!data) return <div>Loading pollen…</div>;
+
+  const { risk, tree, grass, weed, updatedAt } = data;
+  return (
+    <div className="card">
+      <h3>Pollen</h3>
+      <div>Risk: {risk ?? "n/a"}</div>
+      <div>Tree: {tree ?? "n/a"}</div>
+      <div>Grass: {grass ?? "n/a"}</div>
+      <div>Weed: {weed ?? "n/a"}</div>
+      <small>Updated: {updatedAt ?? "n/a"}</small>
+    </div>
+  );
+}
+
+3) Quick test URLs
+
+GeoJSON (with pollen):
+/api/impact/geojson?lat=33.749&lng=-84.388&pollen=1
+
+Pollen:
+/api/pollen?lat=33.749&lng=-84.388
+
+Impact (with pollen in score):
+/api/impact?lat=33.749&lng=-84.388
+
+4) Ops notes
+
+Keep AMBEE_API_KEY in Replit Secrets (never in code).
+
+If your frontend is on a different origin, add it to CORS_ORIGINS.
+
+Tune weights/thresholds as your crews give feedback (e.g., make wildfires count more during fire season).
+
+If you want a /api/impact/tiles endpoint (XYZ/WMTS) for heatmaps, I can give you a minimal tile renderer next.
