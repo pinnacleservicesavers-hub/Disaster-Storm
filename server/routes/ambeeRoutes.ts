@@ -378,5 +378,31 @@ router.get('/wildfires/latest/by-lat-lng', async (req, res) => {
   }
 });
 
+router.get('/pollen/latest/by-lat-lng', async (req, res) => {
+  try {
+    const { lat, lng } = req.query;
+    
+    if (!lat || !lng) {
+      return res.status(400).json({ error: 'Valid lat and lng required' });
+    }
+
+    const latitude = parseFloat(lat as string);
+    const longitude = parseFloat(lng as string);
+
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || 
+        Math.abs(latitude) > 90 || Math.abs(longitude) > 180) {
+      return res.status(400).json({ error: 'Invalid coordinates' });
+    }
+
+    const data = await ambeeService.getPollenByCoordinates(latitude, longitude);
+    res.json(data);
+  } catch (error: any) {
+    console.error('Error in /pollen/latest/by-lat-lng:', error);
+    res.status(error.status || 502).json({ 
+      error: 'Upstream error', 
+      details: error.message 
+    });
+  }
+});
 
 export default router;
