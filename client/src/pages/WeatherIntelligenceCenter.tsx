@@ -74,6 +74,7 @@ import PortalVoiceGuide, { PORTAL_SECTIONS } from '@/components/PortalVoiceGuide
 import { WeatherAIAssistant } from '@/components/WeatherAIAssistant';
 import { ComprehensiveIntelligenceSystem } from '@/components/ComprehensiveIntelligenceSystem';
 import { EnvironmentalSummary } from '@/components/EnvironmentalSummary';
+import { XweatherIntelligence } from '@/components/XweatherIntelligence';
 
 // ===== UNIFIED INTERFACES =====
 
@@ -583,10 +584,14 @@ export default function WeatherIntelligenceCenter() {
         {/* Main Content Tabs */}
         <FadeIn delay={0.6}>
           <Tabs defaultValue="live-weather" className="w-full">
-            <TabsList className="grid w-full grid-cols-5 mb-8" data-testid="tabs-weather-sections">
+            <TabsList className="grid w-full grid-cols-6 mb-8" data-testid="tabs-weather-sections">
               <TabsTrigger value="live-weather" className="text-sm" data-testid="tab-live-weather">
                 <Radar className="w-4 h-4 mr-2" />
                 Live Weather
+              </TabsTrigger>
+              <TabsTrigger value="xweather" className="text-sm" data-testid="tab-xweather">
+                <Zap className="w-4 h-4 mr-2" />
+                Lightning & Hail
               </TabsTrigger>
               <TabsTrigger value="nationwide-intelligence" className="text-sm bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold animate-pulse" data-testid="tab-nationwide-intelligence">
                 🌍 NATIONWIDE AI
@@ -717,6 +722,18 @@ export default function WeatherIntelligenceCenter() {
                     </div>
                   </CardContent>
                 </Card>
+              </motion.div>
+            </TabsContent>
+
+            {/* Xweather Lightning & Hail Tab */}
+            <TabsContent value="xweather">
+              <motion.div variants={staggerContainer} initial="hidden" animate="show">
+                <XweatherIntelligence
+                  latitude={dynamicLocation?.latitude || (selectedState === 'all' ? 39.8283 : stateCoordinates[selectedState]?.latitude || 39.8283)}
+                  longitude={dynamicLocation?.longitude || (selectedState === 'all' ? -98.5795 : stateCoordinates[selectedState]?.longitude || -98.5795)}
+                  radiusKM={50}
+                  className="mb-6"
+                />
               </motion.div>
             </TabsContent>
 
