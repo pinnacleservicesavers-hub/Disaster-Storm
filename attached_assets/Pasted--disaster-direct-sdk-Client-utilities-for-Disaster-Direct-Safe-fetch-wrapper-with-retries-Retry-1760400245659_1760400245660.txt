@@ -1,0 +1,97 @@
+@disaster-direct/sdk
+
+Client utilities for Disaster Direct:
+
+Safe fetch wrapper with retries + Retry-After
+
+getImpact(baseUrl, lat, lng, pollen?)
+
+Map tile helpers (unsigned template) and HMAC-friendly signing flow for Mapbox/Leaflet
+
+Works with your Disaster Direct proxy (Ambee key stays server-side)
+
+Install
+npm i @disaster-direct/sdk
+# or
+pnpm add @disaster-direct/sdk
+
+Quick start
+import {
+  getImpact,
+  makeUnsignedTileTemplate,
+  makeMapboxTransformRequest,
+  getLegendUrl
+} from "@disaster-direct/sdk";
+
+// Example using localhost (when proxy runs on port 3001)
+const baseUrl = "http://localhost:3001";
+
+// Or, if deployed on Replit:
+// const baseUrl = "https://disaster-direct.username.repl.co";
+
+// Impact API call
+const res = await getImpact(baseUrl, 33.749, -84.388, true);
+if (res.ok) {
+  console.log("Impact:", res.data.impactScore);
+} else {
+  console.warn(res.userMessage);
+}
+
+// Unsigned tiles (good for testing locally)
+const template = makeUnsignedTileTemplate(
+  `${baseUrl}/api/impact/tiles/{z}/{x}/{y}.png`,
+  { pollen: 1, grid: 3, scheme: "viridis", ttl: 180 }
+);
+
+// HMAC mode (optional): if your backend exposes /api/sign/tile
+const transformRequest = makeMapboxTransformRequest(baseUrl, "/api/sign/tile");
+
+// Legend (signed if HMAC enabled, unsigned otherwise)
+const legendUrl = await getLegendUrl(baseUrl, { scheme: "traffic" }, /*hmac*/ false);
+
+Mapbox GL (example)
+const map = new mapboxgl.Map({ container: "map", style: "empty" });
+
+map.on("load", async () => {
+  map.addSource("impact", {
+    type: "raster",
+    tiles: [template],
+    tileSize: 256
+  });
+  map.addLayer({ id: "impact", type: "raster", source: "impact" });
+
+  // If HMAC is ON, use transformRequest: makeMapboxTransformRequest(baseUrl, "/api/sign/tile")
+});
+
+Leaflet (example)
+const template = makeUnsignedTileTemplate(`${baseUrl}/api/impact/tiles/{z}/{x}/{y}.png`, {
+  pollen: 1, grid: 3, scheme: "traffic", ttl: 180
+});
+L.tileLayer(template, { tileSize: 256 }).addTo(map);
+
+API
+
+apiFetch(url, options) → typed result with ok, userMessage, retryAfterSec
+
+getImpact(baseUrl, lat, lng, pollen?)
+
+makeUnsignedTileTemplate(path, query) → raster tile template
+
+makeMapboxTransformRequest(baseUrl?, signEndpoint?) → Mapbox GL signer hook
+
+getLegendUrl(baseUrl?, opts?, hmac=false)
+
+Errors
+
+All errors follow a consistent shape:
+
+{ "error": "…", "details": "…", "code": 401, "requestId": "…" }
+
+
+The client maps common statuses (401/403/429/5xx) to friendly messages and respects Retry-After.
+
+License
+
+MIT
+
+👉 This way you can test today on localhost or your Replit project URL, and later just replace baseUrl with https://api.yourdomain.com once you buy and point a domain.
