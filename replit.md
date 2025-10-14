@@ -196,3 +196,27 @@ npm run dev  # Opens on http://localhost:5174
 **Requirements:** 
 - Backend on `localhost:3001` with `/api/impact`, `/api/impact/tiles/{z}/{x}/{y}.png`, `/api/legend.png`
 - **Optional (for HMAC):** `/api/sign/tile` and `/api/sign/legend` endpoints
+
+### MapLibre GL Demo (Open Source)
+
+**Location:** `/disaster-direct-maplibre-demo/`
+
+Open-source React + Vite + MapLibre GL demo with **OSM basemap toggle**.
+
+**Features:**
+- MapLibre GL v4.7 (100% open source, no tokens required)
+- **OSM basemap toggle** - Switch between OpenStreetMap and blank canvas
+- WebGL rendering for performance
+- Draggable marker for location selection
+- Impact raster overlay
+- Dynamic legend display
+- Pollen data toggle
+
+**Quick Start:**
+```bash
+cd disaster-direct-maplibre-demo
+npm install
+npm run dev  # Opens on http://localhost:5175
+```
+
+**Requirements:** Backend on `localhost:3001` with `/api/impact`, `/api/impact/tiles/{z}/{x}/{y}.png`, `/api/legend.png`

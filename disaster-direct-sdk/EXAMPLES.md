@@ -32,6 +32,18 @@ Advanced demo showcasing SDK's HMAC signing capabilities:
 
 **See:** `../disaster-direct-mapbox-demo/README.md` for HMAC implementation details.
 
+### 3. React + Vite + MapLibre GL Demo (Open Source!)
+**Location:** `/disaster-direct-maplibre-demo/`
+
+Open-source demo with OSM basemap toggle:
+- ✅ MapLibre GL v4.7 - 100% free, no tokens
+- ✅ **OSM basemap toggle** - Switch between OSM raster and blank
+- ✅ WebGL rendering for performance
+- ✅ OpenStreetMap integration
+- ✅ Same SDK integration patterns
+
+**See:** `../disaster-direct-maplibre-demo/README.md` for OSM basemap setup.
+
 ---
 
 ## 📖 Quick Examples
@@ -403,6 +415,23 @@ Advanced integration with security:
 cd disaster-direct-mapbox-demo
 npm install
 npm run dev  # Port 5174
+```
+
+### MapLibre GL Demo (Open Source)
+**Location:** `/disaster-direct-maplibre-demo/`
+
+Open-source alternative with OSM:
+- ✅ MapLibre GL v4.7
+- ✅ **OSM basemap toggle**
+- ✅ 100% free (no tokens)
+- ✅ WebGL rendering
+- ✅ OpenStreetMap tiles
+
+**Run it:**
+```bash
+cd disaster-direct-maplibre-demo
+npm install
+npm run dev  # Port 5175
 ```
 
 ---
