@@ -376,147 +376,177 @@ export default function EnvironmentalIntelligence() {
           </Card>
 
           {/* Weather Data */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Cloud className="h-5 w-5" />
-                Weather Conditions
-              </CardTitle>
-              <CardDescription>Real-time atmospheric data</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 md:grid-cols-4">
-                <div className="flex items-center gap-3 p-3 bg-secondary rounded-lg">
-                  <Thermometer className="h-8 w-8 text-red-500" />
-                  <div>
-                    <div className="text-sm text-muted-foreground">Temperature</div>
-                    <div className="text-xl font-bold" data-testid="text-temperature">{report.weather.temperature}°F</div>
-                    <div className="text-xs text-muted-foreground">Feels: {report.weather.apparentTemperature}°F</div>
+          {report.weather ? (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Cloud className="h-5 w-5" />
+                  Weather Conditions
+                </CardTitle>
+                <CardDescription>Real-time atmospheric data</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-4 md:grid-cols-4">
+                  <div className="flex items-center gap-3 p-3 bg-secondary rounded-lg">
+                    <Thermometer className="h-8 w-8 text-red-500" />
+                    <div>
+                      <div className="text-sm text-muted-foreground">Temperature</div>
+                      <div className="text-xl font-bold" data-testid="text-temperature">{report.weather.temperature}°F</div>
+                      <div className="text-xs text-muted-foreground">Feels: {report.weather.apparentTemperature}°F</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 p-3 bg-secondary rounded-lg">
+                    <Droplets className="h-8 w-8 text-blue-500" />
+                    <div>
+                      <div className="text-sm text-muted-foreground">Humidity</div>
+                      <div className="text-xl font-bold" data-testid="text-humidity">{report.weather.humidity}%</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 p-3 bg-secondary rounded-lg">
+                    <Wind className="h-8 w-8 text-cyan-500" />
+                    <div>
+                      <div className="text-sm text-muted-foreground">Wind Speed</div>
+                      <div className="text-xl font-bold" data-testid="text-wind-speed">{report.weather.windSpeed} mph</div>
+                      <div className="text-xs text-muted-foreground">Dir: {report.weather.windDirection}°</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 p-3 bg-secondary rounded-lg">
+                    <Gauge className="h-8 w-8 text-purple-500" />
+                    <div>
+                      <div className="text-sm text-muted-foreground">Pressure</div>
+                      <div className="text-xl font-bold" data-testid="text-pressure">{report.weather.pressure} mb</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 p-3 bg-secondary rounded-lg">
+                    <Eye className="h-8 w-8 text-gray-500" />
+                    <div>
+                      <div className="text-sm text-muted-foreground">Visibility</div>
+                      <div className="text-xl font-bold" data-testid="text-visibility">{report.weather.visibility} mi</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 p-3 bg-secondary rounded-lg">
+                    <Cloud className="h-8 w-8 text-gray-400" />
+                    <div>
+                      <div className="text-sm text-muted-foreground">Cloud Cover</div>
+                      <div className="text-xl font-bold" data-testid="text-cloud-cover">{report.weather.cloudCover}%</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 p-3 bg-secondary rounded-lg">
+                    <CloudRain className="h-8 w-8 text-blue-600" />
+                    <div>
+                      <div className="text-sm text-muted-foreground">Precipitation</div>
+                      <div className="text-xl font-bold" data-testid="text-precipitation">{report.weather.precipIntensity} in/hr</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 p-3 bg-secondary rounded-lg">
+                    <Droplets className="h-8 w-8 text-teal-500" />
+                    <div>
+                      <div className="text-sm text-muted-foreground">Dew Point</div>
+                      <div className="text-xl font-bold" data-testid="text-dew-point">{report.weather.dewPoint}°F</div>
+                    </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-3 p-3 bg-secondary rounded-lg">
-                  <Droplets className="h-8 w-8 text-blue-500" />
-                  <div>
-                    <div className="text-sm text-muted-foreground">Humidity</div>
-                    <div className="text-xl font-bold" data-testid="text-humidity">{report.weather.humidity}%</div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 p-3 bg-secondary rounded-lg">
-                  <Wind className="h-8 w-8 text-cyan-500" />
-                  <div>
-                    <div className="text-sm text-muted-foreground">Wind Speed</div>
-                    <div className="text-xl font-bold" data-testid="text-wind-speed">{report.weather.windSpeed} mph</div>
-                    <div className="text-xs text-muted-foreground">Dir: {report.weather.windDirection}°</div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 p-3 bg-secondary rounded-lg">
-                  <Gauge className="h-8 w-8 text-purple-500" />
-                  <div>
-                    <div className="text-sm text-muted-foreground">Pressure</div>
-                    <div className="text-xl font-bold" data-testid="text-pressure">{report.weather.pressure} mb</div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 p-3 bg-secondary rounded-lg">
-                  <Eye className="h-8 w-8 text-gray-500" />
-                  <div>
-                    <div className="text-sm text-muted-foreground">Visibility</div>
-                    <div className="text-xl font-bold" data-testid="text-visibility">{report.weather.visibility} mi</div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 p-3 bg-secondary rounded-lg">
-                  <Cloud className="h-8 w-8 text-gray-400" />
-                  <div>
-                    <div className="text-sm text-muted-foreground">Cloud Cover</div>
-                    <div className="text-xl font-bold" data-testid="text-cloud-cover">{report.weather.cloudCover}%</div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 p-3 bg-secondary rounded-lg">
-                  <CloudRain className="h-8 w-8 text-blue-600" />
-                  <div>
-                    <div className="text-sm text-muted-foreground">Precipitation</div>
-                    <div className="text-xl font-bold" data-testid="text-precipitation">{report.weather.precipIntensity} in/hr</div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 p-3 bg-secondary rounded-lg">
-                  <Droplets className="h-8 w-8 text-teal-500" />
-                  <div>
-                    <div className="text-sm text-muted-foreground">Dew Point</div>
-                    <div className="text-xl font-bold" data-testid="text-dew-point">{report.weather.dewPoint}°F</div>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          ) : (
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>Weather Data Unavailable</AlertTitle>
+              <AlertDescription>
+                Weather information could not be retrieved at this time. This may be due to API limitations for your selected location.
+              </AlertDescription>
+            </Alert>
+          )}
 
           {/* Fire & Soil Data */}
           <div className="grid gap-6 md:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Flame className="h-5 w-5 text-orange-600" />
-                  Fire Activity
-                </CardTitle>
-                <CardDescription>Active fire detection in area</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {report.fire.count > 0 ? (
-                  <div>
-                    <Alert className="border-orange-500">
-                      <AlertTriangle className="h-4 w-4" />
-                      <AlertTitle>Active Fires Detected</AlertTitle>
-                      <AlertDescription>
-                        {report.fire.count} active fire(s) detected in this area
-                      </AlertDescription>
-                    </Alert>
-                    <div className="mt-4 space-y-2">
-                      {report.fire.fires.slice(0, 3).map((fire, idx) => (
-                        <div key={idx} className="p-2 border rounded text-sm" data-testid={`text-fire-${idx}`}>
-                          <div className="flex justify-between">
-                            <span>Lat: {fire.latitude.toFixed(4)}, Lng: {fire.longitude.toFixed(4)}</span>
-                            <Badge variant="outline">{fire.confidence}</Badge>
+            {report.fire ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Flame className="h-5 w-5 text-orange-600" />
+                    Fire Activity
+                  </CardTitle>
+                  <CardDescription>Active fire detection in area</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {report.fire.count > 0 ? (
+                    <div>
+                      <Alert className="border-orange-500">
+                        <AlertTriangle className="h-4 w-4" />
+                        <AlertTitle>Active Fires Detected</AlertTitle>
+                        <AlertDescription>
+                          {report.fire.count} active fire(s) detected in this area
+                        </AlertDescription>
+                      </Alert>
+                      <div className="mt-4 space-y-2">
+                        {report.fire.fires.slice(0, 3).map((fire, idx) => (
+                          <div key={idx} className="p-2 border rounded text-sm" data-testid={`text-fire-${idx}`}>
+                            <div className="flex justify-between">
+                              <span>Lat: {fire.latitude.toFixed(4)}, Lng: {fire.longitude.toFixed(4)}</span>
+                              <Badge variant="outline">{fire.confidence}</Badge>
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground" data-testid="text-no-fires">
+                      <Flame className="h-12 w-12 mx-auto mb-2 opacity-30" />
+                      No active fires detected
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ) : (
+              <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Fire Data Unavailable</AlertTitle>
+                <AlertDescription>
+                  Fire information could not be retrieved at this time.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {report.soil && report.waterVapor ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Sprout className="h-5 w-5 text-green-600" />
+                    Soil Conditions
+                  </CardTitle>
+                  <CardDescription>Ground moisture and temperature</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="p-4 bg-secondary rounded-lg">
+                    <div className="text-sm text-muted-foreground">Soil Moisture</div>
+                    <div className="text-2xl font-bold" data-testid="text-soil-moisture">{(report.soil.soilMoisture * 100).toFixed(1)}%</div>
+                    <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
+                      <div
+                        className="bg-blue-500 h-2 rounded-full"
+                        style={{ width: `${report.soil.soilMoisture * 100}%` }}
+                      />
                     </div>
                   </div>
-                ) : (
-                  <div className="text-center py-8 text-muted-foreground" data-testid="text-no-fires">
-                    <Flame className="h-12 w-12 mx-auto mb-2 opacity-30" />
-                    No active fires detected
+                  <div className="p-4 bg-secondary rounded-lg">
+                    <div className="text-sm text-muted-foreground">Soil Temperature</div>
+                    <div className="text-2xl font-bold" data-testid="text-soil-temperature">{report.soil.soilTemperature}°F</div>
                   </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Sprout className="h-5 w-5 text-green-600" />
-                  Soil Conditions
-                </CardTitle>
-                <CardDescription>Ground moisture and temperature</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="p-4 bg-secondary rounded-lg">
-                  <div className="text-sm text-muted-foreground">Soil Moisture</div>
-                  <div className="text-2xl font-bold" data-testid="text-soil-moisture">{(report.soil.soilMoisture * 100).toFixed(1)}%</div>
-                  <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
-                    <div
-                      className="bg-blue-500 h-2 rounded-full"
-                      style={{ width: `${report.soil.soilMoisture * 100}%` }}
-                    />
+                  <div className="p-4 bg-secondary rounded-lg">
+                    <div className="text-sm text-muted-foreground">Water Vapor</div>
+                    <div className="text-2xl font-bold" data-testid="text-water-vapor">{report.waterVapor.waterVapor} g/m³</div>
                   </div>
-                </div>
-                <div className="p-4 bg-secondary rounded-lg">
-                  <div className="text-sm text-muted-foreground">Soil Temperature</div>
-                  <div className="text-2xl font-bold" data-testid="text-soil-temperature">{report.soil.soilTemperature}°F</div>
-                </div>
-                <div className="p-4 bg-secondary rounded-lg">
-                  <div className="text-sm text-muted-foreground">Water Vapor</div>
-                  <div className="text-2xl font-bold" data-testid="text-water-vapor">{report.waterVapor.waterVapor} g/m³</div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            ) : (
+              <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Soil Data Unavailable</AlertTitle>
+                <AlertDescription>
+                  Soil and water vapor information could not be retrieved at this time.
+                </AlertDescription>
+              </Alert>
+            )}
           </div>
         </>
       )}

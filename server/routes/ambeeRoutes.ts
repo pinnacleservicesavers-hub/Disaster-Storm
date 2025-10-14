@@ -232,7 +232,7 @@ router.get('/environmental-report', async (req, res) => {
       const latitude = parseFloat(lat as string);
       const longitude = parseFloat(lng as string);
 
-      [airQuality, pollen, weather, fire, soil, waterVapor] = await Promise.all([
+      const results = await Promise.allSettled([
         ambeeService.getAirQualityByCoordinates(latitude, longitude),
         ambeeService.getPollenByCoordinates(latitude, longitude),
         ambeeService.getWeatherByCoordinates(latitude, longitude, units as 'si' | 'us'),
@@ -240,11 +240,31 @@ router.get('/environmental-report', async (req, res) => {
         ambeeService.getSoilDataByCoordinates(latitude, longitude),
         ambeeService.getWaterVaporByCoordinates(latitude, longitude),
       ]);
+
+      airQuality = results[0].status === 'fulfilled' ? results[0].value : null;
+      pollen = results[1].status === 'fulfilled' ? results[1].value : null;
+      weather = results[2].status === 'fulfilled' ? results[2].value : null;
+      fire = results[3].status === 'fulfilled' ? results[3].value : null;
+      soil = results[4].status === 'fulfilled' ? results[4].value : null;
+      waterVapor = results[5].status === 'fulfilled' ? results[5].value : null;
+
+      if (results[0].status === 'rejected') console.error('Error fetching air quality by coordinates:', results[0].reason);
+      if (results[1].status === 'rejected') console.error('Error fetching pollen by coordinates:', results[1].reason);
+      if (results[2].status === 'rejected') console.error('Error fetching weather by coordinates:', results[2].reason);
+      if (results[3].status === 'rejected') console.error('Error fetching fire data:', results[3].reason);
+      if (results[4].status === 'rejected') console.error('Error fetching soil data:', results[4].reason);
+      if (results[5].status === 'rejected') console.error('Error fetching water vapor:', results[5].reason);
     } else if (place) {
-      [airQuality, pollen] = await Promise.all([
+      const results = await Promise.allSettled([
         ambeeService.getAirQualityByPlace(place as string),
         ambeeService.getPollenByPlace(place as string),
       ]);
+
+      airQuality = results[0].status === 'fulfilled' ? results[0].value : null;
+      pollen = results[1].status === 'fulfilled' ? results[1].value : null;
+
+      if (results[0].status === 'rejected') console.error('Error fetching air quality by place:', results[0].reason);
+      if (results[1].status === 'rejected') console.error('Error fetching pollen by place:', results[1].reason);
     }
 
     const healthImpact = ambeeService.getHealthImpact(airQuality!);
