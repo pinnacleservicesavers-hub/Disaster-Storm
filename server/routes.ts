@@ -59,6 +59,7 @@ import { registerAIStormExpertRoutes } from "./routes/aiStormExpertRoutes";
 import { registerGrokAIRoutes } from "./routes/grokAIRoutes";
 import { registerEagleViewRoutes } from "./routes/eagleViewRoutes";
 import ambeeRoutes from "./routes/ambeeRoutes";
+import xweatherRoutes from "./routes/xweatherRoutes";
 import { VoiceAIService } from "./services/voiceAI";
 import { weatherAI } from "./services/weatherAI.js";
 import { universalAI } from "./services/universalAI.js";
@@ -451,6 +452,9 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
   
   // ---- Ambee Environmental Intelligence Routes ----
   app.use('/api/ambee', ambeeRoutes);
+
+  // ---- Xweather Storm Intelligence Routes ----
+  app.use('/api/xweather', xweatherRoutes);
 
   // ---- Impact GeoJSON Endpoint (must come BEFORE /api/impact) ----
   app.get('/api/impact/geojson', async (req, res) => {
