@@ -4,8 +4,9 @@
 
 The **@disaster-direct/sdk** provides ready-to-use utilities for integrating Disaster Direct's environmental intelligence APIs into your applications. Below are comprehensive examples showing real-world usage.
 
-## 🗺️ Complete Demo: React + Vite + Leaflet
+## 🗺️ Complete Demos
 
+### 1. React + Vite + Leaflet Demo
 **Location:** `/disaster-direct-leaflet-demo/`
 
 A fully-functional demo application showcasing the SDK with:
@@ -17,6 +18,19 @@ A fully-functional demo application showcasing the SDK with:
 - ✅ Pollen data toggle
 
 **See:** `../disaster-direct-leaflet-demo/README.md` for complete setup instructions.
+
+### 2. React + Vite + Mapbox GL Demo (with HMAC Signing!)
+**Location:** `/disaster-direct-mapbox-demo/`
+
+Advanced demo showcasing SDK's HMAC signing capabilities:
+- ✅ Mapbox GL JS v3 integration
+- ✅ **HMAC signing toggle** - Test unsigned vs signed tiles
+- ✅ Blank Mapbox style (no token required)
+- ✅ Auto-signed tiles via `makeMapboxTransformRequest()`
+- ✅ Signed legend support
+- ✅ 500-tile memo cache for performance
+
+**See:** `../disaster-direct-mapbox-demo/README.md` for HMAC implementation details.
 
 ---
 
@@ -107,24 +121,26 @@ async function displayLegend() {
 }
 ```
 
-### 5. Mapbox GL with Signed Tiles
+### 5. Mapbox GL with Auto-Signed Tiles (HMAC)
 
 ```typescript
 import mapboxgl from 'mapbox-gl'
 import { makeMapboxTransformRequest, defaultBaseUrl } from '@disaster-direct/sdk'
 
+// Blank style (no Mapbox token required)
 const map = new mapboxgl.Map({
   container: 'map',
-  style: 'mapbox://styles/mapbox/light-v11',
+  style: { version: 8, sources: {}, layers: [] },
   center: [-84.388, 33.749],
   zoom: 10,
-  transformRequest: makeMapboxTransformRequest(defaultBaseUrl)
+  // Auto-signs all tile requests to /api/impact/tiles/
+  transformRequest: makeMapboxTransformRequest(defaultBaseUrl, '/api/sign/tile')
 })
 
 map.on('load', () => {
   map.addSource('impact-tiles', {
     type: 'raster',
-    tiles: [`${defaultBaseUrl}/api/impact/tiles/{z}/{x}/{y}.png?pollen=1&scheme=viridis`],
+    tiles: [`/api/impact/tiles/{z}/{x}/{y}.png?pollen=1&scheme=viridis`],
     tileSize: 256
   })
   
@@ -132,9 +148,15 @@ map.on('load', () => {
     id: 'impact-layer',
     type: 'raster',
     source: 'impact-tiles',
-    paint: { 'raster-opacity': 0.7 }
+    paint: { 'raster-opacity': 1.0 }
   })
 })
+
+// SDK automatically:
+// 1. Intercepts tile requests
+// 2. Calls /api/sign/tile with params
+// 3. Uses signed URL from server
+// 4. Caches signed URLs (500 tile memo)
 ```
 
 ### 6. Auto BaseUrl Detection
@@ -344,13 +366,12 @@ async function fetchWithRetry(url: string, maxRetries = 3) {
 
 ---
 
-## 📦 Full Demo Application
+## 📦 Full Demo Applications
 
-For a complete working example with all features integrated, see:
+### Leaflet Demo (Unsigned Tiles)
+**Location:** `/disaster-direct-leaflet-demo/`
 
-**`/disaster-direct-leaflet-demo/`**
-
-The demo includes:
+Perfect for simple integrations:
 - ✅ React 18 + TypeScript
 - ✅ Vite 5 build setup
 - ✅ Leaflet map integration
@@ -363,7 +384,25 @@ The demo includes:
 ```bash
 cd disaster-direct-leaflet-demo
 npm install
-npm run dev
+npm run dev  # Port 5173
+```
+
+### Mapbox GL Demo (HMAC Signed Tiles)
+**Location:** `/disaster-direct-mapbox-demo/`
+
+Advanced integration with security:
+- ✅ Mapbox GL JS v3
+- ✅ **HMAC signing toggle**
+- ✅ Blank style (no token)
+- ✅ Auto-signed tiles
+- ✅ Signed legends
+- ✅ 500-tile cache
+
+**Run it:**
+```bash
+cd disaster-direct-mapbox-demo
+npm install
+npm run dev  # Port 5174
 ```
 
 ---

@@ -146,7 +146,9 @@ A standalone npm package (`@disaster-direct/sdk`) for external integrations and 
 - `EXAMPLES.md` - 10+ usage examples with React hooks
 - `CHANGELOG.md` - Version history and changes
 
-## Leaflet Demo
+## Demo Applications
+
+### Leaflet Demo (Unsigned Tiles)
 
 **Location:** `/disaster-direct-leaflet-demo/`
 
@@ -168,3 +170,29 @@ npm run dev  # Opens on http://localhost:5173
 ```
 
 **Requirements:** Backend on `localhost:3001` with `/api/impact`, `/api/impact/tiles/{z}/{x}/{y}.png`, `/api/legend.png`
+
+### Mapbox GL Demo (HMAC Signed Tiles)
+
+**Location:** `/disaster-direct-mapbox-demo/`
+
+Advanced React + Vite + Mapbox GL demo with **HMAC signing toggle**.
+
+**Features:**
+- Mapbox GL JS v3 integration (blank style, no token required)
+- **HMAC signing toggle** - Test unsigned vs signed tiles
+- Auto-signed tiles via `makeMapboxTransformRequest()`
+- Draggable marker for location selection
+- Signed/unsigned legend support
+- 500-tile memo cache for performance
+- Pollen data toggle
+
+**Quick Start:**
+```bash
+cd disaster-direct-mapbox-demo
+npm install
+npm run dev  # Opens on http://localhost:5174
+```
+
+**Requirements:** 
+- Backend on `localhost:3001` with `/api/impact`, `/api/impact/tiles/{z}/{x}/{y}.png`, `/api/legend.png`
+- **Optional (for HMAC):** `/api/sign/tile` and `/api/sign/legend` endpoints
