@@ -101,3 +101,44 @@ Preferred communication style: Simple, everyday language.
 - **Replit Integration**: Development environment.
 - **jsQR Library**: For QR code detection.
 - **Jimp / Sharp**: Image processing.
+
+## SDK Package
+
+### Disaster Direct SDK v0.1.2
+A standalone npm package (`@disaster-direct/sdk`) for external integrations and client applications.
+
+**Location:** `/disaster-direct-sdk/`
+
+**Features:**
+- **API Client:** Secure fetch wrapper with automatic retries, exponential backoff, and `Retry-After` header support
+- **Impact Score:** `getImpact()` helper for environmental impact data
+- **Map Utilities:** Tile template generation and Mapbox transform helpers
+- **Error Handling:** User-friendly error messages (401, 403, 429, 500)
+- **Auto-detect baseUrl:** Automatically uses correct API endpoint (localhost or Replit)
+
+**Testing:**
+- **Framework:** Vitest with coverage reporting (text + lcov)
+- **Tests:** `tests/ddClient.test.ts` validates error message mapping
+- **Commands:**
+  - `npm test` - Watch mode for development
+  - `npm run test:ci` - CI mode with coverage
+
+**CI/CD:**
+- **CI Workflow:** `.github/workflows/ci.yml` - Runs typecheck, build, and tests on every PR/push
+- **Release Workflow:** `.github/workflows/release.yml` - Publishes to npm and creates GitHub releases on version tags
+
+**Build System:**
+- **Bundler:** tsup for ESM + CJS builds
+- **Outputs:** `dist/index.mjs`, `dist/index.cjs`, `dist/index.d.ts`
+- **TypeScript:** Fully typed with strict mode
+
+**Publishing:**
+1. Set `NPM_TOKEN` in GitHub secrets
+2. Update CHANGELOG.md
+3. Run `npm version patch && git push --follow-tags`
+4. GitHub Actions automatically publishes to npm
+
+**Documentation:**
+- `SETUP.md` - Complete setup and publishing guide
+- `QUICK_START.md` - Fast testing and deployment instructions
+- `CHANGELOG.md` - Version history and changes

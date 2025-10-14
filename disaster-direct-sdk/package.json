@@ -1,0 +1,55 @@
+{
+  "name": "@disaster-direct/sdk",
+  "version": "0.1.2",
+  "description": "Client utilities for Disaster Direct: safe API fetch, impact helpers, and map tile/legend utilities (HMAC-ready).",
+  "license": "MIT",
+  "author": "Disaster Direct",
+  "repository": {
+    "type": "git",
+    "url": "https://disaster-direct.username.repl.co"
+  },
+  "bugs": {
+    "url": "https://disaster-direct.username.repl.co"
+  },
+  "homepage": "https://disaster-direct.username.repl.co",
+  "sideEffects": false,
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "clean": "rimraf dist",
+    "prepublishOnly": "npm run clean && npm run build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest",
+    "test:ci": "vitest run --coverage"
+  },
+  "devDependencies": {
+    "tsup": "^8.1.0",
+    "typescript": "^5.6.3",
+    "rimraf": "^6.0.1",
+    "vitest": "^2.1.4",
+    "@vitest/coverage-v8": "^2.1.4"
+  },
+  "peerDependencies": {
+    "mapbox-gl": ">=2.0.0 || >=3.0.0"
+  },
+  "peerDependenciesMeta": {
+    "mapbox-gl": {
+      "optional": true
+    }
+  }
+}
