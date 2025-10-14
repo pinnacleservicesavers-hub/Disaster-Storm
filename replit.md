@@ -73,6 +73,17 @@ Preferred communication style: Simple, everyday language.
     - `/api/ambee/disasters/latest/by-lat-lng` - Disaster/fire detection
     - `/api/ambee/wildfires/latest/by-lat-lng` - Wildfire proximity
     - `/api/impact` - Merged impact score (0-100) with weighted risk calculation (AQI 50%, Wind 30%, Fire 20%)
+- **Xweather**: Global lightning and storm intelligence network providing real-time data redundancy with Ambee.
+  - **API Routes** (requires `XWEATHER_CLIENT_ID` and `XWEATHER_CLIENT_SECRET`):
+    - `/api/xweather/lightning/threats` - Real-time lightning strikes (60-min forecast, cloud-to-ground + in-cloud)
+    - `/api/xweather/hail/threats` - Hail size predictions (inches/mm, probability, movement direction/speed)
+    - `/api/xweather/threats` - Comprehensive storm threat assessment (lightning, hail, advisories, rotation detection)
+    - `/api/xweather/stormreports` - NWS-validated local storm reports (hail, tornado, wind, flood, lightning)
+  - **Database Tables** (schema added, migration pending):
+    - `xweather_lightning_strikes` - Historical lightning strike data
+    - `xweather_hail_threats` - Hail forecast records
+    - `xweather_storm_reports` - NWS storm validation data
+    - `xweather_storm_snapshots` - Comprehensive threat snapshots with advisories
 
 ### Payment & Legal Integration
 - **Stripe**: Payment processing.
