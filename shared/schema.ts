@@ -4010,6 +4010,133 @@ export type InsertAdjuster = z.infer<typeof insertAdjusterSchema>;
 export type ContactLog = typeof contactLog.$inferSelect;
 export type InsertContactLog = z.infer<typeof insertContactLogSchema>;
 
+// ===== XWEATHER STORM INTELLIGENCE =====
+
+// Xweather Lightning Strikes Historical Table
+export const xweatherLightningStrikes = pgTable("xweather_lightning_strikes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  strikeId: text("strike_id").notNull().unique(), // Xweather's strike ID
+  latitude: numeric("latitude", { precision: 10, scale: 8 }).notNull(),
+  longitude: numeric("longitude", { precision: 10, scale: 8 }).notNull(),
+  strikeTimestamp: timestamp("strike_timestamp").notNull(),
+  pulseType: text("pulse_type").notNull(), // 'cg' or 'ic'
+  peakAmperage: integer("peak_amperage"),
+  numSensors: integer("num_sensors"),
+  ageSeconds: integer("age_seconds"),
+  region: text("region"), // For indexing by area
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Xweather Hail Threats Historical Table
+export const xweatherHailThreats = pgTable("xweather_hail_threats", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  threatId: text("threat_id").notNull(), // Xweather's threat ID
+  latitude: numeric("latitude", { precision: 10, scale: 8 }).notNull(),
+  longitude: numeric("longitude", { precision: 10, scale: 8 }).notNull(),
+  forecastTimestamp: timestamp("forecast_timestamp").notNull(),
+  periodStart: timestamp("period_start").notNull(),
+  periodEnd: timestamp("period_end").notNull(),
+  hailSizeInches: numeric("hail_size_inches", { precision: 4, scale: 2 }),
+  hailSizeMM: numeric("hail_size_mm", { precision: 5, scale: 1 }),
+  probability: integer("probability"), // 0-100
+  movementDirection: text("movement_direction"),
+  speedMPH: numeric("speed_mph", { precision: 5, scale: 1 }),
+  region: text("region"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Xweather Storm Reports Historical Table (NWS local storm reports)
+export const xweatherStormReports = pgTable("xweather_storm_reports", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  reportId: text("report_id").notNull().unique(),
+  latitude: numeric("latitude", { precision: 10, scale: 8 }).notNull(),
+  longitude: numeric("longitude", { precision: 10, scale: 8 }).notNull(),
+  reportTimestamp: timestamp("report_timestamp").notNull(),
+  category: text("category").notNull(), // 'hail', 'tornado', 'wind', 'flood', 'lightning', 'snow', 'ice'
+  reportName: text("report_name").notNull(),
+  comments: text("comments"),
+  placeName: text("place_name"),
+  state: text("state"),
+  country: text("country"),
+  
+  // Measurements (based on category)
+  hailInches: numeric("hail_inches", { precision: 4, scale: 2 }),
+  hailMM: numeric("hail_mm", { precision: 5, scale: 1 }),
+  windKnots: numeric("wind_knots", { precision: 5, scale: 1 }),
+  windMPH: numeric("wind_mph", { precision: 5, scale: 1 }),
+  rainInches: numeric("rain_inches", { precision: 5, scale: 2 }),
+  rainMM: numeric("rain_mm", { precision: 6, scale: 1 }),
+  
+  region: text("region"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Xweather Comprehensive Storm Data Snapshot Table
+export const xweatherStormSnapshots = pgTable("xweather_storm_snapshots", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  latitude: numeric("latitude", { precision: 10, scale: 8 }).notNull(),
+  longitude: numeric("longitude", { precision: 10, scale: 8 }).notNull(),
+  radiusKM: numeric("radius_km", { precision: 5, scale: 1 }).notNull(),
+  snapshotTimestamp: timestamp("snapshot_timestamp").defaultNow().notNull(),
+  
+  // Threat Analysis
+  threatLevel: text("threat_level").notNull(), // 'LOW', 'MODERATE', 'HIGH', 'SEVERE', 'EXTREME'
+  threatScore: integer("threat_score"), // 0-100+
+  
+  // Counts
+  lightningStrikeCount: integer("lightning_strike_count").default(0),
+  lightningThreatCount: integer("lightning_threat_count").default(0),
+  hailThreatCount: integer("hail_threat_count").default(0),
+  stormReportCount: integer("storm_report_count").default(0),
+  
+  // Max Values
+  maxHailSizeInches: numeric("max_hail_size_inches", { precision: 4, scale: 2 }),
+  maxWindSpeedMPH: numeric("max_wind_speed_mph", { precision: 5, scale: 1 }),
+  
+  // Weather Advisories
+  hasAdvisories: boolean("has_advisories").default(false),
+  advisoryCodes: jsonb("advisory_codes"), // VTEC codes array
+  hasTornadic: boolean("has_tornadic").default(false),
+  hasRotation: boolean("has_rotation").default(false),
+  
+  // Full data snapshot (JSON)
+  fullData: jsonb("full_data"), // Complete response for historical reference
+  
+  region: text("region"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Insert schemas
+export const insertXweatherLightningStrikeSchema = createInsertSchema(xweatherLightningStrikes).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertXweatherHailThreatSchema = createInsertSchema(xweatherHailThreats).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertXweatherStormReportSchema = createInsertSchema(xweatherStormReports).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertXweatherStormSnapshotSchema = createInsertSchema(xweatherStormSnapshots).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Select types
+export type XweatherLightningStrike = typeof xweatherLightningStrikes.$inferSelect;
+export type InsertXweatherLightningStrike = z.infer<typeof insertXweatherLightningStrikeSchema>;
+export type XweatherHailThreat = typeof xweatherHailThreats.$inferSelect;
+export type InsertXweatherHailThreat = z.infer<typeof insertXweatherHailThreatSchema>;
+export type XweatherStormReport = typeof xweatherStormReports.$inferSelect;
+export type InsertXweatherStormReport = z.infer<typeof insertXweatherStormReportSchema>;
+export type XweatherStormSnapshot = typeof xweatherStormSnapshots.$inferSelect;
+export type InsertXweatherStormSnapshot = z.infer<typeof insertXweatherStormSnapshotSchema>;
+
 // ===== AD CAMPAIGN & GEO-FENCE MANAGEMENT =====
 
 // Ad Geo-Fences Table
