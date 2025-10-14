@@ -1,0 +1,106 @@
+Awesome — here’s a copy-paste GitHub Actions workflow that will:
+
+Build your SDK
+
+Publish it to npm (public)
+
+Create a GitHub Release (using your CHANGELOG.md as the body)
+
+Just drop this file in your repo at:
+.github/workflows/release.yml
+
+name: Release @disaster-direct/sdk
+
+on:
+  push:
+    tags:
+      - "v*.*.*"   # e.g. v0.1.1
+
+permissions:
+  contents: write   # needed to create GitHub Releases
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Install deps (clean)
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      # Optional: ensure dist artifacts look right
+      - name: List dist
+        run: ls -la dist
+
+      # Publish to npm (public)
+      - name: Publish to npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          # fail if version already exists
+          npx --yes semver $(node -p "require('./package.json').version") || exit 1
+          # Publish with provenance (npm >=9.5), public for scoped packages
+          npm publish --access public --provenance
+
+      # Create GitHub release using your CHANGELOG.md
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: "@disaster-direct/sdk ${{ github.ref_name }}"
+          body_path: CHANGELOG.md
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-rc') || contains(github.ref_name, '-beta') || contains(github.ref_name, '-alpha') }}
+
+Set this up (one time)
+
+Create the repo and push your code (with the SDK files we made).
+
+In GitHub → Settings → Secrets and variables → Actions → New repository secret:
+
+Name: NPM_TOKEN
+
+Value: your npm access token (create at npmjs.com → Access Tokens → “Automation” token is ideal).
+
+Commit the workflow file above to .github/workflows/release.yml.
+
+How to cut a release
+
+From your repo root:
+
+# make changes, update CHANGELOG.md
+npm version patch   # or: npm version minor / major
+git push --follow-tags
+
+
+The push of tag vX.Y.Z triggers the workflow:
+
+Builds and publishes to npm as public
+
+Creates a GitHub Release titled @disaster-direct/sdk vX.Y.Z with your CHANGELOG.md as the body
+
+Notes & tweaks
+
+Scoped package visibility: we already pass --access public so @disaster-direct/sdk publishes publicly.
+
+Provenance/SBOM: --provenance is enabled; if your npm or repo doesn’t support it, remove that flag.
+
+Pre-releases: if your tag includes -rc, -beta, or -alpha, the release is marked as a pre-release.
+
+Private registry? If you later use GitHub Packages, change registry-url to https://npm.pkg.github.com and set your package name accordingly.
+
+CHANGELOG body: The whole CHANGELOG.md is used as the release body. If you want only the current version’s section, we can add a quick step to extract it.
