@@ -1,0 +1,155 @@
+Awesome. Here’s exactly how to get the monorepo running on Replit right now, plus quick tests to prove it’s working and what to flip when you go public.
+
+1) Import the project into Replit
+
+Download the zip above and unzip locally.
+
+In Replit: Create Repl → Import from ZIP → upload the folder.
+
+Open backend/ as the working directory.
+
+2) Set your secrets in Replit
+
+In Tools → Secrets add these keys (names must match exactly):
+
+AMBEE_API_KEY = your Ambee key
+
+XWEATHER_CLIENT_ID = your Xweather client id
+
+XWEATHER_CLIENT_SECRET = your Xweather client secret
+
+NWS_USER_AGENT = DisasterDirect/0.1 (your-email@example.com)
+
+(Optional, for email reports)
+
+SMTP_HOST = smtp.gmail.com
+
+SMTP_PORT = 587
+
+SMTP_USER = your Gmail/Workspace address
+
+SMTP_PASS = an app password
+
+FROM_EMAIL = Disaster Direct <you@yourdomain.com>
+
+Security/signing (you can also put these in Secrets):
+
+TILE_SIGN_SECRET = any long random string
+
+TILE_SIGN_TTL_SEC = 300
+
+ENFORCE_SIGNED_TILES = 0 (dev) → set to 1 when you go public
+
+3) Install & run
+
+In the Replit Shell:
+
+cd backend
+npm install
+npm run dev
+
+
+Replit will expose a web URL (something like https://<your-repl>.repl.co).
+
+4) Quick health check
+
+Open in your browser (or use the Replit “Open in new tab”):
+
+/health
+
+
+You should see: { "status": "OK" }
+
+5) Smoke tests (copy/paste)
+
+Replace <BASE> with your Replit URL.
+
+Impact JSON
+
+<BASE>/api/impact?lat=33.749&lng=-84.388&pollen=1
+
+
+Unsigned tile
+
+<BASE>/api/impact/tiles/10/271/392.png?pollen=1&grid=6&ttl=180
+
+
+Signed tile URL (HMAC)
+
+<BASE>/api/sign/tile?z=10&x=271&y=392&pollen=1&grid=6&ttl=180
+
+
+Use the url it returns in your map layer.
+
+Legend
+
+<BASE>/api/legend.png
+
+
+PDF report
+
+<BASE>/api/report.pdf?lat=33.749&lng=-84.388&hours=24
+
+
+Email report (if SMTP configured)
+
+curl -X POST <BASE>/api/reports/enqueue \
+  -H "Content-Type: application/json" \
+  -d '{"lat":33.749,"lng":-84.388,"hours":24,"email":"you@example.com"}'
+
+
+Warm up tiles (optional)
+
+npm run precompute
+
+6) Plug into your frontend (quick examples)
+A) Fetch the Impact Score (React/Vanilla)
+async function getImpact(baseUrl, lat, lng, pollen=true){
+  const url = new URL("/api/impact", baseUrl);
+  url.searchParams.set("lat", lat);
+  url.searchParams.set("lng", lng);
+  if (pollen) url.searchParams.set("pollen", "1");
+  const r = await fetch(url); if (!r.ok) throw new Error("impact failed");
+  return r.json();
+}
+
+B) Use the raster tiles in Mapbox GL (unsigned)
+map.addSource("impact", {
+  type: "raster",
+  tiles: [`${BASE}/api/impact/tiles/{z}/{x}/{y}.png?pollen=1&grid=6&ttl=180`],
+  tileSize: 256
+});
+map.addLayer({ id: "impact", type: "raster", source: "impact" });
+
+C) Turn on HMAC later
+
+In Secrets: set ENFORCE_SIGNED_TILES = 1.
+
+On the client, use a transform request to sign each tile:
+
+map = new mapboxgl.Map({
+  container: "map",
+  style: /* your style */,
+  transformRequest: async (url, type) => {
+    if (type !== "Tile" || !url.includes("/api/impact/tiles/")) return { url };
+    const u = new URL(url);
+    const m = u.pathname.match(/\/api\/impact\/tiles\/(\d+)\/(\d+)\/(\d+)\.png/);
+    if (!m) return { url };
+    const [ , z, x, y ] = m;
+    const sign = new URL(`${BASE}/api/sign/tile`);
+    sign.searchParams.set("z", z); sign.searchParams.set("x", x); sign.searchParams.set("y", y);
+    u.searchParams.forEach((v,k)=>sign.searchParams.set(k,v));
+    const r = await fetch(sign); const { url: signed } = await r.json();
+    return { url: signed };
+  }
+});
+
+7) Go-live tips
+
+Keep ENFORCE_SIGNED_TILES=0 during development; flip to 1 for production.
+
+Use Replit’s “Always On” if available, or consider migrating the backend to Render/Railway/Fly for scaling and background jobs.
+
+Add a CORS allowlist if your frontend is hosted elsewhere.
+
+Consider daily cron for npm run precompute during storms to keep tiles hot.
