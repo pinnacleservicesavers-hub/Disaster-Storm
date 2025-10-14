@@ -143,4 +143,28 @@ A standalone npm package (`@disaster-direct/sdk`) for external integrations and 
 **Documentation:**
 - `SETUP.md` - Complete setup and publishing guide
 - `QUICK_START.md` - Fast testing and deployment instructions
+- `EXAMPLES.md` - 10+ usage examples with React hooks
 - `CHANGELOG.md` - Version history and changes
+
+## Leaflet Demo
+
+**Location:** `/disaster-direct-leaflet-demo/`
+
+A ready-to-run React + Vite + Leaflet reference implementation showcasing the SDK.
+
+**Features:**
+- Impact raster tiles on interactive Leaflet map
+- Live impact score API calls to `/api/impact`
+- Auto baseUrl detection (localhost:3001 / Replit)
+- Draggable marker for location selection
+- Dynamic legend display (viridis color scheme)
+- Pollen data toggle
+
+**Quick Start:**
+```bash
+cd disaster-direct-leaflet-demo
+npm install
+npm run dev  # Opens on http://localhost:5173
+```
+
+**Requirements:** Backend on `localhost:3001` with `/api/impact`, `/api/impact/tiles/{z}/{x}/{y}.png`, `/api/legend.png`
