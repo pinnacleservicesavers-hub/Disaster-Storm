@@ -148,6 +148,8 @@ A standalone npm package (`@disaster-direct/sdk`) for external integrations and 
 
 ## Demo Applications
 
+**Quick Reference:** See `DEMO_APPS_OVERVIEW.md` for a one-pager team guide explaining all three demos, when to use each, and decision matrix.
+
 ### Leaflet Demo (Unsigned Tiles)
 
 **Location:** `/disaster-direct-leaflet-demo/`
