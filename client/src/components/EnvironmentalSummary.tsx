@@ -1,17 +1,22 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Activity, Flower2, Shield, ArrowRight, AlertTriangle } from 'lucide-react';
 import { Link } from 'wouter';
+import PortalVoiceGuide, { PORTAL_SECTIONS } from '@/components/PortalVoiceGuide';
 
 interface EnvironmentalSummaryProps {
   lat?: number;
   lng?: number;
   place?: string;
+  showVoiceGuide?: boolean;
 }
 
-export function EnvironmentalSummary({ lat = 25.7617, lng = -80.1918, place }: EnvironmentalSummaryProps) {
+export function EnvironmentalSummary({ lat = 25.7617, lng = -80.1918, place, showVoiceGuide = false }: EnvironmentalSummaryProps) {
+  const [currentSection, setCurrentSection] = useState<string>('overview');
+
   // Build query URL with parameters
   const buildQueryUrl = () => {
     if (place) {
@@ -26,6 +31,10 @@ export function EnvironmentalSummary({ lat = 25.7617, lng = -80.1918, place }: E
     queryKey: [buildQueryUrl()],
     enabled: !!(lat && lng) || !!place,
   });
+
+  const handleSectionChange = (sectionId: string) => {
+    setCurrentSection(sectionId);
+  };
 
   const getAQIColor = (aqi: number) => {
     if (aqi <= 50) return 'bg-green-500';
@@ -86,6 +95,17 @@ export function EnvironmentalSummary({ lat = 25.7617, lng = -80.1918, place }: E
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Voice Guide for Environmental Report */}
+        {showVoiceGuide && (
+          <div className="mb-4">
+            <PortalVoiceGuide
+              portalName="Environmental Intelligence Report"
+              sections={PORTAL_SECTIONS['environmental-report'] || []}
+              currentSection={currentSection}
+              onSectionChange={handleSectionChange}
+            />
+          </div>
+        )}
         {/* Air Quality */}
         <div className="flex items-center justify-between p-3 bg-secondary rounded-lg">
           <div className="flex items-center gap-3">

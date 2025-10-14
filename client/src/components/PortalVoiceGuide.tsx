@@ -53,59 +53,111 @@ export const PORTAL_SECTIONS: Record<string, PortalSection[]> = {
       duration: 20
     }
   ],
+  'environmental-report': [
+    {
+      id: 'overview',
+      title: 'Environmental Intelligence Report',
+      description: 'This environmental report provides critical data about air quality, pollen levels, weather conditions, fire risks, and soil moisture that directly impact your construction and restoration projects. Understanding these environmental factors helps you make informed decisions about crew safety, work scheduling, and material selection. Poor air quality requires respiratory protection. High pollen affects crew productivity. Extreme weather conditions impact material curing and worker safety. This data helps you plan safer, more efficient projects.',
+      keyFeatures: ['Air Quality Index (AQI)', 'Pollen count levels', 'Temperature and humidity', 'Wind speed and direction', 'Fire and smoke detection', 'Soil moisture analysis', 'Health impact scores'],
+      helpfulTips: ['AQI over 100 means unhealthy air - provide respirators to outdoor crews', 'High pollen counts may reduce crew efficiency - plan indoor work when possible', 'Extreme temperatures affect adhesive curing times and paint application', 'Wind speeds over 20 mph make roofing work unsafe', 'Fire alerts indicate potential smoke damage opportunities nearby', 'High soil moisture can delay foundation and excavation work'],
+      duration: 40
+    },
+    {
+      id: 'air-quality',
+      title: 'Air Quality Index (AQI)',
+      description: 'The Air Quality Index measures air pollution levels from 0 to 500. AQI affects outdoor worker health and productivity. Good air quality is 0-50. Moderate is 51-100. Unhealthy for sensitive groups is 101-150. Unhealthy is 151-200. Very unhealthy is 201-300. Hazardous is over 300. For contractors, AQI over 100 requires respiratory protection for outdoor crews. AQI over 150 may require modified work schedules or indoor assignments. Monitor AQI daily to protect crew health and maintain productivity.',
+      keyFeatures: ['Real-time AQI levels', 'Pollutant breakdown', 'Health recommendations', 'Trend analysis'],
+      helpfulTips: ['Check AQI before assigning outdoor work', 'Provide N95 masks when AQI exceeds 100', 'Schedule heavy physical work during better air quality periods', 'Document AQI levels for worker compensation claims if needed'],
+      duration: 35
+    },
+    {
+      id: 'pollen-data',
+      title: 'Pollen Level Analysis',
+      description: 'Pollen levels are measured from low to very high and affect crew health, especially those with allergies. High pollen counts can reduce worker productivity by 15-20 percent due to allergic reactions, fatigue, and reduced focus. For contractors, this means planning indoor work during high pollen days, providing antihistamines, and adjusting crew schedules. Very high pollen may require modified break schedules and increased hydration to maintain crew efficiency.',
+      keyFeatures: ['Tree pollen levels', 'Grass pollen levels', 'Weed pollen levels', 'Seasonal trends'],
+      helpfulTips: ['High pollen days are best for indoor finishing work', 'Provide antihistamines in first aid kits during pollen season', 'Schedule precision work during low pollen periods', 'Allow extra breaks during very high pollen counts'],
+      duration: 30
+    },
+    {
+      id: 'weather-conditions',
+      title: 'Weather Conditions Impact',
+      description: 'Current weather conditions including temperature, humidity, wind, and precipitation directly affect construction materials and worker safety. Temperature impacts concrete curing, paint drying, and adhesive bonding. Humidity affects drywall installation and paint application. Wind determines safe working conditions for roofing and scaffolding. For contractors, temperatures below 40°F or above 95°F require special materials or modified schedules. Humidity over 85% prevents proper paint drying. Wind over 20 mph makes elevated work unsafe. Understanding these conditions prevents material failures and ensures project quality.',
+      keyFeatures: ['Temperature monitoring', 'Humidity levels', 'Wind speed and gusts', 'Precipitation tracking'],
+      helpfulTips: ['Cold weather concrete requires additives below 40°F', 'High humidity delays paint and drywall work - use dehumidifiers', 'Wind over 15 mph requires additional fall protection for roofing', 'Rain delays exterior work - plan indoor tasks in advance'],
+      duration: 38
+    }
+  ],
   'weather-intelligence-center': [
     {
       id: 'overview',
       title: 'Weather Intelligence Center Overview',
-      description: 'Welcome to the Weather Intelligence Center! This is your unified command hub for weather monitoring and AI-powered storm prediction. Here you can access live weather data, AI storm predictions, professional weather models, and advanced analytics all in one place.',
-      keyFeatures: ['Real-time weather monitoring', 'AI storm predictions', 'Professional weather models', 'Contractor opportunity analysis'],
-      helpfulTips: ['Use state filtering for focused analysis', 'Check both live weather and AI predictions', 'Monitor the KPI dashboard for quick insights'],
-      duration: 35
+      description: 'Welcome to the Weather Intelligence Center! This is your unified command hub for weather monitoring and AI-powered storm prediction. Here you can access live weather data, environmental intelligence, lightning and hail threats, AI storm predictions, professional weather models, and advanced analytics all in one place. Understanding these environmental conditions helps you identify storm damage opportunities, ensure crew safety, and make data-driven decisions about when and where to deploy your teams.',
+      keyFeatures: ['Real-time weather monitoring', 'Environmental intelligence', 'Lightning and hail detection', 'AI storm predictions', 'Professional weather models', 'Contractor opportunity analysis'],
+      helpfulTips: ['Use state filtering for focused analysis', 'Check both live weather and environmental conditions', 'Monitor the KPI dashboard for quick insights', 'Environmental data helps predict material availability and project delays'],
+      duration: 40
     },
     {
       id: 'kpi-dashboard',
       title: 'KPI Metrics Dashboard',
       element: '.grid',
-      description: 'The KPI dashboard shows six critical metrics at a glance: active weather alerts, storm systems, wave heights, AI predictions, contractor opportunities, and data quality scores. Each metric updates in real-time and uses color coding to show status.',
+      description: 'The KPI dashboard shows six critical metrics at a glance: active weather alerts, storm systems, wave heights, AI predictions, contractor opportunities, and data quality scores. Each metric updates in real-time and uses color coding to show status. These metrics help you quickly assess current conditions and identify areas requiring immediate attention for storm damage response.',
       keyFeatures: ['Six real-time metrics', 'Color-coded status', 'Live updates', 'Interactive counters'],
-      helpfulTips: ['Red metrics need immediate attention', 'Orange shows moderate concern', 'Green indicates normal conditions'],
-      duration: 25
+      helpfulTips: ['Red metrics need immediate attention and indicate high-priority opportunities', 'Orange shows moderate concern and potential upcoming work', 'Green indicates normal conditions with routine monitoring needed'],
+      duration: 28
     },
     {
       id: 'live-weather-tab',
       title: 'Live Weather Monitoring',
       element: '[data-testid="tab-live-weather"]',
-      description: 'The Live Weather tab provides real-time weather data from NOAA, NWS, satellites, and ocean buoys. You can see active weather alerts, ocean conditions including sea temperatures and wave heights, and monitor data from active weather buoys.',
-      keyFeatures: ['NOAA weather alerts', 'Ocean temperature data', 'Wave height monitoring', 'Active buoy stations'],
-      helpfulTips: ['Check alerts for severity levels', 'Monitor sea temperatures for hurricane development', 'Use buoy data for marine forecasting'],
-      duration: 30
+      description: 'The Live Weather tab provides real-time weather data from NOAA, NWS, satellites, and ocean buoys. You can see active weather alerts, ocean conditions including sea temperatures and wave heights, and monitor data from active weather buoys. Understanding these conditions helps you anticipate storm intensity, coastal flooding risks, and potential damage patterns that create restoration opportunities.',
+      keyFeatures: ['NOAA weather alerts', 'Ocean temperature data', 'Wave height monitoring', 'Active buoy stations', 'Storm surge indicators'],
+      helpfulTips: ['Check alerts for severity levels to prioritize response areas', 'Monitor sea temperatures for hurricane development and intensification', 'Use buoy data to predict coastal damage and flooding', 'High wave heights indicate potential coastal property damage'],
+      duration: 35
+    },
+    {
+      id: 'lightning-hail-tab',
+      title: 'Lightning & Hail Intelligence',
+      element: '[data-testid="tab-xweather"]',
+      description: 'The Lightning and Hail tab uses Xweather global storm network to provide real-time lightning strike detection, 60-minute lightning forecasts, and hail size predictions. This data is critical for contractor safety and identifying high-value damage opportunities. Lightning strikes indicate severe storm cells that may cause structural and electrical damage. Hail larger than one inch typically damages roofs, siding, and vehicles, creating immediate restoration work. Understanding these threats helps you deploy crews safely after storms pass and target areas with the highest damage potential.',
+      keyFeatures: ['Real-time lightning strikes', '60-minute lightning forecasts', 'Hail size predictions', 'Probability scoring', 'Storm severity analysis', 'NWS validation'],
+      helpfulTips: ['Lightning threats indicate active severe weather - keep crews safe until storms pass', 'Hail over 1 inch causes roof damage and creates roofing opportunities', 'Hail over 2 inches causes severe damage to vehicles and property', 'Use 60-minute forecasts to time crew deployment for maximum safety', 'Higher hail probability means more certain damage patterns', 'Cross-reference with NWS reports for insurance claim validation'],
+      duration: 45
+    },
+    {
+      id: 'nationwide-intelligence-tab',
+      title: 'Nationwide Environmental Intelligence',
+      element: '[data-testid="tab-nationwide-intelligence"]',
+      description: 'The Nationwide AI Intelligence tab combines environmental data from Ambee and Xweather to give you a complete picture of conditions affecting your projects and crew health. This includes air quality index, pollen levels, temperature, humidity, wind conditions, fire detection, and soil moisture. Understanding these environmental factors is crucial because poor air quality from wildfires or storms affects crew productivity and may require respirators. High pollen counts can impact crew health and efficiency. Extreme temperatures affect material curing times and worker safety. Wind speeds determine safe working conditions for roofing and exterior work. Fire detection helps you avoid dangerous areas and identify smoke damage opportunities. Soil moisture affects foundation work and erosion repair opportunities.',
+      keyFeatures: ['Air quality monitoring', 'Pollen level tracking', 'Temperature and humidity', 'Wind speed analysis', 'Fire and wildfire detection', 'Soil moisture data', 'Health impact scoring'],
+      helpfulTips: ['AQI over 100 requires respiratory protection for outdoor crews', 'High pollen counts may slow crew productivity - plan accordingly', 'Extreme temperatures affect adhesive and paint curing times', 'Wind over 20 mph is unsafe for most roofing work', 'Fire detection alerts help identify smoke damage opportunities', 'High soil moisture indicates potential foundation and water damage', 'Use environmental data to schedule work during optimal conditions'],
+      duration: 50
     },
     {
       id: 'ai-predictions-tab',
       title: 'AI Storm Predictions',
       element: '[data-testid="tab-ai-predictions"]',
-      description: 'The AI Predictions tab uses advanced machine learning to analyze radar, satellite, ocean data, and historical patterns to predict storm behavior and identify contractor opportunities. You can see active predictions, damage forecasts, and risk level distributions.',
-      keyFeatures: ['AI storm analysis', 'Damage forecasting', 'Contractor opportunities', 'Risk assessment'],
-      helpfulTips: ['Higher risk levels indicate better opportunities', 'Use damage forecasts for pre-positioning', 'Monitor revenue estimates for planning'],
-      duration: 30
+      description: 'The AI Predictions tab uses advanced machine learning to analyze radar, satellite, ocean data, and historical patterns to predict storm behavior and identify contractor opportunities. You can see active predictions, damage forecasts, and risk level distributions. The AI analyzes wind speeds, storm surge potential, rainfall amounts, and historical damage patterns to estimate property damage, claim volume, and restoration job opportunities in each affected county. This helps you pre-position equipment, mobilize crews, and secure contracts before competitors arrive.',
+      keyFeatures: ['AI storm analysis', 'Damage forecasting', 'County-level predictions', 'Contractor opportunities', 'Risk assessment', 'Revenue estimates'],
+      helpfulTips: ['Higher risk levels indicate better opportunities and more severe damage', 'Use damage forecasts for pre-positioning equipment in high-impact areas', 'Monitor revenue estimates for ROI planning and crew allocation', 'Deploy to predicted areas 24-48 hours before storm arrival', 'Focus on extreme and high risk counties for maximum opportunity'],
+      duration: 38
     },
     {
       id: 'models-external-tab',
       title: 'Weather Models & External Resources',
       element: '[data-testid="tab-models-external"]',
-      description: 'Access professional weather models including HWRF, HAFS, and GFS hurricane models, plus external analysis tools like the National Hurricane Center, Storm Prediction Center, and NOMADS model server for advanced weather analysis.',
-      keyFeatures: ['Hurricane forecast models', 'Global weather models', 'Professional tools', 'External resources'],
-      helpfulTips: ['Use HWRF for detailed hurricane analysis', 'GFS provides global weather patterns', 'External tools offer specialized analysis'],
-      duration: 25
+      description: 'Access professional weather models including HWRF, HAFS, and GFS hurricane models, plus external analysis tools like the National Hurricane Center, Storm Prediction Center, and NOMADS model server for advanced weather analysis. These professional models provide detailed forecasts that help you understand storm intensity changes, path variations, and timing. This information is critical for making deployment decisions and communicating with insurance adjusters about expected damage patterns.',
+      keyFeatures: ['Hurricane forecast models', 'Global weather models', 'Professional tools', 'External resources', 'Model comparison'],
+      helpfulTips: ['Use HWRF for detailed hurricane intensity and wind field analysis', 'GFS provides global weather patterns and system tracking', 'Compare multiple models to understand forecast uncertainty', 'External tools offer specialized analysis from expert meteorologists', 'Share model data with insurance partners to establish damage expectations'],
+      duration: 32
     },
     {
       id: 'ai-assistant-tab',
       title: 'ARIA Weather Intelligence Assistant',
       element: '[data-testid="tab-assistant"]',
-      description: 'ARIA is your advanced AI assistant specializing in weather analysis, storm prediction, and disaster response guidance. You can ask questions about weather patterns, get storm analysis, and receive expert guidance on weather-related decisions.',
-      keyFeatures: ['Voice and text interaction', 'Weather expertise', 'Storm analysis', 'Decision support'],
-      helpfulTips: ['Ask specific questions about weather patterns', 'Use voice commands for hands-free operation', 'Request analysis of current conditions'],
-      duration: 25
+      description: 'ARIA is your advanced AI assistant specializing in weather analysis, storm prediction, disaster response guidance, and contractor education. You can ask questions about weather patterns, get storm analysis, receive expert guidance on weather-related decisions, and learn what environmental conditions mean for your business. ARIA can explain complex weather phenomena in contractor terms, help you interpret environmental data, and provide actionable recommendations for crew deployment and safety.',
+      keyFeatures: ['Voice and text interaction', 'Weather expertise', 'Storm analysis', 'Decision support', 'Environmental education', 'Contractor-focused guidance'],
+      helpfulTips: ['Ask specific questions about weather patterns and what they mean for your projects', 'Use voice commands for hands-free operation in the field', 'Request analysis of current conditions and crew safety recommendations', 'Ask ARIA to explain environmental data and its business impact', 'Get deployment recommendations based on forecast conditions'],
+      duration: 35
     }
   ],
   'traffic-cam-watcher': [

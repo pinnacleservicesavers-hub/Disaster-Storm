@@ -583,7 +583,20 @@ export default function WeatherIntelligenceCenter() {
 
         {/* Main Content Tabs */}
         <FadeIn delay={0.6}>
-          <Tabs defaultValue="live-weather" className="w-full">
+          <Tabs defaultValue="live-weather" className="w-full" onValueChange={(value) => {
+            // Update voice guide section when tab changes
+            const sectionMap: Record<string, string> = {
+              'live-weather': 'live-weather-tab',
+              'xweather': 'lightning-hail-tab',
+              'nationwide-intelligence': 'nationwide-intelligence-tab',
+              'ai-predictions': 'ai-predictions-tab',
+              'models-external': 'models-external-tab',
+              'assistant': 'ai-assistant-tab'
+            };
+            if (sectionMap[value]) {
+              handleSectionChange(sectionMap[value]);
+            }
+          }}>
             <TabsList className="grid w-full grid-cols-6 mb-8" data-testid="tabs-weather-sections">
               <TabsTrigger value="live-weather" className="text-sm" data-testid="tab-live-weather">
                 <Radar className="w-4 h-4 mr-2" />
@@ -714,6 +727,7 @@ export default function WeatherIntelligenceCenter() {
                       <EnvironmentalSummary 
                         lat={selectedState === 'all' ? 39.8283 : stateCoordinates[selectedState]?.latitude || 39.8283}
                         lng={selectedState === 'all' ? -98.5795 : stateCoordinates[selectedState]?.longitude || -98.5795}
+                        showVoiceGuide={true}
                       />
                     </div>
 

@@ -53,6 +53,7 @@ Preferred communication style: Simple, everyday language.
 
 ### Advanced Features
 - **Voice System**: Provider-agnostic architecture (ElevenLabs, OpenAI) with "Rachel" (ElevenLabs) as the default professional female voice for all AI voice interactions and TTS features.
+- **Voice Guidance System**: Comprehensive educational voice guides integrated into Weather Intelligence Center and Environmental Reports. Explains environmental conditions, lightning/hail threats, AQI impacts, pollen effects, and safety thresholds in contractor-focused language. Automatically updates narration when switching between tabs. Designed to educate contractors on what they're seeing and why it matters for crew safety, project planning, and business opportunities.
 - **QR/AprilTag Calibration**: Automatic scale detection for precise measurements in images.
 
 ## External Dependencies

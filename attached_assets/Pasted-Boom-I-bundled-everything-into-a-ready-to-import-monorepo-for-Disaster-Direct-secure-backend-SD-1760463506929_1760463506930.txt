@@ -1,0 +1,95 @@
+Boom — I bundled everything into a ready-to-import monorepo for Disaster Direct (secure backend + SDK + signing + reports + queue). Grab it here:
+
+Download the Disaster Direct monorepo
+
+What’s inside
+
+backend/ (Express API):
+
+Ambee + Xweather + NWS integrations
+
+/api/impact fused signal (wind, lightning, hail, alerts)
+
+PNG tiles /api/impact/tiles/{z}/{x}/{y}.png + /api/legend.png
+
+HMAC signing endpoints: /api/sign/tile, /api/sign/legend
+
+Optional signature enforcement (ENFORCE_SIGNED_TILES=1)
+
+PDF report route /api/report.pdf and queued email sender /api/reports/enqueue
+
+Warm-up script scripts/precompute-tiles.js
+
+.env.example with all required keys
+
+sdk/ (@disaster-direct/sdk, TypeScript):
+
+getImpact() client
+
+Map tiling helpers (unsigned template + Mapbox transform request)
+
+Legend URL helper
+
+Quick start (Replit / local)
+
+Unzip → open backend/
+
+cp .env.example .env and fill:
+
+AMBEE_API_KEY
+
+XWEATHER_CLIENT_ID, XWEATHER_CLIENT_SECRET
+
+NWS_USER_AGENT (your email)
+
+TILE_SIGN_SECRET (any long random string)
+
+(optional) SMTP settings for report emails
+
+Install & run:
+
+cd backend
+npm install
+npm run dev
+# Health check
+curl http://localhost:3001/health
+
+Useful endpoints to test
+
+Impact JSON:
+/api/impact?lat=33.749&lng=-84.388&pollen=1
+
+Tile (unsigned):
+/api/impact/tiles/10/271/392.png?pollen=1&grid=6&ttl=180
+
+Signed URL helper:
+/api/sign/tile?z=10&x=271&y=392&pollen=1&grid=6&ttl=180
+
+Legend:
+/api/legend.png
+
+PDF report:
+/api/report.pdf?lat=33.749&lng=-84.388&hours=24
+
+Email a report:
+
+curl -X POST http://localhost:3001/api/reports/enqueue \
+  -H "Content-Type: application/json" \
+  -d '{"lat":33.749,"lng":-84.388,"hours":24,"email":"you@example.com"}'
+
+
+Warm the cache:
+
+npm run precompute
+
+Why this helps your app (and investors)
+
+Reliability & speed: response caching + precomputed tiles handle surges during storms.
+
+Security: HMAC signed tile/legend URLs stop freeloaders; API keys never hit the client.
+
+Actionable insights: one fused Impact Score (0–100) combining wind gusts, lightning, hail, and NWS alerts. Great for triage & routing.
+
+Proof & comms: one-click PDF reports + email queue for customers, crews, or insurers.
+
+Extensible: add more sources (flood gauges, satellite, outages) behind the same proxy pattern.
