@@ -1,6 +1,6 @@
 {
   "name": "@disaster-direct/sdk",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Client utilities for Disaster Direct: safe API fetch, impact helpers, and map tile/legend utilities (HMAC-ready).",
   "license": "MIT",
   "author": "Disaster Direct",

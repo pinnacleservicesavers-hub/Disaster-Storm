@@ -6,6 +6,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.1.3] - 2025-10-14
+### Added
+- **New test:** `tests/ddTiles.test.ts` validates `getLegendUrl` for unsigned legend URLs
+- Test coverage for legend path generation, query parameters, and baseUrl handling
+- Support for different legend formats (png/svg), schemes (traffic/viridis), and backgrounds (solid/transparent)
+
+### Tests
+- 4 new tests for `getLegendUrl` function
+- Validates default values, custom options, and URL construction
+
+---
+
 ## [0.1.2] - 2025-10-14
 ### Added
 - CI-ready tests using **Vitest** with coverage (text + lcov).

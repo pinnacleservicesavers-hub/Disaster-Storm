@@ -1,4 +1,4 @@
-# 📦 SDK v0.1.2 Delivery Summary
+# 📦 SDK v0.1.3 Delivery Summary
 
 ## ✅ What Was Delivered
 
@@ -14,10 +14,11 @@ disaster-direct-sdk/
 │   ├── ddTiles.ts          ✅ Map tile helpers
 │   └── index.ts            ✅ Main exports
 ├── tests/
-│   └── ddClient.test.ts    ✅ Unit tests for error handling
+│   ├── ddClient.test.ts    ✅ Unit tests for error handling
+│   └── ddTiles.test.ts     ✅ Unit tests for legend URL generation (NEW)
 ├── CHANGELOG.md            ✅ Version 0.1.2 documented
 ├── LICENSE                 ✅ MIT license
-├── package.json            ✅ v0.1.2 with Vitest scripts
+├── package.json            ✅ v0.1.3 with Vitest scripts
 ├── vitest.config.ts        ✅ Test configuration
 ├── tsconfig.json           ✅ TypeScript config
 ├── tsup.config.ts          ✅ Build config
@@ -36,11 +37,17 @@ disaster-direct-sdk/
 
 ### Current Tests
 ```typescript
-// tests/ddClient.test.ts
+// tests/ddClient.test.ts (4 tests)
 ✓ errorToUserMessage maps 401 to sign-in message
 ✓ errorToUserMessage maps 403 to permission message
 ✓ errorToUserMessage maps 429 to rate-limit message
 ✓ errorToUserMessage maps 500 to service unavailable
+
+// tests/ddTiles.test.ts (4 tests) - NEW!
+✓ getLegendUrl returns unsigned legend path with query params
+✓ getLegendUrl uses default values when opts not provided
+✓ getLegendUrl handles different baseUrl formats
+✓ getLegendUrl supports transparent background option
 ```
 
 ### Test Commands
@@ -127,15 +134,20 @@ git push --follow-tags
 - ✅ Publish to npm as `@disaster-direct/sdk`
 - ✅ Create GitHub Release
 
-## 🎯 What's New in v0.1.2
+## 🎯 What's New in v0.1.3
 
 ### Added
+- ✅ **Legend URL Tests** - New `tests/ddTiles.test.ts` with 4 test cases
+- ✅ **Enhanced Test Coverage** - Now testing both error handling AND map utilities
+- ✅ **Format Validation** - Tests for png/svg legends, traffic/viridis schemes
+- ✅ **Background Options** - Tests for solid/transparent backgrounds
+
+### Previous (v0.1.2)
 - ✅ **Vitest Testing Framework** - Unit tests with coverage
 - ✅ **GitHub Actions CI** - Automated testing on every PR/push
 - ✅ **GitHub Actions Release** - Automated npm publishing
 - ✅ **Test Scripts** - `npm test` and `npm run test:ci`
 - ✅ **Coverage Reporting** - Text + lcov formats
-- ✅ **Sample Tests** - Error message validation tests
 
 ### Documentation
 - ✅ **SETUP.md** - Comprehensive setup guide
@@ -181,6 +193,7 @@ The SDK v0.1.2 is fully equipped with:
 ---
 
 **Package:** `@disaster-direct/sdk`  
-**Version:** 0.1.2  
+**Version:** 0.1.3  
 **License:** MIT  
+**Test Coverage:** 8 tests (4 error handling + 4 legend URL)  
 **Status:** Production Ready 🚀

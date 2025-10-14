@@ -104,7 +104,7 @@ Preferred communication style: Simple, everyday language.
 
 ## SDK Package
 
-### Disaster Direct SDK v0.1.2
+### Disaster Direct SDK v0.1.3
 A standalone npm package (`@disaster-direct/sdk`) for external integrations and client applications.
 
 **Location:** `/disaster-direct-sdk/`
@@ -118,7 +118,9 @@ A standalone npm package (`@disaster-direct/sdk`) for external integrations and 
 
 **Testing:**
 - **Framework:** Vitest with coverage reporting (text + lcov)
-- **Tests:** `tests/ddClient.test.ts` validates error message mapping
+- **Tests:** 
+  - `tests/ddClient.test.ts` - Error message mapping (4 tests)
+  - `tests/ddTiles.test.ts` - Legend URL generation (4 tests)
 - **Commands:**
   - `npm test` - Watch mode for development
   - `npm run test:ci` - CI mode with coverage
