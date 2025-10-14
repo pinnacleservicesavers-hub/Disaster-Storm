@@ -19,18 +19,19 @@ A fully-functional demo application showcasing the SDK with:
 
 **See:** `../disaster-direct-leaflet-demo/README.md` for complete setup instructions.
 
-### 2. React + Vite + Mapbox GL Demo (with HMAC Signing!)
+### 2. React + Vite + Mapbox GL Demo (Dual Toggles!)
 **Location:** `/disaster-direct-mapbox-demo/`
 
-Advanced demo showcasing SDK's HMAC signing capabilities:
+Most feature-complete demo with **dual independent toggles**:
 - ✅ Mapbox GL JS v3 integration
+- ✅ **OSM basemap toggle** - Switch between OSM raster and blank canvas
 - ✅ **HMAC signing toggle** - Test unsigned vs signed tiles
-- ✅ Blank Mapbox style (no token required)
+- ✅ Four possible combinations (OSM+unsigned, OSM+signed, blank+unsigned, blank+signed)
 - ✅ Auto-signed tiles via `makeMapboxTransformRequest()`
 - ✅ Signed legend support
 - ✅ 500-tile memo cache for performance
 
-**See:** `../disaster-direct-mapbox-demo/README.md` for HMAC implementation details.
+**See:** `../disaster-direct-mapbox-demo/README.md` for dual toggle implementation.
 
 ### 3. React + Vite + MapLibre GL Demo (Open Source!)
 **Location:** `/disaster-direct-maplibre-demo/`
@@ -399,13 +400,14 @@ npm install
 npm run dev  # Port 5173
 ```
 
-### Mapbox GL Demo (HMAC Signed Tiles)
+### Mapbox GL Demo (Dual Toggles)
 **Location:** `/disaster-direct-mapbox-demo/`
 
-Advanced integration with security:
+Most feature-complete integration:
 - ✅ Mapbox GL JS v3
+- ✅ **OSM basemap toggle**
 - ✅ **HMAC signing toggle**
-- ✅ Blank style (no token)
+- ✅ Four combinations
 - ✅ Auto-signed tiles
 - ✅ Signed legends
 - ✅ 500-tile cache
@@ -414,7 +416,7 @@ Advanced integration with security:
 ```bash
 cd disaster-direct-mapbox-demo
 npm install
-npm run dev  # Port 5174
+npm run dev  # Port 5176
 ```
 
 ### MapLibre GL Demo (Open Source)

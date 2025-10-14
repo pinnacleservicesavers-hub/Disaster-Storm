@@ -4,6 +4,8 @@ import { defaultBaseUrl, getImpact, makeMapboxTransformRequest, makeUnsignedTile
 
 (mapboxgl as any).accessToken = import.meta.env.VITE_MAPBOX_TOKEN || 'no-token';
 
+type Basemap = 'blank' | 'osm';
+
 export default function App() {
   const mapRef = useRef<mapboxgl.Map | null>(null)
   const [lat, setLat] = useState(33.749)
@@ -13,11 +15,29 @@ export default function App() {
   const [error, setError] = useState<string>('')
   const [pollen, setPollen] = useState(true)
   const [hmac, setHmac] = useState(false)
+  const [basemap, setBasemap] = useState<Basemap>('osm')
   const baseUrl = defaultBaseUrl
+
+  const styleBlank = useMemo(() => ({ version: 8, sources: {}, layers: [] } as any), [])
+  const styleOSM = useMemo(() => ({
+    version: 8,
+    sources: {
+      'osm-raster': {
+        type: 'raster',
+        tiles: ['https://a.tile.openstreetmap.org/{z}/{x}/{y}.png'],
+        tileSize: 256,
+        attribution: '© OpenStreetMap contributors'
+      }
+    },
+    layers: [{ id: 'osm-raster', type: 'raster', source: 'osm-raster' }]
+  } as any), [])
 
   const tileTemplate = useMemo(() => {
     return makeUnsignedTileTemplate('/api/impact/tiles/{z}/{x}/{y}.png', {
-      pollen: pollen ? 1 : 0, grid: 3, scheme: 'viridis', ttl: 180
+      pollen: pollen ? 1 : 0,
+      grid: 3,
+      scheme: 'viridis',
+      ttl: 180
     })
   }, [pollen])
 
@@ -27,7 +47,7 @@ export default function App() {
 
     const map = new mapboxgl.Map({
       container: 'map',
-      style: { version: 8, sources: {}, layers: [] },
+      style: basemap === 'osm' ? styleOSM : styleBlank,
       center: [lng, lat],
       zoom: 9,
       transformRequest
@@ -51,10 +71,22 @@ export default function App() {
     return () => map.remove()
   }, [])
 
+  // React to basemap toggle
+  useEffect(() => {
+    const map = mapRef.current; if (!map) return
+    map.setStyle(basemap === 'osm' ? styleOSM : styleBlank)
+    map.once('styledata', () => {
+      if (map.getSource('impact')) { try { map.removeLayer('impact'); map.removeSource('impact'); } catch {} }
+      map.addSource('impact', { type: 'raster', tiles: [ tileTemplate ], tileSize: 256 } as any)
+      map.addLayer({ id: 'impact', type: 'raster', source: 'impact' })
+    })
+  }, [basemap, styleBlank, styleOSM, tileTemplate])
+
+  // React to tileTemplate/hmac
   useEffect(() => {
     const map = mapRef.current; if (!map) return
     const tr = hmac ? makeMapboxTransformRequest(baseUrl, '/api/sign/tile') : undefined
-    // @ts-ignore: internal
+    // @ts-ignore private API
     if (map._requestManager && tr) map._requestManager.setTransformRequest(tr)
 
     if (map.getSource('impact')) { map.removeLayer('impact'); map.removeSource('impact') }
@@ -62,6 +94,7 @@ export default function App() {
     map.addLayer({ id: 'impact', type: 'raster', source: 'impact' })
   }, [tileTemplate, hmac, baseUrl])
 
+  // Impact + legend
   useEffect(() => {
     setError(''); setImpact(null)
     getImpact(baseUrl, lat, lng, pollen).then(r => {
@@ -77,12 +110,16 @@ export default function App() {
   return (
     <div className="app">
       <header>
-        <strong>Disaster Direct • Mapbox GL Demo</strong>
+        <strong>Disaster Direct • Mapbox GL Demo (Toggle)</strong>
         <span className="pill">base: {baseUrl}</span>
         <label>Lat <input type="number" step="0.001" value={lat} onChange={e => setLat(parseFloat(e.target.value))} /></label>
         <label>Lng <input type="number" step="0.001" value={lng} onChange={e => setLng(parseFloat(e.target.value))} /></label>
         <label><input type="checkbox" checked={pollen} onChange={e => setPollen(e.target.checked)} /> Pollen</label>
         <label><input type="checkbox" checked={hmac} onChange={e => setHmac(e.target.checked)} /> HMAC signing</label>
+        <select className="select" value={basemap} onChange={e => setBasemap(e.target.value as Basemap)}>
+          <option value="osm">OSM raster</option>
+          <option value="blank">Blank</option>
+        </select>
         <span>{impact != null ? `Impact: ${impact}` : (error ? <span className="error">Error: {error}</span> : 'Loading impact…')}</span>
       </header>
 
@@ -93,7 +130,7 @@ export default function App() {
         {legendUrl && <img src={legendUrl} alt="Legend" />}
       </div>
 
-      <footer>Tip: set <code>VITE_MAPBOX_TOKEN</code> in <code>.env</code> if you later add Mapbox basemaps. This demo uses a blank style and your raster tiles.</footer>
+      <footer>Toggle between OSM raster basemap and a blank canvas. Optional HMAC signing flows through transformRequest.</footer>
     </div>
   )
 }

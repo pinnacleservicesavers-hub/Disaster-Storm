@@ -171,15 +171,17 @@ npm run dev  # Opens on http://localhost:5173
 
 **Requirements:** Backend on `localhost:3001` with `/api/impact`, `/api/impact/tiles/{z}/{x}/{y}.png`, `/api/legend.png`
 
-### Mapbox GL Demo (HMAC Signed Tiles)
+### Mapbox GL Demo (Dual Toggles Edition)
 
 **Location:** `/disaster-direct-mapbox-demo/`
 
-Advanced React + Vite + Mapbox GL demo with **HMAC signing toggle**.
+Most feature-complete React + Vite + Mapbox GL demo with **dual independent toggles**.
 
 **Features:**
-- Mapbox GL JS v3 integration (blank style, no token required)
+- Mapbox GL JS v3 integration (no token required with OSM/blank styles)
+- **OSM basemap toggle** - Switch between OpenStreetMap raster and blank canvas
 - **HMAC signing toggle** - Test unsigned vs signed tiles
+- Four possible combinations (OSM+unsigned, OSM+signed, blank+unsigned, blank+signed)
 - Auto-signed tiles via `makeMapboxTransformRequest()`
 - Draggable marker for location selection
 - Signed/unsigned legend support
@@ -190,7 +192,7 @@ Advanced React + Vite + Mapbox GL demo with **HMAC signing toggle**.
 ```bash
 cd disaster-direct-mapbox-demo
 npm install
-npm run dev  # Opens on http://localhost:5174
+npm run dev  # Opens on http://localhost:5176
 ```
 
 **Requirements:** 
