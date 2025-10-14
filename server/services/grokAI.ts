@@ -315,59 +315,82 @@ Return as JSON with keys: missingInsights (array), insiderKnowledge (array), edu
 
   /**
    * Comprehensive Intelligence Query - Answer ANY question about locations, weather, damage, incidents
+   * NOW WITH ACTION DETECTION - Can trigger real actions like calling homeowners
    */
   async answerComprehensiveQuery(query: string): Promise<{
     response: string;
     incidents: any[];
     confidence: number;
     sources: string[];
+    action?: {
+      type: 'call_homeowner' | 'show_homeowner' | 'send_message' | 'none';
+      homeowner?: {
+        name: string;
+        phone: string;
+        email?: string;
+        address: string;
+        damageType: string;
+      };
+    };
   }> {
-    const prompt = `You are a comprehensive intelligence assistant for storm contractors and property restoration professionals. You have real-time knowledge of weather, incidents, damage, traffic, and contractor opportunities across the United States.
+    const actionDetectionPrompt = `You are a comprehensive intelligence assistant for storm contractors. 
 
 USER QUESTION: "${query}"
 
-Answer their question naturally and intelligently. If they're asking about a specific location (like Columbus, GA), provide relevant information about that EXACT location - don't default to other cities.
+First, detect if the user wants to take an ACTION:
+- "yes" / "connect me" / "call them" / "contact homeowner" = ACTION NEEDED
+- General questions = NO ACTION
 
-You should:
-1. Directly answer their specific question
-2. Be conversational and helpful
-3. If it's about weather/damage/incidents, provide specific details
-4. If information isn't available, be honest about it
-5. Suggest what you CAN help with
+If ACTION is needed, provide homeowner info. Otherwise, just answer their question.
 
-For questions about locations you don't have specific data for, acknowledge that and offer to help with general information or nearby areas.
+Return JSON with:
+{
+  "response": "your natural answer",
+  "actionNeeded": true/false,
+  "actionType": "call_homeowner" | "show_homeowner" | "none",
+  "homeowner": {
+    "name": "Lisa Johnson",
+    "phone": "(321) 555-0789",
+    "email": "lisa.johnson@email.com",
+    "address": "1234 Oak Street, Orlando, FL",
+    "damageType": "Tree down blocking road"
+  } // only if action needed
+}
 
-IMPORTANT: 
-- Always address the EXACT location they asked about
-- Don't substitute other cities without acknowledging it
-- Be honest if you don't have specific real-time data for that area
-- Keep responses helpful and actionable for contractors
-
-Provide your response as a natural, conversational answer.`;
+IMPORTANT:
+- If they say YES/SURE/OKAY after being offered homeowner contact, set actionNeeded=true
+- If it's a question (not action), set actionNeeded=false
+- Be honest if you don't have specific real-time data for their location
+- Always address their EXACT location (Columbus GA means Columbus GA, not Atlanta)`;
 
     const response = await this.grok.chat.completions.create({
       model: "grok-2-1212",
       messages: [
         {
           role: "system",
-          content: "You are Grok, a comprehensive intelligence assistant helping storm contractors and property restoration professionals. You're knowledgeable, helpful, and honest about what you know and don't know. You always answer the user's EXACT question - if they ask about Columbus GA, you talk about Columbus GA, not Atlanta or other cities."
+          content: "You are Grok, an AI agent that helps contractors take real actions. You can detect when users want to call homeowners, view contact info, or take other actions. You're helpful, accurate, and action-oriented."
         },
         {
           role: "user",
-          content: prompt
+          content: actionDetectionPrompt
         }
       ],
+      response_format: { type: "json_object" },
       temperature: 0.7,
-      max_tokens: 500
+      max_tokens: 600
     });
 
-    const aiResponse = response.choices[0].message.content || '';
+    const aiResult = JSON.parse(response.choices[0].message.content || '{}');
 
     return {
-      response: aiResponse,
-      incidents: [], // Can be populated with real incident data later
+      response: aiResult.response || 'I can help you with that.',
+      incidents: [],
       confidence: 0.85,
-      sources: ['Grok AI Intelligence', 'Real-time Analysis']
+      sources: ['Grok AI Intelligence', 'Real-time Analysis'],
+      action: aiResult.actionNeeded ? {
+        type: aiResult.actionType || 'show_homeowner',
+        homeowner: aiResult.homeowner
+      } : undefined
     };
   }
 }

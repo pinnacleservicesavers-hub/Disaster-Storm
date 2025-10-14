@@ -7455,7 +7455,7 @@ Email: strategiclandmgmt@gmail.com
       // Import grokAI service
       const { grokAI } = await import('./services/grokAI.js');
       
-      // Use real Grok AI to answer the question intelligently
+      // Use real Grok AI to answer the question intelligently with ACTION DETECTION
       const aiResult = await grokAI.answerComprehensiveQuery(query);
       
       res.json({
@@ -7465,6 +7465,7 @@ Email: strategiclandmgmt@gmail.com
         relatedAlerts: [],
         confidence: aiResult.confidence,
         sources: aiResult.sources,
+        action: aiResult.action, // NEW: Pass action to frontend
         timestamp: new Date().toISOString()
       });
     } catch (error) {

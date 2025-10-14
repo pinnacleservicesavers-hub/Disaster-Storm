@@ -48,6 +48,7 @@ import {
 } from 'lucide-react';
 import { FadeIn, PulseAlert } from '@/components/ui/animations';
 import { apiRequest } from '@/lib/queryClient';
+import { HomeownerContactModal } from '@/components/HomeownerContactModal';
 
 interface LiveIncident {
   id: string;
@@ -108,6 +109,10 @@ export function ComprehensiveIntelligenceSystem({ className = '', onIncidentAler
   const [processingIntensity, setProcessingIntensity] = useState(96);
   const [knowledgeAccuracy, setKnowledgeAccuracy] = useState(99.2);
   const [monitoringCoverage, setMonitoringCoverage] = useState(100);
+  
+  // NEW: Homeowner contact modal state
+  const [showHomeownerModal, setShowHomeownerModal] = useState(false);
+  const [selectedHomeowner, setSelectedHomeowner] = useState<any>(null);
 
   const recognitionRef = useRef<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -174,6 +179,18 @@ export function ComprehensiveIntelligenceSystem({ className = '', onIncidentAler
       
       setMessages(prev => [...prev, aiMessage]);
       
+      // NEW: Handle AI actions - show homeowner modal when action is detected
+      if (data.action && data.action.homeowner) {
+        console.log('🎯 AI Action detected:', data.action.type);
+        setSelectedHomeowner(data.action.homeowner);
+        setShowHomeownerModal(true);
+        
+        // Speak a confirmation
+        if (voiceEnabled) {
+          speakResponse(`Opening contact information for ${data.action.homeowner.name}.`);
+        }
+      }
+      
       // Update active incidents if new ones are discovered
       if (data.incidents && data.incidents.length > 0) {
         setActiveIncidents(prev => {
@@ -193,7 +210,7 @@ export function ComprehensiveIntelligenceSystem({ className = '', onIncidentAler
       }
       
       // Speak the AI response if voice is enabled (with error handling)
-      if (voiceEnabled && data.response) {
+      if (voiceEnabled && data.response && !data.action) {
         try {
           speakResponse(data.response);
         } catch (speechError) {
@@ -771,6 +788,28 @@ I'll give you real-time updates and can even tell you homeowner contact informat
           </div>
         </div>
       </CardContent>
+
+      {/* Homeowner Contact Modal - AI Agent takes action! */}
+      <HomeownerContactModal
+        homeowner={selectedHomeowner}
+        isOpen={showHomeownerModal}
+        onClose={() => setShowHomeownerModal(false)}
+        onCall={async (phone) => {
+          console.log('📞 AI Agent initiating call to:', phone);
+          // TODO: Integrate with Twilio for actual calling
+          // For now, open native phone dialer
+          window.location.href = `tel:${phone}`;
+          
+          // Speak confirmation
+          if (voiceEnabled) {
+            speakResponse(`Connecting you to ${selectedHomeowner?.name} now.`);
+          }
+        }}
+        onEmail={(email) => {
+          console.log('📧 Opening email to:', email);
+          window.location.href = `mailto:${email}`;
+        }}
+      />
     </Card>
   );
 }
