@@ -1,0 +1,346 @@
+Perfect — let’s add the two investor-grade features you asked for:
+
+Impact Heatmap Tiles (/api/impact/tiles/{z}/{x}/{y}.png)
+
+PDF Incident Report (/api/report.pdf?lat=..&lng=..&hours=24)
+
+These make Disaster Direct feel complete: a live, map-ready layer plus a sharable, insurance-friendly report.
+
+0) Install extra deps
+npm i pdfkit canvas @mapbox/sphericalmercator
+# already have: express node-fetch dotenv express-rate-limit cors
+
+
+canvas is the Node bindings for Cairo. On Replit it works out of the box; on local machines you may need system libs (libcairo2). If that’s a pain locally, deploy on Replit/Render/Railway.
+
+1) Impact Tiles (PNG heatmap)
+
+What it does
+
+Serves 256×256 PNG map tiles at /api/impact/tiles/{z}/{x}/{y}.png.
+
+Samples your Impact v2 at a small grid (defaults 6×6) inside each tile.
+
+Colors each pixel using a Viridis-style palette (0 → 100).
+
+Caches results for ~2–5 minutes so you don’t hammer upstream vendors.
+
+routes/tiles.js
+
+// routes/tiles.js
+import { createCanvas } from "canvas";
+import SphericalMercator from "@mapbox/sphericalmercator";
+import { makeCache } from "../helpers/cache.js";
+import { fetchJson } from "../helpers/http.js";
+
+const TILE_SIZE = 256;
+const merc = new SphericalMercator({ size: TILE_SIZE });
+const cache = makeCache(120_000); // 2 min default
+
+// Simple viridis (truncated & fast). Return [r,g,b]
+function viridis(t) {
+  // t in [0,1]
+  const a = (1 - t), b = t;
+  // quick polynomial-ish approx (good enough for tiles)
+  const r = Math.round(255 * (0.267 * a + 0.283 * b));
+  const g = Math.round(255 * (0.004 * a + 0.720 * b));
+  const bl = Math.round(255 * (0.329 * a + 0.228 * b));
+  return [r, g, bl];
+}
+
+function clamp01(x) { return Math.max(0, Math.min(1, x)); }
+
+// Sample grid → returns 2D array of scores [0..100]
+async function sampleImpactGrid(z, x, y, grid = 6, pollen = false, baseUrl = "") {
+  // tile bbox [w,s,e,n] in lon/lat
+  const bbox = merc.bbox(x, y, z, false, "WGS84");
+  const [w, s, e, n] = bbox;
+  const rows = grid, cols = grid;
+  const points = [];
+  for (let r = 0; r < rows; r++) {
+    const lat = n + (s - n) * (r / (rows - 1));
+    for (let c = 0; c < cols; c++) {
+      const lng = w + (e - w) * (c / (cols - 1));
+      points.push({ r, c, lat, lng });
+    }
+  }
+  // Call local /api/impact (keeps keys server-side)
+  const qs = (lat, lng) => `/api/impact?lat=${lat}&lng=${lng}${pollen ? "&pollen=1" : ""}`;
+  const res = await Promise.all(points.map(p =>
+    fetchJson(`${baseUrl}${qs(p.lat, p.lng)}`).catch(() => ({ impactScore: 0 }))
+  ));
+  // Fill grid
+  const gridData = Array.from({ length: rows }, () => Array(cols).fill(0));
+  for (let i = 0; i < points.length; i++) {
+    const { r, c } = points[i];
+    gridData[r][c] = clamp01((res[i]?.impactScore || 0) / 100);
+  }
+  return gridData;
+}
+
+// Bilinear helper for upscaling the coarse grid to pixels
+function bilinear(valueGrid, u, v) {
+  const rows = valueGrid.length;
+  const cols = valueGrid[0].length;
+  const x = u * (cols - 1);
+  const y = v * (rows - 1);
+  const x0 = Math.floor(x), y0 = Math.floor(y);
+  const x1 = Math.min(x0 + 1, cols - 1);
+  const y1 = Math.min(y0 + 1, rows - 1);
+  const q11 = valueGrid[y0][x0];
+  const q21 = valueGrid[y0][x1];
+  const q12 = valueGrid[y1][x0];
+  const q22 = valueGrid[y1][x1];
+  const tx = x - x0, ty = y - y0;
+  const a = q11 * (1 - tx) + q21 * tx;
+  const b = q12 * (1 - tx) + q22 * tx;
+  return a * (1 - ty) + b * ty;
+}
+
+export function mountImpactTiles(app, { baseUrl = "" } = {}) {
+  // GET /api/impact/tiles/{z}/{x}/{y}.png?pollen=1&grid=6&ttl=120
+  app.get("/api/impact/tiles/:z/:x/:y.png", async (req, res) => {
+    const { z, x, y } = req.params;
+    const pollen = req.query.pollen === "1" || req.query.pollen === "true";
+    const grid = Math.max(3, Math.min(16, Number(req.query.grid) || 6));
+    const ttl = Math.max(30_000, Math.min(300_000, (Number(req.query.ttl) || 120) * 1000)); // 30s..5m
+
+    const key = `tile:${z}/${x}/${y}:g=${grid}:p=${pollen}`;
+    const hit = cache.get(key);
+    if (hit) {
+      res.setHeader("Content-Type", "image/png");
+      return res.end(hit);
+    }
+
+    try {
+      const g = await sampleImpactGrid(Number(z), Number(x), Number(y), grid, pollen, baseUrl);
+      const canvas = createCanvas(TILE_SIZE, TILE_SIZE);
+      const ctx = canvas.getContext("2d");
+      const img = ctx.createImageData(TILE_SIZE, TILE_SIZE);
+      const data = img.data;
+
+      // paint pixels
+      let idx = 0;
+      for (let py = 0; py < TILE_SIZE; py++) {
+        const v = py / (TILE_SIZE - 1);
+        for (let px = 0; px < TILE_SIZE; px++) {
+          const u = px / (TILE_SIZE - 1);
+          const t = clamp01(bilinear(g, u, v));        // 0..1
+          const [r, g_, b] = viridis(t);
+          data[idx++] = r;
+          data[idx++] = g_;
+          data[idx++] = b;
+          data[idx++] = Math.round(180 + 75 * t);      // alpha: slightly stronger for higher impact
+        }
+      }
+      ctx.putImageData(img, 0, 0);
+
+      const buf = canvas.toBuffer("image/png");
+      cache.set(key, buf, ttl);
+      res.setHeader("Content-Type", "image/png");
+      res.end(buf);
+    } catch (e) {
+      res.status(502).json({ error: "tile render failed", details: String(e) });
+    }
+  });
+
+  // Static legend (PNG) for the palette — already used by your demos
+  app.get("/api/legend.png", (req, res) => {
+    const canvas = createCanvas(256, 48);
+    const ctx = canvas.getContext("2d");
+    for (let x = 0; x < 256; x++) {
+      const t = x / 255;
+      const [r, g, b] = viridis(t);
+      ctx.fillStyle = `rgb(${r},${g},${b})`;
+      ctx.fillRect(x, 0, 1, 32);
+    }
+    ctx.fillStyle = "#333";
+    ctx.font = "10px sans-serif";
+    ctx.fillText("0", 2, 44);
+    ctx.fillText("50", 120, 44);
+    ctx.fillText("100", 232, 44);
+
+    res.setHeader("Content-Type", "image/png");
+    res.end(canvas.toBuffer("image/png"));
+  });
+}
+
+
+This route calls your own /api/impact for grid samples — so your Ambee/Xweather/NWS fusion is used and vendor keys stay hidden. The per-tile cache plus your /api/impact cache keep usage sane.
+
+Wire it in server.js
+
+import { mountImpactTiles } from "./routes/tiles.js";
+...
+mountImpactTiles(app, { baseUrl: "" }); // if your API is same origin, leave empty
+
+2) PDF Incident Report (investor/insurance friendly)
+
+What it does
+
+/api/report.pdf?lat=33.749&lng=-84.388&hours=24
+
+Pulls Impact v2, NWS alerts, optional Xweather hail/lightning snippets.
+
+Renders a branded 1–2 page PDF with:
+
+Header (Disaster Direct, lat/lng, timestamp)
+
+Current Impact score + breakdown
+
+Recent NWS alerts list
+
+A small legend swatch and textual summary
+
+“Sources & Methods” section (Ambee + Xweather + NWS)
+
+routes/report.js
+
+// routes/report.js
+import PDFDocument from "pdfkit";
+import { fetchJson } from "../helpers/http.js";
+
+export function mountReport(app, { baseUrl = "" } = {}) {
+  // GET /api/report.pdf?lat=..&lng=..&hours=24
+  app.get("/api/report.pdf", async (req, res) => {
+    try {
+      const lat = Number(req.query.lat);
+      const lng = Number(req.query.lng);
+      const hours = Number(req.query.hours || 24);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+        return res.status(400).json({ error: "lat and lng required" });
+      }
+
+      // 1) Pull fused impact
+      const impact = await fetchJson(`${baseUrl}/api/impact?lat=${lat}&lng=${lng}&pollen=1`).catch(() => null);
+
+      // 2) Pull NWS alerts
+      const alerts = await fetchJson(`${baseUrl}/api/nws/alerts?lat=${lat}&lng=${lng}`).catch(() => ({ features: [] }));
+
+      // 3) Pull optional Xweather snippets (best-effort; won’t fail the report)
+      const lightning = await fetchJson(`${baseUrl}/api/xweather/v1/lightning/recent?lat=${lat}&lng=${lng}&radius=50`).catch(() => null);
+      const hail = await fetchJson(`${baseUrl}/api/xweather/v1/hail/reports?lat=${lat}&lng=${lng}&radius=50&hours=${hours}`).catch(() => null);
+
+      res.setHeader("Content-Type", "application/pdf");
+      const doc = new PDFDocument({ size: "LETTER", margin: 40 });
+      doc.pipe(res);
+
+      // Header
+      doc.fontSize(18).text("Disaster Direct – Incident Report", { align: "left" });
+      doc.moveDown(0.5);
+      doc.fontSize(10).fillColor("#555")
+        .text(`Generated: ${new Date().toISOString()}`)
+        .text(`Location: ${lat.toFixed(4)}, ${lng.toFixed(4)}  |  Window: last ${hours}h`);
+      doc.moveDown(1);
+      doc.fillColor("#000");
+
+      // Impact summary
+      const score = impact?.impactScore ?? 0;
+      doc.fontSize(14).text(`Impact Score: ${score}/100`, { continued: false });
+      doc.moveDown(0.25);
+      const c = impact?.components || {};
+      doc.fontSize(10).text(`Wind gust score: ${c.windScore ?? 0}  (gust kt: ${c.windGustKts ?? "n/a"})`);
+      doc.text(`Lightning score: ${c.lightningScore ?? 0}  (events: ${c.lightningCount ?? 0})`);
+      doc.text(`Hail score: ${c.hailScore ?? 0}  (reports: ${c.hailCount ?? 0})`);
+      doc.text(`Alert score: ${c.alertScore ?? 0}  (events: ${(c.alerts || []).join(", ") || "none"})`);
+      doc.moveDown(0.5);
+
+      // Legend (use the same palette; quick bar)
+      doc.fontSize(10).text("Legend (Impact 0–100):");
+      const x = doc.x, y = doc.y;
+      const w = 180, h = 10;
+      for (let i = 0; i < w; i++) {
+        const t = i / (w - 1);
+        // small viridis inline (same idea as tiles)
+        const r = Math.round(255 * (0.267 * (1-t) + 0.283 * t));
+        const g = Math.round(255 * (0.004 * (1-t) + 0.720 * t));
+        const b = Math.round(255 * (0.329 * (1-t) + 0.228 * t));
+        doc.fillColor(`rgb(${r},${g},${b})`).rect(x + i, y, 1, h).fill();
+      }
+      doc.moveDown(1.2);
+
+      // NWS alerts list
+      doc.fontSize(12).text("Recent NWS Alerts", { underline: true });
+      const features = Array.isArray(alerts?.features) ? alerts.features : [];
+      if (features.length === 0) {
+        doc.fontSize(10).text("No active alerts found for this point.");
+      } else {
+        doc.moveDown(0.3);
+        features.slice(0, 12).forEach((f) => {
+          const p = f?.properties || {};
+          const line = `• ${p.event || "Alert"}  |  ${p.severity || ""}  |  ${p.effective || ""}`;
+          doc.fontSize(10).text(line);
+        });
+      }
+      doc.moveDown(0.8);
+
+      // Lightning & Hail snippets
+      doc.fontSize(12).text("Xweather Signals", { underline: true });
+      const lCount = Array.isArray(lightning?.events) ? lightning.events.length : 0;
+      const hCount = Array.isArray(hail?.reports) ? hail.reports.length : 0;
+      doc.fontSize(10).text(`Lightning events (last ~hour near point): ${lCount}`);
+      doc.text(`Hail reports (last ${hours}h near point): ${hCount}`);
+      doc.moveDown(0.8);
+
+      // Sources & Methods
+      doc.fontSize(12).text("Sources & Methods", { underline: true });
+      doc.fontSize(10)
+        .text("• Ambee: weather/latest/by-lat-lng (wind gust, AQ, etc.)")
+        .text("• Xweather: lightning/recent, hail/reports")
+        .text("• NWS: alerts/active by point")
+        .moveDown(0.3)
+        .text("Impact score = weighted blend of normalized wind gust, lightning frequency, hail density, and active alert severity. Weights can be tuned per vertical (insurance, utilities, field ops).");
+
+      doc.end();
+    } catch (err) {
+      res.status(502).json({ error: "report failed", details: String(err) });
+    }
+  });
+}
+
+
+Wire it in server.js
+
+import { mountReport } from "./routes/report.js";
+...
+mountReport(app, { baseUrl: "" }); // same-origin
+
+3) Use it in your frontends (already set!)
+
+Tiles: your existing Leaflet/Mapbox/MapLibre demos are already set up for /api/impact/tiles/{z}/{x}/{y}.png and /api/legend.png.
+
+PDF: add a “Download Report” button in your dashboard:
+
+<button onClick={() => {
+  const q = new URLSearchParams({ lat: String(lat), lng: String(lng), hours: "24" });
+  window.open(`/api/report.pdf?${q.toString()}`, "_blank");
+}}>
+  Download Incident Report (PDF)
+</button>
+
+4) Production notes (important)
+
+Caching: Tiles cache is 2 minutes by default; you can increase to 5–10 minutes at higher zooms. /api/impact internally caches per lat/lng for ~45s (as we set earlier).
+
+Usage control: If traffic grows, add a per-route rate limiter (already enabled globally for /api/).
+
+Precompute option: For active events, you can precompute tiles in the background for zooms 6–11 over a bbox and warm the cache.
+
+HMAC signing (optional): If you want signed tiles/legend for public apps, add /api/sign/tile and /api/sign/legend and toggle the Mapbox demo’s HMAC option (we already included the client hook).
+
+5) Quick test commands
+# Tile check (z/x/y for Atlanta area; tweak as needed)
+curl -s "http://localhost:3001/api/impact/tiles/10/271/392.png" -o tile.png && file tile.png
+
+# Legend
+curl -s "http://localhost:3001/api/legend.png" -o legend.png
+
+# Report
+curl -s "http://localhost:3001/api/report.pdf?lat=33.749&lng=-84.388&hours=24" -o report.pdf
+
+
+If you want, I can also add:
+
+/api/sign/tile and /api/sign/legend (HMAC w/ short TTL),
+
+a background precompute script to warm tiles in storm polygons, and

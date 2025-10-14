@@ -1,0 +1,418 @@
+Awesome—here’s a complete, copy-paste bundle to wire Xweather + NWS into your backend, blend them with Ambee into a single Impact v2 endpoint, and expose serverless (Next.js) versions too. I’m keeping everything drop-in so you can paste into your current Replit/Express setup right now.
+
+0) Env vars (.env)
+
+Add these (you already have AMBEE_API_KEY, XWEATHER_*):
+
+# Ambee
+AMBEE_API_KEY=your_ambee_key
+
+# Xweather
+XWEATHER_CLIENT_ID=your_xweather_client_id
+XWEATHER_CLIENT_SECRET=your_xweather_client_secret
+
+# NWS (required header per policy; use your email)
+NWS_USER_AGENT=DisasterDirect/0.1 (youremail@example.com)
+
+1) Install deps
+npm i express node-fetch dotenv express-rate-limit cors
+
+
+If you’re on ESM already, these imports will work as-is. If CJS, replace import with require.
+
+2) Helpers (retry + tiny cache)
+
+Create helpers/http.js:
+
+// helpers/http.js
+import fetch from "node-fetch";
+
+export const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+export const isRetryable = (s) => s === 429 || s >= 500;
+
+export async function fetchJson(url, init = {}, { retries = 2, backoffBaseMs = 250, backoffCapMs = 3000 } = {}) {
+  const once = async () => {
+    const r = await fetch(url, init);
+    const ct = r.headers.get("content-type") || "";
+    const data = ct.includes("application/json") ? await r.json() : await r.text();
+    if (!r.ok) {
+      const retryAfter = Number(r.headers.get("Retry-After"));
+      const err = typeof data === "object" ? data : { error: String(data) };
+      err.status = r.status; err.retryAfterSec = Number.isFinite(retryAfter) ? retryAfter : undefined;
+      throw err;
+    }
+    return data;
+  };
+
+  let attempt = 0;
+  while (true) {
+    try { return await once(); }
+    catch (e) {
+      attempt++;
+      if (!isRetryable(e.status || 0) || attempt > retries) throw e;
+      const jitter = Math.random() * backoffBaseMs;
+      const waitMs = (e.retryAfterSec ? e.retryAfterSec * 1000 : backoffBaseMs * 2 ** (attempt - 1) + jitter);
+      await sleep(Math.min(waitMs, backoffCapMs));
+    }
+  }
+}
+
+
+Create helpers/cache.js:
+
+// helpers/cache.js
+export function makeCache(defaultTtlMs = 60_000) {
+  const m = new Map();
+  const get = (k) => {
+    const v = m.get(k);
+    if (!v) return null;
+    if (Date.now() > v.expireAt) { m.delete(k); return null; }
+    return v.data;
+  };
+  const set = (k, d, ttlMs = defaultTtlMs) => m.set(k, { data: d, expireAt: Date.now() + ttlMs });
+  return { get, set };
+}
+
+3) Proxies
+3a) Ambee (already have, keep it)
+
+(skip if already implemented)
+
+3b) Xweather (secure proxy)
+
+Create routes/xweather.js:
+
+// routes/xweather.js
+import { fetchJson } from "../helpers/http.js";
+import { makeCache } from "../helpers/cache.js";
+
+const BASE = "https://api.xweather.com";
+const cache = makeCache(60_000);
+
+const ALLOWED = new Set([
+  "v1/forecast",
+  "v1/lightning/recent",
+  "v1/severe/alerts",
+  "v1/hail/reports",
+  "v1/wind/reports",
+]);
+
+function authHeader() {
+  const id = process.env.XWEATHER_CLIENT_ID || "";
+  const sec = process.env.XWEATHER_CLIENT_SECRET || "";
+  const token = Buffer.from(`${id}:${sec}`).toString("base64");
+  return `Basic ${token}`;
+}
+
+export function mountXweather(app) {
+  app.get("/api/xweather/*", async (req, res) => {
+    const endpoint = req.params[0];
+    if (!ALLOWED.has(endpoint)) return res.status(400).json({ error: "Endpoint not allowed", endpoint });
+
+    const u = new URL(`/${endpoint}`, BASE);
+    for (const [k, v] of Object.entries(req.query)) u.searchParams.set(k, String(v));
+
+    const key = u.toString();
+    const hit = cache.get(key);
+    if (hit) return res.json(hit);
+
+    try {
+      const data = await fetchJson(u.toString(), {
+        headers: { Authorization: authHeader(), Accept: "application/json" },
+      });
+      cache.set(key, data);
+      res.json(data);
+    } catch (e) {
+      res.status(e.status || 502).json(e);
+    }
+  });
+}
+
+3c) NWS (free US alerts/forecast)
+
+Create routes/nws.js:
+
+// routes/nws.js
+import { fetchJson } from "../helpers/http.js";
+import { makeCache } from "../helpers/cache.js";
+
+const cache = makeCache(60_000);
+
+function ua() {
+  return process.env.NWS_USER_AGENT || "DisasterDirect/0.1 (email-required@nws.gov)";
+}
+
+export function mountNws(app) {
+  // Active alerts near a point (buffered box)
+  app.get("/api/nws/alerts", async (req, res) => {
+    const { lat, lng } = req.query;
+    if (!lat || !lng) return res.status(400).json({ error: "lat and lng required" });
+
+    // NWS alerts support area filters; simplest is a bounding box around the point.
+    const d = 1.0; // ~1 degree box; adjust
+    const bbox = [lng - d, lat - d, lng + d, lat + d].join(",");
+    const url = `https://api.weather.gov/alerts/active?status=actual&message_type=alert&point=${lat},${lng}&area=US&urgency=Immediate,Expected&region=US&limit=50`;
+
+    const key = url;
+    const hit = cache.get(key);
+    if (hit) return res.json(hit);
+
+    try {
+      const data = await fetchJson(url, { headers: { "User-Agent": ua(), Accept: "application/geo+json" } });
+      cache.set(key, data, 45_000);
+      res.json(data);
+    } catch (e) {
+      res.status(e.status || 502).json(e);
+    }
+  });
+
+  // Simple gridpoint forecast (optional)
+  app.get("/api/nws/forecast", async (req, res) => {
+    const { lat, lng } = req.query;
+    if (!lat || !lng) return res.status(400).json({ error: "lat and lng required" });
+    try {
+      // Step 1: gridpoint endpoint
+      const pts = await fetchJson(`https://api.weather.gov/points/${lat},${lng}`, {
+        headers: { "User-Agent": ua(), Accept: "application/geo+json" },
+      });
+      const url = pts?.properties?.forecast;
+      if (!url) return res.status(502).json({ error: "No forecast URL for point" });
+
+      // Step 2: forecast
+      const forecast = await fetchJson(url, { headers: { "User-Agent": ua(), Accept: "application/geo+json" } });
+      res.json(forecast);
+    } catch (e) {
+      res.status(e.status || 502).json(e);
+    }
+  });
+}
+
+4) Impact v2 (Ambee + Xweather + NWS fused)
+
+Create routes/impact.js:
+
+// routes/impact.js
+import { fetchJson } from "../helpers/http.js";
+import { makeCache } from "../helpers/cache.js";
+
+const cache = makeCache(60_000);
+
+function clamp01(x) { return Math.max(0, Math.min(1, x)); }
+function norm(x, min, max) { return clamp01((x - min) / (max - min || 1)); }
+
+// Simple normalizers (tune later based on data distribution)
+function nWindGust(kts) { return norm(kts, 15, 55); }           // 15–55 kt range
+function nHailCount(count) { return clamp01(count / 20); }      // 0–20 reports
+function nLightningCount(count) { return clamp01(count / 200); } // 0–200 strikes
+function nAlertSeverity(nwsFeatures) {
+  // bump if any "Severe Thunderstorm Warning" / "Tornado Warning" etc.
+  const titles = (nwsFeatures || []).map(f => f?.properties?.event || "");
+  const weights = titles.map(t =>
+    /tornado/i.test(t) ? 1.0 :
+    /severe.*thunderstorm/i.test(t) ? 0.7 :
+    /high wind|wind advisory/i.test(t) ? 0.5 :
+    0
+  );
+  return clamp01(weights.reduce((a,b)=>Math.max(a,b), 0));
+}
+
+export function mountImpactV2(app) {
+  // GET /api/impact?lat=..&lng=..&pollen=1
+  app.get("/api/impact", async (req, res) => {
+    const { lat, lng, pollen } = req.query;
+    if (!lat || !lng) return res.status(400).json({ error: "lat and lng required" });
+
+    const key = `impact:${lat},${lng}:p=${pollen?"1":"0"}`;
+    const hit = cache.get(key);
+    if (hit) return res.json(hit);
+
+    try {
+      // Parallel fetches via your proxies (so keys stay hidden)
+      const ambeeWeatherUrl = `https://api.ambeedata.com/weather/latest/by-lat-lng?lat=${lat}&lng=${lng}`;
+      const xwLightningUrl = `/api/xweather/v1/lightning/recent?lat=${lat}&lng=${lng}&radius=50`;
+      const xwHailUrl = `/api/xweather/v1/hail/reports?lat=${lat}&lng=${lng}&radius=50&hours=24`;
+      const nwsAlertsUrl = `/api/nws/alerts?lat=${lat}&lng=${lng}`;
+
+      // Ambee weather (direct upstream, or route through your ambee proxy if you have it)
+      const ambee = await fetchJson(ambeeWeatherUrl, {
+        headers: { "x-api-key": process.env.AMBEE_API_KEY, Accept: "application/json" }
+      });
+
+      // Xweather + NWS through local server (assume same origin; if different, prefix base)
+      const [ lightning, hail, alerts ] = await Promise.all([
+        fetchJson(xwLightningUrl),
+        fetchJson(xwHailUrl),
+        fetchJson(nwsAlertsUrl),
+      ]);
+
+      // Extract signals
+      const gustKts = Number(ambee?.data?.[0]?.wind?.gust || ambee?.wind?.gust || 0); // adjust to your actual ambee shape
+      const lightningCount = Array.isArray(lightning?.events) ? lightning.events.length : 0;
+      const hailCount = Array.isArray(hail?.reports) ? hail.reports.length : 0;
+      const alertSeverity = nAlertSeverity(alerts?.features);
+
+      // Normalize -> 0..1
+      const wGustN = nWindGust(gustKts);
+      const lN = nLightningCount(lightningCount);
+      const hN = nHailCount(hailCount);
+      const aN = alertSeverity;
+
+      // Weighted blend (tune weights later)
+      const weights = { wind: 0.35, lightning: 0.25, hail: 0.25, alerts: 0.15 };
+      const impactScore = Math.round(100 * (
+        wGustN * weights.wind +
+        lN * weights.lightning +
+        hN * weights.hail +
+        aN * weights.alerts
+      ));
+
+      const body = {
+        impactScore,
+        components: {
+          windGustKts: gustKts, windScore: Math.round(100 * wGustN),
+          lightningCount, lightningScore: Math.round(100 * lN),
+          hailCount, hailScore: Math.round(100 * hN),
+          alerts: alerts?.features?.map(f => f?.properties?.event).filter(Boolean) || [],
+          alertScore: Math.round(100 * aN),
+        },
+        sources: {
+          ambee: "weather/latest/by-lat-lng",
+          xweather: ["lightning/recent", "hail/reports"],
+          nws: ["alerts/active (via point)"]
+        },
+        meta: { lat: Number(lat), lng: Number(lng), pollen: !!pollen, ts: new Date().toISOString() }
+      };
+
+      cache.set(key, body, 45_000);
+      res.json(body);
+    } catch (e) {
+      res.status(e.status || 502).json({ error: "Impact computation failed", details: e });
+    }
+  });
+}
+
+5) Server wiring with rate limit + CORS
+
+Create/replace server.js:
+
+// server.js
+import express from "express";
+import dotenv from "dotenv";
+import rateLimit from "express-rate-limit";
+import cors from "cors";
+
+import { mountXweather } from "./routes/xweather.js";
+import { mountNws } from "./routes/nws.js";
+import { mountImpactV2 } from "./routes/impact.js";
+// (Keep your Ambee routes mounted as well)
+
+dotenv.config();
+const app = express();
+const PORT = process.env.PORT || 3001;
+
+// CORS: allow your frontends (adjust as needed)
+app.use(cors({ origin: true, credentials: true }));
+
+// Basic rate limit for API (tune thresholds)
+app.use("/api/", rateLimit({ windowMs: 60_000, max: 120 })); // 120 req/min/IP
+
+app.get("/health", (req, res) => res.json({ status: "OK" }));
+
+// Mount routes
+mountXweather(app);
+mountNws(app);
+mountImpactV2(app);
+
+app.listen(PORT, () => console.log(`Disaster Direct API running on :${PORT}`));
+
+6) Frontend: you don’t need to change the SDK API
+
+Your SDK already calls GET /api/impact. With this v2 backend, it will now return extra fields (components, sources, meta) while keeping impactScore stable. Your existing UIs continue to work, but you can also display the richer breakdown.
+
+Example (React):
+
+const res = await getImpact(defaultBaseUrl, lat, lng, true);
+if (res.ok) {
+  console.log("Impact:", res.data.impactScore);
+  console.log("Breakdown:", res.data.components);
+}
+
+7) Quick smoke tests
+# Health
+curl http://localhost:3001/health
+
+# NWS alerts near ATL
+curl "http://localhost:3001/api/nws/alerts?lat=33.749&lng=-84.388"
+
+# Xweather forecast (proxy)
+curl "http://localhost:3001/api/xweather/v1/forecast?location=atlanta,ga"
+
+# Xweather lightning (recent) near point
+curl "http://localhost:3001/api/xweather/v1/lightning/recent?lat=33.75&lng=-84.39&radius=50"
+
+# Impact v2 (fused)
+curl "http://localhost:3001/api/impact?lat=33.749&lng=-84.388&pollen=1"
+
+8) Optional: Next.js serverless routes
+
+If you also deploy a Next.js app, create:
+
+app/api/xweather/[...path]/route.ts
+
+import { NextRequest, NextResponse } from "next/server";
+
+const BASE = "https://api.xweather.com";
+
+function authHeader() {
+  const id = process.env.XWEATHER_CLIENT_ID!;
+  const sec = process.env.XWEATHER_CLIENT_SECRET!;
+  return "Basic " + Buffer.from(`${id}:${sec}`).toString("base64");
+}
+
+export async function GET(req: NextRequest, { params }: { params: { path: string[] } }) {
+  const endpoint = (params.path || []).join("/");
+  const allowed = new Set(["v1/forecast", "v1/lightning/recent", "v1/severe/alerts", "v1/hail/reports", "v1/wind/reports"]);
+  if (!allowed.has(endpoint)) return NextResponse.json({ error: "Endpoint not allowed" }, { status: 400 });
+
+  const upstream = new URL(`/${endpoint}`, BASE);
+  req.nextUrl.searchParams.forEach((v, k) => upstream.searchParams.set(k, v));
+
+  const r = await fetch(upstream.toString(), { headers: { Authorization: authHeader(), Accept: "application/json" }, cache: "no-store" });
+  const data = await r.text();
+  return new NextResponse(data, { status: r.status, headers: { "Content-Type": r.headers.get("content-type") || "application/json" } });
+}
+
+
+app/api/nws/alerts/route.ts
+
+import { NextRequest, NextResponse } from "next/server";
+const UA = process.env.NWS_USER_AGENT || "DisasterDirect/0.1 (email-required@nws.gov)";
+
+export async function GET(req: NextRequest) {
+  const lat = req.nextUrl.searchParams.get("lat");
+  const lng = req.nextUrl.searchParams.get("lng");
+  if (!lat || !lng) return NextResponse.json({ error: "lat and lng required" }, { status: 400 });
+
+  const url = `https://api.weather.gov/alerts/active?status=actual&message_type=alert&point=${lat},${lng}&area=US&urgency=Immediate,Expected&region=US&limit=50`;
+  const r = await fetch(url, { headers: { "User-Agent": UA, Accept: "application/geo+json" }, cache: "no-store" });
+  const data = await r.text();
+  return new NextResponse(data, { status: r.status, headers: { "Content-Type": r.headers.get("content-type") || "application/geo+json" } });
+}
+
+
+app/api/impact/route.ts
+(Abridged: same logic as Express version; call your own Next.js /api/xweather/... + NWS route and Ambee upstream)
+
+9) Why this makes Disaster Direct “investor-ready”
+
+Before a storm: Xweather forecast + lightning + Ambee wind = early, local risk prediction.
+
+During a storm: continuous lightning/hail/alerts feed + your impactScore = live triage map for crews.
+
+After a storm: Xweather hail/wind reports + NWS alerts history = verifiable incident reports for claims & repairs.
+
+Resilience: multiple vendors → less downtime, better coverage.
+
+Security: keys stay server-side, allowlisted routes, rate limits.
+
+Scalability: drop-in Next.js serverless routes + your existing SDK with tests/CI.
