@@ -7452,22 +7452,19 @@ Email: strategiclandmgmt@gmail.com
       
       console.log(`🧠 Comprehensive AI Query: ${query}`);
       
-      // Generate intelligent response based on query
-      const response = await generateComprehensiveIntelligenceResponse(query, {
-        includeLiveIncidents,
-        includeTrafficData,
-        includeWeatherData,
-        includeInfrastructureData,
-        realTimeAnalysis
-      });
+      // Import grokAI service
+      const { grokAI } = await import('./services/grokAI.js');
+      
+      // Use real Grok AI to answer the question intelligently
+      const aiResult = await grokAI.answerComprehensiveQuery(query);
       
       res.json({
         success: true,
-        response: response.content,
-        incidents: response.incidents,
-        relatedAlerts: response.relatedAlerts,
-        confidence: response.confidence,
-        sources: response.sources,
+        response: aiResult.response,
+        incidents: aiResult.incidents,
+        relatedAlerts: [],
+        confidence: aiResult.confidence,
+        sources: aiResult.sources,
         timestamp: new Date().toISOString()
       });
     } catch (error) {

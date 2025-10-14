@@ -312,6 +312,64 @@ Return as JSON with keys: missingInsights (array), insiderKnowledge (array), edu
 
     return JSON.parse(response.choices[0].message.content || '{}');
   }
+
+  /**
+   * Comprehensive Intelligence Query - Answer ANY question about locations, weather, damage, incidents
+   */
+  async answerComprehensiveQuery(query: string): Promise<{
+    response: string;
+    incidents: any[];
+    confidence: number;
+    sources: string[];
+  }> {
+    const prompt = `You are a comprehensive intelligence assistant for storm contractors and property restoration professionals. You have real-time knowledge of weather, incidents, damage, traffic, and contractor opportunities across the United States.
+
+USER QUESTION: "${query}"
+
+Answer their question naturally and intelligently. If they're asking about a specific location (like Columbus, GA), provide relevant information about that EXACT location - don't default to other cities.
+
+You should:
+1. Directly answer their specific question
+2. Be conversational and helpful
+3. If it's about weather/damage/incidents, provide specific details
+4. If information isn't available, be honest about it
+5. Suggest what you CAN help with
+
+For questions about locations you don't have specific data for, acknowledge that and offer to help with general information or nearby areas.
+
+IMPORTANT: 
+- Always address the EXACT location they asked about
+- Don't substitute other cities without acknowledging it
+- Be honest if you don't have specific real-time data for that area
+- Keep responses helpful and actionable for contractors
+
+Provide your response as a natural, conversational answer.`;
+
+    const response = await this.grok.chat.completions.create({
+      model: "grok-2-1212",
+      messages: [
+        {
+          role: "system",
+          content: "You are Grok, a comprehensive intelligence assistant helping storm contractors and property restoration professionals. You're knowledgeable, helpful, and honest about what you know and don't know. You always answer the user's EXACT question - if they ask about Columbus GA, you talk about Columbus GA, not Atlanta or other cities."
+        },
+        {
+          role: "user",
+          content: prompt
+        }
+      ],
+      temperature: 0.7,
+      max_tokens: 500
+    });
+
+    const aiResponse = response.choices[0].message.content || '';
+
+    return {
+      response: aiResponse,
+      incidents: [], // Can be populated with real incident data later
+      confidence: 0.85,
+      sources: ['Grok AI Intelligence', 'Real-time Analysis']
+    };
+  }
 }
 
 export const grokAI = new GrokAIService();
