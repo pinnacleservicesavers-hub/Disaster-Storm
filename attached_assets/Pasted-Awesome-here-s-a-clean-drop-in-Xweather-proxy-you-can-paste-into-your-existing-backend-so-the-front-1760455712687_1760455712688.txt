@@ -1,0 +1,189 @@
+Awesome—here’s a clean, drop-in Xweather proxy you can paste into your existing backend so the frontend never sees your keys. I’m matching the style you used for Ambee (Express + tiny cache + allowlist).
+
+1) Env vars
+
+Add these to your .env (already in Replit Secrets for you):
+
+XWEATHER_CLIENT_ID=your_client_id
+XWEATHER_CLIENT_SECRET=your_client_secret
+
+2) Express: secure proxy routes
+xweather.js (mount this file, or paste into your server)
+// xweather.js
+import fetch from "node-fetch";
+
+const XWEATHER_BASE = "https://api.xweather.com";
+
+// tiny in-memory cache (1 min)
+const cache = new Map();
+const ttlMs = 60_000;
+const getCache = (k) => {
+  const v = cache.get(k);
+  if (!v) return null;
+  if (Date.now() > v.expireAt) { cache.delete(k); return null; }
+  return v.data;
+};
+const setCache = (k, d) => cache.set(k, { data: d, expireAt: Date.now() + ttlMs });
+
+// Allow only endpoints you plan to use (extend as needed)
+const ALLOWED = new Set([
+  "v1/forecast",           // daily/hourly forecast by location
+  "v1/lightning/recent",   // recent lightning around a point/box
+  "v1/severe/alerts",      // severe weather alerts by area
+  "v1/hail/reports",       // hail reports (post-storm)
+  "v1/wind/reports"        // wind damage/strong wind reports
+]);
+
+// Build Basic auth header
+function basicAuthHeader() {
+  const id = process.env.XWEATHER_CLIENT_ID || "";
+  const sec = process.env.XWEATHER_CLIENT_SECRET || "";
+  const token = Buffer.from(`${id}:${sec}`).toString("base64");
+  return `Basic ${token}`;
+}
+
+export function registerXweather(app) {
+  // GET proxy: /api/xweather/<endpoint>?<qs>
+  app.get("/api/xweather/*", async (req, res) => {
+    const endpoint = req.params[0]; // e.g. "v1/forecast"
+    if (!ALLOWED.has(endpoint)) {
+      return res.status(400).json({ error: "Endpoint not allowed", endpoint });
+    }
+
+    // pass through all query params
+    const upstream = new URL(`/${endpoint}`, XWEATHER_BASE);
+    for (const [k, v] of Object.entries(req.query)) upstream.searchParams.set(k, String(v));
+
+    const cacheKey = upstream.toString();
+    const hit = getCache(cacheKey);
+    if (hit) return res.json(hit);
+
+    try {
+      const r = await fetch(upstream.toString(), {
+        headers: {
+          "Authorization": basicAuthHeader(),
+          "Accept": "application/json"
+        },
+        // timeout not native in node-fetch v2; wrap with AbortController if needed
+      });
+      const ct = r.headers.get("content-type") || "";
+      const data = ct.includes("application/json") ? await r.json() : await r.text();
+
+      if (!r.ok) return res.status(r.status).json(
+        typeof data === "object" ? data : { error: String(data) }
+      );
+
+      setCache(cacheKey, data);
+      res.json(data);
+    } catch (err) {
+      res.status(502).json({ error: "Xweather upstream error", details: String(err) });
+    }
+  });
+}
+
+server.js (mount it)
+import express from "express";
+import dotenv from "dotenv";
+import { registerXweather } from "./xweather.js";
+// If you already have Ambee routes, keep them too.
+
+dotenv.config();
+const app = express();
+const PORT = process.env.PORT || 3001;
+
+registerXweather(app);
+
+app.get("/health", (req, res) => res.json({ status: "OK" }));
+app.listen(PORT, () => console.log(`API running :${PORT}`));
+
+3) Quick route checks
+Example calls (server-side)
+# Forecast (location can be "city,state" or "lat,lng" depending on your Xweather plan)
+curl "http://localhost:3001/api/xweather/v1/forecast?location=atlanta,ga"
+
+# Recent lightning near a point box/radius (adjust params per Xweather docs)
+curl "http://localhost:3001/api/xweather/v1/lightning/recent?lat=33.75&lng=-84.39&radius=50"
+
+
+If you see JSON back, your proxy is good. If you get a 400 “Endpoint not allowed”, add that exact path to the ALLOWED set.
+
+4) Frontend usage
+api.ts
+export async function getXWForecast(location: string) {
+  const r = await fetch(`/api/xweather/v1/forecast?location=${encodeURIComponent(location)}`);
+  if (!r.ok) throw new Error(`Xweather forecast failed: ${r.status}`);
+  return r.json();
+}
+
+export async function getLightning(lat: number, lng: number, radiusKm = 50) {
+  const params = new URLSearchParams({ lat: String(lat), lng: String(lng), radius: String(radiusKm) });
+  const r = await fetch(`/api/xweather/v1/lightning/recent?${params.toString()}`);
+  if (!r.ok) throw new Error(`Xweather lightning failed: ${r.status}`);
+  return r.json();
+}
+
+React example
+import { useEffect, useState } from "react";
+import { getXWForecast, getLightning } from "./api";
+
+export function LightningCard({ lat, lng }: { lat: number; lng: number }) {
+  const [forecast, setForecast] = useState<any>(null);
+  const [strikes, setStrikes] = useState<any>(null);
+  const [err, setErr] = useState("");
+
+  useEffect(() => {
+    Promise.all([
+      getXWForecast("atlanta,ga"),
+      getLightning(lat, lng, 50)
+    ])
+      .then(([f, l]) => { setForecast(f); setStrikes(l); })
+      .catch(e => setErr(String(e)));
+  }, [lat, lng]);
+
+  if (err) return <div>⚠️ {err}</div>;
+  if (!forecast || !strikes) return <div>Loading Xweather…</div>;
+
+  return (
+    <div className="card">
+      <h3>Lightning & Forecast</h3>
+      <div>Forecast: {forecast?.summary || "See JSON"}</div>
+      <div>Recent lightning events: {Array.isArray(strikes?.events) ? strikes.events.length : "n/a"}</div>
+      <details><summary>Raw forecast</summary><pre>{JSON.stringify(forecast, null, 2)}</pre></details>
+      <details><summary>Raw lightning</summary><pre>{JSON.stringify(strikes, null, 2)}</pre></details>
+    </div>
+  );
+}
+
+5) “Before + After storm” wiring (how Xweather helps your core goal)
+
+Before storm (prep/early warning):
+
+Call /api/xweather/v1/forecast hourly for target service areas; cache & surface risk indicators (severe thunderstorms, hail).
+
+Monitor /api/xweather/v1/lightning/recent to detect storm electrification and growth along a path (nowcasting).
+
+During storm (situational awareness):
+
+Poll lightning and (if available) severe alerts to highlight active cells on your map; trigger crew safety notifications.
+
+Combine with Ambee’s wind/hail to raise an impact score near open work orders or assets.
+
+After storm (verification & triage):
+
+Pull hail/wind reports endpoints to verify impact swaths.
+
+Store snapshots in your DB (time, bbox, severity) to generate PDF incident reports and auto-prioritize tickets.
+
+You can reuse your existing “impact” endpoint to fuse Ambee + Xweather signals (e.g., normalize each to 0–100 and sum with weights). If you want, I can drop a /api/impact v2 handler that includes Xweather signals immediately.
+
+6) Safety & scale checklist
+
+Keep keys server-side only (done).
+
+Add a rate limiter on /api/xweather/* if you expect bursts.
+
+Respect 429 Retry-After; optionally add exponential backoff.
+
+Consider a short in-memory cache (already included) and bump TTL to 2–5 min for heavy widgets.
+
+Log upstream status codes + request IDs to help debug outages.

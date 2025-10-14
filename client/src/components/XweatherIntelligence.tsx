@@ -126,26 +126,26 @@ export function XweatherIntelligence({
   radiusKM = 50,
   className 
 }: XweatherIntelligenceProps) {
-  const { data: lightningData, isLoading: lightningLoading } = useQuery<{ success: boolean; data: LightningThreat[]; count: number }>({
-    queryKey: ['/api/xweather/lightning/threats', latitude, longitude, radiusKM],
+  const { data: lightningData, isLoading: lightningLoading } = useQuery<any>({
+    queryKey: ['/api/xweather/lightning/threats', { lat: latitude, lng: longitude, radius: radiusKM }],
     refetchInterval: 60000,
     enabled: !!latitude && !!longitude
   });
 
-  const { data: hailData, isLoading: hailLoading } = useQuery<{ success: boolean; data: HailThreat[]; count: number }>({
-    queryKey: ['/api/xweather/hail/threats', latitude, longitude, radiusKM],
+  const { data: hailData, isLoading: hailLoading } = useQuery<any>({
+    queryKey: ['/api/xweather/hail/threats', { lat: latitude, lng: longitude }],
     refetchInterval: 180000,
     enabled: !!latitude && !!longitude
   });
 
-  const { data: stormData, isLoading: stormLoading } = useQuery<{ success: boolean; data: ComprehensiveStormData }>({
-    queryKey: ['/api/xweather/threats', latitude, longitude, radiusKM],
+  const { data: stormData, isLoading: stormLoading } = useQuery<any>({
+    queryKey: ['/api/xweather/comprehensive', { lat: latitude, lng: longitude, radius: radiusKM }],
     refetchInterval: 120000,
     enabled: !!latitude && !!longitude
   });
 
-  const { data: reportsData, isLoading: reportsLoading } = useQuery<{ success: boolean; data: StormReport[]; count: number }>({
-    queryKey: ['/api/xweather/stormreports', latitude, longitude, radiusKM],
+  const { data: reportsData, isLoading: reportsLoading } = useQuery<any>({
+    queryKey: ['/api/xweather/storms/reports', { lat: latitude, lng: longitude, radius: radiusKM }],
     refetchInterval: 300000,
     enabled: !!latitude && !!longitude
   });
@@ -171,10 +171,10 @@ export function XweatherIntelligence({
     );
   }
 
-  const comprehensiveData = stormData?.data;
-  const lightningThreats = lightningData?.data || [];
-  const hailThreats = hailData?.data || [];
-  const stormReports = reportsData?.data || [];
+  const comprehensiveData = stormData?.threatAnalysis;
+  const lightningThreats = lightningData?.threats || [];
+  const hailThreats = hailData?.threats || [];
+  const stormReports = reportsData?.reports || [];
 
   return (
     <Card className={cn("w-full", className)} data-testid="card-xweather">
@@ -216,57 +216,43 @@ export function XweatherIntelligence({
               </h3>
               <div className="flex items-center text-sm text-gray-600">
                 <Gauge className="w-4 h-4 mr-1" />
-                Score: {comprehensiveData.threatScore}/100
+                Score: {comprehensiveData?.score || 0}/100
               </div>
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
               <div className="text-center" data-testid="stat-lightning">
-                <div className="text-2xl font-bold text-yellow-600">{comprehensiveData.counts.lightningStrikes}</div>
+                <div className="text-2xl font-bold text-yellow-600">{stormData?.lightning?.strikes?.length || 0}</div>
                 <div className="text-xs text-gray-600">Lightning Strikes</div>
               </div>
               <div className="text-center" data-testid="stat-lightning-threats">
-                <div className="text-2xl font-bold text-orange-600">{comprehensiveData.counts.lightningThreats}</div>
+                <div className="text-2xl font-bold text-orange-600">{lightningThreats.length}</div>
                 <div className="text-xs text-gray-600">Lightning Threats</div>
               </div>
               <div className="text-center" data-testid="stat-hail">
-                <div className="text-2xl font-bold text-blue-600">{comprehensiveData.counts.hailThreats}</div>
+                <div className="text-2xl font-bold text-blue-600">{hailThreats.length}</div>
                 <div className="text-xs text-gray-600">Hail Threats</div>
               </div>
               <div className="text-center" data-testid="stat-reports">
-                <div className="text-2xl font-bold text-red-600">{comprehensiveData.counts.stormReports}</div>
+                <div className="text-2xl font-bold text-red-600">{stormReports.length}</div>
                 <div className="text-xs text-gray-600">Storm Reports</div>
               </div>
             </div>
 
-            {(comprehensiveData.maxValues.hailSizeInches || comprehensiveData.maxValues.windSpeedMPH) && (
-              <div className="flex items-center gap-4 text-sm">
-                {comprehensiveData.maxValues.hailSizeInches && (
-                  <div className="flex items-center" data-testid="text-max-hail">
-                    <CloudHail className="w-4 h-4 mr-1 text-blue-600" />
-                    Max Hail: {comprehensiveData.maxValues.hailSizeInches}"
-                  </div>
-                )}
-                {comprehensiveData.maxValues.windSpeedMPH && (
-                  <div className="flex items-center" data-testid="text-max-wind">
-                    <Wind className="w-4 h-4 mr-1 text-gray-600" />
-                    Max Wind: {comprehensiveData.maxValues.windSpeedMPH} mph
-                  </div>
-                )}
+            {comprehensiveData?.description && (
+              <div className="text-sm text-gray-600 italic mb-4">
+                {comprehensiveData.description}
               </div>
             )}
 
-            {comprehensiveData.advisories.hasAdvisories && (
+            {comprehensiveData?.warnings && comprehensiveData.warnings.length > 0 && (
               <Alert className="mt-4 border-orange-300 bg-orange-50" data-testid="alert-advisories">
                 <AlertTriangle className="h-4 w-4 text-orange-600" />
                 <AlertDescription>
                   <div className="font-semibold">Active Weather Advisories</div>
-                  {comprehensiveData.advisories.hasTornadic && (
-                    <div className="text-sm text-red-600 font-medium">⚠ Tornadic Activity Detected</div>
-                  )}
-                  {comprehensiveData.advisories.hasRotation && (
-                    <div className="text-sm text-orange-600">⚠ Storm Rotation Detected</div>
-                  )}
+                  {comprehensiveData.warnings.map((warning: string, idx: number) => (
+                    <div key={idx} className="text-sm text-orange-600 mt-1">⚠ {warning}</div>
+                  ))}
                 </AlertDescription>
               </Alert>
             )}
