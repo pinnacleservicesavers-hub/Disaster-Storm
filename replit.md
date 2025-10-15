@@ -49,6 +49,7 @@ Preferred communication style: Simple, everyday language.
     - ✅ NWS alerts (radius-based)
     - ✅ Xweather lightning/hail (radius-based)
     - ✅ Ambee air quality/fire (coordinate-based)
+    - ✅ Tomorrow.io premium weather intelligence (hyperlocal hail/wind footprints, severe weather alerts)
     - ⚠️ FEMA declarations (state/county-based, requires geocoding for radius queries)
     - ⚠️ NOAA historical data (state/county-based, requires geocoding for radius queries)
   - **Architectural Note**: FEMA and NOAA services are state/county-based, not radius-based. Future enhancement will add reverse geocoding to enable full integration.
@@ -110,6 +111,10 @@ Preferred communication style: Simple, everyday language.
     - `xweather_hail_threats` - Hail forecast records
     - `xweather_storm_reports` - NWS storm validation data
     - `xweather_storm_snapshots` - Comprehensive threat snapshots with advisories
+- **Tomorrow.io**: Premium hyperlocal weather intelligence platform providing high-resolution hail/wind footprints and severe weather alerts.
+  - **Service**: `tomorrowService` integrated into Disaster Aggregator
+  - **Features**: Hail intensity forecasts, wind gust predictions, severe weather event detection
+  - **API Key**: Requires `TOMORROW_API_KEY` environment variable
 
 ### Payment & Legal Integration
 - **Stripe**: Payment processing.

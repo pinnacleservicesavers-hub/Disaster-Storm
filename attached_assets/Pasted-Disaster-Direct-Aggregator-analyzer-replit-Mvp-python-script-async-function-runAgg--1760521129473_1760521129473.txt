@@ -1,0 +1,130 @@
+Disaster Direct – Aggregator/analyzer (replit Mvp)
+· python
+"""
+<script>
+async function runAgg(){
+  const lat = document.getElementById('lat').value;
+  const lon = document.getElementById('lon').value;
+  const rad = document.getElementById('rad').value;
+  const hrs = document.getElementById('hrs').value;
+  const r = await fetch(`/aggregate?lat=${lat}&lon=${lon}&radius_km=${rad}&hours_back=${hrs}`);
+  const j = await r.json();
+  document.getElementById('risk').innerHTML = `<strong>Risk Score:</strong> ${j.risk_score}`;
+  document.getElementById('parcels').innerHTML = `<strong>Impacted Parcels:</strong> ${j.impacted_parcels.map(p=>p.name).join(', ') || 'None'}`;
+  const evDiv = document.getElementById('events');
+  evDiv.innerHTML = '';
+  (j.events||[]).forEach(e=>{
+    const d = document.createElement('div');
+    d.className = 'card';
+    d.innerHTML = `<div class='pill'>${e.source}</div> <div class='pill'>${e.event_type}</div>` +
+      `<h4>${e.headline||''}</h4><div>${e.description||''}</div>`;
+    evDiv.appendChild(d);
+  });
+}
+
+
+async function listParcels(){
+  const r = await fetch('/parcels');
+  const j = await r.json();
+  document.getElementById('plist').innerHTML = '<pre>'+JSON.stringify(j,null,2)+'</pre>';
+}
+
+
+async function uploadParcels(){
+  const name = document.getElementById('pname').value || 'Parcels';
+  const file = document.getElementById('pfile').files[0];
+  if(!file){ alert('Pick a GeoJSON file first'); return; }
+  const text = await file.text();
+  const body = JSON.parse(text);
+  const r = await fetch(`/parcels?name=${encodeURIComponent(name)}`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+  const j = await r.json();
+  alert('Uploaded parcel set id '+j.parcel_id);
+  listParcels();
+}
+
+
+listParcels();
+</script>
+</body>
+</html>
+"""
+
+
+
+
+@app.get("/", response_class=HTMLResponse)
+async def dashboard():
+    return HTMLResponse(DASH_HTML)
+
+
+
+
+# -----------------------------
+# requirements.txt (create a separate file)
+# fastapi==0.115.0
+# uvicorn==0.30.6
+# httpx==0.27.2
+# pydantic==2.9.2
+# shapely==2.0.6
+
+
+
+Boom — all wired up. I upgraded your Replit-ready app in the canvas to include:
+
+Premium feed hook (Tomorrow.io): class added; it auto-enables when TOMORROWIO_API_KEY is present.
+
+Parcel upload + street-level impact: upload GeoJSON parcels via /parcels, and the app intersects event footprints with parcels using shapely. Impacted parcels come back in /aggregate and /risk-score.
+
+Simple dashboard at / (HTML+JS): run queries, see events, upload parcels, and view impacted parcels without leaving the browser.
+
+Quick start
+
+In Replit, create requirements.txt with:
+
+fastapi==0.115.0
+uvicorn==0.30.6
+httpx==0.27.2
+pydantic==2.9.2
+shapely==2.0.6
+
+
+Paste the canvas code into app.py.
+
+(Optional) Set TOMORROWIO_API_KEY in the Replit Secrets panel.
+
+Run:
+
+uvicorn app:app --host 0.0.0.0 --port 8000 --reload
+
+
+Open the webview to use the Dashboard:
+
+Try Dallas defaults, click Run to see the risk score + events.
+
+Upload a GeoJSON parcel file and re-run to see Impacted Parcels.
+
+Helpful endpoints
+
+Health: /health
+
+Aggregate: /aggregate?lat=32.7767&lon=-96.7970&radius_km=25&hours_back=72
+
+Risk only: /risk-score?lat=32.7767&lon=-96.7970
+
+Parcels:
+
+POST /parcels?name=My%20Parcels with a GeoJSON body
+
+GET /parcels
+
+DELETE /parcels/{parcel_id}
+
+Next upgrades I can add on top (just say the word)
+
+SMS/email/webhook alerts on threshold risk (crew paging).
+
+Leaflet/Mapbox map on the dashboard to render event polygons + parcels.
+
+Property-level reports (PDFs) with event history per address.
+
+Additional vendors (DTN/Aeris; Maxar/Sentinel imagery metadata; county parcel fetchers).

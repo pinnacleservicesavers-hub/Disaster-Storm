@@ -4,6 +4,7 @@ import { femaDisasterService } from './femaDisasterService';
 import { noaaStormEventsService } from './noaaStormEventsService';
 import { xweatherService } from './xweatherService';
 import { ambeeService } from './ambeeService';
+import { tomorrowService } from './tomorrowService';
 
 /**
  * Unified Event Schema
@@ -11,7 +12,7 @@ import { ambeeService } from './ambeeService';
  */
 export interface UnifiedEvent {
   id: string;
-  source: 'NWS' | 'FEMA' | 'NOAA' | 'XWEATHER' | 'AMBEE' | 'USGS';
+  source: 'NWS' | 'FEMA' | 'NOAA' | 'XWEATHER' | 'AMBEE' | 'TOMORROW' | 'USGS';
   eventType: string;
   headline: string | null;
   description: string | null;
@@ -85,6 +86,7 @@ export class DisasterAggregatorService {
       this.createNOAAProvider(),
       this.createXweatherProvider(),
       this.createAmbeeProvider(),
+      this.createTomorrowProvider(),
     ];
 
     console.log('🔄 DisasterAggregatorService initialized - Multi-source event aggregation active');
@@ -515,6 +517,92 @@ export class DisasterAggregatorService {
           return events;
         } catch (error) {
           console.error('Ambee provider error:', error);
+          return [];
+        }
+      }
+    };
+  }
+
+  /**
+   * Tomorrow.io Premium Weather Intelligence Provider
+   * Hyperlocal hail/wind footprints and severe weather alerts
+   */
+  private createTomorrowProvider(): Provider {
+    return {
+      name: 'TOMORROW',
+      fetch: async (lat, lon, radiusKm, since) => {
+        try {
+          const weatherData = await tomorrowService.getWeatherIntelligence(lat, lon, radiusKm);
+          const events: UnifiedEvent[] = [];
+
+          // Hail events
+          for (const hailEvent of weatherData.hailEvents) {
+            events.push({
+              id: `tomorrow-hail-${hailEvent.startTime}`,
+              source: 'TOMORROW',
+              eventType: 'Hail',
+              headline: `Hail threat up to ${hailEvent.values.hailSize}" detected`,
+              description: `Hail probability: ${hailEvent.values.hailProbability}%, intensity: ${hailEvent.values.hailIntensity}`,
+              severity: hailEvent.values.hailSize > 2 ? 'extreme' : hailEvent.values.hailSize > 1 ? 'severe' : 'moderate',
+              urgency: 'expected',
+              certainty: hailEvent.values.hailProbability > 70 ? 'likely' : 'possible',
+              startTime: new Date(hailEvent.startTime),
+              endTime: hailEvent.endTime ? new Date(hailEvent.endTime) : null,
+              location: { lat, lon },
+              affectedArea: `${radiusKm}km radius`,
+              geometry: null,
+              impacts: {
+                damageEstimate: hailEvent.values.hailSize > 1.5 ? 50000 : 10000
+              },
+              metadata: hailEvent.values
+            });
+          }
+
+          // Wind events
+          for (const windEvent of weatherData.windEvents) {
+            events.push({
+              id: `tomorrow-wind-${windEvent.startTime}`,
+              source: 'TOMORROW',
+              eventType: 'High Wind',
+              headline: `High winds up to ${windEvent.values.windGust} mph forecasted`,
+              description: `Wind speed: ${windEvent.values.windSpeed} mph, gusts: ${windEvent.values.windGust} mph`,
+              severity: windEvent.values.windGust > 70 ? 'extreme' : windEvent.values.windGust > 50 ? 'severe' : 'moderate',
+              urgency: 'expected',
+              certainty: 'likely',
+              startTime: new Date(windEvent.startTime),
+              endTime: windEvent.endTime ? new Date(windEvent.endTime) : null,
+              location: { lat, lon },
+              affectedArea: `${radiusKm}km radius`,
+              geometry: null,
+              impacts: {},
+              metadata: windEvent.values
+            });
+          }
+
+          // Weather alerts
+          for (const alert of weatherData.alerts) {
+            events.push({
+              id: `tomorrow-alert-${alert.startTime}`,
+              source: 'TOMORROW',
+              eventType: alert.eventType,
+              headline: alert.headline,
+              description: alert.description,
+              severity: alert.severity,
+              urgency: alert.urgency,
+              certainty: alert.certainty,
+              startTime: new Date(alert.startTime),
+              endTime: new Date(alert.endTime),
+              location: { lat, lon },
+              affectedArea: `${radiusKm}km radius`,
+              geometry: null,
+              impacts: {},
+              metadata: alert
+            });
+          }
+
+          return events;
+        } catch (error) {
+          console.error('Tomorrow.io provider error:', error);
           return [];
         }
       }
