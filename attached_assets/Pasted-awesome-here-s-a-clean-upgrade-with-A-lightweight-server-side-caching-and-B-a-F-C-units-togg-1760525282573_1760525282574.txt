@@ -1,0 +1,395 @@
+awesome — here’s a clean upgrade with (A) lightweight server-side caching and (B) a °F/°C units toggle end-to-end.
+
+I’ll show you exactly what to paste.
+
+A) Server-side caching + units toggle
+
+Open your server.js and make these edits.
+
+1) Add a tiny in-memory cache (top of file, near imports)
+// --- tiny in-memory cache ---
+const CACHE = new Map(); // key -> { at:number, data:any, ttl:number }
+function setCache(key, data, ttlMs) { CACHE.set(key, { at: Date.now(), data, ttl: ttlMs }); }
+function getCache(key) {
+  const v = CACHE.get(key);
+  if (!v) return null;
+  if (Date.now() - v.at > v.ttl) { CACHE.delete(key); return null; }
+  return v.data;
+}
+
+
+TTL you’ll use below:
+
+Geocode search: 5 minutes
+
+NWS city/point: 90 seconds
+
+2) Helpers for unit conversion (add near top)
+function fToC(f) { return Math.round(((f - 32) * 5) / 9); }
+function mphToKmh(m) { return Math.round(m * 1.60934); }
+
+// Convert strings like "5 mph", "10 to 15 mph", "gusts up to 35 mph"
+function convertWindString(str, toMetric=false) {
+  if (!str) return str;
+  if (!toMetric) return str; // keep mph as-is
+  // Replace "mph" with "km/h" and convert numbers
+  return str.replace(/\d+(\.\d+)?/g, (num) => mphToKmh(parseFloat(num))).replace(/mph/g, "km/h");
+}
+
+3) Patch your existing /api/geo/search route to cache
+app.get("/api/geo/search", async (req, res) => {
+  try {
+    const q = (req.query.q || "").trim();
+    if (!q) return res.json([]);
+
+    const cacheKey = `geo:${q.toLowerCase()}`;
+    const hit = getCache(cacheKey);
+    if (hit) return res.json(hit);
+
+    const url = `https://nominatim.openstreetmap.org/search?format=json&limit=5&q=${encodeURIComponent(q)}`;
+    const r = await fetch(url, { headers: { "User-Agent": UA } });
+    if (!r.ok) throw new Error("Geocoding search failed");
+    const rows = await r.json();
+    const results = rows.map(x => ({ label: x.display_name, lat: parseFloat(x.lat), lon: parseFloat(x.lon) }));
+
+    setCache(cacheKey, results, 5 * 60 * 1000); // 5 min
+    res.json(results);
+  } catch (e) {
+    res.status(500).json({ error: e.message || "search failed" });
+  }
+});
+
+4) Update /api/nws/city route: add ?units= and cache
+// GET /api/nws/city?q=City, State[&units=metric|imperial]
+app.get("/api/nws/city", async (req, res) => {
+  try {
+    const q = (req.query.q || "").trim();
+    const units = (req.query.units || "imperial").toLowerCase(); // imperial(default) or metric
+    if (!q) return res.status(400).json({ error: "Missing ?q=City" });
+
+    const cacheKey = `nws:city:${units}:${q.toLowerCase()}`;
+    const cached = getCache(cacheKey);
+    if (cached) return res.json(cached);
+
+    const { lat, lon, display } = await geocodeCity(q);
+    const payload = await getNwsForPoint(lat, lon, units);
+    const body = { location: display, coords: { lat, lon }, ...payload };
+
+    setCache(cacheKey, body, 90 * 1000); // 90s
+    res.json(body);
+  } catch (e) {
+    res.status(500).json({ error: e.message || "Server error" });
+  }
+});
+
+5) Update /api/nws/point route: add ?units= and cache
+// GET /api/nws/point?lat=..&lon=..[&units=metric|imperial]
+app.get("/api/nws/point", async (req, res) => {
+  try {
+    const lat = Number(req.query.lat);
+    const lon = Number(req.query.lon);
+    const units = (req.query.units || "imperial").toLowerCase();
+    if (Number.isNaN(lat) || Number.isNaN(lon)) {
+      return res.status(400).json({ error: "lat and lon are required numbers" });
+    }
+
+    const cacheKey = `nws:point:${units}:${lat.toFixed(4)},${lon.toFixed(4)}`;
+    const cached = getCache(cacheKey);
+    if (cached) return res.json(cached);
+
+    const payload = await getNwsForPoint(lat, lon, units);
+    setCache(cacheKey, payload, 90 * 1000); // 90s
+    res.json(payload);
+  } catch (e) {
+    res.status(500).json({ error: e.message || "Server error" });
+  }
+});
+
+6) Add a reusable function to fetch & convert NWS data (place above routes or below helpers)
+async function getNwsForPoint(lat, lon, units = "imperial") {
+  const pts = await fetch(`https://api.weather.gov/points/${lat},${lon}`, { headers: NWS_HEADERS })
+    .then(r => r.json());
+
+  const dailyUrl  = pts?.properties?.forecast;
+  const hourlyUrl = pts?.properties?.forecastHourly;
+  if (!dailyUrl || !hourlyUrl) {
+    throw new Error("NWS points lookup did not return forecast URLs");
+  }
+
+  const [daily, hourly, alerts] = await Promise.all([
+    fetch(dailyUrl,  { headers: NWS_HEADERS }).then(r => r.json()),
+    fetch(hourlyUrl, { headers: NWS_HEADERS }).then(r => r.json()),
+    fetch(`https://api.weather.gov/alerts/active?point=${lat},${lon}`, { headers: NWS_HEADERS }).then(r => r.json())
+  ]);
+
+  const toMetric = units === "metric";
+
+  // Convert periods in place
+  const dailyOut = (daily?.properties?.periods ?? []).map(p => ({
+    ...p,
+    temperature: toMetric ? fToC(p.temperature) : p.temperature,
+    temperatureUnit: toMetric ? "C" : p.temperatureUnit || "F",
+    windSpeed: convertWindString(p.windSpeed, toMetric),
+  }));
+
+  const hourlyOut = (hourly?.properties?.periods ?? []).map(p => ({
+    ...p,
+    temperature: toMetric ? fToC(p.temperature) : p.temperature,
+    temperatureUnit: toMetric ? "C" : p.temperatureUnit || "F",
+    windSpeed: convertWindString(p.windSpeed, toMetric),
+  }));
+
+  return {
+    units,
+    daily: dailyOut,
+    hourly: hourlyOut,
+    alerts: alerts?.features ?? []
+  };
+}
+
+
+That’s it for the backend: you now have caching + unit conversion.
+
+B) Front-end °F/°C toggle
+
+Replace your public/index.html (or copy the small changes into your current one). Main changes:
+
+A toggle (select) next to the city box.
+
+Every request passes &units=metric|imperial.
+
+Chart label adapts to units.
+
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>NWS Any City Demo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root { --card: #f8f9fa; --border: #e6e6e6; }
+    body { font-family: system-ui, Arial, sans-serif; margin: 2rem; }
+    input, button, select { font-size: 1rem; padding: .6rem .8rem; }
+    .row { margin: 1rem 0; position: relative; display: flex; gap: .5rem; flex-wrap: wrap; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 1rem; margin: .5rem 0; }
+    .grid { display: grid; gap: .75rem; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+    .muted { color: #666; }
+    .headline { font-weight: 600; }
+    .small { font-size: .9rem; }
+    .autocomplete {
+      position: absolute; top: 3.1rem; left: 0; right: 0; z-index: 10;
+      background: white; border: 1px solid var(--border); border-radius: 10px;
+      box-shadow: 0 8px 20px rgba(0,0,0,.06); overflow: hidden;
+    }
+    .ac-item { padding: .6rem .8rem; cursor: pointer; }
+    .ac-item:hover { background: #f1f5f9; }
+    .hidden { display: none; }
+    canvas { width: 100%; max-width: 900px; }
+  </style>
+</head>
+<body>
+  <h1>NWS Forecast + Alerts (Any City)</h1>
+
+  <div class="row">
+    <input id="city" placeholder="Start typing a city…" value="Atlanta, GA" autocomplete="off" />
+    <select id="units">
+      <option value="imperial" selected>°F</option>
+      <option value="metric">°C</option>
+    </select>
+    <button id="go">Get Weather</button>
+    <div id="ac" class="autocomplete hidden"></div>
+  </div>
+
+  <div id="status" class="muted"></div>
+
+  <h2 id="loc"></h2>
+
+  <h3>Active Alerts</h3>
+  <div id="alerts"></div>
+
+  <h3>Daily Forecast</h3>
+  <div id="daily" class="grid"></div>
+
+  <h3>Next 24 Hours (Temperature)</h3>
+  <div class="card">
+    <canvas id="hourlyChart" height="220"></canvas>
+  </div>
+
+  <h3>Next 24 Hours (Detail Cards)</h3>
+  <div id="hourly" class="grid"></div>
+
+  <script>
+    const statusEl = document.getElementById("status");
+    const locEl = document.getElementById("loc");
+    const alertsEl = document.getElementById("alerts");
+    const dailyEl = document.getElementById("daily");
+    const hourlyEl = document.getElementById("hourly");
+    const cityInput = document.getElementById("city");
+    const unitsSel = document.getElementById("units");
+    const ac = document.getElementById("ac");
+    let chart;
+
+    // ---- AUTOCOMPLETE ----
+    let acTimer;
+    cityInput.addEventListener("input", () => {
+      clearTimeout(acTimer);
+      const q = cityInput.value.trim();
+      if (q.length < 2) { hideAC(); return; }
+      acTimer = setTimeout(() => searchAC(q), 200);
+    });
+    document.addEventListener("click", (e) => {
+      if (!ac.contains(e.target) && e.target !== cityInput) hideAC();
+    });
+
+    async function searchAC(q) {
+      try {
+        const r = await fetch(`/api/geo/search?q=${encodeURIComponent(q)}`);
+        if (!r.ok) throw new Error("search failed");
+        const options = await r.json();
+        renderAC(options);
+      } catch { hideAC(); }
+    }
+
+    function renderAC(options) {
+      if (!options.length) { hideAC(); return; }
+      ac.innerHTML = options.map(o => `<div class="ac-item" data-lat="${o.lat}" data-lon="${o.lon}">${o.label}</div>`).join("");
+      ac.classList.remove("hidden");
+      [...ac.querySelectorAll(".ac-item")].forEach(el => {
+        el.addEventListener("click", () => {
+          cityInput.value = el.textContent;
+          hideAC();
+          fetchCity(cityInput.value);
+        });
+      });
+    }
+    function hideAC() { ac.classList.add("hidden"); ac.innerHTML = ""; }
+
+    // ---- FETCH & RENDER ----
+    document.getElementById("go").addEventListener("click", () => {
+      const city = cityInput.value.trim();
+      if (city) fetchCity(city);
+    });
+    unitsSel.addEventListener("change", () => {
+      const city = cityInput.value.trim();
+      if (city) fetchCity(city); // refresh with new units
+    });
+
+    async function fetchCity(city) {
+      statusEl.textContent = "Loading…";
+      alertsEl.innerHTML = dailyEl.innerHTML = hourlyEl.innerHTML = "";
+      locEl.textContent = "";
+      try {
+        const units = unitsSel.value; // imperial | metric
+        const res = await fetch(`/api/nws/city?q=${encodeURIComponent(city)}&units=${units}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+
+        locEl.textContent = `${data.location}`;
+        renderAlerts(data.alerts);
+        renderDaily(data.daily);
+        const next24 = (data.hourly || []).slice(0, 24);
+        renderHourlyCards(next24);
+        renderHourlyChart(next24, units);
+        statusEl.textContent = "";
+      } catch (e) {
+        statusEl.textContent = "Error: " + e.message;
+      }
+    }
+
+    function renderAlerts(features = []) {
+      if (!features.length) {
+        alertsEl.innerHTML = `<div class="muted">No active alerts for this location.</div>`;
+        return;
+      }
+      alertsEl.innerHTML = features.map(f => {
+        const p = f.properties || {};
+        return `
+          <div class="card">
+            <div class="headline">${p.headline || p.event || "Alert"}</div>
+            <div class="small muted">${p.severity || ""} • Expires: ${p.expires || "N/A"}</div>
+            <div class="small">${(p.areaDesc || "").slice(0, 200)}</div>
+            <details><summary>Details</summary><pre class="small">${(p.description || "").trim()}</pre></details>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function renderDaily(periods = []) {
+      dailyEl.innerHTML = periods.slice(0, 8).map(p => `
+        <div class="card">
+          <div class="headline">${p.name}</div>
+          <div>${p.shortForecast}</div>
+          <div class="muted small">${p.temperature}°${p.temperatureUnit} • ${p.windDirection} ${p.windSpeed}</div>
+          ${p.icon ? `<img alt="" src="${p.icon}" style="width:60px;height:60px;margin-top:.5rem;" />` : ""}
+        </div>
+      `).join("");
+    }
+
+    function renderHourlyCards(periods = []) {
+      hourlyEl.innerHTML = periods.map(p => `
+        <div class="card">
+          <div class="headline">${new Date(p.startTime).toLocaleString()}</div>
+          <div>${p.shortForecast}</div>
+          <div class="muted small">${p.temperature}°${p.temperatureUnit} • ${p.windDirection} ${p.windSpeed}</div>
+        </div>
+      `).join("");
+    }
+
+    // ---- CHART ----
+    function renderHourlyChart(periods = [], units = "imperial") {
+      const ctx = document.getElementById("hourlyChart").getContext("2d");
+      const labels = periods.map(p => new Date(p.startTime).toLocaleTimeString([], { hour: "numeric" }));
+      const temps = periods.map(p => Number(p.temperature));
+      const yLabel = units === "metric" ? "°C" : "°F";
+
+      if (chart) {
+        chart.data.labels = labels;
+        chart.data.datasets[0].data = temps;
+        chart.data.datasets[0].label = `Temperature (next 24h, ${yLabel})`;
+        chart.update();
+        return;
+      }
+
+      chart = new Chart(ctx, {
+        type: "line",
+        data: {
+          labels,
+          datasets: [{
+            label: `Temperature (next 24h, ${yLabel})`,
+            data: temps,
+            tension: 0.3,
+            pointRadius: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: { title: { display: true, text: yLabel } },
+            x: { title: { display: true, text: "Hour" } }
+          },
+          plugins: { legend: { display: true }, tooltip: { enabled: true } }
+        }
+      });
+    }
+
+    // initial
+    fetchCity(cityInput.value);
+  </script>
+</body>
+</html>
+
+What you gain
+
+Caching: snappier UI, fewer upstream calls (geocode 5m, NWS 90s).
+
+Units toggle: users switch °F/°C anytime; server converts temps and wind.
+
+Same endpoints:
+
+/api/geo/search?q=... (cached)
+
+/api/nws/city?q=...&units=metric|imperial (cached)
+
+/api/nws/point?lat=..&lon=..&units=metric|imperial (cached)
