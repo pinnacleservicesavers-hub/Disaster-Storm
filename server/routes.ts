@@ -66,6 +66,7 @@ import geocodingRoutes from "./routes/geocodingRoutes";
 import { mountLocations } from "./routes/locations";
 import { mountAlerts } from "./routes/alerts";
 import { mountWarm } from "./routes/warm";
+import { mountSlack } from "./routes/slack";
 import { VoiceAIService } from "./services/voiceAI";
 import { weatherAI } from "./services/weatherAI.js";
 import { universalAI } from "./services/universalAI.js";
@@ -460,7 +461,8 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
   mountLocations(app);
   mountAlerts(app);
   mountWarm(app);
-  console.log('📍 Locations, Alerts, and Cache Warming routes registered');
+  mountSlack(app);
+  console.log('📍 Locations, Alerts, Cache Warming, and Slack routes registered');
   
   // ---- Ambee Environmental Intelligence Routes ----
   app.use('/api/ambee', ambeeRoutes);

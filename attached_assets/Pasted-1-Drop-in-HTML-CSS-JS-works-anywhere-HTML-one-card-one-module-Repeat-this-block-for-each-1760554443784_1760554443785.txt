@@ -1,0 +1,189 @@
+1) Drop-in HTML/CSS/JS (works anywhere)
+HTML (one card = one module)
+<!-- Repeat this block for each module -->
+<article class="mod-card" data-video-mp4="/media/radar-loop.mp4" data-video-webm="/media/radar-loop.webm">
+  <div class="mod-media" aria-hidden="true"></div>
+
+  <header class="mod-topline">
+    <span class="pill pill-risk">HIGH</span>
+    <span class="pill pill-live">● LIVE</span>
+  </header>
+
+  <div class="mod-content">
+    <h3 class="mod-title">Weather Center</h3>
+    <p class="mod-sub">Live weather monitoring, alerts, and radar data for storm operations</p>
+    <a class="mod-cta" href="/weather-center">Launch Module →</a>
+  </div>
+</article>
+
+CSS
+/* Card shell */
+.mod-card{
+  position:relative; width:min(420px, 90vw); aspect-ratio:16/11;
+  border-radius:22px; overflow:hidden; isolation:isolate;
+  background:#0b1220; box-shadow:0 12px 30px rgba(0,0,0,.25);
+  color:#fff; padding:18px; display:flex; flex-direction:column; justify-content:flex-end;
+  will-change:transform; transition:transform .25s ease, box-shadow .25s ease;
+}
+.mod-card:hover{ transform:translateY(-4px); box-shadow:0 18px 40px rgba(0,0,0,.35); }
+
+/* Video layer (auto-injected by JS) */
+.mod-media, .mod-media video{
+  position:absolute; inset:0; width:100%; height:100%; object-fit:cover;
+}
+.mod-media::after{
+  content:""; position:absolute; inset:0;
+  /* dark gradient for text readability */
+  background:linear-gradient(180deg, rgba(0,0,0,.25) 0%, rgba(0,0,0,.65) 100%);
+  z-index:1;
+}
+
+/* Floating shimmer (very subtle motion) */
+@keyframes floaty { from{transform:translateY(0)} to{transform:translateY(-3px)} }
+.mod-card{ animation:floaty 4s ease-in-out infinite alternate; }
+
+/* Content layers */
+.mod-topline{ position:absolute; top:12px; left:12px; z-index:2; display:flex; gap:8px; }
+.pill{ font:600 12px/1.2 ui-sans-serif,system-ui; padding:6px 8px; border-radius:10px; backdrop-filter:blur(4px); }
+.pill-risk{ background:rgba(255,115,64,.9); }
+.pill-live{ background:rgba(22,163,74,.9); }
+
+.mod-content{ position:relative; z-index:2; }
+.mod-title{ margin:0 0 8px; font:700 28px/1.1 ui-sans-serif,system-ui; letter-spacing:.2px; }
+.mod-sub{ margin:0 0 16px; font:400 15px/1.5 ui-sans-serif,system-ui; color:#e6edf7; opacity:.95; }
+.mod-cta{ color:#d2e5ff; text-decoration:none; font-weight:600; }
+.mod-cta:hover{ text-decoration:underline; }
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce){
+  .mod-card{ animation:none }
+  .mod-media video{ display:none }
+}
+
+JS (lazy-inject the video and only play when visible)
+<script>
+(function(){
+  const cards = document.querySelectorAll('.mod-card');
+
+  const loadVideo = (card) => {
+    if (card.dataset.loaded) return;
+    card.dataset.loaded = "1";
+    const wrap = card.querySelector('.mod-media');
+    const v = document.createElement('video');
+    v.muted = true; v.playsInline = true; v.autoplay = true; v.loop = true;
+    v.setAttribute('preload','metadata');
+    // Sources
+    const s1 = document.createElement('source'); s1.src = card.dataset.videoWebm || card.dataset.videoWebm; s1.type = 'video/webm';
+    const s2 = document.createElement('source'); s2.src = card.dataset.videoMp4  || card.dataset.videoMp4;  s2.type = 'video/mp4';
+    v.appendChild(s1); v.appendChild(s2);
+    // Fallback image (optional)
+    if(card.dataset.poster) v.poster = card.dataset.poster;
+    wrap.appendChild(v);
+  };
+
+  const io = new IntersectionObserver(entries=>{
+    entries.forEach(e=>{
+      if(e.isIntersecting){ loadVideo(e.target); }
+    });
+  },{rootMargin:"200px 0px"});
+
+  cards.forEach(c=>io.observe(c));
+})();
+</script>
+
+
+How it works:
+
+You keep your exact card markup.
+
+Set data-video-mp4/data-video-webm per card.
+
+JS lazily injects <video> only when the card is near viewport (great for performance).
+
+Dark gradient overlay keeps text readable on any footage.
+
+2) WordPress/Divi quick steps
+
+Upload your short background clips to Media Library (create /media/ directory if you prefer). Provide both WebM and MP4. Aim for 6–12 seconds, 720p, ~1–4 MB each (HandBrake: H.264, Constant Quality ~22; WebM VP9 similar size).
+
+In Divi: use a Code module for each card (paste the HTML block above).
+
+Put the CSS in Divi → Theme Options → Custom CSS (or your divi-child2/style.css).
+
+Paste the JS once site-wide in Theme Options → Integration → “Add code to the <body>” (or enqueue via child theme).
+
+For mobile, the lazy-load + overlay already keeps it light; if you need to fully disable video on mobile, add:
+
+@media (max-width: 640px){ .mod-media video{ display:none } }
+
+3) The best-looking background for each module
+
+Here are concise, realistic loops that will look professional (not cartoony) and keep legibility with the overlay:
+
+Weather Center – Radar composite loop with rain bands sweeping across a region.
+Files: radar-loop.webm / radar-loop.mp4
+
+Storm Predictions – Nocturnal storm cloud timelapse with faint lightning inside the anvil; slow, moody.
+storm-anvil.webm / storm-anvil.mp4
+
+TrafficCamWatcher – Rainy highway at dusk (slight motion blur, occasional headlights), light scanline overlay (optional CSS).
+rainy-highway.webm / rainy-highway.mp4
+
+Eyes in the Sky – Satellite Earth limb with clouds drifting (subtle parallax).
+earth-limb-clouds.webm / earth-limb-clouds.mp4
+
+Drone Operations – Overflight over neighborhood post-storm (gentle forward motion, no jarring pans).
+drone-flyover.webm / drone-flyover.mp4
+
+AI Damage Detection – Security/CCTV quad-view style loop (rooftops/streets, light noise).
+cctv-quad.webm / cctv-quad.mp4
+
+Lead Management – Abstract dark grid of nodes pulsing (data flow).
+data-grid.webm / data-grid.mp4
+
+Victim Portal – Soft rainfall on glass macro; conveys empathy without chaos.
+rain-on-glass.webm / rain-on-glass.mp4
+
+StormShare – Animated network lines connecting towns on a faint map.
+network-map.webm / network-map.mp4
+
+Disaster Essentials Marketplace – Logistics motif: warehouse conveyor or trucks in rain, slowed.
+logistics-rain.webm / logistics-rain.mp4
+
+Customer Hub – Calm gradient with subtle particles (professional + light footprint).
+calm-particles.webm / calm-particles.mp4
+
+Claims Central – Scrolling documents bokeh; slow diagonal drift.
+paper-bokeh.webm / paper-bokeh.mp4
+
+Contractor Command – Crew silhouettes at sunrise (subtle dust motes).
+crew-sunrise.webm / crew-sunrise.mp4
+
+Contractor Portal – Digital dashboard glow (abstract lines scanning horizontally).
+dashboard-scan.webm / dashboard-scan.mp4
+
+Legal Command – Courthouse marble texture with slow light sweep.
+marble-sweep.webm / marble-sweep.mp4
+
+Disaster Lens – Camera lens close-up with light breathing focus.
+lens-breath.webm / lens-breath.mp4
+
+X-RAY REALITY – 3D radar/satellite composite with animated isolines.
+3d-radar.webm / 3d-radar.mp4
+
+Tip: if a loop is too busy for text, raise the overlay strength:
+
+.mod-media::after{ background:linear-gradient(180deg, rgba(0,0,0,.35) 0%, rgba(0,0,0,.72) 100%); }
+
+4) Optional polish
+
+Accessibility: the video wrapper is aria-hidden="true". Keep content text real HTML, not baked into the video.
+
+Faster First Paint: add a data-poster="/media/radar-poster.jpg" on any card to show a still before the video attaches.
+
+Glitch overlay for TrafficCamWatcher:
+
+.traffic-card .mod-media::before{
+  content:"REC  16:9  1080p"; position:absolute; top:10px; right:12px; z-index:2;
+  font:600 11px/1 ui-sans-serif; background:rgba(0,0,0,.55); padding:6px 8px; border-radius:8px;
+}
