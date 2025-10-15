@@ -1,0 +1,116 @@
+Disaster Direct – Aggregator/analyzer (replit Mvp)
+· python
+"""
+        return {"configured": False}
+    return {"configured": True, "url": cfg[0], "threshold": cfg[1], "sms": sms_list_get()}
+
+
+
+
+@app.post("/sms")
+async def add_sms(phone: str = Body(..., embed=True)):
+    sms_add(phone)
+    return {"ok": True, "phones": sms_list_get()}
+
+
+
+
+@app.delete("/sms")
+async def delete_sms(phone: str = Body(..., embed=True)):
+    sms_remove(phone)
+    return {"ok": True, "phones": sms_list_get()}
+
+
+
+
+# --- Notifiers ---
+async def maybe_fire_webhook(summary: Dict[str, Any]):
+    cfg = alerts_get()
+    if not cfg:
+        return
+    url, threshold = cfg
+    try:
+        if float(summary.get("risk_score", 0)) >= float(threshold):
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                await client.post(url, json=summary)
+    except Exception as e:
+        print("webhook error:", e)
+
+
+
+
+async def maybe_send_sms(summary: Dict[str, Any]):
+    # Env vars: TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM
+    sid = os.getenv("TWILIO_ACCOUNT_SID")
+    tok = os.getenv("TWILIO_AUTH_TOKEN")
+    frm = os.getenv("TWILIO_FROM")
+    if not (sid and tok and frm):
+        return
+    phones = sms_list_get()
+    if not phones:
+        return
+    try:
+        # Minimal Twilio REST without SDK using HTTP basic auth
+        msg = (
+            f"DisasterDirect Alert: risk={summary.get('risk_score')} "
+            f"parcels={','.join([p['name'] for p in summary.get('impacted_parcels', [])]) or 'none'} "
+            f"@ ({summary['query']['lat']},{summary['query']['lon']})"
+        )
+        async with httpx.AsyncClient(timeout=10.0, auth=(sid, tok)) as client:
+            for to in phones:
+                data = {"To": to, "From": frm, "Body": msg}
+                url = f"https://api.twilio.com/2010-04-01/Accounts/{sid}/Messages.json"
+                await client.post(url, data=data)
+    except Exception as e:
+        print("sms error:", e)
+
+
+
+
+# -----------------------------
+# Demo parcel seed: Dallas sample polygons
+# -----------------------------
+
+
+DALLAS_SAMPLE = {
+  "type": "FeatureCollection",
+  "features": [
+    {"type":"Feature","properties":{"owner":"Sample A"},
+     "geometry":{"type":"Polygon","coordinates":[[[-96.85,32.82],[-96.82,32.82],[-96.82,32.80],[-96.85,32.80],[-96.85,32.82]]]}},
+    {"type":"Feature","properties":{"owner":"Sample B"},
+     "geometry":{"type":"Polygon","coordinates":[[[-96.82,32.80],[-96.79,32.80],[-96.79,32.78],[-96.82,32.78],[-96.82,32.80]]]}},
+    {"type":"Feature","properties":{"owner":"Sample C"},
+     "geometry":{"type":"Polygon","coordinates":[[[-96.81,32.83],[-96.78,32.83],[-96.78,32.81],[-96.81,32.81],[-96.81,32.83]]]}},
+  ]
+
+Awesome — I added both upgrades to your Replit app:
+
+1) Address geocoding → auto-fill lat/lon
+
+New input on the dashboard: Address (geocode) with a Geocode button.
+
+Uses OpenStreetMap Nominatim to resolve an address → sets the latitude/longitude and pans the map.
+
+New endpoint:
+
+GET /geocode?q=<address> → {found, lat, lon, display_name, bbox}
+
+2) One-click PDF report per impacted parcel
+
+The “Impacted Parcels” section now lists each parcel with a PDF report link.
+
+It calls the existing endpoint:
+
+GET /report/parcel/{parcel_id}?lat=...&lon=...&radius_km=...&hours_back=...
+
+Quick test
+
+Run the app and open /.
+
+Type an address (e.g., “Dallas City Hall”) → Geocode → Run.
+
+If parcels are uploaded/seeded, impacted ones will show a PDF report link next to their name.
+
+(Optional) Seed sample parcels:
+
+curl -X POST http://localhost:8000/seed/dallas
