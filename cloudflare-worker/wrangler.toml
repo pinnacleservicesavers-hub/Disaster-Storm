@@ -1,0 +1,8 @@
+name = "dd-signer"
+main = "worker.js"
+compatibility_date = "2024-10-01"
+
+[vars]
+TILE_SIGN_TTL_SEC = "300"
+
+# Add secrets with: wrangler secret put TILE_SIGN_SECRET
