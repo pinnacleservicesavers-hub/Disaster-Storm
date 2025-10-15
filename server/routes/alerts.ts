@@ -3,6 +3,7 @@ import fetch from "node-fetch";
 import fs from "fs/promises";
 import path from "path";
 import { fileURLToPath } from "url";
+import { requireRole } from "../middleware/bearerAuth.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CFG = path.join(__dirname, "..", "data", "alerts.json");
@@ -55,7 +56,7 @@ export function mountAlerts(app: express.Application) {
 
   r.get("/config", async (_, res) => res.json(await readAlertsCfg()));
 
-  r.put("/config", express.json(), async (req, res) => {
+  r.put("/config", requireRole("ADMIN"), express.json(), async (req, res) => {
     const { defaultThreshold, webhookUrl } = req.body || {};
     if (!webhookUrl) return res.status(400).json({ error: "webhookUrl required" });
     const cfg = await readAlertsCfg();
@@ -65,7 +66,7 @@ export function mountAlerts(app: express.Application) {
     res.json({ ok: true });
   });
 
-  r.put("/toggle/:id", express.json(), async (req, res) => {
+  r.put("/toggle/:id", requireRole("ADMIN"), express.json(), async (req, res) => {
     const id = req.params.id;
     const { alert, threshold } = req.body || {};
     const rows = await readLocations();
@@ -78,7 +79,7 @@ export function mountAlerts(app: express.Application) {
     res.json({ ok: true });
   });
 
-  r.post("/check", async (req, res) => {
+  r.post("/check", requireRole("ADMIN"), async (req, res) => {
     const base = process.env.PUBLIC_BASE_URL || `${req.protocol}://${req.get("host")}`;
     const cfg = await readAlertsCfg();
     const rows = await readLocations();

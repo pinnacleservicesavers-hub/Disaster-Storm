@@ -5,6 +5,18 @@ Disaster Direct is a comprehensive storm operations and claims management platfo
 
 ## Recent Changes
 
+### October 15, 2025 - Enterprise Security & Admin Interface
+- **Role-Based Authentication**: Implemented three-tier security (ADMIN/SIGNER/VIEWER) with hierarchical access control
+- **Admin Interface**: Added `/admin` HTML dashboard for managing locations, alerts, CSV operations, and manual checks
+- **Protected Endpoints**: All sensitive operations (locations write, alerts config, warm, CSV import) require ADMIN role
+- **Signature Minting**: `/api/sign/*` endpoints protected with SIGNER role for controlled tile URL generation
+- **Optional Viewer Gating**: JSON APIs (impact/nws/xweather) can be gated with VIEWER_API_TOKEN for read-only access
+- **Docker Deployment**: Added Dockerfile and .dockerignore for containerized deployment on Render/Railway
+- **Documentation**: Comprehensive security setup guide in `SECURITY_SETUP.md` with token management, deployment, and troubleshooting
+- **Environment Variables**: `ADMIN_API_TOKEN`, `SIGNER_API_TOKEN`, `VIEWER_API_TOKEN` for granular access control
+- **Backward Compatibility**: Legacy `BEARER_TOKEN` and `requireBearer()` still supported
+- **Impact**: Production-ready security with role separation, audit trails, and enterprise-grade access control
+
 ### October 15, 2025 - Location Watchlist Production Features
 - **Added**: Three enterprise-grade production features for Location Watchlist
 - **Bearer Authentication**: Write endpoints (POST/PUT/DELETE) now protected with bearer token auth; read endpoints remain public

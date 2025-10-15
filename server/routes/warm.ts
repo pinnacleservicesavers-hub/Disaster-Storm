@@ -1,5 +1,6 @@
 import express from "express";
 import fetch from "node-fetch";
+import { requireRole } from "../middleware/bearerAuth.js";
 
 async function tileXY(lng: number, lat: number, z: number) {
   const n = 2 ** z;
@@ -11,7 +12,7 @@ async function tileXY(lng: number, lat: number, z: number) {
 }
 
 export function mountWarm(app: express.Application) {
-  app.use("/api/warm", async (req, res) => {
+  app.use("/api/warm", requireRole("ADMIN"), async (req, res) => {
     try {
       const base = process.env.PUBLIC_BASE_URL || `${req.protocol}://${req.get("host")}`;
       const rows = JSON.parse((req.query.rows as string) || "[]");

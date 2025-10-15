@@ -1,0 +1,16 @@
+node_modules
+npm-debug.log
+.DS_Store
+.env
+.env.*
+*.log
+data/*.pdf
+.git
+.gitignore
+README.md
+*.md
+.replit
+replit.nix
+.config
+uploads/temp/*
+server/data/*.json.backup

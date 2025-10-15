@@ -1,0 +1,259 @@
+here’s the final wave to make Disaster Direct buttoned-up for production and investors:
+
+Role-based tokens (ADMIN / VIEWER / SIGNER)
+
+Protect signature minting (/api/sign/*)
+
+Dockerfile + .dockerignore and one-click deploy notes (Render/Railway)
+
+Below are drop-in patches for your existing backend. Keep your current code; just add/replace the files/lines I mark.
+
+1) Role-based auth (replace your bearerAuth)
+
+Replace backend/middleware/bearerAuth.js with:
+
+function extractBearer(req) {
+  const hdr = req.headers.authorization || "";
+  return hdr.startsWith("Bearer ") ? hdr.slice(7) : "";
+}
+
+/**
+ * Roles:
+ * - ADMIN_API_TOKEN: full write, sign, alerts, warm, imports, enqueue
+ * - SIGNER_API_TOKEN: allowed to mint signatures (/api/sign/*)
+ * - VIEWER_API_TOKEN: optional read-only for JSON GETs (impact/nws/xweather)
+ * Back-compat: API_AUTH_TOKEN acts as ADMIN if set.
+ */
+export function requireRole(role = "ADMIN") {
+  return (req, res, next) => {
+    const token = extractBearer(req);
+
+    // Legacy single token behaves as ADMIN
+    const ADMIN = process.env.ADMIN_API_TOKEN || process.env.API_AUTH_TOKEN || "";
+    const SIGNER = process.env.SIGNER_API_TOKEN || "";
+    const VIEWER = process.env.VIEWER_API_TOKEN || process.env.READONLY_TOKEN || "";
+
+    const ok =
+      (role === "ADMIN"  && token && token === ADMIN) ||
+      (role === "SIGNER" && token && (token === ADMIN || token === SIGNER)) ||
+      (role === "VIEWER" && token && (token === ADMIN || token === VIEWER));
+
+    if (ok) return next();
+
+    const msg =
+      role === "ADMIN"  ? "Admin token required" :
+      role === "SIGNER" ? "Signer or admin token required" :
+                          "Viewer token required";
+
+    return res.status(401).json({ error: "Unauthorized", required: role, message: msg });
+  };
+}
+
+/** Optional: gate read-only JSON GETs if VIEWER/READONLY token is set */
+export function requireViewerIfEnabled(req, res, next) {
+  const VIEWER = process.env.VIEWER_API_TOKEN || process.env.READONLY_TOKEN || "";
+  if (!VIEWER) return next(); // gating disabled
+  return requireRole("VIEWER")(req, res, next);
+}
+
+
+Update backend/.env.example (add these):
+
+ API_AUTH_TOKEN=change_me_long_random           # (legacy) treated as ADMIN
++ADMIN_API_TOKEN=change_me_long_random_admin     # preferred
++VIEWER_API_TOKEN=optional_readonly_for_gets
++SIGNER_API_TOKEN=optional_signer_for_api_sign
+ SLACK_SIGNING_SECRET=replace_with_slack_secret
+-READONLY_TOKEN=optional_token_for_dashboards
+
+
+Keep API_AUTH_TOKEN for compatibility; use ADMIN_API_TOKEN going forward.
+
+2) Apply roles to routes
+A) Gate JSON GETs (optional viewer token)
+
+Edit backend/server.js (near top imports):
+
+-import { requireReadOnlyIfEnabled } from "./middleware/readonlyAuth.js";
++import { requireViewerIfEnabled } from "./middleware/bearerAuth.js";
+
+
+Remove your old readonlyAuth file (no longer needed).
+
+Still in server.js, just before mounting routers:
+
+-app.get("/health", (req, res) => res.json({ status: "OK" }));
++app.get("/health", (req, res) => res.json({ status: "OK" }));
+
+ // Optional gating for dashboard JSON GETs (tiles use HMAC separately)
+-app.use("/api/impact", requireReadOnlyIfEnabled);
+-app.use("/api/nws", requireReadOnlyIfEnabled);
+-app.use("/api/xweather", requireReadOnlyIfEnabled);
++app.use("/api/impact", requireViewerIfEnabled);
++app.use("/api/nws", requireViewerIfEnabled);
++app.use("/api/xweather", requireViewerIfEnabled);
+
+
+If you set VIEWER_API_TOKEN, your frontend should add Authorization: Bearer <VIEWER_API_TOKEN> to JSON fetches (not needed for tiles, those use HMAC).
+
+B) Protect signature minting
+
+Edit backend/routes/signer.js:
+
+ import { withSignedParams } from "../helpers/signing.js";
++import { requireRole } from "../middleware/bearerAuth.js";
+
+ const DEFAULT_TILE_TEMPLATE = "/api/impact/tiles/{z}/{x}/{y}.png";
+ export function mountSigner(app){
+-  app.get("/api/sign/tile", (req,res)=>{
++  app.get("/api/sign/tile", requireRole("SIGNER"), (req,res)=>{
+     // ... unchanged ...
+   });
+-  app.get("/api/sign/legend", (req,res)=>{
++  app.get("/api/sign/legend", requireRole("SIGNER"), (req,res)=>{
+     // ... unchanged ...
+   });
+ }
+
+
+Use SIGNER_API_TOKEN for client systems that need to mint signed tile URLs without full ADMIN rights. ADMIN tokens also work.
+
+C) Ensure all sensitive writes require ADMIN
+
+You already protected most writes earlier. Confirm these are ADMIN:
+
+locations POST/PUT/DELETE and import.csv → requireRole("ADMIN")
+
+alerts PUT /config, PUT /toggle/:id, POST /check → requireRole("ADMIN")
+
+warm endpoint → requireRole("ADMIN")
+
+reports/enqueue → requireRole("ADMIN")
+
+(From our previous steps, you’re covered. If anything is missed, swap requireBearer to requireRole("ADMIN").)
+
+3) Dockerize (for Render/Railway/anywhere)
+
+Add backend/Dockerfile:
+
+# ---- build minimal runtime image
+FROM node:20-alpine
+
+# system deps for canvas/pdfkit if needed
+RUN apk add --no-cache build-base cairo-dev pango-dev jpeg-dev giflib-dev
+
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --omit=dev
+
+COPY . .
+
+# Security: default to non-root
+RUN addgroup -S app && adduser -S app -G app
+USER app
+
+ENV NODE_ENV=production
+ENV PORT=3001
+EXPOSE 3001
+
+# Healthcheck (curl is not available by default; use wget)
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+  CMD wget -qO- http://127.0.0.1:3001/health || exit 1
+
+CMD ["node", "server.js"]
+
+
+Add backend/.dockerignore:
+
+node_modules
+npm-debug.log
+.DS_Store
+.env
+data/*.pdf
+
+Deploy on Render (Docker)
+
+New → Web Service → “Use Docker”
+
+Root directory: backend/
+
+Environment: Docker
+
+Add Env Vars:
+
+AMBEE_API_KEY, XWEATHER_CLIENT_ID, XWEATHER_CLIENT_SECRET, NWS_USER_AGENT
+
+ADMIN_API_TOKEN, (optional) VIEWER_API_TOKEN, SIGNER_API_TOKEN
+
+TILE_SIGN_SECRET, ENFORCE_SIGNED_TILES=1 (when ready)
+
+PUBLIC_BASE_URL=https://<your-service>.onrender.com
+
+SMTP vars if you’ll email reports
+
+Health check path: /health
+
+Deploy on Railway (Docker)
+
+New Project → Deploy from Repo (or local)
+
+Set Root to backend/ and Railway detects Dockerfile
+
+Add the same env vars as above
+
+Open the generated URL; verify /health
+
+4) Frontend header (only if you enable VIEWER token)
+
+Where you fetch JSON (e.g., /api/impact, /api/nws), add:
+
+const headers = {};
+if (import.meta.env.VITE_VIEWER_TOKEN) {
+  headers["Authorization"] = `Bearer ${import.meta.env.VITE_VIEWER_TOKEN}`;
+}
+
+const r = await fetch(url, { headers });
+
+
+And set in your demo’s .env:
+
+VITE_VIEWER_TOKEN=YOUR_VIEWER_API_TOKEN
+
+
+Keep tiles as they are; when you enforce signed tiles (ENFORCE_SIGNED_TILES=1), your frontend should call /api/sign/tile with a SIGNER token (or have a tiny backend function that adds the header server-side).
+
+Final checklist
+
+Env (Replit/Render/Railway)
+
+ADMIN_API_TOKEN (or legacy API_AUTH_TOKEN)
+
+Optional: VIEWER_API_TOKEN (to gate JSON GETs)
+
+Optional: SIGNER_API_TOKEN (to mint signed URLs without full admin)
+
+AMBEE_API_KEY, XWEATHER_CLIENT_ID, XWEATHER_CLIENT_SECRET, NWS_USER_AGENT
+
+TILE_SIGN_SECRET, ENFORCE_SIGNED_TILES=0 (dev) → 1 (prod)
+
+PUBLIC_BASE_URL set to your deployed URL
+
+SLACK_SIGNING_SECRET for the /dd command
+
+SMTP creds if you’re emailing reports
+
+Security model
+
+VIEWER: read-only dashboards (JSON GETs), optional
+
+SIGNER: mint signed tile/legend URLs (/api/sign/*)
+
+ADMIN: all writes (locations CRUD/CSV, alerts config/toggle/check, warm, report enqueue)
+
+Go-live
+
+Flip ENFORCE_SIGNED_TILES=1
+
+Give frontends VIEWER token (if you enabled read gating)
+
+Give map servers SIGNER token if they call /api/sign/* directly; otherwise route that through your backend.
