@@ -1,0 +1,269 @@
+awesome — let’s get this running on Replit so it works for any city. I’ll give you a turnkey Node.js project (backend + tiny frontend) you can paste in and hit Run.
+
+1) Create the Repl
+
+Go to Replit → Create Repl → Node.js.
+
+Name it something like nws-any-city.
+
+Delete any starter files.
+
+2) Add these three files
+package.json
+{
+  "name": "nws-any-city",
+  "version": "1.0.0",
+  "description": "NWS Weather.gov any-city backend + demo UI",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2"
+  }
+}
+
+server.js
+const express = require("express");
+const cors = require("cors");
+
+// Replit provides Node 18+ which has global fetch built-in.
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Identify your app to NWS + Nominatim
+const UA = "DisasterDirectApp (support@strategiclandmgmt.com)";
+const NWS_HEADERS = { "User-Agent": UA, "Accept": "application/geo+json" };
+
+app.use(cors());
+app.use(express.static("public")); // to serve the demo index.html
+
+async function geocodeCity(city) {
+  const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(city)}`;
+  const res = await fetch(url, { headers: { "User-Agent": UA } });
+  if (!res.ok) throw new Error("Geocoding failed");
+  const arr = await res.json();
+  if (!arr.length) throw new Error("No match for city");
+  const hit = arr[0];
+  return {
+    lat: parseFloat(hit.lat),
+    lon: parseFloat(hit.lon),
+    display: hit.display_name
+  };
+}
+
+// GET /api/nws/city?q=City, State
+app.get("/api/nws/city", async (req, res) => {
+  try {
+    const q = req.query.q;
+    if (!q) return res.status(400).json({ error: "Missing ?q=City" });
+
+    const { lat, lon, display } = await geocodeCity(q);
+
+    // Resolve forecast URLs for this point
+    const pts = await fetch(`https://api.weather.gov/points/${lat},${lon}`, { headers: NWS_HEADERS })
+      .then(r => r.json());
+
+    const dailyUrl  = pts?.properties?.forecast;
+    const hourlyUrl = pts?.properties?.forecastHourly;
+    if (!dailyUrl || !hourlyUrl) {
+      return res.status(502).json({ error: "NWS points lookup did not return forecast URLs" });
+    }
+
+    // Fetch daily + hourly in parallel
+    const [daily, hourly] = await Promise.all([
+      fetch(dailyUrl,  { headers: NWS_HEADERS }).then(r => r.json()),
+      fetch(hourlyUrl, { headers: NWS_HEADERS }).then(r => r.json())
+    ]);
+
+    // Alerts for the exact point
+    const alerts = await fetch(`https://api.weather.gov/alerts/active?point=${lat},${lon}`, { headers: NWS_HEADERS })
+      .then(r => r.json());
+
+    res.json({
+      location: display,
+      coords: { lat, lon },
+      daily:  daily?.properties?.periods ?? [],
+      hourly: hourly?.properties?.periods ?? [],
+      alerts: alerts?.features ?? []
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message || "Server error" });
+  }
+});
+
+// Optional: direct lat/lon route if you already have coords
+// GET /api/nws/point?lat=33.75&lon=-84.39
+app.get("/api/nws/point", async (req, res) => {
+  try {
+    const lat = Number(req.query.lat);
+    const lon = Number(req.query.lon);
+    if (Number.isNaN(lat) || Number.isNaN(lon)) {
+      return res.status(400).json({ error: "lat and lon are required numbers" });
+    }
+
+    const pts = await fetch(`https://api.weather.gov/points/${lat},${lon}`, { headers: NWS_HEADERS })
+      .then(r => r.json());
+
+    const dailyUrl  = pts?.properties?.forecast;
+    const hourlyUrl = pts?.properties?.forecastHourly;
+
+    const [daily, hourly, alerts] = await Promise.all([
+      fetch(dailyUrl,  { headers: NWS_HEADERS }).then(r => r.json()),
+      fetch(hourlyUrl, { headers: NWS_HEADERS }).then(r => r.json()),
+      fetch(`https://api.weather.gov/alerts/active?point=${lat},${lon}`, { headers: NWS_HEADERS }).then(r => r.json())
+    ]);
+
+    res.json({
+      daily:  daily?.properties?.periods ?? [],
+      hourly: hourly?.properties?.periods ?? [],
+      alerts: alerts?.features ?? []
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message || "Server error" });
+  }
+});
+
+app.listen(PORT, () => {
+  console.log(`Listening on http://localhost:${PORT}`);
+});
+
+public/index.html
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>NWS Any City Demo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: system-ui, Arial, sans-serif; margin: 2rem; }
+    input, button { font-size: 1rem; padding: .6rem .8rem; }
+    .row { margin: 1rem 0; }
+    .card { border: 1px solid #ddd; border-radius: 12px; padding: 1rem; margin: .5rem 0; }
+    .grid { display: grid; gap: .75rem; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+    .muted { color: #666; }
+    .headline { font-weight: 600; }
+    .small { font-size: .9rem; }
+  </style>
+</head>
+<body>
+  <h1>NWS Forecast + Alerts (Any City)</h1>
+  <div class="row">
+    <input id="city" placeholder="Try: Tulsa, OK" value="Atlanta, GA" />
+    <button id="go">Get Weather</button>
+  </div>
+
+  <div id="status" class="muted"></div>
+
+  <h2 id="loc"></h2>
+
+  <h3>Active Alerts</h3>
+  <div id="alerts"></div>
+
+  <h3>Daily Forecast</h3>
+  <div id="daily" class="grid"></div>
+
+  <h3>Next 24 Hours</h3>
+  <div id="hourly" class="grid"></div>
+
+  <script>
+    const statusEl = document.getElementById("status");
+    const locEl = document.getElementById("loc");
+    const alertsEl = document.getElementById("alerts");
+    const dailyEl = document.getElementById("daily");
+    const hourlyEl = document.getElementById("hourly");
+
+    async function fetchCity(city) {
+      statusEl.textContent = "Loading…";
+      alertsEl.innerHTML = dailyEl.innerHTML = hourlyEl.innerHTML = "";
+      locEl.textContent = "";
+      try {
+        const res = await fetch(`/api/nws/city?q=${encodeURIComponent(city)}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+
+        locEl.textContent = `${data.location}`;
+        renderAlerts(data.alerts);
+        renderDaily(data.daily);
+        renderHourly(data.hourly?.slice(0, 24) || []);
+        statusEl.textContent = "";
+      } catch (e) {
+        statusEl.textContent = "Error: " + e.message;
+      }
+    }
+
+    function renderAlerts(features = []) {
+      if (!features.length) {
+        alertsEl.innerHTML = `<div class="muted">No active alerts for this location.</div>`;
+        return;
+      }
+      alertsEl.innerHTML = features.map(f => {
+        const p = f.properties || {};
+        return `
+          <div class="card">
+            <div class="headline">${p.headline || p.event || "Alert"}</div>
+            <div class="small muted">${p.severity || ""} • Expires: ${p.expires || "N/A"}</div>
+            <div class="small">${(p.areaDesc || "").slice(0, 200)}</div>
+            <details><summary>Details</summary><pre class="small">${(p.description || "").trim()}</pre></details>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function renderDaily(periods = []) {
+      dailyEl.innerHTML = periods.slice(0, 8).map(p => `
+        <div class="card">
+          <div class="headline">${p.name}</div>
+          <div>${p.shortForecast}</div>
+          <div class="muted small">${p.temperature}°${p.temperatureUnit} • ${p.windDirection} ${p.windSpeed}</div>
+          ${p.icon ? `<img alt="" src="${p.icon}" style="width:60px;height:60px;margin-top:.5rem;" />` : ""}
+        </div>
+      `).join("");
+    }
+
+    function renderHourly(periods = []) {
+      hourlyEl.innerHTML = periods.slice(0, 24).map(p => `
+        <div class="card">
+          <div class="headline">${new Date(p.startTime).toLocaleString()}</div>
+          <div>${p.shortForecast}</div>
+          <div class="muted small">${p.temperature}°${p.temperatureUnit} • ${p.windDirection} ${p.windSpeed}</div>
+        </div>
+      `).join("");
+    }
+
+    document.getElementById("go").addEventListener("click", () => {
+      const city = document.getElementById("city").value.trim();
+      if (city) fetchCity(city);
+    });
+
+    // initial
+    fetchCity(document.getElementById("city").value);
+  </script>
+</body>
+</html>
+
+
+Create a folder named public and put index.html inside it (as above). Replit will serve it from /.
+
+3) Run it
+
+Click Run.
+
+Open the webview → you’ll see the UI.
+
+Try “Tulsa, OK” or any city.
+
+API endpoint to test directly (replace city):
+https://<your-repl-name>.<your-user>.repl.co/api/nws/city?q=Miami, FL
+
+Notes & tips
+
+This backend adds the proper User-Agent header NWS expects and avoids browser CORS headaches.
+
+The alerts call uses ?point=lat,lon, which returns alerts that actually affect the selected point.
+
+For production: add simple caching (e.g., cache /api/nws/city for 60–120s) to be polite to upstream services.
+
+You can style the frontend however you like or replace it with your real app (Glide/React/etc.) and just call the Replit API route.

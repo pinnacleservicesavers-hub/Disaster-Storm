@@ -1,0 +1,148 @@
+Disaster Direct – Aggregator/analyzer (replit Mvp)
+· python
+"""
+  const hrs = document.getElementById('hrs').value;
+  const url = type==='events'
+    ? `/export/events.csv?lat=${lat}&lon=${lon}&radius_km=${rad}&hours_back=${hrs}`
+    : `/export/impacted.csv?lat=${lat}&lon=${lon}&radius_km=${rad}&hours_back=${hrs}`;
+  window.open(url, '_blank');
+}
+
+
+// Map click -> set lat/lon and reverse geocode
+setTimeout(()=>{
+  if(map){
+    map.on('click', async (e)=>{
+      const {lat, lng} = e.latlng;
+      document.getElementById('lat').value = lat.toFixed(6);
+      document.getElementById('lon').value = lng.toFixed(6);
+      try{
+        const r = await fetch(`/reverse_geocode?lat=${lat}&lon=${lng}`);
+        const j = await r.json();
+        if(j && j.display_name){
+          document.getElementById('addr').value = j.display_name;
+        }
+      }catch(err){ console.log(err); }
+    });
+  }
+}, 500);
+function startDrawZone(){
+  // Click the polygon tool in the toolbar; helper provided for UX naming
+  alert('Use the polygon/rectangle tool in the top-left of the map to draw the zone, then click "Save Zone".');
+}
+async function saveDrawnZone(){
+  if(!window.drawn || window.drawn.getLayers().length===0){ alert('Draw a polygon or rectangle first'); return; }
+  const name = document.getElementById('zone_name').value || 'Zone';
+  const gj = window.drawn.toGeoJSON();
+  const r = await fetch('/zones?name='+encodeURIComponent(name), {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(gj)});
+  const j = await r.json();
+  alert('Saved zone #'+j.id);
+  await refreshZones();
+}
+async function refreshZones(){
+  const r = await fetch('/zones.geojson');
+  const j = await r.json();
+  if(!window.zonesLayer){ window.zonesLayer = L.geoJSON(null, {style:{weight:1, dashArray:'4 4'}}).addTo(map); }
+  window.zonesLayer.clearLayers();
+  window.zonesLayer.addData(j);
+  const sel = document.getElementById('sch_zone'); if(sel){
+    sel.innerHTML = '<option value="">(none)</option>';
+    (j.features||[]).forEach(f=>{
+      const id = f.properties && f.properties.zone_id; const nm = f.properties && f.properties.name;
+      const opt = document.createElement('option'); opt.value = id; opt.textContent = `#${id} ${nm}`; sel.appendChild(opt);
+    });
+  }
+}
+</script>
+</body>
+</html>
+"""
+
+
+
+
+@app.get("/", response_class=HTMLResponse)
+async def dashboard():
+    return HTMLResponse(DASH_HTML)
+
+
+
+
+# -----------------------------
+# Geocoding (Nominatim / OpenStreetMap)
+# -----------------------------
+@app.get("/geocode")
+async def geocode(q: str = Query(..., description="Free-text address")):
+    url = "https://nominatim.openstreetmap.org/search"
+    params = {"q": q, "format": "jsonv2", "limit": 1}
+    headers = {"User-Agent": "DisasterDirect/1.0 (contact: you@example.com)"}
+    async with httpx.AsyncClient(timeout=15.0, headers=headers) as client:
+        r = await client.get(url, params=params)
+        if r.status_code != 200:
+            raise HTTPException(status_code=502, detail="Geocoder unavailable")
+        data = r.json()
+        if not data:
+            return {"found": False}
+      
+
+Made it happen. Your Disaster Direct app now supports:
+
+1) Drawn zones on the map (Leaflet Draw)
+
+New toolbar on the map lets you draw polygons or rectangles.
+
+Click Draw Zone, sketch, then click Save Zone (name it).
+
+Zones render as dashed outlines; they also populate the Scheduler select.
+
+Endpoints:
+
+POST /zones?name=... (body: GeoJSON from the drawing)
+
+GET /zones (list)
+
+DELETE /zones/{id}
+
+GET /zones.geojson (for the map)
+
+GET /zones/centroid/{id} → returns { lat, lon, suggested_radius_km }
+
+2) Per-schedule destinations (webhook/SMS overrides)
+
+Scheduler form now has:
+
+Zone dropdown (optional) – runs will target that zone’s centroid with a suggested radius.
+
+Webhook override – use a different URL just for this schedule.
+
+SMS list – comma-separated numbers (e.g., +15555550123, +15555550124) to override global crew phones.
+
+Storage/schema updated; /cron/run now:
+
+Resolves zone → centroid + radius when set,
+
+Saves a Run snapshot,
+
+If risk_score ≥ threshold, sends to the per-schedule webhook and/or per-schedule SMS list (falls back to global webhook/SMS if overrides aren’t provided).
+
+How to use it fast
+
+Open / → click Draw Zone → use the polygon/rectangle tool → Save Zone.
+
+In Daily Scheduler, pick that zone, set threshold, and optionally paste a webhook/SMS list.
+
+Trigger everything via:
+
+GET /cron/run
+
+
+(Aim your external scheduler at that URL.)
+When a job breaches threshold, the app notifies your chosen destinations.
+
+Notes
+
+I added Leaflet.draw via CDN and wired the draw layer.
+
+The app will approximate a query radius from zone area for aggregation (you still get parcel-level intersections for impact).
+
+SMS sending now accepts override recipients per job.

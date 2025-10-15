@@ -1,0 +1,152 @@
+Got it — you want it to work for any city (not just Atlanta). The recipe is:
+
+Geocode the city name → lat,lon
+
+Use NWS /points/{lat},{lon} to get the forecast URLs
+
+Pull daily/hourly forecasts and alerts for that point
+
+Because browsers can’t set a custom User-Agent (and NWS prefers one), the most reliable setup is to call NWS from a small backend you control (Node or Python) and have your app hit your backend. 
+National Weather Service
++2
+Stack Overflow
++2
+
+Option A — Node/Express “any city” backend (recommended)
+// server.js
+import express from "express";
+import fetch from "node-fetch";
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Identify your app to NWS + Nominatim
+const UA = "DisasterDirectApp (support@strategiclandmgmt.com)";
+const NWS_HEADERS = { "User-Agent": UA, "Accept": "application/geo+json" };
+
+// Geocode a city to lat/lon (OpenStreetMap Nominatim)
+// Respect their usage policy: include a descriptive User-Agent & rate-limit if needed.
+async function geocodeCity(city) {
+  const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(city)}`;
+  const res = await fetch(url, { headers: { "User-Agent": UA } });
+  if (!res.ok) throw new Error("Geocoding failed");
+  const [hit] = await res.json();
+  if (!hit) throw new Error("No match for city");
+  return { lat: parseFloat(hit.lat), lon: parseFloat(hit.lon), display: hit.display_name };
+}
+
+// Forecast + alerts for a city name
+app.get("/api/nws/city", async (req, res) => {
+  try {
+    const city = req.query.q;
+    if (!city) return res.status(400).json({ error: "Missing ?q=City" });
+
+    const { lat, lon, display } = await geocodeCity(city);
+
+    // Resolve forecast URLs
+    const points = await fetch(`https://api.weather.gov/points/${lat},${lon}`, { headers: NWS_HEADERS }).then(r => r.json());
+
+    const dailyUrl  = points.properties?.forecast;
+    const hourlyUrl = points.properties?.forecastHourly;
+
+    // Fetch forecasts
+    const [daily, hourly] = await Promise.all([
+      fetch(dailyUrl,  { headers: NWS_HEADERS }).then(r => r.json()),
+      fetch(hourlyUrl, { headers: NWS_HEADERS }).then(r => r.json())
+    ]);
+
+    // Alerts for the exact point (includes both zone-based & county-based alerts mapped correctly)
+    const alerts = await fetch(`https://api.weather.gov/alerts/active?point=${lat},${lon}`, { headers: NWS_HEADERS }).then(r => r.json());
+
+    res.json({
+      location: display,
+      daily:  daily.properties?.periods ?? [],
+      hourly: hourly.properties?.periods ?? [],
+      alerts: alerts.features ?? [],
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.listen(PORT, () => console.log(`Listening on ${PORT}`));
+
+
+Why a backend?
+
+NWS wants a meaningful User-Agent; browsers can’t set it, and custom headers can trigger CORS issues. Proxying from your server avoids that. 
+Stack Overflow
++1
+
+The point=lat,lon filter returns active alerts affecting that exact location (best for “all cities”). 
+National Weather Service
+
+/points is the canonical way to discover the right forecast URLs for any coordinates. 
+National Weather Service
+
+Front-end call (any city):
+
+// Example: fetch for “Tulsa, OK”
+fetch("/api/nws/city?q=Tulsa, OK")
+  .then(r => r.json())
+  .then(data => {
+    // data.daily (7-day), data.hourly (hourly), data.alerts (active alerts)
+  });
+
+Option B — Python/Flask backend (same idea)
+# app.py
+from flask import Flask, request, jsonify
+import requests
+
+app = Flask(__name__)
+UA = "DisasterDirectApp (support@strategiclandmgmt.com)"
+NWS_HEADERS = {"User-Agent": UA, "Accept": "application/geo+json"}
+
+def geocode_city(city):
+  url = "https://nominatim.openstreetmap.org/search"
+  params = {"format": "json", "limit": 1, "q": city}
+  r = requests.get(url, params=params, headers={"User-Agent": UA})
+  r.raise_for_status()
+  hits = r.json()
+  if not hits: raise ValueError("No match for city")
+  hit = hits[0]
+  return float(hit["lat"]), float(hit["lon"]), hit["display_name"]
+
+@app.get("/api/nws/city")
+def nws_city():
+  q = request.args.get("q")
+  if not q: return jsonify({"error": "Missing ?q=City"}), 400
+  lat, lon, display = geocode_city(q)
+
+  pts = requests.get(f"https://api.weather.gov/points/{lat},{lon}", headers=NWS_HEADERS).json()
+  daily_url  = pts["properties"]["forecast"]
+  hourly_url = pts["properties"]["forecastHourly"]
+
+  daily  = requests.get(daily_url,  headers=NWS_HEADERS).json()
+  hourly = requests.get(hourly_url, headers=NWS_HEADERS).json()
+  alerts = requests.get(f"https://api.weather.gov/alerts/active?point={lat},{lon}", headers=NWS_HEADERS).json()
+
+  return jsonify({
+    "location": display,
+    "daily": daily.get("properties", {}).get("periods", []),
+    "hourly": hourly.get("properties", {}).get("periods", []),
+    "alerts": alerts.get("features", [])
+  })
+
+if __name__ == "__main__":
+  app.run(port=3000)
+
+Notes & pro tips
+
+Any city works: we geocode the text to coordinates, then follow the official /points → forecast/forecastHourly links for that exact spot. 
+National Weather Service
++1
+
+Best alerts filter: use …/alerts/active?point=lat,lon to ensure you don’t miss county vs zone products. 
+National Weather Service
+
+Nominatim etiquette: include a descriptive User-Agent; add caching/rate limits in production. 
+Nominatim
+
+Direct in-browser calls can work, but if you add custom headers you’ll hit CORS; proxying via your backend is smoother. 
+GitHub
