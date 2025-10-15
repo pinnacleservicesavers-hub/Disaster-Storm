@@ -1,14 +1,14 @@
 # Disaster Direct
 
 ## Overview
-Disaster Direct is a comprehensive storm operations and claims management platform for contractors and property restoration professionals. It provides real-time weather monitoring, claims management, insurance tracking, legal compliance, drone integration, AI assistance, and field reporting. The platform aims to streamline storm response, maximize insurance claim success, and offers a robust photo/video documentation system for damage assessment.
+Disaster Direct is a comprehensive storm operations and claims management platform for contractors and property restoration professionals. It offers real-time weather monitoring, claims management, insurance tracking, legal compliance, drone integration, AI assistance, and field reporting. The platform aims to streamline storm response, maximize insurance claim success, and provides robust photo/video documentation for damage assessment.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
 ## System Architecture
 
-### Frontend Architecture
+### Frontend
 - **Framework**: React 18 with TypeScript and Vite.
 - **UI**: Shadcn/ui (Radix UI + Tailwind CSS).
 - **State Management**: TanStack Query.
@@ -18,16 +18,15 @@ Preferred communication style: Simple, everyday language.
 - **AI Integration**: xAI's Grok-2 powers all intelligence features.
 - **Disaster Lens Module**: Offline-first design with service workers, IndexedDB, and background sync for media capture and collaboration.
 
-### Backend Architecture
+### Backend
 - **Runtime**: Node.js with Express.js (TypeScript, ES modules).
 - **Database ORM**: Drizzle ORM with PostgreSQL.
 - **API Design**: RESTful API with modular service layer.
 - **Real-time**: WebSocket support.
 - **File Processing**: Image/video upload, EXIF data extraction.
 
-### Database Design
+### Database
 - **Primary Database**: PostgreSQL with Drizzle ORM.
-- **Schema**: Centralized definitions (`/shared/schema.ts`).
 - **Key Entities**: Users, Claims, Insurance Companies, Weather Alerts, Field Reports, Drone Footage, Lien Rules, and Disaster Lens entities.
 
 ### Authentication & Authorization
@@ -35,42 +34,19 @@ Preferred communication style: Simple, everyday language.
 - **Role-based Access**: Contractor, admin, crew member, and 5-tier for Disaster Lens.
 
 ### Service Layer Architecture
-- **Weather Service**: NWS APIs.
-- **Disaster Aggregator Service**: Opterrix-style multi-source event aggregation system. Normalizes and unifies disaster/weather data from all providers into a single unified feed with risk scoring.
-  - **Unified Event Schema**: Standardized format across NWS, FEMA, NOAA, Xweather, and Ambee
-  - **Intelligent Deduplication**: Provider-agnostic deduplication removes duplicate events across sources
-  - **Risk Score Calculation**: 0-100 score based on severity, urgency, certainty, and impacts
-  - **Performance Caching**: 2-minute TTL cache for aggregated results
-  - **API Endpoints**:
-    - `/api/aggregate` - Complete multi-source event aggregation (lat, lon, radius_km, hours_back)
-    - `/api/risk-score` - Quick risk score calculation
-    - `/api/aggregator/health` - Service health check
-  - **Provider Integration**: 
-    - ✅ NWS alerts (radius-based)
-    - ✅ Xweather lightning/hail (radius-based)
-    - ✅ Ambee air quality/fire (coordinate-based)
-    - ✅ Tomorrow.io premium weather intelligence (hyperlocal hail/wind footprints, severe weather alerts)
-    - ⚠️ FEMA declarations (state/county-based, requires geocoding for radius queries)
-    - ⚠️ NOAA historical data (state/county-based, requires geocoding for radius queries)
-  - **Architectural Note**: FEMA and NOAA services are state/county-based, not radius-based. Future enhancement will add reverse geocoding to enable full integration.
+- **Weather Service**: Integrates NWS APIs.
+- **Disaster Aggregator Service**: Unifies and normalizes disaster/weather data from multiple providers (NWS, FEMA, NOAA, Xweather, Ambee) into a single feed with risk scoring and intelligent deduplication.
 - **AI Services**:
-    - **AI Intelligence Orchestrator**: Master coordination layer that orchestrates Grok, OpenAI, and Anthropic AI models for comprehensive disaster intelligence. Provides:
-      - Multi-peril analysis (hurricanes, tornadoes, fires, earthquakes, floods)
-      - Automatic storm-to-property matching with risk scoring
-      - Predictive damage assessment before storms hit
-      - Contractor deployment strategy planning
-      - Satellite imagery analysis using AI vision models
-      - Pattern detection in historical weather data
-      - Real-time decision support for deployment
-    - **OpenAI**: Claim letter generation, image analysis, market comparables, AI-powered damage hints, social media ad generation (copy and visuals), and satellite imagery vision analysis.
+    - **AI Intelligence Orchestrator**: Coordinates Grok, OpenAI, and Anthropic models for multi-peril analysis, storm-to-property matching, predictive damage assessment, and contractor deployment strategies.
+    - **OpenAI**: Claim letter generation, image analysis, market comparables, AI-powered damage hints, social media ad generation, and satellite imagery vision analysis.
     - **Grok AI**: Educational meteorology analysis, landfall prediction, tripwire monitoring, interactive Q&A, and real-time storm intelligence briefings.
-    - **Anthropic Claude**: Advanced damage assessment and analysis capabilities.
+    - **Anthropic Claude**: Advanced damage assessment and analysis.
 - **Property Service**: Multi-provider property lookup (Smarty, Regrid, ATTOM, Melissa).
 - **Legal Service**: State-specific lien deadline calculations, attorney directory.
 - **Translation Service**: Bilingual support for construction/insurance terminology.
-- **Geo-Fencing**: Law enforcement-grade device tracking for targeted advertising campaigns.
-- **Environmental Intelligence**: Ambee integration for real-time air quality, pollen, weather, fire detection, and soil conditions with health impact analysis and safety recommendations.
-- **Aerial Imagery**: EagleView integration for high-resolution aerial imagery, automated roof measurements, material estimation, and AI damage assessment.
+- **Geo-Fencing**: Law enforcement-grade device tracking for targeted advertising.
+- **Environmental Intelligence**: Ambee integration for real-time air quality, pollen, weather, fire detection, and soil conditions with health impact analysis.
+- **Aerial Imagery**: EagleView integration for high-resolution aerial imagery, automated roof measurements, and AI damage assessment.
 
 ### Real-time Data Processing
 - **Weather Monitoring**: Automated polling of NWS CAP alerts and Storm Prediction Center data.
@@ -78,9 +54,17 @@ Preferred communication style: Simple, everyday language.
 - **Background Workers**: Scheduled tasks for deadline reminders, data synchronization.
 
 ### Advanced Features
-- **Voice System**: Provider-agnostic architecture (ElevenLabs, OpenAI) with "Rachel" (ElevenLabs) as the default professional female voice for all AI voice interactions and TTS features.
-- **Voice Guidance System**: Comprehensive educational voice guides integrated into Weather Intelligence Center and Environmental Reports. Explains environmental conditions, lightning/hail threats, AQI impacts, pollen effects, and safety thresholds in contractor-focused language. Automatically updates narration when switching between tabs. Designed to educate contractors on what they're seeing and why it matters for crew safety, project planning, and business opportunities.
+- **Voice System**: Provider-agnostic architecture (ElevenLabs, OpenAI) with "Rachel" (ElevenLabs) as the default professional female voice for AI voice interactions.
+- **Voice Guidance System**: Educational voice guides for Weather Intelligence Center and Environmental Reports, explaining conditions and safety in contractor-focused language.
 - **QR/AprilTag Calibration**: Automatic scale detection for precise measurements in images.
+
+### SDK Package
+- **Disaster Direct SDK**: A standalone npm package (`@disaster-direct/sdk`) providing an API client, impact score helper, map utilities, and error handling for external integrations.
+
+### Demo Applications
+- **Leaflet Demo**: React + Vite + Leaflet reference implementation showcasing SDK.
+- **Mapbox GL Demo**: React + Vite + Mapbox GL demo with dual independent toggles for basemap and HMAC signing.
+- **MapLibre GL Demo**: React + Vite + MapLibre GL demo with OSM basemap toggle.
 
 ## External Dependencies
 
@@ -92,35 +76,11 @@ Preferred communication style: Simple, everyday language.
 ### Weather & Geographic Services
 - **National Weather Service**: CAP alerts, radar, forecasts.
 - **Storm Prediction Center**: Local storm reports.
+- **Geocoding Service**: OpenStreetMap Nominatim-based forward/reverse geocoding with autocomplete.
 - **LocationIQ**: Reverse geocoding.
 - **Ambee**: Environmental intelligence (air quality, pollen, weather, fire, soil).
-  - **Production-Safe API Routes**:
-    - `/api/ambee/latest/by-lat-lng` - Air quality data (AQI, pollutants)
-    - `/api/ambee/weather/latest/by-lat-lng` - Weather conditions
-    - `/api/ambee/disasters/latest/by-lat-lng` - Disaster/fire detection
-    - `/api/ambee/wildfires/latest/by-lat-lng` - Wildfire proximity
-    - `/api/impact` - Merged impact score (0-100) with weighted risk calculation (AQI 50%, Wind 30%, Fire 20%)
-- **Xweather**: Global lightning and storm intelligence network providing real-time data redundancy with Ambee.
-  - **API Routes** (requires `XWEATHER_CLIENT_ID` and `XWEATHER_CLIENT_SECRET`):
-    - `/api/xweather/lightning/threats` - Real-time lightning strikes (60-min forecast, cloud-to-ground + in-cloud)
-    - `/api/xweather/hail/threats` - Hail size predictions (inches/mm, probability, movement direction/speed)
-    - `/api/xweather/threats` - Comprehensive storm threat assessment (lightning, hail, advisories, rotation detection)
-    - `/api/xweather/stormreports` - NWS-validated local storm reports (hail, tornado, wind, flood, lightning)
-  - **Database Tables** (schema added, migration pending):
-    - `xweather_lightning_strikes` - Historical lightning strike data
-    - `xweather_hail_threats` - Hail forecast records
-    - `xweather_storm_reports` - NWS storm validation data
-    - `xweather_storm_snapshots` - Comprehensive threat snapshots with advisories
-- **Tomorrow.io**: Premium hyperlocal weather intelligence platform providing high-resolution hail/wind footprints and severe weather alerts.
-  - **Service**: `tomorrowService` integrated into Disaster Aggregator
-  - **Features**: Hail intensity forecasts, wind gust predictions, severe weather event detection
-  - **API Key**: Requires `TOMORROW_API_KEY` environment variable
-  - **API Routes**:
-    - `/api/tomorrow/weather` - Comprehensive weather intelligence (hail, wind, alerts)
-    - `/api/tomorrow/hail` - Hail footprint data only
-    - `/api/tomorrow/wind` - Wind footprint data only
-    - `/api/tomorrow/alerts` - Weather alerts only
-    - `/api/tomorrow/health` - Service health check
+- **Xweather**: Global lightning and storm intelligence network.
+- **Tomorrow.io**: Premium hyperlocal weather intelligence (hail/wind footprints, severe weather alerts).
 
 ### Payment & Legal Integration
 - **Stripe**: Payment processing.
@@ -149,126 +109,3 @@ Preferred communication style: Simple, everyday language.
 - **Replit Integration**: Development environment.
 - **jsQR Library**: For QR code detection.
 - **Jimp / Sharp**: Image processing.
-
-## SDK Package
-
-### Disaster Direct SDK v0.1.3
-A standalone npm package (`@disaster-direct/sdk`) for external integrations and client applications.
-
-**Location:** `/disaster-direct-sdk/`
-
-**Features:**
-- **API Client:** Secure fetch wrapper with automatic retries, exponential backoff, and `Retry-After` header support
-- **Impact Score:** `getImpact()` helper for environmental impact data
-- **Map Utilities:** Tile template generation and Mapbox transform helpers
-- **Error Handling:** User-friendly error messages (401, 403, 429, 500)
-- **Auto-detect baseUrl:** Automatically uses correct API endpoint (localhost or Replit)
-
-**Testing:**
-- **Framework:** Vitest with coverage reporting (text + lcov)
-- **Tests:** 
-  - `tests/ddClient.test.ts` - Error message mapping (4 tests)
-  - `tests/ddTiles.test.ts` - Legend URL generation (4 tests)
-- **Commands:**
-  - `npm test` - Watch mode for development
-  - `npm run test:ci` - CI mode with coverage
-
-**CI/CD:**
-- **CI Workflow:** `.github/workflows/ci.yml` - Runs typecheck, build, and tests on every PR/push
-- **Release Workflow:** `.github/workflows/release.yml` - Publishes to npm and creates GitHub releases on version tags
-
-**Build System:**
-- **Bundler:** tsup for ESM + CJS builds
-- **Outputs:** `dist/index.mjs`, `dist/index.cjs`, `dist/index.d.ts`
-- **TypeScript:** Fully typed with strict mode
-
-**Publishing:**
-1. Set `NPM_TOKEN` in GitHub secrets
-2. Update CHANGELOG.md
-3. Run `npm version patch && git push --follow-tags`
-4. GitHub Actions automatically publishes to npm
-
-**Documentation:**
-- `SETUP.md` - Complete setup and publishing guide
-- `QUICK_START.md` - Fast testing and deployment instructions
-- `EXAMPLES.md` - 10+ usage examples with React hooks
-- `CHANGELOG.md` - Version history and changes
-
-## Demo Applications
-
-**Quick Reference:** See `DEMO_APPS_OVERVIEW.md` for a one-pager team guide explaining all three demos, when to use each, and decision matrix.
-
-### Leaflet Demo (Unsigned Tiles)
-
-**Location:** `/disaster-direct-leaflet-demo/`
-
-A ready-to-run React + Vite + Leaflet reference implementation showcasing the SDK.
-
-**Features:**
-- Impact raster tiles on interactive Leaflet map
-- Live impact score API calls to `/api/impact`
-- Auto baseUrl detection (localhost:3001 / Replit)
-- Draggable marker for location selection
-- Dynamic legend display (viridis color scheme)
-- Pollen data toggle
-
-**Quick Start:**
-```bash
-cd disaster-direct-leaflet-demo
-npm install
-npm run dev  # Opens on http://localhost:5173
-```
-
-**Requirements:** Backend on `localhost:3001` with `/api/impact`, `/api/impact/tiles/{z}/{x}/{y}.png`, `/api/legend.png`
-
-### Mapbox GL Demo (Dual Toggles Edition)
-
-**Location:** `/disaster-direct-mapbox-demo/`
-
-Most feature-complete React + Vite + Mapbox GL demo with **dual independent toggles**.
-
-**Features:**
-- Mapbox GL JS v3 integration (no token required with OSM/blank styles)
-- **OSM basemap toggle** - Switch between OpenStreetMap raster and blank canvas
-- **HMAC signing toggle** - Test unsigned vs signed tiles
-- Four possible combinations (OSM+unsigned, OSM+signed, blank+unsigned, blank+signed)
-- Auto-signed tiles via `makeMapboxTransformRequest()`
-- Draggable marker for location selection
-- Signed/unsigned legend support
-- 500-tile memo cache for performance
-- Pollen data toggle
-
-**Quick Start:**
-```bash
-cd disaster-direct-mapbox-demo
-npm install
-npm run dev  # Opens on http://localhost:5176
-```
-
-**Requirements:** 
-- Backend on `localhost:3001` with `/api/impact`, `/api/impact/tiles/{z}/{x}/{y}.png`, `/api/legend.png`
-- **Optional (for HMAC):** `/api/sign/tile` and `/api/sign/legend` endpoints
-
-### MapLibre GL Demo (Open Source)
-
-**Location:** `/disaster-direct-maplibre-demo/`
-
-Open-source React + Vite + MapLibre GL demo with **OSM basemap toggle**.
-
-**Features:**
-- MapLibre GL v4.7 (100% open source, no tokens required)
-- **OSM basemap toggle** - Switch between OpenStreetMap and blank canvas
-- WebGL rendering for performance
-- Draggable marker for location selection
-- Impact raster overlay
-- Dynamic legend display
-- Pollen data toggle
-
-**Quick Start:**
-```bash
-cd disaster-direct-maplibre-demo
-npm install
-npm run dev  # Opens on http://localhost:5175
-```
-
-**Requirements:** Backend on `localhost:3001` with `/api/impact`, `/api/impact/tiles/{z}/{x}/{y}.png`, `/api/legend.png`

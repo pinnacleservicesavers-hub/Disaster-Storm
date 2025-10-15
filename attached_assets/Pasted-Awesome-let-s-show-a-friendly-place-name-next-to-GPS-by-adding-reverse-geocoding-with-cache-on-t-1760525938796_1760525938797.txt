@@ -1,0 +1,99 @@
+Awesome — let’s show a friendly place name next to GPS by adding reverse-geocoding (with cache) on the backend and wiring it on the frontend.
+
+Below are small patches to your existing files.
+
+1) server.js — add reverse geocoder + include name in /api/nws/point
+A) Add this helper (near your other helpers)
+// Reverse geocode (with 5-minute cache)
+async function reverseGeocode(lat, lon) {
+  const key = `rev:${lat.toFixed(4)},${lon.toFixed(4)}`;
+  const v = getFreshEntry(key);
+  if (v) return v.data;
+
+  const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}`;
+  const res = await fetch(url, { headers: { "User-Agent": UA } });
+  let display = `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+  if (res.ok) {
+    const j = await res.json();
+    if (j && j.display_name) display = j.display_name;
+  }
+  setCache(key, display, 5 * 60 * 1000); // 5m
+  return display;
+}
+
+B) Return relative location from getNwsForPoint
+
+Replace the return at the end of getNwsForPoint with this (only the return block changes):
+
+  return {
+    units,
+    relativeLocation: pts?.properties?.relativeLocation?.properties || null, // {city,state}
+    daily: dailyOut,
+    hourly: hourlyOut,
+    alerts: alerts?.features ?? []
+  };
+
+C) Enhance /api/nws/point to include locationDisplay
+
+Replace the entire /api/nws/point route handler with this:
+
+// GET /api/nws/point?lat=..&lon=..[&units=metric|imperial]
+app.get("/api/nws/point", async (req, res) => {
+  try {
+    const lat = Number(req.query.lat);
+    const lon = Number(req.query.lon);
+    const units = (req.query.units || "imperial").toLowerCase();
+    if (Number.isNaN(lat) || Number.isNaN(lon)) {
+      return res.status(400).json({ error: "lat and lon are required numbers" });
+    }
+
+    const cacheKey = `nws:point:${units}:${lat.toFixed(4)},${lon.toFixed(4)}`;
+    const v = getFreshEntry(cacheKey);
+    if (v) {
+      STATS.cacheHits++;
+      return sendCachedJSON(req, res, v.data, 90, v.at);
+    }
+    STATS.cacheMisses++;
+
+    const payload = await getNwsForPoint(lat, lon, units);
+
+    // Prefer NWS relativeLocation; fall back to reverse geocode
+    let locationDisplay = null;
+    if (payload.relativeLocation?.city && payload.relativeLocation?.state) {
+      locationDisplay = `${payload.relativeLocation.city}, ${payload.relativeLocation.state}`;
+    } else {
+      locationDisplay = await reverseGeocode(lat, lon);
+    }
+
+    const body = { locationDisplay, ...payload };
+    setCache(cacheKey, body, 90 * 1000);
+    return sendCachedJSON(req, res, body, 90, Date.now());
+  } catch (e) {
+    res.status(500).json({ error: e.message || "Server error" });
+  }
+});
+
+
+That’s it for the backend: /api/nws/point now returns a nice locationDisplay string (e.g., “Downtown Miami, Miami-Dade County, Florida, …”) along with everything else.
+
+2) public/index.html — show the friendly name for GPS
+
+Find your fetchPoint(lat, lon) function and replace the portion that sets the location header. Change:
+
+// OLD:
+locEl.textContent = `Your location (${lat.toFixed(4)}, ${lon.toFixed(4)})`;
+
+
+to:
+
+// NEW:
+locEl.textContent = data.locationDisplay
+  ? `${data.locationDisplay}`
+  : `Your location (${lat.toFixed(4)}, ${lon.toFixed(4)})`;
+
+
+(The rest of fetchPoint stays the same.)
+
+Done ✅
+
+Now when a user taps Use my location, your UI will show a nice place name (from NWS or reverse-geocoded), not just raw coordinates—still with caching, ETag/304, skeletons, retries, and °F/°C toggle.

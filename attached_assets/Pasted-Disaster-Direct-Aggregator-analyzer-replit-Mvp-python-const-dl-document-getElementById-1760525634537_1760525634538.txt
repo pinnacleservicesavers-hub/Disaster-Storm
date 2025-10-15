@@ -1,0 +1,122 @@
+Disaster Direct – Aggregator/analyzer (replit Mvp)
+· python
+"""
+  const dl = document.getElementById('addr-suggest');
+  const options = dl.querySelectorAll('option');
+  const val = addrEl.value;
+  for(const o of options){ if(o.value===val){
+    document.getElementById('lat').value = o.getAttribute('data-lat');
+    document.getElementById('lon').value = o.getAttribute('data-lon');
+    if(map) map.setView([parseFloat(o.getAttribute('data-lat')), parseFloat(o.getAttribute('data-lon'))], 10);
+  }}
+});
+
+
+async function saveRun(){
+  const name = document.getElementById('runname').value || 'Untitled run';
+  const lat = document.getElementById('lat').value;
+  const lon = document.getElementById('lon').value;
+  const rad = document.getElementById('rad').value;
+  const hrs = document.getElementById('hrs').value;
+  const r = await fetch(`/runs/save?name=${encodeURIComponent(name)}&lat=${lat}&lon=${lon}&radius_km=${rad}&hours_back=${hrs}`);
+  const j = await r.json();
+  alert('Saved run #'+j.run_id);
+  listRuns();
+}
+
+
+async function listRuns(){
+  const r = await fetch('/runs');
+  const j = await r.json();
+  const el = document.getElementById('runs');
+  el.innerHTML = '';
+  const ul = document.createElement('ul');
+  (j||[]).forEach(it=>{
+    const li = document.createElement('li');
+    li.innerHTML = `<strong>#${it.id}</strong> ${new Date(it.created_at*1000).toLocaleString()} — ${it.name} — risk ${it.risk_score} `+
+      `[ <a target="_blank" href="/runs/${it.id}">JSON</a> | <a target="_blank" href="/runs/${it.id}/events.csv">events.csv</a> | <a target="_blank" href="/runs/${it.id}/impacted.csv">impacted.csv</a> ]`;
+    ul.appendChild(li);
+  });
+  el.appendChild(ul);
+}
+
+
+async function doGeocode(){
+  const q = document.getElementById('addr').value;
+  if(!q) return;
+  const r = await fetch('/geocode?q='+encodeURIComponent(q));
+  const j = await r.json();
+  if(j && j.lat && j.lon){
+    document.getElementById('lat').value = j.lat;
+    document.getElementById('lon').value = j.lon;
+    map.setView([parseFloat(j.lat), parseFloat(j.lon)], 10);
+  } else {
+    alert('No result');
+  }
+}
+function openParcelReport(id){
+  const lat = document.getElementById('lat').value;
+  const lon = document.getElementById('lon').value;
+  const rad = document.getElementById('rad').value;
+  const hrs = document.getElementById('hrs').value;
+  window.open(`/report/parcel/${id}?lat=${lat}&lon=${lon}&radius_km=${rad}&hours_back=${hrs}`,'_blank');
+}
+
+
+function exportCSV(type){
+  const lat = document.getElementById('lat').value;
+  const lon = document.getElementById('lon').value;
+  const rad = document.getElementById('rad').value;
+  const hrs = document.getElementById('hrs').value;
+  const url = type==='events'
+    ? 
+
+All set — I wired up both features in your Replit MVP:
+
+“Use Zone Center” button
+
+In the Daily Scheduler card, pick a zone, hit Use Zone Center, and it auto-fills lat/lon + suggested radius from that zone’s centroid/area.
+
+It calls GET /zones/centroid/{id} under the hood.
+
+Per-schedule parcel sets
+
+The scheduler now has a multi-select “Parcels” box.
+
+Each job can target only the parcel sets you choose.
+
+The backend stores parcel_ids and /cron/run filters the impacted parcels to those IDs before saving the run and sending alerts.
+
+I also fixed a few things while I was in there:
+
+Added address suggestions (<datalist id="addr-suggest">) so your type-ahead geocode helper actually has a list to write to.
+
+Cleaned up a broken refreshMap() (there was a stray } else { making it invalid JS).
+
+Corrected the DB schema for schedules and added the parcel_ids column + fallback migration.
+
+Updated scheduler endpoints and listing to include parcel IDs.
+
+Added helpers: refreshParcelOptions() + useZoneCenter().
+
+Startup now calls refreshZones() and refreshParcelOptions() so the dropdowns populate right away.
+
+How to try it now
+
+In the Dashboard (/), scroll to Daily Scheduler:
+
+Draw & save a zone in the map card above, then select it in the scheduler and click Use Zone Center.
+
+Select one or more parcel sets in Parcels.
+
+Set a threshold (e.g., 60), optionally add a webhook or SMS list override.
+
+Click Add.
+
+Trigger jobs by hitting GET /cron/run. Any job with risk_score ≥ threshold will:
+
+POST a summary JSON to that job’s webhook override (or the global webhook if none set),
+
+Send SMS to that job’s override list (or the global crew list if none set),
+
+And save a Run snapshot using the filtered impacted parcels.

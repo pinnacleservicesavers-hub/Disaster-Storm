@@ -61,6 +61,8 @@ import { registerEagleViewRoutes } from "./routes/eagleViewRoutes";
 import ambeeRoutes from "./routes/ambeeRoutes";
 import xweatherRoutes from "./routes/xweatherRoutes";
 import tomorrowRoutes from "./routes/tomorrowRoutes";
+import nwsForecastRoutes from "./routes/nwsForecastRoutes";
+import geocodingRoutes from "./routes/geocodingRoutes";
 import { VoiceAIService } from "./services/voiceAI";
 import { weatherAI } from "./services/weatherAI.js";
 import { universalAI } from "./services/universalAI.js";
@@ -460,6 +462,14 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
   // ---- Tomorrow.io Weather Intelligence Routes ----
   app.use('/api/tomorrow', tomorrowRoutes);
   console.log('🌤️ Tomorrow.io weather intelligence routes registered');
+
+  // ---- NWS Forecast Routes ----
+  app.use('/api/nws', nwsForecastRoutes);
+  console.log('🌤️ NWS forecast routes registered - Daily/hourly forecasts with units toggle');
+
+  // ---- Geocoding Routes ----
+  app.use('/api/geocode', geocodingRoutes);
+  console.log('🌍 Geocoding routes registered - Forward/reverse geocoding with autocomplete');
 
   // ---- AI Intelligence Orchestrator Routes ----
   const aiIntelligenceRoutes = await import('./routes/aiIntelligenceRoutes.js');

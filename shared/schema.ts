@@ -171,6 +171,63 @@ export const contractorMarineRequestSchema = z.object({
   radius: z.string().transform(Number).optional()
 });
 
+// ===== NWS FORECAST SCHEMAS =====
+
+// NWS Forecast Period (Daily or Hourly)
+export const nwsForecastPeriodSchema = z.object({
+  number: z.number().optional(),
+  name: z.string().optional(), // "Tonight", "Monday", etc.
+  startTime: z.string(), // ISO 8601 timestamp
+  endTime: z.string(), // ISO 8601 timestamp
+  isDaytime: z.boolean().optional(),
+  temperature: z.number(),
+  temperatureUnit: z.string(), // "F" or "C"
+  temperatureTrend: z.string().nullable().optional(),
+  windSpeed: z.string(), // "5 to 10 mph"
+  windDirection: z.string(), // "NE", "SW", etc.
+  icon: z.string().optional(), // URL to weather icon
+  shortForecast: z.string(),
+  detailedForecast: z.string()
+});
+
+// NWS Daily/Hourly Forecast Response
+export const nwsForecastResponseSchema = z.object({
+  units: z.enum(['imperial', 'metric']),
+  daily: z.array(nwsForecastPeriodSchema),
+  hourly: z.array(nwsForecastPeriodSchema),
+  alerts: z.array(z.any()) // Weather alerts
+});
+
+// ===== GEOCODING SCHEMAS =====
+
+// Geocoding Result
+export const geocodingResultSchema = z.object({
+  label: z.string(), // Display name
+  lat: z.number(),
+  lon: z.number(),
+  displayName: z.string().optional(),
+  city: z.string().optional(),
+  state: z.string().optional(),
+  country: z.string().optional(),
+  postalCode: z.string().optional(),
+  boundingBox: z.array(z.number()).optional() // [south, north, west, east]
+});
+
+// Reverse Geocoding Result
+export const reverseGeocodingResultSchema = z.object({
+  displayName: z.string(),
+  address: z.object({
+    road: z.string().optional(),
+    city: z.string().optional(),
+    county: z.string().optional(),
+    state: z.string().optional(),
+    postcode: z.string().optional(),
+    country: z.string().optional()
+  }).optional(),
+  lat: z.number(),
+  lon: z.number()
+});
+
 // Species Coefficients for Tree Weight Estimation
 export const speciesCoeffs = pgTable("species_coeffs", {
   id: serial("id").primaryKey(),

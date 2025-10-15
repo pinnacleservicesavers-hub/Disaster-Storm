@@ -1,0 +1,359 @@
+wesome — here’s a drop-in public/index.html that adds:
+
+a Retry button shown on section errors
+
+a Use my location (GPS) button that calls your /api/nws/point endpoint
+
+keeps the spinner + skeletons + °F/°C toggle + autocomplete + chart
+
+Paste this over your current public/index.html.
+
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>NWS Any City Demo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root { --card:#f8f9fa; --border:#e6e6e6; --muted:#666; --danger:#b00020; }
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, Arial, sans-serif; margin: 2rem; color:#111; }
+    h1 { margin-bottom:.5rem; }
+    input,button,select { font-size:1rem; padding:.65rem .8rem; }
+    button { cursor:pointer; }
+    .row { margin:1rem 0; display:flex; gap:.5rem; flex-wrap:wrap; position:relative; }
+    .card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:1rem; margin:.5rem 0; }
+    .grid { display:grid; gap:.75rem; grid-template-columns:repeat(auto-fill, minmax(220px,1fr)); }
+    .muted { color:var(--muted); }
+    .headline { font-weight:600; }
+    .small { font-size:.9rem; }
+    canvas { width:100%; max-width:900px; }
+    .autocomplete {
+      position:absolute; top:3.1rem; left:0; right:0; z-index:10;
+      background:white; border:1px solid var(--border); border-radius:10px;
+      box-shadow:0 8px 20px rgba(0,0,0,.06); overflow:hidden; max-height:260px; overflow-y:auto;
+    }
+    .ac-item { padding:.6rem .8rem; cursor:pointer; }
+    .ac-item:hover { background:#f1f5f9; }
+    .hidden { display:none; }
+
+    /* Spinner overlay */
+    .spinner-wrap {
+      position:fixed; inset:0; display:none; place-items:center; background:rgba(255,255,255,.6); z-index:999;
+      backdrop-filter: blur(2px);
+    }
+    .spinner {
+      width:42px; height:42px; border:4px solid #ccc; border-top-color:#111; border-radius:50%;
+      animation:spin 0.9s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Skeleton shimmer */
+    .skeleton { position:relative; overflow:hidden; background:#eee; border-radius:12px; min-height:90px; }
+    .skeleton::after {
+      content:""; position:absolute; inset:0;
+      transform:translateX(-100%); background:linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.6) 50%, rgba(255,255,255,0) 100%);
+      animation:shimmer 1.2s infinite;
+    }
+    @keyframes shimmer { 100% { transform:translateX(100%); } }
+
+    .error { color:var(--danger); padding:.5rem 0; }
+    .error .card { border-color:#ffd7de; background:#fff1f3; }
+    .error-actions { margin-top:.5rem; display:flex; gap:.5rem; flex-wrap:wrap; }
+  </style>
+</head>
+<body>
+  <div id="spinner" class="spinner-wrap"><div class="spinner"></div></div>
+
+  <h1>NWS Forecast + Alerts (Any City)</h1>
+  <div class="muted">Type a city or use your GPS, choose units, and go.</div>
+
+  <div class="row">
+    <input id="city" placeholder="Start typing a city…" value="Atlanta, GA" autocomplete="off" />
+    <select id="units" title="Units">
+      <option value="imperial" selected>°F</option>
+      <option value="metric">°C</option>
+    </select>
+    <button id="go">Get Weather</button>
+    <button id="gps">Use my location</button>
+    <div id="ac" class="autocomplete hidden"></div>
+  </div>
+
+  <div id="status" class="muted"></div>
+
+  <h2 id="loc"></h2>
+
+  <h3>Active Alerts</h3>
+  <div id="alerts"></div>
+
+  <h3>Daily Forecast</h3>
+  <div id="daily" class="grid"></div>
+
+  <h3>Next 24 Hours (Temperature)</h3>
+  <div class="card">
+    <canvas id="hourlyChart" height="220"></canvas>
+  </div>
+
+  <h3>Next 24 Hours (Detail Cards)</h3>
+  <div id="hourly" class="grid"></div>
+
+  <script>
+    const statusEl = document.getElementById("status");
+    const locEl = document.getElementById("loc");
+    const alertsEl = document.getElementById("alerts");
+    const dailyEl = document.getElementById("daily");
+    const hourlyEl = document.getElementById("hourly");
+    const cityInput = document.getElementById("city");
+    const unitsSel = document.getElementById("units");
+    const ac = document.getElementById("ac");
+    const spinner = document.getElementById("spinner");
+    let chart; // Chart.js
+
+    // Track last successful/attempted request for Retry
+    let lastMode = "city"; // "city" | "point"
+    let lastCity = cityInput.value;
+    let lastPoint = null;   // {lat, lon}
+
+    // ---------- Spinner ----------
+    function showLoading() { spinner.style.display = "grid"; }
+    function hideLoading() { spinner.style.display = "none"; }
+
+    // ---------- Skeletons ----------
+    function renderSkeletons() {
+      alertsEl.innerHTML = `<div class="card skeleton" style="min-height:80px"></div>`;
+      dailyEl.innerHTML = Array.from({length:6}).map(()=>`<div class="skeleton" style="height:120px"></div>`).join("");
+      hourlyEl.innerHTML = Array.from({length:6}).map(()=>`<div class="skeleton" style="height:100px"></div>`).join("");
+    }
+
+    // ---------- Error helpers with Retry buttons ----------
+    function sectionError(container, message, retryTarget) {
+      const retryLabel = retryTarget === "city" ? "Retry city" :
+                         retryTarget === "point" ? "Retry GPS" : "Retry";
+      container.innerHTML = `
+        <div class="error">
+          <div class="card">
+            <div class="headline">Something went wrong</div>
+            <div class="small">${message}</div>
+            <div class="error-actions">
+              <button class="retry-btn" data-target="${retryTarget || lastMode}">${retryLabel}</button>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    // Delegate clicks on Retry buttons
+    document.addEventListener("click", (e) => {
+      const btn = e.target.closest(".retry-btn");
+      if (!btn) return;
+      const target = btn.dataset.target || lastMode;
+      if (target === "point" && lastPoint) {
+        fetchPoint(lastPoint.lat, lastPoint.lon);
+      } else {
+        fetchCity(lastCity);
+      }
+    });
+
+    // ---------- AUTOCOMPLETE ----------
+    let acTimer;
+    cityInput.addEventListener("input", () => {
+      clearTimeout(acTimer);
+      const q = cityInput.value.trim();
+      if (q.length < 2) { hideAC(); return; }
+      acTimer = setTimeout(() => searchAC(q), 200);
+    });
+    document.addEventListener("click", (e) => {
+      if (!ac.contains(e.target) && e.target !== cityInput) hideAC();
+    });
+
+    async function searchAC(q) {
+      try {
+        const r = await fetch(`/api/geo/search?q=${encodeURIComponent(q)}`);
+        if (!r.ok) throw new Error("search failed");
+        const options = await r.json();
+        renderAC(options);
+      } catch { hideAC(); }
+    }
+
+    function renderAC(options) {
+      if (!options.length) { hideAC(); return; }
+      ac.innerHTML = options.map(o => `
+        <div class="ac-item" data-lat="${o.lat}" data-lon="${o.lon}">
+          ${o.label}
+        </div>`).join("");
+      ac.classList.remove("hidden");
+      [...ac.querySelectorAll(".ac-item")].forEach(el => {
+        el.addEventListener("click", () => {
+          cityInput.value = el.textContent;
+          hideAC();
+          fetchCity(cityInput.value);
+        });
+      });
+    }
+    function hideAC() { ac.classList.add("hidden"); ac.innerHTML = ""; }
+
+    // ---------- BUTTONS ----------
+    document.getElementById("go").addEventListener("click", () => {
+      const city = cityInput.value.trim();
+      if (city) fetchCity(city);
+    });
+    unitsSel.addEventListener("change", () => {
+      if (lastMode === "point" && lastPoint) {
+        fetchPoint(lastPoint.lat, lastPoint.lon);
+      } else {
+        const city = cityInput.value.trim();
+        if (city) fetchCity(city);
+      }
+    });
+    document.getElementById("gps").addEventListener("click", () => {
+      if (!navigator.geolocation) {
+        statusEl.textContent = "Geolocation not supported in this browser.";
+        return;
+      }
+      statusEl.textContent = "Requesting your location…";
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          const { latitude: lat, longitude: lon } = pos.coords;
+          fetchPoint(lat, lon);
+        },
+        err => {
+          statusEl.textContent = `Location error: ${err.message}`;
+          sectionError(alertsEl, "Could not access GPS. Check permissions and try again.", "point");
+          sectionError(dailyEl, "Could not load daily forecast (GPS).", "point");
+          sectionError(hourlyEl, "Could not load hourly forecast (GPS).", "point");
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
+      );
+    });
+
+    // ---------- FETCHERS ----------
+    async function fetchCity(city) {
+      lastMode = "city";
+      lastCity = city;
+      statusEl.textContent = "Loading…";
+      locEl.textContent = "";
+      renderSkeletons();
+      showLoading();
+      try {
+        const units = unitsSel.value;
+        const res = await fetch(`/api/nws/city?q=${encodeURIComponent(city)}&units=${units}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+
+        locEl.textContent = `${data.location}`;
+        renderAlerts(data.alerts);
+        renderDaily(data.daily);
+        const next24 = (data.hourly || []).slice(0, 24);
+        renderHourlyCards(next24);
+        renderHourlyChart(next24, units);
+        statusEl.textContent = "";
+      } catch (e) {
+        statusEl.textContent = "";
+        sectionError(alertsEl, e.message, "city");
+        sectionError(dailyEl, "Could not load daily forecast.", "city");
+        sectionError(hourlyEl, "Could not load hourly forecast.", "city");
+        try { if (chart) chart.destroy(); } catch {}
+      } finally {
+        hideLoading();
+      }
+    }
+
+    async function fetchPoint(lat, lon) {
+      lastMode = "point";
+      lastPoint = { lat, lon };
+      statusEl.textContent = "Loading with your location…";
+      locEl.textContent = "";
+      renderSkeletons();
+      showLoading();
+      try {
+        const units = unitsSel.value;
+        const url = `/api/nws/point?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&units=${units}`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+
+        // We don't get a nice display name from point route; show coords
+        locEl.textContent = `Your location (${lat.toFixed(4)}, ${lon.toFixed(4)})`;
+        renderAlerts(data.alerts);
+        renderDaily(data.daily);
+        const next24 = (data.hourly || []).slice(0, 24);
+        renderHourlyCards(next24);
+        renderHourlyChart(next24, units);
+        statusEl.textContent = "";
+      } catch (e) {
+        statusEl.textContent = "";
+        sectionError(alertsEl, e.message, "point");
+        sectionError(dailyEl, "Could not load daily forecast (GPS).", "point");
+        sectionError(hourlyEl, "Could not load hourly forecast (GPS).", "point");
+        try { if (chart) chart.destroy(); } catch {}
+      } finally {
+        hideLoading();
+      }
+    }
+
+    // ---------- RENDERERS ----------
+    function renderAlerts(features = []) {
+      if (!features.length) {
+        alertsEl.innerHTML = `<div class="muted">No active alerts for this location.</div>`;
+        return;
+      }
+      alertsEl.innerHTML = features.map(f => {
+        const p = f.properties || {};
+        return `
+          <div class="card">
+            <div class="headline">${p.headline || p.event || "Alert"}</div>
+            <div class="small muted">${p.severity || ""} • Expires: ${p.expires || "N/A"}</div>
+            <div class="small">${(p.areaDesc || "").slice(0, 200)}</div>
+            <details><summary>Details</summary><pre class="small">${(p.description || "").trim()}</pre></details>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function renderDaily(periods = []) {
+      if (!periods.length) return sectionError(dailyEl, "No daily forecast returned.", lastMode);
+      dailyEl.innerHTML = periods.slice(0, 8).map(p => `
+        <div class="card">
+          <div class="headline">${p.name}</div>
+          <div>${p.shortForecast}</div>
+          <div class="muted small">${p.temperature}°${p.temperatureUnit} • ${p.windDirection} ${p.windSpeed}</div>
+          ${p.icon ? `<img alt="" src="${p.icon}" style="width:60px;height:60px;margin-top:.5rem;" />` : ""}
+        </div>
+      `).join("");
+    }
+
+    function renderHourlyCards(periods = []) {
+      if (!periods.length) return sectionError(hourlyEl, "No hourly data returned.", lastMode);
+      hourlyEl.innerHTML = periods.map(p => `
+        <div class="card">
+          <div class="headline">${new Date(p.startTime).toLocaleString()}</div>
+          <div>${p.shortForecast}</div>
+          <div class="muted small">${p.temperature}°${p.temperatureUnit} • ${p.windDirection} ${p.windSpeed}</div>
+        </div>
+      `).join("");
+    }
+
+    function renderHourlyChart(periods = [], units = "imperial") {
+      const ctx = document.getElementById("hourlyChart").getContext("2d");
+      if (!periods.length) { try { if (chart) chart.destroy(); } catch {} return; }
+      const labels = periods.map(p => new Date(p.startTime).toLocaleTimeString([], { hour: "numeric" }));
+      const temps = periods.map(p => Number(p.temperature));
+      const yLabel = units === "metric" ? "°C" : "°F";
+
+      if (chart) chart.destroy();
+      chart = new Chart(ctx, {
+        type: "line",
+        data: { labels, datasets: [{ label:`Temperature (next 24h, ${yLabel})`, data:temps, tension:.3, pointRadius:2 }] },
+        options: {
+          responsive:true, maintainAspectRatio:false,
+          scales:{ y:{ title:{ display:true, text:yLabel } }, x:{ title:{ display:true, text:"Hour" } } },
+          plugins:{ legend:{ display:true }, tooltip:{ enabled:true } }
+        }
+      });
+    }
+
+    // initial
+    fetchCity(cityInput.value);
+  </script>
+</body>
+</html>

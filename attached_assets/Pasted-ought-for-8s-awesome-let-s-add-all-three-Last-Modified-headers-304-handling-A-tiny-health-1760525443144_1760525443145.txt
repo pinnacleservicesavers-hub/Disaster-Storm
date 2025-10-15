@@ -1,0 +1,319 @@
+ought for 8s
+
+awesome — let’s add all three:
+
+Last-Modified headers (+ 304 handling)
+
+A tiny /health route with cache stats
+
+Optional swap to lru-cache or Upstash Redis (copy-paste ready)
+
+Below are drop-in patches for your existing server.js (CommonJS).
+
+1) Add Last-Modified support
+
+Put these helpers near your cache helpers (you already have crypto, jsonETag, sendCachedJSON). Replace sendCachedJSON with this version that also handles If-Modified-Since:
+
+// ---- HTTP cache helpers (ETag + Last-Modified + 304) ----
+function jsonETag(obj) {
+  const str = JSON.stringify(obj);
+  const hash = crypto.createHash("sha1").update(str).digest("hex");
+  return `W/"${hash}"`;
+}
+
+/**
+ * Send JSON with Cache-Control, ETag, and Last-Modified.
+ * @param {IncomingMessage} req
+ * @param {ServerResponse} res
+ * @param {*} body - JSON-serializable body
+ * @param {number} clientMaxAgeSec - Cache-Control max-age (seconds)
+ * @param {number} lastModifiedMs - epoch ms to use for Last-Modified (usually your cache timestamp)
+ */
+function sendCachedJSON(req, res, body, clientMaxAgeSec = 60, lastModifiedMs = Date.now()) {
+  const etag = jsonETag(body);
+  const inm = req.headers["if-none-match"];
+  const ims = req.headers["if-modified-since"]; // RFC 7232
+
+  const lastModStr = new Date(lastModifiedMs).toUTCString();
+  res.setHeader("Cache-Control", `public, max-age=${clientMaxAgeSec}`);
+  res.setHeader("ETag", etag);
+  res.setHeader("Last-Modified", lastModStr);
+  res.setHeader("Content-Type", "application/json; charset=utf-8");
+
+  // Revalidation: ETag takes precedence if present
+  if (inm && inm === etag) {
+    res.statusCode = 304;
+    return res.end();
+  }
+  if (ims && Date.parse(ims) >= lastModifiedMs) {
+    res.statusCode = 304;
+    return res.end();
+  }
+
+  res.status(200).end(JSON.stringify(body));
+}
+
+Expose each response’s “lastModified”
+
+When you pull from your LRU cache, you know when the entry was saved. Slight tweak: store at (you already do) and pass it to sendCachedJSON.
+
+In your LRU cache (you added earlier), keep it as:
+
+// CACHE: key -> { at:number, ttl:number, data:any }
+
+
+When serving from cache (hit), pass lastModifiedMs:
+
+const hit = CACHE.get(cacheKey);
+if (hit && (Date.now() - hit.at) <= hit.ttl) {
+  // bump LRU:
+  CACHE.delete(cacheKey); CACHE.set(cacheKey, hit);
+  return sendCachedJSON(req, res, hit.data, 300 /*or 90*/, hit.at);
+}
+
+
+When you set a new value:
+
+setCache(cacheKey, body, 90 * 1000);
+return sendCachedJSON(req, res, body, 90, Date.now());
+
+
+Below I include patched route bodies with this wired in.
+
+2) /health route with cache stats
+
+Add basic counters and a /health endpoint.
+
+A) Counters (near your cache code)
+// --- stats ---
+const STATS = {
+  cacheHits: 0,
+  cacheMisses: 0,
+  evictions: 0,
+  sweeps: 0,
+  startedAt: Date.now()
+};
+
+// Patch eviction points to increment STATS.evictions
+function setCache(key, data, ttlMs) {
+  while (CACHE.size >= CACHE_LIMIT) {
+    const oldestKey = CACHE.keys().next().value;
+    CACHE.delete(oldestKey);
+    STATS.evictions++;
+  }
+  CACHE.set(key, { at: now(), ttl: ttlMs, data });
+}
+
+function getFreshEntry(key) {
+  const v = CACHE.get(key);
+  if (!v) return null;
+  if (now() - v.at > v.ttl) {
+    CACHE.delete(key);
+    STATS.evictions++; // expired
+    return null;
+  }
+  // LRU bump
+  CACHE.delete(key);
+  CACHE.set(key, v);
+  return v;
+}
+
+// sweep expired
+setInterval(() => {
+  const t = now();
+  let removed = 0;
+  for (const [k, v] of CACHE.entries()) {
+    if (t - v.at > v.ttl) { CACHE.delete(k); removed++; }
+  }
+  if (removed) STATS.evictions += removed;
+  STATS.sweeps++;
+}, SWEEP_EVERY_MS).unref?.();
+
+
+Use getFreshEntry instead of getCache so you can access both data and at.
+
+B) Health endpoint
+app.get("/health", (req, res) => {
+  const mem = process.memoryUsage();
+  const body = {
+    status: "ok",
+    uptimeSec: Math.round(process.uptime()),
+    startedAt: new Date(STATS.startedAt).toISOString(),
+    cache: {
+      size: CACHE.size,
+      limit: CACHE_LIMIT,
+      hits: STATS.cacheHits,
+      misses: STATS.cacheMisses,
+      evictions: STATS.evictions,
+      sweeps: STATS.sweeps
+    },
+    memory: {
+      rss: mem.rss,
+      heapTotal: mem.heapTotal,
+      heapUsed: mem.heapUsed,
+      external: mem.external
+    },
+    now: new Date().toISOString()
+  };
+  sendCachedJSON(req, res, body, 3, Date.now()); // tiny client cache
+});
+
+3) Patch your three routes to use LM + stats
+/api/geo/search
+app.get("/api/geo/search", async (req, res) => {
+  try {
+    const q = (req.query.q || "").trim();
+    if (!q) return sendCachedJSON(req, res, [], 300, Date.now());
+
+    const cacheKey = `geo:${q.toLowerCase()}`;
+    const v = getFreshEntry(cacheKey);
+    if (v) {
+      STATS.cacheHits++;
+      return sendCachedJSON(req, res, v.data, 300, v.at);
+    }
+    STATS.cacheMisses++;
+
+    const url = `https://nominatim.openstreetmap.org/search?format=json&limit=5&q=${encodeURIComponent(q)}`;
+    const r = await fetch(url, { headers: { "User-Agent": UA } });
+    if (!r.ok) throw new Error("Geocoding search failed");
+    const rows = await r.json();
+    const results = rows.map(x => ({ label: x.display_name, lat: parseFloat(x.lat), lon: parseFloat(x.lon) }));
+
+    setCache(cacheKey, results, 5 * 60 * 1000); // 5m
+    return sendCachedJSON(req, res, results, 300, Date.now());
+  } catch (e) {
+    res.status(500).json({ error: e.message || "search failed" });
+  }
+});
+
+/api/nws/city
+app.get("/api/nws/city", async (req, res) => {
+  try {
+    const q = (req.query.q || "").trim();
+    const units = (req.query.units || "imperial").toLowerCase();
+    if (!q) return res.status(400).json({ error: "Missing ?q=City" });
+
+    const cacheKey = `nws:city:${units}:${q.toLowerCase()}`;
+    const v = getFreshEntry(cacheKey);
+    if (v) {
+      STATS.cacheHits++;
+      return sendCachedJSON(req, res, v.data, 90, v.at);
+    }
+    STATS.cacheMisses++;
+
+    const { lat, lon, display } = await geocodeCity(q);
+    const payload = await getNwsForPoint(lat, lon, units);
+    const body = { location: display, coords: { lat, lon }, ...payload };
+
+    setCache(cacheKey, body, 90 * 1000);
+    return sendCachedJSON(req, res, body, 90, Date.now());
+  } catch (e) {
+    res.status(500).json({ error: e.message || "Server error" });
+  }
+});
+
+/api/nws/point
+app.get("/api/nws/point", async (req, res) => {
+  try {
+    const lat = Number(req.query.lat);
+    const lon = Number(req.query.lon);
+    const units = (req.query.units || "imperial").toLowerCase();
+    if (Number.isNaN(lat) || Number.isNaN(lon)) {
+      return res.status(400).json({ error: "lat and lon are required numbers" });
+    }
+
+    const cacheKey = `nws:point:${units}:${lat.toFixed(4)},${lon.toFixed(4)}`;
+    const v = getFreshEntry(cacheKey);
+    if (v) {
+      STATS.cacheHits++;
+      return sendCachedJSON(req, res, v.data, 90, v.at);
+    }
+    STATS.cacheMisses++;
+
+    const payload = await getNwsForPoint(lat, lon, units);
+
+    setCache(cacheKey, payload, 90 * 1000);
+    return sendCachedJSON(req, res, payload, 90, Date.now());
+  } catch (e) {
+    res.status(500).json({ error: e.message || "Server error" });
+  }
+});
+
+4) Optional: swap to lru-cache package (drop-in)
+
+If you prefer a tested LRU, add it to package.json dependencies:
+
+"dependencies": {
+  "cors": "^2.8.5",
+  "express": "^4.19.2",
+  "lru-cache": "^11.0.1"
+}
+
+
+Then replace your manual CACHE with:
+
+const LRU = require("lru-cache");
+const cache = new LRU({
+  max: 500,              // entries
+  ttl: 1000 * 60 * 5,    // default TTL 5m (can override per set)
+  updateAgeOnGet: true
+});
+
+function setCache(key, data, ttlMs) { cache.set(key, { data, at: Date.now() }, { ttl: ttlMs }); }
+function getFreshEntry(key) {
+  const v = cache.get(key);
+  return v ? { data: v.data, at: v.at } : null;
+}
+
+
+Everything else (routes + sendCachedJSON) stays the same.
+
+5) Optional: Upstash Redis for persistence
+
+Good when you expect lots of traffic or multiple instances.
+
+package.json
+
+"dependencies": {
+  "cors": "^2.8.5",
+  "express": "^4.19.2",
+  "@upstash/redis": "^1.30.0"
+}
+
+
+server.js (add):
+
+const { Redis } = require("@upstash/redis");
+const redis = new Redis({
+  url: process.env.UPSTASH_REDIS_REST_URL,
+  token: process.env.UPSTASH_REDIS_REST_TOKEN
+});
+
+// Redis-backed get/set with TTL (seconds)
+async function rSet(key, value, ttlSec) {
+  await redis.set(key, JSON.stringify({ at: Date.now(), data: value }), { ex: ttlSec });
+}
+async function rGet(key) {
+  const raw = await redis.get(key);
+  if (!raw) return null;
+  try { return typeof raw === "string" ? JSON.parse(raw) : raw; } catch { return null; }
+}
+
+
+Then, inside each route:
+
+Try const v = await rGet(cacheKey); first (if found → sendCachedJSON(req,res,v.data, maxAge, v.at)).
+
+Otherwise fetch fresh, await rSet(cacheKey, body, 90); and send.
+
+You can keep the in-memory LRU as a level-1 cache and Redis as level-2 (check memory first, then Redis).
+
+You’re done ✅
+
+Now your API:
+
+Speaks ETag + Last-Modified and returns 304 when appropriate.
+
+Has a /health route with cache stats + memory usage.
+
+Can optionally use lru-cache or Redis with minimal changes.

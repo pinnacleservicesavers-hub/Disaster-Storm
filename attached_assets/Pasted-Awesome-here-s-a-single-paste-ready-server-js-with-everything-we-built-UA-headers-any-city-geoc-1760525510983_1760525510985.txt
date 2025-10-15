@@ -1,0 +1,297 @@
+Awesome — here’s a single, paste-ready server.js with everything we built (UA headers, any-city geocoding, forecasts + alerts, °F/°C toggle, LRU-style cache w/ TTL + eviction + sweeper, Cache-Control + ETag + Last-Modified/304, and a /health endpoint). Drop this into your Replit Node.js project and hit Run.
+
+// server.js (CommonJS) — NWS Any-City API + caching + HTTP revalidation
+const express = require("express");
+const cors = require("cors");
+const crypto = require("crypto");
+
+// Replit Node 18+ has global fetch
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// ---------- App identity / headers ----------
+const UA = "DisasterDirectApp (support@strategiclandmgmt.com)";
+const NWS_HEADERS = { "User-Agent": UA, "Accept": "application/geo+json" };
+
+// ---------- Tiny LRU-ish in-memory cache ----------
+const CACHE = new Map(); // key -> { at:number, ttl:number, data:any }
+const CACHE_LIMIT = 500;              // max entries
+const SWEEP_EVERY_MS = 60 * 1000;     // sweep expired every 60s
+const now = () => Date.now();
+
+// stats
+const STATS = {
+  cacheHits: 0,
+  cacheMisses: 0,
+  evictions: 0,
+  sweeps: 0,
+  startedAt: Date.now()
+};
+
+function setCache(key, data, ttlMs) {
+  while (CACHE.size >= CACHE_LIMIT) {
+    const oldestKey = CACHE.keys().next().value;
+    CACHE.delete(oldestKey);
+    STATS.evictions++;
+  }
+  CACHE.set(key, { at: now(), ttl: ttlMs, data });
+}
+
+function getFreshEntry(key) {
+  const v = CACHE.get(key);
+  if (!v) return null;
+  if (now() - v.at > v.ttl) {
+    CACHE.delete(key);
+    STATS.evictions++;
+    return null;
+  }
+  // LRU bump
+  CACHE.delete(key);
+  CACHE.set(key, v);
+  return v;
+}
+
+// sweeper
+setInterval(() => {
+  const t = now();
+  let removed = 0;
+  for (const [k, v] of CACHE.entries()) {
+    if (t - v.at > v.ttl) { CACHE.delete(k); removed++; }
+  }
+  if (removed) STATS.evictions += removed;
+  STATS.sweeps++;
+}, SWEEP_EVERY_MS).unref?.();
+
+// ---------- HTTP cache helpers (ETag + Last-Modified + 304) ----------
+function jsonETag(obj) {
+  const str = JSON.stringify(obj);
+  const hash = crypto.createHash("sha1").update(str).digest("hex");
+  return `W/"${hash}"`;
+}
+
+/**
+ * Send JSON with Cache-Control, ETag, and Last-Modified; supports 304.
+ * @param {*} req
+ * @param {*} res
+ * @param {*} body JSON-serializable
+ * @param {number} clientMaxAgeSec Cache-Control max-age
+ * @param {number} lastModifiedMs epoch ms for Last-Modified
+ */
+function sendCachedJSON(req, res, body, clientMaxAgeSec = 60, lastModifiedMs = Date.now()) {
+  const etag = jsonETag(body);
+  const inm = req.headers["if-none-match"];
+  const ims = req.headers["if-modified-since"];
+  const lastModStr = new Date(lastModifiedMs).toUTCString();
+
+  res.setHeader("Cache-Control", `public, max-age=${clientMaxAgeSec}`);
+  res.setHeader("ETag", etag);
+  res.setHeader("Last-Modified", lastModStr);
+  res.setHeader("Content-Type", "application/json; charset=utf-8");
+
+  if (inm && inm === etag) return res.status(304).end();
+  if (ims && Date.parse(ims) >= lastModifiedMs) return res.status(304).end();
+
+  return res.status(200).end(JSON.stringify(body));
+}
+
+// ---------- Unit conversion helpers ----------
+function fToC(f) { return Math.round(((f - 32) * 5) / 9); }
+function mphToKmh(m) { return Math.round(m * 1.60934); }
+
+// Convert strings like "5 mph", "10 to 15 mph", "gusts up to 35 mph"
+function convertWindString(str, toMetric = false) {
+  if (!str || !toMetric) return str || "";
+  return str
+    .replace(/\d+(\.\d+)?/g, num => mphToKmh(parseFloat(num)))
+    .replace(/mph/g, "km/h");
+}
+
+// ---------- Core fetching helpers ----------
+async function geocodeCity(city) {
+  const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(city)}`;
+  const res = await fetch(url, { headers: { "User-Agent": UA } });
+  if (!res.ok) throw new Error("Geocoding failed");
+  const arr = await res.json();
+  if (!arr.length) throw new Error("No match for city");
+  const hit = arr[0];
+  return {
+    lat: parseFloat(hit.lat),
+    lon: parseFloat(hit.lon),
+    display: hit.display_name
+  };
+}
+
+async function getNwsForPoint(lat, lon, units = "imperial") {
+  const pts = await fetch(`https://api.weather.gov/points/${lat},${lon}`, { headers: NWS_HEADERS }).then(r => r.json());
+  const dailyUrl  = pts?.properties?.forecast;
+  const hourlyUrl = pts?.properties?.forecastHourly;
+  if (!dailyUrl || !hourlyUrl) throw new Error("NWS points lookup did not return forecast URLs");
+
+  const [daily, hourly, alerts] = await Promise.all([
+    fetch(dailyUrl,  { headers: NWS_HEADERS }).then(r => r.json()),
+    fetch(hourlyUrl, { headers: NWS_HEADERS }).then(r => r.json()),
+    fetch(`https://api.weather.gov/alerts/active?point=${lat},${lon}`, { headers: NWS_HEADERS }).then(r => r.json())
+  ]);
+
+  const toMetric = units === "metric";
+
+  const dailyOut = (daily?.properties?.periods ?? []).map(p => ({
+    ...p,
+    temperature: toMetric ? fToC(p.temperature) : p.temperature,
+    temperatureUnit: toMetric ? "C" : (p.temperatureUnit || "F"),
+    windSpeed: convertWindString(p.windSpeed, toMetric)
+  }));
+
+  const hourlyOut = (hourly?.properties?.periods ?? []).map(p => ({
+    ...p,
+    temperature: toMetric ? fToC(p.temperature) : p.temperature,
+    temperatureUnit: toMetric ? "C" : (p.temperatureUnit || "F"),
+    windSpeed: convertWindString(p.windSpeed, toMetric)
+  }));
+
+  return {
+    units,
+    daily: dailyOut,
+    hourly: hourlyOut,
+    alerts: alerts?.features ?? []
+  };
+}
+
+// ---------- Express setup ----------
+app.use(cors());
+app.use(express.static("public")); // serves /public (optional demo UI)
+
+// ---------- Routes ----------
+
+// City autocomplete (5 results) with 5m cache
+app.get("/api/geo/search", async (req, res) => {
+  try {
+    const q = (req.query.q || "").trim();
+    if (!q) return sendCachedJSON(req, res, [], 300, Date.now());
+
+    const cacheKey = `geo:${q.toLowerCase()}`;
+    const v = getFreshEntry(cacheKey);
+    if (v) {
+      STATS.cacheHits++;
+      return sendCachedJSON(req, res, v.data, 300, v.at);
+    }
+    STATS.cacheMisses++;
+
+    const url = `https://nominatim.openstreetmap.org/search?format=json&limit=5&q=${encodeURIComponent(q)}`;
+    const r = await fetch(url, { headers: { "User-Agent": UA } });
+    if (!r.ok) throw new Error("Geocoding search failed");
+    const rows = await r.json();
+    const results = rows.map(x => ({ label: x.display_name, lat: parseFloat(x.lat), lon: parseFloat(x.lon) }));
+
+    setCache(cacheKey, results, 5 * 60 * 1000);
+    return sendCachedJSON(req, res, results, 300, now());
+  } catch (e) {
+    res.status(500).json({ error: e.message || "search failed" });
+  }
+});
+
+// Forecast + alerts by city text (90s cache), units=imperial|metric
+// GET /api/nws/city?q=City[, State][&units=metric|imperial]
+app.get("/api/nws/city", async (req, res) => {
+  try {
+    const q = (req.query.q || "").trim();
+    const units = (req.query.units || "imperial").toLowerCase();
+    if (!q) return res.status(400).json({ error: "Missing ?q=City" });
+
+    const cacheKey = `nws:city:${units}:${q.toLowerCase()}`;
+    const v = getFreshEntry(cacheKey);
+    if (v) {
+      STATS.cacheHits++;
+      return sendCachedJSON(req, res, v.data, 90, v.at);
+    }
+    STATS.cacheMisses++;
+
+    const { lat, lon, display } = await geocodeCity(q);
+    const payload = await getNwsForPoint(lat, lon, units);
+    const body = { location: display, coords: { lat, lon }, ...payload };
+
+    setCache(cacheKey, body, 90 * 1000);
+    return sendCachedJSON(req, res, body, 90, now());
+  } catch (e) {
+    res.status(500).json({ error: e.message || "Server error" });
+  }
+});
+
+// Forecast + alerts by point (90s cache), units=imperial|metric
+// GET /api/nws/point?lat=..&lon=..[&units=metric|imperial]
+app.get("/api/nws/point", async (req, res) => {
+  try {
+    const lat = Number(req.query.lat);
+    const lon = Number(req.query.lon);
+    const units = (req.query.units || "imperial").toLowerCase();
+    if (Number.isNaN(lat) || Number.isNaN(lon)) {
+      return res.status(400).json({ error: "lat and lon are required numbers" });
+    }
+
+    const cacheKey = `nws:point:${units}:${lat.toFixed(4)},${lon.toFixed(4)}`;
+    const v = getFreshEntry(cacheKey);
+    if (v) {
+      STATS.cacheHits++;
+      return sendCachedJSON(req, res, v.data, 90, v.at);
+    }
+    STATS.cacheMisses++;
+
+    const payload = await getNwsForPoint(lat, lon, units);
+
+    setCache(cacheKey, payload, 90 * 1000);
+    return sendCachedJSON(req, res, payload, 90, now());
+  } catch (e) {
+    res.status(500).json({ error: e.message || "Server error" });
+  }
+});
+
+// Health / stats
+app.get("/health", (req, res) => {
+  const mem = process.memoryUsage();
+  const body = {
+    status: "ok",
+    uptimeSec: Math.round(process.uptime()),
+    startedAt: new Date(STATS.startedAt).toISOString(),
+    cache: {
+      size: CACHE.size,
+      limit: CACHE_LIMIT,
+      hits: STATS.cacheHits,
+      misses: STATS.cacheMisses,
+      evictions: STATS.evictions,
+      sweeps: STATS.sweeps
+    },
+    memory: {
+      rss: mem.rss,
+      heapTotal: mem.heapTotal,
+      heapUsed: mem.heapUsed,
+      external: mem.external
+    },
+    now: new Date().toISOString()
+  };
+  sendCachedJSON(req, res, body, 3, now());
+});
+
+// ---------- Start ----------
+app.listen(PORT, () => {
+  console.log(`Listening on http://localhost:${PORT}`);
+});
+
+
+Quick usage:
+
+Any city (imperial default):
+/api/nws/city?q=Tulsa, OK
+
+Metric:
+/api/nws/city?q=Tulsa, OK&units=metric
+
+By coordinates:
+/api/nws/point?lat=33.75&lon=-84.39&units=imperial
+
+Autocomplete:
+/api/geo/search?q=mia
+
+Health:
+/health
+
+Want me to also drop in a matching public/index.html with the autocomplete + °F/°C toggle + hourly chart wired to these endpoints (so it’s completely turnkey)?

@@ -1,0 +1,166 @@
+awesome — let’s add (A) a tiny LRU-style cache with eviction + expiry and (B) proper HTTP caching headers (Cache-Control + ETag/304). Below are drop-in patches for your existing server.js.
+
+A) Replace your current cache with an LRU + sweeper
+
+Add/replace the cache section near the top of server.js:
+
+// --- LRU-ish in-memory cache with TTL + eviction ---
+const crypto = require("crypto");
+
+const CACHE = new Map(); // key -> { at:number, ttl:number, data:any }
+const CACHE_LIMIT = 500; // max keys stored
+const SWEEP_EVERY_MS = 60 * 1000; // sweep once per minute
+
+function now() { return Date.now(); }
+
+function setCache(key, data, ttlMs) {
+  // Evict if over limit (oldest first)
+  while (CACHE.size >= CACHE_LIMIT) {
+    const oldestKey = CACHE.keys().next().value;
+    CACHE.delete(oldestKey);
+  }
+  CACHE.set(key, { at: now(), ttl: ttlMs, data });
+}
+
+function getCache(key) {
+  const v = CACHE.get(key);
+  if (!v) return null;
+  if (now() - v.at > v.ttl) {
+    CACHE.delete(key);
+    return null;
+  }
+  // LRU bump: re-insert to move to newest position
+  CACHE.delete(key);
+  CACHE.set(key, v);
+  return v.data;
+}
+
+// Periodic sweep for expired entries
+setInterval(() => {
+  const t = now();
+  for (const [k, v] of CACHE.entries()) {
+    if (t - v.at > v.ttl) CACHE.delete(k);
+  }
+}, SWEEP_EVERY_MS).unref?.();
+
+
+This keeps about ~500 hot entries, drops oldest when full, and sweeps expired items every minute.
+
+B) Add HTTP caching headers (+ optional ETag/304)
+
+Drop these helpers near the cache code:
+
+// ---- HTTP cache helpers ----
+function jsonETag(obj) {
+  // Weak ETag based on stable string of JSON (sufficient for this use)
+  const str = JSON.stringify(obj);
+  const hash = crypto.createHash("sha1").update(str).digest("hex");
+  return `W/"${hash}"`;
+}
+
+function sendCachedJSON(req, res, body, clientMaxAgeSec = 60) {
+  const etag = jsonETag(body);
+  const inm = req.headers["if-none-match"];
+
+  res.setHeader("Cache-Control", `public, max-age=${clientMaxAgeSec}`);
+  res.setHeader("ETag", etag);
+  res.setHeader("Content-Type", "application/json; charset=utf-8");
+
+  if (inm && inm === etag) {
+    res.status(304).end(); // client can use its cached copy
+    return;
+  }
+  res.status(200).send(JSON.stringify(body));
+}
+
+C) Use the headers in your routes
+1) /api/geo/search (5-minute cache already set)
+
+Replace the handler body with this version (keeps your same logic but adds headers):
+
+app.get("/api/geo/search", async (req, res) => {
+  try {
+    const q = (req.query.q || "").trim();
+    if (!q) return sendCachedJSON(req, res, [], 300);
+
+    const cacheKey = `geo:${q.toLowerCase()}`;
+    const hit = getCache(cacheKey);
+    if (hit) return sendCachedJSON(req, res, hit, 300); // 5 minutes client cache
+
+    const url = `https://nominatim.openstreetmap.org/search?format=json&limit=5&q=${encodeURIComponent(q)}`;
+    const r = await fetch(url, { headers: { "User-Agent": UA } });
+    if (!r.ok) throw new Error("Geocoding search failed");
+    const rows = await r.json();
+    const results = rows.map(x => ({ label: x.display_name, lat: parseFloat(x.lat), lon: parseFloat(x.lon) }));
+
+    setCache(cacheKey, results, 5 * 60 * 1000); // 5 min server cache
+    return sendCachedJSON(req, res, results, 300); // 5 min client cache
+  } catch (e) {
+    res.status(500).json({ error: e.message || "search failed" });
+  }
+});
+
+2) /api/nws/city (90-second cache)
+
+Replace your handler with:
+
+// GET /api/nws/city?q=City[, State][&units=metric|imperial]
+app.get("/api/nws/city", async (req, res) => {
+  try {
+    const q = (req.query.q || "").trim();
+    const units = (req.query.units || "imperial").toLowerCase();
+    if (!q) return res.status(400).json({ error: "Missing ?q=City" });
+
+    const cacheKey = `nws:city:${units}:${q.toLowerCase()}`;
+    const cached = getCache(cacheKey);
+    if (cached) return sendCachedJSON(req, res, cached, 90);
+
+    const { lat, lon, display } = await geocodeCity(q);
+    const payload = await getNwsForPoint(lat, lon, units);
+    const body = { location: display, coords: { lat, lon }, ...payload };
+
+    setCache(cacheKey, body, 90 * 1000); // 90s server cache
+    return sendCachedJSON(req, res, body, 90); // 90s client cache
+  } catch (e) {
+    res.status(500).json({ error: e.message || "Server error" });
+  }
+});
+
+3) /api/nws/point (90-second cache)
+
+Replace with:
+
+// GET /api/nws/point?lat=..&lon=..[&units=metric|imperial]
+app.get("/api/nws/point", async (req, res) => {
+  try {
+    const lat = Number(req.query.lat);
+    const lon = Number(req.query.lon);
+    const units = (req.query.units || "imperial").toLowerCase();
+    if (Number.isNaN(lat) || Number.isNaN(lon)) {
+      return res.status(400).json({ error: "lat and lon are required numbers" });
+    }
+
+    const cacheKey = `nws:point:${units}:${lat.toFixed(4)},${lon.toFixed(4)}`;
+    const cached = getCache(cacheKey);
+    if (cached) return sendCachedJSON(req, res, cached, 90);
+
+    const payload = await getNwsForPoint(lat, lon, units);
+
+    setCache(cacheKey, payload, 90 * 1000); // 90s server cache
+    return sendCachedJSON(req, res, payload, 90); // 90s client cache
+  } catch (e) {
+    res.status(500).json({ error: e.message || "Server error" });
+  }
+});
+
+That’s it 🎉
+
+What you get now:
+
+LRU-style eviction (cap 500 entries) + automatic expiry sweeps.
+
+Consistent Cache-Control on responses (geo: 300s, nws: 90s).
+
+ETag support so browsers/CDNs can revalidate and receive 304 Not Modified.
+
+Your existing °F/°C toggle + conversions keep working (headers don’t change payload).
