@@ -34,6 +34,7 @@ import StormShare from "./pages/StormShare";
 import DisasterEssentialsMarketplace from "./pages/DisasterEssentialsMarketplace";
 import HomeownerContacts from "./pages/HomeownerContacts";
 import EnvironmentalIntelligence from "./pages/EnvironmentalIntelligence";
+import Watchlist from "./pages/Watchlist";
 import XRayRealityModule from "./modules/xray-reality/XRayRealityModule";
 import EyesInTheSkyGlobe from "./modules/EyesInTheSky/EyesInTheSkyGlobe";
 import EyesTabs from "./modules/EyesInTheSky/EyesTabs";
@@ -110,6 +111,14 @@ function Navigation() {
           testId: "nav-surveillance",
           badge: "Live",
           badgeColor: "bg-purple-500"
+        },
+        { 
+          href: "/watchlist", 
+          label: "Location Watchlist", 
+          icon: Target, 
+          testId: "nav-watchlist",
+          badge: "Alerts",
+          badgeColor: "bg-red-500"
         }
       ]
     },
@@ -537,6 +546,12 @@ export default function App() {
           <title>Environmental Intelligence - Disaster Direct</title>
           <meta name="description" content="Real-time air quality, pollen, weather, and environmental hazard monitoring for contractor safety and field operations" />
           <EnvironmentalIntelligence />
+        </Route>
+        
+        <Route path="/watchlist">
+          <title>Location Watchlist - Disaster Direct</title>
+          <meta name="description" content="Monitor impact scores and receive automated alerts for key contractor locations with customizable thresholds and webhook notifications" />
+          <Watchlist />
         </Route>
         
         <Route path="/contractors">

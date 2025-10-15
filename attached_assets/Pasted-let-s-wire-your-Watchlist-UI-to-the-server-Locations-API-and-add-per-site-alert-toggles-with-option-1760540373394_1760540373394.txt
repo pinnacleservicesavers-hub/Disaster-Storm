@@ -1,0 +1,390 @@
+let’s wire your Watchlist UI to the server Locations API and add per-site alert toggles (with optional per-site thresholds). Below are drop-in patches for your backend and a tiny frontend API client + UI updates.
+
+Backend patches
+1) Extend locations to store alert flags (no DB needed)
+
+Edit backend/routes/locations.js – allow alert and threshold fields (optional):
+
+-  r.post("/", express.json(), async (req,res)=>{
+-    const { id, name, lat, lng } = req.body || {};
++  r.post("/", express.json(), async (req,res)=>{
++    const { id, name, lat, lng, alert=false, threshold } = req.body || {};
+     if (!id || !name || !Number.isFinite(lat) || !Number.isFinite(lng))
+       return res.status(400).json({ error:"id, name, lat, lng required" });
+     const rows = await readAll();
+     if (rows.some(x=>x.id===id)) return res.status(409).json({ error:"id exists" });
+-    rows.push({ id, name, lat, lng }); await writeAll(rows); res.status(201).json({ ok:true });
++    const row = { id, name, lat, lng, alert: !!alert };
++    if (Number.isFinite(threshold)) row.threshold = Number(threshold);
++    rows.push(row); await writeAll(rows); res.status(201).json({ ok:true });
+   });
+
+   r.put("/:id", express.json(), async (req,res)=>{
+     const rows = await readAll();
+     const i = rows.findIndex(x=>x.id===req.params.id);
+     if (i<0) return res.status(404).json({ error:"not found" });
+-    const { name, lat, lng } = req.body || {};
++    const { name, lat, lng, alert, threshold } = req.body || {};
+     if (name!==undefined) rows[i].name = name;
+     if (Number.isFinite(lat)) rows[i].lat = lat;
+     if (Number.isFinite(lng)) rows[i].lng = lng;
++    if (typeof alert === "boolean") rows[i].alert = alert;
++    if (threshold === null) delete rows[i].threshold;
++    if (Number.isFinite(threshold)) rows[i].threshold = Number(threshold);
+     await writeAll(rows); res.json({ ok:true });
+   });
+
+2) Make alerts read from locations.json (and keep global webhook)
+
+Edit backend/routes/alerts.js so it doesn’t duplicate locations. It will read .alert + .threshold from locations.json. Only the webhookUrl (and optional defaultThreshold) live in alerts.json.
+
+Replace your file with this version:
+
+import express from "express";
+import fetch from "node-fetch";
+import fs from "fs/promises";
+import path from "path";
+import { fileURLToPath } from "url";
+import { fetchJson } from "../helpers/http.js";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const CFG = path.join(__dirname, "..", "data", "alerts.json");
+const LOC = path.join(__dirname, "..", "data", "locations.json");
+
+async function readAlertsCfg() {
+  try { return JSON.parse(await fs.readFile(CFG, "utf-8")); }
+  catch { return { defaultThreshold: 70, webhookUrl: "" }; }
+}
+async function writeAlertsCfg(cfg) {
+  await fs.mkdir(path.dirname(CFG), { recursive: true });
+  await fs.writeFile(CFG, JSON.stringify(cfg, null, 2));
+}
+async function readLocations() {
+  try { return JSON.parse(await fs.readFile(LOC, "utf-8")); }
+  catch { return []; }
+}
+
+async function getImpact(base, lat, lng){
+  const u = new URL("/api/impact", base);
+  u.searchParams.set("lat", String(lat));
+  u.searchParams.set("lng", String(lng));
+  u.searchParams.set("pollen","1");
+  return fetchJson(u.toString());
+}
+
+async function postWebhook(url, body){
+  const isSlack = /slack\.com\/api|hooks\.slack\.com/.test(url);
+  const payload = isSlack
+    ? { text: body.summary, attachments: [{ color: body.color, fields: body.fields }] }
+    : body;
+  return fetch(url, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(payload) });
+}
+
+export function mountAlerts(app){
+  const r = express.Router();
+
+  // Get/save global config (no locations here)
+  r.get("/config", async (_,res)=> res.json(await readAlertsCfg()));
+  r.put("/config", express.json(), async (req,res)=>{
+    const { defaultThreshold, webhookUrl } = req.body || {};
+    if (!webhookUrl) return res.status(400).json({ error:"webhookUrl required" });
+    const cfg = await readAlertsCfg();
+    if (Number.isFinite(defaultThreshold)) cfg.defaultThreshold = Number(defaultThreshold);
+    cfg.webhookUrl = webhookUrl;
+    await writeAlertsCfg(cfg);
+    res.json({ ok:true });
+  });
+
+  // Toggle alerts per site via locations API passthrough for convenience
+  r.put("/toggle/:id", express.json(), async (req,res)=>{
+    const id = req.params.id;
+    const { alert, threshold } = req.body || {};
+    // Delegate to /api/locations/:id
+    req.url = `/api/locations/${id}`;
+    req.method = "PUT";
+    req.body = { alert, threshold };
+    app._router.handle(req, res, () => res.status(500).json({ error:"toggle failed" }));
+  });
+
+  // Run a check now (only for locations with alert=true)
+  r.post("/check", async (req,res)=>{
+    const base = process.env.PUBLIC_BASE_URL || `${req.protocol}://${req.get("host")}`;
+    const cfg = await readAlertsCfg();
+    const rows = await readLocations();
+    const active = rows.filter(r => r.alert);
+    const hits = [];
+    for (const loc of active) {
+      try {
+        const j = await getImpact(base, loc.lat, loc.lng);
+        const score = Math.round(j.impactScore || 0);
+        hits.push({ id: loc.id, name: loc.name, score });
+        const th = Number.isFinite(loc.threshold) ? loc.threshold : cfg.defaultThreshold ?? 70;
+        if (cfg.webhookUrl && score >= th) {
+          const color = score >= (th + 10) ? "#d61f1f" : "#f59e0b";
+          await postWebhook(cfg.webhookUrl, {
+            summary: `⚠️ ${loc.name}: Impact ${score} (≥ ${th})`,
+            color,
+            fields: [
+              { title:"Location", value:`${loc.lat.toFixed(3)}, ${loc.lng.toFixed(3)}`, short:true },
+              { title:"Score", value:String(score), short:true },
+            ],
+            raw: { loc, score, threshold: th }
+          });
+        }
+      } catch {}
+    }
+    res.json({ ok:true, checked: active.length, results: hits });
+  });
+
+  app.use("/api/alerts", r);
+
+  // Optional background polling
+  const pollSec = Number(process.env.ALERT_POLL_SEC || 0);
+  if (pollSec > 0) {
+    const timer = setInterval(async ()=>{
+      try {
+        const base = process.env.PUBLIC_BASE_URL || "http://localhost:3001";
+        const cfg = await readAlertsCfg();
+        const rows = await readLocations();
+        const active = rows.filter(r => r.alert);
+        for (const loc of active) {
+          try {
+            const j = await getImpact(base, loc.lat, loc.lng);
+            const score = Math.round(j.impactScore || 0);
+            const th = Number.isFinite(loc.threshold) ? loc.threshold : cfg.defaultThreshold ?? 70;
+            if (cfg.webhookUrl && score >= th) {
+              const color = score >= (th + 10) ? "#d61f1f" : "#f59e0b";
+              await postWebhook(cfg.webhookUrl, {
+                summary: `⚠️ ${loc.name}: Impact ${score} (≥ ${th})`,
+                color,
+                fields: [
+                  { title:"Location", value:`${loc.lat.toFixed(3)}, ${loc.lng.toFixed(3)}`, short:true },
+                  { title:"Score", value:String(score), short:true },
+                ]
+              });
+            }
+          } catch {}
+        }
+      } catch (e) { console.error("alerts poller error:", e); }
+    }, pollSec * 1000);
+    timer.unref?.();
+  }
+}
+
+
+No other server file changes needed if you already mounted mountAlerts(app) earlier.
+
+Example configuration & usage
+
+# Set global webhook + default threshold (applies if site has no override)
+curl -X PUT $BASE/api/alerts/config -H "Content-Type: application/json" \
+  -d '{"webhookUrl":"https://hooks.slack.com/services/XXX/YYY/ZZZ","defaultThreshold":70}'
+
+# Create a site with alerts enabled (and per-site threshold 65)
+curl -X POST $BASE/api/locations -H "Content-Type: application/json" \
+  -d '{"id":"atl","name":"Atlanta HQ","lat":33.749,"lng":-84.388,"alert":true,"threshold":65}'
+
+# Toggle alerts later
+curl -X PUT $BASE/api/alerts/toggle/atl -H "Content-Type: application/json" -d '{"alert":false}'
+
+# Check now (triggers webhooks if any site >= threshold)
+curl -X POST $BASE/api/alerts/check
+
+Frontend wiring
+1) Tiny API client (src/lib/api.ts)
+
+Use this in any demo (Leaflet/Mapbox/MapLibre):
+
+export type LocationRow = { id:string; name:string; lat:number; lng:number; alert?:boolean; threshold?:number };
+
+export async function listLocations(base:string): Promise<LocationRow[]> {
+  const r = await fetch(new URL("/api/locations", base));
+  if (!r.ok) throw new Error("list failed");
+  return r.json();
+}
+export async function createLocation(base:string, row: LocationRow) {
+  const r = await fetch(new URL("/api/locations", base), {
+    method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(row),
+  });
+  if (!r.ok) throw new Error("create failed");
+}
+export async function updateLocation(base:string, id:string, patch: Partial<LocationRow>) {
+  const r = await fetch(new URL(`/api/locations/${id}`, base), {
+    method:"PUT", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(patch),
+  });
+  if (!r.ok) throw new Error("update failed");
+}
+export async function deleteLocation(base:string, id:string) {
+  const r = await fetch(new URL(`/api/locations/${id}`, base), { method:"DELETE" });
+  if (!r.ok) throw new Error("delete failed");
+}
+export async function setAlert(base:string, id:string, alert:boolean, threshold?:number) {
+  const body: any = { alert };
+  if (Number.isFinite(threshold as number)) body.threshold = Number(threshold);
+  const r = await fetch(new URL(`/api/alerts/toggle/${id}`, base), {
+    method:"PUT", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(body),
+  });
+  if (!r.ok) throw new Error("toggle failed");
+}
+
+2) Update Watchlist page to use server data
+
+Replace the previous localStorage Watchlist with this server-backed version:
+
+import { useEffect, useMemo, useState } from "react";
+import ReportButton from "../components/ReportButton";
+import { listLocations, createLocation, updateLocation, deleteLocation, setAlert, LocationRow } from "../lib/api";
+
+type ImpactResp = { impactScore:number };
+
+function badge(score:number){
+  const c = score>=70 ? "#ef4444" : score>=40 ? "#f59e0b" : "#10b981";
+  const t = score>=70 ? "High" : score>=40 ? "Elevated" : "Low";
+  return { color:c, text:t };
+}
+async function getImpact(base:string, lat:number, lng:number){
+  const u = new URL("/api/impact", base);
+  u.searchParams.set("lat", String(lat));
+  u.searchParams.set("lng", String(lng));
+  u.searchParams.set("pollen","1");
+  const r = await fetch(u.toString()); if(!r.ok) throw new Error("impact");
+  return (await r.json()) as ImpactResp;
+}
+
+export default function Watchlist({ baseUrl }: { baseUrl: string }){
+  const [rows,setRows] = useState<LocationRow[]>([]);
+  const [scores, setScores] = useState<Record<string, number>>({});
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+
+  const refreshRows = async () => setRows(await listLocations(baseUrl));
+
+  useEffect(()=>{ refreshRows(); /* eslint-disable-next-line */ }, [baseUrl]);
+
+  const refreshScores = async () => {
+    setBusy(true); setErr("");
+    try {
+      const out: Record<string, number> = {};
+      for (const r of rows) {
+        try { const j = await getImpact(baseUrl, r.lat, r.lng); out[r.id] = Math.round(j.impactScore||0); }
+        catch { out[r.id] = -1; }
+      }
+      setScores(out);
+    } catch (e:any) { setErr(e.message || "refresh failed"); }
+    finally { setBusy(false); }
+  };
+
+  useEffect(()=>{ if(rows.length) refreshScores(); /* eslint-disable-next-line */ }, [rows.map(r=>r.id).join(",")]);
+
+  const avg = useMemo(()=> {
+    const vals = Object.values(scores).filter(v=>v>=0);
+    return vals.length ? Math.round(vals.reduce((a,b)=>a+b,0)/vals.length) : 0;
+  }, [scores]);
+
+  const [form,setForm]=useState<LocationRow>({ id:"", name:"", lat:33.749, lng:-84.388, alert:false });
+
+  const add = async () => {
+    if (!form.id || !form.name) return;
+    await createLocation(baseUrl, form);
+    setForm({ id:"", name:"", lat:33.749, lng:-84.388, alert:false });
+    await refreshRows();
+  };
+
+  return (
+    <div style={{ padding:16, fontFamily:"system-ui" }}>
+      <h2 style={{ marginTop:0 }}>Watchlist</h2>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(6, minmax(0, 1fr)) auto", gap:8, alignItems:"center", marginBottom:12 }}>
+        <input placeholder="id" value={form.id} onChange={e=>setForm({...form, id:e.target.value})}/>
+        <input placeholder="name" value={form.name} onChange={e=>setForm({...form, name:e.target.value})}/>
+        <input type="number" step="0.01" value={form.lat} onChange={e=>setForm({...form, lat:parseFloat(e.target.value)})}/>
+        <input type="number" step="0.01" value={form.lng} onChange={e=>setForm({...form, lng:parseFloat(e.target.value)})}/>
+        <label style={{ display:"inline-flex", alignItems:"center", gap:6 }}>
+          <input type="checkbox" checked={!!form.alert} onChange={e=>setForm({...form, alert:e.target.checked})}/> Alerts
+        </label>
+        <input type="number" placeholder="threshold (opt)" value={form.threshold ?? ""} onChange={e=>setForm({...form, threshold: e.target.value==="" ? undefined : Number(e.target.value)})}/>
+        <button onClick={add}>Add</button>
+        <button onClick={refreshScores} disabled={busy}>{busy ? "Refreshing…" : "Refresh"}</button>
+        <div style={{ marginLeft:8, opacity:.8, gridColumn:"1/-1" }}>Avg Impact: <b>{avg}</b></div>
+      </div>
+
+      {err && <div style={{ color:"#b91c1c" }}>⚠ {err}</div>}
+
+      <table style={{ width:"100%", borderCollapse:"collapse" }}>
+        <thead>
+          <tr style={{ textAlign:"left", borderBottom:"1px solid #eee" }}>
+            <th style={{ padding:8 }}>Location</th>
+            <th style={{ padding:8 }}>Lat,Lng</th>
+            <th style={{ padding:8 }}>Impact</th>
+            <th style={{ padding:8 }}>Status</th>
+            <th style={{ padding:8 }}>Alerts</th>
+            <th style={{ padding:8 }}>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(r => {
+            const s = scores[r.id] ?? -1;
+            const b = s>=0 ? badge(s) : { color:"#6b7280", text:"N/A" };
+            return (
+              <tr key={r.id} style={{ borderBottom:"1px solid #f5f5f5" }}>
+                <td style={{ padding:8 }}>{r.name}</td>
+                <td style={{ padding:8, fontFamily:"ui-monospace" }}>{r.lat.toFixed(3)},{r.lng.toFixed(3)}</td>
+                <td style={{ padding:8 }}>{s>=0 ? <b>{s}</b> : "…"}</td>
+                <td style={{ padding:8 }}>
+                  <span style={{ background:b.color, color:"#fff", borderRadius:999, padding:"2px 8px", fontSize:12 }}>{b.text}</span>
+                </td>
+                <td style={{ padding:8 }}>
+                  <label style={{ display:"inline-flex", alignItems:"center", gap:6 }}>
+                    <input
+                      type="checkbox"
+                      checked={!!r.alert}
+                      onChange={async e => {
+                        await setAlert(baseUrl, r.id, e.target.checked, r.threshold);
+                        await refreshRows();
+                      }}
+                    />
+                    On
+                  </label>
+                  <input
+                    type="number"
+                    placeholder="threshold"
+                    value={r.threshold ?? ""}
+                    onChange={async e => {
+                      const v = e.target.value === "" ? undefined : Number(e.target.value);
+                      await updateLocation(baseUrl, r.id, { threshold: v });
+                      await refreshRows();
+                    }}
+                    style={{ width:90, marginLeft:8 }}
+                  />
+                </td>
+                <td style={{ padding:8, display:"flex", gap:8 }}>
+                  <ReportButton baseUrl={baseUrl} lat={r.lat} lng={r.lng} filename={`${r.id}-report.pdf`} />
+                  <button onClick={async ()=>{ await deleteLocation(baseUrl, r.id); await refreshRows(); }} style={{ color:"#b91c1c" }}>
+                    Remove
+                  </button>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+
+      {!rows.length && <div style={{ opacity:.7, padding:12 }}>Add locations to begin.</div>}
+    </div>
+  );
+}
+
+Quick sanity checklist
+
+Secrets set: AMBEE_API_KEY, XWEATHER_CLIENT_ID, XWEATHER_CLIENT_SECRET, NWS_USER_AGENT, (optional) ALERT_POLL_SEC, webhook URL via /api/alerts/config.
+
+Server rebuilt: in Replit shell
+
+cd backend && npm install && npm run dev
+
+
+Create a few sites (via UI form or curl), flip Alerts to On, set threshold, then call:
+
+POST <BASE>/api/alerts/check
+
+
+You should see Slack (or your webhook) receive messages whenever any site’s Impact ≥ threshold.
