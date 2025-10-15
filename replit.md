@@ -5,6 +5,14 @@ Disaster Direct is a comprehensive storm operations and claims management platfo
 
 ## Recent Changes
 
+### October 15, 2025 - Production Infrastructure Upgrades
+- **Batch Signing**: Added `/api/sign/batch/tiles` and `/api/sign/batch/legend` endpoints for minting multiple signed URLs in single requests (massive performance boost for map tile loading)
+- **Cloudflare Worker**: Edge-based signer deployable to Cloudflare Workers for 5-10ms global latency (vs 50-200ms to origin), with complete setup guide in `cloudflare-worker/README.md`
+- **GitHub Actions CI/CD**: Automated Docker image builds to GHCR on version tags, enabling one-click deployment to Render/Railway
+- **HMAC Signing Infrastructure**: Created signing helper module with signature generation, verification, and constant-time comparison for timing attack prevention
+- **Documentation**: Updated `SECURITY_SETUP.md` with batch signing examples, Worker deployment guide, and CI/CD setup instructions
+- **Impact**: Production-ready infrastructure with edge performance, automated deployments, and efficient tile signing
+
 ### October 15, 2025 - Enterprise Security & Admin Interface
 - **Role-Based Authentication**: Implemented three-tier security (ADMIN/SIGNER/VIEWER) with hierarchical access control
 - **Admin Interface**: Added `/admin` HTML dashboard for managing locations, alerts, CSV operations, and manual checks
