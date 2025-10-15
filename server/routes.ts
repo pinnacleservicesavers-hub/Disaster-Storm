@@ -461,6 +461,11 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
   app.use('/api/ai-intelligence', aiIntelligenceRoutes.default);
   console.log('🧠 AI Intelligence Orchestrator routes registered');
 
+  // ---- Disaster Aggregator Routes ----
+  const disasterAggregatorRoutes = await import('./routes/disasterAggregatorRoutes.js');
+  app.use('/api', disasterAggregatorRoutes.default);
+  console.log('🔄 Disaster Aggregator routes registered - Multi-source event aggregation active');
+
   // ---- Impact GeoJSON Endpoint (must come BEFORE /api/impact) ----
   app.get('/api/impact/geojson', async (req, res) => {
     try {

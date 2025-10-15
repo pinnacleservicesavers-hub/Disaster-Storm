@@ -36,6 +36,22 @@ Preferred communication style: Simple, everyday language.
 
 ### Service Layer Architecture
 - **Weather Service**: NWS APIs.
+- **Disaster Aggregator Service**: Opterrix-style multi-source event aggregation system. Normalizes and unifies disaster/weather data from all providers into a single unified feed with risk scoring.
+  - **Unified Event Schema**: Standardized format across NWS, FEMA, NOAA, Xweather, and Ambee
+  - **Intelligent Deduplication**: Provider-agnostic deduplication removes duplicate events across sources
+  - **Risk Score Calculation**: 0-100 score based on severity, urgency, certainty, and impacts
+  - **Performance Caching**: 2-minute TTL cache for aggregated results
+  - **API Endpoints**:
+    - `/api/aggregate` - Complete multi-source event aggregation (lat, lon, radius_km, hours_back)
+    - `/api/risk-score` - Quick risk score calculation
+    - `/api/aggregator/health` - Service health check
+  - **Provider Integration**: 
+    - ✅ NWS alerts (radius-based)
+    - ✅ Xweather lightning/hail (radius-based)
+    - ✅ Ambee air quality/fire (coordinate-based)
+    - ⚠️ FEMA declarations (state/county-based, requires geocoding for radius queries)
+    - ⚠️ NOAA historical data (state/county-based, requires geocoding for radius queries)
+  - **Architectural Note**: FEMA and NOAA services are state/county-based, not radius-based. Future enhancement will add reverse geocoding to enable full integration.
 - **AI Services**:
     - **AI Intelligence Orchestrator**: Master coordination layer that orchestrates Grok, OpenAI, and Anthropic AI models for comprehensive disaster intelligence. Provides:
       - Multi-peril analysis (hurricanes, tornadoes, fires, earthquakes, floods)
