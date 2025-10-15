@@ -153,6 +153,20 @@ export const PORTAL_EXPLANATIONS: Record<string, VoiceExplanation> = {
     navigation: 'Use AR tools to mark hazards, draw cut lines, measure distances, view live feeds, and scrub through storm history for evidence capture.',
     benefits: ['Augmented reality storm ops', 'Real-time situational awareness', 'Evidence capture and reporting', 'Smart routing and triage'],
     duration: 50
+  },
+  watchlist: {
+    id: 'watchlist',
+    portal: 'watchlist',
+    title: 'Location Watchlist Portal',
+    content: `The Location Watchlist portal helps you monitor multiple sites for disaster impact and receive automated alerts when conditions threaten your properties or service areas. 
+    Save key locations like office headquarters, equipment yards, customer properties, or potential job sites. Each location is continuously monitored and receives a real-time 
+    impact score from zero to one hundred based on active weather threats, storm predictions, environmental conditions, and disaster events. When a location's impact score 
+    exceeds your custom threshold, automated webhook notifications are sent to your Slack channel or other alert systems. This ensures you're immediately aware when storms, 
+    severe weather, or disasters threaten your monitored sites, allowing rapid response and crew deployment decisions.`,
+    keyFeatures: ['Multi-site monitoring', 'Real-time impact scoring', 'Custom alert thresholds', 'Webhook notifications', 'Slack integration', 'Manual impact refresh'],
+    navigation: 'Add locations by clicking Add Location button, configure alert thresholds per site, toggle alerts on or off, refresh impact scores manually, or let automated monitoring handle continuous updates.',
+    benefits: ['Proactive threat awareness', 'Automated alert notifications', 'Prioritize response by impact score', 'Monitor unlimited locations', 'Customizable per-site thresholds'],
+    duration: 45
   }
 };
 
@@ -304,7 +318,7 @@ ${explanation.benefits ? `Benefits include: ${explanation.benefits.join(', ')}.`
   }, [explanations, speakText]);
 
   const startGuidedTour = useCallback(async () => {
-    const portalOrder = ['welcome', 'hotels', 'gas', 'hardware', 'shelters', 'fema', 'alerts', 'satellite', 'goes17', 'xray'];
+    const portalOrder = ['welcome', 'hotels', 'gas', 'hardware', 'shelters', 'fema', 'alerts', 'satellite', 'goes17', 'xray', 'watchlist'];
     
     for (let currentIndex = 0; currentIndex < portalOrder.length; currentIndex++) {
       const portalId = portalOrder[currentIndex];

@@ -243,6 +243,58 @@ export const PORTAL_SECTIONS: Record<string, PortalSection[]> = {
       helpfulTips: ['Call ahead to confirm availability', 'Use navigation for fastest routes', 'Check for contractor discounts'],
       duration: 25
     }
+  ],
+  'watchlist': [
+    {
+      id: 'overview',
+      title: 'Location Watchlist Overview',
+      description: 'Welcome to the Location Watchlist! This powerful monitoring system helps you track disaster impact across multiple sites simultaneously. Save your office locations, equipment yards, customer properties, or potential job sites, and receive automated alerts when storms or disasters threaten them. Each location is continuously monitored for weather threats, environmental hazards, and disaster events, then scored from zero to one hundred based on current risk level. High impact scores indicate areas needing immediate attention and potential damage requiring contractor services.',
+      keyFeatures: ['Multi-site monitoring', 'Real-time impact scores', 'Automated alerts', 'Webhook notifications', 'Custom thresholds', 'Slack integration'],
+      helpfulTips: ['Add your most important locations first', 'Set different thresholds for different site priorities', 'Enable alerts for high-value properties', 'Check impact scores daily during storm season'],
+      duration: 40
+    },
+    {
+      id: 'adding-locations',
+      title: 'Adding Monitored Locations',
+      element: '[data-testid="button-add-location"]',
+      description: 'Click the Add Location button to save a new site to your watchlist. Enter a descriptive name like Office HQ or Customer Site Miami Beach, then provide the full address. The system automatically geocodes the address to get exact coordinates for precise monitoring. You can add unlimited locations to track your entire service area, customer portfolio, or expansion territories. Each location is independent with its own impact score and alert configuration.',
+      keyFeatures: ['Quick location entry', 'Automatic geocoding', 'Unlimited locations', 'Descriptive naming'],
+      helpfulTips: ['Use clear names you will recognize quickly', 'Include city names for multiple sites in same state', 'Add both current and potential service areas', 'Verify addresses are accurate for precise monitoring'],
+      duration: 35
+    },
+    {
+      id: 'impact-scores',
+      title: 'Understanding Impact Scores',
+      description: 'Each location receives a real-time impact score from zero to one hundred. This score analyzes active weather alerts, storm predictions, lightning and hail threats, environmental conditions, and disaster declarations for that specific location. Zero means no current threats. Scores from one to thirty indicate minor weather activity. Thirty to sixty shows elevated concern with developing weather patterns. Sixty to eighty signals high risk requiring attention and preparation. Scores above eighty indicate extreme threat with likely damage and immediate contractor opportunities. Impact scores update continuously as conditions change.',
+      keyFeatures: ['Zero to hundred scale', 'Multi-factor analysis', 'Continuous updates', 'Color-coded display', 'Historical tracking'],
+      helpfulTips: ['Scores over sixty require crew alerting and equipment prep', 'Scores over eighty mean immediate deployment', 'Refresh manually for latest updates during active weather', 'Compare scores across locations to prioritize response'],
+      duration: 42
+    },
+    {
+      id: 'alert-configuration',
+      title: 'Alert Configuration and Thresholds',
+      element: '.alert-toggle',
+      description: 'Enable automated alerts for each location using the alerts toggle switch. When alerts are enabled, you can configure a custom threshold score that triggers notifications. For example, set a threshold of seventy for your office headquarters to receive alerts only for serious threats, or set fifty for high-value customer properties to get early warnings. When a location\'s impact score exceeds its threshold, automated webhook notifications are sent to your configured Slack channel or other alerting systems. This ensures your team is immediately notified when monitored sites are threatened.',
+      keyFeatures: ['Per-site alert toggles', 'Custom thresholds', 'Webhook notifications', 'Slack integration', 'Immediate delivery'],
+      helpfulTips: ['Set lower thresholds for critical facilities', 'Use higher thresholds to reduce alert noise', 'Test webhooks with a low threshold first', 'Configure Slack channel before enabling alerts', 'Different locations can have different thresholds'],
+      duration: 38
+    },
+    {
+      id: 'webhook-integration',
+      title: 'Webhook and Slack Integration',
+      description: 'Configure a Slack webhook URL in the alert settings to receive notifications directly in your team channel. When any monitored location exceeds its threshold, a formatted message is posted to Slack with the location name, current impact score, threshold that was exceeded, and geographic coordinates. Slack notifications include color coding with red for extreme threats and orange for elevated risks. The webhook system is compatible with any service accepting standard webhook payloads, not just Slack. This allows integration with PagerDuty, Microsoft Teams, custom alerting systems, or automated response workflows.',
+      keyFeatures: ['Slack webhook support', 'Formatted notifications', 'Color-coded alerts', 'Multiple integrations', 'Real-time delivery', 'Location details'],
+      helpfulTips: ['Create a dedicated Slack channel for disaster alerts', 'Test webhook delivery with a low threshold', 'Include multiple team members in the alert channel', 'Webhooks work with any compatible service', 'Notifications include exact coordinates for mapping'],
+      duration: 40
+    },
+    {
+      id: 'manual-refresh',
+      title: 'Manual Impact Refresh',
+      description: 'Use the Refresh Impact button to manually update impact scores for all monitored locations. This queries the latest weather data, storm predictions, environmental conditions, and disaster alerts to recalculate scores based on current threats. Manual refresh is useful during rapidly changing weather situations, before important deployment decisions, or when you want to verify conditions before crew dispatch. The system also performs automated background updates, but manual refresh ensures you have the absolute latest information when timing is critical.',
+      keyFeatures: ['On-demand updates', 'All locations refreshed', 'Latest data', 'Quick response', 'Loading indicators'],
+      helpfulTips: ['Refresh during active weather events for latest conditions', 'Use before making crew deployment decisions', 'Refresh after major storm updates or weather alerts', 'Watch for loading indicators to know update is complete'],
+      duration: 35
+    }
   ]
 };
 

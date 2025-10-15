@@ -5,6 +5,13 @@ Disaster Direct is a comprehensive storm operations and claims management platfo
 
 ## Recent Changes
 
+### October 15, 2025 - Voice Guide Enhancement for Location Watchlist
+- **Added**: Voice guide integration for Location Watchlist feature in both VoiceGuide.tsx and PortalVoiceGuide.tsx
+- **Enhancement**: Added comprehensive voice explanations covering multi-site monitoring, impact scoring, alert configuration, webhook integration, and manual refresh
+- **Detail**: Six detailed voice sections guide contractors through location management, understanding impact scores (0-100 scale), configuring per-site alert thresholds, Slack webhook integration, and manual impact refreshing
+- **Tour Update**: Location Watchlist now included in full guided tour sequence (after X-RAY REALITY portal)
+- **Impact**: Contractors can now use Rachel voice guidance to learn Location Watchlist features and best practices for monitoring multiple sites
+
 ### October 15, 2025 - Live Intelligence AI Data Integration
 - **Fixed**: Grok AI now fetches real-time storm data before answering queries
 - **Enhancement**: `answerComprehensiveQuery()` now queries NWS alerts, tornado warnings, storm hot zones, predictions, and damage forecasts
@@ -64,7 +71,7 @@ Preferred communication style: Simple, everyday language.
 
 ### Advanced Features
 - **Voice System**: Provider-agnostic architecture (ElevenLabs, OpenAI) with "Rachel" (ElevenLabs) as the default professional female voice for AI voice interactions.
-- **Voice Guidance System**: Educational voice guides for Weather Intelligence Center and Environmental Reports, explaining conditions and safety in contractor-focused language.
+- **Voice Guidance System**: Educational voice guides for Weather Intelligence Center, Environmental Reports, and Location Watchlist, explaining conditions, features, and best practices in contractor-focused language. Full guided tour includes all 11 portals from welcome through watchlist.
 - **QR/AprilTag Calibration**: Automatic scale detection for precise measurements in images.
 
 ### SDK Package
