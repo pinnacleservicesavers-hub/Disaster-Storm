@@ -1,0 +1,326 @@
+Disaster Direct – Aggregator/analyzer (replit Mvp)
+· python
+"""
+    # Env vars: TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM
+    sid = os.getenv("TWILIO_ACCOUNT_SID")
+    tok = os.getenv("TWILIO_AUTH_TOKEN")
+    frm = os.getenv("TWILIO_FROM")
+    if not (sid and tok and frm):
+        return
+    phones = override_phones if override_phones is not None else sms_list_get()
+    if not phones:
+        return
+    try:
+        # Minimal Twilio REST without SDK using HTTP basic auth
+        msg = (
+            f"DisasterDirect Alert: risk={summary.get('risk_score')} "
+            f"parcels={','.join([p['name'] for p in summary.get('impacted_parcels', [])]) or 'none'} "
+            f"@ ({summary['query']['lat']},{summary['query']['lon']})"
+        )
+        async with httpx.AsyncClient(timeout=10.0, auth=(sid, tok)) as client:
+            for to in phones:
+                data = {"To": to, "From": frm, "Body": msg}
+                url = f"https://api.twilio.com/2010-04-01/Accounts/{sid}/Messages.json"
+                await client.post(url, data=data)
+    except Exception as e:
+        print("sms error:", e)
+
+
+
+
+# -----------------------------
+# Demo parcel seed: Dallas sample polygons
+# -----------------------------
+
+
+DALLAS_SAMPLE = {
+  "type": "FeatureCollection",
+  "features": [
+    {"type":"Feature","properties":{"owner":"Sample A"},
+     "geometry":{"type":"Polygon","coordinates":[[[-96.85,32.82],[-96.82,32.82],[-96.82,32.80],[-96.85,32.80],[-96.85,32.82]]]}},
+    {"type":"Feature","properties":{"owner":"Sample B"},
+     "geometry":{"type":"Polygon","coordinates":[[[-96.82,32.80],[-96.79,32.80],[-96.79,32.78],[-96.82,32.78],[-96.82,32.80]]]}},
+    {"type":"Feature","properties":{"owner":"Sample C"},
+     "geometry":{"type":"Polygon","coordinates":[[[-96.81,32.83],[-96.78,32.83],[-96.78,32.81],[-96.81,32.81],[-96.81,32.83]]]}},
+  ]
+}
+
+
+
+
+@app.post("/seed/dallas")
+async def seed_dallas():
+    pid = parcels_add("Dallas Sample Parcels", json.dumps(DALLAS_SAMPLE))
+    return {"ok": True, "parcel_id": pid, "count": len(DALLAS_SAMPLE["features"])}
+
+
+
+
+# Hook maybe_fire_webhook into aggregate (send summary)
+# We call it here by overriding aggregate return (non-blocking fire)
+orig_aggregate = aggregate
+
+
+@app.get("/aggregate_with_alerts")
+async def aggregate_with_alerts(lat: float = Query(..., ge=-90, le=90), lon: float = Query(..., ge=-180, le=180), radius_km: float = Query(25.0, gt=0, le=500), hours_back: int = Query(72, ge=1, le=720)):
+    resp = await orig_aggregate(lat=lat, lon=lon, radius_km=radius_km, hours_back=hours_back)  # type: ignore
+    summary = {
+        "risk_score": resp.risk_score,
+        "impacted_parcels": resp.impacted_parcels,
+        "query": {"lat": lat, "lon": lon, "radius_km": radius_km, "hours_back": hours_back},
+        "generated_at": now_utc().isoformat(),
+    }
+    try:
+        await maybe_fire_webhook(summary)
+    except Exception as e:
+        print("webhook fire err:", e)
+    return resp
+
+
+
+
+# -----------------------------
+# requirements.txt (create a separate file)
+# fastapi==0.115.0
+# uvicorn==0.30.6
+# httpx==0.27.2
+# pydantic==2.9.2
+# shapely==2.0.6
+
+
+Thought for 8s
+
+I tried to inject the two features directly into your canvas, but the update failed to match the exact HTML it needed to patch (the scheduler row markup wasn’t found). No worries—here are quick copy-paste patches to get both features live right now:
+
+1) “Use Zone Center” button (auto-fills lat/lon/radius)
+A) Update the Scheduler row (HTML)
+
+Find the “Daily Scheduler” row block (the one with sch_zone, sch_wh, sch_sms) and replace that single <div class="row">…</div> with this:
+
+<div class="row">
+  <input id="sch_name" placeholder="Dallas Daily" />
+  <input id="sch_addr" placeholder="Dallas, TX" style="width:260px"/>
+  <input id="sch_lat" placeholder="lat" style="width:120px"/>
+  <input id="sch_lon" placeholder="lon" style="width:120px"/>
+  <input id="sch_rad" placeholder="radius_km" value="25" style="width:120px"/>
+  <input id="sch_hrs" placeholder="hours_back" value="72" style="width:120px"/>
+  <input id="sch_thresh" placeholder="risk threshold" value="60" style="width:140px"/>
+  <select id="sch_zone"><option value="">(no zone)</option></select>
+  <button onclick="useZoneCenter()">Use Zone Center</button>
+  <select id="sch_parcels" multiple style="min-width:220px; max-width:300px; height:80px"></select>
+  <input id="sch_wh" placeholder="Webhook override (optional)" style="width:260px"/>
+  <input id="sch_sms" placeholder="SMS list +1555..., +1555..." style="width:260px"/>
+  <button onclick="addSchedule()">Add</button>
+</div>
+<div id="schedules"></div>
+
+B) Add these helper functions (JS)
+
+Place these before the closing </script>:
+
+<script>
+function refreshParcelOptions(){
+  fetch('/parcels').then(r=>r.json()).then(list=>{
+    const sel = document.getElementById('sch_parcels'); if(!sel) return; sel.innerHTML='';
+    (list||[]).forEach(p=>{
+      const o=document.createElement('option'); o.value=p.id; o.textContent=`#${p.id} ${p.name}`;
+      sel.appendChild(o);
+    });
+  });
+}
+
+function useZoneCenter(){
+  const sel = document.getElementById('sch_zone'); const zid = sel && sel.value;
+  if(!zid){ alert('Pick a zone first'); return; }
+  fetch('/zones/centroid/'+zid).then(r=>r.json()).then(j=>{
+    document.getElementById('sch_lat').value = (+j.lat).toFixed(6);
+    document.getElementById('sch_lon').value = (+j.lon).toFixed(6);
+    document.getElementById('sch_rad').value = (j.suggested_radius_km||25).toFixed(1);
+  });
+}
+</script>
+
+C) Call them on load / after parcel uploads (JS)
+
+After your existing startup calls (you already have initMap(); listParcels(); listRuns(); renderSchedules(); refreshZones();), add:
+
+refreshParcelOptions();
+
+
+In your existing uploadParcels() function, after listParcels();, add:
+
+refreshParcelOptions();
+
+2) Attach parcel sets to each schedule (per-job filtering)
+A) Include parcel IDs in the client’s addSchedule() (JS)
+
+Find your addSchedule() and add collection of selected parcel IDs, then include it in the POST body:
+
+const parcelsSel = document.getElementById('sch_parcels');
+const parcel_ids = Array.from(parcelsSel?.selectedOptions || []).map(o=>parseInt(o.value)).filter(Boolean);
+
+await fetch(`/schedules`, {
+  method:'POST',
+  headers:{'Content-Type':'application/json'},
+  body: JSON.stringify({
+    name,
+    lat: lat?parseFloat(lat):null,
+    lon: lon?parseFloat(lon):null,
+    radius_km: rad?parseFloat(rad):null,
+    hours_back: parseInt(hrs),
+    threshold: parseFloat(th),
+    zone_id: zone?parseInt(zone):null,
+    webhook_url: wh||null,
+    sms_csv: sms||null,
+    parcel_ids           // <— add this
+  })
+});
+
+
+Optionally display selected parcels in the scheduler list; in renderSchedules(), append something like:
+
+const ptxt = it.parcel_ids ? `, parcels:[${it.parcel_ids}]` : '';
+// ... include ${ptxt} in your li.innerHTML
+
+B) DB schema: add parcel_ids column (Python)
+
+In init_db() (where you CREATE TABLE schedules ... and the ALTER TABLE ... fallbacks are), add:
+
+# In CREATE TABLE IF NOT EXISTS schedules (...), include parcel_ids TEXT:
+"""
+CREATE TABLE IF NOT EXISTS schedules (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    lat REAL, lon REAL, radius_km REAL, hours_back INTEGER,
+    threshold REAL,
+    webhook_url TEXT,
+    sms_csv TEXT,
+    zone_id INTEGER,
+    parcel_ids TEXT,
+    created_at INTEGER NOT NULL
+)
+"""
+
+# If the table already exists, try to add columns:
+try: cur.execute("ALTER TABLE schedules ADD COLUMN parcel_ids TEXT"); except Exception: pass
+
+C) API: store and return parcel_ids (Python)
+
+Update the scheduler helpers:
+
+def schedule_add(name: str,
+                 lat: Optional[float], lon: Optional[float],
+                 radius_km: Optional[float], hours_back: int,
+                 threshold: float,
+                 webhook_url: Optional[str],
+                 sms_csv: Optional[str],
+                 zone_id: Optional[int],
+                 parcel_ids: Optional[str]) -> int:
+    con = sqlite3.connect(DB_PATH)
+    cur = con.cursor()
+    cur.execute(
+        "INSERT INTO schedules (name, lat, lon, radius_km, hours_back, threshold, webhook_url, sms_csv, zone_id, parcel_ids, created_at) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+        (name, lat, lon, radius_km, hours_back, threshold, webhook_url, sms_csv, zone_id, parcel_ids, int(datetime.utcnow().timestamp()))
+    )
+    con.commit(); rid = cur.lastrowid; con.close(); return rid
+
+def schedule_list() -> List[Dict[str,Any]]:
+    con = sqlite3.connect(DB_PATH); cur = con.cursor()
+    cur.execute("SELECT id, name, lat, lon, radius_km, hours_back, threshold, webhook_url, sms_csv, zone_id, parcel_ids FROM schedules ORDER BY id DESC")
+    rows = cur.fetchall(); con.close()
+    return [{
+        "id":r[0], "name":r[1], "lat":r[2], "lon":r[3], "radius_km":r[4],
+        "hours_back":r[5], "threshold":r[6], "webhook_url":r[7],
+        "sms_csv":r[8], "zone_id":r[9], "parcel_ids": r[10]
+    } for r in rows]
+
+
+And the endpoint:
+
+@app.post("/schedules")
+async def schedules_add(item: Dict[str,Any] = Body(...)):
+    required = ["name","hours_back","threshold"]
+    if not all(k in item for k in required):
+        raise HTTPException(status_code=400, detail="Missing required fields")
+
+    # Accept list or csv
+    pids = item.get("parcel_ids")
+    if isinstance(pids, list):
+        parcel_ids_csv = ",".join(str(int(x)) for x in pids if str(x).isdigit())
+    elif isinstance(pids, str):
+        parcel_ids_csv = pids
+    else:
+        parcel_ids_csv = None
+
+    sid = schedule_add(
+        item["name"],
+        float(item["lat"]) if item.get("lat") is not None else None,
+        float(item["lon"]) if item.get("lon") is not None else None,
+        float(item["radius_km"]) if item.get("radius_km") is not None else None,
+        int(item["hours_back"]),
+        float(item["threshold"]),
+        item.get("webhook_url"),
+        item.get("sms_csv"),
+        int(item["zone_id"]) if item.get("zone_id") is not None else None,
+        parcel_ids_csv
+    )
+    return {"ok": True, "id": sid}
+
+D) Filter impacted parcels per schedule (Python)
+
+Allow optional filtering in your parcel intersection function:
+
+def impacted_parcels(events: List[Event], allowed_ids: Optional[set] = None) -> List[Dict[str, Any]]:
+    if shape is None:
+        return []
+    # build event union...
+    impacted = []
+    for pid, name, gj_text in parcels_list():
+        if allowed_ids is not None and pid not in allowed_ids:
+            continue
+        # ... existing geometry intersection logic ...
+        # if touched:
+        #     impacted.append({"parcel_id": pid, "name": name})
+    return impacted
+
+
+(Keep your existing intersection body; just add the allowed_ids check.)
+
+Use the filter in /cron/run:
+
+Inside your cron loop, after you call agg = await aggregate(...), add:
+
+allowed = None
+if j.get("parcel_ids"):
+    try:
+        allowed = {int(x) for x in str(j["parcel_ids"]).split(",") if x.strip()}
+    except Exception:
+        allowed = None
+
+# Recompute impacted for this job if a filter is set
+impacted_for_job = impacted_parcels(agg.events, allowed_ids=allowed) if allowed is not None else agg.impacted_parcels
+
+# Save run using the job-specific impacted set
+rid = run_save(j["name"], float(lat), float(lon), float(rad or 25.0), int(j["hours_back"]),
+               agg.risk_score, agg.events, impacted_for_job)
+
+summary = {
+    "risk_score": agg.risk_score,
+    "impacted_parcels": impacted_for_job,   # <— filtered set
+    "query": {"lat": lat, "lon": lon, "radius_km": rad, "hours_back": j["hours_back"]},
+    "schedule_id": j["id"]
+}
+
+
+The rest of your notification logic (webhook/SMS overrides) stays the same.
+
+Final step checklist
+
+ Replace the Scheduler row HTML (adds Use Zone Center + parcel multi-select).
+
+ Add JS helpers refreshParcelOptions() and useZoneCenter(); call refreshParcelOptions() on load and after parcel uploads.
+
+ Update addSchedule() to send parcel_ids.
+
+ DB/Backend: add parcel_ids column, store/return it in schedules, and filter impacted in /cron/run via impacted_parcels(..., allowed_ids=...).

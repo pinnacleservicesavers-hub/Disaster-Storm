@@ -1,0 +1,278 @@
+sweet — here’s how to add city autocomplete + an hourly temperature chart to your Replit app.
+
+I’ll give you:
+
+A tiny new search API on your backend for autocomplete
+
+Front-end updates: autocomplete UI + Chart.js line chart (next 24h temps)
+
+1) Update server.js (backend)
+
+Add this search route (returns up to 5 matches) under your other routes. It uses the same UA and Nominatim:
+
+// ADD near top if not present:
+const UA = "DisasterDirectApp (support@strategiclandmgmt.com)";
+const NWS_HEADERS = { "User-Agent": UA, "Accept": "application/geo+json" };
+
+// NEW: city autocomplete (up to 5 results)
+app.get("/api/geo/search", async (req, res) => {
+  try {
+    const q = (req.query.q || "").trim();
+    if (!q) return res.json([]);
+    const url = `https://nominatim.openstreetmap.org/search?format=json&limit=5&q=${encodeURIComponent(q)}`;
+    const r = await fetch(url, { headers: { "User-Agent": UA } });
+    if (!r.ok) throw new Error("Geocoding search failed");
+    const rows = await r.json();
+    // Normalize for the UI
+    const results = rows.map(x => ({
+      label: x.display_name,
+      lat: parseFloat(x.lat),
+      lon: parseFloat(x.lon)
+    }));
+    res.json(results);
+  } catch (e) {
+    res.status(500).json({ error: e.message || "search failed" });
+  }
+});
+
+
+No other backend changes are required.
+
+2) Replace public/index.html (frontend)
+
+This version adds:
+
+Autocomplete dropdown that queries /api/geo/search?q=...
+
+Chart.js line chart for next 24h temperatures
+
+Minor UI polish
+
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>NWS Any City Demo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root { --card: #f8f9fa; --border: #e6e6e6; }
+    body { font-family: system-ui, Arial, sans-serif; margin: 2rem; }
+    input, button { font-size: 1rem; padding: .6rem .8rem; }
+    .row { margin: 1rem 0; position: relative; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 1rem; margin: .5rem 0; }
+    .grid { display: grid; gap: .75rem; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+    .muted { color: #666; }
+    .headline { font-weight: 600; }
+    .small { font-size: .9rem; }
+    .autocomplete {
+      position: absolute; top: 3.1rem; left: 0; right: 0; z-index: 10;
+      background: white; border: 1px solid var(--border); border-radius: 10px;
+      box-shadow: 0 8px 20px rgba(0,0,0,.06); overflow: hidden;
+    }
+    .ac-item { padding: .6rem .8rem; cursor: pointer; }
+    .ac-item:hover { background: #f1f5f9; }
+    .hidden { display: none; }
+    canvas { width: 100%; max-width: 900px; }
+  </style>
+</head>
+<body>
+  <h1>NWS Forecast + Alerts (Any City)</h1>
+
+  <div class="row">
+    <input id="city" placeholder="Start typing a city…" value="Atlanta, GA" autocomplete="off" />
+    <button id="go">Get Weather</button>
+    <div id="ac" class="autocomplete hidden"></div>
+  </div>
+
+  <div id="status" class="muted"></div>
+
+  <h2 id="loc"></h2>
+
+  <h3>Active Alerts</h3>
+  <div id="alerts"></div>
+
+  <h3>Daily Forecast</h3>
+  <div id="daily" class="grid"></div>
+
+  <h3>Next 24 Hours (Temperature)</h3>
+  <div class="card">
+    <canvas id="hourlyChart" height="220"></canvas>
+  </div>
+
+  <h3>Next 24 Hours (Detail Cards)</h3>
+  <div id="hourly" class="grid"></div>
+
+  <script>
+    const statusEl = document.getElementById("status");
+    const locEl = document.getElementById("loc");
+    const alertsEl = document.getElementById("alerts");
+    const dailyEl = document.getElementById("daily");
+    const hourlyEl = document.getElementById("hourly");
+    const cityInput = document.getElementById("city");
+    const ac = document.getElementById("ac");
+    let chart; // Chart.js instance
+
+    // ---- AUTOCOMPLETE ----
+    let acTimer;
+    cityInput.addEventListener("input", () => {
+      clearTimeout(acTimer);
+      const q = cityInput.value.trim();
+      if (q.length < 2) { hideAC(); return; }
+      acTimer = setTimeout(() => searchAC(q), 200);
+    });
+    document.addEventListener("click", (e) => {
+      if (!ac.contains(e.target) && e.target !== cityInput) hideAC();
+    });
+
+    async function searchAC(q) {
+      try {
+        const r = await fetch(`/api/geo/search?q=${encodeURIComponent(q)}`);
+        if (!r.ok) throw new Error("search failed");
+        const options = await r.json();
+        renderAC(options);
+      } catch (e) {
+        hideAC();
+      }
+    }
+
+    function renderAC(options) {
+      if (!options.length) { hideAC(); return; }
+      ac.innerHTML = options.map(o => `<div class="ac-item" data-lat="${o.lat}" data-lon="${o.lon}">${o.label}</div>`).join("");
+      ac.classList.remove("hidden");
+      [...ac.querySelectorAll(".ac-item")].forEach(el => {
+        el.addEventListener("click", () => {
+          cityInput.value = el.textContent;
+          hideAC();
+          fetchCity(cityInput.value);
+        });
+      });
+    }
+    function hideAC() { ac.classList.add("hidden"); ac.innerHTML = ""; }
+
+    // ---- FETCH & RENDER ----
+    async function fetchCity(city) {
+      statusEl.textContent = "Loading…";
+      alertsEl.innerHTML = dailyEl.innerHTML = hourlyEl.innerHTML = "";
+      locEl.textContent = "";
+      try {
+        const res = await fetch(`/api/nws/city?q=${encodeURIComponent(city)}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+
+        locEl.textContent = `${data.location}`;
+        renderAlerts(data.alerts);
+        renderDaily(data.daily);
+        const next24 = (data.hourly || []).slice(0, 24);
+        renderHourlyCards(next24);
+        renderHourlyChart(next24); // ← chart
+        statusEl.textContent = "";
+      } catch (e) {
+        statusEl.textContent = "Error: " + e.message;
+      }
+    }
+
+    function renderAlerts(features = []) {
+      if (!features.length) {
+        alertsEl.innerHTML = `<div class="muted">No active alerts for this location.</div>`;
+        return;
+      }
+      alertsEl.innerHTML = features.map(f => {
+        const p = f.properties || {};
+        return `
+          <div class="card">
+            <div class="headline">${p.headline || p.event || "Alert"}</div>
+            <div class="small muted">${p.severity || ""} • Expires: ${p.expires || "N/A"}</div>
+            <div class="small">${(p.areaDesc || "").slice(0, 200)}</div>
+            <details><summary>Details</summary><pre class="small">${(p.description || "").trim()}</pre></details>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function renderDaily(periods = []) {
+      dailyEl.innerHTML = periods.slice(0, 8).map(p => `
+        <div class="card">
+          <div class="headline">${p.name}</div>
+          <div>${p.shortForecast}</div>
+          <div class="muted small">${p.temperature}°${p.temperatureUnit} • ${p.windDirection} ${p.windSpeed}</div>
+          ${p.icon ? `<img alt="" src="${p.icon}" style="width:60px;height:60px;margin-top:.5rem;" />` : ""}
+        </div>
+      `).join("");
+    }
+
+    function renderHourlyCards(periods = []) {
+      hourlyEl.innerHTML = periods.map(p => `
+        <div class="card">
+          <div class="headline">${new Date(p.startTime).toLocaleString()}</div>
+          <div>${p.shortForecast}</div>
+          <div class="muted small">${p.temperature}°${p.temperatureUnit} • ${p.windDirection} ${p.windSpeed}</div>
+        </div>
+      `).join("");
+    }
+
+    // ---- CHART ----
+    function renderHourlyChart(periods = []) {
+      const ctx = document.getElementById("hourlyChart").getContext("2d");
+      const labels = periods.map(p => new Date(p.startTime).toLocaleTimeString([], { hour: "numeric" }));
+      const temps = periods.map(p => Number(p.temperature));
+
+      // If chart exists, update; else create
+      if (chart) {
+        chart.data.labels = labels;
+        chart.data.datasets[0].data = temps;
+        chart.update();
+        return;
+      }
+
+      chart = new Chart(ctx, {
+        type: "line",
+        data: {
+          labels,
+          datasets: [{
+            label: "Temperature (next 24h)",
+            data: temps,
+            tension: 0.3,
+            pointRadius: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: { title: { display: true, text: "°F (or °C per NWS feed)" } },
+            x: { title: { display: true, text: "Hour" } }
+          },
+          plugins: {
+            legend: { display: true },
+            tooltip: { enabled: true }
+          }
+        }
+      });
+    }
+
+    document.getElementById("go").addEventListener("click", () => {
+      const city = cityInput.value.trim();
+      if (city) fetchCity(city);
+    });
+
+    // initial
+    fetchCity(cityInput.value);
+  </script>
+</body>
+</html>
+
+That’s it!
+
+Click Run in Replit and open the webview.
+
+Start typing: “Tulsa…”, “Miami…”, “Seattle…” → pick from the dropdown → you’ll get alerts, daily cards, plus an hourly temperature chart.
+
+Optional polish (quick wins)
+
+Cache /api/geo/search responses for 1–5 minutes to reduce geocoder calls.
+
+Cache /api/nws/city for ~60–120 seconds (weather doesn’t change second-to-second).
+
+Add a units toggle (°F/°C) — NWS returns units; you can convert if needed.
