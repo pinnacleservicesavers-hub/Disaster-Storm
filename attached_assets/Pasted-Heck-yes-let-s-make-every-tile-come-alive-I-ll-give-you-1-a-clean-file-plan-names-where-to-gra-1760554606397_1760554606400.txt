@@ -1,0 +1,195 @@
+Heck yes—let’s make every tile come alive. I’ll give you (1) a clean file plan (names + where to grab each free loop), and (2) the exact data-video-* you’ll paste on each card. If you want, I can also swap these into your Divi child right after you drop the clips in your Media Library.
+
+A. File plan (what to download + filenames)
+
+Use these royalty-free sources (MP4 + WebM when available). Save into /media/ and keep the exact names below.
+
+Module	Clip style (what to look for)	Good source(s)
+Weather Center	Weather radar composite loop (sweeping bands)	Pexels Weather Radar, Pixabay Radar, Vecteezy Radar. 
+Pexels
++2
+Pixabay
++2
+
+Storm Predictions	Lightning storm timelapse (night, distant flashes)	Specific example on Pexels, plus Pixabay Lightning. 
+Pexels
++1
+
+TrafficCamWatcher	Rainy highway/traffic at dusk; streaking headlights	Pexels Rain + Traffic, Pixabay Rain-and-Traffic, Vecteezy Rain Traffic. 
+Pexels
++2
+Pixabay
++2
+
+Eyes in the Sky	Earth limb/clouds timelapse (space vantage)	Pexels Clouds Timelapse, Pixabay Cloud Timelapse. 
+Pexels
++1
+
+Drone Operations	Slow aerial flyover over neighborhoods/streets	Pexels Drone Flyover, Pixabay Drone Storm (curate carefully). 
+Pexels
++1
+
+AI Damage Detection	CCTV/quad-view security aesthetic (light noise)	Pexels CCTV quad overlays, Pixabay CCTV cameras. 
+Pexels
++1
+
+Lead Management	Abstract data grid / pulsing nodes loop	Pixabay Abstract Grid Loop, Vecteezy Grid. 
+Pixabay
++1
+
+Victim Portal	Rain on glass macro (soft, empathetic)	Pexels Rain on Glass, Pixabay Rain Glass. 
+Pexels
++1
+
+StormShare	Network lines on a map / connecting nodes animation	Pixabay Abstract Grid (lines variants), Vecteezy Grid (network lines). 
+Pixabay
++1
+
+Disaster Essentials Marketplace	Logistics/warehouse or trucks in rain loop	Pixabay Rain-and-Traffic list has logistics; Vecteezy search for warehouse/trucks. 
+Pixabay
++1
+
+Customer Hub	Calm particles / soft gradient motion	Pixabay abstract grid/particles category. 
+Pixabay
+
+Claims Central	Document/paper bokeh / calm office motion	Vecteezy grid/abstract (paper/bokeh terms). 
+Vecteezy
+
+Contractor Command	Crew silhouettes at sunrise / subtle dust	Pexels & Pixabay (search “construction sunrise/crew”). 
+Pexels
+
+Contractor Portal	Dashboard scan/HUD line sweeps	Pixabay abstract grid, Vecteezy HUD/digital grid. 
+Pixabay
++1
+
+Legal Command	Marble/stone texture light sweep	Vecteezy abstract texture loops. 
+Vecteezy
+
+Disaster Lens	Camera lens close-up / aperture motion	Vecteezy camera lens loops; Pixabay camera lens clips. 
+Vecteezy
+
+X-RAY REALITY	3D radar/satellite composite / isolines	Pexels Weather Radar, Pixabay Radar. 
+Pexels
++1
+
+Filenames (save exactly like this):
+
+/media/radar-loop.mp4 /media/radar-loop.webm
+/media/lightning-night.mp4 /media/lightning-night.webm
+/media/rainy-highway.mp4 /media/rainy-highway.webm
+/media/earth-limb.mp4 /media/earth-limb.webm
+/media/drone-flyover.mp4 /media/drone-flyover.webm
+/media/cctv-quad.mp4 /media/cctv-quad.webm
+/media/data-grid.mp4 /media/data-grid.webm
+/media/rain-glass.mp4 /media/rain-glass.webm
+/media/network-map.mp4 /media/network-map.webm
+/media/logistics-rain.mp4 /media/logistics-rain.webm
+/media/calm-particles.mp4 /media/calm-particles.webm
+/media/paper-bokeh.mp4 /media/paper-bokeh.webm
+/media/crew-sunrise.mp4 /media/crew-sunrise.webm
+/media/dashboard-scan.mp4 /media/dashboard-scan.webm
+/media/marble-sweep.mp4 /media/marble-sweep.webm
+/media/lens-breath.mp4 /media/lens-breath.webm
+/media/3d-radar.mp4 /media/3d-radar.webm
+
+
+Compression target per clip: 6–12s, 720p, ≤4 MB. In HandBrake: H.264 (RF 21–23) + WebM/VP9 similar, constant framerate; trim to seamless moments.
+
+B. Paste these attributes on each card
+
+For each <article class="mod-card">…</article>, add the data- lines. (You already have the HTML/CSS/JS from my last message.)
+
+Weather Center
+
+<article class="mod-card" data-video-mp4="/media/radar-loop.mp4" data-video-webm="/media/radar-loop.webm" data-poster="/media/radar-poster.jpg">
+
+
+Storm Predictions
+
+<article class="mod-card" data-video-mp4="/media/lightning-night.mp4" data-video-webm="/media/lightning-night.webm" data-poster="/media/lightning-night.jpg">
+
+
+TrafficCamWatcher
+
+<article class="mod-card traffic-card" data-video-mp4="/media/rainy-highway.mp4" data-video-webm="/media/rainy-highway.webm" data-poster="/media/rainy-highway.jpg">
+
+
+Eyes in the Sky
+
+<article class="mod-card" data-video-mp4="/media/earth-limb.mp4" data-video-webm="/media/earth-limb.webm" data-poster="/media/earth-limb.jpg">
+
+
+Drone Operations
+
+<article class="mod-card" data-video-mp4="/media/drone-flyover.mp4" data-video-webm="/media/drone-flyover.webm" data-poster="/media/drone-flyover.jpg">
+
+
+AI Damage Detection
+
+<article class="mod-card" data-video-mp4="/media/cctv-quad.mp4" data-video-webm="/media/cctv-quad.webm" data-poster="/media/cctv-quad.jpg">
+
+
+Lead Management
+
+<article class="mod-card" data-video-mp4="/media/data-grid.mp4" data-video-webm="/media/data-grid.webm" data-poster="/media/data-grid.jpg">
+
+
+Victim Portal
+
+<article class="mod-card" data-video-mp4="/media/rain-glass.mp4" data-video-webm="/media/rain-glass.webm" data-poster="/media/rain-glass.jpg">
+
+
+StormShare
+
+<article class="mod-card" data-video-mp4="/media/network-map.mp4" data-video-webm="/media/network-map.webm" data-poster="/media/network-map.jpg">
+
+
+Disaster Essentials Marketplace
+
+<article class="mod-card" data-video-mp4="/media/logistics-rain.mp4" data-video-webm="/media/logistics-rain.webm" data-poster="/media/logistics-rain.jpg">
+
+
+Customer Hub
+
+<article class="mod-card" data-video-mp4="/media/calm-particles.mp4" data-video-webm="/media/calm-particles.webm" data-poster="/media/calm-particles.jpg">
+
+
+Claims Central
+
+<article class="mod-card" data-video-mp4="/media/paper-bokeh.mp4" data-video-webm="/media/paper-bokeh.webm" data-poster="/media/paper-bokeh.jpg">
+
+
+Contractor Command
+
+<article class="mod-card" data-video-mp4="/media/crew-sunrise.mp4" data-video-webm="/media/crew-sunrise.webm" data-poster="/media/crew-sunrise.jpg">
+
+
+Contractor Portal
+
+<article class="mod-card" data-video-mp4="/media/dashboard-scan.mp4" data-video-webm="/media/dashboard-scan.webm" data-poster="/media/dashboard-scan.jpg">
+
+
+Legal Command
+
+<article class="mod-card" data-video-mp4="/media/marble-sweep.mp4" data-video-webm="/media/marble-sweep.webm" data-poster="/media/marble-sweep.jpg">
+
+
+Disaster Lens
+
+<article class="mod-card" data-video-mp4="/media/lens-breath.mp4" data-video-webm="/media/lens-breath.webm" data-poster="/media/lens-breath.jpg">
+
+
+X-RAY REALITY
+
+<article class="mod-card" data-video-mp4="/media/3d-radar.mp4" data-video-webm="/media/3d-radar.webm" data-poster="/media/3d-radar.jpg">
+
+C. Finishing touches
+
+If any clip feels “too busy,” increase overlay:
+
+.mod-media::after{ background:linear-gradient(180deg, rgba(0,0,0,.38) 0%, rgba(0,0,0,.75) 100%); }
+
+
+Use short loops and trim the cut where motion matches to make the seam invisible.
+
+For TrafficCamWatcher add the tiny “REC 16:9 1080p” badge I showed earlier for that CCTV vibe.
