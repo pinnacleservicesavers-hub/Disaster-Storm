@@ -1,0 +1,153 @@
+ou got it — here’s a tiny UI upgrade that adds a “Get alerts for this zone” button which calls your /api/alerts endpoint with the current location’s Forecast Zone ID (fallback to County Zone ID). It renders a compact list right on the page.
+
+What to change in public/index.html
+1) Add the button + results container (right under the meta actions)
+
+Find this block:
+
+<div id="meta" ...></div>
+<div id="meta-actions" ...>
+  <button id="copyIdsBtn">Copy IDs</button>
+</div>
+
+
+Replace it with:
+
+<div id="meta" class="muted" style="margin: .25rem 0 0.25rem 0;"></div>
+<div id="meta-actions" style="margin: 0 0 1rem 0; display:flex; gap:.5rem; flex-wrap:wrap;">
+  <button id="copyIdsBtn" style="
+    font-size: .9rem; padding: .45rem .7rem; border-radius: 8px;
+    border: 1px solid #e6e6e6; background: #f8f9fa; cursor: pointer;
+  ">Copy IDs</button>
+
+  <button id="zoneAlertsBtn" style="
+    font-size: .9rem; padding: .45rem .7rem; border-radius: 8px;
+    border: 1px solid #e6e6e6; background: #eef6ff; cursor: pointer;
+  ">Get alerts for this zone</button>
+</div>
+
+<!-- Zone Alerts (dynamic) -->
+<h3>Zone Alerts</h3>
+<div id="zone-alerts"></div>
+
+
+(We reuse your .hidden class that’s already defined.)
+
+2) Add these helper functions inside your <script> tag
+
+Place them near your other helpers (e.g., after buildIdText):
+
+function extractZoneIdFromUrl(url) {
+  if (!url) return null;
+  const parts = String(url).split("/");
+  return parts[parts.length - 1] || null;
+}
+
+// Pick the best zone id to use for alerts: prefer forecast zone, fallback to county zone
+function getPreferredZoneId(payload) {
+  const z = payload?.zones || {};
+  const fz = extractZoneIdFromUrl(z.forecastZone);
+  const cz = extractZoneIdFromUrl(z.county);
+  return fz || cz || null;
+}
+
+function renderZoneAlertsList(items = []) {
+  const wrap = document.getElementById("zone-alerts");
+  if (!items.length) {
+    wrap.innerHTML = `<div class="muted">No active alerts for this zone.</div>`;
+    return;
+  }
+  wrap.innerHTML = items.map(it => `
+    <div class="card">
+      <div class="headline">${it.headline || it.event || "Alert"}</div>
+      <div class="small muted">
+        ${it.severity || ""}${it.severity ? " • " : ""}${it.urgency || ""}
+        ${it.expires ? ` • Expires: ${new Date(it.expires).toLocaleString()}` : ""}
+      </div>
+      <div class="small">${(it.areas || "").slice(0, 200)}</div>
+    </div>
+  `).join("");
+}
+
+async function fetchZoneAlertsForCurrent() {
+  const zoneWrap = document.getElementById("zone-alerts");
+  if (!lastPayload) {
+    zoneWrap.innerHTML = `<div class="card">No location loaded yet. Pick a city or use GPS first.</div>`;
+    return;
+  }
+  const zoneId = getPreferredZoneId(lastPayload);
+  if (!zoneId) {
+    zoneWrap.innerHTML = `<div class="card">Couldn’t determine a zone ID for this location.</div>`;
+    return;
+  }
+  zoneWrap.innerHTML = `<div class="card skeleton" style="height:80px"></div>`;
+  try {
+    const r = await fetch(`/api/alerts?zone=${encodeURIComponent(zoneId)}`);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const data = await r.json();
+    renderZoneAlertsList(data.items || []);
+    showToast(`Loaded alerts for ${zoneId}`);
+  } catch (e) {
+    zoneWrap.innerHTML = `
+      <div class="error">
+        <div class="card">
+          <div class="headline">Zone alerts failed</div>
+          <div class="small">${e.message}</div>
+          <div class="error-actions">
+            <button class="retry-btn" data-target="${lastMode}">Retry</button>
+          </div>
+        </div>
+      </div>`;
+  }
+}
+
+3) Wire up the new button (add to your global click handler)
+
+You already have this delegated click handler for Retry + Copy. Extend it:
+
+document.addEventListener("click", async (e) => {
+  const btn = e.target.closest(".retry-btn");
+  if (btn) {
+    const target = btn.dataset.target || lastMode;
+    if (target === "point" && lastPoint) { fetchPoint(lastPoint.lat, lastPoint.lon); }
+    else { fetchCity(lastCity); }
+    return;
+  }
+
+  if (e.target.id === "copyIdsBtn") {
+    const text = buildIdText(lastPayload);
+    if (!text) { showToast("No IDs to copy yet"); return; }
+    try { await navigator.clipboard.writeText(text); showToast("Copied zone & office IDs"); }
+    catch { window.prompt("Copy IDs:", text); }
+    return;
+  }
+
+  // NEW: Zone alerts button
+  if (e.target.id === "zoneAlertsBtn") {
+    fetchZoneAlertsForCurrent();
+    return;
+  }
+});
+
+4) (Optional) Auto-refresh the Zone Alerts when city/GPS changes
+
+Right after you render the main forecasts, add a one-liner to silently refresh the Zone Alerts panel for the new location.
+
+In fetchCity(...) success path, after renderHourlyChart(...):
+
+fetchZoneAlertsForCurrent();
+
+
+In fetchPoint(...) success path, after renderHourlyChart(...):
+
+fetchZoneAlertsForCurrent();
+
+How it behaves
+
+After you load a city or use GPS, the “Get alerts for this zone” button:
+
+Finds the best zone ID (Forecast Zone preferred, else County Zone).
+
+Calls your /api/alerts?zone=... endpoint.
+
+Renders a compact list of active alerts right below, with severity/urgency and expiration.

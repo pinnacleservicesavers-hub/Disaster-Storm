@@ -7491,6 +7491,7 @@ Email: strategiclandmgmt@gmail.com
         success: true,
         response: aiResult.response,
         incidents: aiResult.incidents,
+        relatedIncidents: aiResult.incidents, // Frontend expects this name
         relatedAlerts: [],
         confidence: aiResult.confidence,
         sources: aiResult.sources,
