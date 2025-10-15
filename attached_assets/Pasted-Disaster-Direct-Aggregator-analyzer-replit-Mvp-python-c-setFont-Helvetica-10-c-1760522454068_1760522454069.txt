@@ -1,0 +1,144 @@
+Disaster Direct – Aggregator/analyzer (replit Mvp)
+· python
+"""
+    c.setFont("Helvetica", 10)
+    c.drawString(1*inch, height-1.2*inch, f"Name: {name}")
+    c.drawString(1*inch, height-1.35*inch, f"Generated: {now_utc().isoformat()}")
+    c.drawString(1*inch, height-1.5*inch, f"Query: lat={lat}, lon={lon}, r={radius_km}km, last {hours_back}h")
+
+
+    y = height-1.8*inch
+    c.setFont("Helvetica-Bold", 12)
+    c.drawString(1*inch, y, "Intersecting Events:")
+    y -= 0.2*inch
+    c.setFont("Helvetica", 10)
+
+
+    if not intersecting:
+        c.drawString(1*inch, y, "No intersecting events in the selected window.")
+        y -= 0.2*inch
+    else:
+        for e in intersecting[:25]:
+            lines = [f"- [{e.source}] {e.headline or e.event_type} ({e.severity or 'n/a'})"]
+            if e.start_time:
+                lines.append(f"  starts: {e.start_time.isoformat()}")
+            if e.description:
+                lines.extend(["  "+ln for ln in twrap(e.description, max_chars=100)[:3]])
+            for ln in lines:
+                if y < 1*inch:
+                    c.showPage(); y = height-1*inch; c.setFont("Helvetica", 10)
+                c.drawString(1*inch, y, ln)
+                y -= 0.18*inch
+
+
+    c.showPage()
+    c.save()
+    buffer.seek(0)
+    return StreamingResponse(buffer, media_type="application/pdf", headers={"Content-Disposition": f"inline; filename=parcel_{pid}_report.pdf"})
+
+
+# -----------------------------
+# CSV Exports
+# -----------------------------
+from fastapi.responses import PlainTextResponse
+
+
+@app.get("/export/events.csv")
+async def export_events_csv(lat: float, lon: float, radius_km: float = 25.0, hours_back: int = 72):
+    agg = await aggregate(lat=lat, lon=lon, radius_km=radius_km, hours_back=hours_back)  # type: ignore
+    lines = ["source,event_type,severity,headline,start_time,description"]
+    def esc(s):
+        if s is None: return ""
+        return str(s).replace('"','""')
+    for e in agg.events:
+        lines.append(
+            f'"{esc(e.source)}","{esc(e.event_type)}","{esc(e.severity)}","{esc(e.headline)}","{esc(e.start_time.isoformat() if e.start_time else "")}","{esc(e.description)}"'
+        )
+    csv = "
+".join(lines)
+    return PlainTextResponse(csv, media_type="text/csv", headers={"Content-Disposition": "attachment; filename=events.csv"})
+
+
+@app.get("/export/impacted.csv")
+async def export_impacted_csv(lat: float, lon: float, radius_km: float = 25.0, hours_back: int = 72):
+    agg = await aggregate(lat=lat, lon=lon, radius_km=radius_km, hours_back=hours_back)  # type: ignore
+    lines = ["parcel_id,name"]
+    for p in agg.impacted_parcels:
+        name = str(p.get("name",""))
+        lines.append(f'{p.get("parcel_id")},"{name.replace("\"","\"\"")}"')
+    csv = "
+".join(lines)
+    return PlainTextResponse(csv, media_type="text/csv", headers={"Content-Disposition": "attachment; filename=impacted_parcels.csv"})
+
+
+
+
+# -----------------------------
+# Alert webhook config + trigger (webhook + SMS)
+# -----------------------------
+
+
+def alerts_get() -> Optional[Tuple[str,float]]:
+    con = sqlite3.connect(DB_PATH)
+    cur = con.cursor()
+    cur.execute("CREATE TABLE IF NOT EXISTS alerts (id INTEGER PRIMARY KEY, url TEXT, threshold REAL)")
+    cur.execute("SELECT url, threshold FROM alerts WHERE id=1")
+    row = cur.fetchone()
+    con.close()
+    if row:
+        return row[0], float(row[
+
+Done ✅
+
+I wired up exactly what you asked:
+
+1) Click an impacted parcel → instant PDF
+
+The impacted parcel layer now shows a popup with a “PDF report” link.
+
+It uses the parcel’s parcel_id and your current lat/lon/radius/hours to open:
+
+/report/parcel/{parcel_id}?lat=...&lon=...&radius_km=...&hours_back=...
+
+2) Reverse geocoding on map click
+
+Click anywhere on the map → lat/lon fields auto-fill and the Address box updates via:
+
+GET /reverse_geocode?lat={lat}&lon={lon}
+
+3) CSV exports (buttons in the UI)
+
+Export Events CSV → /export/events.csv?...
+
+Export Impacted Parcels CSV → /export/impacted.csv?...
+
+4) Under-the-hood updates I added
+
+impacted.geojson now includes each feature’s parcel_id in properties, so the popup knows which report to open.
+
+JS helpers:
+
+openParcelReport(id) builds the proper URL from your current inputs.
+
+exportCSV(type) opens the right CSV endpoint.
+
+New endpoints you can use directly:
+
+GET /reverse_geocode?lat=...&lon=...
+
+GET /export/events.csv?lat=...&lon=...&radius_km=...&hours_back=...
+
+GET /export/impacted.csv?lat=...&lon=...&radius_km=...&hours_back=...
+
+Quick test flow
+
+Seed demo parcels:
+
+curl -X POST http://localhost:8000/seed/dallas
+
+
+Open /, Geocode an address or click the map.
+
+Click Run → click any highlighted parcel → choose PDF report.
+
+Try the Export buttons to download CSVs.
