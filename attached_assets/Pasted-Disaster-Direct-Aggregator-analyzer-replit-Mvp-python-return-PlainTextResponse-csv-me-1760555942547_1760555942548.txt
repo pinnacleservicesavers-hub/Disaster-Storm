@@ -1,0 +1,328 @@
+Disaster Direct – Aggregator/analyzer (replit Mvp)
+· python
+"""
+    return PlainTextResponse(csv, media_type="text/csv", headers={"Content-Disposition": f"attachment; filename=run_{run_id}_events.csv"})
+
+
+@app.get("/runs/{run_id}/impacted.csv")
+async def runs_impacted_csv(run_id: int):
+    data = run_get(run_id)
+    if not data:
+        raise HTTPException(status_code=404, detail="Run not found")
+    lines = ["parcel_id,name"]
+    def escq(s):
+        return str(s).replace('"','""') if s is not None else ""
+    for p in data.get("impacted", []):
+        lines.append(f'{p.get("parcel_id")},"{escq(p.get("name",""))}"')
+    csv = "
+".join(lines)  # fixed newline join  # fixed newline join
+    return PlainTextResponse(csv, media_type="text/csv", headers={"Content-Disposition": f"attachment; filename=run_{run_id}_impacted.csv"})
+
+
+# -----------------------------
+# Demo parcel seed: Dallas sample polygons
+# -----------------------------
+
+
+DALLAS_SAMPLE = {
+  "type": "FeatureCollection",
+  "features": [
+    {"type":"Feature","properties":{"owner":"Sample A"},
+     "geometry":{"type":"Polygon","coordinates":[[[-96.85,32.82],[-96.82,32.82],[-96.82,32.80],[-96.85,32.80],[-96.85,32.82]]]}},
+    {"type":"Feature","properties":{"owner":"Sample B"},
+     "geometry":{"type":"Polygon","coordinates":[[[-96.82,32.80],[-96.79,32.80],[-96.79,32.78],[-96.82,32.78],[-96.82,32.80]]]}},
+    {"type":"Feature","properties":{"owner":"Sample C"},
+     "geometry":{"type":"Polygon","coordinates":[[[-96.81,32.83],[-96.78,32.83],[-96.78,32.81],[-96.81,32.81],[-96.81,32.83]]]}},
+  ]
+}
+
+
+
+
+@app.post("/seed/dallas")
+async def seed_dallas():
+    pid = parcels_add("Dallas Sample Parcels", json.dumps(DALLAS_SAMPLE))
+    return {"ok": True, "parcel_id": pid, "count": len(DALLAS_SAMPLE["features"])}
+
+
+
+
+# Hook maybe_fire_webhook into aggregate (send summary)
+# We call it here by overriding aggregate return (non-blocking fire)
+orig_aggregate = aggregate
+
+
+@app.get("/aggregate_with_alerts")
+async def aggregate_with_alerts(lat: float = Query(..., ge=-90, le=90), lon: float = Query(..., ge=-180, le=180), radius_km: float = Query(25.0, gt=0, le=500), hours_back: int = Query(72, ge=1, le=720)):
+    resp = await orig_aggregate(lat=lat, lon=lon, radius_km=radius_km, hours_back=hours_back)  # type: ignore
+    summary = {
+        "risk_score": resp.risk_score,
+        "impacted_parcels": resp.impacted_parcels,
+        "query": {"lat": lat, "lon": lon, "radius_km": radius_km, "hours_back": hours_back},
+        "generated_at": now_utc().isoformat(),
+    }
+    try:
+        await maybe_fire_webhook(summary)
+    except Exception as e:
+        print("webhook fire err:", e)
+    return resp
+
+
+
+
+# -----------------------------
+# requirements.txt (create a separate file)
+# fastapi==0.115.0
+# uvicorn==0.30.6
+# httpx==0.27.2
+# pydantic==2.9.2
+# shapely==2.0.6
+
+
+
+Thanks! I tried to patch your canvas automatically, but the exact-match selectors didn’t line up with your current file, so the tool blocked the changes. No problem—here are copy-paste drops that match the exact code in your canvas now so you can land everything in one go.
+
+1) Fix the scheduler checkbox (remove the $1)
+
+Find:
+
+<input type="checkbox" id="autoCsvGlobal"$1 checked> Auto-download CSVs after Test
+
+
+Replace with:
+
+<input type="checkbox" id="autoCsvGlobal" checked> Auto-download CSVs after Test
+
+2) Add the toolbar above the map (Radar toggle + NWS button)
+
+In the map card, right after the row with Draw/Save/Zone/Refresh, insert this before the map <div>:
+
+Find this block:
+
+  <div class=\"row\">
+      <button onclick=\"startDrawZone()\">Draw Zone</button>
+      <button onclick=\"saveDrawnZone()\">Save Zone</button>
+      <input id=\"zone_name\" placeholder=\"Zone name\" />
+      <button onclick=\"refreshZones()\">Refresh Zones</button>
+  </div>
+  <div id=\"map\" class=\"card\"></div>
+
+
+Replace with:
+
+  <div class=\"row\">
+      <button onclick=\"startDrawZone()\">Draw Zone</button>
+      <button onclick=\"saveDrawnZone()\">Save Zone</button>
+      <input id=\"zone_name\" placeholder=\"Zone name\" />
+      <button onclick=\"refreshZones()\">Refresh Zones</button>
+  </div>
+  <div style="display:flex;gap:10px;align-items:center;margin:6px 0 8px 0">
+    <label style="user-select:none">
+      <input type="checkbox" id="radarToggle" checked onchange="toggleRadar(this)"> Radar
+    </label>
+    <button onclick="loadNWS()">Load NWS Alerts</button>
+  </div>
+  <div id="map" class="card"></div>
+
+3) Replace the Radar/NWS JS with a real toggle
+
+In your <script>, find the block that starts with:
+
+// --- Radar + NWS controls ---
+let radarLayer = null; let nwsLayer = null;
+function ensureRadar(){
+  if(!radarLayer){
+    radarLayer = L.tileLayer('https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png', {opacity:0.6});
+    if(window.map){ radarLayer.addTo(window.map); }
+  }
+}
+async function loadNWS(){ ... }
+setTimeout(ensureRadar, 1500);
+
+
+Replace with:
+
+// --- Radar + NWS controls ---
+let radarLayer = null; let nwsLayer = null;
+
+function toggleRadar(cb){
+  try{
+    if(!radarLayer){
+      radarLayer = L.tileLayer(
+        'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png',
+        {opacity:0.6}
+      );
+    }
+    if(cb && cb.checked){ radarLayer.addTo(map); }
+    else { if(radarLayer){ map.removeLayer(radarLayer); } }
+  }catch(e){ console.log('radar toggle failed', e); }
+}
+function ensureRadar(){
+  const cb = document.getElementById('radarToggle');
+  if(cb){ toggleRadar(cb); }
+}
+async function loadNWS(){
+  try{
+    const gj = await (await fetch('/nws.geojson')).json();
+    if(!nwsLayer){
+      nwsLayer = L.geoJSON(null, {
+        style:{color:'#ff0000', weight:2},
+        onEachFeature:(f,l)=>l.bindPopup(f.properties && (f.properties.event||'NWS Alert'))
+      });
+    }
+    nwsLayer.clearLayers();
+    nwsLayer.addData(gj);
+    nwsLayer.addTo(map);
+  }catch(e){ console.log('NWS load failed', e); }
+}
+setTimeout(ensureRadar, 600);
+
+4) Add “Download PDF Pack (zip)” + auto-download in testSchedule(...)
+
+Find inside testSchedule(...) where you build the links (currently just two CSVs):
+
+base.innerHTML = `<div><strong>Schedule #${id} result</strong>${j.run_id?` — Run #${j.run_id}`:''}</div>`+
+  (j.run_id?`<div style=\"margin:6px 0;\">
+     <a href=\"/runs/${j.run_id}/events.csv\" target=\"_blank\">Download Events CSV</a>
+     &nbsp;|
+     <a href=\"/runs/${j.run_id}/impacted.csv\" target=\"_blank\">Download Impacted CSV</a>
+   </div>`:'');
+
+
+Replace with:
+
+base.innerHTML = `<div><strong>Schedule #${id} result</strong>${j.run_id?` — Run #${j.run_id}`:''}</div>`+
+  (j.run_id?`<div style="margin:6px 0;">
+     <a href="/runs/${j.run_id}/events.csv" target="_blank">Download Events CSV</a>
+     &nbsp;|
+     <a href="/runs/${j.run_id}/impacted.csv" target="_blank">Download Impacted CSV</a>
+     &nbsp;|
+     <a href="/runs/${j.run_id}/pdfs.zip" target="_blank">Download PDF Pack (zip)</a>
+   </div>`:'');
+
+
+Then, in the if(useAuto && j && j.run_id){ ... } block, replace it with:
+
+if(useAuto && j && j.run_id){
+  const ev = document.createElement('a'); ev.href = `/runs/${j.run_id}/events.csv`; ev.download = '';
+  const im = document.createElement('a'); im.href = `/runs/${j.run_id}/impacted.csv`; im.download = '';
+  document.body.appendChild(ev); document.body.appendChild(im);
+  ev.click(); setTimeout(()=>im.click(), 250);
+  // also auto-download PDF pack
+  setTimeout(()=>{
+    const z = document.createElement('a');
+    z.href = `/runs/${j.run_id}/pdfs.zip`; z.download = '';
+    document.body.appendChild(z); z.click();
+    setTimeout(()=>z.remove(), 500);
+  }, 600);
+  setTimeout(()=>{ ev.remove(); im.remove(); }, 1000);
+}
+
+5) Un-nest renderSchedules() and keep deleteSchedule() global
+
+Right now renderSchedules() is nested inside addSchedule(), which breaks rendering. Replace the whole addSchedule…renderSchedules…deleteSchedule cluster with this pair of top-level functions:
+
+Find from the start of async function addSchedule(){ down to (but not including) the comment // Address autocomplete (debounced) and replace with:
+
+async function addSchedule(){
+  const name = document.getElementById('sch_name').value || 'Daily Job';
+  let lat = document.getElementById('sch_lat').value;
+  let lon = document.getElementById('sch_lon').value;
+  const addr = document.getElementById('sch_addr').value;
+  const zone = document.getElementById('sch_zone') ? document.getElementById('sch_zone').value : '';
+  if((!lat || !lon) && addr){
+    const g = await (await fetch('/geocode?q='+encodeURIComponent(addr))).json();
+    if(g && g.lat && g.lon){ lat = g.lat; lon = g.lon; }
+  }
+  const rad = document.getElementById('sch_rad').value || 25;
+  const hrs = document.getElementById('sch_hrs').value || 72;
+  const th  = document.getElementById('sch_thresh').value || 60;
+  const wh  = document.getElementById('sch_wh') ? document.getElementById('sch_wh').value : '';
+  const sms = document.getElementById('sch_sms') ? document.getElementById('sch_sms').value : '';
+  const parcelsSel = document.getElementById('sch_parcels');
+  const parcel_ids = Array.from(parcelsSel?.selectedOptions || []).map(o=>parseInt(o.value)).filter(Boolean);
+  const r = await fetch(`/schedules`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({name, lat: lat?parseFloat(lat):null, lon: lon?parseFloat(lon):null,
+      radius_km: rad?parseFloat(rad):null, hours_back: parseInt(hrs), threshold: parseFloat(th),
+      zone_id: zone?parseInt(zone):null, webhook_url: wh||null, sms_csv: sms||null, parcel_ids})
+  });
+  const j = await r.json();
+  alert('Added schedule #' + j.id);
+  renderSchedules();
+}
+
+async function renderSchedules(){
+  const r = await fetch('/schedules');
+  const j = await r.json();
+  const el = document.getElementById('schedules');
+  el.innerHTML = '';
+  const ul = document.createElement('ul');
+  (j||[]).forEach(it=>{
+    const li = document.createElement('li');
+    const z = it.zone_id ? `zone#${it.zone_id}` : `lat:${it.lat}, lon:${it.lon}, r:${it.radius_km}km`;
+    const ptxt = it.parcel_ids ? `, parcels:[${it.parcel_ids}]` : '';
+    li.innerHTML = `#${it.id} ${it.name} — ${z}, last ${it.hours_back}h, thr ${it.threshold}${ptxt} `+
+      (it.webhook_url?`(wh override) `:'') + (it.sms_csv?`(sms override) `:'') +
+      `[ <a href=\"#\" onclick=\"testSchedule(${it.id},0,0);return false;\">Test</a> | `+
+      `<a href=\"#\" onclick=\"testSchedule(${it.id},1,0);return false;\">Test+Notify</a> | `+
+      `<a href=\"#\" onclick=\"testSchedule(${it.id},0,1);return false;\">Test+CSV</a> | `+
+      `<a href=\"#\" onclick=\"testSchedule(${it.id},1,1);return false;\">Test+Notify+CSV</a> | `+
+      `<a href=\"#\" onclick=\"cloneSchedule(${it.id});return false;\">clone</a> | `+
+      `<a href=\"#\" onclick=\"deleteSchedule(${it.id});return false;\">delete</a> ]`;
+    ul.appendChild(li);
+  });
+  el.appendChild(ul);
+}
+
+async function deleteSchedule(id){
+  await fetch('/schedules/'+id, {method:'DELETE'});
+  renderSchedules();
+}
+
+
+(Leave the // Address autocomplete (debounced) comment and everything after it as-is.)
+
+6) Fix all broken CSV join lines (replace the split newline)
+
+Search your file for the exact bad pattern and replace each:
+
+Bad:
+
+csv = "
+".join(lines)
+
+
+Good:
+
+csv = "\n".join(lines)
+
+
+Do this in:
+
+/schedules.csv
+
+/export/events.csv
+
+/export/impacted.csv
+
+/runs/{run_id}/events.csv
+
+/runs/{run_id}/impacted.csv
+
+/runs/{run_id}/pdfs.zip (both events.csv and impacted.csv in the zip writer)
+
+In the zip writer, also change:
+
+zf.writestr("events.csv", "
+".join(lines))
+zf.writestr("impacted.csv", "
+".join(lines2))
+
+
+to:
+
+zf.writestr("events.csv", "\n".join(lines))
+zf.writestr("impacted.csv", "\n".join(lines2))
+
+Quick test checklist
