@@ -1,0 +1,271 @@
+Disaster Direct – Aggregator/analyzer (replit Mvp)
+· python
+"""
+    csv = "
+".join(lines)  # fixed newline join  # fixed newline join
+    return PlainTextResponse(csv, media_type="text/csv", headers={"Content-Disposition": f"attachment; filename=run_{run_id}_events.csv"})
+
+
+@app.get("/runs/{run_id}/impacted.csv")
+async def runs_impacted_csv(run_id: int):
+    data = run_get(run_id)
+    if not data:
+        raise HTTPException(status_code=404, detail="Run not found")
+    lines = ["parcel_id,name"]
+    def escq(s):
+        return str(s).replace('"','""') if s is not None else ""
+    for p in data.get("impacted", []):
+        lines.append(f'{p.get("parcel_id")},"{escq(p.get("name",""))}"')
+    csv = "
+".join(lines)  # fixed newline join  # fixed newline join
+    return PlainTextResponse(csv, media_type="text/csv", headers={"Content-Disposition": f"attachment; filename=run_{run_id}_impacted.csv"})
+
+
+# -----------------------------
+# Demo parcel seed: Dallas sample polygons
+# -----------------------------
+
+
+DALLAS_SAMPLE = {
+  "type": "FeatureCollection",
+  "features": [
+    {"type":"Feature","properties":{"owner":"Sample A"},
+     "geometry":{"type":"Polygon","coordinates":[[[-96.85,32.82],[-96.82,32.82],[-96.82,32.80],[-96.85,32.80],[-96.85,32.82]]]}},
+    {"type":"Feature","properties":{"owner":"Sample B"},
+     "geometry":{"type":"Polygon","coordinates":[[[-96.82,32.80],[-96.79,32.80],[-96.79,32.78],[-96.82,32.78],[-96.82,32.80]]]}},
+    {"type":"Feature","properties":{"owner":"Sample C"},
+     "geometry":{"type":"Polygon","coordinates":[[[-96.81,32.83],[-96.78,32.83],[-96.78,32.81],[-96.81,32.81],[-96.81,32.83]]]}},
+  ]
+}
+
+
+
+
+@app.post("/seed/dallas")
+async def seed_dallas():
+    pid = parcels_add("Dallas Sample Parcels", json.dumps(DALLAS_SAMPLE))
+    return {"ok": True, "parcel_id": pid, "count": len(DALLAS_SAMPLE["features"])}
+
+
+
+
+# Hook maybe_fire_webhook into aggregate (send summary)
+# We call it here by overriding aggregate return (non-blocking fire)
+orig_aggregate = aggregate
+
+
+@app.get("/aggregate_with_alerts")
+async def aggregate_with_alerts(lat: float = Query(..., ge=-90, le=90), lon: float = Query(..., ge=-180, le=180), radius_km: float = Query(25.0, gt=0, le=500), hours_back: int = Query(72, ge=1, le=720)):
+    resp = await orig_aggregate(lat=lat, lon=lon, radius_km=radius_km, hours_back=hours_back)  # type: ignore
+    summary = {
+        "risk_score": resp.risk_score,
+        "impacted_parcels": resp.impacted_parcels,
+        "query": {"lat": lat, "lon": lon, "radius_km": radius_km, "hours_back": hours_back},
+        "generated_at": now_utc().isoformat(),
+    }
+    try:
+        await maybe_fire_webhook(summary)
+    except Exception as e:
+        print("webhook fire err:", e)
+    return resp
+
+
+
+
+# -----------------------------
+# requirements.txt (create a separate file)
+# fastapi==0.115.0
+# uvicorn==0.30.6
+# httpx==0.27.2
+# pydantic==2.9.2
+# shapely==2.0.6
+
+
+
+Got it — I went to patch your canvas code directly, but a couple of selectors didn’t match your current HTML (looks like the map section got rearranged a bit), so the automatic update didn’t apply. No worries. Here are exact, copy-paste fixes you can drop into your current app.py (the big DASH_HTML string + a few Python endpoints). It’s quick:
+
+A) Add the Map Toolbar (Radar toggle + NWS button)
+
+In DASH_HTML: find the map section:
+
+<div class=\"row\">
+  <button onclick=\"startDrawZone()\">Draw Zone</button>
+  <button onclick=\"saveDrawnZone()\">Save Zone</button>
+  <input id=\"zone_name\" placeholder=\"Zone name\" />
+  <button onclick=\"refreshZones()\">Refresh Zones</button>
+</div>
+<div id=\"map\" class=\"card\"></div>
+
+
+Replace it with:
+
+<div class=\"row\">
+  <button onclick=\"startDrawZone()\">Draw Zone</button>
+  <button onclick=\"saveDrawnZone()\">Save Zone</button>
+  <input id=\"zone_name\" placeholder=\"Zone name\" />
+  <button onclick=\"refreshZones()\">Refresh Zones</button>
+</div>
+<div style=\"display:flex;gap:10px;align-items:center;margin:6px 0 8px 0\">
+  <label style=\"user-select:none\">
+    <input type=\"checkbox\" id=\"radarToggle\" checked onchange=\"toggleRadar(this)\"> Radar
+  </label>
+  <button onclick=\"loadNWS()\">Load NWS Alerts</button>
+</div>
+<div id=\"map\" class=\"card\"></div>
+
+
+In the <script> block, replace your current “Radar + NWS controls” with this improved version (you already have ensureRadar() and loadNWS(); this adds a real toggle and ties ensureRadar to the checkbox):
+
+// --- Radar + NWS controls ---
+let radarLayer = null; let nwsLayer = null;
+
+function toggleRadar(cb){
+  try{
+    if(!radarLayer){
+      radarLayer = L.tileLayer(
+        'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png',
+        {opacity:0.6}
+      );
+    }
+    if(cb && cb.checked){ radarLayer.addTo(map); }
+    else { if(radarLayer){ map.removeLayer(radarLayer); } }
+  }catch(e){ console.log('radar toggle failed', e); }
+}
+function ensureRadar(){
+  const cb = document.getElementById('radarToggle');
+  if(cb){ toggleRadar(cb); }
+}
+async function loadNWS(){
+  try{
+    const gj = await (await fetch('/nws.geojson')).json();
+    if(!nwsLayer){
+      nwsLayer = L.geoJSON(null, {
+        style:{color:'#ff0000', weight:2},
+        onEachFeature:(f,l)=>l.bindPopup(f.properties && (f.properties.event||'NWS Alert'))
+      });
+    }
+    nwsLayer.clearLayers(); nwsLayer.addData(gj); nwsLayer.addTo(map);
+  }catch(e){ console.log('NWS load failed', e); }
+}
+// after map init
+setTimeout(ensureRadar, 600);
+
+B) Add “Download PDF Pack (zip)” to the Schedule Test output
+
+In testSchedule(...) (inside the if(out){ ... base.innerHTML = ... }), change the link block to:
+
+base.innerHTML = `<div><strong>Schedule #${id} result</strong>${j.run_id?` — Run #${j.run_id}`:''}</div>`+
+  (j.run_id?`<div style="margin:6px 0;">
+     <a href="/runs/${j.run_id}/events.csv" target="_blank">Download Events CSV</a>
+     &nbsp;|
+     <a href="/runs/${j.run_id}/impacted.csv" target="_blank">Download Impacted CSV</a>
+     &nbsp;|
+     <a href="/runs/${j.run_id}/pdfs.zip" target="_blank">Download PDF Pack (zip)</a>
+   </div>`:'');
+
+
+(Optional): Also auto-download the zip when “Auto-download CSVs after Test” is enabled. In testSchedule(...), right after your CSV auto-download block, add:
+
+// also auto-download PDF pack
+setTimeout(()=>{
+  const z = document.createElement('a');
+  z.href = `/runs/${j.run_id}/pdfs.zip`;
+  z.download = '';
+  document.body.appendChild(z);
+  z.click();
+  setTimeout(()=>z.remove(), 500);
+}, 600);
+
+C) Fix the broken CSV “join” bugs (there are a few)
+
+You’ve got a couple places where the newline got split across lines like:
+
+csv = "
+".join(lines)
+
+
+Fix each of these to:
+
+csv = "\n".join(lines)
+
+
+Specifically update these functions:
+
+schedules_csv()
+
+export_events_csv()
+
+export_impacted_csv()
+
+runs_events_csv(run_id)
+
+runs_impacted_csv(run_id)
+
+In /runs/{run_id}/pdfs.zip: both zf.writestr("events.csv", ...) and zf.writestr("impacted.csv", ...) should use "\n".join(...).
+
+D) Repair the addSchedule() function (it accidentally swallowed renderSchedules())
+
+Right now, addSchedule() starts, then suddenly defines renderSchedules() inside it. Replace your whole addSchedule() with:
+
+async function addSchedule(){
+  const name = document.getElementById('sch_name').value || 'Daily Job';
+  let lat = document.getElementById('sch_lat').value;
+  let lon = document.getElementById('sch_lon').value;
+  const addr = document.getElementById('sch_addr').value;
+  const zone = document.getElementById('sch_zone') ? document.getElementById('sch_zone').value : '';
+
+  if((!lat || !lon) && addr){
+    const g = await (await fetch('/geocode?q='+encodeURIComponent(addr))).json();
+    if(g && g.lat && g.lon){ lat = g.lat; lon = g.lon; }
+  }
+
+  const rad = document.getElementById('sch_rad').value || 25;
+  const hrs = document.getElementById('sch_hrs').value || 72;
+  const th  = document.getElementById('sch_thresh').value || 60;
+  const wh  = document.getElementById('sch_wh')?.value || '';
+  const sms = document.getElementById('sch_sms')?.value || '';
+  const parcelsSel = document.getElementById('sch_parcels');
+  const parcel_ids = Array.from(parcelsSel?.selectedOptions || []).map(o=>parseInt(o.value)).filter(Boolean);
+
+  const r = await fetch(`/schedules`, {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({
+      name,
+      lat: lat?parseFloat(lat):null,
+      lon: lon?parseFloat(lon):null,
+      radius_km: rad?parseFloat(rad):null,
+      hours_back: parseInt(hrs),
+      threshold: parseFloat(th),
+      zone_id: zone?parseInt(zone):null,
+      webhook_url: wh || null,
+      sms_csv: sms || null,
+      parcel_ids
+    })
+  });
+  const j = await r.json();
+  alert('Added schedule #'+j.id);
+  renderSchedules();
+}
+
+
+And ensure you have a global renderSchedules() defined once (outside any other function). You already have one near the scheduler code — keep that, not nested.
+
+E) Fix the “Auto-download CSVs” checkbox markup
+
+One stray $1 snuck into the checkbox HTML. Replace the checkbox input with a clean one:
+
+<label style="user-select:none">
+  <input type="checkbox" id="autoCsvGlobal" checked> Auto-download CSVs after Test
+</label>
+
+
+That’s it. After these edits:
+
+Radar toggle + Load NWS Alerts button show above the map.
+
+The schedule test output includes a Download PDF Pack (zip) link (and auto-downloads when your global toggle is on).
+
+All CSV downloads will have proper line breaks.
+
+addSchedule() works again and the Render Schedules function is no longer stuck inside it.
