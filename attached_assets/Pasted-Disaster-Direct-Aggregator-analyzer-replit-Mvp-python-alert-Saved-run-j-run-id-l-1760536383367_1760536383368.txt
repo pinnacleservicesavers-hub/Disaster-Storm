@@ -1,0 +1,108 @@
+Disaster Direct – Aggregator/analyzer (replit Mvp)
+· python
+"""
+  alert('Saved run #'+j.run_id);
+  listRuns();
+}
+
+
+async function listRuns(){
+  const r = await fetch('/runs');
+  const j = await r.json();
+  const el = document.getElementById('runs');
+  el.innerHTML = '';
+  const ul = document.createElement('ul');
+  (j||[]).forEach(it=>{
+    const li = document.createElement('li');
+    li.innerHTML = `<strong>#${it.id}</strong> ${new Date(it.created_at*1000).toLocaleString()} — ${it.name} — risk ${it.risk_score} `+
+      `[ <a target="_blank" href="/runs/${it.id}">JSON</a> | <a target="_blank" href="/runs/${it.id}/events.csv">events.csv</a> | <a target="_blank" href="/runs/${it.id}/impacted.csv">impacted.csv</a> ]`;
+    ul.appendChild(li);
+  });
+  el.appendChild(ul);
+}
+
+
+async function doGeocode(){
+  const q = document.getElementById('addr').value;
+  if(!q) return;
+  const r = await fetch('/geocode?q='+encodeURIComponent(q));
+  const j = await r.json();
+  if(j && j.lat && j.lon){
+    document.getElementById('lat').value = j.lat;
+    document.getElementById('lon').value = j.lon;
+    map.setView([parseFloat(j.lat), parseFloat(j.lon)], 10);
+  } else {
+    alert('No result');
+  }
+}
+function openParcelReport(id){
+  const lat = document.getElementById('lat').value;
+  const lon = document.getElementById('lon').value;
+  const rad = document.getElementById('rad').value;
+  const hrs = document.getElementById('hrs').value;
+  window.open(`/report/parcel/${id}?lat=${lat}&lon=${lon}&radius_km=${rad}&hours_back=${hrs}`,'_blank');
+}
+
+
+function exportCSV(type){
+  const lat = document.getElementById('lat').value;
+  const lon = document.getElementById('lon').value;
+  const rad = document.getElementById('rad').value;
+  const hrs = document.getElementById('hrs').value;
+  const url = type==='events'
+    ? `/export/events.csv?lat=${lat}&lon=${lon}&radius_km=${rad}&hours_back=${hrs}`
+    : `/export/impacted.csv?lat=${lat}&lon=${lon}&radius_km=${rad}&hours_back=${hrs}`;
+  window.open(url, '_blank');
+}
+
+
+// Map click -> set lat/lon and reverse geocode
+setTimeout(()=>{
+  if(map){
+    map.on('click', async (e)=>{
+      const {lat, lng} = e.latlng;
+      document.getElementById('lat').value = lat.toFixed(6);
+      document.getElementById('lon').value = lng.toFixed(6);
+      try{
+        const r = await fetch(`/reverse_geocode?lat=${lat}&lon=${lng}`);
+        const j = await r.json();
+        if(j && j.display_name){
+          document.getElementById('addr').value = j.display_name;
+        }
+      }catch(err){ console.log(err); }
+    });
+  }
+}, 500);
+function startDrawZone(){
+  // Click the polygon tool in the toolbar; helper provided for UX naming
+  alert('Use the polygon/rectangle tool in the top-left of the map to draw the zone, then click "Save Zone".');
+}
+async function saveDrawnZone(){
+  if(!window.drawn || window.drawn.getLayers().length===0){ alert('Draw a polygon or rectangle first'); return; }
+  const name = document.getElementById('zone_name').value || 'Zone';
+  const gj = window.drawn.toGeoJSON();
+  const r = await fetch('/zones?name='+encodeURIComponent(name), {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(gj)});
+  const j = await r.json();
+  alert('Saved zone #'+j.id);
+  await refreshZones();
+}
+async function refreshZones(){
+  const r = await fetch('/zones.geojson');
+  const j = await r.json();
+  if(!window.zonesLayer){ window.zonesLayer = L.geoJSON(null, {style:{weight:1, dashArray:'4 4'}}).addTo(ma
+
+Done—fixed the global CSV exporters:
+
+Replaced the broken join with a safe one and tagged it in code:
+
+csv = "\n".join(lines) # fixed newline join
+
+Added a small header comment so it’s easy to spot later.
+
+How to verify
+
+In the Aggregate card, set lat/lon/radius/hours.
+
+Click Export Events CSV and Export Impacted Parcels CSV.
+
+Open the files—each row should be on its own line (no weird line breaks).
