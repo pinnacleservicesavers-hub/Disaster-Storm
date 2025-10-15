@@ -1,0 +1,113 @@
+you got it — here’s a tiny upgrade that adds a “Copy IDs” button right under the location line. It copies the office, forecast zone, county zone, fire weather zone, and grid (id/x,y) to the clipboard, with a quick success toast.
+
+1) Add a placeholder for the toast (optional but nice)
+
+In public/index.html, somewhere near the top of <body> (right after the spinner is fine), add:
+
+<div id="toast" style="
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: 24px; background: #111; color: #fff;
+  padding: .6rem .9rem; border-radius: 10px; font-size: .95rem;
+  display: none; z-index: 1000; box-shadow: 0 8px 20px rgba(0,0,0,.25);
+"></div>
+
+2) Make a global to hold the last successful payload
+
+Inside your <script> (top with other globals), add:
+
+let lastPayload = null; // holds the most recent API payload (city or point)
+
+
+In both success paths, set it:
+
+In fetchCity (after const data = await res.json();), add:
+
+lastPayload = data;
+
+
+In fetchPoint (after const data = await res.json();), add:
+
+lastPayload = data;
+
+3) Add the Copy button and wire it up
+
+A) Under your <h2 id="loc"></h2> (you already added <div id="meta"> earlier), add a small actions bar that includes the button:
+
+<div id="meta" class="muted" style="margin: .25rem 0 0.25rem 0;"></div>
+<div id="meta-actions" style="margin: 0 0 1rem 0;">
+  <button id="copyIdsBtn" style="
+    font-size: .9rem; padding: .45rem .7rem; border-radius: 8px;
+    border: 1px solid #e6e6e6; background: #f8f9fa; cursor: pointer;
+  ">Copy IDs</button>
+</div>
+
+
+B) Add these helpers to your <script> (below your other helpers):
+
+function showToast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.style.display = "block";
+  setTimeout(() => { t.style.display = "none"; }, 1600);
+}
+
+function buildIdText(payload) {
+  if (!payload) return "";
+  const z = payload.zones || {};
+  const grid = z.grid || {};
+  const office = z.office || "";
+  const fz = (z.forecastZone || "").split("/").pop() || "";
+  const cz = (z.county || "").split("/").pop() || "";
+  const fwz = (z.fireWeatherZone || "").split("/").pop() || "";
+  const gridStr = (grid.id && grid.x != null && grid.y != null) ? `${grid.id}/${grid.x},${grid.y}` : "";
+  const loc = payload.locationDisplay || payload.location || "";
+
+  return [
+    loc ? `Location: ${loc}` : null,
+    office ? `Office: ${office}` : null,
+    fz ? `Forecast Zone: ${fz}` : null,
+    cz ? `County Zone: ${cz}` : null,
+    fwz ? `Fire Weather Zone: ${fwz}` : null,
+    gridStr ? `Grid: ${gridStr}` : null
+  ].filter(Boolean).join("\n");
+}
+
+// Attach once after DOM loaded
+document.addEventListener("click", async (e) => {
+  if (e.target.id !== "copyIdsBtn") return;
+  const text = buildIdText(lastPayload);
+  if (!text) { showToast("No IDs to copy yet"); return; }
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast("Copied zone & office IDs");
+  } catch {
+    // Fallback: prompt (rarely needed)
+    window.prompt("Copy IDs:", text);
+  }
+});
+
+4) (Optional) Show the IDs on-screen, too
+
+You already render links in renderMeta. If you want the raw IDs visible under the links, add one line at the end of renderMeta:
+
+// Add after quickLinks block inside metaEl.innerHTML:
+${/* raw IDs line */""}
+${(z.office || z.forecastZone || z.county || z.fireWeatherZone) ? `
+  <div class="small" style="margin-top:.25rem;">
+    IDs: ${z.office ? `Office=${z.office}` : ""} 
+    ${z.forecastZone ? ` • FZ=${z.forecastZone.split("/").pop()}` : ""}
+    ${z.county ? ` • CZ=${z.county.split("/").pop()}` : ""}
+    ${z.fireWeatherZone ? ` • FWZ=${z.fireWeatherZone.split("/").pop()}` : ""}
+    ${z.grid?.id != null && z.grid.x != null && z.grid.y != null ? ` • Grid=${z.grid.id}/${z.grid.x},${z.grid.y}` : ""}
+  </div>
+` : "" }
+
+
+That’s it — users can click Copy IDs, and they’ll get a ready-to-paste block like:
+
+Location: Downtown Miami, Miami-Dade County, Florida, …
+Office: MFL
+Forecast Zone: FLZ072
+County Zone: FLC086
+Fire Weather Zone: FLZ072
+Grid: MFL/97,78

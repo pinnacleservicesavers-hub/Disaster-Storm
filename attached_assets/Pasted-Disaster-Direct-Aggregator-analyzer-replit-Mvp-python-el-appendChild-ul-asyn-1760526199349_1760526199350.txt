@@ -1,0 +1,293 @@
+Disaster Direct – Aggregator/analyzer (replit Mvp)
+· python
+"""
+  });
+  el.appendChild(ul);
+}
+
+
+async function deleteSchedule(id){
+  await fetch('/schedules/'+id, {method:'DELETE'});
+  renderSchedules();
+}
+
+
+// Address autocomplete (debounced)
+let geocodeTimer; const delay= (fn,ms)=>{clearTimeout(geocodeTimer); geocodeTimer=setTimeout(fn,ms)};
+const addrEl = document.getElementById('addr');
+addrEl && addrEl.addEventListener('input', ()=>{
+  const q = addrEl.value; if(!q || q.length<3) return;
+  delay(async ()=>{
+    try{
+      const r = await fetch('/geocode/suggest?q='+encodeURIComponent(q));
+      const j = await r.json();
+      const dl = document.getElementById('addr-suggest');
+      dl.innerHTML = '';
+      (j||[]).forEach(it=>{
+        const o = document.createElement('option');
+        o.value = it.display_name; o.setAttribute('data-lat', it.lat); o.setAttribute('data-lon', it.lon);
+        dl.appendChild(o);
+      });
+    }catch(e){console.log(e)}
+  }, 300);
+});
+addrEl && addrEl.addEventListener('change', ()=>{
+  const dl = document.getElementById('addr-suggest');
+  const options = dl.querySelectorAll('option');
+  const val = addrEl.value;
+  for(const o of options){ if(o.value===val){
+    document.getElementById('lat').value = o.getAttribute('data-lat');
+    document.getElementById('lon').value = o.getAttribute('data-lon');
+    if(map) map.setView([parseFloat(o.getAttribute('data-lat')), parseFloat(o.getAttribute('data-lon'))], 10);
+  }}
+});
+
+
+async function saveRun(){
+  const name = document.getElementById('runname').value || 'Untitled run';
+  const lat = document.getElementById('lat').value;
+  const lon = document.getElementById('lon').value;
+  const rad = document.getElementById('rad').value;
+  const hrs = document.getElementById('hrs').value;
+  const r = await fetch(`/runs/save?name=${encodeURIComponent(name)}&lat=${lat}&lon=${lon}&radius_km=${rad}&hours_back=${hrs}`);
+  const j = await r.json();
+  alert('Saved run #'+j.run_id);
+  listRuns();
+}
+
+
+async function listRuns(){
+  const r = await fetch('/runs');
+  const j = await r.json();
+  const el = document.getElementById('runs');
+  el.innerHTML = '';
+  const ul = document.createElement('ul');
+  (j||[]).forEach(it=>{
+    const li = document.createElement('li');
+    li.innerHTML = `<strong>#${it.id}</strong> ${new Date(it.created_at*1000).toLocaleString()} — ${it.name} — risk ${it.risk_score} `+
+      `[ <a target="_blank" href="/runs/${it.id}">JSON</a> | <a target="_blank" href="/runs/${it.id}/events.csv">events.csv</a> | <a target="_blank" href="/runs/${it.id}/impacted.csv">impacted.csv</a> ]`;
+    ul.appendChild(li);
+  });
+  el.appendChild(ul);
+}
+
+
+async function doGeocode(){
+  const q = document.getElementById('addr').value;
+  if(!q) return;
+  const r = await fetch('/geocode?q='+encodeURIComponent(q));
+  const j = await r.json();
+  if(j && j.lat && j.lon){
+    document.getElementById('lat').value = j.lat;
+    doc
+Thought for a few seconds
+
+Thanks—jumped in to patch the canvas, but the automated update hit a snag (one regex replacement tripped an error), so nothing was applied. No worries—here are clean, copy-paste fixes to land everything you asked for (Run-Now+Save, Webhook Tester, JS cleanup, CSV fix, and a couple of missing endpoints). It’s all scoped and labeled so you can drop them in fast.
+
+1) Fix the Python math typo (prevents a crash)
+
+File: app.py
+Find & replace (2 occurrences):
+
+# BEFORE
+radius_deg = Math.sqrt(area_deg2/Math.pi)
+
+# AFTER
+radius_deg = math.sqrt(area_deg2/math.pi)
+
+2) Repair the corrupted scheduler JS block
+
+Your <script> has a duplicated/garbled chunk after async function addSchedule(...).
+Replace everything from async function addSchedule( down to just before async function renderSchedules with this:
+
+async function addSchedule(){
+  const name = document.getElementById('sch_name').value || 'Daily Job';
+  let lat = document.getElementById('sch_lat').value;
+  let lon = document.getElementById('sch_lon').value;
+  const addr = document.getElementById('sch_addr').value;
+  const zone = document.getElementById('sch_zone') ? document.getElementById('sch_zone').value : '';
+  if((!lat || !lon) && addr){
+    const g = await (await fetch('/geocode?q='+encodeURIComponent(addr))).json();
+    if(g && g.lat && g.lon){ lat = g.lat; lon = g.lon; }
+  }
+  const rad = document.getElementById('sch_rad').value || 25;
+  const hrs = document.getElementById('sch_hrs').value || 72;
+  const th = document.getElementById('sch_thresh').value || 60;
+  const wh = document.getElementById('sch_wh') ? document.getElementById('sch_wh').value : '';
+  const sms = document.getElementById('sch_sms') ? document.getElementById('sch_sms').value : '';
+  const parcelsSel = document.getElementById('sch_parcels');
+  const parcel_ids = Array.from(parcelsSel?.selectedOptions || []).map(o=>parseInt(o.value)).filter(Boolean);
+
+  const r = await fetch(`/schedules`, {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({
+      name,
+      lat: lat?parseFloat(lat):null,
+      lon: lon?parseFloat(lon):null,
+      radius_km: rad?parseFloat(rad):null,
+      hours_back: parseInt(hrs),
+      threshold: parseFloat(th),
+      zone_id: zone?parseInt(zone):null,
+      webhook_url: wh||null,
+      sms_csv: sms||null,
+      parcel_ids
+    })
+  });
+  const j = await r.json();
+  alert('Added schedule #'+j.id);
+  renderSchedules();
+}
+
+3) Add “Run Now + Save” in the Aggregate row
+
+In the Aggregate card, replace the button row containing Run with this version:
+
+<button onclick="runAgg()">Run</button>
+<input id="runname" placeholder="Quick run name" style="width:200px" />
+<button onclick="runAndSaveNow()">Run Now + Save</button>
+<button onclick="exportCSV('events')">Export Events CSV</button>
+<button onclick="exportCSV('impacted')">Export Impacted Parcels CSV</button>
+
+
+Add this JS right before </script>:
+
+async function runAndSaveNow(){
+  try{
+    const lat = parseFloat(document.getElementById('lat').value);
+    const lon = parseFloat(document.getElementById('lon').value);
+    const rad = parseFloat(document.getElementById('rad').value||'25');
+    const hrs = parseInt(document.getElementById('hrs').value||'72');
+    const name = (document.getElementById('runname').value||('Quick run '+new Date().toLocaleString())).trim();
+    const r = await fetch(`/runs/save?name=${encodeURIComponent(name)}&lat=${lat}&lon=${lon}&radius_km=${rad}&hours_back=${hrs}`);
+    const j = await r.json();
+    alert('Saved run #' + j.run_id + ' (risk ' + j.risk_score + ')');
+    listRuns();
+  }catch(e){ alert('Run+Save error: '+e); }
+}
+
+4) Add a Webhook Tester (UI + endpoint)
+
+UI (Alert Webhook card): change the row to include Send Test and an output pane:
+
+<div class="row">
+  <input id="whUrl" placeholder="https://example.com/webhook" style="width:360px"/>
+  <input id="whTh" placeholder="Threshold (e.g., 60)" />
+  <button onclick="saveWebhook()">Save</button>
+  <button onclick="testWebhook()">Send Test</button>
+</div>
+<div id="whStatus"></div>
+<pre id="whout" style="background:#0b0b0b;color:#e4e4e4;padding:10px;border-radius:8px;white-space:pre-wrap;max-height:200px;overflow:auto;margin-top:10px;display:none"></pre>
+
+
+JS (before </script>):
+
+async function testWebhook(){
+  const url = (document.getElementById('whUrl') && document.getElementById('whUrl').value) || '';
+  const out = document.getElementById('whout');
+  out.style.display='block'; out.textContent='Sending test to '+url+'…';
+  try{
+    const res = await fetch('/webhook/test', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({url})
+    });
+    const j = await res.json();
+    out.textContent = JSON.stringify(j, null, 2);
+  }catch(e){ out.textContent = 'Error: '+e; }
+}
+
+
+Endpoint (server, anywhere near your alerts code is fine; placing before the “Demo parcel seed” section is easy):
+
+@app.post("/webhook/test")
+async def webhook_test(item: Dict[str, Any] = Body(...)):
+    url = item.get("url")
+    if not url:
+        raise HTTPException(status_code=400, detail="Missing url")
+    sample = {
+        "risk_score": 42.0,
+        "impacted_parcels": [{"parcel_id": 101, "name": "Sample Parcel"}],
+        "query": {"lat": 32.7767, "lon": -96.7970, "radius_km": 25, "hours_back": 72},
+        "schedule_id": None,
+        "run_id": None,
+        "test": True
+    }
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(url, json=sample)
+            body = (resp.text or '')
+            if len(body) > 2000:
+                body = body[:2000] + '…'
+            return {"ok": True, "status": resp.status_code, "response": body}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+5) Add the /runs endpoints used by the UI
+
+Your dashboard calls /runs, /runs/{id}, and per-run CSV endpoints, but they weren’t defined yet.
+Add these near the bottom (e.g., right before the “Demo parcel seed” section):
+
+@app.get("/runs")
+async def runs_list_endpoint():
+    return run_list()
+
+@app.get("/runs/{run_id}")
+async def runs_get_endpoint(run_id: int):
+    data = run_get(run_id)
+    if not data:
+        raise HTTPException(status_code=404, detail="Run not found")
+    return data
+
+@app.get("/runs/{run_id}/events.csv")
+async def runs_events_csv(run_id: int):
+    data = run_get(run_id)
+    if not data:
+        raise HTTPException(status_code=404, detail="Run not found")
+    lines = ["source,event_type,severity,headline,start_time,description"]
+    def esc(s): return "" if s is None else str(s).replace('"','""')
+    for e in data.get("events", []):
+        lines.append(f"\"{esc(e.get('source'))}\",\"{esc(e.get('event_type'))}\",\"{esc(e.get('severity'))}\",\"{esc(e.get('headline'))}\",\"{esc(e.get('start_time'))}\",\"{esc(e.get('description'))}\"")
+    csv = "\n".join(lines)
+    return PlainTextResponse(csv, media_type="text/csv", headers={"Content-Disposition": f"attachment; filename=run_{run_id}_events.csv"})
+
+@app.get("/runs/{run_id}/impacted.csv")
+async def runs_impacted_csv(run_id: int):
+    data = run_get(run_id)
+    if not data:
+        raise HTTPException(status_code=404, detail="Run not found")
+    lines = ["parcel_id,name"]
+    def escq(s): return "" if s is None else str(s).replace('"','""')
+    for p in data.get("impacted", []):
+        lines.append(f"{p.get('parcel_id')},\"{escq(p.get('name',''))}\"")
+    csv = "\n".join(lines)
+    return PlainTextResponse(csv, media_type="text/csv", headers={"Content-Disposition": f"attachment; filename=run_{run_id}_impacted.csv"})
+
+6) Fix the CSV join bug in two places
+
+In both export endpoints (/export/events.csv and /export/impacted.csv) the line break split the string literal.
+Change:
+
+csv = "
+".join(lines)
+
+
+To:
+
+csv = "\n".join(lines)
+
+7) (Optional) Keep the schedules “Test / Test+Notify” UI you already have
+
+You’re good there—once the @app.get("/schedules/{id}/run") route is in place (it is), those links will work. The output panel <pre id="testout">…</pre> will show the JSON.
+
+Quick smoke test
+
+Geocode + Run an area → see risk score and map refresh.
+
+Run Now + Save → alert shows run id; then Save Run & History → Refresh List shows it.
+
+Webhook → Save URL + Send Test → status/response appears underneath.
+
+Scheduler → Test and Test+Notify → JSON shows in the panel and notifications fire if threshold is met.
+
+Exports → global CSV downloads work; from Runs list, the per-run CSV links also download.

@@ -1,0 +1,265 @@
+Disaster Direct – Aggregator/analyzer (replit Mvp)
+· python
+"""
+        msg = (
+            f"DisasterDirect Alert: risk={summary.get('risk_score')} "
+            f"parcels={','.join([p['name'] for p in summary.get('impacted_parcels', [])]) or 'none'} "
+            f"@ ({summary['query']['lat']},{summary['query']['lon']})"
+        )
+        async with httpx.AsyncClient(timeout=10.0, auth=(sid, tok)) as client:
+            for to in phones:
+                data = {"To": to, "From": frm, "Body": msg}
+                url = f"https://api.twilio.com/2010-04-01/Accounts/{sid}/Messages.json"
+                await client.post(url, data=data)
+    except Exception as e:
+        print("sms error:", e)
+
+
+
+
+# -----------------------------
+# Demo parcel seed: Dallas sample polygons
+# -----------------------------
+
+
+DALLAS_SAMPLE = {
+  "type": "FeatureCollection",
+  "features": [
+    {"type":"Feature","properties":{"owner":"Sample A"},
+     "geometry":{"type":"Polygon","coordinates":[[[-96.85,32.82],[-96.82,32.82],[-96.82,32.80],[-96.85,32.80],[-96.85,32.82]]]}},
+    {"type":"Feature","properties":{"owner":"Sample B"},
+     "geometry":{"type":"Polygon","coordinates":[[[-96.82,32.80],[-96.79,32.80],[-96.79,32.78],[-96.82,32.78],[-96.82,32.80]]]}},
+    {"type":"Feature","properties":{"owner":"Sample C"},
+     "geometry":{"type":"Polygon","coordinates":[[[-96.81,32.83],[-96.78,32.83],[-96.78,32.81],[-96.81,32.81],[-96.81,32.83]]]}},
+  ]
+}
+
+
+
+
+@app.post("/seed/dallas")
+async def seed_dallas():
+    pid = parcels_add("Dallas Sample Parcels", json.dumps(DALLAS_SAMPLE))
+    return {"ok": True, "parcel_id": pid, "count": len(DALLAS_SAMPLE["features"])}
+
+
+
+
+# Hook maybe_fire_webhook into aggregate (send summary)
+# We call it here by overriding aggregate return (non-blocking fire)
+orig_aggregate = aggregate
+
+
+@app.get("/aggregate_with_alerts")
+async def aggregate_with_alerts(lat: float = Query(..., ge=-90, le=90), lon: float = Query(..., ge=-180, le=180), radius_km: float = Query(25.0, gt=0, le=500), hours_back: int = Query(72, ge=1, le=720)):
+    resp = await orig_aggregate(lat=lat, lon=lon, radius_km=radius_km, hours_back=hours_back)  # type: ignore
+    summary = {
+        "risk_score": resp.risk_score,
+        "impacted_parcels": resp.impacted_parcels,
+        "query": {"lat": lat, "lon": lon, "radius_km": radius_km, "hours_back": hours_back},
+        "generated_at": now_utc().isoformat(),
+    }
+    try:
+        await maybe_fire_webhook(summary)
+    except Exception as e:
+        print("webhook fire err:", e)
+    return resp
+
+
+
+
+# -----------------------------
+# requirements.txt (create a separate file)
+# fastapi==0.115.0
+# uvicorn==0.30.6
+# httpx==0.27.2
+# pydantic==2.9.2
+# shapely==2.0.6
+
+
+
+I tried to patch your canvas automatically (the “Disaster Direct – Aggregator/analyzer (replit Mvp)” code) to add the Run Now + Save control, Webhook Tester, fix the broken CSV joins, clean up the corrupted JS block, and correct the Math.sqrt/Math.pi typos — but the automated update failed on one of the regex replacements. No changes were applied.
+
+All good — here are precise, copy-paste fixes based on your current file. They’re minimal and safe.
+
+1) Fix the Math typos (zones centroid)
+
+Find in zones_centroid:
+
+radius_deg = Math.sqrt(area_deg2/Math.pi)
+
+
+Replace with:
+
+radius_deg = math.sqrt(area_deg2/math.pi)
+
+2) Fix the CSV join bug in both exporters
+
+In /export/events.csv and /export/impacted.csv you currently have a split string:
+
+csv = "
+".join(lines)
+
+
+Change both to:
+
+csv = "\n".join(lines)
+
+3) Remove the corrupted, duplicated JS after addSchedule()
+
+In the <script> section, right after your good async function addSchedule(){ ... }, there’s stray junk starting with:
+
+const rad = document.getElementById('sch_rad').value || 25;
+
+
+and a mess of unmatched braces until eventually it reaches:
+
+async function renderSchedules(){
+
+
+Delete everything from that first const rad = document.getElementById('sch_rad')... line up to (but not including) async function renderSchedules(){.
+This restores valid JS.
+
+4) Add “Run Now + Save” to the Aggregate row
+
+In the Aggregate card, replace the three buttons block:
+
+<button onclick="runAgg()">Run</button>
+<button onclick="exportCSV('events')">Export Events CSV</button>
+<button onclick="exportCSV('impacted')">Export Impacted Parcels CSV</button>
+
+
+with this:
+
+<button onclick="runAgg()">Run</button>
+<input id="runname" placeholder="Quick run name" style="width:200px" />
+<button onclick="runAndSaveNow()">Run Now + Save</button>
+<button onclick="exportCSV('events')">Export Events CSV</button>
+<button onclick="exportCSV('impacted')">Export Impacted Parcels CSV</button>
+
+
+Then add this function just before </script>:
+
+<script>
+async function runAndSaveNow(){
+  try{
+    const lat = parseFloat(document.getElementById('lat').value);
+    const lon = parseFloat(document.getElementById('lon').value);
+    const rad = parseFloat(document.getElementById('rad').value||'25');
+    const hrs = parseInt(document.getElementById('hrs').value||'72');
+    const name = (document.getElementById('runname').value||('Quick run '+new Date().toLocaleString())).trim();
+    const r = await fetch(`/runs/save?name=${encodeURIComponent(name)}&lat=${lat}&lon=${lon}&radius_km=${rad}&hours_back=${hrs}`);
+    const j = await r.json();
+    alert('Saved run #' + j.run_id + ' (risk ' + j.risk_score + ')');
+    listRuns();
+  }catch(e){ alert('Run+Save error: '+e); }
+}
+</script>
+
+5) Add an in-app Webhook Tester (UI + endpoint)
+UI: extend the “Alert Webhook” card
+
+Replace that card’s inner block with:
+
+<div class="row">
+  <input id="whUrl" placeholder="https://example.com/webhook" style="width:360px"/>
+  <input id="whTh" placeholder="Threshold (e.g., 60)" />
+  <button onclick="saveWebhook()">Save</button>
+  <button onclick="testWebhook()">Send Test</button>
+</div>
+<div id="whStatus"></div>
+<pre id="whout" style="background:#0b0b0b;color:#e4e4e4;padding:10px;border-radius:8px;white-space:pre-wrap;max-height:200px;overflow:auto;margin-top:10px;display:none"></pre>
+
+
+Add this JS just before </script> (below the Run+Save function is fine):
+
+<script>
+async function testWebhook(){
+  const url = (document.getElementById('whUrl') && document.getElementById('whUrl').value) || '';
+  const out = document.getElementById('whout');
+  out.style.display='block'; out.textContent='Sending test to '+url+'…';
+  try{
+    const res = await fetch('/webhook/test', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({url})
+    });
+    const j = await res.json();
+    out.textContent = JSON.stringify(j, null, 2);
+  }catch(e){ out.textContent = 'Error: '+e; }
+}
+</script>
+
+Endpoint: add to the server (anywhere near your alerts code is fine)
+@app.post("/webhook/test")
+async def webhook_test(item: Dict[str, Any] = Body(...)):
+    url = item.get("url")
+    if not url:
+      raise HTTPException(status_code=400, detail="Missing url")
+    sample = {
+      "risk_score": 42.0,
+      "impacted_parcels": [{"parcel_id": 101, "name": "Sample Parcel"}],
+      "query": {"lat": 32.7767, "lon": -96.7970, "radius_km": 25, "hours_back": 72},
+      "schedule_id": None,
+      "run_id": None,
+      "test": True
+    }
+    try:
+      async with httpx.AsyncClient(timeout=10.0) as client:
+        resp = await client.post(url, json=sample)
+        body = (resp.text or '')
+        if len(body) > 2000: body = body[:2000] + '…'
+        return {"ok": True, "status": resp.status_code, "response": body}
+    except Exception as e:
+      return {"ok": False, "error": str(e)}
+
+6) Add the missing /runs endpoints used by the UI
+
+Place these near your existing run_* helpers:
+
+@app.get("/runs")
+async def runs_list_endpoint():
+    return run_list()
+
+@app.get("/runs/{run_id}")
+async def runs_get_endpoint(run_id: int):
+    data = run_get(run_id)
+    if not data:
+        raise HTTPException(status_code=404, detail="Run not found")
+    return data
+
+@app.get("/runs/{run_id}/events.csv")
+async def runs_events_csv(run_id: int):
+    data = run_get(run_id)
+    if not data:
+        raise HTTPException(status_code=404, detail="Run not found")
+    lines = ["source,event_type,severity,headline,start_time,description"]
+    def esc(s): return "" if s is None else str(s).replace('"','""')
+    for e in data.get("events", []):
+        lines.append(f"\"{esc(e.get('source'))}\",\"{esc(e.get('event_type'))}\",\"{esc(e.get('severity'))}\",\"{esc(e.get('headline'))}\",\"{esc(e.get('start_time'))}\",\"{esc(e.get('description'))}\"")
+    csv = "\n".join(lines)
+    return PlainTextResponse(csv, media_type="text/csv", headers={"Content-Disposition": f"attachment; filename=run_{run_id}_events.csv"})
+
+@app.get("/runs/{run_id}/impacted.csv")
+async def runs_impacted_csv(run_id: int):
+    data = run_get(run_id)
+    if not data:
+        raise HTTPException(status_code=404, detail="Run not found")
+    lines = ["parcel_id,name"]
+    def escq(s): return "" if s is None else str(s).replace('"','""')
+    for p in data.get("impacted", []):
+        lines.append(f"{p.get('parcel_id')},\"{escq(p.get('name',''))}\"")
+    csv = "\n".join(lines)
+    return PlainTextResponse(csv, media_type="text/csv", headers={"Content-Disposition": f"attachment; filename=run_{run_id}_impacted.csv"})
+
+Quick test checklist
+
+Map click sets lat/lon and reverse-geocodes ✔
+
+Run Now + Save saves and refreshes Runs list ✔
+
+/runs, per-run JSON + CSVs work ✔
+
+Webhook Tester returns status/body ✔
+
+Scheduler Test / Test+Notify already wired; with /schedules/{id}/run you’ll see JSON in the panel, and notifications will fire when risk_score ≥ threshold.
