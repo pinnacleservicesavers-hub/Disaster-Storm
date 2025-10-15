@@ -1,0 +1,135 @@
+sweet — here’s a tiny upgrade that lets the user choose which zone type to use for alerts: Forecast, County, or Fire Weather.
+
+1) Update the actions bar (HTML)
+
+Replace your current #meta-actions block with this (keeps Copy + adds a zone-type selector + alerts button):
+
+<div id="meta" class="muted" style="margin: .25rem 0 0.25rem 0;"></div>
+<div id="meta-actions" style="margin: 0 0 1rem 0; display:flex; gap:.5rem; flex-wrap:wrap; align-items:center;">
+  <button id="copyIdsBtn" style="
+    font-size: .9rem; padding: .45rem .7rem; border-radius: 8px;
+    border: 1px solid #e6e6e6; background: #f8f9fa; cursor: pointer;
+  ">Copy IDs</button>
+
+  <label class="small muted" for="zoneTypeSel">Zone type:</label>
+  <select id="zoneTypeSel" style="font-size:.9rem; padding:.45rem .6rem;">
+    <option value="forecast" selected>Forecast</option>
+    <option value="county">County</option>
+    <option value="fire">Fire Weather</option>
+  </select>
+
+  <button id="zoneAlertsBtn" style="
+    font-size: .9rem; padding: .45rem .7rem; border-radius: 8px;
+    border: 1px solid #e6e6e6; background: #eef6ff; cursor: pointer;
+  ">Get alerts for this zone</button>
+</div>
+
+<h3>Zone Alerts</h3>
+<div id="zone-alerts"></div>
+
+2) Add helpers (JS)
+
+Drop these near your other helpers (right after buildIdText is perfect):
+
+function extractZoneIdFromUrl(url) {
+  if (!url) return null;
+  const parts = String(url).split("/");
+  return parts[parts.length - 1] || null;
+}
+
+// Return a zone ID based on requested type
+function getZoneIdByType(payload, type /* 'forecast' | 'county' | 'fire' */) {
+  const z = payload?.zones || {};
+  if (type === "forecast") return extractZoneIdFromUrl(z.forecastZone);
+  if (type === "county")   return extractZoneIdFromUrl(z.county);
+  if (type === "fire")     return extractZoneIdFromUrl(z.fireWeatherZone);
+  return null;
+}
+
+3) Upgrade the zone-alert fetcher (JS)
+
+Replace your existing fetchZoneAlertsForCurrent() with this version that reads the dropdown and falls back smartly:
+
+async function fetchZoneAlertsForCurrent() {
+  const zoneWrap = document.getElementById("zone-alerts");
+  const sel = document.getElementById("zoneTypeSel");
+  const type = sel ? sel.value : "forecast";
+
+  if (!lastPayload) {
+    zoneWrap.innerHTML = `<div class="card">No location loaded yet. Pick a city or use GPS first.</div>`;
+    return;
+  }
+
+  // Try the chosen type; if missing, fall back to forecast -> county -> fire
+  const order = (() => {
+    if (type === "forecast") return ["forecast", "county", "fire"];
+    if (type === "county")   return ["county", "forecast", "fire"];
+    return ["fire", "forecast", "county"];
+  })();
+
+  let zoneId = null, usedType = null;
+  for (const t of order) {
+    const id = getZoneIdByType(lastPayload, t);
+    if (id) { zoneId = id; usedType = t; break; }
+  }
+
+  if (!zoneId) {
+    zoneWrap.innerHTML = `<div class="card">Couldn’t determine a zone ID for this location.</div>`;
+    return;
+  }
+
+  zoneWrap.innerHTML = `<div class="card skeleton" style="height:80px"></div>`;
+
+  try {
+    const r = await fetch(`/api/alerts?zone=${encodeURIComponent(zoneId)}`);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const data = await r.json();
+    renderZoneAlertsList(data.items || []);
+    showToast(`Loaded ${usedType} alerts for ${zoneId}`);
+  } catch (e) {
+    zoneWrap.innerHTML = `
+      <div class="error">
+        <div class="card">
+          <div class="headline">Zone alerts failed</div>
+          <div class="small">${e.message}</div>
+          <div class="error-actions">
+            <button class="retry-btn" data-target="${lastMode}">Retry</button>
+          </div>
+        </div>
+      </div>`;
+  }
+}
+
+4) Wire the new button (JS)
+
+Extend your existing delegated click handler to include the new action (if you already added the earlier version, just add this if branch):
+
+document.addEventListener("click", async (e) => {
+  const btn = e.target.closest(".retry-btn");
+  if (btn) {
+    const target = btn.dataset.target || lastMode;
+    if (target === "point" && lastPoint) { fetchPoint(lastPoint.lat, lastPoint.lon); }
+    else { fetchCity(lastCity); }
+    return;
+  }
+
+  if (e.target.id === "copyIdsBtn") {
+    const text = buildIdText(lastPayload);
+    if (!text) { showToast("No IDs to copy yet"); return; }
+    try { await navigator.clipboard.writeText(text); showToast("Copied zone & office IDs"); }
+    catch { window.prompt("Copy IDs:", text); }
+    return;
+  }
+
+  // NEW: pull alerts for the selected zone type
+  if (e.target.id === "zoneAlertsBtn") {
+    fetchZoneAlertsForCurrent();
+    return;
+  }
+});
+
+5) (Optional) Auto-refresh zone alerts on location change
+
+After successful loads in both fetchCity(...) and fetchPoint(...) (right after renderHourlyChart(...)), keep:
+
+fetchZoneAlertsForCurrent();

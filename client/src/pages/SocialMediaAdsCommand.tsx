@@ -19,6 +19,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { FadeIn, ScaleIn, StaggerContainer, StaggerItem } from '@/components/ui/animations';
 import { apiRequest } from '@/lib/queryClient';
+import VoiceGuide, { VoiceExplanation } from '@/components/VoiceGuide';
 
 interface GeoFence {
   id: string;
@@ -58,6 +59,36 @@ interface AdCampaign {
   autoActivate?: boolean;
   createdAt: string;
 }
+
+// Voice guide explanation for geo-capture module
+const GEO_CAPTURE_EXPLANATION: Record<string, VoiceExplanation> = {
+  geocapture: {
+    id: 'geocapture',
+    portal: 'geocapture',
+    title: 'Geo-Capture & Geo-Fencing Command Center',
+    content: `Welcome to the Geo-Capture and Geo-Fencing Command Center. This powerful advertising system lets you digitally draw fences on a map around storm-damaged areas to capture device IDs of people in those zones. When someone's phone enters your geo-fence, we capture their device ID and can show them your ads on Facebook, Instagram, Google, and YouTube even after they leave the area. This is law enforcement-grade targeting technology that helps you reach homeowners right when they need storm restoration services. You can link geo-fences to active storms, set weather triggers to automatically activate campaigns when wind speeds hit certain levels, and track real-time performance with impressions, clicks, and conversions. The system includes AI-powered ad copy generation and multi-platform campaign management all in one place.`,
+    keyFeatures: [
+      'Law enforcement-grade device tracking and targeting',
+      'Draw digital fences around storm-damaged areas',
+      'Automatic weather-triggered campaign activation',
+      'Multi-platform ad delivery to Facebook, Instagram, Google, and YouTube',
+      'AI-powered ad copy generation',
+      'Real-time performance tracking with impressions and conversions',
+      'Link geo-fences to active storm predictions',
+      'Capture devices even after they leave the area'
+    ],
+    navigation: 'Use the Overview tab to see your active campaigns and geo-fences. Click Create Geo-Fence to draw a new targeting zone on the map. Use Create Campaign to launch ads to captured devices. The Analytics tab shows your return on investment and campaign performance.',
+    benefits: [
+      'Reach homeowners immediately after storm damage',
+      'Target people who were physically in the damage zone',
+      'Automate ad campaigns based on real weather conditions',
+      'Track which storms generate the most business',
+      'Reduce wasted ad spend with precise geographic targeting',
+      'Generate professional ad copy instantly with AI'
+    ],
+    duration: 65
+  }
+};
 
 export default function SocialMediaAdsCommand() {
   const [activeTab, setActiveTab] = useState('overview');
@@ -306,6 +337,15 @@ export default function SocialMediaAdsCommand() {
                   LIVE
                 </Badge>
               </motion.div>
+            </div>
+
+            {/* Voice Guide for Geo-Capture */}
+            <div className="mb-6">
+              <VoiceGuide 
+                currentPortal="geocapture"
+                explanations={GEO_CAPTURE_EXPLANATION}
+                className="relative z-10"
+              />
             </div>
 
             {/* Real-time Stats */}
