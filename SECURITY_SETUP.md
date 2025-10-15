@@ -106,8 +106,10 @@ node -e "console.log(require('crypto').randomBytes(24).toString('hex'))"
 
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
-| `/api/sign/tile` | GET | Generate signed tile URLs |
-| `/api/sign/legend` | GET | Generate signed legend URLs |
+| `/api/sign/tile` | GET | Generate signed tile URL (single) |
+| `/api/sign/legend` | GET | Generate signed legend URL (single) |
+| `/api/sign/batch/tiles` | POST | Generate signed tile URLs (batch) |
+| `/api/sign/batch/legend` | POST | Generate signed legend URLs (batch) |
 
 ### VIEWER Token (Optional Gating)
 
@@ -378,6 +380,219 @@ app.post('/api/locations', requireRole('ADMIN'), handler);
 - `BEARER_TOKEN` still works as ADMIN
 - `requireBearer()` still works (alias for `requireRole('ADMIN')`)
 - Existing tokens don't need to change
+
+---
+
+## Batch Signing
+
+### Overview
+
+Batch signing allows you to mint multiple signed URLs in a single request, dramatically improving performance when loading map tiles.
+
+### POST /api/sign/batch/tiles
+
+Sign multiple tile URLs at once.
+
+**Request:**
+```bash
+curl -X POST "https://your-app.com/api/sign/batch/tiles" \
+  -H "Authorization: Bearer $SIGNER_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '[
+    {"z":10,"x":271,"y":392,"pollen":"1","grid":"6","ttl":"300"},
+    {"z":10,"x":272,"y":392,"scheme":"plasma"},
+    {"z":9,"x":135,"y":196}
+  ]'
+```
+
+**Response:**
+```json
+{
+  "items": [
+    {
+      "z": 10,
+      "x": 271,
+      "y": 392,
+      "url": "/api/impact/tiles/10/271/392.png?pollen=1&grid=6&scheme=viridis&ttl=300&sig=abc...&exp=1234567890"
+    },
+    {
+      "z": 10,
+      "x": 272,
+      "y": 392,
+      "url": "/api/impact/tiles/10/272/392.png?pollen=1&grid=6&scheme=plasma&ttl=180&sig=def...&exp=1234567890"
+    }
+  ]
+}
+```
+
+### POST /api/sign/batch/legend
+
+Sign multiple legend URLs at once.
+
+**Request:**
+```bash
+curl -X POST "https://your-app.com/api/sign/batch/legend" \
+  -H "Authorization: Bearer $SIGNER_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '[
+    {"scheme":"viridis","width":"512","height":"64"},
+    {"scheme":"plasma","width":"256","height":"48"}
+  ]'
+```
+
+**JavaScript Example:**
+```javascript
+// Sign tiles for current map viewport
+async function signVisibleTiles(bounds, zoom) {
+  const tiles = [];
+  for (let x = bounds.minX; x <= bounds.maxX; x++) {
+    for (let y = bounds.minY; y <= bounds.maxY; y++) {
+      tiles.push({ z: zoom, x, y, ttl: 600 });
+    }
+  }
+
+  const response = await fetch('/api/sign/batch/tiles', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${SIGNER_TOKEN}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(tiles)
+  });
+
+  const { items } = await response.json();
+  return items.map(item => item.url);
+}
+```
+
+---
+
+## Cloudflare Worker Signer (Edge)
+
+### Overview
+
+Deploy a Cloudflare Worker for ultra-fast edge-based signing without hitting your backend. Perfect for public-facing maps that need signed URLs.
+
+### Features
+
+- **5-10ms latency** globally (vs 50-200ms to origin)
+- **Auto-scaling** to millions of requests
+- **No auth required** for public use
+- **Same HMAC security** as backend
+
+### Setup
+
+1. **Install Wrangler:**
+```bash
+npm install -g wrangler
+wrangler login
+```
+
+2. **Deploy Worker:**
+```bash
+cd cloudflare-worker
+wrangler secret put TILE_SIGN_SECRET  # Use same value as backend
+wrangler deploy
+```
+
+3. **Get Worker URL:**
+```
+✅ https://dd-signer.<your-subdomain>.workers.dev
+```
+
+### Usage
+
+**Sign Tile:**
+```bash
+curl "https://dd-signer.your-worker.workers.dev/sign/tile?z=10&x=271&y=392&ttl=600"
+```
+
+**Sign Legend:**
+```bash
+curl "https://dd-signer.your-worker.workers.dev/sign/legend?scheme=plasma&width=512"
+```
+
+**Frontend Integration:**
+```javascript
+const workerUrl = 'https://dd-signer.your-worker.workers.dev';
+const backendUrl = 'https://your-backend.com';
+
+async function getSignedTile(z, x, y) {
+  const res = await fetch(`${workerUrl}/sign/tile?z=${z}&x=${x}&y=${y}`);
+  const { url } = await res.json();
+  return `${backendUrl}${url}`;
+}
+```
+
+### Configuration
+
+Edit `cloudflare-worker/wrangler.toml`:
+```toml
+name = "dd-signer"
+main = "worker.js"
+compatibility_date = "2024-10-01"
+
+[vars]
+TILE_SIGN_TTL_SEC = "300"
+```
+
+### Cost
+
+- **Free Tier**: 100,000 requests/day
+- **Paid**: $0.50 per million additional requests
+
+For typical storm response usage, costs are negligible or free.
+
+### When to Use
+
+| Use Case | Recommended Solution |
+|----------|---------------------|
+| Public maps | Cloudflare Worker (fastest) |
+| Authenticated dashboards | Backend `/api/sign/*` (secure) |
+| Batch operations | Backend batch endpoints (efficient) |
+
+---
+
+## GitHub Actions CI/CD
+
+### Overview
+
+Automatically build and push Docker images to GitHub Container Registry on every tagged release.
+
+### Setup
+
+1. **Enable GHCR:**
+   - Go to your repo → Settings → Actions → General
+   - Enable "Read and write permissions" for GITHUB_TOKEN
+
+2. **Create Tag:**
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+3. **Workflow Triggers:**
+   - Builds on tags matching `v*.*.*` (e.g., v1.2.3)
+   - Pushes to `ghcr.io/<owner>/<repo>-backend:latest`
+   - Pushes to `ghcr.io/<owner>/<repo>-backend:v1.2.3`
+
+### Deploy to Render/Railway
+
+**Render:**
+1. New Web Service → "Deploy from Docker image"
+2. Image URL: `ghcr.io/<owner>/<repo>-backend:latest`
+3. Add environment variables
+4. Health check: `/health`
+
+**Railway:**
+1. New Project → Deploy from Repo
+2. Auto-detects Dockerfile
+3. Add environment variables
+4. Deploys automatically
+
+### Workflow File
+
+See `.github/workflows/docker-build.yml` for the complete configuration.
 
 ---
 
