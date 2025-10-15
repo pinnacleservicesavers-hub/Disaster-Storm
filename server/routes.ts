@@ -456,6 +456,11 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
   // ---- Xweather Storm Intelligence Routes ----
   app.use('/api/xweather', xweatherRoutes);
 
+  // ---- AI Intelligence Orchestrator Routes ----
+  const aiIntelligenceRoutes = await import('./routes/aiIntelligenceRoutes.js');
+  app.use('/api/ai-intelligence', aiIntelligenceRoutes.default);
+  console.log('🧠 AI Intelligence Orchestrator routes registered');
+
   // ---- Impact GeoJSON Endpoint (must come BEFORE /api/impact) ----
   app.get('/api/impact/geojson', async (req, res) => {
     try {

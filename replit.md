@@ -37,8 +37,17 @@ Preferred communication style: Simple, everyday language.
 ### Service Layer Architecture
 - **Weather Service**: NWS APIs.
 - **AI Services**:
-    - **OpenAI**: Claim letter generation, image analysis, market comparables, AI-powered damage hints, and social media ad generation (copy and visuals).
+    - **AI Intelligence Orchestrator**: Master coordination layer that orchestrates Grok, OpenAI, and Anthropic AI models for comprehensive disaster intelligence. Provides:
+      - Multi-peril analysis (hurricanes, tornadoes, fires, earthquakes, floods)
+      - Automatic storm-to-property matching with risk scoring
+      - Predictive damage assessment before storms hit
+      - Contractor deployment strategy planning
+      - Satellite imagery analysis using AI vision models
+      - Pattern detection in historical weather data
+      - Real-time decision support for deployment
+    - **OpenAI**: Claim letter generation, image analysis, market comparables, AI-powered damage hints, social media ad generation (copy and visuals), and satellite imagery vision analysis.
     - **Grok AI**: Educational meteorology analysis, landfall prediction, tripwire monitoring, interactive Q&A, and real-time storm intelligence briefings.
+    - **Anthropic Claude**: Advanced damage assessment and analysis capabilities.
 - **Property Service**: Multi-provider property lookup (Smarty, Regrid, ATTOM, Melissa).
 - **Legal Service**: State-specific lien deadline calculations, attorney directory.
 - **Translation Service**: Bilingual support for construction/insurance terminology.

@@ -1,0 +1,175 @@
+Disaster Direct – Aggregator/analyzer (replit Mvp)
+· python
+"""
+def health():
+    return {"ok": True, "time": now_utc().isoformat()}
+
+
+
+
+@app.get("/aggregate", response_model=AggregateResponse)
+async def aggregate(
+    lat: float = Query(..., ge=-90, le=90),
+    lon: float = Query(..., ge=-180, le=180),
+    radius_km: float = Query(25.0, gt=0, le=500),
+    hours_back: int = Query(72, ge=1, le=720),
+):
+    since = now_utc() - timedelta(hours=hours_back)
+
+
+    # Cache key per query
+    ckey = f"agg:{lat:.4f}:{lon:.4f}:{radius_km}:{hours_back}"
+    cached = cache_get(ckey)
+    events: List[Event] = []
+    if cached:
+        import json as _json
+        raw = _json.loads(cached)
+        events = [Event(**e) for e in raw]
+    else:
+        # fan out to providers
+        results: List[Event] = []
+        for p in PROVIDERS:
+            try:
+                evs = await p.fetch(lat, lon, radius_km, since)
+                results.extend(evs)
+            except Exception as e:
+                # don't fail the whole request if one provider errors out
+                print(f"Provider {p.name} error: {e}")
+                continue
+        # de-duplicate by (source, headline, start_time)
+        def ev_key(e: Event):
+            return (e.source, e.headline or e.event_type, e.start_time.isoformat() if e.start_time else "")
+        seen = set()
+        for e in results:
+            k = ev_key(e)
+            if k in seen:
+                continue
+            seen.add(k)
+            events.append(e)
+        # cache
+        import json as _json
+        cache_set(ckey, _json.dumps([e.model_dump() for e in events]), ttl_seconds=120)
+
+
+    risk = compute_risk(events)
+    return AggregateResponse(
+        query_lat=lat,
+        query_lon=lon,
+        radius_km=radius_km,
+        events=events,
+        risk_score=risk,
+        generated_at=now_utc(),
+    )
+
+
+
+
+@app.get("/risk-score")
+async def risk_score(lat: float, lon: float, radius_km: float = 25.0, hours_back: int = 72):
+    resp = await aggregate(lat=lat, lon=lon, radius_km=radius_km, hours_back=hours_back)  # type: ignore
+    return {"risk_score": resp.risk_score, "generated_at": now_utc().isoformat()}
+
+
+
+
+# -----------------------------
+# Extending with paid/high-res providers
+# -----------------------------
+"""
+To add vendor feeds similar to Opterrix:
+- Tomorrow.io (hail/wind footprints, hyperlocal): requires API key. Add a class TomorrowIOProvider(Provider) and push normalized Events.
+- AerisWeather / DTN: similar pattern.
+- Imagery: Sentinel-2/Landsat via APIs (e.g., Microsoft Planetary Computer, EarthSearch), or commercial (Maxar). Store tiles/scene metadata and link rather than download raw imagery in MVP.
+- Property geodata: county parcel shapefiles (where permitted) or paid sources; intersect event geometries with parcel polygons to get street-level impact.
+
+
+Security/licensing:
+- Read each provider's ToS. Cache minimally. Attribute where required. Respect rate limits.
+"""
+
+
+# -----------------------------
+# requirements.txt (paste into a separate file in Replit)
+# fastapi==0.115.0
+# uvicorn==0.30.6
+# httpx==0.27.2
+# pydantic==2.9.2
+
+
+
+Perfect — you can 100% build your own “Opterrix-style” aggregator/analyzer for Disaster Direct on Replit. I dropped a ready-to-run FastAPI MVP in the canvas that:
+
+Pulls free, legit feeds (NWS alerts, USGS earthquakes, FEMA declarations)
+
+Normalizes them into one schema
+
+Returns a combined feed + a basic risk score
+
+Is structured so you can add paid/high-res vendors later (Tomorrow.io, Aeris, DTN, satellite imagery, parcel data)
+
+How to run it on Replit (quick start)
+
+Create a new Python Repl.
+
+Add a requirements.txt with the four packages listed at the bottom of the canvas file.
+
+Paste the code from the canvas into app.py (or keep the filename and run accordingly).
+
+Start it: uvicorn app:app --host 0.0.0.0 --port 8000 --reload
+
+Test in your browser:
+
+Health: /health
+
+Aggregate (example): /aggregate?lat=32.7767&lon=-96.7970&radius_km=25&hours_back=72
+
+Risk only: /risk-score?lat=32.7767&lon=-96.7970
+
+What this MVP proves
+
+You don’t need to own radars/satellites. You pull, normalize, enrich, then analyze.
+
+The provider classes make it easy to bolt on additional feeds with API keys and better resolution.
+
+Where to take it next (street-level like Opterrix)
+
+Hail/Wind footprints (paid)
+Add a TomorrowIOProvider (or DTN/Aeris) and ingest gridded hail size & wind swaths → normalize to Event.geometry polygons.
+
+Imagery & verification
+
+Free: Sentinel-2 / Landsat scene metadata for before/after; link imagery tiles instead of downloading.
+
+Commercial: Maxar after-event captures if you need fine detail.
+
+Property-level impact
+
+Ingest parcel polygons (county GIS where allowed, or paid datasets).
+
+Intersect event polygons with parcels → produce a list of potentially affected addresses.
+
+Claims intelligence
+
+Add a /claims/predict endpoint using a simple model (e.g., hail size + wind gusts + storm duration → expected claims).
+
+Accept FNOL webhooks from insurers or your own customer intake to close the loop.
+
+Notifications
+
+Add a small scheduler to run /aggregate for key service areas every X minutes and push SMS/email/webhook alerts to your crews.
+
+Hardening
+
+Caching per-provider (already stubbed), rate-limit handling, retries/backoff.
+
+Observability (logs, simple metrics).
+
+Licensing compliance for each vendor’s ToS.
+
+If you want, I can:
+
+Plug in a Tomorrow.io provider stub (just drop in your API key),
+
+Add a parcel-intersection workflow (using shapely/geojson in a separate worker),
+
+Or spin up a tiny React dashboard that hits these endpoints and shows a live map.
