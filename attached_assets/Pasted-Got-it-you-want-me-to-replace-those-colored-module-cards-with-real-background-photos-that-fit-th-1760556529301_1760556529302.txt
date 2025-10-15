@@ -1,0 +1,47 @@
+Got it ✅ — you want me to replace those colored module cards with real background photos that fit the theme of each module, and then put the module name + description as a watermark (big, semi-transparent but very visible text) on top of the photo. No video loops, no bright color blocks — just realistic storm/disaster/operations images with clear watermark writing.
+
+Here’s the breakdown of what kind of photo fits each module so you can feed it into AI Agent 3:
+
+🌩️ Storm & Weather Modules
+
+Weather Center – Real stormy sky with dark thunderclouds and lightning, or a Doppler radar map screenshot.
+
+Storm Predictions – Satellite image of a hurricane from above, with radar overlays.
+
+TrafficCamWatcher – A highway scene with rain, flooding, or storm damage (trees down, cars slowed).
+
+Eyes in the Sky – A 3D Earth globe or Google Maps view with storm path and data overlays.
+
+Drone Operations – Drone flying over flooded neighborhoods or damaged roofs.
+
+AI Damage Detection – Close-up of damaged houses/roofs with AI-style bounding boxes detecting damage.
+
+🏚️ Victim / Community / Recovery
+
+Lead Management – Dashboard-style screenshot or office setup with screens tracking leads.
+
+Victim Portal – A distressed homeowner looking at damage (like broken windows, roof tarp).
+
+StormShare – Community photo: people helping each other after a storm, handing out supplies.
+
+Disaster Essentials Marketplace – Shelves of bottled water, generators, or fuel pumps during a storm emergency.
+
+Customer Hub – Homeowner sitting at a computer/tablet managing storm recovery projects.
+
+Claims Central – Insurance adjuster with clipboard inspecting storm damage.
+
+👷 Contractor / Legal / Tools
+
+Contractor Command – Crew in safety vests working on tree or roof storm repair.
+
+Contractor Portal – Contractors at laptops/tablets signing up or reviewing compliance documents.
+
+Legal Command – Courtroom gavel, law books, or contract papers on a desk.
+
+📸 Advanced Tools
+
+Disaster Lens – Photo of a damaged building with a phone scanning QR codes or taking pictures.
+
+X-RAY Reality – Storm visualization with AR overlays: radar maps, 3D hurricane model, live camera feeds.
+
+👉 Next Step: I can generate these photo mockups with watermarked text (instead of colored boxes) so you’ll have the “real picture” version for each module. Do you want me to start generating them now one-by-one (so you can approve the style) or batch them all at once?

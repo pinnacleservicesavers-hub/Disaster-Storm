@@ -1,0 +1,306 @@
+You got it. Here are the three final upgrades—all copy-paste ready:
+
+/api/sign/batch to mint many signed URLs at once
+
+A Cloudflare Worker signer (edge, super fast) you can deploy separately
+
+GitHub Actions CI to build & push your backend Docker image to GHCR on every tag
+
+1) Batch signer: /api/sign/batch
+
+Edit backend/routes/signer.js (append these additions). It keeps your existing single-sign routes and adds batch JSON endpoints. Uses your role-based auth we set up (requireRole("SIGNER")).
+
+ import { withSignedParams } from "../helpers/signing.js";
+ import { requireRole } from "../middleware/bearerAuth.js";
+
+ const DEFAULT_TILE_TEMPLATE = "/api/impact/tiles/{z}/{x}/{y}.png";
+ export function mountSigner(app){
+   app.get("/api/sign/tile", requireRole("SIGNER"), (req,res)=>{
+     const { z,x,y, fmt="png", pollen="1", grid="6", scheme="viridis", ttl="180" } = req.query || {};
+     if (![z,x,y].every(Boolean)) return res.status(400).json({ error:"z,x,y required" });
+     const path = DEFAULT_TILE_TEMPLATE.replace("{z}",String(z)).replace("{x}",String(x)).replace("{y}",String(y)).replace(".png",`.${fmt}`);
+     const sp = new URLSearchParams({ pollen:String(pollen), grid:String(grid), scheme:String(scheme), ttl:String(ttl) });
+     const url = withSignedParams(path, sp); res.json({ url });
+   });
+
+   app.get("/api/sign/legend", requireRole("SIGNER"), (req,res)=>{
+     const { scheme="viridis", width="256", height="48", bg="solid", fmt="png" } = req.query || {};
+     const path = `/api/legend.${fmt}`;
+     const sp = new URLSearchParams({ scheme, width, height, bg });
+     const url = withSignedParams(path, sp);
+     res.json({ url });
+   });
+
++  // NEW: batch sign tiles
++  app.post("/api/sign/batch/tiles", requireRole("SIGNER"), express.json(), (req, res) => {
++    const items = Array.isArray(req.body) ? req.body : [];
++    if (!items.length) return res.status(400).json({ error: "Body must be an array" });
++    const out = items.map((it = {}) => {
++      const { z, x, y, fmt = "png", pollen = "1", grid = "6", scheme = "viridis", ttl = "180" } = it;
++      if (![z, x, y].every(v => Number.isFinite(Number(v)))) return { error: "z,x,y required" };
++      const path = DEFAULT_TILE_TEMPLATE.replace("{z}",String(z)).replace("{x}",String(x)).replace("{y}",String(y)).replace(".png",`.`+fmt);
++      const sp = new URLSearchParams({ pollen:String(pollen), grid:String(grid), scheme:String(scheme), ttl:String(ttl) });
++      return { z:Number(z), x:Number(x), y:Number(y), url: withSignedParams(path, sp) };
++    });
++    res.json({ items: out });
++  });
++
++  // NEW: batch sign legends
++  app.post("/api/sign/batch/legend", requireRole("SIGNER"), express.json(), (req, res) => {
++    const items = Array.isArray(req.body) ? req.body : [];
++    if (!items.length) return res.status(400).json({ error: "Body must be an array" });
++    const out = items.map((it = {}) => {
++      const { scheme="viridis", width=256, height=48, bg="solid", fmt="png", ttl="180" } = it;
++      const path = `/api/legend.${fmt}`;
++      const sp = new URLSearchParams({ scheme:String(scheme), width:String(width), height:String(height), bg:String(bg), ttl:String(ttl) });
++      return { scheme, width, height, url: withSignedParams(path, sp) };
++    });
++    res.json({ items: out });
++  });
+ }
+
+
+Example request
+
+curl -X POST "$BASE/api/sign/batch/tiles" \
+  -H "Authorization: Bearer $SIGNER_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '[{"z":10,"x":271,"y":392,"pollen":"1","grid":"6","ttl":"300"},{"z":9,"x":135,"y":196}]'
+
+2) Cloudflare Worker signer (edge)
+
+If you want to mint signatures without hitting your backend, deploy this Worker. It uses the same HMAC scheme as your server (env TILE_SIGN_SECRET). Great for frontends or map servers that need signed URLs but shouldn’t have ADMIN access.
+
+File: cloudflare-worker/worker.js
+
+// Cloudflare Worker – edge signer for Disaster Direct
+// Routes:
+//   GET /sign/tile?z=10&x=271&y=392&fmt=png&pollen=1&grid=6&scheme=viridis&ttl=180
+//   GET /sign/legend?scheme=viridis&width=256&height=48&bg=solid&fmt=png&ttl=180
+//
+// Env Vars (wrangler):
+//   TILE_SIGN_SECRET   -> same value as backend
+//   TILE_SIGN_TTL_SEC  -> default TTL (e.g., 300)
+//   PUBLIC_BASE_PATH   -> usually "" (paths are relative to your backend origin if you proxy) – here we just sign paths
+
+export default {
+  async fetch(request, env) {
+    const url = new URL(request.url);
+    const path = url.pathname;
+
+    if (path === "/health") {
+      return new Response(JSON.stringify({ status: "OK" }), { headers: { "Content-Type": "application/json" } });
+    }
+
+    const secret = env.TILE_SIGN_SECRET || "dev-secret";
+    const defaultTtl = Number(env.TILE_SIGN_TTL_SEC || 300);
+
+    const sign = async (pathWithQuery, ttlSec = defaultTtl) => {
+      const exp = Math.floor(Date.now() / 1000) + ttlSec;
+      const payload = `${pathWithQuery}|${exp}`;
+      const key = await crypto.subtle.importKey(
+        "raw",
+        new TextEncoder().encode(secret),
+        { name: "HMAC", hash: "SHA-256" },
+        false,
+        ["sign"]
+      );
+      const sigBuf = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(payload));
+      const sigHex = [...new Uint8Array(sigBuf)].map(b => b.toString(16).padStart(2, "0")).join("");
+      return { sig: sigHex, exp };
+    };
+
+    const qpOut = (obj) => {
+      const sp = new URLSearchParams();
+      Object.entries(obj).forEach(([k,v]) => sp.set(k, String(v)));
+      return sp.toString();
+    };
+
+    if (path === "/sign/tile") {
+      const z = url.searchParams.get("z");
+      const x = url.searchParams.get("x");
+      const y = url.searchParams.get("y");
+      if (!z || !x || !y) return new Response(JSON.stringify({ error: "z,x,y required" }), { status: 400 });
+
+      const fmt = url.searchParams.get("fmt") || "png";
+      const pollen = url.searchParams.get("pollen") ?? "1";
+      const grid = url.searchParams.get("grid") || "6";
+      const scheme = url.searchParams.get("scheme") || "viridis";
+      const ttl = Number(url.searchParams.get("ttl") || defaultTtl);
+
+      const urlPath = `/api/impact/tiles/${z}/${x}/${y}.${fmt}`;
+      const query = qpOut({ pollen, grid, scheme, ttl });
+      const pathWithQuery = query ? `${urlPath}?${query}` : urlPath;
+      const { sig, exp } = await sign(pathWithQuery, ttl);
+
+      const signed = new URLSearchParams(query);
+      signed.set("sig", sig); signed.set("exp", String(exp));
+      return new Response(JSON.stringify({ url: `${urlPath}?${signed.toString()}` }), { headers: { "Content-Type": "application/json" } });
+    }
+
+    if (path === "/sign/legend") {
+      const scheme = url.searchParams.get("scheme") || "viridis";
+      const width = url.searchParams.get("width") || "256";
+      const height = url.searchParams.get("height") || "48";
+      const bg = url.searchParams.get("bg") || "solid";
+      const fmt = url.searchParams.get("fmt") || "png";
+      const ttl = Number(url.searchParams.get("ttl") || defaultTtl);
+
+      const urlPath = `/api/legend.${fmt}`;
+      const query = qpOut({ scheme, width, height, bg, ttl });
+      const pathWithQuery = query ? `${urlPath}?${query}` : urlPath;
+      const { sig, exp } = await sign(pathWithQuery, ttl);
+
+      const signed = new URLSearchParams(query);
+      signed.set("sig", sig); signed.set("exp", String(exp));
+      return new Response(JSON.stringify({ url: `${urlPath}?${signed.toString()}` }), { headers: { "Content-Type": "application/json" } });
+    }
+
+    return new Response("Not Found", { status: 404 });
+  }
+}
+
+
+File: cloudflare-worker/wrangler.toml
+
+name = "dd-signer"
+main = "worker.js"
+compatibility_date = "2024-10-01"
+
+[vars]
+TILE_SIGN_TTL_SEC = "300"
+
+# Add secrets with: wrangler secret put TILE_SIGN_SECRET
+
+
+Deploy
+
+cd cloudflare-worker
+# login once: wrangler login
+wrangler secret put TILE_SIGN_SECRET   # paste the same secret as backend
+wrangler publish
+
+
+Use it from your frontend
+
+Call the Worker’s /sign/tile?... to get a url back.
+
+Use that url as the tile request. It will be valid until exp.
+
+This avoids giving your frontend any ADMIN token. If you prefer, you can keep using your backend /api/sign/* with the SIGNER token instead.
+
+3) GitHub Actions CI (Docker → GHCR)
+
+Builds the backend image and pushes to GitHub Container Registry whenever you tag a release like v1.2.3. You can then point Render/Railway at ghcr.io/<owner>/<repo>:<tag>.
+
+File: .github/workflows/docker-build.yml
+
+name: Build & Push Backend Image
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    env:
+      IMAGE_NAME: ghcr.io/${{ github.repository }}-backend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract tag
+        id: vars
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          echo "TAG=${TAG}" >> $GITHUB_OUTPUT
+
+      - name: Build & Push
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ env.IMAGE_NAME }}:${{ steps.vars.outputs.TAG }}
+            ${{ env.IMAGE_NAME }}:latest
+
+
+How to use
+
+Commit your backend (with Dockerfile) to GitHub.
+
+Create a tag and push:
+
+git tag v1.0.0
+git push origin v1.0.0
+
+
+The workflow builds and pushes:
+
+ghcr.io/<owner>/<repo>-backend:v1.0.0
+
+ghcr.io/<owner>/<repo>-backend:latest
+
+Render/Railway: choose “Deploy from Docker image” and enter the GHCR image name + tag. Add env vars as before.
+
+Tiny frontend helper (optional): batch sign usage
+
+If you want to hydrate a tile grid fast using the new batch route:
+
+// sign many tiles at once from your backend or worker
+export async function signTilesBatch(base: string, signerToken: string, batch: Array<{z:number,x:number,y:number,ttl?:number}>) {
+  const r = await fetch(new URL("/api/sign/batch/tiles", base), {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${signerToken}` },
+    body: JSON.stringify(batch)
+  });
+  if (!r.ok) throw new Error(`batch sign failed: ${r.status}`);
+  const j = await r.json();
+  return j.items as Array<{ z:number, x:number, y:number, url:string }>;
+}
+
+Final checklist (prod-ready)
+
+Security
+
+ADMIN_API_TOKEN for admin routes (CRUD, CSV import, alerts, warm, enqueue)
+
+SIGNER_API_TOKEN (or Cloudflare Worker) for /api/sign/ without admin rights
+
+Optional VIEWER_API_TOKEN to gate JSON GETs used by dashboards
+
+ENFORCE_SIGNED_TILES=1 in production so only signed tile/legend URLs work
+
+Same TILE_SIGN_SECRET across backend and Worker
+
+CI/CD
+
+Tag releases → GHCR image → Render/Railway pulls by tag
+
+Healthcheck path /health
+
+Edge performance
+
+Use /api/sign/batch (or Worker) to pre-mint many signed tiles
+
+Keep your warm endpoint scheduled during storms
