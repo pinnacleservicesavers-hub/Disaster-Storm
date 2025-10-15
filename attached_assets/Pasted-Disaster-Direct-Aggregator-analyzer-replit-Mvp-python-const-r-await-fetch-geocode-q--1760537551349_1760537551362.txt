@@ -1,0 +1,82 @@
+Disaster Direct – Aggregator/analyzer (replit Mvp)
+· python
+"""
+  const r = await fetch('/geocode?q='+encodeURIComponent(q));
+  const j = await r.json();
+  if(j && j.lat && j.lon){
+    document.getElementById('lat').value = j.lat;
+    document.getElementById('lon').value = j.lon;
+    map.setView([parseFloat(j.lat), parseFloat(j.lon)], 10);
+  } else {
+    alert('No result');
+  }
+}
+function openParcelReport(id){
+  const lat = document.getElementById('lat').value;
+  const lon = document.getElementById('lon').value;
+  const rad = document.getElementById('rad').value;
+  const hrs = document.getElementById('hrs').value;
+  window.open(`/report/parcel/${id}?lat=${lat}&lon=${lon}&radius_km=${rad}&hours_back=${hrs}`,'_blank');
+}
+
+
+function exportCSV(type){
+  const lat = document.getElementById('lat').value;
+  const lon = document.getElementById('lon').value;
+  const rad = document.getElementById('rad').value;
+  const hrs = document.getElementById('hrs').value;
+  const url = type==='events'
+    ? `/export/events.csv?lat=${lat}&lon=${lon}&radius_km=${rad}&hours_back=${hrs}`
+    : `/export/impacted.csv?lat=${lat}&lon=${lon}&radius_km=${rad}&hours_back=${hrs}`;
+  window.open(url, '_blank');
+}
+
+
+// Map click -> set lat/lon and reverse geocode
+setTimeout(()=>{
+  if(map){
+    map.on('click', async (e)=>{
+      const {lat, lng} = e.latlng;
+      document.getElementById('lat').value = lat.toFixed(6);
+      document.getElementById('lon').value = lng.toFixed(6);
+      try{
+        const r = await fetch(`/reverse_geocode?lat=${lat}&lon=${lng}`);
+        const j = await r.json();
+        if(j && j.display_name){
+          document.getElementById('addr').value = j.display_name;
+        }
+      }catch(err){ console.log(err); }
+    });
+  }
+}, 500);
+function startDrawZone(){
+  // Click the polygon tool in the toolbar; helper provided for UX naming
+  alert('Use the polygon/rectangle tool in the top-left of the map to draw the zone, then click "Save Zone".');
+}
+async function saveDrawnZone(){
+  if(!window.drawn || window.drawn.getLayers().length===0){ alert('Draw a polygon or rectangle first'); return; }
+  const name = document.getElementById('zone_name').value || 'Zone';
+  const gj = window.drawn.toGeoJSON();
+  const r = await fetch('/zones?name='+encodeURIComponent(name), {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(gj)});
+  const j = await r.json();
+  alert('Saved zone #'+j.id);
+  await refreshZones();
+}
+async function refreshZones(){
+  const r = await fetch('/zones.geojson');
+  const j = await r.json();
+  if(!window.zonesLayer){ window.zonesLayer = L.geoJSON(null, {style:{weight:1, dashArray:'4 4'}}).addTo(ma
+
+Done! Your per-schedule CSV exports are now effectively wired through the Test flow:
+
+When you click Test (or Test+Notify) on any schedule, the result panel now shows:
+
+the Run ID, and
+
+two links:
+
+Download Events CSV
+
+Download Impacted CSV
+
+These links use the run produced by that test (/runs/{run_id}/events.csv and /runs/{run_id}/impacted.csv), so you get clean, per-job exports without any extra clicks or endpoints.
