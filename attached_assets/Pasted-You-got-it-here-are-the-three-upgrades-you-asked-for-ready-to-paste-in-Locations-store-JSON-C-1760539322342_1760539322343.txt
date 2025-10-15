@@ -1,0 +1,367 @@
+You got it—here are the three upgrades you asked for, ready to paste in:
+
+Locations store (JSON) + CRUD API
+
+Watchlist UI (persists in localStorage)
+
+Impact-threshold webhooks (Slack or generic HTTP)
+
+I kept each change self-contained so you can drop them into your existing monorepo.
+
+1) Backend: Locations.json + CRUD
+
+Add: backend/routes/locations.js
+
+import fs from "fs/promises";
+import path from "path";
+import express from "express";
+import { fileURLToPath } from "url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const DATA = path.join(__dirname, "..", "data", "locations.json");
+
+async function ensureFile() {
+  try { await fs.mkdir(path.dirname(DATA), { recursive: true }); } catch {}
+  try { await fs.access(DATA); } catch { await fs.writeFile(DATA, JSON.stringify([], null, 2)); }
+}
+async function readAll() { await ensureFile(); return JSON.parse(await fs.readFile(DATA, "utf-8")); }
+async function writeAll(rows) { await fs.writeFile(DATA, JSON.stringify(rows, null, 2)); }
+
+export function mountLocations(app){
+  const r = express.Router();
+  r.get("/", async (_,res)=> res.json(await readAll()));
+  r.post("/", express.json(), async (req,res)=>{
+    const { id, name, lat, lng } = req.body || {};
+    if (!id || !name || !Number.isFinite(lat) || !Number.isFinite(lng))
+      return res.status(400).json({ error:"id, name, lat, lng required" });
+    const rows = await readAll();
+    if (rows.some(x=>x.id===id)) return res.status(409).json({ error:"id exists" });
+    rows.push({ id, name, lat, lng }); await writeAll(rows); res.status(201).json({ ok:true });
+  });
+  r.put("/:id", express.json(), async (req,res)=>{
+    const rows = await readAll();
+    const i = rows.findIndex(x=>x.id===req.params.id);
+    if (i<0) return res.status(404).json({ error:"not found" });
+    const { name, lat, lng } = req.body || {};
+    if (name!==undefined) rows[i].name = name;
+    if (Number.isFinite(lat)) rows[i].lat = lat;
+    if (Number.isFinite(lng)) rows[i].lng = lng;
+    await writeAll(rows); res.json({ ok:true });
+  });
+  r.delete("/:id", async (req,res)=>{
+    const rows = await readAll();
+    const next = rows.filter(x=>x.id!==req.params.id);
+    await writeAll(next); res.json({ ok:true, removed: rows.length-next.length });
+  });
+  app.use("/api/locations", r);
+}
+
+
+Patch backend/server.js to mount it:
+
+ import { mountReportsQueue } from "./routes/reportsQueue.js";
+ import { mountWarm } from "./routes/warm.js";
++import { mountLocations } from "./routes/locations.js";
+
+ ...
+ mountReportsQueue(app);
+ mountWarm(app);
++mountLocations(app);
+
+
+Try it (examples)
+
+# Create
+curl -X POST $BASE/api/locations -H "Content-Type: application/json" \
+  -d '{"id":"atl","name":"Atlanta HQ","lat":33.749,"lng":-84.388}'
+
+# List
+curl $BASE/api/locations
+
+# Update
+curl -X PUT $BASE/api/locations/atl -H "Content-Type: application/json" \
+  -d '{"name":"Atlanta Operations"}'
+
+# Delete
+curl -X DELETE $BASE/api/locations/atl
+
+2) Backend: impact-threshold webhooks
+
+Goal: when Impact ≥ threshold at any location, POST a JSON payload to your webhook (Slack, email gateway, etc.).
+
+Add: backend/routes/alerts.js
+
+import express from "express";
+import fetch from "node-fetch";
+import fs from "fs/promises";
+import path from "path";
+import { fileURLToPath } from "url";
+import { fetchJson } from "../helpers/http.js";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const CFG = path.join(__dirname, "..", "data", "alerts.json");
+
+async function readCfg() {
+  try { return JSON.parse(await fs.readFile(CFG, "utf-8")); }
+  catch { return { threshold: 70, webhookUrl: "", locations: [] }; }
+}
+async function writeCfg(cfg) { await fs.mkdir(path.dirname(CFG), { recursive: true }); await fs.writeFile(CFG, JSON.stringify(cfg, null, 2)); }
+
+async function getImpact(base, lat, lng){
+  const u = new URL("/api/impact", base);
+  u.searchParams.set("lat", String(lat));
+  u.searchParams.set("lng", String(lng));
+  u.searchParams.set("pollen","1");
+  return fetchJson(u.toString());
+}
+
+async function postWebhook(url, body){
+  // Slack-compatible fallback: if url looks like Slack, wrap {text}
+  const isSlack = /slack\.com\/api|hooks\.slack\.com/.test(url);
+  const payload = isSlack ? { text: body.summary, attachments: [{ color: body.color, fields: body.fields }] } : body;
+  return fetch(url, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(payload) });
+}
+
+export function mountAlerts(app){
+  const r = express.Router();
+
+  // Save config: { threshold, webhookUrl, locations: [{id,name,lat,lng}] }
+  r.put("/config", express.json(), async (req,res)=>{
+    const { threshold, webhookUrl, locations } = req.body || {};
+    if (!Number.isFinite(threshold) || !webhookUrl) return res.status(400).json({ error:"threshold (number) and webhookUrl required" });
+    if (!Array.isArray(locations)) return res.status(400).json({ error:"locations array required" });
+    await writeCfg({ threshold, webhookUrl, locations });
+    res.json({ ok:true });
+  });
+
+  // Read config
+  r.get("/config", async (_,res)=> res.json(await readCfg()));
+
+  // One-shot check now
+  r.post("/check", async (req,res)=>{
+    const cfg = await readCfg();
+    const base = process.env.PUBLIC_BASE_URL || `${req.protocol}://${req.get("host")}`;
+    const hits = [];
+    for (const loc of cfg.locations) {
+      try {
+        const j = await getImpact(base, loc.lat, loc.lng);
+        const score = Math.round(j.impactScore || 0);
+        hits.push({ id: loc.id, name: loc.name, score });
+        if (score >= cfg.threshold && cfg.webhookUrl) {
+          const color = score >= 80 ? "#d61f1f" : "#f59e0b";
+          await postWebhook(cfg.webhookUrl, {
+            summary: `⚠️ ${loc.name}: Impact ${score} (≥ ${cfg.threshold})`,
+            color,
+            fields: [
+              { title:"Location", value:`${loc.lat.toFixed(3)}, ${loc.lng.toFixed(3)}`, short:true },
+              { title:"Score", value:String(score), short:true },
+            ],
+            raw: { loc, score }
+          });
+        }
+      } catch {}
+    }
+    res.json({ ok:true, checked: hits.length, results: hits });
+  });
+
+  app.use("/api/alerts", r);
+
+  // Optional background poller (set ALERT_POLL_SEC to enable)
+  const pollSec = Number(process.env.ALERT_POLL_SEC || 0);
+  if (pollSec > 0) {
+    const timer = setInterval(async ()=>{
+      try {
+        const base = process.env.PUBLIC_BASE_URL || "http://localhost:3001";
+        const cfg = await readCfg();
+        for (const loc of cfg.locations) {
+          try {
+            const j = await getImpact(base, loc.lat, loc.lng);
+            const score = Math.round(j.impactScore || 0);
+            if (score >= cfg.threshold && cfg.webhookUrl) {
+              const color = score >= 80 ? "#d61f1f" : "#f59e0b";
+              await postWebhook(cfg.webhookUrl, {
+                summary: `⚠️ ${loc.name}: Impact ${score} (≥ ${cfg.threshold})`,
+                color,
+                fields: [
+                  { title:"Location", value:`${loc.lat.toFixed(3)}, ${loc.lng.toFixed(3)}`, short:true },
+                  { title:"Score", value:String(score), short:true },
+                ]
+              });
+            }
+          } catch {}
+        }
+      } catch (e) { console.error("alerts poller error:", e); }
+    }, pollSec * 1000);
+    timer.unref?.();
+  }
+}
+
+
+Patch backend/server.js to mount it:
+
+ import { mountWarm } from "./routes/warm.js";
+ import { mountLocations } from "./routes/locations.js";
++import { mountAlerts } from "./routes/alerts.js";
+
+ ...
+ mountLocations(app);
++mountAlerts(app);
+
+
+Config + test
+
+# Set threshold, webhook, and which locations to watch
+curl -X PUT $BASE/api/alerts/config -H "Content-Type: application/json" -d '{
+  "threshold": 70,
+  "webhookUrl": "https://hooks.slack.com/services/XXX/YYY/ZZZ",
+  "locations": [
+    {"id":"atl","name":"Atlanta HQ","lat":33.749,"lng":-84.388},
+    {"id":"sav","name":"Savannah Crew","lat":32.0809,"lng":-81.0912}
+  ]
+}'
+
+# Run a one-off check now
+curl -X POST $BASE/api/alerts/check
+
+
+Optional background polling: in Replit Secrets set ALERT_POLL_SEC=300 (every 5 min).
+For Slack, the payload is formatted to show a message with fields; for other endpoints we send a plain JSON body (you can adapt).
+
+3) Frontend: Watchlist page (localStorage)
+
+Drop this into any demo as src/pages/Watchlist.tsx:
+
+import { useEffect, useMemo, useState } from "react";
+import ReportButton from "../components/ReportButton";
+
+type Row = { id:string; name:string; lat:number; lng:number };
+type ImpactResp = { impactScore:number };
+
+const LS_KEY = "dd.watchlist.v1";
+
+function badge(score:number){
+  const c = score>=70 ? "#ef4444" : score>=40 ? "#f59e0b" : "#10b981";
+  const t = score>=70 ? "High" : score>=40 ? "Elevated" : "Low";
+  return { color:c, text:t };
+}
+async function getImpact(base:string, lat:number, lng:number){
+  const u = new URL("/api/impact", base);
+  u.searchParams.set("lat", String(lat));
+  u.searchParams.set("lng", String(lng));
+  u.searchParams.set("pollen","1");
+  const r = await fetch(u.toString()); if(!r.ok) throw new Error("impact");
+  return (await r.json()) as ImpactResp;
+}
+
+export default function Watchlist({ baseUrl }: { baseUrl: string }){
+  const [rows,setRows] = useState<Row[]>(() => {
+    try { return JSON.parse(localStorage.getItem(LS_KEY) || "[]"); } catch { return []; }
+  });
+  const [scores, setScores] = useState<Record<string, number>>({});
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+
+  useEffect(() => { localStorage.setItem(LS_KEY, JSON.stringify(rows)); }, [rows]);
+
+  const add = (r:Row) => setRows(prev => prev.some(x=>x.id===r.id) ? prev : [...prev, r]);
+  const remove = (id:string) => setRows(prev => prev.filter(x=>x.id!==id));
+
+  const refresh = async () => {
+    setBusy(true); setErr("");
+    try {
+      const out: Record<string, number> = {};
+      for (const r of rows) {
+        try { const j = await getImpact(baseUrl, r.lat, r.lng); out[r.id] = Math.round(j.impactScore||0); }
+        catch { out[r.id] = -1; }
+      }
+      setScores(out);
+    } catch (e:any) { setErr(e.message || "refresh failed"); }
+    finally { setBusy(false); }
+  };
+
+  useEffect(()=>{ if(rows.length) refresh(); /* eslint-disable-next-line */ }, [rows.map(r=>r.id).join(",")]);
+
+  const avg = useMemo(()=> {
+    const vals = Object.values(scores).filter(v=>v>=0);
+    return vals.length ? Math.round(vals.reduce((a,b)=>a+b,0)/vals.length) : 0;
+  }, [scores]);
+
+  // Simple add form
+  const [form,setForm]=useState<Row>({ id:"", name:"", lat:33.749, lng:-84.388 });
+
+  return (
+    <div style={{ padding:16, fontFamily:"system-ui" }}>
+      <h2 style={{ marginTop:0 }}>Watchlist</h2>
+      <div style={{ display:"flex", gap:12, alignItems:"center", marginBottom:12 }}>
+        <input placeholder="id" value={form.id} onChange={e=>setForm({...form, id:e.target.value})}/>
+        <input placeholder="name" value={form.name} onChange={e=>setForm({...form, name:e.target.value})}/>
+        <input type="number" step="0.01" value={form.lat} onChange={e=>setForm({...form, lat:parseFloat(e.target.value)})}/>
+        <input type="number" step="0.01" value={form.lng} onChange={e=>setForm({...form, lng:parseFloat(e.target.value)})}/>
+        <button onClick={()=> (form.id && form.name) && add(form)}>Add</button>
+        <button onClick={refresh} disabled={busy}>{busy ? "Refreshing…" : "Refresh"}</button>
+        <div style={{ marginLeft:"auto", opacity:.8 }}>Avg Impact: <b>{avg}</b></div>
+      </div>
+
+      {err && <div style={{ color:"#b91c1c" }}>⚠ {err}</div>}
+
+      <table style={{ width:"100%", borderCollapse:"collapse" }}>
+        <thead>
+          <tr style={{ textAlign:"left", borderBottom:"1px solid #eee" }}>
+            <th style={{ padding:8 }}>Location</th>
+            <th style={{ padding:8 }}>Lat,Lng</th>
+            <th style={{ padding:8 }}>Impact</th>
+            <th style={{ padding:8 }}>Status</th>
+            <th style={{ padding:8 }}>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(r => {
+            const s = scores[r.id] ?? -1;
+            const b = s>=0 ? badge(s) : { color:"#6b7280", text:"N/A" };
+            return (
+              <tr key={r.id} style={{ borderBottom:"1px solid #f5f5f5" }}>
+                <td style={{ padding:8 }}>{r.name}</td>
+                <td style={{ padding:8, fontFamily:"ui-monospace" }}>{r.lat.toFixed(3)},{r.lng.toFixed(3)}</td>
+                <td style={{ padding:8 }}>{s>=0 ? <b>{s}</b> : "…"}</td>
+                <td style={{ padding:8 }}>
+                  <span style={{ background:b.color, color:"#fff", borderRadius:999, padding:"2px 8px", fontSize:12 }}>{b.text}</span>
+                </td>
+                <td style={{ padding:8, display:"flex", gap:8 }}>
+                  <ReportButton baseUrl={baseUrl} lat={r.lat} lng={r.lng} filename={`${r.id}-report.pdf`} />
+                  <button onClick={()=>remove(r.id)} style={{ color:"#b91c1c" }}>Remove</button>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+
+      {!rows.length && <div style={{ opacity:.7, padding:12 }}>Add locations to begin.</div>}
+    </div>
+  );
+}
+
+
+Use it (example, in a demo’s App.tsx):
+
+import Watchlist from "./pages/Watchlist";
+import { BASE } from "./config";
+
+export default function App(){
+  return (
+    <div style={{ height:"100%", display:"grid", gridTemplateRows:"auto 1fr" }}>
+      <div style={{ padding:10, borderBottom:"1px solid #eee" }}>
+        <strong>Disaster Direct</strong> • {BASE}
+      </div>
+      <Watchlist baseUrl={BASE} />
+    </div>
+  );
+}
+
+Why these help you (and your pitch)
+
+Locations CRUD means you can onboard clients quickly and persist their sites server-side—no spreadsheet spelunking.
+
+Watchlist gives dispatch a live, color-coded panel with one-click PDF reports.
+
+Webhooks let you push alerts to Slack/Email when risk spikes—great for SLA-focused customers and investors who want proactive ops.
