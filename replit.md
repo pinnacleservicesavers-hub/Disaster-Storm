@@ -3,6 +3,15 @@
 ## Overview
 Disaster Direct is a comprehensive storm operations and claims management platform for contractors and property restoration professionals. It offers real-time weather monitoring, claims management, insurance tracking, legal compliance, drone integration, AI assistance, and field reporting. The platform aims to streamline storm response, maximize insurance claim success, and provides robust photo/video documentation for damage assessment.
 
+## Recent Changes
+
+### October 15, 2025 - Live Intelligence AI Data Integration
+- **Fixed**: Grok AI now fetches real-time storm data before answering queries
+- **Enhancement**: `answerComprehensiveQuery()` now queries NWS alerts, tornado warnings, storm hot zones, predictions, and damage forecasts
+- **Fix**: Resolved frontend/backend mismatch - server now returns both `incidents` and `relatedIncidents` for compatibility
+- **Impact**: Live Intelligence AI can now answer "Where is the latest storm damage?" with actual real-time data instead of generic responses
+- **Performance Note**: Each query fetches fresh data; consider caching for high-volume scenarios
+
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
