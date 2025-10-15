@@ -1,0 +1,257 @@
+Sweet — I’ll drop in a Dashboard (multi-location, red/yellow/green badges) and a “Generate PDF Report” button you can paste into any of the demos. No backend changes needed.
+
+1) Reusable “PDF Report” button
+
+Create src/components/ReportButton.tsx in any demo:
+
+import { useState } from "react";
+
+type Props = {
+  baseUrl: string;     // e.g., https://your-repl-url
+  lat: number;
+  lng: number;
+  hours?: number;      // default 24
+  filename?: string;   // default: incident-report.pdf
+};
+
+export default function ReportButton({
+  baseUrl,
+  lat,
+  lng,
+  hours = 24,
+  filename = "incident-report.pdf",
+}: Props) {
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
+
+  const gen = async () => {
+    setLoading(true); setErr("");
+    try {
+      const u = new URL("/api/report.pdf", baseUrl);
+      u.searchParams.set("lat", String(lat));
+      u.searchParams.set("lng", String(lng));
+      u.searchParams.set("hours", String(hours));
+      const r = await fetch(u.toString());
+      if (!r.ok) throw new Error(`Report failed: ${r.status}`);
+      const blob = await r.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click();
+      a.remove(); URL.revokeObjectURL(url);
+    } catch (e:any) {
+      setErr(e.message || "Report failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <span style={{ display:"inline-flex", alignItems:"center", gap:8 }}>
+      <button onClick={gen} disabled={loading} style={{ padding:"6px 10px" }}>
+        {loading ? "Building PDF…" : "Generate PDF Report"}
+      </button>
+      {err && <small style={{ color:"#b91c1c" }}>⚠ {err}</small>}
+    </span>
+  );
+}
+
+
+Use it anywhere (e.g., in App.tsx next to your lat/lng inputs):
+
+import ReportButton from "./components/ReportButton";
+// ...
+<ReportButton baseUrl={BASE} lat={lat} lng={lng} hours={24} />
+
+2) Drop-in Dashboard (multi-location status)
+
+Create src/components/Dashboard.tsx:
+
+import { useEffect, useMemo, useState } from "react";
+
+type LocationRow = {
+  id: string;
+  name: string;
+  lat: number;
+  lng: number;
+};
+
+type ImpactResp = {
+  impactScore: number;
+  components?: Record<string, any>;
+  meta?: Record<string, any>;
+};
+
+function cls(score:number){
+  if (score >= 70) return { label: "High", color: "#ef4444" };      // red
+  if (score >= 40) return { label: "Elevated", color: "#f59e0b" };  // amber
+  return { label: "Low", color: "#10b981" };                        // green
+}
+
+async function getImpact(baseUrl:string, lat:number, lng:number){
+  const u = new URL("/api/impact", baseUrl);
+  u.searchParams.set("lat", String(lat));
+  u.searchParams.set("lng", String(lng));
+  u.searchParams.set("pollen", "1");
+  const r = await fetch(u.toString());
+  if (!r.ok) throw new Error(`Impact ${r.status}`);
+  return (await r.json()) as ImpactResp;
+}
+
+export default function Dashboard({
+  baseUrl,
+  initial = [
+    { id:"atl", name:"Atlanta HQ", lat:33.749, lng:-84.388 },
+    { id:"sav", name:"Savannah Crew", lat:32.0809, lng:-81.0912 },
+    { id:"mac", name:"Macon Crew", lat:32.8407, lng:-83.6324 },
+  ],
+  refreshSec = 90,
+}: {
+  baseUrl: string;
+  initial?: LocationRow[];
+  refreshSec?: number;
+}) {
+  const [rows, setRows] = useState<LocationRow[]>(initial);
+  const [data, setData] = useState<Record<string, {score:number; when:string}>>({});
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
+
+  const total = rows.length;
+  const avg = useMemo(() => {
+    const vals = Object.values(data).map(v => v.score);
+    return vals.length ? Math.round(vals.reduce((a,b)=>a+b,0)/vals.length) : 0;
+  }, [data]);
+
+  const refresh = async () => {
+    setLoading(true); setErr("");
+    try {
+      // simple concurrency limit (3 at a time)
+      const copy = [...rows];
+      const out: Record<string, {score:number; when:string}> = {};
+      const limit = 3;
+      for (let i = 0; i < copy.length; i += limit) {
+        const chunk = copy.slice(i, i + limit);
+        const res = await Promise.all(chunk.map(r =>
+          getImpact(baseUrl, r.lat, r.lng).then(j => ({ id: r.id, score: Math.round(j.impactScore) }))
+                                           .catch(() => ({ id: r.id, score: -1 }))
+        ));
+        res.forEach(r => { out[r.id] = { score: r.score, when: new Date().toLocaleTimeString() }; });
+      }
+      setData(out);
+    } catch (e:any) {
+      setErr(e.message || "Refresh failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    refresh();
+    const t = setInterval(refresh, refreshSec * 1000);
+    return () => clearInterval(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [baseUrl, rows.map(r=>r.id).join(",")]);
+
+  return (
+    <div style={{ fontFamily:"system-ui", padding:12 }}>
+      <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:12 }}>
+        <h2 style={{ margin:0 }}>Disaster Direct – Locations</h2>
+        <button onClick={refresh} disabled={loading}>
+          {loading ? "Refreshing…" : "Refresh"}
+        </button>
+        {err && <span style={{ color:"#b91c1c" }}>⚠ {err}</span>}
+        <div style={{ marginLeft:"auto", opacity:0.8 }}>
+          Avg Impact: <strong>{avg}</strong> / 100 • Sites: {total}
+        </div>
+      </div>
+      <table style={{ width:"100%", borderCollapse:"collapse" }}>
+        <thead>
+          <tr style={{ textAlign:"left", borderBottom:"1px solid #eee" }}>
+            <th style={{ padding:"8px 6px" }}>Location</th>
+            <th style={{ padding:"8px 6px" }}>Lat,Lng</th>
+            <th style={{ padding:"8px 6px" }}>Impact</th>
+            <th style={{ padding:"8px 6px" }}>Status</th>
+            <th style={{ padding:"8px 6px" }}>Updated</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(r => {
+            const rec = data[r.id];
+            const score = rec?.score ?? -1;
+            const status = score >= 0 ? cls(score) : { label:"N/A", color:"#6b7280" };
+            return (
+              <tr key={r.id} style={{ borderBottom:"1px solid #f2f2f2" }}>
+                <td style={{ padding:"10px 6px" }}>{r.name}</td>
+                <td style={{ padding:"10px 6px", fontFamily:"ui-monospace" }}>
+                  {r.lat.toFixed(3)},{r.lng.toFixed(3)}
+                </td>
+                <td style={{ padding:"10px 6px" }}>
+                  {score >= 0 ? <strong>{score}</strong> : <span style={{ opacity:0.7 }}>—</span>}
+                </td>
+                <td style={{ padding:"10px 6px" }}>
+                  <span style={{
+                    background: status.color, color:"#fff",
+                    padding:"3px 8px", borderRadius:999, fontSize:12
+                  }}>{status.label}</span>
+                </td>
+                <td style={{ padding:"10px 6px", opacity:0.75 }}>{rec?.when || "…"}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+
+Use it in any demo’s App.tsx (below your map or on a separate route/page):
+
+import Dashboard from "./components/Dashboard";
+import { BASE } from "./config";
+
+// Inside your component’s JSX:
+<Dashboard baseUrl={BASE} />
+
+
+Want to change the default sites? Pass your own list:
+
+<Dashboard
+  baseUrl={BASE}
+  initial={[
+    { id:"site1", name:"HQ", lat:33.749, lng:-84.388 },
+    { id:"site2", name:"Depot East", lat:33.957, lng:-83.374 },
+    { id:"site3", name:"Depot South", lat:31.463, lng:-83.521 },
+  ]}
+/>
+
+Optional: add a “Report” column per location
+
+If you want one-click reports for each row, add this to the table (inside the <tr>). Just reuse the ReportButton:
+
+import ReportButton from "./ReportButton";
+// ...
+<td style={{ padding:"10px 6px" }}>
+  <ReportButton baseUrl={baseUrl} lat={r.lat} lng={r.lng} filename={`${r.id}-report.pdf`} />
+</td>
+
+
+(Remember to add a <th>Report</th> in the header.)
+
+Why this helps your app (and pitch)
+
+Ops visibility: A single page shows site-level risk with a simple Impact Score (0–100) and clear R/Y/G statuses.
+
+Fast action: One click to download a PDF — ready to send to adjusters, partners, or crews.
+
+Scales on day one: Uses your existing /api/impact endpoint with small-batch concurrency so you can track dozens of locations without hammering the APIs.
+
+Plays nice with growth: Later you can add sorting, filters (“show High only”), CSV upload of sites, and HMAC-signed tiles (already supported by your backend).
+
+If you want, I can also:
+
+add CSV import for locations (drag & drop a file),
+
+pin badges on the map for every site with color-coding,
+
+add a cron to prewarm tiles in the background during storm watches.
