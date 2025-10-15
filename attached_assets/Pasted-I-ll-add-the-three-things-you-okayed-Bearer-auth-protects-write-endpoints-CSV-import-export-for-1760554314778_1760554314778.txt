@@ -1,0 +1,312 @@
+I’ll add the three things you okayed:
+
+Bearer auth (protects write endpoints)
+
+CSV import/export for /api/locations
+
+Slack slash command (/dd) to query Impact or list sites
+
+Everything below is drop-in for your existing backend folder.
+
+1) Bearer auth (simple, production-safe)
+
+Add backend/middleware/bearerAuth.js
+
+export function requireBearer(req, res, next) {
+  const token = process.env.API_AUTH_TOKEN;
+  if (!token) return res.status(500).json({ error: "Server missing API_AUTH_TOKEN" });
+  const hdr = req.headers.authorization || "";
+  const got = hdr.startsWith("Bearer ") ? hdr.slice(7) : "";
+  if (got && got === token) return next();
+  return res.status(401).json({ error: "Unauthorized" });
+}
+
+
+Update backend/.env.example
+
+ FROM_EMAIL="Disaster Direct <your_inbox@gmail.com>"
++API_AUTH_TOKEN=change_me_long_random
++SLACK_SIGNING_SECRET=replace_with_slack_secret
+
+
+We’ll attach this middleware to write routes only, so your public GETs (tiles, legend, impact) still work.
+
+2) Locations CSV import/export
+
+Patch backend/routes/locations.js
+(only showing the new/changed parts)
+
+ import fs from "fs/promises";
+ import path from "path";
+ import express from "express";
+ import { fileURLToPath } from "url";
++import { requireBearer } from "../middleware/bearerAuth.js";
+
+ // ...existing code...
+
+ export function mountLocations(app){
+   const r = express.Router();
+
++  // CSV helpers
++  const toCsv = (rows=[]) => {
++    const head = ["id","name","lat","lng","alert","threshold"];
++    const lines = [head.join(",")];
++    for (const x of rows) {
++      lines.push([
++        x.id, x.name, x.lat, x.lng,
++        x.alert ? 1 : 0,
++        Number.isFinite(x.threshold) ? x.threshold : ""
++      ].join(","));
++    }
++    return lines.join("\n");
++  };
++  const parseCsv = (text="") => {
++    const [h, ...rows] = text.split(/\r?\n/).filter(Boolean);
++    if (!h) return [];
++    const head = h.split(",").map(s=>s.trim().toLowerCase());
++    const idx = (k)=> head.findIndex(x=>x===k);
++    const I = { id:idx("id"), name:idx("name"), lat:idx("lat"), lng:idx("lng"), alert:idx("alert"), threshold:idx("threshold") };
++    const out = [];
++    rows.forEach((line,i)=>{
++      const c = line.split(",").map(s=>s.trim());
++      const id = I.id>=0 ? c[I.id] : `row-${i+1}`;
++      const name = c[I.name];
++      const lat = Number(c[I.lat]); const lng = Number(c[I.lng]);
++      if (!id || !name || !Number.isFinite(lat) || !Number.isFinite(lng)) return;
++      const alert = I.alert>=0 ? (c[I.alert]==="1" || /true/i.test(c[I.alert])) : false;
++      const thr = I.threshold>=0 ? Number(c[I.threshold]) : undefined;
++      const row = { id, name, lat, lng, alert };
++      if (Number.isFinite(thr)) row.threshold = thr;
++      out.push(row);
++    });
++    return out;
++  };
+
+   // List all
+   r.get("/", async (_,res)=> res.json(await readAll()));
+
++  // CSV export
++  r.get("/export.csv", async (_req,res)=>{
++    const rows = await readAll();
++    res.setHeader("Content-Type","text/csv; charset=utf-8");
++    res.setHeader("Content-Disposition", 'attachment; filename="locations.csv"');
++    res.send(toCsv(rows));
++  });
+
++  // CSV import (overwrites or upserts)
++  r.post("/import.csv", requireBearer, express.text({ type: "text/*" }), async (req,res)=>{
++    const incoming = parseCsv(req.body || "");
++    if (!incoming.length) return res.status(400).json({ error:"No valid rows. Expect header: id,name,lat,lng[,alert,threshold]" });
++    const current = await readAll();
++    const byId = new Map(current.map(x=>[x.id,x]));
++    for (const row of incoming) byId.set(row.id, row); // upsert
++    const merged = Array.from(byId.values());
++    await writeAll(merged);
++    res.json({ ok:true, count: merged.length });
++  });
+
+-  r.post("/", express.json(), async (req,res)=>{
++  r.post("/", requireBearer, express.json(), async (req,res)=>{
+     // ...unchanged, but now protected
+   });
+
+-  r.put("/:id", express.json(), async (req,res)=>{
++  r.put("/:id", requireBearer, express.json(), async (req,res)=>{
+     // ...unchanged, but now protected
+   });
+
+-  r.delete("/:id", async (req,res)=>{
++  r.delete("/:id", requireBearer, async (req,res)=>{
+     // ...unchanged, but now protected
+   });
+
+   app.use("/api/locations", r);
+ }
+
+
+Usage
+
+# Export CSV (public GET)
+curl "$BASE/api/locations/export.csv" -o locations.csv
+
+# Import CSV (protected – send your bearer)
+curl -X POST "$BASE/api/locations/import.csv" \
+  -H "Authorization: Bearer $API_AUTH_TOKEN" \
+  -H "Content-Type: text/plain" \
+  --data-binary @locations.csv
+
+3) Slack slash command /dd
+
+Supports:
+
+/dd list — list locations + current Impact
+
+/dd impact atl — Impact for a saved location by id
+
+/dd impact 33.75,-84.39 — Impact for ad-hoc lat,lng
+
+Add backend/routes/slack.js
+
+import crypto from "crypto";
+import express from "express";
+import { fetchJson } from "../helpers/http.js";
+import fs from "fs/promises";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const LOC = path.join(__dirname, "..", "data", "locations.json");
+
+async function readLocations() {
+  try { return JSON.parse(await fs.readFile(LOC, "utf-8")); } catch { return []; }
+}
+
+function verifySlack(req, rawBody) {
+  const secret = process.env.SLACK_SIGNING_SECRET || "";
+  const ts = req.headers["x-slack-request-timestamp"];
+  const sig = req.headers["x-slack-signature"];
+  if (!secret || !ts || !sig) return false;
+  // Reject old requests (>5 min)
+  if (Math.abs(Date.now()/1000 - Number(ts)) > 60*5) return false;
+  const base = `v0:${ts}:${rawBody}`;
+  const mySig = "v0=" + crypto.createHmac("sha256", secret).update(base).digest("hex");
+  try { return crypto.timingSafeEqual(Buffer.from(mySig), Buffer.from(String(sig))); }
+  catch { return false; }
+}
+
+async function getImpact(base, lat, lng) {
+  const u = new URL("/api/impact", base);
+  u.searchParams.set("lat", String(lat));
+  u.searchParams.set("lng", String(lng));
+  u.searchParams.set("pollen","1");
+  return fetchJson(u.toString());
+}
+
+export function mountSlack(app){
+  // We need the raw body to verify Slack signature
+  const raw = express.raw({ type: "*/*" });
+  app.post("/api/slack/command", raw, async (req, res) => {
+    const body = req.body?.toString("utf8") || "";
+    if (!verifySlack(req, body)) return res.status(401).send("invalid signature");
+
+    // Slack sends application/x-www-form-urlencoded
+    const params = new URLSearchParams(body);
+    const text = (params.get("text") || "").trim();
+    const base = process.env.PUBLIC_BASE_URL || `${req.protocol}://${req.get("host")}`;
+
+    const reply = async (text) => res.json({ response_type: "in_channel", text });
+
+    // /dd list
+    if (/^list/i.test(text)) {
+      const rows = await readLocations();
+      if (!rows.length) return reply("No locations saved. Add some via the app.");
+      // fetch impacts sequentially to keep usage low
+      const lines = [];
+      for (const r of rows.slice(0, 20)) {
+        try {
+          const j = await getImpact(base, r.lat, r.lng);
+          const s = Math.round(j.impactScore || 0);
+          const tag = s>=70 ? "HIGH" : s>=40 ? "ELEV" : "LOW";
+          lines.push(`• ${r.name} (${r.id}) – ${s} (${tag})`);
+        } catch {
+          lines.push(`• ${r.name} (${r.id}) – n/a`);
+        }
+      }
+      return reply(lines.join("\n"));
+    }
+
+    // /dd impact <id>  OR  /dd impact <lat,lng>
+    const m = text.match(/^impact\s+(.+)$/i);
+    if (m) {
+      const arg = m[1].trim();
+      const byCoord = arg.match(/^\s*(-?\d+\.?\d*)\s*,\s*(-?\d+\.?\d*)\s*$/);
+      let lat, lng, label = "";
+      if (byCoord) {
+        lat = Number(byCoord[1]); lng = Number(byCoord[2]); label = `${lat.toFixed(3)},${lng.toFixed(3)}`;
+      } else {
+        const rows = await readLocations();
+        const hit = rows.find(x => x.id.toLowerCase() === arg.toLowerCase());
+        if (!hit) return reply(`Unknown location id "${arg}". Try /dd list`);
+        lat = hit.lat; lng = hit.lng; label = `${hit.name} (${hit.id})`;
+      }
+      try {
+        const j = await getImpact(base, lat, lng);
+        const s = Math.round(j.impactScore || 0);
+        const tag = s>=70 ? "HIGH" : s>=40 ? "ELEV" : "LOW";
+        return reply(`Impact at ${label}: *${s}* (${tag})`);
+      } catch {
+        return reply(`Could not fetch impact for ${label}`);
+      }
+    }
+
+    // Help
+    return reply([
+      "*Disaster Direct* commands:",
+      "• `/dd list` – list saved locations with Impact",
+      "• `/dd impact <id>` – Impact for a saved location",
+      "• `/dd impact <lat,lng>` – Impact for any coordinates",
+    ].join("\n"));
+  });
+}
+
+
+Mount it in backend/server.js:
+
+ import { mountAlerts } from "./routes/alerts.js";
++import { mountSlack } from "./routes/slack.js";
+
+ ...
+ mountAlerts(app);
++mountSlack(app);
+
+
+Configure Slack
+
+In Slack → Slash Commands, create /dd
+
+Request URL: https://<your-repl>.repl.co/api/slack/command
+
+Method: POST
+
+In your app’s env/Secrets, set:
+
+SLACK_SIGNING_SECRET = the secret from Slack App → Basic Information
+
+Save & use /dd list in any channel the app is installed in.
+
+Quick tests & examples
+Bearer auth
+# Fail (no token)
+curl -i -X POST "$BASE/api/locations" -d '{}' -H "Content-Type: application/json"
+
+# Succeed (with token)
+curl -i -X POST "$BASE/api/locations" \
+  -H "Authorization: Bearer $API_AUTH_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"id":"atl","name":"Atlanta HQ","lat":33.749,"lng":-84.388,"alert":true,"threshold":65}'
+
+CSV
+curl "$BASE/api/locations/export.csv" -o locations.csv
+
+curl -X POST "$BASE/api/locations/import.csv" \
+  -H "Authorization: Bearer $API_AUTH_TOKEN" \
+  -H "Content-Type: text/plain" \
+  --data-binary @locations.csv
+
+Slack
+
+/dd list
+
+/dd impact atl
+
+/dd impact 33.75,-84.39
+
+Why this helps (and looks great to investors)
+
+Security: a single API_AUTH_TOKEN gates any write action (CSV import, CRUD) — easy to rotate.
+
+Speedy onboarding: import a customer’s sites in one go; export for audits.
+
+Proactive ops: anyone in Slack can pull impact snapshots during storms, no console needed.
+
+If you want, I can also add:
