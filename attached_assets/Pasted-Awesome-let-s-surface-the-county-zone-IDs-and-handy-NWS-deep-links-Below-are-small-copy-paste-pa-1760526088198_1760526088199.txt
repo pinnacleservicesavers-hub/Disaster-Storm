@@ -1,0 +1,175 @@
+Awesome — let’s surface the county/zone IDs and handy NWS deep-links. Below are small, copy-paste patches for your server.js and public/index.html.
+
+1) server.js — include zone IDs + public links
+A) Patch getNwsForPoint to return zones/links
+
+Find the return { ... } at the end of getNwsForPoint and replace it with the block below (only this return changes):
+
+  const props = pts?.properties || {};
+  const office = props.cwa || null; // NWS forecast office code, e.g., FFC
+  const latNum = Number(lat), lonNum = Number(lon);
+
+  return {
+    units,
+    relativeLocation: props?.relativeLocation?.properties || null, // {city,state}
+    zones: {
+      forecastZone: props.forecastZone || null,        // e.g., https://api.weather.gov/zones/forecast/GAZ021
+      county: props.county || null,                    // e.g., https://api.weather.gov/zones/county/GAC089
+      fireWeatherZone: props.fireWeatherZone || null,  // e.g., https://api.weather.gov/zones/fire/GAZ021
+      office,                                          // e.g., "FFC"
+      grid: { id: props.gridId || null, x: props.gridX ?? null, y: props.gridY ?? null },
+      radarStation: props.radarStation || null,
+      observationStations: props.observationStations || null
+    },
+    publicLinks: {
+      office: office ? `https://www.weather.gov/${office}` : null,
+      mapClick: `https://forecast.weather.gov/MapClick.php?lat=${latNum}&lon=${lonNum}`,
+      hourlyGraph: `https://forecast.weather.gov/MapClick.php?lat=${latNum}&lon=${lonNum}&FcstType=graphical`,
+      // If a forecastZone like ".../GAZ021" exists, expose a friendly zone page too:
+      zonePage: props.forecastZone ? (() => {
+        const z = String(props.forecastZone).split("/").pop(); // e.g., GAZ021
+        return `https://forecast.weather.gov/MapClick.php?zoneid=${z}`;
+      })() : null
+    },
+    daily: dailyOut,
+    hourly: hourlyOut,
+    alerts: alerts?.features ?? []
+  };
+
+
+Notes:
+
+zones.forecastZone, zones.county, etc. are the API URLs (great for dev tools).
+
+publicLinks.office, mapClick, hourlyGraph, and zonePage are human-friendly pages.
+
+B) Make /api/nws/city pass zones/links through unchanged
+
+No additional changes needed — the object produced by getNwsForPoint already contains zones and publicLinks, and your city route returns that structure.
+
+C) /api/nws/point already returns the full payload
+
+You don’t need to change anything else (you previously wrapped the payload in { locationDisplay, ...payload }, which will now also include zones and publicLinks).
+
+2) public/index.html — show the zone IDs + deep-links
+
+We’ll add a compact section under the location header that prints:
+
+Forecast Office (link)
+
+Forecast Zone ID (link)
+
+County Zone ID (API link)
+
+Fire Weather Zone (API link)
+
+Grid (office/X,Y)
+
+Quick links: MapClick + Hourly Graph
+
+A) Add a container in the markup (near your <h2 id="loc">)
+
+Find the line:
+
+<h2 id="loc"></h2>
+
+
+Right under it, add:
+
+<div id="meta" class="muted" style="margin: .25rem 0 1rem 0;"></div>
+
+B) Add a renderer for the meta block
+
+In your <script> where other render helpers live, add this function:
+
+<script>
+// ... keep your existing helpers above ...
+
+function renderMeta(fromCityPayload, mode, coords) {
+  // mode: "city" or "point"
+  // fromCityPayload is `data` returned by the API
+  const metaEl = document.getElementById("meta");
+  const z = fromCityPayload.zones || {};
+  const links = fromCityPayload.publicLinks || {};
+
+  const officeLink = z.office && links.office
+    ? `<a href="${links.office}" target="_blank" rel="noopener">${z.office}</a>`
+    : (z.office || "—");
+
+  const forecastZoneLink = z.forecastZone
+    ? `<a href="${z.forecastZone}" target="_blank" rel="noopener">${z.forecastZone.split("/").pop()}</a>`
+    : "—";
+
+  const countyLink = z.county
+    ? `<a href="${z.county}" target="_blank" rel="noopener">${z.county.split("/").pop()}</a>`
+    : "—";
+
+  const fwzLink = z.fireWeatherZone
+    ? `<a href="${z.fireWeatherZone}" target="_blank" rel="noopener">${z.fireWeatherZone.split("/").pop()}</a>`
+    : "—";
+
+  const gridText = (z.grid?.id && (z.grid.x != null) && (z.grid.y != null))
+    ? `${z.grid.id} / ${z.grid.x},${z.grid.y}`
+    : "—";
+
+  const mapLink = links.mapClick
+    ? `<a href="${links.mapClick}" target="_blank" rel="noopener">NWS MapClick</a>`
+    : null;
+
+  const graphLink = links.hourlyGraph
+    ? `<a href="${links.hourlyGraph}" target="_blank" rel="noopener">Hourly Graph</a>`
+    : null;
+
+  const zonePage = links.zonePage
+    ? `<a href="${links.zonePage}" target="_blank" rel="noopener">Zone Page</a>`
+    : null;
+
+  const quickLinks = [mapLink, graphLink, zonePage].filter(Boolean).join(" • ");
+
+  metaEl.innerHTML = `
+    <div class="small">
+      <strong>Office:</strong> ${officeLink} &nbsp;|&nbsp;
+      <strong>Forecast Zone:</strong> ${forecastZoneLink} &nbsp;|&nbsp;
+      <strong>County Zone:</strong> ${countyLink} &nbsp;|&nbsp;
+      <strong>Fire Wx Zone:</strong> ${fwzLink} &nbsp;|&nbsp;
+      <strong>Grid:</strong> ${gridText}
+      ${quickLinks ? `<div style="margin-top:.25rem;">${quickLinks}</div>` : ""}
+    </div>
+  `;
+}
+</script>
+
+C) Call renderMeta after successful fetches
+
+In your fetchCity(city) success path (right after you set the <h2 id="loc"> text), add:
+
+locEl.textContent = `${data.location}`;
+renderMeta(data, "city");
+
+
+In your fetchPoint(lat, lon) success path (right after you set the location header), replace that line with:
+
+locEl.textContent = data.locationDisplay
+  ? `${data.locationDisplay}`
+  : `Your location (${lat.toFixed(4)}, ${lon.toFixed(4)})`;
+renderMeta(data, "point", { lat, lon });
+
+
+(Leave the rest of each function the same.)
+
+What you’ll see
+
+Under the location name, a small line like:
+
+Office: FFC | Forecast Zone: GAZ021 | County Zone: GAC089 | Fire Wx Zone: GAZ021 | Grid: FFC / 52,88
+NWS MapClick • Hourly Graph • Zone Page
+
+All links open in a new tab. The three zone links are:
+
+Forecast Zone / County Zone / Fire Weather Zone → API resources (great for dev/debug).
+
+Zone Page → human page for the forecast zone (when derivable).
+
+MapClick / Hourly Graph → the public NWS site for the exact lat/lon.
+
+Office → e.g., https://www.weather.gov/FFC.
