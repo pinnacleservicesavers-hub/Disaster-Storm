@@ -1,0 +1,353 @@
+bsolutely—here are drop-in upgrades to finish the stack:
+
+✅ Bearer auth on sensitive endpoints (alerts, warm, report enqueue, locations write, CSV import)
+
+✅ Optional read-only token for GET APIs used by dashboards (if you want to gate them)
+
+✅ A lightweight HTML Admin at /admin to manage locations & alerts without Postman
+
+1) Bearer-protect sensitive endpoints
+
+You already added middleware/bearerAuth.js. Now apply it to routes.
+
+A) Protect Alerts, Warm, Report Enqueue
+
+Patch backend/routes/alerts.js
+
+ export function mountAlerts(app){
+   const r = express.Router();
+
+   // Get/save global config (no locations here)
+-  r.get("/config", async (_,res)=> res.json(await readAlertsCfg()));
+-  r.put("/config", express.json(), async (req,res)=>{
++  r.get("/config", async (_,res)=> res.json(await readAlertsCfg()));
++  r.put("/config", require("express").json(), async (req,res)=>{ /* overwritten below */ });
+
++  // Re-mount PUT with Bearer guard
++  r.put("/config",
++    (await import("../middleware/bearerAuth.js")).requireBearer,
++    express.json(),
++    async (req,res)=>{
++      const { defaultThreshold, webhookUrl } = req.body || {};
++      if (!webhookUrl) return res.status(400).json({ error:"webhookUrl required" });
++      const cfg = await readAlertsCfg();
++      if (Number.isFinite(defaultThreshold)) cfg.defaultThreshold = Number(defaultThreshold);
++      cfg.webhookUrl = webhookUrl;
++      await writeAlertsCfg(cfg);
++      res.json({ ok:true });
++    });
+
+-  r.put("/toggle/:id", express.json(), async (req,res)=>{
++  r.put("/toggle/:id",
++    (await import("../middleware/bearerAuth.js")).requireBearer,
++    express.json(),
++    async (req,res)=>{
+       const id = req.params.id;
+       const { alert, threshold } = req.body || {};
+       req.url = `/api/locations/${id}`;
+       req.method = "PUT";
+       req.body = { alert, threshold };
+       app._router.handle(req, res, () => res.status(500).json({ error:"toggle failed" }));
+   });
+
+-  r.post("/check", async (req,res)=>{
++  r.post("/check",
++    (await import("../middleware/bearerAuth.js")).requireBearer,
++    async (req,res)=>{
+       /* unchanged body */
+   });
+
+
+Patch backend/routes/warm.js
+
+ export function mountWarm(app){
+-  app.use("/api/warm", async (req, res) => {
++  const { requireBearer } = await import("../middleware/bearerAuth.js");
++  app.use("/api/warm", requireBearer, async (req, res) => {
+     /* unchanged */
+   });
+}
+
+
+Patch backend/routes/reportsQueue.js
+
+ export function mountReportsQueue(app){
+-  app.use(express.json());
+-  app.post("/api/reports/enqueue", async (req,res)=>{
++  const { requireBearer } = await import("../middleware/bearerAuth.js");
++  app.use(express.json());
++  app.post("/api/reports/enqueue", requireBearer, async (req,res)=>{
+     /* unchanged */
+   });
+}
+
+
+(Your locations write and CSV import are already bearer-protected from the last step.)
+
+2) Optional read-only token for dashboard GETs
+
+If you want dashboards to call JSON APIs only when a token is present, add this small guard and apply it to GET endpoints (tiles remain protected via HMAC already).
+
+Add backend/middleware/readonlyAuth.js
+
+export function requireReadOnlyIfEnabled(req, res, next) {
+  const token = process.env.READONLY_TOKEN; // optional
+  if (!token) return next();               // no gating if unset
+  const hdr = req.headers.authorization || "";
+  const got = hdr.startsWith("Bearer ") ? hdr.slice(7) : "";
+  if (got === token) return next();
+  return res.status(401).json({ error: "Unauthorized (read-only)" });
+}
+
+
+Patch backend/.env.example
+
+ API_AUTH_TOKEN=change_me_long_random
+ SLACK_SIGNING_SECRET=replace_with_slack_secret
++READONLY_TOKEN=optional_token_for_dashboards
+
+
+Patch backend/server.js to apply to GET JSON APIs (before routers mount):
+
+ import { mountXweather } from "./routes/xweather.js";
+ import { mountNws } from "./routes/nws.js";
+ import { mountImpactV2 } from "./routes/impact.js";
++import { requireReadOnlyIfEnabled } from "./middleware/readonlyAuth.js";
+
+ ...
+-app.get("/health", (req, res) => res.json({ status: "OK" }));
++app.get("/health", (req, res) => res.json({ status: "OK" }));
+
++// Optional gating for dashboard JSON GETs (tiles use HMAC separately)
++app.use("/api/impact", requireReadOnlyIfEnabled);
++app.use("/api/nws", requireReadOnlyIfEnabled);
++app.use("/api/xweather", requireReadOnlyIfEnabled);
+
+
+Frontend: if you enable READONLY_TOKEN, add an Authorization: Bearer ${READONLY_TOKEN} header to your fetch() calls (Impact, NWS). For tiles, keep using signed URLs.
+
+3) Tiny HTML Admin at /admin
+
+A single file admin, no build step. You’ll paste your Bearer token once; it’s stored in localStorage and used for all write actions.
+
+Add backend/routes/admin.js
+
+export function mountAdmin(app){
+  app.get("/admin", (_req, res) => {
+    res.setHeader("Content-Type","text/html; charset=utf-8");
+    res.end(`<!doctype html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<title>Disaster Direct Admin</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<style>
+  body{font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:16px}
+  h1{margin:0 0 12px} .row{display:flex;gap:8px;align-items:center;margin:8px 0;flex-wrap:wrap}
+  input,button,textarea{padding:6px 8px;font:inherit} table{width:100%;border-collapse:collapse;margin-top:8px}
+  th,td{border-bottom:1px solid #eee;text-align:left;padding:8px} code{background:#f5f5f5;padding:2px 4px;border-radius:4px}
+  small{opacity:.7}
+</style>
+</head>
+<body>
+  <h1>Disaster Direct – Admin</h1>
+  <div class="row">
+    <label>API Base <input id="base" style="width:360px"/></label>
+    <label>Bearer <input id="bearer" type="password" style="width:260px"/></label>
+    <button id="save">Save</button>
+    <small>These are stored in your browser only.</small>
+  </div>
+
+  <h2>Locations</h2>
+  <div class="row">
+    <input id="id" placeholder="id"/>
+    <input id="name" placeholder="name" style="width:220px"/>
+    <input id="lat" type="number" step="0.01" placeholder="lat"/>
+    <input id="lng" type="number" step="0.01" placeholder="lng"/>
+    <label><input id="alert" type="checkbox"/> Alerts</label>
+    <input id="thr" type="number" placeholder="threshold"/>
+    <button id="add">Add</button>
+    <button id="refresh">Refresh</button>
+    <a id="export" href="#" download="locations.csv"><button type="button">Export CSV</button></a>
+    <label><input id="file" type="file" accept=".csv"/> Import CSV</label>
+  </div>
+  <table><thead><tr>
+    <th>ID</th><th>Name</th><th>Lat,Lng</th><th>Alerts</th><th>Threshold</th><th>Actions</th>
+  </tr></thead><tbody id="tbody"></tbody></table>
+
+  <h2>Alerts</h2>
+  <div class="row">
+    <input id="webhook" placeholder="Webhook URL" style="width:420px"/>
+    <input id="defthr" type="number" placeholder="default threshold (e.g., 70)"/>
+    <button id="saveAlerts">Save Alerts Config</button>
+    <button id="checkNow">Run Check Now</button>
+  </div>
+
+<script>
+const $ = sel => document.querySelector(sel);
+const state = {
+  base: localStorage.getItem("dd.base") || location.origin,
+  bearer: localStorage.getItem("dd.bearer") || ""
+};
+$("#base").value = state.base; $("#bearer").value = state.bearer;
+
+$("#save").onclick = () => {
+  state.base = $("#base").value.trim() || location.origin;
+  state.bearer = $("#bearer").value.trim();
+  localStorage.setItem("dd.base", state.base);
+  localStorage.setItem("dd.bearer", state.bearer);
+  alert("Saved");
+};
+
+function hdr(writes=false){
+  const h = { };
+  if (writes && state.bearer) h["Authorization"] = "Bearer " + state.bearer;
+  return { headers: h };
+}
+
+async function list(){
+  const r = await fetch(state.base + "/api/locations");
+  const rows = await r.json();
+  const tb = $("#tbody"); tb.innerHTML = "";
+  rows.forEach(x => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = \`
+      <td><code>\${x.id}</code></td>
+      <td>\${x.name}</td>
+      <td style="font-family:ui-monospace">\${x.lat.toFixed(3)},\${x.lng.toFixed(3)}</td>
+      <td><input type="checkbox" \${x.alert ? "checked":""} data-id="\${x.id}" class="toggle"/></td>
+      <td><input type="number" style="width:90px" value="\${x.threshold ?? ""}" data-id="\${x.id}" class="thr"/></td>
+      <td>
+        <button data-id="\${x.id}" class="del" style="color:#b91c1c">Remove</button>
+      </td>\`;
+    tb.appendChild(tr);
+  });
+  tb.querySelectorAll(".toggle").forEach(el => el.onchange = async e => {
+    const id = e.target.getAttribute("data-id"); const v = e.target.checked;
+    await fetch(state.base + "/api/alerts/toggle/" + id, { method:"PUT", ...hdr(true), headers:{...hdr(true).headers, "Content-Type":"application/json"}, body: JSON.stringify({ alert: v }) });
+  });
+  tb.querySelectorAll(".thr").forEach(el => el.onchange = async e => {
+    const id = e.target.getAttribute("data-id"); const v = e.target.value === "" ? null : Number(e.target.value);
+    await fetch(state.base + "/api/locations/" + id, { method:"PUT", ...hdr(true), headers:{...hdr(true).headers, "Content-Type":"application/json"}, body: JSON.stringify({ threshold: v }) });
+  });
+  tb.querySelectorAll(".del").forEach(el => el.onclick = async e => {
+    const id = e.target.getAttribute("data-id");
+    if (!confirm("Delete " + id + "?")) return;
+    await fetch(state.base + "/api/locations/" + id, { method:"DELETE", ...hdr(true) });
+    list();
+  });
+}
+
+$("#refresh").onclick = list;
+
+$("#add").onclick = async () => {
+  const row = {
+    id: $("#id").value.trim(),
+    name: $("#name").value.trim(),
+    lat: Number($("#lat").value),
+    lng: Number($("#lng").value),
+    alert: $("#alert").checked,
+    threshold: $("#thr").value === "" ? undefined : Number($("#thr").value)
+  };
+  if (!row.id || !row.name || !Number.isFinite(row.lat) || !Number.isFinite(row.lng)) return alert("Fill id, name, lat, lng");
+  await fetch(state.base + "/api/locations", { method:"POST", ...hdr(true), headers:{...hdr(true).headers, "Content-Type":"application/json"}, body: JSON.stringify(row) });
+  ["#id","#name","#lat","#lng","#thr"].forEach(s=>$(s).value=""); $("#alert").checked=false;
+  list();
+};
+
+$("#export").onclick = async (e) => {
+  e.preventDefault();
+  const u = state.base + "/api/locations/export.csv";
+  const a = document.createElement("a"); a.href = u; a.download = "locations.csv"; a.click();
+};
+
+$("#file").onchange = async (e) => {
+  const file = e.target.files[0]; if (!file) return;
+  const text = await file.text();
+  await fetch(state.base + "/api/locations/import.csv", { method:"POST", ...hdr(true), headers:{...hdr(true).headers, "Content-Type":"text/plain"}, body: text });
+  e.target.value = ""; list();
+};
+
+$("#saveAlerts").onclick = async () => {
+  const body = {
+    webhookUrl: $("#webhook").value.trim(),
+    defaultThreshold: Number($("#defthr").value || "70")
+  };
+  if (!body.webhookUrl) return alert("Webhook URL required");
+  await fetch(state.base + "/api/alerts/config", { method:"PUT", ...hdr(true), headers:{...hdr(true).headers, "Content-Type":"application/json"}, body: JSON.stringify(body) });
+  alert("Alerts saved");
+};
+
+$("#checkNow").onclick = async () => {
+  await fetch(state.base + "/api/alerts/check", { method:"POST", ...hdr(true) });
+  alert("Check triggered");
+};
+
+list();
+</script>
+</body></html>`);
+  });
+}
+
+
+Mount it in backend/server.js
+
+ import { mountAlerts } from "./routes/alerts.js";
+ import { mountSlack } from "./routes/slack.js";
++import { mountAdmin } from "./routes/admin.js";
+
+ ...
+ mountAlerts(app);
+ mountSlack(app);
++mountAdmin(app);
+
+Use it
+
+Open: https://<your-repl>.repl.co/admin
+
+Paste your Replit URL in API Base (it defaults to current origin)
+
+Paste API_AUTH_TOKEN in Bearer
+
+Manage locations, export/import CSV, configure webhook + threshold, run checks
+
+Final sanity checklist
+
+Add env vars in Replit → Secrets:
+
+API_AUTH_TOKEN (long random)
+
+READONLY_TOKEN (optional, only if you want dashboard GETs gated)
+
+SLACK_SIGNING_SECRET (already added for slash command)
+
+Restart:
+
+cd backend && npm install && npm run dev
+
+
+Admin page → manage everything at /admin.
+
+Frontend:
+
+If READONLY_TOKEN is set: add header Authorization: Bearer <READONLY_TOKEN> to your JSON fetches (e.g., /api/impact).
+
+Tiles are already protected via HMAC when you flip ENFORCE_SIGNED_TILES=1.
+
+Why this makes you investor-ready
+
+Security: clear separation of read-only vs write access; signed tiles; secrets never leak.
+
+Operability: non-technical teammates can manage sites/alerts in /admin; CSV in/out for fast onboarding.
+
+Proactive comms: webhooks + Slack slash commands keep teams informed during events.
+
+Scalability: prewarm + caching + lightweight raster tiles ensure the app stays responsive under surge.
+
+If you want, I can also add:
+
+Bearer to /api/sign/* routes (if you want to restrict signature minting),
+
+a small role system (two tokens: ADMIN and VIEWER),
+
+or a Dockerfile + one-click deploy to Render/Railway.

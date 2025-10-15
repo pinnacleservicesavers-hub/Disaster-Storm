@@ -2,10 +2,12 @@ import express from "express";
 import fs from "fs/promises";
 import path from "path";
 import { fileURLToPath } from "url";
+import multer from "multer";
 import { requireBearer } from "../middleware/bearerAuth.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DATA = path.join(__dirname, "..", "data", "locations.json");
+const upload = multer({ storage: multer.memoryStorage() });
 
 async function ensureFile() {
   try { await fs.mkdir(path.dirname(DATA), { recursive: true }); } catch {}
@@ -31,16 +33,24 @@ function toCsv(rows: any[] = []) {
       x.name,
       x.lat,
       x.lng,
-      x.alert ? 1 : 0,
+      x.alert ? "true" : "false",
       Number.isFinite(x.threshold) ? x.threshold : ""
     ].join(","));
   }
   return lines.join("\n");
 }
 
-function parseCsv(text: string = "") {
+function parseCsvWithValidation(text: string = ""): { data: any[], errors: string[] } {
+  const errors: string[] = [];
+  const data: any[] = [];
+  const seenIds = new Set<string>();
+  
   const [h, ...rows] = text.split(/\r?\n/).filter(Boolean);
-  if (!h) return [];
+  if (!h) {
+    errors.push("Missing header row");
+    return { data, errors };
+  }
+  
   const head = h.split(",").map(s => s.trim().toLowerCase());
   const idx = (k: string) => head.findIndex(x => x === k);
   const I = {
@@ -51,21 +61,58 @@ function parseCsv(text: string = "") {
     alert: idx("alert"),
     threshold: idx("threshold")
   };
-  const out: any[] = [];
+  
+  if (I.id < 0 || I.name < 0 || I.lat < 0 || I.lng < 0) {
+    errors.push("Missing required columns: id, name, lat, lng");
+    return { data, errors };
+  }
+  
   rows.forEach((line, i) => {
+    const rowNum = i + 2;
     const c = line.split(",").map(s => s.trim());
-    const id = I.id >= 0 ? c[I.id] : `row-${i + 1}`;
+    const id = c[I.id];
     const name = c[I.name];
     const lat = Number(c[I.lat]);
     const lng = Number(c[I.lng]);
-    if (!id || !name || !Number.isFinite(lat) || !Number.isFinite(lng)) return;
+    
+    if (!id) {
+      errors.push(`Row ${rowNum}: Missing id`);
+      return;
+    }
+    if (!name) {
+      errors.push(`Row ${rowNum}: Missing name`);
+      return;
+    }
+    if (!Number.isFinite(lat)) {
+      errors.push(`Row ${rowNum}: Invalid latitude (must be a number)`);
+      return;
+    }
+    if (lat < -90 || lat > 90) {
+      errors.push(`Row ${rowNum}: Invalid latitude (must be -90 to 90)`);
+      return;
+    }
+    if (!Number.isFinite(lng)) {
+      errors.push(`Row ${rowNum}: Invalid longitude (must be a number)`);
+      return;
+    }
+    if (lng < -180 || lng > 180) {
+      errors.push(`Row ${rowNum}: Invalid longitude (must be -180 to 180)`);
+      return;
+    }
+    if (seenIds.has(id)) {
+      errors.push(`Row ${rowNum}: Duplicate location ID '${id}'`);
+      return;
+    }
+    
+    seenIds.add(id);
     const alert = I.alert >= 0 ? (c[I.alert] === "1" || /true/i.test(c[I.alert])) : false;
     const thr = I.threshold >= 0 ? Number(c[I.threshold]) : undefined;
     const row: any = { id, name, lat, lng, alert };
     if (Number.isFinite(thr)) row.threshold = thr;
-    out.push(row);
+    data.push(row);
   });
-  return out;
+  
+  return { data, errors };
 }
 
 export function mountLocations(app: express.Application) {
@@ -74,30 +121,56 @@ export function mountLocations(app: express.Application) {
   // List all locations
   r.get("/", async (_, res) => res.json(await readAll()));
 
-  // CSV export (public)
-  r.get("/export.csv", async (_req, res) => {
+  // CSV export (public) - changed from /export.csv to /export
+  r.get("/export", async (_req, res) => {
     const rows = await readAll();
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
     res.setHeader("Content-Disposition", 'attachment; filename="locations.csv"');
     res.send(toCsv(rows));
   });
 
-  // CSV import (protected - upserts)
-  r.post("/import.csv", requireBearer, express.text({ type: "text/*" }), async (req, res) => {
-    const incoming = parseCsv(req.body || "");
-    if (!incoming.length) {
+  // CSV import (protected) - changed from /import.csv to /import with multipart upload
+  r.post("/import", requireBearer, upload.single("file"), async (req, res) => {
+    if (!req.file) {
       return res.status(400).json({
-        error: "No valid rows. Expect header: id,name,lat,lng[,alert,threshold]"
+        success: false,
+        imported: 0,
+        errors: ["No file uploaded. Use multipart form data with 'file' field."]
       });
     }
+    
+    const csvText = req.file.buffer.toString('utf-8');
+    const { data, errors } = parseCsvWithValidation(csvText);
+    
+    if (errors.length > 0) {
+      return res.status(400).json({
+        success: false,
+        imported: 0,
+        errors
+      });
+    }
+    
+    if (data.length === 0) {
+      return res.status(400).json({
+        success: false,
+        imported: 0,
+        errors: ["No valid rows found in CSV"]
+      });
+    }
+    
     const current = await readAll();
     const byId = new Map(current.map((x: any) => [x.id, x]));
-    for (const row of incoming) {
-      byId.set(row.id, row); // upsert
+    for (const row of data) {
+      byId.set(row.id, row);
     }
     const merged = Array.from(byId.values());
     await writeAll(merged);
-    res.json({ ok: true, count: merged.length });
+    
+    res.json({
+      success: true,
+      imported: data.length,
+      errors: []
+    });
   });
 
   // Create location (protected)

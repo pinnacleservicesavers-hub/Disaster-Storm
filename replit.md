@@ -5,6 +5,16 @@ Disaster Direct is a comprehensive storm operations and claims management platfo
 
 ## Recent Changes
 
+### October 15, 2025 - Location Watchlist Production Features
+- **Added**: Three enterprise-grade production features for Location Watchlist
+- **Bearer Authentication**: Write endpoints (POST/PUT/DELETE) now protected with bearer token auth; read endpoints remain public
+- **CSV Import/Export**: Bulk location management with `/api/locations/export` (public) and `/api/locations/import` (authenticated) endpoints
+- **Slack Integration**: `/dd` slash commands for real-time monitoring (`/dd list`, `/dd impact <id>`, `/dd impact <lat,lng>`)
+- **Security**: Request signature verification for Slack, constant-time comparison to prevent timing attacks
+- **Documentation**: Complete setup guide in `WATCHLIST_PRODUCTION.md` with API endpoints, examples, and troubleshooting
+- **Environment Variables**: `BEARER_TOKEN` for API auth, `SLACK_SIGNING_SECRET` for Slack webhook verification
+- **Impact**: Production-ready watchlist with secure API access, bulk operations, and team collaboration via Slack
+
 ### October 15, 2025 - Voice Guide Enhancement for Location Watchlist
 - **Added**: Voice guide integration for Location Watchlist feature in both VoiceGuide.tsx and PortalVoiceGuide.tsx
 - **Enhancement**: Added comprehensive voice explanations covering multi-site monitoring, impact scoring, alert configuration, webhook integration, and manual refresh

@@ -1,10 +1,10 @@
 import { Request, Response, NextFunction } from 'express';
 
 export function requireBearer(req: Request, res: Response, next: NextFunction) {
-  const token = process.env.API_AUTH_TOKEN;
+  const token = process.env.BEARER_TOKEN;
   
   if (!token) {
-    return res.status(500).json({ error: "Server missing API_AUTH_TOKEN" });
+    return res.status(500).json({ error: "Server missing BEARER_TOKEN" });
   }
   
   const hdr = req.headers.authorization || "";
