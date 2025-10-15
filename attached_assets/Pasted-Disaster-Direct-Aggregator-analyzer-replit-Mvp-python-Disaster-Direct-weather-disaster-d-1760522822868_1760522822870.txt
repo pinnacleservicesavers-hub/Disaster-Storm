@@ -1,0 +1,1224 @@
+Disaster Direct – Aggregator/analyzer (replit Mvp)
+· python
+"""
+Disaster Direct – weather/disaster data aggregator & analyzer (Replit MVP++)
+-------------------------------------------------------------------------
+
+
+Stack:
+- Python 3.11+
+- FastAPI (API + simple dashboard)
+- httpx (async HTTP client)
+- SQLite (caching + parcel store)
+- shapely (parcel/event intersections)
+
+
+Run locally / in Replit:
+1) Create a new Python Repl.
+2) Create `requirements.txt` with the packages listed at the bottom of this file.
+3) Save this file as `app.py`.
+4) Run:  uvicorn app:app --host 0.0.0.0 --port 8000 --reload
+
+
+Environment (optional but recommended for premium data):
+- TOMORROWIO_API_KEY=<key>  # adds hyperlocal weather provider
+
+
+Notes:
+- Aggregates free sources (NWS, USGS, FEMA) + optional Tomorrow.io.
+- Normalizes into a common schema and computes a risk score.
+- Adds a **parcel upload** store and **impact analysis** (street-level if parcels are detailed).
+- Includes a simple built-in **Dashboard** at `/` for quick testing.
+"""
+
+
+from __future__ import annotations
+
+
+import os
+import json
+import math
+import sqlite3
+from datetime import datetime, timedelta, timezone
+from typing import Any, Dict, List, Optional, Tuple
+
+
+import httpx
+from fastapi import FastAPI, Query, Body, HTTPException
+from fastapi.responses import HTMLResponse
+from pydantic import BaseModel, Field
+
+
+# Optional heavy import for geospatial intersections
+try:
+    from shapely.geometry import shape, Point, Polygon, mapping
+    from shapely.ops import unary_union
+except Exception:
+    shape = None  # type: ignore
+    Point = None   # type: ignore
+    Polygon = None # type: ignore
+    unary_union = None # type: ignore
+
+
+DB_PATH = os.getenv("DB_PATH", "./cache.db")
+
+
+# -----------------------------
+# Utilities
+# -----------------------------
+
+
+def km_to_deg_latlon(km: float) -> float:
+    # Approx conversion: 1 degree ~ 111km
+    return km / 111.0
+
+
+
+
+def now_utc() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+
+
+# -----------------------------
+# DB cache + parcels
+# -----------------------------
+
+
+def init_db() -> None:
+    con = sqlite3.connect(DB_PATH)
+    cur = con.cursor()
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS cache (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL,
+            expires_at INTEGER NOT NULL
+        )
+        """
+    )
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS parcels (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            geojson TEXT NOT NULL,
+            created_at INTEGER NOT NULL
+        )
+        """
+    )
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS runs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            created_at INTEGER NOT NULL,
+            lat REAL, lon REAL, radius_km REAL, hours_back INTEGER,
+            risk_score REAL,
+            events_json TEXT,
+            impacted_json TEXT
+        )
+        """
+    )
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS schedules (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            lat REAL, lon REAL, radius_km REAL, hours_back INTEGER,
+            threshold REAL,
+            created_at INTEGER NOT NULL
+        )
+        """
+    )
+    cur.execute("CREATE TABLE IF NOT EXISTS alerts (id INTEGER PRIMARY KEY, url TEXT, threshold REAL)")
+    cur.execute("CREATE TABLE IF NOT EXISTS sms (phone TEXT PRIMARY KEY)")
+    con.commit()
+    con.close()
+
+
+
+
+def cache_set(key: str, value: str, ttl_seconds: int = 300) -> None:
+    con = sqlite3.connect(DB_PATH)
+    cur = con.cursor()
+    expires_at = int((datetime.utcnow() + timedelta(seconds=ttl_seconds)).timestamp())
+    cur.execute("REPLACE INTO cache (key, value, expires_at) VALUES (?, ?, ?)", (key, value, expires_at))
+    con.commit()
+    con.close()
+
+
+
+
+def cache_get(key: str) -> Optional[str]:
+    con = sqlite3.connect(DB_PATH)
+    cur = con.cursor()
+    cur.execute("SELECT value, expires_at FROM cache WHERE key = ?", (key,))
+    row = cur.fetchone()
+    con.close()
+    if not row:
+        return None
+    value, expires_at = row
+    if int(datetime.utcnow().timestamp()) > int(expires_at):
+        return None
+    return value
+
+
+
+
+# -----------------------------
+# Data Models (normalized schema)
+# -----------------------------
+
+
+class Geometry(BaseModel):
+    type: str = Field(..., description="Point|Polygon|LineString|MultiPolygon...")
+    coordinates: Any
+
+
+
+
+class Event(BaseModel):
+    source: str  # e.g., "NWS", "USGS", "FEMA", "Tomorrow.io"
+    event_type: str  # e.g., "Severe Weather Warning", "Earthquake", "DisasterDeclaration"
+    severity: Optional[str] = None  # e.g., "Severe", "Moderate" or numeric magnitude
+    certainty: Optional[str] = None  # e.g., "Observed", "Likely"
+    headline: Optional[str] = None
+    description: Optional[str] = None
+    start_time: Optional[datetime] = None
+    end_time: Optional[datetime] = None
+    geometry: Optional[Geometry] = None
+    properties: Dict[str, Any] = Field(default_factory=dict)
+
+
+
+
+class AggregateResponse(BaseModel):
+    query_lat: float
+    query_lon: float
+    radius_km: float
+    events: List[Event]
+    risk_score: float
+    impacted_parcels: List[Dict[str, Any]] = Field(default_factory=list)
+    generated_at: datetime
+
+
+
+
+# -----------------------------
+# Providers
+# -----------------------------
+
+
+class Provider:
+    name: str
+
+
+    async def fetch(self, lat: float, lon: float, radius_km: float, since: Optional[datetime]) -> List[Event]:
+        raise NotImplementedError
+
+
+
+
+class NWSAlertsProvider(Provider):
+    name = "NWS"
+
+
+    async def fetch(self, lat: float, lon: float, radius_km: float, since: Optional[datetime]) -> List[Event]:
+        deg = km_to_deg_latlon(radius_km)
+        pts = [(lat, lon), (lat + deg, lon), (lat - deg, lon), (lat, lon + deg), (lat, lon - deg)]
+        events: List[Event] = []
+        headers = {"User-Agent": "DisasterDirect/1.0 (contact: you@example.com)"}
+        async with httpx.AsyncClient(timeout=15.0, headers=headers) as client:
+            for plat, plon in pts:
+                url = f"https://api.weather.gov/alerts?point={plat:.4f},{plon:.4f}"
+                if since:
+                    url += f"&start={since.isoformat()}"
+                r = await client.get(url)
+                if r.status_code != 200:
+                    continue
+                data = r.json()
+                for feat in data.get("features", []):
+                    props = feat.get("properties", {})
+                    geom = feat.get("geometry")
+                    events.append(Event(
+                        source=self.name,
+                        event_type=props.get("event") or "Alert",
+                        severity=props.get("severity"),
+                        certainty=props.get("certainty"),
+                        headline=props.get("headline"),
+                        description=props.get("description"),
+                        start_time=(datetime.fromisoformat(props.get("onset")) if props.get("onset") else None),
+                        end_time=(datetime.fromisoformat(props.get("ends")) if props.get("ends") else None),
+                        geometry=(Geometry(type=geom.get("type"), coordinates=geom.get("coordinates")) if geom else None),
+                        properties={
+                            "urgency": props.get("urgency"),
+                            "areaDesc": props.get("areaDesc"),
+                            "eventCode": props.get("eventCode"),
+                            "parameters": props.get("parameters"),
+                        }
+                    ))
+        return events
+
+
+
+
+class USGSEarthquakesProvider(Provider):
+    name = "USGS"
+
+
+    async def fetch(self, lat: float, lon: float, radius_km: float, since: Optional[datetime]) -> List[Event]:
+        params = {
+            "format": "geojson",
+            "latitude": lat,
+            "longitude": lon,
+            "maxradiuskm": radius_km,
+            "orderby": "time",
+        }
+        if since:
+            params["starttime"] = since.strftime("%Y-%m-%dT%H:%M:%S")
+        url = "https://earthquake.usgs.gov/fdsnws/event/1/query"
+        events: List[Event] = []
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            r = await client.get(url, params=params)
+            if r.status_code != 200:
+                return events
+            data = r.json()
+            for feat in data.get("features", []):
+                props = feat.get("properties", {})
+                geom = feat.get("geometry")
+                events.append(Event(
+                    source=self.name,
+                    event_type="Earthquake",
+                    severity=str(props.get("mag")) if props.get("mag") is not None else None,
+                    certainty="Observed",
+                    headline=f"M{props.get('mag')} earthquake – {props.get('place')}",
+                    description=props.get("title"),
+                    start_time=datetime.fromtimestamp(props.get("time")/1000, tz=timezone.utc) if props.get("time") else None,
+                    end_time=None,
+                    geometry=(Geometry(type=geom.get("type"), coordinates=geom.get("coordinates")) if geom else None),
+                    properties={
+                        "tsunami": props.get("tsunami"),
+                        "url": props.get("url"),
+                        "detail": props.get("detail"),
+                    }
+                ))
+        return events
+
+
+
+
+class FEMADeclarationsProvider(Provider):
+    name = "FEMA"
+
+
+    async def fetch(self, lat: float, lon: float, radius_km: float, since: Optional[datetime]) -> List[Event]:
+        base = "https://www.fema.gov/api/open/v2/DisasterDeclarationsSummaries"
+        params = {"$top": 200, "$orderby": "declarationDate desc"}
+        if since:
+            params["$filter"] = f"declarationDate ge {since.strftime('%Y-%m-%d')}"
+        events: List[Event] = []
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            r = await client.get(base, params=params)
+            if r.status_code != 200:
+                return events
+            data = r.json()
+            items = data.get("DisasterDeclarationsSummaries", [])
+            for it in items:
+                ev = Event(
+                    source=self.name,
+                    event_type="DisasterDeclaration",
+                    severity=it.get("incidentType"),
+                    certainty="Official",
+                    headline=f"FEMA {it.get('incidentType')} declaration – {it.get('state')}",
+                    description=it.get("declarationTitle"),
+                    start_time=datetime.fromisoformat(it.get("declarationDate")) if it.get("declarationDate") else None,
+                    geometry=None,
+                    properties={
+                        "disasterNumber": it.get("disasterNumber"),
+                        "state": it.get("state"),
+                        "county": it.get("declaredCountyArea"),
+                        "fyDeclared": it.get("fyDeclared"),
+                        "ihProgramDeclared": it.get("ihProgramDeclared"),
+                        "iaProgramDeclared": it.get("iaProgramDeclared"),
+                        "paProgramDeclared": it.get("paProgramDeclared"),
+                    }
+                )
+                events.append(ev)
+        return events
+
+
+
+
+class TomorrowIOProvider(Provider):
+    name = "Tomorrow.io"
+
+
+    async def fetch(self, lat: float, lon: float, radius_km: float, since: Optional[datetime]) -> List[Event]:
+        api_key = os.getenv("TOMORROWIO_API_KEY")
+        if not api_key:
+            return []
+        url = "https://api.tomorrow.io/v4/timelines"
+        params = {
+            "apikey": api_key,
+            "location": f"{lat},{lon}",
+            "fields": [
+                "precipitationIntensity", "hailBinary", "hailSize", "windGust", "windSpeed", "weatherCode"
+            ],
+            "timesteps": ["hourly"],
+            "units": "metric",
+            "startTime": (since or now_utc() - timedelta(hours=24)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "endTime": (now_utc() + timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        }
+        events: List[Event] = []
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            r = await client.post(url, json=params)
+            if r.status_code != 200:
+                return events
+            data = r.json()
+            try:
+                intervals = data["data"]["timelines"][0]["intervals"]
+            except Exception:
+                return events
+            # Build approximate swath polygons by buffering around the query point per timestep
+            for it in intervals:
+                values = it.get("values", {})
+                start = it.get("startTime")
+                hail = values.get("hailBinary")
+                hail_size = values.get("hailSize") or 0
+                gust = values.get("windGust") or 0
+                precip = values.get("precipitationIntensity") or 0
+                # Heuristic radius (km): base 5km + wind/2 + hail_size*2, capped at 20km
+                radius_km_est = min(20.0, 5.0 + (float(gust) * 0.5) + (float(hail_size) * 2.0))
+                if hail or gust >= 10 or precip >= 0.5:  # trigger conditions
+                    headline_bits = []
+                    if hail:
+                        headline_bits.append("Hail")
+                    if gust:
+                        headline_bits.append(f"Wind gust {gust} m/s")
+                    if precip:
+                        headline_bits.append(f"Precip {precip}")
+                    geom: Optional[Geometry] = None
+                    if shape is not None:
+                        try:
+                            p = Point(lon, lat)
+                            poly = p.buffer(radius_km_est / 111.0, resolution=32)
+                            geom = Geometry(type=poly.geom_type, coordinates=mapping(poly)["coordinates"])
+                        except Exception:
+                            geom = Geometry(type="Point", coordinates=[lon, lat])
+                    else:
+                        geom = Geometry(type="Point", coordinates=[lon, lat])
+                    events.append(Event(
+                        source=self.name,
+                        event_type="Hyperlocal Weather (approx swath)",
+                        severity=str(hail_size) if hail_size else None,
+                        certainty="Likely",
+                        headline=", ".join(headline_bits) or "Weather",
+                        description=json.dumps(values),
+                        start_time=datetime.fromisoformat(start.replace("Z","+00:00")) if start else None,
+                        end_time=None,
+                        geometry=geom,
+                        properties={"provider": "Tomorrow.io", "radius_km_est": radius_km_est}
+                    ))
+        return events
+
+
+
+
+# Registry of providers to run in aggregation
+PROVIDERS: List[Provider] = [
+    NWSAlertsProvider(),
+    USGSEarthquakesProvider(),
+    FEMADeclarationsProvider(),
+    TomorrowIOProvider(),  # only returns data if TOMORROWIO_API_KEY is set
+]
+
+
+
+
+# -----------------------------
+# Simple risk scoring
+# -----------------------------
+
+
+SEVERITY_WEIGHTS = {
+    "Extreme": 5,
+    "Severe": 4,
+    "Moderate": 3,
+    "Minor": 2,
+}
+
+
+
+
+def compute_risk(events: List[Event]) -> float:
+    score = 0.0
+    for ev in events:
+        base = {"NWS":1.5, "USGS":1.8, "FEMA":1.2}.get(ev.source, 1.3)
+        sev = 0.0
+        if ev.severity:
+            try:
+                sev = float(ev.severity)
+            except Exception:
+                sev = SEVERITY_WEIGHTS.get(ev.severity, 2.0)
+        score += base * (1.0 + sev/5.0)
+    return min(100.0, round(score * 5.0, 2))
+
+
+
+
+# -----------------------------
+# Parcel store & intersections
+# -----------------------------
+
+
+def parcels_list() -> List[Tuple[int,str,str]]:
+    con = sqlite3.connect(DB_PATH)
+    cur = con.cursor()
+    cur.execute("SELECT id, name, geojson FROM parcels ORDER BY id DESC")
+    rows = cur.fetchall()
+    con.close()
+    return rows
+
+
+
+
+def parcels_add(name: str, geojson_text: str) -> int:
+    con = sqlite3.connect(DB_PATH)
+    cur = con.cursor()
+    cur.execute("INSERT INTO parcels (name, geojson, created_at) VALUES (?, ?, ?)", (name, geojson_text, int(datetime.utcnow().timestamp())))
+    con.commit()
+    pid = cur.lastrowid
+    con.close()
+    return pid
+
+
+
+
+def parcels_delete(pid: int) -> None:
+    con = sqlite3.connect(DB_PATH)
+    cur = con.cursor()
+    cur.execute("DELETE FROM parcels WHERE id=?", (pid,))
+    con.commit()
+    con.close()
+
+
+
+
+def to_shapely(geom: Geometry):
+    if shape is None or not geom:
+        return None
+    return shape({"type": geom.type, "coordinates": geom.coordinates})
+
+
+
+
+def impacted_parcels(events: List[Event]) -> List[Dict[str, Any]]:
+    if shape is None:
+        return []
+    # Build union of event polygons; buffer points a bit.
+    event_shapes = []
+    for ev in events:
+        if not ev.geometry:
+            continue
+        s = to_shapely(ev.geometry)
+        if s is None:
+            continue
+        # If event is a Point, buffer ~1km for neighborhood impact
+        if isinstance(s, Point):
+            s = s.buffer(0.009)  # ~1km in degrees
+        event_shapes.append(s)
+    if not event_shapes:
+        return []
+    union = unary_union(event_shapes)
+
+
+    impacted: List[Dict[str, Any]] = []
+    for pid, name, gj_text in parcels_list():
+        try:
+            gj = json.loads(gj_text)
+            # supports FeatureCollection or single Feature/Geometry
+            features = []
+            if gj.get("type") == "FeatureCollection":
+                features = gj.get("features", [])
+            elif gj.get("type") == "Feature":
+                features = [gj]
+            else:
+                features = [{"type":"Feature", "geometry": gj, "properties": {}}]
+
+
+            touched = False
+            for feat in features:
+                geom = feat.get("geometry")
+                if not geom:
+                    continue
+                s = shape(geom)
+                if s.intersects(union):
+                    touched = True
+                    break
+            if touched:
+                impacted.append({"parcel_id": pid, "name": name})
+        except Exception:
+            continue
+    return impacted
+
+
+
+
+# -----------------------------
+# FastAPI app & endpoints
+# -----------------------------
+
+
+app = FastAPI(title="Disaster Direct API", version="0.2.0")
+
+
+
+
+@app.on_event("startup")
+def _startup():
+    init_db()
+
+
+
+
+@app.get("/health")
+def health():
+    return {"ok": True, "time": now_utc().isoformat()}
+
+
+
+
+@app.post("/parcels")
+async def upload_parcels(name: str = Query(..., description="Name of the parcel set (e.g., 'Dallas Parcels')"),
+                         geojson: Dict[str, Any] = Body(..., description="GeoJSON FeatureCollection/Feature/Geometry")):
+    try:
+        text = json.dumps(geojson)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid GeoJSON")
+    pid = parcels_add(name, text)
+    return {"ok": True, "parcel_id": pid}
+
+
+
+
+@app.get("/parcels")
+async def list_parcels():
+    return [{"id": pid, "name": name} for pid, name, _ in parcels_list()]
+
+
+
+
+@app.delete("/parcels/{parcel_id}")
+async def delete_parcel(parcel_id: int):
+    parcels_delete(parcel_id)
+    return {"ok": True}
+
+
+
+
+@app.get("/aggregate", response_model=AggregateResponse)
+async def aggregate(
+    lat: float = Query(..., ge=-90, le=90),
+    lon: float = Query(..., ge=-180, le=180),
+    radius_km: float = Query(25.0, gt=0, le=500),
+    hours_back: int = Query(72, ge=1, le=720),
+):
+    since = now_utc() - timedelta(hours=hours_back)
+
+
+    ckey = f"agg:{lat:.4f}:{lon:.4f}:{radius_km}:{hours_back}"
+    cached = cache_get(ckey)
+    events: List[Event] = []
+    if cached:
+        raw = json.loads(cached)
+        events = [Event(**e) for e in raw]
+    else:
+        results: List[Event] = []
+        for p in PROVIDERS:
+            try:
+                evs = await p.fetch(lat, lon, radius_km, since)
+                results.extend(evs)
+            except Exception as e:
+                print(f"Provider {p.name} error: {e}")
+                continue
+        # De-dupe by (source, headline, start_time)
+        def ev_key(e: Event):
+            return (e.source, e.headline or e.event_type, e.start_time.isoformat() if e.start_time else "")
+        seen = set()
+        for e in results:
+            k = ev_key(e)
+            if k in seen:
+                continue
+            seen.add(k)
+            events.append(e)
+        cache_set(ckey, json.dumps([e.model_dump() for e in events]), ttl_seconds=120)
+
+
+    risk = compute_risk(events)
+
+
+    # Impacted parcels (if shapely available and parcels uploaded)
+    touched = impacted_parcels(events)
+    return AggregateResponse(
+        query_lat=lat,
+        query_lon=lon,
+        radius_km=radius_km,
+        events=events,
+        risk_score=risk,
+        impacted_parcels=touched,
+        generated_at=now_utc(),
+    )
+
+
+
+
+@app.get("/risk-score")
+async def risk_score(lat: float, lon: float, radius_km: float = 25.0, hours_back: int = 72):
+    resp = await aggregate(lat=lat, lon=lon, radius_km=radius_km, hours_back=hours_back)  # type: ignore
+    return {"risk_score": resp.risk_score, "impacted_parcels": resp.impacted_parcels, "generated_at": now_utc().isoformat()}
+
+
+
+
+# -----------------------------
+# Map dashboard (Leaflet) + JS fetch
+# -----------------------------
+
+
+DASH_HTML = """
+<!doctype html>
+<html>
+<head>
+  <meta charset=\"utf-8\" />
+  <meta name=\"viewport\" content=\"width=device-width,initial-scale=1\" />
+  <title>Disaster Direct Dashboard</title>
+  <link rel=\"stylesheet\" href=\"https://unpkg.com/leaflet@1.9.4/dist/leaflet.css\" integrity=\"sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=\" crossorigin=""/>
+  <script src=\"https://unpkg.com/leaflet@1.9.4/dist/leaflet.js\" integrity=\"sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=\" crossorigin=""></script>
+  <style>
+    body{font-family:system-ui, sans-serif; margin:20px;}
+    .card{border:1px solid #e5e5e5; border-radius:12px; padding:16px; margin:12px 0;}
+    label{display:block; margin:6px 0 2px;}
+    input{padding:8px; border:1px solid #ddd; border-radius:8px; width:220px;}
+    button{padding:8px 12px; border:0; border-radius:10px; background:#111; color:#fff; cursor:pointer}
+    .row{display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap}
+    .pill{display:inline-block; padding:2px 8px; border-radius:999px; background:#f3f3f3; margin-right:6px}
+    pre{white-space:pre-wrap; word-break:break-word}
+    #map{height: 460px; border-radius: 12px;}
+  </style>
+</head>
+<body>
+  <h1>Disaster Direct</h1>
+  <div class="card">
+    <h3>Aggregate</h3>
+    <div class="row">
+      <div>
+        <label>Address (geocode)</label>
+        <input id="addr" placeholder="Dallas, TX" style="width:320px"/>
+        <button onclick="doGeocode()">Geocode</button>
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <label>Latitude</label>
+        <input id="lat" value="32.7767" />
+      </div>
+      <div>
+        <label>Longitude</label>
+        <input id="lon" value="-96.7970" />
+      </div>
+      <div>
+        <label>Radius (km)</label>
+        <input id="rad" value="25" />
+      </div>
+      <div>
+        <label>Hours back</label>
+        <input id="hrs" value="72" />
+      </div>
+      <button onclick=\"runAgg()\">Run</button>
+      <button onclick=\"exportCSV('events')\">Export Events CSV</button>
+      <button onclick=\"exportCSV('impacted')\">Export Impacted Parcels CSV</button>
+    </div>
+    <div id="risk" style="margin-top:10px;"></div>
+    <div id="parcels" style="margin-top:6px;"></div>
+    <div id="events" style="margin-top:16px;"></div>
+  </div>
+
+
+  <div id="map" class="card"></div>
+
+
+  <div class=\"card\">
+    <h3>Upload Parcels (GeoJSON)</h3>
+    <div class=\"row\">
+      <input id=\"pname\" placeholder=\"Dallas Parcels\" />
+      <input type=\"file\" id=\"pfile\" />
+      <button onclick=\"uploadParcels()\">Upload</button>
+    </div>
+    <div id=\"plist\"></div>
+  </div>
+
+
+  <div class=\"card\">
+    <h3>Save Run & History</h3>
+    <div class=\"row\">
+      <input id=\"runname\" placeholder=\"Morning sweep Dallas\" style=\"width:260px\" />
+      <button onclick=\"saveRun()\">Save Run</button>
+      <button onclick=\"listRuns()\">Refresh List</button>
+    </div>
+    <div id=\"runs\"></div>
+  </div>
+
+
+  <div class="card">
+    <h3>Alert Webhook</h3>
+    <p>Configure a webhook URL to receive JSON alerts when risk crosses a threshold.</p>
+    <div class="row">
+      <input id="whUrl" placeholder="https://example.com/webhook" style="width:360px"/>
+      <input id="whTh" placeholder="Threshold (e.g., 60)" />
+      <button onclick="saveWebhook()">Save</button>
+    </div>
+    <div id="whStatus"></div>
+  </div>
+
+
+<script>
+let map, eventsLayer, parcelsLayer, impactedLayer;
+
+
+function initMap(){
+  map = L.map('map').setView([32.7767,-96.7970], 9);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; OpenStreetMap'
+  }).addTo(map);
+  eventsLayer = L.geoJSON(null, { onEachFeature: (f, l)=> l.bindPopup(f.properties && f.properties.popup || 'Event') }).addTo(map);
+  parcelsLayer = L.geoJSON(null, { style: { weight:1 } }).addTo(map);
+  impactedLayer = L.geoJSON(null, { style: { weight:2 }, onEachFeature: (f,l)=>{
+    const id = f && f.properties && f.properties.parcel_id;
+    const name = f && f.properties && f.properties.name || 'Parcel';
+    l.bindPopup(`<strong>${name}</strong><br><a href="#" onclick="openParcelReport(${id});return false;">PDF report</a>`);
+  }}).addTo(map);
+}
+
+
+async function runAgg(){
+  const lat = document.getElementById('lat').value;
+  const lon = document.getElementById('lon').value;
+  const rad = document.getElementById('rad').value;
+  const hrs = document.getElementById('hrs').value;
+  const r = await fetch(`/aggregate?lat=${lat}&lon=${lon}&radius_km=${rad}&hours_back=${hrs}`);
+  const j = await r.json();
+  document.getElementById('risk').innerHTML = `<strong>Risk Score:</strong> ${j.risk_score}`;
+  const list = (j.impacted_parcels||[]).map(p=>`<li>${p.name} <a target=\"_blank\" href=\"/report/parcel/${p.parcel_id}?lat=${lat}&lon=${lon}&radius_km=${rad}&hours_back=${hrs}\">PDF report</a></li>`).join('');
+  document.getElementById('parcels').innerHTML = `<strong>Impacted Parcels:</strong> ${list ? '<ul>'+list+'</ul>' : 'None'}`;
+  const evDiv = document.getElementById('events');
+  evDiv.innerHTML = '';
+  (j.events||[]).forEach(e=>{
+    const d = document.createElement('div');
+    d.className = 'card';
+    d.innerHTML = `<div class='pill'>${e.source}</div> <div class='pill'>${e.event_type}</div>` +
+      `<h4>${e.headline||''}</h4><div>${e.description||''}</div>`;
+    evDiv.appendChild(d);
+  });
+  // Map layers
+  await refreshMap(lat, lon);
+}
+
+
+async function refreshMap(lat, lon){
+  const ev = await (await fetch('/events.geojson')).json();
+  eventsLayer.clearLayers();
+  eventsLayer.addData(ev);
+  if(ev.features && ev.features.length){
+    const b = eventsLayer.getBounds();
+    if(b.isValid()) map.fitBounds(b.pad(0.2));
+  } else {
+    map.setView([lat,lon], 9);
+  }
+  const pj = await (await fetch('/parcels.geojson')).json();
+  parcelsLayer.clearLayers();
+  parcelsLayer.addData(pj);
+  const ij = await (await fetch('/impacted.geojson')).json();
+  impactedLayer.clearLayers();
+  impactedLayer.addData(ij);
+}
+
+
+async function listParcels(){
+  const r = await fetch('/parcels');
+  const j = await r.json();
+  document.getElementById('plist').innerHTML = '<pre>'+JSON.stringify(j,null,2)+'</pre>';
+}
+
+
+async function uploadParcels(){
+  const name = document.getElementById('pname').value || 'Parcels';
+  const file = document.getElementById('pfile').files[0];
+  if(!file){ alert('Pick a GeoJSON file first'); return; }
+  const text = await file.text();
+  const body = JSON.parse(text);
+  const r = await fetch(`/parcels?name=${encodeURIComponent(name)}`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+  const j = await r.json();
+  alert('Uploaded parcel set id '+j.parcel_id);
+  listParcels();
+  refreshMap(document.getElementById('lat').value, document.getElementById('lon').value);
+}
+
+
+async function saveWebhook(){
+  const url = document.getElementById('whUrl').value;
+  const th = parseFloat(document.getElementById('whTh').value||'0');
+  const r = await fetch('/alerts', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({url, threshold: th})});
+  const j = await r.json();
+  document.getElementById('whStatus').innerText = JSON.stringify(j);
+}
+
+
+initMap();
+listParcels();
+listRuns();
+renderSchedules();
+
+
+function loadRun(id){
+  fetch('/runs/'+id).then(r=>r.json()).then(j=>{
+    document.getElementById('lat').value = j.lat;
+    document.getElementById('lon').value = j.lon;
+    document.getElementById('rad').value = j.radius_km;
+    document.getElementById('hrs').value = j.hours_back;
+    if(map) map.setView([j.lat, j.lon], 10);
+    runAgg();
+  });
+}
+
+
+async function addSchedule(){
+  const name = document.getElementById('sch_name').value || 'Daily Job';
+  let lat = document.getElementById('sch_lat').value;
+  let lon = document.getElementById('sch_lon').value;
+  const addr = document.getElementById('sch_addr').value;
+  if((!lat || !lon) && addr){
+    const g = await (await fetch('/geocode?q='+encodeURIComponent(addr))).json();
+    if(g && g.lat && g.lon){ lat = g.lat; lon = g.lon; }
+  }
+  const rad = document.getElementById('sch_rad').value || 25;
+  const hrs = document.getElementById('sch_hrs').value || 72;
+  const th = document.getElementById('sch_thresh').value || 60;
+  const r = await fetch(`/schedules`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({name, lat: parseFloat(lat), lon: parseFloat(lon), radius_km: parseFloat(rad), hours_back: parseInt(hrs), threshold: parseFloat(th)})});
+  const j = await r.json();
+  alert('Added schedule #'+j.id);
+  renderSchedules();
+}
+
+
+async function renderSchedules(){
+  const r = await fetch('/schedules');
+  const j = await r.json();
+  const el = document.getElementById('schedules');
+  el.innerHTML = '';
+  const ul = document.createElement('ul');
+  (j||[]).forEach(it=>{
+    const li = document.createElement('li');
+    li.innerHTML = `#${it.id} ${it.name} — lat:${it.lat}, lon:${it.lon}, r:${it.radius_km}km, last ${it.hours_back}h, thr ${it.threshold} `+
+      `[ <a href=\"#\" onclick=\"deleteSchedule(${it.id});return false;\">delete</a> ]`;
+    ul.appendChild(li);
+  });
+  el.appendChild(ul);
+}
+
+
+async function deleteSchedule(id){
+  await fetch('/schedules/'+id, {method:'DELETE'});
+  renderSchedules();
+}
+
+
+// Address autocomplete (debounced)
+let geocodeTimer; const delay= (fn,ms)=>{clearTimeout(geocodeTimer); geocodeTimer=setTimeout(fn,ms)};
+const addrEl = document.getElementById('addr');
+addrEl && addrEl.addEventListener('input', ()=>{
+  const q = addrEl.value; if(!q || q.length<3) return;
+  delay(async ()=>{
+    try{
+      const r = await fetch('/geocode/suggest?q='+encodeURIComponent(q));
+      const j = await r.json();
+      const dl = document.getElementById('addr-suggest');
+      dl.innerHTML = '';
+      (j||[]).forEach(it=>{
+        const o = document.createElement('option');
+        o.value = it.display_name; o.setAttribute('data-lat', it.lat); o.setAttribute('data-lon', it.lon);
+        dl.appendChild(o);
+      });
+    }catch(e){console.log(e)}
+  }, 300);
+});
+addrEl && addrEl.addEventListener('change', ()=>{
+  const dl = document.getElementById('addr-suggest');
+  const options = dl.querySelectorAll('option');
+  const val = addrEl.value;
+  for(const o of options){ if(o.value===val){
+    document.getElementById('lat').value = o.getAttribute('data-lat');
+    document.getElementById('lon').value = o.getAttribute('data-lon');
+    if(map) map.setView([parseFloat(o.getAttribute('data-lat')), parseFloat(o.getAttribute('data-lon'))], 10);
+  }}
+});
+
+
+async function saveRun(){
+  const name = document.getElementById('runname').value || 'Untitled run';
+  const lat = document.getElementById('lat').value;
+  const lon = document.getElementById('lon').value;
+  const rad = document.getElementById('rad').value;
+  const hrs = document.getElementById('hrs').value;
+  const r = await fetch(`/runs/save?name=${encodeURIComponent(name)}&lat=${lat}&lon=${lon}&radius_km=${rad}&hours_back=${hrs}`);
+  const j = await r.json();
+  alert('Saved run #'+j.run_id);
+  listRuns();
+}
+
+
+async function listRuns(){
+  const r = await fetch('/runs');
+  const j = await r.json();
+  const el = document.getElementById('runs');
+  el.innerHTML = '';
+  const ul = document.createElement('ul');
+  (j||[]).forEach(it=>{
+    const li = document.createElement('li');
+    li.innerHTML = `<strong>#${it.id}</strong> ${new Date(it.created_at*1000).toLocaleString()} — ${it.name} — risk ${it.risk_score} `+
+      `[ <a target="_blank" href="/runs/${it.id}">JSON</a> | <a target="_blank" href="/runs/${it.id}/events.csv">events.csv</a> | <a target="_blank" href="/runs/${it.id}/impacted.csv">impacted.csv</a> ]`;
+    ul.appendChild(li);
+  });
+  el.appendChild(ul);
+}
+
+
+async function doGeocode(){
+  const q = document.getElementById('addr').value;
+  if(!q) return;
+  const r = await fetch('/geocode?q='+encodeURIComponent(q));
+  const j = await r.json();
+  if(j && j.lat && j.lon){
+    document.getElementById('lat').value = j.lat;
+    document.getElementById('lon').value = j.lon;
+    map.setView([parseFloat(j.lat), parseFloat(j.lon)], 10);
+  } else {
+    alert('No result');
+  }
+}
+function openParcelReport(id){
+  const lat = document.getElementById('lat').value;
+  const lon = document.getElementById('lon').value;
+  const rad = document.getElementById('rad').value;
+  const hrs = document.getElementById('hrs').value;
+  window.open(`/report/parcel/${id}?lat=${lat}&lon=${lon}&radius_km=${rad}&hours_back=${hrs}`,'_blank');
+}
+
+
+function exportCSV(type){
+  const lat = document.getElementById('lat').value;
+  const lon = document.getElementById('lon').value;
+  const rad = document.getElementById('rad').value;
+  const hrs = document.getElementById('hrs').value;
+  const url = type==='events'
+    ? `/export/events.csv?lat=${lat}&lon=${lon}&radius_km=${rad}&hours_back=${hrs}`
+    : `/export/impacted.csv?lat=${lat}&lon=${lon}&radius_km=${rad}&hours_back=${hrs}`;
+  window.open(url, '_blank');
+}
+
+
+// Map click -> set lat/lon and reverse geocode
+setTimeout(()=>{
+  if(map){
+    map.on('click', async (e)=>{
+      const {lat, lng} = e.latlng;
+      document.getElementById('lat').value = lat.toFixed(6);
+      document.getElementById('lon').value = lng.toFixed(6);
+      try{
+        const r = await fetch(`/reverse_geocode?lat=${lat}&lon=${lng}`);
+        const j = await r.json();
+        if(j && j.display_name){
+          document.getElementById('addr').value = j.display_name;
+        }
+      }catch(err){ console.log(err); }
+    });
+  }
+}, 500);
+</script>
+</body>
+</html>
+"""
+
+
+
+
+@app.get("/", response_class=HTMLResponse)
+async def dashboard():
+    return HTMLResponse(DASH_HTML)
+
+
+
+
+# -----------------------------
+# Geocoding (Nominatim / OpenStreetMap)
+# -----------------------------
+@app.get("/geocode")
+async def geocode(q: str = Query(..., description="Free-text address")):
+    url = "https://nominatim.openstreetmap.org/search"
+    params = {"q": q, "format": "jsonv2", "limit": 1}
+    headers = {"User-Agent": "DisasterDirect/1.0 (contact: you@example.com)"}
+    async with httpx.AsyncClient(timeout=15.0, headers=headers) as client:
+        r = await client.get(url, params=params)
+        if r.status_code != 200:
+            raise HTTPException(status_code=502, detail="Geocoder unavailable")
+        data = r.json()
+        if not data:
+            return {"found": False}
+        top = data[0]
+        return {
+            "found": True,
+            "lat": top.get("lat"),
+            "lon": top.get("lon"),
+            "display_name": top.get("display_name"),
+            "bbox": top.get("boundingbox"),
+        }
+
+
+@app.get("/geocode/suggest")
+async def geocode_suggest(q: str = Query(..., description="Free-text address")):
+    url = "https://nominatim.openstreetmap.org/search"
+    params = {"q": q, "format": "jsonv2", "limit": 5, "addressdetails": 0}
+    headers = {"User-Agent": "DisasterDirect/1.0 (contact: you@example.com)"}
+    async with httpx.AsyncClient(timeout=15.0, headers=headers) as client:
+        r = await client.get(url, params=params)
+        if r.status_code != 200:
+            raise HTTPException(status_code=502, detail="Geocoder unavailable")
+        data = r.json() or []
+        return [{"display_name": it.get("display_name"), "lat": it.get("lat"), "lon": it.get("lon")} for it in data]
+
+
+
+
+# -----------------------------
+# Reverse Geocoding (Nominatim / OpenStreetMap)
+# -----------------------------
+@app.get("/reverse_geocode")
+async def reverse_geocode(lat: float = Query(...), lon: float = Query(...)):
+    url = "https://nominatim.openstreetmap.org/reverse"
+    params = {"lat": lat, "lon": lon, "format": "jsonv2"}
+    headers = {"User-Agent": "DisasterDirect/1.0 (contact: you@example.com)"}
+    async with httpx.AsyncClient(timeout=15.0, headers=headers) as client:
+        r = await client.get(url, params=params)
+        if r.status_code != 200:
+            raise HTTPException(status_code=502, detail="Geocoder unavailable")
+        data = r.json()
+        return {
+            "display_name": data.get("display_name"),
+            "address": data.get("address"),
+        }
+
+
+# -----------------------------
+# GeoJSON endpoints for map layers & PDF reports
+# -----------------------------
+
+
+@app.get("/events.geojson")
+async def events_geojson(lat: float = Query(32.7767), lon: float = Query(-96.7970), radius_km: float = Query(25.0), hours_back: int = Query(72)):
+    resp = await aggregate(lat=lat, lon=lon, radius_km=radius_km, hours_back=hours_back)  # type: ignore
+    feats = []
+    for e in resp.events:
+        geom = e.geometry.model_dump() if e.geometry else {"type":"Point","coordinates":[resp.query_lon, resp.query_lat]}
+        feats.append({
+            "type":"Feature",
+            "geometry": geom,
+            "properties": {
+                "source": e.source,
+                "event_type": e.event_type,
+                "headline": e.headline,
+                "severity": e.severity,
+                "popup": f"<strong>{e.source}</strong>: {e.headline or e.event_type}"
+            }
+        })
+    return {"type":"FeatureCollection","features": feats}
+
+
+
+
+@app.get("/parcels.geojson")
+async def parcels_geojson():
+    feats = []
+    for pid, name, gj_text in parcels_list():
+        try:
+            gj = json.loads(gj_text)
+            if gj.get("type") == "FeatureCollection":
+                for f in gj.get("features", []):
+                    p = f.get("properties", {})
+                    p["name"] = name
+                    p["parcel_id"] = pid
+                    f["properties"] = p
+                    feats.append(f)
+            else:
+                feats.append({"type":"Feature", "geometry": gj, "properties": {"name": name, "parcel_id": pid}})
+        except Exception:
+            continue
+    return {"type":"FeatureCollection","features": feats}
+
+
+
+
+@app.get("/impacted.geojson")
+async def impacted_geojson(lat: float = Query(32.7767), lon: float = Query(-96.7970), radius_km: float = Query(25.0), hours_back: int = Query(72)):
+    resp = await aggregate(lat=lat, lon=lon, radius_km=radius_km, hours_back=hours_back)  # type: ignore
+    ids = {p["parcel_id"] for p in resp.impacted_parcels}
+    feats = []
+    for pid, name, gj_text in parcels_list():
+        if pid not in ids:
+            continue
+        try:
+            gj = json.loads(gj_text)
+            if gj.get("type") == "FeatureCollection":
+                for f in gj.get("features", []):
+                    p = f.get("properties", {})
+                    p["name"] = name
+                    p["parcel_id"] = pid
+    
+
+Done. I added both features you asked for:
+
+1) “Load Run” (rehydrate UI & map)
+
+In the Runs list, each item now has a Load link.
+
+Clicking Load fetches /runs/{id}, fills lat/lon/radius/hours, recenters the map, and runs a fresh aggregate so you can visualize that saved context instantly.
+
+2) Daily Scheduler (with webhook/SMS triggers)
+
+New Daily Scheduler card (fields for name, address or lat/lon, radius, hours_back, and risk threshold).
+
+Add jobs via the UI (or API) and view/delete them in the same card.
+
+Endpoints:
+
+POST /schedules { name, lat, lon, radius_km, hours_back, threshold }
+
+GET /schedules – list jobs
+
+DELETE /schedules/{id} – remove job
+
+GET /cron/run – executes all jobs: runs aggregates, saves each run, and if risk_score ≥ threshold, fires your webhook and Twilio SMS (if configured).
+
+How to automate it daily
+
+Since Replit apps sleep, point an external scheduler (UptimeRobot, GitHub Actions, cron-job.org, Zapier, Make) to:
+
+GET https://<your-repl-domain>/cron/run
+
+
+Set it to whatever cadence you want (e.g., every day at 6am). Each run will:
+
+Save a snapshot in Runs
+
+Trigger your webhook/SMS when thresholds are breached

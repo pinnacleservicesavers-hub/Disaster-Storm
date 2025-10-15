@@ -1,0 +1,191 @@
+Great — I’ll drop in ready-to-paste snippets that pull alerts + daily + hourly forecasts for a concrete default location. I’ll use Atlanta, GA (33.75, -84.39) since we used it above; you can swap in any lat/lon later.
+
+JavaScript (browser / Replit front-end)
+<script>
+async function getNwsData(lat = 33.75, lon = -84.39) {
+  const UA = "DisasterDirectApp (support@strategiclandmgmt.com)";
+  const h = { "User-Agent": UA, "Accept": "application/geo+json" };
+
+  // 1) Resolve points → daily + hourly forecast URLs
+  const ptsRes = await fetch(`https://api.weather.gov/points/${lat},${lon}`, { headers: h });
+  if (!ptsRes.ok) throw new Error("Failed to resolve NWS points");
+  const pts = await ptsRes.json();
+
+  const dailyUrl  = pts.properties.forecast;
+  const hourlyUrl = pts.properties.forecastHourly;
+  const city      = pts.properties.relativeLocation?.properties?.city;
+  const state     = pts.properties.relativeLocation?.properties?.state;
+
+  // 2) Forecasts
+  const [dailyRes, hourlyRes] = await Promise.all([
+    fetch(dailyUrl,  { headers: h }),
+    fetch(hourlyUrl, { headers: h })
+  ]);
+  const [daily, hourly] = await Promise.all([dailyRes.json(), hourlyRes.json()]);
+
+  // 3) Alerts for GA (change to your state, or use polygon filters later)
+  const alertsRes = await fetch(`https://api.weather.gov/alerts/active?area=GA`, { headers: h });
+  const alerts    = await alertsRes.json();
+
+  // Normalize
+  const dailyCards = (daily.properties?.periods ?? []).map(p => ({
+    name: p.name,
+    time: p.startTime,
+    temp: `${p.temperature}°${p.temperatureUnit}`,
+    wind: `${p.windDirection} ${p.windSpeed}`,
+    short: p.shortForecast,
+    detailed: p.detailedForecast,
+    icon: p.icon
+  }));
+
+  const hourly24 = (hourly.properties?.periods ?? []).slice(0, 24).map(p => ({
+    time: p.startTime,
+    temp: `${p.temperature}°${p.temperatureUnit}`,
+    wind: `${p.windDirection} ${p.windSpeed}`,
+    short: p.shortForecast
+  }));
+
+  const alertItems = (alerts.features ?? []).map(f => ({
+    id: f.id,
+    headline: f.properties?.headline,
+    event: f.properties?.event,
+    severity: f.properties?.severity,
+    expires: f.properties?.expires,
+    area: f.properties?.areaDesc,
+    description: f.properties?.description
+  }));
+
+  return { location: `${city}, ${state}`, dailyCards, hourly24, alertItems };
+}
+
+// Example render
+getNwsData().then(({ location, dailyCards, hourly24, alertItems }) => {
+  console.log("Location:", location);
+
+  console.log("Alerts:");
+  alertItems.forEach(a => console.log(`- ${a.headline} (${a.severity})`));
+
+  console.log("Daily:");
+  dailyCards.slice(0, 4).forEach(p => console.log(`${p.name}: ${p.short} ${p.temp}`));
+
+  console.log("Next 24h:");
+  hourly24.forEach(h => console.log(`${h.time} → ${h.temp} ${h.short}`));
+}).catch(err => console.error(err));
+</script>
+
+Python (server / script)
+import requests
+
+UA = "DisasterDirectApp (support@strategiclandmgmt.com)"
+HEADERS = {"User-Agent": UA, "Accept": "application/geo+json"}
+
+def get_nws(lat=33.75, lon=-84.39, alerts_state="GA"):
+    pts = requests.get(f"https://api.weather.gov/points/{lat},{lon}", headers=HEADERS)
+    pts.raise_for_status()
+    ptsj = pts.json()
+
+    daily_url  = ptsj["properties"]["forecast"]
+    hourly_url = ptsj["properties"]["forecastHourly"]
+    city  = ptsj["properties"]["relativeLocation"]["properties"]["city"]
+    state = ptsj["properties"]["relativeLocation"]["properties"]["state"]
+
+    daily  = requests.get(daily_url,  headers=HEADERS).json()
+    hourly = requests.get(hourly_url, headers=HEADERS).json()
+    alerts = requests.get(f"https://api.weather.gov/alerts/active?area={alerts_state}", headers=HEADERS).json()
+
+    daily_cards = [{
+        "name": p["name"],
+        "time": p["startTime"],
+        "temp": f'{p["temperature"]}°{p["temperatureUnit"]}',
+        "wind": f'{p["windDirection"]} {p["windSpeed"]}',
+        "short": p["shortForecast"],
+        "detailed": p["detailedForecast"],
+        "icon": p["icon"]
+    } for p in daily.get("properties", {}).get("periods", [])]
+
+    hourly24 = [{
+        "time": p["startTime"],
+        "temp": f'{p["temperature"]}°{p["temperatureUnit"]}',
+        "wind": f'{p["windDirection"]} {p["windSpeed"]}',
+        "short": p["shortForecast"]
+    } for p in hourly.get("properties", {}).get("periods", [])[:24]]
+
+    alert_items = [{
+        "id": f.get("id"),
+        "headline": f.get("properties", {}).get("headline"),
+        "event": f.get("properties", {}).get("event"),
+        "severity": f.get("properties", {}).get("severity"),
+        "expires": f.get("properties", {}).get("expires"),
+        "area": f.get("properties", {}).get("areaDesc"),
+        "description": f.get("properties", {}).get("description"),
+    } for f in alerts.get("features", [])]
+
+    return {
+        "location": f"{city}, {state}",
+        "daily": daily_cards,
+        "hourly24": hourly24,
+        "alerts": alert_items
+    }
+
+if __name__ == "__main__":
+    data = get_nws()
+    print(data["location"])
+    for a in data["alerts"][:5]:
+        print("ALERT:", a["headline"])
+    for p in data["daily"][:3]:
+        print("DAILY:", p["name"], p["temp"], p["short"])
+
+Glide (no-code) wiring
+
+Data → Add Column → Fetch JSON with URL:
+https://api.weather.gov/points/33.75,-84.39
+Headers:
+
+Key: User-Agent
+
+Value: DisasterDirectApp (support@strategiclandmgmt.com)
+
+Map out:
+
+properties.forecast → (store as “Daily URL”)
+
+properties.forecastHourly → (store as “Hourly URL”)
+
+properties.relativeLocation.properties.city / .state → Location
+
+Add Fetch JSON column using “Daily URL” and map:
+
+properties.periods[*].name
+
+properties.periods[*].temperature
+
+properties.periods[*].temperatureUnit
+
+properties.periods[*].shortForecast
+
+properties.periods[*].icon
+
+Add Fetch JSON column using “Hourly URL” and map:
+
+properties.periods[0..23].startTime
+
+properties.periods[0..23].temperature
+
+properties.periods[0..23].temperatureUnit
+
+properties.periods[0..23].shortForecast
+
+For Alerts (statewide GA example): Fetch JSON with
+https://api.weather.gov/alerts/active?area=GA
+Map: features[*].properties.headline, .severity, .event, .description.
+
+Notes & pro tips
+
+Always include a User-Agent or requests may be throttled:
+DisasterDirectApp (support@strategiclandmgmt.com)
+
+Add Accept: application/geo+json (many NWS examples use it).
+
+If you host a backend, route browser calls through it to avoid any CORS hiccups.
+
+To localize alerts precisely, you can filter by point (lat,lon) or zone instead of state (ask if you want that version).

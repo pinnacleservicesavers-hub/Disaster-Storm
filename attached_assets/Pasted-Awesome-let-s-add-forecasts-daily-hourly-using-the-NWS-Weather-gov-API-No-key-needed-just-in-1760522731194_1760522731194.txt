@@ -1,0 +1,181 @@
+Awesome — let’s add forecasts (daily + hourly) using the NWS Weather.gov API. No key needed; just include a User-Agent header.
+
+Step 1) Get the forecast URL for a location
+
+Call the Points endpoint with latitude,longitude:
+
+https://api.weather.gov/points/{lat},{lon}
+
+
+Example (Atlanta, GA):
+
+https://api.weather.gov/points/33.75,-84.39
+
+
+In the JSON, grab:
+
+properties.forecast → 7-day periods (day/night)
+
+properties.forecastHourly → hourly forecast
+
+(You can also use properties.radarStation, gridId, gridX, gridY if you want the raw gridpoints route.)
+
+Step 2) Hit the forecast endpoints
+
+You’ll get GeoJSON with properties.periods (for daily) or hourly entries. Typical fields:
+
+name (e.g., “Tonight”, “Monday”)
+
+startTime, endTime
+
+temperature, temperatureUnit
+
+windSpeed, windDirection
+
+shortForecast, detailedForecast
+
+icon
+
+JavaScript (fetch) — daily + hourly
+async function getForecast(lat, lon) {
+  const headers = { "User-Agent": "DisasterDirectApp (support@strategiclandmgmt.com)" };
+
+  // 1) Resolve the location to forecast URLs
+  const ptsRes = await fetch(`https://api.weather.gov/points/${lat},${lon}`, { headers });
+  if (!ptsRes.ok) throw new Error("Failed to resolve points");
+  const pts = await ptsRes.json();
+
+  const dailyUrl = pts.properties.forecast;
+  const hourlyUrl = pts.properties.forecastHourly;
+
+  // 2) Fetch daily
+  const dailyRes = await fetch(dailyUrl, { headers });
+  const daily = await dailyRes.json();
+
+  // 3) Fetch hourly
+  const hourlyRes = await fetch(hourlyUrl, { headers });
+  const hourly = await hourlyRes.json();
+
+  // Example: map out a clean structure
+  const dailyPeriods = (daily.properties?.periods || []).map(p => ({
+    name: p.name,
+    startTime: p.startTime,
+    temperature: `${p.temperature}°${p.temperatureUnit}`,
+    wind: `${p.windDirection} ${p.windSpeed}`,
+    short: p.shortForecast,
+    detailed: p.detailedForecast,
+    icon: p.icon
+  }));
+
+  const hourlyPeriods = (hourly.properties?.periods || []).slice(0, 24).map(p => ({
+    time: p.startTime,
+    temp: `${p.temperature}°${p.temperatureUnit}`,
+    wind: `${p.windDirection} ${p.windSpeed}`,
+    short: p.shortForecast
+  }));
+
+  return { dailyPeriods, hourlyPeriods, relativeLocation: pts.properties.relativeLocation?.properties };
+}
+
+// Example usage:
+getForecast(33.75, -84.39).then(console.log).catch(console.error);
+
+Python (requests) — daily + hourly
+import requests
+
+headers = {"User-Agent": "DisasterDirectApp (support@strategiclandmgmt.com)"}
+
+def get_forecast(lat, lon):
+    pts = requests.get(f"https://api.weather.gov/points/{lat},{lon}", headers=headers).json()
+    daily_url = pts["properties"]["forecast"]
+    hourly_url = pts["properties"]["forecastHourly"]
+
+    daily = requests.get(daily_url, headers=headers).json()
+    hourly = requests.get(hourly_url, headers=headers).json()
+
+    daily_periods = [
+        {
+            "name": p["name"],
+            "startTime": p["startTime"],
+            "temperature": f'{p["temperature"]}°{p["temperatureUnit"]}',
+            "wind": f'{p["windDirection"]} {p["windSpeed"]}',
+            "short": p["shortForecast"],
+            "detailed": p["detailedForecast"],
+            "icon": p["icon"]
+        }
+        for p in daily.get("properties", {}).get("periods", [])
+    ]
+
+    hourly_periods = [
+        {
+            "time": p["startTime"],
+            "temp": f'{p["temperature"]}°{p["temperatureUnit"]}',
+            "wind": f'{p["windDirection"]} {p["windSpeed"]}',
+            "short": p["shortForecast"]
+        }
+        for p in hourly.get("properties", {}).get("periods", [])[:24]
+    ]
+
+    city = pts["properties"]["relativeLocation"]["properties"]["city"]
+    state = pts["properties"]["relativeLocation"]["properties"]["state"]
+
+    return {"location": f"{city}, {state}", "daily": daily_periods, "hourly24": hourly_periods}
+
+print(get_forecast(33.75, -84.39))
+
+Glide (no-code) — fetch daily or hourly
+
+Data → Add Column → Fetch JSON
+
+URL (daily via points, two-step in Glide):
+
+First column (Points URL):
+https://api.weather.gov/points/33.75,-84.39
+
+From that JSON, map properties.forecast into a second Fetch JSON column as the URL.
+
+In the second fetch, map fields like:
+
+properties.periods[0].name
+
+properties.periods[0].temperature
+
+properties.periods[0].temperatureUnit
+
+properties.periods[0].shortForecast
+
+properties.periods[0].icon
+
+Headers → add
+
+Key: User-Agent
+
+Value: DisasterDirectApp (support@strategiclandmgmt.com)
+
+Tip: Repeat with properties.forecastHourly for an hourly table or chart.
+
+(Optional) Direct gridpoints route
+
+If you already know grid info (from the Points response):
+
+https://api.weather.gov/gridpoints/{gridId}/{gridX},{gridY}/forecast
+https://api.weather.gov/gridpoints/{gridId}/{gridX},{gridY}/forecast/hourly
+
+
+(Example for Atlanta area might be gridId=FFC, but always resolve via /points first.)
+
+Combine Alerts + Forecast in your app
+
+Alerts (state-wide GA):
+https://api.weather.gov/alerts/active?area=GA
+
+Forecast (per user’s GPS):
+Resolve via /points/{lat},{lon} → call forecast and/or forecastHourly.
+
+Show both on one screen:
+
+Top: Active alerts list (headline → detail)
+
+Middle: Today/Tonight cards from periods[0..1]
+
+Bottom: Hourly chart (next 24h temps from hourly periods)
