@@ -50,6 +50,7 @@ import { apiRequest } from '@/lib/queryClient';
 import { UnifiedAssistant } from '@/components/UnifiedAssistant';
 import { UniversalAIAssistant } from '@/components/UniversalAIAssistant';
 import { ComprehensiveIntelligenceSystem } from '@/components/ComprehensiveIntelligenceSystem';
+import VoiceGuide, { VoiceExplanation } from '@/components/VoiceGuide';
 
 interface SurveillanceData {
   cameras: CameraFeed[];
@@ -110,6 +111,37 @@ interface SurveillanceStats {
   coverageArea: string;
 }
 
+// Voice guide explanation for Surveillance Center
+const SURVEILLANCE_EXPLANATION: Record<string, VoiceExplanation> = {
+  surveillance: {
+    id: 'surveillance',
+    portal: 'surveillance',
+    title: 'Surveillance Center - Unified Monitoring Portal',
+    content: `Welcome to the Surveillance Center, your unified monitoring portal that consolidates all surveillance capabilities in one place. This command center provides real-time access to traffic cameras, drone operations, storm monitoring cameras, and contractor opportunity detection. View live camera feeds from multiple states, track active drone missions with battery levels and flight paths, and monitor storm conditions through community cameras. The system automatically identifies contractor opportunities from camera footage, showing you damaged areas, trees down, flooding, and power outages with estimated repair values. Everything you need to monitor storm situations and identify business opportunities is centralized here for maximum efficiency.`,
+    keyFeatures: [
+      'Live traffic cameras from multiple states with real-time feeds',
+      'Active drone fleet monitoring with battery, altitude, and mission tracking',
+      'Storm monitoring cameras from affected communities',
+      'Automatic contractor opportunity detection from video feeds',
+      'Real-time incident tracking with severity levels and estimated values',
+      'Grid and list view modes for flexible monitoring',
+      'Search and filter capabilities across all surveillance sources',
+      'Unified portal eliminating multiple separate surveillance pages'
+    ],
+    navigation: 'Use the Overview tab to see all surveillance at a glance. Switch to Traffic Cameras to view live state DOT feeds. The Drones tab shows active missions and flight status. Storm Cameras displays community monitoring feeds. Filter by type or search for specific locations.',
+    benefits: [
+      'Single unified portal for all surveillance needs',
+      'Real-time opportunity detection and alerts',
+      'Multi-state camera coverage with instant access',
+      'Drone fleet coordination and mission tracking',
+      'Automatic damage assessment from video feeds',
+      'Faster response to contractor opportunities',
+      'Centralized monitoring reduces missed opportunities'
+    ],
+    duration: 60
+  }
+};
+
 /**
  * SurveillanceCenter - Unified portal consolidating Cameras, EyesInSky, Drones, and StormShareCam
  * Eliminates the confusion of multiple separate surveillance pages
@@ -121,7 +153,6 @@ export default function SurveillanceCenter() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [isVoiceGuideActive, setIsVoiceGuideActive] = useState(false);
 
   // Fetch surveillance data
   const { data: surveillanceData, isLoading } = useQuery<SurveillanceData>({
@@ -257,51 +288,6 @@ export default function SurveillanceCenter() {
     console.log('⚠️ Falling back to mock data - API may be loading');
   }
 
-  const startVoiceGuide = () => {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
-      console.warn('Speech synthesis not supported in this browser');
-      return;
-    }
-
-    setIsVoiceGuideActive(true);
-    window.speechSynthesis.cancel();
-    
-    const utterance = new SpeechSynthesisUtterance(`
-      Welcome to the Surveillance Center. This unified portal consolidates all your monitoring capabilities. 
-      You can view traffic cameras, manage drone operations, monitor storm share cameras, and track contractor opportunities 
-      all from one central location. Use the tabs to switch between different surveillance modes.
-    `);
-    
-    utterance.rate = 0.9;
-    utterance.pitch = 1.0;
-    utterance.volume = 0.8;
-    
-    // Prefer natural female voices
-    const voices = window.speechSynthesis.getVoices();
-    if (voices.length > 0) {
-      const femaleVoice = voices.find(voice => 
-        voice.lang.includes('en') && 
-        (voice.name.toLowerCase().includes('female') || 
-         voice.name.toLowerCase().includes('zira') ||
-         voice.name.toLowerCase().includes('samantha') ||
-         voice.name.toLowerCase().includes('google uk') ||
-         voice.name.toLowerCase().includes('fiona'))
-      );
-      utterance.voice = femaleVoice || voices.find(voice => voice.lang.includes('en')) || voices[0];
-    }
-    
-    utterance.onend = () => setIsVoiceGuideActive(false);
-    utterance.onerror = () => setIsVoiceGuideActive(false);
-    
-    window.speechSynthesis.speak(utterance);
-  };
-
-  const stopVoiceGuide = () => {
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-    }
-    setIsVoiceGuideActive(false);
-  };
 
   const filteredCameras = currentData.cameras.filter(camera => {
     const matchesSearch = camera.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -375,24 +361,11 @@ export default function SurveillanceCenter() {
           </div>
           
           <div className="flex items-center space-x-3">
-            <Button
-              onClick={isVoiceGuideActive ? stopVoiceGuide : startVoiceGuide}
-              variant={isVoiceGuideActive ? "destructive" : "outline"}
-              className="flex items-center space-x-2"
-              data-testid="button-voice-guide"
-            >
-              {isVoiceGuideActive ? (
-                <>
-                  <VolumeX className="w-4 h-4" />
-                  <span>Stop Guide</span>
-                </>
-              ) : (
-                <>
-                  <Volume2 className="w-4 h-4" />
-                  <span>Voice Guide</span>
-                </>
-              )}
-            </Button>
+            <VoiceGuide 
+              currentPortal="surveillance"
+              explanations={SURVEILLANCE_EXPLANATION}
+              className="relative"
+            />
 
             <Button
               onClick={() => window.location.reload()}
