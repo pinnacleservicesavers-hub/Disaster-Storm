@@ -1,0 +1,151 @@
+Disaster Direct – Aggregator/analyzer (replit Mvp)
+· python
+"""
+    frm = os.getenv("TWILIO_FROM")
+    if not (sid and tok and frm):
+        return
+    phones = sms_list_get()
+    if not phones:
+        return
+    try:
+        # Minimal Twilio REST without SDK using HTTP basic auth
+        msg = (
+            f"DisasterDirect Alert: risk={summary.get('risk_score')} "
+            f"parcels={','.join([p['name'] for p in summary.get('impacted_parcels', [])]) or 'none'} "
+            f"@ ({summary['query']['lat']},{summary['query']['lon']})"
+        )
+        async with httpx.AsyncClient(timeout=10.0, auth=(sid, tok)) as client:
+            for to in phones:
+                data = {"To": to, "From": frm, "Body": msg}
+                url = f"https://api.twilio.com/2010-04-01/Accounts/{sid}/Messages.json"
+                await client.post(url, data=data)
+    except Exception as e:
+        print("sms error:", e)
+
+
+
+
+# -----------------------------
+# Demo parcel seed: Dallas sample polygons
+# -----------------------------
+
+
+DALLAS_SAMPLE = {
+  "type": "FeatureCollection",
+  "features": [
+    {"type":"Feature","properties":{"owner":"Sample A"},
+     "geometry":{"type":"Polygon","coordinates":[[[-96.85,32.82],[-96.82,32.82],[-96.82,32.80],[-96.85,32.80],[-96.85,32.82]]]}},
+    {"type":"Feature","properties":{"owner":"Sample B"},
+     "geometry":{"type":"Polygon","coordinates":[[[-96.82,32.80],[-96.79,32.80],[-96.79,32.78],[-96.82,32.78],[-96.82,32.80]]]}},
+    {"type":"Feature","properties":{"owner":"Sample C"},
+     "geometry":{"type":"Polygon","coordinates":[[[-96.81,32.83],[-96.78,32.83],[-96.78,32.81],[-96.81,32.81],[-96.81,32.83]]]}},
+  ]
+}
+
+
+
+
+@app.post("/seed/dallas")
+async def seed_dallas():
+    pid = parcels_add("Dallas Sample Parcels", json.dumps(DALLAS_SAMPLE))
+    return {"ok": True, "parcel_id": pid, "count": len(DALLAS_SAMPLE["features"])}
+
+
+
+
+# Hook maybe_fire_webhook into aggregate (send summary)
+# We call it here by overriding aggregate return (non-blocking fire)
+orig_aggregate = aggregate
+
+
+@app.get("/aggregate_with_alerts")
+async def aggregate_with_alerts(lat: float = Query(..., ge=-90, le=90), lon: float = Query(..., ge=-180, le=180), radius_km: float = Query(25.0, gt=0, le=500), hours_back: int = Query(72, ge=1, le=720)):
+    resp = await orig_aggregate(lat=lat, lon=lon, radius_km=radius_km, hours_back=hours_back)  # type: ignore
+    summary = {
+        "risk_score": resp.risk_score,
+        "impacted_parcels": resp.impacted_parcels,
+        "query": {"lat": lat, "lon": lon, "radius_km": radius_km, "hours_back": hours_back},
+        "generated_at": now_utc().isoformat(),
+    }
+    try:
+        await maybe_fire_webhook(summary)
+    except Exception as e:
+        print("webhook fire err:", e)
+    return resp
+
+
+
+
+# -----------------------------
+# requirements.txt (create a separate file)
+# fastapi==0.115.0
+# uvicorn==0.30.6
+# httpx==0.27.2
+# pydantic==2.9.2
+# shapely==2.0.6
+
+
+
+Locked and loaded. I added both Twilio SMS alerts and event polygons on the map.
+
+What’s new
+1) Twilio SMS crew alerts
+
+Env vars (add in Replit → Secrets):
+
+TWILIO_ACCOUNT_SID
+
+TWILIO_AUTH_TOKEN
+
+TWILIO_FROM (your Twilio phone number, E.164 format like +15551234567)
+
+Manage recipients:
+
+Add: POST /sms with JSON {"phone":"+15555550123"}
+
+Remove: DELETE /sms with JSON {"phone":"+15555550123"}
+
+Check config: GET /alerts (lists webhook threshold + registered phones)
+
+When you call /aggregate_with_alerts?..., if the risk_score ≥ threshold, the app will:
+
+POST to your webhook (if configured), and
+
+Text all saved numbers with a short alert message.
+
+Example:
+
+# add phones
+curl -X POST http://localhost:8000/sms -H "Content-Type: application/json" -d '{"phone":"+15555550123"}'
+curl -X POST http://localhost:8000/sms -H "Content-Type: application/json" -d '{"phone":"+15555550124"}'
+
+# set webhook + threshold (optional)
+curl -X POST http://localhost:8000/alerts -H "Content-Type: application/json" -d '{"url":"https://hooks.zapier.com/xxx","threshold":60}'
+
+# trigger run that may fire SMS + webhook
+curl "http://localhost:8000/aggregate_with_alerts?lat=32.7767&lon=-96.7970&radius_km=25&hours_back=72"
+
+2) Event polygons on the map
+
+NWS alerts already return geometries; these now render directly.
+
+USGS earthquakes show points (buffered to visualize vicinity).
+
+Tomorrow.io data still returns point-based “hyperlocal” events in the MVP, but the map supports polygons automatically as you add providers that return swaths/footprints.
+
+The map endpoints:
+
+/events.geojson
+
+/parcels.geojson
+
+/impacted.geojson
+
+3) Dallas sample data (for quick demo)
+
+Seed a few polygons:
+
+curl -X POST http://localhost:8000/seed/dallas
+
+
+Open the dashboard /, click Run, and you’ll see parcels + events + impacted highlights.

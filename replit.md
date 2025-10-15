@@ -115,6 +115,12 @@ Preferred communication style: Simple, everyday language.
   - **Service**: `tomorrowService` integrated into Disaster Aggregator
   - **Features**: Hail intensity forecasts, wind gust predictions, severe weather event detection
   - **API Key**: Requires `TOMORROW_API_KEY` environment variable
+  - **API Routes**:
+    - `/api/tomorrow/weather` - Comprehensive weather intelligence (hail, wind, alerts)
+    - `/api/tomorrow/hail` - Hail footprint data only
+    - `/api/tomorrow/wind` - Wind footprint data only
+    - `/api/tomorrow/alerts` - Weather alerts only
+    - `/api/tomorrow/health` - Service health check
 
 ### Payment & Legal Integration
 - **Stripe**: Payment processing.

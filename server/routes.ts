@@ -60,6 +60,7 @@ import { registerGrokAIRoutes } from "./routes/grokAIRoutes";
 import { registerEagleViewRoutes } from "./routes/eagleViewRoutes";
 import ambeeRoutes from "./routes/ambeeRoutes";
 import xweatherRoutes from "./routes/xweatherRoutes";
+import tomorrowRoutes from "./routes/tomorrowRoutes";
 import { VoiceAIService } from "./services/voiceAI";
 import { weatherAI } from "./services/weatherAI.js";
 import { universalAI } from "./services/universalAI.js";
@@ -455,6 +456,10 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
 
   // ---- Xweather Storm Intelligence Routes ----
   app.use('/api/xweather', xweatherRoutes);
+
+  // ---- Tomorrow.io Weather Intelligence Routes ----
+  app.use('/api/tomorrow', tomorrowRoutes);
+  console.log('🌤️ Tomorrow.io weather intelligence routes registered');
 
   // ---- AI Intelligence Orchestrator Routes ----
   const aiIntelligenceRoutes = await import('./routes/aiIntelligenceRoutes.js');

@@ -1,0 +1,151 @@
+Disaster Direct – Aggregator/analyzer (replit Mvp)
+· python
+    c.save()
+        return
+    url, threshold = cfg
+    try:
+        if float(summary.get("risk_score", 0)) >= float(threshold):
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                await client.post(url, json=summary)
+    except Exception as e:
+        print("webhook error:", e)
+
+
+
+
+async def maybe_send_sms(summary: Dict[str, Any]):
+    # Env vars: TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM
+    sid = os.getenv("TWILIO_ACCOUNT_SID")
+    tok = os.getenv("TWILIO_AUTH_TOKEN")
+    frm = os.getenv("TWILIO_FROM")
+    if not (sid and tok and frm):
+        return
+    phones = sms_list_get()
+    if not phones:
+        return
+    try:
+        # Minimal Twilio REST without SDK using HTTP basic auth
+        msg = (
+            f"DisasterDirect Alert: risk={summary.get('risk_score')} "
+            f"parcels={','.join([p['name'] for p in summary.get('impacted_parcels', [])]) or 'none'} "
+            f"@ ({summary['query']['lat']},{summary['query']['lon']})"
+        )
+        async with httpx.AsyncClient(timeout=10.0, auth=(sid, tok)) as client:
+            for to in phones:
+                data = {"To": to, "From": frm, "Body": msg}
+                url = f"https://api.twilio.com/2010-04-01/Accounts/{sid}/Messages.json"
+                await client.post(url, data=data)
+    except Exception as e:
+        print("sms error:", e)
+
+
+
+
+# -----------------------------
+# Demo parcel seed: Dallas sample polygons
+# -----------------------------
+
+
+DALLAS_SAMPLE = {
+  "type": "FeatureCollection",
+  "features": [
+    {"type":"Feature","properties":{"owner":"Sample A"},
+     "geometry":{"type":"Polygon","coordinates":[[[-96.85,32.82],[-96.82,32.82],[-96.82,32.80],[-96.85,32.80],[-96.85,32.82]]]}},
+    {"type":"Feature","properties":{"owner":"Sample B"},
+     "geometry":{"type":"Polygon","coordinates":[[[-96.82,32.80],[-96.79,32.80],[-96.79,32.78],[-96.82,32.78],[-96.82,32.80]]]}},
+    {"type":"Feature","properties":{"owner":"Sample C"},
+     "geometry":{"type":"Polygon","coordinates":[[[-96.81,32.83],[-96.78,32.83],[-96.78,32.81],[-96.81,32.81],[-96.81,32.83]]]}},
+  ]
+}
+
+
+
+
+@app.post("/seed/dallas")
+async def seed_dallas():
+    pid = parcels_add("Dallas Sample Parcels", json.dumps(DALLAS_SAMPLE))
+    return {"ok": True, "parcel_id": pid, "count": len(DALLAS_SAMPLE["features"])}
+
+
+
+
+# Hook maybe_fire_webhook into aggregate (send summary)
+# We call it here by overriding aggregate return (non-blocking fire)
+orig_aggregate = aggregate
+
+
+@app.get("/aggregate_with_alerts")
+async def aggregate_with_alerts(lat: float = Query(..., ge=-90, le=90), lon: float = Query(..., ge=-180, le=180), radius_km: float = Query(25.0, gt=0, le=500), hours_back: int = Query(72, ge=1, le=720)):
+    resp = await orig_aggregate(lat=lat, lon=lon, radius_km=radius_km, hours_back=hours_back)  # type: ignore
+    summary = {
+        "risk_score": resp.risk_score,
+        "impacted_parcels": resp.impacted_parcels,
+        "query": {"lat": lat, "lon": lon, "radius_km": radius_km, "hours_back": hours_back},
+        "generated_at": now_utc().isoformat(),
+    }
+    try:
+        await maybe_fire_webhook(summary)
+    except Exception as e:
+        print("webhook fire err:", e)
+    return resp
+
+
+
+
+# -----------------------------
+# requirements.txt (create a separate file)
+# fastapi==0.115.0
+# uvicorn==0.30.6
+# httpx==0.27.2
+# pydantic==2.9.2
+# shapely==2.0.6
+
+
+
+All set — I added both upgrades:
+
+1) Hail/Wind swath approximation (polygons)
+
+Your Tomorrow.io provider now buffers around the query point per hourly timestep using a heuristic radius derived from wind gust + hail size.
+
+Result: events come through as polygons (when shapely is available), so you get visible swaths on the map and proper parcel intersections.
+
+No config change needed beyond your TOMORROWIO_API_KEY.
+
+2) PDF Parcel Report endpoint
+
+New route:
+
+GET /report/parcel/{parcel_id}?lat=...&lon=...&radius_km=25&hours_back=168
+
+
+It aggregates recent events, computes intersections with the chosen parcel, and generates a print-ready PDF using ReportLab.
+
+Returns inline so your browser can open it. Great for adjusters/insurers as attachment evidence.
+
+Try it quickly
+
+Seed demo parcels:
+
+curl -X POST http://localhost:8000/seed/dallas
+
+
+Run an aggregate to populate events:
+
+curl "http://localhost:8000/aggregate?lat=32.7767&lon=-96.7970&radius_km=25&hours_back=72"
+
+
+Generate a PDF for the new parcel id (replace 1 with the returned id):
+
+http://localhost:8000/report/parcel/1?lat=32.7767&lon=-96.7970&radius_km=25&hours_back=168
+
+Update your requirements
+
+Add ReportLab:
+
+fastapi==0.115.0
+uvicorn==0.30.6
+httpx==0.27.2
+pydantic==2.9.2
+shapely==2.0.6
+reportlab==4.2.2
