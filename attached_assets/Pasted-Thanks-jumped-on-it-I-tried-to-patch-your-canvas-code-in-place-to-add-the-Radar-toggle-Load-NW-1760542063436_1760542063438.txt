@@ -1,0 +1,248 @@
+Thanks—jumped on it. I tried to patch your canvas code in-place to add:
+
+the Radar toggle + “Load NWS Alerts” toolbar above the map,
+
+the “Download PDF Pack (zip)” link (and auto-download) in the Schedule Test panel,
+
+fixes to the broken CSV joins,
+
+and to un-nest renderSchedules() from inside addSchedule().
+
+However, the automated patch failed because a couple of exact-match selectors didn’t line up with your latest file (the <div id="map" class="card"></div> segment isn’t an exact match anymore, and the checkbox line had a slightly different shape). No changes were applied.
+
+Here’s a clean, copy-paste set you can drop into your existing file (this matches the current canvas you posted). It’s grouped so you can paste quickly.
+
+1) Daily Scheduler: fix the global auto-download checkbox
+
+Find this line (notice the stray $1):
+
+<input type="checkbox" id="autoCsvGlobal"$1 checked> Auto-download CSVs after Test
+
+
+Replace with:
+
+<input type="checkbox" id="autoCsvGlobal" checked> Auto-download CSVs after Test
+
+2) Add toolbar above the map (Radar toggle + NWS button)
+
+In the Map card, right after the row with “Draw Zone / Save Zone / Zone name / Refresh Zones”, insert this block before the map <div>:
+
+<div style="display:flex;gap:10px;align-items:center;margin:6px 0 8px 0">
+  <label style="user-select:none">
+    <input type="checkbox" id="radarToggle" checked onchange="toggleRadar(this)"> Radar
+  </label>
+  <button onclick="loadNWS()">Load NWS Alerts</button>
+</div>
+
+3) Replace the Radar/NWS JS with a real toggle
+
+In your <script>, find the section that starts with:
+
+// --- Radar + NWS controls ---
+let radarLayer = null; let nwsLayer = null;
+function ensureRadar(){
+  if(!radarLayer){
+    radarLayer = L.tileLayer('https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png', {opacity:0.6});
+    if(window.map){ radarLayer.addTo(window.map); }
+  }
+}
+async function loadNWS(){ ... }
+setTimeout(ensureRadar, 1500);
+
+
+Replace all of that block with:
+
+// --- Radar + NWS controls ---
+let radarLayer = null; let nwsLayer = null;
+
+function toggleRadar(cb){
+  try{
+    if(!radarLayer){
+      radarLayer = L.tileLayer(
+        'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png',
+        {opacity:0.6}
+      );
+    }
+    if(cb && cb.checked){ radarLayer.addTo(map); }
+    else { if(radarLayer){ map.removeLayer(radarLayer); } }
+  }catch(e){ console.log('radar toggle failed', e); }
+}
+function ensureRadar(){
+  const cb = document.getElementById('radarToggle');
+  if(cb){ toggleRadar(cb); }
+}
+async function loadNWS(){
+  try{
+    const gj = await (await fetch('/nws.geojson')).json();
+    if(!nwsLayer){
+      nwsLayer = L.geoJSON(null, {
+        style:{color:'#ff0000', weight:2},
+        onEachFeature:(f,l)=>l.bindPopup(f.properties && (f.properties.event||'NWS Alert'))
+      });
+    }
+    nwsLayer.clearLayers(); nwsLayer.addData(gj); nwsLayer.addTo(map);
+  }catch(e){ console.log('NWS load failed', e); }
+}
+setTimeout(ensureRadar, 600);
+
+4) Add “Download PDF Pack (zip)” and auto-download in the Test panel
+
+Find testSchedule(...) and replace just the HTML bit where the two CSV links are built with this:
+
+base.innerHTML = `<div><strong>Schedule #${id} result</strong>${j.run_id?` — Run #${j.run_id}`:''}</div>`+
+  (j.run_id?`<div style="margin:6px 0;">
+     <a href="/runs/${j.run_id}/events.csv" target="_blank">Download Events CSV</a>
+     &nbsp;|
+     <a href="/runs/${j.run_id}/impacted.csv" target="_blank">Download Impacted CSV</a>
+     &nbsp;|
+     <a href="/runs/${j.run_id}/pdfs.zip" target="_blank">Download PDF Pack (zip)</a>
+   </div>`:'');
+
+
+Then, in the same function, inside the
+
+if(useAuto && j && j.run_id){
+  // existing CSV auto-download...
+}
+
+
+block, extend it to also download the ZIP:
+
+if(useAuto && j && j.run_id){
+  const ev = document.createElement('a'); ev.href = `/runs/${j.run_id}/events.csv`; ev.download = '';
+  const im = document.createElement('a'); im.href = `/runs/${j.run_id}/impacted.csv`; im.download = '';
+  document.body.appendChild(ev); document.body.appendChild(im);
+  ev.click(); setTimeout(()=>im.click(), 250);
+  // also auto-download PDF pack
+  setTimeout(()=>{
+    const z = document.createElement('a');
+    z.href = `/runs/${j.run_id}/pdfs.zip`; z.download = '';
+    document.body.appendChild(z); z.click();
+    setTimeout(()=>z.remove(), 500);
+  }, 600);
+  setTimeout(()=>{ ev.remove(); im.remove(); }, 1000);
+}
+
+5) Un-nest renderSchedules() (and fix addSchedule())
+
+Right now renderSchedules() is accidentally inside addSchedule(). Replace the whole block starting at:
+
+async function addSchedule(){
+  ...
+  if((!lat || !lon) && addr){
+    ...
+  }
+  async function renderSchedules(){
+    ...
+  }
+
+
+through the closing } of that inner renderSchedules() with this pair of top-level functions:
+
+async function addSchedule(){
+  const name = document.getElementById('sch_name').value || 'Daily Job';
+  let lat = document.getElementById('sch_lat').value;
+  let lon = document.getElementById('sch_lon').value;
+  const addr = document.getElementById('sch_addr').value;
+  const zone = document.getElementById('sch_zone') ? document.getElementById('sch_zone').value : '';
+  if((!lat || !lon) && addr){
+    const g = await (await fetch('/geocode?q='+encodeURIComponent(addr))).json();
+    if(g && g.lat && g.lon){ lat = g.lat; lon = g.lon; }
+  }
+  const rad = document.getElementById('sch_rad').value || 25;
+  const hrs = document.getElementById('sch_hrs').value || 72;
+  const th  = document.getElementById('sch_thresh').value || 60;
+  const wh  = document.getElementById('sch_wh')?.value || '';
+  const sms = document.getElementById('sch_sms')?.value || '';
+  const parcelsSel = document.getElementById('sch_parcels');
+  const parcel_ids = Array.from(parcelsSel?.selectedOptions || []).map(o=>parseInt(o.value)).filter(Boolean);
+
+  const r = await fetch(`/schedules`, {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({
+      name,
+      lat: lat?parseFloat(lat):null,
+      lon: lon?parseFloat(lon):null,
+      radius_km: rad?parseFloat(rad):null,
+      hours_back: parseInt(hrs),
+      threshold: parseFloat(th),
+      zone_id: zone?parseInt(zone):null,
+      webhook_url: wh||null,
+      sms_csv: sms||null,
+      parcel_ids
+    })
+  });
+  const j = await r.json();
+  alert('Added schedule #'+j.id);
+  renderSchedules();
+}
+
+async function renderSchedules(){
+  const r = await fetch('/schedules');
+  const j = await r.json();
+  const el = document.getElementById('schedules');
+  el.innerHTML = '';
+  const ul = document.createElement('ul');
+  (j||[]).forEach(it=>{
+    const li = document.createElement('li');
+    const z = it.zone_id ? `zone#${it.zone_id}` : `lat:${it.lat}, lon:${it.lon}, r:${it.radius_km}km`;
+    const ptxt = it.parcel_ids ? `, parcels:[${it.parcel_ids}]` : '';
+    li.innerHTML = `#${it.id} ${it.name} — ${z}, last ${it.hours_back}h, thr ${it.threshold}${ptxt} `+
+      (it.webhook_url?`(wh override) `:'') + (it.sms_csv?`(sms override) `:'') +
+      `[ <a href=\"#\" onclick=\"testSchedule(${it.id},0,0);return false;\">Test</a> | `+
+      `<a href=\"#\" onclick=\"testSchedule(${it.id},1,0);return false;\">Test+Notify</a> | `+
+      `<a href=\"#\" onclick=\"testSchedule(${it.id},0,1);return false;\">Test+CSV</a> | `+
+      `<a href=\"#\" onclick=\"testSchedule(${it.id},1,1);return false;\">Test+Notify+CSV</a> | `+
+      `<a href=\"#\" onclick=\"cloneSchedule(${it.id});return false;\">clone</a> | `+
+      `<a href=\"#\" onclick=\"deleteSchedule(${it.id});return false;\">delete</a> ]`;
+    ul.appendChild(li);
+  });
+  el.appendChild(ul);
+}
+
+
+(Leave your existing async function deleteSchedule(id){...} as-is; it will now call the global renderSchedules().)
+
+6) Fix every CSV “join” that broke across lines
+
+Search and replace the following patterns wherever they show up:
+
+Replace:
+
+csv = "
+".join(lines)
+
+
+with:
+
+csv = "\n".join(lines)
+
+
+In the ZIP builder (/runs/{run_id}/pdfs.zip), replace:
+
+zf.writestr("events.csv", "
+".join(lines))
+zf.writestr("impacted.csv", "
+".join(lines2))
+
+
+with:
+
+zf.writestr("events.csv", "\n".join(lines))
+zf.writestr("impacted.csv", "\n".join(lines2))
+
+
+Do the above in:
+
+schedules_csv()
+
+/export/events.csv
+
+/export/impacted.csv
+
+/runs/{run_id}/events.csv
+
+/runs/{run_id}/impacted.csv
+
+/runs/{run_id}/pdfs.zip
