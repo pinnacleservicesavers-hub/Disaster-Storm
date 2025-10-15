@@ -1,0 +1,193 @@
+Disaster Direct – Aggregator/analyzer (replit Mvp)
+· python
+"""
+    data = run_get(run_id)
+    if not data:
+        raise HTTPException(status_code=404, detail="Run not found")
+    return data
+
+
+@app.get("/runs/{run_id}/events.csv")
+async def runs_events_csv(run_id: int):
+    data = run_get(run_id)
+    if not data:
+        raise HTTPException(status_code=404, detail="Run not found")
+    lines = ["source,event_type,severity,headline,start_time,description"]
+    def esc(s):
+        if s is None: return ""
+        return str(s).replace('"','""')
+    for e in data.get("events", []):
+        lines.append(f'"{esc(e.get("source"))}","{esc(e.get("event_type"))}","{esc(e.get("severity"))}","{esc(e.get("headline"))}","{esc(e.get("start_time"))}","{esc(e.get("description"))}"')
+    csv = "
+".join(lines)  # fixed newline join  # fixed newline join
+    return PlainTextResponse(csv, media_type="text/csv", headers={"Content-Disposition": f"attachment; filename=run_{run_id}_events.csv"})
+
+
+@app.get("/runs/{run_id}/impacted.csv")
+async def runs_impacted_csv(run_id: int):
+    data = run_get(run_id)
+    if not data:
+        raise HTTPException(status_code=404, detail="Run not found")
+    lines = ["parcel_id,name"]
+    def escq(s):
+        return str(s).replace('"','""') if s is not None else ""
+    for p in data.get("impacted", []):
+        lines.append(f'{p.get("parcel_id")},"{escq(p.get("name",""))}"')
+    csv = "
+".join(lines)  # fixed newline join  # fixed newline join
+    return PlainTextResponse(csv, media_type="text/csv", headers={"Content-Disposition": f"attachment; filename=run_{run_id}_impacted.csv"})
+
+
+# -----------------------------
+# Demo parcel seed: Dallas sample polygons
+# -----------------------------
+
+
+DALLAS_SAMPLE = {
+  "type": "FeatureCollection",
+  "features": [
+    {"type":"Feature","properties":{"owner":"Sample A"},
+     "geometry":{"type":"Polygon","coordinates":[[[-96.85,32.82],[-96.82,32.82],[-96.82,32.80],[-96.85,32.80],[-96.85,32.82]]]}},
+    {"type":"Feature","properties":{"owner":"Sample B"},
+     "geometry":{"type":"Polygon","coordinates":[[[-96.82,32.80],[-96.79,32.80],[-96.79,32.78],[-96.82,32.78],[-96.82,32.80]]]}},
+    {"type":"Feature","properties":{"owner":"Sample C"},
+     "geometry":{"type":"Polygon","coordinates":[[[-96.81,32.83],[-96.78,32.83],[-96.78,32.81],[-96.81,32.81],[-96.81,32.83]]]}},
+  ]
+}
+
+
+
+
+@app.post("/seed/dallas")
+async def seed_dallas():
+    pid = parcels_add("Dallas Sample Parcels", json.dumps(DALLAS_SAMPLE))
+    return {"ok": True, "parcel_id": pid, "count": len(DALLAS_SAMPLE["features"])}
+
+
+
+
+# Hook maybe_fire_webhook into aggregate (send summary)
+# We call it here by overriding aggregate return (non-blocking fire)
+orig_aggregate = aggregate
+
+
+@app.get("/aggregate_with_alerts")
+async def aggregate_with_alerts(lat: float = Query(..., ge=-90, le=90), lon: float = Query(..., ge=-180, le=180), radius_km: float = Query(25.0, gt=0, le=500), hours_back: int = Query(72, ge=1, le=720)):
+    resp = await orig_aggregate(lat=lat, lon=lon, radius_km=radius_km, hours_back=hours_back)  # type: ignore
+    summary = {
+        "risk_score": resp.risk_score,
+        "impacted_parcels": resp.impacted_parcels,
+        "query": {"lat": lat, "lon": lon, "radius_km": radius_km, "hours_back": hours_back},
+        "generated_at": now_utc().isoformat(),
+    }
+    try:
+        await maybe_fire_webhook(summary)
+    except Exception as e:
+        print("webhook fire err:", e)
+    return resp
+
+
+
+
+# -----------------------------
+# requirements.txt (create a separate file)
+# fastapi==0.115.0
+# uvicorn==0.30.6
+# httpx==0.27.2
+# pydantic==2.9.2
+# shapely==2.0.6
+
+
+
+I tried to add all three UI bits directly to your canvas, but the automated patch couldn’t find the exact toolbar markup near the map (the selector didn’t match your current HTML), so the changes didn’t apply. No worries—here are quick, copy-paste snippets to land each item cleanly.
+
+1) Map toolbar (Radar checkbox + NWS button)
+
+Place this just above the <div id="map"> element:
+
+<div style="display:flex;gap:10px;align-items:center;margin-bottom:6px">
+  <label style="user-select:none">
+    <input type="checkbox" id="radarToggle" checked onchange="toggleRadar(this)">
+    Radar
+  </label>
+  <button onclick="loadNWS()">Load NWS Alerts</button>
+</div>
+
+
+In your <script> (or wherever your map JS lives), add/replace this block:
+
+// --- Radar + NWS controls ---
+let radarLayer = null;
+let nwsLayer = null;
+
+function toggleRadar(cb){
+  try{
+    if(!radarLayer){
+      radarLayer = L.tileLayer(
+        'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png',
+        { opacity: 0.6 }
+      );
+    }
+    if(cb && cb.checked){ radarLayer.addTo(map); }
+    else { if(radarLayer){ map.removeLayer(radarLayer); } }
+  }catch(e){ console.log('radar toggle failed', e); }
+}
+
+function ensureRadar(){
+  const cb = document.getElementById('radarToggle');
+  if(cb){ toggleRadar(cb); }
+}
+
+async function loadNWS(){
+  try{
+    const gj = await (await fetch('/nws.geojson')).json();
+    if(!nwsLayer){
+      nwsLayer = L.geoJSON(null, {
+        style:{color:'#ff0000', weight:2},
+        onEachFeature:(f,l)=>l.bindPopup(f.properties && (f.properties.event || 'NWS Alert'))
+      });
+    }
+    nwsLayer.clearLayers();
+    nwsLayer.addData(gj);
+    nwsLayer.addTo(map);
+  }catch(e){ console.log('NWS load failed', e); }
+}
+
+// after your map init runs, keep radar in sync with checkbox
+setTimeout(ensureRadar, 600);
+
+
+This reintroduces the toggle you asked for. Radar defaults to ON via the checked checkbox, but can be toggled off.
+
+2) “Download PDF Pack (zip)” link in the Schedule Test output
+
+Find the testSchedule(...) function where you build the links after a run finishes. In the part where you already insert the two CSV links, add the PDF link:
+
+base.innerHTML = `<div><strong>Schedule #${id} result</strong>${j.run_id?` — Run #${j.run_id}`:''}</div>`+
+  (j.run_id?`<div style="margin:6px 0;">
+     <a href="/runs/${j.run_id}/events.csv" target="_blank">Download Events CSV</a>
+     &nbsp;|
+     <a href="/runs/${j.run_id}/impacted.csv" target="_blank">Download Impacted CSV</a>
+     &nbsp;|
+     <a href="/runs/${j.run_id}/pdfs.zip" target="_blank">Download PDF Pack (zip)</a>
+   </div>`:'');
+
+
+You already have the server route: GET /runs/{run_id}/pdfs.zip (created earlier). This zips a summary + both CSVs as an MVP. We can upgrade to per-parcel PDFs later.
+
+3) (Optional) Auto-download the zip too
+
+If you want the PDF pack to auto-download whenever the CSVs auto-download (when your global Auto-download CSVs after Test checkbox is on), add the following inside testSchedule(...) right after the CSV auto-download block:
+
+if(useAuto && j && j.run_id){
+  // existing auto download for CSVs ...
+  // then also auto download the zip:
+  setTimeout(()=>{
+    const z = document.createElement('a');
+    z.href = `/runs/${j.run_id}/pdfs.zip`;
+    z.download = '';
+    document.body.appendChild(z);
+    z.click();
+    setTimeout(()=>z.remove(), 500);
+  }, 600);
+}
