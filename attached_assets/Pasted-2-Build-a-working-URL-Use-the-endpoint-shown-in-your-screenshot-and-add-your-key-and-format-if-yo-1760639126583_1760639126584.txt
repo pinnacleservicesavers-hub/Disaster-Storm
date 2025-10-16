@@ -1,0 +1,135 @@
+2) Build a working URL
+Use the endpoint shown in your screenshot and add your key (and format if you want JSON explicitly):
+
+https://511ga.org/api/v2/get/cameras?key=YOUR_KEY&format=json
+That returns an array like:
+
+[
+  {
+    "Id": 1,
+    "Source": "IBI_QA",
+    "SourceId": "...",
+    "Roadway": "TestRoadway",
+    "Direction": "Unknown",
+    "Latitude": 34.075607,
+    "Longitude": -84.29459,
+    "Location": "TEST-1",
+    "Views": [
+      {
+        "Id": 3409,
+        "Url": "https://www.511ga.org/map/Cctv/3409",
+        "Status": "Enabled",
+        "Description": "TEST-2",
+        "VideoUrl": "https://vss1live.dot.ga.gov/lo/alph-cam-002.stream/playlist.m3u8",
+        "SortId": 6788
+      }
+    ]
+  },
+  ...
+]
+Key things you’ll use:
+
+Latitude, Longitude, Location → for your map markers
+
+Views[0].Url → web page for that camera
+
+Views[0].VideoUrl → direct stream (often HLS .m3u8) you can play in a video player
+
+3) Store the key in Replit “Secrets”
+In Replit:
+
+Left sidebar → Secrets (lock icon)
+
+Key (name): GA511_API_KEY
+
+Value: paste your developer key
+Then you can access it as an environment variable.
+
+4) Minimal code you can paste
+Node / Express (good if you hit CORS in the browser):
+
+// index.js
+import express from "express";
+import fetch from "node-fetch";
+
+const app = express();
+
+app.get("/api/cameras", async (req, res) => {
+  const url = `https://511ga.org/api/v2/get/cameras?key=${process.env.GA511_API_KEY}&format=json`;
+  const r = await fetch(url);
+  const data = await r.json();
+  res.json(data);
+});
+
+app.listen(3000, () => console.log("Server running on 3000"));
+Front-end fetch (if CORS allows direct calls from your page):
+
+async function loadCameras() {
+  const url = `https://511ga.org/api/v2/get/cameras?key=${import.meta.env.VITE_GA511_API_KEY}&format=json`;
+  const res = await fetch(url);
+  const cams = await res.json();
+  console.log(cams);
+}
+(If you’re not using Vite, just fetch your own /api/cameras from the Express proxy above.)
+
+Python (simple test):
+
+import os, requests
+key = os.getenv("GA511_API_KEY")
+url = f"https://511ga.org/api/v2/get/cameras?key={key}&format=json"
+cams = requests.get(url).json()
+print(cams[:2])  # peek at first two
+5) Show cameras on a map (quick Leaflet snippet)
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
+<div id="map" style="height: 500px"></div>
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+async function run() {
+  const res = await fetch("/api/cameras"); // or direct GA URL if no CORS issues
+  const cams = await res.json();
+
+  const map = L.map('map').setView([33.749, -84.388], 9);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+  cams.forEach(cam => {
+    if (cam.Latitude && cam.Longitude && cam.Views?.length) {
+      const v = cam.Views[0];
+      const popup = `
+        <strong>${cam.Location || cam.Roadway || 'Camera'}</strong><br/>
+        <a href="${v.Url}" target="_blank">Open on 511GA</a><br/>
+        ${v.VideoUrl ? `<video controls width="240" src="${v.VideoUrl}"></video>` : ''}
+      `;
+      L.marker([cam.Latitude, cam.Longitude]).addTo(map).bindPopup(popup);
+    }
+  });
+}
+run();
+</script>
+6) Useful filters (optional)
+Many DOT APIs accept paging or search params. If docs show these, you can add:
+
+start, length for pagination
+
+or filter cameras in your code by county/roadway, or by distance to a lat/lon (for storm targeting).
+
+Example: filter near a point (JavaScript):
+
+function distKm(a,b){ // haversine
+  const R=6371, dLat=(b.lat-a.lat)*Math.PI/180, dLon=(b.lon-a.lon)*Math.PI/180;
+  const la1=a.lat*Math.PI/180, la2=b.lat*Math.PI/180;
+  const x=Math.sin(dLat/2)**2 + Math.cos(la1)*Math.cos(la2)*Math.sin(dLon/2)**2;
+  return 2*R*Math.asin(Math.sqrt(x));
+}
+const center = { lat: 33.75, lon: -84.39 };
+const nearby = cams.filter(c => c.Latitude && c.Longitude && distKm(center,{lat:c.Latitude,lon:c.Longitude}) < 25);
+7) Troubleshooting
+401/403: key missing or wrong ⇒ confirm ?key=... and that your account is approved.
+
+CORS blocked (browser only): call GA511 from your own small server (Express example above) and have your front-end call your server.
+
+No video: some entries may have no VideoUrl or use formats that need an HLS player (e.g., use hls.js to play .m3u8 in most browsers).
+
+8) Heads-up (usage)
+GDOT notes “GDOT does not record video” — typically view only. Check their Terms of Use before redistributing/recording streams.
+
+If you want, tell me which city/corridor you care about (e.g., I-75 Atlanta) and I’ll give you a ready-to-paste filter that pulls only those cameras and shows them on your map.
