@@ -1,0 +1,65 @@
+SS Live Stream (No API—Embed Instead)
+For a simple web view in your disaster app:
+pythonfrom flask import Flask, render_template_string
+
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    html = '''
+    <h1>Live ISS View for Disaster Monitoring</h1>
+    <iframe width="800" height="450" src="https://video.ibm.com/embed/channel/iss-hdev-payload" frameborder="0" allowfullscreen></iframe>
+    <p>Current ISS position via NASA API:</p>
+    '''
+    # Fetch ISS position (NASA's free API)
+    import requests
+    response = requests.get('http://api.open-notify.org/iss-now.json')
+    if response.status_code == 200:
+        data = response.json()
+        html += f'<p>Lat: {data["iss_position"]["latitude"]}, Lon: {data["iss_position"]["longitude"]}</p>'
+    return render_template_string(html)
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=8080)
+Run this—visits your Repl URL show the live feed + position. Enhance with disaster alerts overlaid on the stream.
+NOAA NESDIS Imagery (via AWS S3—Free Bulk Data)
+NOAA hosts GOES data openly on AWS. Use boto3 (Replit has it) to list/download latest images. No key needed for public buckets.
+pythonimport boto3
+from botocore import UNSIGNED
+from botocore.config import Config
+import requests  # For displaying in app
+
+s3 = boto3.client('s3', config=Config(signature_version=UNSIGNED))
+bucket = 'noaa-goes16'  # Example for GOES-16
+prefix = 'ABI-L1b-RadF/2025/001/00/'  # Adjust for current date (e.g., YYYY/DOY/HH/)
+
+response = s3.list_objects_v2(Bucket=bucket, Prefix=prefix)
+if 'Contents' in response:
+    latest_file = response['Contents'][-1]['Key']
+    print(f"Latest image: {latest_file}")
+    # Download URL (public)
+    url = f"https://{bucket}.s3.amazonaws.com/{latest_file}"
+    print(f"Direct link: {url}")  # Use this in your app to fetch/display
+Output: Direct S3 links to .nc files (NetCDF)—convert to PNG via xarray (install via Replit pkg? Wait, no pip; use scipy for basics or fetch pre-rendered from https://www.goes.noaa.gov/). For disasters, filter for storm channels.
+EOSDA Spectator API (Free Key Required)
+Sign up for a key, then query satellite passes (e.g., for disaster zone overflights).
+pythonimport requests
+import json
+import os
+
+API_KEY = os.environ['SPECTATOR_API_KEY']  # Add to Replit Secrets
+url = 'https://api.spectator.earth/v1/satellites/passes'  # Example endpoint for passes
+params = {
+    'lat': 40.7128,  # e.g., NYC for hurricane tracking
+    'lon': -74.0060,
+    'days': 1,  # Next 24h
+    'api_key': API_KEY
+}
+
+response = requests.get(url, params=params)
+if response.status_code == 200:
+    data = response.json()
+    print(json.dumps(data, indent=2))  # List of passes with timestamps/images
+else:
+    print(f"Error: {response.status_code}")
+This returns JSON with upcoming Sentinel/Landsat passes—perfect for alerting on new imagery over a disaster area. Full endpoints in docs cover image requests too.
