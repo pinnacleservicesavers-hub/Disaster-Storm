@@ -168,6 +168,8 @@ export default function PredictionDashboard() {
   const [currentLocation, setCurrentLocation] = useState<{latitude: number; longitude: number} | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const sessionTokenRef = useRef<number>(0);
   const queryClient = useQueryClient();
 
   // State to coordinates mapping for major states
@@ -229,9 +231,13 @@ export default function PredictionDashboard() {
     ? stateCoordinates[selectedState] 
     : currentLocation;
 
-  // Cleanup audio on unmount
+  // Cleanup audio and abort on unmount
   useEffect(() => {
     return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current = null;
@@ -277,6 +283,19 @@ export default function PredictionDashboard() {
         audioRef.current = null;
       }
       
+      // Abort any in-flight request
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      
+      // Create new session with unique token
+      sessionTokenRef.current += 1;
+      const currentToken = sessionTokenRef.current;
+      
+      // Create new abort controller for this request
+      const abortController = new AbortController();
+      abortControllerRef.current = abortController;
+      
       const voiceContent = `Welcome to Predictive Storm Intelligence! This advanced forecasting system uses AI models and NOAA data to predict storm paths, intensity changes, and damage potential. The main dashboard shows active storm predictions with confidence levels, predicted paths with time stamps, and damage forecasts by county including wind, flood, and tornado risks. You'll see risk level indicators from minimal to extreme, estimated property damage amounts, and potential restoration job volumes. Use the tabs to switch between storm tracking, damage forecasts, and historical analysis. The map displays storm paths with color-coded intensity levels, and you can click on any forecast point for detailed information. All predictions update automatically as new weather data becomes available.`;
       
       try {
@@ -285,6 +304,7 @@ export default function PredictionDashboard() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ text: voiceContent }),
+          signal: abortController.signal,
         });
 
         if (!response.ok) {
@@ -293,32 +313,62 @@ export default function PredictionDashboard() {
 
         const data = await response.json();
         
+        // Check if this session is still active
+        if (currentToken !== sessionTokenRef.current) {
+          return;
+        }
+        
         if (data.audioBase64) {
           // Create and play audio
           const audio = new Audio(`data:audio/mpeg;base64,${data.audioBase64}`);
           audioRef.current = audio;
           
           audio.onended = () => {
-            setIsVoiceGuideActive(false);
-            audioRef.current = null;
+            // Only update state if this is still the active session
+            if (currentToken === sessionTokenRef.current) {
+              setIsVoiceGuideActive(false);
+              audioRef.current = null;
+              abortControllerRef.current = null;
+            }
           };
           
           audio.onerror = () => {
-            console.error('Audio playback error');
-            setIsVoiceGuideActive(false);
-            audioRef.current = null;
+            // Only update state if this is still the active session
+            if (currentToken === sessionTokenRef.current) {
+              console.error('Audio playback error');
+              setIsVoiceGuideActive(false);
+              audioRef.current = null;
+              abortControllerRef.current = null;
+            }
           };
           
           await audio.play();
         } else {
-          setIsVoiceGuideActive(false);
+          // Only update state if this is still the active session
+          if (currentToken === sessionTokenRef.current) {
+            setIsVoiceGuideActive(false);
+            abortControllerRef.current = null;
+          }
         }
-      } catch (error) {
-        console.error('Rachel voice error:', error);
-        setIsVoiceGuideActive(false);
+      } catch (error: any) {
+        // Only update state if this is still the active session
+        if (currentToken === sessionTokenRef.current) {
+          // Don't log error if request was aborted (expected behavior)
+          if (error.name !== 'AbortError') {
+            console.error('Rachel voice error:', error);
+          }
+          setIsVoiceGuideActive(false);
+          abortControllerRef.current = null;
+        }
       }
     } else {
-      // Stop playing
+      // Stop playing - invalidate current session
+      sessionTokenRef.current += 1;
+      
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current = null;
