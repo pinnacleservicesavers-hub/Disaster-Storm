@@ -1,0 +1,554 @@
+Got it—here’s a Replit-ready “orchestrator + AI tools” you can paste in. It’s built so Grok/ChatGPT (or any LLM) can (a) call your safe tools, (b) fuse multiple APIs, and (c) return Facts and Predictions side-by-side with sources. It normalizes units, timestamps, and GeoJSON, adds caching/retries/rate-limits, and exposes a tool manifest the LLM can use.
+
+1) package.json
+{
+  "name": "global-fusion-ai",
+  "type": "module",
+  "scripts": { "start": "node server.js" },
+  "dependencies": {
+    "express": "^4.19.2",
+    "node-fetch": "^3.3.2",
+    "zod": "^3.23.8"
+  }
+}
+
+2) server.js
+import express from "express";
+import fetch from "node-fetch";
+import { z } from "zod";
+
+/* =========================
+   ENV & CONSTANTS
+========================= */
+const PORT = process.env.PORT || 3000;
+const TOMORROW_IO_KEY = process.env.TOMORROW_IO_KEY;
+const SPECTATOR_API_KEY = process.env.SPECTATOR_API_KEY;
+const NASA_KEY = process.env.NASA_KEY;
+const TRAFFICLAND_KEY = process.env.TRAFFICLAND_KEY; // optional
+const AMBEE_KEY = process.env.AMBEE_KEY; // optional
+
+/* =========================
+   UTIL: CACHE + RETRY + RATE LIMIT
+========================= */
+const cache = new Map();
+const setCache = (k, v, ttlMs = 120000) => cache.set(k, { v, exp: Date.now() + ttlMs });
+const getCache = (k) => {
+  const hit = cache.get(k);
+  if (!hit || hit.exp < Date.now()) return null;
+  return hit.v;
+};
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function fetchJSON(url, opts = {}, retries = 2, backoffMs = 400) {
+  for (let i = 0; i <= retries; i++) {
+    try {
+      const r = await fetch(url, opts);
+      if (!r.ok) throw new Error(`${r.status} ${await r.text()}`);
+      return await r.json();
+    } catch (e) {
+      if (i === retries) throw e;
+      await sleep(backoffMs * (i + 1));
+    }
+  }
+}
+
+function tokenBucket({ capacity = 20, refillPerSec = 5 } = {}) {
+  let tokens = capacity;
+  let last = Date.now();
+  return (req, res, next) => {
+    const now = Date.now();
+    const elapsed = (now - last) / 1000;
+    last = now;
+    tokens = Math.min(capacity, tokens + elapsed * refillPerSec);
+    if (tokens < 1) return res.status(429).json({ error: "Rate limit" });
+    tokens -= 1;
+    next();
+  };
+}
+
+/* =========================
+   NORMALIZATION
+========================= */
+const toUTC = (d) => new Date(d).toISOString();
+const mpsToMph = (mps) => (mps == null ? null : mps * 2.23693629);
+const cToF = (c) => (c == null ? null : c * 9/5 + 32);
+
+function asGeoJSONPoint(lat, lon, props = {}) {
+  return {
+    type: "Feature",
+    geometry: { type: "Point", coordinates: [Number(lon), Number(lat)] },
+    properties: props,
+  };
+}
+
+/* =========================
+   EXPRESS APP
+========================= */
+const app = express();
+app.use(express.json({ limit: "1mb" }));
+app.use(tokenBucket());
+
+/* =========================
+   FUSION TOOLS (SAFE ENDPOINTS)
+   All return normalized shapes + sources
+========================= */
+
+// 1) Realtime Weather (Tomorrow.io)
+app.get("/fusion/weather/realtime", async (req, res) => {
+  try {
+    const { lat = "32.46", lon = "-84.99", ttl = "120" } = req.query;
+    const key = `wx:${lat}:${lon}`;
+    const hit = getCache(key);
+    if (hit) return res.json(hit);
+
+    const raw = await fetchJSON(
+      `https://api.tomorrow.io/v4/weather/realtime?location=${lat},${lon}&apikey=${TOMORROW_IO_KEY}`
+    );
+
+    const data = {
+      source: "tomorrow.io",
+      updated_at: toUTC(Date.now()),
+      point: asGeoJSONPoint(lat, lon, { label: "realtime_weather" }),
+      // common units: mph, °F, mm/hr
+      weather: {
+        temperature_f: cToF(raw?.data?.values?.temperature),
+        wind_mph: mpsToMph(raw?.data?.values?.windSpeed),
+        wind_gust_mph: mpsToMph(raw?.data?.values?.windGust),
+        precip_mmph: raw?.data?.values?.precipitationRate ?? null,
+        humidity_pct: raw?.data?.values?.humidity ?? null,
+        visibility_km: raw?.data?.values?.visibility ?? null,
+        conditions_code: raw?.data?.values?.weatherCode ?? null
+      },
+      raw
+    };
+
+    setCache(key, data, Number(ttl) * 1000);
+    res.json(data);
+  } catch (e) {
+    res.status(502).json({ error: "Weather fetch failed", detail: String(e) });
+  }
+});
+
+// 2) Satellite Overpass / Trajectory (Spectator.Earth, ISS default)
+app.get("/fusion/sat/trajectory", async (req, res) => {
+  try {
+    const { satellite_id = "25544", ttl = "300" } = req.query; // ISS default
+    const key = `sat:${satellite_id}`;
+    const hit = getCache(key);
+    if (hit) return res.json(hit);
+
+    const raw = await fetchJSON(
+      `https://api.spectator.earth/trajectory?satellite_id=${satellite_id}`,
+      { headers: { Authorization: `Bearer ${SPECTATOR_API_KEY}` } }
+    );
+
+    const data = {
+      source: "spectator.earth",
+      updated_at: toUTC(Date.now()),
+      satellite_id,
+      trajectory: raw?.trajectory ?? raw,
+      raw
+    };
+
+    setCache(key, data, Number(ttl) * 1000);
+    res.json(data);
+  } catch (e) {
+    res.status(502).json({ error: "Satellite fetch failed", detail: String(e) });
+  }
+});
+
+// 3) NASA APOD (cheap health-check + example content)
+app.get("/fusion/nasa/apod", async (req, res) => {
+  try {
+    const key = `apod`;
+    const hit = getCache(key);
+    if (hit) return res.json(hit);
+
+    const raw = await fetchJSON(
+      `https://api.nasa.gov/planetary/apod?api_key=${NASA_KEY}`
+    );
+
+    const data = {
+      source: "nasa",
+      updated_at: toUTC(Date.now()),
+      apod: {
+        title: raw?.title,
+        date: raw?.date,
+        url: raw?.url,
+        media_type: raw?.media_type,
+        explanation: raw?.explanation
+      },
+      raw
+    };
+
+    setCache(key, data, 3600_000);
+    res.json(data);
+  } catch (e) {
+    res.status(502).json({ error: "APOD fetch failed", detail: String(e) });
+  }
+});
+
+// 4) Traffic cameras by bbox (TrafficLand) – dependency optional
+app.get("/fusion/traffic/cameras", async (req, res) => {
+  try {
+    const { bbox, ttl = "180" } = req.query; // "minLon,minLat,maxLon,maxLat"
+    if (!TRAFFICLAND_KEY) return res.status(501).json({ error: "TRAFFICLAND_KEY not set" });
+    if (!bbox) return res.status(400).json({ error: "bbox required: minLon,minLat,maxLon,maxLat" });
+
+    const key = `traffic:${bbox}`;
+    const hit = getCache(key);
+    if (hit) return res.json(hit);
+
+    // NOTE: Endpoint format varies by plan; adjust to your account.
+    const url = `https://api.trafficland.com/v2/cameras?bbox=${encodeURIComponent(bbox)}&apikey=${TRAFFICLAND_KEY}`;
+    const raw = await fetchJSON(url);
+
+    const features = (raw?.cameras || []).map((c) =>
+      asGeoJSONPoint(c?.latitude, c?.longitude, {
+        id: c?.id,
+        name: c?.name,
+        still: c?.imageUrl,
+        stream: c?.streamUrl
+      })
+    );
+
+    const data = {
+      source: "trafficland",
+      updated_at: toUTC(Date.now()),
+      geojson: { type: "FeatureCollection", features },
+      raw
+    };
+
+    setCache(key, data, Number(ttl) * 1000);
+    res.json(data);
+  } catch (e) {
+    res.status(502).json({ error: "Traffic fetch failed", detail: String(e) });
+  }
+});
+
+// 5) Air quality (Ambee) – optional
+app.get("/fusion/air/aqi", async (req, res) => {
+  try {
+    const { lat, lon, ttl = "300" } = req.query;
+    if (!AMBEE_KEY) return res.status(501).json({ error: "AMBEE_KEY not set" });
+    if (!lat || !lon) return res.status(400).json({ error: "lat & lon required" });
+
+    const key = `aqi:${lat}:${lon}`;
+    const hit = getCache(key);
+    if (hit) return res.json(hit);
+
+    const raw = await fetchJSON(
+      `https://api.ambeedata.com/latest/by-lat-lng?lat=${lat}&lng=${lon}`,
+      { headers: { "x-api-key": AMBEE_KEY } }
+    );
+
+    const aqi = raw?.stations?.[0];
+    const data = {
+      source: "ambee",
+      updated_at: toUTC(Date.now()),
+      point: asGeoJSONPoint(lat, lon, { label: "aqi" }),
+      aqi: aqi ? {
+        aqi: aqi.AQI,
+        category: aqi.Category,
+        pm25: aqi.PM2_5,
+        pm10: aqi.PM10,
+        no2: aqi.NO2,
+        so2: aqi.SO2,
+        o3: aqi.OZONE,
+        co: aqi.CO
+      } : null,
+      raw
+    };
+
+    setCache(key, data, Number(ttl) * 1000);
+    res.json(data);
+  } catch (e) {
+    res.status(502).json({ error: "AQI fetch failed", detail: String(e) });
+  }
+});
+
+/* =========================
+   FUSION: MULTI-SOURCE SNAPSHOT
+========================= */
+app.get("/fusion/realtime", async (req, res) => {
+  const schema = z.object({
+    lat: z.string().default("32.46"),
+    lon: z.string().default("-84.99")
+  });
+  try {
+    const { lat, lon } = schema.parse(req.query);
+
+    const [wxRes, satRes, apodRes] = await Promise.allSettled([
+      fetchJSON(`${baseURL(req)}/fusion/weather/realtime?lat=${lat}&lon=${lon}`),
+      fetchJSON(`${baseURL(req)}/fusion/sat/trajectory`),
+      fetchJSON(`${baseURL(req)}/fusion/nasa/apod`)
+    ]);
+
+    const out = {
+      meta: {
+        updated_at: toUTC(Date.now()),
+        sources: [
+          wxRes.status === "fulfilled" && "tomorrow.io",
+          satRes.status === "fulfilled" && "spectator.earth",
+          apodRes.status === "fulfilled" && "nasa"
+        ].filter(Boolean)
+      },
+      weather: wxRes.status === "fulfilled" ? wxRes.value : { error: String(wxRes.reason) },
+      satellite: satRes.status === "fulfilled" ? satRes.value : { error: String(satRes.reason) },
+      samples: { apod: apodRes.status === "fulfilled" ? apodRes.value : { error: String(apodRes.reason) } }
+    };
+
+    res.json(out);
+  } catch (e) {
+    res.status(400).json({ error: "Bad request", detail: String(e) });
+  }
+});
+
+function baseURL(req) {
+  const proto = req.headers["x-forwarded-proto"] || "http";
+  return `${proto}://${req.headers.host}`;
+}
+
+/* =========================
+   AI CONTROL: TOOL MANIFEST (for Grok/ChatGPT)
+   Expose callable tools + args so LLMs can plan/decide.
+========================= */
+app.get("/ai/tools", (req, res) => {
+  res.json({
+    tools: [
+      {
+        name: "getRealtimeWeather",
+        description: "Returns normalized realtime weather for a lat/lon (mph, °F, UTC).",
+        args: { lat: "number", lon: "number" },
+        endpoint: "/fusion/weather/realtime"
+      },
+      {
+        name: "getSatelliteTrajectory",
+        description: "Returns satellite trajectory (default ISS).",
+        args: { satellite_id: "number (optional)" },
+        endpoint: "/fusion/sat/trajectory"
+      },
+      {
+        name: "getTrafficCamerasByBBox",
+        description: "Returns traffic cameras as GeoJSON features within bbox.",
+        args: { bbox: "string 'minLon,minLat,maxLon,maxLat'" },
+        endpoint: "/fusion/traffic/cameras"
+      },
+      {
+        name: "getAirQuality",
+        description: "Returns air quality for a point (AQI + pollutants).",
+        args: { lat: "number", lon: "number" },
+        endpoint: "/fusion/air/aqi"
+      },
+      {
+        name: "getFusionRealtime",
+        description: "Aggregates multiple sources (weather, satellite, APOD).",
+        args: { lat: "number", lon: "number" },
+        endpoint: "/fusion/realtime"
+      }
+    ],
+    response_contract: {
+      fact_block: "Verifiable statements with timestamps + sources.",
+      prediction_block: "Explicit predictions with confidence and method.",
+      schema: {
+        type: "object",
+        properties: {
+          facts: { type: "array", items: { type: "object", properties: {
+            statement: { type: "string" },
+            source: { type: "string" },
+            observed_at: { type: "string", format: "date-time" }
+          }}}},
+          predictions: { type: "array", items: { type: "object", properties: {
+            forecast: { type: "string" },
+            confidence: { type: "number" },
+            method: { type: "string" },
+            horizon: { type: "string" }
+          }}}}
+        }
+      }
+    }
+  });
+});
+
+/* =========================
+   AI ROUTE: Answer with Facts + Predictions
+   The LLM can call this OR you can use it directly.
+========================= */
+app.post("/ai/answer", async (req, res) => {
+  try {
+    const schema = z.object({
+      question: z.string(),
+      lat: z.number().optional(),
+      lon: z.number().optional(),
+      bbox: z.string().optional(),
+      satellite_id: z.string().optional()
+    });
+    const { question, lat, lon, bbox, satellite_id } = schema.parse(req.body || {});
+    const calls = [];
+
+    // Heuristic router (you can replace with LLM tool-calling):
+    const q = question.toLowerCase();
+    const nearPoint = lat != null && lon != null;
+    if (q.includes("weather") || nearPoint) {
+      calls.push(fetchJSON(`${baseURL(req)}/fusion/weather/realtime?lat=${lat ?? 32.46}&lon=${lon ?? -84.99}`));
+      calls.push(fetchJSON(`${baseURL(req)}/fusion/air/aqi?lat=${lat ?? 32.46}&lon=${lon ?? -84.99}`).catch(() => null));
+    }
+    if (q.includes("satellite") || q.includes("iss") || satellite_id) {
+      calls.push(fetchJSON(`${baseURL(req)}/fusion/sat/trajectory${satellite_id ? `?satellite_id=${satellite_id}` : ""}`));
+    }
+    if (q.includes("traffic") || bbox) {
+      calls.push(fetchJSON(`${baseURL(req)}/fusion/traffic/cameras?bbox=${encodeURIComponent(bbox ?? "-84.99,32.40,-84.90,32.50")}`).catch(() => null));
+    }
+    if (!calls.length) {
+      calls.push(fetchJSON(`${baseURL(req)}/fusion/realtime?lat=${lat ?? 32.46}&lon=${lon ?? -84.99}`));
+    }
+
+    const results = await Promise.allSettled(calls);
+    const now = toUTC(Date.now());
+
+    // Build FACTS from successful calls
+    const facts = [];
+    for (const r of results) {
+      if (r.status !== "fulfilled" || !r.value) continue;
+      const v = r.value;
+
+      // Weather facts
+      if (v?.weather?.temperature_f || v?.aqi) {
+        const w = v.weather ?? v;
+        if (w?.weather?.temperature_f != null) {
+          facts.push({
+            statement: `Temperature ${w.weather.temperature_f.toFixed(1)} °F at (${w.point?.geometry?.coordinates?.[1]}, ${w.point?.geometry?.coordinates?.[0]}).`,
+            source: v.source || "tomorrow.io",
+            observed_at: w.updated_at || now
+          });
+        }
+        if (v?.aqi?.aqi != null) {
+          facts.push({
+            statement: `AQI ${v.aqi.aqi} (${v.aqi.category}).`,
+            source: v.source || "ambee",
+            observed_at: v.updated_at || now
+          });
+        }
+      }
+
+      // Satellite facts
+      if (v?.satellite_id && v?.trajectory) {
+        facts.push({
+          statement: `Satellite ${v.satellite_id} trajectory data available (${Array.isArray(v.trajectory) ? v.trajectory.length : "n"} points).`,
+          source: v.source || "spectator.earth",
+          observed_at: v.updated_at || now
+        });
+      }
+
+      // Traffic facts
+      if (v?.geojson?.features) {
+        facts.push({
+          statement: `Found ${v.geojson.features.length} traffic cameras in bbox.`,
+          source: v.source || "trafficland",
+          observed_at: v.updated_at || now
+        });
+      }
+
+      // APOD fact
+      if (v?.apod?.title) {
+        facts.push({
+          statement: `NASA APOD: ${v.apod.title} (${v.apod.date}).`,
+          source: v.source || "nasa",
+          observed_at: v.updated_at || now
+        });
+      }
+    }
+
+    // Simple PREDICTIONS demo (replace with your ML/LLM policy as needed)
+    const predictions = [];
+    const wx = results.find(r => r.status === "fulfilled" && (r.value?.weather || r.value?.weather?.weather));
+    if (wx?.status === "fulfilled") {
+      const w = wx.value.weather?.weather ? wx.value.weather.weather : wx.value.weather?.values ? wx.value.weather.values : wx.value.weather;
+      const tempF = wx.value?.weather?.weather?.temperature_f ?? wx.value?.weather?.temperature_f ?? null;
+      const wind = wx.value?.weather?.weather?.wind_mph ?? wx.value?.weather?.wind_mph ?? null;
+
+      if (tempF != null) {
+        predictions.push({
+          forecast: `Next 3 hours likely within ±3°F of current (${tempF.toFixed(1)} °F) absent front/precip signals.`,
+          confidence: 0.6,
+          method: "Persistence baseline",
+          horizon: "3h"
+        });
+      }
+      if (wind != null) {
+        predictions.push({
+          forecast: `Surface wind to stay in the same Beaufort class in the next hour.`,
+          confidence: 0.55,
+          method: "Persistence baseline",
+          horizon: "1h"
+        });
+      }
+    }
+
+    res.json({
+      question,
+      generated_at: now,
+      facts,
+      predictions,
+      guidance: {
+        note: "Facts are directly sourced; predictions are probabilistic. Tools available at /ai/tools.",
+      }
+    });
+  } catch (e) {
+    res.status(400).json({ error: "Could not answer", detail: String(e) });
+  }
+});
+
+/* =========================
+   START
+========================= */
+app.get("/", (_req, res) => res.send("Global Fusion AI orchestrator is running."));
+app.listen(PORT, () => console.log(`Fusion API running on :${PORT}`));
+
+3) Replit Secrets (set these)
+TOMORROW_IO_KEY = your Tomorrow.io key
+SPECTATOR_API_KEY = your Spectator token
+NASA_KEY = your NASA key
+TRAFFICLAND_KEY = your TrafficLand key   # optional
+AMBEE_KEY = your Ambee key               # optional
+
+4) How Grok/ChatGPT “controls” it
+
+Point the model at /ai/tools to discover your functions.
+
+Let the model pick tools to call (tool/agent pattern).
+
+Have it format answers as:
+
+Facts (verifiable, timestamped, with source)
+
+Predictions (explicit horizon, confidence, and method)
+
+Examples
+
+Realtime fusion:
+GET https://<your-repl>/fusion/realtime?lat=32.46&lon=-84.99
+
+AI answer (facts + predictions):
+POST https://<your-repl>/ai/answer with JSON:
+
+{ "question": "What’s the weather and air today and what will it be in 3 hours?", "lat": 32.46, "lon": -84.99 }
+
+
+Tool manifest for LLM:
+GET https://<your-repl>/ai/tools
+
+Why this meets your goal
+
+“All over the world”: tools accept any lat/lon/bbox; swap/add providers as you grow.
+
+Facts + Predictions at the same time: /ai/answer always returns both blocks with clear labeling.
+
+Safe AI control: the LLM never touches raw provider keys; it only calls your endpoints.
+
+Scalable: caching, retries, token-bucket rate limiting, UTC/GeoJSON normalization.
+
+Extensible: add more routes like /fusion/damage-nowcast, /fusion/fires, etc., and list them in /ai/tools.
+
+If you tell me the exact v1 provider list (and any custom prediction you want—wind gust risk, outage risk, flood nowcast), I’ll extend this with those endpoints and a slightly smarter prediction policy.

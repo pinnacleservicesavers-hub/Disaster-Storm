@@ -1,0 +1,536 @@
+Awesome — we can make your orchestrator answer “where, when, why, how bad” for tornadoes & hurricanes, plus likely paths, landfall, impacted cities/roads/trees, and return facts + predictions + rationale in one shot.
+
+Below is a Replit-ready upgrade: add @turf/turf for geospatial math, wire official feeds (NHC cone for hurricanes, NWS/SPC alerts for tornado risk), and pull exposures (roads, places, forests/trees) from OpenStreetMap (Overpass API). The prediction endpoints produce:
+
+Facts: current alerts/track/cone.
+
+Predictions: landfall odds, path corridor, impact slices by city/county/roads.
+
+Rationale: which conditions/overlaps drove the call.
+
+Confidence: 0–1.
+
+⚠️ Heads-up: This is decision support, not life-safety guidance. Always verify with local authorities.
+
+1) package.json (add turf)
+{
+  "name": "global-fusion-ai",
+  "type": "module",
+  "scripts": { "start": "node server.js" },
+  "dependencies": {
+    "express": "^4.19.2",
+    "node-fetch": "^3.3.2",
+    "zod": "^3.23.8",
+    "@turf/turf": "^7.2.0"
+  }
+}
+
+2) Drop-in additions for server.js
+
+Paste these below your existing imports/utilities.
+
+// ======= ADDITIONS FOR SEVERE HAZARD PREDICTIONS =======
+import * as turf from "@turf/turf";
+
+/** ---------------- Helpers ---------------- **/
+function asFC(features=[]) { return { type: "FeatureCollection", features }; }
+function bboxFrom(req) {
+  // bbox= minLon,minLat,maxLon,maxLat   (string)
+  const { bbox } = req.query;
+  if (!bbox) return null;
+  const [minLon, minLat, maxLon, maxLat] = bbox.split(",").map(Number);
+  return [minLon, minLat, maxLon, maxLat];
+}
+function clipToBbox(geojson, bbox) {
+  if (!bbox) return geojson;
+  const boxPoly = turf.bboxPolygon(bbox);
+  if (geojson.type === "FeatureCollection") {
+    const out = [];
+    for (const f of geojson.features) {
+      try {
+        const g = turf.intersect(boxPoly, f) || (turf.booleanIntersects(boxPoly, f) ? f : null);
+        if (g) out.push(g);
+      } catch {}
+    }
+    return asFC(out);
+  } else {
+    try {
+      const g = turf.intersect(boxPoly, geojson) || (turf.booleanIntersects(boxPoly, geojson) ? geojson : null);
+      return g || asFC([]);
+    } catch { return asFC([]); }
+  }
+}
+const km = (n)=> n*1000;
+
+/** ---------------- Public Data Feeds (no keys) ---------------- **/
+
+// NWS alerts (tornado warnings/watches/outlooks etc.)
+async function fetchNWSAlerts(bboxStr) {
+  const url = bboxStr
+    ? `https://api.weather.gov/alerts/active?status=actual&message_type=alert&bbox=${encodeURIComponent(bboxStr)}`
+    : `https://api.weather.gov/alerts/active?status=actual&message_type=alert`;
+  // NOAA requires a User-Agent; Replit adds generic UA, but we set one explicitly:
+  return await fetchJSON(url, { headers: { "User-Agent": "GlobalFusionAI/1.0 (+replit)" } });
+}
+
+// SPC convective outlook (categorical polygons)
+async function fetchSPCOutlookDay1() {
+  // SPC hosts shapefiles/geojson mirrors; this public GeoJSON is commonly mirrored:
+  const url = "https://www.spc.noaa.gov/gis/json/outlook_day1_cat.json";
+  return await fetchJSON(url);
+}
+
+// NHC active storms listing (Atlantic/E Pacific)
+async function fetchNHCActive() {
+  const url = "https://www.nhc.noaa.gov/CurrentStorms.json";
+  return await fetchJSON(url);
+}
+
+// NHC cone for a specific storm (best-track/cone polygon)
+async function fetchNHCStormCone(stormId) {
+  // stormId like AL##YYYY (e.g., AL05 2025) -> NHC uses basin+stormnum+year tokens in URLs.
+  // The standardized geojson is available in /storm_graphics/ for advisories.
+  // We'll hit the "latest cone" convenience JSON when available:
+  const url = `https://www.nhc.noaa.gov/refresh/graphics_at${stormId.slice(2,4)}/${stormId.slice(0,2).toLowerCase()}${stormId.slice(2,4)}_cone_latest.json`;
+  // Fallback: some storms use numbered advisory paths; adjust as needed if 404:
+  try { return await fetchJSON(url); } catch(e) {
+    return { error: "Cone not found (advisory may not exist yet)." };
+  }
+}
+
+/** OpenStreetMap exposures via Overpass API (roads, places, trees) */
+async function fetchOSMByBBox(bbox, qtype) {
+  // Overpass QL templates
+  const bboxStr = `${bbox[1]},${bbox[0]},${bbox[3]},${bbox[2]}`; // south,west,north,east
+  let body = "";
+  if (qtype === "roads") {
+    body = `
+      [out:json][timeout:25];
+      (
+        way["highway"~"motorway|trunk|primary|secondary|tertiary|residential"](${bboxStr});
+      );
+      out geom;`;
+  } else if (qtype === "places") {
+    body = `
+      [out:json][timeout:25];
+      (
+        node["place"~"city|town|village|hamlet"](${bboxStr});
+      );
+      out geom;`;
+  } else if (qtype === "trees") {
+    body = `
+      [out:json][timeout:25];
+      (
+        way["landuse"~"forest|orchard"](${bboxStr});
+        way["natural"="wood"](${bboxStr});
+      );
+      out geom;`;
+  } else {
+    throw new Error("Unknown qtype");
+  }
+
+  const r = await fetch("https://overpass-api.de/api/interpreter", {
+    method: "POST",
+    headers: { "Content-Type": "text/plain" },
+    body
+  });
+  if (!r.ok) throw new Error(`Overpass ${r.status}`);
+  const json = await r.json();
+
+  // Convert to GeoJSON
+  const features = [];
+  const nodes = new Map();
+  (json.elements || []).forEach(el => {
+    if (el.type === "node") nodes.set(el.id, [el.lon, el.lat]);
+  });
+  (json.elements || []).forEach(el => {
+    if (el.type === "way" && el.geometry) {
+      const coords = el.geometry.map(g => [g.lon, g.lat]);
+      features.push({
+        type: "Feature",
+        geometry: { type: "LineString", coordinates: coords },
+        properties: { id: el.id, tags: el.tags || {} }
+      });
+    } else if (el.type === "node" && el.tags) {
+      features.push({
+        type: "Feature",
+        geometry: { type: "Point", coordinates: [el.lon, el.lat] },
+        properties: { id: el.id, tags: el.tags }
+      });
+    }
+  });
+  return asFC(features);
+}
+
+/** ---------------- Exposures endpoints ---------------- **/
+
+// Roads (major+residential for completeness)
+app.get("/exposure/roads", async (req, res) => {
+  try {
+    const bbox = bboxFrom(req);
+    if (!bbox) return res.status(400).json({ error: "bbox required" });
+    const key = `roads:${bbox.join(",")}`;
+    const hit = getCache(key);
+    if (hit) return res.json(hit);
+
+    const raw = await fetchOSMByBBox(bbox, "roads");
+    setCache(key, raw, 15 * 60 * 1000);
+    res.json({ source: "osm/overpass", updated_at: toUTC(Date.now()), geojson: raw });
+  } catch (e) {
+    res.status(502).json({ error: "roads fetch failed", detail: String(e) });
+  }
+});
+
+// Places (cities/towns/villages)
+app.get("/exposure/places", async (req, res) => {
+  try {
+    const bbox = bboxFrom(req);
+    if (!bbox) return res.status(400).json({ error: "bbox required" });
+    const key = `places:${bbox.join(",")}`;
+    const hit = getCache(key);
+    if (hit) return res.json(hit);
+
+    const raw = await fetchOSMByBBox(bbox, "places");
+    setCache(key, raw, 30 * 60 * 1000);
+    res.json({ source: "osm/overpass", updated_at: toUTC(Date.now()), geojson: raw });
+  } catch (e) {
+    res.status(502).json({ error: "places fetch failed", detail: String(e) });
+  }
+});
+
+// Tree cover proxies (forests, orchards, woods)
+app.get("/exposure/trees", async (req, res) => {
+  try {
+    const bbox = bboxFrom(req);
+    if (!bbox) return res.status(400).json({ error: "bbox required" });
+    const key = `trees:${bbox.join(",")}`;
+    const hit = getCache(key);
+    if (hit) return res.json(hit);
+
+    const raw = await fetchOSMByBBox(bbox, "trees");
+    setCache(key, raw, 60 * 60 * 1000);
+    res.json({ source: "osm/overpass", updated_at: toUTC(Date.now()), geojson: raw });
+  } catch (e) {
+    res.status(502).json({ error: "trees fetch failed", detail: String(e) });
+  }
+});
+
+/** ---------------- Tornado Risk & Nowcast ---------------- **/
+app.get("/predict/tornado", async (req, res) => {
+  try {
+    const bbox = bboxFrom(req);
+    if (!bbox) return res.status(400).json({ error: "bbox required for regional prediction" });
+    const bboxStr = `${bbox[0]},${bbox[1]},${bbox[2]},${bbox[3]}`;
+
+    // Pull current alerts + Day1 outlook
+    const [alerts, outlook] = await Promise.all([
+      fetchNWSAlerts(bboxStr),
+      fetchSPCOutlookDay1().catch(()=>null)
+    ]);
+
+    // Build polygons from alerts (TOR warnings/watches)
+    const alertFeatures = (alerts.features || [])
+      .filter(f => (f?.properties?.event||"").toLowerCase().includes("tornado"))
+      .map(f => f); // already GeoJSON
+
+    // Categorical risk from SPC (e.g., SLGT, ENH, MDT, HIGH)
+    let spcFeatures = [];
+    if (outlook?.features) {
+      spcFeatures = outlook.features
+        .filter(f => turf.booleanIntersects(turf.bboxPolygon(bbox), f))
+        .map(f => f);
+    }
+
+    // Exposure layers
+    const [roads, places, trees] = await Promise.all([
+      fetchOSMByBBox(bbox, "roads"),
+      fetchOSMByBBox(bbox, "places"),
+      fetchOSMByBBox(bbox, "trees")
+    ]);
+
+    // Simple impact scoring: overlap risk polygons with exposures
+    const riskPolys = asFC([...alertFeatures, ...spcFeatures]);
+    const impactedRoads = [];
+    for (const rd of roads.features) {
+      if (riskPolys.features.some(p => safeIntersects(p, rd))) impactedRoads.push(rd);
+    }
+    const impactedPlaces = [];
+    for (const pl of places.features) {
+      if (riskPolys.features.some(p => safeIntersects(p, pl))) impactedPlaces.push(pl);
+    }
+    const impactedTrees = [];
+    for (const tr of trees.features) {
+      if (riskPolys.features.some(p => safeIntersects(p, tr))) impactedTrees.push(tr);
+    }
+
+    // Confidence heuristic (very rough): alerts > outlook; #overlaps boosts
+    const hasWarn = alertFeatures.length > 0;
+    const hasOutlook = spcFeatures.length > 0;
+    const density = (impactedPlaces.length + impactedRoads.length/50 + impactedTrees.length/200) / 50;
+    const confidence = Math.min(1, (hasWarn?0.6:0) + (hasOutlook?0.25:0) + density);
+
+    const predictions = [{
+      forecast: hasWarn
+        ? "Tornado conditions present: damaging winds/rotation possible within the warned areas in the next 0–3 hours."
+        : hasOutlook
+          ? "Elevated tornado risk today in outlook polygons; localized tornadoes possible during convective windows."
+          : "No explicit tornado polygons intersect the area; background risk only.",
+      confidence,
+      method: hasWarn ? "NWS active alerts + overlap scoring" : "SPC Day1 outlook + exposure overlap",
+      horizon: hasWarn ? "0–3h" : "0–24h"
+    }];
+
+    const facts = [
+      ...alertFeatures.map(f=>({
+        statement: `Active ${f.properties.event} (${f.properties.severity}) until ${f.properties.ends}.`,
+        source: "NWS Alerts",
+        observed_at: toUTC(f.properties.sent || Date.now())
+      })),
+      ...spcFeatures.map(f=>({
+        statement: `SPC Day1 outlook category: ${f.properties?.LABEL || f.properties?.label || "risk"}.`,
+        source: "SPC",
+        observed_at: toUTC(Date.now())
+      }))
+    ];
+
+    res.json({
+      meta: { updated_at: toUTC(Date.now()), area: { bbox } },
+      facts,
+      predictions,
+      impacts: {
+        cities: impactedPlaces.slice(0, 50).map(p => ({
+          name: p.properties?.tags?.name,
+          pop_hint: p.properties?.tags?.population,
+          coord: p.geometry.coordinates
+        })),
+        roads_km: Number((impactedRoads.reduce((s, r)=> s + turf.length(r, {units:"kilometers"}), 0)).toFixed(1)),
+        road_segments: impactedRoads.length,
+        tree_polygons: impactedTrees.length
+      },
+      geo: {
+        risk_polys: clipToBbox(riskPolys, bbox),
+        impacted_roads: asFC(impactedRoads),
+        impacted_places: asFC(impactedPlaces),
+        impacted_trees: asFC(impactedTrees)
+      },
+      rationale: [
+        "Used NWS active tornado alerts (authoritative, real-time).",
+        "Used SPC Day1 categorical outlook polygons for broader probabilistic risk.",
+        "Intersected risk with roads/places/trees from OpenStreetMap to locate likely damage corridors."
+      ]
+    });
+  } catch (e) {
+    res.status(502).json({ error: "tornado prediction failed", detail: String(e) });
+  }
+});
+
+function safeIntersects(a, b) {
+  try { return turf.booleanIntersects(a, b); } catch { return false; }
+}
+
+/** ---------------- Hurricane: Path, Landfall, Impacts ---------------- **/
+app.get("/predict/hurricane", async (req, res) => {
+  try {
+    const { storm_id, bbox } = req.query; // storm_id like AL05 2025 -> "AL052025" (we’ll sanitize)
+    if (!storm_id) return res.status(400).json({ error: "storm_id required, e.g., AL052025" });
+    const storm = storm_id.replace(/\s+/g, "");
+    const bbx = bbox ? bbox.split(",").map(Number) : null;
+
+    // 1) Facts: active cone + track (NHC)
+    const active = await fetchNHCActive().catch(()=>null);
+    let cone = await fetchNHCStormCone(storm).catch(()=>null);
+
+    // fallback: if cone missing, still proceed with minimal structure
+    const conePoly = cone?.features
+      ? asFC(cone.features.filter(f => /forecast_cone/i.test(f.properties?.type||"") || /cone/i.test(f.properties?.product||"")))
+      : asFC([]);
+
+    const trackLine = cone?.features
+      ? asFC(cone.features.filter(f => /forecast_line|best_track/i.test(f.properties?.type||"")))
+      : asFC([]);
+
+    // 2) Path corridor: buffer track by 80–150km depending on intensity if available
+    const defaultBuf = 120; // km
+    const trackMerged = trackLine.features[0]?.geometry?.coordinates?.length
+      ? turf.lineString(trackLine.features[0].geometry.coordinates)
+      : null;
+    const corridor = trackMerged ? turf.buffer(trackMerged, defaultBuf, { units: "kilometers" }) : null;
+
+    // 3) Landfall heuristic: cone or corridor touching coastline polygons (use OSM coastline via Overpass quick proxy -> approximate with places near shore)
+    let landfall = null;
+    if (corridor && bbx) {
+      const coastalPlaces = await fetchOSMByBBox(bbx, "places");
+      const nearShore = coastalPlaces.features
+        .filter(p => {
+          // "coastal" proxy: within 25km of corridor & within 20km of bbox min/max lat boundary (crude) OR name matches known coastal cities
+          const d = turf.distance(p, trackMerged || corridor, { units: "kilometers" });
+          return d < 25;
+        })
+        .slice(0, 50);
+
+      if (nearShore.length) {
+        // choose the nearest as likely landfall vicinity
+        const ranked = nearShore
+          .map(p => ({ p, d: turf.distance(p, trackMerged || corridor, { units: "kilometers" }) }))
+          .sort((a,b)=> a.d - b.d);
+        landfall = {
+          vicinity: ranked[0].p.properties?.tags?.name,
+          coord: ranked[0].p.geometry.coordinates,
+          distance_km: Number(ranked[0].d.toFixed(1))
+        };
+      }
+    }
+
+    // 4) Impacts: intersect cone/corridor with exposures
+    let impactedRoads = [], impactedPlaces = [], impactedTrees = [];
+    if (bbx) {
+      const [roads, places, trees] = await Promise.all([
+        fetchOSMByBBox(bbx, "roads"),
+        fetchOSMByBBox(bbx, "places"),
+        fetchOSMByBBox(bbx, "trees")
+      ]);
+      const riskArea = conePoly.features.length ? turf.union(...conePoly.features) : corridor || null;
+
+      if (riskArea) {
+        for (const rd of roads.features) if (safeIntersects(riskArea, rd)) impactedRoads.push(rd);
+        for (const pl of places.features) if (safeIntersects(riskArea, pl)) impactedPlaces.push(pl);
+        for (const tr of trees.features) if (safeIntersects(riskArea, tr)) impactedTrees.push(tr);
+      }
+    }
+
+    // 5) Confidence: higher if cone present; boosted by exposure intersections
+    const hasCone = conePoly.features.length > 0;
+    const conf = Math.min(1, (hasCone?0.6:0.35) + (impactedPlaces.length>0?0.15:0) + Math.min(0.2, impactedRoads.length/500));
+
+    // Facts
+    const facts = [];
+    if (active?.storms) {
+      const found = active.storms.find(s => (s.id||"").replace(/\s+/g,"").toUpperCase().includes(storm.toUpperCase()));
+      if (found) {
+        facts.push({
+          statement: `Active storm: ${found.name} (${found.basin}) – ${found.status}.`,
+          source: "NHC Active",
+          observed_at: toUTC(found?.updateTime || Date.now())
+        });
+      }
+    }
+    if (hasCone) {
+      facts.push({
+        statement: "NHC forecast cone available (latest advisory).",
+        source: "NHC Cone",
+        observed_at: toUTC(Date.now())
+      });
+    }
+
+    // Prediction narratives
+    const predictions = [];
+    if (landfall) {
+      predictions.push({
+        forecast: `Probable landfall vicinity near ${landfall.vicinity} (±50–100 km).`,
+        confidence: conf,
+        method: hasCone ? "NHC cone + track corridor + coastal exposure" : "Track corridor + coastal proximity",
+        horizon: "12–72h (advisory-dependent)"
+      });
+    } else {
+      predictions.push({
+        forecast: "Landfall location uncertain; monitor cone updates. Highest corridor risk along track buffer.",
+        confidence: conf * 0.8,
+        method: hasCone ? "NHC cone" : "Track corridor heuristic",
+        horizon: "12–72h"
+      });
+    }
+
+    const roadKm = impactedRoads.reduce((s,r)=> s + turf.length(r,{units:"kilometers"}), 0);
+
+    res.json({
+      meta: { updated_at: toUTC(Date.now()), storm_id: storm, area: { bbox: bbx || null } },
+      facts,
+      predictions,
+      impacts: {
+        likely_landfall: landfall || null,
+        cities: impactedPlaces.slice(0, 50).map(p => ({ name: p.properties?.tags?.name, coord: p.geometry.coordinates })),
+        roads_km: Number(roadKm.toFixed(1)),
+        road_segments: impactedRoads.length,
+        tree_polygons: impactedTrees.length
+      },
+      geo: {
+        cone: bbx ? clipToBbox(conePoly, bbx) : conePoly,
+        track: trackLine,
+        corridor: corridor ? (bbx ? clipToBbox(corridor, bbx) : corridor) : null,
+        impacted_roads: asFC(impactedRoads),
+        impacted_places: asFC(impactedPlaces),
+        impacted_trees: asFC(impactedTrees)
+      },
+      rationale: [
+        "Used NHC forecast cone & track to build a corridor.",
+        "Estimated landfall via nearest coastal population centers to the corridor.",
+        "Intersected risk area with OSM roads/places/forest to estimate exposure and likely damage corridors."
+      ]
+    });
+  } catch (e) {
+    res.status(502).json({ error: "hurricane prediction failed", detail: String(e) });
+  }
+});
+
+3) How your AI answers “any question” and explains why
+
+You already have /ai/tools and /ai/answer. Add these tool entries (so Grok/ChatGPT knows what to call):
+
+// In /ai/tools response (add to tools array):
+{
+  name: "predictTornado",
+  description: "Predict tornado risk & likely impacts (roads/cities/trees) within a bbox.",
+  args: { bbox: "string 'minLon,minLat,maxLon,maxLat'" },
+  endpoint: "/predict/tornado"
+},
+{
+  name: "predictHurricane",
+  description: "Predict hurricane path corridor, landfall vicinity, and impacts for a storm id (e.g., AL052025) and optional bbox.",
+  args: { storm_id: "string like AL052025", bbox: "string optional" },
+  endpoint: "/predict/hurricane"
+},
+{
+  name: "getExposureRoads", args: { bbox: "string" }, endpoint: "/exposure/roads",
+  description: "Major roads in bbox as GeoJSON."
+},
+{
+  name: "getExposurePlaces", args: { bbox: "string" }, endpoint: "/exposure/places",
+  description: "Cities/towns/villages in bbox as GeoJSON."
+},
+{
+  name: "getExposureTrees", args: { bbox: "string" }, endpoint: "/exposure/trees",
+  description: "Tree/forest polygons in bbox as GeoJSON."
+}
+
+
+Your /ai/answer handler can route tornado/hurricane questions like:
+
+If text includes “tornado”, “rotation”, “twister” → call /predict/tornado.
+
+If “hurricane”, “tropical storm”, “landfall”, “cone” → call /predict/hurricane.
+
+Otherwise use your general /fusion/realtime, etc.
+
+The response already includes: facts[], predictions[], and rationale[]. That’s your “why it thinks the way it does” explained.
+
+4) Example calls
+
+Tornado (Columbus, GA area)
+
+GET https://<your-repl>/predict/tornado?bbox=-85.2,32.3,-84.7,32.6
+
+
+Hurricane AL052025 over Florida Panhandle bbox
+
+GET https://<your-repl>/predict/hurricane?storm_id=AL052025&bbox=-87.8,29.5,-84.5,31.2
+
+
+The JSON will include:
+
+facts: current alerts / cone presence.
+
+predictions: landfall, path corridor, timing window, confidence, method.
+
+impacts: affected cities, road-km at risk, tree polygons (windfall hazard proxy).
+
+geo: GeoJSON you can draw on a map (cone, track, corridor, impacted layers).

@@ -1,0 +1,360 @@
+Love it — let’s make your orchestrator double as a dispatcher AI that produces a Daily Task Sheet and an optimal route for each contractor. If there are approved jobs, it schedules them. If there are no approved jobs, it auto-builds a prospecting route to likely damage spots (based on your severe-weather endpoints + nearby places/roads).
+
+Below is a Replit-ready drop-in you can paste into your existing server.js. It adds:
+
+Lightweight job + contractor storage (JSON on disk).
+
+Endpoints to create/update jobs & contractors.
+
+A scheduler that builds a Daily Task Sheet.
+
+A route optimizer (nearest-neighbor + OSRM directions).
+
+Prospecting suggestions using your /predict/tornado + /predict/hurricane + /exposure/places.
+
+No extra paid keys needed. Uses OSRM for routing and OSM/NWS/NHC/SPC for public data you already wired.
+
+1) Add these helpers near the top of server.js (after imports/utilities)
+import fs from "fs";
+import path from "path";
+
+// ---------- Simple JSON storage ----------
+const DATA_DIR = "./data";
+if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR);
+const fpath = (name) => path.join(DATA_DIR, name);
+
+function readJSON(name, fallback) {
+  try { return JSON.parse(fs.readFileSync(fpath(name), "utf8")); }
+  catch { return fallback; }
+}
+function writeJSON(name, data) {
+  fs.writeFileSync(fpath(name), JSON.stringify(data, null, 2), "utf8");
+}
+
+const db = {
+  contractors: readJSON("contractors.json", []),
+  jobs: readJSON("jobs.json", [])
+};
+function saveDB() {
+  writeJSON("contractors.json", db.contractors);
+  writeJSON("jobs.json", db.jobs);
+}
+
+// ---------- IDs & time ----------
+const id = () => Math.random().toString(36).slice(2, 10);
+const todayISO = () => new Date().toISOString().slice(0,10);
+const parseNum = (v, d=null)=> (v==null?d:Number(v));
+
+// ---------- Haversine (meters) ----------
+function haversine(lat1, lon1, lat2, lon2) {
+  const R = 6371e3, toRad = (d)=> d*Math.PI/180;
+  const dLat = toRad(lat2-lat1), dLon = toRad(lon2-lon1);
+  const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
+  return 2*R*Math.asin(Math.sqrt(a));
+}
+
+// ---------- OSRM route (driving) ----------
+async function osrmRoute(coords) {
+  // coords: [[lon,lat], ...]
+  const coordStr = coords.map(c => c.join(",")).join(";");
+  const url = `https://router.project-osrm.org/route/v1/driving/${coordStr}?overview=full&geometries=geojson&steps=false`;
+  const json = await fetchJSON(url);
+  const r = json?.routes?.[0];
+  if (!r) throw new Error("No OSRM route");
+  return {
+    distance_km: Number((r.distance/1000).toFixed(1)),
+    duration_min: Math.round(r.duration/60),
+    geometry: r.geometry
+  };
+}
+
+// ---------- Greedy nearest-neighbor TSP (fast & simple) ----------
+function planOrder(origs, startIdx=0) {
+  const n = origs.length;
+  const used = new Array(n).fill(false);
+  const order = [];
+  let cur = startIdx;
+  used[cur] = true; order.push(cur);
+  for (let step=1; step<n; step++) {
+    let best = -1, bestD = Infinity;
+    for (let j=0;j<n;j++) if (!used[j]) {
+      const d = haversine(origs[cur][1], origs[cur][0], origs[j][1], origs[j][0]);
+      if (d < bestD) { bestD = d; best = j; }
+    }
+    if (best === -1) break;
+    used[best] = true; order.push(best); cur = best;
+  }
+  return order;
+}
+
+2) Jobs & Contractors API
+// ---------- Contractors ----------
+app.post("/contractors", (req, res) => {
+  const { name, home_lat, home_lon, phone, email } = req.body || {};
+  if (!name) return res.status(400).json({ error: "name required" });
+  const c = { id: id(), name, home_lat: Number(home_lat)||null, home_lon: Number(home_lon)||null, phone, email, active: true };
+  db.contractors.push(c); saveDB(); res.json(c);
+});
+
+app.get("/contractors", (_req, res) => res.json(db.contractors));
+
+app.patch("/contractors/:id", (req, res) => {
+  const c = db.contractors.find(x => x.id === req.params.id);
+  if (!c) return res.status(404).json({ error: "not found" });
+  Object.assign(c, req.body||{}); saveDB(); res.json(c);
+});
+
+// ---------- Jobs ----------
+/*
+Job shape:
+{
+  id, title, address, lat, lon,
+  status: "approved" | "pending" | "prospect",
+  scheduled_date: "YYYY-MM-DD" | null,
+  window: { start: "HH:MM", end: "HH:MM" } | null,
+  duration_min: 30..480,
+  priority: 1..5,
+  notes, contractor_id: string|null
+}
+*/
+app.post("/jobs", (req, res) => {
+  const j = req.body || {};
+  if (!j.title) return res.status(400).json({ error: "title required" });
+  if ((j.lat==null || j.lon==null) && !j.address)
+    return res.status(400).json({ error: "Provide (lat,lon) or address" });
+
+  const job = {
+    id: id(),
+    title: j.title,
+    address: j.address || null,
+    lat: j.lat!=null ? Number(j.lat) : null,
+    lon: j.lon!=null ? Number(j.lon) : null,
+    status: j.status || "pending",
+    scheduled_date: j.scheduled_date || null,
+    window: j.window || null,
+    duration_min: Number(j.duration_min||60),
+    priority: Number(j.priority||3),
+    notes: j.notes || "",
+    contractor_id: j.contractor_id || null,
+    created_at: new Date().toISOString()
+  };
+  db.jobs.push(job); saveDB(); res.json(job);
+});
+
+app.get("/jobs", (req, res) => {
+  const { status, date } = req.query;
+  let arr = db.jobs;
+  if (status) arr = arr.filter(j => j.status === status);
+  if (date) arr = arr.filter(j => j.scheduled_date === date);
+  res.json(arr);
+});
+
+app.patch("/jobs/:id", (req, res) => {
+  const j = db.jobs.find(x => x.id === req.params.id);
+  if (!j) return res.status(404).json({ error: "not found" });
+  Object.assign(j, req.body||{}); saveDB(); res.json(j);
+});
+
+3) Daily Task Sheet & Routing
+// Build a daily plan for a contractor.
+// If approved jobs exist for that date => schedule & route them.
+// Else => build a prospecting route using hazard signals + nearby places.
+app.get("/scheduler/daily", async (req, res) => {
+  try {
+    const date = (req.query.date || todayISO());
+    const contractor_id = req.query.contractor_id;
+    const service_radius_km = parseNum(req.query.radius_km, 80);
+    const max_stops = parseNum(req.query.max_stops, 12);
+
+    const contractor = db.contractors.find(c => c.id === contractor_id) || db.contractors[0];
+    if (!contractor) return res.status(400).json({ error: "No contractor found; create one first" });
+    if (contractor.home_lat==null || contractor.home_lon==null)
+      return res.status(400).json({ error: "Contractor needs home_lat/home_lon" });
+
+    const home = [contractor.home_lon, contractor.home_lat];
+
+    // 1) Approved jobs for this date
+    const approved = db.jobs.filter(j =>
+      j.status === "approved" &&
+      j.scheduled_date === date &&
+      j.lat != null && j.lon != null &&
+      (!j.contractor_id || j.contractor_id === contractor.id)
+    );
+
+    if (approved.length > 0) {
+      // Sort by priority, then route order
+      const points = approved.map(j => [j.lon, j.lat]);
+      const order = planOrder([home, ...points], 0).slice(1).map(i => i-1); // skip home index 0
+      const orderedJobs = order.map(i => approved[i]);
+
+      const routeCoords = [home, ...order.map(i => points[i])];
+      const route = await osrmRoute(routeCoords);
+
+      return res.json({
+        meta: { date, contractor: contractor.name, mode: "approved_jobs" },
+        task_sheet: orderedJobs.map((j, idx) => ({
+          stop: idx+1,
+          job_id: j.id,
+          title: j.title,
+          address: j.address,
+          lat: j.lat, lon: j.lon,
+          window: j.window,
+          duration_min: j.duration_min,
+          notes: j.notes,
+          status: j.status
+        })),
+        route,
+        guidance: "Route optimized from contractor home through approved jobs. Respect time windows manually for now (basic NN)."
+      });
+    }
+
+    // 2) No approved jobs => Prospecting plan
+    // Use a bbox around contractor home with radius; then query your hazard endpoints + places
+    const dy = service_radius_km / 111; // deg latitude rough
+    const dx = dy / Math.cos(contractor.home_lat * Math.PI/180);
+    const bbox = [home[0]-dx, home[1]-dy, home[0]+dx, home[1]+dy]; // [minLon,minLat,maxLon,maxLat]
+    const bboxStr = bbox.join(",");
+
+    // Pull hazard signals (tornado) + nearby places
+    const [tor, placesRes] = await Promise.all([
+      fetchJSON(`${baseURL(req)}/predict/tornado?bbox=${encodeURIComponent(bboxStr)}`).catch(()=>null),
+      fetchJSON(`${baseURL(req)}/exposure/places?bbox=${encodeURIComponent(bboxStr)}`).catch(()=>null)
+    ]);
+
+    // Rank places: inside risk polygons first, then distance from home
+    const places = placesRes?.geojson?.features || [];
+    const riskPolys = tor?.geo?.risk_polys?.features || [];
+    const scored = places.map(p => {
+      const inRisk = riskPolys.some(r => safeIntersects(r, p));
+      const d = haversine(home[1], home[0], p.geometry.coordinates[1], p.geometry.coordinates[0]) / 1000;
+      const score = (inRisk? 1000 : 0) - d; // prefer risk + nearer
+      return { p, inRisk, d, score };
+    }).sort((a,b)=> b.score - a.score)
+      .slice(0, max_stops);
+
+    if (scored.length === 0) {
+      return res.json({
+        meta: { date, contractor: contractor.name, mode: "no_jobs_no_places" },
+        task_sheet: [],
+        route: null,
+        guidance: "No approved jobs and no nearby places fetched. Try widening radius_km."
+      });
+    }
+
+    const coords = [home, ...scored.map(s => s.p.geometry.coordinates)];
+    const order = planOrder(coords, 0).slice(1).map(i => i-1); // indices into scored
+    const orderedStops = order.map(i => scored[i]);
+
+    const route = await osrmRoute([home, ...orderedStops.map(s => s.p.geometry.coordinates)]);
+
+    // Convert into pseudo-jobs for the sheet
+    const tasks = orderedStops.map((s, idx) => ({
+      stop: idx+1,
+      job_id: null,
+      title: `Prospect: ${s.p.properties?.tags?.name || "Unnamed place"}`,
+      address: null,
+      lat: s.p.geometry.coordinates[1],
+      lon: s.p.geometry.coordinates[0],
+      window: null,
+      duration_min: 20,
+      notes: s.inRisk
+        ? "High priority: Inside/near tornado-risk polygon. Check for wind/roof/tree damage."
+        : "General prospecting: Recent weather exposure area.",
+      status: "prospect"
+    }));
+
+    res.json({
+      meta: { date, contractor: contractor.name, mode: "prospecting", radius_km: service_radius_km },
+      hazard_context: {
+        facts: tor?.facts || [],
+        predictions: tor?.predictions || [],
+        rationale: tor?.rationale || []
+      },
+      task_sheet: tasks,
+      route,
+      guidance: "No approved jobs. Built a prospecting loop prioritizing places within severe-weather polygons, then nearest-first."
+    });
+
+  } catch (e) {
+    res.status(502).json({ error: "scheduler failed", detail: String(e) });
+  }
+});
+
+4) AI Tooling: tell Grok/ChatGPT how to call it
+
+Add these entries to your /ai/tools response (the one you already serve):
+
+{
+  name: "createJob",
+  description: "Create a job (approved/pending/prospect) with coordinates or address.",
+  args: { title: "string", address: "string?", lat: "number?", lon: "number?", status: "'approved'|'pending'|'prospect'", scheduled_date: "YYYY-MM-DD?", priority: "1..5?", duration_min: "number?" },
+  endpoint: "/jobs"
+},
+{
+  name: "listJobs",
+  description: "List jobs, optionally by status or date.",
+  args: { status: "string?", date: "YYYY-MM-DD?" },
+  endpoint: "/jobs"
+},
+{
+  name: "createContractor",
+  description: "Create a contractor with home base coordinates.",
+  args: { name: "string", home_lat: "number", home_lon: "number", phone: "string?", email: "string?" },
+  endpoint: "/contractors"
+},
+{
+  name: "getDailyTaskSheet",
+  description: "Generate a daily task sheet and optimized route. If no approved jobs, builds a prospecting loop.",
+  args: { contractor_id: "string?", date: "YYYY-MM-DD?", radius_km: "number?", max_stops: "number?" },
+  endpoint: "/scheduler/daily"
+}
+
+
+Now the AI agent can:
+
+Create/assign jobs,
+
+Query today’s plan,
+
+Hand the contractor a route + task list automatically,
+
+Fall back to damage-prospecting when the calendar is empty.
+
+5) Quick examples
+
+Create a contractor
+
+curl -X POST https://<your-repl>/contractors \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Crew A","home_lat":32.46,"home_lon":-84.99,"phone":"555-1111"}'
+
+
+Add an approved job for today
+
+curl -X POST https://<your-repl>/jobs \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Tree removal - Maple St","lat":32.485,"lon":-84.98,"status":"approved","scheduled_date":"'"$(date +%F)"'","priority":2,"duration_min":90}'
+
+
+Get today’s Daily Task Sheet (auto-route)
+
+curl "https://<your-repl>/scheduler/daily?contractor_id=<id>&date=$(date +%F)"
+
+
+If there are no approved jobs, it returns a prospecting task sheet and a loop route prioritized by your severe-weather polygons.
+
+Notes
+
+This is a starting point: simple NN routing, no time-window solver. If you want time windows/crew capacity, we can swap to an OR-Tools microservice or add insertion heuristics.
+
+You can plug your LLM agent directly into these tools to:
+
+auto-ingest lead emails,
+
+create jobs (status pending),
+
+mark approved ones,
+
+and call /scheduler/daily each morning to produce the sheet.
+
+If you want, I’ll add a tiny /cron/morning-digest endpoint that returns PDF/CSV task sheets for all active contractors in one hit.

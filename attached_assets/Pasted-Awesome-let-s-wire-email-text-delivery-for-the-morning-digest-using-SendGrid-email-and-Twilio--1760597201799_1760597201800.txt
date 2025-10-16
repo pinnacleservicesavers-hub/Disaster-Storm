@@ -1,0 +1,312 @@
+Awesome — let’s wire email + text delivery for the morning digest using SendGrid (email) and Twilio (SMS/MMS). This is a clean add-on to the server you already have.
+
+1) package.json — add SendGrid + Twilio
+{
+  "name": "global-fusion-ai",
+  "type": "module",
+  "scripts": { "start": "node server.js" },
+  "dependencies": {
+    "express": "^4.19.2",
+    "node-fetch": "^3.3.2",
+    "zod": "^3.23.8",
+    "@turf/turf": "^7.2.0",
+    "pdfkit": "^0.15.0",
+    "@sendgrid/mail": "^8.1.0",
+    "twilio": "^5.3.3"
+  }
+}
+
+2) Replit Secrets (add these)
+SENDGRID_API_KEY = your SendGrid API key
+SENDGRID_FROM_EMAIL = "Dispatcher <no-reply@yourdomain.com>"
+TWILIO_ACCOUNT_SID = your Twilio SID
+TWILIO_AUTH_TOKEN  = your Twilio auth token
+TWILIO_FROM_NUMBER = +1xxxxxxxxxx   # your Twilio number (E.164 format)
+PUBLIC_BASE_URL    = https://<your-repl>.repl.co   # used in SMS links
+
+
+You already have your other keys set (Tomorrow.io, etc.). Keep those.
+
+3) server.js — drop-in additions
+3.a) Imports (put near the top with other imports)
+import sgMail from "@sendgrid/mail";
+import twilio from "twilio";
+
+sgMail.setApiKey(process.env.SENDGRID_API_KEY || "");
+const twilioClient = (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN)
+  ? twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN)
+  : null;
+
+const FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL || "no-reply@example.com";
+const FROM_SMS   = process.env.TWILIO_FROM_NUMBER || null;
+const PUBLIC_BASE_URL = process.env.PUBLIC_BASE_URL || "";
+
+3.b) Helper: make a PDF buffer and CSV buffer
+
+(Reuse the PDF builder you already added; this returns a Buffer for attaching to email.)
+
+import PDFDocument from "pdfkit";
+import { Readable } from "stream";
+
+function pdfFromPlan(plan, date) {
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({ margin: 36 });
+    const chunks = [];
+    doc.on("data", c => chunks.push(c));
+    doc.on("end", () => resolve(Buffer.concat(chunks)));
+    doc.on("error", reject);
+
+    doc.fontSize(18).text(`Daily Task Sheet – ${date} – ${plan.meta.contractor}`, { underline: true });
+    if (plan.route) doc.fontSize(10).text(`Route: ${plan.route.distance_km} km, ${Math.round(plan.route.duration_min)} min`);
+    doc.moveDown();
+
+    doc.fontSize(12).text("Tasks:");
+    if (!plan.task_sheet?.length) {
+      doc.fontSize(11).text("  (none)");
+    } else {
+      plan.task_sheet.forEach(t => {
+        doc.fontSize(11).text(
+          `  ${t.stop}. ${t.title} ${t.address?`— ${t.address}`:""} ` +
+          `(lat:${Number(t.lat).toFixed?.(4)}, lon:${Number(t.lon).toFixed?.(4)}), ` +
+          `dur:${t.duration_min}m ${t.window?`[${t.window.start}-${t.window.end}]`:""}`
+        );
+        if (t.notes) doc.fontSize(10).text(`     notes: ${t.notes}`);
+      });
+    }
+
+    if (plan.hazard_context?.predictions?.length) {
+      doc.moveDown(0.25);
+      doc.fontSize(12).text("Hazard outlook:");
+      plan.hazard_context.predictions.slice(0,3).forEach(h =>
+        doc.fontSize(10).text(`  • ${h.forecast} (conf ${Math.round(h.confidence*100)}%, ${h.horizon})`)
+      );
+    }
+
+    doc.end();
+  });
+}
+
+function csvFromPlan(plan, date) {
+  const csvEsc = (v) => {
+    if (v == null) return "";
+    const s = String(v);
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const header = "date,contractor,mode,stop,job_id,title,address,lat,lon,duration_min,window_start,window_end,notes,route_distance_km,route_duration_min\n";
+  const rows = [];
+  const rdist = plan.route?.distance_km ?? "";
+  const rdur  = plan.route?.duration_min ?? "";
+  if (!plan.task_sheet?.length) {
+    rows.push([date, plan.meta.contractor, plan.meta.mode, "", "", "", "", "", "", "", "", "", "", rdist, rdur]);
+  } else {
+    for (const t of plan.task_sheet) {
+      rows.push([
+        date, plan.meta.contractor, plan.meta.mode,
+        t.stop, t.job_id ?? "", t.title ?? "", t.address ?? "",
+        t.lat ?? "", t.lon ?? "", t.duration_min ?? "",
+        t.window?.start ?? "", t.window?.end ?? "", t.notes ?? "",
+        rdist, rdur
+      ]);
+    }
+  }
+  return Buffer.from(header + rows.map(r => r.map(csvEsc).join(",")).join("\n"), "utf8");
+}
+
+3.c) Helpers: email & SMS senders
+async function sendEmailDailyPlan({ to, subject, text, attachmentBuffer, filename }) {
+  if (!sgMail || !process.env.SENDGRID_API_KEY) throw new Error("SendGrid not configured");
+  const msg = {
+    to,
+    from: FROM_EMAIL,
+    subject,
+    text,
+    attachments: attachmentBuffer ? [{
+      content: attachmentBuffer.toString("base64"),
+      filename,
+      type: filename.endsWith(".pdf") ? "application/pdf" : "text/csv",
+      disposition: "attachment"
+    }] : undefined
+  };
+  await sgMail.send(msg);
+}
+
+async function sendSMS({ to, body, mediaUrl }) {
+  if (!twilioClient || !FROM_SMS) throw new Error("Twilio not configured");
+  const payload = { from: FROM_SMS, to, body };
+  if (mediaUrl) payload.mediaUrl = [mediaUrl]; // MMS with a link or image
+  await twilioClient.messages.create(payload);
+}
+
+3.d) Public download links to include in SMS
+
+(We’ll reuse your existing digest endpoints so the SMS can link to a live PDF.)
+
+For single contractor link:
+${PUBLIC_BASE_URL}/cron/morning-digest/${contractor_id}?format=pdf&date=YYYY-MM-DD
+
+For all contractors (dispatcher link):
+${PUBLIC_BASE_URL}/cron/morning-digest?format=csv&date=YYYY-MM-DD
+
+No extra code needed—those routes already stream files.
+
+4) New endpoints to email and text the digest
+4.a) Email all active contractors (PDF or CSV)
+// Email a per-contractor attachment (PDF by default)
+app.post("/cron/send-morning-email", async (req, res) => {
+  try {
+    const date     = (req.body?.date || todayISO());
+    const format   = (req.body?.format || "pdf").toLowerCase(); // pdf|csv
+    const radius   = Number(req.body?.radius_km || 80);
+    const maxStops = Number(req.body?.max_stops || 12);
+
+    const active = db.contractors.filter(c => c.active && c.email);
+    if (!active.length) return res.status(400).json({ error: "No active contractors with email" });
+
+    const results = [];
+    for (const c of active) {
+      if (c.home_lat==null || c.home_lon==null) { results.push({ id:c.id, status:"skipped_no_home" }); continue; }
+      const plan = await buildDailyPlanForContractor(req, { contractor: c, date, service_radius_km: radius, max_stops: maxStops });
+
+      const filename = `daily_task_${date}_${c.name.replace(/\s+/g,"_")}.${format}`;
+      const attachment = format === "pdf" ? await pdfFromPlan(plan, date) : csvFromPlan(plan, date);
+
+      await sendEmailDailyPlan({
+        to: c.email,
+        subject: `Your Daily Task Sheet – ${date}`,
+        text: `Hi ${c.name},\n\nAttached is your Daily Task Sheet for ${date}.\n\nRoute: ${plan.route ? `${plan.route.distance_km} km / ~${Math.round(plan.route.duration_min)} min` : "n/a"}\n\nStay safe and good luck today!`,
+        attachmentBuffer: attachment,
+        filename
+      });
+
+      results.push({ id: c.id, status: "emailed" });
+    }
+
+    res.json({ date, format, results });
+  } catch (e) {
+    res.status(502).json({ error: "send-morning-email failed", detail: String(e) });
+  }
+});
+
+4.b) Text all active contractors (SMS + link; optional MMS)
+// SMS a link to each contractor's live PDF; optional mediaUrl
+app.post("/cron/send-morning-sms", async (req, res) => {
+  try {
+    const date     = (req.body?.date || todayISO());
+    const radius   = Number(req.body?.radius_km || 80);
+    const maxStops = Number(req.body?.max_stops || 12);
+    const useMMS   = Boolean(req.body?.mms); // if true, Twilio will attempt MMS with mediaUrl
+
+    if (!PUBLIC_BASE_URL) return res.status(400).json({ error: "Set PUBLIC_BASE_URL for SMS links" });
+    const active = db.contractors.filter(c => c.active && c.phone);
+    if (!active.length) return res.status(400).json({ error: "No active contractors with phone" });
+
+    const results = [];
+    for (const c of active) {
+      if (c.home_lat==null || c.home_lon==null) { results.push({ id:c.id, status:"skipped_no_home" }); continue; }
+
+      // Build the plan once so route stats can go in the text
+      const plan = await buildDailyPlanForContractor(req, { contractor: c, date, service_radius_km: radius, max_stops: maxStops });
+      const link = `${PUBLIC_BASE_URL}/cron/morning-digest/${c.id}?format=pdf&date=${encodeURIComponent(date)}`;
+      const body = `Good morning ${c.name}! Your ${date} task sheet: ${link}\n` +
+                   (plan.route ? `Route ~${Math.round(plan.route.duration_min)} min / ${plan.route.distance_km} km.` : `No route yet.`) +
+                   `\nStay safe.`;
+
+      const mediaUrl = useMMS ? link : undefined; // Twilio MMS needs a public URL; PDFs usually work fine
+      await sendSMS({ to: c.phone, body, mediaUrl });
+
+      results.push({ id: c.id, status: "texted" });
+    }
+
+    res.json({ date, results });
+  } catch (e) {
+    res.status(502).json({ error: "send-morning-sms failed", detail: String(e) });
+  }
+});
+
+4.c) Single-contractor versions (optional)
+app.post("/cron/send-morning-email/:contractor_id", async (req, res) => {
+  try {
+    const date   = (req.body?.date || todayISO());
+    const format = (req.body?.format || "pdf").toLowerCase();
+    const c = db.contractors.find(x => x.id === req.params.contractor_id);
+    if (!c) return res.status(404).json({ error: "contractor not found" });
+    if (!c.email) return res.status(400).json({ error: "Contractor missing email" });
+    if (c.home_lat==null || c.home_lon==null) return res.status(400).json({ error: "Contractor needs home_lat/home_lon" });
+
+    const plan = await buildDailyPlanForContractor(req, { contractor: c, date, service_radius_km: Number(req.body?.radius_km || 80), max_stops: Number(req.body?.max_stops || 12) });
+    const filename = `daily_task_${date}_${c.name.replace(/\s+/g,"_")}.${format}`;
+    const attachment = format === "pdf" ? await pdfFromPlan(plan, date) : csvFromPlan(plan, date);
+
+    await sendEmailDailyPlan({
+      to: c.email,
+      subject: `Your Daily Task Sheet – ${date}`,
+      text: `Hi ${c.name},\n\nAttached is your Daily Task Sheet for ${date}.\n\nThanks!`,
+      attachmentBuffer: attachment,
+      filename
+    });
+
+    res.json({ date, status: "emailed" });
+  } catch (e) {
+    res.status(502).json({ error: "single send email failed", detail: String(e) });
+  }
+});
+
+app.post("/cron/send-morning-sms/:contractor_id", async (req, res) => {
+  try {
+    const date = (req.body?.date || todayISO());
+    const useMMS = Boolean(req.body?.mms);
+    if (!PUBLIC_BASE_URL) return res.status(400).json({ error: "Set PUBLIC_BASE_URL for SMS links" });
+    const c = db.contractors.find(x => x.id === req.params.contractor_id);
+    if (!c) return res.status(404).json({ error: "contractor not found" });
+    if (!c.phone) return res.status(400).json({ error: "Contractor missing phone" });
+    if (c.home_lat==null || c.home_lon==null) return res.status(400).json({ error: "Contractor needs home_lat/home_lon" });
+
+    const plan = await buildDailyPlanForContractor(req, { contractor: c, date, service_radius_km: Number(req.body?.radius_km || 80), max_stops: Number(req.body?.max_stops || 12) });
+    const link = `${PUBLIC_BASE_URL}/cron/morning-digest/${c.id}?format=pdf&date=${encodeURIComponent(date)}`;
+    const body = `Good morning ${c.name}! Your ${date} task sheet: ${link}\n` +
+                 (plan.route ? `Route ~${Math.round(plan.route.duration_min)} min / ${plan.route.distance_km} km.` : `No route yet.`);
+
+    await sendSMS({ to: c.phone, body, mediaUrl: useMMS ? link : undefined });
+
+    res.json({ date, status: "texted" });
+  } catch (e) {
+    res.status(502).json({ error: "single send sms failed", detail: String(e) });
+  }
+});
+
+5) How you’ll use it
+
+Email all contractors (PDF attachments)
+
+curl -X POST https://<your-repl>/cron/send-morning-email \
+  -H "Content-Type: application/json" \
+  -d '{"date":"2025-10-16","format":"pdf","radius_km":80,"max_stops":12}'
+
+
+Text all contractors (SMS with PDF link; set mms:true to attempt MMS)
+
+curl -X POST https://<your-repl>/cron/send-morning-sms \
+  -H "Content-Type: application/json" \
+  -d '{"date":"2025-10-16","mms":false}'
+
+
+Email a single contractor
+
+curl -X POST https://<your-repl>/cron/send-morning-email/<contractor_id> \
+  -H "Content-Type: application/json" \
+  -d '{"date":"2025-10-16","format":"pdf"}'
+
+
+Text a single contractor
+
+curl -X POST https://<your-repl>/cron/send-morning-sms/<contractor_id> \
+  -H "Content-Type: application/json" \
+  -d '{"date":"2025-10-16","mms":true}'
+
+Notes & tips
+
+SMS link strategy: attaching a PDF via MMS is carrier-dependent; the most reliable approach is SMS with a link to your existing /cron/morning-digest/:id?format=pdf&date=....
+
+Time windows/crew size: if you want strict time-window routing and crew capacity, I can add an OR-Tools microservice next.
+
+Safety: Severe-weather predictions are decision support; keep your “always follow local authorities” disclaimer in the PDF footer if you like.

@@ -1,0 +1,357 @@
+Perfect — I added a morning digest that generates a Daily Task Sheet for all active contractors each morning, as CSV or PDF, plus per-contractor versions. Drop these updates into your Replit project.
+
+1) package.json (add pdfkit)
+{
+  "name": "global-fusion-ai",
+  "type": "module",
+  "scripts": { "start": "node server.js" },
+  "dependencies": {
+    "express": "^4.19.2",
+    "node-fetch": "^3.3.2",
+    "zod": "^3.23.8",
+    "@turf/turf": "^7.2.0",
+    "pdfkit": "^0.15.0"
+  }
+}
+
+2) server.js — drop-in additions/patches
+2.a) Put these helpers near your other helpers (IDs/time/osrm/etc.)
+import PDFDocument from "pdfkit";
+
+// Build today’s ISO (YYYY-MM-DD)
+const todayISO = () => new Date().toISOString().slice(0,10);
+
+// Format minutes to "xh ym"
+const fmtMin = (m) => `${Math.floor(m/60)}h ${m%60}m`;
+
+// CSV escaper
+const csvEsc = (v) => {
+  if (v == null) return "";
+  const s = String(v);
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+};
+
+2.b) Refactor your scheduler core into a function we can reuse**
+
+Place this above your /scheduler/daily route, and then modify the route to call it.
+
+async function buildDailyPlanForContractor(reqLike, { contractor, date, service_radius_km=80, max_stops=12 }) {
+  const home = [contractor.home_lon, contractor.home_lat];
+
+  // 1) Approved jobs for this date
+  const approved = db.jobs.filter(j =>
+    j.status === "approved" &&
+    j.scheduled_date === date &&
+    j.lat != null && j.lon != null &&
+    (!j.contractor_id || j.contractor_id === contractor.id)
+  );
+
+  if (approved.length > 0) {
+    const points = approved.map(j => [j.lon, j.lat]);
+    const order = planOrder([home, ...points], 0).slice(1).map(i => i-1);
+    const orderedJobs = order.map(i => approved[i]);
+    const route = await osrmRoute([home, ...order.map(i => points[i])]);
+
+    return {
+      meta: { date, contractor: contractor.name, contractor_id: contractor.id, mode: "approved_jobs" },
+      task_sheet: orderedJobs.map((j, idx) => ({
+        stop: idx+1, job_id: j.id, title: j.title, address: j.address, lat: j.lat, lon: j.lon,
+        window: j.window, duration_min: j.duration_min, notes: j.notes, status: j.status
+      })),
+      route,
+      hazard_context: null,
+      guidance: "Route optimized from contractor home through approved jobs."
+    };
+  }
+
+  // 2) Prospecting if no approved jobs
+  const dy = service_radius_km / 111;
+  const dx = dy / Math.cos(contractor.home_lat * Math.PI/180);
+  const bbox = [home[0]-dx, home[1]-dy, home[0]+dx, home[1]+dy];
+  const bboxStr = bbox.join(",");
+
+  const [tor, placesRes] = await Promise.all([
+    fetchJSON(`${baseURL(reqLike)}/predict/tornado?bbox=${encodeURIComponent(bboxStr)}`).catch(()=>null),
+    fetchJSON(`${baseURL(reqLike)}/exposure/places?bbox=${encodeURIComponent(bboxStr)}`).catch(()=>null)
+  ]);
+
+  const places = placesRes?.geojson?.features || [];
+  const riskPolys = tor?.geo?.risk_polys?.features || [];
+  const scored = places.map(p => {
+    const inRisk = riskPolys.some(r => safeIntersects(r, p));
+    const d = haversine(home[1], home[0], p.geometry.coordinates[1], p.geometry.coordinates[0]) / 1000;
+    const score = (inRisk ? 1000 : 0) - d;
+    return { p, inRisk, d, score };
+  }).sort((a,b)=> b.score - a.score).slice(0, max_stops);
+
+  if (!scored.length) {
+    return {
+      meta: { date, contractor: contractor.name, contractor_id: contractor.id, mode: "no_jobs_no_places" },
+      task_sheet: [],
+      route: null,
+      hazard_context: tor ? { facts: tor.facts, predictions: tor.predictions, rationale: tor.rationale } : null,
+      guidance: "No approved jobs and no nearby places fetched. Try widening radius_km."
+    };
+  }
+
+  const order = planOrder([home, ...scored.map(s => s.p.geometry.coordinates)], 0).slice(1).map(i => i-1);
+  const orderedStops = order.map(i => scored[i]);
+  const route = await osrmRoute([home, ...orderedStops.map(s => s.p.geometry.coordinates)]);
+
+  const tasks = orderedStops.map((s, idx) => ({
+    stop: idx+1,
+    job_id: null,
+    title: `Prospect: ${s.p.properties?.tags?.name || "Unnamed place"}`,
+    address: null,
+    lat: s.p.geometry.coordinates[1],
+    lon: s.p.geometry.coordinates[0],
+    window: null,
+    duration_min: 20,
+    notes: s.inRisk ? "Inside/near severe-weather polygon — check wind/roof/tree damage." : "General prospecting.",
+    status: "prospect"
+  }));
+
+  return {
+    meta: { date, contractor: contractor.name, contractor_id: contractor.id, mode: "prospecting", radius_km: service_radius_km },
+    task_sheet: tasks,
+    route,
+    hazard_context: tor ? { facts: tor.facts, predictions: tor.predictions, rationale: tor.rationale } : null,
+    guidance: "Prospecting loop prioritizing places within severe-weather polygons, then nearest-first."
+  };
+}
+
+Patch your existing /scheduler/daily route to use the function:
+app.get("/scheduler/daily", async (req, res) => {
+  try {
+    const date = (req.query.date || todayISO());
+    const contractor_id = req.query.contractor_id;
+    const service_radius_km = Number(req.query.radius_km || 80);
+    const max_stops = Number(req.query.max_stops || 12);
+
+    const contractor = db.contractors.find(c => c.id === contractor_id) || db.contractors[0];
+    if (!contractor) return res.status(400).json({ error: "No contractor found; create one first" });
+    if (contractor.home_lat==null || contractor.home_lon==null)
+      return res.status(400).json({ error: "Contractor needs home_lat/home_lon" });
+
+    const plan = await buildDailyPlanForContractor(req, { contractor, date, service_radius_km, max_stops });
+    res.json(plan);
+  } catch (e) {
+    res.status(502).json({ error: "scheduler failed", detail: String(e) });
+  }
+});
+
+2.c) Morning Digest (CSV or PDF) for ALL contractors
+
+Add these new routes:
+
+// ALL contractors — CSV (default) or PDF
+app.get("/cron/morning-digest", async (req, res) => {
+  try {
+    const date = (req.query.date || todayISO());
+    const format = (req.query.format || "csv").toLowerCase(); // csv|pdf
+    const radius = Number(req.query.radius_km || 80);
+    const maxStops = Number(req.query.max_stops || 12);
+
+    const active = db.contractors.filter(c => c.active);
+    if (!active.length) return res.status(400).json({ error: "No active contractors" });
+
+    // Build plans
+    const plans = [];
+    for (const c of active) {
+      if (c.home_lat==null || c.home_lon==null) continue;
+      const plan = await buildDailyPlanForContractor(req, { contractor: c, date, service_radius_km: radius, max_stops: maxStops });
+      plans.push(plan);
+    }
+
+    if (format === "csv") {
+      res.setHeader("Content-Type", "text/csv");
+      res.setHeader("Content-Disposition", `attachment; filename="daily_task_sheet_${date}.csv"`);
+      // CSV header
+      const header = [
+        "date","contractor","mode","stop","job_id","title","address","lat","lon","duration_min","window_start","window_end","notes",
+        "route_distance_km","route_duration_min"
+      ].join(",") + "\n";
+
+      const rows = [];
+      for (const p of plans) {
+        const rdist = p.route?.distance_km ?? "";
+        const rdur = p.route?.duration_min ?? "";
+        if (!p.task_sheet?.length) {
+          rows.push([
+            date, csvEsc(p.meta.contractor), p.meta.mode, "", "", "", "", "", "", "", "", "", "",
+            rdist, rdur
+          ].map(csvEsc).join(","));
+          continue;
+        }
+        for (const t of p.task_sheet) {
+          rows.push([
+            date,
+            p.meta.contractor,
+            p.meta.mode,
+            t.stop,
+            t.job_id ?? "",
+            t.title ?? "",
+            t.address ?? "",
+            t.lat ?? "",
+            t.lon ?? "",
+            t.duration_min ?? "",
+            t.window?.start ?? "",
+            t.window?.end ?? "",
+            t.notes ?? "",
+            rdist, rdur
+          ].map(csvEsc).join(","));
+        }
+      }
+      return res.send(header + rows.join("\n"));
+    }
+
+    if (format === "pdf") {
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `attachment; filename="daily_task_sheet_${date}.pdf"`);
+      const doc = new PDFDocument({ margin: 36 });
+      doc.pipe(res);
+
+      doc.fontSize(18).text(`Daily Task Sheets – ${date}`, { underline: true });
+      doc.moveDown();
+
+      for (const p of plans) {
+        doc.fontSize(16).text(`${p.meta.contractor}  •  Mode: ${p.meta.mode}`);
+        if (p.route) {
+          doc.fontSize(10).text(`Route: ${p.route.distance_km} km, ${fmtMin(p.route.duration_min)}`);
+        }
+        doc.moveDown(0.5);
+        doc.fontSize(12).text("Tasks:");
+        if (!p.task_sheet?.length) {
+          doc.fontSize(11).text("  (none)");
+        } else {
+          p.task_sheet.forEach(t => {
+            doc.fontSize(11).text(
+              `  ${t.stop}. ${t.title} ${t.address?`— ${t.address}`:""} ` +
+              `(lat:${t.lat?.toFixed?.(4)}, lon:${t.lon?.toFixed?.(4)}), ` +
+              `dur:${t.duration_min}m ${t.window?`[${t.window.start}-${t.window.end}]`:""}`
+            );
+            if (t.notes) doc.fontSize(10).text(`     notes: ${t.notes}`);
+          });
+        }
+        if (p.hazard_context?.predictions?.length) {
+          doc.moveDown(0.25);
+          doc.fontSize(12).text("Hazard outlook:");
+          p.hazard_context.predictions.slice(0,3).forEach(h =>
+            doc.fontSize(10).text(`  - ${h.forecast} (conf ${Math.round(h.confidence*100)}%, ${h.horizon})`)
+          );
+        }
+        doc.moveDown();
+        doc.moveDown(0.5);
+      }
+
+      doc.end();
+      return; // stream ends response
+    }
+
+    res.status(400).json({ error: "Unsupported format. Use format=csv or format=pdf" });
+  } catch (e) {
+    res.status(502).json({ error: "morning-digest failed", detail: String(e) });
+  }
+});
+
+// Single contractor version (CSV/PDF)
+app.get("/cron/morning-digest/:contractor_id", async (req, res) => {
+  try {
+    const date = (req.query.date || todayISO());
+    const format = (req.query.format || "csv").toLowerCase();
+    const radius = Number(req.query.radius_km || 80);
+    const maxStops = Number(req.query.max_stops || 12);
+
+    const c = db.contractors.find(x => x.id === req.params.contractor_id);
+    if (!c) return res.status(404).json({ error: "contractor not found" });
+    if (c.home_lat==null || c.home_lon==null) return res.status(400).json({ error: "Contractor needs home_lat/home_lon" });
+
+    const p = await buildDailyPlanForContractor(req, { contractor: c, date, service_radius_km: radius, max_stops: maxStops });
+
+    if (format === "csv") {
+      res.setHeader("Content-Type", "text/csv");
+      res.setHeader("Content-Disposition", `attachment; filename="daily_task_sheet_${date}_${c.name.replace(/\s+/g,'_')}.csv"`);
+      const header = "date,contractor,mode,stop,job_id,title,address,lat,lon,duration_min,window_start,window_end,notes,route_distance_km,route_duration_min\n";
+      const rdist = p.route?.distance_km ?? "";
+      const rdur = p.route?.duration_min ?? "";
+      const rows = (p.task_sheet?.length ? p.task_sheet : [null]).map(t => [
+        date, p.meta.contractor, p.meta.mode,
+        t?.stop ?? "", t?.job_id ?? "", t?.title ?? "", t?.address ?? "",
+        t?.lat ?? "", t?.lon ?? "", t?.duration_min ?? "", t?.window?.start ?? "", t?.window?.end ?? "", t?.notes ?? "",
+        rdist, rdur
+      ].map(csvEsc).join(","));
+      return res.send(header + rows.join("\n"));
+    }
+
+    if (format === "pdf") {
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `attachment; filename="daily_task_sheet_${date}_${c.name.replace(/\s+/g,'_')}.pdf"`);
+      const doc = new PDFDocument({ margin: 36 });
+      doc.pipe(res);
+
+      doc.fontSize(18).text(`Daily Task Sheet – ${date} – ${p.meta.contractor}`, { underline: true });
+      if (p.route) doc.fontSize(10).text(`Route: ${p.route.distance_km} km, ${fmtMin(p.route.duration_min)}`);
+      doc.moveDown();
+
+      doc.fontSize(12).text("Tasks:");
+      if (!p.task_sheet?.length) {
+        doc.fontSize(11).text("  (none)");
+      } else {
+        p.task_sheet.forEach(t => {
+          doc.fontSize(11).text(
+            `  ${t.stop}. ${t.title} ${t.address?`— ${t.address}`:""} ` +
+            `(lat:${t.lat?.toFixed?.(4)}, lon:${t.lon?.toFixed?.(4)}), ` +
+            `dur:${t.duration_min}m ${t.window?`[${t.window.start}-${t.window.end}]`:""}`
+          );
+          if (t.notes) doc.fontSize(10).text(`     notes: ${t.notes}`);
+        });
+      }
+
+      if (p.hazard_context?.predictions?.length) {
+        doc.moveDown(0.25);
+        doc.fontSize(12).text("Hazard outlook:");
+        p.hazard_context.predictions.slice(0,3).forEach(h =>
+          doc.fontSize(10).text(`  - ${h.forecast} (conf ${Math.round(h.confidence*100)}%, ${h.horizon})`)
+        );
+      }
+
+      doc.end();
+      return;
+    }
+
+    res.status(400).json({ error: "Unsupported format. Use format=csv or format=pdf" });
+  } catch (e) {
+    res.status(502).json({ error: "contractor morning-digest failed", detail: String(e) });
+  }
+});
+
+3) How to use
+
+All contractors — CSV
+
+GET https://<your-repl>/cron/morning-digest?format=csv&date=2025-10-16
+
+
+All contractors — PDF
+
+GET https://<your-repl>/cron/morning-digest?format=pdf
+
+
+Single contractor (replace :id) — CSV
+
+GET https://<your-repl>/cron/morning-digest/<contractor_id>?format=csv
+
+
+Daily plan (JSON) — existing
+
+GET https://<your-repl>/scheduler/daily?contractor_id=<id>&date=2025-10-16
+
+4) What this delivers (every morning)
+
+If approved jobs exist: ordered Task Sheet + Route per contractor.
+
+If no approved jobs: auto-Prospecting route prioritized by severe-weather polygons and nearest places.
+
+CSV/PDF exports you can print, text, or email.
+
+If you want an extra endpoint that emails the PDF/CSV to each contractor (e.g., via SendGrid/Mailgun), say the word and I’ll wire it up.
