@@ -220,16 +220,40 @@ export default function WeatherCenter() {
         },
         refetchInterval: autoRefresh ? refreshInterval : false,
       },
+      {
+        queryKey: ['/api/xweather/comprehensive', userLocation?.lat, userLocation?.lon],
+        queryFn: async () => {
+          if (!userLocation) return null;
+          const response = await fetch(`/api/xweather/comprehensive?lat=${userLocation.lat}&lng=${userLocation.lon}&radius=50`);
+          if (!response.ok) throw new Error('Failed to fetch Xweather data');
+          return response.json();
+        },
+        enabled: !!userLocation,
+        refetchInterval: autoRefresh ? refreshInterval : false,
+      },
+      {
+        queryKey: ['/api/tomorrow/weather', userLocation?.lat, userLocation?.lon],
+        queryFn: async () => {
+          if (!userLocation) return null;
+          const response = await fetch(`/api/tomorrow/weather?lat=${userLocation.lat}&lon=${userLocation.lon}&radius_km=25`);
+          if (!response.ok) throw new Error('Failed to fetch Tomorrow.io data');
+          return response.json();
+        },
+        enabled: !!userLocation,
+        refetchInterval: autoRefresh ? refreshInterval : false,
+      },
     ],
   });
 
-  const [alertsQuery, spcQuery, nhcQuery, buoysQuery, wavesQuery, oceanQuery] = weatherQueries;
+  const [alertsQuery, spcQuery, nhcQuery, buoysQuery, wavesQuery, oceanQuery, xweatherQuery, tomorrowQuery] = weatherQueries;
   const alerts: WeatherAlert[] = alertsQuery.data || [];
   const spcData: SPCData[] = spcQuery.data || [];
   const nhcData: { storms: NHCStorm[] } = nhcQuery.data || { storms: [] };
   const buoyData: OceanData['buoys'] = buoysQuery.data || [];
   const waveData: WaveData[] = wavesQuery.data || [];
   const oceanData: OceanData = oceanQuery.data || { seaSurfaceTemperature: [], buoys: [], lastUpdated: new Date() };
+  const xweatherData: any = xweatherQuery.data || null;
+  const tomorrowData: any = tomorrowQuery.data?.data || null;
 
   const isLoading = weatherQueries.some(q => q.isLoading);
   const hasError = weatherQueries.some(q => q.error);
@@ -1120,19 +1144,213 @@ export default function WeatherCenter() {
           </Card>
         </TabsContent>
 
-        {/* Placeholder tabs for future implementation */}
-        <TabsContent value="radar">
-          <Card>
-            <CardHeader>
-              <CardTitle>📡 Radar & Lightning</CardTitle>
-              <CardDescription>NEXRAD radar and live lightning detection</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-8 text-muted-foreground">
-                🚧 Radar and lightning data coming soon
-              </div>
-            </CardContent>
-          </Card>
+        {/* Radar & Lightning Tab */}
+        <TabsContent value="radar" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Lightning Strikes */}
+            <Card>
+              <CardHeader>
+                <CardTitle data-testid="card-title-lightning">⚡ Lightning Strikes</CardTitle>
+                <CardDescription>
+                  Real-time lightning detection (past 5 minutes)
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {!xweatherData ? (
+                  <div className="text-center py-8 text-muted-foreground" data-testid="text-no-lightning-data">
+                    📡 Loading lightning data...
+                  </div>
+                ) : xweatherData.lightning?.strikes?.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    ✅ No lightning strikes detected
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between p-3 bg-yellow-50 dark:bg-yellow-950 rounded-lg border border-yellow-200">
+                      <div className="flex items-center gap-2">
+                        <Zap className="h-5 w-5 text-yellow-600" />
+                        <span className="font-semibold text-yellow-800 dark:text-yellow-200">
+                          {xweatherData.lightning?.strikes?.length || 0} strikes detected
+                        </span>
+                      </div>
+                      <Badge variant="outline" className="bg-yellow-100 text-yellow-800">
+                        {xweatherData.location?.radiusKM || 50}km radius
+                      </Badge>
+                    </div>
+                    {xweatherData.threatAnalysis && (
+                      <div className={`p-3 rounded-lg border ${
+                        xweatherData.threatAnalysis.level === 'extreme' ? 'bg-red-50 border-red-200' :
+                        xweatherData.threatAnalysis.level === 'high' ? 'bg-orange-50 border-orange-200' :
+                        xweatherData.threatAnalysis.level === 'moderate' ? 'bg-yellow-50 border-yellow-200' :
+                        'bg-green-50 border-green-200'
+                      }`}>
+                        <div className="font-semibold mb-2">Threat Level: {xweatherData.threatAnalysis.level?.toUpperCase()}</div>
+                        <p className="text-sm">{xweatherData.threatAnalysis.message}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Hail Threats */}
+            <Card>
+              <CardHeader>
+                <CardTitle data-testid="card-title-hail">🌨️ Hail Threats</CardTitle>
+                <CardDescription>
+                  Hail forecast (next 60 minutes)
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {!tomorrowData ? (
+                  <div className="text-center py-8 text-muted-foreground" data-testid="text-no-hail-data">
+                    📡 Loading hail data...
+                  </div>
+                ) : tomorrowData.hailEvents?.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    ✅ No hail threats detected
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200">
+                      <div className="flex items-center gap-2">
+                        <CloudSnow className="h-5 w-5 text-blue-600" />
+                        <span className="font-semibold text-blue-800 dark:text-blue-200">
+                          {tomorrowData.hailEvents?.length || 0} hail events
+                        </span>
+                      </div>
+                      <Badge variant="outline" className="bg-blue-100 text-blue-800">
+                        Premium Data
+                      </Badge>
+                    </div>
+                    {tomorrowData.hailEvents?.slice(0, 3).map((event: any, index: number) => (
+                      <div key={index} className="border rounded-lg p-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="font-medium">Hail Event #{index + 1}</h4>
+                          <Badge variant={event.maxSizeInches > 1 ? 'destructive' : 'secondary'}>
+                            {event.maxSizeInches?.toFixed(1)}" max size
+                          </Badge>
+                        </div>
+                        <div className="text-sm space-y-1">
+                          <p><strong>Time:</strong> {new Date(event.timestamp).toLocaleTimeString()}</p>
+                          <p><strong>Probability:</strong> {event.probability}%</p>
+                          <p><strong>Intensity:</strong> {event.intensity}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Storm Reports */}
+            <Card className="lg:col-span-2">
+              <CardHeader>
+                <CardTitle data-testid="card-title-storm-reports">📊 Local Storm Reports</CardTitle>
+                <CardDescription>
+                  Recent NWS storm reports and observations
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {!xweatherData?.reports ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    📡 Loading storm reports...
+                  </div>
+                ) : xweatherData.reports.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    ✅ No storm reports in your area
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
+                      <div className="flex items-center gap-4 text-sm">
+                        <span><strong>Total Reports:</strong> {xweatherData.reports.length}</span>
+                        {xweatherData.byCategory && Object.entries(xweatherData.byCategory).map(([cat, count]: [string, any]) => (
+                          <span key={cat}><strong>{cat}:</strong> {count}</span>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {xweatherData.reports.slice(0, 6).map((report: any, index: number) => (
+                        <div key={index} className="border rounded-lg p-3">
+                          <div className="flex items-start justify-between mb-2">
+                            <h4 className="font-medium">{report.ob?.category || 'Storm Event'}</h4>
+                            <Badge variant="outline">{new Date(report.ob?.timestamp || Date.now()).toLocaleTimeString()}</Badge>
+                          </div>
+                          <p className="text-sm text-muted-foreground">{report.ob?.name || 'No details'}</p>
+                          {report.ob?.details && (
+                            <p className="text-xs mt-1">{report.ob.details}</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Tomorrow.io Wind & Weather Alerts */}
+            <Card className="lg:col-span-2">
+              <CardHeader>
+                <CardTitle data-testid="card-title-tomorrow-alerts">🌪️ Premium Weather Intelligence</CardTitle>
+                <CardDescription>
+                  Tomorrow.io hyperlocal weather and wind forecasts
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {!tomorrowData ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    📡 Loading Tomorrow.io data...
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Wind Events */}
+                    <div className="border rounded-lg p-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Wind className="h-5 w-5 text-green-600" />
+                        <h4 className="font-semibold">Wind Events</h4>
+                        <Badge variant="outline">{tomorrowData.windEvents?.length || 0}</Badge>
+                      </div>
+                      {tomorrowData.windEvents?.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">No wind events detected</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {tomorrowData.windEvents?.slice(0, 3).map((wind: any, index: number) => (
+                            <div key={index} className="text-sm p-2 bg-gray-50 dark:bg-gray-900 rounded">
+                              <div><strong>Speed:</strong> {wind.speedMPH} mph</div>
+                              <div><strong>Gust:</strong> {wind.gustMPH} mph</div>
+                              <div><strong>Time:</strong> {new Date(wind.timestamp).toLocaleTimeString()}</div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Alerts */}
+                    <div className="border rounded-lg p-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <AlertTriangle className="h-5 w-5 text-red-600" />
+                        <h4 className="font-semibold">Active Alerts</h4>
+                        <Badge variant="outline">{tomorrowData.alerts?.length || 0}</Badge>
+                      </div>
+                      {tomorrowData.alerts?.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">No active alerts</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {tomorrowData.alerts?.slice(0, 3).map((alert: any, index: number) => (
+                            <div key={index} className="text-sm p-2 bg-red-50 dark:bg-red-950 rounded border border-red-200">
+                              <div className="font-medium">{alert.type || 'Weather Alert'}</div>
+                              <div className="text-xs mt-1">{alert.description || 'See details for more info'}</div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
         <TabsContent value="satellite" className="space-y-6">
