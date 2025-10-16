@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -165,9 +165,9 @@ export default function PredictionDashboard() {
   const [forecastHours, setForecastHours] = useState<number>(48);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [isVoiceGuideActive, setIsVoiceGuideActive] = useState(false);
-  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [currentLocation, setCurrentLocation] = useState<{latitude: number; longitude: number} | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const queryClient = useQueryClient();
 
   // State to coordinates mapping for major states
@@ -229,23 +229,12 @@ export default function PredictionDashboard() {
     ? stateCoordinates[selectedState] 
     : currentLocation;
 
-  // Initialize voice loading with enhanced cleanup
+  // Cleanup audio on unmount
   useEffect(() => {
-    const loadVoices = () => {
-      if ('speechSynthesis' in window) {
-        setVoices(window.speechSynthesis.getVoices());
-      }
-    };
-    
-    loadVoices();
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.onvoiceschanged = loadVoices;
-    }
-    
     return () => {
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-        window.speechSynthesis.onvoiceschanged = null;
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
       }
     };
   }, []);
@@ -278,48 +267,62 @@ export default function PredictionDashboard() {
     }
   }, [selectedState]); // Re-run when selectedState changes
 
-  const startVoiceGuide = () => {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
-      console.warn('Speech synthesis not supported in this browser');
-      return;
-    }
-
+  const startVoiceGuide = async () => {
     if (!isVoiceGuideActive) {
       setIsVoiceGuideActive(true);
-      window.speechSynthesis.cancel();
       
-      const voiceContent = `Welcome to Storm Prediction Dashboard! This advanced forecasting system uses AI models and NOAA data to predict storm paths, intensity changes, and damage potential. The main dashboard shows active storm predictions with confidence levels, predicted paths with time stamps, and damage forecasts by county including wind, flood, and tornado risks. You'll see risk level indicators from minimal to extreme, estimated property damage amounts, and potential restoration job volumes. Use the tabs to switch between storm tracking, damage forecasts, and historical analysis. The map displays storm paths with color-coded intensity levels, and you can click on any forecast point for detailed information. All predictions update automatically as new weather data becomes available.`;
-      
-      const utterance = new SpeechSynthesisUtterance(voiceContent);
-      utterance.rate = 0.9;
-      utterance.pitch = 1.0;
-      utterance.volume = 0.8;
-      
-      if (voices.length > 0) {
-        // Prefer natural female voices
-        const femaleVoice = voices.find(voice => 
-          voice.lang.includes('en') && 
-          (voice.name.toLowerCase().includes('female') || 
-           voice.name.toLowerCase().includes('zira') ||
-           voice.name.toLowerCase().includes('samantha') ||
-           voice.name.toLowerCase().includes('google uk') ||
-           voice.name.toLowerCase().includes('fiona'))
-        );
-        utterance.voice = femaleVoice || voices.find(voice => voice.lang.includes('en')) || voices[0];
+      // Stop any existing audio
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
       }
       
-      utterance.onend = () => {
-        setIsVoiceGuideActive(false);
-      };
+      const voiceContent = `Welcome to Predictive Storm Intelligence! This advanced forecasting system uses AI models and NOAA data to predict storm paths, intensity changes, and damage potential. The main dashboard shows active storm predictions with confidence levels, predicted paths with time stamps, and damage forecasts by county including wind, flood, and tornado risks. You'll see risk level indicators from minimal to extreme, estimated property damage amounts, and potential restoration job volumes. Use the tabs to switch between storm tracking, damage forecasts, and historical analysis. The map displays storm paths with color-coded intensity levels, and you can click on any forecast point for detailed information. All predictions update automatically as new weather data becomes available.`;
       
-      utterance.onerror = (event) => {
-        console.error('Speech synthesis error:', event);
+      try {
+        // Call Rachel voice API (ElevenLabs)
+        const response = await fetch('/api/voice-ai/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: voiceContent }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Voice generation failed');
+        }
+
+        const data = await response.json();
+        
+        if (data.audioBase64) {
+          // Create and play audio
+          const audio = new Audio(`data:audio/mpeg;base64,${data.audioBase64}`);
+          audioRef.current = audio;
+          
+          audio.onended = () => {
+            setIsVoiceGuideActive(false);
+            audioRef.current = null;
+          };
+          
+          audio.onerror = () => {
+            console.error('Audio playback error');
+            setIsVoiceGuideActive(false);
+            audioRef.current = null;
+          };
+          
+          await audio.play();
+        } else {
+          setIsVoiceGuideActive(false);
+        }
+      } catch (error) {
+        console.error('Rachel voice error:', error);
         setIsVoiceGuideActive(false);
-      };
-      
-      window.speechSynthesis.speak(utterance);
+      }
     } else {
-      window.speechSynthesis.cancel();
+      // Stop playing
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
       setIsVoiceGuideActive(false);
     }
   };
