@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { FileText, Plus, Search, Settings, DollarSign, Clock, CheckCircle, AlertTriangle, TrendingUp, Eye, Volume2, VolumeX, ArrowLeft, UserPlus, FileSearch } from 'lucide-react';
+import { FileText, Plus, Search, Settings, DollarSign, Clock, CheckCircle, AlertTriangle, TrendingUp, Eye, Volume2, VolumeX, ArrowLeft, UserPlus, FileSearch, Mic, Sparkles, Wand2, Bot } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import { DashboardSection } from '@/components/DashboardSection';
@@ -44,6 +44,14 @@ export default function Claims() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const { toast } = useToast();
+
+  // AI Writing Assistant States
+  const [isListening, setIsListening] = useState(false);
+  const [aiSuggestion, setAiSuggestion] = useState('');
+  const [isEnhancing, setIsEnhancing] = useState(false);
+  const [isSuggesting, setIsSuggesting] = useState(false);
+  const [showAiPanel, setShowAiPanel] = useState(false);
+  const [recognitionInstance, setRecognitionInstance] = useState<any>(null);
 
   // New Claim Form Data
   const [newClaim, setNewClaim] = useState({
@@ -145,6 +153,12 @@ export default function Claims() {
   };
 
   const resetClaimForm = () => {
+    // Stop voice recognition if active
+    if (recognitionInstance) {
+      recognitionInstance.stop();
+      setRecognitionInstance(null);
+    }
+    
     setNewClaim({
       claimNumber: '',
       insuranceCompany: '',
@@ -159,6 +173,152 @@ export default function Claims() {
     });
     setClaimMode('select');
     setSearchQuery('');
+    setAiSuggestion('');
+    setShowAiPanel(false);
+    setIsListening(false);
+    setIsEnhancing(false);
+    setIsSuggesting(false);
+  };
+
+  // Voice Input (Speech-to-Text)
+  const startVoiceInput = () => {
+    // Stop existing recognition if running
+    if (recognitionInstance) {
+      recognitionInstance.stop();
+      setRecognitionInstance(null);
+      setIsListening(false);
+      return;
+    }
+
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+      toast({
+        title: "Voice Input Not Supported",
+        description: "Your browser doesn't support voice input. Please use Chrome or Edge.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = 'en-US';
+
+    recognition.onstart = () => {
+      setIsListening(true);
+      toast({
+        title: "Listening...",
+        description: "Speak now to add to your notes"
+      });
+    };
+
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      setNewClaim(prev => ({...prev, notes: prev.notes + (prev.notes ? ' ' : '') + transcript}));
+      toast({
+        title: "Voice Input Captured",
+        description: `Added: "${transcript}"`
+      });
+    };
+
+    recognition.onerror = (event: any) => {
+      console.error('Speech recognition error:', event.error);
+      toast({
+        title: "Voice Input Error",
+        description: "Could not capture voice input. Please try again.",
+        variant: "destructive"
+      });
+      setIsListening(false);
+      setRecognitionInstance(null);
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+      setRecognitionInstance(null);
+    };
+
+    setRecognitionInstance(recognition);
+    recognition.start();
+  };
+
+  // AI Text Enhancement
+  const enhanceWithAI = async () => {
+    if (!newClaim.notes.trim()) {
+      toast({
+        title: "No Text to Enhance",
+        description: "Please add some notes first.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsEnhancing(true);
+    try {
+      const response = await apiRequest('/api/grok', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: `You are a professional insurance claims specialist. Improve and professionalize the following claim notes while keeping all key information. Make it clear, concise, and properly formatted:\n\n"${newClaim.notes}"\n\nReturn only the improved version, no explanations.`
+        })
+      });
+
+      if (response.answer) {
+        setNewClaim(prev => ({...prev, notes: response.answer}));
+        toast({
+          title: "Notes Enhanced!",
+          description: "Your claim notes have been professionally improved by AI."
+        });
+      }
+    } catch (error) {
+      console.error('AI enhancement error:', error);
+      toast({
+        title: "Enhancement Failed",
+        description: "Could not enhance notes. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsEnhancing(false);
+    }
+  };
+
+  // AI Writing Suggestions
+  const getAiSuggestion = async () => {
+    setIsSuggesting(true);
+    setShowAiPanel(true);
+    try {
+      const claimContext = `
+Claim Number: ${newClaim.claimNumber || 'N/A'}
+Insurance Company: ${newClaim.insuranceCompany || 'N/A'}
+Claimant: ${newClaim.claimantName || 'N/A'}
+Property Address: ${newClaim.propertyAddress || 'N/A'}
+Damage Type: ${newClaim.damageType || 'N/A'}
+Current Notes: ${newClaim.notes || 'None yet'}
+      `.trim();
+
+      const response = await apiRequest('/api/grok', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: `You are an insurance claims specialist. Based on this claim information, suggest professional notes to add:\n\n${claimContext}\n\nProvide 2-3 concise, professional suggestions for claim notes. Be specific and helpful.`
+        })
+      });
+
+      if (response.answer) {
+        setAiSuggestion(response.answer);
+      }
+    } catch (error) {
+      console.error('AI suggestion error:', error);
+      toast({
+        title: "Suggestion Failed",
+        description: "Could not generate AI suggestions. Please try again.",
+        variant: "destructive"
+      });
+      setShowAiPanel(false);
+    } finally {
+      setIsSuggesting(false);
+    }
   };
 
   // Initialize voice loading
@@ -514,14 +674,95 @@ export default function Claims() {
               </div>
 
               <div>
-                <Label htmlFor="notes">Notes</Label>
+                <div className="flex items-center justify-between mb-2">
+                  <Label htmlFor="notes">Notes</Label>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={isListening ? "destructive" : "outline"}
+                      onClick={startVoiceInput}
+                      className="flex items-center gap-1"
+                      data-testid="button-voice-input"
+                      title={isListening ? "Stop Listening" : "Voice Input"}
+                    >
+                      <Mic className={`h-4 w-4 ${isListening ? 'animate-pulse' : ''}`} />
+                      {isListening ? 'Stop' : 'Voice'}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={enhanceWithAI}
+                      disabled={isEnhancing || !newClaim.notes.trim()}
+                      className="flex items-center gap-1"
+                      data-testid="button-enhance-ai"
+                      title="AI Auto-Correct & Enhance"
+                    >
+                      <Wand2 className="h-4 w-4" />
+                      {isEnhancing ? 'Processing...' : 'Enhance'}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={getAiSuggestion}
+                      disabled={isSuggesting}
+                      className="flex items-center gap-1"
+                      data-testid="button-ai-suggest"
+                      title="AI Writing Suggestions"
+                    >
+                      <Bot className="h-4 w-4" />
+                      {isSuggesting ? 'Loading...' : 'AI Suggest'}
+                    </Button>
+                  </div>
+                </div>
                 <Textarea
                   id="notes"
                   value={newClaim.notes}
                   onChange={(e) => setNewClaim({...newClaim, notes: e.target.value})}
-                  placeholder="Additional notes about the claim..."
+                  placeholder="Additional notes about the claim... (Use Voice, Enhance, or AI Suggest buttons for assistance)"
+                  rows={6}
                   data-testid="textarea-notes"
                 />
+                {showAiPanel && aiSuggestion && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg"
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                        <span className="text-sm font-semibold text-blue-900 dark:text-blue-100">AI Suggestions</span>
+                      </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setShowAiPanel(false)}
+                        className="h-6 w-6 p-0"
+                      >
+                        ×
+                      </Button>
+                    </div>
+                    <p className="text-sm text-blue-800 dark:text-blue-200 whitespace-pre-wrap">{aiSuggestion}</p>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setNewClaim({...newClaim, notes: newClaim.notes + (newClaim.notes ? '\n\n' : '') + aiSuggestion});
+                        setShowAiPanel(false);
+                        toast({ title: "Added AI Suggestions", description: "Suggestions have been added to your notes." });
+                      }}
+                      className="mt-2"
+                      data-testid="button-apply-suggestion"
+                    >
+                      Apply to Notes
+                    </Button>
+                  </motion.div>
+                )}
               </div>
 
               <div className="flex justify-end space-x-2 mt-6">
