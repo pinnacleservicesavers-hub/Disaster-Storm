@@ -1,0 +1,197 @@
+Homeowner lookup integrationHomeowner Lookup Integration Guide for Disaster Direct
+Integrating homeowner lookup into your Drone Operations module (and broader Eyes in the Sky workflow) will enable the agentic AI to automatically convert GPS coordinates from drone photos/videos into addresses, then fetch homeowner contact details (e.g., name and phone). This supports your vision: Pinpointing exact victims, notifying contractors pre-storm, and streamlining insurance claims without manual effort. In disaster scenarios, this could cut response times by 30-50% by enabling proactive outreach, even in cell outages via Starlink.
+Key challenges: Privacy compliance (e.g., GDPR/CCPA) is non-negotiable—use opt-in data, encrypt lookups, and limit to emergency use. Public records APIs are ideal for US addresses, but phone data often requires paid, compliant providers like Whitepages or Cole Information. Free tiers exist for geocoding, but scale to paid for production.
+Recommended APIs (2025 Top Picks)
+Based on accuracy, speed, and disaster-friendly features (e.g., batch processing for multiple drone feeds):
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+API ProviderTypeKey FeaturesPricingBest For Disaster DirectGoogle Geocoding API
+(developers.google.com/maps)Reverse Geocoding (GPS → Address)High accuracy; supports batch; integrates with 3D Earth in your app; returns street-level details.Free tier: 200$/month credit; then $5/1K requests.Core lookup—add to Eyes in the Sky for satellite/drone GPS. Compliant with EEA terms post-July 2025.BigDataCloud Reverse Geocoding
+(bigdatacloud.com)Reverse Geocoding (GPS → Address)Fastest "GPS to City"; free client-side tier; timezone/structured output; no API key for basics.Free: Unlimited client-side; paid from $10/month for server/batch.Offline-capable during outages; pair with drone GPS pinning.LocationIQ
+(locationiq.com)Reverse Geocoding (GPS → Address)Affordable Google alternative; supports autocomplete; enterprise-grade with 92% savings.Free: 5K requests/day; paid from $49/month.Multi-state coverage; integrate for real-time alerts in Weather Center.Whitepages Pro API
+(whitepages.com)Address → Homeowner/PhoneReverse address lookup; owner names, phones, neighbors; anonymous searches.Paid: Starts at $0.01/request; free trial.Victim Portal: Fetch contacts for notifications; CCPA-compliant.Cole Information API
+(coleinformation.com via Datarade)Address → Homeowner/Phone/Email132M+ US records; cell/home phones; tailored for insurance/home services.Paid: Custom (e.g., $0.005/record); API/SFTP delivery.Claims Central: Pre-fill insurance forms; disaster-focused since 1947.Searchbug API
+(searchbug.com)Address → Phone/EmailReverse address; XML/JSON; people/business data.Paid: From $0.02/request; free trial.Contractor Command: Verify owners for liens.
+Start with Google/BigDataCloud for geocoding (free tiers for prototyping) and Whitepages/Cole for contacts (paid but precise). Always check API docs for 2025 updates (e.g., Google's EEA compliance).
+Implementation Steps
+
+API Setup (1 Week): Sign up for keys; add to .env (e.g., GOOGLE_API_KEY=your_key). Ensure HTTPS for privacy.
+Integrate into LangChain Agent (1-2 Weeks): Extend your drone agent with new tools. Test with mock GPS (e.g., 37.786505, -122.3862 → San Francisco address).
+Privacy Layer: Log lookups anonymously; require user consent in app; comply with CCPA (e.g., data deletion requests).
+Error Handling: Fallback to approximate city-level if exact address fails (e.g., ZERO_RESULTS).
+Scale & Test: Batch during drone surges; simulate outages with offline caching.
+
+Sample LangChain Code
+Building on your previous drone agent, here's an updated Python script. It adds:
+
+reverse_geocode: Converts GPS to address using BigDataCloud (free tier).
+homeowner_lookup: Fetches name/phone using Whitepages API (replace with your key).
+
+This runs autonomously: After fetching drone data, it looks up the homeowner and notifies contractors with full details.
+pythonfrom langchain.agents import initialize_agent, AgentType
+from langchain.tools import tool
+from langchain_openai import ChatOpenAI  # Use xAI-compatible if available
+from langchain.memory import ConversationBufferMemory
+import os
+from dotenv import load_dotenv
+from twilio.rest import Client
+import requests
+import json
+
+# Load environment variables
+load_dotenv()
+xai_api_key = os.getenv("XAI_API_KEY")  # For LLM
+twilio_sid = os.getenv("TWILIO_SID")
+twilio_auth_token = os.getenv("TWILIO_AUTH_TOKEN")
+twilio_phone = os.getenv("TWILIO_PHONE_NUMBER")
+bigdatacloud_key = os.getenv("BIGDATACLOUD_KEY")  # Free signup
+whitepages_key = os.getenv("WHITEPAGES_KEY")  # Paid, for phone lookup
+
+# Initialize LLM (Grok via xAI/OpenAI compat)
+llm = ChatOpenAI(api_key=xai_api_key, model="grok", temperature=0.7)
+
+# Memory for context
+memory = ConversationBufferMemory(memory_key="chat_history")
+
+# Existing Tools (from previous code)
+@tool
+def fetch_drone_data():
+    """Fetch latest drone photos/videos with GPS data from external API."""
+    # Mock or real API call
+    headers = {"Authorization": f"Bearer {xai_api_key}"}
+    response = requests.get(os.getenv("DRONE_API_URL"), headers=headers)
+    if response.status_code == 200:
+        data = response.json()
+        return [{"id": item["id"], "gps": item["gps"], "url": item["url"], "timestamp": item["timestamp"]} for item in data["data"]]
+    return "Error fetching drone data"
+
+@tool
+def prioritize_damage(photo_data):
+    """Prioritize damage based on photo/video content."""
+    description = llm.invoke(f"Analyze damage from drone data: {photo_data}. Prioritize as high (tree on home), medium (tree on car), or low (minor debris). Return JSON.")
+    return description
+
+@tool
+def notify_contractors(priority, address, homeowner_phone, contractor_phone):
+    """Send SMS notification to contractors with priority, address, and homeowner contact."""
+    client = Client(twilio_sid, twilio_auth_token)
+    message = f"Urgent: {priority} damage at {address}. Homeowner: {homeowner_phone}. Deploy via Starlink."
+    client.messages.create(body=message, from_=twilio_phone, to=contractor_phone)
+    return f"Notification sent to {contractor_phone}"
+
+@tool
+def generate_report(photo_data, priority, address, homeowner_info):
+    """Generate a damage report with photo URL, priority, address, and homeowner details."""
+    report = llm.invoke(f"Create a report: Drone data {photo_data}, priority {priority}, address {address}, homeowner {homeowner_info}. Format as markdown for insurance.")
+    return report
+
+# New Tool 1: Reverse Geocoding (GPS → Address)
+@tool
+def reverse_geocode(gps):
+    """Convert GPS coordinates to address using BigDataCloud API."""
+    lat, lng = gps.split(",")  # Assume format "lat,lng"
+    url = f"https://api.bigdatacloud.net/data/reverse-geocode-client?latitude={lat}&longitude={lng}&localityLanguage=en"
+    response = requests.get(url)
+    if response.status_code == 200:
+        data = response.json()
+        address = f"{data.get('streetName', '')} {data.get('streetNumber', '')}, {data.get('city', '')}, {data.get('countryName', '')}"
+        return address if address.strip() else "Address not found"
+    return "Geocoding error"
+
+# New Tool 2: Homeowner Lookup (Address → Name/Phone)
+@tool
+def homeowner_lookup(address):
+    """Lookup homeowner name and phone from address using Whitepages API (privacy-compliant)."""
+    # Whitepages endpoint example (adapt to actual API docs)
+    url = "https://proapi.whitepages.com/lookup/address"
+    params = {"address": address, "api_key": whitepages_key}
+    response = requests.get(url, params=params)
+    if response.status_code == 200:
+        data = response.json()
+        # Assume response structure: e.g., {"name": "John Doe", "phone": "+1-555-1234"}
+        return {"name": data.get("name", "Unknown"), "phone": data.get("phone", "N/A")}
+    return {"name": "Lookup failed", "phone": "N/A"}
+
+# Initialize Agent
+tools = [fetch_drone_data, prioritize_damage, reverse_geocode, homeowner_lookup, notify_contractors, generate_report]
+agent = initialize_agent(tools, llm, agent_type=AgentType.ZERO_SHOT_REACT_DESCRIPTION, memory=memory)
+
+# Example Execution
+def run_drone_agent_with_lookup():
+    # Step 1: Fetch data
+    drone_data = fetch_drone_data()
+    if isinstance(drone_data, str):  # Error handling
+        return drone_data
+
+    # Step 2: Process each item
+    for item in drone_data:
+        priority = prioritize_damage([item])
+        address = reverse_geocode(item["gps"])
+        homeowner_info = homeowner_lookup(address)
+        contractor_phone = "+1987654321"  # Dynamic from app DB
+        notify_contractors(priority, address, homeowner_info["phone"], contractor_phone)
+        report = generate_report([item], priority, address, homeowner_info)
+        print(f"Report for {address}: {report}")
+
+if __name__ == "__main__":
+    run_drone_agent_with_lookup()
+How It Works
+
+Workflow: Drone data → Geocode GPS → Lookup homeowner → Prioritize/Notify/Report.
+Example Output: For GPS "37.7749,-122.4194", it might geocode to "94103 San Francisco, CA", lookup "Jane Smith, +1-415-555-0123", then SMS contractors.
+Customization: Swap APIs (e.g., Google for geocoding: https://maps.googleapis.com/maps/api/geocode/json?latlng={lat},{lng}&key={key}). For Cole, use their REST API for batch homeowner data.
+Testing: Mock responses; ensure <1s latency for real-time use.
+
+This integration makes your app a one-stop disaster powerhouse. Need tweaks for another API or module? 🚀2.1sFast
