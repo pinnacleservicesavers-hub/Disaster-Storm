@@ -40,6 +40,28 @@ function BackButton() {
   );
 }
 
+// API Response interface
+interface ApiTrafficCamera {
+  id: string;
+  name: string;
+  lat: number;
+  lng: number;
+  state: string;
+  city: string;
+  imageUrl: string;
+  source: string;
+  lastUpdated: string;
+  isActive: boolean;
+  description: string;
+}
+
+interface TrafficCamerasResponse {
+  cameras: ApiTrafficCamera[];
+  count: number;
+  timestamp: string;
+}
+
+// UI Display interface
 interface TrafficCamera {
   id: string;
   name: string;
@@ -51,6 +73,7 @@ interface TrafficCamera {
   weatherConditions: string;
   emergencyRoute: boolean;
   alerts: string[];
+  imageUrl?: string;
 }
 
 interface EvacuationRoute {
@@ -70,12 +93,25 @@ export default function TrafficCamWatcher() {
   const [viewMode, setViewMode] = useState<'cameras' | 'routes'>('cameras');
 
   // Fetch traffic cameras from API
-  const { data: camerasData, isLoading: camerasLoading } = useQuery<TrafficCamera[]>({
+  const { data: camerasResponse, isLoading: camerasLoading } = useQuery<TrafficCamerasResponse>({
     queryKey: ['/api/traffic-cameras'],
     refetchInterval: 30000, // Refresh every 30 seconds
   });
 
-  const cameras: TrafficCamera[] = camerasData || [];
+  // Transform API response to UI format
+  const cameras: TrafficCamera[] = camerasResponse?.cameras.map(cam => ({
+    id: cam.id,
+    name: cam.name,
+    location: `${cam.city}, ${cam.state}`,
+    status: cam.isActive ? 'online' : 'offline',
+    coordinates: { lat: cam.lat, lng: cam.lng },
+    lastUpdate: cam.lastUpdated,
+    trafficFlow: 'moderate', // Default value - real API would provide this
+    weatherConditions: 'Clear', // Default value - real API would provide this
+    emergencyRoute: false, // Default value - real API would provide this
+    alerts: [], // Default value - real API would provide this
+    imageUrl: cam.imageUrl
+  })) || [];
   const onlineCameras = cameras.filter(cam => cam.status === 'online').length;
 
   // Mock evacuation routes (no API endpoint yet)
