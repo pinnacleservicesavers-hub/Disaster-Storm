@@ -1,11 +1,15 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import * as Cesium from 'cesium';
 import { directions, type LatLng } from '@/lib/google';
 import { decode } from '@googlemaps/polyline-codec';
 import { sampleContractors } from '@/data/sampleData';
+import { AlertCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Link } from 'wouter';
 
 export default function EyesInTheSkyGlobe() {
   const elRef = useRef<HTMLDivElement | null>(null);
+  const [missingApiKey, setMissingApiKey] = useState(false);
 
   useEffect(() => {
     let viewer: Cesium.Viewer | undefined;
@@ -15,6 +19,7 @@ export default function EyesInTheSkyGlobe() {
       const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_KEY as string;
       if (!GOOGLE_MAPS_API_KEY) {
         console.error('Missing VITE_GOOGLE_MAPS_KEY');
+        setMissingApiKey(true);
         return;
       }
 
@@ -111,6 +116,28 @@ export default function EyesInTheSkyGlobe() {
       if (leadHandler) window.removeEventListener('open-lead', leadHandler);
     };
   }, []);
+
+  if (missingApiKey) {
+    return (
+      <div className="flex items-center justify-center h-full bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-blue-900">
+        <div className="text-center p-8 max-w-md">
+          <AlertCircle className="h-16 w-16 text-yellow-500 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200 mb-2">
+            Google Maps API Key Required
+          </h2>
+          <p className="text-slate-600 dark:text-slate-400 mb-6">
+            The 3D Globe view requires a Google Maps API key to load the photorealistic tiles. 
+            Please configure the VITE_GOOGLE_MAPS_KEY environment variable.
+          </p>
+          <Link href="/">
+            <Button variant="outline" data-testid="button-return-home">
+              Return to Dashboard
+            </Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return <div ref={elRef} className="cesium-root" />;
 }
