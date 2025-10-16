@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -16,7 +17,8 @@ import {
   Navigation,
   Route,
   Shield,
-  Zap
+  Zap,
+  Loader2
 } from 'lucide-react';
 import { Link } from 'wouter';
 import { FadeIn, SlideIn, StaggerContainer, StaggerItem } from '@/components/ui/animations';
@@ -63,78 +65,44 @@ interface EvacuationRoute {
   alternativeRoutes: number;
 }
 
-const mockCameras: TrafficCamera[] = [
-  {
-    id: '1',
-    name: 'I-95 North at Mile Marker 15',
-    location: 'Miami-Dade County',
-    status: 'online',
-    coordinates: { lat: 25.7617, lng: -80.1918 },
-    lastUpdate: new Date().toISOString(),
-    trafficFlow: 'heavy',
-    weatherConditions: 'Heavy Rain',
-    emergencyRoute: true,
-    alerts: ['Flooding detected in right lane', 'Reduced visibility']
-  },
-  {
-    id: '2',
-    name: 'US-1 at Homestead',
-    location: 'South Miami-Dade',
-    status: 'online',
-    coordinates: { lat: 25.4687, lng: -80.4776 },
-    lastUpdate: new Date().toISOString(),
-    trafficFlow: 'moderate',
-    weatherConditions: 'Moderate Rain',
-    emergencyRoute: true,
-    alerts: []
-  },
-  {
-    id: '3',
-    name: 'Tamiami Trail Bridge',
-    location: 'Collier County',
-    status: 'offline',
-    coordinates: { lat: 25.8429, lng: -81.3953 },
-    lastUpdate: '2024-09-26T10:30:00Z',
-    trafficFlow: 'blocked',
-    weatherConditions: 'Severe Weather',
-    emergencyRoute: true,
-    alerts: ['Camera offline due to storm damage', 'Bridge closed to traffic']
-  }
-];
-
-const mockEvacuationRoutes: EvacuationRoute[] = [
-  {
-    id: '1',
-    name: 'Central Florida Evacuation Corridor',
-    origin: 'Miami-Dade',
-    destination: 'Orlando',
-    status: 'congested',
-    estimatedTime: 240,
-    capacity: 10000,
-    currentLoad: 7500,
-    alternativeRoutes: 3
-  },
-  {
-    id: '2',
-    name: 'Northern Evacuation Route',
-    origin: 'Broward County',
-    destination: 'Georgia Border',
-    status: 'open',
-    estimatedTime: 360,
-    capacity: 15000,
-    currentLoad: 4200,
-    alternativeRoutes: 2
-  }
-];
-
 export default function TrafficCamWatcher() {
   const [selectedCamera, setSelectedCamera] = useState<TrafficCamera | null>(null);
   const [viewMode, setViewMode] = useState<'cameras' | 'routes'>('cameras');
-  const [onlineCameras, setOnlineCameras] = useState(0);
-  
-  useEffect(() => {
-    setOnlineCameras(mockCameras.filter(cam => cam.status === 'online').length);
-  }, []);
+
+  // Fetch traffic cameras from API
+  const { data: camerasData, isLoading: camerasLoading } = useQuery<TrafficCamera[]>({
+    queryKey: ['/api/traffic-cameras'],
+    refetchInterval: 30000, // Refresh every 30 seconds
+  });
+
+  const cameras: TrafficCamera[] = camerasData || [];
+  const onlineCameras = cameras.filter(cam => cam.status === 'online').length;
+
+  // Mock evacuation routes (no API endpoint yet)
+  const mockEvacuationRoutes: EvacuationRoute[] = [
+    {
+      id: '1',
+      name: 'Central Florida Evacuation Corridor',
+      origin: 'Miami-Dade',
+      destination: 'Orlando',
+      status: 'congested',
+      estimatedTime: 240,
+      capacity: 10000,
+      currentLoad: 7500,
+      alternativeRoutes: 3
+    },
+    {
+      id: '2',
+      name: 'Northern Evacuation Route',
+      origin: 'Broward County',
+      destination: 'Georgia Border',
+      status: 'open',
+      estimatedTime: 360,
+      capacity: 15000,
+      currentLoad: 4200,
+      alternativeRoutes: 2
+    }
+  ];
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -201,7 +169,7 @@ export default function TrafficCamWatcher() {
               <Card className="bg-white/10 backdrop-blur-md border-white/20">
                 <CardContent className="p-6 text-center">
                   <Camera className="w-8 h-8 text-blue-400 mx-auto mb-2" />
-                  <div className="text-2xl font-bold text-white">{mockCameras.length}</div>
+                  <div className="text-2xl font-bold text-white">{cameras.length}</div>
                   <div className="text-sm text-orange-200">Total Cameras</div>
                 </CardContent>
               </Card>
@@ -229,7 +197,7 @@ export default function TrafficCamWatcher() {
                 <CardContent className="p-6 text-center">
                   <AlertTriangle className="w-8 h-8 text-red-400 mx-auto mb-2" />
                   <div className="text-2xl font-bold text-white">
-                    {mockCameras.reduce((acc, cam) => acc + cam.alerts.length, 0)}
+                    {cameras.reduce((acc, cam) => acc + cam.alerts.length, 0)}
                   </div>
                   <div className="text-sm text-orange-200">Active Alerts</div>
                 </CardContent>
@@ -271,7 +239,22 @@ export default function TrafficCamWatcher() {
                   Live Traffic Cameras
                 </h2>
                 
-                {mockCameras.map((camera, index) => (
+                {camerasLoading ? (
+                  <Card className="bg-white/10 backdrop-blur-md border-white/20">
+                    <CardContent className="p-12 text-center">
+                      <Loader2 className="w-12 h-12 text-orange-400 mx-auto mb-4 animate-spin" />
+                      <p className="text-orange-200">Loading traffic cameras...</p>
+                    </CardContent>
+                  </Card>
+                ) : cameras.length === 0 ? (
+                  <Card className="bg-white/10 backdrop-blur-md border-white/20">
+                    <CardContent className="p-12 text-center">
+                      <Camera className="w-16 h-16 text-orange-400 mx-auto mb-4" />
+                      <p className="text-orange-200">No traffic cameras available</p>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  cameras.map((camera, index) => (
                   <motion.div
                     key={camera.id}
                     initial={{ opacity: 0, x: -20 }}
@@ -329,7 +312,7 @@ export default function TrafficCamWatcher() {
                       </CardContent>
                     </Card>
                   </motion.div>
-                ))}
+                )))}
               </div>
 
               {/* Camera Detail View */}
