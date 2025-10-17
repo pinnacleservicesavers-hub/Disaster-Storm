@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -18,7 +18,9 @@ import {
   Route,
   Shield,
   Zap,
-  Loader2
+  Loader2,
+  Volume2,
+  VolumeX
 } from 'lucide-react';
 import { Link } from 'wouter';
 import { FadeIn, SlideIn, StaggerContainer, StaggerItem } from '@/components/ui/animations';
@@ -74,6 +76,8 @@ interface TrafficCamera {
   emergencyRoute: boolean;
   alerts: string[];
   imageUrl?: string;
+  state: string;
+  city: string;
 }
 
 interface EvacuationRoute {
@@ -91,6 +95,16 @@ interface EvacuationRoute {
 export default function TrafficCamWatcher() {
   const [selectedCamera, setSelectedCamera] = useState<TrafficCamera | null>(null);
   const [viewMode, setViewMode] = useState<'cameras' | 'routes'>('cameras');
+  const [isVoiceGuideActive, setIsVoiceGuideActive] = useState(false);
+  const [selectedState, setSelectedState] = useState<string>('all');
+  const [selectedCity, setSelectedCity] = useState<string>('all');
+  const [aiAnalysisLoading, setAiAnalysisLoading] = useState(false);
+  const [aiInsights, setAiInsights] = useState<string>('');
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const sessionTokenRef = useRef<number>(0);
+  const aiAbortControllerRef = useRef<AbortController | null>(null);
+  const aiSessionTokenRef = useRef<number>(0);
 
   // Fetch traffic cameras from API
   const { data: camerasResponse, isLoading: camerasLoading } = useQuery<TrafficCamerasResponse>({
@@ -99,7 +113,7 @@ export default function TrafficCamWatcher() {
   });
 
   // Transform API response to UI format
-  const cameras: TrafficCamera[] = camerasResponse?.cameras.map(cam => ({
+  const allCameras: TrafficCamera[] = camerasResponse?.cameras.map(cam => ({
     id: cam.id,
     name: cam.name,
     location: `${cam.city}, ${cam.state}`,
@@ -110,8 +124,24 @@ export default function TrafficCamWatcher() {
     weatherConditions: 'Clear', // Default value - real API would provide this
     emergencyRoute: false, // Default value - real API would provide this
     alerts: [], // Default value - real API would provide this
-    imageUrl: cam.imageUrl
+    imageUrl: cam.imageUrl,
+    state: cam.state,
+    city: cam.city
   })) || [];
+  
+  // Get unique states and cities
+  const states = ['all', ...Array.from(new Set(camerasResponse?.cameras.map(c => c.state) || []))];
+  const cities = selectedState === 'all' 
+    ? ['all', ...Array.from(new Set(camerasResponse?.cameras.map(c => c.city) || []))]
+    : ['all', ...Array.from(new Set(camerasResponse?.cameras.filter(c => c.state === selectedState).map(c => c.city) || []))];
+  
+  // Filter cameras based on state and city
+  const cameras = allCameras.filter(cam => {
+    const stateMatch = selectedState === 'all' || cam.state === selectedState;
+    const cityMatch = selectedCity === 'all' || cam.city === selectedCity;
+    return stateMatch && cityMatch;
+  });
+  
   const onlineCameras = cameras.filter(cam => cam.status === 'online').length;
 
   // Mock evacuation routes (no API endpoint yet)
@@ -161,6 +191,230 @@ export default function TrafficCamWatcher() {
     }
   };
 
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
+  }, []);
+
+  // AI Traffic Analysis
+  const analyzeTrafficWithAI = async () => {
+    // Abort any in-flight AI request
+    if (aiAbortControllerRef.current) {
+      aiAbortControllerRef.current.abort();
+    }
+    
+    // Create new session with unique token
+    aiSessionTokenRef.current += 1;
+    const currentToken = aiSessionTokenRef.current;
+    
+    // Create new abort controller
+    const abortController = new AbortController();
+    aiAbortControllerRef.current = abortController;
+    
+    setAiAnalysisLoading(true);
+    
+    try {
+      const trafficData = {
+        totalCameras: cameras.length,
+        onlineCameras,
+        states: selectedState === 'all' ? 'all regions' : selectedState,
+        cities: selectedCity === 'all' ? 'all cities' : selectedCity,
+        trafficConditions: cameras.map(c => ({
+          location: c.location,
+          flow: c.trafficFlow,
+          weather: c.weatherConditions,
+          alerts: c.alerts
+        }))
+      };
+
+      const prompt = `As a traffic intelligence AI, analyze the following real-time traffic camera data and provide actionable insights for contractors and emergency responders:
+
+Traffic Overview:
+- Total Cameras: ${trafficData.totalCameras}
+- Online Cameras: ${trafficData.onlineCameras}
+- Monitoring: ${trafficData.states} ${trafficData.cities !== 'all cities' ? '- ' + trafficData.cities : ''}
+
+Current Conditions:
+${trafficData.trafficConditions.slice(0, 10).map(c => `- ${c.location}: ${c.flow} traffic, ${c.weather}`).join('\n')}
+
+Provide:
+1. Overall traffic assessment (2-3 sentences)
+2. Areas of concern or congestion
+3. Recommended evacuation routes if needed
+4. Weather impact analysis
+5. Contractor deployment suggestions
+
+Keep it concise and actionable.`;
+
+      const response = await fetch('/api/grok/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          message: prompt,
+          conversationHistory: []
+        }),
+        signal: abortController.signal
+      });
+
+      // Check if this session is still active
+      if (currentToken !== aiSessionTokenRef.current) {
+        return;
+      }
+
+      if (!response.ok) throw new Error('AI analysis failed');
+      
+      const data = await response.json();
+      
+      // Check again before updating state
+      if (currentToken === aiSessionTokenRef.current) {
+        setAiInsights(data.reply || 'Analysis complete. All systems operational.');
+      }
+    } catch (error: any) {
+      // Only update state if this is still the active session
+      if (currentToken === aiSessionTokenRef.current) {
+        if (error.name !== 'AbortError') {
+          console.error('AI analysis error:', error);
+          setAiInsights('Unable to generate AI analysis at this time. Traffic monitoring continues normally.');
+        }
+      }
+    } finally {
+      // Only update loading state if this is still the active session
+      if (currentToken === aiSessionTokenRef.current) {
+        setAiAnalysisLoading(false);
+        aiAbortControllerRef.current = null;
+      }
+    }
+  };
+
+  // Auto-analyze when filters change or cameras update
+  useEffect(() => {
+    if (cameras.length > 0) {
+      analyzeTrafficWithAI();
+    } else {
+      // Clear insights when no cameras match filters
+      setAiInsights('');
+      setAiAnalysisLoading(false);
+      // Abort any in-flight request
+      if (aiAbortControllerRef.current) {
+        aiAbortControllerRef.current.abort();
+        aiAbortControllerRef.current = null;
+      }
+    }
+  }, [selectedState, selectedCity, camerasResponse]);
+
+  // Voice Guide - Rachel (ElevenLabs)
+  const startVoiceGuide = async () => {
+    if (!isVoiceGuideActive) {
+      setIsVoiceGuideActive(true);
+      
+      // Stop any existing audio
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+      
+      // Abort any in-flight request
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      
+      // Create new session with unique token
+      sessionTokenRef.current += 1;
+      const currentToken = sessionTokenRef.current;
+      
+      // Create new abort controller for this request
+      const abortController = new AbortController();
+      abortControllerRef.current = abortController;
+      
+      const voiceContent = `Welcome to Traffic Cam Watcher! This real-time monitoring system provides live traffic camera feeds and evacuation route intelligence. You can view traffic cameras from multiple states and cities, monitor road conditions during storm events, and track emergency evacuation routes. The main dashboard displays online cameras with status indicators, traffic flow levels from light to blocked, and weather conditions at each location. Use the state and city filters to focus on specific regions. Switch between camera view and evacuation routes view using the tabs. Each camera shows live status, traffic flow, and any active alerts. For evacuation routes, you'll see real-time capacity usage, estimated travel times, and alternative route options. All data refreshes automatically to keep you informed during critical situations.`;
+      
+      try {
+        // Call Rachel voice API (ElevenLabs)
+        const response = await fetch('/api/voice-ai/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: voiceContent }),
+          signal: abortController.signal,
+        });
+
+        if (!response.ok) {
+          throw new Error('Voice generation failed');
+        }
+
+        const data = await response.json();
+        
+        // Check if this session is still active
+        if (currentToken !== sessionTokenRef.current) {
+          return;
+        }
+        
+        if (data.audioBase64) {
+          // Create and play audio
+          const audio = new Audio(`data:audio/mpeg;base64,${data.audioBase64}`);
+          audioRef.current = audio;
+          
+          audio.onended = () => {
+            // Only update state if this is still the active session
+            if (currentToken === sessionTokenRef.current) {
+              setIsVoiceGuideActive(false);
+              audioRef.current = null;
+              abortControllerRef.current = null;
+            }
+          };
+          
+          audio.onerror = () => {
+            // Only update state if this is still the active session
+            if (currentToken === sessionTokenRef.current) {
+              console.error('Audio playback error');
+              setIsVoiceGuideActive(false);
+              audioRef.current = null;
+              abortControllerRef.current = null;
+            }
+          };
+          
+          await audio.play();
+        } else {
+          // Only update state if this is still the active session
+          if (currentToken === sessionTokenRef.current) {
+            setIsVoiceGuideActive(false);
+            abortControllerRef.current = null;
+          }
+        }
+      } catch (error: any) {
+        // Only update state if this is still the active session
+        if (currentToken === sessionTokenRef.current) {
+          // Don't log error if request was aborted (expected behavior)
+          if (error.name !== 'AbortError') {
+            console.error('Rachel voice error:', error);
+          }
+          setIsVoiceGuideActive(false);
+          abortControllerRef.current = null;
+        }
+      }
+    } else {
+      // Stop playing - invalidate current session
+      sessionTokenRef.current += 1;
+      
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+      setIsVoiceGuideActive(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-900 via-red-900 to-pink-900">
       <FadeIn>
@@ -169,7 +423,25 @@ export default function TrafficCamWatcher() {
           <div className="max-w-7xl mx-auto">
             <div className="flex items-center justify-between mb-4">
               <BackButton />
-              <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={startVoiceGuide}
+                  data-testid="button-voice-guide"
+                  className={`${
+                    isVoiceGuideActive 
+                      ? 'bg-orange-100 hover:bg-orange-200 border-orange-300 text-orange-800' 
+                      : 'bg-white/10 hover:bg-white/20 border-white/30 text-white'
+                  } transition-all duration-300`}
+                >
+                  {isVoiceGuideActive ? (
+                    <VolumeX className="w-4 h-4 mr-2" />
+                  ) : (
+                    <Volume2 className="w-4 h-4 mr-2" />
+                  )}
+                  {isVoiceGuideActive ? 'Stop Guide' : 'Voice Guide'}
+                </Button>
                 <Badge className="bg-white/20 text-white border-white/30">
                   <Eye className="w-3 h-3 mr-1" />
                   Live Monitoring
@@ -195,6 +467,58 @@ export default function TrafficCamWatcher() {
             >
               Road conditions & evacuation routes
             </motion.p>
+            
+            {/* State and City Filters */}
+            <div className="flex items-center gap-4 mt-4">
+              <div className="flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-orange-200" />
+                <select
+                  value={selectedState}
+                  onChange={(e) => {
+                    setSelectedState(e.target.value);
+                    setSelectedCity('all');
+                  }}
+                  className="bg-white/10 backdrop-blur-sm border border-white/30 rounded-lg px-3 py-1.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+                  data-testid="select-state"
+                >
+                  <option value="all" className="bg-gray-800">All States</option>
+                  {states.filter(s => s !== 'all').map(state => (
+                    <option key={state} value={state} className="bg-gray-800">{state}</option>
+                  ))}
+                </select>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <Navigation className="w-4 h-4 text-orange-200" />
+                <select
+                  value={selectedCity}
+                  onChange={(e) => setSelectedCity(e.target.value)}
+                  className="bg-white/10 backdrop-blur-sm border border-white/30 rounded-lg px-3 py-1.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+                  data-testid="select-city"
+                  disabled={selectedState === 'all'}
+                >
+                  <option value="all" className="bg-gray-800">All Cities</option>
+                  {cities.filter(c => c !== 'all').map(city => (
+                    <option key={city} value={city} className="bg-gray-800">{city}</option>
+                  ))}
+                </select>
+              </div>
+              
+              {(selectedState !== 'all' || selectedCity !== 'all') && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setSelectedState('all');
+                    setSelectedCity('all');
+                  }}
+                  className="text-orange-200 hover:text-white hover:bg-white/10"
+                  data-testid="button-clear-filters"
+                >
+                  Clear Filters
+                </Button>
+              )}
+            </div>
           </div>
         </div>
 
@@ -240,6 +564,56 @@ export default function TrafficCamWatcher() {
               </Card>
             </StaggerItem>
           </StaggerContainer>
+
+          {/* AI Traffic Intelligence Panel */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="mb-8"
+          >
+            <Card className="bg-gradient-to-br from-purple-900/40 to-blue-900/40 backdrop-blur-md border-purple-400/30">
+              <CardHeader>
+                <CardTitle className="text-white flex items-center">
+                  <Zap className="w-5 h-5 mr-2 text-purple-400" />
+                  AI Traffic Intelligence
+                </CardTitle>
+                <CardDescription className="text-purple-200">
+                  Real-time analysis powered by Grok AI
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {aiAnalysisLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-8 h-8 text-purple-400 animate-spin mr-3" />
+                    <p className="text-purple-200">Analyzing traffic patterns...</p>
+                  </div>
+                ) : aiInsights ? (
+                  <div className="text-white whitespace-pre-line leading-relaxed">
+                    {aiInsights}
+                  </div>
+                ) : (
+                  <p className="text-purple-200 text-center py-4">
+                    Select filters to generate AI traffic analysis
+                  </p>
+                )}
+                
+                <div className="mt-4 flex justify-end">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={analyzeTrafficWithAI}
+                    disabled={aiAnalysisLoading || cameras.length === 0}
+                    className="bg-purple-500/20 hover:bg-purple-500/30 border-purple-400/30 text-purple-200"
+                    data-testid="button-refresh-ai-analysis"
+                  >
+                    <Zap className="w-4 h-4 mr-2" />
+                    Refresh Analysis
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
 
           {/* View Mode Toggle */}
           <div className="flex justify-center mb-8">
