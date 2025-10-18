@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { Link } from 'wouter';
 import { FadeIn, SlideIn, StaggerContainer, StaggerItem } from '@/components/ui/animations';
+import HurricaneStateCity, { HurricaneDropdownValue } from '@/components/HurricaneStateCity';
 
 // Back button component
 function BackButton() {
@@ -96,8 +97,10 @@ export default function TrafficCamWatcher() {
   const [selectedCamera, setSelectedCamera] = useState<TrafficCamera | null>(null);
   const [viewMode, setViewMode] = useState<'cameras' | 'routes'>('cameras');
   const [isVoiceGuideActive, setIsVoiceGuideActive] = useState(false);
-  const [selectedState, setSelectedState] = useState<string>('all');
-  const [selectedCity, setSelectedCity] = useState<string>('all');
+  const [locationFilter, setLocationFilter] = useState<HurricaneDropdownValue>({
+    state: null,
+    city: null
+  });
   const [aiAnalysisLoading, setAiAnalysisLoading] = useState(false);
   const [aiInsights, setAiInsights] = useState<string>('');
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -129,16 +132,10 @@ export default function TrafficCamWatcher() {
     city: cam.city
   })) || [];
   
-  // Get unique states and cities
-  const states = ['all', ...Array.from(new Set(camerasResponse?.cameras.map(c => c.state) || []))];
-  const cities = selectedState === 'all' 
-    ? ['all', ...Array.from(new Set(camerasResponse?.cameras.map(c => c.city) || []))]
-    : ['all', ...Array.from(new Set(camerasResponse?.cameras.filter(c => c.state === selectedState).map(c => c.city) || []))];
-  
-  // Filter cameras based on state and city
+  // Filter cameras based on location filter
   const cameras = allCameras.filter(cam => {
-    const stateMatch = selectedState === 'all' || cam.state === selectedState;
-    const cityMatch = selectedCity === 'all' || cam.city === selectedCity;
+    const stateMatch = !locationFilter.state || cam.state === locationFilter.state;
+    const cityMatch = !locationFilter.city || cam.city === locationFilter.city;
     return stateMatch && cityMatch;
   });
   
@@ -225,8 +222,8 @@ export default function TrafficCamWatcher() {
       const trafficData = {
         totalCameras: cameras.length,
         onlineCameras,
-        states: selectedState === 'all' ? 'all regions' : selectedState,
-        cities: selectedCity === 'all' ? 'all cities' : selectedCity,
+        states: locationFilter.state || 'all regions',
+        cities: locationFilter.city || 'all cities',
         trafficConditions: cameras.map(c => ({
           location: c.location,
           flow: c.trafficFlow,
@@ -308,7 +305,7 @@ Keep it concise and actionable.`;
         aiAbortControllerRef.current = null;
       }
     }
-  }, [selectedState, selectedCity, camerasResponse]);
+  }, [locationFilter.state, locationFilter.city, camerasResponse]);
 
   // Voice Guide - Rachel (ElevenLabs)
   const startVoiceGuide = async () => {
@@ -468,51 +465,23 @@ Keep it concise and actionable.`;
               Road conditions & evacuation routes
             </motion.p>
             
-            {/* State and City Filters */}
-            <div className="flex items-center gap-4 mt-4">
-              <div className="flex items-center gap-2">
-                <MapPin className="w-4 h-4 text-orange-200" />
-                <select
-                  value={selectedState}
-                  onChange={(e) => {
-                    setSelectedState(e.target.value);
-                    setSelectedCity('all');
-                  }}
-                  className="bg-white/10 backdrop-blur-sm border border-white/30 rounded-lg px-3 py-1.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
-                  data-testid="select-state"
-                >
-                  <option value="all" className="bg-gray-800">All States</option>
-                  {states.filter(s => s !== 'all').map(state => (
-                    <option key={state} value={state} className="bg-gray-800">{state}</option>
-                  ))}
-                </select>
+            {/* Hurricane State and City Filters */}
+            <div className="mt-4 flex items-start gap-4">
+              <MapPin className="w-5 h-5 text-orange-200 mt-8" />
+              <div className="flex-1">
+                <HurricaneStateCity
+                  value={locationFilter}
+                  onChange={setLocationFilter}
+                  showLabels={true}
+                  className="max-w-none"
+                />
               </div>
-              
-              <div className="flex items-center gap-2">
-                <Navigation className="w-4 h-4 text-orange-200" />
-                <select
-                  value={selectedCity}
-                  onChange={(e) => setSelectedCity(e.target.value)}
-                  className="bg-white/10 backdrop-blur-sm border border-white/30 rounded-lg px-3 py-1.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
-                  data-testid="select-city"
-                  disabled={selectedState === 'all'}
-                >
-                  <option value="all" className="bg-gray-800">All Cities</option>
-                  {cities.filter(c => c !== 'all').map(city => (
-                    <option key={city} value={city} className="bg-gray-800">{city}</option>
-                  ))}
-                </select>
-              </div>
-              
-              {(selectedState !== 'all' || selectedCity !== 'all') && (
+              {(locationFilter.state || locationFilter.city) && (
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => {
-                    setSelectedState('all');
-                    setSelectedCity('all');
-                  }}
-                  className="text-orange-200 hover:text-white hover:bg-white/10"
+                  onClick={() => setLocationFilter({ state: null, city: null })}
+                  className="text-orange-200 hover:text-white hover:bg-white/10 mt-6"
                   data-testid="button-clear-filters"
                 >
                   Clear Filters
