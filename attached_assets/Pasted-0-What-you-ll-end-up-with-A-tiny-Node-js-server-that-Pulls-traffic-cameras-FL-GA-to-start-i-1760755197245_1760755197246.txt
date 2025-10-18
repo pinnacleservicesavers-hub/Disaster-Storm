@@ -1,0 +1,354 @@
+0) What you’ll end up with
+
+A tiny Node.js server that:
+
+Pulls traffic cameras (FL + GA to start), incidents, and NWS weather alerts.
+
+Normalizes them to one shape.
+
+Exposes endpoints your app can hit per state.
+
+Pushes real-time alerts to contractors via WebSocket.
+
+1) Create the Replit project
+
+New Repl → Node.js.
+
+2) Install dependencies
+
+In the Replit shell:
+
+npm i express node-fetch ws node-cron
+
+3) Add your secrets (Replit → Tools → Secrets)
+
+Add:
+
+GA511_KEY → (you already have this)
+
+(Optional, for later) SC511_KEY, PROXY_URL
+
+You don’t need keys for Florida cameras or NWS alerts.
+
+4) File structure
+
+Create these files:
+
+server.js
+pollers/
+  florida.js
+  georgia.js
+  nws.js
+utils/
+  normalize.js
+
+5) utils/normalize.js (one unified shape)
+// utils/normalize.js
+export function normCameraArcGIS(ft, state) {
+  const a = ft.attributes || {};
+  const g = ft.geometry || {};
+  return {
+    id: String(a.OBJECTID ?? a.Id ?? a.ID),
+    state,
+    name: a.Name || a.Title || a.Description || "Camera",
+    city: a.City || null,
+    lat: g.y ?? a.Latitude,
+    lon: g.x ?? a.Longitude,
+    imageUrl: a.StillImageUrl || a.Url || null,
+    videoUrl: a.VideoUrl || null,
+    source: "ArcGIS",
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+export function normCameraIBI(cam, state) {
+  return {
+    id: String(cam.Id || cam.ID),
+    state,
+    name: cam.Name || "Camera",
+    city: cam.City || null,
+    lat: cam.Latitude,
+    lon: cam.Longitude,
+    imageUrl: cam.Url || cam.ImageUrl || null,
+    videoUrl: cam.VideoUrl || null,
+    source: "IBI",
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+export function normIncidentIBI(item, state) {
+  return {
+    id: String(item.Id || item.ID),
+    state,
+    type: (item.Type || "OTHER").toUpperCase(),
+    description: item.Description || "",
+    lat: item.Latitude,
+    lon: item.Longitude,
+    startTime: item.StartTime || null,
+    endTime: item.EndTime || null,
+    lanes: item.Lanes || null,
+    severity: item.Severity || null,
+    source: "511",
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+export function normNwsAlert(feature, state) {
+  const p = feature.properties || {};
+  return {
+    id: feature.id,
+    event: p.event,
+    state,
+    headline: p.headline,
+    description: p.description,
+    effective: p.effective,
+    expires: p.expires,
+    areas: p.geocode?.UGC || [],
+    polygon: p.geometry?.coordinates || null,
+    source: "NWS",
+  };
+}
+
+6) pollers/florida.js (public ArcGIS cameras)
+// pollers/florida.js
+import fetch from "node-fetch";
+import { normCameraArcGIS } from "../utils/normalize.js";
+
+const FL_CAMERAS_URL =
+  "https://services.arcgis.com/3wFbqsFPLeKqOlIK/ArcGIS/rest/services/FL511_Traffic_Cameras/FeatureServer/0/query?where=1%3D1&outFields=*&f=json";
+
+export async function fetchFloridaCameras() {
+  const res = await fetch(FL_CAMERAS_URL);
+  if (!res.ok) throw new Error(`FL cams ${res.status}`);
+  const json = await res.json();
+  return (json.features || []).map(ft => normCameraArcGIS(ft, "FL"));
+}
+
+7) pollers/georgia.js (IBI/511 with your key)
+// pollers/georgia.js
+import fetch from "node-fetch";
+import { normCameraIBI, normIncidentIBI } from "../utils/normalize.js";
+
+const BASE = "https://www.511ga.org";
+
+export async function fetchGeorgiaCameras() {
+  const url = `${BASE}/api/v2/get/cameras?key=${process.env.GA511_KEY}&format=json`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`GA cams ${res.status}`);
+  const data = await res.json();
+  return data.map(cam => normCameraIBI(cam, "GA"));
+}
+
+export async function fetchGeorgiaIncidents() {
+  const url = `${BASE}/api/v2/get/events?key=${process.env.GA511_KEY}&format=json`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`GA incidents ${res.status}`);
+  const data = await res.json();
+  return data.map(ev => normIncidentIBI(ev, "GA"));
+}
+
+8) pollers/nws.js (tornado/high-wind alerts by state)
+// pollers/nws.js
+import fetch from "node-fetch";
+import { normNwsAlert } from "../utils/normalize.js";
+
+const EVENTS = [
+  "Tornado Warning",
+  "Tornado Emergency",
+  "Severe Thunderstorm Warning",
+  "High Wind Warning"
+];
+
+export async function fetchNwsAlertsFor(state2) {
+  const url = `https://api.weather.gov/alerts?status=actual&message_type=alert&limit=200&area=${state2}&event=${encodeURIComponent(EVENTS.join(","))}`;
+  const res = await fetch(url, { headers: { "User-Agent": "ContractorOps/1.0 (contact@example.com)" }});
+  if (!res.ok) throw new Error(`NWS ${state2} ${res.status}`);
+  const json = await res.json();
+  return (json.features || []).map(f => normNwsAlert(f, state2));
+}
+
+9) server.js (Express + polling + WebSocket alerts)
+// server.js
+import express from "express";
+import fetch from "node-fetch";
+import cron from "node-cron";
+import { WebSocketServer } from "ws";
+
+import { fetchFloridaCameras } from "./pollers/florida.js";
+import { fetchGeorgiaCameras, fetchGeorgiaIncidents } from "./pollers/georgia.js";
+import { fetchNwsAlertsFor } from "./pollers/nws.js";
+
+const app = express();
+app.use(express.json());
+
+// In-memory stores (swap with DB later)
+const store = {
+  cameras: new Map(),     // key: state -> Camera[]
+  incidents: new Map(),   // key: state -> Incident[]
+  alerts: new Map(),      // key: state -> WeatherAlert[]
+};
+
+// --- WebSocket for push notifications ---
+const wss = new WebSocketServer({ noServer: true });
+const clients = new Set();
+
+function broadcast(obj) {
+  const msg = JSON.stringify(obj);
+  for (const ws of clients) {
+    if (ws.readyState === ws.OPEN) ws.send(msg);
+  }
+}
+
+// Basic keyword alerts for incidents
+function evaluateIncidentAlerts(state) {
+  const list = store.incidents.get(state) || [];
+  const keywords = ["power line", "lines down", "tree on home", "tree on house", "vehicle collision", "disabled vehicle", "car in roadway", "road closed"];
+  list.forEach(inc => {
+    const text = (inc.description || "").toLowerCase();
+    if (keywords.some(k => text.includes(k))) {
+      broadcast({
+        type: "INCIDENT_ALERT",
+        priority: "HIGH",
+        state,
+        incident: inc
+      });
+    }
+  });
+}
+
+function evaluateWeatherAlerts(state) {
+  const list = store.alerts.get(state) || [];
+  list.forEach(al => {
+    if (/(tornado warning|tornado emergency)/i.test(al.event)) {
+      broadcast({
+        type: "WEATHER_ALERT",
+        priority: "CRITICAL",
+        state,
+        alert: al
+      });
+    }
+  });
+}
+
+// --- Pollers (run every 2 minutes) ---
+async function pollFL() {
+  try {
+    const cams = await fetchFloridaCameras();
+    store.cameras.set("FL", cams);
+    console.log(`[poll] FL cameras: ${cams.length}`);
+  } catch (e) { console.error("FL poll error:", e.message); }
+}
+
+async function pollGA() {
+  try {
+    const [cams, incs, nws] = await Promise.all([
+      fetchGeorgiaCameras(),
+      fetchGeorgiaIncidents(),
+      fetchNwsAlertsFor("GA")
+    ]);
+    store.cameras.set("GA", cams);
+    store.incidents.set("GA", incs);
+    store.alerts.set("GA", nws);
+    console.log(`[poll] GA cams: ${cams.length}, incidents: ${incs.length}, nws: ${nws.length}`);
+    evaluateIncidentAlerts("GA");
+    evaluateWeatherAlerts("GA");
+  } catch (e) { console.error("GA poll error:", e.message); }
+}
+
+async function pollFLAlerts() {
+  try {
+    const nws = await fetchNwsAlertsFor("FL");
+    store.alerts.set("FL", nws);
+    evaluateWeatherAlerts("FL");
+  } catch (e) { console.error("FL alerts poll error:", e.message); }
+}
+
+// schedule: every 2 minutes
+cron.schedule("*/2 * * * *", () => { pollFL(); pollGA(); pollFLAlerts(); });
+
+// --- REST Endpoints ---
+app.get("/api/state/:state/cameras", (req, res) => {
+  const state = req.params.state.toUpperCase();
+  const data = store.cameras.get(state) || [];
+  res.json(data);
+});
+
+app.get("/api/state/:state/incidents", (req, res) => {
+  const state = req.params.state.toUpperCase();
+  const data = store.incidents.get(state) || [];
+  res.json(data);
+});
+
+app.get("/api/state/:state/alerts", (req, res) => {
+  const state = req.params.state.toUpperCase();
+  const data = store.alerts.get(state) || [];
+  res.json(data);
+});
+
+// Simple health
+app.get("/health", (_, res) => res.send("ok"));
+
+// Start HTTP + upgrade for WS
+const server = app.listen(process.env.PORT || 3000, () => {
+  console.log("Server on :" + (process.env.PORT || 3000));
+});
+server.on("upgrade", (req, socket, head) => {
+  if (req.url === "/ws") {
+    wss.handleUpgrade(req, socket, head, (ws) => {
+      clients.add(ws);
+      ws.on("close", () => clients.delete(ws));
+      ws.send(JSON.stringify({ type: "WELCOME", ts: Date.now() }));
+    });
+  } else {
+    socket.destroy();
+  }
+});
+
+// Kick off initial polls right away
+pollFL();
+pollGA();
+pollFLAlerts();
+
+10) Frontend wiring (your React app)
+
+When the user picks a state (e.g., “FL” or “GA”), call:
+
+/api/state/FL/cameras
+
+/api/state/FL/incidents
+
+/api/state/FL/alerts
+
+Open a WebSocket to ws://<your-replit-url>/ws and show toasts when messages arrive.
+
+Minimal example:
+
+// on mount
+const ws = new WebSocket(`${location.origin.replace(/^http/, "ws")}/ws`);
+ws.onmessage = (ev) => {
+  const msg = JSON.parse(ev.data);
+  if (msg.type === "WEATHER_ALERT" || msg.type === "INCIDENT_ALERT") {
+    // show toast + focus map around msg.alert or msg.incident
+  }
+};
+
+
+Use the state & city dropdown I gave you earlier to filter the map and camera grid.
+
+What to do next (in this order)
+
+Paste these files into Replit exactly as shown.
+
+Add the GA511_KEY secret (already done).
+
+Click Run → open /health → should say ok.
+
+Hit /api/state/FL/cameras → you should see JSON list of Florida cameras.
+
+Hit /api/state/GA/incidents + /api/state/GA/alerts → you should see data after the first poll (up to 2 min; or wait 10–15 sec after start because we call pollers immediately).
+
+In your React app, wire the dropdown to call those endpoints and render the results.
+
+Keep your console open—when GA incidents contain “power line” etc., you’ll see INCIDENT_ALERT push to connected clients.
+
+When there’s an NWS Tornado Warning in FL/GA, you’ll see WEATHER_ALERT push.

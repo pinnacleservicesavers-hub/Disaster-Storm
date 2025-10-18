@@ -256,6 +256,12 @@ export const users = pgTable("users", {
   licenseNumber: text("license_number"),
   isInsured: boolean("is_insured").default(false),
   
+  // Geo-matching for alerts
+  latitude: numeric("latitude", { precision: 10, scale: 8 }),
+  longitude: numeric("longitude", { precision: 10, scale: 8 }),
+  notifyRadiusMiles: integer("notify_radius_miles").default(25), // Notification radius in miles
+  pushEndpoint: jsonb("push_endpoint").$type<JsonObject>(), // Web Push subscription data
+  
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -319,16 +325,23 @@ export const lienRules = pgTable("lien_rules", {
 export const weatherAlerts = pgTable("weather_alerts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   alertId: text("alert_id").notNull().unique(), // From NWS API
+  event: text("event").notNull(), // "Tornado Warning", "High Wind Warning", etc.
+  state: text("state").notNull(), // Two-letter state code
+  headline: text("headline").notNull(),
   title: text("title").notNull(),
   description: text("description").notNull(),
   severity: text("severity").notNull(), // Extreme, Severe, Moderate, Minor
   alertType: text("alert_type").notNull(), // Tornado, Severe Thunderstorm, etc.
-  areas: text("areas").array(), // Affected areas
+  areas: text("areas").array(), // Affected areas/UGC codes
+  effective: timestamp("effective").notNull(), // When alert becomes active
+  expires: timestamp("expires"), // When alert expires
+  polygon: jsonb("polygon").$type<Array<[number, number]>>(), // [[lat,lon], [lat,lon], ...]
   startTime: timestamp("start_time").notNull(),
   endTime: timestamp("end_time"),
   isActive: boolean("is_active").default(true),
   latitude: numeric("latitude", { precision: 10, scale: 8 }),
   longitude: numeric("longitude", { precision: 10, scale: 8 }),
+  source: text("source").default("NWS"), // NWS, Xweather, etc.
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -744,6 +757,47 @@ export const stormHotZones = pgTable("storm_hot_zones", {
 }, (table) => ({
   uniqueCounty: unique().on(table.stateCode, table.countyParish),
 }));
+
+// ===== TRAFFIC MONITORING SYSTEM TABLES =====
+
+// Road incidents from 511/DOT/ArcGIS feeds
+export const roadIncidents = pgTable("road_incidents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  externalId: text("external_id").notNull(), // ID from source system
+  state: text("state").notNull(), // Two-letter state code (FL, GA, etc.)
+  type: text("type").notNull(), // ACCIDENT, ROAD_CLOSED, HAZARD, CONSTRUCTION, WEATHER, OTHER
+  description: text("description").notNull(),
+  latitude: numeric("latitude", { precision: 10, scale: 8 }).notNull(),
+  longitude: numeric("longitude", { precision: 10, scale: 8 }).notNull(),
+  startTime: timestamp("start_time"),
+  endTime: timestamp("end_time"),
+  lanes: text("lanes"), // "Left lane blocked", "All lanes closed", etc.
+  severity: integer("severity"), // 1-5 if provided
+  source: text("source").notNull(), // 511, ArcGIS, Scrape
+  updatedAt: timestamp("updated_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  uniqueIncident: unique().on(table.externalId, table.source),
+}));
+
+// Contractor notifications audit log
+export const contractorNotifications = pgTable("contractor_notifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  contractorId: varchar("contractor_id").notNull(), // FK to users.id
+  type: text("type").notNull(), // weather_alert, incident, camera_alert
+  priority: text("priority").notNull(), // CRITICAL, HIGH, NORMAL, LOW
+  title: text("title").notNull(),
+  message: text("message").notNull(),
+  payload: jsonb("payload").$type<JsonObject>(), // Full alert/incident data
+  latitude: numeric("latitude", { precision: 10, scale: 8 }),
+  longitude: numeric("longitude", { precision: 10, scale: 8 }),
+  distance: numeric("distance", { precision: 6, scale: 2 }), // Miles from contractor
+  delivered: boolean("delivered").default(false),
+  deliveredAt: timestamp("delivered_at"),
+  read: boolean("read").default(false),
+  readAt: timestamp("read_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
 
 // ===== VICTIM PORTAL SCHEMAS =====
 
@@ -1344,6 +1398,17 @@ export const insertContractorWatchlistSchema = createInsertSchema(contractorWatc
   createdAt: true,
   updatedAt: true,
 });
+export const insertRoadIncidentSchema = createInsertSchema(roadIncidents).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export const insertContractorNotificationSchema = createInsertSchema(contractorNotifications).omit({
+  id: true,
+  createdAt: true,
+  deliveredAt: true,
+  readAt: true,
+});
 export const insertStormHotZoneSchema = createInsertSchema(stormHotZones).omit({
   id: true,
   createdAt: true,
@@ -1447,6 +1512,10 @@ export type TrafficCamLead = typeof trafficCamLeads.$inferSelect;
 export type InsertTrafficCamLead = z.infer<typeof insertTrafficCamLeadSchema>;
 export type ContractorWatchlist = typeof contractorWatchlist.$inferSelect;
 export type InsertContractorWatchlist = z.infer<typeof insertContractorWatchlistSchema>;
+export type RoadIncident = typeof roadIncidents.$inferSelect;
+export type InsertRoadIncident = z.infer<typeof insertRoadIncidentSchema>;
+export type ContractorNotification = typeof contractorNotifications.$inferSelect;
+export type InsertContractorNotification = z.infer<typeof insertContractorNotificationSchema>;
 export type StormHotZone = typeof stormHotZones.$inferSelect;
 export type InsertStormHotZone = z.infer<typeof insertStormHotZoneSchema>;
 export type Homeowner = typeof homeowners.$inferSelect;

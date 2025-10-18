@@ -1,0 +1,329 @@
+What you need (pieces)
+
+Data Ingest (by state)
+
+Traffic cams (per-state sources).
+
+Incidents/road blocks (DOT/511 feeds; some via ArcGIS FeatureServer).
+
+Severe weather (US-wide from NWS): tornado warnings, high wind, debris flow, etc.
+
+Live conditions (wind, lightning, etc.) from NWS observations/forecast grid.
+
+Normalizer
+
+One schema for all sources so your UI doesn’t care where it came from.
+
+Geo Matching
+
+Figure out where (lat/lon, county, state), then who’s nearby (contractors), then notify.
+
+Alert Engine
+
+Rules (e.g., “Tornado Warning in Tampa” OR “incident with ‘power lines down’ within 25 mi of crew”), dedupe, rate-limit.
+
+Delivery
+
+In-app toasts + activity feed.
+
+Push notifications (Web Push / FCM / APNs).
+
+Optional SMS for critical.
+
+Admin UI
+
+Pick state → See cams grid + incidents + alerts overlay.
+
+One-click “dispatch helper” that opens phone/SMS map link.
+
+Environment & Secrets (Replit)
+
+Add these now in Replit → Secrets (some you already have):
+
+GA511_KEY – your existing GA.
+
+SC511_KEY – when approved (same vendor family as GA).
+
+PROXY_URL – optional (if we need to scrape AL/TN server-side for cams).
+
+WEB_PUSH_PUBLIC_KEY / WEB_PUSH_PRIVATE_KEY – if you want web push.
+
+JWT_SECRET – for your app auth.
+
+DATABASE_URL – Postgres/Neon or use SQLite for a quick start.
+
+(FL + NC ArcGIS camera layers are typically public; no key needed. NWS is public.)
+
+Unified data model
+// Common shapes your UI/alerts use
+
+type Camera = {
+  id: string;
+  state: string;          // "FL","GA",...
+  name: string;
+  city?: string | null;
+  lat: number;
+  lon: number;
+  imageUrl?: string | null;
+  videoUrl?: string | null;
+  source: "IBI"|"ArcGIS"|"Scrape";
+  updatedAt: string;
+};
+
+type Incident = {
+  id: string;
+  state: string;
+  type: "ACCIDENT"|"ROAD_CLOSED"|"HAZARD"|"CONSTRUCTION"|"WEATHER"|"OTHER";
+  description: string;
+  lat: number;
+  lon: number;
+  startTime?: string;
+  endTime?: string;
+  lanes?: string | null;
+  severity?: number | null;   // 1–5 if provided
+  source: "511"|"ArcGIS"|"Scrape";
+  updatedAt: string;
+};
+
+type WeatherAlert = {
+  id: string;  // NWS CAP id
+  event: string;   // "Tornado Warning", "High Wind Warning", ...
+  state: string;
+  headline: string;
+  description: string;
+  effective: string;
+  expires?: string;
+  polygon?: Array<[number,number]>; // lat,lon pairs
+  areas: string[];   // counties/UGC
+  source: "NWS";
+};
+
+Where to pull the data
+
+GA: 511 GA (you already have GA511_KEY) → cameras + incidents.
+
+SC: 511 SC (same vendor style as GA; use your SC511_KEY when you get it).
+
+FL: FL511 cameras via ArcGIS FeatureServer (public). Incidents also available via ArcGIS or FL511.
+
+NC: DriveNC/NCDOT – cameras via ArcGIS feature layer; incidents via TIMS services/ArcGIS.
+
+TN: SmartWay – events via ArcGIS; cameras page is HTML (scrape to JSON via your PROXY_URL).
+
+AL: ALGO – site provides cameras; use scraping/proxy to JSON unless you find ArcGIS.
+
+Severe Weather (US-wide): NWS api.weather.gov/alerts (CAP/GeoJSON) filtered by event (e.g., Tornado Warning, High Wind Warning) and by area (state) or bounding box.
+
+Wind conditions: NWS gridpoints (/gridpoints/{office}/{x},{y}) or observations (/stations/{id}/observations/latest).
+
+You don’t have to finish all states to launch. Start with FL + GA + SC, then add NC, then TN/AL via proxy.
+
+Pollers (server)
+
+Create a tiny Node service (Express + cron) that:
+
+Polls each data source every 60–120s.
+
+Normalizes to the common shapes above.
+
+Stores latest into your DB and pushes deltas to the app via WebSocket/SSE.
+
+Example: NWS Tornado/High-Wind alerts (US-wide or by state)
+
+// server/pollers/nws.js
+import fetch from "node-fetch";
+
+export async function fetchNwsAlertsForState(state2) {
+  // Examples of events you care about:
+  const events = [
+    "Tornado Warning",
+    "Tornado Emergency",
+    "Severe Thunderstorm Warning",
+    "High Wind Warning"
+  ];
+  const url = `https://api.weather.gov/alerts?status=actual&message_type=alert&limit=200&area=${state2}&event=${encodeURIComponent(events.join(","))}`;
+  const res = await fetch(url, { headers: { "User-Agent": "ContractorApp/1.0 (contact@example.com)" }});
+  if (!res.ok) throw new Error(`NWS ${res.status}`);
+  const json = await res.json();
+  // Map to WeatherAlert
+  return (json.features || []).map(f => {
+    const p = f.properties || {};
+    return {
+      id: f.id,
+      event: p.event,
+      state: state2,
+      headline: p.headline,
+      description: p.description,
+      effective: p.effective,
+      expires: p.expires,
+      areas: p.geocode?.UGC || [],
+      polygon: (p.geocode?.SAME ? null : (p.areaDesc?.includes("...") ? null : null)), // you can also parse p.geometry
+      source: "NWS"
+    };
+  });
+}
+
+
+Example: FL cameras via ArcGIS (public)
+
+// server/pollers/florida.js
+const FL_CAMERAS_URL = "https://services.arcgis.com/3wFbqsFPLeKqOlIK/ArcGIS/rest/services/FL511_Traffic_Cameras/FeatureServer/0/query?where=1%3D1&outFields=*&f=json";
+
+export async function fetchFloridaCameras() {
+  const res = await fetch(FL_CAMERAS_URL);
+  if (!res.ok) throw new Error(`FL cams ${res.status}`);
+  const json = await res.json();
+  return (json.features || []).map(ft => {
+    const a = ft.attributes || {};
+    const g = ft.geometry || {};
+    return {
+      id: String(a.OBJECTID ?? a.Id ?? a.ID),
+      state: "FL",
+      name: a.Name || a.Title || a.Description,
+      city: a.City || null,
+      lat: g.y ?? a.Latitude,
+      lon: g.x ?? a.Longitude,
+      imageUrl: a.StillImageUrl || a.Url || null,
+      videoUrl: a.VideoUrl || null,
+      source: "ArcGIS",
+      updatedAt: new Date().toISOString(),
+    };
+  });
+}
+
+
+Example: 511 (GA/SC-style) cameras
+
+// server/pollers/ibi.js
+export async function fetchIbiCameras(base, key, state2) {
+  const url = `${base}/api/v2/get/cameras?key=${key}&format=json`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`${state2} cams ${res.status}`);
+  const data = await res.json();
+  return data.map(cam => ({
+    id: String(cam.Id || cam.ID),
+    state: state2,
+    name: cam.Name,
+    city: cam.City || null,
+    lat: cam.Latitude,
+    lon: cam.Longitude,
+    imageUrl: cam.Url || cam.ImageUrl || null,
+    videoUrl: cam.VideoUrl || null,
+    source: "IBI",
+    updatedAt: new Date().toISOString(),
+  }));
+}
+
+
+Example: TN camera list via simple proxy scrape
+
+// server/pollers/tn.js
+export async function fetchTnCamerasViaProxy() {
+  const res = await fetch(`${process.env.PROXY_URL}/smartway-cams`);
+  if (!res.ok) throw new Error(`TN cams proxy ${res.status}`);
+  return await res.json(); // returns normalized Camera[]
+}
+
+Alert rules (start simple, grow later)
+// Pseudocode
+for each WeatherAlert:
+  if event in ["Tornado Warning","Tornado Emergency"]:
+     notifyContractorsNearby(polygon or county, radius=50mi, priority="CRITICAL")
+
+for each Incident:
+  if text contains ["power line", "lines down", "tree on home", "tree on house", "vehicle collision", "disabled vehicle", "car in roadway"]:
+     notifyContractorsNearby(point, radius=20mi, priority="HIGH")
+
+for each Camera frame (optional future):
+  if human/mod flags “tornado/debris/power lines down” on a cam:
+     attach cam snapshot URL + location and notify
+
+
+Dedupe & cooldown
+
+Don’t spam: same incident/alert → suppress re-notif for 30–60 min unless severity/area changes.
+
+Per-contractor throttle: max X criticals per hour.
+
+Distance & geo
+
+Use a small helper (Haversine) + fast point-in-polygon (if you use NWS polygons). Geo-index your contractors.
+
+function haversineMi(a, b) {
+  const R = 3958.8;
+  const toRad = (d)=>d*Math.PI/180;
+  const dLat = toRad(b.lat-a.lat);
+  const dLon = toRad(b.lon-a.lon);
+  const lat1 = toRad(a.lat), lat2 = toRad(b.lat);
+  const h = Math.sin(dLat/2)**2 + Math.cos(lat1)*Math.cos(lat2)*Math.sin(dLon/2)**2;
+  return 2*R*Math.asin(Math.sqrt(h));
+}
+
+Database sketch
+-- cameras (latest snapshot of each camera)
+cameras(id primary key, state text, name text, city text, lat double, lon double, image_url text, video_url text, source text, updated_at timestamptz);
+
+-- incidents
+incidents(id primary key, state text, type text, description text, lat double, lon double, start_time timestamptz, end_time timestamptz, severity int, source text, updated_at timestamptz);
+
+-- weather_alerts
+weather_alerts(id primary key, event text, state text, headline text, description text, effective timestamptz, expires timestamptz, areas text[], geom geometry, updated_at timestamptz);
+
+-- contractors
+contractors(id uuid pk, name text, lat double, lon double, skills text[], notify_radius_mi int default 25, push_endpoint jsonb);
+
+-- notifications (audit)
+notifications(id uuid pk, contractor_id uuid, payload jsonb, priority text, created_at timestamptz, delivered boolean default false);
+
+
+(If you don’t want PostGIS yet, store polygons as arrays and use point-in-polygon libs in code.)
+
+App wiring (frontend)
+
+Use the state dropdown I gave you. When a state is picked:
+
+Load cameras for that state (grid + map pins).
+
+Overlay incidents (icons on the map + list).
+
+Show active NWS alerts (chips; clicking highlights polygons/areas).
+
+“Subscribe to this area” button: stores contractor’s current map center + radius so server can target alerts.
+
+Notifications
+
+In-app: open a WebSocket to your server, receive {type, title, message, lat, lon, links, cameraImageUrl}.
+
+Push: use Web Push (VAPID) or Firebase Cloud Messaging. Save each device’s subscription in contractors.push_endpoint.
+
+What to do next (step-by-step)
+
+Stand up the server folder in Replit with Express + cron (node-cron or setInterval).
+
+Implement three pollers first:
+
+NWS alerts (US-wide by chosen state).
+
+FL cameras (ArcGIS).
+
+GA cameras/incidents (IBI with GA511_KEY).
+
+Add SC when your key arrives (mirror GA).
+
+Add NC cameras via ArcGIS.
+
+Add TN/AL via proxy scraping (I can provide a Cloudflare Worker to output clean JSON).
+
+Hook the UI: state selector → fetch /api/state/:state/cameras, /incidents, /alerts.
+
+Enable notifications: WebSocket in app; optional Web Push with WEB_PUSH_PUBLIC_KEY/PRIVATE_KEY.
+
+Add rules & dedupe (start with tornado + power lines down keywords).
+
+If you want, tell me which state you want live first (Florida is the fastest win), and I’ll drop in:
+
+A ready /api/state/:state/{cameras,incidents,alerts} Express router,
+
+A tiny AlertEngine module,
+
+And a Cloudflare Worker for TN/AL camera JSON so you don’t fight CORS/scraping in the browser.
