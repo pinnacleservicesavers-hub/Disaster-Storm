@@ -5,6 +5,20 @@ Disaster Direct is a comprehensive storm operations and claims management platfo
 
 ## Recent Changes
 
+### October 18, 2025 - Real-Time Traffic Monitoring & Severe Weather Alerts
+- **Database Schema**: Added `roadIncidents` table for 511/DOT incident tracking, `contractorNotifications` table for notification audit, enhanced `weatherAlerts` with NWS-specific fields (event, state, headline, polygon, effective, expires), enhanced `users` with geo-matching fields (latitude, longitude, notifyRadiusMiles, pushEndpoint)
+- **NWS Severe Weather Alerts**: Implemented US-wide poller for severe weather events (tornado warnings, high winds, hurricanes, floods) with 2-minute polling cycle integrated into DamageMonitoringScheduler
+- **Florida Provider**: FDOT DIVAS ArcGIS FeatureServer integration for real-time cameras and incidents
+  - Cameras: `https://gis.fdot.gov/arcgis/rest/services/DIVAS_Cameras/FeatureServer/0`
+  - Incidents: `https://gis.fdot.gov/arcgis/rest/services/DIVAS_GetEvent/FeatureServer/0`
+  - Severity mapping (minor/moderate/severe/critical)
+  - Contractor opportunity detection (tree_down, debris, flooding, power_lines_down, road_blocked)
+  - WGS84 coordinate normalization with outSR=4326 for accurate Florida placement (24-31°N, 80-87°W)
+- **Alert Service**: NWS CAP API integration with repeated event parameters, polygon geometry extraction, state code detection from UGC codes
+- **Provider Registry**: Florida registered alongside GA, CA, TX with 4 active state providers
+- **Architect Review**: All implementations production-ready (NWS alerts, Florida provider with correct coordinate handling)
+- **Impact**: Foundation for real-time traffic monitoring system with multi-source incident aggregation, severe weather alerting, and contractor geo-matching
+
 ### October 15, 2025 - Production Infrastructure Upgrades
 - **Batch Signing**: Added `/api/sign/batch/tiles` and `/api/sign/batch/legend` endpoints for minting multiple signed URLs in single requests (massive performance boost for map tile loading)
 - **Cloudflare Worker**: Edge-based signer deployable to Cloudflare Workers for 5-10ms global latency (vs 50-200ms to origin), with complete setup guide in `cloudflare-worker/README.md`
