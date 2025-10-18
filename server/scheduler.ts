@@ -5,14 +5,19 @@ import { snapshotChecker, type SnapshotBatchResult } from './detectors/snapshot-
 import { providerRegistry } from './providers/index.js';
 import { getConfig } from './config.js';
 import { femaDisasterService, type FemaSyncResult } from './services/femaDisasterService.js';
+import { syncNwsAlerts, type WeatherAlertSync } from './services/nwsAlertsService.js';
 
 interface SchedulerStats {
   lastDamageCheck: Date | null;
   lastSnapshotCapture: Date | null;
   lastFemaSync: Date | null;
+  lastNwsAlertsSync: Date | null;
   totalDamageDetections: number;
   totalSnapshotsCaptured: number;
   totalFemaSyncs: number;
+  totalNwsAlertsSyncs: number;
+  nwsAlertsNew: number;
+  nwsAlertsExpired: number;
   femaCountiesUpdated: number;
   femaCountiesAdded: number;
   isRunning: boolean;
@@ -26,9 +31,13 @@ export class DamageMonitoringScheduler {
     lastDamageCheck: null,
     lastSnapshotCapture: null,
     lastFemaSync: null,
+    lastNwsAlertsSync: null,
     totalDamageDetections: 0,
     totalSnapshotsCaptured: 0,
     totalFemaSyncs: 0,
+    totalNwsAlertsSyncs: 0,
+    nwsAlertsNew: 0,
+    nwsAlertsExpired: 0,
     femaCountiesUpdated: 0,
     femaCountiesAdded: 0,
     isRunning: false,
@@ -83,15 +92,22 @@ export class DamageMonitoringScheduler {
       }, { start: false });
     }
 
+    // Schedule NWS alerts sync (every 2 minutes for real-time severe weather)
+    const nwsAlertsCron = '*/2 * * * *';
+    const nwsAlertsJob = cron.schedule(nwsAlertsCron, () => {
+      this.runNwsAlertsSync();
+    }, { start: false });
+
     // Start all jobs
     damageCheckJob.start();
     snapshotJob.start();
     alertJob.start();
+    nwsAlertsJob.start();
     if (femaSyncJob) {
       femaSyncJob.start();
     }
 
-    this.cronJobs = [damageCheckJob, snapshotJob, alertJob];
+    this.cronJobs = [damageCheckJob, snapshotJob, alertJob, nwsAlertsJob];
     if (femaSyncJob) {
       this.cronJobs.push(femaSyncJob);
     }
@@ -99,7 +115,8 @@ export class DamageMonitoringScheduler {
     this.stats.scheduledTasks = [
       `Damage Check: every ${this.config.schedulerConfig.damageCheckInterval} minutes`,
       `Snapshot Capture: every ${this.config.schedulerConfig.snapshotCaptureInterval} minutes`,
-      `Alert Processing: every ${this.config.schedulerConfig.alertProcessingInterval} minute(s)`
+      `Alert Processing: every ${this.config.schedulerConfig.alertProcessingInterval} minute(s)`,
+      `NWS Alerts Sync: every 2 minutes`
     ];
     
     if (this.config.schedulerConfig.femaSyncEnabled) {
@@ -249,6 +266,32 @@ export class DamageMonitoringScheduler {
 
     } catch (error) {
       console.error('❌ Error in scheduled FEMA sync:', error);
+    }
+  }
+
+  async runNwsAlertsSync() {
+    console.log('🌪️ Running scheduled NWS severe weather alerts sync...');
+    
+    try {
+      const startTime = Date.now();
+      const syncResult: WeatherAlertSync = await syncNwsAlerts();
+      const processingTime = Date.now() - startTime;
+
+      // Update stats
+      this.stats.lastNwsAlertsSync = new Date();
+      this.stats.totalNwsAlertsSyncs++;
+      this.stats.nwsAlertsNew += syncResult.newAlerts;
+      this.stats.nwsAlertsExpired += syncResult.expiredAlerts;
+
+      console.log(`✅ NWS Alerts sync complete: ${syncResult.newAlerts} new, ${syncResult.expiredAlerts} expired, ${syncResult.activeAlerts} active (${processingTime}ms)`);
+      
+      if (syncResult.newAlerts > 0) {
+        const statesAffected = Array.from(syncResult.states).join(', ');
+        console.log(`📊 NWS Alerts impact: ${statesAffected}`);
+      }
+
+    } catch (error) {
+      console.error('❌ Error in scheduled NWS alerts sync:', error);
     }
   }
 

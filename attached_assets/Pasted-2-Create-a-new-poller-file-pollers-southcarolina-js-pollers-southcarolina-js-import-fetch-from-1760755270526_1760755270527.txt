@@ -1,0 +1,112 @@
+2) Create a new poller file
+
+pollers/southcarolina.js
+
+// pollers/southcarolina.js
+import fetch from "node-fetch";
+import { normCameraIBI, normIncidentIBI } from "../utils/normalize.js";
+
+const BASE = "https://www.511sc.org";
+
+export async function fetchSouthCarolinaCameras() {
+  const url = `${BASE}/api/v2/get/cameras?key=${process.env.SC511_KEY}&format=json`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`SC cams ${res.status}`);
+  const data = await res.json();
+  return data.map(cam => normCameraIBI(cam, "SC"));
+}
+
+export async function fetchSouthCarolinaIncidents() {
+  const url = `${BASE}/api/v2/get/events?key=${process.env.SC511_KEY}&format=json`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`SC incidents ${res.status}`);
+  const data = await res.json();
+  return data.map(ev => normIncidentIBI(ev, "SC"));
+}
+
+3) Wire it into your server
+
+Open server.js and add these imports near the top with the others:
+
+import { fetchSouthCarolinaCameras, fetchSouthCarolinaIncidents } from "./pollers/southcarolina.js";
+
+
+Add this new poll function (put it next to pollGA and pollFLAlerts):
+
+async function pollSC() {
+  try {
+    const [cams, incs, nws] = await Promise.all([
+      fetchSouthCarolinaCameras(),
+      fetchSouthCarolinaIncidents(),
+      fetchNwsAlertsFor("SC"),
+    ]);
+    store.cameras.set("SC", cams);
+    store.incidents.set("SC", incs);
+    store.alerts.set("SC", nws);
+    console.log(`[poll] SC cams: ${cams.length}, incidents: ${incs.length}, nws: ${nws.length}`);
+    evaluateIncidentAlerts("SC");
+    evaluateWeatherAlerts("SC");
+  } catch (e) {
+    console.error("SC poll error:", e.message);
+  }
+}
+
+
+Schedule it with the others (find your cron line and include pollSC()):
+
+cron.schedule("*/2 * * * *", () => { pollFL(); pollGA(); pollFLAlerts(); pollSC(); });
+
+
+Kick off an initial run when the server starts (near the bottom where you already call pollFL()/pollGA()):
+
+pollSC();
+
+
+You don’t need to add new routes—your existing endpoints
+/api/state/:state/{cameras,incidents,alerts} already work for “SC”.
+
+4) Run & test
+
+After clicking Run in Replit, use the webview (or curl):
+
+Cameras:
+/api/state/SC/cameras
+
+Incidents:
+/api/state/SC/incidents
+
+Weather alerts:
+/api/state/SC/alerts
+
+curl examples
+
+curl -s https://<your-replit-url>/api/state/SC/cameras | head
+curl -s https://<your-replit-url>/api/state/SC/incidents | head
+curl -s https://<your-replit-url>/api/state/SC/alerts | head
+
+
+Watch the console for:
+
+[poll] SC cams: <n>, incidents: <m>, nws: <k>
+
+
+If an incident description contains keywords like “power line”, “tree on house”, “road closed”, etc., connected clients on /ws will receive an INCIDENT_ALERT. Tornado warnings generate WEATHER_ALERT.
+
+5) Hook up the frontend
+
+Your state dropdown already works. When the user selects South Carolina:
+
+Fetch:
+/api/state/SC/cameras → grid/map
+/api/state/SC/incidents → markers/list
+/api/state/SC/alerts → chips/polygons
+
+Your WebSocket listener will also surface push alerts for SC automatically.
+
+6) Next states (when you’re ready)
+
+North Carolina: add a northcarolina.js poller (ArcGIS cameras), import, and add pollNC() in the same way.
+
+Florida is already in.
+
+Tennessee/Alabama: we’ll add a small proxy/Worker to output camera JSON, then poll it like GA/SC/FL.
