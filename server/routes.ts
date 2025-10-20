@@ -4619,19 +4619,21 @@ Email: strategiclandmgmt@gmail.com
       if (state) {
         // Fetch cameras from specific state using 511 provider
         const cameras = await unified511Directory.getCamerasByState(state as string);
-        allCameras = cameras.map(cam => ({
-          id: cam.id,
-          name: cam.name,
-          lat: cam.lat,
-          lng: cam.lng,
-          state: cam.jurisdiction.state,
-          city: cam.jurisdiction.county || 'Unknown',
-          imageUrl: cam.snapshotUrl || cam.url || '',
-          source: cam.jurisdiction.provider,
-          lastUpdated: cam.lastUpdated.toISOString(),
-          isActive: cam.isActive,
-          description: cam.metadata?.description || cam.name
-        }));
+        allCameras = cameras
+          .filter(cam => cam && cam.jurisdiction) // Only process cameras with valid jurisdiction
+          .map(cam => ({
+            id: cam.id,
+            name: cam.name,
+            lat: cam.lat,
+            lng: cam.lng,
+            state: cam.jurisdiction.state,
+            city: cam.jurisdiction.county || 'Unknown',
+            imageUrl: cam.snapshotUrl || cam.url || '',
+            source: cam.jurisdiction.provider,
+            lastUpdated: cam.lastUpdated.toISOString(),
+            isActive: cam.isActive,
+            description: cam.metadata?.description || cam.name
+          }));
       } else {
         // Fetch cameras from all supported 511 states (FL, GA, CA, TX)
         const supportedStates = ['FL', 'GA', 'CA', 'TX'];
@@ -4639,19 +4641,21 @@ Email: strategiclandmgmt@gmail.com
         for (const stateCode of supportedStates) {
           try {
             const cameras = await unified511Directory.getCamerasByState(stateCode);
-            const transformed = cameras.map(cam => ({
-              id: cam.id,
-              name: cam.name,
-              lat: cam.lat,
-              lng: cam.lng,
-              state: cam.jurisdiction.state,
-              city: cam.jurisdiction.county || 'Unknown',
-              imageUrl: cam.snapshotUrl || cam.url || '',
-              source: cam.jurisdiction.provider,
-              lastUpdated: cam.lastUpdated.toISOString(),
-              isActive: cam.isActive,
-              description: cam.metadata?.description || cam.name
-            }));
+            const transformed = cameras
+              .filter(cam => cam && cam.jurisdiction) // Only process cameras with valid jurisdiction
+              .map(cam => ({
+                id: cam.id,
+                name: cam.name,
+                lat: cam.lat,
+                lng: cam.lng,
+                state: cam.jurisdiction.state,
+                city: cam.jurisdiction.county || 'Unknown',
+                imageUrl: cam.snapshotUrl || cam.url || '',
+                source: cam.jurisdiction.provider,
+                lastUpdated: cam.lastUpdated.toISOString(),
+                isActive: cam.isActive,
+                description: cam.metadata?.description || cam.name
+              }));
             allCameras.push(...transformed);
           } catch (error) {
             console.error(`Error fetching cameras for ${stateCode}:`, error);
