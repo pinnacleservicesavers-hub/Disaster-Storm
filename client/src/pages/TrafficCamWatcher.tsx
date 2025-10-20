@@ -251,12 +251,12 @@ Provide:
 
 Keep it concise and actionable.`;
 
-      const response = await fetch('/api/grok/chat', {
+      const response = await fetch('/api/grok/ask-question', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          message: prompt,
-          conversationHistory: []
+          question: prompt,
+          context: { source: 'traffic-cam-watcher' }
         }),
         signal: abortController.signal
       });
@@ -272,7 +272,7 @@ Keep it concise and actionable.`;
       
       // Check again before updating state
       if (currentToken === aiSessionTokenRef.current) {
-        setAiInsights(data.reply || 'Analysis complete. All systems operational.');
+        setAiInsights(data.answer || 'Analysis complete. All systems operational.');
       }
     } catch (error: any) {
       // Only update state if this is still the active session

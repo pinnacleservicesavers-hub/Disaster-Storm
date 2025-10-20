@@ -4607,28 +4607,63 @@ Email: strategiclandmgmt@gmail.com
 
   // ===== TRAFFIC CAMERA WATCHER ENDPOINTS =====
   
-  // Get all available traffic cameras
+  // Get all available traffic cameras (using 511 providers)
   app.get('/api/traffic-cameras', async (req, res) => {
     try {
-      const { state, lat, lon, radius } = req.query;
+      const { state } = req.query;
       
-      let cameras;
+      console.log(`📹 Fetching traffic cameras${state ? ` for ${state}` : ' (all states)'}...`);
+      
+      let allCameras: any[] = [];
+      
       if (state) {
-        cameras = await trafficCameraService.getCamerasByState(state as string);
-      } else if (lat && lon) {
-        const radiusKm = Number(radius) || 50;
-        cameras = await trafficCameraService.getCamerasByLocation(
-          Number(lat), 
-          Number(lon), 
-          radiusKm
-        );
+        // Fetch cameras from specific state using 511 provider
+        const cameras = await unified511Directory.getCamerasByState(state as string);
+        allCameras = cameras.map(cam => ({
+          id: cam.id,
+          name: cam.name,
+          lat: cam.lat,
+          lng: cam.lng,
+          state: cam.jurisdiction.state,
+          city: cam.jurisdiction.county || 'Unknown',
+          imageUrl: cam.snapshotUrl || cam.url || '',
+          source: cam.jurisdiction.provider,
+          lastUpdated: cam.lastUpdated.toISOString(),
+          isActive: cam.isActive,
+          description: cam.metadata?.description || cam.name
+        }));
       } else {
-        cameras = await trafficCameraService.getAllCameras();
+        // Fetch cameras from all supported 511 states (FL, GA, CA, TX)
+        const supportedStates = ['FL', 'GA', 'CA', 'TX'];
+        
+        for (const stateCode of supportedStates) {
+          try {
+            const cameras = await unified511Directory.getCamerasByState(stateCode);
+            const transformed = cameras.map(cam => ({
+              id: cam.id,
+              name: cam.name,
+              lat: cam.lat,
+              lng: cam.lng,
+              state: cam.jurisdiction.state,
+              city: cam.jurisdiction.county || 'Unknown',
+              imageUrl: cam.snapshotUrl || cam.url || '',
+              source: cam.jurisdiction.provider,
+              lastUpdated: cam.lastUpdated.toISOString(),
+              isActive: cam.isActive,
+              description: cam.metadata?.description || cam.name
+            }));
+            allCameras.push(...transformed);
+          } catch (error) {
+            console.error(`Error fetching cameras for ${stateCode}:`, error);
+          }
+        }
       }
       
+      console.log(`✅ Returning ${allCameras.length} traffic cameras`);
+      
       res.json({
-        cameras,
-        count: cameras.length,
+        cameras: allCameras,
+        count: allCameras.length,
         timestamp: new Date().toISOString()
       });
     } catch (error) {

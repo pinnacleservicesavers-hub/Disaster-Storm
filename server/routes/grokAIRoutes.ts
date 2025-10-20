@@ -3,6 +3,23 @@ import { grokAI } from "../services/grokAI";
 
 export function registerGrokAIRoutes(app: Express) {
   
+  // Chat endpoint for conversational AI (accepts "message" field)
+  app.post('/api/grok/chat', async (req: Request, res: Response) => {
+    try {
+      const { message, conversationHistory } = req.body;
+      
+      if (!message) {
+        return res.status(400).json({ error: 'Message is required' });
+      }
+
+      const answer = await grokAI.answerQuestion(message, conversationHistory || {});
+      res.json({ response: answer });
+    } catch (error) {
+      console.error('Error with Grok chat:', error);
+      res.status(500).json({ error: 'Failed to process chat request', details: error instanceof Error ? error.message : 'Unknown error' });
+    }
+  });
+  
   // Simple proxy endpoint for general Grok queries (accepts "prompt" field)
   app.post('/api/grok', async (req: Request, res: Response) => {
     try {
