@@ -5,6 +5,18 @@ Disaster Direct is a comprehensive storm operations and claims management platfo
 
 ## Recent Changes
 
+### October 21, 2025 - Environmental Intelligence State & City Dropdowns
+- **Feature**: Added comprehensive state and city selection dropdowns to Environmental Intelligence page
+- **Coverage**: All 50 US states with 5-10 major cities per state (250+ cities total)
+- **UI Enhancement**: New "State & City" tab as default search method alongside existing place name and coordinates search
+- **Dynamic Updates**: City dropdown automatically populates based on selected state
+- **State Abbreviations**: Automatic conversion of full state names to 2-letter abbreviations for API calls (e.g., "Florida" → "FL")
+- **Priority States**: Enhanced coverage for FL, GA, SC, NC, TN, AL, TX with multiple cities per state
+- **Integration**: Seamlessly works with existing `/api/ambee/environmental-report` endpoint
+- **User Experience**: Contractors can now easily check environmental conditions anywhere in the US without typing location names
+- **Testing**: E2E playwright test confirms state selection, city updating, data fetching, and tab switching functionality
+- **Impact**: Simplified location selection for environmental monitoring across all 50 states
+
 ### October 18, 2025 - Real-Time Traffic Monitoring & Severe Weather Alerts
 - **Database Schema**: Added `roadIncidents` table for 511/DOT incident tracking, `contractorNotifications` table for notification audit, enhanced `weatherAlerts` with NWS-specific fields (event, state, headline, polygon, effective, expires), enhanced `users` with geo-matching fields (latitude, longitude, notifyRadiusMiles, pushEndpoint)
 - **NWS Severe Weather Alerts**: Implemented US-wide poller for severe weather events (tornado warnings, high winds, hurricanes, floods) with 2-minute polling cycle integrated into DamageMonitoringScheduler
