@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   Wind, 
   Droplets, 
@@ -101,12 +102,78 @@ interface EnvironmentalReport {
   timestamp: string;
 }
 
+// US States and major cities data
+const US_STATES_CITIES: Record<string, string[]> = {
+  'Alabama': ['Birmingham', 'Montgomery', 'Mobile', 'Huntsville', 'Tuscaloosa'],
+  'Alaska': ['Anchorage', 'Fairbanks', 'Juneau', 'Sitka', 'Ketchikan'],
+  'Arizona': ['Phoenix', 'Tucson', 'Mesa', 'Chandler', 'Scottsdale'],
+  'Arkansas': ['Little Rock', 'Fort Smith', 'Fayetteville', 'Springdale', 'Jonesboro'],
+  'California': ['Los Angeles', 'San Diego', 'San Jose', 'San Francisco', 'Fresno', 'Sacramento', 'Long Beach', 'Oakland', 'Bakersfield', 'Anaheim'],
+  'Colorado': ['Denver', 'Colorado Springs', 'Aurora', 'Fort Collins', 'Lakewood'],
+  'Connecticut': ['Bridgeport', 'New Haven', 'Hartford', 'Stamford', 'Waterbury'],
+  'Delaware': ['Wilmington', 'Dover', 'Newark', 'Middletown', 'Smyrna'],
+  'Florida': ['Jacksonville', 'Miami', 'Tampa', 'Orlando', 'St. Petersburg', 'Hialeah', 'Tallahassee', 'Fort Lauderdale', 'Port St. Lucie', 'Cape Coral'],
+  'Georgia': ['Atlanta', 'Augusta', 'Columbus', 'Macon', 'Savannah', 'Athens', 'Sandy Springs', 'Roswell', 'Albany', 'Johns Creek'],
+  'Hawaii': ['Honolulu', 'Pearl City', 'Hilo', 'Kailua', 'Waipahu'],
+  'Idaho': ['Boise', 'Meridian', 'Nampa', 'Idaho Falls', 'Pocatello'],
+  'Illinois': ['Chicago', 'Aurora', 'Naperville', 'Joliet', 'Rockford'],
+  'Indiana': ['Indianapolis', 'Fort Wayne', 'Evansville', 'South Bend', 'Carmel'],
+  'Iowa': ['Des Moines', 'Cedar Rapids', 'Davenport', 'Sioux City', 'Iowa City'],
+  'Kansas': ['Wichita', 'Overland Park', 'Kansas City', 'Olathe', 'Topeka'],
+  'Kentucky': ['Louisville', 'Lexington', 'Bowling Green', 'Owensboro', 'Covington'],
+  'Louisiana': ['New Orleans', 'Baton Rouge', 'Shreveport', 'Lafayette', 'Lake Charles'],
+  'Maine': ['Portland', 'Lewiston', 'Bangor', 'South Portland', 'Auburn'],
+  'Maryland': ['Baltimore', 'Frederick', 'Rockville', 'Gaithersburg', 'Bowie'],
+  'Massachusetts': ['Boston', 'Worcester', 'Springfield', 'Cambridge', 'Lowell'],
+  'Michigan': ['Detroit', 'Grand Rapids', 'Warren', 'Sterling Heights', 'Ann Arbor'],
+  'Minnesota': ['Minneapolis', 'St. Paul', 'Rochester', 'Duluth', 'Bloomington'],
+  'Mississippi': ['Jackson', 'Gulfport', 'Southaven', 'Hattiesburg', 'Biloxi'],
+  'Missouri': ['Kansas City', 'St. Louis', 'Springfield', 'Columbia', 'Independence'],
+  'Montana': ['Billings', 'Missoula', 'Great Falls', 'Bozeman', 'Butte'],
+  'Nebraska': ['Omaha', 'Lincoln', 'Bellevue', 'Grand Island', 'Kearney'],
+  'Nevada': ['Las Vegas', 'Henderson', 'Reno', 'North Las Vegas', 'Sparks'],
+  'New Hampshire': ['Manchester', 'Nashua', 'Concord', 'Derry', 'Dover'],
+  'New Jersey': ['Newark', 'Jersey City', 'Paterson', 'Elizabeth', 'Edison'],
+  'New Mexico': ['Albuquerque', 'Las Cruces', 'Rio Rancho', 'Santa Fe', 'Roswell'],
+  'New York': ['New York City', 'Buffalo', 'Rochester', 'Yonkers', 'Syracuse'],
+  'North Carolina': ['Charlotte', 'Raleigh', 'Greensboro', 'Durham', 'Winston-Salem', 'Fayetteville', 'Cary', 'Wilmington', 'High Point', 'Asheville'],
+  'North Dakota': ['Fargo', 'Bismarck', 'Grand Forks', 'Minot', 'West Fargo'],
+  'Ohio': ['Columbus', 'Cleveland', 'Cincinnati', 'Toledo', 'Akron'],
+  'Oklahoma': ['Oklahoma City', 'Tulsa', 'Norman', 'Broken Arrow', 'Lawton'],
+  'Oregon': ['Portland', 'Salem', 'Eugene', 'Gresham', 'Hillsboro'],
+  'Pennsylvania': ['Philadelphia', 'Pittsburgh', 'Allentown', 'Erie', 'Reading'],
+  'Rhode Island': ['Providence', 'Warwick', 'Cranston', 'Pawtucket', 'East Providence'],
+  'South Carolina': ['Charleston', 'Columbia', 'North Charleston', 'Mount Pleasant', 'Rock Hill', 'Greenville', 'Summerville', 'Sumter', 'Goose Creek', 'Hilton Head Island'],
+  'South Dakota': ['Sioux Falls', 'Rapid City', 'Aberdeen', 'Brookings', 'Watertown'],
+  'Tennessee': ['Nashville', 'Memphis', 'Knoxville', 'Chattanooga', 'Clarksville', 'Murfreesboro', 'Franklin', 'Johnson City', 'Bartlett', 'Hendersonville'],
+  'Texas': ['Houston', 'San Antonio', 'Dallas', 'Austin', 'Fort Worth', 'El Paso', 'Arlington', 'Corpus Christi', 'Plano', 'Laredo'],
+  'Utah': ['Salt Lake City', 'West Valley City', 'Provo', 'West Jordan', 'Orem'],
+  'Vermont': ['Burlington', 'South Burlington', 'Rutland', 'Barre', 'Montpelier'],
+  'Virginia': ['Virginia Beach', 'Norfolk', 'Chesapeake', 'Richmond', 'Newport News'],
+  'Washington': ['Seattle', 'Spokane', 'Tacoma', 'Vancouver', 'Bellevue'],
+  'West Virginia': ['Charleston', 'Huntington', 'Morgantown', 'Parkersburg', 'Wheeling'],
+  'Wisconsin': ['Milwaukee', 'Madison', 'Green Bay', 'Kenosha', 'Racine'],
+  'Wyoming': ['Cheyenne', 'Casper', 'Laramie', 'Gillette', 'Rock Springs']
+};
+
 export default function EnvironmentalIntelligence() {
-  const [searchType, setSearchType] = useState<'coordinates' | 'place'>('place');
+  const [searchType, setSearchType] = useState<'state-city' | 'coordinates' | 'place'>('state-city');
   const [place, setPlace] = useState('Miami, FL');
   const [lat, setLat] = useState('25.7617');
   const [lng, setLng] = useState('-80.1918');
+  const [selectedState, setSelectedState] = useState('Florida');
+  const [selectedCity, setSelectedCity] = useState('Miami');
+  const [availableCities, setAvailableCities] = useState<string[]>(US_STATES_CITIES['Florida']);
   const [searchParams, setSearchParams] = useState<{ place?: string; lat?: string; lng?: string }>({ place: 'Miami, FL' });
+  
+  // Update available cities when state changes
+  useEffect(() => {
+    if (selectedState && US_STATES_CITIES[selectedState]) {
+      setAvailableCities(US_STATES_CITIES[selectedState]);
+      // Auto-select first city in the new state
+      setSelectedCity(US_STATES_CITIES[selectedState][0]);
+    }
+  }, [selectedState]);
 
   // Build query URL with parameters
   const buildQueryUrl = () => {
@@ -123,11 +190,31 @@ export default function EnvironmentalIntelligence() {
   });
 
   const handleSearch = () => {
-    if (searchType === 'place' && place) {
+    if (searchType === 'state-city' && selectedState && selectedCity) {
+      const stateAbbrev = getStateAbbreviation(selectedState);
+      setSearchParams({ place: `${selectedCity}, ${stateAbbrev}` });
+    } else if (searchType === 'place' && place) {
       setSearchParams({ place });
     } else if (searchType === 'coordinates' && lat && lng) {
       setSearchParams({ lat, lng });
     }
+  };
+  
+  // Helper function to get state abbreviation
+  const getStateAbbreviation = (state: string): string => {
+    const stateAbbreviations: Record<string, string> = {
+      'Alabama': 'AL', 'Alaska': 'AK', 'Arizona': 'AZ', 'Arkansas': 'AR', 'California': 'CA',
+      'Colorado': 'CO', 'Connecticut': 'CT', 'Delaware': 'DE', 'Florida': 'FL', 'Georgia': 'GA',
+      'Hawaii': 'HI', 'Idaho': 'ID', 'Illinois': 'IL', 'Indiana': 'IN', 'Iowa': 'IA',
+      'Kansas': 'KS', 'Kentucky': 'KY', 'Louisiana': 'LA', 'Maine': 'ME', 'Maryland': 'MD',
+      'Massachusetts': 'MA', 'Michigan': 'MI', 'Minnesota': 'MN', 'Mississippi': 'MS', 'Missouri': 'MO',
+      'Montana': 'MT', 'Nebraska': 'NE', 'Nevada': 'NV', 'New Hampshire': 'NH', 'New Jersey': 'NJ',
+      'New Mexico': 'NM', 'New York': 'NY', 'North Carolina': 'NC', 'North Dakota': 'ND', 'Ohio': 'OH',
+      'Oklahoma': 'OK', 'Oregon': 'OR', 'Pennsylvania': 'PA', 'Rhode Island': 'RI', 'South Carolina': 'SC',
+      'South Dakota': 'SD', 'Tennessee': 'TN', 'Texas': 'TX', 'Utah': 'UT', 'Vermont': 'VT',
+      'Virginia': 'VA', 'Washington': 'WA', 'West Virginia': 'WV', 'Wisconsin': 'WI', 'Wyoming': 'WY'
+    };
+    return stateAbbreviations[state] || state;
   };
 
   const getAQIColor = (aqi: number) => {
@@ -173,11 +260,44 @@ export default function EnvironmentalIntelligence() {
           <CardDescription>Search by place name or coordinates</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Tabs value={searchType} onValueChange={(v) => setSearchType(v as 'coordinates' | 'place')}>
-            <TabsList className="grid w-full grid-cols-2">
+          <Tabs value={searchType} onValueChange={(v) => setSearchType(v as 'state-city' | 'coordinates' | 'place')}>
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="state-city" data-testid="tab-state-city-search">State & City</TabsTrigger>
               <TabsTrigger value="place" data-testid="tab-place-search">Place Name</TabsTrigger>
               <TabsTrigger value="coordinates" data-testid="tab-coordinates-search">Coordinates</TabsTrigger>
             </TabsList>
+            <TabsContent value="state-city" className="space-y-4">
+              <div className="flex gap-2">
+                <Select value={selectedState} onValueChange={setSelectedState}>
+                  <SelectTrigger className="w-full" data-testid="select-state">
+                    <SelectValue placeholder="Select State" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.keys(US_STATES_CITIES).map((state) => (
+                      <SelectItem key={state} value={state}>
+                        {state}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={selectedCity} onValueChange={setSelectedCity}>
+                  <SelectTrigger className="w-full" data-testid="select-city">
+                    <SelectValue placeholder="Select City" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableCities.map((city) => (
+                      <SelectItem key={city} value={city}>
+                        {city}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button onClick={handleSearch} data-testid="button-search-state-city">
+                  <Search className="h-4 w-4 mr-2" />
+                  Search
+                </Button>
+              </div>
+            </TabsContent>
             <TabsContent value="place" className="space-y-4">
               <div className="flex gap-2">
                 <Input
