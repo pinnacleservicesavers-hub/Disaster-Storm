@@ -22,9 +22,9 @@ interface Homeowner {
 
 export default function HomeownerContacts() {
   const [searchQuery, setSearchQuery] = useState('');
-  const [damageFilter, setDamageFilter] = useState('');
+  const [damageFilter, setDamageFilter] = useState('all');
   const [cityFilter, setCityFilter] = useState('');
-  const [insuranceFilter, setInsuranceFilter] = useState('');
+  const [insuranceFilter, setInsuranceFilter] = useState('all');
 
   // Fetch all homeowners
   const { data: homeowners = [], isLoading, error } = useQuery<Homeowner[]>({
@@ -32,9 +32,9 @@ export default function HomeownerContacts() {
     queryFn: async () => {
       const params = new URLSearchParams();
       if (searchQuery) params.append('query', searchQuery);
-      if (damageFilter) params.append('damageType', damageFilter);
+      if (damageFilter && damageFilter !== 'all') params.append('damageType', damageFilter);
       if (cityFilter) params.append('city', cityFilter);
-      if (insuranceFilter) params.append('insuranceCompany', insuranceFilter);
+      if (insuranceFilter && insuranceFilter !== 'all') params.append('insuranceCompany', insuranceFilter);
       
       const url = params.toString() 
         ? `/api/homeowners/search?${params.toString()}`
@@ -58,9 +58,9 @@ export default function HomeownerContacts() {
 
   const clearFilters = () => {
     setSearchQuery('');
-    setDamageFilter('');
+    setDamageFilter('all');
     setCityFilter('');
-    setInsuranceFilter('');
+    setInsuranceFilter('all');
   };
 
   const damageTypes = [
@@ -140,7 +140,7 @@ export default function HomeownerContacts() {
                   <SelectValue placeholder="All damage types" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All damage types</SelectItem>
+                  <SelectItem value="all">All damage types</SelectItem>
                   {damageTypes.map(type => (
                     <SelectItem key={type} value={type}>{type}</SelectItem>
                   ))}
@@ -165,7 +165,7 @@ export default function HomeownerContacts() {
                   <SelectValue placeholder="All companies" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All companies</SelectItem>
+                  <SelectItem value="all">All companies</SelectItem>
                   {insuranceCompanies.map(company => (
                     <SelectItem key={company} value={company}>{company}</SelectItem>
                   ))}

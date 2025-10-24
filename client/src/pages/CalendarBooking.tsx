@@ -190,8 +190,7 @@ export default function CalendarBooking() {
 
   const generateTimeSlots = (date: string): TimeSlot[] => {
     const slots: TimeSlot[] = [];
-    const dayOfWeek = new Date(date).toLocaleLowerCase().substring(0, 3) + 
-      new Date(date).toLocaleDateString('en', { weekday: 'long' }).toLowerCase().substring(3);
+    const dayOfWeek = new Date(date).toLocaleDateString('en', { weekday: 'long' }).toLowerCase();
     
     // Generate time slots based on business hours
     for (let hour = 8; hour < 18; hour++) {
