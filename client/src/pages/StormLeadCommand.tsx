@@ -67,14 +67,18 @@ export default function StormLeadCommand() {
   });
 
   // Fetch storm predictions
-  const { data: stormPredictions = [] } = useQuery({
+  const { data: stormPredictionsData } = useQuery({
     queryKey: ['storm-predictions'],
     queryFn: async () => {
-      const response = await fetch('/api/predictions/all');
+      const response = await fetch('/api/storm-predictions');
       const data = await response.json();
-      return data || [];
+      return data;
     }
   });
+
+  const stormPredictions = Array.isArray(stormPredictionsData?.predictions) 
+    ? stormPredictionsData.predictions 
+    : [];
 
   // Generate leads from storm prediction mutation
   const generateLeadsMutation = useMutation({
