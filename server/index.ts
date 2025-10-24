@@ -16,6 +16,7 @@ import { router as area } from "./routes/area.js";
 import { router as damage } from "../apps/server/src/routes/damage.js";
 import { registerRoutes } from "./routes.js";
 import { setupVite, log } from "./vite.js";
+import { scheduler } from "./scheduler.js";
 
 const app = express();
 
@@ -143,6 +144,9 @@ server.listen(port, () => {
   }
   
   const baseUrl = process.env.PUBLIC_BASE_URL || `http://localhost:${port}`;
+  
+  // Start DamageMonitoringScheduler for real-time updates
+  scheduler.start();
   
   setInterval(async () => {
     try {

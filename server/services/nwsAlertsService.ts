@@ -177,6 +177,10 @@ export async function fetchNwsAlerts(state?: string): Promise<Array<any>> {
         centerLon = lons.reduce((a, b) => a + b, 0) / lons.length;
       }
       
+      // Ensure UGC codes are properly formatted as an array
+      const ugcCodes = props.geocode?.UGC;
+      const areasArray = ugcCodes ? (Array.isArray(ugcCodes) ? ugcCodes : Array.from(ugcCodes)) : [];
+      
       return {
         alertId: props.id,
         event: props.event,
@@ -186,7 +190,7 @@ export async function fetchNwsAlerts(state?: string): Promise<Array<any>> {
         description: props.description,
         severity: props.severity,
         alertType: props.event,
-        areas: props.geocode?.UGC || [],
+        areas: areasArray,
         effective: new Date(props.effective),
         expires: props.expires ? new Date(props.expires) : null,
         polygon: polygon,

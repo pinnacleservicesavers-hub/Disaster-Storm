@@ -69,19 +69,19 @@ export class DamageMonitoringScheduler {
     const damageCheckCron = `*/${this.config.schedulerConfig.damageCheckInterval} * * * *`;
     const damageCheckJob = cron.schedule(damageCheckCron, () => {
       this.runDamageCheck();
-    }, { start: false });
+    });
 
     // Schedule snapshot capture task (every N minutes based on config) 
     const snapshotCron = `*/${this.config.schedulerConfig.snapshotCaptureInterval} * * * *`;
     const snapshotJob = cron.schedule(snapshotCron, () => {
       this.runSnapshotCapture();
-    }, { start: false });
+    });
 
     // Schedule alert processing (every minute for high-priority alerts)
     const alertCron = `*/${this.config.schedulerConfig.alertProcessingInterval} * * * *`;
     const alertJob = cron.schedule(alertCron, () => {
       this.processHighPriorityAlerts();
-    }, { start: false });
+    });
 
     // Schedule FEMA disaster sync (every N hours based on config)
     let femaSyncJob: cron.ScheduledTask | null = null;
@@ -89,23 +89,14 @@ export class DamageMonitoringScheduler {
       const femaSyncCron = `0 */${this.config.schedulerConfig.femaSyncInterval} * * *`;
       femaSyncJob = cron.schedule(femaSyncCron, () => {
         this.runFemaSync();
-      }, { start: false });
+      });
     }
 
     // Schedule NWS alerts sync (every 2 minutes for real-time severe weather)
     const nwsAlertsCron = '*/2 * * * *';
     const nwsAlertsJob = cron.schedule(nwsAlertsCron, () => {
       this.runNwsAlertsSync();
-    }, { start: false });
-
-    // Start all jobs
-    damageCheckJob.start();
-    snapshotJob.start();
-    alertJob.start();
-    nwsAlertsJob.start();
-    if (femaSyncJob) {
-      femaSyncJob.start();
-    }
+    });
 
     this.cronJobs = [damageCheckJob, snapshotJob, alertJob, nwsAlertsJob];
     if (femaSyncJob) {
