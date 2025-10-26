@@ -456,6 +456,11 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
   // ---- Grok AI Routes ----
   registerGrokAIRoutes(app);
   
+  // ---- AI Image Generation Routes ----
+  const aiImageRoutes = await import('./routes/aiImageRoutes.js');
+  app.use('/api/ai-images', aiImageRoutes.default);
+  console.log('🎨 AI Image Generation routes registered');
+  
   // ---- EagleView Aerial Imagery Routes ----
   registerEagleViewRoutes(app);
   
