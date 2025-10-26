@@ -3,6 +3,19 @@
 ## Overview
 Disaster Direct is a comprehensive storm operations and claims management platform for contractors and property restoration professionals. It offers real-time weather monitoring, claims management, insurance tracking, legal compliance, drone integration, AI assistance, and field reporting. The platform aims to streamline storm response, maximize insurance claim success, and provide robust photo/video documentation for damage assessment. The project has a business vision to transform storm response into an enterprise-grade, professional interface, "blowing people away" with AI-curated visual theming and efficient operations, thus capturing significant market potential in the property restoration industry.
 
+## Recent Changes
+
+### October 26, 2025 - AI-Generated Module Backgrounds
+- **Implemented AI Image Generation System**: Created complete AI background generation pipeline using OpenAI DALL-E via Replit AI Integrations
+- **Generated All Module Backgrounds**: Successfully generated 17 unique, professional AI images with embedded watermarks for each module
+  - Each image features the module title and description watermarked at the bottom with professional typography
+  - Images stored in `/attached_assets/module_backgrounds/` (total ~38MB for all 17 images)
+  - Professional enterprise aesthetic matching each module's theme (hurricanes, AI networks, construction sites, etc.)
+- **Updated Components**: Modified ModuleHero to display AI-generated backgrounds cleanly without overlaying duplicate text
+- **Service Infrastructure**: Built `aiImageGenerator.ts` service with watermarking capability using Sharp for SVG text overlay
+- **API Routes**: Added `/api/ai-images/*` endpoints for on-demand image generation and management
+- **Cost**: All images generated using Replit AI Integrations (billed to Replit credits, ~4,170 tokens per image)
+
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
