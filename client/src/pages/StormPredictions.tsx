@@ -13,29 +13,12 @@ import {
   TrendingUp, 
   Clock, 
   Zap,
-  ArrowLeft,
   Activity,
   BarChart3
 } from 'lucide-react';
-import { Link } from 'wouter';
 import { FadeIn, SlideIn, StaggerContainer, StaggerItem } from '@/components/ui/animations';
-
-// Back button component
-function BackButton() {
-  return (
-    <Link href="/">
-      <motion.button
-        whileHover={{ scale: 1.05, x: -2 }}
-        whileTap={{ scale: 0.95 }}
-        className="flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-sm border border-white/20 text-white rounded-lg hover:bg-white/20 transition-all duration-200"
-        data-testid="button-back-to-hub"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        <span className="text-sm font-medium">Back to Hub</span>
-      </motion.button>
-    </Link>
-  );
-}
+import { ModuleWrapper } from '@/components/ModuleWrapper';
+import { ModuleCard } from '@/components/ModuleHero';
 
 interface StormPrediction {
   id: string;
@@ -110,65 +93,45 @@ export default function StormPredictions() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
-      <FadeIn>
-        {/* Header */}
-        <div className="bg-gradient-to-r from-purple-600 to-blue-600 text-white p-6">
-          <div className="max-w-7xl mx-auto">
-            <div className="flex items-center justify-between mb-4">
-              <BackButton />
-              <div className="flex items-center space-x-4">
-                <Badge className="bg-white/20 text-white border-white/30">
-                  <Activity className="w-3 h-3 mr-1" />
-                  AI Model Active
-                </Badge>
-                <Badge className="bg-green-500/20 text-green-100 border-green-300/30">
-                  <Target className="w-3 h-3 mr-1" />
-                  {modelAccuracy.toFixed(1)}% Accuracy
-                </Badge>
-              </div>
-            </div>
-            <motion.h1 
-              className="text-4xl font-bold mb-2"
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-            >
-              Storm Predictions
-            </motion.h1>
-            <motion.p 
-              className="text-xl text-purple-100"
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-            >
-              AI storm modeling and risk mapping
-            </motion.p>
-          </div>
+    <ModuleWrapper 
+      moduleId="prediction"
+      heroChildren={
+        <div className="flex items-center space-x-4 mt-4">
+          <Badge className="glass-card-pro bg-white/20 text-white border-white/30 px-4 py-2">
+            <Activity className="w-4 h-4 mr-2" />
+            AI Model Active
+          </Badge>
+          <Badge className="glass-card-pro bg-emerald-500/20 text-emerald-100 border-emerald-300/30 px-4 py-2">
+            <Target className="w-4 h-4 mr-2" />
+            {modelAccuracy.toFixed(1)}% Accuracy
+          </Badge>
         </div>
-
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      }
+    >
+      <div className="max-w-7xl mx-auto">
+        <FadeIn>
           {/* Model Performance Overview */}
           <StaggerContainer className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <StaggerItem index={0}>
-              <Card className="bg-white/10 backdrop-blur-md border-white/20">
+            <StaggerItem>
+              <Card className="glass-card-pro">
                 <CardContent className="p-6 text-center">
-                  <Target className="w-8 h-8 text-green-400 mx-auto mb-2" />
+                  <Target className="w-8 h-8 text-emerald-400 mx-auto mb-2" />
                   <div className="text-2xl font-bold text-white">{modelAccuracy.toFixed(1)}%</div>
                   <div className="text-sm text-purple-200">Model Accuracy</div>
                 </CardContent>
               </Card>
             </StaggerItem>
-            <StaggerItem index={1}>
-              <Card className="bg-white/10 backdrop-blur-md border-white/20">
+            <StaggerItem>
+              <Card className="glass-card-pro">
                 <CardContent className="p-6 text-center">
-                  <CloudRain className="w-8 h-8 text-blue-400 mx-auto mb-2" />
+                  <CloudRain className="w-8 h-8 text-sky-400 mx-auto mb-2" />
                   <div className="text-2xl font-bold text-white">2</div>
                   <div className="text-sm text-purple-200">Active Predictions</div>
                 </CardContent>
               </Card>
             </StaggerItem>
-            <StaggerItem index={2}>
-              <Card className="bg-white/10 backdrop-blur-md border-white/20">
+            <StaggerItem>
+              <Card className="glass-card-pro">
                 <CardContent className="p-6 text-center">
                   <AlertTriangle className="w-8 h-8 text-red-400 mx-auto mb-2" />
                   <div className="text-2xl font-bold text-white">1</div>
@@ -176,8 +139,8 @@ export default function StormPredictions() {
                 </CardContent>
               </Card>
             </StaggerItem>
-            <StaggerItem index={3}>
-              <Card className="bg-white/10 backdrop-blur-md border-white/20">
+            <StaggerItem>
+              <Card className="glass-card-pro">
                 <CardContent className="p-6 text-center">
                   <BarChart3 className="w-8 h-8 text-yellow-400 mx-auto mb-2" />
                   <div className="text-2xl font-bold text-white">$7.0B</div>
@@ -357,8 +320,8 @@ export default function StormPredictions() {
               )}
             </div>
           </div>
-        </div>
-      </FadeIn>
-    </div>
+        </FadeIn>
+      </div>
+    </ModuleWrapper>
   );
 }
