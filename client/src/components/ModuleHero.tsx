@@ -52,47 +52,65 @@ export function ModuleHero({ theme, children, customHeight = '400px' }: ModuleHe
         }}
       />
       
-      {/* Gradient Overlay */}
-      <div
-        className="module-hero-overlay absolute inset-0"
-        style={{
-          background: theme.gradientOverlay
-        }}
-      />
+      {/* Gradient Overlay - Reduced opacity for AI-generated images with watermarks */}
+      {!background?.url.includes('attached_assets') && (
+        <div
+          className="module-hero-overlay absolute inset-0"
+          style={{
+            background: theme.gradientOverlay
+          }}
+        />
+      )}
       
-      {/* Content */}
-      <div className="module-hero-content relative z-10 flex flex-col justify-center items-start h-full px-8 py-12">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3, duration: 0.6 }}
-          className="max-w-4xl"
-        >
-          <h1 
-            className={`text-5xl md:text-6xl lg:text-7xl font-${theme.headingWeight} text-shadow-xl mb-4`}
-            style={{ color: theme.textColor }}
+      {/* Content - Hidden for AI-generated images since they have watermarked text */}
+      {!background?.url.includes('attached_assets') && (
+        <div className="module-hero-content relative z-10 flex flex-col justify-center items-start h-full px-8 py-12">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3, duration: 0.6 }}
+            className="max-w-4xl"
           >
-            {theme.title}
-          </h1>
-          <p 
-            className="text-xl md:text-2xl text-shadow-lg opacity-90 max-w-2xl"
-            style={{ color: theme.textColor }}
-          >
-            {theme.description}
-          </p>
-        </motion.div>
+            <h1 
+              className={`text-5xl md:text-6xl lg:text-7xl font-${theme.headingWeight} text-shadow-xl mb-4`}
+              style={{ color: theme.textColor }}
+            >
+              {theme.title}
+            </h1>
+            <p 
+              className="text-xl md:text-2xl text-shadow-lg opacity-90 max-w-2xl"
+              style={{ color: theme.textColor }}
+            >
+              {theme.description}
+            </p>
+          </motion.div>
         
-        {children && (
+          {children && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.6, duration: 0.6 }}
+              className="mt-8 w-full"
+            >
+              {children}
+            </motion.div>
+          )}
+        </div>
+      )}
+      
+      {/* Custom content area for AI-generated images */}
+      {background?.url.includes('attached_assets') && children && (
+        <div className="module-hero-content relative z-10 flex flex-col justify-end h-full px-8 py-12">
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.6, duration: 0.6 }}
-            className="mt-8 w-full"
+            className="w-full"
           >
             {children}
           </motion.div>
-        )}
-      </div>
+        </div>
+      )}
       
       {/* Accent Line */}
       <div 
