@@ -1,7 +1,7 @@
 /**
- * Background Asset Pipeline
- * Maps module themes to curated high-quality Unsplash imagery
- * Fallback: AI generation via DALL-E
+ * AI-Generated Module Background Images
+ * Each module has a custom DALL-E generated background with watermarked title/description
+ * Generated using OpenAI via Replit AI Integrations (October 2025)
  */
 
 export interface BackgroundAsset {
@@ -13,127 +13,144 @@ export interface BackgroundAsset {
 }
 
 /**
- * Curated professional backgrounds from Unsplash
- * High-resolution, enterprise-quality imagery
+ * AI-Generated Backgrounds with Watermarks
+ * Each image is uniquely created with the module title and description embedded
  */
 export const MODULE_BACKGROUNDS: Record<string, BackgroundAsset> = {
   weather: {
     moduleId: 'weather',
-    url: 'https://images.unsplash.com/photo-1527482797697-8795b05a13fe?q=80&w=3000&auto=format&fit=crop',
-    source: 'unsplash',
-    credit: 'NASA on Unsplash - Hurricane from space'
+    url: '/attached_assets/module_backgrounds/weather_1761486836365.png',
+    source: 'ai-generated',
+    prompt: 'Cinematic satellite view of a massive storm system with dramatic lightning, swirling clouds, radar overlays',
+    credit: 'AI-Generated via DALL-E'
   },
   
   prediction: {
     moduleId: 'prediction',
-    url: 'https://images.unsplash.com/photo-1614730321146-b6fa6a46bcb4?q=80&w=3000&auto=format&fit=crop',
-    source: 'unsplash',
-    credit: 'NASA on Unsplash - Hurricane eye satellite view'
+    url: '/attached_assets/module_backgrounds/prediction_1761486907960.png',
+    source: 'ai-generated',
+    prompt: 'Stunning aerial view of hurricane eye from space, with AI neural network overlays, predictive trajectory lines',
+    credit: 'AI-Generated via DALL-E'
   },
   
   environmental: {
     moduleId: 'environmental',
-    url: 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?q=80&w=3000&auto=format&fit=crop',
-    source: 'unsplash',
-    credit: 'Casey Horner on Unsplash - Forest aerial view'
+    url: '/attached_assets/module_backgrounds/environmental_1761486979231.png',
+    source: 'ai-generated',
+    prompt: 'Breathtaking aerial view of pristine forest and landscape with environmental monitoring sensors',
+    credit: 'AI-Generated via DALL-E'
   },
   
   damageLens: {
     moduleId: 'damageLens',
-    url: 'https://images.unsplash.com/photo-1590396482183-aee2e37a06d0?q=80&w=3000&auto=format&fit=crop',
-    source: 'unsplash',
-    credit: 'Iewek Gnos on Unsplash - Professional camera equipment'
+    url: '/attached_assets/module_backgrounds/damageLens_1761487063959.png',
+    source: 'ai-generated',
+    prompt: 'High-end professional camera equipment focused on storm-damaged building, AI analysis overlays',
+    credit: 'AI-Generated via DALL-E'
   },
   
   claims: {
     moduleId: 'claims',
-    url: 'https://images.unsplash.com/photo-1568992687947-868a62a9f521?q=80&w=3000&auto=format&fit=crop',
-    source: 'unsplash',
-    credit: 'Sohne on Unsplash - Modern office documents'
+    url: '/attached_assets/module_backgrounds/claims_1761487129320.png',
+    source: 'ai-generated',
+    prompt: 'Sleek modern office with professional insurance documents, digital claim processing screens',
+    credit: 'AI-Generated via DALL-E'
   },
   
   liveIntelligence: {
     moduleId: 'liveIntelligence',
-    url: 'https://images.unsplash.com/photo-1635070041078-e363dbe005cb?q=80&w=3000&auto=format&fit=crop',
-    source: 'unsplash',
-    credit: 'Google DeepMind on Unsplash - AI neural network'
+    url: '/attached_assets/module_backgrounds/liveIntelligence_1761487201246.png',
+    source: 'ai-generated',
+    prompt: 'Futuristic AI command center with holographic displays, neural network visualization',
+    credit: 'AI-Generated via DALL-E'
   },
   
   insurance: {
     moduleId: 'insurance',
-    url: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?q=80&w=3000&auto=format&fit=crop',
-    source: 'unsplash',
-    credit: 'Paxson Woelber on Unsplash - Corporate building'
+    url: '/attached_assets/module_backgrounds/insurance_1761487287060.png',
+    source: 'ai-generated',
+    prompt: 'Impressive modern corporate office building with glass facade, professional insurance industry aesthetic',
+    credit: 'AI-Generated via DALL-E'
   },
   
   legal: {
     moduleId: 'legal',
-    url: 'https://images.unsplash.com/photo-1505664194779-8beaceb93744?q=80&w=3000&auto=format&fit=crop',
-    source: 'unsplash',
-    credit: 'Giammarco Boscaro on Unsplash - Law library'
+    url: '/attached_assets/module_backgrounds/legal_1761487458935.png',
+    source: 'ai-generated',
+    prompt: 'Prestigious law library with leather-bound legal books, professional attorney office aesthetic',
+    credit: 'AI-Generated via DALL-E'
   },
   
   fieldReporting: {
     moduleId: 'fieldReporting',
-    url: 'https://images.unsplash.com/photo-1541888946425-d81bb19240f5?q=80&w=3000&auto=format&fit=crop',
-    source: 'unsplash',
-    credit: 'Scott Blake on Unsplash - Construction site workers'
+    url: '/attached_assets/module_backgrounds/fieldReporting_1761487532619.png',
+    source: 'ai-generated',
+    prompt: 'Professional construction site with workers in safety gear, field damage assessment in action',
+    credit: 'AI-Generated via DALL-E'
   },
   
   drone: {
     moduleId: 'drone',
-    url: 'https://images.unsplash.com/photo-1473968512647-3e447244af8f?q=80&w=3000&auto=format&fit=crop',
-    source: 'unsplash',
-    credit: 'Dose Media on Unsplash - Drone aerial photography'
+    url: '/attached_assets/module_backgrounds/drone_1761487607263.png',
+    source: 'ai-generated',
+    prompt: 'Stunning drone aerial perspective of rooftop inspection, professional UAV technology in action',
+    credit: 'AI-Generated via DALL-E'
   },
   
   watchlist: {
     moduleId: 'watchlist',
-    url: 'https://images.unsplash.com/photo-1569163139394-de4798aa62b6?q=80&w=3000&auto=format&fit=crop',
-    source: 'unsplash',
-    credit: 'Timo Wielink on Unsplash - World map with pins'
+    url: '/attached_assets/module_backgrounds/watchlist_1761487679372.png',
+    source: 'ai-generated',
+    prompt: 'Global map with multiple location pins and monitoring zones, command center surveillance aesthetic',
+    credit: 'AI-Generated via DALL-E'
   },
   
   traffic: {
     moduleId: 'traffic',
-    url: 'https://images.unsplash.com/photo-1449824913935-59a10b8d2000?q=80&w=3000&auto=format&fit=crop',
-    source: 'unsplash',
-    credit: 'Denys Nevozhai on Unsplash - Highway night traffic'
+    url: '/attached_assets/module_backgrounds/traffic_1761487747312.png',
+    source: 'ai-generated',
+    prompt: 'Dramatic aerial view of highway at night with flowing traffic lights, DOT camera perspective',
+    credit: 'AI-Generated via DALL-E'
   },
   
   dashboard: {
     moduleId: 'dashboard',
-    url: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=3000&auto=format&fit=crop',
-    source: 'unsplash',
-    credit: 'Luke Chesser on Unsplash - Command center monitors'
+    url: '/attached_assets/module_backgrounds/dashboard_1761487820330.png',
+    source: 'ai-generated',
+    prompt: 'High-tech command center with multiple monitoring screens, professional operations control room',
+    credit: 'AI-Generated via DALL-E'
   },
   
   stormAI: {
     moduleId: 'stormAI',
-    url: 'https://images.unsplash.com/photo-1527482937786-6608042b0e21?q=80&w=3000&auto=format&fit=crop',
-    source: 'unsplash',
-    credit: 'NOAA on Unsplash - Tornado formation'
+    url: '/attached_assets/module_backgrounds/stormAI_1761487890926.png',
+    source: 'ai-generated',
+    prompt: 'Powerful tornado funnel touching ground with dramatic storm clouds, professional storm chasing photography',
+    credit: 'AI-Generated via DALL-E'
   },
   
   geoFencing: {
     moduleId: 'geoFencing',
-    url: 'https://images.unsplash.com/photo-1446776653964-20c1d3a81b06?q=80&w=3000&auto=format&fit=crop',
-    source: 'unsplash',
-    credit: 'NASA on Unsplash - Satellite tracking'
+    url: '/attached_assets/module_backgrounds/geoFencing_1761487971063.png',
+    source: 'ai-generated',
+    prompt: 'Advanced satellite tracking system with GPS coordinates, geo-fence boundaries',
+    credit: 'AI-Generated via DALL-E'
   },
   
   calendar: {
     moduleId: 'calendar',
-    url: 'https://images.unsplash.com/photo-1611224885990-ab7363d1f2a4?q=80&w=3000&auto=format&fit=crop',
-    source: 'unsplash',
-    credit: 'Waldemar on Unsplash - Calendar planning'
+    url: '/attached_assets/module_backgrounds/calendar_1761488028044.png',
+    source: 'ai-generated',
+    prompt: 'Elegant modern calendar interface with scheduling blocks, professional appointment management aesthetic',
+    credit: 'AI-Generated via DALL-E'
   },
   
   homeowners: {
     moduleId: 'homeowners',
-    url: 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?q=80&w=3000&auto=format&fit=crop',
-    source: 'unsplash',
-    credit: 'Ralph Ravi Kayden on Unsplash - Residential neighborhood'
+    url: '/attached_assets/module_backgrounds/homeowners_1761488098224.png',
+    source: 'ai-generated',
+    prompt: 'Beautiful aerial view of suburban neighborhood with well-maintained homes, residential property management aesthetic',
+    credit: 'AI-Generated via DALL-E'
   }
 };
 
@@ -145,10 +162,9 @@ export function getModuleBackground(moduleId: string): BackgroundAsset | undefin
 }
 
 /**
- * Generate AI background via DALL-E (fallback)
+ * Legacy function - no longer needed as all backgrounds are AI-generated
  */
 export async function generateAIBackground(prompt: string): Promise<string> {
-  // This would call the OpenAI DALL-E API
-  // For now, return a placeholder
-  return `https://api.placeholder.com/ai-generated?prompt=${encodeURIComponent(prompt)}`;
+  console.warn('generateAIBackground is deprecated - all backgrounds are pre-generated');
+  return '';
 }
