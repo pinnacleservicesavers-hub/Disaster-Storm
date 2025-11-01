@@ -69,8 +69,7 @@ export default function ModuleGallery({
   };
 
   return (
-    <div ref={rootRef} className="relative min-h-screen text-white overflow-hidden" style={{ 
-      background: 'linear-gradient(to bottom, #0a1628 0%, #001a33 50%, #000d1a 100%)',
+    <div ref={rootRef} className="relative min-h-screen text-white overflow-hidden bg-black" style={{ 
       '--shock-x': shock.x, 
       '--shock-y': shock.y 
     } as React.CSSProperties}>
@@ -122,52 +121,64 @@ export default function ModuleGallery({
       {/* FULL IMPACT SHOCKWAVE RING (re-render to replay) */}
       <div key={shock.key} className="shockwave-ring" />
       
-      <div className="max-w-6xl mx-auto px-6 py-12 relative z-10">
-        {/* Title - Centered */}
-        <div className="text-center mb-8">
-          <h1 className={`text-6xl font-extrabold tracking-tight text-white mb-8 ${shock.key ? 'title-reactive' : ''}`}>
+      <div className="max-w-7xl mx-auto px-8 py-16 relative z-10">
+        {/* Title - Centered with cyan glow */}
+        <div className="text-center mb-12">
+          <h1 className={`text-7xl font-extrabold tracking-tight mb-8 ${shock.key ? 'title-reactive' : ''}`}
+            style={{
+              background: 'linear-gradient(90deg, #00d9ff 0%, #00ffcc 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              textShadow: '0 0 80px rgba(0, 255, 204, 0.5)'
+            }}
+          >
             StormOps Modules
           </h1>
           
           {/* Search & Filter Bar */}
-          <div className="flex items-center justify-center gap-3 mb-12">
+          <div className="flex items-center justify-center gap-4 mb-16">
             <div className="relative">
               <input
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search"
-                className="w-56 px-4 py-2 pl-10 rounded-full bg-slate-900/50 border border-slate-700 text-white placeholder:text-slate-400 focus:outline-none focus:border-cyan-500/50 transition-colors text-sm"
+                className="w-64 px-5 py-3 pl-12 rounded-xl bg-slate-900/60 border border-cyan-500/30 text-white placeholder:text-slate-500 focus:outline-none focus:border-cyan-400 transition-all text-sm backdrop-blur-sm"
                 data-testid="input-search"
               />
-              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
             </div>
             
-            <button
-              onClick={() => setHighOnly(!highOnly)}
-              className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                highOnly 
-                  ? 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/50' 
-                  : 'bg-slate-800/50 text-slate-300 border border-slate-700'
-              }`}
+            <select
+              onChange={(e) => setHighOnly(e.target.value === 'high')}
+              className="px-5 py-3 rounded-xl bg-slate-900/60 border border-yellow-500/30 text-yellow-300 focus:outline-none focus:border-yellow-400 transition-all appearance-none cursor-pointer text-sm backdrop-blur-sm font-medium"
+              style={{ paddingRight: '2.5rem' }}
             >
-              Priority: High {highOnly && '●'}
-            </button>
+              <option value="all">Priority: High</option>
+              <option value="high">High Priority Only</option>
+            </select>
             
-            <button className="px-4 py-2 rounded-full text-sm font-medium bg-slate-800/50 text-slate-300 border border-slate-700">
-              Ops
-            </button>
-            
-            <button className="px-4 py-2 rounded-full text-sm font-medium bg-slate-800/50 text-slate-300 border border-slate-700">
-              Data
-            </button>
+            <select
+              value={cat}
+              onChange={(e) => setCat(e.target.value)}
+              className="px-5 py-3 rounded-xl bg-slate-900/60 border border-cyan-500/30 text-cyan-300 focus:outline-none focus:border-cyan-400 transition-all appearance-none cursor-pointer text-sm backdrop-blur-sm font-medium"
+              style={{ paddingRight: '2.5rem' }}
+              data-testid="select-category"
+            >
+              <option value="all">Category</option>
+              <option value="operations">Operations</option>
+              <option value="intelligence">Intelligence</option>
+              <option value="customers">Customers</option>
+              <option value="sales">Sales</option>
+              <option value="management">Management</option>
+            </select>
           </div>
         </div>
 
-        {/* Grid - 2 columns */}
-        <div className="grid grid-cols-2 gap-6">
+        {/* Grid - 3 columns */}
+        <div className="grid grid-cols-3 gap-8">
           {filtered.map((m, i) => (
             <ModuleCard 
               key={m.id} 

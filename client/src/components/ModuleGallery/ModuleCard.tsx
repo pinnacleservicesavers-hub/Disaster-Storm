@@ -20,26 +20,34 @@ interface ModuleCardProps {
   onRipple?: (e: React.MouseEvent) => void;
 }
 
+const rainbowGradients = [
+  'linear-gradient(135deg, #00d9ff 0%, #0080ff 50%, #00d9ff 100%)', // cyan-blue
+  'linear-gradient(135deg, #8000ff 0%, #ff00ff 50%, #8000ff 100%)', // purple-magenta
+  'linear-gradient(135deg, #00ff88 0%, #00d9ff 50%, #00ff88 100%)', // green-cyan
+  'linear-gradient(135deg, #0066ff 0%, #00ff88 50%, #0066ff 100%)', // blue-green
+  'linear-gradient(135deg, #00d9ff 0%, #00ff88 50%, #00d9ff 100%)', // cyan-green
+  'linear-gradient(135deg, #ff00ff 0%, #ff6600 50%, #ff00ff 100%)', // magenta-orange
+];
+
 const glowColors = [
-  { border: 'rgba(0, 123, 255, 0.8)', shadow: 'rgba(0, 123, 255, 0.4)' }, // blue
-  { border: 'rgba(0, 194, 255, 0.8)', shadow: 'rgba(0, 194, 255, 0.4)' }, // cyan
-  { border: 'rgba(16, 185, 129, 0.8)', shadow: 'rgba(16, 185, 129, 0.4)' }, // green
-  { border: 'rgba(168, 85, 247, 0.8)', shadow: 'rgba(168, 85, 247, 0.4)' }, // purple
-  { border: 'rgba(234, 255, 0, 0.8)', shadow: 'rgba(234, 255, 0, 0.4)' }, // yellow
-  { border: 'rgba(0, 194, 255, 0.8)', shadow: 'rgba(0, 194, 255, 0.4)' }, // cyan
-  { border: 'rgba(16, 185, 129, 0.8)', shadow: 'rgba(16, 185, 129, 0.4)' }, // green
-  { border: 'rgba(168, 85, 247, 0.8)', shadow: 'rgba(168, 85, 247, 0.4)' }, // purple
+  { color: '#00d9ff', shadow: 'rgba(0, 217, 255, 0.8)' }, // cyan
+  { color: '#8000ff', shadow: 'rgba(128, 0, 255, 0.8)' }, // purple
+  { color: '#00ff88', shadow: 'rgba(0, 255, 136, 0.8)' }, // green
+  { color: '#0066ff', shadow: 'rgba(0, 102, 255, 0.8)' }, // blue
+  { color: '#00d9ff', shadow: 'rgba(0, 217, 255, 0.8)' }, // cyan
+  { color: '#ff00ff', shadow: 'rgba(255, 0, 255, 0.8)' }, // magenta
 ];
 
 const iconColors = [
-  'bg-orange-500', 'bg-blue-500', 'bg-emerald-500', 'bg-orange-500',
-  'bg-orange-500', 'bg-orange-500', 'bg-orange-500', 'bg-purple-500'
+  'bg-blue-600', 'bg-purple-600', 'bg-emerald-600', 
+  'bg-blue-600', 'bg-emerald-600', 'bg-purple-600'
 ];
 
 export function ModuleCard({ m, delay = 0, onLaunch, onPreview, onDocs, onRipple }: ModuleCardProps) {
   const Icon = m.icon;
   const cardIndex = parseInt(m.num?.replace('#', '') || '1') - 1;
   const glow = glowColors[cardIndex % glowColors.length];
+  const gradient = rainbowGradients[cardIndex % rainbowGradients.length];
   const iconBg = iconColors[cardIndex % iconColors.length];
   
   const handleCardClick = (e: React.MouseEvent) => {
@@ -48,80 +56,81 @@ export function ModuleCard({ m, delay = 0, onLaunch, onPreview, onDocs, onRipple
   
   return (
     <motion.div
-      whileHover={{ scale: 1.02 }}
+      whileHover={{ scale: 1.03, y: -4 }}
       transition={{ type: "spring", stiffness: 300, damping: 20 }}
-      className="relative rounded-3xl p-6 bg-slate-900/40 backdrop-blur-md group"
+      className="relative rounded-3xl p-1 group"
       style={{ 
-        border: `2px solid ${glow.border}`,
-        boxShadow: `0 0 40px ${glow.shadow}, inset 0 0 60px rgba(0,0,0,0.3)`
+        background: gradient,
+        boxShadow: `0 0 60px ${glow.shadow}, 0 0 100px ${glow.shadow}, inset 0 0 80px rgba(0,0,0,0.9)`
       }}
       data-testid={`card-module-${m.id}`}
       onClick={handleCardClick}
     >
-      {/* Animated Halo */}
+      {/* Intense Animated Glow Halo */}
       <div
-        className="absolute inset-0 rounded-3xl opacity-40 blur-2xl animate-energyWave"
+        className="absolute inset-0 rounded-3xl opacity-70 blur-3xl animate-energyWave"
         style={{
-          background: `radial-gradient(circle at center, ${glow.border} 0%, transparent 70%)`,
+          background: `radial-gradient(circle at center, ${glow.shadow} 0%, transparent 70%)`,
           animationDelay: `${delay}s`,
           zIndex: 0,
         }}
       />
+      
+      {/* Inner card with dark gradient background */}
+      <div className="relative rounded-3xl p-6 bg-gradient-to-br from-slate-950/95 via-slate-900/95 to-slate-950/95 backdrop-blur-xl h-full"
+        style={{
+          background: `linear-gradient(135deg, rgba(0,0,0,0.95) 0%, rgba(10,10,20,0.98) 50%, rgba(0,0,0,0.95) 100%)`
+        }}
+      >
 
-      <div className="relative z-10">
-        {/* Top row: Icon + Badges */}
-        <div className="flex items-start justify-between mb-4">
-          {/* Large circular icon */}
-          <div className={`w-16 h-16 rounded-full ${iconBg} flex items-center justify-center flex-shrink-0`}>
-            <Icon className="w-8 h-8 text-white" />
+        <div className="relative z-10">
+          {/* Top row: Icon + Badges */}
+          <div className="flex items-start justify-between mb-5">
+            {/* Large circular icon with glow */}
+            <div className={`w-16 h-16 rounded-2xl ${iconBg} flex items-center justify-center flex-shrink-0 shadow-lg`}
+              style={{ boxShadow: `0 0 30px ${glow.shadow}` }}
+            >
+              <Icon className="w-8 h-8 text-white" />
+            </div>
+            
+            <div className="flex flex-col items-end gap-2">
+              {m.priority === "HIGH" && (
+                <span className="px-3 py-1 rounded-full text-xs font-bold bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-lg"
+                  style={{ boxShadow: '0 0 20px rgba(255, 140, 0, 0.6)' }}
+                >
+                  HIGH
+                </span>
+              )}
+              {m.status === 'LIVE' && (
+                <span className="px-3 py-1 rounded-full text-xs font-bold bg-gradient-to-r from-emerald-500 to-emerald-600 text-white flex items-center gap-1.5 shadow-lg"
+                  style={{ boxShadow: '0 0 20px rgba(16, 185, 129, 0.6)' }}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
+                  LIVE
+                </span>
+              )}
+            </div>
           </div>
           
-          <div className="flex flex-col items-end gap-2">
-            {m.priority === "HIGH" && (
-              <span className="px-3 py-1 rounded-full text-xs font-bold bg-yellow-500/90 text-black">
-                HIGH
-              </span>
-            )}
-            {m.status === 'LIVE' && (
-              <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/90 text-white flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-white"></span>
-                LIVE
-              </span>
-            )}
-            {m.num && (
-              <span className="text-xs text-slate-400 font-mono">{m.num}</span>
-            )}
-          </div>
-        </div>
-        
-        {/* Title and description */}
-        <h3 className="text-xl font-bold text-white mb-2" data-testid={`text-module-name-${m.id}`}>
-          {m.name}
-        </h3>
-        <p className="text-sm text-slate-300 mb-6 leading-relaxed">
-          {m.description}
-        </p>
-        
-        {/* Buttons */}
-        <div className="flex gap-2">
+          {/* Title and description */}
+          <h3 className="text-2xl font-bold text-white mb-3" data-testid={`text-module-name-${m.id}`}>
+            {m.name}
+          </h3>
+          <p className="text-sm text-slate-400 mb-6 leading-relaxed">
+            {m.description}
+          </p>
+          
+          {/* Launch button with arrow */}
           <button 
             onClick={(e) => { e.stopPropagation(); if (onLaunch) onLaunch(); }}
-            className="px-4 py-2 rounded-lg text-sm font-semibold text-black bg-yellow-400 hover:bg-yellow-300 transition-colors"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-black bg-white hover:bg-slate-100 transition-all shadow-lg group"
             data-testid={`button-launch-${m.id}`}
+            style={{ boxShadow: '0 0 30px rgba(255, 255, 255, 0.3)' }}
           >
             Launch
-          </button>
-          <button 
-            onClick={(e) => { e.stopPropagation(); if (onPreview) onPreview(); }}
-            className="px-4 py-2 rounded-lg text-sm font-medium text-white bg-slate-800/80 hover:bg-slate-700 transition-colors"
-          >
-            Preview
-          </button>
-          <button 
-            onClick={(e) => { e.stopPropagation(); if (onDocs) onDocs(); }}
-            className="px-4 py-2 rounded-lg text-sm font-medium text-white bg-slate-800/80 hover:bg-slate-700 transition-colors"
-          >
-            Docs
+            <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
           </button>
         </div>
       </div>
