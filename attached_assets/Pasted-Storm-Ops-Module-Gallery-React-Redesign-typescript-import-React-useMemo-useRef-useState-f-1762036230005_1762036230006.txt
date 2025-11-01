@@ -1,0 +1,100 @@
+Storm Ops Module Gallery – React Redesign
+· typescript
+import React, { useMemo, useRef, useState } from "react";
+  const [query, setQuery] = useState("");
+  const filtered = useMemo(() => MODULES.filter((m) => m.title.toLowerCase().includes(query.toLowerCase())), [query]);
+
+
+  // Shockwave + arcs
+  const [shockKey, setShockKey] = useState(0);
+  const rootRef = useRef(null);
+
+
+  const triggerRipple = ({ x, y, rect }) => {
+    const container = rootRef.current;
+    if (!container) return;
+    const bounds = container.getBoundingClientRect();
+    container.style.setProperty("--shock-x", `${x - bounds.left}px`);
+    container.style.setProperty("--shock-y", `${y - bounds.top}px`);
+    setShockKey((k) => k + 1);
+  };
+
+
+  return (
+    <div ref={rootRef} className="relative min-h-screen bg-slate-950 text-white overflow-hidden">
+      <style>{`
+        :root{--neon-yellow:${NEON.yellow};--neon-blue:${NEON.blue};}
+
+
+        /* Ambient cinematic field */
+        @keyframes floatBG {0%{transform:translate3d(-10%,-10%,0);}50%{transform:translate3d(10%,10%,0);}100%{transform:translate3d(-10%,-10%,0);}}
+        .neon-backdrop{position:absolute;inset:-20%;background:
+          radial-gradient(40% 40% at 15% 20%, rgba(234,255,0,.12), transparent 60%),
+          radial-gradient(50% 50% at 85% 80%, rgba(0,194,255,.22), transparent 65%),
+          radial-gradient(30% 30% at 80% 10%, rgba(234,255,0,.10), transparent 70%);
+          animation: floatBG 26s ease-in-out infinite;filter:blur(64px);mix-blend-mode:screen;z-index:0;}
+
+
+        /* Card wave */
+        @keyframes energyWave {
+          0% {opacity: .45; filter: blur(55px) brightness(1);}
+          25% {opacity: .85; filter: blur(60px) brightness(1.4);}
+          50% {opacity: .55; filter: blur(70px) brightness(1.15);}
+          75% {opacity: .9; filter: blur(65px) brightness(1.6);}
+          100% {opacity: .45; filter: blur(55px) brightness(1);}
+        }
+
+
+        /* FULL IMPACT SHOCKWAVE */
+        @keyframes shockExpand {
+          0% { transform: translate(-50%, -50%) scale(.2); opacity: .95; filter: blur(6px); }
+          30% { opacity: .95; filter: blur(8px); }
+          60% { opacity: .75; }
+          100% { transform: translate(-50%, -50%) scale(7); opacity: 0; filter: blur(16px); }
+        }
+        .shockwave-layer {
+          position: absolute; left: var(--shock-x); top: var(--shock-y); pointer-events:none; border-radius:9999px; mix-blend-mode:screen; z-index: 1;
+          animation: shockExpand 1.5s cubic-bezier(.2,.8,.2,1) forwards;
+        }
+        .shock-outer { width: 260px; height: 260px; background: radial-gradient(closest-side, rgba(0,194,255,.95) 6%, rgba(234,255,0,.85) 16%, rgba(0,194,255,.35) 34%, rgba(0,0,0,0) 60%); box-shadow: 0 0 140px 50px rgba(0,194,255,.55), 0 0 100px 34px rgba(234,255,0,.4); }
+        .shock-inner { width: 160px; height: 160px; background: radial-gradient(closest-side, rgba(0,194,255,.9) 20%, rgba(234,255,0,.7) 40%, rgba(0,0,0,0) 70%); filter: blur(6px); }
+
+
+        /* Electrical arcs */
+        @keyframes arcDash { to { stroke-dashoffset: -1000; } }
+        @keyframes arcFlash { 0%,100%{opacity:.25;} 40%{opacity:.9;} 60%{opacity:.5;} }
+        .arcs path{ stroke: rgba(0,194,255,.85); stroke-width: 2; stroke-linecap: round; fill: none; filter: drop-shadow(0 0 8px rgba(0,194,255,.9)); stroke-dasharray: 8 14; animation: arcDash 6s linear infinite, arcFlash 2.2s ease-in-out infinite; }
+      `}</style>
+
+
+      {/* Ambient */}
+      <div className="neon-backdrop" />
+
+
+      {/* Electrical arcs SVG */}
+      <svg className="arcs absolute inset-0 -z-0" viewBox="0 0 100 100" preserveAspectRatio="none">
+        <path d="M5,20 C20,30 30,10 50,20 70,30 80,15 95,25" />
+        <path d="M5,70 C25,60 40,85 55,70 70,55 80,80 95,68" />
+      </svg>
+
+
+      {/* FULL IMPACT SHOCKWAVE (two layers) */}
+      <div key={`outer-${shockKey}`} className="shockwave-layer shock-outer" />
+      <div key={`inner-${shockKey}`} className="shockwave-layer shock-inner" />
+
+
+      <div className="relative z-10 max-w-7xl mx-auto px-6 py-12">
+        <h1 className="text-5xl font-extrabold tracking-tight bg-gradient-to-r from-[color:var(--neon-yellow)] to-[color:var(--neon-blue)] bg-clip-text text-transparent drop-shadow-[0_0_25px_rgba(0,194,255,0.6)]">
+          StormOps Modules
+        </h1>
+
+
+        <div className="mt-8 grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
+          {filtered.map((m, i) => (
+            <ModuleCard key={m.id} m={m} delay={i * 0.4} onRipple={triggerRipple} routes={routes} onLaunch={onLaunch} onPreview={onPreview} onDocs={onDocs} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
