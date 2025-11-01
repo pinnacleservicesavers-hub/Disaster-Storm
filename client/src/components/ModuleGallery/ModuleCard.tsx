@@ -6,14 +6,35 @@ import { Badge } from './Badge';
 
 interface ModuleCardProps {
   m: ModuleData;
+  onLaunch?: () => void;
+  onPreview?: () => void;
+  onDocs?: () => void;
 }
 
-export function ModuleCard({ m }: ModuleCardProps) {
+export function ModuleCard({ m, onLaunch, onPreview, onDocs }: ModuleCardProps) {
   const Icon = m.icon;
+  
+  const handleLaunch = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (onLaunch) onLaunch();
+  };
+  
+  const handlePreview = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (onPreview) onPreview();
+  };
+  
+  const handleDocs = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (onDocs) onDocs();
+  };
   
   return (
     <Link href={m.path}>
       <motion.div
+        onClick={handleLaunch}
         whileHover={{ 
           scale: 1.03, 
           rotateY: 2,
@@ -79,26 +100,33 @@ export function ModuleCard({ m }: ModuleCardProps) {
               {/* Action buttons */}
               <div className="flex items-center gap-2 mb-3">
                 <motion.button
+                  onClick={handleLaunch}
                   whileHover={{ scale: 1.05, x: 3 }}
                   className="flex-1 px-4 py-2.5 rounded-xl bg-white/20 backdrop-blur-md hover:bg-white/30 text-white text-sm font-semibold flex items-center justify-center gap-2 transition-all ring-1 ring-white/30 shadow-lg"
                   data-testid={`button-launch-${m.id}`}
                 >
                   Launch <ArrowRight className="w-4 h-4" />
                 </motion.button>
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  className="px-3 py-2.5 rounded-xl bg-white/10 backdrop-blur-md hover:bg-white/20 text-white transition-all ring-1 ring-white/20"
-                  title="Preview"
-                >
-                  <Eye className="w-4 h-4" />
-                </motion.button>
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  className="px-3 py-2.5 rounded-xl bg-white/10 backdrop-blur-md hover:bg-white/20 text-white transition-all ring-1 ring-white/20"
-                  title="Documentation"
-                >
-                  <FileText className="w-4 h-4" />
-                </motion.button>
+                {onPreview && (
+                  <motion.button
+                    onClick={handlePreview}
+                    whileHover={{ scale: 1.05 }}
+                    className="px-3 py-2.5 rounded-xl bg-white/10 backdrop-blur-md hover:bg-white/20 text-white transition-all ring-1 ring-white/20"
+                    title="Preview"
+                  >
+                    <Eye className="w-4 h-4" />
+                  </motion.button>
+                )}
+                {onDocs && (
+                  <motion.button
+                    onClick={handleDocs}
+                    whileHover={{ scale: 1.05 }}
+                    className="px-3 py-2.5 rounded-xl bg-white/10 backdrop-blur-md hover:bg-white/20 text-white transition-all ring-1 ring-white/20"
+                    title="Documentation"
+                  >
+                    <FileText className="w-4 h-4" />
+                  </motion.button>
+                )}
               </div>
 
               {/* Module number */}

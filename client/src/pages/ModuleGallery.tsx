@@ -1,11 +1,30 @@
 import { useState, useMemo } from 'react';
 import { Star, Rocket, Volume2, VolumeX } from 'lucide-react';
-import { MODULES } from '@shared/moduleGallery';
+import { useLocation } from 'wouter';
+import { MODULES, ModuleData } from '@shared/moduleGallery';
 import { ModuleCard } from '@/components/ModuleGallery/ModuleCard';
 import { Toolbar } from '@/components/ModuleGallery/Toolbar';
 import { Badge } from '@/components/ModuleGallery/Badge';
 
-export default function ModuleGallery() {
+interface ModuleGalleryProps {
+  routes?: Record<string, string>;
+  onLaunch?: (module: ModuleData) => void;
+  onPreview?: (module: ModuleData) => void;
+  onDocs?: (module: ModuleData) => void;
+  brand?: {
+    name?: string;
+    logoUrl?: string;
+  };
+}
+
+export default function ModuleGallery({
+  routes = {},
+  onLaunch,
+  onPreview,
+  onDocs,
+  brand = { name: 'Disaster Direct', logoUrl: undefined }
+}: ModuleGalleryProps) {
+  const [, navigate] = useLocation();
   const [query, setQuery] = useState('');
   const [cat, setCat] = useState('all');
   const [highOnly, setHighOnly] = useState(false);
@@ -49,10 +68,10 @@ export default function ModuleGallery() {
           <div>
             <div className="flex items-center gap-3 mb-3">
               <h1 className="text-5xl md:text-6xl font-extrabold bg-gradient-to-r from-cyan-400 via-purple-400 to-pink-400 bg-clip-text text-transparent tracking-tight drop-shadow-2xl">
-                Storm Ops
+                {brand.name || 'Storm Ops'}
               </h1>
               <Badge tone="sky" className="text-xs backdrop-blur-md shadow-lg">
-                17 Modules
+                {MODULES.length} Modules
               </Badge>
             </div>
             <p className="text-white/80 text-lg max-w-2xl leading-relaxed drop-shadow-md">
@@ -67,6 +86,13 @@ export default function ModuleGallery() {
             </div>
           </div>
           <div className="hidden md:flex items-center gap-2">
+            {brand.logoUrl && (
+              <img
+                src={brand.logoUrl}
+                alt={brand.name || 'Brand logo'}
+                className="w-16 h-16 object-contain opacity-90 mr-2"
+              />
+            )}
             <button 
               className="px-4 py-2.5 rounded-xl bg-white/10 backdrop-blur-md ring-1 ring-white/15 hover:bg-white/20 hover:ring-white/30 inline-flex items-center gap-2 transition-all text-white shadow-lg"
               data-testid="button-favorites"
@@ -116,7 +142,13 @@ export default function ModuleGallery() {
         {/* Grid */}
         <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filtered.map((m) => (
-            <ModuleCard key={m.id} m={m} />
+            <ModuleCard 
+              key={m.id} 
+              m={{ ...m, path: routes[m.id] || m.path }}
+              onLaunch={onLaunch ? () => onLaunch(m) : () => navigate(routes[m.id] || m.path)}
+              onPreview={onPreview ? () => onPreview(m) : undefined}
+              onDocs={onDocs ? () => onDocs(m) : undefined}
+            />
           ))}
         </div>
 
@@ -133,3 +165,56 @@ export default function ModuleGallery() {
     </div>
   );
 }
+
+/**
+ * INTEGRATION EXAMPLES
+ * ====================
+ * 
+ * 1) Basic usage (default routes):
+ *    <ModuleGallery />
+ * 
+ * 2) Custom brand:
+ *    <ModuleGallery 
+ *      brand={{ 
+ *        name: 'Storm Command Pro',
+ *        logoUrl: '/assets/logo.png' 
+ *      }} 
+ *    />
+ * 
+ * 3) Custom routes for specific modules:
+ *    const routes = {
+ *      'weather': '/app/weather-intelligence',
+ *      'claims': '/app/insurance-claims',
+ *      'disaster-lens': '/app/documentation'
+ *    };
+ *    <ModuleGallery routes={routes} />
+ * 
+ * 4) Custom handlers with analytics:
+ *    <ModuleGallery
+ *      onLaunch={(module) => {
+ *        analytics.track('module_launched', { id: module.id });
+ *        navigate(`/modules/${module.id}`);
+ *      }}
+ *      onPreview={(module) => {
+ *        analytics.track('module_previewed', { id: module.id });
+ *        navigate(`/modules/${module.id}?mode=preview`);
+ *      }}
+ *      onDocs={(module) => {
+ *        analytics.track('docs_opened', { id: module.id });
+ *        window.open(`https://docs.example.com/${module.id}`, '_blank');
+ *      }}
+ *    />
+ * 
+ * 5) White-label integration:
+ *    <ModuleGallery
+ *      brand={{
+ *        name: 'Strategic Land Management',
+ *        logoUrl: '/client-logos/strategic-land.svg'
+ *      }}
+ *      routes={{
+ *        'weather': '/slm/weather',
+ *        'predictions': '/slm/storm-intel'
+ *      }}
+ *      onLaunch={(m) => customNavigationHandler(m)}
+ *    />
+ */
