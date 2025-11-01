@@ -34,6 +34,8 @@ export default function ModuleGallery({
   const [cat, setCat] = useState('all');
   const [highOnly, setHighOnly] = useState(false);
   const [voiceGuideActive, setVoiceGuideActive] = useState(false);
+  const [shock, setShock] = useState({ key: 0, x: '50%', y: '50%' });
+  const rootRef = useRef<HTMLDivElement>(null);
 
   const filtered = useMemo(() => {
     let results = MODULES;
@@ -58,8 +60,16 @@ export default function ModuleGallery({
     return results;
   }, [query, cat, highOnly]);
 
+  const triggerRipple = (e: React.MouseEvent) => {
+    if (!rootRef.current) return;
+    const rect = rootRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    setShock({ key: Date.now(), x: `${x}px`, y: `${y}px` });
+  };
+
   return (
-    <div className="relative min-h-screen bg-slate-950 text-white overflow-hidden">
+    <div ref={rootRef} className="relative min-h-screen bg-slate-950 text-white overflow-hidden" style={{ '--shock-x': shock.x, '--shock-y': shock.y } as React.CSSProperties}>
       {/* Inject CSS custom properties and animations */}
       <style>{`
         :root {
@@ -75,15 +85,40 @@ export default function ModuleGallery({
         
         @keyframes energyWave {
           0% { opacity: 0.4; filter: blur(55px) brightness(1); transform: translateY(0); }
-          25% { opacity: 0.7; filter: blur(60px) brightness(1.3); transform: translateY(-6px); }
-          50% { opacity: 0.5; filter: blur(70px) brightness(1.1); transform: translateY(0); }
-          75% { opacity: 0.8; filter: blur(65px) brightness(1.4); transform: translateY(6px); }
+          25% { opacity: 0.8; filter: blur(60px) brightness(1.4); transform: translateY(-6px); }
+          50% { opacity: 0.55; filter: blur(70px) brightness(1.15); transform: translateY(0); }
+          75% { opacity: 0.9; filter: blur(65px) brightness(1.6); transform: translateY(6px); }
           100% { opacity: 0.4; filter: blur(55px) brightness(1); transform: translateY(0); }
         }
         
         .animate-energyWave {
           animation: energyWave 5s ease-in-out infinite;
         }
+        
+        /* FULL IMPACT SHOCKWAVE */
+        @keyframes shockExpand {
+          0% { transform: translate(-50%, -50%) scale(0.2); opacity: 0.95; filter: blur(8px); box-shadow: 0 0 0 0 rgba(0,194,255,0.75), 0 0 0 0 rgba(234,255,0,0.55); }
+          30% { opacity: 0.95; filter: blur(10px); }
+          60% { opacity: 0.75; }
+          100% { transform: translate(-50%, -50%) scale(6); opacity: 0; filter: blur(16px); box-shadow: 0 0 150px 60px rgba(0,194,255,0), 0 0 120px 40px rgba(234,255,0,0); }
+        }
+        .shockwave-ring {
+          position: absolute; left: var(--shock-x); top: var(--shock-y);
+          width: 220px; height: 220px; border-radius: 9999px; pointer-events:none; z-index: 1;
+          background: radial-gradient(closest-side, rgba(0,194,255,0.95) 10%, rgba(234,255,0,0.85) 18%, rgba(0,194,255,0.4) 30%, rgba(0,0,0,0) 60%);
+          box-shadow: 0 0 120px 40px rgba(0,194,255,.55), 0 0 80px 24px rgba(234,255,0,.45);
+          animation: shockExpand 1.5s cubic-bezier(.2,.8,.2,1) forwards;
+          mix-blend-mode: screen;
+        }
+        
+        /* Title shimmer when shockwave fires */
+        @keyframes titleShimmer {
+          0% { text-shadow: 0 0 0 rgba(0,194,255,0); filter: drop-shadow(0 0 0 rgba(0,194,255,0)); }
+          30% { text-shadow: 0 0 18px rgba(0,194,255,0.8), 0 0 8px rgba(234,255,0,0.6); }
+          60% { text-shadow: 0 0 28px rgba(0,194,255,1), 0 0 14px rgba(234,255,0,0.8); }
+          100% { text-shadow: 0 0 0 rgba(0,194,255,0); }
+        }
+        .title-reactive { animation: titleShimmer 1.2s ease-out; }
         
         .neon-backdrop {
           position: absolute;
@@ -101,7 +136,17 @@ export default function ModuleGallery({
       {/* Animated neon flowing backdrop */}
       <div className="neon-backdrop"></div>
       
+      {/* FULL IMPACT SHOCKWAVE RING (re-render to replay) */}
+      <div key={shock.key} className="shockwave-ring" />
+      
       <div className="max-w-7xl mx-auto px-6 py-8 relative z-10">
+        {/* Title */}
+        <div className="flex items-center justify-between mb-10">
+          <h1 className={`text-5xl font-extrabold tracking-tight bg-gradient-to-r from-[#eaff00] to-[#00c2ff] bg-clip-text text-transparent ${shock.key ? 'title-reactive' : ''}`}>
+            StormOps Modules
+          </h1>
+        </div>
+        
         {/* Search & Filter Bar */}
         <div className="mb-8 flex items-center gap-4">
           <div className="flex-1 relative">
@@ -138,7 +183,7 @@ export default function ModuleGallery({
         </div>
 
         {/* Grid */}
-        <div className="grid sm:grid-cols-2 gap-6">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
           {filtered.map((m, i) => (
             <ModuleCard 
               key={m.id} 
@@ -147,6 +192,7 @@ export default function ModuleGallery({
               onLaunch={onLaunch ? () => onLaunch(m) : () => navigate(routes[m.id] || m.path)}
               onPreview={onPreview ? () => onPreview(m) : undefined}
               onDocs={onDocs ? () => onDocs(m) : undefined}
+              onRipple={triggerRipple}
             />
           ))}
         </div>

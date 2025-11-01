@@ -17,10 +17,15 @@ interface ModuleCardProps {
   onLaunch?: () => void;
   onPreview?: () => void;
   onDocs?: () => void;
+  onRipple?: (e: React.MouseEvent) => void;
 }
 
-export function ModuleCard({ m, delay = 0, onLaunch, onPreview, onDocs }: ModuleCardProps) {
+export function ModuleCard({ m, delay = 0, onLaunch, onPreview, onDocs, onRipple }: ModuleCardProps) {
   const Icon = m.icon;
+  
+  const handleCardClick = (e: React.MouseEvent) => {
+    if (onRipple) onRipple(e);
+  };
   
   return (
     <motion.div
@@ -29,6 +34,7 @@ export function ModuleCard({ m, delay = 0, onLaunch, onPreview, onDocs }: Module
       className="relative overflow-hidden rounded-3xl p-6 bg-slate-900/80 ring-1 ring-white/10 backdrop-blur-lg group"
       style={{ boxShadow: `0 0 30px rgba(0,194,255,0.25), inset 0 0 0 1px rgba(255,255,255,0.05)` }}
       data-testid={`card-module-${m.id}`}
+      onClick={handleCardClick}
     >
       {/* Animated Neon Blue Halo */}
       <div
