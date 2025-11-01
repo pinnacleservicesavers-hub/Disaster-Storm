@@ -39,126 +39,98 @@ export function ModuleCard({ m, onLaunch, onPreview, onDocs }: ModuleCardProps) 
   };
   
   return (
-    <Link href={m.path}>
-      <motion.div
-        onClick={handleLaunch}
-        whileHover={{ 
-          scale: 1.02,
-          transition: { duration: 0.3, ease: "easeOut" }
+    <motion.div
+      whileHover={{ scale: 1.01 }}
+      className="group relative cursor-pointer"
+      data-testid={`card-module-${m.id}`}
+    >
+      {/* Neon Blue Glowing Border */}
+      <div 
+        className="absolute inset-0 rounded-3xl opacity-50 group-hover:opacity-100 transition-opacity duration-300"
+        style={{
+          background: `linear-gradient(135deg, ${NEON.blue}60, ${NEON.blue}30)`,
+          filter: 'blur(8px)',
+          padding: '2px'
         }}
-        whileTap={{ scale: 0.98 }}
-        className="group relative"
-        data-testid={`card-module-${m.id}`}
+      />
+      
+      <div 
+        className="relative rounded-3xl p-6 bg-slate-900/95 border border-cyan-500/30 group-hover:border-cyan-400/60 transition-all duration-300"
+        style={{ backdropFilter: 'blur(10px)' }}
       >
-        {/* Neon Blue Halo */}
-        <div
-          className="absolute inset-0 rounded-3xl opacity-60 blur-3xl group-hover:opacity-90 transition-all duration-500"
-          style={{
-            background: `radial-gradient(circle at center, ${NEON.blue}33 0%, transparent 70%)`,
-            filter: "blur(60px)",
-            zIndex: 0,
-          }}
-        />
+        {/* HIGH Badge */}
+        {m.priority === 'HIGH' && (
+          <div 
+            className="absolute top-6 left-6 px-3 py-1 rounded-full text-xs font-bold"
+            style={{ 
+              backgroundColor: NEON.yellow, 
+              color: '#000' 
+            }}
+          >
+            HIGH
+          </div>
+        )}
         
-        <div 
-          className={`relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br ${m.gradient} min-h-[280px] flex flex-col cursor-pointer transition-all duration-500 shadow-lg`}
-          style={{ zIndex: 10 }}
-        >
-          {/* Glassmorphic overlay */}
-          <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-black/10 backdrop-blur-[2px]" />
-
-          {/* Content wrapper */}
-          <div className="relative z-10">
-            {/* Header with icon and badges */}
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 flex items-center justify-center rounded-2xl bg-white/10 ring-1 ring-white/10">
-                  <Icon className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold text-white tracking-tight drop-shadow-md" data-testid={`text-module-name-${m.id}`}>
-                    {m.name}
-                  </h3>
-                  <p className="text-[11px] text-white/50">{m.num}</p>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                {m.priority === 'HIGH' && (
-                  <Badge 
-                    tone="orange"
-                    style={{ 
-                      backgroundColor: NEON.yellow, 
-                      color: '#000',
-                      fontWeight: 700 
-                    }}
-                  >
-                    HIGH
-                  </Badge>
-                )}
-                {m.status === 'LIVE' && (
-                  <Badge 
-                    tone="green"
-                    style={{ 
-                      backgroundColor: NEON.blue, 
-                      color: '#000',
-                      fontWeight: 700 
-                    }}
-                  >
-                    {m.status}
-                  </Badge>
-                )}
-                {m.status === 'BETA' && (
-                  <Badge tone="blue">{m.status}</Badge>
-                )}
-              </div>
-            </div>
-
-            {/* Description */}
-            <p className="text-sm text-white/70 mb-4 leading-relaxed">
+        {/* Icon & Title */}
+        <div className="flex items-start gap-4 mb-4 mt-8">
+          <div 
+            className="w-14 h-14 rounded-2xl flex items-center justify-center"
+            style={{ backgroundColor: `${NEON.blue}20`, border: `1px solid ${NEON.blue}40` }}
+          >
+            <Icon className="w-7 h-7 text-cyan-400" />
+          </div>
+          <div className="flex-1">
+            <h3 className="text-2xl font-bold text-white mb-2" data-testid={`text-module-name-${m.id}`}>
+              {m.name}
+            </h3>
+            <p className="text-sm text-slate-400 leading-relaxed">
               {m.description}
             </p>
-
-            {/* Action buttons */}
-            <div className="flex gap-2">
-              <button 
-                onClick={handleLaunch}
-                className="px-3.5 py-2 rounded-xl text-sm font-semibold text-black hover:bg-white transition-shadow"
-                style={{
-                  backgroundColor: `var(--neon-yellow, ${NEON.yellow})`,
-                  boxShadow: '0 0 15px rgba(234, 255, 0, 0.35)'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.boxShadow = '0 0 30px rgba(234, 255, 0, 0.6)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.boxShadow = '0 0 15px rgba(234, 255, 0, 0.35)';
-                }}
-                data-testid={`button-launch-${m.id}`}
-              >
-                Launch
-              </button>
-              {onPreview && (
-                <button 
-                  onClick={handlePreview}
-                  className="px-3.5 py-2 rounded-xl text-sm font-medium text-white bg-white/10 hover:bg-white/20 ring-1 ring-white/15"
-                  title="Preview"
-                >
-                  Preview
-                </button>
-              )}
-              {onDocs && (
-                <button 
-                  onClick={handleDocs}
-                  className="px-3.5 py-2 rounded-xl text-sm font-medium text-white/80 bg-transparent hover:bg-white/10 ring-1 ring-white/10"
-                  title="Documentation"
-                >
-                  Docs
-                </button>
-              )}
-            </div>
           </div>
         </div>
-      </motion.div>
-    </Link>
+        
+        {/* Status Badges */}
+        <div className="flex flex-wrap gap-2 mb-4 min-h-[32px]">
+          {m.status === 'LIVE' && (
+            <span className="px-2.5 py-1 rounded-md text-[10px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+              LIVE
+            </span>
+          )}
+          {m.category === 'operations' && (
+            <span className="px-2.5 py-1 rounded-md text-[10px] font-semibold bg-yellow-500/20 text-yellow-300 border border-yellow-500/30">
+              ⚡ SAFETY
+            </span>
+          )}
+          {m.category === 'intelligence' && (
+            <span className="px-2.5 py-1 rounded-md text-[10px] font-semibold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+              🔄 AI PROCESS
+            </span>
+          )}
+        </div>
+        
+        {/* Action Buttons */}
+        <div className="flex gap-3 pt-2 border-t border-slate-700/50">
+          <button 
+            onClick={(e) => { e.preventDefault(); handleLaunch(e); }}
+            className="flex-1 py-2.5 rounded-lg text-sm font-semibold text-white bg-slate-800 hover:bg-slate-700 transition-colors"
+            data-testid={`button-launch-${m.id}`}
+          >
+            Launch
+          </button>
+          <button 
+            onClick={(e) => { e.preventDefault(); if (onPreview) handlePreview(e); }}
+            className="flex-1 py-2.5 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800/50 transition-colors"
+          >
+            Preview
+          </button>
+          <button 
+            onClick={(e) => { e.preventDefault(); if (onDocs) handleDocs(e); }}
+            className="flex-1 py-2.5 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800/50 transition-colors"
+          >
+            Docs
+          </button>
+        </div>
+      </div>
+    </motion.div>
   );
 }

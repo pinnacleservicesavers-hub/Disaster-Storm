@@ -87,29 +87,44 @@ export default function ModuleGallery({
       {/* Animated neon flowing backdrop */}
       <div className="neon-backdrop"></div>
       
-      <div className="max-w-7xl mx-auto px-6 py-12 relative z-10">
-        {/* Header */}
-        <div className="mb-10 flex items-center justify-between">
-          <h1 
-            className="text-5xl font-extrabold tracking-tight bg-clip-text text-transparent"
-            style={{
-              backgroundImage: `linear-gradient(to right, ${NEON.yellow}, ${NEON.blue})`,
-              filter: `drop-shadow(0 0 25px rgba(0, 194, 255, 0.5))`
-            }}
-          >
-            {brand.name || 'StormOps Modules'}
-          </h1>
-          {brand.logoUrl && (
-            <img
-              src={brand.logoUrl}
-              alt={brand.name || 'Brand logo'}
-              className="w-16 h-16 object-contain opacity-90"
+      <div className="max-w-7xl mx-auto px-6 py-8 relative z-10">
+        {/* Search & Filter Bar */}
+        <div className="mb-8 flex items-center gap-4">
+          <div className="flex-1 relative">
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search modules..."
+              className="w-full px-4 py-3 pl-12 rounded-xl bg-slate-900/80 border border-cyan-500/20 text-white placeholder:text-slate-400 focus:outline-none focus:border-cyan-500/50 transition-colors"
+              data-testid="input-search"
             />
-          )}
+            <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+          
+          <select
+            value={cat}
+            onChange={(e) => setCat(e.target.value)}
+            className="px-6 py-3 rounded-xl bg-slate-900/80 border border-cyan-500/20 text-white focus:outline-none focus:border-cyan-500/50 transition-colors appearance-none cursor-pointer"
+            data-testid="select-category"
+          >
+            <option value="all">All categories</option>
+            <option value="operations">Operations</option>
+            <option value="intelligence">Intelligence</option>
+            <option value="customers">Customers</option>
+            <option value="sales">Sales</option>
+            <option value="management">Management</option>
+          </select>
+          
+          <div className="w-10 h-10 rounded-full bg-cyan-500/20 border border-cyan-500/50 flex items-center justify-center">
+            <div className="w-2 h-2 rounded-full bg-cyan-400"></div>
+          </div>
         </div>
 
         {/* Grid */}
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid sm:grid-cols-2 gap-6">
           {filtered.map((m) => (
             <ModuleCard 
               key={m.id} 
