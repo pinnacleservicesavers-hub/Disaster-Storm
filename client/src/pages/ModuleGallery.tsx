@@ -59,116 +59,57 @@ export default function ModuleGallery({
   }, [query, cat, highOnly]);
 
   return (
-    <div className="min-h-screen bg-slate-950 relative overflow-hidden">
-      {/* Inject animated neon backdrop keyframes */}
+    <div className="relative min-h-screen bg-slate-950 text-white overflow-hidden">
+      {/* Inject CSS custom properties and backdrop animation */}
       <style>{`
-        @keyframes neon-flow {
-          0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.15; }
-          33% { transform: translate(20%, -15%) scale(1.1); opacity: 0.2; }
-          66% { transform: translate(-15%, 20%) scale(0.95); opacity: 0.18; }
+        :root {
+          --neon-yellow: ${NEON.yellow};
+          --neon-blue: ${NEON.blue};
+        }
+        @keyframes floatBG {
+          0% { transform: translate3d(-10%, -10%, 0); }
+          50% { transform: translate3d(10%, 10%, 0); }
+          100% { transform: translate3d(-10%, -10%, 0); }
+        }
+        .neon-backdrop {
+          position: absolute;
+          inset: -20%;
+          background:
+            radial-gradient(40% 40% at 30% 20%, rgba(234, 255, 0, 0.12), transparent 70%),
+            radial-gradient(50% 50% at 70% 80%, rgba(0, 194, 255, 0.18), transparent 70%);
+          animation: floatBG 25s ease-in-out infinite;
+          filter: blur(60px);
+          mix-blend-mode: screen;
+          z-index: 0;
         }
       `}</style>
       
       {/* Animated neon flowing backdrop */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div 
-          className="absolute top-1/4 left-1/4 w-[500px] h-[500px] rounded-full blur-3xl"
-          style={{ 
-            background: `radial-gradient(circle, ${NEON.yellow}40 0%, transparent 70%)`,
-            animation: 'neon-flow 12s ease-in-out infinite'
-          }} 
-        />
-        <div 
-          className="absolute bottom-1/4 right-1/4 w-[600px] h-[600px] rounded-full blur-3xl"
-          style={{ 
-            background: `radial-gradient(circle, ${NEON.blue}40 0%, transparent 70%)`,
-            animation: 'neon-flow 15s ease-in-out infinite',
-            animationDelay: '2s'
-          }} 
-        />
-        <div 
-          className="absolute top-2/3 left-1/2 w-[400px] h-[400px] rounded-full blur-3xl"
-          style={{ 
-            background: `radial-gradient(circle, ${NEON.yellow}30 0%, ${NEON.blue}20 50%, transparent 70%)`,
-            animation: 'neon-flow 18s ease-in-out infinite',
-            animationDelay: '4s'
-          }} 
-        />
-      </div>
+      <div className="neon-backdrop"></div>
       
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 relative z-10">
+      <div className="max-w-7xl mx-auto px-6 py-12 relative z-10">
         {/* Header */}
-        <div className="mb-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 backdrop-blur-md bg-white/5 p-8 rounded-3xl border border-white/10 shadow-2xl">
-          <div>
-            <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight leading-tight text-white drop-shadow-lg">
-              {brand.name || 'StormOps Modules'}
-            </h1>
-            <p className="mt-2 text-white/70 max-w-2xl">
-              High-performance tools for real-time storm response. Curated, focused, and built for pros.
-            </p>
-            <div className="mt-4 flex items-center gap-2 text-sm text-white/60">
-              <Badge tone="sky">
-                <BadgeInfo className="w-3.5 h-3.5 mr-1" /> Tip
-              </Badge>
-              Try the <em>Priority: High</em> filter to plan deployments.
-            </div>
-          </div>
-          <div className="hidden md:flex items-center gap-2">
-            {brand.logoUrl && (
-              <img
-                src={brand.logoUrl}
-                alt={brand.name || 'Brand logo'}
-                className="w-16 h-16 object-contain opacity-90 mr-2"
-              />
-            )}
-            <button 
-              className="px-4 py-2.5 rounded-xl bg-white/10 backdrop-blur-md ring-1 ring-white/15 hover:bg-white/20 hover:ring-white/30 inline-flex items-center gap-2 transition-all text-white shadow-lg"
-              data-testid="button-favorites"
-            >
-              <Star className="w-4 h-4" /> Favorites
-            </button>
-            <button 
-              className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 inline-flex items-center gap-2 transition-all text-white shadow-lg shadow-purple-500/30 ring-2 ring-white/20"
-              data-testid="button-deploy"
-            >
-              <Rocket className="w-4 h-4" /> Deploy
-            </button>
-            <button
-              onClick={() => setVoiceGuideActive(!voiceGuideActive)}
-              className={`px-4 py-2.5 rounded-xl inline-flex items-center gap-2 transition-all backdrop-blur-md shadow-lg ${
-                voiceGuideActive
-                  ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-green-500/40 ring-2 ring-white/30'
-                  : 'bg-white/10 text-white ring-1 ring-white/15 hover:bg-white/20 hover:ring-white/30'
-              }`}
-              data-testid="button-voice-guide"
-            >
-              {voiceGuideActive ? (
-                <>
-                  <Volume2 className="w-4 h-4" /> Voice On
-                </>
-              ) : (
-                <>
-                  <VolumeX className="w-4 h-4" /> Start Voice Guide
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-
-        {/* Toolbar */}
-        <div className="mt-8">
-          <Toolbar
-            query={query}
-            setQuery={setQuery}
-            cat={cat}
-            setCat={setCat}
-            highOnly={highOnly}
-            setHighOnly={setHighOnly}
-          />
+        <div className="mb-10 flex items-center justify-between">
+          <h1 
+            className="text-5xl font-extrabold tracking-tight bg-clip-text text-transparent"
+            style={{
+              backgroundImage: `linear-gradient(to right, ${NEON.yellow}, ${NEON.blue})`,
+              filter: `drop-shadow(0 0 25px rgba(0, 194, 255, 0.5))`
+            }}
+          >
+            {brand.name || 'StormOps Modules'}
+          </h1>
+          {brand.logoUrl && (
+            <img
+              src={brand.logoUrl}
+              alt={brand.name || 'Brand logo'}
+              className="w-16 h-16 object-contain opacity-90"
+            />
+          )}
         </div>
 
         {/* Grid */}
-        <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
           {filtered.map((m) => (
             <ModuleCard 
               key={m.id} 
