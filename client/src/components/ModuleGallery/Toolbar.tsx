@@ -21,7 +21,7 @@ export function Toolbar({ query, setQuery, cat, setCat, highOnly, setHighOnly }:
   ];
 
   return (
-    <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
+    <div className="flex flex-col md:flex-row gap-4 items-start md:items-center backdrop-blur-sm bg-white/5 p-4 rounded-2xl border border-white/10 shadow-2xl">
       {/* Search */}
       <div className="relative flex-1 w-full md:w-auto">
         <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
@@ -30,7 +30,7 @@ export function Toolbar({ query, setQuery, cat, setCat, highOnly, setHighOnly }:
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search modules..."
-          className="w-full pl-12 pr-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-white/30 focus:bg-white/15 transition-all"
+          className="w-full pl-12 pr-4 py-3 rounded-xl bg-white/10 backdrop-blur-md border border-white/20 text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-cyan-400/50 focus:bg-white/15 focus:border-cyan-400/50 transition-all shadow-inner"
           data-testid="input-search"
         />
       </div>
@@ -42,10 +42,10 @@ export function Toolbar({ query, setQuery, cat, setCat, highOnly, setHighOnly }:
           <button
             key={c.id}
             onClick={() => setCat(c.id)}
-            className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+            className={`px-4 py-2 rounded-xl text-sm font-medium transition-all backdrop-blur-md ${
               cat === c.id
-                ? 'bg-white text-gray-900 shadow-lg'
-                : 'bg-white/10 text-white/70 hover:bg-white/15'
+                ? 'bg-gradient-to-r from-cyan-400 to-purple-400 text-white shadow-lg shadow-cyan-500/30 ring-2 ring-white/30'
+                : 'bg-white/10 text-white/70 hover:bg-white/20 hover:ring-1 hover:ring-white/20'
             }`}
             data-testid={`button-filter-${c.id}`}
           >
@@ -57,10 +57,10 @@ export function Toolbar({ query, setQuery, cat, setCat, highOnly, setHighOnly }:
       {/* Priority Toggle */}
       <button
         onClick={() => setHighOnly(!highOnly)}
-        className={`px-4 py-2 rounded-xl text-sm font-medium inline-flex items-center gap-2 transition-all ${
+        className={`px-4 py-2 rounded-xl text-sm font-medium inline-flex items-center gap-2 transition-all backdrop-blur-md ${
           highOnly
-            ? 'bg-orange-500 text-white shadow-lg'
-            : 'bg-white/10 text-white/70 hover:bg-white/15'
+            ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg shadow-orange-500/40 ring-2 ring-white/30'
+            : 'bg-white/10 text-white/70 hover:bg-white/20 hover:ring-1 hover:ring-white/20'
         }`}
         data-testid="button-priority-toggle"
       >

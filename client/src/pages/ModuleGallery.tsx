@@ -35,49 +35,56 @@ export default function ModuleGallery() {
   }, [query, cat, highOnly]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-indigo-950 to-purple-950 relative overflow-hidden">
+      {/* Animated background elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl animate-pulse" />
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: "1s" }} />
+        <div className="absolute top-3/4 left-3/4 w-64 h-64 bg-pink-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: "2s" }} />
+      </div>
+      
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 relative z-10">
         {/* Header */}
-        <div className="mb-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+        <div className="mb-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 backdrop-blur-md bg-white/5 p-8 rounded-3xl border border-white/10 shadow-2xl">
           <div>
-            <div className="flex items-center gap-3 mb-2">
-              <h1 className="text-4xl md:text-5xl font-extrabold text-white tracking-tight">
+            <div className="flex items-center gap-3 mb-3">
+              <h1 className="text-5xl md:text-6xl font-extrabold bg-gradient-to-r from-cyan-400 via-purple-400 to-pink-400 bg-clip-text text-transparent tracking-tight drop-shadow-2xl">
                 Storm Ops
               </h1>
-              <Badge tone="sky" className="text-xs">
+              <Badge tone="sky" className="text-xs backdrop-blur-md shadow-lg">
                 17 Modules
               </Badge>
             </div>
-            <p className="text-white/70 text-lg max-w-2xl">
+            <p className="text-white/80 text-lg max-w-2xl leading-relaxed drop-shadow-md">
               Your complete disaster response command center. Access real-time intelligence, 
               manage operations, and deploy resources with enterprise-grade tools.
             </p>
             <div className="mt-4 flex items-center gap-2 text-sm text-white/60">
-              <Badge tone="sky" className="px-2">
+              <Badge tone="sky" className="px-2 backdrop-blur-md">
                 💡 Tip
               </Badge>{' '}
-              Try the <em className="text-orange-400">Priority: High</em> filter to plan deployments.
+              Try the <em className="text-orange-400 font-semibold">Priority: High</em> filter to plan deployments.
             </div>
           </div>
-          <div className="hidden md:flex items-center gap-2 opacity-80">
+          <div className="hidden md:flex items-center gap-2">
             <button 
-              className="px-4 py-2 rounded-xl bg-white/10 ring-1 ring-white/15 hover:bg-white/15 inline-flex items-center gap-2 transition-all"
+              className="px-4 py-2.5 rounded-xl bg-white/10 backdrop-blur-md ring-1 ring-white/15 hover:bg-white/20 hover:ring-white/30 inline-flex items-center gap-2 transition-all text-white shadow-lg"
               data-testid="button-favorites"
             >
               <Star className="w-4 h-4" /> Favorites
             </button>
             <button 
-              className="px-4 py-2 rounded-xl bg-white/10 ring-1 ring-white/15 hover:bg-white/15 inline-flex items-center gap-2 transition-all"
+              className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 inline-flex items-center gap-2 transition-all text-white shadow-lg shadow-purple-500/30 ring-2 ring-white/20"
               data-testid="button-deploy"
             >
               <Rocket className="w-4 h-4" /> Deploy
             </button>
             <button
               onClick={() => setVoiceGuideActive(!voiceGuideActive)}
-              className={`px-4 py-2 rounded-xl inline-flex items-center gap-2 transition-all ${
+              className={`px-4 py-2.5 rounded-xl inline-flex items-center gap-2 transition-all backdrop-blur-md shadow-lg ${
                 voiceGuideActive
-                  ? 'bg-green-500 text-white shadow-lg'
-                  : 'bg-white/10 ring-1 ring-white/15 hover:bg-white/15'
+                  ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-green-500/40 ring-2 ring-white/30'
+                  : 'bg-white/10 text-white ring-1 ring-white/15 hover:bg-white/20 hover:ring-white/30'
               }`}
               data-testid="button-voice-guide"
             >

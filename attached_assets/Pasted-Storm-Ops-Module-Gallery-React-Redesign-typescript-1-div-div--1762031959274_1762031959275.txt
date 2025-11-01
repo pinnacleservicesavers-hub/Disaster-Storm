@@ -1,0 +1,82 @@
+Storm Ops Module Gallery – React Redesign
+· typescript
+$1
+            </div>
+          </div>
+          {brand.logoUrl && (
+            <img
+              src={brand.logoUrl}
+              alt="brand"
+              className="hidden md:block w-16 h-16 object-contain opacity-90"
+            />
+          )}
+        </div>
+
+
+        {/* Toolbar */}
+        <div className="mt-8">
+          <Toolbar
+            query={query}
+            setQuery={setQuery}
+            cat={cat}
+            setCat={setCat}
+            highOnly={highOnly}
+            setHighOnly={setHighOnly}
+          />
+        </div>
+
+
+        {/* Grid */}
+        <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {filtered.map((m) => (
+            <ModuleCard
+              key={m.id}
+              m={{ ...m, route: routes[m.id] || `/modules/${m.id}` }}
+              onLaunch={(x) => (onLaunch ? onLaunch(x) : go(routes[m.id] || `/modules/${m.id}`))}
+              onPreview={onPreview}
+              onDocs={onDocs}
+            />
+          ))}
+        </div>
+
+
+        {/* Empty state */}
+        {filtered.length === 0 && (
+          <div className="mt-24 text-center text-white/60">No modules match your filters.</div>
+        )}
+
+
+        <div className="py-16" />
+      </div>
+    </div>
+  );
+}
+
+
+/**
+ * Quick integration examples
+ * --------------------------
+ * 1) Minimal (no router):
+ *    <ModuleGallery />
+ *
+ * 2) With custom routes:
+ *    const routes = {
+ *      "weather-center": "/app/weather",
+ *      "claims-central": "/claims",
+ *    };
+ *    <ModuleGallery routes={routes} />
+ *
+ * 3) With React Router (v6+) and handlers:
+ *    import { useNavigate } from 'react-router-dom';
+ *    function Page() {
+ *      const navigate = useNavigate();
+ *      return (
+ *        <ModuleGallery
+ *          onLaunch={(m) => navigate(`/modules/${m.id}`)}
+ *          onPreview={(m) => navigate(`/modules/${m.id}?mode=preview`)}
+ *          onDocs={(m) => window.open(`https://docs.example.com/${m.id}`, '_blank')}
+ *          brand={{ name: 'Strategic Land Management', logoUrl: '/logo.svg' }}
+ *        />
+ *      );
+ *    }
+ */
