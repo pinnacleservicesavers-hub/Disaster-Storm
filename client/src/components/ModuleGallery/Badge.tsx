@@ -2,9 +2,10 @@ interface BadgeProps {
   tone: 'orange' | 'green' | 'blue' | 'sky';
   children: React.ReactNode;
   className?: string;
+  style?: React.CSSProperties;
 }
 
-export function Badge({ tone, children, className = '' }: BadgeProps) {
+export function Badge({ tone, children, className = '', style }: BadgeProps) {
   const styles = {
     orange: 'bg-orange-500/90 text-white',
     green: 'bg-emerald-500/90 text-white',
@@ -15,6 +16,7 @@ export function Badge({ tone, children, className = '' }: BadgeProps) {
   return (
     <span 
       className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${styles[tone]} ${className}`}
+      style={style}
       data-testid={`badge-${tone}`}
     >
       {children}

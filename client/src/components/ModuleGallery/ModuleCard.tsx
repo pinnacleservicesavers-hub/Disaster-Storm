@@ -4,6 +4,13 @@ import { motion } from 'framer-motion';
 import { ModuleData } from '@shared/moduleGallery';
 import { Badge } from './Badge';
 
+const NEON = {
+  yellow: '#eaff00',
+  blue: '#00c2ff',
+};
+
+const NEON_GLOW = `linear-gradient(135deg, ${NEON.yellow} 0%, ${NEON.blue} 100%)`;
+
 interface ModuleCardProps {
   m: ModuleData;
   onLaunch?: () => void;
@@ -52,12 +59,18 @@ export function ModuleCard({ m, onLaunch, onPreview, onDocs }: ModuleCardProps) 
           {/* Glassmorphic overlay */}
           <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-black/10 backdrop-blur-[2px]" />
           
-          {/* Neon glow on hover */}
-          <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-2xl bg-gradient-to-br from-cyan-400/20 via-purple-400/20 to-pink-400/20 -z-10" />
+          {/* Neon safety yellow ↔ neon blue glow on hover */}
+          <div 
+            className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-2xl -z-10"
+            style={{ background: NEON_GLOW }}
+          />
           
-          {/* Animated border glow */}
+          {/* Animated neon border glow */}
           <div className="absolute inset-0 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500">
-            <div className="absolute inset-0 rounded-3xl bg-gradient-to-r from-cyan-400/30 via-purple-400/30 to-pink-400/30 blur-sm" />
+            <div 
+              className="absolute inset-0 rounded-3xl blur-sm"
+              style={{ background: NEON_GLOW, opacity: 0.3 }}
+            />
           </div>
 
           {/* Content wrapper */}
@@ -65,10 +78,30 @@ export function ModuleCard({ m, onLaunch, onPreview, onDocs }: ModuleCardProps) 
             {/* Badges */}
             <div className="flex items-start justify-between mb-3">
               {m.priority === 'HIGH' && (
-                <Badge tone="orange" className="shadow-lg backdrop-blur-sm">HIGH</Badge>
+                <Badge 
+                  tone="orange" 
+                  className="shadow-lg backdrop-blur-sm"
+                  style={{ 
+                    backgroundColor: NEON.yellow, 
+                    color: '#000',
+                    fontWeight: 700 
+                  }}
+                >
+                  HIGH
+                </Badge>
               )}
               {m.status === 'LIVE' && (
-                <Badge tone="green" className="ml-auto shadow-lg backdrop-blur-sm">● LIVE</Badge>
+                <Badge 
+                  tone="green" 
+                  className="ml-auto shadow-lg backdrop-blur-sm"
+                  style={{ 
+                    backgroundColor: NEON.blue, 
+                    color: '#000',
+                    fontWeight: 700 
+                  }}
+                >
+                  ● LIVE
+                </Badge>
               )}
               {m.status === 'BETA' && (
                 <Badge tone="blue" className="ml-auto shadow-lg backdrop-blur-sm">BETA</Badge>
@@ -102,7 +135,11 @@ export function ModuleCard({ m, onLaunch, onPreview, onDocs }: ModuleCardProps) 
                 <motion.button
                   onClick={handleLaunch}
                   whileHover={{ scale: 1.05, x: 3 }}
-                  className="flex-1 px-4 py-2.5 rounded-xl bg-white/20 backdrop-blur-md hover:bg-white/30 text-white text-sm font-semibold flex items-center justify-center gap-2 transition-all ring-1 ring-white/30 shadow-lg"
+                  className="flex-1 px-4 py-2.5 rounded-xl backdrop-blur-md text-black text-sm font-bold flex items-center justify-center gap-2 transition-all shadow-lg"
+                  style={{ 
+                    background: NEON.yellow,
+                    boxShadow: `0 0 20px ${NEON.yellow}60, 0 4px 15px rgba(0,0,0,0.3)`
+                  }}
                   data-testid={`button-launch-${m.id}`}
                 >
                   Launch <ArrowRight className="w-4 h-4" />
@@ -111,7 +148,19 @@ export function ModuleCard({ m, onLaunch, onPreview, onDocs }: ModuleCardProps) 
                   <motion.button
                     onClick={handlePreview}
                     whileHover={{ scale: 1.05 }}
-                    className="px-3 py-2.5 rounded-xl bg-white/10 backdrop-blur-md hover:bg-white/20 text-white transition-all ring-1 ring-white/20"
+                    className="px-3 py-2.5 rounded-xl bg-white/10 backdrop-blur-md text-white transition-all ring-1 ring-white/20"
+                    style={{
+                      boxShadow: `0 0 0 0 ${NEON.blue}00`,
+                      transition: 'all 0.3s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.boxShadow = `0 0 15px ${NEON.blue}60`;
+                      e.currentTarget.style.borderColor = NEON.blue;
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.boxShadow = `0 0 0 0 ${NEON.blue}00`;
+                      e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)';
+                    }}
                     title="Preview"
                   >
                     <Eye className="w-4 h-4" />
@@ -121,7 +170,19 @@ export function ModuleCard({ m, onLaunch, onPreview, onDocs }: ModuleCardProps) 
                   <motion.button
                     onClick={handleDocs}
                     whileHover={{ scale: 1.05 }}
-                    className="px-3 py-2.5 rounded-xl bg-white/10 backdrop-blur-md hover:bg-white/20 text-white transition-all ring-1 ring-white/20"
+                    className="px-3 py-2.5 rounded-xl bg-white/10 backdrop-blur-md text-white transition-all ring-1 ring-white/20"
+                    style={{
+                      boxShadow: `0 0 0 0 ${NEON.blue}00`,
+                      transition: 'all 0.3s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.boxShadow = `0 0 15px ${NEON.blue}60`;
+                      e.currentTarget.style.borderColor = NEON.blue;
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.boxShadow = `0 0 0 0 ${NEON.blue}00`;
+                      e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)';
+                    }}
                     title="Documentation"
                   >
                     <FileText className="w-4 h-4" />
