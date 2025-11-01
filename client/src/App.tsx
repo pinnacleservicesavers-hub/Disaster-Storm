@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from '@/lib/queryClient';
 import StormOpsProHub from "./StormOpsProHub";
 import StormOpsDashboard from "./pages/StormOpsDashboard";
+import ModuleGallery from "./pages/ModuleGallery";
 import WeatherIntelligenceCenter from "./pages/WeatherIntelligenceCenter";
 import PredictionDashboard from "./pages/PredictionDashboard";
 import StormPredictions from "./pages/StormPredictions";
@@ -704,6 +705,13 @@ export default function App() {
           <title>Storm Operations Dashboard - Disaster Direct</title>
           <meta name="description" content="Comprehensive storm operations workflow organized by operational phases for disaster response professionals" />
           <StormOpsDashboard />
+        </Route>
+        
+        {/* Module Gallery Route */}
+        <Route path="/modules">
+          <title>Module Gallery - Disaster Direct</title>
+          <meta name="description" content="Browse all 17 storm operations modules - weather intelligence, damage detection, claims management, and more" />
+          <ModuleGallery />
         </Route>
         
         <Route path="/victim/login">
