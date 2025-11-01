@@ -13,12 +13,13 @@ const NEON_GLOW = `linear-gradient(135deg, ${NEON.yellow} 0%, ${NEON.blue} 100%)
 
 interface ModuleCardProps {
   m: ModuleData;
+  delay?: number;
   onLaunch?: () => void;
   onPreview?: () => void;
   onDocs?: () => void;
 }
 
-export function ModuleCard({ m, onLaunch, onPreview, onDocs }: ModuleCardProps) {
+export function ModuleCard({ m, delay = 0, onLaunch, onPreview, onDocs }: ModuleCardProps) {
   const Icon = m.icon;
   
   const handleLaunch = (e: React.MouseEvent) => {
@@ -40,17 +41,21 @@ export function ModuleCard({ m, onLaunch, onPreview, onDocs }: ModuleCardProps) 
   
   return (
     <motion.div
-      whileHover={{ scale: 1.01 }}
+      whileHover={{ scale: 1.02 }}
+      transition={{ type: "spring", stiffness: 300, damping: 20 }}
       className="group relative cursor-pointer"
       data-testid={`card-module-${m.id}`}
+      style={{ 
+        boxShadow: `0 0 30px rgba(0, 194, 255, 0.25), inset 0 0 0 1px rgba(255, 255, 255, 0.05)` 
+      }}
     >
-      {/* Neon Blue Glowing Border */}
+      {/* Animated Wave Energy Halo - Living, breathing neon blue glow */}
       <div 
-        className="absolute inset-0 rounded-3xl opacity-50 group-hover:opacity-100 transition-opacity duration-300"
+        className="absolute inset-0 rounded-3xl opacity-60 blur-3xl animate-energyWave"
         style={{
-          background: `linear-gradient(135deg, ${NEON.blue}60, ${NEON.blue}30)`,
-          filter: 'blur(8px)',
-          padding: '2px'
+          background: `radial-gradient(circle at center, ${NEON.blue}44 0%, transparent 70%)`,
+          animationDelay: `${delay}s`,
+          zIndex: 0
         }}
       />
       

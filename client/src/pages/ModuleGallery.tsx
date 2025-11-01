@@ -60,17 +60,31 @@ export default function ModuleGallery({
 
   return (
     <div className="relative min-h-screen bg-slate-950 text-white overflow-hidden">
-      {/* Inject CSS custom properties and backdrop animation */}
+      {/* Inject CSS custom properties and animations */}
       <style>{`
         :root {
           --neon-yellow: ${NEON.yellow};
           --neon-blue: ${NEON.blue};
         }
+        
         @keyframes floatBG {
           0% { transform: translate3d(-10%, -10%, 0); }
           50% { transform: translate3d(10%, 10%, 0); }
           100% { transform: translate3d(-10%, -10%, 0); }
         }
+        
+        @keyframes energyWave {
+          0% { opacity: 0.4; filter: blur(55px) brightness(1); transform: translateY(0); }
+          25% { opacity: 0.7; filter: blur(60px) brightness(1.3); transform: translateY(-6px); }
+          50% { opacity: 0.5; filter: blur(70px) brightness(1.1); transform: translateY(0); }
+          75% { opacity: 0.8; filter: blur(65px) brightness(1.4); transform: translateY(6px); }
+          100% { opacity: 0.4; filter: blur(55px) brightness(1); transform: translateY(0); }
+        }
+        
+        .animate-energyWave {
+          animation: energyWave 5s ease-in-out infinite;
+        }
+        
         .neon-backdrop {
           position: absolute;
           inset: -20%;
@@ -125,10 +139,11 @@ export default function ModuleGallery({
 
         {/* Grid */}
         <div className="grid sm:grid-cols-2 gap-6">
-          {filtered.map((m) => (
+          {filtered.map((m, i) => (
             <ModuleCard 
               key={m.id} 
               m={{ ...m, path: routes[m.id] || m.path }}
+              delay={i * 0.4}
               onLaunch={onLaunch ? () => onLaunch(m) : () => navigate(routes[m.id] || m.path)}
               onPreview={onPreview ? () => onPreview(m) : undefined}
               onDocs={onDocs ? () => onDocs(m) : undefined}
