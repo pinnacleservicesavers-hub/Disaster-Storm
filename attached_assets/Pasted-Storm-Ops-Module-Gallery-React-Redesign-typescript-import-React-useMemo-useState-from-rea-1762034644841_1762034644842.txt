@@ -1,0 +1,129 @@
+Storm Ops Module Gallery – React Redesign
+· typescript
+import React, { useMemo, useState } from "react";
+import { motion } from "framer-motion";
+import { ArrowRight, Search, Sparkles, Rocket, Star, Eye, CloudRain, Radar, Camera, Plane, Bot, Users, FileText, Building2, Scale, ShieldAlert, BadgeInfo } from "lucide-react";
+
+
+// Neon theme constants
+const NEON = {
+  yellow: "#eaff00",
+  blue: "#00c2ff",
+};
+
+
+const MODULES = [
+  { id: "weather-center", title: "Weather Center", code: "#01", priority: "HIGH", status: "LIVE", description: "Live weather monitoring, alerts, and radar data for storm operations", icon: <CloudRain className="w-6 h-6" /> },
+  { id: "storm-predictions", title: "Storm Predictions", code: "#02", priority: "HIGH", status: "LIVE", description: "AI-powered predictive storm damage analysis using NOAA radar and historical data", icon: <Radar className="w-6 h-6" /> },
+  { id: "traffic-cam-watcher", title: "TrafficCamWatcher", code: "#03", priority: "HIGH", status: "LIVE", description: "Live traffic camera monitoring with AI damage detection across multiple states", icon: <Camera className="w-6 h-6" /> },
+  { id: "drone-operations", title: "Drone Operations", code: "#04", priority: "HIGH", status: "LIVE", description: "Drone fleet management, aerial analysis, and damage assessment workflows", icon: <Plane className="w-6 h-6" /> },
+  { id: "ai-damage-detection", title: "AI Damage Detection", code: "#05", priority: "HIGH", status: "LIVE", description: "Real-time AI analysis of camera feeds to identify storm damage and generate contractor leads", icon: <Bot className="w-6 h-6" /> },
+  { id: "xray-reality", title: "X-RAY REALITY", code: "#06", priority: "HIGH", status: "LIVE", description: "Watch the storm in real time with 3D radar, satellite data, and AR tools", icon: <Eye className="w-6 h-6" /> },
+];
+
+
+function Badge({ children, tone }) {
+  const tones = {
+    yellow: `bg-[${NEON.yellow}]/15 text-[${NEON.yellow}] ring-[${NEON.yellow}]/30`,
+    blue: `bg-[${NEON.blue}]/15 text-[${NEON.blue}] ring-[${NEON.blue}]/30`,
+  };
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ring-1 backdrop-blur ${tones[tone]} whitespace-nowrap`}>
+      {children}
+    </span>
+  );
+}
+
+
+function ModuleCard({ m }) {
+  return (
+    <motion.div
+      whileHover={{ scale: 1.04 }}
+      transition={{ type: "spring", stiffness: 300, damping: 20 }}
+      className="relative overflow-hidden rounded-3xl p-6 bg-slate-900/80 ring-1 ring-white/10 backdrop-blur-lg group"
+      style={{ boxShadow: `0 0 30px rgba(0,194,255,0.25), inset 0 0 0 1px rgba(255,255,255,0.05)` }}
+    >
+      {/* Animated Neon Blue Halo */}
+      <div
+        className="absolute inset-0 rounded-3xl opacity-60 blur-3xl animate-energyPulse"
+        style={{
+          background: `radial-gradient(circle at center, ${NEON.blue}33 0%, transparent 70%)`,
+          filter: "blur(60px)",
+          zIndex: 0,
+        }}
+      ></div>
+
+
+      <div className="relative z-10">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 flex items-center justify-center rounded-2xl bg-white/10 ring-1 ring-white/10">
+              {m.icon}
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-white tracking-tight drop-shadow-md">{m.title}</h3>
+              <p className="text-[11px] text-white/50">{m.code}</p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            {m.priority === "HIGH" && <Badge tone="yellow">HIGH</Badge>}
+            {m.status && <Badge tone="blue">{m.status}</Badge>}
+          </div>
+        </div>
+        <p className="text-sm text-white/70 mb-4 leading-relaxed">{m.description}</p>
+        <div className="flex gap-2">
+          <button className="px-3.5 py-2 rounded-xl text-sm font-semibold text-black bg-[color:var(--neon-yellow,#eaff00)] hover:bg-white transition-shadow shadow-[0_0_15px_rgba(234,255,0,0.35)] hover:shadow-[0_0_30px_rgba(234,255,0,0.6)]">Launch</button>
+          <button className="px-3.5 py-2 rounded-xl text-sm font-medium text-white bg-white/10 hover:bg-white/20 ring-1 ring-white/15">Preview</button>
+          <button className="px-3.5 py-2 rounded-xl text-sm font-medium text-white/80 bg-transparent hover:bg-white/10 ring-1 ring-white/10">Docs</button>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+
+export default function ModuleGallery() {
+  const [query, setQuery] = useState("");
+  const filtered = useMemo(() => MODULES.filter((m) => m.title.toLowerCase().includes(query.toLowerCase())), [query]);
+
+
+  return (
+    <div className="relative min-h-screen bg-slate-950 text-white overflow-hidden">
+      <style>{`
+        :root{--neon-yellow:${NEON.yellow};--neon-blue:${NEON.blue};}
+
+
+        @keyframes floatBG {0%{transform:translate3d(-10%,-10%,0);}50%{transform:translate3d(10%,10%,0);}100%{transform:translate3d(-10%,-10%,0);}}
+        @keyframes energyPulse {
+          0% {opacity: 0.4; filter: blur(55px) brightness(1); box-shadow: 0 0 30px ${NEON.blue};}
+          25% {opacity: 0.7; filter: blur(60px) brightness(1.3); box-shadow: 0 0 60px ${NEON.blue};}
+          50% {opacity: 0.5; filter: blur(70px) brightness(1.1); box-shadow: 0 0 40px ${NEON.blue};}
+          75% {opacity: 0.8; filter: blur(65px) brightness(1.4); box-shadow: 0 0 70px ${NEON.blue};}
+          100% {opacity: 0.4; filter: blur(55px) brightness(1); box-shadow: 0 0 30px ${NEON.blue};}
+        }
+
+
+        .animate-energyPulse {animation: energyPulse 4s ease-in-out infinite alternate;}
+
+
+        .neon-backdrop{position:absolute;inset:-20%;background:
+          radial-gradient(40% 40% at 30% 20%, rgba(234,255,0,.12), transparent 70%),
+          radial-gradient(50% 50% at 70% 80%, rgba(0,194,255,.18), transparent 70%);
+          animation: floatBG 25s ease-in-out infinite;filter:blur(60px);mix-blend-mode:screen;z-index:0;}
+      `}</style>
+
+
+      <div className="neon-backdrop"></div>
+      <div className="relative z-10 max-w-7xl mx-auto px-6 py-12">
+        <div className="flex items-center justify-between mb-10">
+          <h1 className="text-5xl font-extrabold tracking-tight bg-gradient-to-r from-[${NEON.yellow}] to-[${NEON.blue}] bg-clip-text text-transparent drop-shadow-[0_0_25px_rgba(0,194,255,0.5)]">StormOps Modules</h1>
+        </div>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
+          {filtered.map((m) => (
+            <ModuleCard key={m.id} m={m} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
