@@ -34,7 +34,7 @@ export default function ModuleGallery({
   const [cat, setCat] = useState('all');
   const [highOnly, setHighOnly] = useState(false);
   const [voiceGuideActive, setVoiceGuideActive] = useState(false);
-  const [shock, setShock] = useState({ key: 0, x: '50%', y: '50%' });
+  const [shockKey, setShockKey] = useState(0);
   const rootRef = useRef<HTMLDivElement>(null);
 
   const filtered = useMemo(() => {
@@ -61,18 +61,16 @@ export default function ModuleGallery({
   }, [query, cat, highOnly]);
 
   const triggerRipple = (e: React.MouseEvent) => {
-    if (!rootRef.current) return;
-    const rect = rootRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    setShock({ key: Date.now(), x: `${x}px`, y: `${y}px` });
+    const container = rootRef.current;
+    if (!container) return;
+    const bounds = container.getBoundingClientRect();
+    container.style.setProperty("--shock-x", `${e.clientX - bounds.left}px`);
+    container.style.setProperty("--shock-y", `${e.clientY - bounds.top}px`);
+    setShockKey((k) => k + 1);
   };
 
   return (
-    <div ref={rootRef} className="relative min-h-screen text-white overflow-hidden bg-black" style={{ 
-      '--shock-x': shock.x, 
-      '--shock-y': shock.y 
-    } as React.CSSProperties}>
+    <div ref={rootRef} className="relative min-h-screen text-white overflow-hidden bg-black">
       {/* Inject CSS custom properties and animations */}
       <style>{`
         :root {
@@ -80,51 +78,87 @@ export default function ModuleGallery({
           --neon-blue: ${NEON.blue};
         }
         
-        @keyframes energyWave {
-          0% { opacity: 0.4; filter: blur(55px) brightness(1); transform: translateY(0); }
-          25% { opacity: 0.8; filter: blur(60px) brightness(1.4); transform: translateY(-6px); }
-          50% { opacity: 0.55; filter: blur(70px) brightness(1.15); transform: translateY(0); }
-          75% { opacity: 0.9; filter: blur(65px) brightness(1.6); transform: translateY(6px); }
-          100% { opacity: 0.4; filter: blur(55px) brightness(1); transform: translateY(0); }
+        /* Ambient cinematic field */
+        @keyframes floatBG {
+          0% { transform: translate3d(-10%, -10%, 0); }
+          50% { transform: translate3d(10%, 10%, 0); }
+          100% { transform: translate3d(-10%, -10%, 0); }
         }
-        
-        .animate-energyWave {
-          animation: energyWave 5s ease-in-out infinite;
-        }
-        
-        /* FULL IMPACT SHOCKWAVE */
-        @keyframes shockExpand {
-          0% { transform: translate(-50%, -50%) scale(0.2); opacity: 0.95; filter: blur(8px); box-shadow: 0 0 0 0 rgba(0,194,255,0.75), 0 0 0 0 rgba(234,255,0,0.55); }
-          30% { opacity: 0.95; filter: blur(10px); }
-          60% { opacity: 0.75; }
-          100% { transform: translate(-50%, -50%) scale(6); opacity: 0; filter: blur(16px); box-shadow: 0 0 150px 60px rgba(0,194,255,0), 0 0 120px 40px rgba(234,255,0,0); }
-        }
-        .shockwave-ring {
-          position: absolute; left: var(--shock-x); top: var(--shock-y);
-          width: 220px; height: 220px; border-radius: 9999px; pointer-events:none; z-index: 1;
-          background: radial-gradient(closest-side, rgba(0,194,255,0.95) 10%, rgba(234,255,0,0.85) 18%, rgba(0,194,255,0.4) 30%, rgba(0,0,0,0) 60%);
-          box-shadow: 0 0 120px 40px rgba(0,194,255,.55), 0 0 80px 24px rgba(234,255,0,.45);
-          animation: shockExpand 1.5s cubic-bezier(.2,.8,.2,1) forwards;
+        .neon-backdrop {
+          position: absolute;
+          inset: -20%;
+          background:
+            radial-gradient(40% 40% at 15% 20%, rgba(234,255,0,.12), transparent 60%),
+            radial-gradient(50% 50% at 85% 80%, rgba(0,194,255,.22), transparent 65%),
+            radial-gradient(30% 30% at 80% 10%, rgba(234,255,0,.10), transparent 70%);
+          animation: floatBG 26s ease-in-out infinite;
+          filter: blur(64px);
           mix-blend-mode: screen;
+          z-index: 0;
         }
         
-        /* Title shimmer when shockwave fires */
-        @keyframes titleShimmer {
-          0% { text-shadow: 0 0 0 rgba(0,194,255,0); }
-          30% { text-shadow: 0 0 18px rgba(0,194,255,0.8), 0 0 8px rgba(234,255,0,0.6); }
-          60% { text-shadow: 0 0 28px rgba(0,194,255,1), 0 0 14px rgba(234,255,0,0.8); }
-          100% { text-shadow: 0 0 0 rgba(0,194,255,0); }
+        @keyframes energyWave {
+          0% { opacity: .45; filter: blur(55px) brightness(1); }
+          25% { opacity: .85; filter: blur(60px) brightness(1.4); }
+          50% { opacity: .55; filter: blur(70px) brightness(1.15); }
+          75% { opacity: .9; filter: blur(65px) brightness(1.6); }
+          100% { opacity: .45; filter: blur(55px) brightness(1); }
         }
-        .title-reactive { animation: titleShimmer 1.2s ease-out; }
+        
+        /* FULL IMPACT SHOCKWAVE - Dual Layer */
+        @keyframes shockExpand {
+          0% { transform: translate(-50%, -50%) scale(.2); opacity: .95; filter: blur(6px); }
+          30% { opacity: .95; filter: blur(8px); }
+          60% { opacity: .75; }
+          100% { transform: translate(-50%, -50%) scale(7); opacity: 0; filter: blur(16px); }
+        }
+        .shockwave-layer {
+          position: absolute; left: var(--shock-x); top: var(--shock-y); 
+          pointer-events: none; border-radius: 9999px; mix-blend-mode: screen; z-index: 1;
+          animation: shockExpand 1.5s cubic-bezier(.2,.8,.2,1) forwards;
+        }
+        .shock-outer { 
+          width: 260px; height: 260px; 
+          background: radial-gradient(closest-side, rgba(0,194,255,.95) 6%, rgba(234,255,0,.85) 16%, rgba(0,194,255,.35) 34%, rgba(0,0,0,0) 60%); 
+          box-shadow: 0 0 140px 50px rgba(0,194,255,.55), 0 0 100px 34px rgba(234,255,0,.4); 
+        }
+        .shock-inner { 
+          width: 160px; height: 160px; 
+          background: radial-gradient(closest-side, rgba(0,194,255,.9) 20%, rgba(234,255,0,.7) 40%, rgba(0,0,0,0) 70%); 
+          filter: blur(6px); 
+        }
+        
+        /* Electrical arcs */
+        @keyframes arcDash { to { stroke-dashoffset: -1000; } }
+        @keyframes arcFlash { 0%,100% { opacity: .25; } 40% { opacity: .9; } 60% { opacity: .5; } }
+        .arcs path { 
+          stroke: rgba(0,194,255,.85); 
+          stroke-width: 2; 
+          stroke-linecap: round; 
+          fill: none; 
+          filter: drop-shadow(0 0 8px rgba(0,194,255,.9)); 
+          stroke-dasharray: 8 14; 
+          animation: arcDash 6s linear infinite, arcFlash 2.2s ease-in-out infinite; 
+        }
       `}</style>
       
-      {/* FULL IMPACT SHOCKWAVE RING (re-render to replay) */}
-      <div key={shock.key} className="shockwave-ring" />
+      {/* Ambient backdrop */}
+      <div className="neon-backdrop" />
+      
+      {/* Electrical arcs SVG */}
+      <svg className="arcs absolute inset-0 -z-0" viewBox="0 0 100 100" preserveAspectRatio="none">
+        <path d="M5,20 C20,30 30,10 50,20 70,30 80,15 95,25" />
+        <path d="M5,70 C25,60 40,85 55,70 70,55 80,80 95,68" />
+      </svg>
+      
+      {/* FULL IMPACT SHOCKWAVE - Two layers */}
+      <div key={`outer-${shockKey}`} className="shockwave-layer shock-outer" />
+      <div key={`inner-${shockKey}`} className="shockwave-layer shock-inner" />
       
       <div className="max-w-7xl mx-auto px-8 py-16 relative z-10">
         {/* Title - Centered with cyan glow */}
         <div className="text-center mb-12">
-          <h1 className={`text-7xl font-extrabold tracking-tight mb-8 ${shock.key ? 'title-reactive' : ''}`}
+          <h1 className="text-7xl font-extrabold tracking-tight mb-8"
             style={{
               background: 'linear-gradient(90deg, #00d9ff 0%, #00ffcc 100%)',
               WebkitBackgroundClip: 'text',
