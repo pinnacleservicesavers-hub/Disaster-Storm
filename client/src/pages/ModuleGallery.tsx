@@ -11,8 +11,14 @@ const NEON = {
   blue: '#00c2ff',
 };
 
+interface ModuleRoutes {
+  launch?: string;
+  preview?: string;
+  docs?: string;
+}
+
 interface ModuleGalleryProps {
-  routes?: Record<string, string>;
+  routes?: Record<string, string | ModuleRoutes>;
   onLaunch?: (module: ModuleData) => void;
   onPreview?: (module: ModuleData) => void;
   onDocs?: (module: ModuleData) => void;
@@ -213,17 +219,34 @@ export default function ModuleGallery({
 
         {/* Grid - 3 columns */}
         <div className="grid grid-cols-3 gap-8">
-          {filtered.map((m, i) => (
-            <ModuleCard 
-              key={m.id} 
-              m={{ ...m, path: routes[m.id] || m.path }}
-              delay={i * 0.4}
-              onLaunch={onLaunch ? () => onLaunch(m) : () => navigate(routes[m.id] || m.path)}
-              onPreview={onPreview ? () => onPreview(m) : undefined}
-              onDocs={onDocs ? () => onDocs(m) : undefined}
-              onRipple={triggerRipple}
-            />
-          ))}
+          {filtered.map((m, i) => {
+            const route = routes[m.id];
+            const getLaunchPath = () => {
+              if (typeof route === 'string') return route;
+              if (typeof route === 'object') return route.launch;
+              return m.path;
+            };
+            const getPreviewPath = () => {
+              if (typeof route === 'object') return route.preview;
+              return undefined;
+            };
+            const getDocsPath = () => {
+              if (typeof route === 'object') return route.docs;
+              return undefined;
+            };
+
+            return (
+              <ModuleCard 
+                key={m.id} 
+                m={{ ...m, path: getLaunchPath() }}
+                delay={i * 0.4}
+                onLaunch={onLaunch ? () => onLaunch(m) : () => navigate(getLaunchPath() || m.path)}
+                onPreview={onPreview ? () => onPreview(m) : getPreviewPath() ? () => navigate(getPreviewPath()!) : undefined}
+                onDocs={onDocs ? () => onDocs(m) : getDocsPath() ? () => navigate(getDocsPath()!) : undefined}
+                onRipple={triggerRipple}
+              />
+            );
+          })}
         </div>
 
         {/* Empty state */}
