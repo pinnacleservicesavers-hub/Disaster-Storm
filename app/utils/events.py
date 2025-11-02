@@ -1,27 +1,28 @@
-"""
-Event Bus - Pub/Sub system for agent orchestration
-"""
-import asyncio
-from typing import Callable, Awaitable, Dict, Any, List
+"""Event Bus - Pub/Sub for agent orchestration"""
+from typing import Callable, Dict, Any, List
 
 
 class EventBus:
     """
-    Central event bus for publishing and subscribing to business events
+    Simple pub/sub event bus
     
     Usage:
         bus = EventBus()
         bus.subscribe(supervisor.handle_event)
-        await bus.publish({"type": "WEATHER_IMPACT", "data": {...}})
+        await bus.publish({"type": "WEATHER_IMPACT", ...})
     """
     
     def __init__(self):
-        self.handlers: List[Callable[[Dict[str, Any]], Awaitable]] = []
+        self.handlers: List[Callable] = []
     
-    def subscribe(self, handler: Callable[[Dict[str, Any]], Awaitable]):
-        """Subscribe an event handler to receive all events"""
+    def subscribe(self, handler: Callable):
+        """Subscribe handler to all events"""
         self.handlers.append(handler)
     
-    async def publish(self, event: Dict[str, Any]):
-        """Publish event to all subscribers in parallel"""
-        await asyncio.gather(*(h(event) for h in self.handlers))
+    async def publish(self, event: Dict[str, Any]) -> List[Any]:
+        """Publish event to all handlers, return results"""
+        results = []
+        for h in self.handlers:
+            result = await h(event)
+            results.append(result)
+        return results
