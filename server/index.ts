@@ -161,4 +161,23 @@ server.listen(port, () => {
   }, 60_000);
   
   console.log('✅ Claims Agent scheduler started (runs every 60 seconds)');
+
+  // Contractor Opportunity Alerts - Check every 15 minutes
+  setInterval(async () => {
+    try {
+      const response = await fetch(`${baseUrl}/api/contractor-alerts/check-opportunities`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ minScore: 70 })
+      });
+      const result = await response.json();
+      if (result.success && result.result?.sent > 0) {
+        console.log(`🚨 Contractor Alerts: Sent ${result.result.sent} alerts for ${result.opportunities} opportunities`);
+      }
+    } catch (err) {
+      console.error('Contractor alerts scheduler error:', err);
+    }
+  }, 15 * 60 * 1000); // Every 15 minutes
+  
+  console.log('✅ Contractor alerts scheduler started (runs every 15 minutes)');
 });

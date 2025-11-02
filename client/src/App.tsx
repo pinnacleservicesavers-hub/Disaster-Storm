@@ -7,6 +7,7 @@ import ModuleGallery from "./pages/ModuleGallery";
 // Lazy-load all 17 module pages
 const WeatherCenter = lazy(() => import("./modules/WeatherCenter"));
 const StormPredictions = lazy(() => import("./modules/StormPredictions"));
+const DeploymentMap = lazy(() => import("./pages/DeploymentMap"));
 const TrafficCamWatcherModule = lazy(() => import("./modules/TrafficCamWatcherModule"));
 const EyesInSky = lazy(() => import("./pages/EyesInSky"));
 const DroneOperations = lazy(() => import("./modules/DroneOperations"));
@@ -130,6 +131,7 @@ export default function App() {
           {/* All 17 Module Routes */}
           <Route path="/weather" element={<WeatherCenter />} />
           <Route path="/prediction-dashboard" element={<StormPredictions />} />
+          <Route path="/deployment-map" element={<DeploymentMap />} />
           <Route path="/traffic-cam-watcher" element={<TrafficCamWatcherModule />} />
           <Route path="/eyes-in-the-sky" element={<EyesInSky />} />
           <Route path="/drone-operation" element={<DroneOperations />} />

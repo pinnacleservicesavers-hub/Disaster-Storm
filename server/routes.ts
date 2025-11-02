@@ -64,6 +64,7 @@ import xweatherRoutes from "./routes/xweatherRoutes";
 import tomorrowRoutes from "./routes/tomorrowRoutes";
 import nwsForecastRoutes from "./routes/nwsForecastRoutes";
 import geocodingRoutes from "./routes/geocodingRoutes";
+import contractorAlertsRoutes from "./routes/contractorAlerts.js";
 import { mountLocations } from "./routes/locations";
 import { mountAlerts } from "./routes/alerts";
 import { mountWarm } from "./routes/warm";
@@ -494,6 +495,10 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
   // ---- Geocoding Routes ----
   app.use('/api/geocode', geocodingRoutes);
   console.log('🌍 Geocoding routes registered - Forward/reverse geocoding with autocomplete');
+
+  // ---- Contractor Alerts Routes ----
+  app.use('/api/contractor-alerts', contractorAlertsRoutes);
+  console.log('🚨 Contractor alerts routes registered - Automated opportunity notifications');
 
   // ---- AI Intelligence Orchestrator Routes ----
   const aiIntelligenceRoutes = await import('./routes/aiIntelligenceRoutes.js');
