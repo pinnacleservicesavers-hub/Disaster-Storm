@@ -14,6 +14,9 @@ const NEON_GLOW = `linear-gradient(135deg, ${NEON.yellow} 0%, ${NEON.blue} 100%)
 interface ModuleCardProps {
   m: ModuleData;
   delay?: number;
+  launchPath?: string;
+  previewPath?: string;
+  docsPath?: string;
   onLaunch?: () => void;
   onPreview?: () => void;
   onDocs?: () => void;
@@ -43,7 +46,7 @@ const iconColors = [
   'bg-blue-600', 'bg-emerald-600', 'bg-purple-600'
 ];
 
-export function ModuleCard({ m, delay = 0, onLaunch, onPreview, onDocs, onRipple }: ModuleCardProps) {
+export function ModuleCard({ m, delay = 0, launchPath, previewPath, docsPath, onLaunch, onPreview, onDocs, onRipple }: ModuleCardProps) {
   const Icon = m.icon;
   const cardIndex = parseInt(m.num?.replace('#', '') || '1') - 1;
   const glow = glowColors[cardIndex % glowColors.length];
@@ -120,18 +123,33 @@ export function ModuleCard({ m, delay = 0, onLaunch, onPreview, onDocs, onRipple
             {m.description}
           </p>
           
-          {/* Launch button with arrow */}
-          <button 
-            onClick={(e) => { e.stopPropagation(); if (onLaunch) onLaunch(); }}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-black bg-white hover:bg-slate-100 transition-all shadow-lg group"
-            data-testid={`button-launch-${m.id}`}
-            style={{ boxShadow: '0 0 30px rgba(255, 255, 255, 0.3)' }}
-          >
-            Launch
-            <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
+          {/* Launch button with arrow - Wouter Link for buttery-smooth client-side navigation */}
+          {launchPath ? (
+            <Link 
+              href={launchPath}
+              onClick={(e) => { e.stopPropagation(); if (onLaunch) onLaunch(); }}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-black bg-white hover:bg-slate-100 transition-all shadow-lg group"
+              data-testid={`button-launch-${m.id}`}
+              style={{ boxShadow: '0 0 30px rgba(255, 255, 255, 0.3)' }}
+            >
+              Launch
+              <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </Link>
+          ) : (
+            <button 
+              onClick={(e) => { e.stopPropagation(); if (onLaunch) onLaunch(); }}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-black bg-white hover:bg-slate-100 transition-all shadow-lg group"
+              data-testid={`button-launch-${m.id}`}
+              style={{ boxShadow: '0 0 30px rgba(255, 255, 255, 0.3)' }}
+            >
+              Launch
+              <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          )}
         </div>
       </div>
     </motion.div>

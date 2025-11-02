@@ -1,6 +1,5 @@
 import { useState, useMemo, useRef } from 'react';
 import { Star, Rocket, Volume2, VolumeX, BadgeInfo } from 'lucide-react';
-import { useLocation } from 'wouter';
 import { MODULES, ModuleData } from '@shared/moduleGallery';
 import { ModuleCard } from '@/components/ModuleGallery/ModuleCard';
 import { Toolbar } from '@/components/ModuleGallery/Toolbar';
@@ -35,7 +34,6 @@ export default function ModuleGallery({
   onDocs,
   brand = { name: 'Disaster Direct', logoUrl: undefined }
 }: ModuleGalleryProps) {
-  const [, navigate] = useLocation();
   const [query, setQuery] = useState('');
   const [cat, setCat] = useState('all');
   const [highOnly, setHighOnly] = useState(false);
@@ -238,11 +236,14 @@ export default function ModuleGallery({
             return (
               <ModuleCard 
                 key={m.id} 
-                m={{ ...m, path: getLaunchPath() }}
+                m={m}
                 delay={i * 0.4}
-                onLaunch={onLaunch ? () => onLaunch(m) : () => navigate(getLaunchPath() || m.path)}
-                onPreview={onPreview ? () => onPreview(m) : getPreviewPath() ? () => navigate(getPreviewPath()!) : undefined}
-                onDocs={onDocs ? () => onDocs(m) : getDocsPath() ? () => navigate(getDocsPath()!) : undefined}
+                launchPath={getLaunchPath() || m.path}
+                previewPath={getPreviewPath()}
+                docsPath={getDocsPath()}
+                onLaunch={onLaunch ? () => onLaunch(m) : undefined}
+                onPreview={onPreview ? () => onPreview(m) : undefined}
+                onDocs={onDocs ? () => onDocs(m) : undefined}
                 onRipple={triggerRipple}
               />
             );

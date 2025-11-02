@@ -1,0 +1,46 @@
+4) Update the gallery buttons to use <Link>
+
+In your gallery component (the one we’ve been editing in the canvas), add this import at the top:
+
+import { Link } from "react-router-dom";
+
+
+Then, replace the three button groups inside each card with Link versions that fall back to buttons if a route isn’t provided:
+
+<div className="flex gap-2">
+  {routes?.[m.id]?.launch ? (
+    <Link to={routes[m.id].launch}
+      onClick={() => onLaunch?.(m)}
+      className="px-3.5 py-2 rounded-xl text-sm font-semibold text-black bg-[color:var(--neon-yellow,#eaff00)] hover:bg-white transition-shadow shadow-[0_0_15px_rgba(234,255,0,0.35)] hover:shadow-[0_0_30px_rgba(234,255,0,0.6)] focus:outline-none focus:ring-2 focus:ring-[color:var(--neon-blue,#00c2ff)]">
+      Launch
+    </Link>
+  ) : (
+    <button onClick={() => onLaunch?.(m)} className="px-3.5 py-2 rounded-xl text-sm font-semibold text-black bg-[color:var(--neon-yellow,#eaff00)] hover:bg-white transition-shadow shadow-[0_0_15px_rgba(234,255,0,0.35)] hover:shadow-[0_0_30px_rgba(234,255,0,0.6)] focus:outline-none focus:ring-2 focus:ring-[color:var(--neon-blue,#00c2ff)]">
+      Launch
+    </button>
+  )}
+
+  {routes?.[m.id]?.preview ? (
+    <Link to={routes[m.id].preview}
+      onClick={() => onPreview?.(m)}
+      className="px-3.5 py-2 rounded-xl text-sm font-medium text-white bg-white/10 hover:bg-white/20 ring-1 ring-white/15 focus:outline-none focus:ring-2 focus:ring-[color:var(--neon-blue,#00c2ff)]">
+      Preview
+    </Link>
+  ) : (
+    <button onClick={() => onPreview?.(m)} className="px-3.5 py-2 rounded-xl text-sm font-medium text-white bg-white/10 hover:bg-white/20 ring-1 ring-white/15 focus:outline-none focus:ring-2 focus:ring-[color:var(--neon-blue,#00c2ff)]">
+      Preview
+    </button>
+  )}
+
+  {routes?.[m.id]?.docs ? (
+    <Link to={routes[m.id].docs}
+      onClick={() => onDocs?.(m)}
+      className="px-3.5 py-2 rounded-xl text-sm font-medium text-white/80 bg-transparent hover:bg-white/10 ring-1 ring-white/10 focus:outline-none focus:ring-2 focus:ring-[color:var(--neon-blue,#00c2ff)]">
+      Docs
+    </Link>
+  ) : (
+    <button onClick={() => onDocs?.(m)} className="px-3.5 py-2 rounded-xl text-sm font-medium text-white/80 bg-transparent hover:bg-white/10 ring-1 ring-white/10 focus:outline-none focus:ring-2 focus:ring-[color:var(--neon-blue,#00c2ff)]">
+      Docs
+    </button>
+  )}
+</div>
