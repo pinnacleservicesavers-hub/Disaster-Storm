@@ -84,15 +84,27 @@ export class NHCConeService {
    * Fetch GeoJSON data for a specific storm product
    */
   private async fetchStormGeoJSON(stormId: string, productType: string): Promise<GeoJSONFeatureCollection | null> {
-    // Common NHC GeoJSON product names
-    const possibleNames = [
-      `${stormId}_${productType}.json`,
-      `${stormId}_${productType}.geojson`,
-      `${stormId.toLowerCase()}_${productType}.json`,
-      `${stormId.toUpperCase()}_${productType}.json`,
-      `${productType}_latest.geojson`,
-      `${productType}.geojson`
-    ];
+    // NHC uses specific product naming conventions
+    // Example: AL182024_5day_pgncone_latest.geojson, AL182024_5day_5knt_track_latest.geojson
+    const possibleNames = productType === 'cone' 
+      ? [
+          // 5-day forecast cone (probabilistic guidance cone)
+          `${stormId}_5day_pgncone_latest.geojson`,
+          `${stormId.toUpperCase()}_5day_pgncone_latest.geojson`,
+          `${stormId.toLowerCase()}_5day_pgncone_latest.geojson`,
+          // Alternative cone naming
+          `${stormId}_cone.geojson`,
+          `${stormId}_fcst_cone.geojson`
+        ]
+      : [
+          // 5-day forecast track (5-knot wind swath)
+          `${stormId}_5day_5knt_track_latest.geojson`,
+          `${stormId.toUpperCase()}_5day_5knt_track_latest.geojson`,
+          `${stormId.toLowerCase()}_5day_5knt_track_latest.geojson`,
+          // Alternative track naming
+          `${stormId}_track.geojson`,
+          `${stormId}_fcst_track.geojson`
+        ];
 
     for (const filename of possibleNames) {
       try {
@@ -118,6 +130,7 @@ export class NHCConeService {
       }
     }
     
+    console.log(`⚠️ No ${productType} GeoJSON found for ${stormId} (tried ${possibleNames.length} variants)`);
     return null;
   }
 
