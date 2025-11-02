@@ -29,9 +29,9 @@ async def example_weather_impact():
     }
     
     print("📡 Publishing WEATHER_IMPACT event...")
-    results = await bus.publish(event)
+    await bus.publish(event)
     
-    print(f"✅ Result: {results[0]}")
+    print(f"✅ Event published to {len(bus.handlers)} handler(s)")
     # → DispatchAgent broadcasts leads to contractors
 
 
@@ -53,9 +53,9 @@ async def example_media_uploaded():
     }
     
     print("📡 Publishing MEDIA_UPLOADED event...")
-    results = await bus.publish(event)
+    await bus.publish(event)
     
-    print(f"✅ Result: {results[0]}")
+    print(f"✅ Event published to {len(bus.handlers)} handler(s)")
     # → ClaimAgent analyzes damage and updates claim
 
 
@@ -77,9 +77,9 @@ async def example_invoice_disputed():
     }
     
     print("📡 Publishing INVOICE_DISPUTED event...")
-    results = await bus.publish(event)
+    await bus.publish(event)
     
-    print(f"✅ Result: {results[0]}")
+    print(f"✅ Event published to {len(bus.handlers)} handler(s)")
     # → NegotiatorAgent prepares counter-offer rebuttal
 
 

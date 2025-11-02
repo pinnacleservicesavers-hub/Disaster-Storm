@@ -97,7 +97,7 @@ async def health_check():
     return {
         "status": "healthy",
         "orchestration": "active",
-        "event_bus": f"{bus.get_event_count()} events logged"
+        "event_bus": f"{len(bus.handlers)} handlers subscribed"
     }
 
 
@@ -121,12 +121,12 @@ async def publish_event(request: Request):
     return results[0] if results else {"ok": False, "error": "No handlers subscribed"}
 
 
-@app.get("/api/events/recent")
-async def get_recent_events(limit: int = 50):
-    """Get recent events from event bus log"""
+@app.get("/api/events/handlers")
+async def get_event_handlers():
+    """Get number of subscribed event handlers"""
     return {
-        "events": bus.get_recent_events(limit),
-        "total": bus.get_event_count()
+        "handlers": len(bus.handlers),
+        "message": f"{len(bus.handlers)} event handler(s) subscribed"
     }
 
 
