@@ -381,8 +381,8 @@ ${explanation.benefits ? `Benefits include: ${explanation.benefits.join(', ')}.`
             className={`
               relative voice-guide-toggle transition-all duration-300
               ${isEnabled 
-                ? 'bg-purple-600 hover:bg-purple-700 text-white shadow-lg' 
-                : 'bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-800 backdrop-blur-sm'
+                ? 'bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white shadow-lg' 
+                : 'bg-slate-900/60 border-cyan-500/30 hover:bg-slate-800/60 text-cyan-300 backdrop-blur-sm'
               }
             `}
             data-testid="button-voice-guide-toggle"
@@ -397,10 +397,8 @@ ${explanation.benefits ? `Benefits include: ${explanation.benefits.join(', ')}.`
               {isEnabled ? (isPlaying ? 'Speaking...' : 'Voice Guide Active') : 'Start Voice Guide'}
             </span>
             {isEnabled && (
-              <motion.div
-                className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-white"
-                animate={{ scale: [1, 1.2, 1] }}
-                transition={{ duration: 1, repeat: Infinity }}
+              <div className="absolute -top-1 -right-1 w-3 h-3 bg-cyan-400 rounded-full border-2 border-white" 
+                style={{ boxShadow: '0 0 10px rgba(0, 217, 255, 0.8)' }}
               />
             )}
           </Button>
@@ -418,7 +416,7 @@ ${explanation.benefits ? `Benefits include: ${explanation.benefits.join(', ')}.`
               variant="outline"
               size="sm"
               disabled={isPlaying}
-              className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm"
+              className="bg-slate-900/60 border-cyan-500/30 text-cyan-300 hover:bg-slate-800/60 backdrop-blur-sm"
               data-testid="button-guided-tour"
             >
               <Play className="w-4 h-4 mr-1" />
@@ -439,7 +437,7 @@ ${explanation.benefits ? `Benefits include: ${explanation.benefits.join(', ')}.`
               onClick={isPlaying ? stopSpeaking : () => explainPortal(currentPortal || 'welcome')}
               variant="outline"
               size="sm"
-              className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm"
+              className="bg-slate-900/60 border-cyan-500/30 text-cyan-300 hover:bg-slate-800/60 backdrop-blur-sm"
               data-testid="button-play-pause"
             >
               {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
@@ -450,7 +448,7 @@ ${explanation.benefits ? `Benefits include: ${explanation.benefits.join(', ')}.`
               variant="outline"
               size="sm"
               disabled={!isPlaying}
-              className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm"
+              className="bg-slate-900/60 border-cyan-500/30 text-cyan-300 hover:bg-slate-800/60 backdrop-blur-sm disabled:opacity-50"
               data-testid="button-stop"
             >
               <RotateCcw className="w-4 h-4" />
@@ -460,7 +458,7 @@ ${explanation.benefits ? `Benefits include: ${explanation.benefits.join(', ')}.`
               onClick={() => setShowSettings(!showSettings)}
               variant="outline"
               size="sm"
-              className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm"
+              className="bg-slate-900/60 border-cyan-500/30 text-cyan-300 hover:bg-slate-800/60 backdrop-blur-sm"
               data-testid="button-voice-settings"
             >
               <Settings className="w-4 h-4" />
@@ -478,38 +476,40 @@ ${explanation.benefits ? `Benefits include: ${explanation.benefits.join(', ')}.`
             exit={{ opacity: 0, height: 0 }}
             className="mt-3"
           >
-            <Card className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-white/20" data-testid="card-voice-progress">
+            <Card className="bg-slate-900/90 backdrop-blur-sm border border-cyan-500/30" data-testid="card-voice-progress">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
-                    <motion.div
-                      animate={{ rotate: 360 }}
-                      transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                      className="w-4 h-4 border-2 border-purple-600 border-t-transparent rounded-full"
+                    <div className="w-4 h-4 border-2 border-cyan-400 border-t-transparent rounded-full" 
+                      style={{ 
+                        animation: 'spin 2s linear infinite',
+                        boxShadow: '0 0 10px rgba(0, 217, 255, 0.5)'
+                      }}
                     />
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    <span className="text-sm font-medium text-cyan-300">
                       Voice Guide Active
                     </span>
-                    <Badge variant="secondary" className="text-xs">
+                    <Badge variant="secondary" className="text-xs bg-cyan-500/20 text-cyan-300 border-cyan-500/30">
                       {currentPortal?.toUpperCase() || 'WELCOME'}
                     </Badge>
                   </div>
-                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                  <span className="text-xs text-cyan-400">
                     {Math.round(progress)}%
                   </span>
                 </div>
                 
-                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                  <motion.div
-                    className="bg-purple-600 h-2 rounded-full"
-                    initial={{ width: 0 }}
-                    animate={{ width: `${progress}%` }}
-                    transition={{ duration: 0.3 }}
+                <div className="w-full bg-slate-800 rounded-full h-2">
+                  <div
+                    className="bg-gradient-to-r from-cyan-500 to-blue-600 h-2 rounded-full transition-all"
+                    style={{ 
+                      width: `${progress}%`,
+                      boxShadow: '0 0 10px rgba(0, 217, 255, 0.6)'
+                    }}
                   />
                 </div>
                 
                 {currentText && (
-                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-2 line-clamp-2">
+                  <p className="text-xs text-cyan-300/70 mt-2 line-clamp-2">
                     {currentText.slice(0, 120)}...
                   </p>
                 )}
@@ -528,21 +528,21 @@ ${explanation.benefits ? `Benefits include: ${explanation.benefits.join(', ')}.`
             exit={{ opacity: 0, y: -10 }}
             className="absolute top-full left-0 right-0 mt-2 z-50"
           >
-            <Card className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm border border-white/20 shadow-xl" data-testid="card-voice-settings">
+            <Card className="bg-slate-900/95 backdrop-blur-sm border border-cyan-500/30 shadow-xl" data-testid="card-voice-settings">
               <CardContent className="p-4">
-                <h4 className="text-sm font-semibold mb-3 text-gray-800 dark:text-gray-200">
+                <h4 className="text-sm font-semibold mb-3 text-cyan-300">
                   Voice Settings
                 </h4>
                 <div className="space-y-3">
                   <div>
-                    <label className="text-xs text-gray-600 dark:text-gray-400 mb-1 block">
-                      Voice: ARIA STORM AI
+                    <label className="text-xs text-cyan-400 mb-1 block">
+                      Voice: Rachel - Professional Female
                     </label>
-                    <Badge variant="outline" className="text-xs bg-purple-100 dark:bg-purple-900">
+                    <Badge variant="outline" className="text-xs bg-cyan-500/20 text-cyan-300 border-cyan-500/30">
                       ElevenLabs Broadcast Pro
                     </Badge>
                   </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                  <div className="text-xs text-cyan-300/70">
                     Premium broadcast-quality voice synthesis<br />
                     Pitch: Professional tone<br />
                     Language: English (US)
