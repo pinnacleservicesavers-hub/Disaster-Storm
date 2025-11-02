@@ -71,6 +71,7 @@ import { registerAlignmentRoutes } from "./routes/alignmentRoutes";
 import { registerContractorAlertRoutes } from "./routes/contractorAlertRoutes";
 import mrmsProductionRoutes from "./routes/mrmsProductionRoutes.js";
 import workflowRoutes from "./routes/workflowRoutes";
+import orchestrationRoutes from "./routes/orchestrationRoutes";
 import { mountLocations } from "./routes/locations";
 import { mountAlerts } from "./routes/alerts";
 import { mountWarm } from "./routes/warm";
@@ -528,6 +529,10 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
   // ---- Workflow Routes (Lead → Job → Claim → Payment) ----
   app.use('/api', workflowRoutes);
   console.log('🔄 Workflow routes registered - Auth, memberships, contractor profiles, leads, jobs, claims, payments');
+
+  // ---- Agent Orchestration Routes ----
+  app.use('/api/orchestration', orchestrationRoutes);
+  console.log('🤖 Agent Orchestration routes registered - Supervisor + 7 specialist agents with tools & events');
 
   // ---- AI Intelligence Orchestrator Routes ----
   const aiIntelligenceRoutes = await import('./routes/aiIntelligenceRoutes.js');
