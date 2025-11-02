@@ -21,6 +21,7 @@ const Claims = lazy(() => import("./pages/Claims"));
 const ContractorManagement = lazy(() => import("./pages/ContractorManagement"));
 const ContractorPortal = lazy(() => import("./pages/ContractorPortal"));
 const Legal = lazy(() => import("./pages/Legal"));
+const BankingSettings = lazy(() => import("./pages/BankingSettings"));
 // const DisasterLens = lazy(() => import("./pages/DisasterLens")); // Temporarily disabled due to JSX errors
 const XrayRealityModule = lazy(() => import("./modules/XrayRealityModule"));
 const HazardDashboard = lazy(() => import("./pages/HazardDashboard"));
@@ -147,6 +148,7 @@ export default function App() {
           <Route path="/claims" element={<Claims />} />
           <Route path="/contractor-management" element={<ContractorManagement />} />
           <Route path="/contractors" element={<ContractorPortal />} />
+          <Route path="/banking-settings" element={<BankingSettings />} />
           <Route path="/legal" element={<Legal />} />
           {/* <Route path="/disaster-lens" element={<DisasterLens />} /> */}
           <Route path="/modules/xray-reality" element={<XrayRealityModule />} />
