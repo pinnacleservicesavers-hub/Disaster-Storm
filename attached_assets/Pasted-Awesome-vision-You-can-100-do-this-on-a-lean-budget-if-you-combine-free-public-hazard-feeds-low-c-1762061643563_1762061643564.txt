@@ -1,0 +1,204 @@
+Awesome vision. You can 100% do this on a lean budget if you combine free public hazard feeds, low-cost comms (SMS/voice/email), and a small “rules-first + LLM-when-needed” agent stack. Here’s a practical, cheapest-viable path.
+
+MVP (cheapest architecture that works)
+
+Core idea: most tasks are deterministic (watch feeds, schedule pings, generate reports). Use rules/cron + webhooks for 90% of it, and only call an LLM when you need explanations or summaries. That keeps costs tiny.
+
+1) Hazard data (free or near-free)
+
+Weather alerts & watches (USA): NWS / api.weather.gov (forecasts + official alerts). Free, open data. 
+National Weather Service
+
+Hurricanes: National Hurricane Center (advisories, tracks, cone). 
+National Hurricane Center
+
+Severe convective outlooks (tornado, hail, wind): Storm Prediction Center polygon services (handy GeoJSON). 
+mapservices.weather.noaa.gov
++1
+
+Wildfires: NASA FIRMS (near-real-time hot spots; free API key). 
+firms.modaps.eosdis.nasa.gov
++1
+
+Earthquakes: USGS real-time API. 
+earthquake.usgs.gov
++1
+
+General forecast fill-ins: Open-Meteo (no key, free for non-commercial; inexpensive if you later need commercial). 
+open-meteo.com
++1
+
+2) Comms (pay-as-you-go, super cheap)
+
+SMS: Twilio long-code SMS in the US from about $0.0083 per message (volume-tiered). 
+Twilio
+
+Voice calls & IVR: Twilio Programmable Voice (starts around $0.014/min outgoing, $0.0085/min incoming; optional call recording/transcription add-ons listed). 
+Twilio
++1
+
+Email: Twilio SendGrid works, but note free plan retirement (May 27, 2025)—budget at least entry-tier paid if you pick SendGrid. 
+Twilio
+
+3) Backend (nearly free)
+
+DB/Auth/Storage: Supabase (free tier to start; Pro from $25/mo). Great for auth, Postgres, file storage for photos. 
+Supabase
++1
+
+Compute: Serverless (Cloudflare Workers/Pages or AWS Lambda). Workers have a generous free tier; pair with cron triggers and durable objects/queues.
+
+4) Agent runtime (keep it simple)
+
+Use rules + webhooks + queues for: feed polling, geofencing, throttling, schedules (30/60/90-day letters), SLA timers.
+
+Use a small LLM only when needed (explain a radar product, summarize a call, normalize invoices, write a claims cover note). You can start with any economical API model; if you want the absolute cheapest, host a small open model (e.g., an 8B parameter model) on a single GPU VM later.
+
+For phone agents, plug Twilio Voice into your webhook; do speech-to-text + LLM + text-to-speech in the call loop. (Twilio lists recording/transcription pricing separately.) 
+Twilio
+
+What your agents actually do (phase 1)
+
+Watch & Alert (standby paging):
+
+Poll NWS alerts + SPC polygons + NHC tracks + USGS quakes + FIRMS. When a polygon crosses a contractor’s service area, auto-notify signed-up contractors (SMS/voice/email), with a short, plain-English brief + map link. 
+firms.modaps.eosdis.nasa.gov
++4
+National Weather Service
++4
+mapservices.weather.noaa.gov
++4
+
+“Weather Center” education (simple, useful):
+
+Prewrite explainers the agent can send on demand:
+
+Hurricanes: eyewall, rainbands, storm surge vs. tide, Saffir–Simpson categories, cone of uncertainty, rapid intensification.
+
+Severe storms: SPC risk levels, hail size categories, straight-line winds vs. tornadoes.
+
+Wildfire: red flag criteria, spotting, defensible space.
+
+Earthquakes: magnitude vs. intensity, aftershocks, red-tag/green-tag basics.
+
+The LLM only “fills gaps,” translating jargon to contractor-friendly bullets and why it matters for mobilization and safety.
+
+Claim-ready evidence stream:
+
+Photo intake (mobile/web): time-stamped, geotagged; agent auto-labels (“hail dents on ridge cap”, “tree on roof, north slope”), and keeps a running wind/hail timeline from the feeds.
+
+Invoice assist: read line items, check against market comps (your own vendor data), flag mismatches, draft a job-cost breakdown PDF.
+
+Customer updates: drip notifications at milestones (received photos → created report → submitted claim → insurer reply).
+
+Outreach & follow-ups:
+
+Agent places informational calls/texts to leads and insurance adjuster follow-ups (2×/week cadence configurable).
+
+Every call/text must respect TCPA rules (see compliance notes below). 
+FCC Docs
++2
+BCLP
++2
+
+Compliance & guardrails (important)
+
+TCPA / robocalls & texts: get prior express written consent for marketing/auto-dialed texts/calls, include easy opt-out (“Reply STOP”), honor DNC, log consent. Rules have changed in 2024-2025 (e.g., opt-out standards; evolving consent interpretations; courts less bound to FCC rulings), so build consent capture + audit trails into your app from day one. 
+FCC Docs
++2
+BCLP
++2
+
+Language access: NWS paused automated multilingual alert translations in 2025; if you serve multilingual crews/customers, you may need your own translations layer. 
+The Washington Post
++1
+
+Lien/notice timelines: vary by state (often certified mail required; strict deadlines). Use templates + deadline calculators, but have a lawyer review. (Examples: general state-by-state overviews and certified-mail notice practices.) 
+Fullerton & Knowles, P.C.
++2
+Law on Call
++2
+
+Insurance law framing: Avoid citing the Sherman Act for claims handling (that’s antitrust, usually irrelevant). Instead, anchor letters in your state’s version of the Unfair Claims Settlement Practices Act and property/casualty claims regs. 
+NAIC
++2
+NAIC
++2
+
+Recording calls: disclose per state law; Twilio offers recording + storage pricing if you enable it. 
+Twilio
+
+Costs you should expect at MVP scale (example)
+
+Small pilot with ~200 contractors, a few storms/month:
+
+SMS: 5,000 texts → ≈ $41.50 at $0.0083/msg. 
+Twilio
+
+Voice: 300 outbound minutes to adjusters/leads → ≈ $4.20 at $0.014/min (plus any recording/transcription you choose). 
+Twilio
+
+Email: plan for an entry paid tier if using SendGrid (free plan retired). 
+Twilio
+
+Backend: Supabase free → likely $0–$25/mo to start. 
+Supabase
+
+Data feeds: NOAA/NWS/NHC/SPC/USGS free; NASA FIRMS free with key. 
+firms.modaps.eosdis.nasa.gov
++4
+National Weather Service
++4
+National Hurricane Center
++4
+
+Net: You can pilot this for well under $100/mo plus whatever LLM usage you incur (kept low by design).
+
+Phase plan (quick wins → full automation)
+
+Phase 1 (2–3 weeks of build time, lean):
+
+Standby alerts (geo-fenced) for hurricanes, SPC severe, USGS quakes, FIRMS wildfire.
+
+Contractor onboarding + consent logging (TCPA-ready).
+
+SMS/email alerts + simple IVR for “press 1 to confirm standby”.
+
+Photo intake + automatic labeling + storm timeline in a single PDF.
+
+Phase 2:
+
+Auto-generated claim packet: cover letter, exhibits (wind/hail timeline, annotated photos, invoice & job-cost breakdown), and follow-up scheduler (2×/week).
+
+Contractor “Weather Center” with explainers and short videos (LLM converts technical feeds into plain language).
+
+Phase 3:
+
+Phone agent that can call carriers to ask “how do we submit this claim?” and log instructions; escalation workflows; market-rate benchmarking reports by zip; multi-language messaging.
+
+Data model & workflows (starter sketch)
+
+Tables: Contractors, ServiceAreas (polygons), Consents, Alerts, Events(Hurricane/Severe/Wildfire/Quake), Jobs, Media(photos), Invoices, Claims, Carriers, FollowUps, Notices(30/60/90).
+
+Pipelines:
+
+Ingest (cron) → Geo-match → Deduplicate/Throttle → Notify → Ack.
+
+Evidence: photo upload → auto-tags → link to Event timeline → generate report PDF.
+
+Claims: submit instructions → send packet → schedule follow-ups → log all comms.
+
+What the agent says to contractors (example tone)
+
+“Heads up: SPC raised your county to Enhanced risk for severe storms 3–10 PM. Expect 60–80 mph straight-line wind potential. Hail up to golf-ball size possible. Why it matters: powerline/tree falls & roof edge damage—prep saw crews and traffic control.” (Backed by SPC polygons + NWS alerts.) 
+mapservices.weather.noaa.gov
++1
+
+If you want, I can draft:
+
+a technical spec (ERD + queue/cron diagram + webhook contracts),
+
+the exact TCPA-safe consent copy and opt-out flow, and
+
+the first claim packet templates (cover letter + 30/60/90-day notices),
+all sized to your app stack.
