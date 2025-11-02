@@ -1,0 +1,84 @@
+What’s now included
+
+Backend (FastAPI)
+
+CORS enabled for local dev.
+
+Simple in-memory data for users, leads, jobs, invoices, memberships, and consents.
+
+Auth: /auth/signup, /auth/login
+
+Membership: /membership/checkout (stubbed Stripe → marks plan active)
+
+Consent/Opt-Out: /compliance/consent + /compliance/optout
+
+Leads: GET /leads, POST /leads/accept/{id}
+
+Jobs: GET /jobs, POST /jobs/{id}/analyze, POST /jobs/{id}/comparables
+
+Claims/Invoices:
+
+POST /claims/{job_id}/invoice (creates invoice + returns Xactimate-like estimate)
+
+GET /claims/{job_id}/report.html (insurer-facing HTML report you can print/save as PDF)
+
+Agent stubs still in place and ready for real APIs.
+
+Frontend (Next.js + Tailwind)
+
+Auth flow: /signup → /login
+
+Contractor portal
+
+/contractor/dashboard: fetches live leads & jobs from backend.
+
+/contractor/leads/[id]: accept lead.
+
+/contractor/jobs/[id]: enter cost breakdown, generate invoice & comparables, and open insurer-facing report (HTML).
+
+Homeowner portal
+
+/homeowner/dashboard: basic job view.
+
+Settings
+
+/settings: Consent toggle (TCPA/CTIA friendly) + membership plan activation (one-time or monthly).
+
+API client wired via NEXT_PUBLIC_API_BASE.
+
+Run it
+
+Backend
+
+cd backend
+python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+# http://localhost:8000/docs
+
+
+Frontend
+
+cd frontend
+npm install
+npm run dev
+# http://localhost:3000
+
+
+Set NEXT_PUBLIC_API_BASE=http://localhost:8000 in frontend/.env (already included as an example).
+
+Next upgrades I can add (just say the word)
+
+Real Stripe checkout and webhooks (switch from stub to live).
+
+Twilio SMS/voice + opt-out keywords (STOP, HELP) handling.
+
+DocuSign e-signature for contracts (with AOB logic per state).
+
+File storage (S3 or Supabase) for photos/videos + Vision labeling.
+
+Property & insurer enrichment via approved data sources.
+
+Export PDF reports server-side (we’ll render HTML → PDF in backend).
+
+Replace in-memory store with Postgres (Supabase) + Prisma/SQLModel.
