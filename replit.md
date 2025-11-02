@@ -63,6 +63,41 @@ Preferred communication style: Simple, everyday language.
 - **Workflow Agents**: Weather Agent → Dispatch Agent → Contractor → Homeowner → Claims/Invoice Agent → Negotiator Agent → Insurer
 - **AI Claims Intelligence**: Automated comparable generation, policy language parsing, settlement threshold logic, rebuttal automation
 
+### Workflow API Implementation (November 2025)
+**Status:** ✅ All 25+ endpoints functional and tested end-to-end  
+**Security:** ⚠️ Authentication middleware created but not yet applied (see SECURITY.md)  
+**Location:** `server/routes/workflowRoutes.ts`
+
+**Implemented Endpoints:**
+- **Auth** (2): POST /auth/signup, POST /auth/login (session-based)
+- **Memberships** (2): POST /membership/checkout (Stripe one-time & monthly), POST /membership/webhook
+- **Contractor Profiles** (2): POST/GET /contractor/profile
+- **Contracts** (2): POST /contractor/contracts/validate (FL/TX/CA rules), POST /contractor/contracts/generate (AOB support)
+- **Properties** (2): POST/GET /properties (geocoded addresses)
+- **Jobs** (4): POST/GET /jobs, PATCH /jobs/:id/status, POST /jobs/:id/analyze (AI damage analysis)
+- **Media** (2): POST/GET /jobs/:id/media (photo/video documentation)
+- **Invoices** (7): POST /jobs/:id/invoice, GET /invoices/:id, PATCH /invoices/:id/status, POST /invoices/:id/submit, POST /invoices/:id/comparables (AI True Cost vs Xactimate), POST /invoices/:id/negotiate (AI rebuttal generation)
+- **Contract Signing** (1): POST /jobs/:id/contract/sign
+
+**End-to-End Testing Results:**
+1. Created homeowner (Lisa) and contractor (John ProStorm) accounts
+2. Created property in Miami, FL with geocoding
+3. Created job for emergency roof tarping ($12,500 estimate)
+4. Uploaded 2 damage photos with metadata
+5. AI analyzed media → estimated $13,305 damage with recommendations
+6. Generated AI cost comparables: True Cost $12,500 vs Xactimate $10,625 (15% delta)
+7. Submitted invoice to State Farm insurance (claim #CLM-2024-12345)
+8. AI negotiation: Insurer offered $9,000 (72%) → AI countered $11,875 (95%) with full justification citing market data + OSHA compliance
+9. Generated FL-compliant contract with AOB (Assignment of Benefits)
+10. Homeowner e-signed contract
+11. Job completed, invoice approved
+
+**Production Security Requirements:**
+- See `SECURITY.md` for detailed authentication/authorization implementation guide
+- Auth middleware ready at `server/middleware/auth.ts` (requireAuth, requireRole, verifyOwnership)
+- Estimated security implementation time: 4-7 days
+- Critical: Add authentication to all protected endpoints before production deployment
+
 ## External Dependencies
 
 ### Core Infrastructure

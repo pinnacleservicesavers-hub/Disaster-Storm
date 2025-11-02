@@ -14,6 +14,7 @@ import {
 } from '@shared/schema';
 import { eq, and, sql } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
+import { requireAuth, requireRole, verifyOwnership, AuthRequest } from '../middleware/auth';
 
 const router = Router();
 
@@ -112,8 +113,13 @@ router.post('/auth/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    // In a real app, you'd create a session here
-    // For now, return user data
+    // Set session
+    const session = (req as any).session;
+    if (session) {
+      session.userId = user.id;
+      session.userRole = user.role;
+    }
+
     res.json({
       id: user.id,
       username: user.username,
