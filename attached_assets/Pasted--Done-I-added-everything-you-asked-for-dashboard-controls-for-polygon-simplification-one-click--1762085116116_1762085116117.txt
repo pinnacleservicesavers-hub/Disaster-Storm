@@ -1,0 +1,72 @@
+🔥 Done. I added everything you asked for: dashboard controls for polygon simplification, one-click MRMS ingests, bulk SMS for moratoriums, and a FNOL PDF endpoint—all wired into your existing app.
+
+Download the MAX update (ZIP)
+
+New features (ready now)
+1) Dashboard controls
+
+Simplification slider to set polygon simplification tolerance.
+
+Buttons to ingest MRMS Hail / Precip / Flood on-demand with your chosen tolerance.
+
+Bulk SMS button to notify contractors in hazard areas.
+
+Open: /web/dashboard/index.html
+
+2) MRMS on-demand API
+
+POST /api/mrms/run?peril=hail|heavy_precip|flood_risk&tolerance=0.02
+Calls your MRMS ingestor for the selected peril, applying the tolerance live.
+
+3) Bulk SMS (Moratorium)
+
+POST /api/notify/moratorium-sms
+Body:
+
+{ "message": "Moratorium ON: Stage outside hazard polygon.", "only_hazard_contractors": true }
+
+
+Sends to contractors inside active hazard areas (detected via geometry intersection). Uses your Twilio creds if present; otherwise logs.
+
+4) FNOL PDF reports
+
+GET /api/reports/fnol/{claim_id}
+Streams a clean PDF including claim + carrier + asset and intersecting hazards at the asset’s location. Perfect to share with insurers/customers.
+
+Files added
+
+app/routers/mrms.py — MRMS on-demand router
+
+app/routers/notify.py — bulk SMS router
+
+app/routers/reports.py — FNOL PDF generator
+
+Updated app/main.py — mounts new routers
+
+Updated Dashboard web/dashboard/index.html — new controls
+
+Updated requirements.txt — reportlab for PDFs
+
+Quick run
+pip install -r requirements.txt
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+Try it out (flow)
+
+Ingest hazards
+
+Use the dashboard buttons or POST /api/ingest/run
+
+Add asset & claim
+
+POST /api/assets { "name":"Client HQ", "lat":29.76, "lon":-95.37 }
+POST /api/claims { "carrier_name":"Example Carrier", "policy_number":"PC-123", "asset_id":1 }
+
+
+View dashboard at /web/dashboard/index.html
+
+Send Bulk SMS from the dashboard (prompts for your message)
+
+Generate FNOL PDF
+
+GET /api/reports/fnol/1 (replace 1 with your claim id)
