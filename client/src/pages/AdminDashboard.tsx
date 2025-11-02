@@ -47,7 +47,7 @@ export function AdminDashboard() {
   // Trigger MRMS processing
   const processMRMS = useMutation({
     mutationFn: async () => {
-      return apiRequest('/ingest/mrms-production', { method: 'POST' });
+      return apiRequest('/api/ingest/mrms-production', { method: 'POST' });
     },
     onSuccess: (data) => {
       toast({
@@ -69,7 +69,7 @@ export function AdminDashboard() {
   // Send contractor alerts (dry run)
   const sendAlertsDryRun = useMutation({
     mutationFn: async () => {
-      return apiRequest('/alerts/contractor/send', {
+      return apiRequest('/api/alerts/contractor/send', {
         method: 'POST',
         body: JSON.stringify({ dryRun: true }),
       });
@@ -85,7 +85,7 @@ export function AdminDashboard() {
   // Send contractor alerts (real)
   const sendAlertsReal = useMutation({
     mutationFn: async () => {
-      return apiRequest('/alerts/contractor/send', {
+      return apiRequest('/api/alerts/contractor/send', {
         method: 'POST',
         body: JSON.stringify({ dryRun: false }),
       });

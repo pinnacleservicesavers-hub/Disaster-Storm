@@ -1,0 +1,84 @@
+Level up complete. 🚀
+
+Download the enterprise build:
+storm-disaster-monorepo-enterprise.zip
+
+What’s new in this build
+1) Real e-signature flow (DocuSign – embedded signing ready)
+
+Added docusign-esign dependency and signing endpoint:
+
+POST /contracts/sign → returns a sign_url to open a signing session.
+
+Stub is in app/services/docusign_svc.py. Drop in your official SDK code + creds (DOCUSIGN_* in .env) to go live.
+
+Frontend page: /contractor/contracts → Generate AI contract → Send for e-signature → Open signing session.
+
+2) Twilio outbound messaging (per-user) + inbound STOP/HELP
+
+Outbound: app/services/twilio_svc.py now sends real SMS via Twilio Client if the user has phone and consent_comm=true.
+
+Inbound: POST /twilio/inbound handles STOP and HELP TwiML responses (demo sets consent false globally; wire to a user by phone in your DB).
+
+3) Postgres / Supabase-ready persistence
+
+SQLAlchemy (async) + Alembic:
+
+Models: app/models.py
+
+Engine/sessions: app/database.py
+
+Migration: alembic/versions/0001_init.py
+
+Toggle on with env:
+
+USE_DB=true
+
+DATABASE_URL=postgresql+asyncpg://user:pass@host:5432/storm
+
+Run:
+
+cd backend
+alembic upgrade head
+
+
+Supabase compatible—just paste your Supabase Postgres URL.
+
+4) Insurer-facing PDF report stays wired
+
+GET /claims/{job_id}/report.html and GET /claims/{job_id}/report.pdf (WeasyPrint).
+
+Frontend job page links to both.
+
+Quick start (unchanged)
+
+Backend
+
+cd backend
+python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+# (Optional) DB:
+# export USE_DB=true; export DATABASE_URL=postgresql+asyncpg://...
+# alembic upgrade head
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+
+Frontend
+
+cd frontend
+npm install
+npm run dev
+# http://localhost:3000
+
+
+Env to fill
+
+Stripe: STRIPE_SECRET_KEY, STRIPE_PRICE_ONE_TIME, STRIPE_PRICE_MONTHLY, STRIPE_WEBHOOK_SECRET
+
+Twilio: TWILIO_SID, TWILIO_TOKEN, TWILIO_FROM
+
+DocuSign: DOCUSIGN_INTEGRATOR_KEY, DOCUSIGN_ACCOUNT_ID, DOCUSIGN_USER_ID, DOCUSIGN_PRIVATE_KEY_PATH
+
+S3: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, S3_BUCKET
+
+DB: USE_DB, DATABASE_URL

@@ -1,0 +1,86 @@
+Cranked up to enterprise+ 🙌
+
+Download:
+storm-disaster-monorepo-enterprise-plus.zip
+
+What’s now fully wired
+
+Security & Auth
+
+JWT auth (HS256) with JWT_SECRET; bearer token added automatically to API calls.
+
+Client persists token; simple client-side role guards.
+
+Persistence (DB)
+
+Async SQLAlchemy + Alembic models & migrations.
+
+DAO layer that seamlessly falls back to in-memory if USE_DB=false.
+
+Ready to flip on with USE_DB=true + DATABASE_URL.
+
+Messaging (Twilio)
+
+Outbound per-user (uses user’s phone + consent) via MessagingService.
+
+Inbound webhook /twilio/inbound with exact phone → user mapping. Handles STOP, START, HELP.
+
+Contracts (DocuSign)
+
+Embedded-signing endpoint POST /contracts/sign and React page /contractor/contracts.
+
+Stub in docusign_svc.py—drop in the official JWT flow to go live with your credentials.
+
+Media (S3)
+
+Presigned upload endpoint POST /uploads/presign → PUT to S3.
+
+Frontend uploader page /uploader for quick testing.
+
+Remember to set S3 CORS to allow PUT from your domain.
+
+Claims & Reporting
+
+Insurer report HTML + PDF (WeasyPrint).
+
+Submission ZIP bundler GET /claims/{job_id}/submission.zip (PDF + manifest.json) to email or portal-upload.
+
+Runbook
+
+Backend
+
+cd backend
+python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+
+# Optional DB:
+export USE_DB=true
+export DATABASE_URL=postgresql+asyncpg://user:pass@host:5432/storm
+alembic upgrade head
+
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+
+Frontend
+
+cd frontend
+npm install
+npm run dev
+# http://localhost:3000
+
+
+Set NEXT_PUBLIC_API_BASE=http://localhost:8000 in frontend/.env.
+
+.env to fill (backend)
+
+JWT_SECRET
+
+Stripe: STRIPE_SECRET_KEY, STRIPE_PRICE_ONE_TIME, STRIPE_PRICE_MONTHLY, STRIPE_WEBHOOK_SECRET
+
+Twilio: TWILIO_SID, TWILIO_TOKEN, TWILIO_FROM
+
+DocuSign: DOCUSIGN_INTEGRATOR_KEY, DOCUSIGN_ACCOUNT_ID, DOCUSIGN_USER_ID, DOCUSIGN_PRIVATE_KEY_PATH
+
+AWS: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_DEFAULT_REGION, S3_BUCKET
+
+DB: USE_DB, DATABASE_URL
