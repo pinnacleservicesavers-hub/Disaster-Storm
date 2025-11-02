@@ -1,0 +1,162 @@
+1) Create module pages (one file per module)
+
+Make these files (copy/paste each). They’re lightweight shells you can grow later.
+
+client/src/modules/WeatherCenter.tsx
+
+export default function WeatherCenter() {
+  return (
+    <div className="min-h-screen text-white p-8">
+      <h2 className="text-3xl font-bold mb-4">Weather Center</h2>
+      <p className="text-white/70">Live radar, alerts, and ops tools.</p>
+    </div>
+  );
+}
+
+
+client/src/modules/StormPredictions.tsx
+
+export default function StormPredictions() {
+  return (
+    <div className="min-h-screen text-white p-8">
+      <h2 className="text-3xl font-bold mb-4">Storm Predictions</h2>
+      <p className="text-white/70">AI-powered predictive damage analysis.</p>
+    </div>
+  );
+}
+
+
+client/src/modules/TrafficCamWatcher.tsx
+
+export default function TrafficCamWatcher() {
+  return (
+    <div className="min-h-screen text-white p-8">
+      <h2 className="text-3xl font-bold mb-4">TrafficCamWatcher</h2>
+      <p className="text-white/70">Live traffic cams with AI damage detection.</p>
+    </div>
+  );
+}
+
+
+client/src/modules/DroneOperations.tsx
+
+export default function DroneOperations() {
+  return (
+    <div className="min-h-screen text-white p-8">
+      <h2 className="text-3xl font-bold mb-4">Drone Operations</h2>
+      <p className="text-white/70">Fleet, flight logs, and assessment workflows.</p>
+    </div>
+  );
+}
+
+
+client/src/modules/AIDamageDetection.tsx
+
+export default function AIDamageDetection() {
+  return (
+    <div className="min-h-screen text-white p-8">
+      <h2 className="text-3xl font-bold mb-4">AI Damage Detection</h2>
+      <p className="text-white/70">Real-time inference on camera feeds.</p>
+    </div>
+  );
+}
+
+
+client/src/modules/XrayReality.tsx
+
+export default function XrayReality() {
+  return (
+    <div className="min-h-screen text-white p-8">
+      <h2 className="text-3xl font-bold mb-4">X-RAY REALITY</h2>
+      <p className="text-white/70">3D radar, satellite, and AR overlays.</p>
+    </div>
+  );
+}
+
+
+Want “Preview” pages separate? Duplicate each file next to it as *.preview.tsx with simplified content.
+
+2) Lazy-load the pages in your router
+
+Edit client/src/App.tsx to import pages with React.lazy and wrap routes in a <Suspense> fallback. This keeps initial load tiny and plays nicely with your animations.
+
+import React, { Suspense, lazy } from "react";
+import { Routes, Route, Navigate } from "react-router-dom";
+import ModuleGallery from "./StormOpsProHub"; // path to your gallery
+
+// Lazy imports
+const WeatherCenter      = lazy(() => import("./modules/WeatherCenter"));
+const StormPredictions   = lazy(() => import("./modules/StormPredictions"));
+const TrafficCamWatcher  = lazy(() => import("./modules/TrafficCamWatcher"));
+const DroneOperations    = lazy(() => import("./modules/DroneOperations"));
+const AIDamageDetection  = lazy(() => import("./modules/AIDamageDetection"));
+const XrayReality        = lazy(() => import("./modules/XrayReality"));
+
+// Optional: shared loader
+function Loader() {
+  return (
+    <div className="w-full py-16 text-center text-white/70">
+      <div className="animate-pulse inline-flex items-center gap-3 text-lg">
+        <span className="w-3 h-3 rounded-full bg-[color:var(--neon-blue,#00c2ff)]"></span>
+        Loading…
+      </div>
+    </div>
+  );
+}
+
+// Route map used by the gallery buttons
+const galleryRoutes = {
+  "weather-center":        { launch: "/ops/weather",  preview: "/ops/weather/preview",  docs: "/docs/weather" },
+  "storm-predictions":     { launch: "/ops/predict",  preview: "/ops/predict/preview",  docs: "/docs/predict" },
+  "traffic-cam-watcher":   { launch: "/ops/traffic",  preview: "/ops/traffic/preview",  docs: "/docs/traffic" },
+  "drone-operations":      { launch: "/ops/drones",   preview: "/ops/drones/preview",   docs: "/docs/drones" },
+  "ai-damage-detection":   { launch: "/ops/ai",       preview: "/ops/ai/preview",       docs: "/docs/ai" },
+  "xray-reality":          { launch: "/ops/xray",     preview: "/ops/xray/preview",     docs: "/docs/xray" },
+};
+
+export default function App() {
+  return (
+    <>
+      {/* Neon cinematic gallery */}
+      <ModuleGallery routes={galleryRoutes} />
+
+      {/* Lazy routes */}
+      <Suspense fallback={<Loader />}>
+        <Routes>
+          <Route path="/" element={<Navigate to="/ops/weather" replace />} />
+
+          <Route path="/ops/weather" element={<WeatherCenter />} />
+          <Route path="/ops/predict" element={<StormPredictions />} />
+          <Route path="/ops/traffic" element={<TrafficCamWatcher />} />
+          <Route path="/ops/drones" element={<DroneOperations />} />
+          <Route path="/ops/ai" element={<AIDamageDetection />} />
+          <Route path="/ops/xray" element={<XrayReality />} />
+
+          {/* Preview placeholders (optional) */}
+          <Route path="/ops/weather/preview" element={<WeatherCenter />} />
+          <Route path="/ops/predict/preview" element={<StormPredictions />} />
+          <Route path="/ops/traffic/preview" element={<TrafficCamWatcher />} />
+          <Route path="/ops/drones/preview" element={<DroneOperations />} />
+          <Route path="/ops/ai/preview" element={<AIDamageDetection />} />
+          <Route path="/ops/xray/preview" element={<XrayReality />} />
+
+          {/* Docs placeholders (optional) */}
+          <Route path="/docs/weather" element={<WeatherCenter />} />
+          <Route path="/docs/predict" element={<StormPredictions />} />
+          <Route path="/docs/traffic" element={<TrafficCamWatcher />} />
+          <Route path="/docs/drones" element={<DroneOperations />} />
+          <Route path="/docs/ai" element={<AIDamageDetection />} />
+          <Route path="/docs/xray" element={<XrayReality />} />
+
+          <Route path="*" element={<Navigate to="/ops/weather" replace />} />
+        </Routes>
+      </Suspense>
+    </>
+  );
+}
+
+3) (Optional) Parallax + energy effects inside pages
+
+When you’re ready, I can drop a small “page header” component into each module that matches the cinematic neon style (glow bar, subtle arcs, etc.) so your inner pages feel as premium as the gallery.
+
+If you paste the exact path to your gallery component (looks like client/src/StormOpsProHub.tsx from your file list), I’ll tailor the imports so nothing breaks. Want me to add a global top nav + sticky status bar (LIVE / ALERTS / RADAR ONLINE) to match your hero too?
