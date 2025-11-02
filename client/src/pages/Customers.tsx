@@ -4,9 +4,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useQuery } from '@tanstack/react-query';
-import { User, Plus, Search, Settings, Phone, Mail, MessageSquare, Clock, Star, TrendingUp, Activity, Volume2, VolumeX } from 'lucide-react';
+import { User, Plus, Search, Settings, Phone, Mail, MessageSquare, Clock, Star, TrendingUp, Activity, Volume2, VolumeX, ArrowLeft } from 'lucide-react';
+import { Link } from 'wouter';
 import { DashboardSection } from '@/components/DashboardSection';
 import { FadeIn, SlideIn, StaggerContainer, StaggerItem, HoverLift } from '@/components/ui/animations';
+import { StateCitySelector, useStateCitySelector } from '@/components/StateCitySelector';
 
 interface Customer {
   id: string;
@@ -31,6 +33,7 @@ interface Communication {
 }
 
 export default function Customers() {
+  const { selectedState, setSelectedState, selectedCity, setSelectedCity, availableCities } = useStateCitySelector('Florida', 'Miami');
   const [selectedFilter, setSelectedFilter] = useState('all');
   const [isVoiceGuideActive, setIsVoiceGuideActive] = useState(false);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
@@ -197,12 +200,35 @@ export default function Customers() {
   const totalRevenue = customers.reduce((sum, c) => sum + c.projectValue, 0);
 
   return (
-    <DashboardSection
-      title="Customer Management"
-      description="Manage customer relationships, communications, and service history with advanced analytics"
-      icon={User}
-      badge={{ text: `${totalCustomers} ACTIVE`, variant: 'default' }}
-      kpis={[
+    <div className="space-y-6">
+      <div className="flex items-center gap-4">
+        <Link href="/">
+          <motion.button
+            whileHover={{ scale: 1.05, x: -2 }}
+            whileTap={{ scale: 0.95 }}
+            className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200"
+            data-testid="button-back-to-hub"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span className="text-sm font-medium">Back to Hub</span>
+          </motion.button>
+        </Link>
+        <StateCitySelector
+          selectedState={selectedState}
+          selectedCity={selectedCity}
+          availableCities={availableCities}
+          onStateChange={setSelectedState}
+          onCityChange={setSelectedCity}
+          variant="default"
+          showAllStates={true}
+        />
+      </div>
+      <DashboardSection
+        title="Customer Management"
+        description="Manage customer relationships, communications, and service history with advanced analytics"
+        icon={User}
+        badge={{ text: `${totalCustomers} ACTIVE`, variant: 'default' }}
+        kpis={[
         { label: 'Total Customers', value: 15847, change: '+342 this month', color: 'blue', testId: 'text-total-customers' },
         { label: 'Active Projects', value: activeProjects, change: 'Currently in progress', color: 'green', testId: 'text-active-projects' },
         { label: 'Satisfaction Rate', value: avgSatisfaction, change: 'Average rating', color: 'amber', suffix: '/5.0', testId: 'text-satisfaction-rate' },
@@ -459,5 +485,6 @@ export default function Customers() {
         </div>
       </div>
     </DashboardSection>
+    </div>
   );
 }

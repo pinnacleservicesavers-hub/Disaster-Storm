@@ -5,10 +5,12 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Users, Plus, Search, Settings, Shield, AlertTriangle, CheckCircle, TrendingUp, Star, MapPin, Calendar, Clock, Zap, Award, Target, ChevronRight, Briefcase, UserPlus, Phone, Mail, MessageSquare, Filter, Volume2, VolumeX, X } from 'lucide-react';
+import { Users, Plus, Search, Settings, Shield, AlertTriangle, CheckCircle, TrendingUp, Star, MapPin, Calendar, Clock, Zap, Award, Target, ChevronRight, Briefcase, UserPlus, Phone, Mail, MessageSquare, Filter, Volume2, VolumeX, X, ArrowLeft } from 'lucide-react';
+import { Link } from 'wouter';
 import { DashboardSection } from '@/components/DashboardSection';
 import { FadeIn, PulseAlert, StaggerContainer, StaggerItem, HoverLift, CountUp, ScaleIn, SlideIn } from '@/components/ui/animations';
 import { getAuthHeaders } from '@/lib/queryClient';
+import { StateCitySelector, useStateCitySelector } from '@/components/StateCitySelector';
 
 interface ContractorStatus {
   id: string;
@@ -44,6 +46,7 @@ interface Job {
 }
 
 export default function ContractorManagement() {
+  const { selectedState, setSelectedState, selectedCity, setSelectedCity, availableCities } = useStateCitySelector('Florida', 'Miami');
   const [selectedRegion, setSelectedRegion] = useState('all');
   const [selectedView, setSelectedView] = useState('overview');
   const [draggedJob, setDraggedJob] = useState<Job | null>(null);
@@ -300,12 +303,35 @@ export default function ContractorManagement() {
   };
 
   return (
-    <DashboardSection
-      title="Contractor Management"
-      description="Administrative oversight and management of your contractor network, qualifications, and assignments"
-      icon={Users}
-      badge={{ text: `${contractors.length} ACTIVE`, variant: 'default' }}
-      kpis={[
+    <div className="space-y-6">
+      <div className="flex items-center gap-4">
+        <Link href="/">
+          <motion.button
+            whileHover={{ scale: 1.05, x: -2 }}
+            whileTap={{ scale: 0.95 }}
+            className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200"
+            data-testid="button-back-to-hub"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span className="text-sm font-medium">Back to Hub</span>
+          </motion.button>
+        </Link>
+        <StateCitySelector
+          selectedState={selectedState}
+          selectedCity={selectedCity}
+          availableCities={availableCities}
+          onStateChange={setSelectedState}
+          onCityChange={setSelectedCity}
+          variant="default"
+          showAllStates={true}
+        />
+      </div>
+      <DashboardSection
+        title="Contractor Management"
+        description="Administrative oversight and management of your contractor network, qualifications, and assignments"
+        icon={Users}
+        badge={{ text: `${contractors.length} ACTIVE`, variant: 'default' }}
+        kpis={[
         { label: 'Total Contractors', value: 247, change: '+12 this month', color: 'blue', testId: 'text-active-contractors' },
         { label: 'Available Now', value: availableCount, change: 'Ready for dispatch', color: 'green', testId: 'text-available-contractors' },
         { label: 'On Assignment', value: busyCount, change: 'Across 23 states', color: 'amber', testId: 'text-assigned-contractors' },
@@ -1399,5 +1425,6 @@ export default function ContractorManagement() {
         </div>
       )}
     </DashboardSection>
+    </div>
   );
 }

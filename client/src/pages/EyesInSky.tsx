@@ -4,11 +4,13 @@ import { Link } from 'wouter';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FadeIn, ScaleIn, SlideIn } from '@/components/ui/animations';
-import { Video, ExternalLink, AlertCircle, DollarSign, Play, Users, Signal, Zap, Heart, Filter, Search, Clock, Volume2, VolumeX, Globe } from 'lucide-react';
+import { Video, ExternalLink, AlertCircle, DollarSign, Play, Users, Signal, Zap, Heart, Filter, Search, Clock, Volume2, VolumeX, Globe, ArrowLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect } from 'react';
+import { StateCitySelector, useStateCitySelector } from '@/components/StateCitySelector';
 
 export default function EyesInSky() {
+  const { selectedState, setSelectedState, selectedCity, setSelectedCity, availableCities } = useStateCitySelector('Florida', 'Miami');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState('grid');
@@ -28,6 +30,28 @@ export default function EyesInSky() {
         />
       </div>
       <div className="relative max-w-7xl mx-auto px-8 py-16">
+        <div className="flex items-center gap-4 mb-6">
+          <Link href="/">
+            <motion.button
+              whileHover={{ scale: 1.05, x: -2 }}
+              whileTap={{ scale: 0.95 }}
+              className="flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-sm border border-white/20 text-white rounded-lg hover:bg-white/20 transition-all duration-200"
+              data-testid="button-back-to-hub"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span className="text-sm font-medium">Back to Hub</span>
+            </motion.button>
+          </Link>
+          <StateCitySelector
+            selectedState={selectedState}
+            selectedCity={selectedCity}
+            availableCities={availableCities}
+            onStateChange={setSelectedState}
+            onCityChange={setSelectedCity}
+            variant="dark"
+            showAllStates={true}
+          />
+        </div>
         <h1 className="text-6xl font-extrabold tracking-tight mb-4"
           style={{
             background: 'linear-gradient(90deg, #00d9ff 0%, #00ffcc 100%)',

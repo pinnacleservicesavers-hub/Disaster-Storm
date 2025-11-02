@@ -67,6 +67,7 @@ import {
   CountUp,
   PulseAlert
 } from '@/components/ui/animations';
+import { StateCitySelector, useStateCitySelector } from '@/components/StateCitySelector';
 
 // Property Lookup Tool Component
 function PropertyLookupTool() {
@@ -279,6 +280,7 @@ function PropertyLookupTool() {
 }
 
 export default function ContractorPortal() {
+  const { selectedState, setSelectedState, selectedCity, setSelectedCity, availableCities } = useStateCitySelector('Florida', 'Miami');
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
@@ -547,6 +549,28 @@ export default function ContractorPortal() {
         transition={{ duration: 0.6 }}
       >
         <div className="container mx-auto px-6 py-4">
+          <div className="flex items-center gap-4 mb-4">
+            <Link href="/">
+              <motion.button
+                whileHover={{ scale: 1.05, x: -2 }}
+                whileTap={{ scale: 0.95 }}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all duration-200"
+                data-testid="button-back-to-hub"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span className="text-sm font-medium">Back to Hub</span>
+              </motion.button>
+            </Link>
+            <StateCitySelector
+              selectedState={selectedState}
+              selectedCity={selectedCity}
+              availableCities={availableCities}
+              onStateChange={setSelectedState}
+              onCityChange={setSelectedCity}
+              variant="dark"
+              showAllStates={true}
+            />
+          </div>
           <div className="flex items-center justify-between">
             <motion.div 
               className="flex items-center space-x-4"

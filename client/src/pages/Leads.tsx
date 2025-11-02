@@ -21,6 +21,7 @@ import {
 import { Link } from 'wouter';
 import { FadeIn, PulseAlert, StaggerContainer, StaggerItem, HoverLift, CountUp, ScaleIn, SlideIn } from '@/components/ui/animations';
 import { apiRequest } from '@/lib/queryClient';
+import { StateCitySelector, useStateCitySelector } from '@/components/StateCitySelector';
 
 interface Lead {
   id: string;
@@ -70,6 +71,7 @@ interface ContractorAssignment {
 }
 
 export default function Leads() {
+  const { selectedState, setSelectedState, selectedCity, setSelectedCity, availableCities } = useStateCitySelector('Florida', 'Miami');
   const [activeTab, setActiveTab] = useState('board');
   const [selectedLead, setSelectedLead] = useState<string | null>(null);
   const [draggedLead, setDraggedLead] = useState<string | null>(null);
@@ -598,6 +600,28 @@ export default function Leads() {
           </div>
 
           <div className="relative">
+            <div className="flex items-center gap-4 mb-4">
+              <Link href="/">
+                <motion.button
+                  whileHover={{ scale: 1.05, x: -2 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-sm border border-white/20 text-white rounded-lg hover:bg-white/20 transition-all duration-200"
+                  data-testid="button-back-to-hub"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  <span className="text-sm font-medium">Back to Hub</span>
+                </motion.button>
+              </Link>
+              <StateCitySelector
+                selectedState={selectedState}
+                selectedCity={selectedCity}
+                availableCities={availableCities}
+                onStateChange={setSelectedState}
+                onCityChange={setSelectedCity}
+                variant="default"
+                showAllStates={true}
+              />
+            </div>
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center space-x-4">
                 <ScaleIn>

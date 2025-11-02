@@ -18,6 +18,7 @@ import { DashboardSection } from '@/components/DashboardSection';
 import { FadeIn, PulseAlert, StaggerContainer, StaggerItem, HoverLift, CountUp } from '@/components/ui/animations';
 import { XactimateComparables } from '@/components/XactimateComparables';
 import { LegalDisclaimer } from '@/components/LegalDisclaimer';
+import { StateCitySelector, useStateCitySelector } from '@/components/StateCitySelector';
 
 interface Claim {
   id: string;
@@ -34,6 +35,7 @@ interface Claim {
 }
 
 export default function Claims() {
+  const { selectedState, setSelectedState, selectedCity, setSelectedCity, availableCities } = useStateCitySelector('Florida', 'Miami');
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [isVoiceGuideActive, setIsVoiceGuideActive] = useState(false);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
@@ -453,7 +455,30 @@ Current Notes: ${newClaim.notes || 'None yet'}
   const avgProcessingTime = 4.2; // Mock average
 
   return (
-    <>
+    <div className="space-y-6">
+      <div className="flex items-center gap-4">
+        <Link href="/">
+          <motion.button
+            whileHover={{ scale: 1.05, x: -2 }}
+            whileTap={{ scale: 0.95 }}
+            className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200"
+            data-testid="button-back-to-hub"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span className="text-sm font-medium">Back to Hub</span>
+          </motion.button>
+        </Link>
+        <StateCitySelector
+          selectedState={selectedState}
+          selectedCity={selectedCity}
+          availableCities={availableCities}
+          onStateChange={setSelectedState}
+          onCityChange={setSelectedCity}
+          variant="default"
+          showAllStates={true}
+        />
+      </div>
+      
       {/* Add New Claim Modal */}
       {isAddClaimModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -1100,6 +1125,6 @@ Current Notes: ${newClaim.notes || 'None yet'}
       {/* Xactimate Comparables Section */}
       <XactimateComparables />
     </DashboardSection>
-    </>
+    </div>
   );
 }

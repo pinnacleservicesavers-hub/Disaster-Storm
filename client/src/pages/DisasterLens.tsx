@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { getAuthHeaders } from "@/lib/queryClient";
 import AssistantDock from '../components/AssistantDock';
+import { StateCitySelector, useStateCitySelector } from '@/components/StateCitySelector';
 import { Volume2, VolumeX, Play, Pause, RotateCcw, X, Plus } from 'lucide-react';
 
 // Single-file demo UI for Disaster Lens
@@ -1176,6 +1177,7 @@ const VOICE_GUIDE_SCRIPTS = {
 
 export default function App() {
   const tabs = ["Capture", "Timeline", "Annotator", "Calibrate", "Report Builder"] as const;
+  const { selectedState, setSelectedState, selectedCity, setSelectedCity, availableCities } = useStateCitySelector('Florida', 'Miami');
   const [tab, setTab] = useState<typeof tabs[number]>("Capture");
   const [scalePxPerInch, setScalePxPerInchState] = useState<number | null>(null);
   
@@ -1404,8 +1406,20 @@ export default function App() {
               <p className="text-sm text-gray-600">Photo • Video • Reports</p>
             </div>
             
-            {/* Voice Guide Controls */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-4">
+              {/* State/City Selector */}
+              <StateCitySelector
+                selectedState={selectedState}
+                selectedCity={selectedCity}
+                availableCities={availableCities}
+                onStateChange={setSelectedState}
+                onCityChange={setSelectedCity}
+                variant="default"
+                showAllStates={true}
+              />
+              
+              {/* Voice Guide Controls */}
+              <div className="flex items-center gap-3">
               <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg">
                 <Volume2 className="w-4 h-4 text-blue-600" />
                 <span className="text-sm font-medium text-blue-800">Voice Guide</span>

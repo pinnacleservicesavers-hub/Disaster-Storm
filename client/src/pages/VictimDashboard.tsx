@@ -23,10 +23,11 @@ import {
   RefreshCw, Search, Filter, Calendar, TrendingUp,
   Clipboard, DollarSign, Award, Target, Radio, Siren,
   Briefcase, FileCheck, PersonStanding, Lightbulb, Volume2, VolumeX,
-  Image as ImageIcon, X, Loader2, Sparkles, Upload, Info
+  Image as ImageIcon, X, Loader2, Sparkles, Upload, Info, ArrowLeft
 } from 'lucide-react';
 import { FadeIn, PulseAlert, StaggerContainer, StaggerItem, HoverLift, CountUp, ScaleIn, SlideIn } from '@/components/ui/animations';
 import { apiRequest } from '@/lib/queryClient';
+import { StateCitySelector, useStateCitySelector } from '@/components/StateCitySelector';
 
 type VictimUser = typeof homeowners.$inferSelect;
 
@@ -66,6 +67,7 @@ interface AssistanceRequest {
 }
 
 export default function VictimDashboard() {
+  const { selectedState, setSelectedState, selectedCity, setSelectedCity, availableCities } = useStateCitySelector('Florida', 'Miami');
   const [user, setUser] = useState<VictimUser | null>(null);
   const [activeAlert, setActiveAlert] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -877,6 +879,15 @@ You can ask our AI assistant about any of these resources, and it will guide you
                     Welcome {user.firstName} - Your dedicated disaster recovery command center
                   </p>
                 </div>
+                <StateCitySelector
+                  selectedState={selectedState}
+                  selectedCity={selectedCity}
+                  availableCities={availableCities}
+                  onStateChange={setSelectedState}
+                  onCityChange={setSelectedCity}
+                  variant="dark"
+                  showAllStates={true}
+                />
               </div>
               
               <div className="flex items-center space-x-3">

@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { StateCitySelector, useStateCitySelector } from '@/components/StateCitySelector';
 import { 
   CloudRain, 
   Zap, 
@@ -135,26 +135,16 @@ const US_STATES_CITIES: Record<string, string[]> = {
 };
 
 export default function WeatherCenter() {
+  const { selectedState, setSelectedState, selectedCity, setSelectedCity, availableCities } = useStateCitySelector('Florida', 'Miami');
   const [userLocation, setUserLocation] = useState<{ lat: number; lon: number } | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [refreshInterval, setRefreshInterval] = useState(30000); // 30 seconds
   const [selectedTab, setSelectedTab] = useState('overview');
-  const [selectedState, setSelectedState] = useState('Florida');
-  const [selectedCity, setSelectedCity] = useState('Miami');
-  const [availableCities, setAvailableCities] = useState<string[]>(US_STATES_CITIES['Florida']);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isVoiceGuideActive, setIsVoiceGuideActive] = useState(false);
   const [speechSynth, setSpeechSynth] = useState<SpeechSynthesis | null>(null);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
 
-  // Update available cities when state changes
-  useEffect(() => {
-    if (selectedState && US_STATES_CITIES[selectedState]) {
-      setAvailableCities(US_STATES_CITIES[selectedState]);
-      // Auto-select first city in the new state
-      setSelectedCity(US_STATES_CITIES[selectedState][0]);
-    }
-  }, [selectedState]);
 
   // Get user's GPS location
   useEffect(() => {
@@ -556,29 +546,14 @@ export default function WeatherCenter() {
               <SlideIn direction="right" delay={0.2}>
                 <div className="flex items-center gap-4">
                   {/* State/City Dropdowns */}
-                  <div className="flex items-center gap-2">
-                    <Select value={selectedState} onValueChange={setSelectedState}>
-                      <SelectTrigger className="w-40 bg-white/80 backdrop-blur-sm border-blue-200" data-testid="select-state">
-                        <SelectValue placeholder="State" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {PRIORITY_STATES.map(state => (
-                          <SelectItem key={state} value={state}>{state}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    
-                    <Select value={selectedCity} onValueChange={setSelectedCity}>
-                      <SelectTrigger className="w-40 bg-white/80 backdrop-blur-sm border-blue-200" data-testid="select-city">
-                        <SelectValue placeholder="City" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availableCities.map(city => (
-                          <SelectItem key={city} value={city}>{city}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  <StateCitySelector
+                    selectedState={selectedState}
+                    selectedCity={selectedCity}
+                    availableCities={availableCities}
+                    onStateChange={setSelectedState}
+                    onCityChange={setSelectedCity}
+                    variant="default"
+                  />
                   
                   {/* Fullscreen Toggle */}
                   <HoverLift>

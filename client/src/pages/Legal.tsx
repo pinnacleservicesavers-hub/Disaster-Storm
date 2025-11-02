@@ -4,9 +4,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useQuery } from '@tanstack/react-query';
-import { Scale, Plus, Search, Settings, AlertTriangle, Calendar, Clock, FileText, CheckCircle, Volume2, VolumeX } from 'lucide-react';
+import { Scale, Plus, Search, Settings, AlertTriangle, Calendar, Clock, FileText, CheckCircle, Volume2, VolumeX, ArrowLeft } from 'lucide-react';
+import { Link } from 'wouter';
 import { DashboardSection } from '@/components/DashboardSection';
 import { FadeIn, PulseAlert, StaggerContainer, StaggerItem, HoverLift } from '@/components/ui/animations';
+import { StateCitySelector, useStateCitySelector } from '@/components/StateCitySelector';
 
 interface LegalItem {
   id: string;
@@ -22,6 +24,7 @@ interface LegalItem {
 }
 
 export default function Legal() {
+  const { selectedState, setSelectedState, selectedCity, setSelectedCity, availableCities } = useStateCitySelector('Florida', 'Miami');
   const [selectedFilter, setSelectedFilter] = useState('all');
   const [isVoiceGuideActive, setIsVoiceGuideActive] = useState(false);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
@@ -190,12 +193,35 @@ export default function Legal() {
   const complianceRate = 98.7; // Mock compliance rate
 
   return (
-    <DashboardSection
-      title="Legal Compliance"
-      description="Manage legal compliance, contracts, liens, and regulatory requirements with automated deadline tracking"
-      icon={Scale}
-      badge={{ text: `${criticalAlerts} URGENT`, variant: 'destructive' }}
-      kpis={[
+    <div className="space-y-6">
+      <div className="flex items-center gap-4">
+        <Link href="/">
+          <motion.button
+            whileHover={{ scale: 1.05, x: -2 }}
+            whileTap={{ scale: 0.95 }}
+            className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200"
+            data-testid="button-back-to-hub"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span className="text-sm font-medium">Back to Hub</span>
+          </motion.button>
+        </Link>
+        <StateCitySelector
+          selectedState={selectedState}
+          selectedCity={selectedCity}
+          availableCities={availableCities}
+          onStateChange={setSelectedState}
+          onCityChange={setSelectedCity}
+          variant="default"
+          showAllStates={true}
+        />
+      </div>
+      <DashboardSection
+        title="Legal Compliance"
+        description="Manage legal compliance, contracts, liens, and regulatory requirements with automated deadline tracking"
+        icon={Scale}
+        badge={{ text: `${criticalAlerts} URGENT`, variant: 'destructive' }}
+        kpis={[
         { label: 'Active Contracts', value: 1847, change: 'Currently binding', color: 'blue', testId: 'text-active-contracts' },
         { label: 'Pending Liens', value: pendingLiens, change: 'Requiring action', color: 'red', testId: 'text-pending-liens' },
         { label: 'Compliance Rate', value: complianceRate, change: 'All jurisdictions', color: 'green', suffix: '%', testId: 'text-compliance-rate' },
@@ -519,5 +545,6 @@ export default function Legal() {
         </div>
       </div>
     </DashboardSection>
+    </div>
   );
 }

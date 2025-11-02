@@ -40,6 +40,7 @@ import PortalVoiceGuide, { PORTAL_SECTIONS } from "@/components/PortalVoiceGuide
 import AIAssistant from "@/components/AIAssistant";
 import { MarketplaceAIIntelligence } from "@/components/MarketplaceAIIntelligence";
 import { Link } from "wouter";
+import { StateCitySelector, useStateCitySelector } from '@/components/StateCitySelector';
 
 // State selection data
 const US_STATES = [
@@ -79,7 +80,7 @@ const fadeInUp = {
 };
 
 export default function DisasterEssentialsMarketplace() {
-  const [selectedState, setSelectedState] = useState("FL");
+  const { selectedState, setSelectedState, selectedCity, setSelectedCity, availableCities } = useStateCitySelector('Florida', 'Miami');
   const [searchLocation, setSearchLocation] = useState("");
   const [currentPortal, setCurrentPortal] = useState("hotels");
   const [currentSection, setCurrentSection] = useState("welcome");
@@ -329,7 +330,7 @@ export default function DisasterEssentialsMarketplace() {
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5 }}
-          className="mb-6"
+          className="mb-6 flex items-center gap-4"
         >
           <Link href="/">
             <Button 
@@ -341,6 +342,15 @@ export default function DisasterEssentialsMarketplace() {
               <span>Back to Dashboard</span>
             </Button>
           </Link>
+          <StateCitySelector
+            selectedState={selectedState}
+            selectedCity={selectedCity}
+            availableCities={availableCities}
+            onStateChange={setSelectedState}
+            onCityChange={setSelectedCity}
+            variant="dark"
+            showAllStates={true}
+          />
         </motion.div>
 
         {/* Header */}

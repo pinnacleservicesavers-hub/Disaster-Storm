@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { Link } from 'wouter';
 import { FadeIn, SlideIn, StaggerContainer, StaggerItem } from '@/components/ui/animations';
+import { StateCitySelector, useStateCitySelector } from '@/components/StateCitySelector';
 
 // Back button component
 function BackButton() {
@@ -159,6 +160,7 @@ const mockMissions: Mission[] = [
 ];
 
 export default function DroneOperation() {
+  const { selectedState, setSelectedState, selectedCity, setSelectedCity, availableCities } = useStateCitySelector('Florida', 'Miami');
   const [selectedDrone, setSelectedDrone] = useState<Drone | null>(null);
   const [selectedMission, setSelectedMission] = useState<Mission | null>(null);
   const [viewMode, setViewMode] = useState<'fleet' | 'missions'>('fleet');
@@ -195,7 +197,18 @@ export default function DroneOperation() {
         <div className="bg-gradient-to-r from-slate-600 to-blue-600 text-white p-6">
           <div className="max-w-7xl mx-auto">
             <div className="flex items-center justify-between mb-4">
-              <BackButton />
+              <div className="flex items-center gap-4">
+                <BackButton />
+                <StateCitySelector
+                  selectedState={selectedState}
+                  selectedCity={selectedCity}
+                  availableCities={availableCities}
+                  onStateChange={setSelectedState}
+                  onCityChange={setSelectedCity}
+                  variant="dark"
+                  showAllStates={true}
+                />
+              </div>
               <div className="flex items-center space-x-4">
                 <Badge className="bg-white/20 text-white border-white/30">
                   <Activity className="w-3 h-3 mr-1" />

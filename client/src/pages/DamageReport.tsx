@@ -23,6 +23,7 @@ import {
   X
 } from 'lucide-react';
 import { z } from 'zod';
+import { StateCitySelector, useStateCitySelector } from '@/components/StateCitySelector';
 
 // Create damage report form schema with required fields only
 const damageReportFormSchema = z.object({
@@ -38,6 +39,7 @@ const damageReportFormSchema = z.object({
 type DamageReportForm = z.infer<typeof damageReportFormSchema>;
 
 export default function DamageReport() {
+  const { selectedState, setSelectedState, selectedCity, setSelectedCity, availableCities } = useStateCitySelector('Florida', 'Miami');
   const [user, setUser] = useState<any>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const { toast } = useToast();
@@ -170,6 +172,15 @@ export default function DamageReport() {
                   Back to Dashboard
                 </Button>
               </Link>
+              <StateCitySelector
+                selectedState={selectedState}
+                selectedCity={selectedCity}
+                availableCities={availableCities}
+                onStateChange={setSelectedState}
+                onCityChange={setSelectedCity}
+                variant="default"
+                showAllStates={true}
+              />
               <div>
                 <h1 className="text-xl font-bold text-gray-900">Report Property Damage</h1>
                 <p className="text-sm text-gray-600">Document damage with photos and details</p>

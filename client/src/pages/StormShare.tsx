@@ -61,6 +61,7 @@ import type {
   StormShareMediaAsset,
   StormShareAdCampaign
 } from '@shared/schema';
+import { StateCitySelector, useStateCitySelector } from '@/components/StateCitySelector';
 
 // Form schemas
 const helpRequestSchema = z.object({
@@ -105,6 +106,7 @@ function BackButton() {
 }
 
 export default function StormShare() {
+  const { selectedState, setSelectedState, selectedCity, setSelectedCity, availableCities } = useStateCitySelector('Florida', 'Miami');
   const [activeTab, setActiveTab] = useState('feed');
   const [selectedGroup, setSelectedGroup] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
@@ -478,7 +480,18 @@ export default function StormShare() {
   return (
     <div className="min-h-screen bg-black text-white">
       <div className="container mx-auto px-4 py-6">
-        <BackButton />
+        <div className="flex items-center gap-4 mb-4">
+          <BackButton />
+          <StateCitySelector
+            selectedState={selectedState}
+            selectedCity={selectedCity}
+            availableCities={availableCities}
+            onStateChange={setSelectedState}
+            onCityChange={setSelectedCity}
+            variant="dark"
+            showAllStates={true}
+          />
+        </div>
         <DashboardSection
           title="StormShare Community"
           description="Connect, share, and get help in the storm response community. For victims and contractors working together."
