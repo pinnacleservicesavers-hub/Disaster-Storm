@@ -19,10 +19,18 @@ export class ClaimAgent extends BaseAgent {
           address: task.data.address
         });
         
+        if (!propertyData.success) {
+          return this.failure(`Property lookup failed: ${propertyData.error || 'Unknown error'}`);
+        }
+        
         const valuation = await this.useTool('property_data', {
           action: 'valuation',
           address: task.data.address
         });
+        
+        if (!valuation.success) {
+          return this.failure(`Property valuation failed: ${valuation.error || 'Unknown error'}`);
+        }
         
         const claimData = {
           claimId: `CLM-${Date.now()}`,

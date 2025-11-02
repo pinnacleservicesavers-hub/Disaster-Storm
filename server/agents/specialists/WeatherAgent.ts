@@ -19,9 +19,17 @@ export class WeatherAgent extends BaseAgent {
           state: task.data.state
         });
         
+        if (!alerts.success) {
+          return this.failure(`Weather alerts lookup failed: ${alerts.error || 'Unknown error'}`);
+        }
+        
         const hazards = await this.useTool('weather_data', {
           action: 'get_hazards'
         });
+        
+        if (!hazards.success) {
+          return this.failure(`Hazards lookup failed: ${hazards.error || 'Unknown error'}`);
+        }
         
         return this.success({
           alerts: alerts.data?.alerts || [],

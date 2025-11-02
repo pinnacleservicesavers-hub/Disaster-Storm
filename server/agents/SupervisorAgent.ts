@@ -66,7 +66,8 @@ export class SupervisorAgent extends BaseAgent {
         }
       };
     } catch (error: any) {
-      return this.failure(`Supervisor error: ${error.message}`);
+      const message = error instanceof Error ? error.message : String(error);
+      return this.failure(`Supervisor error: ${message}`);
     }
   }
   
