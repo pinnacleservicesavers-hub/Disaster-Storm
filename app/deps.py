@@ -16,6 +16,10 @@ class Dependencies:
         self.env = os.getenv("ENV", "development")
         self.database_url = os.getenv("DATABASE_URL")
         
+        # LLM and document storage
+        self.llm = self._init_llm()
+        self.doc_store = self._init_doc_store()
+        
         # Service configurations
         self.twilio_account_sid = os.getenv("TWILIO_ACCOUNT_SID")
         self.twilio_auth_token = os.getenv("TWILIO_AUTH_TOKEN")
@@ -56,6 +60,80 @@ class Dependencies:
     def is_development(self) -> bool:
         """Check if running in development"""
         return self.env == "development"
+    
+    def _init_llm(self):
+        """Initialize LLM client (OpenAI, Anthropic, or xAI)"""
+        # Prefer OpenAI, fallback to Anthropic, then xAI
+        if self.openai_api_key:
+            from openai import AsyncOpenAI
+            client = AsyncOpenAI(api_key=self.openai_api_key)
+            
+            async def llm_call(prompt: str, model: str = "gpt-4o-mini") -> str:
+                """Call OpenAI API"""
+                response = await client.chat.completions.create(
+                    model=model,
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=0.7
+                )
+                return response.choices[0].message.content
+            
+            return llm_call
+        
+        elif self.anthropic_api_key:
+            from anthropic import AsyncAnthropic
+            client = AsyncAnthropic(api_key=self.anthropic_api_key)
+            
+            async def llm_call(prompt: str, model: str = "claude-3-5-sonnet-20241022") -> str:
+                """Call Anthropic API"""
+                response = await client.messages.create(
+                    model=model,
+                    max_tokens=4096,
+                    messages=[{"role": "user", "content": prompt}]
+                )
+                return response.content[0].text
+            
+            return llm_call
+        
+        elif self.xai_api_key:
+            from openai import AsyncOpenAI
+            client = AsyncOpenAI(
+                api_key=self.xai_api_key,
+                base_url="https://api.x.ai/v1"
+            )
+            
+            async def llm_call(prompt: str, model: str = "grok-2-1212") -> str:
+                """Call xAI Grok API"""
+                response = await client.chat.completions.create(
+                    model=model,
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=0.7
+                )
+                return response.choices[0].message.content
+            
+            return llm_call
+        
+        else:
+            # Mock LLM for development
+            async def mock_llm(prompt: str, model: str = "mock") -> str:
+                """Mock LLM for development/testing"""
+                return '{"is_legal": true, "issues": [], "suggestions": [], "aob_included": false}'
+            
+            print("⚠️ No LLM API key found - using mock LLM")
+            return mock_llm
+    
+    def _init_doc_store(self):
+        """Initialize document storage"""
+        # TODO: Implement real document storage (S3, Google Cloud Storage, etc.)
+        class MockDocStore:
+            async def save(self, key: str, content: str) -> str:
+                """Save document and return URL"""
+                return f"https://storage.example.com/{key}"
+            
+            async def load(self, key: str) -> str:
+                """Load document by key"""
+                return "Mock document content"
+        
+        return MockDocStore()
     
     def to_dict(self) -> Dict[str, Any]:
         """Export as dictionary (excluding secrets)"""
