@@ -22,6 +22,8 @@ import {
 import { FadeIn, SlideIn, StaggerContainer, StaggerItem } from '@/components/ui/animations';
 import { ModuleWrapper } from '@/components/ModuleWrapper';
 import { ModuleCard } from '@/components/ModuleHero';
+import ModuleAIAssistant from '@/components/ModuleAIAssistant';
+import VoiceGuide from '@/components/VoiceGuide';
 
 interface StormPrediction {
   id: string;
@@ -346,6 +348,9 @@ export default function StormPredictions() {
           </div>
         </FadeIn>
       </div>
+      
+      <VoiceGuide currentPortal="storm-predictions" />
+      <ModuleAIAssistant moduleName="Storm Predictions" />
     </ModuleWrapper>
   );
 }

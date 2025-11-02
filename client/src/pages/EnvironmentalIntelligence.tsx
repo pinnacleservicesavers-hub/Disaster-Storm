@@ -27,6 +27,8 @@ import {
 } from 'lucide-react';
 import ImpactScoreCard from '@/components/ImpactScoreCard';
 import PollenCard from '@/components/PollenCard';
+import ModuleAIAssistant from '@/components/ModuleAIAssistant';
+import VoiceGuide from '@/components/VoiceGuide';
 
 interface AirQualityData {
   AQI: number;
@@ -670,6 +672,9 @@ export default function EnvironmentalIntelligence() {
           </div>
         </>
       )}
+      
+      <VoiceGuide currentPortal="environmental-intelligence" />
+      <ModuleAIAssistant moduleName="Environmental Intelligence" />
     </div>
   );
 }
