@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { motion } from 'framer-motion';
+import { Link } from 'wouter';
 import { 
   Target, 
   CloudRain, 
@@ -14,7 +15,8 @@ import {
   Clock, 
   Zap,
   Activity,
-  BarChart3
+  BarChart3,
+  ArrowLeft
 } from 'lucide-react';
 import { FadeIn, SlideIn, StaggerContainer, StaggerItem } from '@/components/ui/animations';
 import { ModuleWrapper } from '@/components/ModuleWrapper';
@@ -108,6 +110,16 @@ export default function StormPredictions() {
         </div>
       }
     >
+      {/* Back Button */}
+      <div className="mb-6">
+        <Link href="/">
+          <Button variant="outline" className="flex items-center gap-2 hover:bg-purple-50 text-white border-white/20" data-testid="button-back-to-dashboard">
+            <ArrowLeft className="w-4 h-4" />
+            Back to Dashboard
+          </Button>
+        </Link>
+      </div>
+      
       <div className="max-w-7xl mx-auto">
         <FadeIn>
           {/* Model Performance Overview */}

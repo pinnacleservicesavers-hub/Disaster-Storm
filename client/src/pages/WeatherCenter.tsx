@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useQueries } from '@tanstack/react-query';
 import { MapContainer, TileLayer, GeoJSON, useMap } from 'react-leaflet';
+import { Link } from 'wouter';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   CloudRain, 
   Zap, 
@@ -33,7 +35,8 @@ import {
   CloudLightning,
   Volume2,
   VolumeX,
-  BookOpen
+  BookOpen,
+  ArrowLeft
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -118,15 +121,40 @@ interface WaveData {
   stationName: string;
 }
 
+// Priority states for storm operations
+const PRIORITY_STATES = ['Florida', 'Georgia', 'South Carolina', 'North Carolina', 'Tennessee', 'Alabama'];
+
+// US States and cities for location filtering
+const US_STATES_CITIES: Record<string, string[]> = {
+  'Florida': ['Jacksonville', 'Miami', 'Tampa', 'Orlando', 'St. Petersburg', 'Hialeah', 'Tallahassee', 'Fort Lauderdale', 'Port St. Lucie', 'Cape Coral'],
+  'Georgia': ['Atlanta', 'Augusta', 'Columbus', 'Macon', 'Savannah', 'Athens', 'Sandy Springs', 'Roswell', 'Albany', 'Johns Creek'],
+  'South Carolina': ['Charleston', 'Columbia', 'North Charleston', 'Mount Pleasant', 'Rock Hill', 'Greenville', 'Summerville', 'Sumter', 'Goose Creek', 'Hilton Head Island'],
+  'North Carolina': ['Charlotte', 'Raleigh', 'Greensboro', 'Durham', 'Winston-Salem', 'Fayetteville', 'Cary', 'Wilmington', 'High Point', 'Asheville'],
+  'Tennessee': ['Nashville', 'Memphis', 'Knoxville', 'Chattanooga', 'Clarksville', 'Murfreesboro', 'Franklin', 'Johnson City', 'Bartlett', 'Hendersonville'],
+  'Alabama': ['Birmingham', 'Montgomery', 'Mobile', 'Huntsville', 'Tuscaloosa'],
+};
+
 export default function WeatherCenter() {
   const [userLocation, setUserLocation] = useState<{ lat: number; lon: number } | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [refreshInterval, setRefreshInterval] = useState(30000); // 30 seconds
   const [selectedTab, setSelectedTab] = useState('overview');
+  const [selectedState, setSelectedState] = useState('Florida');
+  const [selectedCity, setSelectedCity] = useState('Miami');
+  const [availableCities, setAvailableCities] = useState<string[]>(US_STATES_CITIES['Florida']);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isVoiceGuideActive, setIsVoiceGuideActive] = useState(false);
   const [speechSynth, setSpeechSynth] = useState<SpeechSynthesis | null>(null);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+
+  // Update available cities when state changes
+  useEffect(() => {
+    if (selectedState && US_STATES_CITIES[selectedState]) {
+      setAvailableCities(US_STATES_CITIES[selectedState]);
+      // Auto-select first city in the new state
+      setSelectedCity(US_STATES_CITIES[selectedState][0]);
+    }
+  }, [selectedState]);
 
   // Get user's GPS location
   useEffect(() => {
@@ -464,6 +492,16 @@ export default function WeatherCenter() {
       </div>
       
       <div className="container mx-auto p-6 space-y-8 relative z-10">
+        {/* Back Button */}
+        <FadeIn>
+          <Link href="/">
+            <Button variant="outline" className="flex items-center gap-2 hover:bg-blue-50" data-testid="button-back-to-dashboard">
+              <ArrowLeft className="w-4 h-4" />
+              Back to Dashboard
+            </Button>
+          </Link>
+        </FadeIn>
+        
         {/* Enhanced Header */}
         <FadeIn>
           <div className="storm-card rounded-xl p-6 backdrop-blur-sm border border-blue-200/50">
@@ -517,6 +555,31 @@ export default function WeatherCenter() {
               {/* Enhanced Controls */}
               <SlideIn direction="right" delay={0.2}>
                 <div className="flex items-center gap-4">
+                  {/* State/City Dropdowns */}
+                  <div className="flex items-center gap-2">
+                    <Select value={selectedState} onValueChange={setSelectedState}>
+                      <SelectTrigger className="w-40 bg-white/80 backdrop-blur-sm border-blue-200" data-testid="select-state">
+                        <SelectValue placeholder="State" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PRIORITY_STATES.map(state => (
+                          <SelectItem key={state} value={state}>{state}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    
+                    <Select value={selectedCity} onValueChange={setSelectedCity}>
+                      <SelectTrigger className="w-40 bg-white/80 backdrop-blur-sm border-blue-200" data-testid="select-city">
+                        <SelectValue placeholder="City" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableCities.map(city => (
+                          <SelectItem key={city} value={city}>{city}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
                   {/* Fullscreen Toggle */}
                   <HoverLift>
                     <motion.button
