@@ -23,6 +23,9 @@ class TemplatesService:
             # Legal Templates
             "demand_letter": self._demand_letter,
             "aob_notice": self._aob_notice,
+            
+            # Insurance Templates
+            "claim_status_request": self._claim_status_request,
         }
     
     def render(self, template_name: str, context: Dict[str, Any]) -> str:
@@ -410,4 +413,33 @@ Best regards,
 
 ---
 Keep this email for your records.
+"""
+    
+    def _claim_status_request(self, ctx: Dict[str, Any]) -> str:
+        """Insurance Adjuster Follow-Up - Claim Status Request"""
+        claim_no = ctx.get('claim_number', 'N/A')
+        address = ctx.get('property_address', 'Property Address')
+        adjuster_name = ctx.get('adjuster_name', 'Adjuster')
+        invoice_no = ctx.get('invoice_id', 'N/A')
+        contractor_name = ctx.get('contractor_name', 'Contractor')
+        contractor_email = ctx.get('contractor_email', 'contact@example.com')
+        contractor_phone = ctx.get('contractor_phone', '(555) 123-4567')
+        
+        return f"""Subject: Status Request – Claim #{claim_no} for {address}
+
+Hello {adjuster_name},
+
+We are following up regarding the above claim. Mitigation and repairs were performed to prevent further loss and restore habitability. Please advise status of payment for Invoice {invoice_no}. Supporting documentation is attached.
+
+Thank you,
+{contractor_name}
+{contractor_email}
+{contractor_phone}
+
+---
+Attachments:
+- Invoice #{invoice_no}
+- Work completion photos
+- Signed work authorization
+- Damage assessment report
 """
