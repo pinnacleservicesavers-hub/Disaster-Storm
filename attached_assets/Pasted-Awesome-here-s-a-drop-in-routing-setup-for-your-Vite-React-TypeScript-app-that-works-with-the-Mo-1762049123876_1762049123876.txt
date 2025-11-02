@@ -1,0 +1,102 @@
+Awesome—here’s a drop-in routing setup for your Vite + React + TypeScript app that works with the ModuleGallery we built.
+
+0) Install router (once)
+npm i react-router-dom
+
+1) client/src/main.tsx
+
+Wrap your app with <BrowserRouter>.
+
+import React from "react";
+import ReactDOM from "react-dom/client";
+import { BrowserRouter } from "react-router-dom";
+import App from "./App";
+import "./index.css";
+
+ReactDOM.createRoot(document.getElementById("root")!).render(
+  <React.StrictMode>
+    <BrowserRouter>
+      <App />
+    </BrowserRouter>
+  </React.StrictMode>
+);
+
+2) client/src/App.tsx
+
+Defines the routes + passes a routes map into your gallery.
+
+import { Routes, Route, Navigate } from "react-router-dom";
+import ModuleGallery from "./StormOpsProHub"; // ⬅️ path to your gallery component
+import React from "react";
+
+// TEMP placeholder pages – swap these for your real screens.
+function Page({ title }: { title: string }) {
+  return (
+    <div className="min-h-screen text-white p-8">
+      <h2 className="text-3xl font-bold mb-2">{title}</h2>
+      <p className="text-white/70">Coming soon…</p>
+    </div>
+  );
+}
+
+// Map each module id to its URLs
+const galleryRoutes = {
+  "weather-center":        { launch: "/ops/weather",   preview: "/ops/weather/preview",   docs: "/docs/weather" },
+  "storm-predictions":     { launch: "/ops/predict",   preview: "/ops/predict/preview",   docs: "/docs/predict" },
+  "traffic-cam-watcher":   { launch: "/ops/traffic",   preview: "/ops/traffic/preview",   docs: "/docs/traffic" },
+  "drone-operations":      { launch: "/ops/drones",    preview: "/ops/drones/preview",    docs: "/docs/drones" },
+  "ai-damage-detection":   { launch: "/ops/ai",        preview: "/ops/ai/preview",        docs: "/docs/ai" },
+  "xray-reality":          { launch: "/ops/xray",      preview: "/ops/xray/preview",      docs: "/docs/xray" },
+};
+
+export default function App() {
+  return (
+    <>
+      {/* Neon cinematic gallery at the top of the app */}
+      <ModuleGallery routes={galleryRoutes}
+        onLaunch={(m) => console.log("Launch", m.id)}
+        onPreview={(m) => console.log("Preview", m.id)}
+        onDocs={(m) => console.log("Docs", m.id)}
+      />
+
+      {/* Client-side routes */}
+      <Routes>
+        {/* Default landing (optional) */}
+        <Route path="/" element={<Navigate to="/ops/weather" replace />} />
+
+        {/* Ops */}
+        <Route path="/ops/weather" element={<Page title="Weather Center" />} />
+        <Route path="/ops/weather/preview" element={<Page title="Weather Center — Preview" />} />
+
+        <Route path="/ops/predict" element={<Page title="Storm Predictions" />} />
+        <Route path="/ops/predict/preview" element={<Page title="Storm Predictions — Preview" />} />
+
+        <Route path="/ops/traffic" element={<Page title="TrafficCamWatcher" />} />
+        <Route path="/ops/traffic/preview" element={<Page title="TrafficCamWatcher — Preview" />} />
+
+        <Route path="/ops/drones" element={<Page title="Drone Operations" />} />
+        <Route path="/ops/drones/preview" element={<Page title="Drone Operations — Preview" />} />
+
+        <Route path="/ops/ai" element={<Page title="AI Damage Detection" />} />
+        <Route path="/ops/ai/preview" element={<Page title="AI Damage Detection — Preview" />} />
+
+        <Route path="/ops/xray" element={<Page title="X-RAY REALITY" />} />
+        <Route path="/ops/xray/preview" element={<Page title="X-RAY REALITY — Preview" />} />
+
+        {/* Docs */}
+        <Route path="/docs/weather" element={<Page title="Docs: Weather" />} />
+        <Route path="/docs/predict" element={<Page title="Docs: Storm Predictions" />} />
+        <Route path="/docs/traffic" element={<Page title="Docs: Traffic" />} />
+        <Route path="/docs/drones" element={<Page title="Docs: Drones" />} />
+        <Route path="/docs/ai" element={<Page title="Docs: AI" />} />
+        <Route path="/docs/xray" element={<Page title="Docs: X-RAY REALITY" />} />
+
+        {/* 404 */}
+        <Route path="*" element={<Page title="Not Found" />} />
+      </Routes>
+    </>
+  );
+}
+
+
+That’s it—your Launch / Preview / Docs buttons will navigate instantly using <Link> (we already swapped those inside the gallery).
