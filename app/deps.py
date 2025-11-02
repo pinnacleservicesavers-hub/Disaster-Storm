@@ -21,6 +21,8 @@ class Dependencies:
         self.doc_store = self._init_doc_store()
         self.msg = self._init_messaging()
         self.db = self._init_database_service()
+        self.vision = self._init_vision()
+        self.property_api = self._init_property_api()
         
         # Service configurations
         self.twilio_account_sid = os.getenv("TWILIO_ACCOUNT_SID")
@@ -237,8 +239,149 @@ class Dependencies:
                         self.consent_comm = consent
                 
                 return MockContractor(contractor_id, "Sample Contractor", "+15551234567", True)
+            
+            async def create_claim(self, **kwargs):
+                """Create insurance claim"""
+                # TODO: Real database insert
+                class MockClaim:
+                    def __init__(self, **data):
+                        self.id = f"CLM-{hash(str(data))}"
+                        for k, v in data.items():
+                            setattr(self, k, v)
+                
+                return MockClaim(**kwargs)
+            
+            async def update_claim_for_job(self, job_id: int, **updates):
+                """Update claim with damage analysis"""
+                # TODO: Real database update
+                class MockClaim:
+                    def __init__(self, job_id, **data):
+                        self.id = f"CLM-{job_id}"
+                        self.job_id = job_id
+                        for k, v in data.items():
+                            setattr(self, k, v)
+                
+                return MockClaim(job_id, **updates)
         
         return DatabaseService()
+    
+    def _init_vision(self):
+        """Initialize AI vision service for damage detection"""
+        class VisionService:
+            def __init__(self, deps_ref):
+                self.deps = deps_ref
+            
+            async def analyze(self, image_url: str) -> Dict[str, Any]:
+                """Analyze image for damage using AI vision"""
+                # Use Claude or GPT-4V for vision analysis
+                if self.deps.anthropic_api_key:
+                    from anthropic import AsyncAnthropic
+                    client = AsyncAnthropic(api_key=self.deps.anthropic_api_key)
+                    
+                    response = await client.messages.create(
+                        model="claude-3-5-sonnet-20241022",
+                        max_tokens=1024,
+                        messages=[{
+                            "role": "user",
+                            "content": [
+                                {
+                                    "type": "image",
+                                    "source": {
+                                        "type": "url",
+                                        "url": image_url
+                                    }
+                                },
+                                {
+                                    "type": "text",
+                                    "text": (
+                                        "Analyze this property damage photo. Return JSON with:\n"
+                                        "- damage_types: array of damage categories (roof, siding, window, etc)\n"
+                                        "- severity: low/moderate/severe\n"
+                                        "- estimated_cost: repair cost estimate in USD\n"
+                                        "- notes: brief description of visible damage"
+                                    )
+                                }
+                            ]
+                        }]
+                    )
+                    
+                    # Parse JSON from response
+                    import json
+                    result = json.loads(response.content[0].text)
+                    return result
+                
+                elif self.deps.openai_api_key:
+                    from openai import AsyncOpenAI
+                    client = AsyncOpenAI(api_key=self.deps.openai_api_key)
+                    
+                    response = await client.chat.completions.create(
+                        model="gpt-4o",
+                        messages=[{
+                            "role": "user",
+                            "content": [
+                                {
+                                    "type": "image_url",
+                                    "image_url": {"url": image_url}
+                                },
+                                {
+                                    "type": "text",
+                                    "text": (
+                                        "Analyze this property damage photo. Return JSON with:\n"
+                                        "- damage_types: array of damage categories\n"
+                                        "- severity: low/moderate/severe\n"
+                                        "- estimated_cost: repair cost estimate in USD\n"
+                                        "- notes: brief description"
+                                    )
+                                }
+                            ]
+                        }],
+                        response_format={"type": "json_object"}
+                    )
+                    
+                    import json
+                    return json.loads(response.choices[0].message.content)
+                
+                else:
+                    # Mock vision for development
+                    return {
+                        "damage_types": ["roof_damage", "siding_damage"],
+                        "severity": "moderate",
+                        "estimated_cost": 12500,
+                        "notes": "Visible roof shingle damage and siding impact. Water intrusion likely."
+                    }
+        
+        return VisionService(self)
+    
+    def _init_property_api(self):
+        """Initialize property data lookup service"""
+        class PropertyAPIService:
+            def __init__(self, deps_ref):
+                self.deps = deps_ref
+            
+            async def lookup(self, address: str) -> Dict[str, Any]:
+                """Lookup property data (Smarty, Regrid, ATTOM, etc.)"""
+                # TODO: Integrate real property APIs
+                # Smarty: Address validation
+                # Regrid: Parcel boundaries
+                # ATTOM: Property details, valuations
+                
+                # Mock property data for now
+                return {
+                    "address": address,
+                    "coordinates": {"lat": 25.7617, "lon": -80.1918},
+                    "type": "Single Family Residential",
+                    "year_built": 1985,
+                    "square_feet": 2100,
+                    "bedrooms": 3,
+                    "bathrooms": 2,
+                    "estimated_value": 385000,
+                    "tax_assessed_value": 350000,
+                    "last_sale_date": "2018-03-15",
+                    "last_sale_price": 275000,
+                    "parcel_id": "12-3456-789-0010"
+                }
+        
+        return PropertyAPIService(self)
     
     def to_dict(self) -> Dict[str, Any]:
         """Export as dictionary (excluding secrets)"""
