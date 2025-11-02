@@ -1,0 +1,86 @@
+Done—both are in and wired up. 🙌
+
+Download the Pro update (ZIP)
+
+What you just got
+
+NHC Cone/Track (GeoJSON-first)
+
+File: app/services/nhc_geo.py
+
+Endpoint source: tries CurrentStorms.json, then probes common GeoJSON names like cone_latest.geojson, forecast_line_latest.geojson, etc., and stores polygons as Alert(source="NHC", ...).
+
+Automatically called inside run_all_ingestors() after the standard NHC ingest.
+
+MRMS Raster → Polygon Contours
+
+File: app/services/mrms.py
+
+Converts MRMS rasters (e.g., MESH, PrecipRate, QPE) into vector polygons by threshold, then saves them as alerts.
+
+Ready for S3 public dataset URLs (e.g., https://noaa-mrms-pds.s3.amazonaws.com/...).
+
+Currently in the orchestrator as a commented example—uncomment and set a real product path to enable.
+
+Wiring
+
+app/services/ingest.py now imports and calls ingest_nhc_geojson() and includes a ready-to-edit MRMS call.
+
+requirements.txt now includes rasterio, numpy, scikit-image, pyogrio for geospatial work.
+
+How to use it
+
+Install deps (in Replit shell):
+
+pip install -r requirements.txt
+
+
+Start your app:
+
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+
+Run ingestors:
+
+POST /api/ingest/run
+
+
+See results:
+
+GET /api/alerts (raw)
+
+Map at /web/static/index.html (polygons should render)
+
+Summaries and staging:
+
+GET /api/ai/summary
+
+GET /api/ai/staging
+
+Enable MRMS (pick a product)
+
+Uncomment and edit this line in run_all_ingestors():
+
+await ingest_mrms_contours(
+    db,
+    url_template='https://noaa-mrms-pds.s3.amazonaws.com/CONUS/PrecipRate/MRMS_PrecipRate_{ts}.grib2.gz',
+    threshold=20.0,
+    severity='heavy_precip'
+)
+
+
+Replace PrecipRate with MESH, QPE_01H, etc.
+
+threshold is in native product units (e.g., MESH in mm or hail proxy; QPE in mm; check the product spec).
+
+Notes & next upgrades
+
+NHC URLs can change. If a cone/track doesn’t ingest, log the storm dict and add new GeoJSON names to POSSIBLE_GEOJSON_NAMES.
+
+Raster parsing: This contour approach is fast and field-proven for generating polygons, but you can refine with:
+
+reprojecting to EPSG:4326 explicitly
+
+simplifying polygons
+
+separate thresholds → different severities (e.g., 1”, 2” hail)
