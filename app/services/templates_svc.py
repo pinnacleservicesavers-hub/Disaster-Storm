@@ -26,6 +26,7 @@ class TemplatesService:
             
             # Insurance Templates
             "claim_status_request": self._claim_status_request,
+            "insurance_demand": self._insurance_demand,
         }
     
     def render(self, template_name: str, context: Dict[str, Any]) -> str:
@@ -442,4 +443,21 @@ Attachments:
 - Work completion photos
 - Signed work authorization
 - Damage assessment report
+"""
+    
+    def _insurance_demand(self, ctx: Dict[str, Any]) -> str:
+        """Concise Insurance Demand Letter (for claims with AOB)"""
+        claim_no = ctx.get('claim_number', 'N/A')
+        address = ctx.get('property_address', 'Property Address')
+        contractor_name = ctx.get('contractor_name', 'Contractor')
+        has_aob = ctx.get('has_aob', False)
+        
+        return f"""Subject: Demand for Payment – Claim #{claim_no}
+
+Pursuant to the signed agreement{' (and AOB where applicable)' if has_aob else ''}, we demand payment of the outstanding balance for the necessary and completed work at {address}. Continued delay may require exercising lien rights as permitted by state law. Please respond within 7 days.
+
+{contractor_name}
+{ctx.get('contractor_email', 'contact@example.com')}
+{ctx.get('contractor_phone', '(555) 123-4567')}
+License #: {ctx.get('contractor_license', 'N/A')}
 """
