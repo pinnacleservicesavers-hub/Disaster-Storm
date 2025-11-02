@@ -14,6 +14,7 @@ class Deps:
         self.property_api = self._property()
         self.doc_store = self._docusign()
         self.lien = self._lien()
+        self.compliance = self._compliance()
     
     def _llm_client(self):
         if os.getenv("OPENAI_API_KEY"):
@@ -140,6 +141,10 @@ class Deps:
             async def calculate_deadline(self, state, trade, completion_date):
                 return {"deadline": "2025-12-31", "days_remaining": 90}
         return Lien()
+    
+    def _compliance(self):
+        from app.services.compliance_svc import ComplianceService
+        return ComplianceService()
 
 
 def build_dependencies():

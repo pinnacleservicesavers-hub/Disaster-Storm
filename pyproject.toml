@@ -13,6 +13,7 @@ dependencies = [
     "pydantic>=2.12.3",
     "python-dotenv>=1.2.1",
     "python-multipart>=0.0.20",
+    "pytz>=2025.2",
     "sqlalchemy>=2.0.44",
     "stripe>=13.1.1",
     "twilio>=9.8.5",
