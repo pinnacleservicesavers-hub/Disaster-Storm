@@ -169,20 +169,21 @@ export default function WeatherCenter() {
           </div>
         </div>
 
-        {/* Live Hazards Monitor - NEW! */}
+        {/* Live Hazards Monitor - EXPANDED WITH NEW DATA SOURCES! */}
         <div className="mb-8 p-6 rounded-2xl bg-gradient-to-br from-red-900/20 to-orange-900/20 border-2 border-orange-500/40 backdrop-blur-sm"
           style={{ boxShadow: '0 0 60px rgba(249, 115, 22, 0.15)' }}
         >
           <h3 className="text-2xl font-bold text-orange-300 mb-4 flex items-center gap-3">
             <AlertTriangle className="w-7 h-7" />
-            Live Hazard Monitoring
+            Live Hazard Monitoring - 8 Data Sources
             <span className="text-sm font-normal text-orange-400/70">Updated every minute</span>
           </h3>
           
           {hazardsLoading ? (
             <div className="text-center py-8 text-cyan-300/50">Loading hazard data...</div>
           ) : hazardData?.hazards ? (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
               
               {/* Hurricanes */}
               <div className="p-5 rounded-xl bg-slate-800/60 border border-purple-500/30 hover:border-purple-400/50 transition-all"
@@ -251,12 +252,104 @@ export default function WeatherCenter() {
                 )}
               </div>
             </div>
+
+            {/* NEW Advanced Data Sources Row */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mt-6">
+              
+              {/* Radar/Precipitation */}
+              {hazardData.hazards.radar && (
+                <div className="p-4 rounded-lg bg-slate-800/60 border border-blue-500/30"
+                  data-testid="hazard-card-radar"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <h5 className="text-sm font-bold text-blue-300">Radar/Precip</h5>
+                    <CloudRain className="w-5 h-5 text-blue-400" />
+                  </div>
+                  <div className="text-2xl font-bold text-blue-400 mb-1">
+                    {hazardData.hazards.radar.significantCells}
+                  </div>
+                  <p className="text-xs text-blue-300/60 mb-2">Severe cells</p>
+                  {hazardData.hazards.radar.maxHailSize > 0 && (
+                    <p className="text-xs text-blue-300/80">Max hail: {hazardData.hazards.radar.maxHailSize.toFixed(1)}"</p>
+                  )}
+                </div>
+              )}
+
+              {/* Wind Forecasts */}
+              {hazardData.hazards.wind && (
+                <div className="p-4 rounded-lg bg-slate-800/60 border border-cyan-500/30"
+                  data-testid="hazard-card-wind"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <h5 className="text-sm font-bold text-cyan-300">Wind</h5>
+                    <Wind className="w-5 h-5 text-cyan-400" />
+                  </div>
+                  <div className="text-2xl font-bold text-cyan-400 mb-1">
+                    {hazardData.hazards.wind.maxWindSpeed} mph
+                  </div>
+                  <p className="text-xs text-cyan-300/60 mb-2">Max forecast wind</p>
+                  <p className="text-xs text-cyan-300/80">Gusts: {hazardData.hazards.wind.maxGust} mph</p>
+                </div>
+              )}
+
+              {/* Coastal Surge */}
+              {hazardData.hazards.surge && (
+                <div className="p-4 rounded-lg bg-slate-800/60 border border-teal-500/30"
+                  data-testid="hazard-card-surge"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <h5 className="text-sm font-bold text-teal-300">Surge</h5>
+                    <Waves className="w-5 h-5 text-teal-400" />
+                  </div>
+                  <div className="text-2xl font-bold text-teal-400 mb-1">
+                    {hazardData.hazards.surge.maxSurge.toFixed(1)} ft
+                  </div>
+                  <p className="text-xs text-teal-300/60 mb-2">Max storm surge</p>
+                  <p className="text-xs text-teal-300/80">{hazardData.hazards.surge.monitoringStations} stations</p>
+                </div>
+              )}
+
+              {/* River Flooding */}
+              {hazardData.hazards.rivers && (
+                <div className="p-4 rounded-lg bg-slate-800/60 border border-indigo-500/30"
+                  data-testid="hazard-card-rivers"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <h5 className="text-sm font-bold text-indigo-300">Rivers</h5>
+                    <Activity className="w-5 h-5 text-indigo-400" />
+                  </div>
+                  <div className="text-2xl font-bold text-indigo-400 mb-1">
+                    {hazardData.hazards.rivers.floodingGauges}
+                  </div>
+                  <p className="text-xs text-indigo-300/60 mb-2">Flooding gauges</p>
+                  <p className="text-xs text-indigo-300/80">of {hazardData.hazards.rivers.totalGauges} monitored</p>
+                </div>
+              )}
+
+              {/* Smoke/Air Quality */}
+              {hazardData.hazards.smoke && (
+                <div className="p-4 rounded-lg bg-slate-800/60 border border-gray-500/30"
+                  data-testid="hazard-card-smoke"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <h5 className="text-sm font-bold text-gray-300">Smoke</h5>
+                    <CloudRain className="w-5 h-5 text-gray-400" />
+                  </div>
+                  <div className="text-2xl font-bold text-gray-400 mb-1">
+                    {hazardData.hazards.smoke.affectedAreas}
+                  </div>
+                  <p className="text-xs text-gray-300/60 mb-2">Affected areas</p>
+                  <p className="text-xs text-gray-300/80 capitalize">Max: {hazardData.hazards.smoke.maxDensity}</p>
+                </div>
+              )}
+            </div>
+            </>
           ) : (
             <div className="text-center py-8 text-orange-300/50">No hazard data available</div>
           )}
           
-          <p className="text-xs text-orange-300/50 mt-4 text-center">
-            Data sources: National Hurricane Center • USGS Earthquake Center • NASA FIRMS
+          <p className="text-xs text-orange-300/50 mt-6 text-center">
+            Data sources: NHC • USGS Earthquakes • NASA FIRMS • NOAA MRMS Radar • GFS/HRRR Wind Models • NOAA CO-OPS Surge • USGS Rivers • NOAA HMS Smoke
           </p>
         </div>
 

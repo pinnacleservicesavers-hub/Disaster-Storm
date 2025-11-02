@@ -3,6 +3,11 @@ import { nhcService } from '../services/nhcService.js';
 import { usgsEarthquakeService } from '../services/usgsEarthquakeService.js';
 import { nasaFirmsService } from '../services/nasaFirmsService.js';
 import { auditLogService } from '../services/auditLogService.js';
+import { mrmsService } from '../services/noaaMrmsService.js';
+import { windModelService } from '../services/windModelService.js';
+import { coOpsService } from '../services/noaaCoOpsService.js';
+import { riverGaugeService } from '../services/usgsRiverGaugeService.js';
+import { smokeService } from '../services/noaaSmokeService.js';
 
 const router = express.Router();
 
@@ -145,13 +150,18 @@ router.get('/wildfires/region', async (req, res) => {
   }
 });
 
-// ===== COMBINED DASHBOARD =====
+// ===== COMBINED DASHBOARD (ALL DATA SOURCES) =====
 router.get('/dashboard', async (req, res) => {
   try {
-    const [storms, earthquakes, wildfires] = await Promise.all([
+    const [storms, earthquakes, wildfires, radarData, windData, surgeData, riverData, smokeData] = await Promise.all([
       nhcService.fetchActiveStorms(),
-      usgsEarthquakeService.fetchRecentEarthquakes(4.0), // M4.0+ for dashboard
+      usgsEarthquakeService.fetchRecentEarthquakes(2.5), // M2.5+ for dashboard
       nasaFirmsService.fetchUSWildfires(1),
+      mrmsService.getRecentRadarData(),
+      windModelService.getWindForecasts(12),
+      coOpsService.getCurrentSurgeData(),
+      riverGaugeService.getCurrentGaugeData(),
+      smokeService.getCurrentSmokeData(),
     ]);
 
     res.json({
@@ -170,7 +180,230 @@ router.get('/dashboard', async (req, res) => {
           count: wildfires.length,
           active: wildfires.slice(0, 10), // Top 10
         },
+        radar: {
+          significantCells: radarData.summary.significantCells,
+          maxPrecipRate: radarData.summary.maxPrecipRate,
+          maxHailSize: radarData.summary.maxHailSize,
+          heavyPrecip: radarData.data.filter(d => d.precipRate > 50).length,
+        },
+        wind: {
+          maxWindSpeed: windData.maxWindSpeed,
+          maxGust: windData.maxGust,
+          highWindCorridors: windData.highWindCorridors.length,
+          extremeWindAreas: windData.forecasts.filter(f => f.severity === 'extreme').length,
+        },
+        surge: {
+          maxSurge: surgeData.maxSurge,
+          criticalStations: surgeData.criticalStations.length,
+          monitoringStations: surgeData.count,
+        },
+        rivers: {
+          totalGauges: riverData.count,
+          floodingGauges: riverData.floodingGauges,
+          criticalGauges: riverData.criticalGauges.length,
+        },
+        smoke: {
+          affectedAreas: smokeData.count,
+          maxDensity: smokeData.maxDensity,
+          poorVisibilityAreas: smokeData.poorVisibilityAreas.length,
+        },
       },
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
+// ===== RADAR & PRECIPITATION (NOAA MRMS) =====
+router.get('/radar', async (req, res) => {
+  try {
+    const radarData = await mrmsService.getRecentRadarData();
+    auditLogService.logHazardIngest('MRMS', radarData.count, true);
+    
+    res.json({
+      success: true,
+      ...radarData,
+      timestamp: new Date(),
+    });
+  } catch (error: any) {
+    auditLogService.logHazardIngest('MRMS', 0, false, error.message);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
+router.get('/hail', async (req, res) => {
+  try {
+    const minSize = parseFloat(req.query.minSize as string) || 0.5;
+    const hailData = await mrmsService.getHailReports(minSize);
+    
+    res.json({
+      success: true,
+      ...hailData,
+      minSize,
+      timestamp: new Date(),
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
+// ===== WIND MODELS (GFS/HRRR) =====
+router.get('/wind', async (req, res) => {
+  try {
+    const forecastHours = parseInt(req.query.forecastHours as string) || 12;
+    const windData = await windModelService.getWindForecasts(forecastHours);
+    auditLogService.logHazardIngest('WindModels', windData.count, true);
+    
+    res.json({
+      success: true,
+      ...windData,
+      forecastHours,
+      timestamp: new Date(),
+    });
+  } catch (error: any) {
+    auditLogService.logHazardIngest('WindModels', 0, false, error.message);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
+router.get('/wind/staging-recommendations', async (req, res) => {
+  try {
+    const recommendations = await windModelService.getStagingRecommendations();
+    
+    res.json({
+      success: true,
+      recommendations,
+      timestamp: new Date(),
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
+// ===== COASTAL SURGE (NOAA CO-OPS) =====
+router.get('/surge', async (req, res) => {
+  try {
+    const state = req.query.state as string;
+    const surgeData = await coOpsService.getCurrentSurgeData(state);
+    auditLogService.logHazardIngest('COOPS', surgeData.count, true);
+    
+    res.json({
+      success: true,
+      ...surgeData,
+      timestamp: new Date(),
+    });
+  } catch (error: any) {
+    auditLogService.logHazardIngest('COOPS', 0, false, error.message);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
+router.get('/surge/flood-risk', async (req, res) => {
+  try {
+    const state = req.query.state as string;
+    const floodRisk = await coOpsService.getCoastalFloodRisk(state);
+    
+    res.json({
+      success: true,
+      floodRisk,
+      timestamp: new Date(),
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
+// ===== RIVER GAUGES (USGS) =====
+router.get('/rivers', async (req, res) => {
+  try {
+    const state = req.query.state as string;
+    const riverData = await riverGaugeService.getCurrentGaugeData(state);
+    auditLogService.logHazardIngest('USGSRivers', riverData.count, true);
+    
+    res.json({
+      success: true,
+      ...riverData,
+      timestamp: new Date(),
+    });
+  } catch (error: any) {
+    auditLogService.logHazardIngest('USGSRivers', 0, false, error.message);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
+router.get('/rivers/flood-risk', async (req, res) => {
+  try {
+    const state = req.query.state as string || 'FL';
+    const floodRisk = await riverGaugeService.getFloodRiskByState(state);
+    
+    res.json({
+      success: true,
+      state,
+      ...floodRisk,
+      timestamp: new Date(),
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
+// ===== WILDFIRE SMOKE (NOAA HMS) =====
+router.get('/smoke', async (req, res) => {
+  try {
+    const smokeData = await smokeService.getCurrentSmokeData();
+    auditLogService.logHazardIngest('NOAA_HMS', smokeData.count, true);
+    
+    res.json({
+      success: true,
+      ...smokeData,
+      timestamp: new Date(),
+    });
+  } catch (error: any) {
+    auditLogService.logHazardIngest('NOAA_HMS', 0, false, error.message);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
+router.get('/smoke/air-quality', async (req, res) => {
+  try {
+    const minAqi = parseInt(req.query.minAqi as string) || 150;
+    const alerts = await smokeService.getAirQualityAlerts(minAqi);
+    
+    res.json({
+      success: true,
+      ...alerts,
+      minAqi,
+      timestamp: new Date(),
     });
   } catch (error: any) {
     res.status(500).json({

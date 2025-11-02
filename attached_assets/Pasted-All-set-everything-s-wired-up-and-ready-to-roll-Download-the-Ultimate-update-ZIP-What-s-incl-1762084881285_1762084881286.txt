@@ -1,0 +1,93 @@
+All set—everything’s wired up and ready to roll. 🚀
+
+Download the Ultimate update (ZIP)
+
+What’s included now
+MRMS: multi-thresholds + simplification + peril auto-select
+
+Multi-threshold polygons (e.g., hail ≥ 0.75″/1″/1.5″; heavy precip and flood-risk bands).
+
+Polygon simplification to keep geometry light and map performance snappy.
+
+Peril auto-select via MRMS_PERIL_TEMPLATES:
+
+hail → MESH
+
+heavy_precip → PrecipRate
+
+flood_risk → QPE_01H
+
+Enable them in app/services/ingest.py:
+
+# Auto-select MRMS products by peril (uncomment to enable)
+# await ingest_mrms_for_peril(db, 'hail')
+# await ingest_mrms_for_peril(db, 'heavy_precip')
+# await ingest_mrms_for_peril(db, 'flood_risk')
+
+NHC cones/tracks (GeoJSON-first)
+
+Pulls cone/track layers when available and stores as Alert(source="NHC").
+
+Claims + Insurer Alignment
+
+Models: Carrier, Claim
+
+APIs:
+
+GET /api/claims, POST /api/claims
+
+GET /api/align/summary (hazards intersecting claims’ assets + naive moratorium flag)
+
+Dashboard: web/dashboard/index.html
+
+Leaflet map with toggles (NWS, NHC, MRMS)
+
+Claims & Moratorium panel (live hazard intersections)
+
+AI Helpers (already added previously)
+
+GET /api/ai/summary — natural-language situation report
+
+GET /api/ai/staging — suggested staging points outside hazard envelopes
+
+How to run
+pip install -r requirements.txt
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+
+Then open:
+
+Map (basic): /web/static/index.html
+
+Dashboard (alignment): /web/dashboard/index.html
+
+Quick test flow
+
+Add a few assets and a claim tied to one asset:
+
+POST /api/assets { "name": "Client HQ", "lat": 29.76, "lon": -95.37, "ref_id": "HQ001" }
+POST /api/claims { "carrier_name": "Example Carrier", "policy_number": "PC-123", "asset_id": 1, "status": "open" }
+
+
+Ingest data:
+
+POST /api/ingest/run
+
+
+View:
+
+Dashboard for hazards + claims
+
+/api/align/summary for raw JSON
+
+Tuning knobs
+
+Simplification: adjust tolerance in ingest_mrms_multithreshold(... simplify_tolerance=0.02).
+
+Thresholds: edit MRMS_PERIL_TEMPLATES lists.
+
+Moratorium rule: refine in /api/align/summary (e.g., source+severity logic, time windows).
+
+Performance: when you’re ready, switch to PostgreSQL + PostGIS, and add Redis for background jobs.
+
+Want me to:
