@@ -5,6 +5,34 @@ Disaster Direct is a comprehensive storm operations and claims management platfo
 
 ## Recent Changes
 
+### November 2, 2025 - Multi-Hazard Monitoring System (Hurricanes, Earthquakes, Wildfires)
+- **National Hurricane Center (NHC) Integration**: Real-time hurricane tracking
+  - KML feed parser for active storms
+  - Storm classification, intensity, movement, wind speed, pressure
+  - Advisory numbers and forecast tracks
+  - API: GET /api/hazards/hurricanes
+- **USGS Earthquake Monitoring**: Live earthquake detection and alerts
+  - Real-time GeoJSON feed from USGS (M2.5+ earthquakes)
+  - Magnitude, location, depth, tsunami warnings, significance scores
+  - Regional search by lat/lon and radius
+  - API: GET /api/hazards/earthquakes
+  - Currently detecting 33 earthquakes worldwide
+- **NASA FIRMS Wildfire Detection**: Active fire and thermal hotspot tracking
+  - VIIRS satellite hotspot detection
+  - Fire radiative power, confidence levels, satellite coverage
+  - US-wide and custom region monitoring
+  - API: GET /api/hazards/wildfires (requires free NASA FIRMS API key)
+  - Mock data fallback for development
+- **Audit Logging System**: Complete activity tracking
+  - Logs all hazard ingestion, geo-matching, alert deliveries, API calls
+  - In-memory storage with 10,000 entry limit
+  - Stats dashboard showing success rates, event types, sources
+  - API: GET /api/hazards/audit-logs, GET /api/hazards/audit-logs/stats
+- **Automated Polling**: Background scheduler runs every 10 minutes
+  - Checks all hazard sources (hurricanes, earthquakes, wildfires)
+  - Logs activity to console and audit system
+  - Ready for contractor geo-matching and alerting
+
 ### November 2, 2025 - Live Weather Intelligence Center
 - **Enhanced Weather Center**: Transformed into comprehensive "Live Weather Intelligence" monitoring station
   - Live monitoring indicator with pulsing animation showing real-time status
