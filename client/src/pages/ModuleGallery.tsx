@@ -4,6 +4,7 @@ import { MODULES, ModuleData } from '@shared/moduleGallery';
 import { ModuleCard } from '@/components/ModuleGallery/ModuleCard';
 import { Toolbar } from '@/components/ModuleGallery/Toolbar';
 import { Badge } from '@/components/ModuleGallery/Badge';
+import VoiceGuide from '@/components/VoiceGuide';
 
 const NEON = {
   yellow: '#eaff00',
@@ -175,9 +176,14 @@ export default function ModuleGallery({
           >
             StormOps Modules
           </h1>
+
+          {/* Voice Guide - Rachel's Female Voice */}
+          <div className="flex justify-center mb-8">
+            <VoiceGuide currentPortal="modules" />
+          </div>
           
           {/* Search & Filter Bar */}
-          <div className="flex items-center justify-center gap-4 mb-16">
+          <div className="flex items-center justify-center gap-4 mb-8">
             <div className="relative">
               <input
                 type="text"

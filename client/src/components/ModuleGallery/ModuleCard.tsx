@@ -1,6 +1,5 @@
 import { ArrowRight, Eye, FileText } from 'lucide-react';
-import { Link } from 'wouter';
-import { motion } from 'framer-motion';
+import { Link } from 'react-router-dom';
 import { ModuleData } from '@shared/moduleGallery';
 import { Badge } from './Badge';
 
@@ -123,7 +122,7 @@ export function ModuleCard({ m, delay = 0, launchPath, previewPath, docsPath, on
           {/* Launch button with arrow - Wouter Link for buttery-smooth client-side navigation */}
           {launchPath ? (
             <Link 
-              href={launchPath}
+              to={launchPath}
               onClick={(e) => { e.stopPropagation(); if (onLaunch) onLaunch(); }}
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-black bg-white hover:bg-slate-100 transition-all shadow-lg group"
               data-testid={`button-launch-${m.id}`}
