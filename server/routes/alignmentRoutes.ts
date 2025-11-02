@@ -1,7 +1,10 @@
 import express from 'express';
 import type { Express, Request, Response } from 'express';
+import multer from 'multer';
+import { parse as csvParse } from 'csv-parse/sync';
+import fs from 'fs';
 import { db } from '../db';
-import { assets, claims, weatherAlerts, hazardIntersections, insertAssetSchema } from '@shared/schema';
+import { assets, claims, weatherAlerts, hazardIntersections, insertAssetSchema, insertClaimSchema } from '@shared/schema';
 import { eq, and, isNull } from 'drizzle-orm';
 
 export function registerAlignmentRoutes(app: Express) {
@@ -112,6 +115,120 @@ export function registerAlignmentRoutes(app: Express) {
       console.error('❌ Error creating claim:', error);
       res.status(500).json({
         error: 'Failed to create claim',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  /**
+   * POST /api/claims/import
+   * Bulk import claims from CSV file
+   * Expects CSV with columns: claimNumber, insuranceCompany, policyNumber?, claimantName, propertyAddress, damageType, incidentDate, state, estimatedAmount?, latitude?, longitude?, notes?
+   * Deduplicates by claimNumber - skips existing claims
+   * Returns: { created: number, skipped: number, errors: { row: number, error: string }[] }
+   */
+  const upload = multer({ dest: '/tmp/uploads' });
+  app.post('/api/claims/import', upload.single('file'), async (req: Request, res: Response) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: 'No file uploaded' });
+      }
+
+      // Read and parse CSV
+      const fileContent = fs.readFileSync(req.file.path, 'utf-8');
+      const records = csvParse(fileContent, {
+        columns: true,
+        skip_empty_lines: true,
+        trim: true
+      });
+
+      let created = 0;
+      let skipped = 0;
+      const errors: Array<{ row: number; error: string; claimNumber?: string }> = [];
+
+      // Process each row
+      for (let i = 0; i < records.length; i++) {
+        const row = records[i];
+        const rowNumber = i + 2; // +2 for header and 1-indexed
+
+        try {
+          // Check for duplicate claim number
+          if (!row.claimNumber) {
+            errors.push({ row: rowNumber, error: 'Missing claim number' });
+            continue;
+          }
+
+          const existing = await db
+            .select()
+            .from(claims)
+            .where(eq(claims.claimNumber, row.claimNumber))
+            .limit(1);
+
+          if (existing.length > 0) {
+            skipped++;
+            console.log(`⏭️  Skipped duplicate claim: ${row.claimNumber}`);
+            continue;
+          }
+
+          // Prepare claim data
+          const claimData = {
+            claimNumber: row.claimNumber,
+            insuranceCompany: row.insuranceCompany,
+            policyNumber: row.policyNumber || null,
+            claimantName: row.claimantName,
+            propertyAddress: row.propertyAddress,
+            damageType: row.damageType,
+            incidentDate: new Date(row.incidentDate),
+            state: row.state,
+            estimatedAmount: row.estimatedAmount ? String(row.estimatedAmount) : null,
+            approvedAmount: row.approvedAmount ? String(row.approvedAmount) : null,
+            paidAmount: row.paidAmount ? String(row.paidAmount) : null,
+            latitude: row.latitude ? String(row.latitude) : null,
+            longitude: row.longitude ? String(row.longitude) : null,
+            notes: row.notes || null,
+            status: (row.status as any) || 'active'
+          };
+
+          // Validate
+          const validated = insertClaimSchema.parse(claimData);
+
+          // Insert
+          await db.insert(claims).values(validated);
+          created++;
+          console.log(`✅ Imported claim: ${validated.claimNumber}`);
+        } catch (error) {
+          errors.push({
+            row: rowNumber,
+            error: error instanceof Error ? error.message : 'Unknown error',
+            claimNumber: row.claimNumber
+          });
+        }
+      }
+
+      // Cleanup temp file
+      fs.unlinkSync(req.file.path);
+
+      console.log(`📊 CSV Import complete: ${created} created, ${skipped} skipped, ${errors.length} errors`);
+
+      res.json({
+        success: true,
+        created,
+        skipped,
+        errors,
+        totalRows: records.length
+      });
+    } catch (error) {
+      console.error('❌ Error importing claims CSV:', error);
+      
+      // Cleanup temp file on error
+      if (req.file?.path) {
+        try {
+          fs.unlinkSync(req.file.path);
+        } catch {}
+      }
+      
+      res.status(500).json({
+        error: 'Failed to import CSV',
         details: error instanceof Error ? error.message : 'Unknown error'
       });
     }
