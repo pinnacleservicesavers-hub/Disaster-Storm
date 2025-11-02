@@ -57,6 +57,7 @@ import { registerAdCampaignRoutes } from "./routes/adCampaigns";
 import { registerAIAdsRoutes } from "./routes/aiAdsRoutes";
 import { registerAIStormExpertRoutes } from "./routes/aiStormExpertRoutes";
 import { registerGrokAIRoutes } from "./routes/grokAIRoutes";
+import { registerAIChatRoutes } from "./routes/aiChatRoutes";
 import { registerEagleViewRoutes } from "./routes/eagleViewRoutes";
 import ambeeRoutes from "./routes/ambeeRoutes";
 import xweatherRoutes from "./routes/xweatherRoutes";
@@ -455,6 +456,9 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
   
   // ---- Grok AI Routes ----
   registerGrokAIRoutes(app);
+  
+  // ---- AI Chat Assistant Routes ----
+  registerAIChatRoutes(app);
   
   // ---- AI Image Generation Routes ----
   const aiImageRoutes = await import('./routes/aiImageRoutes.js');
