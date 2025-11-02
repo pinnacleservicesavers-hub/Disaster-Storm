@@ -58,9 +58,7 @@ export function ModuleCard({ m, delay = 0, launchPath, previewPath, docsPath, on
   };
   
   return (
-    <motion.div
-      whileHover={{ scale: 1.03, y: -4 }}
-      transition={{ type: "spring", stiffness: 300, damping: 20 }}
+    <div
       className="relative rounded-3xl p-1 group"
       style={{ 
         background: gradient,
@@ -69,12 +67,11 @@ export function ModuleCard({ m, delay = 0, launchPath, previewPath, docsPath, on
       data-testid={`card-module-${m.id}`}
       onClick={handleCardClick}
     >
-      {/* Intense Animated Glow Halo */}
+      {/* Static Glow Halo - NO ANIMATION */}
       <div
-        className="absolute inset-0 rounded-3xl opacity-70 blur-3xl animate-energyWave"
+        className="absolute inset-0 rounded-3xl opacity-50 blur-3xl"
         style={{
           background: `radial-gradient(circle at center, ${glow.shadow} 0%, transparent 70%)`,
-          animationDelay: `${delay}s`,
           zIndex: 0,
         }}
       />
@@ -108,7 +105,7 @@ export function ModuleCard({ m, delay = 0, launchPath, previewPath, docsPath, on
                 <span className="px-3 py-1 rounded-full text-xs font-bold bg-gradient-to-r from-emerald-500 to-emerald-600 text-white flex items-center gap-1.5 shadow-lg"
                   style={{ boxShadow: '0 0 20px rgba(16, 185, 129, 0.6)' }}
                 >
-                  <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-white"></span>
                   LIVE
                 </span>
               )}
@@ -152,6 +149,6 @@ export function ModuleCard({ m, delay = 0, launchPath, previewPath, docsPath, on
           )}
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 }

@@ -26,25 +26,11 @@ function TopNav() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo and Brand */}
-          <motion.div 
-            className="flex items-center space-x-4"
-            whileHover={{ scale: 1.02 }}
-          >
+          <div className="flex items-center space-x-4">
             <Link to="/" className="flex items-center space-x-2">
-              <motion.div
-                animate={{ 
-                  rotate: [0, 5, -5, 0],
-                  scale: [1, 1.1, 1]
-                }}
-                transition={{ 
-                  duration: 3,
-                  repeat: Infinity,
-                  ease: "easeInOut"
-                }}
-                className="p-2 bg-white/20 rounded-lg backdrop-blur-sm"
-              >
+              <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
                 <Zap className="w-6 h-6 text-yellow-300" />
-              </motion.div>
+              </div>
               <div>
                 <h1 className="text-xl font-bold tracking-tight">
                   Disaster Direct
@@ -54,7 +40,7 @@ function TopNav() {
                 </p>
               </div>
             </Link>
-          </motion.div>
+          </div>
 
           {/* Right Side - Role Selector */}
           <div className="flex items-center gap-4">
