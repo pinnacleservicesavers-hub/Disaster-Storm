@@ -111,22 +111,21 @@ const galleryRoutes = {
 export default function App() {
   return (
     <>
-      {/* Top Navigation - RESTORED */}
+      {/* Top Navigation */}
       <TopNav />
       
-      {/* Neon cinematic gallery */}
-      <ModuleGallery 
-        routes={galleryRoutes}
-        onLaunch={(m) => console.log("🚀 Launch:", m.id, m.name)}
-        onPreview={(m) => console.log("👁️ Preview:", m.id, m.name)}
-        onDocs={(m) => console.log("📖 Docs:", m.id, m.name)}
-      />
-
-      {/* Lazy-loaded routes - All 17 modules */}
+      {/* All routes */}
       <Suspense fallback={<Loader />}>
         <Routes>
-          {/* Default landing */}
-          <Route path="/" element={<Navigate to="/weather" replace />} />
+          {/* Home - Module Gallery */}
+          <Route path="/" element={
+            <ModuleGallery 
+              routes={galleryRoutes}
+              onLaunch={(m) => console.log("🚀 Launch:", m.id, m.name)}
+              onPreview={(m) => console.log("👁️ Preview:", m.id, m.name)}
+              onDocs={(m) => console.log("📖 Docs:", m.id, m.name)}
+            />
+          } />
 
           {/* All 17 Module Routes */}
           <Route path="/weather" element={<WeatherCenter />} />
@@ -146,9 +145,6 @@ export default function App() {
           <Route path="/legal" element={<Legal />} />
           <Route path="/disaster-lens" element={<DisasterLens />} />
           <Route path="/modules/xray-reality" element={<XrayRealityModule />} />
-
-          {/* 404 - redirect to default */}
-          <Route path="*" element={<Navigate to="/weather" replace />} />
         </Routes>
       </Suspense>
     </>
