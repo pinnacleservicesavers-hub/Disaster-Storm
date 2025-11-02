@@ -16,9 +16,11 @@ class Dependencies:
         self.env = os.getenv("ENV", "development")
         self.database_url = os.getenv("DATABASE_URL")
         
-        # LLM and document storage
+        # Core services
         self.llm = self._init_llm()
         self.doc_store = self._init_doc_store()
+        self.msg = self._init_messaging()
+        self.db = self._init_database_service()
         
         # Service configurations
         self.twilio_account_sid = os.getenv("TWILIO_ACCOUNT_SID")
@@ -134,6 +136,109 @@ class Dependencies:
                 return "Mock document content"
         
         return MockDocStore()
+    
+    def _init_messaging(self):
+        """Initialize messaging service (Twilio SMS, email, etc.)"""
+        class MessagingService:
+            def __init__(self, deps_ref):
+                self.deps = deps_ref
+                self.twilio_client = None
+                
+                # Initialize Twilio if credentials available
+                if deps_ref.twilio_account_sid and deps_ref.twilio_auth_token:
+                    from twilio.rest import Client
+                    self.twilio_client = Client(
+                        deps_ref.twilio_account_sid,
+                        deps_ref.twilio_auth_token
+                    )
+                    print("✅ Twilio messaging enabled")
+                else:
+                    print("⚠️ Twilio not configured - using mock messaging")
+            
+            async def notify(self, contractor, template: str, context: Dict[str, Any]):
+                """Send notification to contractor via SMS"""
+                phone = getattr(contractor, 'phone', None) or contractor.get('phone')
+                
+                # Template-based message generation
+                message = self._build_message(template, context)
+                
+                if self.twilio_client and phone:
+                    try:
+                        msg = self.twilio_client.messages.create(
+                            to=phone,
+                            from_=self.deps.twilio_phone,
+                            body=message
+                        )
+                        return {"success": True, "message_id": msg.sid}
+                    except Exception as e:
+                        print(f"❌ Twilio error: {e}")
+                        return {"success": False, "error": str(e)}
+                else:
+                    # Mock mode
+                    print(f"📱 [MOCK SMS] To: {phone}")
+                    print(f"   Template: {template}")
+                    print(f"   Message: {message}")
+                    return {"success": True, "mock": True}
+            
+            def _build_message(self, template: str, context: Dict[str, Any]) -> str:
+                """Build message from template"""
+                templates = {
+                    "storm_lead": (
+                        f"🚨 Storm Alert: {context.get('region', 'Unknown')} "
+                        f"- {len(context.get('parcels', []))} affected properties. "
+                        f"Reply YES for leads."
+                    ),
+                    "job_opportunity": (
+                        f"New Job: {context.get('description', 'Job available')} "
+                        f"at {context.get('address', 'location TBD')}. Reply YES to accept."
+                    ),
+                    "job_assigned": (
+                        f"Job #{context.get('job_id')} assigned. "
+                        f"Address: {context.get('address')}. Contact homeowner ASAP."
+                    )
+                }
+                
+                return templates.get(template, f"Notification: {context}")
+        
+        return MessagingService(self)
+    
+    def _init_database_service(self):
+        """Initialize database service for agent queries"""
+        class DatabaseService:
+            async def find_contractors_for_region(self, region: str, scopes: list) -> list:
+                """Find contractors serving a region with specific scopes"""
+                # TODO: Real database query
+                # Example: SELECT * FROM contractors WHERE region = ? AND scopes @> ?
+                
+                # Mock contractors for now
+                class MockContractor:
+                    def __init__(self, id, name, phone, consent):
+                        self.id = id
+                        self.name = name
+                        self.phone = phone
+                        self.consent_comm = consent
+                
+                return [
+                    MockContractor(1, "ProStorm Contractors", "+15551234567", True),
+                    MockContractor(2, "Emergency Repairs Inc", "+15551234568", True),
+                    MockContractor(3, "RapidResponse Roofing", "+15551234569", True),
+                    MockContractor(4, "AllWeather Restoration", "+15551234570", False),  # No consent
+                    MockContractor(5, "Storm Solutions LLC", "+15551234571", True),
+                ]
+            
+            async def get_contractor(self, contractor_id: int):
+                """Get contractor by ID"""
+                # TODO: Real database query
+                class MockContractor:
+                    def __init__(self, id, name, phone, consent):
+                        self.id = id
+                        self.name = name
+                        self.phone = phone
+                        self.consent_comm = consent
+                
+                return MockContractor(contractor_id, "Sample Contractor", "+15551234567", True)
+        
+        return DatabaseService()
     
     def to_dict(self) -> Dict[str, Any]:
         """Export as dictionary (excluding secrets)"""
