@@ -1,7 +1,122 @@
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, Express } from 'express';
 import { aiOrchestrator } from '../services/aiIntelligenceOrchestrator';
+import { pool } from '../db';
+import OpenAI from 'openai';
+
+// Initialize OpenAI client using Replit AI Integrations
+const openai = new OpenAI({
+  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || 'https://openai-gateway.replit.dev/v1',
+  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY || 'dummy-key-for-replit-ai'
+});
 
 const router = Router();
+
+// Type definitions for AI intelligence
+interface HazardData {
+  source: string;
+  count: number;
+  severity: string;
+  alerts: Array<{
+    id: string;
+    event: string;
+    state: string;
+    severity: string;
+    latitude: number;
+    longitude: number;
+    polygon?: Array<[number, number]>;
+    metadata?: any;
+  }>;
+}
+
+interface StagingLocation {
+  latitude: number;
+  longitude: number;
+  safetyDistance: number;
+  nearestHazard: string;
+  hazardDistance: number;
+  description: string;
+}
+
+/**
+ * Calculate distance between two points using Haversine formula
+ * Returns distance in kilometers
+ */
+function haversineDistance(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number
+): number {
+  const R = 6371; // Earth's radius in km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = 
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+/**
+ * Find safe staging locations ~20km outside hazard areas
+ */
+function calculateStagingLocations(hazards: HazardData[], targetLat?: number, targetLon?: number): StagingLocation[] {
+  const stagingLocations: StagingLocation[] = [];
+  const safetyDistance = 20; // km
+  
+  // Use Florida center as default if no target provided
+  const baseLat = targetLat || 28.5;
+  const baseLon = targetLon || -81.5;
+  
+  // Generate candidate staging locations in a grid around base location
+  const offsets = [
+    { lat: 0.2, lon: 0 },    // ~20km north
+    { lat: -0.2, lon: 0 },   // ~20km south
+    { lat: 0, lon: 0.2 },    // ~20km east
+    { lat: 0, lon: -0.2 },   // ~20km west
+    { lat: 0.15, lon: 0.15 }, // NE
+    { lat: 0.15, lon: -0.15 }, // NW
+    { lat: -0.15, lon: 0.15 }, // SE
+    { lat: -0.15, lon: -0.15 } // SW
+  ];
+  
+  for (const offset of offsets) {
+    const candLat = baseLat + offset.lat;
+    const candLon = baseLon + offset.lon;
+    
+    // Find nearest hazard to this candidate location
+    let minDistance = Infinity;
+    let nearestHazard = 'Unknown';
+    
+    for (const hazard of hazards) {
+      for (const alert of hazard.alerts) {
+        if (alert.latitude && alert.longitude) {
+          const distance = haversineDistance(candLat, candLon, alert.latitude, alert.longitude);
+          if (distance < minDistance) {
+            minDistance = distance;
+            nearestHazard = `${alert.event} (${alert.state})`;
+          }
+        }
+      }
+    }
+    
+    // Only include if it's far enough from hazards
+    if (minDistance >= safetyDistance) {
+      stagingLocations.push({
+        latitude: candLat,
+        longitude: candLon,
+        safetyDistance: Math.round(minDistance * 10) / 10,
+        nearestHazard,
+        hazardDistance: Math.round(minDistance * 10) / 10,
+        description: `Safe staging zone ${Math.round(minDistance)}km from ${nearestHazard}`
+      });
+    }
+  }
+  
+  // Sort by distance from hazards (farther = safer)
+  return stagingLocations.sort((a, b) => b.hazardDistance - a.hazardDistance).slice(0, 5);
+}
 
 /**
  * POST /api/ai-intelligence/multi-peril
@@ -290,6 +405,239 @@ router.get('/status', async (req: Request, res: Response) => {
     res.status(500).json({ 
       error: 'Failed to get AI status',
       message: error.message 
+    });
+  }
+});
+
+/**
+ * GET /api/ai-intelligence/summary
+ * Returns a plain-English summary of current hazards and impacts
+ */
+router.get('/summary', async (req: Request, res: Response) => {
+  try {
+    console.log('🤖 Generating AI hazard summary...');
+    
+    // Fetch all active hazards from database
+    const result = await pool.query(`
+      SELECT 
+        id, alert_id, event, state, title, description, severity, alert_type,
+        areas, effective, expires, polygon, latitude, longitude, source,
+        geometry_type, hazard_metadata, is_active
+      FROM weather_alerts
+      WHERE is_active = true
+      AND (expires IS NULL OR expires > NOW())
+      ORDER BY 
+        CASE severity
+          WHEN 'Extreme' THEN 1
+          WHEN 'Severe' THEN 2
+          WHEN 'Moderate' THEN 3
+          ELSE 4
+        END,
+        effective DESC
+      LIMIT 100
+    `);
+    
+    const alerts = result.rows;
+    
+    // Group by source
+    const hazardsBySource: Record<string, HazardData> = {};
+    
+    for (const alert of alerts) {
+      const source = alert.source || 'Unknown';
+      if (!hazardsBySource[source]) {
+        hazardsBySource[source] = {
+          source,
+          count: 0,
+          severity: alert.severity,
+          alerts: []
+        };
+      }
+      
+      hazardsBySource[source].count++;
+      hazardsBySource[source].alerts.push({
+        id: alert.id,
+        event: alert.event,
+        state: alert.state,
+        severity: alert.severity,
+        latitude: parseFloat(alert.latitude) || 0,
+        longitude: parseFloat(alert.longitude) || 0,
+        polygon: alert.polygon ? JSON.parse(alert.polygon) : undefined,
+        metadata: alert.hazard_metadata
+      });
+      
+      // Update to worst severity
+      const severities = ['Minor', 'Moderate', 'Severe', 'Extreme'];
+      const currentIdx = severities.indexOf(hazardsBySource[source].severity);
+      const newIdx = severities.indexOf(alert.severity);
+      if (newIdx > currentIdx) {
+        hazardsBySource[source].severity = alert.severity;
+      }
+    }
+    
+    // Generate AI summary
+    const hazardList = Object.values(hazardsBySource);
+    const totalAlerts = alerts.length;
+    
+    const summaryPrompt = `You are an AI intelligence analyst for Disaster Direct, a storm operations platform for contractors and emergency responders.
+
+Generate a concise, actionable plain-English briefing of current hazards. Focus on:
+1. What disasters are active right now
+2. Where they are located  
+3. Severity and immediate impacts
+4. Contractor deployment recommendations
+
+Current Hazard Data:
+${JSON.stringify(hazardList, null, 2)}
+
+Total active alerts: ${totalAlerts}
+
+Provide a professional briefing in 3-5 paragraphs. Be specific about locations, severities, and actionable guidance for contractors.`;
+
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-5-mini',
+      messages: [
+        {
+          role: 'system',
+          content: 'You are an expert disaster intelligence analyst providing real-time briefings to emergency responders and contractors.'
+        },
+        {
+          role: 'user',
+          content: summaryPrompt
+        }
+      ],
+      max_completion_tokens: 1000
+    });
+    
+    const summary = completion.choices[0]?.message?.content || 'No summary available';
+    
+    console.log('✅ AI summary generated');
+    res.json({
+      summary,
+      totalAlerts,
+      hazardsBySource: hazardList,
+      generatedAt: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    console.error('❌ Error generating AI summary:', error);
+    res.status(500).json({ 
+      error: 'Failed to generate hazard summary',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+/**
+ * GET /api/ai-intelligence/staging
+ * Returns suggested safe staging locations for contractor deployment
+ * Query params: lat, lon (optional - defaults to Florida center)
+ */
+router.get('/staging', async (req: Request, res: Response) => {
+  try {
+    console.log('📍 Calculating safe staging locations...');
+    
+    const targetLat = req.query.lat ? parseFloat(req.query.lat as string) : undefined;
+    const targetLon = req.query.lon ? parseFloat(req.query.lon as string) : undefined;
+    
+    // Fetch active hazards
+    const result = await pool.query(`
+      SELECT 
+        id, alert_id, event, state, severity, latitude, longitude, polygon,
+        source, geometry_type, hazard_metadata
+      FROM weather_alerts
+      WHERE is_active = true
+      AND (expires IS NULL OR expires > NOW())
+      AND latitude IS NOT NULL
+      AND longitude IS NOT NULL
+    `);
+    
+    const alerts = result.rows;
+    
+    // Group by source
+    const hazardsBySource: Record<string, HazardData> = {};
+    
+    for (const alert of alerts) {
+      const source = alert.source || 'Unknown';
+      if (!hazardsBySource[source]) {
+        hazardsBySource[source] = {
+          source,
+          count: 0,
+          severity: alert.severity,
+          alerts: []
+        };
+      }
+      
+      hazardsBySource[source].count++;
+      hazardsBySource[source].alerts.push({
+        id: alert.id,
+        event: alert.event,
+        state: alert.state,
+        severity: alert.severity,
+        latitude: parseFloat(alert.latitude),
+        longitude: parseFloat(alert.longitude),
+        polygon: alert.polygon ? JSON.parse(alert.polygon) : undefined,
+        metadata: alert.hazard_metadata
+      });
+    }
+    
+    // Calculate safe staging locations
+    const stagingLocations = calculateStagingLocations(
+      Object.values(hazardsBySource),
+      targetLat,
+      targetLon
+    );
+    
+    // Generate AI recommendations
+    const stagingPrompt = `You are an AI deployment strategist for Disaster Direct.
+
+Based on current hazard locations, recommend safe staging areas for contractor deployment.
+
+Candidate Staging Locations:
+${JSON.stringify(stagingLocations, null, 2)}
+
+Active Hazards:
+${JSON.stringify(Object.values(hazardsBySource).map(h => ({
+  source: h.source,
+  count: h.count,
+  severity: h.severity
+})), null, 2)}
+
+Provide brief, tactical recommendations for each staging location (2-3 sentences each). Focus on:
+- Safety considerations
+- Proximity to affected areas
+- Deployment logistics`;
+
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-5-mini',
+      messages: [
+        {
+          role: 'system',
+          content: 'You are an expert in emergency response logistics and contractor deployment strategy.'
+        },
+        {
+          role: 'user',
+          content: stagingPrompt
+        }
+      ],
+      max_completion_tokens: 800
+    });
+    
+    const recommendations = completion.choices[0]?.message?.content || 'No recommendations available';
+    
+    console.log(`✅ Generated ${stagingLocations.length} staging location recommendations`);
+    res.json({
+      stagingLocations,
+      recommendations,
+      targetLocation: targetLat && targetLon ? { latitude: targetLat, longitude: targetLon } : null,
+      safetyDistance: 20, // km
+      generatedAt: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    console.error('❌ Error calculating staging locations:', error);
+    res.status(500).json({ 
+      error: 'Failed to calculate staging locations',
+      details: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 });

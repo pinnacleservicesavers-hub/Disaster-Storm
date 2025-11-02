@@ -341,7 +341,9 @@ export const weatherAlerts = pgTable("weather_alerts", {
   isActive: boolean("is_active").default(true),
   latitude: numeric("latitude", { precision: 10, scale: 8 }),
   longitude: numeric("longitude", { precision: 10, scale: 8 }),
-  source: text("source").default("NWS"), // NWS, Xweather, etc.
+  source: text("source").default("NWS"), // NWS, Xweather, NHC, MRMS, etc.
+  geometryType: text("geometry_type"), // "cone", "track", "contour", "point", etc.
+  hazardMetadata: jsonb("hazard_metadata").$type<JsonObject>(), // Storm name, intensity, threshold values, etc.
   createdAt: timestamp("created_at").defaultNow(),
 });
 
