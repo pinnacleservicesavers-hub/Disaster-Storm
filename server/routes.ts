@@ -70,6 +70,7 @@ import { registerHazardIngestionRoutes } from "./routes/hazardIngestionRoutes";
 import { registerAlignmentRoutes } from "./routes/alignmentRoutes";
 import { registerContractorAlertRoutes } from "./routes/contractorAlertRoutes";
 import mrmsProductionRoutes from "./routes/mrmsProductionRoutes.js";
+import workflowRoutes from "./routes/workflowRoutes";
 import { mountLocations } from "./routes/locations";
 import { mountAlerts } from "./routes/alerts";
 import { mountWarm } from "./routes/warm";
@@ -523,6 +524,10 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
   // ---- MRMS Production Routes ----
   app.use('/api', mrmsProductionRoutes);
   console.log('📡 MRMS Production routes registered - Multi-threshold hazard processing');
+
+  // ---- Workflow Routes (Lead → Job → Claim → Payment) ----
+  app.use('/api', workflowRoutes);
+  console.log('🔄 Workflow routes registered - Auth, memberships, contractor profiles, leads, jobs, claims, payments');
 
   // ---- AI Intelligence Orchestrator Routes ----
   const aiIntelligenceRoutes = await import('./routes/aiIntelligenceRoutes.js');

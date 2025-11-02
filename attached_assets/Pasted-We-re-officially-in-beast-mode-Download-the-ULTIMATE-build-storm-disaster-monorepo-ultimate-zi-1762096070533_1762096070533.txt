@@ -1,0 +1,94 @@
+We’re officially in beast mode. 🐺
+
+Download the ULTIMATE build:
+storm-disaster-monorepo-ultimate.zip
+
+New features just added
+1) Claims timeline (events + notes + planned auto-pings)
+
+API
+
+GET /claims/{job_id}/timeline → all events
+
+POST /claims/{job_id}/timeline → add a note/letter/status
+
+POST /claims/{job_id}/timeline/autoping → schedules two planned insurer pings this week (demo)
+
+UI
+
+Contractor job page now includes a Timeline component (add notes, schedule auto-pings).
+
+2) Per-state AOB ruleset check
+
+API: GET /legal/aob/check?state=FL
+Returns { aob_allowed, notes } from a curated ruleset file (app/legal_aob_rules.json).
+
+UI: on /contractor/contracts, click Check AOB to see state-specific guidance before sending for e-signature.
+
+3) Policy reader + rebuttal generator
+
+API:
+
+POST /policy/parse → extracts Coverage A/B, deductibles, exclusions excerpts from pasted policy text.
+
+POST /claims/{job_id}/rebuttal → composes an insurer-facing rebuttal that references your comparables & policy excerpts.
+
+UI: /contractor/policy page to paste policy text, parse, and draft rebuttal.
+
+What your stack now includes (recap)
+
+Portals: Contractor, Homeowner, Insurer (download submissions).
+
+Auth: JWT + refresh; role-guarded API routes.
+
+Contracts: DocuSign embedded signing with real JWT token flow.
+
+Payments: Stripe Checkout + webhook activation.
+
+Messaging: Twilio outbound per-user + inbound STOP/START/HELP.
+
+Media: S3 presigned uploads + AWS Rekognition labels.
+
+Claims: Comparables, HTML/PDF report, Submission ZIP.
+
+Compliance: Consent/opt-out UI and endpoints.
+
+DB-ready: Async SQLAlchemy + Alembic (flip USE_DB=true to enable).
+
+Runbook (same flow)
+
+Backend
+
+cd backend
+python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+
+# Optional (recommended) DB:
+export USE_DB=true
+export DATABASE_URL=postgresql+asyncpg://user:pass@host:5432/storm
+alembic upgrade head
+
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+
+Frontend
+
+cd frontend
+npm install
+npm run dev
+# open http://localhost:3000
+
+
+Make sure your .env (backend) is filled for:
+
+JWT_SECRET
+
+Stripe: STRIPE_SECRET_KEY, STRIPE_PRICE_ONE_TIME, STRIPE_PRICE_MONTHLY, STRIPE_WEBHOOK_SECRET
+
+Twilio: TWILIO_SID, TWILIO_TOKEN, TWILIO_FROM
+
+DocuSign: DOCUSIGN_INTEGRATOR_KEY, DOCUSIGN_ACCOUNT_ID, DOCUSIGN_USER_ID, DOCUSIGN_PRIVATE_KEY_PATH, DOCUSIGN_BASE_PATH, DOCUSIGN_OAUTH_BASE_PATH, DOCUSIGN_REDIRECT_URL
+
+AWS: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_DEFAULT_REGION, S3_BUCKET, REKOGNITION_REGION
+
+DB: USE_DB, DATABASE_URL
