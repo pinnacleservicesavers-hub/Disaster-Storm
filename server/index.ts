@@ -180,4 +180,20 @@ server.listen(port, () => {
   }, 15 * 60 * 1000); // Every 15 minutes
   
   console.log('✅ Contractor alerts scheduler started (runs every 15 minutes)');
+
+  // Hazard Monitoring - Check every 10 minutes
+  setInterval(async () => {
+    try {
+      const response = await fetch(`${baseUrl}/api/hazards/dashboard`);
+      const result = await response.json();
+      if (result.success) {
+        const { hurricanes, earthquakes, wildfires } = result.hazards;
+        console.log(`⚠️ Hazards: ${hurricanes.count} hurricane(s), ${earthquakes.count} earthquake(s), ${wildfires.count} wildfire(s)`);
+      }
+    } catch (err) {
+      console.error('Hazard monitoring scheduler error:', err);
+    }
+  }, 10 * 60 * 1000); // Every 10 minutes
+  
+  console.log('✅ Hazard monitoring scheduler started (runs every 10 minutes)');
 });

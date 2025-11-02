@@ -65,6 +65,7 @@ import tomorrowRoutes from "./routes/tomorrowRoutes";
 import nwsForecastRoutes from "./routes/nwsForecastRoutes";
 import geocodingRoutes from "./routes/geocodingRoutes";
 import contractorAlertsRoutes from "./routes/contractorAlerts.js";
+import hazardMonitoringRoutes from "./routes/hazardMonitoring.js";
 import { mountLocations } from "./routes/locations";
 import { mountAlerts } from "./routes/alerts";
 import { mountWarm } from "./routes/warm";
@@ -499,6 +500,10 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
   // ---- Contractor Alerts Routes ----
   app.use('/api/contractor-alerts', contractorAlertsRoutes);
   console.log('🚨 Contractor alerts routes registered - Automated opportunity notifications');
+
+  // ---- Hazard Monitoring Routes ----
+  app.use('/api/hazards', hazardMonitoringRoutes);
+  console.log('⚠️ Hazard monitoring routes registered - Hurricanes, earthquakes, wildfires, audit logs');
 
   // ---- AI Intelligence Orchestrator Routes ----
   const aiIntelligenceRoutes = await import('./routes/aiIntelligenceRoutes.js');
