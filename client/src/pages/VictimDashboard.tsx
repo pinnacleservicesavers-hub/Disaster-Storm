@@ -796,7 +796,7 @@ You can ask our AI assistant about any of these resources, and it will guide you
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-red-50 via-orange-50 to-amber-50 flex items-center justify-center">
+      <div className="min-h-screen bg-black text-white flex items-center justify-center">
         <ScaleIn>
           <div className="text-center">
             <motion.div

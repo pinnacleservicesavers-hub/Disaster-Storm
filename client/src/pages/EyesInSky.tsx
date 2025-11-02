@@ -17,6 +17,35 @@ export default function EyesInSky() {
   const [isVoiceGuideActive, setIsVoiceGuideActive] = useState(false);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
 
+  // Wrap entire component in neon black background
+  const WrapperDiv = ({ children }: { children: React.ReactNode }) => (
+    <div className="min-h-screen bg-black text-white">
+      <div className="fixed inset-0 pointer-events-none">
+        <div className="absolute inset-0 opacity-30 blur-3xl"
+          style={{
+            background: 'radial-gradient(40% 40% at 20% 30%, rgba(0,194,255,0.15), transparent 60%), radial-gradient(50% 50% at 80% 70%, rgba(0,217,255,0.2), transparent 65%)'
+          }}
+        />
+      </div>
+      <div className="relative max-w-7xl mx-auto px-8 py-16">
+        <h1 className="text-6xl font-extrabold tracking-tight mb-4"
+          style={{
+            background: 'linear-gradient(90deg, #00d9ff 0%, #00ffcc 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            textShadow: '0 0 80px rgba(0, 255, 204, 0.5)'
+          }}
+        >
+          Eyes in the Sky
+        </h1>
+        <p className="text-xl text-cyan-300/70 mb-12">
+          Storm operations with route planning, address search, elevation data, and Google Maps integration on 3D Earth globe
+        </p>
+        {children}
+      </div>
+    </div>
+  );
+
   // Initialize voice loading with enhanced cleanup
   useEffect(() => {
     const loadVoices = () => {
@@ -191,7 +220,7 @@ export default function EyesInSky() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-blue-900 dark:to-indigo-900">
+    <div className="min-h-screen bg-black text-white">
       {/* Animated Background Effects */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <motion.div

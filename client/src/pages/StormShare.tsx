@@ -476,7 +476,7 @@ export default function StormShare() {
   const totalMembers = groups.reduce((sum: number, group: StormShareGroup) => sum + (group.memberCount || 0), 0);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-indigo-950">
+    <div className="min-h-screen bg-black text-white">
       <div className="container mx-auto px-4 py-6">
         <BackButton />
         <DashboardSection
