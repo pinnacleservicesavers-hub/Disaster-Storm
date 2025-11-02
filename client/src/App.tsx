@@ -23,6 +23,7 @@ const ContractorPortal = lazy(() => import("./pages/ContractorPortal"));
 const Legal = lazy(() => import("./pages/Legal"));
 const DisasterLens = lazy(() => import("./pages/DisasterLens"));
 const XrayRealityModule = lazy(() => import("./modules/XrayRealityModule"));
+const HazardDashboard = lazy(() => import("./pages/HazardDashboard"));
 
 // Top Navigation Header
 function TopNav() {
@@ -148,6 +149,7 @@ export default function App() {
           <Route path="/legal" element={<Legal />} />
           <Route path="/disaster-lens" element={<DisasterLens />} />
           <Route path="/modules/xray-reality" element={<XrayRealityModule />} />
+          <Route path="/hazard-dashboard" element={<HazardDashboard />} />
         </Routes>
       </Suspense>
     </>

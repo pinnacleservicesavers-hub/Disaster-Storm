@@ -67,6 +67,7 @@ import geocodingRoutes from "./routes/geocodingRoutes";
 import contractorAlertsRoutes from "./routes/contractorAlerts.js";
 import hazardMonitoringRoutes from "./routes/hazardMonitoring.js";
 import { registerHazardIngestionRoutes } from "./routes/hazardIngestionRoutes";
+import { registerAlignmentRoutes } from "./routes/alignmentRoutes";
 import { mountLocations } from "./routes/locations";
 import { mountAlerts } from "./routes/alerts";
 import { mountWarm } from "./routes/warm";
@@ -508,6 +509,10 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
   
   // ---- Hazard Ingestion Routes (NHC, MRMS) ----
   registerHazardIngestionRoutes(app);
+
+  // ---- Asset & Hazard Alignment Routes ----
+  registerAlignmentRoutes(app);
+  console.log('🎯 Asset & Hazard Alignment routes registered - Claims, assets, intersection detection');
 
   // ---- AI Intelligence Orchestrator Routes ----
   const aiIntelligenceRoutes = await import('./routes/aiIntelligenceRoutes.js');

@@ -4361,6 +4361,47 @@ export const deviceAudiences = pgTable("device_audiences", {
   createdAt: timestamp("created_at").defaultNow().notNull()
 });
 
+// ===== ASSET & HAZARD ALIGNMENT TABLES =====
+
+// Assets (Properties) Table - Represents real estate that can have claims
+export const assets = pgTable("assets", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(), // e.g., "Client HQ", "Homeowner Property"
+  refId: text("ref_id"), // External reference ID (property ID, parcel ID, etc.)
+  address: text("address"),
+  city: text("city"),
+  state: text("state"),
+  zipCode: text("zip_code"),
+  latitude: numeric("latitude", { precision: 10, scale: 8 }).notNull(),
+  longitude: numeric("longitude", { precision: 10, scale: 8 }).notNull(),
+  propertyType: text("property_type"), // residential, commercial, industrial, etc.
+  ownerName: text("owner_name"),
+  ownerEmail: text("owner_email"),
+  ownerPhone: text("owner_phone"),
+  metadata: jsonb("metadata").$type<JsonObject>(), // Additional property data
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull()
+});
+
+// Hazard Intersections - Tracks which assets/claims are in hazard zones
+export const hazardIntersections = pgTable("hazard_intersections", {
+  id: serial("id").primaryKey(),
+  assetId: integer("asset_id").references(() => assets.id),
+  claimId: varchar("claim_id").references(() => claims.id),
+  alertId: text("alert_id").notNull(), // Links to weatherAlerts.alertId
+  hazardType: text("hazard_type").notNull(), // NWS, NHC, MRMS, etc.
+  severity: text("severity").notNull(), // Extreme, Severe, Moderate, Minor
+  distance: numeric("distance"), // Distance from asset to hazard center (miles)
+  intersectionType: text("intersection_type").notNull(), // inside_polygon, nearby, potential_impact
+  detectedAt: timestamp("detected_at").defaultNow().notNull(),
+  resolvedAt: timestamp("resolved_at"), // When hazard no longer affects this asset
+  moratoriumFlag: boolean("moratorium_flag").default(false), // Insurance moratorium indicator
+  metadata: jsonb("metadata").$type<JsonObject>() // Additional intersection data
+});
+
+// Carriers (Alias for insurance_companies for alignment API compatibility)
+// This is a view/alias of the existing insuranceCompanies table
+
 // Insert schemas
 export const insertAdGeoFenceSchema = createInsertSchema(adGeoFences).omit({
   id: true,
@@ -4379,6 +4420,20 @@ export const insertDeviceAudienceSchema = createInsertSchema(deviceAudiences).om
   createdAt: true
 });
 
+export const insertAssetSchema = createInsertSchema(assets).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
+}).extend({
+  latitude: z.union([z.number(), z.string()]).transform(val => String(val)),
+  longitude: z.union([z.number(), z.string()]).transform(val => String(val))
+});
+
+export const insertHazardIntersectionSchema = createInsertSchema(hazardIntersections).omit({
+  id: true,
+  detectedAt: true
+});
+
 // Select types
 export type AdGeoFence = typeof adGeoFences.$inferSelect;
 export type InsertAdGeoFence = z.infer<typeof insertAdGeoFenceSchema>;
@@ -4386,3 +4441,7 @@ export type AdCampaign = typeof adCampaigns.$inferSelect;
 export type InsertAdCampaign = z.infer<typeof insertAdCampaignSchema>;
 export type DeviceAudience = typeof deviceAudiences.$inferSelect;
 export type InsertDeviceAudience = z.infer<typeof insertDeviceAudienceSchema>;
+export type Asset = typeof assets.$inferSelect;
+export type InsertAsset = z.infer<typeof insertAssetSchema>;
+export type HazardIntersection = typeof hazardIntersections.$inferSelect;
+export type InsertHazardIntersection = z.infer<typeof insertHazardIntersectionSchema>;
