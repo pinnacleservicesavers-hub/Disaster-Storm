@@ -24,18 +24,75 @@ interface VoiceGuideProps {
 }
 
 export const PORTAL_EXPLANATIONS: Record<string, VoiceExplanation> = {
-  welcome: {
-    id: 'welcome',
-    portal: 'welcome',
-    title: 'Welcome to Disaster Essentials Marketplace',
-    content: `Welcome to the Disaster Essentials Marketplace, your comprehensive resource hub for emergency management and disaster recovery. 
-    I'm your voice guide, here to help you navigate through our seven essential service portals. This marketplace provides real-time 
-    information on hotels, fuel stations, hardware supplies, shelters, FEMA resources, emergency alerts, and satellite communication 
-    equipment. Each portal contains verified, up-to-date information to help you make informed decisions during disaster situations.`,
-    keyFeatures: ['Real-time resource tracking', 'Seven essential service categories', 'State-by-state coverage', 'Emergency contact information'],
-    navigation: 'Use the tabs at the top to switch between different resource categories, or let me guide you through each portal.',
-    benefits: ['One-stop disaster resource platform', 'Professional contractor discounts', 'Emergency response coordination'],
+  modules: {
+    id: 'modules',
+    portal: 'modules',
+    title: 'Welcome to Disaster Direct StormOps Modules',
+    content: `Welcome to Disaster Direct StormOps Modules. I'm Rachel, your professional voice guide. You have access to six powerful modules. Weather Center offers live radar and severe weather alerts. Storm Predictions provides AI damage forecasting. TrafficCamWatcher monitors live traffic cameras for real-time damage detection. Drone Operations manages your fleet and flight logs. AI Damage Detection analyzes photos and camera feeds. And X-RAY REALITY provides augmented reality storm operations. Click Launch on any module to learn more and access detailed features.`,
+    keyFeatures: ['Six integrated modules', 'Real-time intelligence', 'AI-powered tools', 'Professional operations'],
+    navigation: 'Click Launch on any module card to access it. Use search to find modules or filter by category.',
+    benefits: ['Comprehensive storm operations', 'Enterprise-grade tools'],
+    duration: 30
+  },
+  weather: {
+    id: 'weather',
+    portal: 'weather',
+    title: 'Weather Center Module',
+    content: `The Weather Center provides comprehensive real-time weather intelligence for storm operations. Access live radar tracking with storm prediction overlays, receive automated severe weather alerts from the National Weather Service, and use professional ops tools for deployment planning and crew coordination. The system monitors severe weather alerts every 2 minutes, providing instant notifications when conditions threaten your service areas. Plan crew deployments based on radar forecasts, track storm systems in real-time, and coordinate response efforts with live weather data.`,
+    keyFeatures: ['Live radar with prediction overlays', 'NWS severe weather alerts', 'Automated notifications', 'Deployment planning tools', 'Crew coordination features'],
+    navigation: 'Use the radar view to track storms, check alerts for your service areas, and plan crew deployments using the ops tools.',
+    benefits: ['Real-time storm tracking', 'Automated alert notifications', 'Strategic deployment planning', 'Crew safety coordination'],
     duration: 45
+  },
+  predictions: {
+    id: 'predictions',
+    portal: 'predictions',
+    title: 'Storm Predictions Module',
+    content: `Storm Predictions uses advanced AI and machine learning to forecast storm damage with 89% accuracy. The system analyzes weather patterns, historical data, and real-time conditions to generate county-level damage forecasts and contractor opportunity scores. Receive predictive damage analysis up to 72 hours in advance, allowing strategic crew positioning before storms hit. The AI models identify high-value opportunities, calculate impact scores from zero to one hundred, and provide detailed forecasts for roof damage, tree damage, and flooding potential across your service areas.`,
+    keyFeatures: ['AI-powered damage prediction', '89% accuracy rate', 'County-level forecasts', 'Opportunity scoring', '72-hour advance predictions'],
+    navigation: 'Review damage forecasts by county, check opportunity scores for deployment decisions, and analyze predicted damage types.',
+    benefits: ['Strategic crew positioning', 'Maximize revenue opportunities', 'Reduce response time', 'Data-driven deployment'],
+    duration: 50
+  },
+  'traffic-cam': {
+    id: 'traffic-cam',
+    portal: 'traffic-cam',
+    title: 'TrafficCamWatcher Module',
+    content: `TrafficCamWatcher monitors live traffic cameras across the Florida DOT network and uses AI vision models to detect damage in real-time. The system automatically identifies tree downs, flooding, power line hazards, and road obstructions from thousands of camera feeds. When damage is detected, the system geo-matches contractors based on location and specialty, sending instant notifications about new opportunities. Access live camera grids by state, review AI confidence scores for detected damage, and claim opportunities before competitors.`,
+    keyFeatures: ['Live DOT camera monitoring', 'AI damage detection', 'Automated geo-matching', 'Real-time notifications', 'Multi-state coverage'],
+    navigation: 'Browse live camera feeds by location, review AI-detected damage with confidence scores, and claim opportunities directly.',
+    benefits: ['First response advantage', 'Automated opportunity detection', 'Geographic targeting', 'Real-time intelligence'],
+    duration: 48
+  },
+  'drone-ops': {
+    id: 'drone-ops',
+    portal: 'drone-ops',
+    title: 'Drone Operations Module',
+    content: `Drone Operations provides comprehensive fleet management, flight logging, and damage assessment workflows. Track your entire drone fleet including battery levels, maintenance schedules, and deployment status. Access detailed flight logs with GPS tracking and telemetry data for documentation and insurance purposes. Execute damage assessment workflows with automated photo capture, geo-tagging, and report generation. The system maintains FAA compliance logs, coordinates multi-drone missions, and integrates assessment data directly into claim management systems.`,
+    keyFeatures: ['Fleet management dashboard', 'GPS flight logging', 'Automated photo capture', 'Maintenance tracking', 'FAA compliance logs'],
+    navigation: 'Monitor fleet status on the dashboard, review flight logs for documentation, and execute assessment workflows for claims.',
+    benefits: ['Professional documentation', 'FAA compliance', 'Efficient assessments', 'Insurance claim support'],
+    duration: 47
+  },
+  'ai-damage': {
+    id: 'ai-damage',
+    portal: 'ai-damage',
+    title: 'AI Damage Detection Module',
+    content: `AI Damage Detection uses computer vision models to analyze camera feeds and photos in real-time. The system automatically classifies roof damage, tree damage, flooding, and structural issues with confidence scores and severity ratings. Process thousands of images per hour, receive instant damage classifications, and generate detailed reports for insurance claims. The AI models are trained on millions of storm damage images, achieving professional-grade accuracy for shingle damage, tarp requirements, tree hazards, and water intrusion. Integration with claims systems allows one-click report generation.`,
+    keyFeatures: ['Real-time image analysis', 'Automated classification', 'Confidence scoring', 'Severity ratings', 'Claims integration'],
+    navigation: 'Upload images or connect camera feeds, review AI classifications with confidence scores, and generate reports.',
+    benefits: ['Rapid damage assessment', 'Professional accuracy', 'Automated documentation', 'Insurance claim support'],
+    duration: 49
+  },
+  xray: {
+    id: 'xray',
+    portal: 'xray',
+    title: 'X-RAY REALITY Module',
+    content: `X-RAY REALITY provides augmented reality storm operations with live 3D visualization. Access continuously refreshing radar and satellite data on a three-dimensional stage, view traffic and DOT cameras in three-by-three grids organized by state, and integrate your drone feeds for comprehensive situational awareness. Use AR measurement tools to mark hazards like energized power lines and split tree trunks, draw cut lines and safe zones directly on the AR view, and measure diameters and distances visually. The time scrub feature lets you replay the last 6 to 24 hours of storm data for evidence capture and documentation. Lead triage overlays automatically label critical jobs, while the routing helper suggests smart crew sequences.`,
+    keyFeatures: ['3D storm visualization', 'AR measurement tools', 'Camera grid integration', 'Time scrub replay', 'Automated triage', 'Smart routing'],
+    navigation: 'Use AR tools to mark hazards and measure distances, scrub through storm history for evidence, and review triage priorities.',
+    benefits: ['Enhanced situational awareness', 'Professional documentation', 'Evidence capture', 'Efficient routing'],
+    duration: 55
   },
   hotels: {
     id: 'hotels',

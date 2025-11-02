@@ -1,3 +1,5 @@
+import VoiceGuide from '@/components/VoiceGuide';
+
 export default function StormPredictions() {
   return (
     <div className="min-h-screen bg-black text-white">
@@ -23,9 +25,14 @@ export default function StormPredictions() {
           Storm Predictions
         </h1>
         
-        <p className="text-xl text-cyan-300/70 mb-12">
+        <p className="text-xl text-cyan-300/70 mb-8">
           AI-powered predictive damage analysis.
         </p>
+
+        {/* Voice Guide */}
+        <div className="flex justify-center mb-12">
+          <VoiceGuide currentPortal="predictions" />
+        </div>
 
         {/* Feature Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

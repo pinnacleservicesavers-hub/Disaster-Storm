@@ -1,3 +1,5 @@
+import VoiceGuide from '@/components/VoiceGuide';
+
 export default function WeatherCenter() {
   return (
     <div className="min-h-screen bg-black text-white">
@@ -23,9 +25,14 @@ export default function WeatherCenter() {
           Weather Center
         </h1>
         
-        <p className="text-xl text-cyan-300/70 mb-12">
+        <p className="text-xl text-cyan-300/70 mb-8">
           Live radar, alerts, and ops tools.
         </p>
+
+        {/* Voice Guide */}
+        <div className="flex justify-center mb-12">
+          <VoiceGuide currentPortal="weather" />
+        </div>
 
         {/* Feature Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

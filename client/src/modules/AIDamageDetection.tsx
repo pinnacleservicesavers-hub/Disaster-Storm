@@ -1,3 +1,5 @@
+import VoiceGuide from '@/components/VoiceGuide';
+
 export default function AIDamageDetection() {
   return (
     <div className="min-h-screen bg-black text-white">
@@ -23,9 +25,14 @@ export default function AIDamageDetection() {
           AI Damage Detection
         </h1>
         
-        <p className="text-xl text-cyan-300/70 mb-12">
+        <p className="text-xl text-cyan-300/70 mb-8">
           Real-time inference on camera feeds.
         </p>
+
+        {/* Voice Guide */}
+        <div className="flex justify-center mb-12">
+          <VoiceGuide currentPortal="ai-damage" />
+        </div>
 
         {/* Feature Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
