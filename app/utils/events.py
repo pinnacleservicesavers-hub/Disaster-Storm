@@ -1,10 +1,11 @@
 """Event Bus - Pub/Sub for agent orchestration"""
-from typing import Callable, Dict, Any, List
+import asyncio
+from typing import Callable, Awaitable, Dict, Any, List
 
 
 class EventBus:
     """
-    Simple pub/sub event bus
+    Simple pub/sub event bus with parallel handler execution
     
     Usage:
         bus = EventBus()
@@ -13,16 +14,12 @@ class EventBus:
     """
     
     def __init__(self):
-        self.handlers: List[Callable] = []
+        self.handlers: List[Callable[[Dict[str, Any]], Awaitable]] = []
     
-    def subscribe(self, handler: Callable):
+    def subscribe(self, handler: Callable[[Dict[str, Any]], Awaitable]):
         """Subscribe handler to all events"""
         self.handlers.append(handler)
     
-    async def publish(self, event: Dict[str, Any]) -> List[Any]:
-        """Publish event to all handlers, return results"""
-        results = []
-        for h in self.handlers:
-            result = await h(event)
-            results.append(result)
-        return results
+    async def publish(self, event: Dict[str, Any]):
+        """Publish event to all handlers in parallel"""
+        await asyncio.gather(*(h(event) for h in self.handlers))
