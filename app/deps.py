@@ -15,6 +15,7 @@ class Deps:
         self.doc_store = self._docusign()
         self.lien = self._lien()
         self.compliance = self._compliance()
+        self.templates = self._templates()
     
     def _llm_client(self):
         if os.getenv("OPENAI_API_KEY"):
@@ -145,6 +146,10 @@ class Deps:
     def _compliance(self):
         from app.services.compliance_svc import ComplianceService
         return ComplianceService()
+    
+    def _templates(self):
+        from app.services.templates_svc import TemplatesService
+        return TemplatesService()
 
 
 def build_dependencies():

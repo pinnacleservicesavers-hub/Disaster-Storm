@@ -69,7 +69,7 @@ async def check_consent(user_id: str, channel: str):
 async def validate_contract(req: ValidateContractRequest):
     """Validate contract against state rules with AOB awareness"""
     # Call LegalAgent with compliance checks
-    result = await deps.compliance.check_aob_allowed(req.state)
+    result = deps.compliance.check_aob_allowed(req.state)
     return {"valid": True, "aob_check": result}
 
 
