@@ -23,6 +23,8 @@ class Dependencies:
         self.db = self._init_database_service()
         self.vision = self._init_vision()
         self.property_api = self._init_property_api()
+        self.storage = self._init_storage()
+        self.xact = self._init_xactimate()
         
         # Service configurations
         self.twilio_account_sid = os.getenv("TWILIO_ACCOUNT_SID")
@@ -382,6 +384,57 @@ class Dependencies:
                 }
         
         return PropertyAPIService(self)
+    
+    def _init_storage(self):
+        """Initialize storage service for claims, jobs, contractors"""
+        class StorageService:
+            async def save_claim(self, claim_data: Dict[str, Any]) -> str:
+                """Save claim and return ID"""
+                # TODO: Real database insert
+                return f"CLM-{hash(str(claim_data))}"
+            
+            async def get_claim(self, claim_id: str) -> Dict[str, Any]:
+                """Get claim by ID"""
+                # TODO: Real database query
+                return {
+                    "id": claim_id,
+                    "status": "draft",
+                    "data": {}
+                }
+            
+            async def update_claim(self, claim_id: str, updates: Dict[str, Any]) -> bool:
+                """Update claim"""
+                # TODO: Real database update
+                return True
+        
+        return StorageService()
+    
+    def _init_xactimate(self):
+        """Initialize Xactimate estimation service"""
+        class XactimateService:
+            async def estimate(self, breakdown: Dict[str, Any]) -> Dict[str, Any]:
+                """
+                Get Xactimate estimate for given breakdown
+                breakdown: {labor_hours, materials, equipment, etc}
+                """
+                # TODO: Real Xactimate API integration
+                # For now, return mock estimate
+                
+                labor_hours = breakdown.get("labor_hours", 10)
+                xact_rate = 185  # Xactimate typical rate
+                
+                return {
+                    "labor_hours": labor_hours,
+                    "labor_rate": xact_rate,
+                    "total_labor": labor_hours * xact_rate,
+                    "materials": breakdown.get("materials", 2500),
+                    "equipment": breakdown.get("equipment", 1200),
+                    "total": labor_hours * xact_rate + 2500 + 1200,
+                    "source": "Xactimate",
+                    "pricing_region": "FL-Miami-Dade"
+                }
+        
+        return XactimateService()
     
     def to_dict(self) -> Dict[str, Any]:
         """Export as dictionary (excluding secrets)"""
