@@ -332,7 +332,7 @@ export const weatherAlerts = pgTable("weather_alerts", {
   description: text("description").notNull(),
   severity: text("severity").notNull(), // Extreme, Severe, Moderate, Minor
   alertType: text("alert_type").notNull(), // Tornado, Severe Thunderstorm, etc.
-  areas: text("areas").array(), // Affected areas/UGC codes
+  areas: jsonb("areas").$type<string[]>(), // Affected areas/UGC codes (JSONB for compatibility)
   effective: timestamp("effective").notNull(), // When alert becomes active
   expires: timestamp("expires"), // When alert expires
   polygon: jsonb("polygon").$type<Array<[number, number]>>(), // [[lat,lon], [lat,lon], ...]

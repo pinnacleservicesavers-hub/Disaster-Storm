@@ -68,6 +68,7 @@ import contractorAlertsRoutes from "./routes/contractorAlerts.js";
 import hazardMonitoringRoutes from "./routes/hazardMonitoring.js";
 import { registerHazardIngestionRoutes } from "./routes/hazardIngestionRoutes";
 import { registerAlignmentRoutes } from "./routes/alignmentRoutes";
+import mrmsProductionRoutes from "./routes/mrmsProductionRoutes.js";
 import { mountLocations } from "./routes/locations";
 import { mountAlerts } from "./routes/alerts";
 import { mountWarm } from "./routes/warm";
@@ -513,6 +514,10 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
   // ---- Asset & Hazard Alignment Routes ----
   registerAlignmentRoutes(app);
   console.log('🎯 Asset & Hazard Alignment routes registered - Claims, assets, intersection detection');
+
+  // ---- MRMS Production Routes ----
+  app.use('/api', mrmsProductionRoutes);
+  console.log('📡 MRMS Production routes registered - Multi-threshold hazard processing');
 
   // ---- AI Intelligence Orchestrator Routes ----
   const aiIntelligenceRoutes = await import('./routes/aiIntelligenceRoutes.js');

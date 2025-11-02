@@ -1421,58 +1421,58 @@ export default function App() {
               
               {/* Voice Guide Controls */}
               <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg">
-                <Volume2 className="w-4 h-4 text-blue-600" />
-                <span className="text-sm font-medium text-blue-800">Voice Guide</span>
+                <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg">
+                  <Volume2 className="w-4 h-4 text-blue-600" />
+                  <span className="text-sm font-medium text-blue-800">Voice Guide</span>
+                  
+                  {!isVoiceGuideActive ? (
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => startVoiceGuide('overview')}
+                        className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                        data-testid="button-voice-overview"
+                        title="Overview of Disaster Lens"
+                      >
+                        Overview
+                      </button>
+                      <button
+                        onClick={startTabVoiceGuide}
+                        className="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
+                        data-testid="button-voice-current-tab"
+                        title={`Guide for ${tab} tab`}
+                      >
+                        {tab}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex gap-1">
+                      <button
+                        onClick={speechSynthesis?.paused ? resumeVoiceGuide : pauseVoiceGuide}
+                        className="px-2 py-1 text-xs bg-yellow-600 text-white rounded hover:bg-yellow-700 transition-colors"
+                        data-testid="button-voice-pause-resume"
+                      >
+                        {speechSynthesis?.paused ? <Play className="w-3 h-3" /> : <Pause className="w-3 h-3" />}
+                      </button>
+                      <button
+                        onClick={stopVoiceGuide}
+                        className="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+                        data-testid="button-voice-stop"
+                      >
+                        <VolumeX className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )}
+                </div>
                 
-                {!isVoiceGuideActive ? (
-                  <div className="flex gap-1">
-                    <button
-                      onClick={() => startVoiceGuide('overview')}
-                      className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-                      data-testid="button-voice-overview"
-                      title="Overview of Disaster Lens"
-                    >
-                      Overview
-                    </button>
-                    <button
-                      onClick={startTabVoiceGuide}
-                      className="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
-                      data-testid="button-voice-current-tab"
-                      title={`Guide for ${tab} tab`}
-                    >
-                      {tab}
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex gap-1">
-                    <button
-                      onClick={speechSynthesis?.paused ? resumeVoiceGuide : pauseVoiceGuide}
-                      className="px-2 py-1 text-xs bg-yellow-600 text-white rounded hover:bg-yellow-700 transition-colors"
-                      data-testid="button-voice-pause-resume"
-                    >
-                      {speechSynthesis?.paused ? <Play className="w-3 h-3" /> : <Pause className="w-3 h-3" />}
-                    </button>
-                    <button
-                      onClick={stopVoiceGuide}
-                      className="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
-                      data-testid="button-voice-stop"
-                    >
-                      <VolumeX className="w-3 h-3" />
-                    </button>
-                  </div>
-                )}
+                {/* Tab Navigation */}
+                <div className="flex gap-2">
+                  {tabs.map((t) => (
+                    <TabButton key={t} active={t===tab} onClick={()=>setTab(t)} data-testid={`tab-${t.toLowerCase().replace(' ', '-')}`}>
+                      {t}
+                    </TabButton>
+                  ))}
+                </div>
               </div>
-              
-              {/* Tab Navigation */}
-              <div className="flex gap-2">
-                {tabs.map((t) => (
-                  <TabButton key={t} active={t===tab} onClick={()=>setTab(t)} data-testid={`tab-${t.toLowerCase().replace(' ', '-')}`}>
-                    {t}
-                  </TabButton>
-                ))}
-              </div>
-            </div>
           </div>
           
           {/* Voice Guide Status */}
@@ -1486,6 +1486,7 @@ export default function App() {
               </div>
             </div>
           )}
+        </div>
         </div>
       </header>
 
@@ -1714,6 +1715,7 @@ export default function App() {
       {/* AI Assistant Dock */}
       <AssistantDock />
       <ModuleAIAssistant moduleName="Disaster Lens" />
+    </main>
     </div>
   );
 }
