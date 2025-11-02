@@ -8,6 +8,7 @@ import { Video, ExternalLink, AlertCircle, DollarSign, Play, Users, Signal, Zap,
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect } from 'react';
 import { StateCitySelector, useStateCitySelector } from '@/components/StateCitySelector';
+import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 
 export default function EyesInSky() {
   const { selectedState, setSelectedState, selectedCity, setSelectedCity, availableCities } = useStateCitySelector('Florida', 'Miami');
@@ -516,6 +517,7 @@ export default function EyesInSky() {
           </p>
         </CardContent>
       </Card>
+      <ModuleAIAssistant moduleName="Eyes In The Sky" />
       </div>
     </div>
   );

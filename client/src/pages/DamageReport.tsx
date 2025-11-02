@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { z } from 'zod';
 import { StateCitySelector, useStateCitySelector } from '@/components/StateCitySelector';
+import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 
 // Create damage report form schema with required fields only
 const damageReportFormSchema = z.object({
@@ -460,6 +461,7 @@ export default function DamageReport() {
           </CardContent>
         </Card>
       </main>
+      <ModuleAIAssistant moduleName="Damage Report" />
     </div>
   );
 }

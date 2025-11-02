@@ -68,6 +68,7 @@ import {
   PulseAlert
 } from '@/components/ui/animations';
 import { StateCitySelector, useStateCitySelector } from '@/components/StateCitySelector';
+import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 
 // Property Lookup Tool Component
 function PropertyLookupTool() {
@@ -1905,6 +1906,7 @@ export default function ContractorPortal() {
           </TabsContent>
         </Tabs>
       </div>
+      <ModuleAIAssistant moduleName="Contractor Portal" />
     </div>
   );
 }

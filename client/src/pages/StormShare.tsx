@@ -62,6 +62,7 @@ import type {
   StormShareAdCampaign
 } from '@shared/schema';
 import { StateCitySelector, useStateCitySelector } from '@/components/StateCitySelector';
+import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 
 // Form schemas
 const helpRequestSchema = z.object({
@@ -1948,6 +1949,7 @@ export default function StormShare() {
         </TabsContent>
       </Tabs>
     </DashboardSection>
+      <ModuleAIAssistant moduleName="StormShare" />
       </div>
     </div>
   );

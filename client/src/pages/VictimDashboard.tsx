@@ -28,6 +28,7 @@ import {
 import { FadeIn, PulseAlert, StaggerContainer, StaggerItem, HoverLift, CountUp, ScaleIn, SlideIn } from '@/components/ui/animations';
 import { apiRequest } from '@/lib/queryClient';
 import { StateCitySelector, useStateCitySelector } from '@/components/StateCitySelector';
+import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 
 type VictimUser = typeof homeowners.$inferSelect;
 
@@ -2753,6 +2754,7 @@ You can ask our AI assistant about any of these resources, and it will guide you
           </motion.div>
         )}
       </AnimatePresence>
+      <ModuleAIAssistant moduleName="Victim Dashboard" />
     </div>
   );
 }

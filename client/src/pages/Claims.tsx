@@ -19,6 +19,7 @@ import { FadeIn, PulseAlert, StaggerContainer, StaggerItem, HoverLift, CountUp }
 import { XactimateComparables } from '@/components/XactimateComparables';
 import { LegalDisclaimer } from '@/components/LegalDisclaimer';
 import { StateCitySelector, useStateCitySelector } from '@/components/StateCitySelector';
+import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 
 interface Claim {
   id: string;
@@ -1125,6 +1126,7 @@ Current Notes: ${newClaim.notes || 'None yet'}
       {/* Xactimate Comparables Section */}
       <XactimateComparables />
     </DashboardSection>
+      <ModuleAIAssistant moduleName="Claims" />
     </div>
   );
 }

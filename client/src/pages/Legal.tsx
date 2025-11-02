@@ -9,6 +9,7 @@ import { Link } from 'wouter';
 import { DashboardSection } from '@/components/DashboardSection';
 import { FadeIn, PulseAlert, StaggerContainer, StaggerItem, HoverLift } from '@/components/ui/animations';
 import { StateCitySelector, useStateCitySelector } from '@/components/StateCitySelector';
+import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 
 interface LegalItem {
   id: string;
@@ -545,6 +546,7 @@ export default function Legal() {
         </div>
       </div>
     </DashboardSection>
+      <ModuleAIAssistant moduleName="Legal" />
     </div>
   );
 }

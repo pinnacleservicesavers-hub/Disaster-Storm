@@ -23,6 +23,7 @@ import {
 import { Link } from 'wouter';
 import { FadeIn, SlideIn, StaggerContainer, StaggerItem } from '@/components/ui/animations';
 import { StateCitySelector, useStateCitySelector } from '@/components/StateCitySelector';
+import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 
 // Back button component
 function BackButton() {
@@ -620,6 +621,7 @@ export default function DroneOperation() {
           )}
         </div>
       </FadeIn>
+      <ModuleAIAssistant moduleName="Drone Operations" />
     </div>
   );
 }

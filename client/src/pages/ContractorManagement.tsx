@@ -11,6 +11,7 @@ import { DashboardSection } from '@/components/DashboardSection';
 import { FadeIn, PulseAlert, StaggerContainer, StaggerItem, HoverLift, CountUp, ScaleIn, SlideIn } from '@/components/ui/animations';
 import { getAuthHeaders } from '@/lib/queryClient';
 import { StateCitySelector, useStateCitySelector } from '@/components/StateCitySelector';
+import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 
 interface ContractorStatus {
   id: string;
@@ -1425,6 +1426,7 @@ export default function ContractorManagement() {
         </div>
       )}
     </DashboardSection>
+      <ModuleAIAssistant moduleName="Contractor Management" />
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { getAuthHeaders } from "@/lib/queryClient";
 import AssistantDock from '../components/AssistantDock';
 import { StateCitySelector, useStateCitySelector } from '@/components/StateCitySelector';
 import { Volume2, VolumeX, Play, Pause, RotateCcw, X, Plus } from 'lucide-react';
+import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 
 // Single-file demo UI for Disaster Lens
 // Tabs: Capture, Timeline, Annotator, Report Builder
@@ -1712,6 +1713,7 @@ export default function App() {
       
       {/* AI Assistant Dock */}
       <AssistantDock />
+      <ModuleAIAssistant moduleName="Disaster Lens" />
     </div>
   );
 }

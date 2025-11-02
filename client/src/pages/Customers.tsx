@@ -9,6 +9,7 @@ import { Link } from 'wouter';
 import { DashboardSection } from '@/components/DashboardSection';
 import { FadeIn, SlideIn, StaggerContainer, StaggerItem, HoverLift } from '@/components/ui/animations';
 import { StateCitySelector, useStateCitySelector } from '@/components/StateCitySelector';
+import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 
 interface Customer {
   id: string;
@@ -485,6 +486,7 @@ export default function Customers() {
         </div>
       </div>
     </DashboardSection>
+      <ModuleAIAssistant moduleName="Customer Hub" />
     </div>
   );
 }

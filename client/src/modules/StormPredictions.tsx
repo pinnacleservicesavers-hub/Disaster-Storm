@@ -1,5 +1,6 @@
 import VoiceGuide from '@/components/VoiceGuide';
 import { StateCitySelector, useStateCitySelector } from '@/components/StateCitySelector';
+import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 
 export default function StormPredictions() {
   const { selectedState, setSelectedState, selectedCity, setSelectedCity, availableCities } = useStateCitySelector('Florida', 'Miami');
@@ -89,6 +90,8 @@ export default function StormPredictions() {
           <span className="text-sm font-medium text-purple-300">Module Active</span>
         </div>
       </div>
+      
+      <ModuleAIAssistant moduleName="Storm Predictions" />
     </div>
   );
 }

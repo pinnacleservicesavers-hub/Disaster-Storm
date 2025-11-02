@@ -22,6 +22,7 @@ import { Link } from 'wouter';
 import { FadeIn, PulseAlert, StaggerContainer, StaggerItem, HoverLift, CountUp, ScaleIn, SlideIn } from '@/components/ui/animations';
 import { apiRequest } from '@/lib/queryClient';
 import { StateCitySelector, useStateCitySelector } from '@/components/StateCitySelector';
+import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 
 interface Lead {
   id: string;
@@ -1389,6 +1390,7 @@ export default function Leads() {
           </div>
         </div>
       )}
+      <ModuleAIAssistant moduleName="Lead Management" />
     </div>
   );
 }

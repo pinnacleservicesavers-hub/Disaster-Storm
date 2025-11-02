@@ -1,5 +1,6 @@
 import VoiceGuide from '@/components/VoiceGuide';
 import { StateCitySelector, useStateCitySelector } from '@/components/StateCitySelector';
+import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 
 export default function TrafficCamWatcherModule() {
   const { selectedState, setSelectedState, selectedCity, setSelectedCity, availableCities } = useStateCitySelector('Florida', 'Miami');
@@ -89,6 +90,8 @@ export default function TrafficCamWatcherModule() {
           <span className="text-sm font-medium text-emerald-300">Module Active</span>
         </div>
       </div>
+      
+      <ModuleAIAssistant moduleName="TrafficCamWatcher" />
     </div>
   );
 }

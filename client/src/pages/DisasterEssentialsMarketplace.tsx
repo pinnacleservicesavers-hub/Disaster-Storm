@@ -41,6 +41,7 @@ import AIAssistant from "@/components/AIAssistant";
 import { MarketplaceAIIntelligence } from "@/components/MarketplaceAIIntelligence";
 import { Link } from "wouter";
 import { StateCitySelector, useStateCitySelector } from '@/components/StateCitySelector';
+import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 
 // State selection data
 const US_STATES = [
@@ -1682,6 +1683,7 @@ export default function DisasterEssentialsMarketplace() {
             Emergency Communications • Survival Resources • Contractor Support • Disaster Relief Coordination
           </p>
         </div>
+        <ModuleAIAssistant moduleName="Disaster Essentials" />
       </div>
     </div>
   );
