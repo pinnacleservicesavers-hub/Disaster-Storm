@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Activity, Satellite, Waves, Wind, CloudRain, Database, Brain, MapPin } from 'lucide-react';
+import { Activity, Satellite, Waves, Wind, CloudRain, Database, Brain, MapPin, AlertTriangle, Flame } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import VoiceGuide from '@/components/VoiceGuide';
 import { StateCitySelector, useStateCitySelector } from '@/components/StateCitySelector';
 import ModuleAIAssistant from '@/components/ModuleAIAssistant';
@@ -8,6 +9,12 @@ export default function WeatherCenter() {
   const { selectedState, setSelectedState, selectedCity, setSelectedCity, availableCities } = useStateCitySelector('Florida', 'Miami');
   const [isMonitoring, setIsMonitoring] = useState(true);
   const [dataSourcesActive, setDataSourcesActive] = useState(0);
+
+  // Fetch live hazard data
+  const { data: hazardData, isLoading: hazardsLoading } = useQuery({
+    queryKey: ['/api/hazards/dashboard'],
+    refetchInterval: 60000, // Refresh every minute
+  });
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -160,6 +167,97 @@ export default function WeatherCenter() {
               <p className="text-xs text-cyan-300/50 mt-4">Powered by Ambee Environmental API</p>
             </div>
           </div>
+        </div>
+
+        {/* Live Hazards Monitor - NEW! */}
+        <div className="mb-8 p-6 rounded-2xl bg-gradient-to-br from-red-900/20 to-orange-900/20 border-2 border-orange-500/40 backdrop-blur-sm"
+          style={{ boxShadow: '0 0 60px rgba(249, 115, 22, 0.15)' }}
+        >
+          <h3 className="text-2xl font-bold text-orange-300 mb-4 flex items-center gap-3">
+            <AlertTriangle className="w-7 h-7" />
+            Live Hazard Monitoring
+            <span className="text-sm font-normal text-orange-400/70">Updated every minute</span>
+          </h3>
+          
+          {hazardsLoading ? (
+            <div className="text-center py-8 text-cyan-300/50">Loading hazard data...</div>
+          ) : hazardData?.hazards ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              
+              {/* Hurricanes */}
+              <div className="p-5 rounded-xl bg-slate-800/60 border border-purple-500/30 hover:border-purple-400/50 transition-all"
+                style={{ boxShadow: '0 0 30px rgba(168, 85, 247, 0.1)' }}
+                data-testid="hazard-card-hurricanes"
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-lg font-bold text-purple-300">Hurricanes</h4>
+                  <Waves className="w-6 h-6 text-purple-400" />
+                </div>
+                <div className="text-4xl font-bold text-purple-400 mb-2" data-testid="text-hurricane-count">
+                  {hazardData.hazards.hurricanes.count}
+                </div>
+                <p className="text-xs text-purple-300/60">Active tropical systems</p>
+                {hazardData.hazards.hurricanes.active?.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-purple-500/20">
+                    <p className="text-sm text-purple-300 font-semibold">Latest:</p>
+                    <p className="text-xs text-purple-300/80">{hazardData.hazards.hurricanes.active[0].name}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Earthquakes */}
+              <div className="p-5 rounded-xl bg-slate-800/60 border border-red-500/30 hover:border-red-400/50 transition-all"
+                style={{ boxShadow: '0 0 30px rgba(239, 68, 68, 0.1)' }}
+                data-testid="hazard-card-earthquakes"
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-lg font-bold text-red-300">Earthquakes</h4>
+                  <AlertTriangle className="w-6 h-6 text-red-400" />
+                </div>
+                <div className="text-4xl font-bold text-red-400 mb-2" data-testid="text-earthquake-count">
+                  {hazardData.hazards.earthquakes.count}
+                </div>
+                <p className="text-xs text-red-300/60">M2.5+ in last 24 hours</p>
+                {hazardData.hazards.earthquakes.recent?.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-red-500/20">
+                    <p className="text-sm text-red-300 font-semibold">Largest:</p>
+                    <p className="text-xs text-red-300/80">
+                      M{hazardData.hazards.earthquakes.recent[0].magnitude} - {hazardData.hazards.earthquakes.recent[0].location.substring(0, 30)}...
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Wildfires */}
+              <div className="p-5 rounded-xl bg-slate-800/60 border border-orange-500/30 hover:border-orange-400/50 transition-all"
+                style={{ boxShadow: '0 0 30px rgba(249, 115, 22, 0.1)' }}
+                data-testid="hazard-card-wildfires"
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-lg font-bold text-orange-300">Wildfires</h4>
+                  <Flame className="w-6 h-6 text-orange-400" />
+                </div>
+                <div className="text-4xl font-bold text-orange-400 mb-2" data-testid="text-wildfire-count">
+                  {hazardData.hazards.wildfires.count}
+                </div>
+                <p className="text-xs text-orange-300/60">Active thermal hotspots</p>
+                {hazardData.hazards.wildfires.active?.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-orange-500/20">
+                    <p className="text-sm text-orange-300 font-semibold">Latest:</p>
+                    <p className="text-xs text-orange-300/80">
+                      Confidence: {hazardData.hazards.wildfires.active[0].confidence} • {hazardData.hazards.wildfires.active[0].frp.toFixed(1)} MW
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-8 text-orange-300/50">No hazard data available</div>
+          )}
+          
+          <p className="text-xs text-orange-300/50 mt-4 text-center">
+            Data sources: National Hurricane Center • USGS Earthquake Center • NASA FIRMS
+          </p>
         </div>
 
         {/* AI Intelligence & Analysis Features */}
