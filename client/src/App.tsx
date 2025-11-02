@@ -24,6 +24,7 @@ const Legal = lazy(() => import("./pages/Legal"));
 // const DisasterLens = lazy(() => import("./pages/DisasterLens")); // Temporarily disabled due to JSX errors
 const XrayRealityModule = lazy(() => import("./modules/XrayRealityModule"));
 const HazardDashboard = lazy(() => import("./pages/HazardDashboard"));
+const AdminDashboard = lazy(() => import("./pages/AdminDashboard").then(m => ({ default: m.AdminDashboard })));
 
 // Top Navigation Header
 function TopNav() {
@@ -150,6 +151,7 @@ export default function App() {
           {/* <Route path="/disaster-lens" element={<DisasterLens />} /> */}
           <Route path="/modules/xray-reality" element={<XrayRealityModule />} />
           <Route path="/hazard-dashboard" element={<HazardDashboard />} />
+          <Route path="/admin" element={<AdminDashboard />} />
         </Routes>
       </Suspense>
     </>
