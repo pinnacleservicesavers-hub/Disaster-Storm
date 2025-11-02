@@ -711,7 +711,98 @@ export default function App() {
         <Route path="/modules">
           <title>Module Gallery - Disaster Direct</title>
           <meta name="description" content="Browse all 17 storm operations modules - weather intelligence, damage detection, claims management, and more" />
-          <ModuleGallery />
+          <ModuleGallery 
+            routes={{
+              'weather': { 
+                launch: '/weather', 
+                preview: '/weather/preview', 
+                docs: '/docs/weather' 
+              },
+              'predictions': { 
+                launch: '/prediction-dashboard', 
+                preview: '/prediction-dashboard/preview', 
+                docs: '/docs/predictions' 
+              },
+              'traffic-cam': { 
+                launch: '/traffic-cam-watcher', 
+                preview: '/traffic-cam-watcher/preview', 
+                docs: '/docs/traffic-cam' 
+              },
+              'eyes-sky': { 
+                launch: '/eyes-in-the-sky', 
+                preview: '/eyes-in-the-sky/preview', 
+                docs: '/docs/eyes-sky' 
+              },
+              'drone-ops': { 
+                launch: '/drone-operation', 
+                preview: '/drone-operation/preview', 
+                docs: '/docs/drone-ops' 
+              },
+              'ai-damage': { 
+                launch: '/damage-detection', 
+                preview: '/damage-detection/preview', 
+                docs: '/docs/ai-damage' 
+              },
+              'lead-mgmt': { 
+                launch: '/leads', 
+                preview: '/leads/preview', 
+                docs: '/docs/leads' 
+              },
+              'victim-portal': { 
+                launch: '/victim/dashboard', 
+                preview: '/victim/dashboard/preview', 
+                docs: '/docs/victim-portal' 
+              },
+              'stormshare': { 
+                launch: '/stormshare', 
+                preview: '/stormshare/preview', 
+                docs: '/docs/stormshare' 
+              },
+              'essentials': { 
+                launch: '/disaster-essentials-marketplace', 
+                preview: '/disaster-essentials-marketplace/preview', 
+                docs: '/docs/essentials' 
+              },
+              'customer-hub': { 
+                launch: '/customers', 
+                preview: '/customers/preview', 
+                docs: '/docs/customers' 
+              },
+              'claims': { 
+                launch: '/claims', 
+                preview: '/claims/preview', 
+                docs: '/docs/claims' 
+              },
+              'contractor-cmd': { 
+                launch: '/contractor-management', 
+                preview: '/contractor-management/preview', 
+                docs: '/docs/contractor-cmd' 
+              },
+              'contractor-portal': { 
+                launch: '/contractors', 
+                preview: '/contractors/preview', 
+                docs: '/docs/contractor-portal' 
+              },
+              'legal': { 
+                launch: '/legal', 
+                preview: '/legal/preview', 
+                docs: '/docs/legal' 
+              },
+              'disaster-lens': { 
+                launch: '/disaster-lens', 
+                preview: '/disaster-lens/preview', 
+                docs: '/docs/disaster-lens' 
+              },
+              'xray': { 
+                launch: '/modules/xray-reality', 
+                preview: '/modules/xray-reality/preview', 
+                docs: '/docs/xray' 
+              }
+            }}
+            onLaunch={(m) => console.log('🚀 Launch:', m.id, m.name)}
+            onPreview={(m) => console.log('👁️ Preview:', m.id, m.name)}
+            onDocs={(m) => console.log('📖 Docs:', m.id, m.name)}
+          />
         </Route>
         
         <Route path="/victim/login">

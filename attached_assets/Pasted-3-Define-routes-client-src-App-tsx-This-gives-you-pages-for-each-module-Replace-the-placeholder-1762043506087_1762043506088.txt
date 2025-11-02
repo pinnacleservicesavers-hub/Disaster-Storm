@@ -1,0 +1,62 @@
+3) Define routes (client/src/App.tsx)
+
+This gives you pages for each module. Replace the placeholders with your real pages later.
+
+import { Routes, Route, Navigate } from "react-router-dom";
+import ModuleGallery from "./StormOpsProHub"; // or wherever your gallery component lives
+
+// simple placeholder pages
+function Page({ title }: { title: string }) {
+  return (
+    <div style={{ padding: 24, color: "white" }}>
+      <h2>{title}</h2>
+      <p>Coming soon…</p>
+    </div>
+  );
+}
+
+export default function App() {
+  const routes = {
+    "weather-center":   { launch: "/ops/weather",   preview: "/ops/weather/preview",   docs: "/docs/weather" },
+    "storm-predictions":{ launch: "/ops/predict",   preview: "/ops/predict/preview",   docs: "/docs/predict" },
+    "traffic-cam-watcher":{ launch: "/ops/traffic", preview: "/ops/traffic/preview",   docs: "/docs/traffic" },
+    "drone-operations": { launch: "/ops/drones",    preview: "/ops/drones/preview",    docs: "/docs/drones" },
+    "ai-damage-detection":{ launch: "/ops/ai",      preview: "/ops/ai/preview",        docs: "/docs/ai" },
+    "xray-reality":     { launch: "/ops/xray",      preview: "/ops/xray/preview",      docs: "/docs/xray" },
+  };
+
+  return (
+    <>
+      {/* Your neon gallery with routes */}
+      <ModuleGallery routes={routes} />
+
+      {/* Route table */}
+      <Routes>
+        <Route path="/" element={<Navigate to="/ops/weather" replace />} />
+        <Route path="/ops/weather" element={<Page title="Weather Center" />} />
+        <Route path="/ops/weather/preview" element={<Page title="Weather Center — Preview" />} />
+        <Route path="/docs/weather" element={<Page title="Docs: Weather" />} />
+
+        <Route path="/ops/predict" element={<Page title="Storm Predictions" />} />
+        <Route path="/ops/predict/preview" element={<Page title="Storm Predictions — Preview" />} />
+        <Route path="/docs/predict" element={<Page title="Docs: Storm Predictions" />} />
+
+        <Route path="/ops/traffic" element={<Page title="TrafficCamWatcher" />} />
+        <Route path="/ops/traffic/preview" element={<Page title="TrafficCamWatcher — Preview" />} />
+        <Route path="/docs/traffic" element={<Page title="Docs: Traffic" />} />
+
+        <Route path="/ops/drones" element={<Page title="Drone Operations" />} />
+        <Route path="/ops/drones/preview" element={<Page title="Drone Operations — Preview" />} />
+        <Route path="/docs/drones" element={<Page title="Docs: Drones" />} />
+
+        <Route path="/ops/ai" element={<Page title="AI Damage Detection" />} />
+        <Route path="/ops/ai/preview" element={<Page title="AI Damage Detection — Preview" />} />
+        <Route path="/docs/ai" element={<Page title="Docs: AI" />} />
+
+        <Route path="/ops/xray" element={<Page title="X-RAY REALITY" />} />
+        <Route path="/ops/xray/preview" element={<Page title="X-RAY REALITY — Preview" />} />
+        <Route path="/docs/xray" element={<Page title="Docs: X-RAY REALITY" />} />
+      </Routes>
+    </>
+  );
+}
