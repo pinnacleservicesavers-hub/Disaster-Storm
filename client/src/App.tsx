@@ -4,12 +4,23 @@ import { Zap, Home, Menu } from 'lucide-react';
 import { motion } from 'framer-motion';
 import ModuleGallery from "./pages/ModuleGallery";
 
-// Lazy-load module pages
+// Lazy-load all 17 module pages
 const WeatherCenter = lazy(() => import("./modules/WeatherCenter"));
 const StormPredictions = lazy(() => import("./modules/StormPredictions"));
 const TrafficCamWatcherModule = lazy(() => import("./modules/TrafficCamWatcherModule"));
+const EyesInSky = lazy(() => import("./pages/EyesInSky"));
 const DroneOperations = lazy(() => import("./modules/DroneOperations"));
 const AIDamageDetection = lazy(() => import("./modules/AIDamageDetection"));
+const Leads = lazy(() => import("./pages/Leads"));
+const VictimDashboard = lazy(() => import("./pages/VictimDashboard"));
+const StormShare = lazy(() => import("./pages/StormShare"));
+const DisasterEssentialsMarketplace = lazy(() => import("./pages/DisasterEssentialsMarketplace"));
+const Customers = lazy(() => import("./pages/Customers"));
+const Claims = lazy(() => import("./pages/Claims"));
+const ContractorManagement = lazy(() => import("./pages/ContractorManagement"));
+const ContractorPortal = lazy(() => import("./pages/ContractorPortal"));
+const Legal = lazy(() => import("./pages/Legal"));
+const DisasterLens = lazy(() => import("./pages/DisasterLens"));
 const XrayRealityModule = lazy(() => import("./modules/XrayRealityModule"));
 
 // Top Navigation Header
@@ -76,14 +87,25 @@ function Loader() {
   );
 }
 
-// Route map used by the gallery buttons
+// Route map used by the gallery buttons - All 17 modules
 const galleryRoutes = {
-  "weather":        { launch: "/ops/weather",  preview: "/ops/weather/preview",  docs: "/docs/weather" },
-  "predictions":     { launch: "/ops/predict",  preview: "/ops/predict/preview",  docs: "/docs/predict" },
-  "traffic-cam":   { launch: "/ops/traffic",  preview: "/ops/traffic/preview",  docs: "/docs/traffic" },
-  "drone-ops":      { launch: "/ops/drones",   preview: "/ops/drones/preview",   docs: "/docs/drones" },
-  "ai-damage":   { launch: "/ops/ai",       preview: "/ops/ai/preview",       docs: "/docs/ai" },
-  "xray":          { launch: "/ops/xray",     preview: "/ops/xray/preview",     docs: "/docs/xray" },
+  "weather":            { launch: "/weather" },
+  "predictions":        { launch: "/prediction-dashboard" },
+  "traffic-cam":        { launch: "/traffic-cam-watcher" },
+  "eyes-sky":           { launch: "/eyes-in-the-sky" },
+  "drone-ops":          { launch: "/drone-operation" },
+  "ai-damage":          { launch: "/damage-detection" },
+  "lead-mgmt":          { launch: "/leads" },
+  "victim-portal":      { launch: "/victim/dashboard" },
+  "stormshare":         { launch: "/stormshare" },
+  "essentials":         { launch: "/disaster-essentials-marketplace" },
+  "customer-hub":       { launch: "/customers" },
+  "claims":             { launch: "/claims" },
+  "contractor-cmd":     { launch: "/contractor-management" },
+  "contractor-portal":  { launch: "/contractors" },
+  "legal":              { launch: "/legal" },
+  "disaster-lens":      { launch: "/disaster-lens" },
+  "xray":               { launch: "/modules/xray-reality" },
 };
 
 export default function App() {
@@ -100,38 +122,33 @@ export default function App() {
         onDocs={(m) => console.log("📖 Docs:", m.id, m.name)}
       />
 
-      {/* Lazy-loaded routes */}
+      {/* Lazy-loaded routes - All 17 modules */}
       <Suspense fallback={<Loader />}>
         <Routes>
           {/* Default landing */}
-          <Route path="/" element={<Navigate to="/ops/weather" replace />} />
+          <Route path="/" element={<Navigate to="/weather" replace />} />
 
-          {/* Operations routes */}
-          <Route path="/ops/weather" element={<WeatherCenter />} />
-          <Route path="/ops/predict" element={<StormPredictions />} />
-          <Route path="/ops/traffic" element={<TrafficCamWatcherModule />} />
-          <Route path="/ops/drones" element={<DroneOperations />} />
-          <Route path="/ops/ai" element={<AIDamageDetection />} />
-          <Route path="/ops/xray" element={<XrayRealityModule />} />
-
-          {/* Preview placeholders - reuse main components for now */}
-          <Route path="/ops/weather/preview" element={<WeatherCenter />} />
-          <Route path="/ops/predict/preview" element={<StormPredictions />} />
-          <Route path="/ops/traffic/preview" element={<TrafficCamWatcherModule />} />
-          <Route path="/ops/drones/preview" element={<DroneOperations />} />
-          <Route path="/ops/ai/preview" element={<AIDamageDetection />} />
-          <Route path="/ops/xray/preview" element={<XrayRealityModule />} />
-
-          {/* Docs placeholders */}
-          <Route path="/docs/weather" element={<WeatherCenter />} />
-          <Route path="/docs/predict" element={<StormPredictions />} />
-          <Route path="/docs/traffic" element={<TrafficCamWatcherModule />} />
-          <Route path="/docs/drones" element={<DroneOperations />} />
-          <Route path="/docs/ai" element={<AIDamageDetection />} />
-          <Route path="/docs/xray" element={<XrayRealityModule />} />
+          {/* All 17 Module Routes */}
+          <Route path="/weather" element={<WeatherCenter />} />
+          <Route path="/prediction-dashboard" element={<StormPredictions />} />
+          <Route path="/traffic-cam-watcher" element={<TrafficCamWatcherModule />} />
+          <Route path="/eyes-in-the-sky" element={<EyesInSky />} />
+          <Route path="/drone-operation" element={<DroneOperations />} />
+          <Route path="/damage-detection" element={<AIDamageDetection />} />
+          <Route path="/leads" element={<Leads />} />
+          <Route path="/victim/dashboard" element={<VictimDashboard />} />
+          <Route path="/stormshare" element={<StormShare />} />
+          <Route path="/disaster-essentials-marketplace" element={<DisasterEssentialsMarketplace />} />
+          <Route path="/customers" element={<Customers />} />
+          <Route path="/claims" element={<Claims />} />
+          <Route path="/contractor-management" element={<ContractorManagement />} />
+          <Route path="/contractors" element={<ContractorPortal />} />
+          <Route path="/legal" element={<Legal />} />
+          <Route path="/disaster-lens" element={<DisasterLens />} />
+          <Route path="/modules/xray-reality" element={<XrayRealityModule />} />
 
           {/* 404 - redirect to default */}
-          <Route path="*" element={<Navigate to="/ops/weather" replace />} />
+          <Route path="*" element={<Navigate to="/weather" replace />} />
         </Routes>
       </Suspense>
     </>
