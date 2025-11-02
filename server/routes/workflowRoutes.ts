@@ -365,6 +365,94 @@ router.get('/contractor/profile/:userId', async (req, res) => {
   }
 });
 
+// ===== BANKING INFORMATION ROUTES =====
+
+// POST /contractor/banking - Update banking information
+router.post('/contractor/banking', async (req, res) => {
+  try {
+    const bankingSchema = z.object({
+      userId: z.string(),
+      bankAccountNumber: z.string().min(4).max(17),
+      bankRoutingNumber: z.string().length(9),
+      bankAccountType: z.enum(['checking', 'savings']),
+      bankName: z.string().min(1),
+      accountHolderName: z.string().min(1)
+    });
+
+    const data = bankingSchema.parse(req.body);
+
+    const [profile] = await db.select()
+      .from(contractorProfiles)
+      .where(eq(contractorProfiles.userId, data.userId))
+      .limit(1);
+
+    if (!profile) {
+      return res.status(404).json({ error: 'Contractor profile not found. Please create a profile first.' });
+    }
+
+    const [updated] = await db.update(contractorProfiles)
+      .set({
+        bankAccountNumber: data.bankAccountNumber,
+        bankRoutingNumber: data.bankRoutingNumber,
+        bankAccountType: data.bankAccountType,
+        bankName: data.bankName,
+        accountHolderName: data.accountHolderName,
+        bankingUpdatedAt: new Date()
+      })
+      .where(eq(contractorProfiles.userId, data.userId))
+      .returning();
+
+    const sanitized = {
+      ...updated,
+      bankAccountNumber: `****${updated.bankAccountNumber?.slice(-4)}`,
+      bankRoutingNumber: `****${updated.bankRoutingNumber?.slice(-4)}`
+    };
+
+    res.json(sanitized);
+  } catch (error: any) {
+    console.error('Banking update error:', error);
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// GET /contractor/banking/:userId - Get banking information (masked)
+router.get('/contractor/banking/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const [profile] = await db.select()
+      .from(contractorProfiles)
+      .where(eq(contractorProfiles.userId, userId))
+      .limit(1);
+
+    if (!profile) {
+      return res.status(404).json({ error: 'Contractor profile not found' });
+    }
+
+    const hasBanking = !!(profile.bankAccountNumber && profile.bankRoutingNumber);
+
+    if (!hasBanking) {
+      return res.json({
+        configured: false,
+        message: 'No banking information on file'
+      });
+    }
+
+    res.json({
+      configured: true,
+      bankName: profile.bankName,
+      accountHolderName: profile.accountHolderName,
+      bankAccountType: profile.bankAccountType,
+      bankAccountNumber: `****${profile.bankAccountNumber?.slice(-4)}`,
+      bankRoutingNumber: `****${profile.bankRoutingNumber?.slice(-4)}`,
+      bankingUpdatedAt: profile.bankingUpdatedAt
+    });
+  } catch (error: any) {
+    console.error('Get banking error:', error);
+    res.status(400).json({ error: error.message });
+  }
+});
+
 // POST /contractor/contracts/validate
 router.post('/contractor/contracts/validate', async (req, res) => {
   try {

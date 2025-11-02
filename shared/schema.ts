@@ -4424,7 +4424,13 @@ export const contractorProfiles = pgTable("contractor_profiles", {
   alertChannels: jsonb("alert_channels").$type<string[]>().default(sql`'[]'::jsonb`),
   equipment: jsonb("equipment").$type<JsonObject[]>().default(sql`'[]'::jsonb`),
   certifications: jsonb("certifications").$type<string[]>().default(sql`'[]'::jsonb`),
-  serviceRegions: jsonb("service_regions").$type<string[]>().default(sql`'[]'::jsonb`)
+  serviceRegions: jsonb("service_regions").$type<string[]>().default(sql`'[]'::jsonb`),
+  bankAccountNumber: text("bank_account_number"),
+  bankRoutingNumber: text("bank_routing_number"),
+  bankAccountType: text("bank_account_type"),
+  bankName: text("bank_name"),
+  accountHolderName: text("account_holder_name"),
+  bankingUpdatedAt: timestamp("banking_updated_at")
 });
 
 // Properties - Homeowner property management
