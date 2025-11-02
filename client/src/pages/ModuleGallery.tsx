@@ -153,20 +153,10 @@ export default function ModuleGallery({
       {/* Ambient backdrop */}
       <div className="neon-backdrop" />
       
-      {/* Electrical arcs SVG */}
-      <svg className="arcs absolute inset-0 -z-0" viewBox="0 0 100 100" preserveAspectRatio="none">
-        <path d="M5,20 C20,30 30,10 50,20 70,30 80,15 95,25" />
-        <path d="M5,70 C25,60 40,85 55,70 70,55 80,80 95,68" />
-      </svg>
-      
-      {/* FULL IMPACT SHOCKWAVE - Two layers */}
-      <div key={`outer-${shockKey}`} className="shockwave-layer shock-outer" />
-      <div key={`inner-${shockKey}`} className="shockwave-layer shock-inner" />
-      
       <div className="max-w-7xl mx-auto px-8 py-16 relative z-10">
         {/* Title - Centered with cyan glow */}
         <div className="text-center mb-12">
-          <h1 className="text-7xl font-extrabold tracking-tight mb-8"
+          <h1 className="text-5xl font-extrabold tracking-tight mb-3"
             style={{
               background: 'linear-gradient(90deg, #00d9ff 0%, #00ffcc 100%)',
               WebkitBackgroundClip: 'text',
@@ -174,8 +164,11 @@ export default function ModuleGallery({
               textShadow: '0 0 80px rgba(0, 255, 204, 0.5)'
             }}
           >
-            StormOps Modules
+            Disaster Direct
           </h1>
+          <h2 className="text-3xl font-bold text-cyan-300/80 mb-8">
+            StormOps Modules
+          </h2>
 
           {/* Voice Guide - Rachel's Female Voice */}
           <div className="flex justify-center mb-8">
