@@ -131,6 +131,7 @@ export default function App() {
           {/* All 17 Module Routes */}
           <Route path="/weather" element={<WeatherCenter />} />
           <Route path="/prediction-dashboard" element={<StormPredictions />} />
+          <Route path="/storm-predictions" element={<StormPredictions />} />
           <Route path="/deployment-map" element={<DeploymentMap />} />
           <Route path="/traffic-cam-watcher" element={<TrafficCamWatcherModule />} />
           <Route path="/eyes-in-the-sky" element={<EyesInSky />} />
