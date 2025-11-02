@@ -1,5 +1,7 @@
-import { lazy, Suspense } from "react";
-import { Routes, Route, Navigate } from "react-router-dom";
+import { lazy, Suspense, useState, useEffect } from "react";
+import { Routes, Route, Navigate, Link, useLocation } from "react-router-dom";
+import { Zap, Home, Menu } from 'lucide-react';
+import { motion } from 'framer-motion';
 import ModuleGallery from "./pages/ModuleGallery";
 
 // Lazy-load module pages
@@ -9,6 +11,72 @@ const TrafficCamWatcherModule = lazy(() => import("./modules/TrafficCamWatcherMo
 const DroneOperations = lazy(() => import("./modules/DroneOperations"));
 const AIDamageDetection = lazy(() => import("./modules/AIDamageDetection"));
 const XrayRealityModule = lazy(() => import("./modules/XrayRealityModule"));
+
+// Top Navigation Header
+function TopNav() {
+  const [role, setRole] = useState(localStorage.getItem('role') || 'ops');
+  const location = useLocation();
+  
+  useEffect(() => {
+    localStorage.setItem('role', role);
+  }, [role]);
+
+  return (
+    <nav className="bg-gradient-to-r from-blue-900 via-purple-900 to-blue-900 text-white shadow-lg border-b border-white/20 sticky top-0 z-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-16">
+          {/* Logo and Brand */}
+          <motion.div 
+            className="flex items-center space-x-4"
+            whileHover={{ scale: 1.02 }}
+          >
+            <Link to="/" className="flex items-center space-x-2">
+              <motion.div
+                animate={{ 
+                  rotate: [0, 5, -5, 0],
+                  scale: [1, 1.1, 1]
+                }}
+                transition={{ 
+                  duration: 3,
+                  repeat: Infinity,
+                  ease: "easeInOut"
+                }}
+                className="p-2 bg-white/20 rounded-lg backdrop-blur-sm"
+              >
+                <Zap className="w-6 h-6 text-yellow-300" />
+              </motion.div>
+              <div>
+                <h1 className="text-xl font-bold tracking-tight">
+                  Disaster Direct
+                </h1>
+                <p className="text-xs text-white/80 hidden sm:block">
+                  Storm Operations Platform
+                </p>
+              </div>
+            </Link>
+          </motion.div>
+
+          {/* Right Side - Role Selector */}
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-white/90">Active Role:</span>
+              <select 
+                className="border rounded-md px-3 py-1.5 text-sm bg-white text-gray-900 font-medium" 
+                value={role} 
+                onChange={(e) => setRole(e.target.value)}
+                data-testid="role-selector"
+              >
+                <option value="ops">Operations</option>
+                <option value="field">Field</option>
+                <option value="admin">Admin</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+    </nav>
+  );
+}
 
 // Loading indicator
 function Loader() {
@@ -35,7 +103,10 @@ const galleryRoutes = {
 export default function App() {
   return (
     <>
-      {/* Neon cinematic gallery - Always visible at top */}
+      {/* Top Navigation - RESTORED */}
+      <TopNav />
+      
+      {/* Neon cinematic gallery */}
       <ModuleGallery 
         routes={galleryRoutes}
         onLaunch={(m) => console.log("🚀 Launch:", m.id, m.name)}

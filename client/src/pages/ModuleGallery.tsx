@@ -95,7 +95,8 @@ export default function ModuleGallery({
             radial-gradient(40% 40% at 15% 20%, rgba(234,255,0,.12), transparent 60%),
             radial-gradient(50% 50% at 85% 80%, rgba(0,194,255,.22), transparent 65%),
             radial-gradient(30% 30% at 80% 10%, rgba(234,255,0,.10), transparent 70%);
-          animation: floatBG 26s ease-in-out infinite;
+          /* DISABLED ANIMATION - was causing motion sickness */
+          /* animation: floatBG 26s ease-in-out infinite; */
           filter: blur(64px);
           mix-blend-mode: screen;
           z-index: 0;
@@ -132,7 +133,7 @@ export default function ModuleGallery({
           filter: blur(6px); 
         }
         
-        /* Electrical arcs */
+        /* Electrical arcs - ANIMATIONS DISABLED */
         @keyframes arcDash { to { stroke-dashoffset: -1000; } }
         @keyframes arcFlash { 0%,100% { opacity: .25; } 40% { opacity: .9; } 60% { opacity: .5; } }
         .arcs path { 
@@ -142,7 +143,9 @@ export default function ModuleGallery({
           fill: none; 
           filter: drop-shadow(0 0 8px rgba(0,194,255,.9)); 
           stroke-dasharray: 8 14; 
-          animation: arcDash 6s linear infinite, arcFlash 2.2s ease-in-out infinite; 
+          /* DISABLED ANIMATIONS - was causing motion sickness */
+          /* animation: arcDash 6s linear infinite, arcFlash 2.2s ease-in-out infinite; */
+          opacity: 0.4;
         }
       `}</style>
       
