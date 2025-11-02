@@ -25,13 +25,14 @@ class Dependencies:
         self.property_api = self._init_property_api()
         self.storage = self._init_storage()
         self.xact = self._init_xactimate()
+        self.payment = self._init_payment()
+        self.weather_api = self._init_weather_api()
         
         # Service configurations
         self.twilio_account_sid = os.getenv("TWILIO_ACCOUNT_SID")
         self.twilio_auth_token = os.getenv("TWILIO_AUTH_TOKEN")
         self.twilio_phone = os.getenv("TWILIO_PHONE_NUMBER")
-        
-        self.stripe_secret_key = os.getenv("STRIPE_SECRET_KEY")
+        self.stripe_secret_key = os.getenv("STRIPE_SECRET_KEY") or os.getenv("TESTING_STRIPE_SECRET_KEY")
         self.stripe_webhook_secret = os.getenv("STRIPE_WEBHOOK_SECRET")
         
         self.docusign_api_key = os.getenv("DOCUSIGN_API_KEY")
@@ -199,6 +200,10 @@ class Dependencies:
                     "job_assigned": (
                         f"Job #{context.get('job_id')} assigned. "
                         f"Address: {context.get('address')}. Contact homeowner ASAP."
+                    ),
+                    "payment_reminder": (
+                        f"💰 Payment Due: Invoice #{context.get('invoice_id')} "
+                        f"for ${context.get('amount'):,.2f}. Pay now to avoid delays."
                     )
                 }
                 
@@ -435,6 +440,76 @@ class Dependencies:
                 }
         
         return XactimateService()
+    
+    def _init_payment(self):
+        """Initialize payment service (Stripe)"""
+        class PaymentService:
+            def __init__(self, deps_ref):
+                self.deps = deps_ref
+                self.stripe = None
+                
+                # Initialize Stripe if API key available
+                stripe_key = deps_ref.stripe_secret_key
+                if stripe_key:
+                    import stripe
+                    stripe.api_key = stripe_key
+                    self.stripe = stripe
+                    print("✅ Stripe payment service enabled")
+                else:
+                    print("⚠️ Stripe not configured - using mock payments")
+            
+            async def create_link(self, invoice_id: str, amount: float) -> str:
+                """Create payment link for invoice"""
+                if self.stripe:
+                    # TODO: Create real Stripe payment link
+                    # payment_link = self.stripe.PaymentLink.create(...)
+                    pass
+                
+                # Mock payment link
+                return f"https://pay.stripe.com/invoice/{invoice_id}"
+            
+            async def process_payment(self, amount: float, customer_id: str) -> Dict[str, Any]:
+                """Process payment via Stripe"""
+                if self.stripe:
+                    # TODO: Create real Stripe charge
+                    pass
+                
+                # Mock payment
+                return {
+                    "payment_id": f"pay_mock_{hash(customer_id)}",
+                    "status": "succeeded",
+                    "amount": amount
+                }
+        
+        return PaymentService(self)
+    
+    def _init_weather_api(self):
+        """Initialize weather API service (NWS, Xweather, etc.)"""
+        class WeatherAPIService:
+            async def get_alerts(self, state: str, city: str) -> list:
+                """Get weather alerts for location"""
+                # TODO: Integrate with real weather APIs
+                # - National Weather Service (NWS) CAP alerts
+                # - Xweather severe weather API
+                # - Tomorrow.io
+                
+                # Mock alerts for now
+                return [
+                    {
+                        "type": "Severe Thunderstorm Warning",
+                        "severity": "moderate",
+                        "event": "High winds, hail",
+                        "expires": "2025-11-02T18:00:00Z"
+                    },
+                    {
+                        "type": "Tornado Watch",
+                        "severity": "severe",
+                        "event": "Conditions favorable for tornadoes",
+                        "expires": "2025-11-02T22:00:00Z"
+                    }
+                ]
+        
+        return WeatherAPIService()
     
     def to_dict(self) -> Dict[str, Any]:
         """Export as dictionary (excluding secrets)"""

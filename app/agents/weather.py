@@ -6,46 +6,28 @@ class WeatherAgent:
     """Analyzes weather patterns for contractor deployment decisions"""
     
     def __init__(self, deps):
-        self.deps = deps
+        self.llm = deps.llm
+        self.weather_api = deps.weather_api
     
     async def analyze(self, evt: Dict[str, Any]) -> Dict[str, Any]:
-        """Analyze weather conditions for a region"""
-        data = evt.get("data", {})
-        state = data.get("state")
-        city = data.get("city")
+        """
+        Analyze weather for deployment decisions
+        evt: {state, city, radius_mi}
+        """
+        state = evt.get("state")
+        city = evt.get("city")
         
-        # TODO: Integrate with real weather services (NWS, Ambee, Xweather)
-        # For now, return mock data
+        # Fetch current alerts
+        alerts = await self.weather_api.get_alerts(state, city)
         
-        mock_alerts = [
-            {
-                "type": "Severe Thunderstorm Warning",
-                "severity": "moderate",
-                "area": f"{city}, {state}",
-                "expires": "2025-11-02T18:00:00Z"
-            }
-        ]
-        
-        mock_hazards = [
-            {
-                "type": "Wind",
-                "speed_mph": 45,
-                "gusts_mph": 60
-            }
-        ]
+        # LLM analysis for deployment recommendation
+        recommendation = await self.llm(
+            f"Weather alerts for {city}, {state}: {alerts}. "
+            f"Should contractors deploy? Consider severity, timing, opportunity. "
+            f"Return JSON: {{deploy:bool, severity:str, reason:str}}"
+        )
         
         return {
-            "ok": True,
-            "alerts": mock_alerts,
-            "hazards": mock_hazards,
-            "deployment_recommended": len(mock_alerts) > 0,
-            "recommendation": self._generate_recommendation(mock_alerts, mock_hazards)
+            "alerts": alerts,
+            "recommendation": recommendation
         }
-    
-    def _generate_recommendation(self, alerts, hazards):
-        """Generate deployment recommendation"""
-        if len(alerts) > 3:
-            return "HIGH ALERT: Deploy contractors immediately for storm preparation"
-        elif len(alerts) > 0:
-            return "MODERATE: Monitor conditions, prepare for deployment"
-        return "NORMAL: No immediate action required"
