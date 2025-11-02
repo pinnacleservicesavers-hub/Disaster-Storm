@@ -4402,6 +4402,95 @@ export const hazardIntersections = pgTable("hazard_intersections", {
 // Carriers (Alias for insurance_companies for alignment API compatibility)
 // This is a view/alias of the existing insuranceCompanies table
 
+// ===== LEAD → JOB → CLAIM → PAYMENT WORKFLOW =====
+
+// Memberships - User subscription/payment plans
+export const memberships = pgTable("memberships", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  plan: text("plan").notNull(), // 'one_time' or 'monthly'
+  status: text("status").notNull(), // 'active', 'expired', 'canceled'
+  startedAt: timestamp("started_at").defaultNow().notNull(),
+  expiresAt: timestamp("expires_at")
+});
+
+// Contractor Profiles - Extended contractor information
+export const contractorProfiles = pgTable("contractor_profiles", {
+  userId: varchar("user_id").primaryKey().references(() => users.id),
+  companyName: text("company_name"),
+  licenseNumber: text("license_number"),
+  insurancePolicy: text("insurance_policy"),
+  ratings: numeric("ratings", { precision: 3, scale: 1 }).default("0"),
+  alertChannels: jsonb("alert_channels").$type<string[]>().default(sql`'[]'::jsonb`),
+  equipment: jsonb("equipment").$type<JsonObject[]>().default(sql`'[]'::jsonb`),
+  certifications: jsonb("certifications").$type<string[]>().default(sql`'[]'::jsonb`),
+  serviceRegions: jsonb("service_regions").$type<string[]>().default(sql`'[]'::jsonb`)
+});
+
+// Properties - Homeowner property management
+export const properties = pgTable("properties", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  homeownerId: varchar("homeowner_id").references(() => users.id).notNull(),
+  address: text("address").notNull(),
+  city: text("city"),
+  state: text("state"),
+  zip: text("zip"),
+  latitude: numeric("latitude", { precision: 10, scale: 8 }),
+  longitude: numeric("longitude", { precision: 10, scale: 8 }),
+  createdAt: timestamp("created_at").defaultNow().notNull()
+});
+
+// Jobs - Core job/lead tracking system
+export const jobs = pgTable("jobs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  homeownerId: varchar("homeowner_id").references(() => users.id).notNull(),
+  contractorId: varchar("contractor_id").references(() => users.id),
+  propertyId: varchar("property_id").references(() => properties.id).notNull(),
+  scope: text("scope"), // e.g., 'tree removal', 'roof repair'
+  status: text("status").notNull().default("lead"), // 'lead', 'in_progress', 'complete', 'invoiced', 'paid'
+  lockScopes: jsonb("lock_scopes").$type<string[]>().default(sql`'[]'::jsonb`),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull()
+});
+
+// Media Assets - Photo/video documentation
+export const mediaAssets = pgTable("media_assets", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  jobId: varchar("job_id").references(() => jobs.id).notNull(),
+  url: text("url").notNull(),
+  type: text("type").notNull(), // 'photo' or 'video'
+  labels: jsonb("labels").$type<JsonObject>(),
+  capturedAt: timestamp("captured_at").defaultNow().notNull()
+});
+
+// Contracts - Legal agreements with AOB support
+export const contracts = pgTable("contracts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  jobId: varchar("job_id").references(() => jobs.id).notNull(),
+  originalContract: text("original_contract"),
+  aiContract: text("ai_contract"),
+  aobIncluded: boolean("aob_included").default(false),
+  state: text("state"),
+  signedByHomeowner: boolean("signed_by_homeowner").default(false),
+  signedAt: timestamp("signed_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull()
+});
+
+// Job Invoices - Billing, claims, and AI comparables (for Lead→Job→Claim workflow)
+export const jobInvoices = pgTable("job_invoices", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  jobId: varchar("job_id").references(() => jobs.id).notNull(),
+  breakdown: jsonb("breakdown").$type<JsonObject>(),
+  amountCents: integer("amount_cents").notNull(),
+  status: text("status").notNull().default("draft"), // 'draft', 'sent', 'disputed', 'approved', 'paid'
+  xactimateRef: jsonb("xactimate_ref").$type<JsonObject>(),
+  comparableTrue: jsonb("comparable_true").$type<JsonObject>(),
+  comparableXactimate: jsonb("comparable_xactimate").$type<JsonObject>(),
+  rebuttalHistory: jsonb("rebuttal_history").$type<JsonArray>().default(sql`'[]'::jsonb`),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull()
+});
+
 // Insert schemas
 export const insertAdGeoFenceSchema = createInsertSchema(adGeoFences).omit({
   id: true,
@@ -4434,6 +4523,44 @@ export const insertHazardIntersectionSchema = createInsertSchema(hazardIntersect
   detectedAt: true
 });
 
+// Lead → Job → Claim → Payment insert schemas
+export const insertMembershipSchema = createInsertSchema(memberships).omit({
+  id: true,
+  startedAt: true
+});
+
+export const insertContractorProfileSchema = createInsertSchema(contractorProfiles);
+
+export const insertPropertySchema = createInsertSchema(properties).omit({
+  id: true,
+  createdAt: true
+}).extend({
+  latitude: z.union([z.number(), z.string()]).transform(val => String(val)).optional(),
+  longitude: z.union([z.number(), z.string()]).transform(val => String(val)).optional()
+});
+
+export const insertJobSchema = createInsertSchema(jobs).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
+});
+
+export const insertMediaAssetSchema = createInsertSchema(mediaAssets).omit({
+  id: true,
+  capturedAt: true
+});
+
+export const insertContractSchema = createInsertSchema(contracts).omit({
+  id: true,
+  createdAt: true
+});
+
+export const insertJobInvoiceSchema = createInsertSchema(jobInvoices).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
+});
+
 // Select types
 export type AdGeoFence = typeof adGeoFences.$inferSelect;
 export type InsertAdGeoFence = z.infer<typeof insertAdGeoFenceSchema>;
@@ -4445,3 +4572,19 @@ export type Asset = typeof assets.$inferSelect;
 export type InsertAsset = z.infer<typeof insertAssetSchema>;
 export type HazardIntersection = typeof hazardIntersections.$inferSelect;
 export type InsertHazardIntersection = z.infer<typeof insertHazardIntersectionSchema>;
+
+// Lead → Job → Claim → Payment select types
+export type Membership = typeof memberships.$inferSelect;
+export type InsertMembership = z.infer<typeof insertMembershipSchema>;
+export type ContractorProfile = typeof contractorProfiles.$inferSelect;
+export type InsertContractorProfile = z.infer<typeof insertContractorProfileSchema>;
+export type Property = typeof properties.$inferSelect;
+export type InsertProperty = z.infer<typeof insertPropertySchema>;
+export type Job = typeof jobs.$inferSelect;
+export type InsertJob = z.infer<typeof insertJobSchema>;
+export type MediaAsset = typeof mediaAssets.$inferSelect;
+export type InsertMediaAsset = z.infer<typeof insertMediaAssetSchema>;
+export type Contract = typeof contracts.$inferSelect;
+export type InsertContract = z.infer<typeof insertContractSchema>;
+export type JobInvoice = typeof jobInvoices.$inferSelect;
+export type InsertJobInvoice = z.infer<typeof insertJobInvoiceSchema>;

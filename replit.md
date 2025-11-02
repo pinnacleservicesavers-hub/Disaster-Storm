@@ -18,7 +18,7 @@ Preferred communication style: Simple, everyday language.
 ### Technical Implementations
 - **Frontend**: React 18, TypeScript, Vite, Shadcn/ui (Radix UI + Tailwind CSS), TanStack Query for state, Wouter for routing, WebSocket integration, context-based internationalization (English, Spanish).
 - **Backend**: Node.js with Express.js (TypeScript, ES modules), Drizzle ORM with PostgreSQL, RESTful API, WebSocket support, image/video upload, EXIF data extraction.
-- **Database**: PostgreSQL with Drizzle ORM; key entities include Users, Claims, Insurance Companies, Weather Alerts, Field Reports, Drone Footage, Lien Rules, and Disaster Lens entities.
+- **Database**: PostgreSQL with Drizzle ORM; key entities include Users, Claims, Insurance Companies, Weather Alerts, Field Reports, Drone Footage, Lien Rules, Disaster Lens entities, and Lead→Job→Claim→Payment workflow tables (Memberships, Contractor Profiles, Properties, Jobs, Media Assets, Contracts, Job Invoices).
 - **Authentication & Authorization**: Express sessions, PostgreSQL session store, role-based access, protected API endpoints.
 - **Real-time Data Processing**: Automated polling of NWS CAP alerts, Storm Prediction Center data; WebSocket events for live updates; background workers for scheduled tasks.
 - **Infrastructure**: Batch signing for map tiles, Cloudflare Worker for edge-based signing, GitHub Actions for CI/CD to GHCR, HMAC signing infrastructure.
@@ -45,6 +45,23 @@ Preferred communication style: Simple, everyday language.
 - **AI Hazard Summary Endpoint** (`/api/ai-intelligence/summary`): Generates plain-English hazard briefings using OpenAI GPT-4o-mini. Provides immediate impact analysis, operational posture recommendations, contractor deployment guidance, and staging/mobilization advice based on current active hazards across all data sources.
 - **AI Staging Location Recommendations** (`/api/ai-intelligence/staging`): Calculates safe contractor staging zones outside hazard polygons using Haversine distance calculations (20km+ safety buffer). Returns georeferenced staging locations with distance metrics and nearest hazard identification for pre-deployment planning.
 - **Hazard Polygon Database**: Extended weather_alerts table with geometry_type (cone/track/contour) and hazard_metadata (JSONB) fields for storing GeoJSON geometries from NHC, MRMS, and future polygon-based hazard sources.
+
+### Lead → Job → Claim → Payment Workflow (November 2025)
+- **Complete Workflow Schema**: 7 new database tables supporting end-to-end job management from lead generation through insurance payment
+- **Memberships Table**: User subscription tracking (one_time, monthly plans) with expiration management
+- **Contractor Profiles**: Extended contractor data including equipment inventory, certifications (OSHA, ANSI), alert channel preferences, and service region geofencing
+- **Properties Management**: Homeowner property tracking with geocoded addresses, city/state/zip, and lat/lon coordinates
+- **Jobs Pipeline**: Status-based job tracking (lead → in_progress → complete → invoiced → paid) with scope locking to prevent double-booking
+- **Media Assets**: Photo/video documentation with AI-generated labels, timestamp tracking, and job association
+- **Contracts System**: Legal agreement management with AOB (Assignment of Benefits) support, state-specific rules, e-signature tracking
+- **Job Invoices**: Advanced invoicing with:
+  - Cost breakdown (JSONB for line items)
+  - Xactimate reference data integration
+  - AI-generated comparables (True Cost vs Xactimate)
+  - Rebuttal history tracking (JSONB array for negotiation audit trail)
+  - Multi-status workflow (draft → sent → disputed → approved → paid)
+- **Workflow Agents**: Weather Agent → Dispatch Agent → Contractor → Homeowner → Claims/Invoice Agent → Negotiator Agent → Insurer
+- **AI Claims Intelligence**: Automated comparable generation, policy language parsing, settlement threshold logic, rebuttal automation
 
 ## External Dependencies
 
