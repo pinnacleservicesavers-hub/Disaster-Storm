@@ -39,6 +39,13 @@ Preferred communication style: Simple, everyday language.
 - **SDK**: Standalone npm package (`@disaster-direct/sdk`).
 - **Advanced Features**: QR/AprilTag calibration for precise measurements.
 
+### Advanced Hazard Processing Features (November 2025)
+- **NHC Hurricane Cone/Track Ingestion**: Real-time ingestion of National Hurricane Center forecast cone and track GeoJSON polygons. Uses official NHC product naming (5day_pgncone_latest, 5day_5knt_track_latest). Stores hurricane geometry data in weather_alerts table with metadata (storm name, classification, wind speed, pressure). Auto-triggers every 10 minutes via hazard monitoring scheduler.
+- **MRMS Radar Contour Processing**: Service for processing NOAA MRMS radar data into hazard contours (hail, heavy precipitation). Currently in stub mode with placeholder contours - production implementation requires Python raster processing microservice for GRIB2 data conversion. Supports configurable thresholds and severity levels.
+- **AI Hazard Summary Endpoint** (`/api/ai-intelligence/summary`): Generates plain-English hazard briefings using OpenAI GPT-4o-mini. Provides immediate impact analysis, operational posture recommendations, contractor deployment guidance, and staging/mobilization advice based on current active hazards across all data sources.
+- **AI Staging Location Recommendations** (`/api/ai-intelligence/staging`): Calculates safe contractor staging zones outside hazard polygons using Haversine distance calculations (20km+ safety buffer). Returns georeferenced staging locations with distance metrics and nearest hazard identification for pre-deployment planning.
+- **Hazard Polygon Database**: Extended weather_alerts table with geometry_type (cone/track/contour) and hazard_metadata (JSONB) fields for storing GeoJSON geometries from NHC, MRMS, and future polygon-based hazard sources.
+
 ## External Dependencies
 
 ### Core Infrastructure
