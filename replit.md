@@ -5,6 +5,18 @@ Disaster Direct is a comprehensive storm operations and claims management platfo
 
 ## Recent Changes
 
+### November 2, 2025 - Live Weather Intelligence Center
+- **Enhanced Weather Center**: Transformed into comprehensive "Live Weather Intelligence" monitoring station
+  - Live monitoring indicator with pulsing animation showing real-time status
+  - Data sources dashboard displays 7 feeds: NOAA, NWS, GOES Satellites, NDBC Buoys, WAVEWATCH III, Ambee Environmental, ML Models
+  - Animated status indicators cycling through data sources every 2 seconds with green active states
+  - Live Weather Maps section featuring GOES-16/17 satellite imagery and NEXRAD radar network
+  - Environmental Conditions panel: Air Quality, Pollen Count, UV Index, Soil Moisture, Fire Risk (powered by Ambee API)
+  - AI Intelligence feature cards: Expert Analysis, Severe Alerts, Ocean Data, Predictive Models
+  - Prominent "Ask Our AI Weather Expert" section with example questions and enhanced styling
+  - Subtitle emphasizes: "Advanced Machine Learning Models • Live Weather Data • Expert Analysis • AI Intelligence"
+- **Testing**: Playwright end-to-end test confirms all UI elements display correctly with live monitoring active
+
 ### November 2, 2025 - Storm Prediction & Contractor Deployment System (MVP COMPLETE)
 - **Storm Predictions Dashboard**: Live predictive analytics for 12-72h storm forecasts
   - Real-time display of active storms (3), impact zones (4), contractor opportunities (4) with $739.5M revenue potential
