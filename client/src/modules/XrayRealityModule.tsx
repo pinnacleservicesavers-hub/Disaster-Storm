@@ -1,4 +1,8 @@
+import { StateCitySelector, useStateCitySelector } from '@/components/StateCitySelector';
+
 export default function XrayRealityModule() {
+  const { selectedState, setSelectedState, selectedCity, setSelectedCity, availableCities } = useStateCitySelector('Florida', 'Miami');
+  
   return (
     <div className="min-h-screen bg-black text-white">
       {/* Ambient Neon Backdrop */}
@@ -23,9 +27,22 @@ export default function XrayRealityModule() {
           X-RAY REALITY
         </h1>
         
-        <p className="text-xl text-cyan-300/70 mb-12">
+        <p className="text-xl text-cyan-300/70 mb-8">
           3D radar, satellite, and AR overlays.
         </p>
+
+        {/* State/City Selector */}
+        <div className="flex justify-center mb-8">
+          <StateCitySelector
+            selectedState={selectedState}
+            selectedCity={selectedCity}
+            availableCities={availableCities}
+            onStateChange={setSelectedState}
+            onCityChange={setSelectedCity}
+            variant="dark"
+            showAllStates={true}
+          />
+        </div>
 
         {/* Feature Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

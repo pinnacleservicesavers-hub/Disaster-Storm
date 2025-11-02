@@ -1,6 +1,9 @@
 import VoiceGuide from '@/components/VoiceGuide';
+import { StateCitySelector, useStateCitySelector } from '@/components/StateCitySelector';
 
 export default function WeatherCenter() {
+  const { selectedState, setSelectedState, selectedCity, setSelectedCity, availableCities } = useStateCitySelector('Florida', 'Miami');
+  
   return (
     <div className="min-h-screen bg-black text-white">
       {/* Ambient Neon Backdrop */}
@@ -28,6 +31,19 @@ export default function WeatherCenter() {
         <p className="text-xl text-cyan-300/70 mb-8">
           Live radar, alerts, and ops tools.
         </p>
+
+        {/* State/City Selector */}
+        <div className="flex justify-center mb-8">
+          <StateCitySelector
+            selectedState={selectedState}
+            selectedCity={selectedCity}
+            availableCities={availableCities}
+            onStateChange={setSelectedState}
+            onCityChange={setSelectedCity}
+            variant="dark"
+            showAllStates={true}
+          />
+        </div>
 
         {/* Voice Guide */}
         <div className="flex justify-center mb-12">
