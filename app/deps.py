@@ -16,13 +16,11 @@ class Deps:
         self.lien = self._lien()
     
     def _llm_client(self):
-        api_key = os.getenv("OPENAI_API_KEY") or os.getenv("ANTHROPIC_API_KEY") or os.getenv("XAI_API_KEY")
-        
         if os.getenv("OPENAI_API_KEY"):
             from openai import AsyncOpenAI
             client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
             
-            async def call(prompt: str):
+            async def openai_call(prompt: str):
                 response = await client.chat.completions.create(
                     model="gpt-4o-mini",
                     messages=[{"role": "user", "content": prompt}]
@@ -30,28 +28,34 @@ class Deps:
                 return response.choices[0].message.content
             
             print("✅ LLM: OpenAI")
-            return call
+            return openai_call
         
         elif os.getenv("ANTHROPIC_API_KEY"):
             from anthropic import AsyncAnthropic
             client = AsyncAnthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
             
-            async def call(prompt: str):
+            async def anthropic_call(prompt: str):
                 response = await client.messages.create(
                     model="claude-3-5-sonnet-20241022",
                     max_tokens=4096,
                     messages=[{"role": "user", "content": prompt}]
                 )
-                return response.content[0].text
+                # Extract text from TextBlock content
+                from anthropic.types import TextBlock
+                text = ""
+                for block in response.content:
+                    if isinstance(block, TextBlock):
+                        text += block.text
+                return text
             
             print("✅ LLM: Anthropic")
-            return call
+            return anthropic_call
         
         elif os.getenv("XAI_API_KEY"):
             from openai import AsyncOpenAI
             client = AsyncOpenAI(api_key=os.getenv("XAI_API_KEY"), base_url="https://api.x.ai/v1")
             
-            async def call(prompt: str):
+            async def xai_call(prompt: str):
                 response = await client.chat.completions.create(
                     model="grok-2-1212",
                     messages=[{"role": "user", "content": prompt}]
@@ -59,13 +63,13 @@ class Deps:
                 return response.choices[0].message.content
             
             print("✅ LLM: xAI")
-            return call
+            return xai_call
         
         else:
-            async def call(prompt: str):
+            async def mock_call(prompt: str):
                 return f"[MOCK] {prompt[:50]}..."
             print("⚠️ LLM: Mock mode")
-            return call
+            return mock_call
     
     def _vision_client(self):
         class Vision:
