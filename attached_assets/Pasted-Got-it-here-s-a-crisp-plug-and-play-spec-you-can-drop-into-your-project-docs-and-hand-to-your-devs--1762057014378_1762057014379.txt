@@ -1,0 +1,353 @@
+Got it—here’s a crisp, plug-and-play spec you can drop into your project docs and hand to your devs. It covers the contractor-only drone option, data requirements, privacy, paid service toggle, Replit notes, and the voice-guide update.
+
+Feature: Contractor-Only “Use My Own Drone” (Add-On inside Drone Module)
+Overview
+
+When a user is set up as a Contractor, they see a private option in the Drone module: “Use My Own Drone (Beta)”. This option is invisible to all non-contractors. Contractors can either:
+
+Upload their own drone capture so the app extracts GPS damage pins, or
+
+Select a Paid Capture Service (managed in-app) if they prefer not to fly/ upload.
+
+Once processed, the app creates damage pins and sends the signed-up contractor the property address, owner name, phone, and email associated with each validated pin.
+
+User Stories
+
+As a Contractor, I can enable a private “Use My Own Drone” option to upload flight data and photos so the app creates damage pins and returns owner/property contact details to me alone.
+
+As a Contractor, I can choose a paid capture service instead of uploading my own data.
+
+As a Contractor, I receive address + owner name + phone + email for each property linked to a confirmed damage pin.
+
+Roles & Permissions
+
+Visibility: The “Use My Own Drone” option is Contractor-only (role: contractor). Feature flag: drone.own_device_addon=true.
+
+PII Access: Owner contact details are revealed only to the contractor associated with the job or pin. No cross-contractor visibility.
+
+UX Flow (Own Drone)
+
+Drone Module (Contractor view)
+
+Toggle: Use My Own Drone (private)
+
+Secondary: Request Paid Capture Service
+
+Upload Screen
+
+Accepts: Flight log + images/video (see Supported Formats).
+
+Required metadata checklist (see “Drone Data Requirements”).
+
+Validation
+
+App verifies files and geotags; shows warnings for missing GPS EXIF, time sync issues, or out-of-bounds coordinates.
+
+Processing
+
+System extracts damage candidates → dedupes → creates Damage Pins.
+
+Results
+
+Map view of pins; list view with confidence score.
+
+Reveal Property Data button (per pin or bulk) → after confirmation, app displays and stores:
+
+Property Address
+
+Owner Full Name
+
+Owner Phone
+
+Owner Email
+
+Notifications
+
+In-app toast + activity log entry.
+
+Optional push/email notifying: “Damage pins ready. Contact details available.”
+
+UX Flow (Paid Capture Service)
+
+Request Paid Capture
+
+Select property or draw AOI (area of interest) on map.
+
+See price estimate, SLA window, and terms.
+
+Pay in-app → job queued.
+
+Fulfillment & Results
+
+Contractor notified when pins + contact data are available, same as Own Drone path.
+
+Drone Data Requirements (Own Drone)
+
+The app must be able to extract accurate GPS and associate imagery/video frames to locations.
+
+Minimum Required:
+
+Coordinates: latitude, longitude (WGS84)
+
+Timestamp: UTC or local with timezone
+
+Media association: photo/video frames mapped to GPS timestamps
+
+Accuracy target: ≤ 3–5 m CEP preferred; flag entries > 10 m
+
+Coverage: at least one clear capture per target rooftop/structure
+
+Supported Uploads:
+
+Flight Logs: .SRT, .CSV, .TXT, .JSON from major drones (DJI/Autel/etc.)
+
+Geodata: GeoJSON, KML/KMZ, GPX
+
+Images: .JPG/.JPEG with EXIF GPS + timestamp
+
+Video: .MP4 with sidecar .SRT/embedded GPS (optional but supported)
+
+File Limits (default, configurable):
+
+Max total upload: 5 GB
+
+Max single file: 1 GB
+
+Max images per job: 2,000
+
+Max video length per file: 30 min
+
+Nice-to-Have Metadata (if available):
+
+Altitude (AGL), gimbal pitch/roll/yaw, camera model, focal length
+
+System Checks & Prompts:
+
+Missing EXIF GPS → prompt to upload the corresponding flight log.
+
+Time drift > 3s between images and log → offer auto-align by offset.
+
+Coordinates outside AOI → flag + let contractor crop to AOI.
+
+Duplicate frames/near duplicates → auto-dedupe.
+
+Data Processing (Server)
+
+Ingest
+
+Parse logs/EXIF; normalize timestamps to UTC; validate coordinate ranges.
+
+Associate
+
+Image ↔ GPS matching (nearest timestamp; median filter for jitter).
+
+Detect Damage (placeholder if ML present)
+
+If ML model exists, run inference; else surface manual tagging UI.
+
+Pin Generation
+
+Cluster hits within ≤ 5 m → one Damage Pin with confidence.
+
+Property Match
+
+Reverse-geocode → parcel match → property/owner record.
+
+Access Control
+
+Link pins to contractor_id; restrict PII to that contractor.
+
+Notify
+
+Update job status; emit events for UI and notifications.
+
+PII Handling & Privacy
+
+PII fields: owner name, phone, email.
+
+Storage: Encrypted at rest; redact in logs; never export to client unless contractor is authorized and requests reveal.
+
+Transport: TLS 1.2+
+
+Access: RBAC + audit log entries for every PII reveal/download.
+
+Retention: Configurable policy (e.g., 365 days); auto-purge on expiry.
+
+Pricing & Billing (Paid Service)
+
+Config keys:
+
+PAID_CAPTURE_ENABLED=true
+
+PAID_CAPTURE_PRICE_PER_ACRE, PAID_CAPTURE_MIN_FEE, PAID_CAPTURE_SLA_HOURS
+
+Flow: Quote → Payment (Stripe/processor) → Work order → Results → Receipt.
+
+Refunds/Disputes: Manual override in Admin → status & notes attached to job.
+
+API Contract (Draft)
+Create Own-Drone Job
+
+POST /v1/contractors/{contractorId}/drone-jobs
+
+{
+  "aoi": { "type": "Polygon", "coordinates": [[[lon,lat],[...]]]},
+  "notes": "hail sweep in NW quadrant",
+  "source": "own_drone"
+}
+
+Upload Files to Job (pre-signed)
+
+POST /v1/uploads/presign
+
+{
+  "jobId": "JOB_123",
+  "files": [
+    {"name":"flight_01.srt","mimeType":"text/plain"},
+    {"name":"img_0001.jpg","mimeType":"image/jpeg"}
+  ]
+}
+
+Start Processing
+
+POST /v1/drone-jobs/{jobId}/process
+
+Get Results (Pins + Property & Owner)
+
+GET /v1/drone-jobs/{jobId}/results
+
+{
+  "pins": [
+    {
+      "id":"PIN_001",
+      "location":{"lat":35.1234,"lon":-97.1234},
+      "confidence":0.92,
+      "property":{
+        "address":"123 Maple St, City, ST 00000",
+        "owner":{
+          "fullName":"Taylor Smith",
+          "phone":"+1-555-0100",
+          "email":"taylor@example.com"
+        }
+      }
+    }
+  ]
+}
+
+Request Paid Capture
+
+POST /v1/contractors/{contractorId}/drone-jobs
+
+{
+  "aoi": { "type": "Polygon", "coordinates": [[[lon,lat],[...]]]},
+  "source": "paid_service",
+  "paymentToken": "tok_abc123"
+}
+
+Database (Sketch)
+
+contractors (id, user_id, status, …)
+
+drone_jobs (id, contractor_id, source ENUM[own_drone, paid_service], aoi_geo, status, created_at, …)
+
+drone_files (id, job_id, uri, type ENUM[log, image, video, geojson], checksum, …)
+
+damage_pins (id, job_id, geom_point, confidence, created_at, …)
+
+properties (id, parcel_id, address, …)
+
+owners (id, property_id, full_name, phone, email, …)
+
+pin_property_owner (pin_id, property_id, owner_id)
+
+audit_logs (id, actor_id, action, object_type, object_id, pii_access BOOLEAN, ts)
+
+UI Copy (Concise)
+
+Drone → Contractor Add-On
+
+Toggle label: Use My Own Drone (Beta)
+
+Helper text: “Upload your flight log and media. We’ll generate GPS damage pins and reveal property owner contact details for your jobs.”
+
+Upload Requirements (inline checklist):
+
+“Each image has GPS (EXIF) or provide a flight log (.SRT/.CSV/.JSON).”
+
+“Timestamps are accurate; time drift ≤ 3s (we can auto-align).”
+
+“Area of interest is set (draw or select).”
+
+Processing status:
+
+“Processing your files… You’ll be notified when damage pins are ready.”
+
+Results:
+
+“Damage pins created. Reveal property & owner details?”
+
+Button: Reveal Contact Details (shows modal with owner info & audit note)
+
+Paid Service Card:
+
+Title: Don’t have a drone?
+
+Body: “Request a pro capture in your AOI.”
+
+CTA: Request Paid Capture (shows quote → pay)
+
+Voice Guide Update (must record)
+
+“Contractors now have a private Use My Own Drone option in the Drone module. Upload your flight logs and images to generate GPS damage pins automatically. When pins are ready, select Reveal Contact Details to view the property address and the owner’s name, phone number, and email. Prefer not to fly? Choose Request Paid Capture for a turnkey service.”
+
+Replit Notes (tell the team)
+
+This is an Add-On inside the existing Drone module.
+
+Set feature flag drone.own_device_addon=true for contractor role.
+
+Add env vars for paid service pricing & SLA (see Pricing & Billing).
+
+Create new routes/controllers per API Contract above.
+
+Add S3 (or storage) pre-sign service for large uploads.
+
+Add workers/queue for processing (idempotent; resumable).
+
+Add DB migration for drone_jobs, drone_files, damage_pins, and audit_logs.
+
+Enforce RBAC/row-level security for PII reveal endpoints.
+
+Log every PII reveal in audit_logs (pii_access=true).
+
+Acceptance Criteria
+
+ Non-contractors never see “Use My Own Drone.”
+
+ Contractors can upload any supported formats; invalid files produce clear errors.
+
+ GPS pins are generated and visible on map & list.
+
+ “Reveal Contact Details” shows address + owner name + phone + email for each pin.
+
+ PII only accessible to the job’s contractor; access is audited.
+
+ Paid Capture flow: quote → pay → job → pins → contact details.
+
+ Voice guide updated lines are present and triggered in Drone module.
+
+ Feature flag can enable/disable add-on without code changes.
+
+QA Test Cases (high-value)
+
+Upload JPEGs with EXIF GPS only → pins generated.
+
+Upload JPEGs without GPS + .SRT log → association succeeds after auto time align.
+
+Out-of-AOI frames → flagged; crop to AOI removes pins outside.
+
+PII attempt by different contractor → 403 + audited.
+
+Paid service end-to-end with refund edge case.
+
+Large batch (1.5k images) within limits → completes; no timeouts.

@@ -59,15 +59,19 @@ Provide concise, actionable answers. Be professional but friendly. Focus on help
       const completion = await openai.chat.completions.create({
         model: 'gpt-5-mini',
         messages: apiMessages,
-        max_completion_tokens: 500,
+        max_completion_tokens: 2048, // Increased from 500 to allow longer responses
       });
 
       console.log('💬 OpenAI API response received');
       const assistantMessage = completion.choices[0]?.message?.content;
+      const finishReason = completion.choices[0]?.finish_reason;
 
-      if (!assistantMessage) {
-        console.error('💬 No content in OpenAI response:', JSON.stringify(completion, null, 2));
-        throw new Error('No response from AI');
+      if (!assistantMessage || assistantMessage.trim().length === 0) {
+        console.error('💬 No content in OpenAI response:', {
+          finishReason,
+          responseData: JSON.stringify(completion, null, 2)
+        });
+        throw new Error(`No response from AI (finish_reason: ${finishReason})`);
       }
 
       console.log(`💬 AI response length: ${assistantMessage.length} characters`);
