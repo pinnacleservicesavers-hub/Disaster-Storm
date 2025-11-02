@@ -5,6 +5,31 @@ Disaster Direct is a comprehensive storm operations and claims management platfo
 
 ## Recent Changes
 
+### November 2, 2025 - Storm Prediction & Contractor Deployment System (MVP COMPLETE)
+- **Storm Predictions Dashboard**: Live predictive analytics for 12-72h storm forecasts
+  - Real-time display of active storms (3), impact zones (4), contractor opportunities (4) with $739.5M revenue potential
+  - State-based filtering and forecast window selection (12h/24h/48h/72h)
+  - Auto-refetch when state or forecast parameters change
+  - Powered by PredictiveStormService with AI-driven damage zone calculations
+- **Contractor Deployment Map**: Interactive Leaflet map with dynamic geocoding
+  - Visualizes storms, impact zones, and contractor opportunities on OpenStreetMap
+  - Dynamic geocoding for ALL counties using OpenStreetMap Nominatim (no hard-coded coordinates)
+  - Coordinate caching for performance optimization
+  - Enables contractors to pre-position BEFORE disasters strike
+- **Automated Contractor Alert System**: 15-minute scheduler for opportunity notifications
+  - Background scheduler checks opportunities every 15 minutes (minScore: 70)
+  - ContractorAlertService handles SMS/email notifications with deduplication
+  - API routes at /api/contractor-alerts for manual testing and triggers
+  - Development mode logging with production-ready architecture
+- **Architect Approval**: System PASSES MVP requirements for pre-storm contractor deployment
+  - Prediction dashboard, deployment map, and automated alerts work together seamlessly
+  - State-scoped filtering and 15-minute polling for timely contractor positioning
+  - Ready for this week's deadline with known limitations (dev mode logging, env-var preferences)
+- **Production Readiness Notes**:
+  - Alert delivery uses development-mode logging (console output)
+  - Contractor preferences stored in environment variables (not database persistence)
+  - Next steps: Add real Twilio/SMTP credentials and persistent preference storage
+
 ### November 2, 2025 - Universal AI Assistant Implementation
 - **ModuleAIAssistant Component**: Created floating AI assistant available in ALL 17 modules and pages
   - Cyan/blue neon gradient floating button in bottom-right corner of every module
