@@ -28,11 +28,11 @@ export const PORTAL_EXPLANATIONS: Record<string, VoiceExplanation> = {
     id: 'modules',
     portal: 'modules',
     title: 'Welcome to Disaster Direct StormOps Modules',
-    content: `Welcome to Disaster Direct StormOps Modules. I'm Rachel, your professional voice guide. You have access to six powerful modules. Weather Center offers live radar and severe weather alerts. Storm Predictions provides AI damage forecasting. TrafficCamWatcher monitors live traffic cameras for real-time damage detection. Drone Operations manages your fleet and flight logs. AI Damage Detection analyzes photos and camera feeds. And X-RAY REALITY provides augmented reality storm operations. Click Launch on any module to learn more and access detailed features.`,
-    keyFeatures: ['Six integrated modules', 'Real-time intelligence', 'AI-powered tools', 'Professional operations'],
-    navigation: 'Click Launch on any module card to access it. Use search to find modules or filter by category.',
-    benefits: ['Comprehensive storm operations', 'Enterprise-grade tools'],
-    duration: 30
+    content: `Welcome to Disaster Direct StormOps Modules. I'm Rachel, your professional voice guide. You have access to seventeen powerful modules organized into five categories. Operations modules include Weather Center for live radar, TrafficCamWatcher for camera monitoring, Eyes in the Sky for route planning, Drone Operations for fleet management, Disaster Essentials Marketplace for emergency supplies, and Disaster Lens for damage documentation. Intelligence modules provide Storm Predictions with AI forecasting, AI Damage Detection for image analysis, and X-RAY REALITY for augmented reality operations. Sales tools include Lead Management for tracking opportunities. Customer modules offer Victim Portal for damage reporting, StormShare community platform, and Customer Hub for relationship management. Management modules include Claims Central for insurance processing, Contractor Command for crew dispatch, Contractor Portal for sign-ups, and Legal Command for compliance tracking. Click Launch on any module to access detailed features and navigation guidance.`,
+    keyFeatures: ['17 integrated modules', '5 operational categories', 'Real-time intelligence', 'AI-powered tools', 'Professional operations', 'Complete storm response platform'],
+    navigation: 'Click Launch on any module card to access it. Use search to find modules or filter by category: Operations, Intelligence, Sales, Customers, or Management.',
+    benefits: ['Comprehensive storm operations', 'Enterprise-grade tools', 'End-to-end workflow coverage'],
+    duration: 60
   },
   weather: {
     id: 'weather',
@@ -197,19 +197,6 @@ export const PORTAL_EXPLANATIONS: Record<string, VoiceExplanation> = {
     navigation: 'View live satellite loops, analyze lightning strike patterns, monitor temperature gradients, and track storm development in real-time.',
     benefits: ['Professional weather intelligence', 'Western US regional coverage', 'Lightning strike prediction', 'Advanced storm tracking'],
     duration: 45
-  },
-  xray: {
-    id: 'xray',
-    portal: 'xray',
-    title: 'X-RAY REALITY Augmented Reality Portal',
-    content: `X-RAY REALITY provides augmented reality storm operations with live storm views, continuously refreshing radar and GOES satellite data on a 3D stage. 
-    Access traffic and DOT cameras in 3×3 grids by state, storm-chaser feeds, your drone feeds, and ocean views for coastal operations. Use AR tools to 
-    drop hazard markers for energized lines and split trunks, draw cut lines and safe zones, and measure diameters and distances visually in augmented reality. 
-    Features lead triage overlay that auto-labels critical jobs, routing helper for smart sequences, and time scrub replays of the last 6 to 24 hours.`,
-    keyFeatures: ['Live 3D storm view', 'AR measurement and marking tools', 'Traffic camera grids', 'Storm chaser feeds', 'Drone feed integration', 'Time scrub replays'],
-    navigation: 'Use AR tools to mark hazards, draw cut lines, measure distances, view live feeds, and scrub through storm history for evidence capture.',
-    benefits: ['Augmented reality storm ops', 'Real-time situational awareness', 'Evidence capture and reporting', 'Smart routing and triage'],
-    duration: 50
   },
   watchlist: {
     id: 'watchlist',
