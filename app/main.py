@@ -3,7 +3,6 @@ Disaster Direct - FastAPI Backend
 AI-powered storm prediction and contractor deployment platform
 """
 import os
-from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -23,56 +22,51 @@ from app.routers import (
 
 # Agent Orchestration
 from app.agents.supervisor import Supervisor
-from app.deps import get_deps
+from app.deps import build_dependencies
+from app.utils.events import EventBus
 from app.database import init_db, close_db
 
 
-# Global supervisor instance
-supervisor: Supervisor | None = None
+# Initialize FastAPI app
+app = FastAPI(
+    title="Storm Disaster Agentic API",
+    description="AI-powered storm prediction and contractor deployment platform",
+    version="0.1.0",
+    docs_url="/api/docs",
+    redoc_url="/api/redoc",
+    openapi_url="/api/openapi.json"
+)
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """
-    Lifecycle manager for FastAPI application
-    Handles startup and shutdown events
-    """
-    # Startup
-    print("🚀 Initializing Disaster Direct API...")
+# Build dependencies and initialize orchestration
+deps = build_dependencies()
+bus = EventBus()
+supervisor = Supervisor(deps)
+
+
+@app.on_event("startup")
+async def startup():
+    """Initialize application on startup"""
+    print("🚀 Initializing Storm Disaster Agentic API...")
     
     # Initialize database
     await init_db()
     print("✅ Database connected")
     
-    # Initialize dependencies (services, tools, etc.)
-    deps = await get_deps()
-    
-    # Initialize agent orchestration system
-    global supervisor
-    supervisor = Supervisor(deps)
-    print("🤖 Agent Orchestration System initialized")
+    # Subscribe supervisor to event bus
+    bus.subscribe(supervisor.handle_event)
+    print("🤖 Supervisor subscribed to event bus")
     print(f"   - Agents: Legal, Weather, Vision, Dispatch, Claims, Negotiator, Finance")
     
-    print("✅ Disaster Direct API ready")
-    
-    yield
-    
-    # Shutdown
-    print("🛑 Shutting down Disaster Direct API...")
+    print("✅ Storm Disaster API ready")
+
+
+@app.on_event("shutdown")
+async def shutdown():
+    """Cleanup on shutdown"""
+    print("🛑 Shutting down Storm Disaster API...")
     await close_db()
     print("✅ Cleanup complete")
-
-
-# Initialize FastAPI app
-app = FastAPI(
-    title="Disaster Direct API",
-    description="AI-powered storm prediction and contractor deployment platform",
-    version="1.0.0",
-    lifespan=lifespan,
-    docs_url="/api/docs",
-    redoc_url="/api/redoc",
-    openapi_url="/api/openapi.json"
-)
 
 
 # CORS Configuration
@@ -90,9 +84,9 @@ app.add_middleware(
 async def root():
     """Root endpoint - health check"""
     return {
-        "service": "Disaster Direct API",
+        "service": "Storm Disaster Agentic API",
         "status": "operational",
-        "version": "1.0.0",
+        "version": "0.1.0",
         "docs": "/api/docs"
     }
 
@@ -102,7 +96,37 @@ async def health_check():
     """Health check endpoint for monitoring"""
     return {
         "status": "healthy",
-        "orchestration": "active" if supervisor else "initializing"
+        "orchestration": "active",
+        "event_bus": f"{bus.get_event_count()} events logged"
+    }
+
+
+# Event Bus Endpoints
+@app.post("/api/events/publish")
+async def publish_event(request: Request):
+    """
+    Publish event to event bus
+    Supervisor will receive and route to appropriate agent
+    
+    Body:
+    {
+        "type": "WEATHER_IMPACT" | "UPLOAD_CONTRACT" | "MEDIA_UPLOADED" | ...,
+        "data": { ... }
+    }
+    """
+    event = await request.json()
+    results = await bus.publish(event)
+    
+    # Return first result (from supervisor)
+    return results[0] if results else {"ok": False, "error": "No handlers subscribed"}
+
+
+@app.get("/api/events/recent")
+async def get_recent_events(limit: int = 50):
+    """Get recent events from event bus log"""
+    return {
+        "events": bus.get_recent_events(limit),
+        "total": bus.get_event_count()
     }
 
 
@@ -110,7 +134,7 @@ async def health_check():
 @app.post("/api/orchestration/task")
 async def execute_task(request: Request):
     """
-    Execute a single agent task
+    Execute a single agent task directly through supervisor
     
     Body:
     {
@@ -119,55 +143,14 @@ async def execute_task(request: Request):
         "priority": "low" | "medium" | "high" | "urgent"
     }
     """
-    if not supervisor:
-        return JSONResponse(
-            status_code=503,
-            content={"error": "Agent orchestration system not initialized"}
-        )
-    
-    body = await request.json()
-    result = await supervisor.handle_event(body)
-    return result
-
-
-@app.post("/api/orchestration/event")
-async def handle_event(request: Request):
-    """
-    Handle business events that trigger agent workflows
-    
-    Supported event types:
-    - WEATHER_IMPACT: Trigger contractor deployment
-    - UPLOAD_CONTRACT: Legal validation
-    - MEDIA_UPLOADED: Damage analysis
-    - INVOICE_DISPUTED: Prepare negotiation rebuttal
-    - PAYMENT_DUE: Payment reminders
-    
-    Body:
-    {
-        "type": "WEATHER_IMPACT" | "UPLOAD_CONTRACT" | ...,
-        "data": { ... }
-    }
-    """
-    if not supervisor:
-        return JSONResponse(
-            status_code=503,
-            content={"error": "Agent orchestration system not initialized"}
-        )
-    
-    body = await request.json()
-    result = await supervisor.handle_event(body)
+    task = await request.json()
+    result = await supervisor.handle_event(task)
     return result
 
 
 @app.get("/api/orchestration/agents")
 async def list_agents():
     """List all available agents and their capabilities"""
-    if not supervisor:
-        return JSONResponse(
-            status_code=503,
-            content={"error": "Agent orchestration system not initialized"}
-        )
-    
     return {
         "agents": [
             {
@@ -210,15 +193,15 @@ async def list_agents():
     }
 
 
-# Register routers
-app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
-app.include_router(membership.router, prefix="/api/membership", tags=["Membership"])
-app.include_router(contractor.router, prefix="/api/contractor", tags=["Contractor"])
-app.include_router(leads.router, prefix="/api/leads", tags=["Leads"])
-app.include_router(jobs.router, prefix="/api/jobs", tags=["Jobs"])
-app.include_router(claims.router, prefix="/api/claims", tags=["Claims"])
-app.include_router(payments.router, prefix="/api/payments", tags=["Payments"])
-app.include_router(compliance.router, prefix="/api/compliance", tags=["Compliance"])
+# Include routers
+app.include_router(auth.router, prefix="/auth", tags=["auth"])
+app.include_router(membership.router, prefix="/membership", tags=["membership"])
+app.include_router(contractor.router, prefix="/contractor", tags=["contractor"])
+app.include_router(leads.router, prefix="/leads", tags=["leads"])
+app.include_router(jobs.router, prefix="/jobs", tags=["jobs"])
+app.include_router(claims.router, prefix="/claims", tags=["claims"])
+app.include_router(payments.router, prefix="/payments", tags=["payments"])
+app.include_router(compliance.router, prefix="/compliance", tags=["compliance"])
 
 
 # Global exception handler

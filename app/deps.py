@@ -81,15 +81,30 @@ class Dependencies:
 _deps: Dependencies | None = None
 
 
-async def get_deps() -> Dependencies:
+def build_dependencies() -> Dependencies:
     """
-    Get or initialize global dependencies
-    Used in agent constructors and router dependencies
+    Build and return dependencies singleton
+    Called once at application startup
     """
     global _deps
     if _deps is None:
         _deps = Dependencies()
         print("✅ Dependencies initialized")
+    return _deps
+
+
+async def get_deps() -> Dependencies:
+    """
+    FastAPI dependency injection for routes
+    
+    Usage:
+        @router.get("/endpoint")
+        async def endpoint(deps: Dependencies = Depends(get_deps)):
+            ...
+    """
+    global _deps
+    if _deps is None:
+        _deps = Dependencies()
     return _deps
 
 
