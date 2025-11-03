@@ -1,0 +1,327 @@
+Awesome — I’ll add the three extras you green-lit:
+
+carrier-branded PDF color themes
+
+S3/Blob storage for archived PDFs
+
+a SendGrid Inbound Parse webhook for email-to-claims
+
+Below are drop-in patches you can paste into your current project. They’re organized so you can copy/paste without hunting around.
+
+1) Carrier-branded PDF color themes
+app/routers/reports.py — add theme colors + header bar
+
+Find your fnol_report and replace it with this enhanced version (keeps map snapshot + everything you already have):
+
+from fastapi import APIRouter, Depends, Response, Query
+from sqlalchemy.orm import Session
+from shapely import wkt
+from shapely.geometry import Point
+from io import BytesIO
+from reportlab.lib.pagesizes import LETTER
+from reportlab.pdfgen import canvas
+from reportlab.lib.units import inch
+from reportlab.lib.utils import ImageReader
+from reportlab.lib.colors import HexColor
+from datetime import datetime
+import os, json
+
+from app.core.db import SessionLocal
+from app.models.entities import Claim, Carrier, Asset, Alert
+from app.utils.maprender import render_claim_hazards_png
+
+router = APIRouter()
+
+def get_db():
+    db = SessionLocal()
+    try: yield db
+    finally: db.close()
+
+def _pdf_text(c, x, y, text, size=10, bold=False, color="#111111"):
+    c.setFillColor(HexColor(color))
+    c.setFont("Helvetica-Bold" if bold else "Helvetica", size)
+    c.drawString(x, y, text)
+
+def _brand_colors(theme: str|None):
+    # default palette
+    colors = {
+        "primary": "#0F172A",  # title text
+        "accent":  "#3B82F6",  # header bar
+        "text":    "#111827",
+        "muted":   "#6B7280"
+    }
+    # Add your known carrier presets here
+    presets = {
+        "example_carrier": {"primary": "#111827", "accent": "#2563EB"},
+        "acme_insurance": {"primary": "#0B132B", "accent": "#6FFFE9"},
+    }
+    if theme:
+        key = theme.lower().replace(" ", "_")
+        colors.update(presets.get(key, {}))
+    return colors
+
+@router.get("/reports/fnol/{claim_id}")
+def fnol_report(
+    claim_id: int,
+    db: Session = Depends(get_db),
+    theme: str | None = Query(None, description="Carrier name for logo/colors"),
+    store: bool = Query(False, description="Store the PDF to object storage and return URL if configured"),
+):
+    cl = db.query(Claim).filter(Claim.id==claim_id).first()
+    if not cl:
+        return {"error":"Claim not found"}
+    asset = db.query(Asset).filter(Asset.id==cl.asset_id).first()
+    carrier = db.query(Carrier).filter(Carrier.id==cl.carrier_id).first()
+
+    colors = _brand_colors(theme)
+    buf = BytesIO()
+    c = canvas.Canvas(buf, pagesize=LETTER)
+    w, h = LETTER
+
+    # Header bar
+    c.setFillColor(HexColor(colors["accent"]))
+    c.rect(0, h-0.9*inch, w, 0.9*inch, fill=1, stroke=0)
+    _pdf_text(c, 1*inch, h-0.6*inch, "First Notice of Loss (FNOL)", 16, True, "#FFFFFF")
+
+    # Optional logo
+    if theme:
+        try:
+            logo_path = os.path.join("web", "static", "logos", f"{theme.lower().replace(' ', '_')}.png")
+            if os.path.exists(logo_path):
+                img = ImageReader(logo_path)
+                c.drawImage(img, w-2.2*inch, h-0.85*inch, width=1.8*inch, height=0.6*inch, preserveAspectRatio=True, mask='auto')
+        except Exception:
+            pass
+
+    y = h - 1.2*inch
+    _pdf_text(c, 1*inch, y, f"Generated: {datetime.utcnow().isoformat()}Z", 9, False, colors["muted"]); y -= 0.18*inch
+    _pdf_text(c, 1*inch, y, "Claim Information", 12, True, colors["primary"]); y -= 0.24*inch
+    _pdf_text(c, 1*inch, y, f"Claim ID: {cl.id} | Policy: {cl.policy_number or '-'} | Status: {cl.status}", 10, False, colors["text"]); y -= 0.18*inch
+    _pdf_text(c, 1*inch, y, f"Carrier: {(carrier.name if carrier else '-')}", 10, False, colors["text"]); y -= 0.24*inch
+
+    _pdf_text(c, 1*inch, y, "Map Snapshot", 12, True, colors["primary"]); y -= 0.24*inch
+    try:
+        img_bytes = render_claim_hazards_png(db, cl.id)
+        img = ImageReader(BytesIO(img_bytes))
+        c.drawImage(img, 1*inch, y-3.5*inch, width=4.8*inch, height=4.0*inch, preserveAspectRatio=True, mask='auto')
+        y -= 4.3*inch
+    except Exception as e:
+        _pdf_text(c, 1*inch, y, f"(Map unavailable: {str(e)[:70]})", 10, False, colors["muted"]); y -= 0.2*inch
+
+    _pdf_text(c, 1*inch, y, "Intersecting Hazards", 12, True, colors["primary"]); y -= 0.24*inch
+    # (Optional) You can list hazards here if you store them on claim creation.
+
+    c.showPage()
+    c.save()
+    pdf_bytes = buf.getvalue()
+    buf.close()
+
+    # Optional: store to object storage and return URL (implemented in section 2)
+    if store:
+        try:
+            from app.utils.storage import store_pdf_and_get_url
+            url = store_pdf_and_get_url(pdf_bytes, f"FNOL_{cl.id}.pdf")
+            return {"stored": True, "url": url}
+        except Exception as e:
+            # fall back to streaming
+            pass
+
+    return Response(content=pdf_bytes, media_type="application/pdf")
+
+2) S3/Blob storage for archived PDFs
+Add config envs
+
+In .env (Replit Secrets), add:
+
+STORAGE_PROVIDER=s3
+S3_BUCKET=your-bucket
+S3_REGION=us-east-1
+AWS_ACCESS_KEY_ID=xxxx
+AWS_SECRET_ACCESS_KEY=xxxx
+
+
+For Azure Blob or GCS, we can add providers later; starting with S3 is simplest.
+
+app/core/config.py — extend settings
+
+Add these fields (or replace the class with this superset):
+
+from pydantic_settings import BaseSettings
+from pydantic import Field
+
+class Settings(BaseSettings):
+    database_url: str = Field(default="sqlite:///./s3.db")
+
+    # Notifications
+    alert_webhook_url: str | None = None
+    alert_webhook_token: str | None = None
+    twilio_account_sid: str | None = None
+    twilio_auth_token: str | None = None
+    twilio_from: str | None = None
+
+    # Email
+    sendgrid_api_key: str | None = None
+
+    # Object storage
+    storage_provider: str | None = Field(default=None)  # 's3'
+    s3_bucket: str | None = None
+    s3_region: str | None = None
+    aws_access_key_id: str | None = None
+    aws_secret_access_key: str | None = None
+
+    class Config:
+        env_file = ".env"
+
+settings = Settings()
+
+requirements.txt
+
+Add:
+
+boto3==1.35.21
+
+app/utils/storage.py — S3 uploader
+import boto3, os
+from datetime import datetime, timedelta
+from app.core.config import settings
+
+def _s3():
+    session = boto3.session.Session(
+        aws_access_key_id=settings.aws_access_key_id,
+        aws_secret_access_key=settings.aws_secret_access_key,
+        region_name=settings.s3_region
+    )
+    return session.client("s3")
+
+def store_pdf_and_get_url(pdf_bytes: bytes, key: str) -> str:
+    if settings.storage_provider != "s3":
+        raise RuntimeError("Storage provider not configured")
+    key = f"fnol/{datetime.utcnow().strftime('%Y/%m/%d')}/{key}"
+    _s3().put_object(Bucket=settings.s3_bucket, Key=key, Body=pdf_bytes, ContentType="application/pdf")
+    # presigned URL (1 week)
+    url = _s3().generate_presigned_url(
+        ClientMethod="get_object",
+        Params={"Bucket": settings.s3_bucket, "Key": key},
+        ExpiresIn=7*24*3600
+    )
+    return url
+
+How to use it
+
+Call the FNOL endpoint with ?store=true:
+
+GET /api/reports/fnol/123?theme=example_carrier&store=true
+
+
+Returns:
+
+{"stored": true, "url": "<presigned S3 URL>"}
+
+3) SendGrid Inbound Parse webhook (email → claims)
+
+SendGrid’s Inbound Parse will POST a multipart/form-data payload. We’ll add a route that accepts it, parses from, subject, text, and creates a claim (and links to an asset via Asset-ID: if present).
+
+requirements.txt (if not present)
+python-multipart==0.0.9
+
+app/routers/email_inbound_sendgrid.py
+from fastapi import APIRouter, Depends, Form, UploadFile
+from sqlalchemy.orm import Session
+from typing import Optional, List
+import re
+
+from app.core.db import SessionLocal
+from app.models.entities import Claim, Carrier, Asset
+
+router = APIRouter()
+
+def get_db():
+    db = SessionLocal()
+    try: yield db
+    finally: db.close()
+
+def _parse_policy(text: str) -> str | None:
+    m = re.search(r"policy[:\s]+([A-Za-z0-9\-]+)", text or "", re.IGNORECASE)
+    return m.group(1) if m else None
+
+def _parse_asset_ref(text: str) -> str | None:
+    m = re.search(r"asset[_\s-]*id[:\s]+([A-Za-z0-9\-]+)", text or "", re.IGNORECASE)
+    return m.group(1) if m else None
+
+@router.post("/email/inbound/sendgrid")
+async def inbound_sendgrid(
+    db: Session = Depends(get_db),
+    from_email: str = Form(...),
+    subject: str = Form(""),
+    text: str = Form(""),
+    html: Optional[str] = Form(None),
+    attachments: Optional[int] = Form(0),
+    # If handling files: dynamically accept files as attachment1, attachment2...
+):
+    # Guess carrier from domain
+    carrier_name = from_email.split("@")[-1].split(".")[0].title()
+    carrier = db.query(Carrier).filter(Carrier.name==carrier_name).first()
+    if not carrier:
+        carrier = Carrier(name=carrier_name)
+        db.add(carrier); db.commit(); db.refresh(carrier)
+
+    policy = _parse_policy(text) or subject.strip() or "(unknown)"
+    asset_ref = _parse_asset_ref(text)
+
+    asset = None
+    if asset_ref:
+        asset = db.query(Asset).filter(Asset.ref_id==asset_ref).first()
+
+    cl = Claim(
+        carrier_id=carrier.id,
+        policy_number=policy,
+        asset_id=(asset.id if asset else None),
+        status="open",
+        notes=f"Inbound (SendGrid) from {from_email}: {subject}"
+    )
+    db.add(cl); db.commit(); db.refresh(cl)
+
+    # (Optional) Save attachments to storage and write links to claim.notes
+    return {"ok": True, "created_claim_id": cl.id}
+
+Wire it in app/main.py
+
+Add the import and router include:
+
+from app.routers import email_inbound_sendgrid
+app.include_router(email_inbound_sendgrid.router, prefix="/api", tags=["email"])
+
+Configure SendGrid
+
+In SendGrid, set Inbound Parse to POST to:
+
+https://<your-domain-or-repl-url>/api/email/inbound/sendgrid
+
+
+Ensure your Replit exposes HTTPS (or use a reverse proxy like Cloudflare Tunnel).
+
+Smoke test checklist
+
+Branding
+
+Put web/static/logos/example_carrier.png
+
+GET /api/reports/fnol/1?theme=example_carrier → PDF shows header bar + logo
+
+Storage
+
+Set S3 envs, restart app
+
+GET /api/reports/fnol/1?store=true → returns a JSON with url you can open
+
+Inbound Parse
+
+Simulate via cURL:
+
+curl -X POST https://<host>/api/email/inbound/sendgrid \
+  -F from_email=adjuster@carrier.com \
+  -F subject='PC-7777' \
+  -F text=$'Policy: PC-7777\nAsset-ID: HQ001\nNew hail claim'
+
+
+Response returns created_claim_id
