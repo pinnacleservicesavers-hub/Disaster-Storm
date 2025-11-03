@@ -3,10 +3,11 @@ import { useMutation } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
-import { Play, Database, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Play, Database, CheckCircle2, AlertCircle, Download, X } from 'lucide-react';
 
 interface BulkFillResult {
   job_id: string;
@@ -25,6 +26,36 @@ export function BulkFillStates() {
   const [progress, setProgress] = useState(0);
   const [results, setResults] = useState<BulkFillResult[]>([]);
   const [summary, setSummary] = useState<{ updated: number; scanned: number } | null>(null);
+  const [filterZip, setFilterZip] = useState('');
+  const [filterState, setFilterState] = useState('');
+
+  // Filter results based on ZIP and State
+  const filteredResults = results.filter((result) => {
+    const zipMatch = !filterZip || result.zip.includes(filterZip);
+    const stateMatch = !filterState || result.new_state.toUpperCase() === filterState.toUpperCase();
+    return zipMatch && stateMatch;
+  });
+
+  // Export filtered results to CSV
+  const exportCSV = () => {
+    const csvRows = [
+      'job_id,zip,new_state',
+      ...filteredResults.map((r) => `${r.job_id},${r.zip || ''},${r.new_state || ''}`)
+    ];
+    const csv = csvRows.join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'fill-states-results.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const clearFilters = () => {
+    setFilterZip('');
+    setFilterState('');
+  };
 
   const bulkFill = useMutation({
     mutationFn: async () => {
@@ -119,6 +150,64 @@ export function BulkFillStates() {
           </CardContent>
         </Card>
 
+        {/* Filters */}
+        {results.length > 0 && (
+          <Card className="mb-6 bg-slate-800/50 border-slate-700">
+            <CardHeader>
+              <CardTitle className="text-white text-lg">Filters</CardTitle>
+              <CardDescription className="text-slate-400">
+                Filter results by ZIP code or state
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex-1 min-w-[200px]">
+                  <Input
+                    placeholder="ZIP contains..."
+                    value={filterZip}
+                    onChange={(e) => setFilterZip(e.target.value)}
+                    className="bg-slate-900 border-slate-600 text-slate-200"
+                    data-testid="input-filter-zip"
+                  />
+                </div>
+                <div className="w-32">
+                  <Input
+                    placeholder="State"
+                    value={filterState}
+                    onChange={(e) => setFilterState(e.target.value.toUpperCase())}
+                    className="bg-slate-900 border-slate-600 text-slate-200"
+                    maxLength={2}
+                    data-testid="input-filter-state"
+                  />
+                </div>
+                <Button
+                  onClick={clearFilters}
+                  variant="outline"
+                  size="sm"
+                  className="border-slate-600 text-slate-300 hover:bg-slate-700"
+                  data-testid="button-clear-filters"
+                >
+                  <X className="w-4 h-4 mr-2" />
+                  Clear
+                </Button>
+                <Button
+                  onClick={exportCSV}
+                  variant="outline"
+                  size="sm"
+                  className="border-green-600 text-green-400 hover:bg-green-600/20"
+                  data-testid="button-export-csv"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Export CSV
+                </Button>
+                <div className="text-sm text-slate-400">
+                  {filteredResults.length} / {results.length} results
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Results Table */}
         {results.length > 0 ? (
           <Card className="bg-slate-800/50 border-slate-700">
@@ -139,7 +228,7 @@ export function BulkFillStates() {
                     </tr>
                   </thead>
                   <tbody>
-                    {results.map((result, idx) => (
+                    {filteredResults.length > 0 ? filteredResults.map((result, idx) => (
                       <tr
                         key={result.job_id}
                         className={idx % 2 === 0 ? 'bg-slate-800/30' : 'bg-slate-900/30'}
@@ -155,7 +244,13 @@ export function BulkFillStates() {
                           </span>
                         </td>
                       </tr>
-                    ))}
+                    )) : (
+                      <tr>
+                        <td colSpan={3} className="p-4 text-center text-slate-500">
+                          No matching results
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>

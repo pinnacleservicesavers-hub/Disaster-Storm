@@ -1,0 +1,1 @@
+def make_pdf_html(title, html, footer_text=''): return b'%PDF-1.4\n%%EOF'

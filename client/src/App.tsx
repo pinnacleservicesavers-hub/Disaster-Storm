@@ -28,6 +28,8 @@ const HazardDashboard = lazy(() => import("./pages/HazardDashboard"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard").then(m => ({ default: m.AdminDashboard })));
 const ZipStateAdmin = lazy(() => import("./pages/ZipStateAdmin").then(m => ({ default: m.ZipStateAdmin })));
 const BulkFillStates = lazy(() => import("./pages/BulkFillStates").then(m => ({ default: m.BulkFillStates })));
+const WelcomeTemplates = lazy(() => import("./pages/WelcomeTemplates").then(m => ({ default: m.WelcomeTemplates })));
+const SMTPSettings = lazy(() => import("./pages/SMTPSettings").then(m => ({ default: m.SMTPSettings })));
 
 // Top Navigation Header
 function TopNav() {
@@ -157,7 +159,9 @@ export default function App() {
           <Route path="/hazard-dashboard" element={<HazardDashboard />} />
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/admin/legal/zipmap" element={<ZipStateAdmin />} />
+          <Route path="/admin/legal/welcome" element={<WelcomeTemplates />} />
           <Route path="/admin/jobs/fill-states" element={<BulkFillStates />} />
+          <Route path="/admin/smtp" element={<SMTPSettings />} />
         </Routes>
       </Suspense>
     </>

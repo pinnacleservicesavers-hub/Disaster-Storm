@@ -646,6 +646,19 @@ export interface IStorage {
   getZipPrefixMap(): Promise<Record<string, string>>;
   setZipPrefixMap(map: Record<string, string>): Promise<void>;
   loadDefaultZipPrefixMap(): Promise<Record<string, string>>;
+  
+  // Job methods (for workflow tracking)
+  getJob(jobId: string): Promise<any | null>;
+  getJobs(): Promise<any[]>;
+  updateJob(jobId: string, updates: any): Promise<any>;
+  
+  // Welcome template methods
+  getWelcomeTemplate(state: string): Promise<string>;
+  setWelcomeTemplate(state: string, welcomeText: string): Promise<void>;
+  
+  // SMTP settings methods
+  getSMTPSettings(): Promise<{ host: string; port: number; user: string; password: string; use_tls: boolean }>;
+  setSMTPSettings(settings: { host: string; port: number; user: string; password: string; use_tls: boolean }): Promise<void>;
 }
 
 export class MemStorage implements IStorage {
@@ -737,6 +750,15 @@ export class MemStorage implements IStorage {
   private adCampaigns: Map<string, AdCampaign> = new Map();
   private deviceAudiences: Map<string, DeviceAudience> = new Map();
   private zipPrefixMap: Record<string, string> = {};
+  private jobs: Map<string, any> = new Map();
+  private welcomeTemplates: Record<string, string> = {};
+  private smtpSettings: { host: string; port: number; user: string; password: string; use_tls: boolean } = {
+    host: '',
+    port: 587,
+    user: '',
+    password: '',
+    use_tls: true
+  };
 
   constructor() {
     console.log('🏗️ Initializing MemStorage...');
@@ -4356,6 +4378,40 @@ export class MemStorage implements IStorage {
     const map = JSON.parse(mapData);
     this.zipPrefixMap = map;
     return map;
+  }
+
+  // Job methods (simplified for workflow tracking)
+  async getJob(jobId: string): Promise<any | null> {
+    return this.jobs.get(jobId) || null;
+  }
+
+  async getJobs(): Promise<any[]> {
+    return Array.from(this.jobs.values());
+  }
+
+  async updateJob(jobId: string, updates: any): Promise<any> {
+    const job = this.jobs.get(jobId) || { id: jobId };
+    const updated = { ...job, ...updates };
+    this.jobs.set(jobId, updated);
+    return updated;
+  }
+
+  // Welcome template methods
+  async getWelcomeTemplate(state: string): Promise<string> {
+    return this.welcomeTemplates[state.toUpperCase()] || '';
+  }
+
+  async setWelcomeTemplate(state: string, welcomeText: string): Promise<void> {
+    this.welcomeTemplates[state.toUpperCase()] = welcomeText;
+  }
+
+  // SMTP settings methods
+  async getSMTPSettings(): Promise<{ host: string; port: number; user: string; password: string; use_tls: boolean }> {
+    return { ...this.smtpSettings };
+  }
+
+  async setSMTPSettings(settings: { host: string; port: number; user: string; password: string; use_tls: boolean }): Promise<void> {
+    this.smtpSettings = { ...settings };
   }
 }
 

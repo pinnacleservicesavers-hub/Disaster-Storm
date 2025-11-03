@@ -117,7 +117,7 @@ export function ZipStateAdmin() {
     onSuccess: (data: any) => {
       toast({
         title: 'Bulk Fill Complete',
-        description: `Auto-filled state for ${data.filled} jobs out of ${data.total} total`,
+        description: `Auto-filled state for ${data.updated} jobs out of ${data.scanned} scanned`,
       });
     },
     onError: (error: Error) => {

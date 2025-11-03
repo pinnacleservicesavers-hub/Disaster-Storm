@@ -638,6 +638,115 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
     }
   });
   console.log('🗺️ ZIP→State mapping and job state management routes registered');
+
+  // ---- Welcome Templates Admin API ----
+  // Get welcome template for a specific state
+  app.get('/api/admin/legal/welcome/:state', async (req, res) => {
+    try {
+      const { state } = req.params;
+      const welcomeText = await storage.getWelcomeTemplate(state.toUpperCase());
+      res.json({ state: state.toUpperCase(), welcome_text: welcomeText || '' });
+    } catch (error) {
+      console.error('Error getting welcome template:', error);
+      res.status(500).json({ error: 'Failed to get welcome template' });
+    }
+  });
+
+  // Save welcome template for a state
+  app.post('/api/admin/legal/welcome', express.json(), async (req, res) => {
+    try {
+      const { state, welcome_text } = req.body;
+      if (!state) {
+        return res.status(400).json({ error: 'State is required' });
+      }
+      await storage.setWelcomeTemplate(state.toUpperCase(), welcome_text || '');
+      res.json({ ok: true, state: state.toUpperCase(), welcome_text: welcome_text || '' });
+    } catch (error) {
+      console.error('Error setting welcome template:', error);
+      res.status(500).json({ error: 'Failed to set welcome template' });
+    }
+  });
+  console.log('📝 Welcome letter templates routes registered');
+
+  // ---- SMTP Settings Admin API ----
+  // Get SMTP settings (password masked)
+  app.get('/api/admin/smtp', async (_req, res) => {
+    try {
+      const settings = await storage.getSMTPSettings();
+      res.json({
+        smtp: {
+          host: settings.host || '',
+          port: settings.port || 587,
+          user: settings.user || '',
+          use_tls: settings.use_tls ?? true
+        }
+      });
+    } catch (error) {
+      console.error('Error getting SMTP settings:', error);
+      res.status(500).json({ error: 'Failed to get SMTP settings' });
+    }
+  });
+
+  // Save SMTP settings
+  app.post('/api/admin/smtp', express.json(), async (req, res) => {
+    try {
+      const { host, port, user, password, use_tls } = req.body;
+      await storage.setSMTPSettings({
+        host: host || '',
+        port: port || 587,
+        user: user || '',
+        password: password || '',
+        use_tls: use_tls ?? true
+      });
+      res.json({ ok: true });
+    } catch (error) {
+      console.error('Error setting SMTP settings:', error);
+      res.status(500).json({ error: 'Failed to set SMTP settings' });
+    }
+  });
+
+  // Test SMTP connection
+  app.post('/api/admin/smtp/test', async (req, res) => {
+    try {
+      const { to } = req.query;
+      if (!to || typeof to !== 'string') {
+        return res.status(400).json({ ok: false, error: 'Email address required' });
+      }
+
+      const settings = await storage.getSMTPSettings();
+      if (!settings.host) {
+        return res.json({ ok: false, error: 'No SMTP host configured' });
+      }
+
+      // Import nodemailer dynamically
+      const nodemailer = await import('nodemailer');
+      
+      const transporter = nodemailer.createTransport({
+        host: settings.host,
+        port: settings.port || 587,
+        secure: settings.port === 465, // true for 465 (SSL), false for 587 (STARTTLS)
+        requireTLS: settings.use_tls, // Require STARTTLS for port 587
+        auth: settings.user ? {
+          user: settings.user,
+          pass: settings.password || ''
+        } : undefined,
+      });
+
+      await transporter.sendMail({
+        from: settings.user || 'no-reply@stormdisaster.local',
+        to: to,
+        subject: 'SMTP Test',
+        text: 'This is a test email from Storm Disaster Direct.',
+        html: '<p>This is a test email from <strong>Storm Disaster Direct</strong>.</p>'
+      });
+
+      res.json({ ok: true });
+    } catch (error: any) {
+      console.error('SMTP test failed:', error);
+      res.json({ ok: false, error: error.message || 'Failed to send test email' });
+    }
+  });
+  console.log('📧 SMTP settings routes registered');
   
   // ---- Ambee Environmental Intelligence Routes ----
   app.use('/api/ambee', ambeeRoutes);
