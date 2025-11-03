@@ -183,7 +183,7 @@ export class DamageDetectionService {
       }
 
       // For other API errors (rate limits, network issues, etc.), create a proper error response
-      const analysisError = new Error(`AI_ANALYSIS_FAILED: ${error.message || 'Unknown analysis error'}`);
+      const analysisError: any = new Error(`AI_ANALYSIS_FAILED: ${error.message || 'Unknown analysis error'}`);
       analysisError.name = 'AI_ANALYSIS_FAILED';
       analysisError.originalError = error;
       
