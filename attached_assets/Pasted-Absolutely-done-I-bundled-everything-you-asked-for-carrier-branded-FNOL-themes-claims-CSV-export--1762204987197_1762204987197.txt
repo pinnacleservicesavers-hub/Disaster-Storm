@@ -1,0 +1,102 @@
+Absolutely—done. I bundled everything you asked for (carrier-branded FNOL themes, claims CSV export, and email-to-claims intake) into a complete, bootable project with all of your earlier features (MRMS/NHC ingest, AI summaries & staging, dashboard with legend/fills/simplification, bulk SMS, SendGrid email, map snapshots in PDFs).
+
+Download the ELITE FULL package (ZIP)
+
+What you can do now
+Carrier-branded FNOL PDFs
+
+Put a logo PNG at web/static/logos/<carrier>.png (lowercase, spaces → underscores).
+
+Generate: GET /api/reports/fnol/{claim_id}?theme=<carrier>
+
+Includes a map snapshot with hazard polygons and the asset location.
+
+Claims CSV export
+
+GET /api/reports/claims.csv
+Exports: claim id, policy, status, carrier, asset, lat/lon, and hazard_count (intersections at asset point).
+
+Email → Claim intake
+
+POST /api/email/inbound
+
+{
+  "from_email": "adjuster@carrier.com",
+  "subject": "PC-12345",
+  "text": "Policy: PC-12345\nAsset-ID: HQ001\n...free text..."
+}
+
+
+Heuristics:
+
+Policy parsed from Policy: ... (falls back to subject).
+
+Asset match via Asset-ID: ... against Asset.ref_id.
+
+Auto-creates a Carrier from sender’s domain (e.g., carrier.com → “Carrier”).
+
+Everything else included (recap)
+
+Dashboard /web/dashboard/index.html
+
+Source-aware fills + legend (NWS/NHC/MRMS thresholds).
+
+Simplification slider.
+
+Buttons: MRMS Hail/Precip/Flood ingest, Bulk SMS (moratorium).
+
+On-demand MRMS: POST /api/mrms/run?peril=hail|heavy_precip|flood_risk&tolerance=0.02
+
+Bulk SMS: POST /api/notify/moratorium-sms
+
+AI: GET /api/ai/summary, GET /api/ai/staging
+
+Ingest: POST /api/ingest/run (NWS, USGS, FIRMS, NHC list) + MRMS & NHC GeoJSON modules included
+
+Claims alignment: GET /api/align/summary
+
+Email FNOL: POST /api/notify/email-fnol (SendGrid)
+
+Quick start
+pip install -r requirements.txt
+# (Optional) export SENDGRID_API_KEY for email sending
+# export SENDGRID_API_KEY="YOUR_SENDGRID_KEY"
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+
+Open the dashboard at /web/dashboard/index.html.
+
+Handy testing sequence
+
+Add an asset & contractor:
+
+POST /api/assets { "name": "Client HQ", "ref_id": "HQ001", "lat": 29.76, "lon": -95.37 }
+POST /api/contractors { "name": "Crew A", "lat": 29.70, "lon": -95.20, "phone": "+1XXX..." }
+
+
+Ingest hazards:
+
+POST /api/ingest/run
+
+
+Create a claim tied to the asset:
+
+POST /api/claims { "carrier_name": "Example Carrier", "policy_number": "PC-123", "asset_id": 1 }
+
+
+Generate & email FNOL:
+
+GET /api/reports/fnol/1?theme=example_carrier
+
+POST /api/notify/email-fnol with { "claim_id":1, "to_email":"adjuster@example.com" }
+
+CSV export: GET /api/reports/claims.csv
+
+Simulate inbound email → new claim:
+
+POST /api/email/inbound
+{
+  "from_email":"notice@carrier.com",
+  "subject":"PC-99999",
+  "text":"Policy: PC-99999\nAsset-ID: HQ001\nCustomer called about hail damage."
+}
