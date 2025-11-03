@@ -1,0 +1,87 @@
+// server/index.js
+score: data.score,
+rank: data.rank,
+slug,
+},
+create: {
+userId: uid,
+companyName: data.companyName,
+owners: data.owners,
+address: data.address,
+phone: data.phone,
+email: data.email,
+website: data.website || null,
+slug,
+media: data.media,
+businessLicense: data.documents.businessLicense ?? null,
+insurance: data.documents.insurance ?? null,
+certifications: data.documents.certifications ?? [],
+reviewLinks: data.reviewLinks,
+score: data.score,
+rank: data.rank,
+},
+});
+
+
+res.json({ ok: true, slug: saved.slug });
+} catch (e) {
+console.error(e);
+res.status(400).json({ ok: false, error: e.message });
+}
+});
+
+
+// Get my profile (authenticated)
+app.get("/api/contractors/me", requireAuth, async (req, res) => {
+const me = await prisma.contractor.findUnique({ where: { userId: req.user.id } });
+res.json(me || null);
+});
+
+
+// Public list + profile (unchanged)
+app.get("/api/contractors", async (req, res) => {
+const q = (req.query.q || "").toString().toLowerCase();
+const results = await prisma.contractor.findMany({ orderBy: [{ score: "asc" }, { createdAt: "desc" }], take: 50 });
+const filtered = q ? results.filter(r => r.companyName.toLowerCase().includes(q) || (r.address || "").toLowerCase().includes(q)) : results;
+res.json(filtered.map(r => ({ slug: r.slug, companyName: r.companyName, address: r.address, phone: r.phone, website: r.website, rank: r.rank, score: r.score })));
+});
+app.get("/api/contractors/:slug", async (req, res) => {
+const { slug } = req.params;
+const contractor = await prisma.contractor.findUnique({ where: { slug } });
+if (!contractor) return res.status(404).json({ ok: false, error: "Not found" });
+res.json(contractor);
+});
+
+
+// Review delivery
+const ReviewSendPayload = z.object({ slug: z.string(), customerPhone: z.string().optional(), customerEmail: z.string().email().optional() }).refine(p => p.customerPhone || p.customerEmail, {
+message: "Provide phone or email",
+});
+app.post("/api/reviews/send", requireAuth, async (req, res) => {
+try {
+const { slug, customerPhone, customerEmail } = ReviewSendPayload.parse(req.body);
+const c = await prisma.contractor.findUnique({ where: { slug } });
+if (!c) return res.status(404).json({ ok: false, error: "Contractor not found" });
+
+
+const bestLink = c.reviewLinks.google || c.reviewLinks.inApp || c.reviewLinks.social || "";
+const msg = `Thanks for choosing ${c.companyName}! We'd love your feedback: ${bestLink}`;
+
+
+if (customerPhone && hasTwilio) {
+await smsClient.messages.create({ to: customerPhone, from: process.env.TWILIO_FROM_NUMBER, body: msg });
+}
+if (customerEmail && hasSendgrid) {
+await sendgrid.send({ to: customerEmail, from: process.env.SENDGRID_FROM_EMAIL, subject: `Review ${c.companyName}`, text: msg });
+}
+
+
+res.json({ ok: true, sent: { sms: !!(customerPhone && hasTwilio), email: !!(customerEmail && hasSendgrid) } });
+} catch (e) {
+res.status(400).json({ ok: false, error: e.message });
+}
+});
+
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`API listening on http://localhost:${PORT}`));
