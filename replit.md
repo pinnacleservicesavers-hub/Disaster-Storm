@@ -16,6 +16,19 @@ Preferred communication style: Simple, everyday language.
 - **✅ Enhanced Auth System**: JWT-aware authentication with development and production modes
 - **✅ Admin OIDC Configuration**: Beautiful UI for managing issuer, audience, and JWKS
 - **✅ Security Middleware**: Request context extraction from verified JWT claims
+- **✅ Health/Auth Diagnostics Endpoint** (`GET /api/health/auth`):
+  - Shows OIDC configuration status (issuer, audience, enforce mode)
+  - Reports JWKS cache status (key count, last fetch, metadata)
+  - Token verification testing via `?token=` or `Authorization: Bearer` header
+  - Displays unverified claims for inspection
+  - Reports verification success/failure with detailed errors
+- **✅ Background JWKS Auto-Refresh Service**:
+  - Automatic JWKS refresh from identity provider on boot
+  - Smart caching with ETag and Cache-Control support
+  - Refresh interval: 30 minutes to 6 hours (based on provider hints)
+  - Tracks metadata: last_fetch, last_status, etag, max_age
+  - Handles 304 Not Modified efficiently
+  - Detailed console logging for monitoring
 
 ## System Architecture
 
