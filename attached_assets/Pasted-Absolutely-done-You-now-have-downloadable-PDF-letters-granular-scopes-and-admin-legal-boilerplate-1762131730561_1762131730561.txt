@@ -1,0 +1,93 @@
+Absolutely—done. You now have downloadable PDF letters, granular scopes, and admin legal boilerplate controls, all wired into the app.
+
+Download:
+storm-disaster-letters-pdf-scopes.zip
+
+What’s new
+1) Letter PDFs (no external deps)
+
+Endpoints
+
+GET /letters/{job_id}/{letter_id} → JSON for a single letter
+
+GET /letters/{job_id}/{letter_id}.pdf → 1-page PDF download (Helvetica; title + body)
+
+How it works
+
+Tiny pure-Python PDF generator at app/utils/pdfsimple.py (no libraries).
+
+Keeps things simple and reliable on Replit/containers.
+
+2) Legal boilerplate per state (admin)
+
+Endpoints
+
+GET /admin/legal/boilerplate/{STATE}
+
+POST /admin/legal/boilerplate
+
+{ "state": "FL", "late_text": "...", "demand_text": "..." }
+
+
+Stored under store.settings.legal.boilerplate_by_state.
+You can set state-specific text you want merged into late/demand letters.
+
+3) Granular scopes & permissions
+
+Headers
+
+X-User-Role: admin | contractor | homeowner
+
+X-User-Id: current user id
+
+X-Scopes: comma-separated scopes (e.g., exports:read,letters:write)
+
+Backend
+
+app/utils/security.py now parses scopes and exposes require_scope(...).
+
+Admins bypass scope checks by default; contractors must have the needed scopes.
+
+Admin export routes remain admin-only; comments indicate optional scope gating (exports:read) if you want to loosen later.
+
+4) Auth stub updated (set scopes)
+
+Route: /admin/auth-stub
+
+Now includes a Scopes field (comma-separated).
+
+Stored in localStorage and sent with every API call.
+
+5) Contractor Job page: letter downloads
+
+Section: “Letters” includes helper notes + direct PDF route info.
+
+Combine with your existing Schedule Late/Demand Letter buttons, then fetch the PDF:
+
+/letters/{JOB_ID}/{LETTER_ID}.pdf
+
+Quick test
+
+Go to /admin/auth-stub
+
+Role: admin
+
+User ID: anything
+
+Scopes: exports:read,letters:write
+
+(Optional) Add boilerplate for your state:
+
+POST /admin/legal/boilerplate with {"state":"TX","demand_text":"Texas demand boilerplate..."}.
+
+Schedule a demand letter:
+
+POST /letters/schedule with {"job_id":"JOB123","kind":"demand","to_emails":["claims@carrier.com"],"days_from_now":0}
+
+Capture the returned letter.id.
+
+Download the PDF:
+
+GET /letters/JOB123/{LETTER_ID}.pdf (opens a clean, one-page PDF).
+
+Try export routes as a contractor (without admin) to see permission guard in action.
