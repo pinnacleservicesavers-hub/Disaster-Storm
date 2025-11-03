@@ -484,6 +484,154 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
   mountAdmin(app);
   mountSigner(app);
   console.log('📍 Locations, Alerts, Cache Warming, Slack, Admin, and Signer routes registered');
+
+  // ---- ZIP→State Mapping Admin API ----
+  // Get current ZIP prefix map
+  app.get('/api/admin/legal/zipmap', async (_req, res) => {
+    try {
+      const map = await storage.getZipPrefixMap();
+      const count = Object.keys(map).length;
+      const sample = Object.entries(map).slice(0, 10).reduce((acc, [k, v]) => ({ ...acc, [k]: v }), {});
+      res.json({ count, sample, map });
+    } catch (error) {
+      console.error('Error getting ZIP prefix map:', error);
+      res.status(500).json({ error: 'Failed to get ZIP prefix map' });
+    }
+  });
+
+  // Upload custom ZIP prefix map
+  app.post('/api/admin/legal/zipmap', express.json(), async (req, res) => {
+    try {
+      const map = req.body;
+      if (typeof map !== 'object' || map === null) {
+        return res.status(400).json({ error: 'Invalid map format - must be an object' });
+      }
+      await storage.setZipPrefixMap(map);
+      const count = Object.keys(map).length;
+      res.json({ success: true, count });
+    } catch (error) {
+      console.error('Error setting ZIP prefix map:', error);
+      res.status(500).json({ error: 'Failed to set ZIP prefix map' });
+    }
+  });
+
+  // Load default ZIP prefix map
+  app.post('/api/admin/legal/zipmap/load_default', async (_req, res) => {
+    try {
+      const map = await storage.loadDefaultZipPrefixMap();
+      const count = Object.keys(map).length;
+      res.json({ success: true, count, map });
+    } catch (error) {
+      console.error('Error loading default ZIP prefix map:', error);
+      res.status(500).json({ error: 'Failed to load default ZIP prefix map' });
+    }
+  });
+
+  // Infer state from job's ZIP code
+  app.get('/api/utils/infer_state/:jobId', async (req, res) => {
+    try {
+      const { jobId } = req.params;
+      const job = await storage.getJob(jobId);
+      if (!job) {
+        return res.status(404).json({ error: 'Job not found' });
+      }
+
+      const zip = job.propertyZip || job.zip;
+      if (!zip) {
+        return res.json({ zip: null, guessed_state: null, confidence: 0 });
+      }
+
+      // Get ZIP prefix map
+      const map = await storage.getZipPrefixMap();
+      
+      // Longest-prefix matching
+      let guessedState = null;
+      let matchedPrefix = '';
+      
+      for (const prefix of Object.keys(map).sort((a, b) => b.length - a.length)) {
+        if (zip.startsWith(prefix) && prefix.length > matchedPrefix.length) {
+          guessedState = map[prefix];
+          matchedPrefix = prefix;
+          break;
+        }
+      }
+
+      const confidence = matchedPrefix.length >= 3 ? 90 : matchedPrefix.length === 2 ? 70 : matchedPrefix.length === 1 ? 50 : 0;
+
+      res.json({
+        zip,
+        guessed_state: guessedState,
+        confidence,
+        matched_prefix: matchedPrefix
+      });
+    } catch (error) {
+      console.error('Error inferring state:', error);
+      res.status(500).json({ error: 'Failed to infer state' });
+    }
+  });
+
+  // Set job state
+  app.post('/api/jobs/:jobId/state', express.json(), async (req, res) => {
+    try {
+      const { jobId } = req.params;
+      const { state } = req.query;
+      
+      if (!state || typeof state !== 'string') {
+        return res.status(400).json({ error: 'State parameter required' });
+      }
+
+      const job = await storage.getJob(jobId);
+      if (!job) {
+        return res.status(404).json({ error: 'Job not found' });
+      }
+
+      const updatedJob = await storage.updateJob(jobId, { state: state.toUpperCase() });
+      res.json(updatedJob);
+    } catch (error) {
+      console.error('Error setting job state:', error);
+      res.status(500).json({ error: 'Failed to set job state' });
+    }
+  });
+
+  // Bulk fill missing job states
+  app.post('/api/admin/jobs/fill_states', async (_req, res) => {
+    try {
+      const jobs = await storage.getJobs();
+      const map = await storage.getZipPrefixMap();
+      let filled = 0;
+
+      for (const job of jobs) {
+        if (job.state) continue; // Skip if already has state
+
+        const zip = job.propertyZip || job.zip;
+        if (!zip) continue;
+
+        // Longest-prefix matching
+        let guessedState = null;
+        let matchedPrefix = '';
+        
+        for (const prefix of Object.keys(map).sort((a, b) => b.length - a.length)) {
+          if (zip.startsWith(prefix) && prefix.length > matchedPrefix.length) {
+            guessedState = map[prefix];
+            matchedPrefix = prefix;
+            break;
+          }
+        }
+
+        if (guessedState) {
+          await storage.updateJob(job.id, { state: guessedState });
+          filled++;
+          console.log(`✓ Auto-filled state ${guessedState} for job ${job.id} from ZIP ${zip}`);
+        }
+      }
+
+      res.json({ success: true, filled, total: jobs.length });
+    } catch (error) {
+      console.error('Error bulk filling job states:', error);
+      res.status(500).json({ error: 'Failed to bulk fill job states' });
+    }
+  });
+  console.log('🗺️ ZIP→State mapping and job state management routes registered');
   
   // ---- Ambee Environmental Intelligence Routes ----
   app.use('/api/ambee', ambeeRoutes);

@@ -641,6 +641,11 @@ export interface IStorage {
   createDeviceAudience(device: InsertDeviceAudience): Promise<DeviceAudience>;
   getDeviceAudiencesByGeoFence(geoFenceId: string): Promise<DeviceAudience[]>;
   getDeviceAudiencesByCampaign(campaignId: string): Promise<DeviceAudience[]>;
+  
+  // ZIP prefix map methods
+  getZipPrefixMap(): Promise<Record<string, string>>;
+  setZipPrefixMap(map: Record<string, string>): Promise<void>;
+  loadDefaultZipPrefixMap(): Promise<Record<string, string>>;
 }
 
 export class MemStorage implements IStorage {
@@ -731,6 +736,7 @@ export class MemStorage implements IStorage {
   private adGeoFences: Map<string, AdGeoFence> = new Map();
   private adCampaigns: Map<string, AdCampaign> = new Map();
   private deviceAudiences: Map<string, DeviceAudience> = new Map();
+  private zipPrefixMap: Record<string, string> = {};
 
   constructor() {
     console.log('🏗️ Initializing MemStorage...');
@@ -4332,6 +4338,24 @@ export class MemStorage implements IStorage {
 
   async getDeviceAudiencesByCampaign(campaignId: string): Promise<DeviceAudience[]> {
     return Array.from(this.deviceAudiences.values()).filter(d => d.campaignId === campaignId);
+  }
+
+  async getZipPrefixMap(): Promise<Record<string, string>> {
+    return this.zipPrefixMap;
+  }
+
+  async setZipPrefixMap(map: Record<string, string>): Promise<void> {
+    this.zipPrefixMap = map;
+  }
+
+  async loadDefaultZipPrefixMap(): Promise<Record<string, string>> {
+    const fs = await import('fs');
+    const path = await import('path');
+    const defaultMapPath = path.join(process.cwd(), 'server', 'data', 'zip_prefix_map.default.json');
+    const mapData = fs.readFileSync(defaultMapPath, 'utf-8');
+    const map = JSON.parse(mapData);
+    this.zipPrefixMap = map;
+    return map;
   }
 }
 
