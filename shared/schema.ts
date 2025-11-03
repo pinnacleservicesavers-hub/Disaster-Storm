@@ -257,8 +257,8 @@ export const users = pgTable("users", {
   isInsured: boolean("is_insured").default(false),
   
   // Geo-matching for alerts
-  latitude: numeric("latitude", { precision: 10, scale: 8 }),
-  longitude: numeric("longitude", { precision: 10, scale: 8 }),
+  latitude: numeric("latitude", { precision: 11, scale: 8 }),
+  longitude: numeric("longitude", { precision: 11, scale: 8 }),
   notifyRadiusMiles: integer("notify_radius_miles").default(25), // Notification radius in miles
   pushEndpoint: jsonb("push_endpoint").$type<JsonObject>(), // Web Push subscription data
   
@@ -280,8 +280,8 @@ export const claims = pgTable("claims", {
   approvedAmount: numeric("approved_amount", { precision: 10, scale: 2 }),
   paidAmount: numeric("paid_amount", { precision: 10, scale: 2 }),
   state: text("state").notNull(),
-  latitude: numeric("latitude", { precision: 10, scale: 8 }),
-  longitude: numeric("longitude", { precision: 10, scale: 8 }),
+  latitude: numeric("latitude", { precision: 11, scale: 8 }),
+  longitude: numeric("longitude", { precision: 11, scale: 8 }),
   assignedCrew: varchar("assigned_crew"),
   notes: text("notes"),
   metadata: jsonb("metadata").$type<JsonObject>(), // Additional claim data
@@ -339,8 +339,8 @@ export const weatherAlerts = pgTable("weather_alerts", {
   startTime: timestamp("start_time").notNull(),
   endTime: timestamp("end_time"),
   isActive: boolean("is_active").default(true),
-  latitude: numeric("latitude", { precision: 10, scale: 8 }),
-  longitude: numeric("longitude", { precision: 10, scale: 8 }),
+  latitude: numeric("latitude", { precision: 11, scale: 8 }),
+  longitude: numeric("longitude", { precision: 11, scale: 8 }),
   source: text("source").default("NWS"), // NWS, Xweather, NHC, MRMS, etc.
   geometryType: text("geometry_type"), // "cone", "track", "contour", "point", etc.
   hazardMetadata: jsonb("hazard_metadata").$type<JsonObject>(), // Storm name, intensity, threshold values, etc.
@@ -352,8 +352,8 @@ export const fieldReports = pgTable("field_reports", {
   crewId: varchar("crew_id").notNull(),
   crewName: text("crew_name").notNull(),
   location: text("location").notNull(),
-  latitude: numeric("latitude", { precision: 10, scale: 8 }),
-  longitude: numeric("longitude", { precision: 10, scale: 8 }),
+  latitude: numeric("latitude", { precision: 11, scale: 8 }),
+  longitude: numeric("longitude", { precision: 11, scale: 8 }),
   description: text("description").notNull(),
   damageAssessment: text("damage_assessment"),
   priority: text("priority").default("normal"), // urgent, high, normal, low
@@ -376,8 +376,8 @@ export const droneFootage = pgTable("drone_footage", {
   title: text("title").notNull(),
   description: text("description"),
   location: text("location").notNull(),
-  latitude: numeric("latitude", { precision: 10, scale: 8 }),
-  longitude: numeric("longitude", { precision: 10, scale: 8 }),
+  latitude: numeric("latitude", { precision: 11, scale: 8 }),
+  longitude: numeric("longitude", { precision: 11, scale: 8 }),
   videoUrl: text("video_url").notNull(),
   thumbnailUrl: text("thumbnail_url"),
   duration: integer("duration"), // in seconds
@@ -460,8 +460,8 @@ export const dspFootage = pgTable("dsp_footage", {
   timestamp: timestamp("timestamp").notNull(),
   mediaUrl: text("media_url").notNull(), // HLS stream or video URL
   thumbnailUrl: text("thumbnail_url"), // Optional thumbnail
-  latitude: numeric("latitude", { precision: 10, scale: 8 }).notNull(),
-  longitude: numeric("longitude", { precision: 10, scale: 8 }).notNull(),
+  latitude: numeric("latitude", { precision: 11, scale: 8 }).notNull(),
+  longitude: numeric("longitude", { precision: 11, scale: 8 }).notNull(),
   address: text("address"), // Optional geocoded address
   notes: text("notes"), // Damage description, keywords
   status: text("status").default("new"), // new, reviewed, processed
@@ -491,8 +491,8 @@ export const leads = pgTable("leads", {
   customerEmail: text("customer_email"),
   customerPhone: text("customer_phone").notNull(),
   propertyAddress: text("property_address").notNull(),
-  latitude: numeric("latitude", { precision: 10, scale: 8 }),
-  longitude: numeric("longitude", { precision: 10, scale: 8 }),
+  latitude: numeric("latitude", { precision: 11, scale: 8 }),
+  longitude: numeric("longitude", { precision: 11, scale: 8 }),
   damageType: text("damage_type").notNull(),
   urgency: text("urgency").default("normal"), // emergency, urgent, normal
   status: text("status").default("new"), // new, contacted, scheduled, in_progress, completed, lost
@@ -555,8 +555,8 @@ export const photos = pgTable("photos", {
   fileName: text("file_name").notNull(),
   fileUrl: text("file_url").notNull(),
   thumbnailUrl: text("thumbnail_url"),
-  latitude: numeric("latitude", { precision: 10, scale: 8 }),
-  longitude: numeric("longitude", { precision: 10, scale: 8 }),
+  latitude: numeric("latitude", { precision: 11, scale: 8 }),
+  longitude: numeric("longitude", { precision: 11, scale: 8 }),
   address: text("address"), // Geocoded address
   aiDescription: text("ai_description"), // AI-generated description
   damageType: text("damage_type"),
@@ -611,8 +611,8 @@ export const trafficCameras = pgTable("traffic_cameras", {
   provider: text("provider").notNull(), // DOT, city, county
   feedUrl: text("feed_url").notNull(), // Live stream URL
   thumbnailUrl: text("thumbnail_url"),
-  latitude: numeric("latitude", { precision: 10, scale: 8 }).notNull(),
-  longitude: numeric("longitude", { precision: 10, scale: 8 }).notNull(),
+  latitude: numeric("latitude", { precision: 11, scale: 8 }).notNull(),
+  longitude: numeric("longitude", { precision: 11, scale: 8 }).notNull(),
   address: text("address").notNull(),
   city: text("city").notNull(),
   county: text("county").notNull(),
@@ -737,8 +737,8 @@ export const stormHotZones = pgTable("storm_hot_zones", {
   primaryCities: text("primary_cities"), // Major cities/areas in the county
   
   // Geographic data
-  latitude: numeric("latitude", { precision: 10, scale: 8 }),
-  longitude: numeric("longitude", { precision: 10, scale: 8 }),
+  latitude: numeric("latitude", { precision: 11, scale: 8 }),
+  longitude: numeric("longitude", { precision: 11, scale: 8 }),
   
   // Market data for contractors
   avgClaimAmount: numeric("avg_claim_amount", { precision: 10, scale: 2 }), // Average claim amount in USD
@@ -769,8 +769,8 @@ export const roadIncidents = pgTable("road_incidents", {
   state: text("state").notNull(), // Two-letter state code (FL, GA, etc.)
   type: text("type").notNull(), // ACCIDENT, ROAD_CLOSED, HAZARD, CONSTRUCTION, WEATHER, OTHER
   description: text("description").notNull(),
-  latitude: numeric("latitude", { precision: 10, scale: 8 }).notNull(),
-  longitude: numeric("longitude", { precision: 10, scale: 8 }).notNull(),
+  latitude: numeric("latitude", { precision: 11, scale: 8 }).notNull(),
+  longitude: numeric("longitude", { precision: 11, scale: 8 }).notNull(),
   startTime: timestamp("start_time"),
   endTime: timestamp("end_time"),
   lanes: text("lanes"), // "Left lane blocked", "All lanes closed", etc.
@@ -791,8 +791,8 @@ export const contractorNotifications = pgTable("contractor_notifications", {
   title: text("title").notNull(),
   message: text("message").notNull(),
   payload: jsonb("payload").$type<JsonObject>(), // Full alert/incident data
-  latitude: numeric("latitude", { precision: 10, scale: 8 }),
-  longitude: numeric("longitude", { precision: 10, scale: 8 }),
+  latitude: numeric("latitude", { precision: 11, scale: 8 }),
+  longitude: numeric("longitude", { precision: 11, scale: 8 }),
   distance: numeric("distance", { precision: 6, scale: 2 }), // Miles from contractor
   delivered: boolean("delivered").default(false),
   deliveredAt: timestamp("delivered_at"),
@@ -816,8 +816,8 @@ export const homeowners = pgTable("homeowners", {
   city: text("city").notNull(),
   state: text("state").notNull(),
   zipCode: text("zip_code").notNull(),
-  latitude: numeric("latitude", { precision: 10, scale: 8 }),
-  longitude: numeric("longitude", { precision: 10, scale: 8 }),
+  latitude: numeric("latitude", { precision: 11, scale: 8 }),
+  longitude: numeric("longitude", { precision: 11, scale: 8 }),
   
   // Property Details
   propertyType: text("property_type").notNull(), // "residential", "commercial"
@@ -857,8 +857,8 @@ export const damageReports = pgTable("damage_reports", {
   
   // Location Data
   damageLocation: text("damage_location"), // "front_yard", "roof", "living_room", etc.
-  latitude: numeric("latitude", { precision: 10, scale: 8 }),
-  longitude: numeric("longitude", { precision: 10, scale: 8 }),
+  latitude: numeric("latitude", { precision: 11, scale: 8 }),
+  longitude: numeric("longitude", { precision: 11, scale: 8 }),
   addressOverride: text("address_override"), // If damage is at different address than homeowner
   
   // Media Attachments
@@ -1552,8 +1552,8 @@ export const aiDamageLeads = pgTable("ai_damage_leads", {
   sourceUrl: text("source_url"), // URL to the source footage
   
   // Location data
-  latitude: numeric("latitude", { precision: 10, scale: 8 }).notNull(),
-  longitude: numeric("longitude", { precision: 10, scale: 8 }).notNull(),
+  latitude: numeric("latitude", { precision: 11, scale: 8 }).notNull(),
+  longitude: numeric("longitude", { precision: 11, scale: 8 }).notNull(),
   address: text("address").notNull(),
   city: text("city").notNull(),
   county: text("county").notNull(),
@@ -1667,8 +1667,8 @@ export const stormSharePosts = pgTable("storm_share_posts", {
   
   // Location information
   location: text("location"),
-  latitude: numeric("latitude", { precision: 10, scale: 8 }),
-  longitude: numeric("longitude", { precision: 10, scale: 8 }),
+  latitude: numeric("latitude", { precision: 11, scale: 8 }),
+  longitude: numeric("longitude", { precision: 11, scale: 8 }),
   
   // Media attachments
   mediaUrls: jsonb("media_urls").$type<string[]>(), // Array of image/video URLs
@@ -1830,8 +1830,8 @@ export const helpRequests = pgTable("help_requests", {
   city: text("city"),
   state: text("state"),
   zipCode: text("zip_code"),
-  latitude: numeric("latitude", { precision: 10, scale: 8 }),
-  longitude: numeric("longitude", { precision: 10, scale: 8 }),
+  latitude: numeric("latitude", { precision: 11, scale: 8 }),
+  longitude: numeric("longitude", { precision: 11, scale: 8 }),
   
   // Insurance and payment
   hasInsurance: boolean("has_insurance"),
@@ -3270,8 +3270,8 @@ export const demHotels = pgTable("dem_hotels", {
   city: text("city").notNull(),
   state: text("state").notNull(),
   zipCode: text("zip_code").notNull(),
-  latitude: numeric("latitude", { precision: 10, scale: 8 }),
-  longitude: numeric("longitude", { precision: 10, scale: 8 }),
+  latitude: numeric("latitude", { precision: 11, scale: 8 }),
+  longitude: numeric("longitude", { precision: 11, scale: 8 }),
   phone: text("phone"),
   website: text("website"),
   pricePerNight: numeric("price_per_night", { precision: 10, scale: 2 }),
@@ -3293,8 +3293,8 @@ export const demGasStations = pgTable("dem_gas_stations", {
   city: text("city").notNull(),
   state: text("state").notNull(),
   zipCode: text("zip_code").notNull(),
-  latitude: numeric("latitude", { precision: 10, scale: 8 }),
-  longitude: numeric("longitude", { precision: 10, scale: 8 }),
+  latitude: numeric("latitude", { precision: 11, scale: 8 }),
+  longitude: numeric("longitude", { precision: 11, scale: 8 }),
   phone: text("phone"),
   regularPrice: numeric("regular_price", { precision: 5, scale: 3 }),
   premiumPrice: numeric("premium_price", { precision: 5, scale: 3 }),
@@ -3315,8 +3315,8 @@ export const demHardwareStores = pgTable("dem_hardware_stores", {
   city: text("city").notNull(),
   state: text("state").notNull(),
   zipCode: text("zip_code").notNull(),
-  latitude: numeric("latitude", { precision: 10, scale: 8 }),
-  longitude: numeric("longitude", { precision: 10, scale: 8 }),
+  latitude: numeric("latitude", { precision: 11, scale: 8 }),
+  longitude: numeric("longitude", { precision: 11, scale: 8 }),
   phone: text("phone"),
   website: text("website"),
   isOpen: boolean("is_open").default(true),
@@ -3343,8 +3343,8 @@ export const demShelters = pgTable("dem_shelters", {
   city: text("city").notNull(),
   state: text("state").notNull(),
   zipCode: text("zip_code").notNull(),
-  latitude: numeric("latitude", { precision: 10, scale: 8 }),
-  longitude: numeric("longitude", { precision: 10, scale: 8 }),
+  latitude: numeric("latitude", { precision: 11, scale: 8 }),
+  longitude: numeric("longitude", { precision: 11, scale: 8 }),
   phone: text("phone"),
   capacity: integer("capacity"),
   currentOccupancy: integer("current_occupancy"),
@@ -3672,8 +3672,8 @@ export const projects = pgTable("projects", {
   projectType: text("project_type").default("storm_response"), // storm_response, claim, assessment
   clientName: text("client_name"),
   propertyAddress: text("property_address"),
-  latitude: numeric("latitude", { precision: 10, scale: 8 }),
-  longitude: numeric("longitude", { precision: 10, scale: 8 }),
+  latitude: numeric("latitude", { precision: 11, scale: 8 }),
+  longitude: numeric("longitude", { precision: 11, scale: 8 }),
   insuranceCompany: text("insurance_company"),
   claimNumber: text("claim_number"),
   createdBy: varchar("created_by").notNull(), // creator
@@ -3704,8 +3704,8 @@ export const media = pgTable("media", {
   originalName: text("original_name"),
   fileSize: integer("file_size"),
   mimeType: text("mime_type"),
-  latitude: numeric("latitude", { precision: 10, scale: 8 }),
-  longitude: numeric("longitude", { precision: 10, scale: 8 }),
+  latitude: numeric("latitude", { precision: 11, scale: 8 }),
+  longitude: numeric("longitude", { precision: 11, scale: 8 }),
   capturedAt: timestamp("captured_at"),
   metadata: jsonb("metadata").$type<JsonObject>(), // EXIF data, GPS coords, auto-stamping info
   aiDescription: text("ai_description"),
@@ -4144,8 +4144,8 @@ export type InsertContactLog = z.infer<typeof insertContactLogSchema>;
 export const xweatherLightningStrikes = pgTable("xweather_lightning_strikes", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   strikeId: text("strike_id").notNull().unique(), // Xweather's strike ID
-  latitude: numeric("latitude", { precision: 10, scale: 8 }).notNull(),
-  longitude: numeric("longitude", { precision: 10, scale: 8 }).notNull(),
+  latitude: numeric("latitude", { precision: 11, scale: 8 }).notNull(),
+  longitude: numeric("longitude", { precision: 11, scale: 8 }).notNull(),
   strikeTimestamp: timestamp("strike_timestamp").notNull(),
   pulseType: text("pulse_type").notNull(), // 'cg' or 'ic'
   peakAmperage: integer("peak_amperage"),
@@ -4159,8 +4159,8 @@ export const xweatherLightningStrikes = pgTable("xweather_lightning_strikes", {
 export const xweatherHailThreats = pgTable("xweather_hail_threats", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   threatId: text("threat_id").notNull(), // Xweather's threat ID
-  latitude: numeric("latitude", { precision: 10, scale: 8 }).notNull(),
-  longitude: numeric("longitude", { precision: 10, scale: 8 }).notNull(),
+  latitude: numeric("latitude", { precision: 11, scale: 8 }).notNull(),
+  longitude: numeric("longitude", { precision: 11, scale: 8 }).notNull(),
   forecastTimestamp: timestamp("forecast_timestamp").notNull(),
   periodStart: timestamp("period_start").notNull(),
   periodEnd: timestamp("period_end").notNull(),
@@ -4177,8 +4177,8 @@ export const xweatherHailThreats = pgTable("xweather_hail_threats", {
 export const xweatherStormReports = pgTable("xweather_storm_reports", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   reportId: text("report_id").notNull().unique(),
-  latitude: numeric("latitude", { precision: 10, scale: 8 }).notNull(),
-  longitude: numeric("longitude", { precision: 10, scale: 8 }).notNull(),
+  latitude: numeric("latitude", { precision: 11, scale: 8 }).notNull(),
+  longitude: numeric("longitude", { precision: 11, scale: 8 }).notNull(),
   reportTimestamp: timestamp("report_timestamp").notNull(),
   category: text("category").notNull(), // 'hail', 'tornado', 'wind', 'flood', 'lightning', 'snow', 'ice'
   reportName: text("report_name").notNull(),
@@ -4202,8 +4202,8 @@ export const xweatherStormReports = pgTable("xweather_storm_reports", {
 // Xweather Comprehensive Storm Data Snapshot Table
 export const xweatherStormSnapshots = pgTable("xweather_storm_snapshots", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  latitude: numeric("latitude", { precision: 10, scale: 8 }).notNull(),
-  longitude: numeric("longitude", { precision: 10, scale: 8 }).notNull(),
+  latitude: numeric("latitude", { precision: 11, scale: 8 }).notNull(),
+  longitude: numeric("longitude", { precision: 11, scale: 8 }).notNull(),
   radiusKM: numeric("radius_km", { precision: 5, scale: 1 }).notNull(),
   snapshotTimestamp: timestamp("snapshot_timestamp").defaultNow().notNull(),
   
@@ -4372,8 +4372,8 @@ export const assets = pgTable("assets", {
   city: text("city"),
   state: text("state"),
   zipCode: text("zip_code"),
-  latitude: numeric("latitude", { precision: 10, scale: 8 }).notNull(),
-  longitude: numeric("longitude", { precision: 10, scale: 8 }).notNull(),
+  latitude: numeric("latitude", { precision: 11, scale: 8 }).notNull(),
+  longitude: numeric("longitude", { precision: 11, scale: 8 }).notNull(),
   propertyType: text("property_type"), // residential, commercial, industrial, etc.
   ownerName: text("owner_name"),
   ownerEmail: text("owner_email"),
@@ -4441,8 +4441,8 @@ export const properties = pgTable("properties", {
   city: text("city"),
   state: text("state"),
   zip: text("zip"),
-  latitude: numeric("latitude", { precision: 10, scale: 8 }),
-  longitude: numeric("longitude", { precision: 10, scale: 8 }),
+  latitude: numeric("latitude", { precision: 11, scale: 8 }),
+  longitude: numeric("longitude", { precision: 11, scale: 8 }),
   createdAt: timestamp("created_at").defaultNow().notNull()
 });
 
