@@ -1,0 +1,77 @@
+import express from 'express';
+
+
+const { error } = await supabase.from('contractors').upsert({
+user_id: uid,
+company_name: input.companyName,
+owners: input.owners,
+address: input.address,
+phone: input.phone,
+email: input.email,
+website: input.website || null,
+slug,
+media: input.media, // public URLs
+business_license: input.documents?.businessLicense ?? null, // {path,name}
+insurance: input.documents?.insurance ?? null,
+certifications: input.documents?.certifications ?? [],
+review_links: input.reviewLinks,
+score,
+rank
+}, { onConflict: 'user_id' });
+if (error) throw error;
+res.json({ ok:true, slug });
+} catch (e) {
+res.status(400).json({ ok:false, error: e.message });
+}
+});
+
+
+// Public list (via view)
+app.get('/api/contractors', async (_req,res) => {
+const { data, error } = await supabase.from('public_contractors').select('*').order('score', { ascending: false }).limit(50);
+if (error) return res.status(400).json({ ok:false, error: error.message });
+res.json(data);
+});
+
+
+// Public profile (safe fields only)
+app.get('/api/contractors/:slug', async (req,res) => {
+const { slug } = req.params;
+const { data, error } = await supabase.from('contractors').select('company_name,address,phone,email,website,media,rank,score').eq('slug', slug).single();
+if (error) return res.status(404).json({ ok:false, error: 'Not found' });
+res.json({
+companyName: data.company_name,
+address: data.address,
+phone: data.phone,
+email: data.email,
+website: data.website,
+media: data.media,
+rank: data.rank,
+score: data.score,
+});
+});
+
+
+// Signed URL for private docs
+app.get('/api/files/signed-url', requireUser, async (req,res) => {
+const { path } = req.query; // e.g., docs/{uid}/file.pdf
+if (!path || typeof path !== 'string') return res.status(400).json({ ok:false, error:'Missing path' });
+
+
+// Ensure requester owns the contractor row and the path prefix matches their uid
+const uid = req.user.id;
+if (!path.startsWith(`docs/${uid}/`)) return res.status(403).json({ ok:false, error: 'Forbidden' });
+
+
+const { data, error } = await supabase
+.storage
+.from('contractor-docs')
+.createSignedUrl(path, 60 * 10); // 10 minutes
+
+
+if (error) return res.status(400).json({ ok:false, error: error.message });
+res.json({ ok:true, url: data.signedUrl });
+});
+
+
+app.listen(process.env.PORT || 3000, () => console.log('API running'));
