@@ -1,0 +1,78 @@
+// src/PublicContractorProfile.tsx
+const [data, setData] = useState<any>(null);
+const [loading, setLoading] = useState(true);
+const [error, setError] = useState<string | null>(null);
+
+
+useEffect(() => {
+(async () => {
+try {
+const res = await fetch(`/api/contractors/${slug}`);
+if (!res.ok) throw new Error("Profile not found");
+setData(await res.json());
+} catch (e: any) {
+setError(e.message);
+} finally {
+setLoading(false);
+}
+})();
+}, [slug]);
+
+
+if (loading) return <div className="p-6">Loading…</div>;
+if (error) return <div className="p-6 text-red-600">{error}</div>;
+
+
+const { companyName, address, phone, email, website, media, rank, score, reviewLinks } = data;
+
+
+return (
+<div className="max-w-5xl mx-auto p-6">
+<div className="flex items-center justify-between mb-4">
+<div>
+<h1 className="text-3xl font-bold">{companyName}</h1>
+<p className="text-sm text-gray-600">{address}</p>
+<p className="text-sm text-gray-600">{phone} · {email}</p>
+{website && (
+<a className="text-sm underline" href={website} target="_blank" rel="noreferrer">Visit website</a>
+)}
+</div>
+<div className="text-right">
+<div className="text-xs text-gray-500">Rank</div>
+<div className="text-lg font-semibold">{rank} ({score})</div>
+</div>
+</div>
+
+
+{/* Media gallery */}
+{Array.isArray(media) && media.filter((m: any) => m.public).length > 0 && (
+<div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+{media.filter((m: any) => m.public).map((m: any, idx: number) => (
+<div key={idx} className="border rounded-xl p-2">
+{m.type === "photo" ? (
+<img src={m.url} alt={m.name} className="w-full h-48 object-cover rounded-lg" />
+) : (
+<video src={m.url} controls className="w-full h-48 object-cover rounded-lg" />
+)}
+<div className="text-xs mt-1 truncate">{m.name}</div>
+</div>
+))}
+</div>
+)}
+
+
+{/* Review buttons */}
+<div className="flex flex-wrap gap-3">
+{reviewLinks?.google && (
+<a className="px-4 py-2 rounded-xl border shadow" href={reviewLinks.google} target="_blank" rel="noreferrer">Review on Google</a>
+)}
+{reviewLinks?.social && (
+<a className="px-4 py-2 rounded-xl border shadow" href={reviewLinks.social} target="_blank" rel="noreferrer">Review on Social</a>
+)}
+{reviewLinks?.inApp && (
+<a className="px-4 py-2 rounded-xl border shadow" href={reviewLinks.inApp} target="_blank" rel="noreferrer">Review in App</a>
+)}
+</div>
+</div>
+);
+}
