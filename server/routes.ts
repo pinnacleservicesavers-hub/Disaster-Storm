@@ -72,6 +72,7 @@ import { registerContractorAlertRoutes } from "./routes/contractorAlertRoutes";
 import mrmsProductionRoutes from "./routes/mrmsProductionRoutes.js";
 import workflowRoutes from "./routes/workflowRoutes";
 import orchestrationRoutes from "./routes/orchestrationRoutes";
+import adminOidcRoutes from "./routes/adminOidc";
 import { mountLocations } from "./routes/locations";
 import { mountAlerts } from "./routes/alerts";
 import { mountWarm } from "./routes/warm";
@@ -796,6 +797,10 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
   // ---- Agent Orchestration Routes ----
   app.use('/api/orchestration', orchestrationRoutes);
   console.log('🤖 Agent Orchestration routes registered - Supervisor + 7 specialist agents with tools & events');
+
+  // ---- Admin OIDC Routes ----
+  app.use(adminOidcRoutes);
+  console.log('🔐 Admin OIDC routes registered - JWT/JWKS configuration and verification');
 
   // ---- AI Intelligence Orchestrator Routes ----
   const aiIntelligenceRoutes = await import('./routes/aiIntelligenceRoutes.js');

@@ -659,6 +659,10 @@ export interface IStorage {
   // SMTP settings methods
   getSMTPSettings(): Promise<{ host: string; port: number; user: string; password: string; use_tls: boolean }>;
   setSMTPSettings(settings: { host: string; port: number; user: string; password: string; use_tls: boolean }): Promise<void>;
+  
+  // OIDC settings methods
+  getOIDCSettings(): Promise<{ issuer?: string; audience?: string; enforce?: boolean; jwks?: any }>;
+  setOIDCSettings(settings: { issuer?: string; audience?: string; enforce?: boolean; jwks?: any }): Promise<void>;
 }
 
 export class MemStorage implements IStorage {
@@ -758,6 +762,13 @@ export class MemStorage implements IStorage {
     user: '',
     password: '',
     use_tls: true
+  };
+  
+  private oidcSettings: { issuer?: string; audience?: string; enforce?: boolean; jwks?: any } = {
+    issuer: undefined,
+    audience: undefined,
+    enforce: false,
+    jwks: undefined
   };
 
   constructor() {
@@ -4412,6 +4423,15 @@ export class MemStorage implements IStorage {
 
   async setSMTPSettings(settings: { host: string; port: number; user: string; password: string; use_tls: boolean }): Promise<void> {
     this.smtpSettings = { ...settings };
+  }
+
+  // OIDC settings methods
+  async getOIDCSettings(): Promise<{ issuer?: string; audience?: string; enforce?: boolean; jwks?: any }> {
+    return { ...this.oidcSettings };
+  }
+
+  async setOIDCSettings(settings: { issuer?: string; audience?: string; enforce?: boolean; jwks?: any }): Promise<void> {
+    this.oidcSettings = { ...this.oidcSettings, ...settings };
   }
 }
 

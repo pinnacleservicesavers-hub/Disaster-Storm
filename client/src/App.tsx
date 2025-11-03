@@ -36,6 +36,7 @@ const HomeownerPortal = lazy(() => import("./pages/HomeownerPortal"));
 const SignOut = lazy(() => import("./pages/SignOut"));
 const Login = lazy(() => import("./pages/auth/Login"));
 const AuthCallback = lazy(() => import("./pages/auth/Callback"));
+const OIDCSettings = lazy(() => import("./pages/admin/OIDCSettings"));
 
 // Loading indicator
 function Loader() {
@@ -131,6 +132,9 @@ export default function App() {
           {/* Auth Routes */}
           <Route path="/auth/login" element={<Login />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
+          
+          {/* Admin Routes */}
+          <Route path="/admin/oidc" element={<OIDCSettings />} />
         </Routes>
       </Suspense>
     </>
