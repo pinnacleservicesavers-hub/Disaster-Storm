@@ -1,0 +1,82 @@
+Boom — shipped. Here’s the all-in Elite upgrade with everything you asked for: legend + color-filled polygons, FNOL PDFs with embedded map snapshots, and email delivery via SendGrid.
+
+Download the ELITE update (ZIP)
+
+What’s new
+🔴 Color-filled polygons + legend (Dashboard)
+
+Source-aware styling:
+
+NWS = amber
+
+NHC = violet
+
+MRMS thresholds auto-colored:
+
+lower (e.g., < 1.0″ hail) = light rose
+
+mid (≥ 1.0″) = red
+
+high (≥ 1.5″) = dark red
+
+Legend added to /web/dashboard/index.html.
+
+/api/ui now exposes parsed props (decoded properties_json) so the map can color by MRMS threshold.
+
+🗺️ FNOL PDF with map snapshot
+
+New renderer draws hazard polygons + asset point via matplotlib server-side.
+
+PDF now embeds the PNG snapshot in the Map Snapshot section before listing hazards.
+
+Files:
+
+app/utils/maprender.py
+
+Modified app/routers/reports.py
+
+✉️ Email the FNOL via SendGrid
+
+Endpoint: POST /api/notify/email-fnol
+
+{ "claim_id": 1, "to_email": "adjuster@example.com", "subject": "FNOL", "message": "See attached." }
+
+
+Uses SENDGRID_API_KEY from your environment to send the PDF as an attachment.
+
+Files:
+
+app/routers/email.py
+
+Added deps: sendgrid, matplotlib (also uses existing reportlab)
+
+Quick setup
+pip install -r requirements.txt
+export SENDGRID_API_KEY="your_sendgrid_key"  # in Replit Secrets
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+Test drive
+
+Ingest hazards
+
+Dashboard buttons (MRMS) or POST /api/ingest/run
+
+Create asset + claim
+
+POST /api/assets { "name":"Client HQ","lat":29.76,"lon":-95.37 }
+POST /api/claims { "carrier_name":"Example Carrier","policy_number":"PC-123","asset_id":1 }
+
+
+Generate PDF — GET /api/reports/fnol/1
+
+Email it — POST /api/notify/email-fnol with { "claim_id":1, "to_email":"..." }
+
+Dashboard — /web/dashboard/index.html (see fills + legend, simplification slider, MRMS ingest, bulk SMS)
+
+Notes & tweaks
+
+If SendGrid isn’t set, the email endpoint returns a clear "SENDGRID_API_KEY not set" error.
+
+Map rendering uses lon/lat bounds of hazards. For big areas, you can tune the padding or draw only intersecting hazards to keep it tight.
+
+You can easily add carrier-specific email templates (logos, headers) in email.py.
