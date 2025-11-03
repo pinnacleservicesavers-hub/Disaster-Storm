@@ -5,7 +5,10 @@ function authHeaders(){
   const role = localStorage.getItem('role') || 'admin';
   const uid = localStorage.getItem('user_id') || 'demo-contractor';
   const scopes = localStorage.getItem('scopes') || '';
-  return { 'X-User-Role': role, 'X-User-Id': uid, 'X-Scopes': scopes };
+  const token = localStorage.getItem('token') || '';
+  const h: Record<string,string> = { 'X-User-Role': role, 'X-User-Id': uid, 'X-Scopes': scopes };
+  if (token) h['Authorization'] = `Bearer ${token}`;
+  return h;
 }
 export async function api(path: string, opts: RequestInit = {}){
   const res = await fetch(`${API_BASE}${path}`, { headers: { 'Content-Type':'application/json', ...authHeaders(), ...(opts.headers||{}) }, ...opts });
