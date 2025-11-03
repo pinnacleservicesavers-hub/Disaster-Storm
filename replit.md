@@ -1,7 +1,7 @@
 # Disaster Direct
 
 ## Overview
-Disaster Direct is a comprehensive storm operations and claims management platform for contractors and property restoration professionals. It offers real-time weather monitoring, claims management, insurance tracking, legal compliance, drone integration, AI assistance, and field reporting. The platform aims to streamline storm response, maximize insurance claim success, and provide robust photo/video documentation for damage assessment. The business vision is to transform storm response into an enterprise-grade, professional interface, leveraging AI-curated visual theming and efficient operations to capture significant market potential in the property restoration industry.
+Disaster Direct is a comprehensive storm operations and claims management platform designed for contractors and property restoration professionals. Its primary purpose is to streamline storm response, maximize insurance claim success, and provide robust documentation for damage assessment through real-time weather monitoring, AI assistance, and integrated claims management. The platform aims to professionalize the storm response industry with an enterprise-grade interface, AI-curated visuals, and efficient operations, targeting significant market potential.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
@@ -9,94 +9,37 @@ Preferred communication style: Simple, everyday language.
 ## System Architecture
 
 ### UI/UX
-- **Enterprise-Grade Design System**: Comprehensive design system with AI-selected backgrounds, module-specific themes, color schemes, and design tokens for over 17 modules.
-- **Module Theming**: Unique visual identity for each module with curated backgrounds (e.g., hurricane satellite views for Weather Intelligence, neural networks for Live Intelligence AI).
-- **Components**: Reusable `ModuleHero` (parallax, gradients, dynamic backgrounds), `ModuleWrapper`, `ModuleAIAssistant` (floating AI chat assistant with text and voice modes, available in every module), and `StateCitySelector`.
-- **Aesthetics**: Enhanced typography, glass morphism effects, enterprise shadows, and text shadows for readability.
-- **AI Assistance**: Universal AI assistant in all modules with module-specific context, text chat, and voice interaction (Web Speech API + ElevenLabs Rachel voice).
+- **Enterprise-Grade Design System**: Features AI-selected backgrounds, module-specific themes, and a comprehensive set of design tokens.
+- **Module Theming**: Each module has a unique visual identity with curated backgrounds relevant to its function (e.g., hurricane satellite views for Weather Intelligence).
+- **Reusable Components**: Includes `ModuleHero` (with parallax and dynamic backgrounds), `ModuleWrapper`, `ModuleAIAssistant` (floating AI chat with text and voice modes), and `StateCitySelector`.
+- **Aesthetics**: Enhanced typography, glass morphism effects, and enterprise shadows.
+- **Universal AI Assistant**: Provides module-specific context, text chat, and voice interaction using Web Speech API and ElevenLabs.
+- **Navigation & Auth**: Global sticky `TopNav` with role selection and quick links, auto-generated breadcrumb navigation, and a pluggable authentication system (`client/src/lib/auth.ts`) supporting localStorage for demo mode with token support and a dedicated sign-out flow.
 
 ### Technical Implementations
-- **Frontend**: React 18, TypeScript, Vite, Shadcn/ui (Radix UI + Tailwind CSS), TanStack Query for state, Wouter for routing, WebSocket integration, context-based internationalization (English, Spanish).
-- **Backend**: Node.js with Express.js (TypeScript, ES modules), Drizzle ORM with PostgreSQL, RESTful API, WebSocket support, image/video upload, EXIF data extraction.
-- **Database**: PostgreSQL with Drizzle ORM; key entities include Users, Claims, Insurance Companies, Weather Alerts, Field Reports, Drone Footage, Lien Rules, Disaster Lens entities, and Lead→Job→Claim→Payment workflow tables (Memberships, Contractor Profiles, Properties, Jobs, Media Assets, Contracts, Job Invoices).
-- **Authentication & Authorization**: Express sessions, PostgreSQL session store, role-based access, protected API endpoints.
-- **Real-time Data Processing**: Automated polling of NWS CAP alerts, Storm Prediction Center data; WebSocket events for live updates; background workers for scheduled tasks.
-- **Infrastructure**: Batch signing for map tiles, Cloudflare Worker for edge-based signing, GitHub Actions for CI/CD to GHCR, HMAC signing infrastructure.
-- **Disaster Lens Module**: Offline-first design using service workers, IndexedDB, and background sync.
+- **Frontend**: React 18, TypeScript, Vite, React Router DOM (v6), Shadcn/ui (Radix UI + Tailwind CSS), TanStack Query, WebSocket integration, and context-based internationalization (English, Spanish).
+- **Backend**: Node.js with Express.js (TypeScript, ES modules), Drizzle ORM with PostgreSQL, RESTful API, WebSocket support, image/video upload, and EXIF data extraction.
+- **Database**: PostgreSQL with Drizzle ORM, storing key entities such as Users, Claims, Insurance Companies, Weather Alerts, and a complete Lead→Job→Claim→Payment workflow.
+- **Authentication & Authorization**: Express sessions, PostgreSQL session store, role-based access control, protected API endpoints, and a pluggable auth adapter.
+- **Real-time Data Processing**: Automated polling of NWS CAP alerts and Storm Prediction Center data, WebSocket events for live updates, and background workers for scheduled tasks.
+- **Infrastructure**: Batch signing for map tiles, Cloudflare Worker for edge-based signing, GitHub Actions for CI/CD, and HMAC signing.
+- **Disaster Lens Module**: Offline-first design utilizing service workers, IndexedDB, and background sync.
+- **AI Model Configuration**: Anthropic Claude 3.5 Sonnet for damage detection, OpenAI GPT-4o-mini for hazard summaries, and xAI Grok-2 for storm intelligence.
 
 ### Feature Specifications
-- **Multi-Hazard Monitoring**: Integration of 8 real-time data sources including NHC, USGS Earthquakes, NASA FIRMS Wildfire, NOAA MRMS Radar, GFS/HRRR Wind Models, NOAA CO-OPS Coastal Surge, USGS River Gauges, and NOAA HMS Wildfire Smoke.
-- **Live Weather Intelligence Center**: Enhanced monitoring station with a dashboard displaying 7 feeds (NOAA, NWS, GOES Satellites, NDBC Buoys, WAVEWATCH III, Ambee Environmental, ML Models), live weather maps, environmental conditions, and AI Intelligence feature cards.
-- **Storm Prediction & Contractor Deployment**: Live predictive analytics for 12-72h storm forecasts, interactive Leaflet map for visualizing storms and contractor opportunities, and an automated contractor alert system for timely notifications.
-- **Universal AI Assistant**: Floating AI assistant available in all modules, offering text and voice chat (via OpenAI gpt-5-mini and ElevenLabs Rachel voice) with module-specific context.
-- **AI-Generated Module Backgrounds**: Implementation of an AI image generation system using OpenAI DALL-E to create unique, watermarked backgrounds for all 17 modules, enhancing the enterprise aesthetic.
-- **Real-Time Monitoring**: NWS severe weather alerts (2-minute polling), Florida DOT DIVAS integration, contractor opportunity detection.
-- **AI Integration**: xAI's Grok-2 as primary engine; orchestrator coordinates Grok, OpenAI, Anthropic for multi-peril analysis, predictive damage, and contractor deployment.
-- **Location Watchlist**: Secure API, CSV import/export, Slack integration.
-- **Property Data**: Multi-provider property lookup (Smarty, Regrid, ATTOM, Melissa), EagleView integration.
-- **Legal Compliance**: State-specific lien deadline calculations, attorney directory.
-- **Environmental Intelligence**: Ambee integration for real-time air quality, pollen, weather, fire, soil conditions.
-- **SDK**: Standalone npm package (`@disaster-direct/sdk`).
-- **Advanced Features**: QR/AprilTag calibration for precise measurements.
-
-### Advanced Hazard Processing Features (November 2025)
-- **NHC Hurricane Cone/Track Ingestion**: Real-time ingestion of National Hurricane Center forecast cone and track GeoJSON polygons. Uses official NHC product naming (5day_pgncone_latest, 5day_5knt_track_latest). Stores hurricane geometry data in weather_alerts table with metadata (storm name, classification, wind speed, pressure). Auto-triggers every 10 minutes via hazard monitoring scheduler.
-- **MRMS Radar Contour Processing**: Service for processing NOAA MRMS radar data into hazard contours (hail, heavy precipitation). Currently in stub mode with placeholder contours - production implementation requires Python raster processing microservice for GRIB2 data conversion. Supports configurable thresholds and severity levels.
-- **AI Hazard Summary Endpoint** (`/api/ai-intelligence/summary`): Generates plain-English hazard briefings using OpenAI GPT-4o-mini. Provides immediate impact analysis, operational posture recommendations, contractor deployment guidance, and staging/mobilization advice based on current active hazards across all data sources.
-- **AI Staging Location Recommendations** (`/api/ai-intelligence/staging`): Calculates safe contractor staging zones outside hazard polygons using Haversine distance calculations (20km+ safety buffer). Returns georeferenced staging locations with distance metrics and nearest hazard identification for pre-deployment planning.
-- **Hazard Polygon Database**: Extended weather_alerts table with geometry_type (cone/track/contour) and hazard_metadata (JSONB) fields for storing GeoJSON geometries from NHC, MRMS, and future polygon-based hazard sources.
-
-### Lead → Job → Claim → Payment Workflow (November 2025)
-- **Complete Workflow Schema**: 7 new database tables supporting end-to-end job management from lead generation through insurance payment
-- **Memberships Table**: User subscription tracking (one_time, monthly plans) with expiration management
-- **Contractor Profiles**: Extended contractor data including equipment inventory, certifications (OSHA, ANSI), alert channel preferences, and service region geofencing
-- **Properties Management**: Homeowner property tracking with geocoded addresses, city/state/zip, and lat/lon coordinates
-- **Jobs Pipeline**: Status-based job tracking (lead → in_progress → complete → invoiced → paid) with scope locking to prevent double-booking
-- **Media Assets**: Photo/video documentation with AI-generated labels, timestamp tracking, and job association
-- **Contracts System**: Legal agreement management with AOB (Assignment of Benefits) support, state-specific rules, e-signature tracking
-- **Job Invoices**: Advanced invoicing with:
-  - Cost breakdown (JSONB for line items)
-  - Xactimate reference data integration
-  - AI-generated comparables (True Cost vs Xactimate)
-  - Rebuttal history tracking (JSONB array for negotiation audit trail)
-  - Multi-status workflow (draft → sent → disputed → approved → paid)
-- **Workflow Agents**: Weather Agent → Dispatch Agent → Contractor → Homeowner → Claims/Invoice Agent → Negotiator Agent → Insurer
-- **AI Claims Intelligence**: Automated comparable generation, policy language parsing, settlement threshold logic, rebuttal automation
-
-### Workflow API Implementation (November 2025)
-**Status:** ✅ All 25+ endpoints functional and tested end-to-end  
-**Security:** ⚠️ Authentication middleware created but not yet applied (see SECURITY.md)  
-**Location:** `server/routes/workflowRoutes.ts`
-
-**Implemented Endpoints:**
-- **Auth** (2): POST /auth/signup, POST /auth/login (session-based)
-- **Memberships** (2): POST /membership/checkout (Stripe one-time & monthly), POST /membership/webhook
-- **Contractor Profiles** (2): POST/GET /contractor/profile
-- **Contracts** (2): POST /contractor/contracts/validate (FL/TX/CA rules), POST /contractor/contracts/generate (AOB support)
-- **Properties** (2): POST/GET /properties (geocoded addresses)
-- **Jobs** (4): POST/GET /jobs, PATCH /jobs/:id/status, POST /jobs/:id/analyze (AI damage analysis)
-- **Media** (2): POST/GET /jobs/:id/media (photo/video documentation)
-- **Invoices** (7): POST /jobs/:id/invoice, GET /invoices/:id, PATCH /invoices/:id/status, POST /invoices/:id/submit, POST /invoices/:id/comparables (AI True Cost vs Xactimate), POST /invoices/:id/negotiate (AI rebuttal generation)
-- **Contract Signing** (1): POST /jobs/:id/contract/sign
-
-**End-to-End Testing Results:**
-1. Created homeowner (Lisa) and contractor (John ProStorm) accounts
-2. Created property in Miami, FL with geocoding
-3. Created job for emergency roof tarping ($12,500 estimate)
-4. Uploaded 2 damage photos with metadata
-5. AI analyzed media → estimated $13,305 damage with recommendations
-6. Generated AI cost comparables: True Cost $12,500 vs Xactimate $10,625 (15% delta)
-7. Submitted invoice to State Farm insurance (claim #CLM-2024-12345)
-8. AI negotiation: Insurer offered $9,000 (72%) → AI countered $11,875 (95%) with full justification citing market data + OSHA compliance
-9. Generated FL-compliant contract with AOB (Assignment of Benefits)
-10. Homeowner e-signed contract
-11. Job completed, invoice approved
-
-**Production Security Requirements:**
-- See `SECURITY.md` for detailed authentication/authorization implementation guide
-- Auth middleware ready at `server/middleware/auth.ts` (requireAuth, requireRole, verifyOwnership)
-- Estimated security implementation time: 4-7 days
-- Critical: Add authentication to all protected endpoints before production deployment
+- **Multi-Hazard Monitoring**: Integration of 8 real-time data sources including NHC, USGS Earthquakes, NASA FIRMS Wildfire, and NOAA MRMS Radar.
+- **Live Weather Intelligence Center**: Comprehensive dashboard with 7 feeds, live weather maps, environmental conditions, and AI Intelligence feature cards.
+- **Storm Prediction & Contractor Deployment**: Predictive analytics for 12-72h forecasts, interactive Leaflet maps, and automated contractor alerts.
+- **AI-Generated Module Backgrounds**: Unique, watermarked backgrounds for all 17 modules created using OpenAI DALL-E.
+- **Real-Time Monitoring**: NWS severe weather alerts and Florida DOT DIVAS integration.
+- **AI Integration**: xAI's Grok-2 orchestrates multi-peril analysis, predictive damage, and contractor deployment with OpenAI and Anthropic models.
+- **Location Watchlist**: Secure API, CSV import/export, and Slack integration.
+- **Property Data**: Multi-provider lookup (Smarty, Regrid, ATTOM, Melissa) and EagleView integration.
+- **Legal Compliance**: State-specific lien deadline calculations and attorney directory.
+- **Environmental Intelligence**: Ambee integration for real-time air quality, pollen, weather, fire, and soil conditions.
+- **Advanced Hazard Processing**: Ingestion of NHC hurricane cone/track GeoJSON, MRMS radar contour processing, AI hazard summary generation, and AI staging location recommendations.
+- **Lead → Job → Claim → Payment Workflow**: Comprehensive workflow supported by 7 new database tables, including Memberships, Contractor Profiles, Properties, Jobs, Media Assets, Contracts (with AOB support), and Job Invoices (with AI comparables and negotiation features).
+- **Workflow API**: Over 25 functional endpoints for the lead-to-payment workflow, including Auth, Memberships, Contractor Profiles, Contracts, Properties, Jobs, Media, Invoices, and Contract Signing.
 
 ## External Dependencies
 
@@ -110,17 +53,14 @@ Preferred communication style: Simple, everyday language.
 - **Storm Prediction Center**: Local storm reports.
 - **OpenStreetMap Nominatim**: Geocoding.
 - **LocationIQ**: Reverse geocoding.
-- **Ambee**: Environmental intelligence (air quality, pollen, weather, fire, soil).
+- **Ambee**: Environmental intelligence.
 - **Xweather**: Global lightning and storm intelligence.
-- **Tomorrow.io**: Premium hyperlocal weather intelligence.
+- **Tomorrow.io**: Hyperlocal weather intelligence.
 - **National Hurricane Center (NHC)**: Real-time hurricane tracking.
-- **USGS Earthquake Monitoring**: Live seismic detection.
-- **NASA FIRMS Wildfire Detection**: Thermal hotspot tracking.
-- **NOAA MRMS Radar/Precipitation**: Real-time severe weather detection.
-- **GFS/HRRR Wind Models**: High-resolution wind forecasts.
-- **NOAA CO-OPS Coastal Surge**: Storm surge and tidal monitoring.
-- **USGS River Gauges**: Inland flood detection.
-- **NOAA HMS Wildfire Smoke**: Air quality and visibility monitoring.
+- **USGS**: Earthquake monitoring, River Gauges.
+- **NASA FIRMS**: Wildfire detection.
+- **NOAA**: MRMS Radar/Precipitation, CO-OPS Coastal Surge, HMS Wildfire Smoke.
+- **GFS/HRRR**: Wind Models.
 
 ### Payment & Legal Integration
 - **Stripe**: Payment processing.
@@ -136,7 +76,7 @@ Preferred communication style: Simple, everyday language.
 
 ### AI & Communication Services
 - **xAI Grok**: Primary AI intelligence engine (Grok-2-1212, Grok-2-vision-1212).
-- **OpenAI**: GPT-5-mini for universal AI assistant (via Replit AI Integrations), GPT-4 for various AI tasks.
+- **OpenAI**: GPT-5-mini, GPT-4 for various AI tasks.
 - **Twilio**: SMS alerts, voice calls.
 - **ElevenLabs**: Voice cloning and TTS (Rachel voice).
 - **Slack**: Team collaboration.

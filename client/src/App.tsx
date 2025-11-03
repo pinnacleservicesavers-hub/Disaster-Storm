@@ -33,6 +33,7 @@ const AuthStub = lazy(() => import("./pages/AuthStub"));
 const ContractorJobs = lazy(() => import("./pages/ContractorJobs"));
 const ContractorProfile = lazy(() => import("./pages/ContractorProfile"));
 const HomeownerPortal = lazy(() => import("./pages/HomeownerPortal"));
+const SignOut = lazy(() => import("./pages/SignOut"));
 
 // Loading indicator
 function Loader() {
@@ -121,6 +122,9 @@ export default function App() {
           
           {/* Homeowner Portal */}
           <Route path="/homeowner" element={<HomeownerPortal />} />
+          
+          {/* Sign Out */}
+          <Route path="/signout" element={<SignOut />} />
         </Routes>
       </Suspense>
     </>
