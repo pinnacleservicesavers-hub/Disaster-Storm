@@ -1,0 +1,89 @@
+Boom — added demand/late letter scheduling, role-based permissions, and a quick auth stub so you can simulate admin vs contractor access.
+
+Download:
+storm-disaster-letters-permissions-authstub.zip
+
+What you just got
+1) Letters (late + 60-day demand)
+
+API
+
+POST /letters/schedule
+
+{ "job_id": "JOB123", "kind": "late" | "demand", "to_emails": ["a@b.com"], "days_from_now": 60 }
+
+
+Schedules a letter; stores in job.letters[]; logs to job.timeline.
+
+POST /letters/run
+Sends any due letters (SMTP env vars reused). Logs audit-style notes to the timeline.
+
+UI (contractor job page)
+
+Buttons:
+
+Schedule Late Letter (+1 day)
+
+Schedule Demand Letter (+60 days)
+
+Toasts confirm success/failure.
+
+2) Role-based permissions (simple & effective)
+
+How it works
+
+Requests read headers: X-User-Role (admin|contractor|homeowner) and X-User-Id.
+
+Admin-only: all admin export/share endpoints (CSV/ZIP, share links, bulk, lists).
+
+Job-scoped: reminder & letter scheduling requires either:
+
+admin role, or
+
+contractor whose X-User-Id matches job.contractor_id.
+
+Dev note: This is a lightweight guard. Replace with real auth later (JWT/cookies).
+
+3) Auth stub (for testing now)
+
+Route: /admin/auth-stub
+
+Pick a role (admin, contractor, homeowner) and a User ID.
+
+Saves to localStorage so the frontend automatically sends headers on every api() call.
+
+Where the key files live
+
+Backend
+
+app/utils/security.py — header-based context + guards
+
+app/routers/letters.py — schedule + run demand/late letters
+
+app/routers/admin_export.py — now enforces admin checks
+
+app/main.py — includes the letters router
+
+Frontend
+
+lib/api.ts — injects X-User-Role & X-User-Id headers
+
+app/admin/auth-stub/page.tsx — simple role/id picker
+
+app/contractor/jobs/[id]/page.tsx — new Letters section (late/demand)
+
+Quick test recipe
+
+Open /admin/auth-stub, choose:
+
+Role: contractor
+
+User ID: demo-contractor
+
+Seed a job in memory (POST from your client) with contractor_id: "demo-contractor".
+
+Go to /contractor/jobs/JOB123 → Schedule Demand Letter (+60d) and Late Letter (+1d).
+
+Trigger send: POST /letters/run (or let your scheduler run it).
+
+Flip to admin in /admin/auth-stub and try the export/share pages—contractors will be blocked, admins allowed.
