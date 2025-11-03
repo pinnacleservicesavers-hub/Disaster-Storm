@@ -764,11 +764,26 @@ export class MemStorage implements IStorage {
     use_tls: true
   };
   
-  private oidcSettings: { issuer?: string; audience?: string; enforce?: boolean; jwks?: any } = {
+  private oidcSettings: { 
+    issuer?: string; 
+    audience?: string; 
+    enforce?: boolean; 
+    jwks?: any;
+    jwks_meta?: {
+      last_fetch?: string;
+      last_status?: number | string;
+      etag?: string;
+      max_age?: number;
+      key_count?: number;
+      last_error?: string;
+      next_refresh?: string;
+    }
+  } = {
     issuer: undefined,
     audience: undefined,
     enforce: false,
-    jwks: undefined
+    jwks: undefined,
+    jwks_meta: undefined
   };
 
   constructor() {
@@ -4426,11 +4441,39 @@ export class MemStorage implements IStorage {
   }
 
   // OIDC settings methods
-  async getOIDCSettings(): Promise<{ issuer?: string; audience?: string; enforce?: boolean; jwks?: any }> {
+  async getOIDCSettings(): Promise<{ 
+    issuer?: string; 
+    audience?: string; 
+    enforce?: boolean; 
+    jwks?: any;
+    jwks_meta?: {
+      last_fetch?: string;
+      last_status?: number | string;
+      etag?: string;
+      max_age?: number;
+      key_count?: number;
+      last_error?: string;
+      next_refresh?: string;
+    }
+  }> {
     return { ...this.oidcSettings };
   }
 
-  async setOIDCSettings(settings: { issuer?: string; audience?: string; enforce?: boolean; jwks?: any }): Promise<void> {
+  async setOIDCSettings(settings: { 
+    issuer?: string; 
+    audience?: string; 
+    enforce?: boolean; 
+    jwks?: any;
+    jwks_meta?: {
+      last_fetch?: string;
+      last_status?: number | string;
+      etag?: string;
+      max_age?: number;
+      key_count?: number;
+      last_error?: string;
+      next_refresh?: string;
+    }
+  }): Promise<void> {
     this.oidcSettings = { ...this.oidcSettings, ...settings };
   }
 }

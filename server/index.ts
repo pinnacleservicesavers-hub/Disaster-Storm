@@ -17,6 +17,7 @@ import { router as damage } from "../apps/server/src/routes/damage.js";
 import { registerRoutes } from "./routes.js";
 import { setupVite, log } from "./vite.js";
 import { scheduler } from "./scheduler.js";
+import { jwksRefresher } from "./services/jwksRefresher.js";
 
 const app = express();
 
@@ -196,4 +197,9 @@ server.listen(port, () => {
   }, 10 * 60 * 1000); // Every 10 minutes
   
   console.log('✅ Hazard monitoring scheduler started (runs every 10 minutes)');
+  
+  // Start JWKS background refresher
+  jwksRefresher.start().catch(err => {
+    console.error('❌ Failed to start JWKS refresher:', err);
+  });
 });

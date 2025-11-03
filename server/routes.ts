@@ -73,6 +73,7 @@ import mrmsProductionRoutes from "./routes/mrmsProductionRoutes.js";
 import workflowRoutes from "./routes/workflowRoutes";
 import orchestrationRoutes from "./routes/orchestrationRoutes";
 import adminOidcRoutes from "./routes/adminOidc";
+import healthRoutes from "./routes/health";
 import { mountLocations } from "./routes/locations";
 import { mountAlerts } from "./routes/alerts";
 import { mountWarm } from "./routes/warm";
@@ -801,6 +802,10 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
   // ---- Admin OIDC Routes ----
   app.use(adminOidcRoutes);
   console.log('🔐 Admin OIDC routes registered - JWT/JWKS configuration and verification');
+
+  // ---- Health Routes ----
+  app.use(healthRoutes);
+  console.log('🏥 Health routes registered - /api/health/auth for JWKS diagnostics');
 
   // ---- AI Intelligence Orchestrator Routes ----
   const aiIntelligenceRoutes = await import('./routes/aiIntelligenceRoutes.js');
