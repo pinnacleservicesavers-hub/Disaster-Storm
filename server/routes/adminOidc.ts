@@ -10,7 +10,11 @@ const router = Router();
  */
 router.get('/api/admin/oidc', extractAuthContext, requireAdmin, async (req: Request, res: Response) => {
   try {
+    console.log('📖 OIDC Settings GET request');
+    console.log('🔐 Auth context:', (req as any).auth);
+    
     const settings = await storage.getOIDCSettings();
+    console.log('📦 Retrieved settings from storage:', settings);
     
     // Redact JWKS from response, just show count
     const redacted: any = {
@@ -25,8 +29,10 @@ router.get('/api/admin/oidc', extractAuthContext, requireAdmin, async (req: Requ
       redacted.jwks_keys = 0;
     }
     
+    console.log('✅ Sending redacted response:', redacted);
     res.json({ oidc: redacted });
   } catch (error: any) {
+    console.error('❌ Error fetching OIDC settings:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -39,20 +45,28 @@ router.post('/api/admin/oidc', extractAuthContext, requireAdmin, async (req: Req
   try {
     const { issuer, audience, enforce } = req.body;
     
+    console.log('📝 OIDC Settings POST received:', { issuer, audience, enforce });
+    console.log('🔐 Auth context:', (req as any).auth);
+    
     if (!issuer || !audience) {
+      console.log('❌ Missing issuer or audience');
       return res.status(400).json({ error: 'Issuer and audience are required' });
     }
     
+    // Keep trailing slash for issuer
     const settings = {
-      issuer: issuer.toString().replace(/\/$/, ''), // Remove trailing slash
+      issuer: issuer.toString().endsWith('/') ? issuer.toString() : issuer.toString() + '/',
       audience: audience.toString(),
       enforce: Boolean(enforce)
     };
     
+    console.log('💾 Saving OIDC settings:', settings);
     await storage.setOIDCSettings(settings);
     
+    console.log('✅ OIDC settings saved successfully');
     res.json({ ok: true, oidc: settings });
   } catch (error: any) {
+    console.error('❌ Error saving OIDC settings:', error);
     res.status(500).json({ error: error.message });
   }
 });
