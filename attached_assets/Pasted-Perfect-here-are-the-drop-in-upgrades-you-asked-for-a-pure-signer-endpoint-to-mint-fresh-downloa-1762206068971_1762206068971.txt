@@ -1,0 +1,292 @@
+Perfect — here are the drop-in upgrades you asked for:
+
+a pure signer endpoint to mint fresh download links (no upload)
+
+normalized filenames for inbound attachments (claims/<id>/attachments/…)
+
+simple admin auth (Bearer token) protecting the Admin API + UI
+
+Below are copy/paste patches (safe to add on top of your current project).
+
+0) Config: add an admin token
+app/core/config.py — extend settings
+from pydantic_settings import BaseSettings
+from pydantic import Field
+
+class Settings(BaseSettings):
+    # ... existing fields ...
+    admin_token: str | None = Field(default=None)  # Bearer token for admin APIs/UI
+
+    class Config:
+        env_file = ".env"
+
+settings = Settings()
+
+
+.env / Replit Secrets
+
+ADMIN_TOKEN=superlongrandomstring
+
+1) Storage: add sign-only helper and filename normalization
+app/utils/storage.py — add helpers
+import os, re, unicodedata
+from datetime import datetime, timedelta
+from typing import Optional
+from app.core.config import settings
+
+# --- filename normalization ---
+def _slugify(value: str) -> str:
+    value = unicodedata.normalize("NFKD", value).encode("ascii", "ignore").decode("ascii")
+    value = re.sub(r"[^A-Za-z0-9._-]+", "-", value).strip("-")
+    value = re.sub(r"-{2,}", "-", value)
+    return value or "file"
+
+def normalized_key(prefix: str, filename: str) -> str:
+    base, dot, ext = filename.rpartition(".")
+    base = _slugify(base or filename)
+    ext = _slugify(ext) if dot else ""
+    ts = datetime.utcnow().strftime("%Y%m%dT%H%M%S")
+    name = f"{base}-{ts}.{ext}" if ext else f"{base}-{ts}"
+    prefix = prefix.strip("/"); 
+    return f"{prefix}/{name}" if prefix else name
+
+# ---------- S3 ----------
+def _s3_client():
+    import boto3
+    session = boto3.session.Session(
+        aws_access_key_id=settings.aws_access_key_id,
+        aws_secret_access_key=settings.aws_secret_access_key,
+        region_name=settings.s3_region
+    )
+    return session.client("s3")
+
+def _s3_put_and_url(data: bytes, key: str, content_type: str) -> str:
+    s3 = _s3_client()
+    s3.put_object(Bucket=settings.s3_bucket, Key=key, Body=data, ContentType=content_type)
+    return _s3_sign(key, 7)
+
+def _s3_sign(key: str, days:int=7) -> str:
+    s3 = _s3_client()
+    return s3.generate_presigned_url(
+        ClientMethod="get_object",
+        Params={"Bucket": settings.s3_bucket, "Key": key},
+        ExpiresIn=days * 24 * 3600
+    )
+
+def _s3_list(prefix: str) -> list[dict]:
+    s3 = _s3_client()
+    resp = s3.list_objects_v2(Bucket=settings.s3_bucket, Prefix=prefix)
+    return [{"key": c["Key"], "size": c["Size"], "last_modified": c["LastModified"].isoformat()} for c in resp.get("Contents", [])]
+
+# ---------- GCS ----------
+def _gcs_client():
+    from google.cloud import storage
+    return storage.Client()
+
+def _gcs_put_and_url(data: bytes, key: str, content_type: str) -> str:
+    client = _gcs_client(); bucket = client.bucket(settings.gcs_bucket); blob = bucket.blob(key)
+    blob.upload_from_string(data, content_type=content_type)
+    return _gcs_sign(key, 7)
+
+def _gcs_sign(key: str, days:int=7) -> str:
+    client = _gcs_client(); bucket = client.bucket(settings.gcs_bucket); blob = bucket.blob(key)
+    return blob.generate_signed_url(expiration=timedelta(days=days), method="GET")
+
+def _gcs_list(prefix: str) -> list[dict]:
+    client = _gcs_client(); bucket = client.bucket(settings.gcs_bucket)
+    items=[]
+    for b in client.list_blobs(bucket, prefix=prefix):
+        items.append({"key": b.name, "size": b.size, "last_modified": b.updated.isoformat() if b.updated else None})
+    return items
+
+# ---------- Azure ----------
+def _az_client():
+    from azure.storage.blob import BlobServiceClient
+    conn = settings.azure_connection_string or os.getenv("AZURE_STORAGE_CONNECTION_STRING")
+    return BlobServiceClient.from_connection_string(conn)
+
+def _az_put_and_url(data: bytes, key: str, content_type: str) -> str:
+    from azure.storage.blob import ContentSettings
+    svc = _az_client(); container = svc.get_container_client(settings.azure_container)
+    container.upload_blob(name=key, data=data, overwrite=True, content_settings=ContentSettings(content_type=content_type))
+    return _az_sign(key, 7)
+
+def _az_sign(key: str, days:int=7) -> str:
+    # For simplicity, return the blob URL (configure access/SAS as needed)
+    svc = _az_client()
+    return f"{svc.url}/{settings.azure_container}/{key}"
+
+def _az_list(prefix: str) -> list[dict]:
+    svc = _az_client(); container = svc.get_container_client(settings.azure_container)
+    return [{"key": b.name, "size": b.size, "last_modified": b.last_modified.isoformat() if b.last_modified else None}
+            for b in container.list_blobs(name_starts_with=prefix)]
+
+# ---------- Unified API ----------
+def store_bytes_and_get_url(data: bytes, key: str, content_type: str = "application/octet-stream") -> str:
+    provider = (settings.storage_provider or "").lower()
+    if provider == "s3":
+        return _s3_put_and_url(data, key, content_type)
+    if provider == "gcs":
+        return _gcs_put_and_url(data, key, content_type)
+    if provider == "azure":
+        return _az_put_and_url(data, key, content_type)
+    raise RuntimeError("Storage provider not configured")
+
+def store_pdf_and_get_url(pdf_bytes: bytes, filename: str) -> str:
+    key = normalized_key(f"fnol/{datetime.utcnow().strftime('%Y/%m/%d')}", filename)
+    return store_bytes_and_get_url(pdf_bytes, key, content_type="application/pdf")
+
+def sign_url_for_key(key: str, days:int=7) -> str:
+    provider = (settings.storage_provider or "").lower()
+    if provider == "s3":
+        return _s3_sign(key, days)
+    if provider == "gcs":
+        return _gcs_sign(key, days)
+    if provider == "azure":
+        return _az_sign(key, days)
+    raise RuntimeError("Storage provider not configured")
+
+def list_prefix(prefix: str) -> list[dict]:
+    provider = (settings.storage_provider or "").lower()
+    if provider == "s3":
+        return _s3_list(prefix)
+    if provider == "gcs":
+        return _gcs_list(prefix)
+    if provider == "azure":
+        return _az_list(prefix)
+    return []
+
+2) Inbound attachments: use normalized keys
+app/routers/email_inbound_sendgrid.py — replace the attachment loop
+# inside inbound_sendgrid after claim creation
+stored_links = []
+if attachments:
+    try:
+        from app.utils.storage import store_bytes_and_get_url, normalized_key
+        idx = 1
+        for key, val in form.multi_items():
+            if key.startswith("attachment"):
+                upf = val  # UploadFile
+                if hasattr(upf, "read"):
+                    data = await upf.read()
+                    safe_key = normalized_key(f"claims/{cl.id}/attachments", upf.filename or f"attachment_{idx}")
+                    url = store_bytes_and_get_url(
+                        data,
+                        key=safe_key,
+                        content_type=upf.content_type or "application/octet-stream"
+                    )
+                    stored_links.append(url)
+                    idx += 1
+    except Exception as e:
+        stored_links.append(f"(storage error: {str(e)[:80]})")
+
+3) Pure signer endpoint (no upload)
+app/routers/reports_admin.py — full router
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
+from app.core.db import SessionLocal
+from app.core.config import settings
+from app.utils.storage import list_prefix, sign_url_for_key
+
+router = APIRouter()
+
+def admin_guard(x_admin_token: str | None = Header(default=None, alias="Authorization")):
+    """
+    Expect: Authorization: Bearer <ADMIN_TOKEN>
+    """
+    if not settings.admin_token:
+        raise HTTPException(status_code=403, detail="Admin token not configured")
+    if not x_admin_token or not x_admin_token.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing Bearer token")
+    token = x_admin_token.split(" ", 1)[1].strip()
+    if token != settings.admin_token:
+        raise HTTPException(status_code=403, detail="Invalid admin token")
+    return True
+
+def get_db():
+    db = SessionLocal()
+    try: yield db
+    finally: db.close()
+
+@router.get("/reports/fnol/list")
+def list_fnol(_: bool = Depends(admin_guard)):
+    return {"items": list_prefix("fnol/")}
+
+@router.get("/reports/sign")
+def sign_key(key: str = Query(..., description="Exact storage key"), _: bool = Depends(admin_guard)):
+    return {"url": sign_url_for_key(key, days=7)}
+
+Wire it in app/main.py
+from app.routers import reports_admin
+app.include_router(reports_admin.router, prefix="/api", tags=["reports"])
+
+4) Admin UI: add Bearer token support
+web/admin/index.html — minimal auth-aware UI
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>S3 Admin — FNOL Archive</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50">
+  <div class="max-w-5xl mx-auto p-6 space-y-4">
+    <h1 class="text-2xl font-bold">FNOL Archive</h1>
+
+    <div class="bg-white rounded-xl shadow p-4 flex items-center gap-2">
+      <input id="token" class="border rounded px-2 py-1 w-full" placeholder="Paste ADMIN_TOKEN here">
+      <button id="save" class="px-3 py-1 bg-blue-600 text-white rounded">Save</button>
+    </div>
+
+    <div id="list" class="bg-white rounded-xl shadow p-4"></div>
+  </div>
+
+  <script>
+    const tEl = document.getElementById('token');
+    tEl.value = localStorage.getItem('ADMIN_TOKEN') || '';
+    document.getElementById('save').onclick = () => {
+      localStorage.setItem('ADMIN_TOKEN', tEl.value.trim());
+      load();
+    };
+
+    async function load(){
+      const token = localStorage.getItem('ADMIN_TOKEN') || '';
+      const hdr = token ? { 'Authorization': 'Bearer ' + token } : {};
+      const res = await fetch('/api/reports/fnol/list', { headers: hdr });
+      if(!res.ok){ document.getElementById('list').innerHTML = '<div class="text-red-600">Unauthorized</div>'; return; }
+      const data = await res.json();
+      const items = data.items || [];
+      let html = '<table class="w-full text-sm"><thead><tr class="text-left text-gray-500"><th class="py-2">Key</th><th>Size</th><th>Modified</th><th></th></tr></thead><tbody>';
+      for(const it of items){
+        html += `<tr class="border-t"><td class="py-2">${it.key}</td><td>${it.size ?? ''}</td><td>${it.last_modified ?? ''}</td>
+          <td><button class="dl px-3 py-1 rounded bg-blue-600 text-white" data-key="${it.key}">Get Link</button></td></tr>`;
+      }
+      html += '</tbody></table>';
+      const el = document.getElementById('list');
+      el.innerHTML = html;
+      el.querySelectorAll('.dl').forEach(btn=>{
+        btn.onclick = async () => {
+          const key = btn.getAttribute('data-key');
+          const token2 = localStorage.getItem('ADMIN_TOKEN') || '';
+          const r = await fetch(`/api/reports/sign?key=${encodeURIComponent(key)}`, { headers: { 'Authorization': 'Bearer ' + token2 }});
+          if(!r.ok){ alert('Sign failed'); return; }
+          const { url } = await r.json();
+          window.open(url, '_blank');
+        };
+      });
+    }
+    load();
+  </script>
+</body>
+</html>
+
+Quick test
+# 1) Set ADMIN_TOKEN and storage provider envs, then restart app
+export ADMIN_TOKEN=superlongrandomstring
+
+# 2) Open Admin UI
+/web/admin/index.html
+# paste the token, hit Save, list should load
+
+# 3) Sign a key directly (curl)
+curl -H "Authorization: Bearer superlongrandomstring" \
+  "http://localhost:8000/api/reports/sign?key=fnol/2025/11/03/FNOL_1.pdf"
