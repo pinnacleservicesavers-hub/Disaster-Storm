@@ -1,0 +1,150 @@
+Contractor Enrollment Portal (react, Tailwind)
+· typescript
+import React, { useMemo, useState } from "react";
+                      <img src={m.url} alt={m.name} className="w-full h-32 object-cover rounded-lg" />
+                    ) : (
+                      <video src={m.url} controls className="w-full h-32 object-cover rounded-lg" />
+                    )}
+                  </div>
+                  <div className="mt-2 flex items-center justify-between">
+                    <label className="text-xs flex items-center gap-2">
+                      <input type="checkbox" checked={m.public} onChange={(e) => setMedia((prev) => prev.map((x, i) => i === idx ? { ...x, public: e.target.checked } : x))} />
+                      Public on profile
+                    </label>
+                    <button type="button" className="text-xs text-red-600" onClick={() => setMedia((prev) => prev.filter((_, i) => i !== idx))}>Remove</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+
+        {/* Compliance Docs */}
+        <section className="p-4 rounded-2xl border shadow-sm">
+          <h2 className="text-lg font-semibold mb-4">Business Verification</h2>
+          <div className="grid md:grid-cols-3 gap-4">
+            <label className="block">
+              <span className="text-sm font-medium">Business License (PDF/Image)</span>
+              <input type="file" accept=".pdf,image/*" onChange={(e) => handleUploadSingle(e, setBusinessLicense)} className="mt-1 w-full" />
+              {businessLicense && (
+                <p className="text-xs mt-1 truncate">Uploaded: <a className="underline" href={businessLicense.url} target="_blank" rel="noreferrer">{businessLicense.name}</a></p>
+              )}
+            </label>
+            <label className="block">
+              <span className="text-sm font-medium">Insurance (PDF/Image)</span>
+              <input type="file" accept=".pdf,image/*" onChange={(e) => handleUploadSingle(e, setInsurance)} className="mt-1 w-full" />
+              {insurance && (
+                <p className="text-xs mt-1 truncate">Uploaded: <a className="underline" href={insurance.url} target="_blank" rel="noreferrer">{insurance.name}</a></p>
+              )}
+            </label>
+            <label className="block">
+              <span className="text-sm font-medium">Certifications (Multiple)</span>
+              <input type="file" accept=".pdf,image/*" multiple onChange={handleUploadCerts} className="mt-1 w-full" />
+              {certifications.length > 0 && (
+                <ul className="text-xs mt-1 space-y-1 max-h-20 overflow-auto">
+                  {certifications.map((c, i) => (
+                    <li key={i} className="truncate">• <a className="underline" href={c.url} target="_blank" rel="noreferrer">{c.name}</a></li>
+                  ))}
+                </ul>
+              )}
+            </label>
+          </div>
+          <p className="text-xs text-gray-600 mt-2">Verified documents significantly improve your ranking.</p>
+        </section>
+
+
+        {/* Reviews */}
+        <section className="p-4 rounded-2xl border shadow-sm">
+          <h2 className="text-lg font-semibold mb-4">Review & Social Links</h2>
+          <div className="grid md:grid-cols-3 gap-4">
+            <label className="block">
+              <span className="text-sm font-medium">Google Reviews link</span>
+              <input value={googleReviewLink} onChange={(e) => setGoogleReviewLink(e.target.value)} className="mt-1 w-full border rounded-lg px-3 py-2" placeholder="https://g.page/r/..." />
+              {!!googleReviewLink && !isURL(googleReviewLink) && <p className="text-xs text-red-600 mt-1">Enter a valid URL.</p>}
+            </label>
+            <label className="block">
+              <span className="text-sm font-medium">Social review page</span>
+              <input value={socialReviewLink} onChange={(e) => setSocialReviewLink(e.target.value)} className="mt-1 w-full border rounded-lg px-3 py-2" placeholder="https://facebook.com/yourpage/reviews" />
+              {!!socialReviewLink && !isURL(socialReviewLink) && <p className="text-xs text-red-600 mt-1">Enter a valid URL.</p>}
+            </label>
+            <label className="block">
+              <span className="text-sm font-medium">In‑app review link</span>
+              <input value={inAppReviewLink} onChange={(e) => setInAppReviewLink(e.target.value)} className="mt-1 w-full border rounded-lg px-3 py-2" placeholder="https://yourapp.com/review/acme" />
+              {!!inAppReviewLink && !isURL(inAppReviewLink) && <p className="text-xs text-red-600 mt-1">Enter a valid URL.</p>}
+            </label>
+          </div>
+          <p className="text-xs text-gray-600 mt-2">We’ll send these links to customers after service so they can leave reviews on Google, social, or directly in the app.</p>
+        </section>
+
+
+        <div className="flex items-center gap-3">
+          <button disabled={submitting} className="px-4 py-2 rounded-xl bg-blue-600 text-white shadow disabled:opacity-50">{submitting ? "Saving..." : "Save Profile"}</button>
+          {message && <span className="text-sm">{message}</span>}
+        </div>
+      </form>
+
+
+      {/* Developer helper — payload preview (for debugging) */}
+      {/* <pre className="mt-6 text-xs bg-gray-50 p-3 rounded-xl overflow-auto">{JSON.stringify({ companyName, owners, address, phone, email, website, media, businessLicense, insurance, certifications, googleReviewLink, socialReviewLink, inAppReviewLink, score, rank: rankLabel }, null, 2)}</pre> */}
+    </div>
+  );
+}
+
+
+
+I built you a contractor enrollment portal component that does exactly what you asked:
+
+Contractors can enter company name, owner names, address, phone, email, website.
+
+They can upload public-facing photos/videos for customers to view (with a visibility toggle).
+
+They can upload business license, insurance, and multiple certifications.
+
+There’s a live “Profile Score” that ranks them higher as they add: license, insurance, certifications, complete contact details, and review links.
+
+Fields to paste Google review link, a social review page (e.g., Facebook/Yelp), and an in-app review link (so customers can be texted/emailed a review page).
+
+Clean, modern UI styled with Tailwind; ready to drop into your Replit React app.
+
+Open the canvas on the right to see the full React code.
+
+How to use it in your app
+
+Make sure Tailwind is set up in your Replit project (Vite or Next.js).
+
+Create a route/page and import the component:
+
+import ContractorEnrollment from "./ContractorEnrollment";
+export default function Page() { return <ContractorEnrollment />; }
+
+
+Hook up the POST /api/contractors endpoint on your backend to save:
+
+companyName, owners[], address, phone, email, website
+
+media[] (public photos/videos)
+
+documents: businessLicense, insurance, certifications[]
+
+reviewLinks: google, social, inApp
+
+score (0–100) and rank (Bronze/Silver/Gold/Platinum)
+
+Minimal backend shape (example)
+
+If you’re using Node/Express, create /api/contractors to accept JSON and persist it (Prisma, Mongo, etc.). The component already fetches to that URL.
+
+Adjusting the ranking
+
+Inside the component there’s a SCORE_WEIGHTS object you can tweak:
+
+Business License: +15
+
+Insurance: +15
+
+Certifications: +10 (+ small bonus per extra)
+
+Contact details, website, media, and review links also add points.
+
+Rank bands: Bronze <40, Silver 40–59, Gold 60–79, Platinum 80–100 (editable).
