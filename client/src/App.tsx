@@ -30,6 +30,9 @@ const ZipStateAdmin = lazy(() => import("./pages/ZipStateAdmin").then(m => ({ de
 const BulkFillStates = lazy(() => import("./pages/BulkFillStates").then(m => ({ default: m.BulkFillStates })));
 const WelcomeTemplates = lazy(() => import("./pages/WelcomeTemplates").then(m => ({ default: m.WelcomeTemplates })));
 const SMTPSettings = lazy(() => import("./pages/SMTPSettings").then(m => ({ default: m.SMTPSettings })));
+const AuthStub = lazy(() => import("./pages/AuthStub"));
+const ContractorJobs = lazy(() => import("./pages/ContractorJobs"));
+const ContractorProfile = lazy(() => import("./pages/ContractorProfile"));
 
 // Top Navigation Header
 function TopNav() {
@@ -73,6 +76,7 @@ function TopNav() {
               >
                 <option value="ops">Operations</option>
                 <option value="field">Field</option>
+                <option value="contractor">Contractor</option>
                 <option value="admin">Admin</option>
               </select>
             </div>
@@ -162,6 +166,11 @@ export default function App() {
           <Route path="/admin/legal/welcome" element={<WelcomeTemplates />} />
           <Route path="/admin/jobs/fill-states" element={<BulkFillStates />} />
           <Route path="/admin/smtp" element={<SMTPSettings />} />
+          <Route path="/admin/auth-stub" element={<AuthStub />} />
+          
+          {/* Contractor Portal */}
+          <Route path="/contractor/jobs" element={<ContractorJobs />} />
+          <Route path="/contractor/profile" element={<ContractorProfile />} />
         </Routes>
       </Suspense>
     </>
