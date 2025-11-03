@@ -598,7 +598,8 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
     try {
       const jobs = await storage.getJobs();
       const map = await storage.getZipPrefixMap();
-      let filled = 0;
+      let updated = 0;
+      const details: Array<{ job_id: string; zip: string; new_state: string }> = [];
 
       for (const job of jobs) {
         if (job.state) continue; // Skip if already has state
@@ -620,12 +621,17 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
 
         if (guessedState) {
           await storage.updateJob(job.id, { state: guessedState });
-          filled++;
+          updated++;
+          details.push({
+            job_id: job.id,
+            zip: zip,
+            new_state: guessedState
+          });
           console.log(`✓ Auto-filled state ${guessedState} for job ${job.id} from ZIP ${zip}`);
         }
       }
 
-      res.json({ success: true, filled, total: jobs.length });
+      res.json({ updated, scanned: jobs.length, details });
     } catch (error) {
       console.error('Error bulk filling job states:', error);
       res.status(500).json({ error: 'Failed to bulk fill job states' });

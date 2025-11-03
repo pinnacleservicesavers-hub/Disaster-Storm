@@ -27,6 +27,7 @@ const XrayRealityModule = lazy(() => import("./modules/XrayRealityModule"));
 const HazardDashboard = lazy(() => import("./pages/HazardDashboard"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard").then(m => ({ default: m.AdminDashboard })));
 const ZipStateAdmin = lazy(() => import("./pages/ZipStateAdmin").then(m => ({ default: m.ZipStateAdmin })));
+const BulkFillStates = lazy(() => import("./pages/BulkFillStates").then(m => ({ default: m.BulkFillStates })));
 
 // Top Navigation Header
 function TopNav() {
@@ -156,6 +157,7 @@ export default function App() {
           <Route path="/hazard-dashboard" element={<HazardDashboard />} />
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/admin/legal/zipmap" element={<ZipStateAdmin />} />
+          <Route path="/admin/jobs/fill-states" element={<BulkFillStates />} />
         </Routes>
       </Suspense>
     </>
