@@ -6,6 +6,17 @@ Disaster Direct is a comprehensive storm operations and claims management platfo
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
+## Recent Implementations (November 3, 2025)
+- **✅ Production JWT Verification with JWKS**: Complete OIDC/JWKS verification system supporting Auth0, Clerk, and Supabase
+  - JWKS caching and refresh from identity provider
+  - Signature verification with RS/ES/PS algorithm support
+  - Enforcement toggle (ON = strict verification, OFF = dev mode)
+  - Admin configuration panel at `/admin/oidc`
+  - Automatic Bearer token injection in API client
+- **✅ Enhanced Auth System**: JWT-aware authentication with development and production modes
+- **✅ Admin OIDC Configuration**: Beautiful UI for managing issuer, audience, and JWKS
+- **✅ Security Middleware**: Request context extraction from verified JWT claims
+
 ## System Architecture
 
 ### UI/UX
