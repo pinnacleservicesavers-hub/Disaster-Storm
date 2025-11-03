@@ -1,8 +1,7 @@
-import { lazy, Suspense, useState, useEffect } from "react";
-import { Routes, Route, Navigate, Link, useLocation } from "react-router-dom";
-import { Zap, Home, Menu } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { lazy, Suspense } from "react";
+import { Routes, Route } from "react-router-dom";
 import ModuleGallery from "./pages/ModuleGallery";
+import TopNav from "./components/TopNav";
 
 // Lazy-load all 17 module pages
 const WeatherCenter = lazy(() => import("./modules/WeatherCenter"));
@@ -33,59 +32,7 @@ const SMTPSettings = lazy(() => import("./pages/SMTPSettings").then(m => ({ defa
 const AuthStub = lazy(() => import("./pages/AuthStub"));
 const ContractorJobs = lazy(() => import("./pages/ContractorJobs"));
 const ContractorProfile = lazy(() => import("./pages/ContractorProfile"));
-
-// Top Navigation Header
-function TopNav() {
-  const [role, setRole] = useState(localStorage.getItem('role') || 'ops');
-  const location = useLocation();
-  
-  useEffect(() => {
-    localStorage.setItem('role', role);
-  }, [role]);
-
-  return (
-    <nav className="bg-gradient-to-r from-blue-900 via-purple-900 to-blue-900 text-white shadow-lg border-b border-white/20 sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          {/* Logo and Brand */}
-          <div className="flex items-center space-x-4">
-            <Link to="/" className="flex items-center space-x-2">
-              <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
-                <Zap className="w-6 h-6 text-yellow-300" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold tracking-tight">
-                  Disaster Direct
-                </h1>
-                <p className="text-xs text-white/80 hidden sm:block">
-                  Storm Operations Platform
-                </p>
-              </div>
-            </Link>
-          </div>
-
-          {/* Right Side - Role Selector */}
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-white/90">Active Role:</span>
-              <select 
-                className="border rounded-md px-3 py-1.5 text-sm bg-white text-gray-900 font-medium" 
-                value={role} 
-                onChange={(e) => setRole(e.target.value)}
-                data-testid="role-selector"
-              >
-                <option value="ops">Operations</option>
-                <option value="field">Field</option>
-                <option value="contractor">Contractor</option>
-                <option value="admin">Admin</option>
-              </select>
-            </div>
-          </div>
-        </div>
-      </div>
-    </nav>
-  );
-}
+const HomeownerPortal = lazy(() => import("./pages/HomeownerPortal"));
 
 // Loading indicator
 function Loader() {
@@ -171,6 +118,9 @@ export default function App() {
           {/* Contractor Portal */}
           <Route path="/contractor/jobs" element={<ContractorJobs />} />
           <Route path="/contractor/profile" element={<ContractorProfile />} />
+          
+          {/* Homeowner Portal */}
+          <Route path="/homeowner" element={<HomeownerPortal />} />
         </Routes>
       </Suspense>
     </>
