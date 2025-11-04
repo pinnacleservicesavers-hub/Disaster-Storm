@@ -1,0 +1,55 @@
+import React, { useState } from 'react';
+import { MapContainer, TileLayer, Marker, Circle } from 'react-leaflet';
+
+
+export default function PublicSearchMap(){
+const [lat,setLat] = useState(32.7767);
+const [lng,setLng] = useState(-96.7970);
+const [radiusKm,setRadiusKm] = useState(25);
+const [trade,setTrade] = useState('');
+const [rows,setRows] = useState<any[]>([]);
+
+
+async function search(){
+const p = new URLSearchParams({ lat:String(lat), lng:String(lng), radius_km:String(radiusKm) });
+if (trade) p.set('trade', trade);
+const r = await fetch(`/api/search/radius?${p.toString()}`);
+setRows(await r.json());
+}
+
+
+return (
+<div className="grid md:grid-cols-3 gap-4">
+<div className="md:col-span-2">
+<div className="w-full h-96 rounded-xl overflow-hidden border">
+<MapContainer center={[lat,lng]} zoom={10} style={{ height:'100%', width:'100%' }}>
+<TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+<Marker position={[lat,lng]} />
+<Circle center={[lat,lng]} radius={radiusKm*1000} />
+{rows.map((r:any,i:number)=> (
+<Marker key={i} position={[r.lat || lat, r.lng || lng]} />
+))}
+</MapContainer>
+</div>
+</div>
+<div>
+<div className="space-y-2 mb-3">
+<input className="w-full border rounded-lg px-3 py-2" placeholder="Latitude" value={lat} onChange={e=>setLat(Number(e.target.value))} />
+<input className="w-full border rounded-lg px-3 py-2" placeholder="Longitude" value={lng} onChange={e=>setLng(Number(e.target.value))} />
+<input className="w-full border rounded-lg px-3 py-2" placeholder="Trade (optional)" value={trade} onChange={e=>setTrade(e.target.value)} />
+<input type="number" className="w-full border rounded-lg px-3 py-2" placeholder="Radius (km)" value={radiusKm} onChange={e=>setRadiusKm(Number(e.target.value))} />
+<button onClick={search} className="px-4 py-2 rounded-xl bg-blue-600 text-white w-full">Search</button>
+</div>
+<div className="space-y-2 max-h-80 overflow-auto">
+{rows.map((r:any)=>(
+<a key={r.slug} href={`/c/${r.slug}`} className="block border rounded-lg p-2 hover:shadow">
+<div className="font-semibold">{r.company_name}</div>
+<div className="text-sm text-gray-600">{r.address}</div>
+<div className="text-sm">Score {r.score} · {r.distance_km?.toFixed?.(1)} km</div>
+</a>
+))}
+</div>
+</div>
+</div>
+);
+}
