@@ -1,0 +1,76 @@
+import Stripe from 'stripe';
+metadata: { planId, supabase_uid: user.id }
+});
+res.json({ ok:true, url: session.url });
+} catch (e){ res.status(400).json({ ok:false, error: e.message }); }
+});
+
+
+// Create a customer portal session for managing subscription
+router.post('/portal', async (req, res) => {
+try {
+const { customerId } = req.body;
+const session = await stripe.billingPortal.sessions.create({ customer: customerId, return_url: `${publicBaseUrl}/dashboard` });
+res.json({ ok:true, url: session.url });
+} catch (e){ res.status(400).json({ ok:false, error: e.message }); }
+});
+
+
+// Webhook to grant entitlements
+router.post('/webhook', require('body-parser').raw({ type: 'application/json' }), async (req, res) => {
+let event;
+try {
+event = stripe.webhooks.constructEvent(req.body, req.headers['stripe-signature'], process.env.STRIPE_WEBHOOK_SECRET);
+} catch (err) {
+return res.status(400).send(`Webhook Error: ${err.message}`);
+}
+
+
+try {
+switch (event.type) {
+case 'checkout.session.completed': {
+const cs = event.data.object;
+const planId = cs.metadata?.planId;
+const uid = cs.metadata?.supabase_uid;
+// Map plan → entitlements
+const { data: plan } = await admin.from('plans').select('*').eq('id', planId).single();
+if (!plan || !uid) break;
+// attach to contractor row
+await admin.from('contractors').update({
+plan_id: plan.id,
+plan_status: plan.interval === 'one_time' ? 'active' : 'active',
+current_period_end: plan.interval === 'one_time' ? null : new Date(Date.now() + (plan.interval==='month'? 30:365)*24*3600*1000).toISOString(),
+review_sends_used: 0
+}).eq('user_id', uid);
+break;
+}
+case 'customer.subscription.updated':
+case 'customer.subscription.created': {
+const sub = event.data.object;
+const planId = sub.items.data[0]?.price?.id === process.env.PRICE_PRO ? 'pro' : 'pro_annual';
+const uid = sub.metadata?.supabase_uid || sub.metadata?.uid; // if you set it on subscription
+const { data: plan } = await admin.from('plans').select('*').eq('id', planId).single();
+if (!plan || !uid) break;
+await admin.from('contractors').update({
+plan_id: plan.id,
+plan_status: sub.status,
+current_period_end: new Date(sub.current_period_end * 1000).toISOString()
+}).eq('user_id', uid);
+break;
+}
+case 'invoice.payment_failed': {
+const sub = event.data.object.subscription;
+// Optional: look up the supabase uid from subscription metadata using Stripe API
+break;
+}
+}
+res.json({ received: true });
+} catch (e) {
+console.error(e);
+res.status(500).send('Webhook handler failed');
+}
+});
+
+
+return router;
+}
