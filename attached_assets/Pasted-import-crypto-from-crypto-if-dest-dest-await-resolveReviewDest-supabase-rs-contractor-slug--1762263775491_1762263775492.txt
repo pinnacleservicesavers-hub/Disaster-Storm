@@ -1,0 +1,83 @@
+import crypto from 'crypto';
+if (!dest) dest = await resolveReviewDest(supabase, rs.contractor_slug);
+if (!dest) return res.status(400).send('Destination not configured');
+
+
+res.redirect(dest);
+} catch (e){
+res.status(500).send('Error');
+}
+});
+
+
+// Update badges + authoritative score on save (extend your /api/contractors endpoint)
+async function computeBadgesAndScore(payload){
+const badges = {
+licenseVerified: !!payload.documents?.businessLicense,
+insuranceVerified: !!payload.documents?.insurance,
+certsCount: (payload.documents?.certifications?.length||0)
+};
+const score = (function(){
+let s = 0;
+if (payload.companyName) s += 5;
+if (payload.owners?.length) s += 5 + Math.max(0,(payload.owners.length-1)*2);
+if (payload.address) s += 5;
+if (payload.phone) s += 5;
+if (payload.email) s += 5;
+if (payload.website) s += 4;
+const mediaCount = Math.min((payload.media||[]).filter(m=>m.public).length,5);
+if (mediaCount) s += 4 + (mediaCount-1)*2;
+if (badges.licenseVerified) s += 18; // small boost for verified
+if (badges.insuranceVerified) s += 18;
+if (badges.certsCount) s += 12 + (badges.certsCount-1)*2;
+const reviewCount = ['google','social','inApp'].filter(k=> payload.reviewLinks?.[k]).length;
+if (reviewCount) s += 8 + (reviewCount-1)*2;
+// Trades + service areas small boosts
+if (payload.trades?.length) s += Math.min(10, payload.trades.length*2);
+if (payload.serviceAreas?.length) s += Math.min(10, payload.serviceAreas.length*1);
+return Math.min(100, s);
+})();
+const rank = score>=85?'Platinum': score>=65?'Gold': score>=45?'Silver':'Bronze';
+return { badges, score, rank };
+}
+
+
+// Extend your existing save route to accept trades/serviceAreas and badges
+// ... inside your POST /api/contractors handler after validating input:
+// const { badges, score, rank } = await computeBadgesAndScore(input);
+// upsert with fields: trades: input.trades, service_areas: input.serviceAreas, badges, score, rank
+
+
+// Search with filters
+app.get('/api/search', async (req, res) => {
+const { q = '', trade, area, state, minScore, hasLicense, hasInsurance } = req.query;
+let query = supabase.from('public_contractors').select('*');
+// We'll filter using RPC or basic client filters; for advanced use PostgREST filters
+// Start with score sort desc
+query = query.order('score', { ascending: false });
+
+
+// Text filter (company or address contains q)
+// Can't do ilike on views with postgrest-js chain easily; instead, fetch and filter in memory for simplicity (or switch to RPC)
+const { data, error } = await query;
+if (error) return res.status(400).json({ ok:false, error: error.message });
+
+
+// Fetch badges/trades/areas per contractor (small N recommended)
+// For simplicity, re-query contractors and merge; for production, expose another view including badges/trades/service_areas
+const { data: full } = await supabase.from('contractors').select('slug, trades, service_areas, badges');
+const fullMap = new Map(full?.map(x => [x.slug, x]));
+
+
+let out = data || [];
+if (q) out = out.filter(r => (r.company_name||r.companyName||'').toLowerCase().includes(String(q).toLowerCase()) || (r.address||'').toLowerCase().includes(String(q).toLowerCase()));
+if (trade) out = out.filter(r => (fullMap.get(r.slug)?.trades||[]).includes(String(trade)));
+if (area) out = out.filter(r => (fullMap.get(r.slug)?.service_areas||[]).some(a => a.toLowerCase().includes(String(area).toLowerCase())));
+if (state) out = out.filter(r => (r.address||'').includes(`, ${String(state)}`));
+if (minScore) out = out.filter(r => (r.score||0) >= Number(minScore));
+if (hasLicense === 'true') out = out.filter(r => fullMap.get(r.slug)?.badges?.licenseVerified);
+if (hasInsurance === 'true') out = out.filter(r => fullMap.get(r.slug)?.badges?.insuranceVerified);
+
+
+res.json(out);
+});
