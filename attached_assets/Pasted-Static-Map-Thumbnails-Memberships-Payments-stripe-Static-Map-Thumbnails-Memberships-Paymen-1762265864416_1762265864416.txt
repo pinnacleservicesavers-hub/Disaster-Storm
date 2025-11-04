@@ -1,0 +1,74 @@
+Static Map Thumbnails + Memberships & Payments (stripe)
+Static Map Thumbnails + Memberships & Payments (Stripe)
+
+This pack adds:
+
+Static map thumbnails in search cards (no heavy JS). Uses a server proxy to Mapbox Static.
+
+Memberships & payments with Stripe (one‑time “Starter” and recurring “Pro/Pro‑Annual”), entitlements, webhooks, and customer portal.
+
+Ranking boosts & quotas tied to plan.
+
+Works with your Supabase + Express stack.
+
+1) DB: memberships + plan fields
+
+Run in Supabase SQL editor:
+
+-- Plans table (source of truth for entitlements)
+create table if not exists public.plans (
+  id text primary key,                 -- 'starter', 'pro', 'pro_annual'
+  name text not null,
+  price_cents int not null,
+  interval text not null,              -- 'one_time' | 'month' | 'year'
+  score_boost int not null default 0,  -- added to computed score (capped to 100)
+  review_quota int not null default 50 -- monthly SMS/email review sends included
+);
+
+
+insert into public.plans (id, name, price_cents, interval, score_boost, review_quota)
+values
+  ('starter','Starter (One‑time)', 14900, 'one_time', 5, 50),
+  ('pro','Pro (Monthly)', 6900, 'month', 10, 250),
+  ('pro_annual','Pro (Annual)', 69000, 'year', 12, 300)
+  on conflict (id) do nothing;
+
+
+-- Contractor membership state
+alter table public.contractors
+  add column if not exists plan_id text references public.plans(id),
+  add column if not exists plan_status text,             -- 'active'|'trialing'|'past_due'|'canceled'|null
+  add column if not exists current_period_end timestamptz,
+  add column if not exists review_sends_used int not null default 0;
+
+
+-- Optional: monthly reset function for quotas
+create or replace function public.reset_review_quota_monthly()
+returns void language plpgsql as $$
+begin
+  update public.contractors set review_sends_used = 0 where true;
+end; $$;
+
+You can run the reset via a Supabase Scheduled Function monthly.
+
+2) Stripe products/prices
+
+In the Stripe Dashboard create:
+
+Product: Starter (price type: one‑time, amount $149)
+
+Product: Pro (price type: recurring monthly, $69)
+
+Product: Pro Annual (price type: recurring yearly, $690)
+
+Copy each price ID (e.g., price_123).
+
+Add to server .env:
+
+STRIPE_SECRET=sk_live_or_test
+STRIPE_WEBHOOK_SECRET=whsec_xxx
+PRICE_STARTER=price_...
+PRICE_PRO=price_...
+PRICE_PRO_ANNUAL=price_...
+PUBLIC_BASE_URL=https://your-repl-url
+3) Server

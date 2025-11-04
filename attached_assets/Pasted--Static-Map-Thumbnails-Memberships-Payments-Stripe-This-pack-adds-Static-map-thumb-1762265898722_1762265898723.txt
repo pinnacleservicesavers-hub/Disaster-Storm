@@ -1,0 +1,143 @@
+# Static Map Thumbnails + Memberships & Payments (Stripe)
+
+This pack adds:
+
+* **Static map thumbnails** in search cards (no heavy JS). Uses a server proxy to Mapbox Static.
+* **Memberships & payments** with Stripe (one‑time “Starter” and recurring “Pro/Pro‑Annual”), entitlements, webhooks, and customer portal.
+* **Ranking boosts & quotas** tied to plan.
+
+Works with your Supabase + Express stack.
+
+---
+
+## 1) DB: memberships + plan fields
+
+Run in Supabase SQL editor:
+
+```sql
+-- Plans table (source of truth for entitlements)
+create table if not exists public.plans (
+  id text primary key,                 -- 'starter', 'pro', 'pro_annual'
+  name text not null,
+  price_cents int not null,
+  interval text not null,              -- 'one_time' | 'month' | 'year'
+  score_boost int not null default 0,  -- added to computed score (capped to 100)
+  review_quota int not null default 50 -- monthly SMS/email review sends included
+);
+
+insert into public.plans (id, name, price_cents, interval, score_boost, review_quota)
+values
+  ('starter','Starter (One‑time)', 14900, 'one_time', 5, 50),
+  ('pro','Pro (Monthly)', 6900, 'month', 10, 250),
+  ('pro_annual','Pro (Annual)', 69000, 'year', 12, 300)
+  on conflict (id) do nothing;
+
+-- Contractor membership state
+alter table public.contractors
+  add column if not exists plan_id text references public.plans(id),
+  add column if not exists plan_status text,             -- 'active'|'trialing'|'past_due'|'canceled'|null
+  add column if not exists current_period_end timestamptz,
+  add column if not exists review_sends_used int not null default 0;
+
+-- Optional: monthly reset function for quotas
+create or replace function public.reset_review_quota_monthly()
+returns void language plpgsql as $$
+begin
+  update public.contractors set review_sends_used = 0 where true;
+end; $$;
+```
+
+> You can run the reset via a Supabase **Scheduled Function** monthly.
+
+---
+
+## 2) Stripe products/prices
+
+In the Stripe Dashboard create:
+
+* **Product**: Starter (price type: one‑time, amount $149)
+* **Product**: Pro (price type: recurring monthly, $69)
+* **Product**: Pro Annual (price type: recurring yearly, $690)
+
+Copy each **price ID** (e.g., `price_123`).
+
+Add to server `.env`:
+
+```env
+STRIPE_SECRET=sk_live_or_test
+STRIPE_WEBHOOK_SECRET=whsec_xxx
+PRICE_STARTER=price_...
+PRICE_PRO=price_...
+PRICE_PRO_ANNUAL=price_...
+PUBLIC_BASE_URL=https://your-repl-url
+```
+
+---
+
+## 3) Server: billing endpoints + webhook
+
+`server/billing.js`
+
+```js
+import Stripe from 'stripe';
+import { createClient } from '@supabase/supabase-js';
+
+export function billingRouter({ supabaseUrl, serviceRole, publicBaseUrl }){
+  const router = require('express').Router();
+  const stripe = new Stripe(process.env.STRIPE_SECRET, { apiVersion: '2024-06-20' });
+  const admin = createClient(supabaseUrl, serviceRole, { auth: { autoRefreshToken:false, persistSession:false } });
+
+  async function getUser(req){
+    const header = req.headers.authorization || '';
+    const token = header.startsWith('Bearer ') ? header.slice(7) : null;
+    if (!token) return null;
+    const { data } = await admin.auth.getUser(token);
+    return data?.user || null;
+  }
+
+  // Start checkout for a plan
+  router.post('/checkout', async (req, res) => {
+    try {
+      const user = await getUser(req);
+      if (!user) return res.status(401).json({ ok:false, error:'Unauthorized' });
+      const { planId } = req.body; // 'starter' | 'pro' | 'pro_annual'
+      const price = planId==='starter'? process.env.PRICE_STARTER : planId==='pro'? process.env.PRICE_PRO : process.env.PRICE_PRO_ANNUAL;
+      if (!price) return res.status(400).json({ ok:false, error:'Invalid plan' });
+
+      // Create Checkout Session
+      const session = await stripe.checkout.sessions.create({
+        mode: planId==='starter' ? 'payment' : 'subscription',
+        line_items: [{ price, quantity:1 }],
+        success_url: `${publicBaseUrl}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${publicBaseUrl}/billing/cancel`,
+        metadata: { planId, supabase_uid: user.id }
+      });
+      res.json({ ok:true, url: session.url });
+    } catch (e){ res.status(400).json({ ok:false, error: e.message }); }
+  });
+
+  // Create a customer portal session for managing subscription
+  router.post('/portal', async (req, res) => {
+    try {
+      const { customerId } = req.body;
+      const session = await stripe.billingPortal.sessions.create({ customer: customerId, return_url: `${publicBaseUrl}/dashboard` });
+      res.json({ ok:true, url: session.url });
+    } catch (e){ res.status(400).json({ ok:false, error: e.message }); }
+  });
+
+  // Webhook to grant entitlements
+  router.post('/webhook', require('body-parser').raw({ type: 'application/json' }), async (req, res) => {
+    let event;
+    try {
+      event = stripe.webhooks.constructEvent(req.body, req.headers['stripe-signature'], process.env.STRIPE_WEBHOOK_SECRET);
+    } catch (err) {
+      return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+
+    try {
+      switch (event.type) {
+        case 'checkout.session.completed': {
+          const cs = event.data.object;
+          const planId = cs.metadata?.planId;
+          const uid = cs.metadata?.supabase
+```
