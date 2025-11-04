@@ -1,0 +1,66 @@
+// src/BillingSection.tsx
+}
+
+
+function pct(used:number, quota:number){ return Math.min(100, Math.round((used/Math.max(1,quota))*100)); }
+
+
+export default function BillingSection(){
+const [status, setStatus] = useState<{ planId:string|null; planStatus:string|null; used:number; quota:number }|null>(null);
+const [loading, setLoading] = useState(true);
+const [msg, setMsg] = useState<string|undefined>();
+
+
+async function load(){
+setLoading(true); setMsg(undefined);
+const j = await api('/api/billing/status');
+if (j.ok === false) setMsg(j.error); else setStatus(j);
+setLoading(false);
+}
+useEffect(()=>{ load(); }, []);
+
+
+async function goCheckout(planId:'starter'|'pro'|'pro_annual'){
+const j = await api('/api/billing/checkout', { planId });
+if (j.ok && j.url) window.location.href = j.url; else setMsg(j.error || 'Checkout error');
+}
+
+
+async function openPortal(){
+// If you store Stripe customer id, pass it; otherwise stripe can email portal link
+const j = await api('/api/billing/portal', { customerId: undefined });
+if (j.ok && j.url) window.location.href = j.url; else setMsg(j.error || 'Portal error');
+}
+
+
+if (loading) return <div className="p-4 border rounded-2xl">Loading billing…</div>;
+
+
+const plan = status?.planId || 'free';
+const bar = pct(status?.used||0, status?.quota||1);
+
+
+return (
+<div className="p-4 border rounded-2xl">
+<div className="flex items-start justify-between gap-4">
+<div>
+<div className="text-xl font-semibold">Membership</div>
+<div className="text-sm text-gray-600">Plan: <span className="font-medium uppercase">{plan}</span> · Status: {status?.planStatus || '—'}</div>
+<div className="mt-3">
+<div className="text-sm">Review sends this period: {status?.used}/{status?.quota}</div>
+<div className="w-64 h-2 bg-gray-200 rounded-full overflow-hidden mt-1">
+<div className="h-2 bg-blue-600" style={{ width: `${bar}%` }} />
+</div>
+</div>
+</div>
+<div className="space-y-2">
+<button onClick={()=>goCheckout('starter')} className="px-4 py-2 rounded-xl border">Buy Starter</button>
+<button onClick={()=>goCheckout('pro')} className="px-4 py-2 rounded-xl border">Subscribe Pro</button>
+<button onClick={()=>goCheckout('pro_annual')} className="px-4 py-2 rounded-xl border">Subscribe Annual</button>
+<button onClick={openPortal} className="px-4 py-2 rounded-xl bg-blue-600 text-white w-full">Manage Billing</button>
+</div>
+</div>
+{msg && <p className="text-sm mt-2 text-red-600">{msg}</p>}
+</div>
+);
+}
