@@ -285,10 +285,10 @@ export default function ContractorManagement() {
 
   const getJobPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'urgent': return 'border-red-500 bg-red-50 dark:bg-red-900/20';
-      case 'high': return 'border-orange-500 bg-orange-50 dark:bg-orange-900/20';
-      case 'medium': return 'border-blue-500 bg-blue-50 dark:bg-blue-900/20';
-      case 'low': return 'border-green-500 bg-green-50 dark:bg-green-900/20';
+      case 'urgent': return 'border-[hsl(0,84%,60%)] bg-[hsl(0,84%,60%)]/10 dark:bg-[hsl(0,84%,60%)]/20';
+      case 'high': return 'border-[hsl(25,95%,53%)] bg-[hsl(25,95%,53%)]/10 dark:bg-[hsl(25,95%,53%)]/20';
+      case 'medium': return 'border-[hsl(217,71%,53%)] bg-[hsl(217,71%,53%)]/10 dark:bg-[hsl(217,71%,53%)]/20';
+      case 'low': return 'border-[hsl(142,76%,36%)] bg-[hsl(142,76%,36%)]/10 dark:bg-[hsl(142,76%,36%)]/20';
       default: return 'border-gray-500 bg-gray-50 dark:bg-gray-900/20';
     }
   };
@@ -304,19 +304,20 @@ export default function ContractorManagement() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Link href="/">
-          <motion.button
-            whileHover={{ scale: 1.05, x: -2 }}
-            whileTap={{ scale: 0.95 }}
-            className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200"
-            data-testid="button-back-to-hub"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span className="text-sm font-medium">Back to Hub</span>
-          </motion.button>
-        </Link>
+    <div className="min-h-screen bg-gradient-to-br from-[hsl(217,91%,15%)] via-[hsl(217,91%,25%)] to-[hsl(215,25%,25%)] dark:from-[hsl(217,91%,10%)] dark:via-[hsl(217,91%,20%)] dark:to-[hsl(215,25%,20%)]">
+      <div className="container mx-auto px-4 py-6 space-y-6">
+        <div className="flex items-center gap-4">
+          <Link href="/">
+            <motion.button
+              whileHover={{ scale: 1.05, x: -2 }}
+              whileTap={{ scale: 0.95 }}
+              className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200"
+              data-testid="button-back-to-hub"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span className="text-sm font-medium">Back to Hub</span>
+            </motion.button>
+          </Link>
         <StateCitySelector
           selectedState={selectedState}
           selectedCity={selectedCity}
@@ -480,12 +481,12 @@ export default function ContractorManagement() {
               <StaggerItem key={contractor.id}>
                 <HoverLift>
                   <Card className="relative overflow-hidden">
-                    <div className="absolute inset-0 bg-gradient-to-r from-blue-50/30 to-indigo-50/30 dark:from-blue-900/10 dark:to-indigo-900/10" />
+                    <div className="absolute inset-0 bg-gradient-to-r from-[hsl(217,71%,53%)]/10 to-[hsl(217,91%,35%)]/10 dark:from-[hsl(217,71%,53%)]/10 dark:to-[hsl(217,91%,35%)]/10" />
                     <CardContent className="relative p-4">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-4">
                           <div className="relative">
-                            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
+                            <div className="w-12 h-12 bg-gradient-to-br from-[hsl(217,71%,53%)] to-[hsl(217,91%,35%)] rounded-full flex items-center justify-center text-white font-bold text-lg">
                               {contractor.name.charAt(0)}
                             </div>
                             <motion.div
@@ -547,7 +548,7 @@ export default function ContractorManagement() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center">
-              <Shield className="w-5 w-5 mr-2 text-green-600" />
+              <Shield className="w-5 w-5 mr-2 text-[hsl(142,76%,36%)]" />
               Compliance Dashboard
             </CardTitle>
           </CardHeader>
@@ -565,9 +566,9 @@ export default function ContractorManagement() {
                     animate={item.status === 'warning' ? { scale: [1, 1.2, 1] } : {}}
                     transition={{ duration: 2, repeat: Infinity }}
                   >
-                    <item.icon className={`w-4 h-4 ${item.status === 'good' ? 'text-green-600' : 'text-amber-600'}`} />
+                    <item.icon className={`w-4 h-4 ${item.status === 'good' ? 'text-[hsl(142,76%,36%)]' : 'text-[hsl(25,95%,53%)]'}`} />
                   </motion.div>
-                  <span className={`text-sm font-medium ${item.status === 'good' ? 'text-green-600' : 'text-amber-600'}`}>
+                  <span className={`text-sm font-medium ${item.status === 'good' ? 'text-[hsl(142,76%,36%)]' : 'text-[hsl(25,95%,53%)]'}`}>
                     {item.value}%
                   </span>
                 </div>
@@ -579,7 +580,7 @@ export default function ContractorManagement() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center">
-              <TrendingUp className="w-5 h-5 mr-2 text-blue-600" />
+              <TrendingUp className="w-5 h-5 mr-2 text-[hsl(217,71%,53%)]" />
               Performance Metrics
             </CardTitle>
           </CardHeader>
@@ -927,7 +928,7 @@ export default function ContractorManagement() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center">
-                  <TrendingUp className="w-5 h-5 mr-2 text-blue-600" />
+                  <TrendingUp className="w-5 h-5 mr-2 text-[hsl(217,71%,53%)]" />
                   Performance Trends
                 </CardTitle>
               </CardHeader>
@@ -1407,7 +1408,7 @@ export default function ContractorManagement() {
                 <button
                   type="submit"
                   disabled={addContractorMutation.isPending}
-                  className="flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:opacity-50"
+                  className="flex-1 bg-[hsl(217,71%,53%)] text-white py-2 rounded hover:bg-[hsl(217,71%,43%)] disabled:opacity-50"
                   data-testid="button-submit-contractor"
                 >
                   {addContractorMutation.isPending ? 'Adding...' : 'Add Contractor'}
@@ -1425,8 +1426,9 @@ export default function ContractorManagement() {
           </div>
         </div>
       )}
-    </DashboardSection>
-      <ModuleAIAssistant moduleName="Contractor Management" />
+      </DashboardSection>
+        <ModuleAIAssistant moduleName="Contractor Management" />
+      </div>
     </div>
   );
 }
