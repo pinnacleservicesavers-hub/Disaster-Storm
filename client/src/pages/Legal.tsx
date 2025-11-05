@@ -79,10 +79,10 @@ export default function Legal() {
 
   const getTypeColor = (type: string) => {
     switch (type) {
-      case 'contract': return 'bg-blue-500';
-      case 'lien': return 'bg-red-500';
-      case 'license': return 'bg-green-500';
-      case 'compliance': return 'bg-purple-500';
+      case 'contract': return 'bg-[hsl(217,71%,53%)]';
+      case 'lien': return 'bg-[hsl(0,84%,60%)]';
+      case 'license': return 'bg-[hsl(142,76%,36%)]';
+      case 'compliance': return 'bg-[hsl(282,71%,53%)]';
       default: return 'bg-gray-500';
     }
   };
@@ -170,11 +170,11 @@ export default function Legal() {
   };
 
   const getPriorityColor = (priority: string, daysRemaining: number) => {
-    if (daysRemaining <= 3) return 'border-red-500 bg-red-50 dark:bg-red-900/20';
-    if (priority === 'critical') return 'border-red-400 bg-red-50 dark:bg-red-900/20';
-    if (priority === 'high') return 'border-orange-400 bg-orange-50 dark:bg-orange-900/20';
-    if (priority === 'medium') return 'border-yellow-400 bg-yellow-50 dark:bg-yellow-900/20';
-    return 'border-green-400 bg-green-50 dark:bg-green-900/20';
+    if (daysRemaining <= 3) return 'border-[hsl(0,84%,60%)] bg-[hsl(0,84%,60%)]/10 dark:bg-[hsl(0,84%,60%)]/20';
+    if (priority === 'critical') return 'border-[hsl(0,84%,60%)] bg-[hsl(0,84%,60%)]/10 dark:bg-[hsl(0,84%,60%)]/20';
+    if (priority === 'high') return 'border-[hsl(25,95%,53%)] bg-[hsl(25,95%,53%)]/10 dark:bg-[hsl(25,95%,53%)]/20';
+    if (priority === 'medium') return 'border-[hsl(45,95%,53%)] bg-[hsl(45,95%,53%)]/10 dark:bg-[hsl(45,95%,53%)]/20';
+    return 'border-[hsl(142,76%,36%)] bg-[hsl(142,76%,36%)]/10 dark:bg-[hsl(142,76%,36%)]/20';
   };
 
   const getStatusBadge = (status: string) => {
@@ -194,19 +194,20 @@ export default function Legal() {
   const complianceRate = 98.7; // Mock compliance rate
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Link href="/">
-          <motion.button
-            whileHover={{ scale: 1.05, x: -2 }}
-            whileTap={{ scale: 0.95 }}
-            className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200"
-            data-testid="button-back-to-hub"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span className="text-sm font-medium">Back to Hub</span>
-          </motion.button>
-        </Link>
+    <div className="min-h-screen bg-gradient-to-br from-[hsl(217,91%,15%)] via-[hsl(217,91%,25%)] to-[hsl(215,25%,25%)] dark:from-[hsl(217,91%,10%)] dark:via-[hsl(217,91%,20%)] dark:to-[hsl(215,25%,20%)]">
+      <div className="container mx-auto px-4 py-6 space-y-6">
+        <div className="flex items-center gap-4">
+          <Link href="/">
+            <motion.button
+              whileHover={{ scale: 1.05, x: -2 }}
+              whileTap={{ scale: 0.95 }}
+              className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200"
+              data-testid="button-back-to-hub"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span className="text-sm font-medium">Back to Hub</span>
+            </motion.button>
+          </Link>
         <StateCitySelector
           selectedState={selectedState}
           selectedCity={selectedCity}
@@ -247,12 +248,12 @@ export default function Legal() {
       {/* Critical Deadline Timeline */}
       <div className="mb-8">
         <h3 className="text-xl font-semibold mb-4 flex items-center">
-          <AlertTriangle className="h-5 w-5 text-red-500 mr-2" />
+          <AlertTriangle className="h-5 w-5 text-[hsl(0,84%,60%)] mr-2" />
           Critical Deadline Timeline
           <motion.div
             animate={{ scale: [1, 1.3, 1] }}
             transition={{ duration: 1.5, repeat: Infinity }}
-            className="ml-2 h-2 w-2 bg-red-500 rounded-full"
+            className="ml-2 h-2 w-2 bg-[hsl(0,84%,60%)] rounded-full"
           />
         </h3>
         
@@ -544,9 +545,10 @@ export default function Legal() {
             </Card>
           </div>
         </div>
+        </div>
+      </DashboardSection>
+        <ModuleAIAssistant moduleName="Legal" />
       </div>
-    </DashboardSection>
-      <ModuleAIAssistant moduleName="Legal" />
     </div>
   );
 }
