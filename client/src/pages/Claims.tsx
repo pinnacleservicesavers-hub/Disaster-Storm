@@ -350,19 +350,19 @@ Current Notes: ${newClaim.notes || 'None yet'}
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'urgent': return 'text-red-600';
-      case 'high': return 'text-orange-600';
-      case 'medium': return 'text-blue-600';
-      case 'low': return 'text-green-600';
+      case 'urgent': return 'text-[hsl(0,84%,60%)]';
+      case 'high': return 'text-[hsl(25,95%,53%)]';
+      case 'medium': return 'text-[hsl(217,71%,53%)]';
+      case 'low': return 'text-[hsl(142,76%,36%)]';
       default: return 'text-gray-600';
     }
   };
 
   const getProgressColor = (progress: number) => {
-    if (progress >= 90) return 'bg-green-500';
-    if (progress >= 70) return 'bg-blue-500';
-    if (progress >= 50) return 'bg-yellow-500';
-    return 'bg-red-500';
+    if (progress >= 90) return 'bg-[hsl(142,76%,36%)]';
+    if (progress >= 70) return 'bg-[hsl(217,71%,53%)]';
+    if (progress >= 50) return 'bg-[hsl(25,95%,53%)]';
+    return 'bg-[hsl(0,84%,60%)]';
   };
 
   // Voice Guide Function
@@ -456,19 +456,20 @@ Current Notes: ${newClaim.notes || 'None yet'}
   const avgProcessingTime = 4.2; // Mock average
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Link href="/">
-          <motion.button
-            whileHover={{ scale: 1.05, x: -2 }}
-            whileTap={{ scale: 0.95 }}
-            className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200"
-            data-testid="button-back-to-hub"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span className="text-sm font-medium">Back to Hub</span>
-          </motion.button>
-        </Link>
+    <div className="min-h-screen bg-gradient-to-br from-[hsl(217,91%,15%)] via-[hsl(217,91%,25%)] to-[hsl(215,25%,25%)] dark:from-[hsl(217,91%,10%)] dark:via-[hsl(217,91%,20%)] dark:to-[hsl(215,25%,20%)]">
+      <div className="container mx-auto px-4 py-6 space-y-6">
+        <div className="flex items-center gap-4">
+          <Link href="/">
+            <motion.button
+              whileHover={{ scale: 1.05, x: -2 }}
+              whileTap={{ scale: 0.95 }}
+              className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200"
+              data-testid="button-back-to-hub"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span className="text-sm font-medium">Back to Hub</span>
+            </motion.button>
+          </Link>
         <StateCitySelector
           selectedState={selectedState}
           selectedCity={selectedCity}
@@ -872,20 +873,20 @@ Current Notes: ${newClaim.notes || 'None yet'}
       {/* Real-time Processing Pipeline */}
       <div className="mb-8">
         <h3 className="text-xl font-semibold mb-4 flex items-center">
-          <Clock className="h-5 w-5 text-blue-500 mr-2" />
+          <Clock className="h-5 w-5 text-[hsl(217,71%,53%)] mr-2" />
           Claims Processing Pipeline
           <motion.div
             animate={{ scale: [1, 1.2, 1] }}
             transition={{ duration: 2, repeat: Infinity }}
-            className="ml-2 h-2 w-2 bg-blue-500 rounded-full"
+            className="ml-2 h-2 w-2 bg-[hsl(217,71%,53%)] rounded-full"
           />
         </h3>
         
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {[
-            { stage: 'Submitted', count: 47, color: 'bg-blue-500', percentage: 100 },
-            { stage: 'Under Review', count: 32, color: 'bg-yellow-500', percentage: 68 },
-            { stage: 'Approved', count: 28, color: 'bg-green-500', percentage: 60 },
+            { stage: 'Submitted', count: 47, color: 'bg-[hsl(217,71%,53%)]', percentage: 100 },
+            { stage: 'Under Review', count: 32, color: 'bg-[hsl(25,95%,53%)]', percentage: 68 },
+            { stage: 'Approved', count: 28, color: 'bg-[hsl(142,76%,36%)]', percentage: 60 },
             { stage: 'Paid Out', count: 23, color: 'bg-purple-500', percentage: 49 },
           ].map((stage, index) => (
             <HoverLift key={stage.stage}>
@@ -976,15 +977,15 @@ Current Notes: ${newClaim.notes || 'None yet'}
                         <div className="flex items-center space-x-4">
                           <div className="relative">
                             <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold ${
-                              claim.priority === 'urgent' ? 'bg-red-500' :
-                              claim.priority === 'high' ? 'bg-orange-500' :
-                              claim.priority === 'medium' ? 'bg-blue-500' : 'bg-green-500'
+                              claim.priority === 'urgent' ? 'bg-[hsl(0,84%,60%)]' :
+                              claim.priority === 'high' ? 'bg-[hsl(25,95%,53%)]' :
+                              claim.priority === 'medium' ? 'bg-[hsl(217,71%,53%)]' : 'bg-[hsl(142,76%,36%)]'
                             }`}>
                               <FileText className="h-6 w-6" />
                             </div>
                             {claim.priority === 'urgent' && (
                               <PulseAlert intensity="strong">
-                                <AlertTriangle className="absolute -top-1 -right-1 h-3 w-3 text-red-500" />
+                                <AlertTriangle className="absolute -top-1 -right-1 h-3 w-3 text-[hsl(0,84%,60%)]" />
                               </PulseAlert>
                             )}
                           </div>
@@ -1051,7 +1052,7 @@ Current Notes: ${newClaim.notes || 'None yet'}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center">
-              <DollarSign className="w-5 h-5 mr-2 text-green-500" />
+              <DollarSign className="w-5 h-5 mr-2 text-[hsl(142,76%,36%)]" />
               Financial Overview
             </CardTitle>
           </CardHeader>
@@ -1083,16 +1084,16 @@ Current Notes: ${newClaim.notes || 'None yet'}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center">
-              <TrendingUp className="w-5 h-5 mr-2 text-blue-500" />
+              <TrendingUp className="w-5 h-5 mr-2 text-[hsl(217,71%,53%)]" />
               Status Distribution
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               {[
-                { status: 'Open', count: openClaims, total: claims.length, color: 'bg-blue-500' },
-                { status: 'Pending', count: pendingClaims, total: claims.length, color: 'bg-yellow-500' },
-                { status: 'Approved', count: approvedClaims, total: claims.length, color: 'bg-green-500' },
+                { status: 'Open', count: openClaims, total: claims.length, color: 'bg-[hsl(217,71%,53%)]' },
+                { status: 'Pending', count: pendingClaims, total: claims.length, color: 'bg-[hsl(25,95%,53%)]' },
+                { status: 'Approved', count: approvedClaims, total: claims.length, color: 'bg-[hsl(142,76%,36%)]' },
                 { status: 'Closed', count: claims.filter(c => c.status === 'closed').length, total: claims.length, color: 'bg-gray-500' },
               ].map((item, index) => {
                 const percentage = claims.length > 0 ? (item.count / item.total) * 100 : 0;
@@ -1123,10 +1124,11 @@ Current Notes: ${newClaim.notes || 'None yet'}
         </Card>
       </div>
 
-      {/* Xactimate Comparables Section */}
-      <XactimateComparables />
-    </DashboardSection>
-      <ModuleAIAssistant moduleName="Claims" />
+        {/* Xactimate Comparables Section */}
+        <XactimateComparables />
+      </DashboardSection>
+        <ModuleAIAssistant moduleName="Claims" />
+      </div>
     </div>
   );
 }
