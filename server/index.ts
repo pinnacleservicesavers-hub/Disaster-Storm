@@ -63,6 +63,10 @@ app.use("/api/claims-packet", claimsPacket);
 app.use("/api/claims-agent", claimsAgent);
 app.use("/api/claims-webhooks", claimsWebhooks);
 
+// AI Lead Management routes
+import { aiLeadsRouter } from "./routes/aiLeads.js";
+app.use("/api/ai-leads", aiLeadsRouter);
+
 // Register main application routes (including property API endpoints)
 await registerRoutes(app);
 
