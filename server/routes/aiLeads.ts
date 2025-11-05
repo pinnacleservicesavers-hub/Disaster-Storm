@@ -122,6 +122,77 @@ aiLeadsRouter.get('/', async (req, res) => {
   }
 });
 
+// GET /api/ai-leads/analytics - Comprehensive analytics dashboard
+aiLeadsRouter.get('/analytics', async (req, res) => {
+  try {
+    // Get lead stats using raw SQL for reliability
+    const leadStatsResult = await db.execute(sql`
+      SELECT 
+        COUNT(*)::integer as "totalLeads",
+        SUM(CASE WHEN status = 'new' THEN 1 ELSE 0 END)::integer as "newLeads",
+        SUM(CASE WHEN status = 'contacted' THEN 1 ELSE 0 END)::integer as "contactedLeads",
+        SUM(CASE WHEN status = 'qualified' THEN 1 ELSE 0 END)::integer as "qualifiedLeads",
+        SUM(CASE WHEN status = 'assigned' THEN 1 ELSE 0 END)::integer as "assignedLeads",
+        SUM(CASE WHEN status = 'closed' THEN 1 ELSE 0 END)::integer as "closedLeads",
+        COALESCE(AVG(ai_confidence), 0)::integer as "avgConfidence",
+        COALESCE(AVG(EXTRACT(EPOCH FROM (last_contacted_at - created_at))), 0)::integer as "avgResponseTime"
+      FROM ai_leads
+    `);
+    
+    const leadStats = leadStatsResult.rows[0] || {};
+
+    // Calculate conversion rate
+    const totalLeads = Number(leadStats.totalLeads) || 0;
+    const closedLeads = Number(leadStats.closedLeads) || 0;
+    const conversionRate = totalLeads > 0 
+      ? Math.round((closedLeads / totalLeads) * 100) 
+      : 0;
+
+    // Get service breakdown
+    const serviceBreakdownResult = await db.execute(sql`
+      SELECT 
+        category as "serviceType",
+        COUNT(*)::integer as count
+      FROM ai_lead_services
+      WHERE needed = true
+      GROUP BY category
+      ORDER BY count DESC
+    `);
+
+    // Get contractor performance
+    const contractorPerformanceResult = await db.execute(sql`
+      SELECT 
+        c.id,
+        c.name,
+        c.company,
+        COUNT(a.id)::integer as leads,
+        c.performance_score as "avgScore"
+      FROM ai_contractors c
+      LEFT JOIN ai_assignments a ON a.ai_contractor_id = c.id
+      GROUP BY c.id, c.name, c.company, c.performance_score
+      ORDER BY c.performance_score DESC
+      LIMIT 10
+    `);
+
+    res.json({
+      totalLeads,
+      newLeads: Number(leadStats.newLeads) || 0,
+      contactedLeads: Number(leadStats.contactedLeads) || 0,
+      qualifiedLeads: Number(leadStats.qualifiedLeads) || 0,
+      assignedLeads: Number(leadStats.assignedLeads) || 0,
+      closedLeads,
+      conversionRate,
+      averageResponseTime: Number(leadStats.avgResponseTime) || 0,
+      avgConfidence: Number(leadStats.avgConfidence) || 0,
+      serviceBreakdown: serviceBreakdownResult.rows || [],
+      contractorPerformance: contractorPerformanceResult.rows || [],
+    });
+  } catch (error) {
+    console.error('Error fetching analytics:', error);
+    res.status(500).json({ error: 'Failed to fetch analytics' });
+  }
+});
+
 // GET /api/ai-leads/:id - Get lead detail with services
 aiLeadsRouter.get('/:id', async (req, res) => {
   try {

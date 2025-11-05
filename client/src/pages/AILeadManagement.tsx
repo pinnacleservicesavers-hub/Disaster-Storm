@@ -15,7 +15,7 @@ import { apiRequest, queryClient } from '@/lib/queryClient';
 import { 
   Phone, Mail, MapPin, Calendar, TrendingUp, Users, CheckCircle2, 
   Clock, AlertTriangle, Building2, Wrench, Home, Trees, Fence,
-  Waves, Window, Hammer, Wind, Zap, Droplet, Plus, Eye, Filter
+  Waves, Square, Hammer, Wind, Zap, Droplet, Plus, Eye, Filter
 } from 'lucide-react';
 import type { AiLead, AiLeadService, AiContractor } from '@shared/schema';
 
@@ -24,7 +24,7 @@ const SERVICE_CATEGORIES = [
   { id: 'roofing', label: 'Roofing', icon: Home, color: 'bg-blue-500' },
   { id: 'fence', label: 'Fence', icon: Fence, color: 'bg-amber-500' },
   { id: 'pool', label: 'Pool', icon: Waves, color: 'bg-cyan-500' },
-  { id: 'windows', label: 'Windows', icon: Window, color: 'bg-purple-500' },
+  { id: 'windows', label: 'Windows', icon: Square, color: 'bg-purple-500' },
   { id: 'siding', label: 'Siding', icon: Building2, color: 'bg-slate-500' },
   { id: 'gutters', label: 'Gutters', icon: Droplet, color: 'bg-indigo-500' },
   { id: 'hvac', label: 'HVAC', icon: Wind, color: 'bg-orange-500' },
@@ -213,12 +213,12 @@ export default function AILeadManagement() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <Label className="text-slate-300">Status</Label>
-                <Select value={filters.status} onValueChange={(v) => setFilters({ ...filters, status: v })}>
+                <Select value={filters.status} onValueChange={(v) => setFilters({ ...filters, status: v === 'all' ? '' : v })}>
                   <SelectTrigger className="bg-slate-900 border-slate-700 text-white" data-testid="select-status-filter">
                     <SelectValue placeholder="All statuses" />
                   </SelectTrigger>
                   <SelectContent className="bg-slate-900 border-slate-700">
-                    <SelectItem value="">All statuses</SelectItem>
+                    <SelectItem value="all">All statuses</SelectItem>
                     <SelectItem value="new">New</SelectItem>
                     <SelectItem value="contacted">Contacted</SelectItem>
                     <SelectItem value="qualified">Qualified</SelectItem>
@@ -230,12 +230,12 @@ export default function AILeadManagement() {
 
               <div>
                 <Label className="text-slate-300">Priority</Label>
-                <Select value={filters.priority} onValueChange={(v) => setFilters({ ...filters, priority: v })}>
+                <Select value={filters.priority} onValueChange={(v) => setFilters({ ...filters, priority: v === 'all' ? '' : v })}>
                   <SelectTrigger className="bg-slate-900 border-slate-700 text-white" data-testid="select-priority-filter">
                     <SelectValue placeholder="All priorities" />
                   </SelectTrigger>
                   <SelectContent className="bg-slate-900 border-slate-700">
-                    <SelectItem value="">All priorities</SelectItem>
+                    <SelectItem value="all">All priorities</SelectItem>
                     <SelectItem value="urgent">Urgent</SelectItem>
                     <SelectItem value="high">High</SelectItem>
                     <SelectItem value="medium">Medium</SelectItem>
@@ -246,12 +246,12 @@ export default function AILeadManagement() {
 
               <div>
                 <Label className="text-slate-300">Insurance Status</Label>
-                <Select value={filters.insuranceStatus} onValueChange={(v) => setFilters({ ...filters, insuranceStatus: v })}>
+                <Select value={filters.insuranceStatus} onValueChange={(v) => setFilters({ ...filters, insuranceStatus: v === 'all' ? '' : v })}>
                   <SelectTrigger className="bg-slate-900 border-slate-700 text-white" data-testid="select-insurance-filter">
                     <SelectValue placeholder="All insurance" />
                   </SelectTrigger>
                   <SelectContent className="bg-slate-900 border-slate-700">
-                    <SelectItem value="">All insurance</SelectItem>
+                    <SelectItem value="all">All insurance</SelectItem>
                     <SelectItem value="likely">Likely</SelectItem>
                     <SelectItem value="unlikely">Unlikely</SelectItem>
                     <SelectItem value="unknown">Unknown</SelectItem>
