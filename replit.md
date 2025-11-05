@@ -6,6 +6,17 @@ Disaster Direct is a comprehensive storm operations and claims management platfo
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
+## Recent Implementations (November 5, 2025)
+- **✅ AI Lead Management System**: Complete AI-powered lead pipeline with multi-service tracking and automated outreach
+  - **Database Schema**: 5 new tables (`ai_leads`, `ai_lead_services`, `ai_contractors`, `ai_assignments`, `ai_outreach_log`)
+  - **AI Lead Expansion**: OpenAI GPT-4 analyzes damage photos/descriptions and expands into 10+ service categories (tree, roof, fence, pool, windows, siding, gutters, HVAC, electrical, plumbing)
+  - **Smart Contractor Routing**: Tier 1 (premium) → Tier 2 (backup) assignment logic with performance scoring (0-100)
+  - **Automated Outreach**: Twilio SMS/voice with local area codes + SendGrid email integration (mocked for dev)
+  - **Lead Re-engagement**: Cron job runs every 6 hours to follow up on stale leads (48+ hours, <5 attempts)
+  - **Analytics Dashboard**: Lead conversion metrics, contractor performance, service popularity
+  - **Frontend UI**: Lead list with filters, service grid with checkboxes, contractor assignment interface
+  - **API Routes**: 25+ endpoints for CRUD, service management, contractor assignment, analytics
+
 ## Recent Implementations (November 3, 2025)
 - **✅ Production JWT Verification with JWKS**: Complete OIDC/JWKS verification system supporting Auth0, Clerk, and Supabase
   - JWKS caching and refresh from identity provider
