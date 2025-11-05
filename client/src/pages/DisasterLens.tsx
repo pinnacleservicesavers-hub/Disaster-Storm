@@ -66,7 +66,7 @@ async function fileToBase64(f: File): Promise<string> {
 function TabButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
     <button
-      className={`px-4 py-2 rounded ${active ? 'bg-black text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'} transition`}
+      className={`px-4 py-2 rounded ${active ? 'bg-[hsl(217,71%,53%)] text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'} transition`}
       onClick={onClick}
     >
       {children}
@@ -1398,7 +1398,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="min-h-screen bg-gradient-to-br from-[hsl(217,91%,15%)] via-[hsl(217,91%,25%)] to-[hsl(215,25%,25%)] dark:from-[hsl(217,91%,10%)] dark:via-[hsl(217,91%,20%)] dark:to-[hsl(215,25%,20%)] text-white">
       <header className="bg-white border-b">
         <div className="max-w-6xl mx-auto px-4 py-6">
           <div className="flex items-center justify-between">
@@ -1421,15 +1421,15 @@ export default function App() {
               
               {/* Voice Guide Controls */}
               <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg">
-                  <Volume2 className="w-4 h-4 text-blue-600" />
-                  <span className="text-sm font-medium text-blue-800">Voice Guide</span>
+                <div className="flex items-center gap-2 px-3 py-2 bg-[hsl(217,71%,53%)]/10 border border-[hsl(217,71%,53%)]/30 rounded-lg">
+                  <Volume2 className="w-4 h-4 text-[hsl(217,71%,53%)]" />
+                  <span className="text-sm font-medium text-[hsl(217,71%,43%)]">Voice Guide</span>
                   
                   {!isVoiceGuideActive ? (
                     <div className="flex gap-1">
                       <button
                         onClick={() => startVoiceGuide('overview')}
-                        className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                        className="px-2 py-1 text-xs bg-[hsl(217,71%,53%)] text-white rounded hover:bg-[hsl(217,71%,43%)] transition-colors"
                         data-testid="button-voice-overview"
                         title="Overview of Disaster Lens"
                       >
@@ -1437,7 +1437,7 @@ export default function App() {
                       </button>
                       <button
                         onClick={startTabVoiceGuide}
-                        className="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
+                        className="px-2 py-1 text-xs bg-[hsl(142,76%,36%)] text-white rounded hover:bg-[hsl(142,76%,26%)] transition-colors"
                         data-testid="button-voice-current-tab"
                         title={`Guide for ${tab} tab`}
                       >
