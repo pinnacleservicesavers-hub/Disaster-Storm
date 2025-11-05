@@ -827,7 +827,7 @@ You can ask our AI assistant about any of these resources, and it will guide you
     <div className="space-y-6" data-testid="victim-dashboard">
       {/* Enhanced Header Section */}
       <FadeIn>
-        <div className="relative overflow-hidden bg-gradient-to-r from-red-900 via-orange-900 to-amber-900 dark:from-red-800 dark:via-orange-800 dark:to-amber-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6">
+        <div className="relative overflow-hidden bg-gradient-to-r from-[hsl(217,91%,25%)] via-[hsl(217,71%,35%)] to-[hsl(217,91%,35%)] dark:from-[hsl(217,91%,20%)] dark:via-[hsl(217,71%,30%)] dark:to-[hsl(217,91%,30%)] rounded-xl border border-slate-200 dark:border-slate-700 p-6">
           {/* Animated background elements */}
           <div className="absolute inset-0 opacity-10">
             {[...Array(20)].map((_, i) => (
@@ -860,13 +860,13 @@ You can ask our AI assistant about any of these resources, and it will guide you
               <div className="flex items-center space-x-4">
                 <ScaleIn>
                   <div className="relative">
-                    <div className="w-16 h-16 bg-gradient-to-br from-red-500/20 to-orange-500/20 rounded-xl p-3">
-                      <Shield className="h-10 w-10 text-orange-400" />
+                    <div className="w-16 h-16 bg-gradient-to-br from-[hsl(217,71%,53%)]/20 to-[hsl(217,91%,35%)]/20 rounded-xl p-3">
+                      <Shield className="h-10 w-10 text-[hsl(217,71%,63%)]" />
                     </div>
                     <motion.div
                       animate={{ scale: [1, 1.2, 1] }}
                       transition={{ duration: 2, repeat: Infinity }}
-                      className="absolute -top-1 -right-1 h-6 w-6 bg-green-500 rounded-full flex items-center justify-center"
+                      className="absolute -top-1 -right-1 h-6 w-6 bg-[hsl(142,76%,36%)] rounded-full flex items-center justify-center"
                     >
                       <CheckCircle className="h-3 w-3 text-white" />
                     </motion.div>
@@ -876,7 +876,7 @@ You can ask our AI assistant about any of these resources, and it will guide you
                   <h1 className="text-3xl font-bold text-white mb-2">
                     Emergency Assistance Portal
                   </h1>
-                  <p className="text-orange-200">
+                  <p className="text-[hsl(217,71%,73%)]">
                     Welcome {user.firstName} - Your dedicated disaster recovery command center
                   </p>
                 </div>
@@ -906,7 +906,7 @@ You can ask our AI assistant about any of these resources, and it will guide you
                   variant="destructive"
                   onClick={handleEmergencyCall}
                   data-testid="button-emergency-call"
-                  className="bg-red-600 hover:bg-red-700 text-white font-bold"
+                  className="bg-[hsl(0,84%,60%)] hover:bg-[hsl(0,84%,50%)] text-white font-bold"
                 >
                   <Siren className="h-4 w-4 mr-2" />
                   Call 911
@@ -957,7 +957,7 @@ You can ask our AI assistant about any of these resources, and it will guide you
                       <div className="text-2xl font-bold text-white" data-testid="text-recovery-progress">
                         <CountUp end={completionRate} duration={1} suffix="%" />
                       </div>
-                      <div className="text-xs text-orange-200">{completedSteps}/{emergencySteps.length} steps done</div>
+                      <div className="text-xs text-[hsl(217,71%,73%)]">{completedSteps}/{emergencySteps.length} steps done</div>
                     </CardContent>
                   </Card>
                 </HoverLift>
@@ -968,13 +968,13 @@ You can ask our AI assistant about any of these resources, and it will guide you
                   <Card className="bg-white/10 backdrop-blur-sm border-white/20">
                     <CardContent className="p-4 text-center">
                       <div className="flex items-center justify-center mb-2">
-                        <AlertTriangle className="h-5 w-5 text-red-400 mr-2" />
+                        <AlertTriangle className="h-5 w-5 text-[hsl(0,84%,60%)] mr-2" />
                         <span className="text-sm font-medium text-white">Critical Alerts</span>
                       </div>
                       <div className="text-2xl font-bold text-white" data-testid="text-critical-alerts">
                         <CountUp end={criticalAlerts} duration={1} />
                       </div>
-                      <div className="text-xs text-orange-200">require attention</div>
+                      <div className="text-xs text-[hsl(217,71%,73%)]">require attention</div>
                     </CardContent>
                   </Card>
                 </HoverLift>
@@ -985,13 +985,13 @@ You can ask our AI assistant about any of these resources, and it will guide you
                   <Card className="bg-white/10 backdrop-blur-sm border-white/20">
                     <CardContent className="p-4 text-center">
                       <div className="flex items-center justify-center mb-2">
-                        <FileCheck className="h-5 w-5 text-blue-400 mr-2" />
+                        <FileCheck className="h-5 w-5 text-[hsl(217,71%,53%)] mr-2" />
                         <span className="text-sm font-medium text-white">Active Requests</span>
                       </div>
                       <div className="text-2xl font-bold text-white" data-testid="text-active-requests">
                         <CountUp end={activeRequests} duration={1} />
                       </div>
-                      <div className="text-xs text-orange-200">in progress</div>
+                      <div className="text-xs text-[hsl(217,71%,73%)]">in progress</div>
                     </CardContent>
                   </Card>
                 </HoverLift>
@@ -1002,13 +1002,13 @@ You can ask our AI assistant about any of these resources, and it will guide you
                   <Card className="bg-white/10 backdrop-blur-sm border-white/20">
                     <CardContent className="p-4 text-center">
                       <div className="flex items-center justify-center mb-2">
-                        <PersonStanding className="h-5 w-5 text-purple-400 mr-2" />
+                        <PersonStanding className="h-5 w-5 text-[hsl(217,71%,53%)] mr-2" />
                         <span className="text-sm font-medium text-white">Status</span>
                       </div>
                       <div className="text-lg font-bold text-white" data-testid="text-status">
                         Safe & Secure
                       </div>
-                      <div className="text-xs text-orange-200">last updated 5 min ago</div>
+                      <div className="text-xs text-[hsl(217,71%,73%)]">last updated 5 min ago</div>
                     </CardContent>
                   </Card>
                 </HoverLift>
@@ -1019,24 +1019,24 @@ You can ask our AI assistant about any of these resources, and it will guide you
             <div className="mt-6 flex items-center justify-between bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20">
               <div className="flex items-center space-x-4">
                 <div className="relative">
-                  <div className="w-12 h-12 bg-gradient-to-br from-orange-400 to-red-500 text-white rounded-full flex items-center justify-center text-lg font-bold">
+                  <div className="w-12 h-12 bg-gradient-to-br from-[hsl(217,71%,53%)] to-[hsl(217,91%,35%)] text-white rounded-full flex items-center justify-center text-lg font-bold">
                     {userInitials}
                   </div>
                   <motion.div
                     animate={{ scale: [1, 1.2, 1] }}
                     transition={{ duration: 3, repeat: Infinity }}
-                    className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white"
+                    className="absolute -bottom-1 -right-1 w-4 h-4 bg-[hsl(142,76%,36%)] rounded-full border-2 border-white"
                   />
                 </div>
                 <div>
                   <h3 className="font-semibold text-white">{user.firstName} {user.lastName}</h3>
-                  <p className="text-sm text-orange-200">{user.propertyAddress}, {user.city}, {user.state}</p>
-                  <p className="text-xs text-orange-300">Emergency ID: {user.id}</p>
+                  <p className="text-sm text-[hsl(217,71%,73%)]">{user.propertyAddress}, {user.city}, {user.state}</p>
+                  <p className="text-xs text-[hsl(217,71%,68%)]">Emergency ID: {user.id}</p>
                 </div>
               </div>
               <div className="text-right">
                 <div className="text-sm text-white font-medium">Account Status</div>
-                <Badge className="bg-green-600 text-white">
+                <Badge className="bg-[hsl(142,76%,36%)] text-white">
                   <Shield className="w-3 h-3 mr-1" />
                   Verified
                 </Badge>
