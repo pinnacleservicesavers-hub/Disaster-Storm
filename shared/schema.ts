@@ -4594,3 +4594,192 @@ export type Contract = typeof contracts.$inferSelect;
 export type InsertContract = z.infer<typeof insertContractSchema>;
 export type JobInvoice = typeof jobInvoices.$inferSelect;
 export type InsertJobInvoice = z.infer<typeof insertJobInvoiceSchema>;
+
+// ===== AI LEAD MANAGEMENT SYSTEM =====
+
+// AI Leads table - AI-powered lead intake and classification
+export const aiLeads = pgTable("ai_leads", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  
+  // Contact information
+  name: text("name").notNull(),
+  phone: varchar("phone", { length: 20 }).notNull(),
+  email: varchar("email", { length: 255 }),
+  address: text("address").notNull(),
+  latitude: numeric("latitude"),
+  longitude: numeric("longitude"),
+  
+  // AI classification
+  aiConfidence: integer("ai_confidence").default(0).notNull(), // 0-100
+  priority: varchar("priority", { length: 20 }).default("medium").notNull(), // emergency, high, medium, low
+  insuranceStatus: varchar("insurance_status", { length: 20 }).default("unknown").notNull(), // unknown, verified, probable, none
+  
+  // Lead status and metadata
+  status: varchar("status", { length: 20 }).default("new").notNull(), // new, contacted, qualified, assigned, closed
+  damageType: text("damage_type").array(),
+  damageDescription: text("damage_description"),
+  
+  // Outreach tracking
+  lastContactedAt: timestamp("last_contacted_at"),
+  contactAttempts: integer("contact_attempts").default(0).notNull(),
+  lastContactMethod: varchar("last_contact_method", { length: 20 }), // phone, sms, email
+  
+  // AI analysis results
+  aiAnalysis: jsonb("ai_analysis"),
+  
+  // Notes and internal tracking
+  notes: text("notes"),
+  source: varchar("source", { length: 50 }), // ai_detector, form, csv_import, manual
+});
+
+// Service categories needed per AI lead
+export const aiLeadServices = pgTable("ai_lead_services", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  aiLeadId: uuid("ai_lead_id").notNull().references(() => aiLeads.id, { onDelete: "cascade" }),
+  
+  // Service category (tree, roofing, fence, pool, windows, etc.)
+  category: varchar("category", { length: 50 }).notNull(),
+  
+  // Service status
+  needed: boolean("needed").default(true).notNull(),
+  assignedContractorId: uuid("assigned_contractor_id").references(() => aiContractors.id),
+  assignedAt: timestamp("assigned_at"),
+  completedAt: timestamp("completed_at"),
+  
+  // Service details
+  estimatedCost: numeric("estimated_cost"),
+  priority: integer("priority").default(5).notNull(), // 1-10, higher = more urgent
+  notes: text("notes"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// AI Contractors for AI routing (separate from contractorProfiles)
+export const aiContractors = pgTable("ai_contractors", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  
+  // Basic info
+  companyName: text("company_name").notNull(),
+  contactName: text("contact_name"),
+  phone: varchar("phone", { length: 20 }).notNull(),
+  email: varchar("email", { length: 255 }),
+  
+  // Service capabilities
+  trades: text("trades").array().notNull(), // tree, roofing, fence, pool, windows, etc.
+  areaCodesSupported: text("area_codes_supported").array(), // for local number matching
+  equipment: text("equipment").array(), // crane, bucket_truck, etc.
+  
+  // Verification and compliance
+  licenseVerified: boolean("license_verified").default(false).notNull(),
+  insuranceVerified: boolean("insurance_verified").default(false).notNull(),
+  licenseNumber: varchar("license_number", { length: 100 }),
+  insuranceExpiry: timestamp("insurance_expiry"),
+  
+  // Performance metrics
+  performanceScore: integer("performance_score").default(50).notNull(), // 0-100
+  responseTimeMs: integer("response_time_ms"), // average response time in milliseconds
+  acceptanceRate: numeric("acceptance_rate"), // percentage of accepted assignments
+  completionRate: numeric("completion_rate"), // percentage of completed jobs
+  
+  // Availability
+  active: boolean("active").default(true).notNull(),
+  currentCapacity: integer("current_capacity").default(10).notNull(), // max concurrent jobs
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// AI Assignment rounds (Tier 1 → Tier 2)
+export const aiAssignments = pgTable("ai_assignments", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  aiLeadServiceId: uuid("ai_lead_service_id").notNull().references(() => aiLeadServices.id, { onDelete: "cascade" }),
+  aiContractorId: uuid("ai_contractor_id").notNull().references(() => aiContractors.id, { onDelete: "cascade" }),
+  
+  // Assignment metadata
+  round: integer("round").notNull(), // 1 = Tier 1, 2 = Tier 2
+  state: varchar("state", { length: 20 }).default("offered").notNull(), // offered, accepted, expired, declined
+  
+  // Timing
+  offeredAt: timestamp("offered_at").defaultNow().notNull(),
+  respondedAt: timestamp("responded_at"),
+  expiresAt: timestamp("expires_at").notNull(),
+  
+  // Response details
+  responseNotes: text("response_notes"),
+  estimatedStartDate: timestamp("estimated_start_date"),
+  estimatedCost: numeric("estimated_cost"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// AI Outreach log for tracking all communication attempts
+export const aiOutreachLog = pgTable("ai_outreach_log", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  aiLeadId: uuid("ai_lead_id").notNull().references(() => aiLeads.id, { onDelete: "cascade" }),
+  
+  // Outreach details
+  method: varchar("method", { length: 20 }).notNull(), // phone, sms, email
+  fromNumber: varchar("from_number", { length: 20 }), // local area code number used
+  toNumber: varchar("to_number", { length: 20 }),
+  
+  // Message content
+  subject: text("subject"),
+  message: text("message"),
+  
+  // Status
+  status: varchar("status", { length: 20 }).notNull(), // sent, delivered, failed, answered, no_answer
+  response: text("response"),
+  
+  // Timing
+  sentAt: timestamp("sent_at").defaultNow().notNull(),
+  deliveredAt: timestamp("delivered_at"),
+  
+  // External IDs (Twilio, SendGrid)
+  externalId: varchar("external_id", { length: 255 }),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Insert schemas for AI Lead Management
+export const insertAiLeadSchema = createInsertSchema(aiLeads).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
+});
+
+export const insertAiLeadServiceSchema = createInsertSchema(aiLeadServices).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
+});
+
+export const insertAiContractorSchema = createInsertSchema(aiContractors).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
+});
+
+export const insertAiAssignmentSchema = createInsertSchema(aiAssignments).omit({
+  id: true,
+  createdAt: true
+});
+
+export const insertAiOutreachLogSchema = createInsertSchema(aiOutreachLog).omit({
+  id: true,
+  createdAt: true
+});
+
+// Select types for AI Lead Management
+export type AiLead = typeof aiLeads.$inferSelect;
+export type InsertAiLead = z.infer<typeof insertAiLeadSchema>;
+export type AiLeadService = typeof aiLeadServices.$inferSelect;
+export type InsertAiLeadService = z.infer<typeof insertAiLeadServiceSchema>;
+export type AiContractor = typeof aiContractors.$inferSelect;
+export type InsertAiContractor = z.infer<typeof insertAiContractorSchema>;
+export type AiAssignment = typeof aiAssignments.$inferSelect;
+export type InsertAiAssignment = z.infer<typeof insertAiAssignmentSchema>;
+export type AiOutreachLog = typeof aiOutreachLog.$inferSelect;
+export type InsertAiOutreachLog = z.infer<typeof insertAiOutreachLogSchema>;
