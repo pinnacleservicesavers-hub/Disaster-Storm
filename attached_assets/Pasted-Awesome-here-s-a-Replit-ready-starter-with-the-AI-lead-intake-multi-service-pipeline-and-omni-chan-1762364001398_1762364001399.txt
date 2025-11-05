@@ -1,0 +1,69 @@
+Awesome—here’s a Replit-ready starter with the AI lead intake, multi-service pipeline, and omni-channel outreach (local area codes + branded caller ID support). Import it into a Node.js Replit, add your Secrets, and run.
+
+Download the starter project:
+Download ZIP
+
+What’s inside
+
+server.js – Express API (lead intake, list, assignment placeholder)
+
+services/db.js – Postgres connection helper
+
+services/ai.js – (OpenAI) classifies damage → picks service categories & priority
+
+services/twilio.js – SMS + voice calls with local area-code selection (geo-matched Messaging Service supported)
+
+services/email.js – SendGrid email sender
+
+services/lead.js – end-to-end flow:
+
+create lead → classify → expand multi-service pipeline (tree, roofing, fence, pool, windows, water mitigation, GC, electrical, plumbing, foundation, glass, debris hauling)
+
+outreach via SMS, voice, and email with app + website links
+
+keeps lead open until all needed services are assigned/completed
+
+db/schema.sql – tables for leads, lead_services, contractors, assignments
+
+.env.example – copy these to Replit Secrets
+
+README.md – quick start & test curl
+
+Replit quick start
+
+Create a Node.js Replit and upload/unzip the project.
+
+Add Secrets (from .env.example):
+DATABASE_URL, OPENAI_API_KEY, TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_MESSAGING_SERVICE_SID, SENDGRID_API_KEY, APP_DOWNLOAD_IOS, APP_DOWNLOAD_ANDROID, PUBLIC_WEBSITE
+
+Run SQL in your Postgres (Supabase recommended): db/schema.sql.
+
+Click Run (or npm run dev).
+
+Test a lead:
+
+curl -X POST $REPL_URL/api/leads/intake -H "Content-Type: application/json" -d '{
+  "name":"Sarah Johnson",
+  "phone":"+18135550123",
+  "email":"sarah@example.com",
+  "address":"2847 Bayshore Dr, Tampa, FL",
+  "description":"Tree through roof; broken fence; debris in pool; windows cracked."
+}'
+
+How local caller ID works
+
+Buy Twilio numbers for the area codes you serve and attach them to a Messaging Service (Geo-Match for SMS).
+
+For voice, services/twilio.js picks a local number (extend pickLocalNumberFor() with your mapping).
+
+Branded Calls (Android/supported carriers) + CNAM for landlines can show “Disaster Direct” on caller ID.
+
+What your devs can add next
+
+Implement real contractor ranking + Tier 1 / Tier 2 offers in routeLead().
+
+Build the Service Grid UI that shows checkboxes (Assigned / In-progress / Completed) for each trade.
+
+Add acceptance endpoint logic to lock a category when a contractor accepts.
+
+Store & map local numbers per area code in DB for precise caller-ID control.

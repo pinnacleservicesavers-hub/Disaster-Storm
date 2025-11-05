@@ -109,8 +109,8 @@ export default function Customers() {
 
   const getCommColor = (status: string) => {
     switch (status) {
-      case 'read': return 'text-green-600';
-      case 'delivered': return 'text-blue-600';
+      case 'read': return 'text-[hsl(142,76%,36%)]';
+      case 'delivered': return 'text-[hsl(217,71%,53%)]';
       case 'sent': return 'text-gray-600';
       default: return 'text-gray-600';
     }
@@ -201,19 +201,20 @@ export default function Customers() {
   const totalRevenue = customers.reduce((sum, c) => sum + c.projectValue, 0);
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Link href="/">
-          <motion.button
-            whileHover={{ scale: 1.05, x: -2 }}
-            whileTap={{ scale: 0.95 }}
-            className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200"
-            data-testid="button-back-to-hub"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span className="text-sm font-medium">Back to Hub</span>
-          </motion.button>
-        </Link>
+    <div className="min-h-screen bg-gradient-to-br from-[hsl(217,91%,15%)] via-[hsl(217,91%,25%)] to-[hsl(215,25%,25%)] dark:from-[hsl(217,91%,10%)] dark:via-[hsl(217,91%,20%)] dark:to-[hsl(215,25%,20%)]">
+      <div className="container mx-auto px-4 py-6 space-y-6">
+        <div className="flex items-center gap-4">
+          <Link href="/">
+            <motion.button
+              whileHover={{ scale: 1.05, x: -2 }}
+              whileTap={{ scale: 0.95 }}
+              className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200"
+              data-testid="button-back-to-hub"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span className="text-sm font-medium">Back to Hub</span>
+            </motion.button>
+          </Link>
         <StateCitySelector
           selectedState={selectedState}
           selectedCity={selectedCity}
@@ -254,7 +255,7 @@ export default function Customers() {
       {/* Animated Cohort Metrics */}
       <div className="mb-8">
         <h3 className="text-xl font-semibold mb-4 flex items-center">
-          <TrendingUp className="h-5 w-5 text-blue-500 mr-2" />
+          <TrendingUp className="h-5 w-5 text-[hsl(217,71%,53%)] mr-2" />
           Customer Cohort Analytics
         </h3>
         
@@ -263,9 +264,9 @@ export default function Customers() {
             { 
               title: 'Customer Lifecycle', 
               metrics: [
-                { label: 'New This Month', value: 47, color: 'bg-green-500', percentage: 25 },
-                { label: 'Returning', value: 123, color: 'bg-blue-500', percentage: 65 },
-                { label: 'At Risk', value: 19, color: 'bg-red-500', percentage: 10 },
+                { label: 'New This Month', value: 47, color: 'bg-[hsl(142,76%,36%)]', percentage: 25 },
+                { label: 'Returning', value: 123, color: 'bg-[hsl(217,71%,53%)]', percentage: 65 },
+                { label: 'At Risk', value: 19, color: 'bg-[hsl(0,84%,60%)]', percentage: 10 },
               ]
             },
             {
@@ -427,7 +428,7 @@ export default function Customers() {
         {/* Recent Communications with Slide-in */}
         <div>
           <h3 className="text-xl font-semibold mb-4 flex items-center">
-            <Activity className="h-5 w-5 text-green-500 mr-2" />
+            <Activity className="h-5 w-5 text-[hsl(142,76%,36%)] mr-2" />
             Recent Communications
           </h3>
           
@@ -444,14 +445,14 @@ export default function Customers() {
                           <div className="p-4 border-b border-gray-100 dark:border-gray-700 last:border-b-0 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
                             <div className="flex items-start space-x-3">
                               <div className={`p-2 rounded-lg ${ 
-                                comm.type === 'call' ? 'bg-green-100 dark:bg-green-900/20' :
-                                comm.type === 'email' ? 'bg-blue-100 dark:bg-blue-900/20' :
-                                'bg-purple-100 dark:bg-purple-900/20'
+                                comm.type === 'call' ? 'bg-[hsl(142,76%,36%)]/10 dark:bg-[hsl(142,76%,36%)]/20' :
+                                comm.type === 'email' ? 'bg-[hsl(217,71%,53%)]/10 dark:bg-[hsl(217,71%,53%)]/20' :
+                                'bg-[hsl(282,71%,53%)]/10 dark:bg-[hsl(282,71%,53%)]/20'
                               }`}>
                                 <IconComponent className={`h-4 w-4 ${
-                                  comm.type === 'call' ? 'text-green-600 dark:text-green-400' :
-                                  comm.type === 'email' ? 'text-blue-600 dark:text-blue-400' :
-                                  'text-purple-600 dark:text-purple-400'
+                                  comm.type === 'call' ? 'text-[hsl(142,76%,36%)] dark:text-[hsl(142,76%,56%)]' :
+                                  comm.type === 'email' ? 'text-[hsl(217,71%,53%)] dark:text-[hsl(217,71%,63%)]' :
+                                  'text-[hsl(282,71%,53%)] dark:text-[hsl(282,71%,63%)]'
                                 }`} />
                               </div>
                               <div className="flex-1 min-w-0">
@@ -484,9 +485,10 @@ export default function Customers() {
             </CardContent>
           </Card>
         </div>
+        </div>
+      </DashboardSection>
+        <ModuleAIAssistant moduleName="Customer Hub" />
       </div>
-    </DashboardSection>
-      <ModuleAIAssistant moduleName="Customer Hub" />
     </div>
   );
 }
