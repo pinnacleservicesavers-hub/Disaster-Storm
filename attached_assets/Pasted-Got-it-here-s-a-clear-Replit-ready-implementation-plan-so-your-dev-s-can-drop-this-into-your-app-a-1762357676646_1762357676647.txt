@@ -1,0 +1,223 @@
+Got it—here’s a clear, Replit-ready implementation plan so your dev(s) can drop this into your app and have the AI Lead Management + Outreach working end-to-end.
+
+1) Replit project setup (Node/Express backend + your existing frontend)
+
+Create a new Node.js Replit (or add these files to your current repo).
+
+Add a server.js (Express), queue.js (job queue), and services/ folder.
+
+Use Replit Secrets for all API keys (no keys in code).
+
+Recommended services
+
+DB: Supabase/Postgres (stable; Replit DB isn’t ideal for this).
+
+Calls & SMS (local area codes + branded calls): Twilio.
+
+Email: SendGrid (or Resend/SES).
+
+AI: OpenAI (routing, message generation, summarization).
+
+File storage (photos/videos): Supabase Storage or S3.
+
+Replit Deployments
+
+Use Deployments → Autoscale so webhooks (Twilio/SendGrid) are always reachable.
+
+Use a simple cron (e.g., node cron.js) via Replit “Scheduled Tasks” or an external ping (cron-job.org) to run re-engagement jobs.
+
+2) Environment variables (add in Replit → Secrets)
+DATABASE_URL=postgres://...
+OPENAI_API_KEY=...
+TWILIO_ACCOUNT_SID=...
+TWILIO_AUTH_TOKEN=...
+TWILIO_MESSAGING_SERVICE_SID=...   # for geo-matched local SMS
+TWILIO_BRANDED_CALLS_SID=...       # optional, for branded caller ID (see notes)
+SENDGRID_API_KEY=...
+APP_DOWNLOAD_IOS=https://your.app/ios
+APP_DOWNLOAD_ANDROID=https://your.app/android
+PUBLIC_WEBSITE=https://your-site.com
+
+3) Minimal data model (tables)
+
+leads
+
+id (uuid), created_at
+
+name, phone, email, address, lat, lng
+
+insurance_status (unknown/verified/probable)
+
+ai_confidence (0–100), priority (emergency/high/med/low)
+
+status (new/contacted/qualified/assigned/closed)
+
+lead_services (multi-service pipeline)
+
+id, lead_id (fk)
+
+category (tree, roofing, fence, pool, windows, siding, GC, electrical, plumbing, water_mitigation, foundation, glass, gutters, debris, etc.)
+
+needed (bool), assigned_contractor_id (nullable), assigned_at, completed_at, notes
+
+contractors
+
+id, company_name, phone, area_codes_supported (array), trades (array), equipment (array)
+
+license_verified (bool), insurance_verified (bool)
+
+performance_score (0–100), response_time_ms_avg, active (bool)
+
+assignments
+
+id, lead_service_id, contractor_id, state (offered/accepted/expired), round (1/2), created_at
+
+4) AI routing & outreach (what actually runs)
+
+Flow on new/updated lead
+
+Classify damage & expand services (tree + roof + fence + pool + windows + water + etc. as needed).
+
+Score urgency + compute routing shortlist per category (Tier 1 → Tier 2).
+
+Outreach sequence fires (phone, text, email) from local area-code numbers.
+
+Keep lead open until all service categories show “✅ contractor assigned” or “not needed”.
+
+How to ensure local numbers
+
+In Twilio: buy/assign local numbers per area code you operate in.
+
+Use Twilio Geo-Match (or your own map: zip → preferred number) to originate calls/SMS from the same area code as the lead.
+
+Caller ID name:
+
+Mobile caller ID is controlled by carriers (you cannot force “Disaster Direct” everywhere).
+
+Use Twilio Branded Calls for supported carriers/Android to show Disaster Direct + logo.
+
+For landlines, you can register CNAM so “Disaster Direct” appears where supported.
+
+5) Lead assignment logic (not “open grab”)
+
+Best practice: smart, fair, and fast—no chaos.
+
+Tier 1 round (10–15 min): Notify top-scored, compliant contractors (specialization, proximity, availability, performance).
+
+If no accept, Tier 2 round.
+
+First accept → locks that service category only (e.g., Tree Service = assigned) while other categories remain open (Roofing, Windows, Pool, etc.).
+
+Each service category shows a checkbox:
+
+tree_assigned, roof_assigned, fence_assigned, pool_assigned, windows_assigned, water_mitigation_assigned, gc_assigned, etc.
+
+The lead closes only when all required categories are assigned & completed (or explicitly marked “not needed”).
+
+6) Sample API (drop into server.js)
+import express from "express";
+import bodyParser from "body-parser";
+import { createLead, expandServices, routeLead, sendOutreach } from "./services/lead.js";
+
+const app = express();
+app.use(bodyParser.json());
+
+// 1) Intake webhook (from AI detector, form, or CSV import)
+app.post("/api/leads/intake", async (req, res) => {
+  const lead = await createLead(req.body);
+  await expandServices(lead);        // adds fence/pool/windows/etc as needed
+  await routeLead(lead.id);          // precomputes Tier 1/Tier 2 per category
+  await sendOutreach(lead.id);       // phone + sms + email
+  res.json({ ok: true, leadId: lead.id });
+});
+
+// 2) Contractor accepts an assignment
+app.post("/api/assignments/:id/accept", async (req, res) => {
+  // validate contractor, mark service category as assigned, cancel other offers
+  // return updated lead + service state
+  res.json({ ok: true });
+});
+
+// 3) Status for frontend boards/analytics
+app.get("/api/leads", async (req, res) => {
+  // return list with ai_confidence, priority, per-category assigned flags
+  res.json([]);
+});
+
+app.listen(3000);
+
+7) Outreach templates (AI fills details)
+
+SMS
+
+Hi {{firstName}}, this is the Disaster Direct Response Assistant.
+We detected possible storm damage at {{address}}. If you have homeowners insurance,
+most repairs can be completed with little to no out-of-pocket cost.
+Download the app: {{APP_DOWNLOAD_IOS}} / {{APP_DOWNLOAD_ANDROID}}
+Or visit: {{PUBLIC_WEBSITE}}
+You can upload photos/videos and track your recovery. We’re here to help.
+
+
+Email (SendGrid dynamic template)
+
+Subject: We’re here to help after the storm
+
+Body: include app links, upload instructions, and reassurance about insurance & verified contractors.
+
+Voice (Twilio Programmable Voice)
+
+TTS script similar to SMS; offer to text app link while on the call.
+
+8) Unique, “no-one-else-has-this” features to include
+
+Multi-service pipeline per address (tree, roof, fence, pool, windows, water mitigation, GC, electrical, plumbing, foundation, gutters, debris hauling)—keeps the lead alive until everything is done.
+
+Local-trust dialing (same-area-code numbers + Branded Calls where supported).
+
+AI intent & sentiment scoring to prioritize distressed homeowners.
+
+Photo/Video CV analysis (damage type, severity) to auto-fill scopes and speed insurance support.
+
+Household journey timeline (all trades coordinated in one shared workspace).
+
+Performance-based routing (fast, compliant pros get Tier 1).
+
+Automatic re-engagement (no-response → try different channel/time automatically).
+
+9) Quick UI checklist (what your app should show)
+
+Lead List: status, priority, AI confidence, actions (view, call, text, email).
+
+Lead Detail: owner info, damage summary, insurance notes, upload box (photos/videos).
+
+Service Grid with checkboxes (Assigned / In-progress / Completed) for:
+
+Tree, Roofing, Gutter, Fence, Pool, Windows/Glass, Siding/Exterior, GC, Electrical, Plumbing, Water/Mold, Foundation/Concrete, Debris/Hauling.
+
+Contractor Tab: who’s assigned per service + ETA.
+
+Timeline: AI outreach events, contractor accepts, updates, homeowner messages.
+
+Analytics: new today, conversion, distribution by priority/service, contractor performance.
+
+10) What your devs do next (Replit To-Do)
+
+Add env secrets (Section 2).
+
+Connect Supabase and run migrations for tables (Section 3).
+
+Implement /api/leads/intake, /api/leads, /api/assignments/:id/accept.
+
+In Twilio, purchase local numbers per target area code; wire up messaging service + voice webhooks.
+
+Enable Branded Calls (where supported) and/or CNAM for landlines.
+
+Drop the outreach templates (Section 7) and call them from sendOutreach().
+
+Build the Service Grid UI with checkboxes and lock logic.
+
+Deploy with Replit Deployments (Autoscale).
+
+Add a scheduled re-engagement job (cron) to follow up on no-response leads.
+
+Test: create a fake lead → confirm SMS/email/voice go out from a local number → accept an assignment → watch service boxes fill.
