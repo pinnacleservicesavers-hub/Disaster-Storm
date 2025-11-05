@@ -125,8 +125,19 @@ export async function verifyOwnership(
 
 /**
  * Middleware: Require admin role (new JWT-aware system)
+ * In local development only, allows localhost access for OIDC configuration setup
  */
 export function requireAdmin(req: AuthRequest, res: Response, next: NextFunction) {
+  const isLocalDevelopment = process.env.NODE_ENV === 'development';
+  const isOidcConfigRoute = req.path.includes('/admin/oidc');
+  const isLocalhost = req.ip === '127.0.0.1' || req.ip === '::1' || req.ip === '::ffff:127.0.0.1';
+  
+  // Allow OIDC configuration from localhost in development mode only
+  if (isLocalDevelopment && isOidcConfigRoute && isLocalhost) {
+    next();
+    return;
+  }
+  
   if (req.auth?.role !== 'admin') {
     return res.status(403).json({ error: 'Admin access required' });
   }
