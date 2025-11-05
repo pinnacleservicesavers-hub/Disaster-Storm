@@ -516,8 +516,8 @@ export default function ContractorPortal() {
   return (
     <div className={`min-h-screen transition-all duration-500 ${
       isFullscreen 
-        ? 'fixed inset-0 z-50 bg-gradient-to-br from-blue-900 via-indigo-900 to-purple-900' 
-        : 'bg-gradient-to-br from-blue-50 via-white to-indigo-50'
+        ? 'fixed inset-0 z-50 bg-gradient-to-br from-[hsl(217,91%,15%)] via-[hsl(217,91%,25%)] to-[hsl(215,25%,25%)]' 
+        : 'bg-gradient-to-br from-[hsl(217,91%,15%)] via-[hsl(217,91%,25%)] to-[hsl(215,25%,25%)]'
     } relative overflow-hidden`}>
       {/* Enhanced Background Effects */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
@@ -555,7 +555,7 @@ export default function ContractorPortal() {
               <motion.button
                 whileHover={{ scale: 1.05, x: -2 }}
                 whileTap={{ scale: 0.95 }}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all duration-200"
+                className="flex items-center gap-2 px-4 py-2 bg-[hsl(217,71%,53%)] hover:bg-[hsl(217,71%,43%)] text-white rounded-lg transition-all duration-200"
                 data-testid="button-back-to-hub"
               >
                 <ArrowLeft className="w-4 h-4" />
@@ -581,7 +581,7 @@ export default function ContractorPortal() {
             >
               <div className="flex items-center space-x-3">
                 <motion.div
-                  className="p-3 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl shadow-lg"
+                  className="p-3 bg-gradient-to-br from-[hsl(217,71%,53%)] to-[hsl(217,91%,35%)] rounded-xl shadow-lg"
                   animate={{ 
                     scale: [1, 1.05, 1],
                     boxShadow: [
@@ -736,25 +736,25 @@ export default function ContractorPortal() {
             variants={{ hidden: { opacity: 0, scale: 0.8 }, visible: { opacity: 1, scale: 1 } }}
             className="relative overflow-hidden"
           >
-            <Card className="h-full bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200 hover:shadow-lg transition-all duration-300">
+            <Card className="h-full bg-gradient-to-br from-[hsl(217,71%,53%)]/10 to-[hsl(217,71%,53%)]/20 border-[hsl(217,71%,53%)]/30 hover:shadow-lg transition-all duration-300">
               <CardContent className="p-4 text-center">
-                <Briefcase className="w-8 h-8 mx-auto mb-2 text-blue-500" />
-                <div className="text-2xl font-bold text-blue-600" data-testid="kpi-active-projects">
+                <Briefcase className="w-8 h-8 mx-auto mb-2 text-[hsl(217,71%,53%)]" />
+                <div className="text-2xl font-bold text-[hsl(217,71%,53%)]" data-testid="kpi-active-projects">
                   <CountUp end={activeProjects} duration={1.5} />
                 </div>
-                <div className="text-xs text-blue-600/80 font-medium">Active Projects</div>
+                <div className="text-xs text-[hsl(217,71%,53%)]/80 font-medium">Active Projects</div>
               </CardContent>
             </Card>
           </motion.div>
 
           <motion.div variants={{ hidden: { opacity: 0, scale: 0.8 }, visible: { opacity: 1, scale: 1 } }}>
-            <Card className="h-full bg-gradient-to-br from-green-50 to-green-100 border-green-200 hover:shadow-lg transition-all duration-300">
+            <Card className="h-full bg-gradient-to-br from-[hsl(142,76%,36%)]/10 to-[hsl(142,76%,36%)]/20 border-[hsl(142,76%,36%)]/30 hover:shadow-lg transition-all duration-300">
               <CardContent className="p-4 text-center">
-                <DollarSign className="w-8 h-8 mx-auto mb-2 text-green-500" />
-                <div className="text-2xl font-bold text-green-600" data-testid="kpi-monthly-revenue">
+                <DollarSign className="w-8 h-8 mx-auto mb-2 text-[hsl(142,76%,36%)]" />
+                <div className="text-2xl font-bold text-[hsl(142,76%,36%)]" data-testid="kpi-monthly-revenue">
                   <CountUp end={monthlyRevenue} duration={2} prefix="$" />
                 </div>
-                <div className="text-xs text-green-600/80 font-medium">Monthly Revenue</div>
+                <div className="text-xs text-[hsl(142,76%,36%)]/80 font-medium">Monthly Revenue</div>
               </CardContent>
             </Card>
           </motion.div>
@@ -779,9 +779,9 @@ export default function ContractorPortal() {
           </motion.div>
 
           <motion.div variants={{ hidden: { opacity: 0, scale: 0.8 }, visible: { opacity: 1, scale: 1 } }}>
-            <Card className="h-full bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200 hover:shadow-lg transition-all duration-300">
+            <Card className="h-full bg-gradient-to-br from-[hsl(25,95%,53%)]/10 to-[hsl(25,95%,53%)]/20 border-[hsl(25,95%,53%)]/30 hover:shadow-lg transition-all duration-300">
               <CardContent className="p-4 text-center">
-                <Camera className="w-8 h-8 mx-auto mb-2 text-orange-500" />
+                <Camera className="w-8 h-8 mx-auto mb-2 text-[hsl(25,95%,53%)]" />
                 <div className="text-2xl font-bold text-orange-600" data-testid="kpi-photos-uploaded">
                   <CountUp end={photos.length} duration={1.5} />
                 </div>
