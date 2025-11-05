@@ -1,0 +1,134 @@
+Option A — Push to GitHub from Replit
+
+Import the starter
+
+In this chat, download: disaster-direct-replit-starter-plus.zip
+
+In your Replit project, upload and unzip it so you see:
+
+server.js, services/, db/, README.md, README_GITHUB.md, DisasterDirect.postman_collection.json, etc.
+
+Create a .gitignore (very important)
+
+In Replit, create a new file .gitignore with:
+
+node_modules
+.env
+.env.*
+.DS_Store
+*.log
+npm-debug.log*
+pnpm-lock.yaml
+yarn.lock
+
+
+Initialize Git and commit
+
+Open the Replit Shell and run:
+
+git init
+git add .
+git commit -m "Initial commit: Disaster Direct AI Lead Management & Outreach starter"
+
+
+Create a new GitHub repo
+
+In a browser, go to GitHub → “New repository”
+
+Name: disaster-direct-backend (or any name you like)
+
+Keep it empty (no README/license/gitignore)
+
+Add the remote + push
+
+Back in Replit Shell:
+
+# replace YOUR_GITHUB_USERNAME and REPO with your actual values
+git branch -M main
+git remote add origin https://github.com/YOUR_GITHUB_USERNAME/disaster-direct-backend.git
+git push -u origin main
+
+
+If Replit asks for GitHub auth, follow the prompt to sign in/authorize.
+
+Add a license (optional)
+
+In GitHub → Add file → Create new file → LICENSE
+
+Paste your preferred license (or “All rights reserved” if private).
+
+Option B — Push to GitHub from your laptop
+
+Unzip the package
+
+Download: disaster-direct-replit-starter-plus.zip
+
+Unzip locally (e.g., into disaster-direct-backend/)
+
+Create .gitignore
+Create a .gitignore in the project root:
+
+node_modules
+.env
+.env.*
+.DS_Store
+*.log
+npm-debug.log*
+pnpm-lock.yaml
+yarn.lock
+
+
+Init + commit
+
+cd disaster-direct-backend
+git init
+git add .
+git commit -m "Initial commit: Disaster Direct AI Lead Management & Outreach starter"
+
+
+Create repo on GitHub
+
+GitHub → New repository → disaster-direct-backend (empty)
+
+Connect & push
+
+git branch -M main
+git remote add origin https://github.com/YOUR_GITHUB_USERNAME/disaster-direct-backend.git
+git push -u origin main
+
+After it’s on GitHub
+Set up Replit from GitHub (optional clean start)
+
+In Replit: “Create Repl” → “Import from GitHub” → pick your new repo.
+
+Add Secrets from .env.example (do not commit real secrets to Git).
+
+Run DB schema
+
+Use Supabase or any Postgres. Run db/schema.sql there.
+
+Test with Postman
+
+Import DisasterDirect.postman_collection.json
+
+Set {{baseUrl}} to your Replit URL (or http://localhost:3000 if local)
+
+Hit Lead Intake → Verify SMS/voice/email logs (dry-run if keys missing)
+
+Repo polish (recommended)
+
+Rename README_GITHUB.md → README.md (replace the default)
+
+Add screenshots/diagrams if you want
+
+Add LICENSE
+
+Protect main branch (GitHub → Settings → Branches)
+
+Need a repo name?
+
+disaster-direct-backend (clean)
+
+disaster-direct-ai-routing
+
+disaster-direct-storm-os-api

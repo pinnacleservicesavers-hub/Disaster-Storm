@@ -1,0 +1,203 @@
+Awesome — I’ll give you everything: HTTPS + SSH Git commands, exact repo setup, Postman env, Replit secrets, and two drop-in code upgrades (local caller-ID mapping + smart Tier 1/Tier 2 routing). You’re set.
+
+0) Download your starter
+
+Core starter: disaster-direct-replit-starter.zip
+
+Full package (README + Postman + area-code example): disaster-direct-replit-starter-plus.zip
+
+1) Create GitHub repo
+
+Repo name: disaster-direct-backend
+Leave it empty (no README/license/gitignore).
+
+2) Push from Replit (HTTPS or SSH)
+HTTPS (easy)
+git init
+git add .
+git commit -m "Initial commit: Disaster Direct AI Lead Management & Outreach starter"
+git branch -M main
+git remote add origin https://github.com/strategiclandmgmt/disaster-direct-backend.git
+git push -u origin main
+
+SSH (if you’ve set up an SSH key with GitHub)
+git init
+git add .
+git commit -m "Initial commit: Disaster Direct AI Lead Management & Outreach starter"
+git branch -M main
+git remote add origin git@github.com:strategiclandmgmt/disaster-direct-backend.git
+git push -u origin main
+
+
+Change the username if your GitHub handle is different.
+
+3) Optional: Push from your laptop
+cd disaster-direct-backend   # after unzipping
+git init
+git add .
+git commit -m "Initial commit: Disaster Direct AI Lead Management & Outreach starter"
+git branch -M main
+git remote add origin https://github.com/strategiclandmgmt/disaster-direct-backend.git
+# or: git remote add origin git@github.com:strategiclandmgmt/disaster-direct-backend.git
+git push -u origin main
+
+4) Replit setup from GitHub (clean start)
+
+Replit → Create Repl → Import from GitHub → pick disaster-direct-backend.
+
+In Secrets, add:
+
+Key	Example
+DATABASE_URL	postgres://user:pass@host:5432/db
+OPENAI_API_KEY	sk-...
+TWILIO_ACCOUNT_SID	ACxxxxxxxx...
+TWILIO_AUTH_TOKEN	xxxxxxxx...
+TWILIO_MESSAGING_SERVICE_SID	MGxxxxxxxx...
+TWILIO_BRANDED_CALLS_SID (optional)	BCxxxxxxxx...
+SENDGRID_API_KEY	SG.xxxxxxxx...
+APP_DOWNLOAD_IOS	https://your.app/ios
+APP_DOWNLOAD_ANDROID	https://your.app/android
+PUBLIC_WEBSITE	https://your-site.com
+
+Run db/schema.sql on your Postgres (Supabase recommended).
+
+Press Run (or npm run dev).
+
+5) Postman collection & env
+
+Import DisasterDirect.postman_collection.json.
+
+Create an environment with:
+
+baseUrl = https://<your-repl-name>.<your-user>.repl.co
+(or http://localhost:3000 if local)
+
+Test Lead Intake → you should see SMS/voice/email logs (dry-run if keys missing).
+
+6) Plug-in upgrade #1 — Local caller-ID mapping
+
+Replace the placeholder in services/twilio.js with a simple mapping file.
+Create area-codes.json (copy area-codes.example.json and add your numbers):
+
+{
+  "813": { "voiceFrom": "+18135550100" },
+  "904": { "voiceFrom": "+19045550100" },
+  "305": { "voiceFrom": "+13055550100" }
+}
+
+
+Then update services/twilio.js:
+
+import fs from 'fs';
+
+let AREA_MAP = {};
+try {
+  AREA_MAP = JSON.parse(fs.readFileSync('./area-codes.json','utf8'));
+} catch (e) {
+  try { AREA_MAP = JSON.parse(fs.readFileSync('./area-codes.example.json','utf8')); } catch {}
+}
+
+export function pickLocalNumberFor(areaCode) {
+  const entry = AREA_MAP[areaCode];
+  if (entry?.voiceFrom) return { fromNumber: entry.voiceFrom, messagingServiceSid: process.env.TWILIO_MESSAGING_SERVICE_SID || null };
+  // fallback to messaging service only (Geo-Match for SMS)
+  return { fromNumber: null, messagingServiceSid: process.env.TWILIO_MESSAGING_SERVICE_SID || null };
+}
+
+
+Caller ID label “Disaster Direct”:
+
+Use Twilio Branded Calls (Android/supported carriers).
+
+Consider CNAM registration for landlines (shows name where supported).
+
+7) Plug-in upgrade #2 — Tier 1 / Tier 2 smart routing
+
+Drop-in logic for routeLead() in services/lead.js that:
+
+Finds contractors by service category
+
+Filters by license/insurance, proximity (you can store ZIP/lat-lng), and availability
+
+Ranks by performance score + response-time
+
+Issues round 1 offers (Tier 1). If no accept, issue round 2 (Tier 2)
+
+Example (pseudo-implementation you can paste and adapt):
+
+export async function routeLead(leadId) {
+  // Get services needing assignment
+  const services = await query(`
+    select ls.id, ls.category, l.address, l.priority
+    from lead_services ls
+    join leads l on l.id = ls.lead_id
+    where ls.lead_id = $1 and ls.assigned_contractor_id is null and ls.needed = true
+  `, [leadId]);
+
+  for (const svc of services) {
+    // Find candidate contractors for this category
+    const candidates = await query(`
+      select c.*
+      from contractors c
+      where $1 = any(c.trades)
+        and c.active = true
+        and c.license_verified = true
+        and c.insurance_verified = true
+      order by c.performance_score desc, c.response_time_ms_avg asc
+      limit 20
+    `, [svc.category]);
+
+    // Split into Tier 1 (top 5) and Tier 2 (next 15)
+    const tier1 = candidates.slice(0,5);
+    const tier2 = candidates.slice(5);
+
+    // Offer to Tier 1 now
+    for (const c of tier1) {
+      await query(`
+        insert into assignments (lead_service_id, contractor_id, state, round)
+        values ($1, $2, 'offered', 1)
+      `, [svc.id, c.id]);
+      // TODO: push notification/SMS to contractor app or number
+    }
+
+    // You can schedule a job to escalate to Tier 2 in ~10–15 minutes
+    // (e.g., via cron/queue) if none accepts.
+  }
+  return true;
+}
+
+
+When a contractor accepts, implement the endpoint to lock that category and expire other offers:
+
+// POST /api/assignments/:id/accept
+// 1) verify contractor identity matches assignment.contractor_id
+// 2) set state='accepted', set lead_services.assigned_contractor_id
+// 3) expire other offers for same lead_service_id
+
+8) Homeowner-first messaging (already included)
+
+SMS, email, voice scripts reassure that with homeowners insurance, most repairs can be little to no out-of-pocket.
+
+The AI agent links the app & website and invites photo/video uploads.
+
+The lead stays open until every needed service (tree, roof, fence, pool, windows, water mitigation, GC, electrical, plumbing, foundation, glass, gutters, debris hauling) is assigned and completed (or marked not needed).
+
+9) Final checklist
+
+ Repo pushed to GitHub (main branch)
+
+ Replit imported from GitHub
+
+ Secrets set in Replit
+
+ Postgres schema applied
+
+ Twilio numbers per area code + Messaging Service (Geo-Match)
+
+ (Optional) Branded Calls / CNAM configured
+
+ area-codes.json added and mapped
+
+ Postman tests green
+
+ Tier routing implemented + accept/lock flow

@@ -1474,6 +1474,7 @@ export default function App() {
                 </div>
               </div>
           </div>
+          </div>
           
           {/* Voice Guide Status */}
           {isVoiceGuideActive && currentVoiceScript && (
@@ -1486,7 +1487,6 @@ export default function App() {
               </div>
             </div>
           )}
-        </div>
         </div>
       </header>
 
@@ -1715,7 +1715,6 @@ export default function App() {
       {/* AI Assistant Dock */}
       <AssistantDock />
       <ModuleAIAssistant moduleName="Disaster Lens" />
-    </main>
     </div>
   );
 }
