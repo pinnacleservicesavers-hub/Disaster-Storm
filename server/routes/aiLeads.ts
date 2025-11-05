@@ -163,13 +163,13 @@ aiLeadsRouter.get('/analytics', async (req, res) => {
     const contractorPerformanceResult = await db.execute(sql`
       SELECT 
         c.id,
-        c.name,
-        c.company,
+        c.contact_name as name,
+        c.company_name as company,
         COUNT(a.id)::integer as leads,
         c.performance_score as "avgScore"
       FROM ai_contractors c
       LEFT JOIN ai_assignments a ON a.ai_contractor_id = c.id
-      GROUP BY c.id, c.name, c.company, c.performance_score
+      GROUP BY c.id, c.contact_name, c.company_name, c.performance_score
       ORDER BY c.performance_score DESC
       LIMIT 10
     `);
