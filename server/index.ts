@@ -203,19 +203,20 @@ server.listen(port, () => {
   console.log('✅ Hazard monitoring scheduler started (runs every 10 minutes)');
 
   // AI Lead Re-engagement - Check every 6 hours
-  const { reengageStaleLeads } = await import('./services/aiLeadReengagement.js');
-  setInterval(async () => {
-    try {
-      const result = await reengageStaleLeads();
-      if (result.reminded > 0) {
-        console.log(`🔄 AI Lead Re-engagement: Sent ${result.reminded} reminders to ${result.scanned} stale leads`);
+  import('./services/aiLeadReengagement.js').then(({ reengageStaleLeads }) => {
+    setInterval(async () => {
+      try {
+        const result = await reengageStaleLeads();
+        if (result.reminded > 0) {
+          console.log(`🔄 AI Lead Re-engagement: Sent ${result.reminded} reminders to ${result.scanned} stale leads`);
+        }
+      } catch (err) {
+        console.error('AI lead re-engagement scheduler error:', err);
       }
-    } catch (err) {
-      console.error('AI lead re-engagement scheduler error:', err);
-    }
-  }, 6 * 60 * 60 * 1000); // Every 6 hours
-
-  console.log('✅ AI Lead re-engagement scheduler started (runs every 6 hours)');
+    }, 6 * 60 * 60 * 1000); // Every 6 hours
+    
+    console.log('✅ AI Lead re-engagement scheduler started (runs every 6 hours)');
+  });
   
   // Start JWKS background refresher
   jwksRefresher.start().catch(err => {

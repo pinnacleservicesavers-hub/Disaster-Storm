@@ -91,19 +91,29 @@ aiLeadsRouter.get('/', async (req, res) => {
   try {
     const { status, priority, insuranceStatus } = req.query;
 
-    let query = db.select().from(aiLeads);
-
+    // Build filter conditions
+    const conditions = [];
     if (status) {
-      query = query.where(eq(aiLeads.status, status as string)) as any;
+      conditions.push(eq(aiLeads.status, status as string));
     }
     if (priority) {
-      query = query.where(eq(aiLeads.priority, priority as string)) as any;
+      conditions.push(eq(aiLeads.priority, priority as string));
     }
     if (insuranceStatus) {
-      query = query.where(eq(aiLeads.insuranceStatus, insuranceStatus as string)) as any;
+      conditions.push(eq(aiLeads.insuranceStatus, insuranceStatus as string));
     }
 
-    const leads = await query.orderBy(desc(aiLeads.createdAt));
+    // Apply all filters together using and()
+    let leads;
+    if (conditions.length > 0) {
+      leads = await db
+        .select()
+        .from(aiLeads)
+        .where(and(...conditions))
+        .orderBy(desc(aiLeads.createdAt));
+    } else {
+      leads = await db.select().from(aiLeads).orderBy(desc(aiLeads.createdAt));
+    }
 
     res.json(leads);
   } catch (error) {
