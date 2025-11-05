@@ -12,6 +12,7 @@ const EyesInSky = lazy(() => import("./pages/EyesInSky"));
 const DroneOperations = lazy(() => import("./modules/DroneOperations"));
 const AIDamageDetection = lazy(() => import("./modules/AIDamageDetection"));
 const Leads = lazy(() => import("./pages/Leads"));
+const AILeadManagement = lazy(() => import("./pages/AILeadManagement"));
 const VictimDashboard = lazy(() => import("./pages/VictimDashboard"));
 const StormShare = lazy(() => import("./pages/StormShare"));
 const DisasterEssentialsMarketplace = lazy(() => import("./pages/DisasterEssentialsMarketplace"));
@@ -100,6 +101,7 @@ export default function App() {
           <Route path="/drone-operation" element={<DroneOperations />} />
           <Route path="/damage-detection" element={<AIDamageDetection />} />
           <Route path="/leads" element={<Leads />} />
+          <Route path="/ai-leads" element={<AILeadManagement />} />
           <Route path="/victim/dashboard" element={<VictimDashboard />} />
           <Route path="/stormshare" element={<StormShare />} />
           <Route path="/disaster-essentials-marketplace" element={<DisasterEssentialsMarketplace />} />
