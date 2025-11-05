@@ -51,12 +51,38 @@ export const queryClient = new QueryClient({
   },
 });
 
-// API request helper for mutations
-export const apiRequest = async (url: string, options: RequestInit = {}) => {
-  const response = await fetch(url, {
-    headers: getAuthenticatedHeaders(options.headers as Record<string, string>),
-    ...options,
-  });
+// API request helper for mutations - supports both old and new signatures
+export const apiRequest = async (
+  url: string,
+  methodOrOptions?: string | RequestInit,
+  data?: any,
+  options: RequestInit = {}
+) => {
+  let requestOptions: RequestInit;
+
+  // Backward compatibility: detect if second param is RequestInit (old signature)
+  if (typeof methodOrOptions === 'object' && methodOrOptions !== null) {
+    // Old signature: apiRequest(url, {method: 'POST', body: ...})
+    requestOptions = {
+      ...methodOrOptions,
+      headers: getAuthenticatedHeaders(methodOrOptions.headers as Record<string, string>),
+    };
+  } else {
+    // New signature: apiRequest(url, 'POST', data, options)
+    const method = (methodOrOptions as string | undefined) || 'GET';
+    requestOptions = {
+      ...options,
+      method,
+      headers: getAuthenticatedHeaders(options.headers as Record<string, string>),
+    };
+
+    // Auto-serialize JSON data for POST/PATCH/DELETE
+    if (data && method !== 'GET') {
+      requestOptions.body = JSON.stringify(data);
+    }
+  }
+
+  const response = await fetch(url, requestOptions);
 
   if (!response.ok) {
     throw new Error(`HTTP error! status: ${response.status}`);
