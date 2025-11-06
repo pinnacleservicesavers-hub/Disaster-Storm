@@ -1,0 +1,144 @@
+You got it. Since you haven’t pasted your real numbers yet, here’s a drop-in generator that does both in one shot:
+
+builds a precise area-codes.json from your pasted list (multi-state OK)
+
+creates a ready-to-run scripts/test-matrix.txt
+
+includes a one-command verifier to print which number each area code will use
+
+Just copy/paste these steps in your Replit Shell.
+
+1) Add the generator script
+mkdir -p scripts
+
+cat > scripts/build-areas.mjs <<'EOF'
+import fs from "fs";
+
+// USAGE (example at the bottom of this message):
+// node scripts/build-areas.mjs <<'MAP'
+// FL:
+// 813:+1813XXXXXXX
+// 904:+1904XXXXXXX
+// TX:
+// 713:+1713XXXXXXX
+// 214:+1214XXXXXXX
+// MAP
+//
+// Creates/updates:
+//  - ./area-codes.json   (grouped by state)
+//  - ./scripts/test-matrix.txt (flat list of destination numbers to test)
+//
+// Input format:
+//   STATE_ABBR:
+//   AREACODE:+1NUMBER
+//   AREACODE:+1NUMBER
+//   (Repeat for multiple states)
+
+const stdin = await new Promise(res => {
+  let buf=""; process.stdin.setEncoding("utf8");
+  process.stdin.on("data", d => buf += d);
+  process.stdin.on("end", () => res(buf));
+});
+
+const lines = stdin.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+
+// Start from existing json if present (merge-friendly)
+let map = {};
+try { map = JSON.parse(fs.readFileSync("./area-codes.json","utf8")); } catch {}
+if (!map._default) map._default = { voiceFrom: "+18005550199" };
+
+let state = null;
+const matrix = [];
+
+for (const line of lines) {
+  // STATE line? e.g., "FL:" or "Texas:" -> take first token before colon as state code
+  if (/^[A-Za-z][A-Za-z0-9_-]*:\s*$/.test(line)) {
+    state = line.replace(/:\s*$/, '').toUpperCase();
+    if (!map[state]) map[state] = {};
+    continue;
+  }
+
+  // Data line: "813:+1813XXXXXXX"
+  const m = line.match(/^(\d{3})\s*:\s*(\+1\d{10})$/);
+  if (!m) {
+    console.error(`Skipping invalid line: "${line}" (expected "813:+1XXXXXXXXXX")`);
+    continue;
+  }
+  if (!state) {
+    console.error(`No state defined before "${line}". Add a "FL:" style line first.`);
+    continue;
+  }
+  const [, ac, num] = m;
+  map[state][ac] = { voiceFrom: num };
+  matrix.push(num);
+}
+
+// Write files
+fs.writeFileSync("./area-codes.json", JSON.stringify(map, null, 2));
+fs.mkdirSync("./scripts", { recursive: true });
+fs.writeFileSync("./scripts/test-matrix.txt", matrix.map(n => n).join("\n") + "\n");
+
+console.log("✅ Wrote area-codes.json and scripts/test-matrix.txt");
+EOF
+
+2) Paste your actual numbers (multi-state) and generate both files
+
+Replace the placeholders below with your real Twilio numbers (one per area code). You can include as many states/area codes as you want in one go.
+
+node scripts/build-areas.mjs <<'MAP'
+FL:
+813:+1813YYYYYYY
+904:+1904YYYYYYY
+305:+1305YYYYYYY
+
+TX:
+713:+1713YYYYYYY
+214:+1214YYYYYYY
+972:+1972YYYYYYY
+
+GA:
+404:+1404YYYYYYY
+678:+1678YYYYYYY
+470:+1470YYYYYYY
+MAP
+
+
+This will create/update:
+
+area-codes.json (grouped by FL/TX/GA with exact numbers)
+
+scripts/test-matrix.txt (a flat list of all those numbers for matrix tests)
+
+3) One-command verifier (prints your mapping table)
+node -e "const fs=require('fs');const m=JSON.parse(fs.readFileSync('./area-codes.json','utf8'));let rows=[];for(const [st,cs] of Object.entries(m)){if(st==='_default')continue;for(const [ac,i] of Object.entries(cs)){rows.push({state:st,areaCode:ac,voiceFrom:i.voiceFrom});}}console.table(rows)"
+
+
+You’ll see a clean table like:
+
+┌─────────┬───────┬───────────┬───────────────┐
+│ (index) │ state │ areaCode  │   voiceFrom   │
+├─────────┼───────┼───────────┼───────────────┤
+│    0    │ 'FL'  │  '813'    │ '+1813YYYYYYY'│
+│    1    │ 'FL'  │  '904'    │ '+1904YYYYYYY'│
+│    2    │ 'TX'  │  '713'    │ '+1713YYYYYYY'│
+│   ...   │  ...  │   ...     │     ...       │
+└─────────┴───────┴───────────┴───────────────┘
+
+4) Optional: Dry-run and live tests (if you added the earlier testing scripts)
+
+Dry-run (no real traffic):
+
+export TWILIO_DRY_RUN=1
+
+TEST_TO=+1813YOURMOBILE npm run test:sms
+TEST_TO=+1813YOURMOBILE npm run test:call
+
+MATRIX_FILE=./scripts/test-matrix.txt npm run test:sms:matrix
+MATRIX_FILE=./scripts/test-matrix.txt npm run test:call:matrix
+
+
+Live (real SMS/voice):
+
+unset TWILIO_DRY_RUN
+TEST_TO=+1813YOURMOBILE npm run test:sms
+TEST_TO=+1813YOURMOBILE npm run test:call
