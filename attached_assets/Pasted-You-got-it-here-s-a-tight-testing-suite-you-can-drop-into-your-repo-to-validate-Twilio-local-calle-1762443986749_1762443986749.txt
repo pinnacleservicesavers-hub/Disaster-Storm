@@ -1,0 +1,219 @@
+You got it — here’s a tight testing suite you can drop into your repo to validate Twilio local caller-ID, SMS, voice, area-code mapping, webhooks, and an end-to-end intake. I’ve also included a safe DRY-RUN mode so you can test without sending real traffic.
+
+0) Enable a safe DRY-RUN mode (recommended first)
+
+Add this small tweak to services/twilio.js near the top, after the Twilio client is created:
+
+const DRY = process.env.TWILIO_DRY_RUN === '1';
+
+
+Update the send functions to bail out early when DRY is on:
+
+export async function sendSMS({ to, body }) {
+  const digits = (to||'').replace(/\D/g,'');
+  const areaCode = digits.length >= 10 ? digits.slice(-10, -7) : null;
+  const sel = pickLocalNumberFor(areaCode);
+
+  if (DRY || !process.env.TWILIO_ACCOUNT_SID) {
+    console.log('[sendSMS] DRY RUN ->', { to, body, from: sel.fromNumber, svc: sel.messagingServiceSid });
+    return;
+  }
+  // ... real client.messages.create(...)
+}
+
+export async function placeCall({ to, twiml }) {
+  const digits = (to||'').replace(/\D/g,'');
+  const areaCode = digits.length >= 10 ? digits.slice(-10, -7) : null;
+  const sel = pickLocalNumberFor(areaCode);
+
+  if (DRY || !process.env.TWILIO_ACCOUNT_SID) {
+    console.log('[placeCall] DRY RUN ->', { to, from: sel.fromNumber || (AREA_MAP?._default?.voiceFrom) });
+    return;
+  }
+  // ... real client.calls.create(...)
+}
+
+
+Now you can flip DRY on/off via:
+
+TWILIO_DRY_RUN=1
+
+1) Add the test scripts
+
+Create a scripts/ folder and add the following files.
+
+A) scripts/test-sms.mjs – send a single SMS (local area code)
+import { sendSMS } from '../services/twilio.js';
+
+const to = process.env.TEST_TO || '+18135550123'; // your cell
+const msg = process.env.TEST_MSG || 'Disaster Direct SMS test — verifying local area code.';
+await sendSMS({ to, body: msg });
+console.log('SMS attempted to', to);
+
+B) scripts/test-call.mjs – place a single voice call (local area code)
+import { placeCall } from '../services/twilio.js';
+
+const to = process.env.TEST_TO || '+18135550123'; // your cell
+const twiml = process.env.TEST_TWIML || `<Response>
+  <Say>This is a Disaster Direct test call using local caller I D.</Say>
+  <Pause length="1"/>
+  <Say>If the caller area code matches your region, mapping works.</Say>
+</Response>`;
+
+await placeCall({ to, twiml });
+console.log('Call attempted to', to);
+
+C) scripts/inspect-area.mjs – quick table of your area-code mapping
+import fs from 'fs';
+
+const map = JSON.parse(fs.readFileSync('./area-codes.json','utf8'));
+const rows = [];
+
+for (const [state, codes] of Object.entries(map)) {
+  if (state === '_default') continue;
+  for (const [ac, info] of Object.entries(codes)) {
+    rows.push({ state, areaCode: ac, voiceFrom: info.voiceFrom });
+  }
+}
+console.table(rows);
+
+D) scripts/test-sms-matrix.mjs – send SMS to a list of numbers (validates mapping)
+import { sendSMS } from '../services/twilio.js';
+import fs from 'fs';
+
+const listPath = process.env.MATRIX_FILE || './scripts/test-matrix.txt';
+// test-matrix.txt lines look like: +1813XXXXXXX  (one per line)
+const lines = fs.readFileSync(listPath, 'utf8')
+  .split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+
+for (const to of lines) {
+  const digits = to.replace(/\D/g,'');
+  const areaCode = digits.length >= 10 ? digits.slice(-10, -7) : '?';
+  const body = `Matrix SMS test for AC ${areaCode}`;
+  console.log('Sending to', to, 'AC=', areaCode);
+  await sendSMS({ to, body });
+}
+console.log('Matrix SMS run complete.');
+
+E) scripts/test-call-matrix.mjs – place calls to a list of numbers
+import { placeCall } from '../services/twilio.js';
+import fs from 'fs';
+
+const listPath = process.env.MATRIX_FILE || './scripts/test-matrix.txt';
+const twiml = `<Response><Say>Disaster Direct local caller I D matrix call.</Say></Response>`;
+
+const lines = fs.readFileSync(listPath, 'utf8')
+  .split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+
+for (const to of lines) {
+  const digits = to.replace(/\D/g,'');
+  const areaCode = digits.length >= 10 ? digits.slice(-10, -7) : '?';
+  console.log('Calling', to, 'AC=', areaCode);
+  await placeCall({ to, twiml });
+}
+console.log('Matrix voice run complete.');
+
+
+Create the matrix file with your test phones (your own numbers) one per line:
+
+# scripts/test-matrix.txt
++1813XXXXXXX
++1904XXXXXXX
++1305XXXXXXX
+
+F) scripts/hit-inbound-sms.sh – simulate an inbound SMS to your webhook
+
+This doesn’t include Twilio signature validation; it just hits your webhook for sanity checks.
+
+#!/usr/bin/env bash
+# Usage:
+# PUBLIC_BASE_URL=https://<your-repl>.repl.co \
+#   TWILIO_SMS_WEBHOOK_PATH=/webhooks/twilio/sms \
+#   ./scripts/hit-inbound-sms.sh "+18135550123" "Hello from my phone"
+
+set -euo pipefail
+BASE="${PUBLIC_BASE_URL:-http://localhost:3000}"
+PATH_SEG="${TWILIO_SMS_WEBHOOK_PATH:-/webhooks/twilio/sms}"
+FROM="${1:-+18135550123}"
+BODY="${2:-Test inbound message}"
+
+curl -sS -X POST "$BASE$PATH_SEG" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  --data-urlencode "From=$FROM" \
+  --data-urlencode "Body=$BODY"
+echo
+
+
+Make it executable:
+
+chmod +x scripts/hit-inbound-sms.sh
+
+2) Add npm scripts
+
+In your package.json, add these:
+
+{
+  "scripts": {
+    "dev": "node server.js",
+    "test:sms": "node scripts/test-sms.mjs",
+    "test:call": "node scripts/test-call.mjs",
+    "test:sms:matrix": "node scripts/test-sms-matrix.mjs",
+    "test:call:matrix": "node scripts/test-call-matrix.mjs",
+    "inspect:area": "node scripts/inspect-area.mjs"
+  }
+}
+
+3) How to run tests
+A) Dry-run (no real traffic)
+
+This verifies mapping and code paths without sending through Twilio:
+
+export TWILIO_DRY_RUN=1
+
+# Single tests
+TEST_TO=+1813YOURCELL npm run test:sms
+TEST_TO=+1813YOURCELL npm run test:call
+
+# Matrix tests (multiple numbers)
+MATRIX_FILE=./scripts/test-matrix.txt npm run test:sms:matrix
+MATRIX_FILE=./scripts/test-matrix.txt npm run test:call:matrix
+
+# Mapping table
+npm run inspect:area
+
+
+You should see console logs like:
+
+[sendSMS] DRY RUN -> { to: '+1813…', from: '+1813YOURTWILIONUM', svc: 'MG…' }
+
+B) Live traffic
+
+Unset dry-run and ensure your Twilio secrets are set:
+
+unset TWILIO_DRY_RUN
+# or in Replit, remove the TWILIO_DRY_RUN secret
+
+# Run single tests
+TEST_TO=+1813YOURCELL npm run test:sms
+TEST_TO=+1813YOURCELL npm run test:call
+
+
+You’ll receive a real SMS/call. Check the sender caller ID area code.
+
+C) Inbound webhook test
+PUBLIC_BASE_URL=https://<your-repl>.repl.co \
+TWILIO_SMS_WEBHOOK_PATH=/webhooks/twilio/sms \
+./scripts/hit-inbound-sms.sh "+18135550123" "Hi Disaster Direct"
+
+
+Your API should respond with the auto-reply XML (and Twilio would send that to the user in real life).
+
+4) Pro tips & gotchas
+
+Area-code not found? Voice falls back to _default.voiceFrom. SMS uses your Messaging Service (Geo-Match) if configured.
+
+Carrier presentation varies. For caller name (“Disaster Direct”), use Branded Calls (Android/supported carriers) and consider CNAM for landlines.
+
+For matrix tests, use your own phones (or test numbers you control), and keep volume small to avoid spam flags during early testing.
+
+Keep TWILIO_DRY_RUN=1 while wiring things up, then flip it off for a final live validation.

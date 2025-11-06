@@ -1,0 +1,217 @@
+You got it. Here’s a drop-in Twilio phone number configuration package for your app—covering local number pools, Messaging Service (Geo-Match), branded caller ID, CNAM, and inbound webhooks. Copy/paste the snippets into your project.
+
+1) Add/confirm environment variables
+
+In Replit → Secrets (or .env locally):
+
+TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+TWILIO_AUTH_TOKEN=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+TWILIO_MESSAGING_SERVICE_SID=MGxxxxxxxxxxxxxxxxxxxxxxxxxxxx   # for SMS/MMS
+PUBLIC_BASE_URL=https://<your-repl-subdomain>.<your-user>.repl.co
+TWILIO_SMS_WEBHOOK_PATH=/webhooks/twilio/sms
+TWILIO_VOICE_WEBHOOK_PATH=/webhooks/twilio/voice
+
+
+PUBLIC_BASE_URL must be reachable by Twilio (Replit Deployments recommended).
+
+2) Update Twilio service code (local numbers + Geo-Match + fallbacks)
+
+Replace your services/twilio.js with this (or merge the changes):
+
+// services/twilio.js
+import twilio from 'twilio';
+import fs from 'fs';
+
+const client = twilio(process.env.TWILIO_ACCOUNT_SID || '', process.env.TWILIO_AUTH_TOKEN || '');
+
+let AREA_MAP = {};
+try {
+  AREA_MAP = JSON.parse(fs.readFileSync('./area-codes.json','utf8'));
+} catch (e) {
+  try { AREA_MAP = JSON.parse(fs.readFileSync('./area-codes.example.json','utf8')); } catch {}
+}
+
+function resolveFromNumber(areaCode) {
+  for (const [state, codes] of Object.entries(AREA_MAP)) {
+    if (state === '_default') continue;
+    if (codes[areaCode]?.voiceFrom) return codes[areaCode].voiceFrom;
+  }
+  return AREA_MAP?._default?.voiceFrom || null;
+}
+
+export function pickLocalNumberFor(areaCode) {
+  const fromNumber = areaCode ? resolveFromNumber(areaCode) : null;
+  return {
+    fromNumber,
+    messagingServiceSid: process.env.TWILIO_MESSAGING_SERVICE_SID || null
+  };
+}
+
+export async function sendSMS({ to, body }) {
+  const digits = (to||'').replace(/\D/g,'');
+  const areaCode = digits.length >= 10 ? digits.slice(-10, -7) : null;
+  const sel = pickLocalNumberFor(areaCode);
+
+  if (!process.env.TWILIO_ACCOUNT_SID) {
+    console.log('[sendSMS] (dry run) ->', { to, body, sel });
+    return;
+  }
+
+  await client.messages.create({
+    to,
+    body,
+    // Prefer Messaging Service for Geo-Match and compliance
+    ...(sel.messagingServiceSid ? { messagingServiceSid: sel.messagingServiceSid } : { from: sel.fromNumber })
+  });
+}
+
+export async function placeCall({ to, twiml }) {
+  const digits = (to||'').replace(/\D/g,'');
+  const areaCode = digits.length >= 10 ? digits.slice(-10, -7) : null;
+  const sel = pickLocalNumberFor(areaCode);
+
+  if (!process.env.TWILIO_ACCOUNT_SID) {
+    console.log('[placeCall] (dry run) ->', { to, from: sel.fromNumber });
+    return;
+  }
+
+  await client.calls.create({
+    to,
+    from: sel.fromNumber || AREA_MAP?._default?.voiceFrom || '+18005550199',
+    twiml
+  });
+}
+
+3) Inbound webhooks (SMS + Voice)
+
+Add these routes to server.js so Twilio can reach your app for replies and IVR.
+
+// server.js (add under other imports)
+import twilio from 'twilio';
+const twiml = twilio.twiml;
+
+// --- Inbound SMS webhook
+app.post(process.env.TWILIO_SMS_WEBHOOK_PATH || '/webhooks/twilio/sms', async (req, res) => {
+  // Typical fields: req.body.From, req.body.Body
+  const from = req.body.From;
+  const body = (req.body.Body || '').trim();
+
+  // Simple auto-reply with app links (you can add NLP routing later)
+  const MessagingResponse = twilio.twiml.MessagingResponse;
+  const sms = new MessagingResponse();
+  const ios = process.env.APP_DOWNLOAD_IOS || 'https://example.com/ios';
+  const android = process.env.APP_DOWNLOAD_ANDROID || 'https://example.com/android';
+  const site = process.env.PUBLIC_WEBSITE || 'https://example.com';
+
+  sms.message(
+    `Thanks for contacting Disaster Direct. Download the app: ${ios} / ${android} — or visit: ${site}. You can upload photos/videos and track your recovery here.`
+  );
+  res.type('text/xml').send(sms.toString());
+});
+
+// --- Inbound Voice webhook (basic IVR / message)
+app.post(process.env.TWILIO_VOICE_WEBHOOK_PATH || '/webhooks/twilio/voice', async (req, res) => {
+  const response = new twilio.twiml.VoiceResponse();
+  response.say('Thank you for calling Disaster Direct. If you experienced storm damage, our team can help coordinate verified local contractors and insurance support.');
+  response.pause({ length: 1 });
+  response.say('You will receive a text message with our app link shortly. We are here to help.');
+  res.type('text/xml').send(response.toString());
+});
+
+
+After you deploy, set these URLs on the numbers (or Messaging Service) in Twilio Console:
+
+SMS Webhook: POST ${PUBLIC_BASE_URL}${TWILIO_SMS_WEBHOOK_PATH}
+
+Voice Webhook: POST ${PUBLIC_BASE_URL}${TWILIO_VOICE_WEBHOOK_PATH}
+
+4) Twilio Console / CLI setup (buy numbers, service, and webhooks)
+A) Buy local numbers (one per area code you need)
+
+Console → Phone Numbers → Buy a Number → filter by area code (e.g., 813, 904, 305) → Buy.
+
+Repeat for each area code you want.
+
+OR (CLI):
+
+# Install CLI locally if needed: npm i -g twilio-cli
+# Login: twilio login
+# Buy a number in area code 813:
+twilio api:core:incoming-phone-numbers:create --area-code 813
+
+B) Create a Messaging Service and enable Geo-Match
+
+Console → Messaging → Services → Create Service
+
+Turn on Sticky Sender and Area-code Geo-Match (if available in your region).
+
+Add all your local numbers to this Messaging Service.
+
+Copy the Service SID (put into TWILIO_MESSAGING_SERVICE_SID).
+
+CLI (rough template):
+
+twilio api:messaging:v1:services:create --friendly-name "Disaster Direct"
+# Add a number to the service:
+twilio api:messaging:v1:services:phone-numbers:create \
+  --service-sid MGxxxxxxxxxxxxxxxxxxxxxxxxxxxx \
+  --phone-number-sid PNxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+C) Set webhooks on each number (voice)
+
+In Console → Phone Numbers → Manage → Active Numbers → select a number:
+
+Voice & Fax → A Call Comes In → Webhook → POST ${PUBLIC_BASE_URL}${TWILIO_VOICE_WEBHOOK_PATH}
+
+Messaging → (if not using Messaging Service) set A Message Comes In to POST ${PUBLIC_BASE_URL}${TWILIO_SMS_WEBHOOK_PATH}
+(If you use a Messaging Service, set webhooks there instead.)
+
+5) Branded caller ID & CNAM (optional, but recommended)
+
+Branded Calls (Android/supported carriers): Set up in Twilio Console → Trust Hub → Branded Calls. This is the best way to display “Disaster Direct” and your logo.
+
+CNAM (landlines): Register CNAM for each voice number so landline caller ID can show Disaster Direct where supported.
+
+6) Area-code mapping file
+
+Keep (or create) area-codes.json in the project root to map local voice caller ID numbers:
+
+{
+  "FL": {
+    "813": { "voiceFrom": "+1813YOURNUMBER" },
+    "904": { "voiceFrom": "+1904YOURNUMBER" },
+    "305": { "voiceFrom": "+1305YOURNUMBER" }
+  },
+  "_default": { "voiceFrom": "+18005550199" }
+}
+
+
+SMS doesn’t need this as much if you’re using a Messaging Service with Geo-Match, but voice does—we’ll call from the mapped local number for that area code.
+
+7) Quick tests
+
+SMS
+
+TEST_TO=+1YOURMOBILE node -e "import('./services/twilio.js').then(m=>m.sendSMS({to:process.env.TEST_TO, body:'Disaster Direct SMS test (local area code).'}))"
+
+
+Voice
+
+TEST_TO=+1YOURMOBILE node -e "import('./services/twilio.js').then(m=>m.placeCall({to:process.env.TEST_TO, twiml:'<Response><Say>This is a Disaster Direct test call using local caller I D.</Say></Response>'}))"
+
+
+Inbound (after setting webhooks):
+
+Text your Twilio number → you should receive an auto-reply with app links.
+
+Call your Twilio number → you should hear the voice message.
+
+8) Pro tips
+
+Buy at least 2–3 numbers per high-volume area code (rotates usage and improves deliverability).
+
+Use a Messaging Service for SMS at scale (Geo-Match, compliance, and easy pool management).
+
+Keep area-codes.json in Git; never commit secrets.
+
+For higher answer rates, send SMS before calling and mention your brand so the voice call is expected.
