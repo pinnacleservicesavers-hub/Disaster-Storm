@@ -1,0 +1,118 @@
+Perfect—since you said “yes,” I’ll give you a copy-paste setup that lets you generate your area-codes.json from a simple list of lines (no downloads needed).
+
+Step 1 — Add the generator script
+
+In your Replit shell, paste this whole block to create scripts/make-area-json.mjs:
+
+mkdir -p scripts
+
+cat > scripts/make-area-json.mjs <<'EOF'
+import fs from "fs";
+
+// Usage:
+// STATE=FL node scripts/make-area-json.mjs <<'MAP'
+// 813:+1813XXXXXXX
+// 904:+1904XXXXXXX
+// MAP
+//
+// Repeat per state to append/merge. Creates/updates area-codes.json.
+
+const state = process.env.STATE;
+if (!state) {
+  console.error("ERROR: set STATE=FL (or TX, GA, etc.)");
+  process.exit(1);
+}
+
+// Read existing map or start fresh
+let map = {};
+try { map = JSON.parse(fs.readFileSync("./area-codes.json","utf8")); } catch {}
+if (!map[state]) map[state] = {};
+if (!map._default) map._default = { voiceFrom: "+18005550199" };
+
+const input = await new Promise((resolve)=> {
+  let buf = "";
+  process.stdin.setEncoding("utf8");
+  process.stdin.on("data", (d)=> buf += d);
+  process.stdin.on("end", ()=> resolve(buf));
+});
+
+// Parse lines like "813:+1813XXXXXXX"
+input.split(/\r?\n/).map(l=>l.trim()).filter(Boolean).forEach(line => {
+  const m = line.match(/^(\d{3})\s*:\s*(\+1\d{10})$/);
+  if (!m) {
+    console.error(`Skipping invalid line: "${line}" (expected 3-digit AC : +1XXXXXXXXXX)`);
+    return;
+    }
+  const [, ac, num] = m;
+  map[state][ac] = { voiceFrom: num };
+});
+
+fs.writeFileSync("./area-codes.json", JSON.stringify(map, null, 2));
+console.log("Updated area-codes.json");
+EOF
+
+Step 2 — Generate each state’s area-code map
+
+Run once per state you serve. Replace the numbers with your Twilio numbers.
+
+Florida example:
+
+STATE=FL node scripts/make-area-json.mjs <<'MAP'
+305:+1305XXXXXXX
+786:+1786XXXXXXX
+813:+1813XXXXXXX
+727:+1727XXXXXXX
+407:+1407XXXXXXX
+321:+1321XXXXXXX
+904:+1904XXXXXXX
+561:+1561XXXXXXX
+954:+1954XXXXXXX
+239:+1239XXXXXXX
+850:+1850XXXXXXX
+MAP
+
+
+Texas example:
+
+STATE=TX node scripts/make-area-json.mjs <<'MAP'
+713:+1713XXXXXXX
+281:+1281XXXXXXX
+832:+1832XXXXXXX
+346:+1346XXXXXXX
+214:+1214XXXXXXX
+469:+1469XXXXXXX
+972:+1972XXXXXXX
+210:+1210XXXXXXX
+512:+1512XXXXXXX
+915:+1915XXXXXXX
+MAP
+
+
+Repeat for GA, LA, AL, MS, SC, NC, TN, OK… You can run the script as many times as you want; it merges into the same area-codes.json safely.
+
+Step 3 — Quick verify (no traffic)
+
+Print your map as a table to confirm:
+
+node -e "const fs=require('fs');const m=JSON.parse(fs.readFileSync('./area-codes.json','utf8'));let rows=[];for(const [st,cs] of Object.entries(m)){if(st==='_default')continue;for(const [ac,i] of Object.entries(cs)){rows.push({state:st,areaCode:ac,voiceFrom:i.voiceFrom});}}console.table(rows)"
+
+Step 4 — Send a test SMS / place a test call
+
+(Uses the test scripts from earlier. If you don’t have them yet, tell me and I’ll paste them again.)
+
+TEST_TO=+1YOURMOBILE npm run test:sms
+TEST_TO=+1YOURMOBILE npm run test:call
+
+
+If you want me to prebuild area-codes.json for you, just paste your list like this and I’ll return the exact file:
+
+FL:
+305:+1305#######
+786:+1786#######
+813:+1813#######
+...
+
+TX:
+713:+1713#######
+281:+1281#######
+...

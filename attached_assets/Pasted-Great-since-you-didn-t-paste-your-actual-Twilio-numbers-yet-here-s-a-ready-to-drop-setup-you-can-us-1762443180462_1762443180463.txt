@@ -1,0 +1,159 @@
+Great—since you didn’t paste your actual Twilio numbers yet, here’s a ready-to-drop setup you can use immediately. Replace the placeholders with your owned Twilio numbers, then run the quick tests.
+
+1) area-codes.json (paste into your project root)
+
+Replace every +1XXXXXXXXXX with a Twilio number you own in that area code. JSON can’t have comments, so keep only the data.
+
+{
+  "FL": {
+    "305": { "voiceFrom": "+1XXXXXXXXXX" },
+    "786": { "voiceFrom": "+1XXXXXXXXXX" },
+    "813": { "voiceFrom": "+1XXXXXXXXXX" },
+    "727": { "voiceFrom": "+1XXXXXXXXXX" },
+    "407": { "voiceFrom": "+1XXXXXXXXXX" },
+    "321": { "voiceFrom": "+1XXXXXXXXXX" },
+    "904": { "voiceFrom": "+1XXXXXXXXXX" },
+    "561": { "voiceFrom": "+1XXXXXXXXXX" },
+    "954": { "voiceFrom": "+1XXXXXXXXXX" },
+    "239": { "voiceFrom": "+1XXXXXXXXXX" },
+    "850": { "voiceFrom": "+1XXXXXXXXXX" }
+  },
+  "TX": {
+    "713": { "voiceFrom": "+1XXXXXXXXXX" },
+    "281": { "voiceFrom": "+1XXXXXXXXXX" },
+    "832": { "voiceFrom": "+1XXXXXXXXXX" },
+    "346": { "voiceFrom": "+1XXXXXXXXXX" },
+    "214": { "voiceFrom": "+1XXXXXXXXXX" },
+    "469": { "voiceFrom": "+1XXXXXXXXXX" },
+    "972": { "voiceFrom": "+1XXXXXXXXXX" },
+    "210": { "voiceFrom": "+1XXXXXXXXXX" },
+    "512": { "voiceFrom": "+1XXXXXXXXXX" },
+    "915": { "voiceFrom": "+1XXXXXXXXXX" }
+  },
+  "GA": {
+    "404": { "voiceFrom": "+1XXXXXXXXXX" },
+    "470": { "voiceFrom": "+1XXXXXXXXXX" },
+    "678": { "voiceFrom": "+1XXXXXXXXXX" },
+    "706": { "voiceFrom": "+1XXXXXXXXXX" },
+    "912": { "voiceFrom": "+1XXXXXXXXXX" }
+  },
+  "LA": {
+    "504": { "voiceFrom": "+1XXXXXXXXXX" },
+    "225": { "voiceFrom": "+1XXXXXXXXXX" },
+    "337": { "voiceFrom": "+1XXXXXXXXXX" },
+    "318": { "voiceFrom": "+1XXXXXXXXXX" }
+  },
+  "AL": {
+    "205": { "voiceFrom": "+1XXXXXXXXXX" },
+    "251": { "voiceFrom": "+1XXXXXXXXXX" },
+    "256": { "voiceFrom": "+1XXXXXXXXXX" }
+  },
+  "MS": {
+    "601": { "voiceFrom": "+1XXXXXXXXXX" },
+    "228": { "voiceFrom": "+1XXXXXXXXXX" }
+  },
+  "SC": {
+    "803": { "voiceFrom": "+1XXXXXXXXXX" },
+    "843": { "voiceFrom": "+1XXXXXXXXXX" },
+    "864": { "voiceFrom": "+1XXXXXXXXXX" }
+  },
+  "NC": {
+    "919": { "voiceFrom": "+1XXXXXXXXXX" },
+    "984": { "voiceFrom": "+1XXXXXXXXXX" },
+    "704": { "voiceFrom": "+1XXXXXXXXXX" },
+    "980": { "voiceFrom": "+1XXXXXXXXXX" },
+    "336": { "voiceFrom": "+1XXXXXXXXXX" },
+    "910": { "voiceFrom": "+1XXXXXXXXXX" },
+    "252": { "voiceFrom": "+1XXXXXXXXXX" }
+  },
+  "TN": {
+    "615": { "voiceFrom": "+1XXXXXXXXXX" },
+    "901": { "voiceFrom": "+1XXXXXXXXXX" },
+    "865": { "voiceFrom": "+1XXXXXXXXXX" },
+    "423": { "voiceFrom": "+1XXXXXXXXXX" }
+  },
+  "OK": {
+    "405": { "voiceFrom": "+1XXXXXXXXXX" },
+    "918": { "voiceFrom": "+1XXXXXXXXXX" }
+  },
+  "_default": { "voiceFrom": "+18005550199" }
+}
+
+2) Add two tiny test scripts
+
+Create scripts/test-sms.mjs:
+
+import { sendSMS } from '../services/twilio.js';
+
+const to = process.env.TEST_TO || '+18135550123'; // your phone to receive the test
+const msg = 'Disaster Direct SMS test — confirming local caller ID.';
+await sendSMS({ to, body: msg });
+console.log('SMS attempted to', to);
+
+
+Create scripts/test-call.mjs:
+
+import { placeCall } from '../services/twilio.js';
+
+const to = process.env.TEST_TO || '+18135550123';
+const twiml = `<Response>
+  <Say voice="Polly.Matthew">This is a Disaster Direct test call using local caller ID.</Say>
+  <Pause length="1"/>
+  <Say>If you see a matching local area code, mapping works.</Say>
+</Response>`;
+await placeCall({ to, twiml });
+console.log('Call attempted to', to);
+
+
+Update package.json scripts:
+
+{
+  "scripts": {
+    "dev": "node server.js",
+    "test:sms": "node scripts/test-sms.mjs",
+    "test:call": "node scripts/test-call.mjs"
+  }
+}
+
+
+Run tests (from Replit Shell):
+
+TEST_TO=+1YOURMOBILE npm run test:sms
+TEST_TO=+1YOURMOBILE npm run test:call
+
+3) Optional: quick “what number would we use?” inspector
+
+Create scripts/inspect-area.mjs to verify your mapping without sending traffic:
+
+import fs from 'fs';
+
+const map = JSON.parse(fs.readFileSync('./area-codes.json','utf8'));
+const all = [];
+for (const [state, codes] of Object.entries(map)) {
+  if (state === '_default') continue;
+  for (const [ac, info] of Object.entries(codes)) {
+    all.push({ state, areaCode: ac, voiceFrom: info.voiceFrom });
+  }
+}
+console.table(all);
+
+
+Run:
+
+node scripts/inspect-area.mjs
+
+4) Final checklist
+
+Replace placeholders in area-codes.json with your Twilio numbers.
+
+In Replit → Secrets, set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and (recommended) TWILIO_MESSAGING_SERVICE_SID (for SMS Geo-Match).
+
+(Optional) Enable Branded Calls / CNAM so caller ID shows “Disaster Direct” where supported.
+
+Run the test scripts to confirm the correct local area codes are used.
+
+If you paste your actual numbers like:
+
+813:+1813XXXXXXX
+904:+1904XXXXXXX
+305:+1305XXXXXXX
