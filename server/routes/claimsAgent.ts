@@ -8,10 +8,14 @@ import { sendFollowUpEmail } from '../services/sendgrid';
 const router = Router();
 
 router.get('/run', async (_req, res) => {
-  const followUpClaims = await db.query.claims.findMany({
-    where: eq(claims.status, 'active'),
-    limit: 10,
-  });
+  try {
+    const followUpClaims = await db.query.claims.findMany({
+      where: eq(claims.status, 'active'),
+      limit: 10,
+    }).catch(err => {
+      console.log('⚠️ Claims query failed (database may not be initialized yet):', err.message);
+      return [];
+    });
 
   let processed = 0;
 
@@ -91,6 +95,10 @@ router.get('/run', async (_req, res) => {
   }
 
   res.json({ ran: processed });
+  } catch (error) {
+    console.error('❌ Claims agent route error:', error);
+    res.status(500).json({ error: 'Claims agent processing failed', ran: 0 });
+  }
 });
 
 export default router;
