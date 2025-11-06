@@ -1,6 +1,51 @@
+# Dependencies
 node_modules
 dist
+*.tar.gz
+
+# Environment variables & secrets (CRITICAL - never commit)
+.env
+.env.*
+!.env.example
+
+# OS files
 .DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+
+# Build outputs
 server/public
 vite.config.ts.*
-*.tar.gz
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Temporary files
+tmp
+temp
+*.tmp
+*.swp
+*.swo
+*~
+
+# IDE
+.vscode/*
+!.vscode/extensions.json
+.idea
+
+# Cache
+.cache
+.eslintcache
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Uploaded files (large assets)
+attached_assets/*.zip
