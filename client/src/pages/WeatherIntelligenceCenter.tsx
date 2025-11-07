@@ -75,6 +75,7 @@ import { WeatherAIAssistant } from '@/components/WeatherAIAssistant';
 import { ComprehensiveIntelligenceSystem } from '@/components/ComprehensiveIntelligenceSystem';
 import { EnvironmentalSummary } from '@/components/EnvironmentalSummary';
 import { XweatherIntelligence } from '@/components/XweatherIntelligence';
+import WindyMap from '@/components/WindyMap';
 
 // ===== UNIFIED INTERFACES =====
 
@@ -866,6 +867,11 @@ export default function WeatherIntelligenceCenter() {
                     <p className="text-gray-600 dark:text-gray-400 mb-6">
                       Access to professional weather models and external analysis tools.
                     </p>
+
+                    {/* Windy Interactive Map */}
+                    <div className="mb-8">
+                      <WindyMap defaultLat={28.5} defaultLon={-81.5} defaultZoom={6} height="600px" />
+                    </div>
 
                     {/* Hurricane Forecast Models */}
                     <div className="mb-8">

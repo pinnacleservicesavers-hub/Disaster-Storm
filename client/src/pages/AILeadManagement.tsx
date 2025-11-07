@@ -18,6 +18,7 @@ import {
   Waves, Square, Hammer, Wind, Zap, Droplet, Plus, Eye, Filter
 } from 'lucide-react';
 import type { AiLead, AiLeadService, AiContractor } from '@shared/schema';
+import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 
 const SERVICE_CATEGORIES = [
   { id: 'tree', label: 'Tree', icon: Trees, color: 'bg-emerald-600 dark:bg-emerald-500' },
@@ -592,6 +593,12 @@ export default function AILeadManagement() {
           </DialogContent>
         </Dialog>
       </div>
+
+      {/* AI Assistant with Rachel voice */}
+      <ModuleAIAssistant 
+        moduleName="AI Lead Management" 
+        moduleContext="AI-powered lead management system with multi-service tracking, contractor routing, and automated outreach for storm damage restoration"
+      />
     </div>
   );
 }
