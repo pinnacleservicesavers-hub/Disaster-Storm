@@ -4357,11 +4357,18 @@ Email: strategiclandmgmt@gmail.com
         setTimeout(() => reject(new Error('Weather API timeout')), 30000)
       );
       
-      const comprehensiveData = await Promise.race([
-        weatherService.getComprehensiveWeatherData(latitude, longitude),
+      const [comprehensiveData, damageForecasts] = await Promise.race([
+        Promise.all([
+          weatherService.getComprehensiveWeatherData(latitude, longitude),
+          storage.getActiveDamageForecasts()
+        ]),
         timeoutPromise
       ]);
-      res.json(comprehensiveData);
+      
+      res.json({
+        ...comprehensiveData,
+        damageForecasts
+      });
     } catch (error) {
       console.error('Error fetching comprehensive weather data:', error);
       res.status(500).json({ error: 'Failed to fetch comprehensive weather data' });

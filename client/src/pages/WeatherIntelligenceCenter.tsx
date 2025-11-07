@@ -82,6 +82,7 @@ import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 
 interface WeatherData {
   alerts: WeatherAlert[];
+  damageForecasts?: DamageForecast[];
   radar: any;
   forecast: any;
   lightning: any;
@@ -326,10 +327,12 @@ export default function WeatherIntelligenceCenter() {
     refetchInterval: autoRefresh ? 60000 : false,
   });
 
-  // Calculate metrics from weather data
-  const alerts = weatherData?.alerts || [];
-  const totalAlerts = alerts.length;
-  const severeAlerts = alerts.filter(alert => alert.severity === 'Severe' || alert.severity === 'Extreme').length;
+  // Calculate metrics from weather data - COMBINE NWS Alerts + AI Damage Forecasts
+  const nwsAlerts = weatherData?.alerts || [];
+  const aiForecasts = weatherData?.damageForecasts || [];
+  const totalAlerts = nwsAlerts.length + aiForecasts.length;
+  const severeAlerts = nwsAlerts.filter(alert => alert.severity === 'Severe' || alert.severity === 'Extreme').length +
+                       aiForecasts.filter(f => f.riskLevel === 'high' || f.riskLevel === 'extreme').length;
   const activeStorms = weatherData?.radar?.storms?.length || 0;
   const avgWaveHeight = weatherData?.ocean?.buoys?.reduce((sum, buoy) => 
     sum + (buoy.measurements.significantWaveHeight || 0), 0) / (weatherData?.ocean?.buoys?.length || 1) || 2.1;
@@ -644,24 +647,87 @@ export default function WeatherIntelligenceCenter() {
                       Real-time weather data from NOAA, NWS, satellites, and ocean buoys.
                     </p>
                     
-                    {/* Weather Alerts */}
-                    {alerts.length > 0 && (
+                    {/* Weather Alerts & AI Intelligence */}
+                    {(nwsAlerts.length > 0 || aiForecasts.length > 0) && (
                       <div className="mb-6">
                         <h3 className="text-lg font-semibold mb-4 flex items-center">
                           <AlertTriangle className="w-5 h-5 mr-2 text-red-600" />
-                          Active Weather Alerts
+                          Weather Alerts & AI Intelligence
+                          <Badge className="ml-2 bg-gradient-to-r from-purple-600 to-blue-600">
+                            <Brain className="w-3 h-3 mr-1" />
+                            AI + Official
+                          </Badge>
                         </h3>
                         <div className="space-y-3">
-                          {alerts.slice(0, 5).map((alert, index) => (
-                            <motion.div key={index} variants={fadeInUp}>
+                          {/* AI Damage Forecasts - Show FIRST as they're predictive */}
+                          {aiForecasts.map((forecast) => (
+                            <motion.div key={forecast.id} variants={fadeInUp}>
+                              <Card className={`border-l-4 ${
+                                forecast.riskLevel === 'extreme' ? 'border-red-500 bg-gradient-to-r from-red-50 to-purple-50' :
+                                forecast.riskLevel === 'high' ? 'border-orange-500 bg-gradient-to-r from-orange-50 to-purple-50' :
+                                forecast.riskLevel === 'moderate' ? 'border-yellow-500 bg-gradient-to-r from-yellow-50 to-purple-50' :
+                                'border-blue-500 bg-gradient-to-r from-blue-50 to-purple-50'
+                              }`}>
+                                <CardContent className="p-4">
+                                  <div className="flex justify-between items-start gap-2">
+                                    <div className="flex-1">
+                                      <div className="flex items-center gap-2 mb-1">
+                                        <Badge className="bg-gradient-to-r from-purple-600 to-blue-600 text-white">
+                                          <Brain className="w-3 h-3 mr-1" />
+                                          AI INTELLIGENCE
+                                        </Badge>
+                                        <Badge className={
+                                          forecast.riskLevel === 'extreme' ? 'bg-red-600' :
+                                          forecast.riskLevel === 'high' ? 'bg-orange-600' :
+                                          forecast.riskLevel === 'moderate' ? 'bg-yellow-600' :
+                                          'bg-blue-600'
+                                        }>
+                                          {forecast.riskLevel.toUpperCase()}
+                                        </Badge>
+                                      </div>
+                                      <h4 className="font-semibold text-sm">{forecast.county} County, {forecast.state}</h4>
+                                      <p className="text-xs text-gray-600 mt-1">
+                                        Wind: {forecast.windDamageRisk}, Flooding: {forecast.floodingRisk}, Hail: {forecast.hailRisk}
+                                      </p>
+                                      <div className="flex items-center mt-2 text-xs text-gray-500">
+                                        <MapPin className="w-3 h-3 mr-1" />
+                                        Arrival: {new Date(forecast.expectedArrivalTime).toLocaleString()}
+                                      </div>
+                                      <div className="flex items-center mt-1 text-xs font-medium text-purple-700">
+                                        <DollarSign className="w-3 h-3 mr-1" />
+                                        Est. Damage: {forecast.estimatedPropertyDamage}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            </motion.div>
+                          ))}
+                          
+                          {/* NWS Official Alerts */}
+                          {nwsAlerts.slice(0, 5).map((alert, index) => (
+                            <motion.div key={`nws-${index}`} variants={fadeInUp}>
                               <Card className={`border-l-4 ${
                                 alert.severity === 'Extreme' ? 'border-red-500 bg-red-50' :
                                 alert.severity === 'Severe' ? 'border-orange-500 bg-orange-50' :
                                 'border-yellow-500 bg-yellow-50'
                               }`}>
                                 <CardContent className="p-4">
-                                  <div className="flex justify-between items-start">
+                                  <div className="flex justify-between items-start gap-2">
                                     <div className="flex-1">
+                                      <div className="flex items-center gap-2 mb-1">
+                                        <Badge className="bg-blue-700 text-white">
+                                          <Shield className="w-3 h-3 mr-1" />
+                                          NWS OFFICIAL
+                                        </Badge>
+                                        <Badge className={
+                                          alert.severity === 'Extreme' ? 'bg-red-600' :
+                                          alert.severity === 'Severe' ? 'bg-orange-600' :
+                                          'bg-yellow-600'
+                                        }>
+                                          {alert.severity}
+                                        </Badge>
+                                      </div>
                                       <h4 className="font-semibold text-sm">{alert.title}</h4>
                                       <p className="text-xs text-gray-600 mt-1">{alert.description}</p>
                                       <div className="flex items-center mt-2 text-xs text-gray-500">
@@ -669,13 +735,6 @@ export default function WeatherIntelligenceCenter() {
                                         {alert.areas?.join(', ')}
                                       </div>
                                     </div>
-                                    <Badge className={
-                                      alert.severity === 'Extreme' ? 'bg-red-600' :
-                                      alert.severity === 'Severe' ? 'bg-orange-600' :
-                                      'bg-yellow-600'
-                                    }>
-                                      {alert.severity}
-                                    </Badge>
                                   </div>
                                 </CardContent>
                               </Card>
