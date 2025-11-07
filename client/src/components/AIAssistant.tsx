@@ -343,13 +343,17 @@ export default function AIAssistant({ portalContext, userLocation, className }: 
       setIsSpeaking(true);
       setCurrentMessage(text);
       
-      // Call server API to generate ARIA STORM female voice
+      // Call server API to generate Rachel's voice (ElevenLabs)
       const response = await fetch('/api/voice-ai/generate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({ 
+          text,
+          voiceId: '21m00Tcm4TlvDq8ikWAM', // Rachel's ElevenLabs voice ID
+          provider: 'elevenlabs'
+        }),
       });
 
       if (!response.ok) {
