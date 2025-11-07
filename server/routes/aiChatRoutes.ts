@@ -11,6 +11,7 @@ interface ChatRequest {
   messages: ChatMessage[];
   moduleName: string;
   moduleContext?: string;
+  userRole?: 'contractor' | 'homeowner' | 'admin';
 }
 
 // Initialize OpenAI client using Replit AI Integrations (no API key needed, billed to Replit credits)
@@ -23,7 +24,7 @@ export function registerAIChatRoutes(app: Express) {
   // AI Chat endpoint - works with text input and provides conversational responses
   app.post('/api/ai/chat', async (req: Request, res: Response) => {
     try {
-      const { messages, moduleName, moduleContext }: ChatRequest = req.body;
+      const { messages, moduleName, moduleContext, userRole }: ChatRequest = req.body;
 
       if (!messages || !Array.isArray(messages) || messages.length === 0) {
         return res.status(400).json({ error: 'Messages array is required' });
@@ -31,8 +32,25 @@ export function registerAIChatRoutes(app: Express) {
       
       console.log(`💬 AI Chat request for ${moduleName}, messages count: ${messages.length}`);
 
-      // Build system prompt with module context
-      const systemPrompt = `You are an AI assistant for the Disaster Direct storm operations platform, specifically helping users in the "${moduleName}" module. 
+      // Detect user role from module name if not explicitly provided
+      const detectedRole = userRole || (
+        moduleName.toLowerCase().includes('homeowner') ? 'homeowner' :
+        moduleName.toLowerCase().includes('contractor') ? 'contractor' :
+        moduleName.toLowerCase().includes('admin') ? 'admin' :
+        'contractor' // Default to contractor
+      );
+
+      // Build role-specific context
+      const roleContext = detectedRole === 'homeowner' 
+        ? `You are speaking to a HOMEOWNER who has experienced storm damage. Use simple, reassuring, everyday language. Avoid technical jargon. Focus on helping them understand the insurance claims process, what to expect from their contractor, and how to document damage. Be empathetic and patient - they may be stressed from disaster impacts.`
+        : detectedRole === 'contractor'
+        ? `You are speaking to a CONTRACTOR or storm restoration professional. Use professional terminology and industry standards. Provide detailed technical guidance on estimating, job management, insurance claim procedures, and best practices. Focus on efficiency, profitability, and compliance.`
+        : `You are speaking to an ADMIN or platform manager. Provide system-level insights, analytics guidance, and operational recommendations.`;
+
+      // Build system prompt with module and role context
+      const systemPrompt = `You are Rachel, an AI assistant for the Disaster Direct storm operations platform, specifically helping users in the "${moduleName}" module. 
+
+${roleContext}
 
 You are an expert in:
 - Storm damage assessment and contractor deployment

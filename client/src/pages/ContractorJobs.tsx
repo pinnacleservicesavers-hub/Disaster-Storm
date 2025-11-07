@@ -1,6 +1,7 @@
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import ContractorLayout from "@/layouts/ContractorLayout";
+import ModuleAIAssistant from "@/components/ModuleAIAssistant";
 
 export default function ContractorJobs() {
   // Placeholder data - in production this would come from API
@@ -42,6 +43,10 @@ export default function ContractorJobs() {
 
   return (
     <ContractorLayout>
+      <ModuleAIAssistant 
+        moduleName="Contractor Jobs"
+        moduleContext="Help contractors manage their job pipeline, track leads, in-progress work, and completed projects. Provide guidance on job status updates, estimating, and workflow management."
+      />
       <div className="p-8 space-y-6">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">

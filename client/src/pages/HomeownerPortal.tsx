@@ -1,6 +1,12 @@
+import ModuleAIAssistant from "@/components/ModuleAIAssistant";
+
 export default function HomeownerPortal() {
   return (
     <main className="min-h-screen bg-gray-50 dark:bg-gray-950 p-10">
+      <ModuleAIAssistant 
+        moduleName="Homeowner Portal"
+        moduleContext="Help homeowners upload damage photos/videos, track their insurance claims, communicate with contractors, and understand the restoration process. Use simple, reassuring language for people dealing with disaster stress."
+      />
       <div className="max-w-3xl mx-auto space-y-6">
         <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg p-8 border border-gray-200 dark:border-gray-800">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-4">

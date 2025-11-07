@@ -9,6 +9,7 @@ import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { AlertTriangle, MapPin, Home, FileText, Activity } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
+import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
@@ -120,6 +121,10 @@ export default function HazardDashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4">
+      <ModuleAIAssistant 
+        moduleName="Hazard Intelligence"
+        moduleContext="Real-time multi-hazard monitoring combining NWS alerts, NHC hurricanes, MRMS radar, and aligning them with active claims and assets. Help users understand hazard severity, affected areas, and contractor deployment recommendations."
+      />
       <div className="max-w-[1800px] mx-auto">
         <div className="mb-6">
           <h1 className="text-4xl font-bold text-white mb-2" data-testid="text-dashboard-title">

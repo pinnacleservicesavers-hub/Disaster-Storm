@@ -2,6 +2,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import ContractorLayout from "@/layouts/ContractorLayout";
 import { User, Mail, Phone, MapPin, Award, Wrench } from "lucide-react";
+import ModuleAIAssistant from "@/components/ModuleAIAssistant";
 
 export default function ContractorProfile() {
   // Placeholder data - in production this would come from API
@@ -20,6 +21,10 @@ export default function ContractorProfile() {
 
   return (
     <ContractorLayout>
+      <ModuleAIAssistant 
+        moduleName="Contractor Profile"
+        moduleContext="Help contractors manage their professional profile, licenses, certifications, specialties, and business credentials. Provide guidance on optimizing their profile for better lead opportunities."
+      />
       <div className="p-8 space-y-6">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
