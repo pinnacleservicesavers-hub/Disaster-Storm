@@ -6,6 +6,30 @@ Disaster Direct is a comprehensive storm operations and claims management platfo
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
+## Recent Implementations (November 7, 2025)
+- **✅ Event-Driven Architecture System** (replaces n8n/Zapier - SAVES $20-50/month)
+  - **Database Schema**: 3 new tables (`system_events`, `automation_rules`, `automation_executions`)
+  - **Event Emitter Service**: Tracks all business events (LeadCreated, QuoteSent, JobBooked, PaymentCaptured, TicketOpened)
+  - **Automation Processor**: Executes actions automatically (send email, send SMS, update records, create tasks, webhooks)
+  - **Cron Scheduler**: Runs automation processor every minute
+  - **Automation Builder**: Create custom workflows without external services
+  - **Monthly Savings**: $20-50 (n8n/Zapier eliminated)
+  
+- **✅ Quote/Estimate Builder System** (replaces QuickBooks/FreshBooks - SAVES $15-50/month)
+  - **Database Schema**: 4 new tables (`quotes`, `quote_line_items`, `quote_templates`, `quote_versions`)
+  - **Professional Quote Generation**: Auto-numbered quotes (Q-2025-001), customer info, damage type tracking
+  - **Line Items Management**: Labor, materials, equipment, permits, disposal with quantity × unit price calculations
+  - **Smart Templates**: Pre-built templates for storm damage (roof, tree, fence, flood) with reusable line items
+  - **PDF Export**: Professional PDF generation with PDFKit (insurance-ready format, company branding)
+  - **Email Delivery**: SendGrid integration with beautiful HTML emails and auto-tracking (viewed/accepted)
+  - **Version Control**: Complete history snapshots, change tracking, who changed what & when
+  - **AI Integration**: AI-suggested line items, confidence scoring, photo references, Xactimate compatibility
+  - **Event-Driven**: QuoteCreated, QuoteSent, QuoteAccepted events integrate with automation engine
+  - **API Endpoints**: 13 RESTful endpoints for CRUD, PDF export, email delivery, template management
+  - **Monthly Savings**: $15-50 (QuickBooks/FreshBooks eliminated)
+
+**Total Monthly Savings So Far: $35-100 (Event Automation + Quote Builder)**
+
 ## Recent Implementations (November 5, 2025)
 - **✅ AI Lead Management System**: Complete AI-powered lead pipeline with multi-service tracking and automated outreach
   - **Database Schema**: 5 new tables (`ai_leads`, `ai_lead_services`, `ai_contractors`, `ai_assignments`, `ai_outreach_log`)

@@ -4863,6 +4863,206 @@ export type InsertAutomationRule = z.infer<typeof insertAutomationRuleSchema>;
 export type AutomationExecution = typeof automationExecutions.$inferSelect;
 export type InsertAutomationExecution = z.infer<typeof insertAutomationExecutionSchema>;
 
+// ===== QUOTE/ESTIMATE BUILDER (replaces QuickBooks/FreshBooks $15-50/month) =====
+
+// Quotes - Professional quote/estimate generation with AI and templates
+export const quotes = pgTable("quotes", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  quoteNumber: varchar("quote_number", { length: 50 }).notNull().unique(),
+  
+  // Customer information
+  customerId: varchar("customer_id", { length: 255 }),
+  customerName: text("customer_name").notNull(),
+  customerEmail: varchar("customer_email", { length: 255 }),
+  customerPhone: varchar("customer_phone", { length: 20 }),
+  propertyAddress: text("property_address").notNull(),
+  
+  // Quote details
+  title: text("title").notNull(),
+  description: text("description"),
+  damageType: varchar("damage_type", { length: 50 }), // roof, tree, fence, flood, wind, hail
+  urgencyLevel: varchar("urgency_level", { length: 20 }).default("normal"), // emergency, urgent, normal, routine
+  
+  // Pricing
+  subtotal: numeric("subtotal", { precision: 12, scale: 2 }).notNull(),
+  taxRate: numeric("tax_rate", { precision: 5, scale: 4 }).default("0"),
+  taxAmount: numeric("tax_amount", { precision: 12, scale: 2 }).default("0"),
+  discountAmount: numeric("discount_amount", { precision: 12, scale: 2 }).default("0"),
+  totalAmount: numeric("total_amount", { precision: 12, scale: 2 }).notNull(),
+  
+  // Status tracking
+  status: varchar("status", { length: 20 }).default("draft").notNull(), // draft, sent, viewed, accepted, rejected, expired, converted
+  sentAt: timestamp("sent_at"),
+  viewedAt: timestamp("viewed_at"),
+  acceptedAt: timestamp("accepted_at"),
+  rejectedAt: timestamp("rejected_at"),
+  expiresAt: timestamp("expires_at"),
+  
+  // Template and versioning
+  templateId: uuid("template_id"),
+  version: integer("version").default(1).notNull(),
+  previousVersionId: uuid("previous_version_id"),
+  
+  // AI features
+  aiGenerated: boolean("ai_generated").default(false),
+  aiConfidence: integer("ai_confidence"), // 0-100
+  photoReferences: jsonb("photo_references").$type<string[]>(), // Photo IDs used for AI analysis
+  
+  // Insurance details
+  insuranceCompany: text("insurance_company"),
+  policyNumber: text("policy_number"),
+  claimNumber: text("claim_number"),
+  xactimateCompatible: boolean("xactimate_compatible").default(true),
+  
+  // Notes and terms
+  internalNotes: text("internal_notes"),
+  customerNotes: text("customer_notes"),
+  termsAndConditions: text("terms_and_conditions"),
+  paymentTerms: text("payment_terms"),
+  
+  // Tracking
+  createdBy: varchar("created_by", { length: 255 }),
+  assignedTo: varchar("assigned_to", { length: 255 }),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Quote Line Items - Detailed breakdown of labor, materials, equipment
+export const quoteLineItems = pgTable("quote_line_items", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  quoteId: uuid("quote_id").notNull().references(() => quotes.id, { onDelete: "cascade" }),
+  
+  // Item details
+  category: varchar("category", { length: 50 }).notNull(), // labor, materials, equipment, permits, disposal, travel
+  description: text("description").notNull(),
+  itemCode: varchar("item_code", { length: 50 }), // For Xactimate compatibility
+  
+  // Pricing
+  quantity: numeric("quantity", { precision: 10, scale: 2 }).notNull(),
+  unit: varchar("unit", { length: 20 }).notNull(), // hours, sqft, each, linear_ft, cubic_yard
+  unitPrice: numeric("unit_price", { precision: 10, scale: 2 }).notNull(),
+  lineTotal: numeric("line_total", { precision: 12, scale: 2 }).notNull(),
+  
+  // Additional details
+  laborRole: varchar("labor_role", { length: 50 }), // arborist, climber, groundcrew, roofer, etc.
+  equipmentType: varchar("equipment_type", { length: 50 }), // crane, chipper, dumpster, ladder, etc.
+  materialType: varchar("material_type", { length: 100 }), // shingles, lumber, concrete, etc.
+  
+  // Compliance and justification
+  oshaRequired: boolean("osha_required").default(false),
+  ansiCompliant: boolean("ansi_compliant").default(false),
+  justification: text("justification"), // Why this item is necessary
+  
+  // Ordering
+  sortOrder: integer("sort_order").default(0),
+  
+  // AI features
+  aiSuggested: boolean("ai_suggested").default(false),
+  aiConfidence: integer("ai_confidence"), // 0-100
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Quote Templates - Pre-built templates for common storm damage scenarios
+export const quoteTemplates = pgTable("quote_templates", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  
+  // Template info
+  name: varchar("name", { length: 200 }).notNull(),
+  description: text("description"),
+  damageType: varchar("damage_type", { length: 50 }).notNull(), // roof, tree, fence, flood, wind, hail, multi
+  
+  // Template configuration
+  isActive: boolean("is_active").default(true),
+  isPublic: boolean("is_public").default(false), // Can other contractors use this?
+  
+  // Default line items
+  defaultLineItems: jsonb("default_line_items").$type<Array<{
+    category: string;
+    description: string;
+    quantity: number;
+    unit: string;
+    unitPrice: number;
+    laborRole?: string;
+    equipmentType?: string;
+    materialType?: string;
+  }>>().notNull(),
+  
+  // Default terms
+  defaultTerms: text("default_terms"),
+  defaultPaymentTerms: text("default_payment_terms"),
+  
+  // Usage stats
+  usageCount: integer("usage_count").default(0),
+  lastUsedAt: timestamp("last_used_at"),
+  
+  // Ownership
+  createdBy: varchar("created_by", { length: 255 }),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Quote Versions - Track all quote changes
+export const quoteVersions = pgTable("quote_versions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  quoteId: uuid("quote_id").notNull().references(() => quotes.id, { onDelete: "cascade" }),
+  
+  // Version info
+  versionNumber: integer("version_number").notNull(),
+  
+  // Snapshot of quote at this version
+  snapshot: jsonb("snapshot").$type<{
+    subtotal: number;
+    taxAmount: number;
+    discountAmount: number;
+    totalAmount: number;
+    lineItems: any[];
+    notes?: string;
+  }>().notNull(),
+  
+  // Change tracking
+  changeDescription: text("change_description"),
+  changedBy: varchar("changed_by", { length: 255 }),
+  changedFields: jsonb("changed_fields").$type<string[]>(),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Insert schemas for Quote Builder
+export const insertQuoteSchema = createInsertSchema(quotes).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
+});
+
+export const insertQuoteLineItemSchema = createInsertSchema(quoteLineItems).omit({
+  id: true,
+  createdAt: true
+});
+
+export const insertQuoteTemplateSchema = createInsertSchema(quoteTemplates).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
+});
+
+export const insertQuoteVersionSchema = createInsertSchema(quoteVersions).omit({
+  id: true,
+  createdAt: true
+});
+
+// Select types for Quote Builder
+export type Quote = typeof quotes.$inferSelect;
+export type InsertQuote = z.infer<typeof insertQuoteSchema>;
+export type QuoteLineItem = typeof quoteLineItems.$inferSelect;
+export type InsertQuoteLineItem = z.infer<typeof insertQuoteLineItemSchema>;
+export type QuoteTemplate = typeof quoteTemplates.$inferSelect;
+export type InsertQuoteTemplate = z.infer<typeof insertQuoteTemplateSchema>;
+export type QuoteVersion = typeof quoteVersions.$inferSelect;
+export type InsertQuoteVersion = z.infer<typeof insertQuoteVersionSchema>;
+
 // Insert schemas for AI Lead Management
 export const insertAiLeadSchema = createInsertSchema(aiLeads).omit({
   id: true,

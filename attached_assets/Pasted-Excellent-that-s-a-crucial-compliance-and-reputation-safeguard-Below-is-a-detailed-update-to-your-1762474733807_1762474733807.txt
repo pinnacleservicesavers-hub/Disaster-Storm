@@ -1,0 +1,121 @@
+Excellent — that’s a crucial compliance and reputation safeguard.
+Below is a detailed update to your app’s legal and functional framework that ensures customers can easily opt out of communications via text, phone, or email — keeping you compliant with U.S. privacy and anti-spam laws (TCPA, CAN-SPAM, and CCPA) while protecting Pinnacle Service Savers, contractors, and yourself as the developer.
+
+📱 1. Communication & Opt-Out Compliance Overview
+1.1. Why This Is Required
+
+When your app or contractors contact customers by text, phone, or email, you must:
+
+Get clear consent before contacting them.
+
+Provide an easy opt-out in every message.
+
+Honor opt-outs immediately (within 10 business days for emails; instantly for texts).
+
+These requirements come from:
+
+TCPA (Telephone Consumer Protection Act) – for phone and SMS.
+
+CAN-SPAM Act – for marketing or follow-up emails.
+
+CCPA – for California users’ right to limit communications and data use.
+
+⚙️ 2. What to Add to the App
+2.1. Consent Checkbox at Signup
+
+Before any customer is contacted:
+
+“I agree to receive service updates and promotional messages from Pinnacle Service Savers via email, phone, or text. I understand I can opt out at any time.”
+
+✅ Implementation:
+
+Add a checkbox in the signup form (unchecked by default).
+
+Store timestamp and method of consent in your user database.
+
+2.2. Opt-Out Methods by Channel
+📩 Emails
+
+Include an unsubscribe link in all automated emails:
+
+“You received this email because you signed up for Pinnacle Service Savers.
+To stop receiving messages, click here to unsubscribe.”
+
+✅ Backend Action:
+
+The link should set a database flag like email_opt_out = true.
+
+Stop sending marketing or update emails to those users.
+
+📞 Phone Calls
+
+During the first or any follow-up phone contact, require staff or contractors to say:
+
+“If you prefer not to receive future calls from Pinnacle Service Savers, please let us know and we’ll remove your number.”
+
+✅ Action:
+
+Update user record to call_opt_out = true in your CRM.
+
+Train contractors not to call numbers marked “Do Not Contact.”
+
+💬 Text Messages
+
+For SMS, every message must include a STOP option:
+
+“Reply STOP to unsubscribe.”
+
+✅ Backend Action:
+
+Detect keywords like STOP, QUIT, UNSUBSCRIBE.
+
+Automatically set sms_opt_out = true in your database.
+
+Send confirmation:
+
+“You have been unsubscribed and will no longer receive texts from Pinnacle Service Savers.”
+
+2.3. Customer Profile Settings
+
+Add an in-app “Communication Preferences” section:
+
+✅ Toggle switches for Email, Phone, Text updates.
+
+✅ A “Delete My Data” button for full privacy compliance.
+
+✅ Confirmation messages after any opt-out change.
+
+Example UI:
+
+Communication Preferences
+[ ] Receive email updates
+[ ] Receive text alerts
+[ ] Allow contractor phone calls
+[ Delete My Account & Data ]
+
+🧾 3. Sample Legal Clauses to Include
+Privacy Policy (Add Section)
+
+Communication Preferences:
+By creating an account, you may choose to receive text, email, or phone updates related to your service requests or promotions. You can withdraw consent at any time by using the unsubscribe link in emails, replying STOP to texts, or updating your preferences in the app.
+
+Terms of Service (Add Section)
+
+Opt-Out Rights:
+Users have the right to opt out of any non-essential communications at any time. Pinnacle Service Savers will promptly honor all opt-out requests. Service-related messages (e.g., job confirmations or billing notices) may still be sent as required to complete transactions.
+
+Contractor Agreement (Add Clause)
+
+Contractors must comply with all applicable communication laws (TCPA, CAN-SPAM) and may only contact customers using approved channels. Repeated or unwanted contact may result in account suspension or termination.
+
+🛡️ 4. Developer & Company Protection
+
+These additions protect you by showing:
+
+Active compliance with federal privacy and marketing laws.
+
+Respect for user consent, reducing spam complaints or lawsuits.
+
+Contractor accountability — they can’t harass or over-message leads.
+
+You’ll also have data trail evidence (opt-in timestamps) if ever challenged by a regulator or customer.

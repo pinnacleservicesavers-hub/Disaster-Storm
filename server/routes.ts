@@ -74,6 +74,7 @@ import workflowRoutes from "./routes/workflowRoutes";
 import orchestrationRoutes from "./routes/orchestrationRoutes";
 import adminOidcRoutes from "./routes/adminOidc";
 import healthRoutes from "./routes/health";
+import quoteRoutes from "./routes/quotes";
 import { mountLocations } from "./routes/locations";
 import { mountAlerts } from "./routes/alerts";
 import { mountWarm } from "./routes/warm";
@@ -798,6 +799,10 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
   // ---- Agent Orchestration Routes ----
   app.use('/api/orchestration', orchestrationRoutes);
   console.log('🤖 Agent Orchestration routes registered - Supervisor + 7 specialist agents with tools & events');
+
+  // ---- Quote/Estimate Builder (FREE replacement for QuickBooks/FreshBooks) ----
+  app.use('/api', quoteRoutes);
+  console.log('💰 Quote Builder routes registered - Professional estimates with PDF/email (replaces $15-50/month services)');
 
   // ---- Admin OIDC Routes ----
   app.use(adminOidcRoutes);

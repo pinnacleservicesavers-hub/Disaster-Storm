@@ -1,0 +1,136 @@
+🧱 1. Core Legal & Compliance Features to Add
+1.1. Privacy Policy
+
+A Privacy Policy is legally required if you collect any user data (emails, names, phone numbers, payment info, or location).
+Include:
+
+Data Collected: What info is gathered from customers and contractors.
+
+Purpose of Use: Why it’s collected (e.g., matching, payments, estimates).
+
+Third Parties: Mention integrations (like payment processors or AI APIs).
+
+Data Retention: How long you keep user data.
+
+User Rights: Options for users to delete, edit, or export data.
+
+Contact Info: Email for privacy questions (e.g., privacy@pinnacleservicesavers.com
+).
+
+✅ Add a “Privacy Policy” page accessible from the signup screen and app footer.
+
+1.2. Terms of Service (TOS)
+
+Protects the business and outlines expectations for customers and contractors.
+Include:
+
+Service Disclaimer: You are a platform, not the direct provider of services.
+
+Contractor Liability: Contractors are independent and responsible for their own work.
+
+Payments & Refunds: How payments are processed, who holds funds, refund policy.
+
+Prohibited Use: No fraud, harassment, or false listings.
+
+Account Termination: Reasons accounts may be suspended or deleted.
+
+Limitation of Liability: Protects you (the developer and company) from damages due to misuse, negligence, etc.
+
+✅ Require users to check a box agreeing to the Terms before signup.
+
+1.3. Emergency Services Disclaimer
+
+Since the app connects users to services (plumbing, electrical, etc.), add a clear notice:
+
+⚠️ “If you are experiencing a life-threatening emergency, call 911 immediately.
+Pinnacle Service Savers is not an emergency response service.”
+
+✅ Display this message:
+
+On the homepage,
+
+In the help/contact page,
+
+And during service request submission (especially for urgent jobs).
+
+⚖️ 2. Legal Regulations & Requirements
+2.1. Privacy and Data Protection Laws
+
+Depending on where users are located:
+
+United States:
+
+Follow CCPA (California Consumer Privacy Act) – right to delete, know, and opt out.
+
+COPPA (Children’s Online Privacy Protection Act) – no accounts for under 13.
+
+International Users (optional):
+
+GDPR (Europe): Requires explicit consent and clear data usage explanation.
+
+Use HTTPS encryption for all data transmission.
+
+✅ Add a cookie consent banner and user data deletion request form.
+
+2.2. Contractor Legal Requirements
+
+When contractors sign up:
+
+Require agreement to Independent Contractor Terms, stating:
+
+They are not employees.
+
+They must carry their own insurance and licenses.
+
+They are responsible for taxes and legal compliance.
+
+Optionally require upload of:
+
+Contractor license or business registration.
+
+Proof of insurance (liability, workers comp).
+
+✅ Add a “Contractor Agreement” e-sign step at signup.
+
+2.3. Customer Responsibilities
+
+Include a short agreement for customers:
+
+They agree to provide accurate service requests.
+
+They understand quotes are estimates, not guarantees.
+
+They will not hold Pinnacle Service Savers liable for any disputes or damages caused by contractors.
+
+✅ Display during sign-up or first booking.
+
+🧩 3. App Features to Implement for Legal & Safety Compliance
+Feature	Purpose	Implementation Notes
+✅ Checkbox for Terms & Privacy consent	Legal requirement for account creation	Add before “Create Account” button
+✅ Emergency Notice Banner	Public safety and liability protection	Show on all “request service” screens
+✅ Report & Review System	Contractor accountability	Allow users to report unsafe behavior
+✅ Contractor Verification Upload	Compliance with trade laws	Require license/insurance upload
+✅ Data Deletion Option	Privacy compliance	“Delete My Data” button in settings
+✅ Admin Audit Log	Protect developer legally	Log key actions (quotes, signups, approvals)
+✅ User Age Verification	COPPA compliance	Minimum age 18 or parental consent
+🧾 4. Developer & App Liability Protection
+
+Include clear language in your TOS:
+
+“Pinnacle Service Savers provides a platform to connect users and service providers but does not employ or directly supervise contractors.”
+
+“Pinnacle Service Savers and its developers are not responsible for any damage, injury, or loss arising from contractor services.”
+
+“All users agree to hold Pinnacle Service Savers harmless from claims related to transactions made through the app.”
+
+✅ Add this in Terms of Service and footer disclaimer.
+
+📄 5. Optional Legal Enhancements
+
+Hold Harmless Agreement: Protects against lawsuits from accidents.
+
+AI Use Disclosure: State that AI is used for estimate generation.
+
+Bug/Dispute Resolution Policy: Mediation process before legal action.
+
+Regular Policy Updates: Add date/version number to all policies.
