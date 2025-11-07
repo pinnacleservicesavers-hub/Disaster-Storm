@@ -7,7 +7,7 @@
 import { db } from '../db';
 import { systemEvents, automationRules, automationExecutions } from '@shared/schema';
 import { eq, and, isNull, lt } from 'drizzle-orm';
-import { sendSMS } from './twilio';
+import { sendSms } from './twilio';
 import { sendFollowUpEmail } from './sendgrid';
 
 interface AutomationAction {
@@ -306,7 +306,7 @@ class AutomationProcessorService {
     const { toPhone, message } = config;
     const interpolatedMessage = this.interpolate(message, event.payload);
 
-    await sendSMS({
+    await sendSms({
       to: toPhone,
       message: interpolatedMessage,
     });
