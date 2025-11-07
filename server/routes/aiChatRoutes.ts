@@ -94,7 +94,7 @@ Provide concise, actionable answers. Be professional but friendly. Focus on help
       const completion = await openai.chat.completions.create({
         model: 'gpt-5-mini',
         messages: apiMessages,
-        max_completion_tokens: 2048, // Increased from 500 to allow longer responses
+        max_completion_tokens: 4096, // Increased to allow comprehensive weather analysis
       });
 
       console.log('💬 OpenAI API response received');
