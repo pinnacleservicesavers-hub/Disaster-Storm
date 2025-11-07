@@ -90,6 +90,14 @@ export function registerAlignmentRoutes(app: Express) {
       // Generate unique claim number
       const claimNumber = `CLM-${Date.now()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
 
+      // Safely parse incident date - handle invalid/missing dates
+      const parsedIncidentDate = incident_date ? new Date(incident_date) : new Date();
+      if (isNaN(parsedIncidentDate.getTime())) {
+        return res.status(400).json({ 
+          error: 'Invalid incident date format. Please use YYYY-MM-DD or ISO 8601 format.' 
+        });
+      }
+
       const newClaim = {
         claimNumber,
         insuranceCompany: carrier_name,
@@ -97,7 +105,7 @@ export function registerAlignmentRoutes(app: Express) {
         claimantName: claimant_name,
         propertyAddress: property_address,
         damageType: damage_type,
-        incidentDate: new Date(incident_date),
+        incidentDate: parsedIncidentDate,
         estimatedAmount: estimated_amount,
         state,
         latitude,

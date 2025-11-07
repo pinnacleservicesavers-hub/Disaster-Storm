@@ -6,7 +6,7 @@
 
 import { db } from '../db';
 import { systemEvents, automationRules, automationExecutions } from '@shared/schema';
-import { eq, and, isNull, lt } from 'drizzle-orm';
+import { eq, and, isNull, lt, gte } from 'drizzle-orm';
 import { sendSms } from './twilio';
 import { sendFollowUpEmail } from './sendgrid';
 
@@ -120,7 +120,7 @@ class AutomationProcessorService {
       }
     }
 
-    // Check execution limit
+    // Check execution limit (only count today's executions)
     if (rule.maxExecutionsPerDay) {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -128,12 +128,13 @@ class AutomationProcessorService {
       const executionsToday = await db.query.automationExecutions.findMany({
         where: and(
           eq(automationExecutions.automationRuleId, rule.id),
-          lt(automationExecutions.startedAt, new Date())
+          gte(automationExecutions.startedAt, today), // Executions after midnight today
+          lt(automationExecutions.startedAt, new Date()) // Executions before now
         ),
       }).catch(() => []);
 
       if (executionsToday.length >= rule.maxExecutionsPerDay) {
-        console.log(`🚫 Rule "${rule.name}" reached daily limit, skipping...`);
+        console.log(`🚫 Rule "${rule.name}" reached daily limit (${rule.maxExecutionsPerDay}), skipping...`);
         return;
       }
     }

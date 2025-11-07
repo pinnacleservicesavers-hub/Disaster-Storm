@@ -16,13 +16,17 @@ export type EventType =
   | 'LeadDisqualified'
   | 'LeadUntouched24h'
   | 'LeadAssigned'
+  | 'LeadStatusChanged'
+  | 'AILeadStatusChanged'
   
   // Quote events
+  | 'QuoteCreated'
   | 'QuoteSent'
   | 'QuoteViewed'
   | 'QuoteAccepted'
   | 'QuoteExpired'
   | 'QuoteReminderDue'
+  | 'QuoteStatusChanged'
   
   // Job events
   | 'JobBooked'

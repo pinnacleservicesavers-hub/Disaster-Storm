@@ -75,6 +75,7 @@ import orchestrationRoutes from "./routes/orchestrationRoutes";
 import adminOidcRoutes from "./routes/adminOidc";
 import healthRoutes from "./routes/health";
 import quoteRoutes from "./routes/quotes";
+import pipelineRoutes from "./routes/pipeline";
 import { mountLocations } from "./routes/locations";
 import { mountAlerts } from "./routes/alerts";
 import { mountWarm } from "./routes/warm";
@@ -803,6 +804,10 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
   // ---- Quote/Estimate Builder (FREE replacement for QuickBooks/FreshBooks) ----
   app.use('/api', quoteRoutes);
   console.log('💰 Quote Builder routes registered - Professional estimates with PDF/email (replaces $15-50/month services)');
+
+  // ---- Kanban Pipeline Dashboard (FREE replacement for Monday.com/Asana) ----
+  app.use('/api', pipelineRoutes);
+  console.log('📊 Pipeline Dashboard routes registered - Visual boards with drag-drop (replaces $10-30/user/month)');
 
   // ---- Admin OIDC Routes ----
   app.use(adminOidcRoutes);
