@@ -30,6 +30,7 @@ export default function ModuleAIAssistant({ moduleName, moduleContext, externalT
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioUrlRef = useRef<string | null>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -102,12 +103,13 @@ export default function ModuleAIAssistant({ moduleName, moduleContext, externalT
     try {
       setIsSpeaking(true);
       
-      const response = await fetch('/api/voice/generate', {
+      const response = await fetch('/api/voice-ai/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           text,
-          voiceId: '21m00Tcm4TlvDq8ikWAM'
+          voiceId: '21m00Tcm4TlvDq8ikWAM',
+          provider: 'elevenlabs'
         }),
       });
 
@@ -115,8 +117,15 @@ export default function ModuleAIAssistant({ moduleName, moduleContext, externalT
         throw new Error('Voice generation failed');
       }
 
-      const audioBlob = await response.blob();
+      const data = await response.json();
+      
+      if (!data.audioBase64) {
+        throw new Error('No audio data received');
+      }
+      
+      const audioBlob = base64ToBlob(data.audioBase64, 'audio/mpeg');
       const audioUrl = URL.createObjectURL(audioBlob);
+      audioUrlRef.current = audioUrl;
       
       if (audioRef.current) {
         audioRef.current.pause();
@@ -125,14 +134,52 @@ export default function ModuleAIAssistant({ moduleName, moduleContext, externalT
       audioRef.current = new Audio(audioUrl);
       audioRef.current.onended = () => {
         setIsSpeaking(false);
-        URL.revokeObjectURL(audioUrl);
+        if (audioUrlRef.current) {
+          URL.revokeObjectURL(audioUrlRef.current);
+          audioUrlRef.current = null;
+        }
+      };
+      audioRef.current.onerror = () => {
+        setIsSpeaking(false);
+        if (audioUrlRef.current) {
+          URL.revokeObjectURL(audioUrlRef.current);
+          audioUrlRef.current = null;
+        }
+        console.error('Audio playback failed');
       };
       
-      await audioRef.current.play();
+      audioRef.current.play().catch((error) => {
+        console.error('Voice playback error:', error);
+        setIsSpeaking(false);
+        if (audioUrlRef.current) {
+          URL.revokeObjectURL(audioUrlRef.current);
+          audioUrlRef.current = null;
+        }
+        toast({
+          title: "Voice Error",
+          description: "Could not play voice response. Audio may be unavailable.",
+          variant: "destructive",
+        });
+      });
     } catch (error) {
-      console.error('Voice playback error:', error);
+      console.error('Voice generation error:', error);
       setIsSpeaking(false);
+      toast({
+        title: "Voice Error",
+        description: "Could not generate voice response. Please try again.",
+        variant: "destructive",
+      });
     }
+  };
+  
+  const base64ToBlob = (base64: string, mimeType: string): Blob => {
+    const byteCharacters = atob(base64);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    return new Blob([byteArray], { type: mimeType });
   };
 
   const handleSend = async (messageText?: string) => {
@@ -163,19 +210,19 @@ export default function ModuleAIAssistant({ moduleName, moduleContext, externalT
       const assistantMessage: Message = { role: 'assistant', content: data.response };
       
       setMessages(prev => [...prev, assistantMessage]);
+      setIsLoading(false);
       
-      if (mode === 'voice' && audioEnabled) {
-        await speakResponse(data.response);
+      if (audioEnabled) {
+        speakResponse(data.response);
       }
     } catch (error) {
       console.error('AI chat error:', error);
+      setIsLoading(false);
       toast({
         title: "AI Error",
         description: "Failed to get response. Please try again.",
         variant: "destructive",
       });
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -184,6 +231,10 @@ export default function ModuleAIAssistant({ moduleName, moduleContext, externalT
     if (isSpeaking && audioRef.current) {
       audioRef.current.pause();
       setIsSpeaking(false);
+      if (audioUrlRef.current) {
+        URL.revokeObjectURL(audioUrlRef.current);
+        audioUrlRef.current = null;
+      }
     }
   };
 
@@ -216,13 +267,15 @@ export default function ModuleAIAssistant({ moduleName, moduleContext, externalT
             variant="ghost"
             size="sm"
             onClick={toggleAudio}
-            className="h-8 w-8 p-0 hover:bg-white/10"
+            className="h-8 px-3 hover:bg-white/10 flex items-center gap-1.5"
             data-testid="button-toggle-audio"
+            title={audioEnabled ? "Rachel will speak responses (click to disable)" : "Enable Rachel voice responses"}
           >
             {audioEnabled ? 
               <Volume2 className="h-4 w-4 text-cyan-400" /> : 
               <VolumeX className="h-4 w-4 text-gray-400" />
             }
+            <span className="text-xs text-cyan-300">{audioEnabled ? 'On' : 'Off'}</span>
           </Button>
           <Button
             variant="ghost"
@@ -269,8 +322,13 @@ export default function ModuleAIAssistant({ moduleName, moduleContext, externalT
         {messages.length === 0 && (
           <div className="text-center text-cyan-300/50 py-8">
             <MessageSquare className="h-12 w-12 mx-auto mb-3 opacity-30" />
-            <p className="text-sm">Ask me anything about {moduleName}!</p>
-            <p className="text-xs mt-1">I can help via text or voice.</p>
+            <p className="text-sm font-medium">Hi! I'm Rachel, your AI assistant for {moduleName}</p>
+            <p className="text-xs mt-2">Type or speak your questions - I'll respond with voice by default!</p>
+            {audioEnabled ? (
+              <p className="text-xs mt-1 text-cyan-400">🎤 Voice responses enabled</p>
+            ) : (
+              <p className="text-xs mt-1 text-gray-400">Voice responses disabled (click volume icon to enable)</p>
+            )}
           </div>
         )}
         
