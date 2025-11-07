@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Activity, Satellite, Waves, Wind, CloudRain, Database, Brain, MapPin, AlertTriangle, Flame } from 'lucide-react';
+import { Activity, Satellite, Waves, Wind, CloudRain, Database, Brain, MapPin, AlertTriangle, Flame, Mic } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { useQuery } from '@tanstack/react-query';
 import VoiceGuide from '@/components/VoiceGuide';
 import { StateCitySelector, useStateCitySelector } from '@/components/StateCitySelector';
@@ -9,6 +10,7 @@ export default function WeatherCenter() {
   const { selectedState, setSelectedState, selectedCity, setSelectedCity, availableCities } = useStateCitySelector('Florida', 'Miami');
   const [isMonitoring, setIsMonitoring] = useState(true);
   const [dataSourcesActive, setDataSourcesActive] = useState(0);
+  const [aiTrigger, setAiTrigger] = useState<{ open: boolean; mode: 'text' | 'voice' } | undefined>();
 
   // Fetch live hazard data
   const { data: hazardData, isLoading: hazardsLoading } = useQuery({
@@ -406,15 +408,26 @@ export default function WeatherCenter() {
         <div className="rounded-2xl p-8 bg-gradient-to-br from-cyan-900/20 to-blue-900/20 border-2 border-cyan-400/50 backdrop-blur-sm"
           style={{ boxShadow: '0 0 60px rgba(0, 217, 255, 0.2)' }}
         >
-          <div className="flex items-center gap-4 mb-4">
-            <Brain className="w-10 h-10 text-cyan-400" />
-            <div>
-              <h3 className="text-3xl font-bold text-cyan-300">Ask Our AI Weather Expert</h3>
-              <p className="text-cyan-300/70">Get instant answers • Weather analysis • Storm predictions • Deployment advice</p>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-4">
+              <Brain className="w-10 h-10 text-cyan-400" />
+              <div>
+                <h3 className="text-3xl font-bold text-cyan-300">Ask Our AI Weather Expert</h3>
+                <p className="text-cyan-300/70">Get instant answers • Weather analysis • Storm predictions • Deployment advice</p>
+              </div>
             </div>
+            <Button
+              onClick={() => setAiTrigger({ open: true, mode: 'voice' })}
+              className="bg-cyan-500 hover:bg-cyan-600 text-white px-6 py-3 rounded-lg flex items-center gap-2 shadow-lg"
+              style={{ boxShadow: '0 0 20px rgba(0, 217, 255, 0.4)' }}
+              data-testid="button-start-voice-guide"
+            >
+              <Mic className="w-5 h-5" />
+              Start Voice Guide
+            </Button>
           </div>
           <p className="text-sm text-cyan-300/60 mb-4">
-            Click the AI assistant button (bottom-right) to ask questions about current conditions, forecast changes, storm risks, or contractor deployment strategies.
+            Click "Start Voice Guide" to talk with Rachel, your AI weather assistant, or use the AI chat button (bottom-right) for text questions about current conditions, forecast changes, storm risks, or contractor deployment strategies.
           </p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <div className="p-3 bg-slate-800/40 rounded-lg border border-cyan-500/20 text-xs text-cyan-300/70">
@@ -433,7 +446,11 @@ export default function WeatherCenter() {
         </div>
       </div>
       
-      <ModuleAIAssistant moduleName="Weather Intelligence Center" />
+      <ModuleAIAssistant 
+        moduleName="Weather Intelligence Center" 
+        externalTrigger={aiTrigger}
+        onTriggerHandled={() => setAiTrigger(undefined)}
+      />
     </div>
   );
 }

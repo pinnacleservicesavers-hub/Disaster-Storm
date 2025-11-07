@@ -12,9 +12,11 @@ interface Message {
 interface ModuleAIAssistantProps {
   moduleName: string;
   moduleContext?: string;
+  externalTrigger?: { open: boolean; mode: 'text' | 'voice' };
+  onTriggerHandled?: () => void;
 }
 
-export default function ModuleAIAssistant({ moduleName, moduleContext }: ModuleAIAssistantProps) {
+export default function ModuleAIAssistant({ moduleName, moduleContext, externalTrigger, onTriggerHandled }: ModuleAIAssistantProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [mode, setMode] = useState<'text' | 'voice'>('text');
   const [messages, setMessages] = useState<Message[]>([]);
@@ -32,6 +34,16 @@ export default function ModuleAIAssistant({ moduleName, moduleContext }: ModuleA
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  useEffect(() => {
+    if (externalTrigger?.open) {
+      setIsOpen(true);
+      setMode(externalTrigger.mode);
+      if (onTriggerHandled) {
+        onTriggerHandled();
+      }
+    }
+  }, [externalTrigger, onTriggerHandled]);
 
   useEffect(() => {
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
