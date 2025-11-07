@@ -255,13 +255,25 @@ export function WeatherAIAssistant({ currentLocation, weatherData, className = '
           audioRef.current = null;
         };
         
-        audio.onerror = () => {
+        audio.onerror = (e) => {
           setIsSpeaking(false);
           audioRef.current = null;
-          console.error('Audio playback error');
+          console.error('Voice playback error:', e);
         };
         
-        await audio.play();
+        // Add load handler to ensure audio is ready
+        audio.onloadeddata = async () => {
+          try {
+            await audio.play();
+          } catch (playError: any) {
+            console.error('Auto-play blocked. User interaction required:', playError);
+            // Browser blocked autoplay - this is normal, user needs to click
+            setIsSpeaking(false);
+          }
+        };
+        
+        // Trigger load
+        audio.load();
       } else {
         setIsSpeaking(false);
       }
