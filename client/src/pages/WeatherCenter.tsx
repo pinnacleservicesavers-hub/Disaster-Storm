@@ -55,6 +55,7 @@ import {
 import type { WeatherAlert } from '@shared/schema';
 import AIAssistant from '@/components/AIAssistant';
 import EducationalPanel from '@/components/EducationalPanel';
+import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 
 // API response interfaces that extend shared schema types
 interface SPCData {
@@ -453,6 +454,10 @@ export default function WeatherCenter() {
         ? 'fixed inset-0 z-50 bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900' 
         : 'bg-gradient-to-br from-blue-50 via-white to-blue-100'
     } relative overflow-hidden`}>
+      <ModuleAIAssistant 
+        moduleName="Weather Center"
+        moduleContext="Live weather radar, NWS alerts, NHC storms, ocean buoys, wave data, and comprehensive weather monitoring. Help users interpret weather patterns, alert severity, and make storm-response decisions."
+      />
       {/* Enhanced Weather Effects */}
       {hasActiveStorms && <RainEffect intensity={hasSevereAlerts ? "heavy" : "normal"} />}
       {hasSevereAlerts && <LightningFlash />}

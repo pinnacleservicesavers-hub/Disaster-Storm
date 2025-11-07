@@ -263,7 +263,7 @@ export default function StormOpsDashboard() {
           {/* Phase Sections */}
           <StaggerContainer className="space-y-8">
             {phases.map((phase, phaseIndex) => (
-              <StaggerItem key={phase.id} index={phaseIndex}>
+              <StaggerItem key={phase.id}>
                 <motion.div
                   className={`rounded-lg border-2 ${phase.borderColor} ${phase.bgColor} overflow-hidden`}
                   whileHover={{ scale: 1.01 }}

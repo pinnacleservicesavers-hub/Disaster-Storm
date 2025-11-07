@@ -42,6 +42,7 @@ import {
 } from 'lucide-react';
 import { UnifiedAssistant } from '@/components/UnifiedAssistant';
 import GrokLandfallPredictor from '@/components/GrokLandfallPredictor';
+import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 
 // ===== INTERFACES =====
 
@@ -632,6 +633,10 @@ export default function PredictionDashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-indigo-900 p-6 relative overflow-hidden">
+      <ModuleAIAssistant 
+        moduleName="Storm Predictions"
+        moduleContext="AI-powered 12-72 hour storm path predictions, contractor deployment analytics, damage forecasting. Help users interpret confidence scores, predicted paths, and opportunity identification worth $739.5M in revenue potential."
+      />
       {/* Dynamic Weather Effects */}
       <AnimatePresence>
         {showWeatherEffects && <RainEffect intensity="normal" />}

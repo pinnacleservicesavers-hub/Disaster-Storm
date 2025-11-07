@@ -25,6 +25,7 @@ import {
 import { Link } from 'wouter';
 import { FadeIn, SlideIn, StaggerContainer, StaggerItem } from '@/components/ui/animations';
 import HurricaneStateCity, { HurricaneDropdownValue } from '@/components/HurricaneStateCity';
+import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 
 // Back button component
 function BackButton() {
@@ -414,6 +415,10 @@ Keep it concise and actionable.`;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-900 via-red-900 to-pink-900">
+      <ModuleAIAssistant 
+        moduleName="Traffic Cam Watcher"
+        moduleContext="Real-time traffic camera monitoring for road conditions, evacuation routes, storm damage assessment. Help users analyze traffic flow, identify blocked roads, and coordinate emergency response routing."
+      />
       <FadeIn>
         {/* Header */}
         <div className="bg-gradient-to-r from-orange-600 to-red-600 text-white p-6">

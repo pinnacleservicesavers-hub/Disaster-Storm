@@ -19,6 +19,7 @@ import {
 import { DashboardSection } from '@/components/DashboardSection';
 import { FadeIn, PulseAlert, StaggerContainer, StaggerItem, HoverLift, CountUp, ScaleIn, SlideIn } from '@/components/ui/animations';
 import { apiRequest } from '@/lib/queryClient';
+import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 
 interface LiveFlight {
   id: string;
@@ -393,6 +394,10 @@ export default function Drones() {
 
   return (
     <div className="space-y-6" data-testid="drones-page">
+      <ModuleAIAssistant 
+        moduleName="Drone Operations"
+        moduleContext="Live drone fleet management, aerial assessment missions, real-time video feeds, battery monitoring, mission planning. Help users monitor flight status, plan inspection routes, and coordinate emergency search & rescue operations."
+      />
       {/* Enhanced Header Section */}
       <FadeIn>
         <div className="relative overflow-hidden bg-gradient-to-r from-slate-900 via-blue-900 to-slate-900 dark:from-slate-800 dark:via-blue-800 dark:to-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6">

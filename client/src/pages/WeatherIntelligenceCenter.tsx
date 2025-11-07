@@ -76,6 +76,7 @@ import { ComprehensiveIntelligenceSystem } from '@/components/ComprehensiveIntel
 import { EnvironmentalSummary } from '@/components/EnvironmentalSummary';
 import { XweatherIntelligence } from '@/components/XweatherIntelligence';
 import WindyMap from '@/components/WindyMap';
+import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 
 // ===== UNIFIED INTERFACES =====
 
@@ -352,6 +353,10 @@ export default function WeatherIntelligenceCenter() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 dark:from-slate-900 dark:via-blue-900 dark:to-cyan-900">
+      <ModuleAIAssistant 
+        moduleName="Weather Intelligence Center"
+        moduleContext="Multi-source weather intelligence combining NOAA, NWS, GOES satellites, NDBC buoys, Ambee environmental data. Includes Windy.com interactive maps with animated wind patterns, webcams, Radar+. Help users analyze deep weather insights, environmental conditions (air quality, pollen, soil moisture), and predictive analytics for contractor deployment."
+      />
       <div className="container mx-auto px-4 py-8">
         {/* Back Button */}
         <FadeIn>

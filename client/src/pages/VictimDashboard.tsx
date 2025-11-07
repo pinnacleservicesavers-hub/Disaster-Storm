@@ -1500,7 +1500,9 @@ You can ask our AI assistant about any of these resources, and it will guide you
                                     animate={{ opacity: 1, scale: 1 }}
                                     transition={{ delay: index * 0.1 }}
                                   >
-                                    <Badge {...statusBadge} />
+                                    <Badge variant={statusBadge.variant as any} className={statusBadge.color}>
+                                      {statusBadge.text}
+                                    </Badge>
                                   </motion.div>
                                 </div>
                               </div>
