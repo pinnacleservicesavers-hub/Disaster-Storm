@@ -1,0 +1,161 @@
+Got it—here’s a clean, copy-pasteable way to (a) tell Replit exactly what’s wrong and what you need changed, and (b) a ready-to-use Customer Mitigation Authorization you can hand to homeowners.
+
+1) Ticket you can post to Replit (or your project issue tracker)
+
+Title: Weather module shows stale/incomplete guidance—must include ZIP/County, latest SPC/NWS timing windows, and wind gust guidance
+
+Summary:
+The app displays a generic “marginal risk” note but does not (1) localize by ZIP and County, (2) surface latest SPC/NWS timing windows, or (3) include forecast wind gust guidance for the user’s location. This leads to operational decisions being made on stale or non-actionable data.
+
+Environment:
+
+App: Pinnacle Service Savers (production)
+
+Host: Replit
+
+Affected module/page: Severe Weather Advisory card
+
+Example location: ZIP: <YOUR_ZIP> — County: <YOUR_COUNTY, STATE>
+
+Steps to Reproduce:
+
+Open the Severe Weather Advisory card for <YOUR_ZIP>/<YOUR_COUNTY>.
+
+Compare the text against the latest NWS/SPC products for that county.
+
+Note lack of localized timing windows (e.g., Friday 1–9 PM, Saturday afternoon → overnight) and missing max wind-gust guidance.
+
+Actual Result:
+
+Generic “Marginal (1/5)” text with no ZIP/County tags, no time windows, no gust values.
+
+Expected Result:
+Card should render location-aware, time-boxed guidance with:
+
+ZIP & County clearly printed at top.
+
+SPC outlook level + timing windows for that county (e.g., “Fri 1–9 PM; Sat PM → overnight”).
+
+NWS forecast wind gust range for that ZIP (e.g., “Gusts 35–45+ mph possible”).
+
+Timestamp (UTC/local) + product source tags (SPC, NWS Forecast Office, issuance time).
+
+“Contractor Ops” checklist (staging triggers, safety).
+
+Impact / Why this matters:
+We stage crews, materials, and drones. Without county-level timing and gusts, we risk under- or over-deploying resources, safety exposure, and missed SLAs.
+
+Requested Fix (Acceptance Criteria):
+
+Inputs: ZIP → resolve County + Lat/Lon.
+
+SPC: Fetch current Day 1–3 outlook for county polygon; extract risk level and valid time window.
+
+NWS Local Forecast: Pull forecast discussion + hourly/period gusts for the ZIP’s point.
+
+Render:
+
+Header: “Severe Weather – <ZIP> | <County, ST> (as of <timestamp>).”
+
+Body bullets: Risk level, When, Threats (damaging winds / hail if applicable), Wind gust guidance (range with units), Confidence note.
+
+Footer: Source badges (SPC, NWS), issuance times, and link to warnings feed.
+
+Failover: If any API fails, show a yellow fallback banner: “Live data unavailable—check NWS/SPC links.”
+
+Data Sources (standard, public):
+
+SPC Outlook GeoJSON/KML (Day 1–3).
+
+NWS API (points → forecast & hourly) for gusts + forecast discussion.
+
+County lookup via FCC or Census API; ZIP→county mapping as cache.
+
+Example payload (structure, not live data):
+
+{
+  "zip": "36830",
+  "county": "Lee County, AL",
+  "timestamp_local": "2025-11-07T09:20",
+  "spc": { "day": 1, "risk": "Marginal (1/5)", "window": "Fri 1–9 PM" },
+  "secondary_window": "Sat afternoon → overnight (post-frontal line)",
+  "threats": ["Damaging straight-line winds", "Isolated hail (Fri)"],
+  "gust_guidance_mph": { "range": "35–45", "peaks_possible": "50" },
+  "sources": ["SPC", "NWS Birmingham"],
+  "confidence": "Medium",
+  "disclaimer": "Timing can shift ±2–4 hours; monitor warnings."
+}
+
+
+Attachments:
+
+Screenshot of current card vs. NWS/SPC pages for <YOUR_COUNTY>.
+
+Console logs if API calls fail.
+
+2) Text block you can show in-app (what the card should say)
+
+Severe Weather – <ZIP> | <County, ST> (updated <local time>)
+
+Risk: SPC Marginal (1/5)
+
+When: Fri <start–end>; Sat <start–overnight> with a stronger cold front
+
+Threats: Damaging winds; isolated hail Fri
+
+Wind gusts: <35–45+ mph> possible in storms
+
+Do now: Pre-stage tarps/OSB/PPE; mobilize on NWS warnings or HRRR gusts ≥35–45 mph
+Sources: SPC, NWS <local office>; times may shift ±2–4 hrs.
+
+(Replace bracketed fields from the APIs listed above.)
+
+3) Customer Mitigation Authorization (ready to use)
+
+Use this as a one-page form. Replace bracketed fields with your info.
+
+Customer Mitigation Authorization
+Customer: [Name] Phone/Email: [###-###-#### / email]
+Property Address: [Street, City, State, ZIP] County: [County, ST]
+Event Date/Type: [Storm name/date] Insurer/Policy #: [Insurer / #]
+
+Purpose. Customer authorizes [Company Name, License #] (“Contractor”) to perform emergency mitigation to prevent further damage from a recent storm event.
+
+Scope (Emergency-Only Work):
+
+Roof tarping/temporary dry-in; board-up of broken openings; temporary cover for HVAC/vents; interior water mitigation (extract/dry as needed); debris removal sufficient to access/tarp.
+
+No permanent repairs are authorized by this form.
+
+Pricing & Payment:
+
+Work billed at customary emergency rates using line-item pricing (e.g., Xactimate or Contractor rate sheet) including labor, materials, mobilization, disposal, and equipment.
+
+Customer remains responsible for payment. Contractor will assist with claim documentation upon request.
+
+Insurance & Documentation:
+
+Contractor will provide: before/after photos, moisture readings, materials list, and an emergency invoice.
+
+This is not an Assignment of Benefits. Customer retains all rights under the policy.
+
+Access & Safety:
+
+Customer grants site access and authorizes Contractor to secure/limit unsafe areas. Electrical or gas issues will be referred to utilities/trades.
+
+Hold Harmless & Limits:
+
+Contractor will exercise reasonable care. Emergency measures are temporary and may not prevent all damage during ongoing weather. Contractor is not liable for consequential losses outside the scope of work.
+
+Cancellation:
+
+Customer may cancel before work begins. Once materials are installed or services performed, charges incurred are due.
+
+Signatures:
+Customer: ______________________ Date: //_____
+Contractor Rep: __________________ Date: //_____
+Printed Names & Titles: _______________________________
+
+Initials (Customer):
+[ ] Authorize exterior photos/drone imaging when safe.
+[ ] Authorize interior moisture readings and documentation.
