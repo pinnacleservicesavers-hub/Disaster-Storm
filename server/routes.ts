@@ -73,6 +73,7 @@ import mrmsProductionRoutes from "./routes/mrmsProductionRoutes.js";
 import workflowRoutes from "./routes/workflowRoutes";
 import orchestrationRoutes from "./routes/orchestrationRoutes";
 import adminOidcRoutes from "./routes/adminOidc";
+import deploymentIntelligenceRoutes from "./routes/deploymentIntelligenceRoutes";
 import healthRoutes from "./routes/health";
 import quoteRoutes from "./routes/quotes";
 import pipelineRoutes from "./routes/pipeline";
@@ -826,6 +827,10 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
   const disasterAggregatorRoutes = await import('./routes/disasterAggregatorRoutes.js');
   app.use('/api', disasterAggregatorRoutes.default);
   console.log('🔄 Disaster Aggregator routes registered - Multi-source event aggregation active');
+
+  // ---- Deployment Intelligence Routes (Street-level damage detection with homeowner data) ----
+  app.use('/api/deployment', deploymentIntelligenceRoutes);
+  console.log('🎯 Deployment Intelligence routes registered - Street-level damage detection with homeowner contact info');
 
   // ---- Impact GeoJSON Endpoint (must come BEFORE /api/impact) ----
   app.get('/api/impact/geojson', async (req, res) => {

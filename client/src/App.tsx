@@ -25,6 +25,7 @@ const BankingSettings = lazy(() => import("./pages/BankingSettings"));
 const DisasterLens = lazy(() => import("./pages/DisasterLens"));
 const XrayRealityModule = lazy(() => import("./modules/XrayRealityModule"));
 const HazardDashboard = lazy(() => import("./pages/HazardDashboard"));
+const DeploymentIntelligence = lazy(() => import("./pages/DeploymentIntelligence"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard").then(m => ({ default: m.AdminDashboard })));
 const ZipStateAdmin = lazy(() => import("./pages/ZipStateAdmin").then(m => ({ default: m.ZipStateAdmin })));
 const BulkFillStates = lazy(() => import("./pages/BulkFillStates").then(m => ({ default: m.BulkFillStates })));
@@ -96,6 +97,7 @@ export default function App() {
           <Route path="/prediction-dashboard" element={<StormPredictions />} />
           <Route path="/storm-predictions" element={<StormPredictions />} />
           <Route path="/deployment-map" element={<DeploymentMap />} />
+          <Route path="/deployment-intelligence" element={<DeploymentIntelligence />} />
           <Route path="/traffic-cam-watcher" element={<TrafficCamWatcherModule />} />
           <Route path="/eyes-in-the-sky" element={<EyesInSky />} />
           <Route path="/drone-operation" element={<DroneOperations />} />
