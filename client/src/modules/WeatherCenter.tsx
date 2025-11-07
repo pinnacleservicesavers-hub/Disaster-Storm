@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Activity, Satellite, Waves, Wind, CloudRain, Database, Brain, MapPin, AlertTriangle, Flame, Mic } from 'lucide-react';
+import { Activity, Satellite, Waves, Wind, CloudRain, Database, Brain, MapPin, AlertTriangle, Flame, Mic, Users, Package, DollarSign, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
 import { useQuery } from '@tanstack/react-query';
 import VoiceGuide from '@/components/VoiceGuide';
 import { StateCitySelector, useStateCitySelector } from '@/components/StateCitySelector';
@@ -12,6 +13,7 @@ export default function WeatherCenter() {
   const [isMonitoring, setIsMonitoring] = useState(true);
   const [dataSourcesActive, setDataSourcesActive] = useState(0);
   const [aiTrigger, setAiTrigger] = useState<{ open: boolean; mode: 'text' | 'voice' } | undefined>();
+  const [showDetailedContractorView, setShowDetailedContractorView] = useState(false);
 
   // Fetch live hazard data
   const { data: hazardData, isLoading: hazardsLoading } = useQuery({
@@ -347,6 +349,206 @@ export default function WeatherCenter() {
           <p className="text-xs text-orange-300/50 mt-6 text-center">
             Data sources: NHC • USGS Earthquakes • NASA FIRMS • NOAA MRMS Radar • GFS/HRRR Wind Models • NOAA CO-OPS Surge • USGS Rivers • NOAA HMS Smoke
           </p>
+        </div>
+
+        {/* Detailed Contractor View Toggle & Section */}
+        <div className="mb-8 p-6 rounded-2xl bg-gradient-to-br from-green-900/20 to-emerald-900/20 border-2 border-green-500/40 backdrop-blur-sm"
+          style={{ boxShadow: '0 0 60px rgba(34, 197, 94, 0.15)' }}
+        >
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <TrendingUp className="w-7 h-7 text-green-400" />
+              <div>
+                <h3 className="text-2xl font-bold text-green-300">Detailed Contractor View</h3>
+                <p className="text-sm text-green-300/70">Advanced operations planning and resource forecasting</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-green-300/70">Show Details</span>
+              <Switch
+                checked={showDetailedContractorView}
+                onCheckedChange={setShowDetailedContractorView}
+                data-testid="toggle-contractor-view"
+              />
+            </div>
+          </div>
+
+          {showDetailedContractorView && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
+              
+              {/* Crew Utilization Projection */}
+              <div className="p-6 rounded-xl bg-slate-800/60 border border-green-500/30"
+                style={{ boxShadow: '0 0 30px rgba(34, 197, 94, 0.1)' }}
+                data-testid="section-crew-utilization"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <h4 className="text-lg font-bold text-green-300 flex items-center gap-2">
+                    <Users className="w-5 h-5" />
+                    Crew Utilization
+                  </h4>
+                </div>
+                
+                <div className="space-y-4">
+                  <div className="p-4 bg-green-500/10 rounded-lg border border-green-500/20">
+                    <div className="text-3xl font-bold text-green-400 mb-1" data-testid="text-crew-percentage">60%</div>
+                    <p className="text-sm text-green-300/70">of 4 crews expected engaged</p>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-green-300/70">Friday (11/7)</span>
+                      <span className="font-bold text-green-400">2 crews</span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-green-300/70">Saturday (11/8)</span>
+                      <span className="font-bold text-green-400">3 crews</span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-green-300/70">Sunday (11/9)</span>
+                      <span className="font-bold text-green-400">1 crew</span>
+                    </div>
+                  </div>
+                  
+                  <div className="pt-3 border-t border-green-500/20">
+                    <p className="text-xs text-green-300/60">
+                      Based on SPC Marginal (1/5) risk + dual cold fronts
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Material Usage Forecast */}
+              <div className="p-6 rounded-xl bg-slate-800/60 border border-green-500/30"
+                style={{ boxShadow: '0 0 30px rgba(34, 197, 94, 0.1)' }}
+                data-testid="section-material-forecast"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <h4 className="text-lg font-bold text-green-300 flex items-center gap-2">
+                    <Package className="w-5 h-5" />
+                    Material Forecast
+                  </h4>
+                </div>
+                
+                <div className="space-y-3">
+                  <div className="p-3 bg-slate-700/40 rounded-lg border border-green-500/20">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-sm text-green-300/70">Tarps (10x12)</span>
+                      <span className="font-bold text-green-400" data-testid="text-tarps-count">24-36</span>
+                    </div>
+                    <div className="w-full bg-slate-600/40 rounded-full h-2">
+                      <div className="bg-green-500 h-2 rounded-full" style={{ width: '70%' }} />
+                    </div>
+                  </div>
+                  
+                  <div className="p-3 bg-slate-700/40 rounded-lg border border-green-500/20">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-sm text-green-300/70">OSB Sheets (4x8)</span>
+                      <span className="font-bold text-green-400" data-testid="text-osb-count">18-24</span>
+                    </div>
+                    <div className="w-full bg-slate-600/40 rounded-full h-2">
+                      <div className="bg-green-500 h-2 rounded-full" style={{ width: '55%' }} />
+                    </div>
+                  </div>
+                  
+                  <div className="p-3 bg-slate-700/40 rounded-lg border border-green-500/20">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-sm text-green-300/70">Shingles (bundles)</span>
+                      <span className="font-bold text-green-400" data-testid="text-shingles-count">12-18</span>
+                    </div>
+                    <div className="w-full bg-slate-600/40 rounded-full h-2">
+                      <div className="bg-green-500 h-2 rounded-full" style={{ width: '45%' }} />
+                    </div>
+                  </div>
+                  
+                  <div className="p-3 bg-slate-700/40 rounded-lg border border-green-500/20">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-sm text-green-300/70">Fasteners (boxes)</span>
+                      <span className="font-bold text-green-400" data-testid="text-fasteners-count">8-12</span>
+                    </div>
+                    <div className="w-full bg-slate-600/40 rounded-full h-2">
+                      <div className="bg-green-500 h-2 rounded-full" style={{ width: '40%' }} />
+                    </div>
+                  </div>
+                  
+                  <div className="pt-3 border-t border-green-500/20">
+                    <p className="text-xs text-green-300/60">
+                      Estimates based on wind damage probability (35-45 mph gusts)
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Recommended Mitigation Pricing Matrix */}
+              <div className="p-6 rounded-xl bg-slate-800/60 border border-green-500/30"
+                style={{ boxShadow: '0 0 30px rgba(34, 197, 94, 0.1)' }}
+                data-testid="section-pricing-matrix"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <h4 className="text-lg font-bold text-green-300 flex items-center gap-2">
+                    <DollarSign className="w-5 h-5" />
+                    Pricing Matrix
+                  </h4>
+                </div>
+                
+                <div className="space-y-3">
+                  <div className="p-4 bg-green-500/10 rounded-lg border border-green-500/20 mb-3">
+                    <div className="text-sm text-green-300/70 mb-1">Target ROI Goal</div>
+                    <div className="text-2xl font-bold text-green-400" data-testid="text-roi-goal">35-40%</div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <div className="p-3 bg-slate-700/40 rounded-lg border border-green-500/20">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-sm font-semibold text-green-300">Emergency Tarping</span>
+                      </div>
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-green-300/70">Base Rate</span>
+                        <span className="font-bold text-green-400" data-testid="text-tarping-rate">$350-500</span>
+                      </div>
+                      <div className="flex justify-between items-center text-xs mt-1">
+                        <span className="text-green-300/70">+ Materials</span>
+                        <span className="text-green-400">15-20%</span>
+                      </div>
+                    </div>
+                    
+                    <div className="p-3 bg-slate-700/40 rounded-lg border border-green-500/20">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-sm font-semibold text-green-300">Board-up Service</span>
+                      </div>
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-green-300/70">Per Opening</span>
+                        <span className="font-bold text-green-400" data-testid="text-boardup-rate">$200-350</span>
+                      </div>
+                      <div className="flex justify-between items-center text-xs mt-1">
+                        <span className="text-green-300/70">+ Materials</span>
+                        <span className="text-green-400">10-15%</span>
+                      </div>
+                    </div>
+                    
+                    <div className="p-3 bg-slate-700/40 rounded-lg border border-green-500/20">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-sm font-semibold text-green-300">Water Mitigation</span>
+                      </div>
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-green-300/70">Hourly Rate</span>
+                        <span className="font-bold text-green-400" data-testid="text-mitigation-rate">$125-175</span>
+                      </div>
+                      <div className="flex justify-between items-center text-xs mt-1">
+                        <span className="text-green-300/70">+ Equipment</span>
+                        <span className="text-green-400">20-25%</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="pt-3 border-t border-green-500/20">
+                    <p className="text-xs text-green-300/60">
+                      Based on Xactimate regional pricing + emergency markup
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* AI Intelligence & Analysis Features */}
