@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import VoiceGuide from '@/components/VoiceGuide';
 import { StateCitySelector, useStateCitySelector } from '@/components/StateCitySelector';
 import ModuleAIAssistant from '@/components/ModuleAIAssistant';
+import WindyMap from '@/components/WindyMap';
 
 export default function WeatherCenter() {
   const { selectedState, setSelectedState, selectedCity, setSelectedCity, availableCities } = useStateCitySelector('Florida', 'Miami');
@@ -129,20 +130,13 @@ export default function WeatherCenter() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           
           {/* Live Weather Maps */}
-          <div className="lg:col-span-2 rounded-2xl p-6 bg-slate-900/60 border border-cyan-500/30 backdrop-blur-sm hover:border-cyan-400/50 transition-all"
-            style={{ boxShadow: '0 0 40px rgba(0, 194, 255, 0.1)' }}
-          >
-            <h3 className="text-2xl font-bold text-cyan-300 mb-4 flex items-center gap-2">
-              <MapPin className="w-6 h-6" />
-              Live Weather Maps
-            </h3>
-            <div className="aspect-video bg-slate-800/50 rounded-lg border border-cyan-500/20 flex items-center justify-center">
-              <div className="text-center">
-                <Satellite className="w-16 h-16 text-cyan-400/50 mx-auto mb-3" />
-                <p className="text-cyan-300/70">Real-time radar • Satellite imagery • Storm tracks</p>
-                <p className="text-sm text-cyan-300/50 mt-2">GOES-16/17 Satellites • NEXRAD Radar Network</p>
-              </div>
-            </div>
+          <div className="lg:col-span-2" data-testid="section-live-weather-maps">
+            <WindyMap 
+              defaultLat={selectedCity === 'Miami' ? 25.7617 : 30.4383}
+              defaultLon={selectedCity === 'Miami' ? -80.1918 : -84.2807}
+              defaultZoom={7}
+              height="500px"
+            />
           </div>
 
           {/* Environmental Conditions */}

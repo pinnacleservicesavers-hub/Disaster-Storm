@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Wind, Radar, Camera, Satellite, Eye, RefreshCw } from 'lucide-react';
+import { Wind, Radar, Camera, Satellite, Eye, RefreshCw, AlertCircle } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface WindyMapProps {
   defaultLat?: number;
@@ -21,6 +22,25 @@ export default function WindyMap({
   const [product, setProduct] = useState('ecmwf');
   const [refreshKey, setRefreshKey] = useState(0);
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const [webGLSupported, setWebGLSupported] = useState(true);
+  const [showRadarWarning, setShowRadarWarning] = useState(false);
+
+  // Detect WebGL support
+  useEffect(() => {
+    const canvas = document.createElement('canvas');
+    const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+    setWebGLSupported(!!gl);
+  }, []);
+  
+  // Show warning when radar is selected without WebGL
+  useEffect(() => {
+    if (layer === 'radar' && !webGLSupported) {
+      setShowRadarWarning(true);
+      setTimeout(() => setShowRadarWarning(false), 8000);
+    } else {
+      setShowRadarWarning(false);
+    }
+  }, [layer, webGLSupported]);
   
   // Auto-refresh every 5 minutes to keep map "live"
   useEffect(() => {
@@ -151,6 +171,16 @@ export default function WindyMap({
         </div>
       </CardHeader>
       <CardContent>
+        {showRadarWarning && (
+          <Alert className="mb-4 bg-amber-50 dark:bg-amber-900/20 border-amber-500" data-testid="alert-radar-warning">
+            <AlertCircle className="h-4 w-4 text-amber-600" />
+            <AlertDescription className="text-amber-800 dark:text-amber-200">
+              <strong>Radar+ requires WebGL:</strong> The advanced radar layer needs hardware acceleration which is not available in this environment. 
+              Try using <strong>Wind</strong>, <strong>Rain</strong>, <strong>Clouds</strong>, or <strong>Satellite</strong> layers for live weather visualization.
+            </AlertDescription>
+          </Alert>
+        )}
+        
         <div className="bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden">
           <iframe 
             key={refreshKey}
