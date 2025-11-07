@@ -14,6 +14,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { FadeIn, ScaleIn, StaggerContainer, StaggerItem } from '@/components/ui/animations';
 import { apiRequest } from '@/lib/queryClient';
+import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 
 interface GeoCaptureZone {
   id: string;
@@ -623,6 +624,10 @@ export default function StormLeadCommand() {
           </Card>
         </TabsContent>
       </Tabs>
+      <ModuleAIAssistant 
+        moduleName="Storm Lead Command"
+        moduleContext="Predictive storm lead generation system. Rachel can explain geo-capture zones, social media monitoring for damage reports, weather trigger automation, and how to turn storm predictions into qualified contractor leads."
+      />
     </div>
   );
 }

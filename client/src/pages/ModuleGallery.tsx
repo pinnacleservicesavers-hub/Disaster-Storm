@@ -5,6 +5,7 @@ import { ModuleCard } from '@/components/ModuleGallery/ModuleCard';
 import { Toolbar } from '@/components/ModuleGallery/Toolbar';
 import { Badge } from '@/components/ModuleGallery/Badge';
 import VoiceGuide from '@/components/VoiceGuide';
+import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 
 const NEON = {
   yellow: '#eaff00',
@@ -262,6 +263,10 @@ export default function ModuleGallery({
         {/* Footer */}
         <div className="py-16" />
       </div>
+      <ModuleAIAssistant 
+        moduleName="Module Gallery"
+        moduleContext="Comprehensive module catalog for Disaster Direct platform. Rachel can explain each module's capabilities, help you navigate features, understand HIGH priority vs other modules, and guide you through launching, previewing, or accessing documentation for any module."
+      />
     </div>
   );
 }

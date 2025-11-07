@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auth } from '@/lib/auth';
+import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 
 export default function SignOut() {
   const navigate = useNavigate();
@@ -23,6 +24,10 @@ export default function SignOut() {
           </p>
         </div>
       </div>
+      <ModuleAIAssistant 
+        moduleName="Sign Out"
+        moduleContext="Session termination page. Rachel can answer questions about session management, authentication flow, and next steps after signing out."
+      />
     </main>
   );
 }

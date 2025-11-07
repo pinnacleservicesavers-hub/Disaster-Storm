@@ -8,6 +8,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { Mail, Save, Send, Info, AlertCircle } from 'lucide-react';
+import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 
 interface SMTPConfig {
   host: string;
@@ -251,6 +252,10 @@ export function SMTPSettings() {
           </AlertDescription>
         </Alert>
       </div>
+      <ModuleAIAssistant 
+        moduleName="SMTP Settings"
+        moduleContext="Email server configuration for system notifications. Rachel can help you configure SMTP settings, test email connections, troubleshoot delivery issues, and explain port and security options for different email providers like Gmail and Outlook."
+      />
     </div>
   );
 }

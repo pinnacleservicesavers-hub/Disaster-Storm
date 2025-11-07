@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { FileText, Save, RefreshCw, Info } from 'lucide-react';
+import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 
 const US_STATES = [
   'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA',
@@ -158,6 +159,10 @@ export function WelcomeTemplates() {
           </AlertDescription>
         </Alert>
       </div>
+      <ModuleAIAssistant 
+        moduleName="Welcome Templates"
+        moduleContext="State-specific welcome letter templates for disaster victims. Rachel can help you customize HTML content, explain template variables, understand state-specific legal requirements, and manage automated letter generation."
+      />
     </div>
   );
 }

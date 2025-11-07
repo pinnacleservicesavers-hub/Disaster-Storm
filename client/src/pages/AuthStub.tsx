@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 
 export default function AuthStub() {
   const [role, setRole] = useState('admin');
@@ -110,6 +111,10 @@ export default function AuthStub() {
           </div>
         </div>
       </Card>
+      <ModuleAIAssistant 
+        moduleName="Authentication Stub"
+        moduleContext="Demo authentication page for testing role-based access. Rachel can help you understand how to configure roles, user IDs, and permissions for admin, contractor, and homeowner portals."
+      />
     </main>
   );
 }

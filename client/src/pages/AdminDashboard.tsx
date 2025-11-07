@@ -19,6 +19,7 @@ import {
   Play,
   Eye
 } from 'lucide-react';
+import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 
 export function AdminDashboard() {
   const { toast } = useToast();
@@ -407,6 +408,11 @@ export function AdminDashboard() {
             </Card>
           </TabsContent>
         </Tabs>
+        
+        <ModuleAIAssistant 
+          moduleName="Admin Dashboard"
+          moduleContext="System administration for MRMS processing, hazard alignment, and contractor alerts. Rachel can help with processing operations, monitoring system health, and managing automated alerts."
+        />
       </div>
     </div>
   );

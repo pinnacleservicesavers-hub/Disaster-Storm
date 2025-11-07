@@ -19,6 +19,7 @@ import {
   User,
   Plus
 } from 'lucide-react';
+import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 
 interface VictimUser {
   id: string;
@@ -369,6 +370,10 @@ export default function MyRequests() {
           </TabsContent>
         </Tabs>
       </main>
+      <ModuleAIAssistant 
+        moduleName="My Requests"
+        moduleContext="View your damage reports and service requests. Rachel can help you track your submissions, understand request statuses, explain next steps in the assessment process, and guide you through requesting additional help."
+      />
     </div>
   );
 }

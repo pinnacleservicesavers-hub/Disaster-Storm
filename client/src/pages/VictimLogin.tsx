@@ -12,6 +12,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import { Eye, EyeOff, UserCheck, AlertCircle } from 'lucide-react';
+import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 
 const loginSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -169,6 +170,10 @@ export default function VictimLogin() {
           </div>
         </CardContent>
       </Card>
+      <ModuleAIAssistant 
+        moduleName="Victim Login"
+        moduleContext="Storm victim portal login page. Rachel can help you troubleshoot login issues, explain account security, guide password recovery, and answer questions about accessing damage reporting and contractor assistance features."
+      />
     </div>
   );
 }

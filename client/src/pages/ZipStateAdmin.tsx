@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { MapPin, Upload, RefreshCw, Database, FileText, Play } from 'lucide-react';
+import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 
 export function ZipStateAdmin() {
   const { toast } = useToast();
@@ -347,6 +348,10 @@ export function ZipStateAdmin() {
           </AlertDescription>
         </Alert>
       </div>
+      <ModuleAIAssistant 
+        moduleName="ZIP State Admin"
+        moduleContext="ZIP code prefix to state mapping management. Rachel can explain the longest-prefix algorithm, help you upload JSON or CSV mappings, troubleshoot bulk fill operations, and understand how automated state detection works."
+      />
     </div>
   );
 }

@@ -8,6 +8,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Share2, Camera, Video, Heart, MessageCircle, Users, Upload, Radio, DollarSign, MapPin, Play, Pause, Eye, Zap } from 'lucide-react';
 import { DashboardSection } from '@/components/DashboardSection';
 import { FadeIn, PulseAlert, StaggerContainer, StaggerItem, HoverLift } from '@/components/ui/animations';
+import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 
 interface Post {
   id: number;
@@ -524,6 +525,10 @@ export default function StormShareCam() {
           </motion.div>
         )}
       </AnimatePresence>
+      <ModuleAIAssistant 
+        moduleName="StormShare Cam"
+        moduleContext="Community storm damage sharing platform. Rachel can help you understand live streams, browse damage reports, engage with posts from homeowners, and identify contractor opportunities from user-generated content and help requests."
+      />
     </DashboardSection>
   );
 }

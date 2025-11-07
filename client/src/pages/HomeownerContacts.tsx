@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Search, Phone, Mail, MapPin, DollarSign, FileText, Users } from 'lucide-react';
+import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 
 interface Homeowner {
   id: string;
@@ -313,6 +314,10 @@ export default function HomeownerContacts() {
           </CardContent>
         </Card>
       )}
+      <ModuleAIAssistant 
+        moduleName="Homeowner Contacts"
+        moduleContext="Comprehensive homeowner directory for contractors. Rachel can help you search for leads, filter by damage type and location, explain insurance claim information, and guide you through contacting potential clients."
+      />
     </div>
   );
 }

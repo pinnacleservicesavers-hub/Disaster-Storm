@@ -51,6 +51,7 @@ import { UnifiedAssistant } from '@/components/UnifiedAssistant';
 import { UniversalAIAssistant } from '@/components/UniversalAIAssistant';
 import { ComprehensiveIntelligenceSystem } from '@/components/ComprehensiveIntelligenceSystem';
 import VoiceGuide, { VoiceExplanation } from '@/components/VoiceGuide';
+import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 
 interface SurveillanceData {
   cameras: CameraFeed[];
@@ -790,6 +791,10 @@ export default function SurveillanceCenter() {
           </TabsContent>
         </Tabs>
       </FadeIn>
+      <ModuleAIAssistant 
+        moduleName="Surveillance Center"
+        moduleContext="Multi-source surveillance and intelligence platform. Rachel can explain live camera feeds, drone monitoring, contractor opportunity detection from visual data, and how to leverage traffic cameras and community feeds for storm damage assessment."
+      />
     </div>
   );
 }

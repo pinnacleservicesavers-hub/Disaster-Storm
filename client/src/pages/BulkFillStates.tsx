@@ -8,6 +8,7 @@ import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { Play, Database, CheckCircle2, AlertCircle, Download, X } from 'lucide-react';
+import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 
 interface BulkFillResult {
   job_id: string;
@@ -275,6 +276,10 @@ export function BulkFillStates() {
           </AlertDescription>
         </Alert>
       </div>
+      <ModuleAIAssistant 
+        moduleName="Bulk Fill States"
+        moduleContext="Automated state field population tool using ZIP code prefix mapping. Rachel can explain how the longest-prefix matching algorithm works, help troubleshoot bulk updates, and guide you through filtering and exporting results."
+      />
     </div>
   );
 }

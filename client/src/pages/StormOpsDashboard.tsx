@@ -27,6 +27,7 @@ import {
   CheckCircle
 } from 'lucide-react';
 import { FadeIn, SlideIn, StaggerContainer, StaggerItem } from '@/components/ui/animations';
+import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 
 // Phase data structure matching the document exactly
 const phases = [
@@ -390,6 +391,11 @@ export default function StormOpsDashboard() {
           </motion.div>
         </div>
       </FadeIn>
+      
+      <ModuleAIAssistant 
+        moduleName="Storm Operations Dashboard"
+        moduleContext="Complete storm operations workflow from pre-storm monitoring to post-storm recovery. Rachel can guide contractors through all phases: awareness, deployment, response, and recovery. Includes weather monitoring, predictions, damage assessment, claims, and contractor tools."
+      />
     </div>
   );
 }

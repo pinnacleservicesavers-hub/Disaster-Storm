@@ -23,6 +23,7 @@ import {
   Users
 } from 'lucide-react';
 import { z } from 'zod';
+import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 
 // Create service request form schema
 const serviceRequestFormSchema = z.object({
@@ -414,6 +415,10 @@ export default function ServiceRequest() {
           </CardContent>
         </Card>
       </main>
+      <ModuleAIAssistant 
+        moduleName="Service Request"
+        moduleContext="Submit service requests for storm damage repairs. Rachel can help you select the right service type, assess urgency levels, estimate scope and budget, and connect you with qualified contractors for your specific needs."
+      />
     </div>
   );
 }

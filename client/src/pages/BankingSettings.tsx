@@ -2,6 +2,7 @@ import { BankingSettings as BankingSettingsComponent } from '@/components/Bankin
 import { ArrowLeft, Building2 } from 'lucide-react';
 import { Link } from 'wouter';
 import { Button } from '@/components/ui/button';
+import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 
 export default function BankingSettingsPage() {
   const userId = localStorage.getItem('userId') || 'demo-user';
@@ -58,6 +59,10 @@ export default function BankingSettingsPage() {
           </div>
         </div>
       </div>
+      <ModuleAIAssistant 
+        moduleName="Banking Settings"
+        moduleContext="Secure bank account configuration for direct deposit payments. Rachel can help you set up routing and account numbers, explain payment verification, and ensure secure transactions for contractor payments."
+      />
     </div>
   );
 }

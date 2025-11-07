@@ -17,6 +17,7 @@ import {
   Bot, Bell, Filter, Workflow, Calendar, Target
 } from 'lucide-react';
 import { FadeIn, SlideIn, ScaleIn, HoverLift } from '@/components/ui/animations';
+import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 
 interface WorkflowStep {
   id: string;
@@ -806,6 +807,10 @@ export default function WorkflowBuilder() {
           )}
         </div>
       </div>
+      <ModuleAIAssistant 
+        moduleName="Workflow Builder"
+        moduleContext="Automated marketing workflow creation tool. Rachel can guide you through building email sequences, SMS campaigns, conditional logic, timing delays, tag-based triggers, and analyzing workflow performance and enrollment metrics."
+      />
     </div>
   );
 }

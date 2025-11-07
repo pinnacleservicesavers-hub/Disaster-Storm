@@ -17,6 +17,7 @@ import {
   CalendarDays, Timer, UserCheck, Bell
 } from 'lucide-react';
 import { FadeIn, SlideIn, ScaleIn, HoverLift } from '@/components/ui/animations';
+import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 
 interface CalendarBooking {
   id: string;
@@ -780,6 +781,10 @@ export default function CalendarBooking() {
           </AnimatePresence>
         </CardContent>
       </Card>
+      <ModuleAIAssistant 
+        moduleName="Calendar Booking"
+        moduleContext="Appointment scheduling and calendar management system. Rachel can help you configure booking types, set business hours, manage time zones, integrate with Google Calendar and Zoom, and understand booking analytics and customer management features."
+      />
     </div>
   );
 }

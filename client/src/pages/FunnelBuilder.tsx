@@ -17,6 +17,7 @@ import {
   Clock, DollarSign, ChevronRight, Layers, Move, Save
 } from 'lucide-react';
 import { FadeIn, SlideIn, ScaleIn, HoverLift } from '@/components/ui/animations';
+import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 
 interface FunnelStep {
   id: string;
@@ -613,6 +614,10 @@ export default function FunnelBuilder() {
           )}
         </div>
       </div>
+      <ModuleAIAssistant 
+        moduleName="Funnel Builder"
+        moduleContext="Multi-step conversion funnel builder. Rachel can help you design landing pages, create form sequences, set up calendar booking steps, configure auto-advance timing, customize themes and colors, and analyze funnel performance with conversion rates and drop-off metrics."
+      />
     </div>
   );
 }

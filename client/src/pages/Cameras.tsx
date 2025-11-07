@@ -15,6 +15,7 @@ import { MapView } from '@/components/MapView';
 import { CameraViewer } from '@/components/CameraViewer';
 import { FadeIn, CountUp, StaggerContainer, StaggerItem, HoverLift, ScaleIn, SlideIn, PulseAlert } from '@/components/ui/animations';
 import type { ContractorWatchlist, InsertContractorWatchlist } from '@shared/schema';
+import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 
 interface CameraDirectory {
   directory: Array<{
@@ -1072,6 +1073,11 @@ export function TrafficCameras() {
           enableDamageDetection={true}
           autoRefresh={true}
           refreshInterval={30000}
+        />
+        
+        <ModuleAIAssistant 
+          moduleName="Traffic Cameras & Damage Detection"
+          moduleContext="Real-time traffic cameras with AI damage detection. Help contractors monitor road conditions, find damage opportunities, and track camera alerts. Rachel can explain camera feeds, damage reports, and contractor opportunities."
         />
       </div>
     </div>

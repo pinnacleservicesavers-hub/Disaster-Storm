@@ -15,6 +15,7 @@ import {
   Sparkles, Users, TrendingUp, BarChart3, Clock
 } from 'lucide-react';
 import { FadeIn, SlideIn, ScaleIn, HoverLift } from '@/components/ui/animations';
+import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 
 interface FormField {
   id: string;
@@ -805,6 +806,10 @@ export default function FormBuilder() {
           )}
         </div>
       </div>
+      <ModuleAIAssistant 
+        moduleName="Form Builder"
+        moduleContext="Dynamic form creation and management tool. Rachel can guide you through building custom forms, adding fields with validation rules, configuring conditional logic, setting up webhooks, and analyzing form submission data and conversion rates."
+      />
     </div>
   );
 }

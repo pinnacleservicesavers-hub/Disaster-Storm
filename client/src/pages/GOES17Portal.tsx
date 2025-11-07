@@ -38,6 +38,7 @@ import {
   PulseAlert,
   CountUp
 } from '@/components/ui/animations';
+import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 
 interface GOES17Data {
   satellite: 'GOES-17';
@@ -640,6 +641,10 @@ export default function GOES17Portal() {
           </Tabs>
         </FadeIn>
       </div>
+      <ModuleAIAssistant 
+        moduleName="GOES-17 Portal"
+        moduleContext="GOES-17 satellite data monitoring for Western United States. Rachel can explain infrared and visible imagery, interpret lightning strike data, understand atmospheric readings, and help you track real-time storm patterns for contractor deployment planning."
+      />
     </div>
   );
 }

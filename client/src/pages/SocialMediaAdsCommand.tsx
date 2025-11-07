@@ -20,6 +20,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { FadeIn, ScaleIn, StaggerContainer, StaggerItem } from '@/components/ui/animations';
 import { apiRequest } from '@/lib/queryClient';
 import VoiceGuide, { VoiceExplanation } from '@/components/VoiceGuide';
+import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 
 interface GeoFence {
   id: string;
@@ -1134,6 +1135,10 @@ export default function SocialMediaAdsCommand() {
           </motion.div>
         )}
       </AnimatePresence>
+      <ModuleAIAssistant 
+        moduleName="Social Media Ads Command"
+        moduleContext="Geo-fencing and multi-platform advertising command center. Rachel can explain geo-capture technology, help you draw digital fences around storm areas, set up weather-triggered campaigns, generate AI-powered ad copy, and manage campaigns across Facebook, Instagram, Google, and YouTube."
+      />
     </div>
   );
 }
