@@ -4743,6 +4743,126 @@ export const aiOutreachLog = pgTable("ai_outreach_log", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// ===== EVENT-DRIVEN ARCHITECTURE (Custom, No External Services) =====
+
+// System Events - Foundation for all automation (replaces n8n/Zapier)
+export const systemEvents = pgTable("system_events", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  
+  // Event classification
+  eventType: varchar("event_type", { length: 100 }).notNull(), // LeadCreated, QuoteSent, JobBooked, PaymentCaptured, TicketOpened
+  aggregateType: varchar("aggregate_type", { length: 50 }).notNull(), // lead, job, quote, payment, ticket, contractor
+  aggregateId: varchar("aggregate_id", { length: 255 }).notNull(), // ID of the entity
+  
+  // Event data
+  payload: jsonb("payload").$type<JsonObject>().notNull(),
+  metadata: jsonb("metadata").$type<{
+    userId?: string;
+    ipAddress?: string;
+    userAgent?: string;
+    source?: string; // web, mobile, api, automation
+    [key: string]: any;
+  }>(),
+  
+  // Processing status
+  processed: boolean("processed").default(false).notNull(),
+  processedAt: timestamp("processed_at"),
+  processingErrors: jsonb("processing_errors").$type<string[]>(),
+  
+  // Timing
+  occurredAt: timestamp("occurred_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Automation Rules - Custom automation (replaces Zapier workflows)
+export const automationRules = pgTable("automation_rules", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  
+  // Rule configuration
+  name: varchar("name", { length: 200 }).notNull(),
+  description: text("description"),
+  enabled: boolean("enabled").default(true).notNull(),
+  
+  // Trigger
+  triggerEventType: varchar("trigger_event_type", { length: 100 }).notNull(), // LeadCreated, QuoteSent, etc.
+  triggerConditions: jsonb("trigger_conditions").$type<{
+    field: string;
+    operator: string; // equals, contains, greaterThan, lessThan
+    value: any;
+  }[]>(),
+  
+  // Actions to perform
+  actions: jsonb("actions").$type<Array<{
+    type: string; // sendEmail, sendSMS, updateRecord, createTask, assignContractor
+    config: Record<string, any>;
+    order: number;
+  }>>().notNull(),
+  
+  // Execution limits
+  maxExecutionsPerDay: integer("max_executions_per_day"),
+  cooldownMinutes: integer("cooldown_minutes").default(0), // Prevent duplicate triggers
+  
+  // Statistics
+  executionCount: integer("execution_count").default(0).notNull(),
+  lastExecutedAt: timestamp("last_executed_at"),
+  successCount: integer("success_count").default(0).notNull(),
+  failureCount: integer("failure_count").default(0).notNull(),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Automation Execution Log
+export const automationExecutions = pgTable("automation_executions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  
+  automationRuleId: uuid("automation_rule_id").notNull().references(() => automationRules.id, { onDelete: "cascade" }),
+  systemEventId: uuid("system_event_id").references(() => systemEvents.id),
+  
+  // Execution details
+  status: varchar("status", { length: 20 }).default("pending").notNull(), // pending, running, completed, failed
+  startedAt: timestamp("started_at").defaultNow().notNull(),
+  completedAt: timestamp("completed_at"),
+  
+  // Results
+  actionsExecuted: jsonb("actions_executed").$type<Array<{
+    type: string;
+    status: string;
+    result: any;
+    error?: string;
+  }>>(),
+  
+  errorMessage: text("error_message"),
+  errorStack: text("error_stack"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Insert schemas for Event System
+export const insertSystemEventSchema = createInsertSchema(systemEvents).omit({
+  id: true,
+  createdAt: true
+});
+
+export const insertAutomationRuleSchema = createInsertSchema(automationRules).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
+});
+
+export const insertAutomationExecutionSchema = createInsertSchema(automationExecutions).omit({
+  id: true,
+  createdAt: true
+});
+
+// Select types for Event System
+export type SystemEvent = typeof systemEvents.$inferSelect;
+export type InsertSystemEvent = z.infer<typeof insertSystemEventSchema>;
+export type AutomationRule = typeof automationRules.$inferSelect;
+export type InsertAutomationRule = z.infer<typeof insertAutomationRuleSchema>;
+export type AutomationExecution = typeof automationExecutions.$inferSelect;
+export type InsertAutomationExecution = z.infer<typeof insertAutomationExecutionSchema>;
+
 // Insert schemas for AI Lead Management
 export const insertAiLeadSchema = createInsertSchema(aiLeads).omit({
   id: true,

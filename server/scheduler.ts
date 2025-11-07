@@ -6,16 +6,19 @@ import { providerRegistry } from './providers/index.js';
 import { getConfig } from './config.js';
 import { femaDisasterService, type FemaSyncResult } from './services/femaDisasterService.js';
 import { syncNwsAlerts, type WeatherAlertSync } from './services/nwsAlertsService.js';
+import { automationProcessor } from './services/automationProcessor.js';
 
 interface SchedulerStats {
   lastDamageCheck: Date | null;
   lastSnapshotCapture: Date | null;
   lastFemaSync: Date | null;
   lastNwsAlertsSync: Date | null;
+  lastAutomationProcess: Date | null;
   totalDamageDetections: number;
   totalSnapshotsCaptured: number;
   totalFemaSyncs: number;
   totalNwsAlertsSyncs: number;
+  totalAutomationProcesses: number;
   nwsAlertsNew: number;
   nwsAlertsExpired: number;
   femaCountiesUpdated: number;
@@ -32,10 +35,12 @@ export class DamageMonitoringScheduler {
     lastSnapshotCapture: null,
     lastFemaSync: null,
     lastNwsAlertsSync: null,
+    lastAutomationProcess: null,
     totalDamageDetections: 0,
     totalSnapshotsCaptured: 0,
     totalFemaSyncs: 0,
     totalNwsAlertsSyncs: 0,
+    totalAutomationProcesses: 0,
     nwsAlertsNew: 0,
     nwsAlertsExpired: 0,
     femaCountiesUpdated: 0,
@@ -98,7 +103,13 @@ export class DamageMonitoringScheduler {
       this.runNwsAlertsSync();
     });
 
-    this.cronJobs = [damageCheckJob, snapshotJob, alertJob, nwsAlertsJob];
+    // Schedule Automation Processor (every minute for event-driven automation)
+    const automationCron = '* * * * *';
+    const automationJob = cron.schedule(automationCron, () => {
+      this.runAutomationProcessor();
+    });
+
+    this.cronJobs = [damageCheckJob, snapshotJob, alertJob, nwsAlertsJob, automationJob];
     if (femaSyncJob) {
       this.cronJobs.push(femaSyncJob);
     }
@@ -107,7 +118,8 @@ export class DamageMonitoringScheduler {
       `Damage Check: every ${this.config.schedulerConfig.damageCheckInterval} minutes`,
       `Snapshot Capture: every ${this.config.schedulerConfig.snapshotCaptureInterval} minutes`,
       `Alert Processing: every ${this.config.schedulerConfig.alertProcessingInterval} minute(s)`,
-      `NWS Alerts Sync: every 2 minutes`
+      `NWS Alerts Sync: every 2 minutes`,
+      `Automation Processor: every 1 minute (custom event-driven automation)`
     ];
     
     if (this.config.schedulerConfig.femaSyncEnabled) {
@@ -282,8 +294,39 @@ export class DamageMonitoringScheduler {
       }
 
     } catch (error) {
-      console.error('❌ Error in scheduled NWS alerts sync:', error);
+      console.error('❌ Error in scheduled NWS Alerts sync:', error);
     }
+  }
+
+  async runAutomationProcessor() {
+    // console.log('🤖 Running automation processor...');
+    
+    try {
+      const startTime = Date.now();
+      await automationProcessor.processEvents();
+      const processingTime = Date.now() - startTime;
+
+      // Update stats
+      this.stats.lastAutomationProcess = new Date();
+      this.stats.totalAutomationProcesses++;
+
+      // Only log if there was actual processing (avoid spam)
+      if (processingTime > 100) {
+        console.log(`✅ Automation processor complete (${processingTime}ms)`);
+      }
+
+    } catch (error) {
+      console.error('❌ Error in automation processor:', error);
+    }
+  }
+
+  processHighPriorityAlerts() {
+    console.log('🔔 Processing high-priority damage alerts...');
+    // Placeholder - implement alert processing logic
+  }
+
+  getStats(): SchedulerStats {
+    return { ...this.stats };
   }
 
   private async storeSnapshotResults(batchResult: SnapshotBatchResult) {
