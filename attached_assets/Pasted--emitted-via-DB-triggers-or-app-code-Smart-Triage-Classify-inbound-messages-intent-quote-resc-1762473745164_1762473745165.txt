@@ -1,0 +1,92 @@
+-- emitted via DB triggers or app code
+Smart Triage: Classify inbound messages → intent (quote, reschedule, complaint).
+
+
+Estimate Assist: From job description + photos → suggest line items & ranges.
+
+
+Next‑Best Action: Score open Opportunities; surface top 10 to follow up today.
+
+
+Auto‑Summaries: Daily digest per provider/admin with key changes.
+
+
+6) Feature → Tool Mapping
+Capability Your Implementation Notes
+CRM database Supabase (Postgres, RLS) Strong SQL + row‑level security
+Auth & roles Supabase Auth / Firebase Auth Social logins optional
+Pipeline (Kanban) Custom UI + DB status Drag‑drop updates stage
+Email SendGrid Templates + categories
+SMS/Voice Twilio A2P 10DLC registration for US
+Scheduling Calendly/Cal.com Webhooks to sync
+Payments Stripe Checkout, Invoices, Connect (marketplace)
+Automations n8n/Zapier Webhooks + queues + retries
+Analytics PostHog + Metabase Product + business KPIs
+Support desk In‑app Tickets + shared inbox view Optional HelpScout/Front integration
+File storage Supabase Storage / S3 For photos, estimates, proofs
+7) Estimated Monthly Costs (starter scale)
+Note: Ranges are conservative; exact pricing varies by usage/region. Start small; scale later.
+
+
+Supabase: $25–$79 (Pro tier; includes Postgres, Auth, Storage)
+
+
+Vercel/Netlify: $0–$20 (hobby/pro; bandwidth extra)
+
+
+n8n: $0 (self‑host) to $20–$50 (cloud)
+
+
+SendGrid: $0–$19 (up to ~50k emails/mo paid); overages ~$0.001–$0.003/email
+
+
+Twilio: pay‑as‑you‑go (~$0.0075/SMS US + phone number ~$1/mo)
+
+
+Stripe: ~2.9% + $0.30/txn (typical; Connect adds small fees)
+
+
+Calendly/Cal.com: $0–$16 per seat
+
+
+PostHog: generous free tier; paid as MAUs grow
+
+
+Sentry: free tier; $26+/mo when scaling
+
+
+OpenAI API: depends on tokens; budget $25–$200/mo early (throttle features)
+
+
+Rough starter budget: $150–$450/month before payment fees; scales with volume.
+
+
+8) Security & Compliance
+PII: Row Level Security (RLS) + JWT‑based access; encrypt at rest (DB) & in transit (TLS).
+
+
+Secrets: Managed via platform secrets; never in client code.
+
+
+Audit Log: Write an events table for CRUD on sensitive objects.
+
+
+Backups/DR: Daily automated backups; monthly restore drills.
+
+
+A2P 10DLC: Register brand/campaign for US SMS compliance.
+
+
+PCI: Tokenize via Stripe; never store card numbers.
+
+
+9) Sample Event Schema (Postgres)
+ents (
+id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+type TEXT NOT NULL, -- e.g., 'LeadCreated'
+aggregate_type TEXT NOT NULL, -- 'lead' | 'opportunity' | ...
+aggregate_id UUID NOT NULL, -- id of the entity
+payload JSONB NOT NULL,
+occurred_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX ON events (type, occurred_at);
