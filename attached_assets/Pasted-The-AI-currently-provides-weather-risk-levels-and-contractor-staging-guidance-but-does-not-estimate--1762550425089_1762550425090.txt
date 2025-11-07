@@ -1,0 +1,56 @@
+The AI currently provides weather risk levels and contractor staging guidance but does not estimate profit potential (ROI / profitability range) per ZIP or county. We need a feature that uses forecast severity, population density, and typical claim volume to predict expected job demand, margin range, and crew utilization potential.
+
+📊 Expected Output
+
+The module should calculate and display a “Profitability Range” alongside severe weather alerts.
+Example output for each ZIP/County:
+
+Lee County, AL (ZIP 36830)
+
+Risk: SPC Marginal (1/5)
+
+Timing: Fri 1–9 PM; Sat PM → overnight
+
+Wind Gusts: 35–45+ mph possible
+
+Estimated Demand: 40–70 claims per 10k homes
+
+Profitability Range: Moderate (Avg. $2.8K–$5.5K per mitigation job; ROI 38–65%)
+
+Primary Damage Types: shingles, siding, tree impact, fascia separation
+
+Advisory: Pre-stage 2 crews, 1 drone team, and 50 tarps within county
+
+⚙️ Inputs Needed
+
+ZIP & County – user or GPS input
+
+SPC/NWS Data – risk level, timing, hazard type, forecast gusts, CAPE/shear
+
+Historical Data Layer (static JSON or API) – average claim density, damage frequency, job conversion rate, mean ticket value by county
+
+Operational Cost Table – user-supplied (crew, material, fuel, admin, etc.)
+
+💡 Calculation Outline (AI Prompt Logic)
+For each ZIP:
+  1. Get SPC risk level and timing window.
+  2. Get forecast peak gusts & rainfall totals.
+  3. Cross-reference historical claims/ROI table.
+  4. Compute:
+      expected_jobs = (claim_density * population / 10k) * risk_multiplier
+      avg_profit = (avg_job_value - avg_cost)
+      ROI = (avg_profit / avg_cost)
+  5. Output qualitative band:
+      Low (<25%), Moderate (25–60%), High (>60%)
+
+✅ Acceptance Criteria
+
+System fetches latest SPC/NWS outlook by ZIP/County (already in previous issue).
+
+Calculates and displays Profitability Range with confidence note.
+
+Allows export of results as a CSV or JSON for team dashboard.
+
+Includes timestamp, risk confidence, and data source tags.
+
+Fails gracefully if API data unavailable (fallback to last 6-hour cached values).
