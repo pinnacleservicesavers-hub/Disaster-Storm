@@ -4352,7 +4352,15 @@ Email: strategiclandmgmt@gmail.com
       const latitude = Number(lat) || 33.7490;
       const longitude = Number(lon) || -84.3880;
       
-      const comprehensiveData = await weatherService.getComprehensiveWeatherData(latitude, longitude);
+      // Add timeout wrapper to prevent hanging (30s for multiple external APIs)
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Weather API timeout')), 30000)
+      );
+      
+      const comprehensiveData = await Promise.race([
+        weatherService.getComprehensiveWeatherData(latitude, longitude),
+        timeoutPromise
+      ]);
       res.json(comprehensiveData);
     } catch (error) {
       console.error('Error fetching comprehensive weather data:', error);

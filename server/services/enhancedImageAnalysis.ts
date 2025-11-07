@@ -140,7 +140,7 @@ Location: ${location?.address || 'Location not specified'}`;
 
     try {
       const response = await this.anthropic.messages.create({
-        model: 'claude-3-5-sonnet-latest',
+        model: 'claude-3-5-sonnet-20241022',
         max_tokens: 2000,
         temperature: 0.3,
         messages: [
