@@ -1036,7 +1036,7 @@ export default function WeatherIntelligenceCenter() {
                         state: selectedState && selectedState !== "all" ? selectedState : undefined
                       } : undefined}
                       weatherData={{
-                        alerts,
+                        alerts: nwsAlerts,
                         radar: weatherData?.radar,
                         forecast: weatherData?.forecast,
                         lightning: weatherData?.lightning,

@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Wind, Radar, Camera, Satellite, Eye } from 'lucide-react';
+import { Wind, Radar, Camera, Satellite, Eye, RefreshCw } from 'lucide-react';
 
 interface WindyMapProps {
   defaultLat?: number;
@@ -19,6 +19,19 @@ export default function WindyMap({
 }: WindyMapProps) {
   const [layer, setLayer] = useState('wind');
   const [product, setProduct] = useState('ecmwf');
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  
+  // Auto-refresh every 5 minutes to keep map "live"
+  useEffect(() => {
+    if (!autoRefresh) return;
+    
+    const interval = setInterval(() => {
+      setRefreshKey(prev => prev + 1);
+    }, 5 * 60 * 1000); // 5 minutes
+    
+    return () => clearInterval(interval);
+  }, [autoRefresh]);
 
   // Windy Embed URL with customizable layers
   const getWindyUrl = () => {
@@ -64,6 +77,16 @@ export default function WindyMap({
             </CardDescription>
           </div>
           <div className="flex gap-2">
+            <Button 
+              variant={autoRefresh ? "default" : "outline"}
+              size="sm"
+              onClick={() => setAutoRefresh(!autoRefresh)}
+              data-testid="button-auto-refresh"
+              className="flex items-center gap-2"
+            >
+              <RefreshCw className={`w-4 h-4 ${autoRefresh ? 'animate-spin-slow' : ''}`} />
+              {autoRefresh ? 'Live' : 'Paused'}
+            </Button>
             <Select value={layer} onValueChange={setLayer}>
               <SelectTrigger className="w-[180px]" data-testid="select-windy-layer">
                 <SelectValue placeholder="Select layer" />
@@ -130,6 +153,7 @@ export default function WindyMap({
       <CardContent>
         <div className="bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden">
           <iframe 
+            key={refreshKey}
             src={getWindyUrl()}
             style={{ 
               width: '100%', 

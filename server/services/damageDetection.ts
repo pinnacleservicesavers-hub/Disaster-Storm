@@ -574,7 +574,7 @@ Return a JSON object with this exact structure:
 
       // Make a simple test request to verify the API key works
       const response = await this.anthropic.messages.create({
-        model: 'claude-3-5-sonnet-20241002',
+        model: 'claude-3-5-sonnet-20241022',
         max_tokens: 10,
         messages: [{
           role: 'user',
