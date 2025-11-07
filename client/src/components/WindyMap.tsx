@@ -199,8 +199,8 @@ export default function WindyMap({
         
         <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
           <p className="text-sm text-blue-800 dark:text-blue-200 flex items-center gap-2">
-            <Camera className="w-4 h-4" />
-            <strong>Pro Tip:</strong> Click the layers icon in the top-right corner of the map to access Webcams (live camera feeds) and additional weather layers!
+            <Eye className="w-4 h-4" />
+            <strong>Pro Tip:</strong> Click the layers icon in the top-right corner of the map to access 39+ additional weather layers including Fire Danger, UV Index, Air Quality, Thunderstorms, and more!
           </p>
         </div>
       </CardContent>
