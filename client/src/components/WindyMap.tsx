@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Wind, Radar, Camera, Satellite, Eye, RefreshCw, AlertCircle } from 'lucide-react';
+import { Wind, Radar, Camera, Satellite, Eye, RefreshCw, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface WindyMapProps {
@@ -24,6 +24,22 @@ export default function WindyMap({
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [webGLSupported, setWebGLSupported] = useState(true);
   const [showRadarWarning, setShowRadarWarning] = useState(false);
+  const [apiKeyStatus, setApiKeyStatus] = useState<'checking' | 'active' | 'inactive'>('checking');
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+
+  // Check API key status
+  useEffect(() => {
+    const checkApiKey = async () => {
+      try {
+        const response = await fetch('/api/windy/status');
+        const data = await response.json();
+        setApiKeyStatus(data.hasKey ? 'active' : 'inactive');
+      } catch (error) {
+        setApiKeyStatus('inactive');
+      }
+    };
+    checkApiKey();
+  }, []);
 
   // Detect WebGL support
   useEffect(() => {
@@ -91,6 +107,12 @@ export default function WindyMap({
             <CardTitle className="flex items-center gap-2 text-blue-600">
               <Wind className="w-6 h-6" />
               Windy - Live Weather Map
+              {apiKeyStatus === 'active' && (
+                <span className="ml-2 flex items-center gap-1 text-xs font-normal text-green-600 bg-green-50 dark:bg-green-900/20 px-2 py-1 rounded-full">
+                  <CheckCircle2 className="w-3 h-3" />
+                  Premium API Active
+                </span>
+              )}
             </CardTitle>
             <CardDescription>
               Interactive weather visualization with animated wind patterns, rain, clouds, webcams, and Radar+

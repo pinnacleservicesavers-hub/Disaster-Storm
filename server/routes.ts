@@ -1053,6 +1053,17 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
   app.get("/health", (req, res) => res.json({ ok: true }));
   app.get("/api/version", (req, res) => res.json({ name: "storm-ops-backend", version: 2 }));
   
+  // ---- Windy API Status (check if keys are configured) ----
+  app.get("/api/windy/status", (req, res) => {
+    const hasMapKey = !!process.env.WINDY_MAP_FORECAST_KEY;
+    const hasPluginKey = !!process.env.WINDY_PLUGIN_KEY;
+    res.json({ 
+      hasKey: hasMapKey || hasPluginKey,
+      hasMapKey,
+      hasPluginKey
+    });
+  });
+  
   // ---- Google OAuth Routes ----
   app.get("/auth/google", 
     passport.authenticate("google", { 
