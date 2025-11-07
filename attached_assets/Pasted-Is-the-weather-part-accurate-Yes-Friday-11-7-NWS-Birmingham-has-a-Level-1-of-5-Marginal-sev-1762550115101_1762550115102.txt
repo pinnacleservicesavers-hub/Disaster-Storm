@@ -1,0 +1,48 @@
+Is the weather part accurate?
+
+Yes.
+
+Friday (11/7): NWS Birmingham has a Level 1 of 5 (Marginal) severe risk Friday afternoon/evening, with damaging winds the main concern and hail up to quarter-size possible in spots—greatest chances north/west. 
+National Weather Service
++2
+National Weather Service
++2
+
+Saturday (11/8): NWS Birmingham messaging also notes a secondary, stronger cold front Saturday afternoon/evening, again with damaging winds the primary hazard (overnight timing possible). 
+National Weather Service
+
+If you’re staging work or crews, treat this as a two-round wind event with some hail potential Friday.
+
+One correction (important for drone ops)
+
+Your note says you “can’t fly at night without waivers.” That used to be true. Since 2021, Part 107 pilots may fly at night without a waiver if you’ve completed the updated training/knowledge test and your drone has anti-collision lighting visible ≥3 SM. (You still need airspace authorization at night in controlled airspace.) 
+eCFR
++2
+FAA
++2
+
+Other points you raised — are they sensible?
+
+Wind > hail emphasis: Correct for both days, especially Saturday’s front; linear segments can produce widespread straight-line damage. 
+National Weather Service
+
+“Marginal ≠ harmless”: True—Level 1 events routinely produce clustered damage and plenty of insurance claims, especially with overnight winds. (NWS/ SPC outlooks are designed to flag lower-probability, not zero-impact setups.) 
+National Weather Service
+
+Flooding watch-outs: Reasonable to monitor; use WPC’s Excessive Rainfall Outlook for any localized flash-flood signal. 
+Weather Prediction Center
+
+Practical ops guidance (validated tweaks)
+
+Staging & triggers: Using NWS warnings and HRRR gust fields (≥35–45 mph) as mobilization cues is a solid practice. (NWS DSS page posts partner briefings you can check before go-time.) 
+National Weather Service
+
+Safety: Avoid roofs during lightning/wet surfaces; harness/anchors—good.
+
+Claims packet & documentation: Your checklist (before/after photos, moisture readings, serials, MRMS/radar grabs) is on point for supporting severity & timing.
+
+Bottom line
+
+The post and your app’s summary line up with official guidance: Marginal (Level 1) risk both Friday and Saturday, damaging winds favored; hail possible Friday; another wind round with the stronger front Saturday that could run into the night. Keep crews ready for quick tarp/board-up work and tree/debris calls. 
+National Weather Service
++1
