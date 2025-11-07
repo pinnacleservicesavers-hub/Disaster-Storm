@@ -103,11 +103,15 @@ export default function ModuleAIAssistant({ moduleName, moduleContext, externalT
     try {
       setIsSpeaking(true);
       
+      const truncatedText = text.length > 800 
+        ? text.substring(0, 800) + '... For the complete response, please review the full text above.'
+        : text;
+      
       const response = await fetch('/api/voice-ai/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          text,
+          text: truncatedText,
           voiceId: '21m00Tcm4TlvDq8ikWAM',
           provider: 'elevenlabs'
         }),

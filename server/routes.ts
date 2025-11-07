@@ -10747,17 +10747,25 @@ What specific area or type of incident would you like me to focus on? I can prov
           
           if (elevenLabsVoice.isAvailable()) {
             try {
-              const audioBuffer = await elevenLabsVoice.generateSpeech({
-                text,
-                voiceId,
-                settings: {
-                  stability: 0.5,
-                  similarityBoost: 0.8,
-                  useSpeakerBoost: true
-                }
-              });
+              const timeoutPromise = new Promise<never>((_, reject) =>
+                setTimeout(() => reject(new Error('ElevenLabs timeout after 30s')), 30000)
+              );
+              
+              const audioBuffer = await Promise.race([
+                elevenLabsVoice.generateSpeech({
+                  text,
+                  voiceId,
+                  settings: {
+                    stability: 0.5,
+                    similarityBoost: 0.8,
+                    useSpeakerBoost: true
+                  }
+                }),
+                timeoutPromise
+              ]);
               
               const audioBase64 = audioBuffer.toString('base64');
+              console.log(`✅ ElevenLabs voice generated successfully (${audioBase64.length} bytes)`);
               return res.json({
                 text,
                 audioBase64,
