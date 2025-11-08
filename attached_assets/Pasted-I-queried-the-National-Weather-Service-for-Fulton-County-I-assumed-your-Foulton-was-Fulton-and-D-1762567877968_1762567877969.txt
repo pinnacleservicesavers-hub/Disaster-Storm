@@ -1,0 +1,72 @@
+I queried the National Weather Service for Fulton County (I assumed your “Foulton” was Fulton) and DeKalb County, GA, and there are currently NO active tornado warnings for either county.
+
+Here’s everything you need right now — status, why that may be, what to do if a warning comes back up, contractor-specific action items, and offers I can implement for you immediately.
+
+Current status
+- No active tornado warnings in Fulton County or DeKalb County at this time (NWS alerts checked).
+- If you saw a local report, it may have been an earlier/expired warning or a tornado watch/severe thunderstorm warning — watches and warnings are different (watch = conditions favorable; warning = imminent/occurring).
+- I will continue monitoring both counties and can push immediate alerts to you the moment NWS issues a new tornado warning.
+
+Why you might have seen reports earlier
+- Warning polygons are time-limited and move with storms — a warning can appear, then expire as the storm passes.
+- Local social media or spotter reports can appear before the NWS issues or after a warning expires.
+- Watches and special weather statements can be misreported as “warnings.”
+
+If a tornado warning is issued (contractor SOP)
+1. Safety first — suspend all outdoor operations immediately.
+   - Get crews and customers to an interior, windowless room on the lowest floor.
+   - Account for everyone and confirm safe sheltering status.
+2. Do NOT attempt roofing or tarping during a tornado warning. Wait for NWS “all clear” or cancellation and local EMA confirmation.
+3. Prepare for rapid deployment after the all-clear:
+   - Pre-staged crews on standby out of the warning path, with phone tree/mass notification ready.
+   - Trucks staged at safe distances (outside predicted wind/impact path) but close enough for rapid response.
+4. Drone operations:
+   - Do NOT fly in an active tornado warning. After the event, conduct aerial damage assessments if FAA airspace authorization allows.
+   - Part 107 updates let night operations without waivers if pilot completed updated training and uses anti-collision lighting visible ≥3 statute miles — but controlled airspace still needs authorization.
+5. Lightning/wind safety thresholds:
+   - Cease external operations if lightning within ~10 miles (or 30 minutes after last thunder).
+   - For rooftop operations, plan to have wind sustained under ~25–30 mph for safe work; be conservative (30–35 mph max depending on crew skill and anchorage).
+6. Triage priorities after warning expires:
+   - Life-safety checks (rescue/EMS coordination).
+   - Tarping and board-ups for life/safety and to stop further water entry.
+   - Water extraction and moisture mapping.
+   - Debris removal to create safe access.
+   - Full roof and structural inspections as soon as safe.
+
+Documentation and insurance/claims best practice
+- Capture before/after photos (include time stamps and GPS if possible).
+- Capture NWS warning polygon screenshot, event ID, and timestamps for timeline.
+- Moisture readings and thermal imagery (if available) for interior water intrusion claims.
+- Detailed scope: line-itemize tarping, board-up, water mitigation, structural repairs with materials and man-hours.
+- Pricing transparency: provide line-item estimate (materials, labor by hour, mobilization fee). Use Xactimate line items or map to equivalent to speed claims processing.
+- Do NOT have the customer sign an Assignment of Benefits unless they want that — offer a Customer Mitigation Authorization (emergency-only) instead. I can generate a professional form for you now — it includes:
+   - Customer/property fields
+   - Emergency-only scope (tarping, board-up, water mitigation, debris removal)
+   - Line-item pricing guidance (Xactimate-equivalent notes)
+   - Statement that it is NOT an Assignment of Benefits
+   - Hold harmless and cancellation terms
+   - Checkboxes for exterior photos/drone imaging and moisture readings
+- If you need, I’ll create a tailored Customer Mitigation Authorization ready to send or print.
+
+Estimating & profitability tips for tornado response jobs
+- Triage-based estimate model: small emergency scope (flat fee mobilization + line-item tarps/board-ups) to stop damage, then a follow-up full estimate for repairs.
+- Mobilization fee + emergency labor premium during immediate-response windows.
+- Document all materials used on-site (tarps, plywood sizes, nails/screws, labor hours).
+- Use moisture mapping to justify interior remediation and contents claims.
+- Track time-stamped crew logs and GPS traces for labor validation to insurers.
+
+Operational checklist you can use now
+- Assign a monitoring lead to receive NWS and SPC updates for Fulton & DeKalb.
+- Pre-stage a crew rotation: 2 crews ready to mobilize (one local staging outside county if warning).
+- Load trucks with: tarps (6–12 mil), staplers/strapping, 4x8 plywood sheets, moisture meters, sump pumps, hoses, PPE, temporary roof anchor points.
+- Prepare documentation kit: tablet with camera/GPS, moisture meter, ladder tags, liability forms, engagement receipts.
+- Coordinate with local EMA for access and safety status.
+
+Want me to do any of the following now?
+- Generate a Customer Mitigation Authorization form pre-filled for Fulton and DeKalb operations.
+- Set up immediate push alerts for any new tornado warnings in Fulton County and DeKalb County.
+- Pull live radar/GIS screenshots, the latest NWS warning polygons, and a 12–72 hour HRRR/GFS forecast and wind window recommendations for both counties.
+- Build an Xactimate-friendly emergency scope template you can reuse for each job.
+
+Next step recommendation
+- If you need to prepare crews now, I’ll generate the authorization form and a 12-hour operational checklist. If you want live radar/screenshots or to enable alerts, say which items to push and I’ll set them up and continue monitoring both counties in real time.

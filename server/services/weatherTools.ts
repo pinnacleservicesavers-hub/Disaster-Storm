@@ -140,35 +140,75 @@ export async function getSevereWeatherNearLocation(locationQuery: string): Promi
     }
     
     const { lat, lon, displayName } = geocoded;
+    console.log(`🌍 Checking alerts near ${displayName} (${lat}, ${lon})`);
     
-    const alertsUrl = `https://api.weather.gov/alerts/active?point=${lat},${lon}`;
-    const response = await fetch(alertsUrl, {
+    const allAlertsResponse = await fetch('https://api.weather.gov/alerts/active', {
       headers: {
         'User-Agent': 'DisasterDirect/1.0',
         'Accept': 'application/geo+json'
       }
     });
     
-    if (!response.ok) {
+    if (!allAlertsResponse.ok) {
       return `Could not fetch alerts for ${displayName}`;
     }
     
-    const data = await response.json() as any;
-    const alerts = data.features || [];
+    const allData = await allAlertsResponse.json() as any;
+    const allAlerts = allData.features || [];
     
-    if (alerts.length === 0) {
+    const SEARCH_RADIUS_KM = 150;
+    const nearbyAlerts = allAlerts.filter((alert: any) => {
+      const props = alert.properties;
+      
+      const areaDescription = (props.areaDesc || '').toLowerCase();
+      const locationParts = displayName.toLowerCase().split(',').map(s => s.trim());
+      const countyName = locationParts[0].replace(' county', '');
+      const stateName = locationParts.length > 1 ? locationParts[locationParts.length - 1] : '';
+      
+      if (areaDescription.includes(countyName) || 
+          (stateName && areaDescription.includes(stateName))) {
+        return true;
+      }
+      
+      if (alert.geometry && alert.geometry.coordinates) {
+        try {
+          const coords = alert.geometry.type === 'Polygon' 
+            ? alert.geometry.coordinates[0]
+            : alert.geometry.coordinates;
+          
+          for (const coord of coords) {
+            const [alertLon, alertLat] = coord;
+            const distance = Math.sqrt(
+              Math.pow((alertLat - lat) * 111, 2) + 
+              Math.pow((alertLon - lon) * 111 * Math.cos(lat * Math.PI / 180), 2)
+            );
+            
+            if (distance <= SEARCH_RADIUS_KM) {
+              return true;
+            }
+          }
+        } catch (e) {
+        }
+      }
+      
+      return false;
+    });
+    
+    console.log(`🌍 Found ${nearbyAlerts.length} alerts near ${displayName}`);
+    
+    if (nearbyAlerts.length === 0) {
       return `No active weather alerts for ${displayName}`;
     }
     
-    const summary = alerts.map((alert: any, index: number) => {
+    const summary = nearbyAlerts.map((alert: any, index: number) => {
       const props = alert.properties;
-      return `${index + 1}. ${props.event} (${props.severity}) - ${props.headline}`;
-    }).join('\n');
+      return `${index + 1}. ${props.event} (${props.severity}) - ${props.areaDesc}\n   ${props.headline}`;
+    }).join('\n\n');
     
-    return `Active alerts for ${displayName}:\n${summary}`;
+    return `Active alerts for ${displayName}:\n\n${summary}`;
     
   } catch (error) {
     console.error('⚠️ Severe weather check error:', error);
-    return `Error checking weather for ${locationQuery}`;
+    return `Error checking weather for ${locationQuery}: ${error}`;
   }
 }

@@ -3649,35 +3649,30 @@ Email: strategiclandmgmt@gmail.com
 
   // ===== WEATHER API ENDPOINTS =====
   
-  // Weather alerts from NOAA/NWS
+  // Weather alerts from NOAA/NWS - LIVE DATA FROM NWS SYNC
   app.get('/api/weather/alerts', async (req, res) => {
     try {
-      // Mock NOAA weather alerts - in production, this would call actual NWS API
-      const mockAlerts = [
-        {
-          id: "nws-alert-001",
-          title: "Tornado Warning",
-          description: "A tornado warning has been issued for the following areas until 11:30 PM EST.",
-          severity: "Extreme",
-          alertType: "Tornado",
-          areas: ["Fulton County", "DeKalb County"],
-          startTime: new Date(),
-          endTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
-          coordinates: { latitude: 33.7490, longitude: -84.3880 }
-        },
-        {
-          id: "nws-alert-002", 
-          title: "Severe Thunderstorm Warning",
-          description: "Severe thunderstorms with damaging winds and large hail are possible.",
-          severity: "Severe",
-          alertType: "Severe Thunderstorm",
-          areas: ["Gwinnett County", "Cobb County"],
-          startTime: new Date(),
-          endTime: new Date(Date.now() + 4 * 60 * 60 * 1000),
-          coordinates: { latitude: 33.9737, longitude: -84.5755 }
-        }
-      ];
-      res.json(mockAlerts);
+      const activeAlerts = await storage.getActiveWeatherAlerts();
+      
+      const formattedAlerts = activeAlerts.map(alert => ({
+        id: alert.id,
+        title: alert.event,
+        description: alert.headline || alert.description,
+        severity: alert.severity,
+        alertType: alert.event.includes('Tornado') ? 'Tornado' 
+                 : alert.event.includes('Thunderstorm') ? 'Severe Thunderstorm'
+                 : alert.event.includes('Flood') ? 'Flood'
+                 : alert.event.includes('Hurricane') ? 'Hurricane'
+                 : alert.event.includes('Fire') ? 'Fire'
+                 : 'default',
+        areas: alert.affectedZones || (alert.areaDesc ? alert.areaDesc.split(';').map(s => s.trim()) : []),
+        startTime: alert.onset || new Date().toISOString(),
+        endTime: alert.expires || new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
+        coordinates: alert.coordinates || undefined
+      }));
+      
+      console.log(`📡 Returning ${formattedAlerts.length} active NWS alerts to dashboard`);
+      res.json(formattedAlerts);
     } catch (error) {
       console.error('Error fetching weather alerts:', error);
       res.status(500).json({ error: 'Failed to fetch weather alerts' });
