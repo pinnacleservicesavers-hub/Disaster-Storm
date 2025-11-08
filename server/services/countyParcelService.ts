@@ -615,18 +615,15 @@ export class CountyParcelService {
         return null;
         
       } else {
-        // For OGC APIs or other endpoint types, implement specific query formats
-        console.log(`Custom API format needed for ${endpoint.name}`);
-        return this.mockParcelData(endpoint, queryValue);
+        console.log(`Custom API format needed for ${endpoint.name} - not yet implemented`);
+        return null;
       }
 
     } catch (error) {
       console.error(`Error querying ${endpoint.name}:`, error);
       
-      // Enhanced error handling with specific error types
       const errorMessage = error instanceof Error ? error.message : String(error);
       
-      // Determine if this is a temporary network issue or a permanent API issue
       const isNetworkError = errorMessage.includes('ECONNREFUSED') || 
                             errorMessage.includes('ENOTFOUND') || 
                             errorMessage.includes('timeout') ||
@@ -635,18 +632,14 @@ export class CountyParcelService {
       const isHTTPError = errorMessage.includes('HTTP 4') || errorMessage.includes('HTTP 5');
       
       if (isNetworkError) {
-        console.warn(`Network error for ${endpoint.name}, will retry with fallback later`);
+        console.warn(`Network error for ${endpoint.name}, parcel data unavailable`);
       } else if (isHTTPError) {
-        console.warn(`HTTP error for ${endpoint.name}, API may be temporarily unavailable`);
+        console.warn(`HTTP error for ${endpoint.name}, API temporarily unavailable`);
       } else {
         console.error(`Unexpected error for ${endpoint.name}:`, errorMessage);
       }
       
-      // For production systems, we still provide mock data as fallback
-      // but log that real data was unavailable
-      const mockData = this.mockParcelData(endpoint, queryValue);
-      console.log(`Returning mock data for ${endpoint.name} due to API error`);
-      return mockData;
+      return null;
     }
   }
 
@@ -860,36 +853,6 @@ export class CountyParcelService {
     
     const parsed = parseFloat(String(value).replace(/[^0-9.-]/g, ''));
     return isNaN(parsed) ? undefined : parsed;
-  }
-
-  private mockParcelData(endpoint: CountyParcelEndpoint, queryValue: string): CountyParcelData {
-    // Return realistic mock data for development/fallback
-    return {
-      parcelId: `${endpoint.state}-${Math.random().toString(36).substr(2, 9)}`,
-      address: `${Math.floor(Math.random() * 9999)} Storm Ave, ${endpoint.county} County, ${endpoint.state}`,
-      owner: {
-        name: 'Property Owner (Demo Data)',
-        mailingAddress: '123 Mailing St, Same City, ST 12345'
-      },
-      propertyDetails: {
-        propertyType: 'Single Family Residential',
-        totalValue: Math.floor(Math.random() * 400000) + 200000,
-        landValue: Math.floor(Math.random() * 100000) + 50000,
-        buildingValue: Math.floor(Math.random() * 300000) + 150000,
-        acreage: parseFloat((Math.random() * 2 + 0.1).toFixed(2)),
-        yearBuilt: Math.floor(Math.random() * 50) + 1970,
-        squareFootage: Math.floor(Math.random() * 2000) + 1200,
-        zoning: 'R-1'
-      },
-      coordinates: {
-        latitude: 28.5 + (Math.random() - 0.5) * 0.1,
-        longitude: -82.5 + (Math.random() - 0.5) * 0.1
-      },
-      county: endpoint.county,
-      state: endpoint.state,
-      sourceEndpoint: `${endpoint.name} (Mock Data)`,
-      lastUpdated: new Date()
-    };
   }
 
   getAvailableCounties(): { county: string; state: string; endpoint: string }[] {

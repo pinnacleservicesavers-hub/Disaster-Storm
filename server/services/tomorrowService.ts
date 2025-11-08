@@ -49,6 +49,8 @@ export interface TomorrowWeatherData {
   windEvents: TomorrowWindEvent[];
   alerts: TomorrowAlert[];
   timestamp: string;
+  isPrediction: boolean;
+  dataSource: string;
 }
 
 export class TomorrowService {
@@ -61,7 +63,7 @@ export class TomorrowService {
     if (this.apiKey) {
       console.log('🌤️ Tomorrow.io service initialized with API key');
     } else {
-      console.log('⚠️ Tomorrow.io service initialized without API key (will use mock data)');
+      console.log('⚠️ Tomorrow.io service initialized without API key (predictions unavailable)');
     }
   }
 
@@ -77,7 +79,15 @@ export class TomorrowService {
    */
   async getWeatherIntelligence(lat: number, lon: number, radiusKm: number = 25): Promise<TomorrowWeatherData> {
     if (!this.apiKey) {
-      return this.getMockData(lat, lon);
+      console.warn('Tomorrow.io API key not configured - predictions unavailable');
+      return {
+        hailEvents: [],
+        windEvents: [],
+        alerts: [],
+        timestamp: new Date().toISOString(),
+        isPrediction: false,
+        dataSource: 'unavailable (no API key)'
+      };
     }
 
     try {
@@ -91,11 +101,20 @@ export class TomorrowService {
         hailEvents: hailData.status === 'fulfilled' ? hailData.value : [],
         windEvents: windData.status === 'fulfilled' ? windData.value : [],
         alerts: alertsData.status === 'fulfilled' ? alertsData.value : [],
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        isPrediction: true,
+        dataSource: 'Tomorrow.io AI Prediction'
       };
     } catch (error) {
       console.error('Tomorrow.io API error:', error);
-      return this.getMockData(lat, lon);
+      return {
+        hailEvents: [],
+        windEvents: [],
+        alerts: [],
+        timestamp: new Date().toISOString(),
+        isPrediction: false,
+        dataSource: 'unavailable (API error)'
+      };
     }
   }
 
@@ -290,17 +309,6 @@ export class TomorrowService {
     return map[urgency?.toLowerCase()] || 'unknown';
   }
 
-  /**
-   * Mock data for development/fallback
-   */
-  private getMockData(lat: number, lon: number): TomorrowWeatherData {
-    return {
-      hailEvents: [],
-      windEvents: [],
-      alerts: [],
-      timestamp: new Date().toISOString()
-    };
-  }
 }
 
 // Export singleton instance

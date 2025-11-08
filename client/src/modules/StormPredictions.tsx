@@ -262,7 +262,12 @@ export default function StormPredictions() {
             {/* Active Storm Predictions */}
             {predictions && predictions.length > 0 && (
               <div className="mb-12">
-                <h2 className="text-2xl font-bold text-purple-300 mb-6">Active Storm Predictions</h2>
+                <div className="flex items-center gap-3 mb-6">
+                  <h2 className="text-2xl font-bold text-purple-300">Active Storm Predictions</h2>
+                  <span className="px-3 py-1 bg-amber-500/20 border border-amber-500/50 rounded-full text-amber-300 text-xs font-bold uppercase tracking-wide">
+                    ⚠️ AI Prediction
+                  </span>
+                </div>
                 <div className="space-y-4">
                   {predictions.map((pred) => (
                     <div key={pred.id} className="bg-slate-900/60 border border-purple-500/30 rounded-xl p-6 hover:border-purple-400/50 transition-all" data-testid={`prediction-${pred.id}`}>
@@ -303,7 +308,12 @@ export default function StormPredictions() {
             {/* Top Contractor Opportunities - DEPLOY BEFORE IMPACT */}
             {opportunities && opportunities.length > 0 && (
               <div className="mb-12">
-                <h2 className="text-2xl font-bold text-cyan-300 mb-2">🎯 Deploy NOW - Beat the Competition</h2>
+                <div className="flex items-center gap-3 mb-2">
+                  <h2 className="text-2xl font-bold text-cyan-300">🎯 Deploy NOW - Beat the Competition</h2>
+                  <span className="px-3 py-1 bg-amber-500/20 border border-amber-500/50 rounded-full text-amber-300 text-xs font-bold uppercase tracking-wide">
+                    ⚠️ AI Prediction
+                  </span>
+                </div>
                 <p className="text-cyan-300/70 mb-6">Top revenue opportunities with pre-positioning windows</p>
                 <div className="space-y-4">
                   {opportunities.slice(0, 10).map((opp, idx) => {
@@ -379,7 +389,12 @@ export default function StormPredictions() {
             {/* Damage Forecasts */}
             {forecasts && forecasts.length > 0 && (
               <div className="mb-12">
-                <h2 className="text-2xl font-bold text-orange-300 mb-6">Impact Timeline - Next {forecastHours} Hours</h2>
+                <div className="flex items-center gap-3 mb-6">
+                  <h2 className="text-2xl font-bold text-orange-300">Impact Timeline - Next {forecastHours} Hours</h2>
+                  <span className="px-3 py-1 bg-amber-500/20 border border-amber-500/50 rounded-full text-amber-300 text-xs font-bold uppercase tracking-wide">
+                    ⚠️ AI Prediction
+                  </span>
+                </div>
                 <div className="space-y-3">
                   {forecasts.slice(0, 15).map((forecast) => {
                     const hoursUntilImpact = Math.round((new Date(forecast.expectedArrivalTime).getTime() - Date.now()) / (1000 * 60 * 60));
