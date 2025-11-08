@@ -76,6 +76,8 @@ import { ComprehensiveIntelligenceSystem } from '@/components/ComprehensiveIntel
 import { EnvironmentalSummary } from '@/components/EnvironmentalSummary';
 import { XweatherIntelligence } from '@/components/XweatherIntelligence';
 import WindyMap from '@/components/WindyMap';
+import WindyWebcams from '@/components/WindyWebcams';
+import WindyPointForecast from '@/components/WindyPointForecast';
 import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 
 // ===== UNIFIED INTERFACES =====
@@ -935,6 +937,16 @@ export default function WeatherIntelligenceCenter() {
                     {/* Windy Interactive Map */}
                     <div className="mb-8">
                       <WindyMap defaultLat={28.5} defaultLon={-81.5} defaultZoom={6} height="600px" />
+                    </div>
+
+                    {/* Windy Point Forecast */}
+                    <div className="mb-8">
+                      <WindyPointForecast lat={28.5} lon={-81.5} locationName="Central Florida" />
+                    </div>
+
+                    {/* Windy Live Webcams */}
+                    <div className="mb-8">
+                      <WindyWebcams lat={28.5} lon={-81.5} radius={100} />
                     </div>
 
                     {/* Hurricane Forecast Models */}

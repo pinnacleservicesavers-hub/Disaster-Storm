@@ -91,6 +91,7 @@ import { PhotoOrganizationService } from "./services/photoOrganizationService";
 import { propertyService } from "./services/property.js";
 import { PropertyOwnerLookupService } from "./services/propertyOwnerLookup.js";
 import { AIService } from "./services/ai";
+import { windyService } from "./services/windyService";
 import { storage } from "./storage";
 import { z } from "zod";
 import session from "express-session";
@@ -1057,11 +1058,66 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
   app.get("/api/windy/status", (req, res) => {
     const hasMapKey = !!process.env.WINDY_MAP_FORECAST_KEY;
     const hasPluginKey = !!process.env.WINDY_PLUGIN_KEY;
+    const hasWebcamKey = !!process.env.WINDY_WEBCAM_API_KEY;
+    const hasPointForecastKey = !!process.env.WINDY_PINT_FORECAST_KEY;
     res.json({ 
-      hasKey: hasMapKey || hasPluginKey,
+      hasKey: hasMapKey || hasPluginKey || hasWebcamKey || hasPointForecastKey,
       hasMapKey,
-      hasPluginKey
+      hasPluginKey,
+      hasWebcamKey,
+      hasPointForecastKey
     });
+  });
+
+  // ---- Windy Webcams API ----
+  app.get("/api/windy/webcams/nearby", async (req, res) => {
+    try {
+      const lat = parseFloat(req.query.lat as string);
+      const lon = parseFloat(req.query.lon as string);
+      const radius = parseInt(req.query.radius as string) || 50;
+
+      if (isNaN(lat) || isNaN(lon)) {
+        return res.status(400).json({ error: 'Invalid lat/lon parameters' });
+      }
+
+      const webcams = await windyService.getWebcamsNearLocation(lat, lon, radius);
+      res.json({ webcams });
+    } catch (error) {
+      console.error('Error fetching webcams:', error);
+      res.status(500).json({ error: 'Failed to fetch webcams' });
+    }
+  });
+
+  app.get("/api/windy/webcams/region/:region", async (req, res) => {
+    try {
+      const region = req.params.region;
+      const limit = parseInt(req.query.limit as string) || 10;
+
+      const webcams = await windyService.getWebcamsByRegion(region, limit);
+      res.json({ webcams });
+    } catch (error) {
+      console.error('Error fetching webcams by region:', error);
+      res.status(500).json({ error: 'Failed to fetch webcams' });
+    }
+  });
+
+  // ---- Windy Point Forecast API ----
+  app.get("/api/windy/forecast/point", async (req, res) => {
+    try {
+      const lat = parseFloat(req.query.lat as string);
+      const lon = parseFloat(req.query.lon as string);
+      const model = (req.query.model as string) || 'gfs';
+
+      if (isNaN(lat) || isNaN(lon)) {
+        return res.status(400).json({ error: 'Invalid lat/lon parameters' });
+      }
+
+      const forecast = await windyService.getPointForecast(lat, lon, model);
+      res.json({ forecast });
+    } catch (error) {
+      console.error('Error fetching point forecast:', error);
+      res.status(500).json({ error: 'Failed to fetch forecast' });
+    }
   });
   
   // ---- Google OAuth Routes ----
