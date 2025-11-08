@@ -78,7 +78,9 @@ import { XweatherIntelligence } from '@/components/XweatherIntelligence';
 import WindyMap from '@/components/WindyMap';
 import WindyWebcams from '@/components/WindyWebcams';
 import WindyPointForecast from '@/components/WindyPointForecast';
+import LiveHazardDashboard from '@/components/LiveHazardDashboard';
 import ModuleAIAssistant from '@/components/ModuleAIAssistant';
+import { useAlertNotifications } from '@/hooks/useAlertNotifications';
 
 // ===== UNIFIED INTERFACES =====
 
@@ -253,6 +255,8 @@ export default function WeatherIntelligenceCenter() {
   const [currentSection, setCurrentSection] = useState<string>('overview');
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const queryClient = useQueryClient();
+  
+  const { alertsEnabled, extremeAlertCount, severeAlertCount } = useAlertNotifications();
 
   // Initialize voice synthesis
   useEffect(() => {
@@ -648,6 +652,11 @@ export default function WeatherIntelligenceCenter() {
                     <p className="text-gray-600 dark:text-gray-400 mb-6">
                       Real-time weather data from NOAA, NWS, satellites, and ocean buoys.
                     </p>
+                    
+                    {/* Live Hazard Dashboard - PROMINENT DISPLAY */}
+                    <div className="mb-8">
+                      <LiveHazardDashboard />
+                    </div>
                     
                     {/* Weather Alerts & AI Intelligence */}
                     {(nwsAlerts.length > 0 || aiForecasts.length > 0) && (

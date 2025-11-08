@@ -7,6 +7,8 @@ import VoiceGuide from '@/components/VoiceGuide';
 import { StateCitySelector, useStateCitySelector } from '@/components/StateCitySelector';
 import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 import WindyMap from '@/components/WindyMap';
+import LiveHazardDashboard from '@/components/LiveHazardDashboard';
+import { useAlertNotifications } from '@/hooks/useAlertNotifications';
 
 export default function WeatherCenter() {
   const { selectedState, setSelectedState, selectedCity, setSelectedCity, availableCities } = useStateCitySelector('Florida', 'Miami');
@@ -14,6 +16,8 @@ export default function WeatherCenter() {
   const [dataSourcesActive, setDataSourcesActive] = useState(0);
   const [aiTrigger, setAiTrigger] = useState<{ open: boolean; mode: 'text' | 'voice' } | undefined>();
   const [showDetailedContractorView, setShowDetailedContractorView] = useState(false);
+  
+  const { alertsEnabled, extremeAlertCount, severeAlertCount } = useAlertNotifications();
 
   // Fetch live hazard data
   const { data: hazardData, isLoading: hazardsLoading } = useQuery({
@@ -80,6 +84,11 @@ export default function WeatherCenter() {
               showAllStates={true}
             />
           </div>
+        </div>
+
+        {/* Live Hazard Alert Dashboard */}
+        <div className="mb-8" data-testid="live-hazard-dashboard-container">
+          <LiveHazardDashboard />
         </div>
 
         {/* Data Sources Status Bar */}

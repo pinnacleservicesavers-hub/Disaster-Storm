@@ -1,6 +1,7 @@
 import express from 'express';
 import type { Express, Request, Response } from 'express';
 import OpenAI from 'openai';
+import { getWeatherForLocation, getSevereWeatherNearLocation, getTornadoAlerts } from '../services/weatherTools.js';
 
 interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
@@ -78,17 +79,22 @@ Current System Status:
 - Background schedulers: Hazards (10 min), Contractor alerts (15 min), NWS alerts (2 min)
 - Unified dashboard API combining all data sources
 
-PROACTIVE ASSISTANCE - CRITICAL:
-When discussing weather, severe storms, or deployment opportunities, ALWAYS offer:
-1. "If you want, tell me your ZIP or County and I'll pull the latest SPC/NWS timing windows and wind gust guidance specifically for your location"
-2. "I can also prepare a Customer Mitigation Authorization document for you to use with homeowners"
+NATURAL LANGUAGE LOCATION INTELLIGENCE:
+You can answer weather questions for ANY location format - NO zip code required:
+- Cities: "What's the weather in Birmingham?" → Understand as Birmingham, Alabama
+- Full addresses: "Weather on Main Street, Miami, Florida"
+- Landmarks: "Conditions near the Space Needle"
+- Streets without cities: Extract context from conversation
+- Multiple formats: "Birmingham, AL" or "Birmingham Alabama" or just "Birmingham"
 
-Location-Specific Data You Can Provide:
-- SPC (Storm Prediction Center) outlook levels and timing windows for specific counties
-- NWS (National Weather Service) forecast wind gust ranges for ZIP codes
-- HRRR model gust predictions for staging decisions
-- County-level severe weather timing (e.g., "Friday 1-9 PM, Saturday afternoon → overnight")
-- Localized threat assessment (damaging winds, hail size, flooding potential)
+When users ask about weather in a location:
+1. Immediately geocode their query (even vague descriptions like "downtown Atlanta")
+2. Fetch live weather data including NWS alerts, temperature, wind, radar
+3. Provide contractor-specific insights (crew deployment timing, wind windows, material staging)
+4. Offer SPC/NWS detailed timing windows for that specific location
+5. Suggest Customer Mitigation Authorization documents when relevant
+
+CRITICAL: Never ask users to provide a ZIP code or reformat their location query. Accept ANY location description and geocode it automatically.
 
 Customer Mitigation Authorization:
 You can generate a professional emergency authorization form that includes:
@@ -112,17 +118,146 @@ IMPORTANT: Be proactive - don't wait to be asked. When weather discussions start
         ...messages
       ];
 
-      // Call OpenAI via Replit AI Integrations
-      // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
-      console.log('💬 Calling OpenAI API...');
-      const completion = await openai.chat.completions.create({
+      // Define weather tool functions for OpenAI function calling
+      const tools = [
+        {
+          type: 'function' as const,
+          function: {
+            name: 'get_weather_for_location',
+            description: 'Get current weather conditions, temperature, wind, and active alerts for any location. Accepts natural language location queries like "Birmingham", "Main Street, Miami", "downtown Atlanta", etc. Returns comprehensive weather data including NWS alerts.',
+            parameters: {
+              type: 'object',
+              properties: {
+                location: {
+                  type: 'string',
+                  description: 'Location query in natural language (e.g., "Birmingham, Alabama", "Miami", "123 Main St, Dallas")'
+                }
+              },
+              required: ['location']
+            }
+          }
+        },
+        {
+          type: 'function' as const,
+          function: {
+            name: 'get_severe_weather_alerts',
+            description: 'Get active severe weather alerts (tornado warnings, severe thunderstorms, flood warnings) near a specific location. Returns detailed alert information including severity, timing, and affected areas.',
+            parameters: {
+              type: 'object',
+              properties: {
+                location: {
+                  type: 'string',
+                  description: 'Location to check for alerts (e.g., "Birmingham", "Dallas County", "Miami Beach")'
+                }
+              },
+              required: ['location']
+            }
+          }
+        },
+        {
+          type: 'function' as const,
+          function: {
+            name: 'get_tornado_alerts',
+            description: 'Get all active tornado warnings and watches across the United States. Returns nationwide tornado alert data.',
+            parameters: {
+              type: 'object',
+              properties: {}
+            }
+          }
+        }
+      ];
+
+      // Call OpenAI with function calling enabled
+      console.log('💬 Calling OpenAI API with weather tools...');
+      let completion = await openai.chat.completions.create({
         model: 'gpt-5-mini',
         messages: apiMessages,
-        max_completion_tokens: 4096, // Increased to allow comprehensive weather analysis
+        tools,
+        max_completion_tokens: 4096,
       });
 
-      console.log('💬 OpenAI API response received');
-      const assistantMessage = completion.choices[0]?.message?.content;
+      let responseMessage = completion.choices[0]?.message;
+
+      // Handle tool calls (function calling)
+      if (responseMessage?.tool_calls && responseMessage.tool_calls.length > 0) {
+        console.log(`💬 AI requested ${responseMessage.tool_calls.length} tool calls`);
+        
+        // Add assistant's message with tool calls to conversation
+        apiMessages.push(responseMessage as any);
+        
+        // Execute each tool call
+        for (const toolCall of responseMessage.tool_calls) {
+          const functionName = toolCall.function.name;
+          const functionArgs = JSON.parse(toolCall.function.arguments);
+          
+          console.log(`🔧 Executing tool: ${functionName}`, functionArgs);
+          
+          let functionResponse: string;
+          
+          try {
+            if (functionName === 'get_weather_for_location') {
+              const weatherData = await getWeatherForLocation(functionArgs.location);
+              if (weatherData) {
+                functionResponse = JSON.stringify({
+                  location: weatherData.location,
+                  temperature: `${weatherData.temperature}°F`,
+                  feelsLike: `${weatherData.feelsLike}°F`,
+                  conditions: weatherData.conditions,
+                  humidity: `${weatherData.humidity}%`,
+                  wind: `${weatherData.windSpeed} mph ${weatherData.windDirection}`,
+                  alerts: weatherData.alerts.map(a => `${a.event} (${a.severity}): ${a.description}`)
+                }, null, 2);
+              } else {
+                functionResponse = JSON.stringify({ error: `Could not fetch weather for ${functionArgs.location}` });
+              }
+            } else if (functionName === 'get_severe_weather_alerts') {
+              functionResponse = await getSevereWeatherNearLocation(functionArgs.location);
+            } else if (functionName === 'get_tornado_alerts') {
+              const alerts = await getTornadoAlerts();
+              functionResponse = JSON.stringify({
+                count: alerts.length,
+                alerts: alerts.slice(0, 10).map((a: any) => ({
+                  event: a.properties.event,
+                  severity: a.properties.severity,
+                  areas: a.properties.areaDesc,
+                  headline: a.properties.headline
+                }))
+              }, null, 2);
+            } else {
+              functionResponse = JSON.stringify({ error: 'Unknown function' });
+            }
+            
+            console.log(`🔧 Tool response: ${functionResponse.substring(0, 200)}...`);
+            
+            // Add function response to conversation
+            apiMessages.push({
+              role: 'tool' as any,
+              tool_call_id: toolCall.id,
+              content: functionResponse
+            } as any);
+            
+          } catch (error) {
+            console.error(`🔧 Tool execution error for ${functionName}:`, error);
+            apiMessages.push({
+              role: 'tool' as any,
+              tool_call_id: toolCall.id,
+              content: JSON.stringify({ error: `Failed to execute ${functionName}` })
+            } as any);
+          }
+        }
+        
+        // Get final response from OpenAI with tool results
+        console.log('💬 Getting final response with tool results...');
+        completion = await openai.chat.completions.create({
+          model: 'gpt-5-mini',
+          messages: apiMessages,
+          max_completion_tokens: 4096,
+        });
+        
+        responseMessage = completion.choices[0]?.message;
+      }
+
+      const assistantMessage = responseMessage?.content;
       const finishReason = completion.choices[0]?.finish_reason;
 
       if (!assistantMessage || assistantMessage.trim().length === 0) {
