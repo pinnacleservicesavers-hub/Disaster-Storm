@@ -2200,6 +2200,44 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
   });
 
   // ---- Twilio SMS + Voice ----
+  // ---- SMS Test Endpoint (for contractor alert testing) ----
+  app.post("/api/test-sms", express.json(), async (req, res) => {
+    try {
+      const { phoneNumber, message } = req.body;
+      
+      if (!phoneNumber || !message) {
+        return res.status(400).json({ error: 'phoneNumber and message required' });
+      }
+
+      const { sendSms } = await import('./services/twilio.js');
+      
+      const result = await sendSms({
+        to: phoneNumber,
+        message: message
+      });
+
+      res.json({
+        success: true,
+        to: phoneNumber,
+        message: message,
+        messageSid: result.sid,
+        status: result.status,
+        from: result.from,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error: any) {
+      console.error('SMS test error:', error);
+      res.status(500).json({
+        success: false,
+        to: req.body.phoneNumber,
+        message: req.body.message,
+        error: error.message,
+        errorCode: error.code,
+        timestamp: new Date().toISOString()
+      });
+    }
+  });
+
   app.post("/api/sms", async (req, res) => {
     try {
       const { to, body } = req.body || {};

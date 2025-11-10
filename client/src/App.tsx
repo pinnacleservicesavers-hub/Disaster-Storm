@@ -40,6 +40,7 @@ const Login = lazy(() => import("./pages/auth/Login"));
 const AuthCallback = lazy(() => import("./pages/auth/Callback"));
 const OIDCSettings = lazy(() => import("./pages/admin/OIDCSettings"));
 const ContractorAlertsDashboard = lazy(() => import("./pages/ContractorAlertsDashboard"));
+const SMSTestPage = lazy(() => import("./pages/SMSTestPage"));
 
 // Loading indicator
 function Loader() {
@@ -113,6 +114,7 @@ export default function App() {
           <Route path="/contractor-management" element={<ContractorManagement />} />
           <Route path="/contractors" element={<ContractorPortal />} />
           <Route path="/contractor-alerts" element={<ContractorAlertsDashboard />} />
+          <Route path="/sms-test" element={<SMSTestPage />} />
           <Route path="/banking-settings" element={<BankingSettings />} />
           <Route path="/legal" element={<Legal />} />
           <Route path="/disaster-lens" element={<DisasterLens />} />
