@@ -5,6 +5,7 @@ import { DamageDetectionService, type DamageAnalysisResult } from '../services/d
 import { providerRegistry } from '../providers/index.js';
 import { getConfig } from '../config.js';
 import type { UnifiedCamera } from '../services/unified511Directory.js';
+import { fallenTreeAlertService } from '../services/fallenTreeAlertService.js';
 
 export interface SnapshotCheckResult {
   cameraId: string;
@@ -80,6 +81,13 @@ export class SnapshotChecker {
         analysisResult.detections.forEach(detection => {
           console.log(`   🔴 ${detection.alertType}: ${detection.description} (${detection.confidence}% confidence)`);
         });
+
+        // Send fallen tree alerts to contractors
+        try {
+          await fallenTreeAlertService.processDetection(result);
+        } catch (error) {
+          console.error('❌ Error processing tree alerts:', error);
+        }
       }
 
       return result;

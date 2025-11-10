@@ -77,6 +77,7 @@ import deploymentIntelligenceRoutes from "./routes/deploymentIntelligenceRoutes"
 import healthRoutes from "./routes/health";
 import quoteRoutes from "./routes/quotes";
 import pipelineRoutes from "./routes/pipeline";
+import treeAlertRoutes from "./routes/treeAlertRoutes";
 import { mountLocations } from "./routes/locations";
 import { mountAlerts } from "./routes/alerts";
 import { mountWarm } from "./routes/warm";
@@ -810,6 +811,10 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
   // ---- Kanban Pipeline Dashboard (FREE replacement for Monday.com/Asana) ----
   app.use('/api', pipelineRoutes);
   console.log('📊 Pipeline Dashboard routes registered - Visual boards with drag-drop (replaces $10-30/user/month)');
+
+  // ---- Tree Alert Routes (Fallen tree detection SMS alerts) ----
+  app.use('/api', treeAlertRoutes);
+  console.log('🌳 Tree Alert routes registered - SMS alerts for fallen tree detection');
 
   // ---- Admin OIDC Routes ----
   app.use(adminOidcRoutes);
