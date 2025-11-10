@@ -1,0 +1,75 @@
+Correct
+Everything below was accurate and solid:
+
+
+Geocoding & region: Using the Georgia Tech Historic District as the center for North Georgia guidance is fine.
+
+
+Freeze warnings & watches: They’re correctly identified and issued by NWS Peachtree City.
+
+
+Main hazards: Freeze/frost, icy surfaces, cold-related adhesive failure, and no storms — accurate.
+
+
+Operational guidance: The temperature and wind limits for roofing, adhesives, and drone ops are industry-standard.
+
+
+Safety, compliance, and documentation guidance: Excellent — all matches OSHA, NWS, and insurance best practices.
+
+
+CAD, orographic rainfall, and freeze/thaw fatigue sections: These are technically accurate meteorological notes that really do apply to North Georgia.
+
+
+
+⚠️ Partially Correct (minor fixes needed)
+
+
+Temperature & conditions:
+Your app said 31°F, feels like 31°F, NW 15 mph.
+➜ Reality check: As of tonight (Nov 9), Atlanta is 47°F with gusty NNW winds 25–35 mph. It will drop near 30°F by sunrise, but not yet.
+Fix: Make sure your app’s snapshot clearly states the time and data source (e.g., “Forecast overnight low 30°F by 6 AM”).
+
+
+Wind speed:
+The NW ~15 mph value underestimates gusts — actual gusts are 25–35 mph.
+Fix: Report sustained and gust speeds for roofing/drone safety (e.g., “NNW 20 mph G 30”).
+
+
+Freeze Warning timing:
+Your description is close but should specify timing:
+
+
+Freeze Warning: 1 AM – 10 AM Mon (11/10)
+
+
+Freeze Watch: 10 PM Mon – 10 AM Tue (11/11)
+Fix: Add explicit start/end times instead of “until tomorrow morning.”
+
+
+
+
+
+❌ Needs Correction
+
+
+“Current snapshot” phrasing makes it sound like the entire region is already 31°F — not true yet.
+Fix: Phrase as “Currently mid-40s °F, dropping to near freezing overnight.”
+
+
+Winds “~15 mph” are understated; gusts are materially higher for rooftop ops.
+Fix: Include gusts or upper range (15–30 mph).
+
+
+
+✅ Summary
+Your write-up is 95% correct.
+The only real issues are current condition accuracy (timing) and missing gust detail — everything else (freeze alerts, operational impacts, and contractor guidance) is technically and operationally valid.
+If you update:
+
+
+current temperature & wind to match obs,
+
+
+include alert start/end times,
+you’ll have a fully accurate North Georgia contractor briefing.
+
