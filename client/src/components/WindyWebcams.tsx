@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Camera, MapPin, ExternalLink, RefreshCw, Play } from 'lucide-react';
+import { Camera, MapPin, ExternalLink, RefreshCw, Play, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface WindyWebcam {
@@ -41,20 +41,28 @@ interface WindyWebcamsProps {
 export default function WindyWebcams({ lat = 28.5, lon = -81.5, radius = 50, region }: WindyWebcamsProps) {
   const [selectedWebcam, setSelectedWebcam] = useState<WindyWebcam | null>(null);
 
-  const { data, isLoading, refetch } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: region ? ['/api/windy/webcams/region', region] : ['/api/windy/webcams/nearby', lat, lon, radius],
     queryFn: async () => {
       const url = region 
         ? `/api/windy/webcams/region/${region}?limit=20`
         : `/api/windy/webcams/nearby?lat=${lat}&lon=${lon}&radius=${radius}`;
+      console.log('[WindyWebcams] Fetching from:', url);
       const response = await fetch(url);
       if (!response.ok) throw new Error('Failed to fetch webcams');
-      return response.json();
+      const result = await response.json();
+      console.log('[WindyWebcams] Received:', result);
+      return result;
     },
     refetchInterval: 5 * 60 * 1000,
+    retry: 2,
   });
 
   const webcams = data?.webcams || [];
+  
+  if (isError) {
+    console.error('[WindyWebcams] Error:', error);
+  }
 
   return (
     <Card className="w-full bg-slate-900/60 border-cyan-500/30 dark:text-white" data-testid="card-windy-webcams">
@@ -85,7 +93,20 @@ export default function WindyWebcams({ lat = 28.5, lon = -81.5, radius = 50, reg
         </div>
       </CardHeader>
       <CardContent className="bg-slate-900/40 p-6">
-        {isLoading ? (
+        {isError ? (
+          <div className="text-center text-red-400 py-8">
+            <AlertTriangle className="w-12 h-12 mx-auto mb-2 opacity-50" />
+            <p className="font-semibold">Error loading webcams</p>
+            <p className="text-xs mt-2 text-red-300">{error?.message || 'Unknown error'}</p>
+            <Button
+              onClick={() => refetch()}
+              size="sm"
+              className="mt-3 bg-red-600/20 hover:bg-red-600/40 text-red-300"
+            >
+              Try Again
+            </Button>
+          </div>
+        ) : isLoading ? (
           <div className="flex flex-col items-center justify-center h-48 gap-3">
             <RefreshCw className="w-8 h-8 animate-spin text-cyan-400" />
             <p className="text-cyan-300/70">Loading webcams...</p>
