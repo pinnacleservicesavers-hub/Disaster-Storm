@@ -39,10 +39,19 @@ interface WindyPointForecast {
 export class WindyService {
   private webcamApiKey: string | undefined;
   private pointForecastKey: string | undefined;
+  private trafficCamApiKey: string | undefined;
 
   constructor() {
     this.webcamApiKey = process.env.WINDY_WEBCAM_API_KEY;
     this.pointForecastKey = process.env.WINDY_PINT_FORECAST_KEY;
+    this.trafficCamApiKey = process.env.TRAFFIC_CAM_API_KEY;
+    
+    if (this.webcamApiKey) {
+      console.log('✅ Windy Webcam API key configured');
+    }
+    if (this.trafficCamApiKey) {
+      console.log('✅ Traffic Camera API key configured');
+    }
   }
 
   async getWebcamsNearLocation(lat: number, lon: number, radius: number = 50): Promise<WindyWebcam[]> {

@@ -106,11 +106,19 @@ export default function WindyWebcams({ lat = 28.5, lon = -81.5, radius = 50, reg
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ duration: 0.3 }}
                   className="group cursor-pointer"
-                  onClick={() => setSelectedWebcam(webcam)}
                   data-testid={`webcam-${webcam.id}`}
                 >
-                  <Card className="overflow-hidden hover:shadow-lg transition-shadow">
-                    <div className="relative aspect-video bg-gray-100 dark:bg-gray-800">
+                  <Card 
+                    className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
+                    onClick={() => setSelectedWebcam(webcam)}
+                  >
+                    <div 
+                      className="relative aspect-video bg-gray-100 dark:bg-gray-800 cursor-pointer"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedWebcam(webcam);
+                      }}
+                    >
                       <img
                         src={webcam.image.current.preview}
                         alt={webcam.title}
