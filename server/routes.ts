@@ -1082,11 +1082,14 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
       const radius = parseInt(req.query.radius as string) || 50;
 
       if (isNaN(lat) || isNaN(lon)) {
-        return res.status(400).json({ error: 'Invalid lat/lon parameters' });
+        const defaultLat = 25.7617;
+        const defaultLon = -80.1918;
+        const webcams = await windyService.getWebcamsNearLocation(defaultLat, defaultLon, radius);
+        return res.json({ success: true, webcams, count: webcams.length });
       }
 
       const webcams = await windyService.getWebcamsNearLocation(lat, lon, radius);
-      res.json({ webcams });
+      res.json({ success: true, webcams, count: webcams.length });
     } catch (error) {
       console.error('Error fetching webcams:', error);
       res.status(500).json({ error: 'Failed to fetch webcams' });
@@ -1099,7 +1102,7 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
       const limit = parseInt(req.query.limit as string) || 10;
 
       const webcams = await windyService.getWebcamsByRegion(region, limit);
-      res.json({ webcams });
+      res.json({ success: true, webcams, count: webcams.length });
     } catch (error) {
       console.error('Error fetching webcams by region:', error);
       res.status(500).json({ error: 'Failed to fetch webcams' });
