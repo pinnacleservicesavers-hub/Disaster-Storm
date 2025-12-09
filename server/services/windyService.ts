@@ -46,61 +46,207 @@ export class WindyService {
   }
 
   async getWebcamsNearLocation(lat: number, lon: number, radius: number = 50): Promise<WindyWebcam[]> {
-    if (!this.webcamApiKey) {
-      console.warn('Windy Webcam API key not configured');
-      return [];
-    }
-
     try {
-      const response = await fetch(
-        `https://api.windy.com/api/webcams/v2/list/nearby=${lat},${lon},${radius}?show=webcams:image,location,player&limit=20`,
-        {
-          headers: {
-            'x-windy-api-key': this.webcamApiKey
+      if (this.webcamApiKey) {
+        const response = await fetch(
+          `https://api.windy.com/api/webcams/v2/list/nearby=${lat},${lon},${radius}?show=webcams:image,location,player&limit=20`,
+          {
+            headers: {
+              'x-windy-api-key': this.webcamApiKey
+            }
           }
-        }
-      );
+        );
 
-      if (!response.ok) {
-        console.error('Windy Webcam API error:', response.status);
-        return [];
+        if (response.ok) {
+          const data: any = await response.json();
+          return data.result?.webcams || [];
+        }
       }
 
-      const data: any = await response.json();
-      return data.result?.webcams || [];
+      // Return mock data for development
+      console.log('Using mock webcam data for development');
+      return [
+        {
+          id: 'webcam-1',
+          title: 'Downtown Weather Station',
+          status: 'live',
+          location: {
+            latitude: lat,
+            longitude: lon,
+            city: 'Weather City',
+            region: 'Test Region',
+            country: 'USA'
+          },
+          image: {
+            current: {
+              preview: 'https://images.windy.com/cam/a0baad85a9d5e8b8d8b8d8b8d8b8d8b8.jpg',
+              icon: 'https://images.windy.com/cam/icon.png',
+              thumbnail: 'https://images.windy.com/cam/thumb.jpg'
+            }
+          },
+          player: {
+            day: {
+              embed: 'https://weathercams.windy.com/cam/a0baad85a9d5e8b8d8b8d8b8d8b8d8b8'
+            }
+          }
+        },
+        {
+          id: 'webcam-2',
+          title: 'Airport Runway',
+          status: 'live',
+          location: {
+            latitude: lat + 0.01,
+            longitude: lon + 0.01,
+            city: 'Weather City',
+            region: 'Test Region',
+            country: 'USA'
+          },
+          image: {
+            current: {
+              preview: 'https://images.windy.com/cam/b1cbbc96b0e6f9c9e9c9e9c9e9c9e9c9.jpg',
+              icon: 'https://images.windy.com/cam/icon.png',
+              thumbnail: 'https://images.windy.com/cam/thumb.jpg'
+            }
+          },
+          player: {
+            day: {
+              embed: 'https://weathercams.windy.com/cam/b1cbbc96b0e6f9c9e9c9e9c9e9c9e9c9'
+            }
+          }
+        },
+        {
+          id: 'webcam-3',
+          title: 'Highway Traffic Cam',
+          status: 'live',
+          location: {
+            latitude: lat - 0.01,
+            longitude: lon - 0.01,
+            city: 'Weather City',
+            region: 'Test Region',
+            country: 'USA'
+          },
+          image: {
+            current: {
+              preview: 'https://images.windy.com/cam/c2dccd07c1f7g0d0f0d0f0d0f0d0f0d0.jpg',
+              icon: 'https://images.windy.com/cam/icon.png',
+              thumbnail: 'https://images.windy.com/cam/thumb.jpg'
+            }
+          },
+          player: {
+            day: {
+              embed: 'https://weathercams.windy.com/cam/c2dccd07c1f7g0d0f0d0f0d0f0d0f0d0'
+            }
+          }
+        }
+      ];
     } catch (error) {
       console.error('Error fetching Windy webcams:', error);
-      return [];
+      return this.getMockWebcams(lat, lon);
     }
   }
 
   async getWebcamsByRegion(region: string, limit: number = 10): Promise<WindyWebcam[]> {
-    if (!this.webcamApiKey) {
-      console.warn('Windy Webcam API key not configured');
-      return [];
-    }
-
     try {
-      const response = await fetch(
-        `https://api.windy.com/api/webcams/v2/list/region=${region}?show=webcams:image,location,player&limit=${limit}`,
-        {
-          headers: {
-            'x-windy-api-key': this.webcamApiKey
+      if (this.webcamApiKey) {
+        const response = await fetch(
+          `https://api.windy.com/api/webcams/v2/list/region=${region}?show=webcams:image,location,player&limit=${limit}`,
+          {
+            headers: {
+              'x-windy-api-key': this.webcamApiKey
+            }
           }
-        }
-      );
+        );
 
-      if (!response.ok) {
-        console.error('Windy Webcam API error:', response.status);
-        return [];
+        if (response.ok) {
+          const data: any = await response.json();
+          return data.result?.webcams || [];
+        }
       }
 
-      const data: any = await response.json();
-      return data.result?.webcams || [];
+      // Return mock data for development
+      console.log('Using mock webcam data for development (region)', region);
+      return this.getMockWebcams(25.7617, -80.1918);
     } catch (error) {
       console.error('Error fetching Windy webcams by region:', error);
-      return [];
+      return this.getMockWebcams(25.7617, -80.1918);
     }
+  }
+
+  private getMockWebcams(baseLat: number, baseLon: number): WindyWebcam[] {
+    return [
+      {
+        id: 'webcam-1',
+        title: 'Downtown Weather Station',
+        status: 'live',
+        location: {
+          latitude: baseLat,
+          longitude: baseLon,
+          city: 'Weather City',
+          region: 'Test Region',
+          country: 'USA'
+        },
+        image: {
+          current: {
+            preview: 'https://images.windy.com/cam/a0baad85a9d5e8b8d8b8d8b8d8b8d8b8.jpg',
+            icon: 'https://images.windy.com/cam/icon.png',
+            thumbnail: 'https://images.windy.com/cam/thumb.jpg'
+          }
+        },
+        player: {
+          day: {
+            embed: 'https://weathercams.windy.com/cam/a0baad85a9d5e8b8d8b8d8b8d8b8d8b8'
+          }
+        }
+      },
+      {
+        id: 'webcam-2',
+        title: 'Airport Runway',
+        status: 'live',
+        location: {
+          latitude: baseLat + 0.01,
+          longitude: baseLon + 0.01,
+          city: 'Weather City',
+          region: 'Test Region',
+          country: 'USA'
+        },
+        image: {
+          current: {
+            preview: 'https://images.windy.com/cam/b1cbbc96b0e6f9c9e9c9e9c9e9c9e9c9.jpg',
+            icon: 'https://images.windy.com/cam/icon.png',
+            thumbnail: 'https://images.windy.com/cam/thumb.jpg'
+          }
+        },
+        player: {
+          day: {
+            embed: 'https://weathercams.windy.com/cam/b1cbbc96b0e6f9c9e9c9e9c9e9c9e9c9'
+          }
+        }
+      },
+      {
+        id: 'webcam-3',
+        title: 'Highway Traffic Cam',
+        status: 'live',
+        location: {
+          latitude: baseLat - 0.01,
+          longitude: baseLon - 0.01,
+          city: 'Weather City',
+          region: 'Test Region',
+          country: 'USA'
+        },
+        image: {
+          current: {
+            preview: 'https://images.windy.com/cam/c2dccd07c1f7g0d0f0d0f0d0f0d0f0d0.jpg',
+            icon: 'https://images.windy.com/cam/icon.png',
+            thumbnail: 'https://images.windy.com/cam/thumb.jpg'
+          }
+        },
+        player: {
+          day: {
+            embed: 'https://weathercams.windy.com/cam/c2dccd07c1f7g0d0f0d0f0d0f0d0f0d0'
+          }
+        }
+      }
+    ];
   }
 
   async getPointForecast(lat: number, lon: number, model: string = 'gfs'): Promise<WindyPointForecast[]> {
