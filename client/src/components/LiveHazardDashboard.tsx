@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -59,6 +60,8 @@ const alertIcons = {
 };
 
 export default function LiveHazardDashboard() {
+  const [selectedHazardType, setSelectedHazardType] = useState<'all' | 'winter'>('all');
+
   const { data: alertsData, isLoading: alertsLoading } = useQuery({
     queryKey: ['/api/weather/alerts'],
     refetchInterval: 30000,
@@ -69,8 +72,37 @@ export default function LiveHazardDashboard() {
     refetchInterval: 60000,
   });
 
+  const { data: winterAlertsData } = useQuery({
+    queryKey: ['winter-alerts'],
+    queryFn: async () => {
+      const winterEvents = encodeURIComponent('Blizzard Warning,Blizzard Watch,Ice Storm Warning,Ice Storm Watch,Winter Storm Warning,Winter Storm Watch,Winter Weather Advisory');
+      const response = await fetch(`https://api.weather.gov/alerts/active?event=${winterEvents}`, {
+        headers: {
+          'User-Agent': 'DisasterDirect/1.0',
+          'Accept': 'application/geo+json'
+        }
+      });
+      if (!response.ok) return [];
+      const data: any = await response.json();
+      return (data.features || []).map((feature: any) => ({
+        id: feature.properties.id,
+        title: feature.properties.event,
+        description: feature.properties.headline,
+        severity: feature.properties.severity,
+        alertType: feature.properties.event,
+        areas: [feature.properties.areaDesc],
+        startTime: feature.properties.onset,
+        endTime: feature.properties.ends,
+      }));
+    },
+    refetchInterval: 30000,
+  });
+
   const alerts = (alertsData as LiveAlert[]) || [];
   const hazards = (hazardsData as HazardSummary) || { hurricanes: 0, earthquakes: 0, wildfires: 0, winterStorms: 0, total: 0 };
+  const winterAlerts = (winterAlertsData as LiveAlert[]) || [];
+
+  const displayedAlerts = selectedHazardType === 'winter' ? winterAlerts : alerts;
 
   const getAlertIcon = (type: string) => {
     const IconComponent = alertIcons[type as keyof typeof alertIcons] || alertIcons.default;
@@ -155,12 +187,17 @@ export default function LiveHazardDashboard() {
 
               <motion.div
                 whileHover={{ scale: 1.05 }}
-                className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-cyan-200"
+                onClick={() => setSelectedHazardType(selectedHazardType === 'winter' ? 'all' : 'winter')}
+                className={`rounded-lg p-4 shadow-sm border cursor-pointer transition-all ${
+                  selectedHazardType === 'winter'
+                    ? 'bg-cyan-100 dark:bg-cyan-900/40 border-cyan-600'
+                    : 'bg-white dark:bg-gray-800 border-cyan-200'
+                }`}
               >
                 <div className="flex items-center gap-3">
-                  <Snowflake className="w-8 h-8 text-cyan-600" />
+                  <Snowflake className={`w-8 h-8 ${selectedHazardType === 'winter' ? 'text-cyan-700' : 'text-cyan-600'}`} />
                   <div>
-                    <div className="text-2xl font-bold text-cyan-600">{hazards.winterStorms}</div>
+                    <div className={`text-2xl font-bold ${selectedHazardType === 'winter' ? 'text-cyan-700' : 'text-cyan-600'}`}>{hazards.winterStorms}</div>
                     <div className="text-sm text-gray-600 dark:text-gray-400">Winter Storms</div>
                   </div>
                 </div>
@@ -180,17 +217,24 @@ export default function LiveHazardDashboard() {
               </motion.div>
             </div>
 
+            {selectedHazardType === 'winter' && (
+              <div className="mb-4 p-3 bg-cyan-50 dark:bg-cyan-900/20 border border-cyan-200 rounded-lg">
+                <p className="text-sm text-cyan-700 dark:text-cyan-300">
+                  Showing <strong>{winterAlerts.length}</strong> Winter Weather Alerts - Click again to view all hazards
+                </p>
+              </div>
+            )}
             <ScrollArea className="h-[600px] rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4">
               <AnimatePresence>
-                {alerts.length === 0 ? (
+                {displayedAlerts.length === 0 ? (
                   <div className="text-center py-12 text-gray-500">
                     <AlertTriangle className="w-12 h-12 mx-auto mb-3 opacity-30" />
                     <p className="text-lg font-medium">No Active Alerts</p>
-                    <p className="text-sm mt-1">All clear! No severe weather or hazards detected.</p>
+                    <p className="text-sm mt-1">{selectedHazardType === 'winter' ? 'No winter weather alerts detected.' : 'All clear! No severe weather or hazards detected.'}</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {alerts.map((alert, index) => (
+                    {displayedAlerts.map((alert, index) => (
                       <motion.div
                         key={alert.id}
                         initial={{ opacity: 0, x: -20 }}
