@@ -13,7 +13,8 @@ import {
   RefreshCw,
   MapPin,
   Clock,
-  TrendingUp
+  TrendingUp,
+  Snowflake
 } from 'lucide-react';
 
 interface LiveAlert {
@@ -35,6 +36,7 @@ interface HazardSummary {
   hurricanes: number;
   earthquakes: number;
   wildfires: number;
+  winterStorms: number;
   total: number;
 }
 
@@ -68,7 +70,7 @@ export default function LiveHazardDashboard() {
   });
 
   const alerts = (alertsData as LiveAlert[]) || [];
-  const hazards = (hazardsData as HazardSummary) || { hurricanes: 0, earthquakes: 0, wildfires: 0, total: 0 };
+  const hazards = (hazardsData as HazardSummary) || { hurricanes: 0, earthquakes: 0, wildfires: 0, winterStorms: 0, total: 0 };
 
   const getAlertIcon = (type: string) => {
     const IconComponent = alertIcons[type as keyof typeof alertIcons] || alertIcons.default;
@@ -111,7 +113,7 @@ export default function LiveHazardDashboard() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
               <motion.div
                 whileHover={{ scale: 1.05 }}
                 className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-red-200"
@@ -147,6 +149,19 @@ export default function LiveHazardDashboard() {
                   <div>
                     <div className="text-2xl font-bold text-yellow-600">{hazards.wildfires}</div>
                     <div className="text-sm text-gray-600 dark:text-gray-400">Wildfires</div>
+                  </div>
+                </div>
+              </motion.div>
+
+              <motion.div
+                whileHover={{ scale: 1.05 }}
+                className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-cyan-200"
+              >
+                <div className="flex items-center gap-3">
+                  <Snowflake className="w-8 h-8 text-cyan-600" />
+                  <div>
+                    <div className="text-2xl font-bold text-cyan-600">{hazards.winterStorms}</div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400">Winter Storms</div>
                   </div>
                 </div>
               </motion.div>

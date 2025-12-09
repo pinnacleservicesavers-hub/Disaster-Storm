@@ -1,4 +1,5 @@
 import express from 'express';
+import fetch from 'node-fetch';
 import { nhcService } from '../services/nhcService.js';
 import { usgsEarthquakeService } from '../services/usgsEarthquakeService.js';
 import { nasaFirmsService } from '../services/nasaFirmsService.js';
@@ -439,6 +440,51 @@ router.get('/audit-logs/stats', async (req, res) => {
     success: true,
     stats,
   });
+});
+
+// ===== HAZARD SUMMARY (for dashboard quick stats) =====
+router.get('/summary', async (req, res) => {
+  try {
+    const [storms, earthquakes, wildfires, winterAlerts] = await Promise.all([
+      nhcService.fetchActiveStorms(),
+      usgsEarthquakeService.fetchRecentEarthquakes(2.5),
+      nasaFirmsService.fetchUSWildfires(1),
+      // Fetch winter weather alerts from NWS
+      (async () => {
+        try {
+          const winterEvents = encodeURIComponent('Blizzard Warning,Blizzard Watch,Ice Storm Warning,Ice Storm Watch,Winter Storm Warning,Winter Storm Watch,Winter Weather Advisory');
+          const url = `https://api.weather.gov/alerts/active?event=${winterEvents}`;
+          const response = await fetch(url, {
+            headers: {
+              'User-Agent': 'DisasterDirect/1.0',
+              'Accept': 'application/geo+json'
+            }
+          });
+          if (!response.ok) return 0;
+          const data: any = await response.json();
+          return (data.features || []).length;
+        } catch (e) {
+          console.error('Winter alerts error:', e);
+          return 0;
+        }
+      })()
+    ]);
+
+    res.json({
+      success: true,
+      hurricanes: storms.length,
+      earthquakes: earthquakes.length,
+      wildfires: wildfires.length,
+      winterStorms: winterAlerts,
+      total: storms.length + earthquakes.length + wildfires.length + winterAlerts,
+      timestamp: new Date(),
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
 });
 
 export default router;
