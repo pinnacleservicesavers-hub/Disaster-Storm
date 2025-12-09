@@ -429,7 +429,7 @@ export default function WeatherCenter() {
         <div className="mb-8 p-6 rounded-2xl bg-gradient-to-br from-green-900/20 to-emerald-900/20 border-2 border-green-500/40 backdrop-blur-sm"
           style={{ boxShadow: '0 0 60px rgba(34, 197, 94, 0.15)' }}
         >
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-6 p-4 bg-green-500/10 rounded-lg border border-green-500/20">
             <div className="flex items-center gap-3">
               <TrendingUp className="w-7 h-7 text-green-400" />
               <div>
@@ -437,14 +437,17 @@ export default function WeatherCenter() {
                 <p className="text-sm text-green-300/70">Advanced operations planning and resource forecasting</p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              <span className="text-sm text-green-300/70">Show Details</span>
-              <Switch
-                checked={showDetailedContractorView}
-                onCheckedChange={setShowDetailedContractorView}
-                data-testid="toggle-contractor-view"
-              />
-            </div>
+            <button
+              onClick={() => setShowDetailedContractorView(!showDetailedContractorView)}
+              className={`px-6 py-2 rounded-lg font-semibold transition-all ${
+                showDetailedContractorView
+                  ? 'bg-green-600 text-white shadow-lg shadow-green-500/50'
+                  : 'bg-slate-700 text-green-300 border border-green-500/30 hover:bg-slate-600'
+              }`}
+              data-testid="button-toggle-contractor-view"
+            >
+              {showDetailedContractorView ? 'Hide Details' : 'Show Details'}
+            </button>
           </div>
 
           {showDetailedContractorView && (
