@@ -57,18 +57,18 @@ export default function WindyWebcams({ lat = 28.5, lon = -81.5, radius = 50, reg
   const webcams = data?.webcams || [];
 
   return (
-    <Card className="w-full" data-testid="card-windy-webcams">
-      <CardHeader>
+    <Card className="w-full bg-slate-900/60 border-cyan-500/30 dark:text-white" data-testid="card-windy-webcams">
+      <CardHeader className="bg-slate-800/40 border-b border-cyan-500/20">
         <div className="flex items-center justify-between">
           <div>
-            <CardTitle className="flex items-center gap-2 text-purple-600">
+            <CardTitle className="flex items-center gap-2 text-cyan-400">
               <Camera className="w-6 h-6" />
               Live Weather Webcams
-              <Badge variant="outline" className="ml-2">
+              <Badge variant="outline" className="ml-2 bg-cyan-500/20 text-cyan-300 border-cyan-500/30">
                 {webcams.length} Available
               </Badge>
             </CardTitle>
-            <CardDescription>
+            <CardDescription className="text-cyan-300/70">
               Real-time webcam feeds from weather stations across the region
             </CardDescription>
           </div>
@@ -84,15 +84,17 @@ export default function WindyWebcams({ lat = 28.5, lon = -81.5, radius = 50, reg
           </Button>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="bg-slate-900/40 p-6">
         {isLoading ? (
-          <div className="flex items-center justify-center h-48">
-            <RefreshCw className="w-8 h-8 animate-spin text-purple-600" />
+          <div className="flex flex-col items-center justify-center h-48 gap-3">
+            <RefreshCw className="w-8 h-8 animate-spin text-cyan-400" />
+            <p className="text-cyan-300/70">Loading webcams...</p>
           </div>
         ) : webcams.length === 0 ? (
-          <div className="text-center text-gray-500 py-8">
-            <Camera className="w-12 h-12 mx-auto mb-2 opacity-30" />
+          <div className="text-center text-cyan-300/50 py-8">
+            <Camera className="w-12 h-12 mx-auto mb-2 opacity-30 text-cyan-400" />
             <p>No webcams found in this area</p>
+            <p className="text-xs mt-2">Try a different region or zoom level</p>
           </div>
         ) : (
           <>

@@ -199,11 +199,15 @@ export default function WeatherCenter() {
           {/* Live Webcams */}
           {activeView === 'webcams' && (
             <div className="lg:col-span-2" data-testid="section-live-webcams">
-              <WindyWebcams 
-                lat={selectedCity === 'Miami' ? 25.7617 : 30.4383}
-                lon={selectedCity === 'Miami' ? -80.1918 : -84.2807}
-                radius={50}
-              />
+              <div className="w-full rounded-2xl bg-slate-900/60 border border-cyan-500/30 backdrop-blur-sm overflow-hidden"
+                style={{ boxShadow: '0 0 40px rgba(0, 194, 255, 0.1)', minHeight: '600px' }}
+              >
+                <WindyWebcams 
+                  lat={selectedCity === 'Miami' ? 25.7617 : 30.4383}
+                  lon={selectedCity === 'Miami' ? -80.1918 : -84.2807}
+                  radius={50}
+                />
+              </div>
             </div>
           )}
 
