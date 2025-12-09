@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Wind, Radar, Camera, Satellite, Eye, RefreshCw, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import WindyWebcams from './WindyWebcams';
 
 interface WindyMapProps {
   defaultLat?: number;
@@ -176,6 +177,12 @@ export default function WindyMap({
                     Pressure
                   </div>
                 </SelectItem>
+                <SelectItem value="webcams">
+                  <div className="flex items-center gap-2">
+                    <Camera className="w-4 h-4" />
+                    Windy Cam
+                  </div>
+                </SelectItem>
               </SelectContent>
             </Select>
 
@@ -203,21 +210,31 @@ export default function WindyMap({
           </Alert>
         )}
         
-        <div className="bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden">
-          <iframe 
-            key={refreshKey}
-            src={getWindyUrl()}
-            style={{ 
-              width: '100%', 
-              height: height,
-              border: 'none',
-              borderRadius: '8px'
-            }}
-            title="Windy Weather Map"
-            allow="geolocation"
-            data-testid="iframe-windy-map"
-          />
-        </div>
+        {layer === 'webcams' ? (
+          <div className="bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden p-4">
+            <WindyWebcams 
+              lat={defaultLat}
+              lon={defaultLon}
+              radius={50}
+            />
+          </div>
+        ) : (
+          <div className="bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden">
+            <iframe 
+              key={refreshKey}
+              src={getWindyUrl()}
+              style={{ 
+                width: '100%', 
+                height: height,
+                border: 'none',
+                borderRadius: '8px'
+              }}
+              title="Windy Weather Map"
+              allow="geolocation"
+              data-testid="iframe-windy-map"
+            />
+          </div>
+        )}
         
         <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
           <p className="text-sm text-blue-800 dark:text-blue-200 flex items-center gap-2">
