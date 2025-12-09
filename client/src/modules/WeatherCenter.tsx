@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Activity, Satellite, Waves, Wind, CloudRain, Database, Brain, MapPin, AlertTriangle, Flame, Mic, Users, Package, DollarSign, TrendingUp } from 'lucide-react';
+import { Activity, Satellite, Waves, Wind, CloudRain, Database, Brain, MapPin, AlertTriangle, Flame, Mic, Users, Package, DollarSign, TrendingUp, Video } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { useQuery } from '@tanstack/react-query';
@@ -7,6 +7,7 @@ import VoiceGuide from '@/components/VoiceGuide';
 import { StateCitySelector, useStateCitySelector } from '@/components/StateCitySelector';
 import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 import WindyMap from '@/components/WindyMap';
+import WindyWebcams from '@/components/WindyWebcams';
 import LiveHazardDashboard from '@/components/LiveHazardDashboard';
 import { useAlertNotifications } from '@/hooks/useAlertNotifications';
 
@@ -16,6 +17,7 @@ export default function WeatherCenter() {
   const [dataSourcesActive, setDataSourcesActive] = useState(0);
   const [aiTrigger, setAiTrigger] = useState<{ open: boolean; mode: 'text' | 'voice' } | undefined>();
   const [showDetailedContractorView, setShowDetailedContractorView] = useState(false);
+  const [activeView, setActiveView] = useState<'map' | 'webcams' | 'hazards'>('map');
   
   const { alertsEnabled, extremeAlertCount, severeAlertCount } = useAlertNotifications();
 
@@ -137,46 +139,104 @@ export default function WeatherCenter() {
           </div>
         </div>
 
+        {/* View Selector Tabs */}
+        <div className="mb-8 flex gap-3 flex-wrap">
+          <Button
+            onClick={() => setActiveView('map')}
+            className={`flex items-center gap-2 px-6 py-3 rounded-lg font-semibold transition-all ${
+              activeView === 'map'
+                ? 'bg-cyan-600 text-white'
+                : 'bg-slate-800 text-cyan-300 border border-cyan-500/30 hover:border-cyan-400/50'
+            }`}
+            data-testid="button-view-map"
+          >
+            <MapPin className="w-4 h-4" />
+            Live Weather Map
+          </Button>
+          
+          <Button
+            onClick={() => setActiveView('webcams')}
+            className={`flex items-center gap-2 px-6 py-3 rounded-lg font-semibold transition-all ${
+              activeView === 'webcams'
+                ? 'bg-cyan-600 text-white'
+                : 'bg-slate-800 text-cyan-300 border border-cyan-500/30 hover:border-cyan-400/50'
+            }`}
+            data-testid="button-view-webcams"
+          >
+            <Video className="w-4 h-4" />
+            Live Webcams
+          </Button>
+          
+          <Button
+            onClick={() => setActiveView('hazards')}
+            className={`flex items-center gap-2 px-6 py-3 rounded-lg font-semibold transition-all ${
+              activeView === 'hazards'
+                ? 'bg-orange-600 text-white'
+                : 'bg-slate-800 text-orange-300 border border-orange-500/30 hover:border-orange-400/50'
+            }`}
+            data-testid="button-view-hazards"
+          >
+            <AlertTriangle className="w-4 h-4" />
+            Hazard Dashboard
+          </Button>
+        </div>
+
         {/* Main Dashboard Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           
           {/* Live Weather Maps */}
-          <div className="lg:col-span-2" data-testid="section-live-weather-maps">
-            <WindyMap 
-              defaultLat={selectedCity === 'Miami' ? 25.7617 : 30.4383}
-              defaultLon={selectedCity === 'Miami' ? -80.1918 : -84.2807}
-              defaultZoom={7}
-              height="500px"
-            />
-          </div>
-
-          {/* Environmental Conditions */}
-          <div className="rounded-2xl p-6 bg-slate-900/60 border border-cyan-500/30 backdrop-blur-sm hover:border-cyan-400/50 transition-all"
-            style={{ boxShadow: '0 0 40px rgba(0, 194, 255, 0.1)' }}
-          >
-            <h3 className="text-2xl font-bold text-cyan-300 mb-4 flex items-center gap-2">
-              <Wind className="w-6 h-6" />
-              Environmental
-            </h3>
-            <div className="space-y-4">
-              {[
-                { label: 'Air Quality', value: 'Good', color: 'text-green-400' },
-                { label: 'Pollen Count', value: 'Moderate', color: 'text-yellow-400' },
-                { label: 'UV Index', value: 'High', color: 'text-orange-400' },
-                { label: 'Soil Moisture', value: 'Normal', color: 'text-blue-400' },
-                { label: 'Fire Risk', value: 'Low', color: 'text-green-400' }
-              ].map(item => (
-                <div key={item.label} className="flex justify-between items-center p-3 bg-slate-800/40 rounded-lg border border-slate-700/50">
-                  <span className="text-sm text-cyan-300/70">{item.label}</span>
-                  <span className={`text-sm font-bold ${item.color}`}>{item.value}</span>
-                </div>
-              ))}
-              <p className="text-xs text-cyan-300/50 mt-4">Powered by Ambee Environmental API</p>
+          {activeView === 'map' && (
+            <div className="lg:col-span-2" data-testid="section-live-weather-maps">
+              <WindyMap 
+                defaultLat={selectedCity === 'Miami' ? 25.7617 : 30.4383}
+                defaultLon={selectedCity === 'Miami' ? -80.1918 : -84.2807}
+                defaultZoom={7}
+                height="500px"
+              />
             </div>
-          </div>
+          )}
+
+          {/* Live Webcams */}
+          {activeView === 'webcams' && (
+            <div className="lg:col-span-2" data-testid="section-live-webcams">
+              <WindyWebcams 
+                lat={selectedCity === 'Miami' ? 25.7617 : 30.4383}
+                lon={selectedCity === 'Miami' ? -80.1918 : -84.2807}
+                radius={50}
+              />
+            </div>
+          )}
+
+          {/* Environmental Conditions - Show on map and hazards views */}
+          {(activeView === 'map' || activeView === 'hazards') && (
+            <div className="rounded-2xl p-6 bg-slate-900/60 border border-cyan-500/30 backdrop-blur-sm hover:border-cyan-400/50 transition-all"
+              style={{ boxShadow: '0 0 40px rgba(0, 194, 255, 0.1)' }}
+            >
+              <h3 className="text-2xl font-bold text-cyan-300 mb-4 flex items-center gap-2">
+                <Wind className="w-6 h-6" />
+                Environmental
+              </h3>
+              <div className="space-y-4">
+                {[
+                  { label: 'Air Quality', value: 'Good', color: 'text-green-400' },
+                  { label: 'Pollen Count', value: 'Moderate', color: 'text-yellow-400' },
+                  { label: 'UV Index', value: 'High', color: 'text-orange-400' },
+                  { label: 'Soil Moisture', value: 'Normal', color: 'text-blue-400' },
+                  { label: 'Fire Risk', value: 'Low', color: 'text-green-400' }
+                ].map(item => (
+                  <div key={item.label} className="flex justify-between items-center p-3 bg-slate-800/40 rounded-lg border border-slate-700/50">
+                    <span className="text-sm text-cyan-300/70">{item.label}</span>
+                    <span className={`text-sm font-bold ${item.color}`}>{item.value}</span>
+                  </div>
+                ))}
+                <p className="text-xs text-cyan-300/50 mt-4">Powered by Ambee Environmental API</p>
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Live Hazards Monitor - EXPANDED WITH NEW DATA SOURCES! */}
+        {/* Live Hazards Monitor - EXPANDED WITH NEW DATA SOURCES! - Only show on hazards view */}
+        {activeView === 'hazards' && (
         <div className="mb-8 p-6 rounded-2xl bg-gradient-to-br from-red-900/20 to-orange-900/20 border-2 border-orange-500/40 backdrop-blur-sm"
           style={{ boxShadow: '0 0 60px rgba(249, 115, 22, 0.15)' }}
         >
@@ -359,6 +419,7 @@ export default function WeatherCenter() {
             Data sources: NHC • USGS Earthquakes • NASA FIRMS • NOAA MRMS Radar • GFS/HRRR Wind Models • NOAA CO-OPS Surge • USGS Rivers • NOAA HMS Smoke
           </p>
         </div>
+        )}  {/* End of hazards view conditional */}
 
         {/* Detailed Contractor View Toggle & Section */}
         <div className="mb-8 p-6 rounded-2xl bg-gradient-to-br from-green-900/20 to-emerald-900/20 border-2 border-green-500/40 backdrop-blur-sm"
