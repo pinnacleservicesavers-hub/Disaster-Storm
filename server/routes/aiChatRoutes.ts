@@ -1,7 +1,7 @@
 import express from 'express';
 import type { Express, Request, Response } from 'express';
 import OpenAI from 'openai';
-import { getWeatherForLocation, getSevereWeatherNearLocation, getTornadoAlerts } from '../services/weatherTools.js';
+import { getWeatherForLocation, getSevereWeatherNearLocation, getTornadoAlerts, getWinterWeatherAlerts } from '../services/weatherTools.js';
 
 interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
@@ -164,6 +164,17 @@ IMPORTANT: Be proactive - don't wait to be asked. When weather discussions start
               properties: {}
             }
           }
+        },
+        {
+          type: 'function' as const,
+          function: {
+            name: 'get_winter_weather_alerts',
+            description: 'Get all active winter weather alerts nationwide including blizzard warnings, ice storm warnings, winter storm warnings, and winter weather advisories. Returns comprehensive winter hazard data.',
+            parameters: {
+              type: 'object',
+              properties: {}
+            }
+          }
         }
       ];
 
@@ -223,6 +234,8 @@ IMPORTANT: Be proactive - don't wait to be asked. When weather discussions start
                   headline: a.properties.headline
                 }))
               }, null, 2);
+            } else if (functionName === 'get_winter_weather_alerts') {
+              functionResponse = await getWinterWeatherAlerts();
             } else {
               functionResponse = JSON.stringify({ error: 'Unknown function' });
             }

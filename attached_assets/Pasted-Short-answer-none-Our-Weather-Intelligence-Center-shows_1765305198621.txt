@@ -1,0 +1,23 @@
+Short answer: none. Our Weather Intelligence Center shows no active blizzard or ice-storm alerts for the United States right now (real‑time NWS/National Weather Service feed checked).
+
+Actionable next steps for contractors
+- Want continuous monitoring? I can enable state- or county-level contractor alerts and push NWS watches/warnings (we poll NWS every 2 minutes). Tell me which state or county to watch — no ZIP required.
+- If you stage crews for potential winter events, consider a 12–72 hour staging window based on GFS/HRRR wind and precipitation runs:
+  - Pre-stage equipment: tarps, plywood/board-up kits, roof anchors & fall protection, roof rakes, chain saws, portable heaters for frozen-pipe mitigation, deicing products for safe access.
+  - Materials logistics: order extra tarps/straps, ice-dam mitigation materials (e.g., heated cables if policy allows), and roof membrane supplies.
+  - Crew safety: high-traction boots, ice cleats, cold-weather PPE, warming shelters, and a travel/road-condition protocol. Don’t access roofs with heavy ice without engineered plan.
+- Claims & documentation best practices for winter losses:
+  - Photo sequence: pre‑work, wide & close-up damage, roof load photos from multiple angles (drone if safe/authorized), interior water intrusion and moisture readings, and timestamps.
+  - Record ambient temps and timestamps; log equipment/assets used on emergency work.
+  - Use an Emergency Customer Mitigation Authorization (I can generate a contractor-ready form) before performing tarping/board-up/water mitigation — emphasize emergency-only scope and that it’s NOT an Assignment of Benefits.
+  - Line-item pricing transparency on estimates (Xactimate-equivalent items: emergency tarping, ice/roof snow removal, water mitigation, frozen-pipe repair, tree removal) to speed insurer approvals.
+- Operational tips if an ice/blizzard threat emerges:
+  - Avoid nonessential roof work while ice is present; use drone aerial assessment when safe.
+  - Prioritize life-safety tasks (remove hanging limbs, clear egress paths, temporary tarps to stop interior damage).
+  - Coordinate with claim reps early and provide emergency scopes/photos to avoid delays.
+
+If you want, I will:
+- Start continuous alerts for any state(s) you name.
+- Generate a Customer Mitigation Authorization tailored for winter emergency work you can use immediately.
+Which state or county should I monitor or prepare authorization documents for?
+

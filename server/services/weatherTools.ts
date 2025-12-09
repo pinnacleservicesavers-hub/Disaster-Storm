@@ -132,6 +132,45 @@ export async function getTornadoAlerts(): Promise<any[]> {
   }
 }
 
+export async function getWinterWeatherAlerts(): Promise<string> {
+  try {
+    // Query NWS for all winter weather events (Blizzard, Ice Storm, Winter Storm, etc)
+    const winterEvents = encodeURIComponent('Blizzard Warning,Blizzard Watch,Ice Storm Warning,Ice Storm Watch,Winter Storm Warning,Winter Storm Watch,Winter Weather Advisory');
+    const url = `https://api.weather.gov/alerts/active?event=${winterEvents}`;
+    
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'DisasterDirect/1.0',
+        'Accept': 'application/geo+json'
+      }
+    });
+    
+    if (!response.ok) {
+      return 'No winter weather alerts found';
+    }
+    
+    const data = await response.json() as any;
+    const alerts = data.features || [];
+    
+    console.log(`❄️ Found ${alerts.length} winter weather alerts`);
+    
+    if (alerts.length === 0) {
+      return 'No active winter weather alerts nationwide right now';
+    }
+    
+    const summary = alerts.slice(0, 20).map((alert: any) => {
+      const props = alert.properties;
+      return `• ${props.event} - ${props.areaDesc}\n  Issued: ${props.onset}\n  Expires: ${props.ends}\n  Severity: ${props.severity}\n  ${props.headline}`;
+    }).join('\n\n');
+    
+    return `Active Winter Weather Alerts (${alerts.length} total):\n\n${summary}`;
+    
+  } catch (error) {
+    console.error('❄️ Winter alerts fetch error:', error);
+    return `Error fetching winter alerts: ${error}`;
+  }
+}
+
 export async function getSevereWeatherNearLocation(locationQuery: string): Promise<string> {
   try {
     const geocoded = await geocodeLocation(locationQuery);
