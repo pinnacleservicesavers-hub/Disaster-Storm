@@ -295,22 +295,24 @@ export default function StormPredictions() {
           </div>
         </div>
 
-        {/* Main Tabs */}
+        {/* Main Tabs - Sticky for visibility */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-8">
-          <TabsList className="bg-slate-900/60 border border-purple-500/30 p-1">
-            <TabsTrigger value="predictions" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white" data-testid="tab-predictions">
-              <Target className="w-4 h-4 mr-2" />
-              Live Predictions
-            </TabsTrigger>
-            <TabsTrigger value="education" className="data-[state=active]:bg-cyan-600 data-[state=active]:text-white" data-testid="tab-education">
-              <GraduationCap className="w-4 h-4 mr-2" />
-              Storm Science Academy
-            </TabsTrigger>
-            <TabsTrigger value="ai-reasoning" className="data-[state=active]:bg-green-600 data-[state=active]:text-white" data-testid="tab-ai-reasoning">
-              <Brain className="w-4 h-4 mr-2" />
-              AI Transparency
-            </TabsTrigger>
-          </TabsList>
+          <div className="sticky top-0 z-50 bg-black/90 backdrop-blur-md py-4 -mx-8 px-8 border-b border-purple-500/20">
+            <TabsList className="bg-slate-900/80 border border-purple-500/40 p-1.5 shadow-lg shadow-purple-500/10">
+              <TabsTrigger value="predictions" className="px-6 py-3 data-[state=active]:bg-purple-600 data-[state=active]:text-white font-semibold" data-testid="tab-predictions">
+                <Target className="w-5 h-5 mr-2" />
+                Live Predictions
+              </TabsTrigger>
+              <TabsTrigger value="education" className="px-6 py-3 data-[state=active]:bg-cyan-600 data-[state=active]:text-white font-semibold" data-testid="tab-education">
+                <GraduationCap className="w-5 h-5 mr-2" />
+                Storm Science Academy
+              </TabsTrigger>
+              <TabsTrigger value="ai-reasoning" className="px-6 py-3 data-[state=active]:bg-green-600 data-[state=active]:text-white font-semibold" data-testid="tab-ai-reasoning">
+                <Brain className="w-5 h-5 mr-2" />
+                AI Transparency
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           {/* PREDICTIONS TAB */}
           <TabsContent value="predictions" className="mt-6">
