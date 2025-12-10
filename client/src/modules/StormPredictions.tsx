@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import VoiceGuide from '@/components/VoiceGuide';
 import { StateCitySelector, useStateCitySelector } from '@/components/StateCitySelector';
@@ -6,11 +6,12 @@ import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
+import { useToast } from '@/hooks/use-toast';
 import { 
   MapPin, TrendingUp, AlertTriangle, Clock, DollarSign, Navigation,
   Brain, BookOpen, Lightbulb, Target, Zap, ThermometerSun, Wind, 
   Droplets, Eye, BarChart3, Atom, GraduationCap, ChevronRight,
-  Activity, Layers, Radio, Gauge, CheckCircle2, Info
+  Activity, Layers, Radio, Gauge, CheckCircle2, Info, Volume2, VolumeX, Loader2
 } from 'lucide-react';
 
 interface PredictionDashboard {
@@ -168,7 +169,110 @@ export default function StormPredictions() {
   const [activeTab, setActiveTab] = useState("predictions");
   const [selectedEducationTopic, setSelectedEducationTopic] = useState<keyof typeof stormEducation>("hurricanes");
   const [showAIReasoning, setShowAIReasoning] = useState(false);
-  
+  const [isPlayingVoice, setIsPlayingVoice] = useState(false);
+  const [isLoadingVoice, setIsLoadingVoice] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const { toast } = useToast();
+
+  // Generate narration text for the current educational topic
+  const generateNarrationText = () => {
+    const topic = stormEducation[selectedEducationTopic];
+    let narration = `Welcome to the Storm Science Academy. Today we're learning about ${topic.title}. `;
+    
+    narration += `Let me explain the critical formation factors that our AI monitors. `;
+    
+    topic.keyFactors.forEach((factor, idx) => {
+      narration += `Factor ${idx + 1}: ${factor.name}. The critical threshold is ${factor.threshold}. ${factor.impact}. `;
+    });
+    
+    narration += `Now, here's why this matters for your business. ${topic.whyItMatters} `;
+    
+    narration += `And here's a pro tip from industry veterans: ${topic.proTip} `;
+    
+    narration += `That concludes today's lesson on ${topic.title.split(' ')[0]}. You can explore other storm types in the menu, or ask me questions anytime. Good luck out there!`;
+    
+    return narration;
+  };
+
+  // Play voice narration using Rachel AI
+  const playVoiceNarration = async () => {
+    if (isPlayingVoice) {
+      // Stop playback
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+      setIsPlayingVoice(false);
+      return;
+    }
+
+    setIsLoadingVoice(true);
+    try {
+      const narrationText = generateNarrationText();
+      
+      const response = await fetch('/api/voice/speak', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: narrationText,
+          voice: 'rachel',
+          speed: 1.0
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Voice generation failed');
+      }
+
+      const audioBlob = await response.blob();
+      const audioUrl = URL.createObjectURL(audioBlob);
+      
+      const audio = new Audio(audioUrl);
+      audioRef.current = audio;
+      
+      audio.onended = () => {
+        setIsPlayingVoice(false);
+        URL.revokeObjectURL(audioUrl);
+      };
+      
+      audio.onerror = () => {
+        setIsPlayingVoice(false);
+        toast({
+          title: "Audio Error",
+          description: "Could not play the audio. Please try again.",
+          variant: "destructive"
+        });
+      };
+
+      await audio.play();
+      setIsPlayingVoice(true);
+      
+      toast({
+        title: "🎧 Rachel is Reading",
+        description: `Playing: ${stormEducation[selectedEducationTopic].title}`,
+      });
+      
+    } catch (error) {
+      console.error('Voice narration error:', error);
+      toast({
+        title: "Voice Unavailable",
+        description: "Rachel couldn't read this lesson. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoadingVoice(false);
+    }
+  };
+
+  // Stop audio when topic changes
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+      setIsPlayingVoice(false);
+    }
+  }, [selectedEducationTopic]);
+
   // Fetch prediction dashboard data
   const { data: dashboardData, isLoading, refetch } = useQuery<any>({
     queryKey: ['/api/prediction-dashboard', selectedState, forecastHours],
@@ -705,14 +809,57 @@ export default function StormPredictions() {
 
               {/* Content Area */}
               <div className="lg:col-span-3 space-y-6">
-                {/* Topic Header */}
+                {/* Topic Header with Voice Button */}
                 <div className="bg-gradient-to-r from-cyan-900/40 to-purple-900/40 border border-cyan-500/30 rounded-xl p-6">
-                  <div className="flex items-center gap-4 mb-4">
-                    <span className="text-5xl">{currentEducation.icon}</span>
-                    <div>
-                      <h2 className="text-2xl font-bold text-cyan-300">{currentEducation.title}</h2>
-                      <p className="text-cyan-300/70">Master the science behind AI predictions</p>
+                  <div className="flex items-start justify-between gap-4 mb-4">
+                    <div className="flex items-center gap-4">
+                      <span className="text-5xl">{currentEducation.icon}</span>
+                      <div>
+                        <h2 className="text-2xl font-bold text-cyan-300">{currentEducation.title}</h2>
+                        <p className="text-cyan-300/70">Master the science behind AI predictions</p>
+                      </div>
                     </div>
+                    
+                    {/* Rachel Voice Button */}
+                    <button
+                      onClick={playVoiceNarration}
+                      disabled={isLoadingVoice}
+                      className={`flex items-center gap-3 px-6 py-4 rounded-xl font-semibold transition-all ${
+                        isPlayingVoice 
+                          ? 'bg-red-600 hover:bg-red-700 text-white'
+                          : 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white shadow-lg shadow-purple-500/30'
+                      }`}
+                      data-testid="button-voice-narration"
+                    >
+                      {isLoadingVoice ? (
+                        <>
+                          <Loader2 className="w-6 h-6 animate-spin" />
+                          <span>Loading Rachel...</span>
+                        </>
+                      ) : isPlayingVoice ? (
+                        <>
+                          <VolumeX className="w-6 h-6" />
+                          <span>Stop Reading</span>
+                        </>
+                      ) : (
+                        <>
+                          <Volume2 className="w-6 h-6" />
+                          <div className="text-left">
+                            <div className="text-sm">🎧 Listen to Lesson</div>
+                            <div className="text-xs opacity-80">Rachel will read this for you</div>
+                          </div>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                  
+                  {/* Voice accessibility note */}
+                  <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-3 flex items-center gap-3">
+                    <Volume2 className="w-5 h-5 text-purple-400 flex-shrink-0" />
+                    <p className="text-sm text-purple-200/80">
+                      <strong>Accessibility:</strong> Click the button above to have Rachel read this entire lesson aloud. 
+                      Perfect for learning while working or for those who prefer listening.
+                    </p>
                   </div>
                 </div>
 
