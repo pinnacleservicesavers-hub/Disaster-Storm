@@ -31,13 +31,14 @@ export function registerAIChatRoutes(app: Express) {
         return res.status(400).json({ error: 'Messages array is required' });
       }
       
-      console.log(`💬 AI Chat request for ${moduleName}, messages count: ${messages.length}`);
+      console.log(`💬 AI Chat request for ${moduleName || 'general'}, messages count: ${messages.length}`);
 
       // Detect user role from module name if not explicitly provided
+      const safeModuleName = moduleName || 'general';
       const detectedRole = userRole || (
-        moduleName.toLowerCase().includes('homeowner') ? 'homeowner' :
-        moduleName.toLowerCase().includes('contractor') ? 'contractor' :
-        moduleName.toLowerCase().includes('admin') ? 'admin' :
+        safeModuleName.toLowerCase().includes('homeowner') ? 'homeowner' :
+        safeModuleName.toLowerCase().includes('contractor') ? 'contractor' :
+        safeModuleName.toLowerCase().includes('admin') ? 'admin' :
         'contractor' // Default to contractor
       );
 
@@ -49,7 +50,7 @@ export function registerAIChatRoutes(app: Express) {
         : `You are speaking to an ADMIN or platform manager. Provide system-level insights, analytics guidance, and operational recommendations.`;
 
       // Build system prompt with module and role context
-      const systemPrompt = `You are Rachel, an AI assistant for the Disaster Direct storm operations platform, specifically helping users in the "${moduleName}" module. 
+      const systemPrompt = `You are Rachel, an AI assistant for the Disaster Direct storm operations platform, specifically helping users in the "${safeModuleName}" module. 
 
 ${roleContext}
 
