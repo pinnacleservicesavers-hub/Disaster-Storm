@@ -326,13 +326,55 @@ export default function LiveHazardMap() {
         }
       });
 
-      // General NWS alerts (flood, storm, wind, etc.) - not winter or tornado
+      const tropicalStormAlerts = nwsAlertsData.filter((a: any) => {
+        const alertType = a.alertType?.toLowerCase() || '';
+        const title = a.title?.toLowerCase() || '';
+        return (alertType.includes('tropical storm') || title.includes('tropical storm')) &&
+               !alertType.includes('hurricane');
+      });
+
+      tropicalStormAlerts.forEach((alert: any) => {
+        let lat = alert.coordinates?.latitude;
+        let lon = alert.coordinates?.longitude;
+        
+        if (!lat || !lon) {
+          const stateCode = extractStateFromArea(alert.areas || []);
+          if (stateCode && STATE_CENTERS[stateCode]) {
+            [lat, lon] = STATE_CENTERS[stateCode];
+          }
+        }
+        
+        if (lat && lon) {
+          const marker = L.marker([lat, lon], {
+            icon: createIcon('🌊', '#14b8a6', 30),
+          });
+          
+          marker.on('click', () => {
+            setSelectedHazard({
+              type: 'Tropical Storm',
+              title: alert.title || 'Tropical Storm Alert',
+              severity: alert.severity || 'Severe',
+              location: alert.areas?.join(', ') || 'Unknown area',
+              details: alert.description || 'Tropical storm conditions expected',
+              time: alert.startTime || new Date().toISOString(),
+              source: 'NWS',
+              coordinates: [lat, lon],
+            });
+          });
+          
+          markersRef.current?.addLayer(marker);
+        }
+      });
+
+      // General NWS alerts (flood, storm, wind, etc.) - not winter, tornado, or tropical storm
       const otherAlerts = nwsAlertsData.filter((a: any) => {
         const alertType = a.alertType?.toLowerCase() || '';
+        const title = a.title?.toLowerCase() || '';
         const isWinter = alertType.includes('winter') || alertType.includes('snow') || 
                          alertType.includes('ice') || alertType.includes('blizzard');
         const isTornado = alertType.includes('tornado');
-        return !isWinter && !isTornado;
+        const isTropical = alertType.includes('tropical storm') || title.includes('tropical storm');
+        return !isWinter && !isTornado && !isTropical;
       });
 
       otherAlerts.forEach((alert: any) => {
@@ -451,6 +493,10 @@ export default function LiveHazardMap() {
               <span className="text-cyan-300/80">Tornadoes</span>
             </div>
             <div className="flex items-center gap-2">
+              <span>🌊</span>
+              <span className="text-cyan-300/80">Tropical Storms</span>
+            </div>
+            <div className="flex items-center gap-2">
               <span>⚠️</span>
               <span className="text-cyan-300/80">Alerts ({nwsAlertsData?.length || 0})</span>
             </div>
@@ -474,6 +520,7 @@ export default function LiveHazardMap() {
                     {selectedHazard.type === 'Earthquake' && '🌋'}
                     {selectedHazard.type === 'Wildfire' && '🔥'}
                     {selectedHazard.type === 'Hurricane' && '🌀'}
+                    {selectedHazard.type === 'Tropical Storm' && '🌊'}
                     {selectedHazard.type === 'Winter Storm' && '❄️'}
                     {selectedHazard.type === 'Tornado' && '🌪️'}
                     {selectedHazard.type === 'Alert' && '⚠️'}

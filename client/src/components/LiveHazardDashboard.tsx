@@ -45,6 +45,7 @@ interface HazardSummary {
   wildfires: number;
   winterStorms: number;
   tornadoes: number;
+  tropicalStorms: number;
   total: number;
 }
 
@@ -114,7 +115,7 @@ export default function LiveHazardDashboard() {
   });
 
   const alerts = (alertsData as LiveAlert[]) || [];
-  const hazards = (hazardsData as HazardSummary) || { hurricanes: 0, earthquakes: 0, wildfires: 0, winterStorms: 0, total: 0 };
+  const hazards = (hazardsData as HazardSummary) || { hurricanes: 0, earthquakes: 0, wildfires: 0, winterStorms: 0, tornadoes: 0, tropicalStorms: 0, total: 0 };
   const winterAlerts = (winterAlertsData as LiveAlert[]) || [];
 
   const displayedAlerts = selectedHazardType === 'winter' ? winterAlerts : alerts;
@@ -190,7 +191,7 @@ export default function LiveHazardDashboard() {
               </button>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 mb-6">
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3 mb-6">
               <motion.div
                 whileHover={{ scale: 1.05 }}
                 className="bg-slate-800/40 dark:bg-slate-800/60 rounded-lg p-4 shadow-sm border border-red-500/30"
@@ -276,6 +277,20 @@ export default function LiveHazardDashboard() {
                   <div>
                     <div className="text-2xl font-bold text-purple-400">{namedStormCount}</div>
                     <div className="text-xs text-cyan-300/70">Named Storms</div>
+                  </div>
+                </div>
+              </motion.div>
+
+              <motion.div
+                whileHover={{ scale: 1.05 }}
+                className="bg-slate-800/40 dark:bg-slate-800/60 rounded-lg p-4 shadow-sm border border-teal-500/30"
+                data-testid="card-tropical-storms"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-3xl">🌊</span>
+                  <div>
+                    <div className="text-2xl font-bold text-teal-400">{hazards.tropicalStorms || 0}</div>
+                    <div className="text-xs text-cyan-300/70">Tropical Storms</div>
                   </div>
                 </div>
               </motion.div>

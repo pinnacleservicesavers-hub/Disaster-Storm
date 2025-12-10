@@ -445,7 +445,7 @@ router.get('/audit-logs/stats', async (req, res) => {
 // ===== HAZARD SUMMARY (for dashboard quick stats) =====
 router.get('/summary', async (req, res) => {
   try {
-    const [storms, earthquakes, wildfires, winterAlerts] = await Promise.all([
+    const [storms, earthquakes, wildfires, winterAlerts, tornadoAlerts, tropicalStormAlerts] = await Promise.all([
       nhcService.fetchActiveStorms(),
       usgsEarthquakeService.fetchRecentEarthquakes(2.5),
       nasaFirmsService.fetchUSWildfires(1),
@@ -467,6 +467,44 @@ router.get('/summary', async (req, res) => {
           console.error('Winter alerts error:', e);
           return 0;
         }
+      })(),
+      // Fetch tornado alerts from NWS
+      (async () => {
+        try {
+          const tornadoEvents = encodeURIComponent('Tornado Warning,Tornado Watch');
+          const url = `https://api.weather.gov/alerts/active?event=${tornadoEvents}`;
+          const response = await fetch(url, {
+            headers: {
+              'User-Agent': 'DisasterDirect/1.0',
+              'Accept': 'application/geo+json'
+            }
+          });
+          if (!response.ok) return 0;
+          const data: any = await response.json();
+          return (data.features || []).length;
+        } catch (e) {
+          console.error('Tornado alerts error:', e);
+          return 0;
+        }
+      })(),
+      // Fetch tropical storm alerts from NWS
+      (async () => {
+        try {
+          const tropicalEvents = encodeURIComponent('Tropical Storm Warning,Tropical Storm Watch');
+          const url = `https://api.weather.gov/alerts/active?event=${tropicalEvents}`;
+          const response = await fetch(url, {
+            headers: {
+              'User-Agent': 'DisasterDirect/1.0',
+              'Accept': 'application/geo+json'
+            }
+          });
+          if (!response.ok) return 0;
+          const data: any = await response.json();
+          return (data.features || []).length;
+        } catch (e) {
+          console.error('Tropical storm alerts error:', e);
+          return 0;
+        }
       })()
     ]);
 
@@ -476,7 +514,9 @@ router.get('/summary', async (req, res) => {
       earthquakes: earthquakes.length,
       wildfires: wildfires.length,
       winterStorms: winterAlerts,
-      total: storms.length + earthquakes.length + wildfires.length + winterAlerts,
+      tornadoes: tornadoAlerts,
+      tropicalStorms: tropicalStormAlerts,
+      total: storms.length + earthquakes.length + wildfires.length + winterAlerts + tornadoAlerts + tropicalStormAlerts,
       timestamp: new Date(),
     });
   } catch (error: any) {
