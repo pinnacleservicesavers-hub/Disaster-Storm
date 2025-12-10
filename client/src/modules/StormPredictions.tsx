@@ -84,6 +84,19 @@ interface AIReasoning {
 
 // Storm Science Education Content
 const stormEducation = {
+  tropicalStorms: {
+    title: "Tropical Storm Development & Tracking",
+    icon: "🌊",
+    keyFactors: [
+      { name: "Sustained Winds", threshold: "39-73 mph", impact: "Defines tropical storm classification - weaker than hurricane but still dangerous", icon: Wind },
+      { name: "Sea Surface Temperature", threshold: "≥79°F (26°C)", impact: "Warm water provides energy for development and potential intensification", icon: ThermometerSun },
+      { name: "Organized Circulation", threshold: "Closed low-level center", impact: "Well-defined center indicates storm maturity and track predictability", icon: Atom },
+      { name: "Outflow Pattern", threshold: "Upper-level divergence", impact: "Good outflow allows storm to vent energy and strengthen", icon: Activity },
+      { name: "Rapid Intensification Potential", threshold: "Low shear + warm SST", impact: "Tropical storms can become hurricanes in 24-48 hours", icon: Zap }
+    ],
+    whyItMatters: "Tropical storms cause widespread flooding, power outages, and wind damage even without reaching hurricane strength. They're responsible for 40% of tropical system deaths due to inland flooding.",
+    proTip: "Don't wait for hurricane classification - tropical storms bring 60+ mph gusts and can stall, dumping 10-20 inches of rain. Deploy for flooding and wind damage 36 hours before landfall."
+  },
   hurricanes: {
     title: "Hurricane Formation & Intensification",
     icon: "🌀",
@@ -167,7 +180,7 @@ export default function StormPredictions() {
   const { selectedState, setSelectedState, selectedCity, setSelectedCity, availableCities } = useStateCitySelector('Florida', 'Miami');
   const [forecastHours, setForecastHours] = useState(48);
   const [activeTab, setActiveTab] = useState("predictions");
-  const [selectedEducationTopic, setSelectedEducationTopic] = useState<keyof typeof stormEducation>("hurricanes");
+  const [selectedEducationTopic, setSelectedEducationTopic] = useState<keyof typeof stormEducation>("tropicalStorms");
   const [showAIReasoning, setShowAIReasoning] = useState(false);
   const [isPlayingVoice, setIsPlayingVoice] = useState(false);
   const [isLoadingVoice, setIsLoadingVoice] = useState(false);
@@ -205,6 +218,8 @@ export default function StormPredictions() {
     });
     
     narration += `Now let me explain our model performance. For track forecasts, we achieve 94% accuracy at 24 hours. For intensity forecasts, we're at 82% accuracy. For damage estimates, we're at 87% accuracy. And for pre-position timing recommendations, we achieve 91% accuracy. `;
+    
+    narration += `We monitor 6 distinct hazard types: Tropical Storms, Hurricanes, Tornadoes, Winter Storms, Wildfires, and Earthquakes. Tropical storms are particularly important because they can rapidly intensify into hurricanes, and they cause 40% of tropical system fatalities due to inland flooding even without reaching hurricane strength. `;
     
     narration += `Our prediction methodology follows 5 steps. First, we ingest real-time data from all 8 feeds every 2 to 15 minutes. Second, we compare current conditions to over 100 years of historical storm data. Third, we blend multiple weather models including GFS, ECMWF, and HRRR. Fourth, we apply our damage probability model trained on over 2 million historical events. Finally, we calculate contractor opportunity scores based on revenue potential, timing, and competition. `;
     
