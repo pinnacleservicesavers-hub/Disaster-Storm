@@ -68,6 +68,14 @@ const alertIcons = {
 
 export default function LiveHazardDashboard() {
   const [selectedHazardType, setSelectedHazardType] = useState<'all' | 'winter' | 'tornado'>('all');
+  const [viewMode, setViewMode] = useState<'map' | 'list'>('map');
+
+  const { data: namedStormsData } = useQuery({
+    queryKey: ['/api/xweather/tropicalcyclones/summary'],
+    refetchInterval: 5 * 60 * 1000,
+  });
+
+  const namedStormCount = (namedStormsData as any)?.totalActive || 0;
 
   const { data: alertsData, isLoading: alertsLoading } = useQuery({
     queryKey: ['/api/weather/alerts'],
@@ -155,7 +163,34 @@ export default function LiveHazardDashboard() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+            <div className="flex items-center justify-end gap-2 mb-4">
+              <button
+                onClick={() => setViewMode('map')}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all ${
+                  viewMode === 'map'
+                    ? 'bg-cyan-600/30 border-cyan-500/50 text-cyan-300'
+                    : 'bg-slate-800/60 border-slate-600/50 text-slate-400 hover:bg-slate-700/60'
+                }`}
+                data-testid="view-mode-map"
+              >
+                <Map className="w-4 h-4" />
+                Map View
+              </button>
+              <button
+                onClick={() => setViewMode('list')}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all ${
+                  viewMode === 'list'
+                    ? 'bg-cyan-600/30 border-cyan-500/50 text-cyan-300'
+                    : 'bg-slate-800/60 border-slate-600/50 text-slate-400 hover:bg-slate-700/60'
+                }`}
+                data-testid="view-mode-list"
+              >
+                <List className="w-4 h-4" />
+                List View
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 mb-6">
               <motion.div
                 whileHover={{ scale: 1.05 }}
                 className="bg-slate-800/40 dark:bg-slate-800/60 rounded-lg p-4 shadow-sm border border-red-500/30"
@@ -233,6 +268,20 @@ export default function LiveHazardDashboard() {
 
               <motion.div
                 whileHover={{ scale: 1.05 }}
+                className="bg-slate-800/40 dark:bg-slate-800/60 rounded-lg p-4 shadow-sm border border-purple-500/30"
+                data-testid="card-named-storms"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-3xl">🌀</span>
+                  <div>
+                    <div className="text-2xl font-bold text-purple-400">{namedStormCount}</div>
+                    <div className="text-xs text-cyan-300/70">Named Storms</div>
+                  </div>
+                </div>
+              </motion.div>
+
+              <motion.div
+                whileHover={{ scale: 1.05 }}
                 className="bg-slate-800/40 dark:bg-slate-800/60 rounded-lg p-4 shadow-sm border border-cyan-500/30"
               >
                 <div className="flex items-center gap-3">
@@ -252,68 +301,75 @@ export default function LiveHazardDashboard() {
                 </p>
               </div>
             )}
-            <ScrollArea className="h-[600px] rounded-md border border-cyan-500/30 bg-slate-800/30 dark:bg-slate-900/40 p-4">
-              <AnimatePresence>
-                {displayedAlerts.length === 0 ? (
-                  <div className="text-center py-12 text-cyan-300/50">
-                    <AlertTriangle className="w-12 h-12 mx-auto mb-3 opacity-30 text-cyan-400" />
-                    <p className="text-lg font-medium text-cyan-300">No Active Alerts</p>
-                    <p className="text-sm mt-1 text-cyan-300/70">{selectedHazardType === 'winter' ? 'No winter weather alerts detected.' : selectedHazardType === 'tornado' ? 'No tornado watches active.' : 'All clear! No severe weather or hazards detected.'}</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {displayedAlerts.map((alert, index) => (
-                      <motion.div
-                        key={alert.id}
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: 20 }}
-                        transition={{ delay: index * 0.05 }}
-                        data-testid={`alert-${alert.id}`}
-                      >
-                        <Card className={`border-l-4 ${alert.severity === 'Extreme' ? 'border-l-red-500 bg-red-600/10 dark:bg-red-600/20' : alert.severity === 'Severe' ? 'border-l-orange-500 bg-orange-600/10 dark:bg-orange-600/20' : 'border-l-yellow-500 bg-yellow-600/10 dark:bg-yellow-600/20'}`}>
-                          <CardContent className="p-4">
-                            <div className="flex items-start justify-between gap-4">
-                              <div className="flex items-start gap-3 flex-1">
-                                <div className={`p-2 rounded-lg ${alert.severity === 'Extreme' ? 'bg-red-600/80' : alert.severity === 'Severe' ? 'bg-orange-600/80' : 'bg-yellow-600/80'} text-white`}>
-                                  {getAlertIcon(alert.alertType)}
-                                </div>
-                                <div className="flex-1">
-                                  <div className="flex items-center gap-2 mb-1">
-                                    <h3 className="font-bold text-white">{alert.title}</h3>
-                                    <Badge className={getSeverityColor(alert.severity)}>
-                                      {alert.severity}
-                                    </Badge>
+
+            {viewMode === 'map' ? (
+              <div className="h-[600px] rounded-md border border-cyan-500/30 bg-slate-800/30 dark:bg-slate-900/40 overflow-hidden">
+                <LiveHazardMap />
+              </div>
+            ) : (
+              <ScrollArea className="h-[600px] rounded-md border border-cyan-500/30 bg-slate-800/30 dark:bg-slate-900/40 p-4">
+                <AnimatePresence>
+                  {displayedAlerts.length === 0 ? (
+                    <div className="text-center py-12 text-cyan-300/50">
+                      <AlertTriangle className="w-12 h-12 mx-auto mb-3 opacity-30 text-cyan-400" />
+                      <p className="text-lg font-medium text-cyan-300">No Active Alerts</p>
+                      <p className="text-sm mt-1 text-cyan-300/70">{selectedHazardType === 'winter' ? 'No winter weather alerts detected.' : selectedHazardType === 'tornado' ? 'No tornado watches active.' : 'All clear! No severe weather or hazards detected.'}</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {displayedAlerts.map((alert, index) => (
+                        <motion.div
+                          key={alert.id}
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: 20 }}
+                          transition={{ delay: index * 0.05 }}
+                          data-testid={`alert-${alert.id}`}
+                        >
+                          <Card className={`border-l-4 ${alert.severity === 'Extreme' ? 'border-l-red-500 bg-red-600/10 dark:bg-red-600/20' : alert.severity === 'Severe' ? 'border-l-orange-500 bg-orange-600/10 dark:bg-orange-600/20' : 'border-l-yellow-500 bg-yellow-600/10 dark:bg-yellow-600/20'}`}>
+                            <CardContent className="p-4">
+                              <div className="flex items-start justify-between gap-4">
+                                <div className="flex items-start gap-3 flex-1">
+                                  <div className={`p-2 rounded-lg ${alert.severity === 'Extreme' ? 'bg-red-600/80' : alert.severity === 'Severe' ? 'bg-orange-600/80' : 'bg-yellow-600/80'} text-white`}>
+                                    {getAlertIcon(alert.alertType)}
                                   </div>
-                                  <p className="text-sm text-cyan-300/80 mb-2">
-                                    {alert.description}
-                                  </p>
-                                  <div className="flex flex-wrap items-center gap-3 text-xs text-cyan-300/60">
-                                    <div className="flex items-center gap-1">
-                                      <MapPin className="w-3 h-3" />
-                                      <span className="font-medium">
-                                        {alert.areas.slice(0, 3).join(', ')}
-                                        {alert.areas.length > 3 && ` +${alert.areas.length - 3} more`}
-                                      </span>
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <h3 className="font-bold text-white">{alert.title}</h3>
+                                      <Badge className={getSeverityColor(alert.severity)}>
+                                        {alert.severity}
+                                      </Badge>
                                     </div>
-                                    <div className="flex items-center gap-1">
-                                      <Clock className="w-3 h-3" />
-                                      <span>
-                                        {formatTime(alert.startTime)} - {formatTime(alert.endTime)}
-                                      </span>
+                                    <p className="text-sm text-cyan-300/80 mb-2">
+                                      {alert.description}
+                                    </p>
+                                    <div className="flex flex-wrap items-center gap-3 text-xs text-cyan-300/60">
+                                      <div className="flex items-center gap-1">
+                                        <MapPin className="w-3 h-3" />
+                                        <span className="font-medium">
+                                          {alert.areas.slice(0, 3).join(', ')}
+                                          {alert.areas.length > 3 && ` +${alert.areas.length - 3} more`}
+                                        </span>
+                                      </div>
+                                      <div className="flex items-center gap-1">
+                                        <Clock className="w-3 h-3" />
+                                        <span>
+                                          {formatTime(alert.startTime)} - {formatTime(alert.endTime)}
+                                        </span>
+                                      </div>
                                     </div>
                                   </div>
                                 </div>
                               </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </motion.div>
-                    ))}
-                  </div>
-                )}
-              </AnimatePresence>
-            </ScrollArea>
+                            </CardContent>
+                          </Card>
+                        </motion.div>
+                      ))}
+                    </div>
+                  )}
+                </AnimatePresence>
+              </ScrollArea>
+            )}
           </CardContent>
         </Card>
       </motion.div>
