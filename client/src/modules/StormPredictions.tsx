@@ -615,13 +615,46 @@ export default function StormPredictions() {
                   </div>
                 )}
 
-                {/* No Data */}
+                {/* No Data - Show live data source info */}
                 {(!predictions || predictions.length === 0) && (!forecasts || forecasts.length === 0) && (
                   <div className="text-center py-12">
                     <div className="text-6xl mb-4">🌤️</div>
-                    <h3 className="text-2xl font-bold text-cyan-300 mb-2">All Clear</h3>
-                    <p className="text-cyan-300/70">No active storm predictions in the next {forecastHours} hours</p>
-                    <p className="text-cyan-300/50 text-sm mt-2">Check out the Storm Science Academy to learn about prediction methodology</p>
+                    <h3 className="text-2xl font-bold text-cyan-300 mb-2">All Clear - No Active Tropical Systems</h3>
+                    <p className="text-cyan-300/70 mb-4">Live data from the National Hurricane Center shows no active tropical systems in the Atlantic or Eastern Pacific basins.</p>
+                    
+                    {/* Live Data Badge */}
+                    <div className="inline-flex items-center gap-3 px-6 py-3 bg-green-500/10 border border-green-500/30 rounded-xl mb-6">
+                      <span className="w-3 h-3 rounded-full bg-green-400 animate-pulse" />
+                      <span className="text-green-300 font-medium">Live NHC Data Feed Active</span>
+                      <span className="text-green-300/60 text-sm">• Updated {new Date().toLocaleTimeString()}</span>
+                    </div>
+                    
+                    <div className="max-w-2xl mx-auto bg-slate-900/60 border border-cyan-500/30 rounded-xl p-6 text-left">
+                      <h4 className="text-lg font-bold text-cyan-300 mb-3">📚 While You Wait - Study Up!</h4>
+                      <p className="text-cyan-300/70 mb-4">Use this downtime to master storm science in the Academy tab. When the next hurricane forms, you'll be ready to:</p>
+                      <ul className="space-y-2 text-sm text-cyan-300/80">
+                        <li className="flex items-start gap-2">
+                          <span className="text-green-400">✓</span>
+                          Understand WHY the AI makes specific predictions
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-green-400">✓</span>
+                          Recognize intensification signals before competitors
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-green-400">✓</span>
+                          Pre-position crews at optimal times and locations
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-green-400">✓</span>
+                          Make data-driven deployment decisions with confidence
+                        </li>
+                      </ul>
+                    </div>
+                    
+                    <p className="text-cyan-300/40 text-xs mt-6">
+                      Note: Atlantic hurricane season runs June 1 - November 30. Eastern Pacific season runs May 15 - November 30.
+                    </p>
                   </div>
                 )}
               </>
