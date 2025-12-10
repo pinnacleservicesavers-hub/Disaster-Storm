@@ -1,10 +1,9 @@
-import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Camera, MapPin, ExternalLink, RefreshCw, Play, AlertTriangle } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { Camera, MapPin, RefreshCw, Play, AlertTriangle, ExternalLink } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 interface WindyWebcam {
   id: string;
@@ -39,7 +38,6 @@ interface WindyWebcamsProps {
 }
 
 export default function WindyWebcams({ lat = 28.5, lon = -81.5, radius = 50, region }: WindyWebcamsProps) {
-  const [selectedWebcam, setSelectedWebcam] = useState<WindyWebcam | null>(null);
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: region ? ['/api/windy/webcams/region', region] : ['/api/windy/webcams/nearby', lat, lon, radius],
@@ -130,28 +128,36 @@ export default function WindyWebcams({ lat = 28.5, lon = -81.5, radius = 50, reg
                   data-testid={`webcam-${webcam.id}`}
                 >
                   <Card 
-                    className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
-                    onClick={() => setSelectedWebcam(webcam)}
+                    className="overflow-hidden hover:shadow-lg hover:shadow-cyan-500/20 transition-all cursor-pointer border-slate-700 hover:border-cyan-500/50"
+                    onClick={() => {
+                      console.log('[WindyWebcams] Opening webcam:', webcam.title, webcam.player.day.embed);
+                      window.open(webcam.player.day.embed, '_blank', 'noopener,noreferrer');
+                    }}
                   >
                     <div 
-                      className="relative aspect-video bg-gray-100 dark:bg-gray-800 cursor-pointer"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedWebcam(webcam);
-                      }}
+                      className="relative aspect-video bg-slate-800 cursor-pointer"
                     >
                       <img
                         src={webcam.image.current.preview}
                         alt={webcam.title}
                         className="w-full h-full object-cover"
                         loading="lazy"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.src = webcam.image.current.icon || webcam.image.current.thumbnail || '';
+                          target.onerror = null;
+                        }}
                       />
                       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                         <Play className="w-12 h-12 text-white" />
                       </div>
-                      <Badge className="absolute top-2 right-2 bg-green-600">
-                        Live
+                      <Badge className="absolute top-2 right-2 bg-green-600/90 text-white">
+                        <span className="animate-pulse mr-1">●</span> Live
                       </Badge>
+                      <div className="absolute bottom-2 right-2 bg-black/60 px-2 py-1 rounded text-xs text-white flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <ExternalLink className="w-3 h-3" />
+                        Open on Windy.com
+                      </div>
                     </div>
                     <CardContent className="p-3">
                       <h3 className="font-semibold text-sm mb-1 truncate" title={webcam.title}>
@@ -169,62 +175,6 @@ export default function WindyWebcams({ lat = 28.5, lon = -81.5, radius = 50, reg
               ))}
             </div>
 
-            <AnimatePresence>
-              {selectedWebcam && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
-                  onClick={() => setSelectedWebcam(null)}
-                >
-                  <motion.div
-                    initial={{ scale: 0.9 }}
-                    animate={{ scale: 1 }}
-                    exit={{ scale: 0.9 }}
-                    className="bg-white dark:bg-gray-900 rounded-lg max-w-4xl w-full overflow-hidden"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-                      <div>
-                        <h2 className="font-bold text-lg">{selectedWebcam.title}</h2>
-                        <div className="flex items-center text-sm text-gray-500 dark:text-gray-400 mt-1">
-                          <MapPin className="w-4 h-4 mr-1" />
-                          {selectedWebcam.location.city}, {selectedWebcam.location.region}
-                        </div>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setSelectedWebcam(null)}
-                      >
-                        Close
-                      </Button>
-                    </div>
-                    <div className="aspect-video bg-black">
-                      <iframe
-                        src={selectedWebcam.player.day.embed}
-                        className="w-full h-full"
-                        frameBorder="0"
-                        allow="autoplay; fullscreen"
-                        title={selectedWebcam.title}
-                      />
-                    </div>
-                    <div className="p-4 bg-gray-50 dark:bg-gray-800 flex justify-end">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => window.open(selectedWebcam.player.day.embed, '_blank')}
-                        className="flex items-center gap-2"
-                      >
-                        <ExternalLink className="w-4 h-4" />
-                        Open in New Tab
-                      </Button>
-                    </div>
-                  </motion.div>
-                </motion.div>
-              )}
-            </AnimatePresence>
           </>
         )}
       </CardContent>

@@ -63,8 +63,8 @@ export class WindyService {
         console.log(`🎥 Fetching Windy webcams near ${lat}, ${lon} (radius: ${radius}km)`);
         console.log(`🔑 API Key configured: ${this.webcamApiKey.substring(0, 5)}...`);
         
-        const url = `https://api.windy.com/api/webcams/v2/list/nearby?lat=${lat}&lon=${lon}&radius=${radius}&show=webcams:image,location,player&limit=20`;
-        console.log(`📡 Calling: ${url}`);
+        const url = `https://api.windy.com/webcams/api/v3/webcams?nearby=${lat},${lon},${radius}&include=images,location,player,urls&limit=20&lang=en`;
+        console.log(`📡 Calling Windy API v3: ${url}`);
         
         const response = await fetch(url, {
           headers: {
@@ -77,29 +77,29 @@ export class WindyService {
 
         if (response.ok) {
           const data: any = await response.json();
-          console.log(`✅ Windy API Success - Got ${data.result?.webcams?.length || 0} webcams`);
-          if (data.result?.webcams && data.result.webcams.length > 0) {
-            return data.result.webcams.map((cam: any) => ({
-              id: cam.id,
+          console.log(`✅ Windy API v3 Success - Got ${data.webcams?.length || 0} webcams`);
+          if (data.webcams && data.webcams.length > 0) {
+            return data.webcams.map((cam: any) => ({
+              id: cam.webcamId || cam.id,
               title: cam.title,
-              status: cam.status,
+              status: cam.status || 'active',
               location: {
-                latitude: cam.location.latitude,
-                longitude: cam.location.longitude,
-                city: cam.location.city || 'Unknown',
-                region: cam.location.region || 'Unknown',
-                country: cam.location.country || 'USA'
+                latitude: cam.location?.latitude,
+                longitude: cam.location?.longitude,
+                city: cam.location?.city || 'Unknown',
+                region: cam.location?.region || 'Unknown',
+                country: cam.location?.country || 'USA'
               },
               image: {
                 current: {
-                  preview: cam.image?.current?.preview || '',
-                  icon: cam.image?.current?.icon || '',
-                  thumbnail: cam.image?.current?.thumbnail || ''
+                  preview: cam.images?.current?.preview || cam.images?.current?.icon || '',
+                  icon: cam.images?.current?.icon || '',
+                  thumbnail: cam.images?.current?.thumbnail || cam.images?.current?.icon || ''
                 }
               },
               player: {
                 day: {
-                  embed: cam.player?.day?.embed || `https://weathercams.windy.com/cam/${cam.id}`
+                  embed: cam.player?.embed || cam.urls?.detail || `https://webcams.windy.com/webcams/${cam.webcamId}`
                 }
               }
             }));
@@ -107,7 +107,7 @@ export class WindyService {
         } else {
           const errorBody = await response.text();
           console.warn(`⚠️ Windy API Error ${response.status}: ${response.statusText}`);
-          console.warn(`📋 Response: ${errorBody.substring(0, 200)}`);
+          console.warn(`📋 Response: ${errorBody.substring(0, 500)}`);
         }
       } else {
         console.warn('⚠️ WINDY_WEBCAM_API_KEY not configured in environment');
