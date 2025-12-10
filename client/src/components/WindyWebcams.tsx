@@ -39,7 +39,7 @@ interface WindyWebcamsProps {
 
 export default function WindyWebcams({ lat = 28.5, lon = -81.5, radius = 50, region }: WindyWebcamsProps) {
 
-  const { data, isLoading, isError, error, refetch } = useQuery({
+  const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: region ? ['/api/windy/webcams/region', region] : ['/api/windy/webcams/nearby', lat, lon, radius],
     queryFn: async () => {
       const url = region 
@@ -81,12 +81,16 @@ export default function WindyWebcams({ lat = 28.5, lon = -81.5, radius = 50, reg
           <Button
             variant="outline"
             size="sm"
-            onClick={() => refetch()}
+            onClick={() => {
+              console.log('[WindyWebcams] Refresh button clicked');
+              refetch();
+            }}
+            disabled={isFetching}
             data-testid="button-refresh-webcams"
             className="flex items-center gap-2"
           >
-            <RefreshCw className="w-4 h-4" />
-            Refresh
+            <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} />
+            {isFetching ? 'Refreshing...' : 'Refresh'}
           </Button>
         </div>
       </CardHeader>

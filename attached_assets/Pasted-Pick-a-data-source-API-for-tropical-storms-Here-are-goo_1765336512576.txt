@@ -1,0 +1,148 @@
+Pick a data source (API) for tropical storms
+
+Here are good options:
+
+US-only hurricanes / tropical storms + all warnings:
+NWS API – api.weather.gov gives you official alerts & polygons for the U.S. 
+National Weather Service
++1
+
+Global named storms (hurricanes, cyclones, typhoons):
+
+Xweather Tropical Cyclones API – returns active storms globally with name, location, track, and forecast. 
+Xweather
++1
+
+TropicalInfo API – real-time cyclone data with an /active storms endpoint. 
+tropicalinfo.com
+
+Tidetech Storm API – /v1/active endpoint listing all active tropical rotating storms worldwide. 
+docs.tidetech.org
+
+Cyclocane is great for humans, but it’s not documented as a JSON API; they’re basically visualizing data that comes from places like NHC, JTWC, etc.
+
+For your Live Hazard Monitoring panel, I’d pick:
+
+Xweather or TropicalInfo for global storm count + positions
+
+NWS api.weather.gov/alerts for U.S. alerts that light up your “Alerts” card
+
+2️⃣ Basic flow for your app
+
+Conceptually:
+
+Call the storm API on an interval (e.g., every 5–10 minutes).
+
+Get back a list of storms: each with id, name, lat, lon, status, category, basin, etc.
+
+Count how many are active → update your “Hurricanes” number at the top.
+
+Plot each storm on your map → show a storm icon / hurricane symbol at lat, lon.
+
+Optional: click marker to open detail drawer with name, category, wind, track, etc.
+
+3️⃣ Example: JS / TypeScript pseudo-code
+
+I’ll show an example with a “generic” storms API that returns JSON like:
+
+[
+  { "name": "ALPHA", "lat": 25.3, "lon": -70.1, "status": "Hurricane" },
+  { "name": "BETA",  "lat": 12.4, "lon": 135.8, "status": "TS" }
+]
+
+Fetch storms & update top counter
+async function fetchTropicalStorms() {
+  const res = await fetch("https://your-storm-api.com/tropicalcyclones/active?key=API_KEY");
+  if (!res.ok) throw new Error("Storm API error");
+  const storms = await res.json();         // array of storms
+
+  // 1) update the top card count
+  const hurricaneCard = document.querySelector("#hurricane-count");
+  hurricaneCard.textContent = storms.length.toString();
+
+  // 2) update the map markers
+  updateStormMarkersOnMap(storms);
+}
+
+Draw markers on your map (Leaflet-style example)
+let stormLayer: L.LayerGroup | null = null;
+
+function updateStormMarkersOnMap(storms: any[]) {
+  if (stormLayer) {
+    stormLayer.clearLayers();
+  } else {
+    stormLayer = L.layerGroup().addTo(map);
+  }
+
+  storms.forEach(storm => {
+    const icon = L.divIcon({
+      className: "storm-marker",
+      html: "🌀",   // or your custom SVG icon
+      iconSize: [24, 24]
+    });
+
+    const marker = L.marker([storm.lat, storm.lon], { icon })
+      .bindPopup(`
+        <strong>${storm.name}</strong><br>
+        Status: ${storm.status}
+      `);
+
+    stormLayer!.addLayer(marker);
+  });
+}
+
+
+Then set up polling:
+
+fetchTropicalStorms();
+setInterval(fetchTropicalStorms, 5 * 60 * 1000); // every 5 minutes
+
+4️⃣ Wiring it into your “alarm bell” behavior
+
+Use the same data to drive the bell:
+
+If storms.length > 0
+
+Show red bell 🚨 in the header with storms.length
+
+Map shows 🌀 markers where they are
+
+If storms.length === 0
+
+Hide bell / show “0 Active”
+
+You can still keep the global map, just with no storm markers
+
+Pseudo-logic:
+
+function updateAlertBell(storms: any[]) {
+  const bell = document.querySelector("#active-alert-bell");
+  const label = document.querySelector("#active-alert-label");
+
+  if (storms.length > 0) {
+    bell.classList.add("active"); // glowing animation
+    label.textContent = `${storms.length} Active`;
+  } else {
+    bell.classList.remove("active");
+    label.textContent = "0 Active";
+  }
+}
+
+
+Call updateAlertBell(storms) inside fetchTropicalStorms().
+
+5️⃣ What you actually need to do next
+
+Choose your provider (Xweather, TropicalInfo, Tidetech, etc.).
+
+Create an account & get an API key.
+
+Read their “active storms” endpoint docs (they’ll show exact URL & JSON format). 
+Xweather
++2
+tropicalinfo.com
++2
+
+Plug their URL & field names into the pseudo-code above.
+
+Hook it to your existing map + top metric cards.

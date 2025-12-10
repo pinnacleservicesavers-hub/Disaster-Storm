@@ -1,0 +1,169 @@
+Nice, that means you’re 80% of the way there already 👍
+Let’s wire it up so your app actually:
+
+calls the storm API using your secret
+
+returns data from your own backend
+
+updates your top numbers and your map + bell
+
+I’ll assume a Node/Express + front-end JS setup in Replit (most common there). If yours is different, you can still copy the same pattern.
+
+1️⃣ Backend: create a /api/storms route
+
+In your main server file (index.js or server.js), add something like this:
+
+import express from "express";
+import fetch from "node-fetch"; // if using "type": "module" in package.json
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Replit secret names: STORM_API_KEY and STORM_API_URL
+const STORM_API_KEY = process.env.STORM_API_KEY;
+const STORM_API_URL = process.env.STORM_API_URL; 
+// e.g. "https://api.yourprovider.com/v1/tropical/active"
+
+app.get("/api/storms", async (req, res) => {
+  try {
+    const url = `${STORM_API_URL}?key=${encodeURIComponent(STORM_API_KEY)}`;
+    const apiRes = await fetch(url);
+
+    if (!apiRes.ok) {
+      console.error("Storm API error:", apiRes.status, await apiRes.text());
+      return res.status(500).json({ error: "Storm API error" });
+    }
+
+    const storms = await apiRes.json();
+
+    // OPTIONALLY normalize data here if needed
+    // e.g. { name, lat, lon, status }
+
+    res.json(storms);
+  } catch (err) {
+    console.error("Error fetching storms:", err);
+    res.status(500).json({ error: "Server error fetching storms" });
+  }
+});
+
+// ... your existing routes / static files here ...
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
+
+
+Secrets in Replit:
+In the Replit sidebar → Secrets (Environment), you should already have something like:
+
+STORM_API_KEY
+
+STORM_API_URL
+
+The code above reads them with process.env.STORM_API_KEY etc.
+
+2️⃣ Frontend: fetch storms & update the dashboard
+
+In your HTML, you probably already have:
+
+<div id="hurricane-count">0</div>
+<div id="active-alert-bell" class="bell">
+  <span id="active-alert-label">0 Active</span>
+</div>
+
+<div id="map" style="height: 400px;"></div>
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="/script.js"></script>
+
+
+Now in script.js (or your main front-end JS), do something like:
+
+let stormLayer = null;
+
+// Initialize map once (Leaflet example)
+const map = L.map("map").setView([20, 0], 2); // world view
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  maxZoom: 10
+}).addTo(map);
+
+async function fetchStorms() {
+  try {
+    const res = await fetch("/api/storms");
+    if (!res.ok) throw new Error("API error");
+    const storms = await res.json();
+
+    updateTopCards(storms);
+    updateAlertBell(storms);
+    updateStormMarkersOnMap(storms);
+  } catch (err) {
+    console.error("Error fetching storms:", err);
+  }
+}
+
+function updateTopCards(storms) {
+  const hurricaneCountEl = document.getElementById("hurricane-count");
+  hurricaneCountEl.textContent = storms.length.toString();
+}
+
+function updateAlertBell(storms) {
+  const bell = document.getElementById("active-alert-bell");
+  const label = document.getElementById("active-alert-label");
+
+  if (storms.length > 0) {
+    bell.classList.add("active"); // e.g. glowing CSS animation
+    label.textContent = `${storms.length} Active`;
+  } else {
+    bell.classList.remove("active");
+    label.textContent = "0 Active";
+  }
+}
+
+function updateStormMarkersOnMap(storms) {
+  if (!stormLayer) {
+    stormLayer = L.layerGroup().addTo(map);
+  } else {
+    stormLayer.clearLayers();
+  }
+
+  storms.forEach(storm => {
+    // Adjust these keys to match your API response
+    const { lat, lon, name, status } = storm;
+
+    const icon = L.divIcon({
+      className: "storm-marker",
+      html: "🌀", // swap for custom SVG if you like
+      iconSize: [24, 24]
+    });
+
+    const marker = L.marker([lat, lon], { icon }).bindPopup(`
+      <strong>${name}</strong><br>
+      Status: ${status}
+    `);
+
+    stormLayer.addLayer(marker);
+  });
+}
+
+// Initial load + polling
+fetchStorms();
+setInterval(fetchStorms, 5 * 60 * 1000); // every 5 minutes
+
+3️⃣ Simple CSS for the bell (optional but nice)
+#active-alert-bell.active {
+  animation: pulse 1s infinite;
+  color: #ff4b4b;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.1); opacity: 0.7; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+4️⃣ What you need to tweak
+
+Change STORM_API_URL to the exact endpoint your provider uses for “active tropical storms.”
+
+Adjust the JSON fields in updateStormMarkersOnMap (lat, lon, name, status) to match your provider’s response shape.
+
+Make sure the IDs in HTML (hurricane-count, active-alert-bell, active-alert-label, map) match what your existing UI uses.
