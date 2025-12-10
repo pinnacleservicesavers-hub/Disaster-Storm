@@ -104,6 +104,7 @@ export default function App() {
           <Route path="/eyes-in-the-sky" element={<EyesInSky />} />
           <Route path="/drone-operation" element={<DroneOperations />} />
           <Route path="/damage-detection" element={<AIDamageDetection />} />
+          <Route path="/ai-damage-detection" element={<AIDamageDetection />} />
           <Route path="/leads" element={<Leads />} />
           <Route path="/ai-leads" element={<AILeadManagement />} />
           <Route path="/victim/dashboard" element={<VictimDashboard />} />
