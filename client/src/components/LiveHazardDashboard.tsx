@@ -15,7 +15,8 @@ import {
   MapPin,
   Clock,
   TrendingUp,
-  Snowflake
+  Snowflake,
+  Zap as TornadoIcon
 } from 'lucide-react';
 
 interface LiveAlert {
@@ -38,6 +39,7 @@ interface HazardSummary {
   earthquakes: number;
   wildfires: number;
   winterStorms: number;
+  tornadoes: number;
   total: number;
 }
 
@@ -60,7 +62,7 @@ const alertIcons = {
 };
 
 export default function LiveHazardDashboard() {
-  const [selectedHazardType, setSelectedHazardType] = useState<'all' | 'winter'>('all');
+  const [selectedHazardType, setSelectedHazardType] = useState<'all' | 'winter' | 'tornado'>('all');
 
   const { data: alertsData, isLoading: alertsLoading } = useQuery({
     queryKey: ['/api/weather/alerts'],
@@ -124,63 +126,63 @@ export default function LiveHazardDashboard() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
-        <Card className="border-red-200 bg-gradient-to-br from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20">
+        <Card className="border-cyan-500/30 bg-gradient-to-br from-slate-900/60 to-slate-800/40 dark:from-slate-900/80 dark:to-slate-800/60">
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle className="flex items-center gap-2 text-red-600">
+                <CardTitle className="flex items-center gap-2 text-cyan-400">
                   <AlertTriangle className="w-6 h-6 animate-pulse" />
                   Live Hazard Monitoring
-                  <Badge variant="destructive" className="ml-2 animate-bounce">
+                  <Badge className="ml-2 animate-bounce bg-cyan-600 text-white border-cyan-500">
                     {alerts.length} Active
                   </Badge>
                 </CardTitle>
-                <CardDescription className="mt-2">
+                <CardDescription className="mt-2 text-cyan-300/70">
                   Real-time severe weather alerts, earthquakes, wildfires, and hazards from NWS, USGS, NASA FIRMS
                 </CardDescription>
               </div>
               {alertsLoading && (
-                <RefreshCw className="w-5 h-5 animate-spin text-red-600" />
+                <RefreshCw className="w-5 h-5 animate-spin text-cyan-400" />
               )}
             </div>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
               <motion.div
                 whileHover={{ scale: 1.05 }}
-                className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-red-200"
+                className="bg-slate-800/40 dark:bg-slate-800/60 rounded-lg p-4 shadow-sm border border-red-500/30"
               >
                 <div className="flex items-center gap-3">
-                  <Wind className="w-8 h-8 text-red-600" />
+                  <Wind className="w-8 h-8 text-red-500" />
                   <div>
-                    <div className="text-2xl font-bold text-red-600">{hazards.hurricanes}</div>
-                    <div className="text-sm text-gray-600 dark:text-gray-400">Hurricanes</div>
+                    <div className="text-2xl font-bold text-red-400">{hazards.hurricanes}</div>
+                    <div className="text-xs text-cyan-300/70">Hurricanes</div>
                   </div>
                 </div>
               </motion.div>
 
               <motion.div
                 whileHover={{ scale: 1.05 }}
-                className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-orange-200"
+                className="bg-slate-800/40 dark:bg-slate-800/60 rounded-lg p-4 shadow-sm border border-orange-500/30"
               >
                 <div className="flex items-center gap-3">
-                  <TrendingUp className="w-8 h-8 text-orange-600" />
+                  <TrendingUp className="w-8 h-8 text-orange-400" />
                   <div>
-                    <div className="text-2xl font-bold text-orange-600">{hazards.earthquakes}</div>
-                    <div className="text-sm text-gray-600 dark:text-gray-400">Earthquakes</div>
+                    <div className="text-2xl font-bold text-orange-400">{hazards.earthquakes}</div>
+                    <div className="text-xs text-cyan-300/70">Earthquakes</div>
                   </div>
                 </div>
               </motion.div>
 
               <motion.div
                 whileHover={{ scale: 1.05 }}
-                className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-yellow-200"
+                className="bg-slate-800/40 dark:bg-slate-800/60 rounded-lg p-4 shadow-sm border border-yellow-500/30"
               >
                 <div className="flex items-center gap-3">
-                  <Flame className="w-8 h-8 text-yellow-600" />
+                  <Flame className="w-8 h-8 text-yellow-400" />
                   <div>
-                    <div className="text-2xl font-bold text-yellow-600">{hazards.wildfires}</div>
-                    <div className="text-sm text-gray-600 dark:text-gray-400">Wildfires</div>
+                    <div className="text-2xl font-bold text-yellow-400">{hazards.wildfires}</div>
+                    <div className="text-xs text-cyan-300/70">Wildfires</div>
                   </div>
                 </div>
               </motion.div>
@@ -190,47 +192,65 @@ export default function LiveHazardDashboard() {
                 onClick={() => setSelectedHazardType(selectedHazardType === 'winter' ? 'all' : 'winter')}
                 className={`rounded-lg p-4 shadow-sm border cursor-pointer transition-all ${
                   selectedHazardType === 'winter'
-                    ? 'bg-cyan-100 dark:bg-cyan-900/40 border-cyan-600'
-                    : 'bg-white dark:bg-gray-800 border-cyan-200'
+                    ? 'bg-cyan-600/20 dark:bg-cyan-600/30 border-cyan-500'
+                    : 'bg-slate-800/40 dark:bg-slate-800/60 border-cyan-500/30'
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <Snowflake className={`w-8 h-8 ${selectedHazardType === 'winter' ? 'text-cyan-700' : 'text-cyan-600'}`} />
+                  <Snowflake className={`w-8 h-8 ${selectedHazardType === 'winter' ? 'text-cyan-300' : 'text-cyan-400'}`} />
                   <div>
-                    <div className={`text-2xl font-bold ${selectedHazardType === 'winter' ? 'text-cyan-700' : 'text-cyan-600'}`}>{hazards.winterStorms}</div>
-                    <div className="text-sm text-gray-600 dark:text-gray-400">Winter Storms</div>
+                    <div className={`text-2xl font-bold ${selectedHazardType === 'winter' ? 'text-cyan-300' : 'text-cyan-400'}`}>{hazards.winterStorms}</div>
+                    <div className="text-xs text-cyan-300/70">Winter Storms</div>
                   </div>
                 </div>
               </motion.div>
 
               <motion.div
                 whileHover={{ scale: 1.05 }}
-                className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-blue-200"
+                onClick={() => setSelectedHazardType(selectedHazardType === 'tornado' ? 'all' : 'tornado')}
+                className={`rounded-lg p-4 shadow-sm border cursor-pointer transition-all ${
+                  selectedHazardType === 'tornado'
+                    ? 'bg-red-600/20 dark:bg-red-600/30 border-red-500'
+                    : 'bg-slate-800/40 dark:bg-slate-800/60 border-red-500/30'
+                }`}
               >
                 <div className="flex items-center gap-3">
-                  <AlertTriangle className="w-8 h-8 text-blue-600" />
+                  <Zap className={`w-8 h-8 ${selectedHazardType === 'tornado' ? 'text-red-300' : 'text-red-400'}`} />
                   <div>
-                    <div className="text-2xl font-bold text-blue-600">{alerts.length}</div>
-                    <div className="text-sm text-gray-600 dark:text-gray-400">Weather Alerts</div>
+                    <div className={`text-2xl font-bold ${selectedHazardType === 'tornado' ? 'text-red-300' : 'text-red-400'}`}>{hazards.tornadoes || 0}</div>
+                    <div className="text-xs text-cyan-300/70">Tornadoes</div>
+                  </div>
+                </div>
+              </motion.div>
+
+              <motion.div
+                whileHover={{ scale: 1.05 }}
+                className="bg-slate-800/40 dark:bg-slate-800/60 rounded-lg p-4 shadow-sm border border-cyan-500/30"
+              >
+                <div className="flex items-center gap-3">
+                  <AlertTriangle className="w-8 h-8 text-cyan-400" />
+                  <div>
+                    <div className="text-2xl font-bold text-cyan-400">{alerts.length}</div>
+                    <div className="text-xs text-cyan-300/70">Alerts</div>
                   </div>
                 </div>
               </motion.div>
             </div>
 
-            {selectedHazardType === 'winter' && (
-              <div className="mb-4 p-3 bg-cyan-50 dark:bg-cyan-900/20 border border-cyan-200 rounded-lg">
-                <p className="text-sm text-cyan-700 dark:text-cyan-300">
-                  Showing <strong>{winterAlerts.length}</strong> Winter Weather Alerts - Click again to view all hazards
+            {(selectedHazardType === 'winter' || selectedHazardType === 'tornado') && (
+              <div className="mb-4 p-3 bg-slate-800/40 border border-cyan-500/30 rounded-lg">
+                <p className="text-sm text-cyan-300">
+                  Showing <strong>{selectedHazardType === 'winter' ? winterAlerts.length : 'upcoming'}</strong> {selectedHazardType === 'winter' ? 'Winter Weather Alerts' : 'Tornado Watches'} - Click again to view all hazards
                 </p>
               </div>
             )}
-            <ScrollArea className="h-[600px] rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4">
+            <ScrollArea className="h-[600px] rounded-md border border-cyan-500/30 bg-slate-800/30 dark:bg-slate-900/40 p-4">
               <AnimatePresence>
                 {displayedAlerts.length === 0 ? (
-                  <div className="text-center py-12 text-gray-500">
-                    <AlertTriangle className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                    <p className="text-lg font-medium">No Active Alerts</p>
-                    <p className="text-sm mt-1">{selectedHazardType === 'winter' ? 'No winter weather alerts detected.' : 'All clear! No severe weather or hazards detected.'}</p>
+                  <div className="text-center py-12 text-cyan-300/50">
+                    <AlertTriangle className="w-12 h-12 mx-auto mb-3 opacity-30 text-cyan-400" />
+                    <p className="text-lg font-medium text-cyan-300">No Active Alerts</p>
+                    <p className="text-sm mt-1 text-cyan-300/70">{selectedHazardType === 'winter' ? 'No winter weather alerts detected.' : selectedHazardType === 'tornado' ? 'No tornado watches active.' : 'All clear! No severe weather or hazards detected.'}</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -243,24 +263,24 @@ export default function LiveHazardDashboard() {
                         transition={{ delay: index * 0.05 }}
                         data-testid={`alert-${alert.id}`}
                       >
-                        <Card className={`border-l-4 ${alert.severity === 'Extreme' ? 'border-l-red-600 bg-red-50 dark:bg-red-900/20' : alert.severity === 'Severe' ? 'border-l-orange-500 bg-orange-50 dark:bg-orange-900/20' : 'border-l-yellow-500 bg-yellow-50 dark:bg-yellow-900/20'}`}>
+                        <Card className={`border-l-4 ${alert.severity === 'Extreme' ? 'border-l-red-500 bg-red-600/10 dark:bg-red-600/20' : alert.severity === 'Severe' ? 'border-l-orange-500 bg-orange-600/10 dark:bg-orange-600/20' : 'border-l-yellow-500 bg-yellow-600/10 dark:bg-yellow-600/20'}`}>
                           <CardContent className="p-4">
                             <div className="flex items-start justify-between gap-4">
                               <div className="flex items-start gap-3 flex-1">
-                                <div className={`p-2 rounded-lg ${alert.severity === 'Extreme' ? 'bg-red-600' : alert.severity === 'Severe' ? 'bg-orange-500' : 'bg-yellow-500'} text-white`}>
+                                <div className={`p-2 rounded-lg ${alert.severity === 'Extreme' ? 'bg-red-600/80' : alert.severity === 'Severe' ? 'bg-orange-600/80' : 'bg-yellow-600/80'} text-white`}>
                                   {getAlertIcon(alert.alertType)}
                                 </div>
                                 <div className="flex-1">
                                   <div className="flex items-center gap-2 mb-1">
-                                    <h3 className="font-bold text-gray-900 dark:text-white">{alert.title}</h3>
+                                    <h3 className="font-bold text-white">{alert.title}</h3>
                                     <Badge className={getSeverityColor(alert.severity)}>
                                       {alert.severity}
                                     </Badge>
                                   </div>
-                                  <p className="text-sm text-gray-700 dark:text-gray-300 mb-2">
+                                  <p className="text-sm text-cyan-300/80 mb-2">
                                     {alert.description}
                                   </p>
-                                  <div className="flex flex-wrap items-center gap-3 text-xs text-gray-600 dark:text-gray-400">
+                                  <div className="flex flex-wrap items-center gap-3 text-xs text-cyan-300/60">
                                     <div className="flex items-center gap-1">
                                       <MapPin className="w-3 h-3" />
                                       <span className="font-medium">

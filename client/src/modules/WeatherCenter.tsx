@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Activity, Satellite, Waves, Wind, CloudRain, Database, Brain, MapPin, AlertTriangle, Flame, Mic, Users, Package, DollarSign, TrendingUp, Video } from 'lucide-react';
+import { Activity, Satellite, Waves, Wind, CloudRain, Database, Brain, MapPin, AlertTriangle, Flame, Mic, Users, Package, DollarSign, TrendingUp, Video, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { useQuery } from '@tanstack/react-query';
@@ -17,7 +17,7 @@ export default function WeatherCenter() {
   const [dataSourcesActive, setDataSourcesActive] = useState(0);
   const [aiTrigger, setAiTrigger] = useState<{ open: boolean; mode: 'text' | 'voice' } | undefined>();
   const [showDetailedContractorView, setShowDetailedContractorView] = useState(false);
-  const [activeView, setActiveView] = useState<'map' | 'webcams' | 'hazards'>('map');
+  const [activeView, setActiveView] = useState<'map' | 'webcams' | 'hazards' | 'tornadoes'>('map');
   
   const { alertsEnabled, extremeAlertCount, severeAlertCount } = useAlertNotifications();
 
@@ -178,6 +178,19 @@ export default function WeatherCenter() {
           >
             <AlertTriangle className="w-4 h-4" />
             Hazard Dashboard
+          </Button>
+          
+          <Button
+            onClick={() => setActiveView('tornadoes')}
+            className={`flex items-center gap-2 px-6 py-3 rounded-lg font-semibold transition-all ${
+              activeView === 'tornadoes'
+                ? 'bg-red-600 text-white'
+                : 'bg-slate-800 text-red-300 border border-red-500/30 hover:border-red-400/50'
+            }`}
+            data-testid="button-view-tornadoes"
+          >
+            <Zap className="w-4 h-4" />
+            Tornado Watch
           </Button>
         </div>
 
