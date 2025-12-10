@@ -33,6 +33,51 @@ interface SelectedHazard {
   coordinates: [number, number];
 }
 
+// State center coordinates for fallback when NWS alerts don't have geometry
+const STATE_CENTERS: Record<string, [number, number]> = {
+  AL: [32.806671, -86.791130], AK: [61.370716, -152.404419], AZ: [33.729759, -111.431221],
+  AR: [34.969704, -92.373123], CA: [36.116203, -119.681564], CO: [39.059811, -105.311104],
+  CT: [41.597782, -72.755371], DE: [39.318523, -75.507141], FL: [27.766279, -81.686783],
+  GA: [33.040619, -83.643074], HI: [21.094318, -157.498337], ID: [44.240459, -114.478828],
+  IL: [40.349457, -88.986137], IN: [39.849426, -86.258278], IA: [42.011539, -93.210526],
+  KS: [38.526600, -96.726486], KY: [37.668140, -84.670067], LA: [31.169546, -91.867805],
+  ME: [44.693947, -69.381927], MD: [39.063946, -76.802101], MA: [42.230171, -71.530106],
+  MI: [43.326618, -84.536095], MN: [45.694454, -93.900192], MS: [32.741646, -89.678696],
+  MO: [38.456085, -92.288368], MT: [46.921925, -110.454353], NE: [41.125370, -98.268082],
+  NV: [38.313515, -117.055374], NH: [43.452492, -71.563896], NJ: [40.298904, -74.521011],
+  NM: [34.840515, -106.248482], NY: [42.165726, -74.948051], NC: [35.630066, -79.806419],
+  ND: [47.528912, -99.784012], OH: [40.388783, -82.764915], OK: [35.565342, -96.928917],
+  OR: [44.572021, -122.070938], PA: [40.590752, -77.209755], RI: [41.680893, -71.511780],
+  SC: [33.856892, -80.945007], SD: [44.299782, -99.438828], TN: [35.747845, -86.692345],
+  TX: [31.054487, -97.563461], UT: [40.150032, -111.862434], VT: [44.045876, -72.710686],
+  VA: [37.769337, -78.169968], WA: [47.400902, -121.490494], WV: [38.491226, -80.954456],
+  WI: [44.268543, -89.616508], WY: [42.755966, -107.302490], DC: [38.897438, -77.026817],
+  PR: [18.220833, -66.590149], VI: [18.335765, -64.896335], GU: [13.444304, 144.793731],
+  AS: [-14.270972, -170.132217], MP: [15.0979, 145.6739]
+};
+
+// Extract state code from area description
+function extractStateFromArea(areas: string[]): string | null {
+  const statePattern = /\b([A-Z]{2})\b/;
+  for (const area of areas) {
+    const match = area.match(statePattern);
+    if (match && STATE_CENTERS[match[1]]) {
+      return match[1];
+    }
+  }
+  // Try common state names
+  const areaText = areas.join(' ').toLowerCase();
+  const stateNames: Record<string, string> = {
+    'washington': 'WA', 'oregon': 'OR', 'california': 'CA', 'louisiana': 'LA',
+    'florida': 'FL', 'texas': 'TX', 'oklahoma': 'OK', 'kansas': 'KS',
+    'alaska': 'AK', 'hawaii': 'HI', 'maine': 'ME', 'new york': 'NY'
+  };
+  for (const [name, code] of Object.entries(stateNames)) {
+    if (areaText.includes(name)) return code;
+  }
+  return null;
+}
+
 export default function LiveHazardMap() {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -117,12 +162,16 @@ export default function LiveHazardMap() {
 
     if (earthquakesData?.earthquakes) {
       earthquakesData.earthquakes.forEach((eq: any) => {
-        if (eq.coordinates?.latitude && eq.coordinates?.longitude) {
+        // Handle both flat lat/lon and nested coordinates object
+        const lat = eq.latitude ?? eq.coordinates?.latitude;
+        const lon = eq.longitude ?? eq.coordinates?.longitude;
+        
+        if (lat && lon) {
           const magnitude = eq.magnitude || 3;
           const size = Math.min(32, Math.max(16, magnitude * 6));
           const color = magnitude >= 5 ? '#ef4444' : magnitude >= 4 ? '#f97316' : '#eab308';
           
-          const marker = L.marker([eq.coordinates.latitude, eq.coordinates.longitude], {
+          const marker = L.marker([lat, lon], {
             icon: createIcon('🌋', color, size),
           });
           
@@ -135,7 +184,7 @@ export default function LiveHazardMap() {
               details: `Depth: ${eq.depth || 'N/A'}km`,
               time: eq.time || new Date().toISOString(),
               source: 'USGS',
-              coordinates: [eq.coordinates.latitude, eq.coordinates.longitude],
+              coordinates: [lat, lon],
             });
           });
           
@@ -210,8 +259,19 @@ export default function LiveHazardMap() {
       );
 
       winterAlerts.forEach((alert: any) => {
-        if (alert.coordinates?.latitude && alert.coordinates?.longitude) {
-          const marker = L.marker([alert.coordinates.latitude, alert.coordinates.longitude], {
+        let lat = alert.coordinates?.latitude;
+        let lon = alert.coordinates?.longitude;
+        
+        // Fallback to state center if no coordinates
+        if (!lat || !lon) {
+          const stateCode = extractStateFromArea(alert.areas || []);
+          if (stateCode && STATE_CENTERS[stateCode]) {
+            [lat, lon] = STATE_CENTERS[stateCode];
+          }
+        }
+        
+        if (lat && lon) {
+          const marker = L.marker([lat, lon], {
             icon: createIcon('❄️', '#06b6d4', 24),
           });
           
@@ -224,7 +284,7 @@ export default function LiveHazardMap() {
               details: alert.description || 'Winter weather conditions expected',
               time: alert.startTime || new Date().toISOString(),
               source: 'NWS',
-              coordinates: [alert.coordinates.latitude, alert.coordinates.longitude],
+              coordinates: [lat, lon],
             });
           });
           
@@ -233,8 +293,19 @@ export default function LiveHazardMap() {
       });
 
       tornadoAlerts.forEach((alert: any) => {
-        if (alert.coordinates?.latitude && alert.coordinates?.longitude) {
-          const marker = L.marker([alert.coordinates.latitude, alert.coordinates.longitude], {
+        let lat = alert.coordinates?.latitude;
+        let lon = alert.coordinates?.longitude;
+        
+        // Fallback to state center if no coordinates
+        if (!lat || !lon) {
+          const stateCode = extractStateFromArea(alert.areas || []);
+          if (stateCode && STATE_CENTERS[stateCode]) {
+            [lat, lon] = STATE_CENTERS[stateCode];
+          }
+        }
+        
+        if (lat && lon) {
+          const marker = L.marker([lat, lon], {
             icon: createIcon('🌪️', '#ef4444', 28),
           });
           
@@ -247,7 +318,7 @@ export default function LiveHazardMap() {
               details: alert.description || 'Tornado activity detected',
               time: alert.startTime || new Date().toISOString(),
               source: 'NWS',
-              coordinates: [alert.coordinates.latitude, alert.coordinates.longitude],
+              coordinates: [lat, lon],
             });
           });
           
@@ -265,11 +336,22 @@ export default function LiveHazardMap() {
       });
 
       otherAlerts.forEach((alert: any) => {
-        if (alert.coordinates?.latitude && alert.coordinates?.longitude) {
+        let lat = alert.coordinates?.latitude;
+        let lon = alert.coordinates?.longitude;
+        
+        // Fallback to state center if no coordinates
+        if (!lat || !lon) {
+          const stateCode = extractStateFromArea(alert.areas || []);
+          if (stateCode && STATE_CENTERS[stateCode]) {
+            [lat, lon] = STATE_CENTERS[stateCode];
+          }
+        }
+        
+        if (lat && lon) {
           const severity = alert.severity || 'Moderate';
           const color = severity === 'Extreme' ? '#ef4444' : severity === 'Severe' ? '#f97316' : '#eab308';
           
-          const marker = L.marker([alert.coordinates.latitude, alert.coordinates.longitude], {
+          const marker = L.marker([lat, lon], {
             icon: createIcon('⚠️', color, 22),
           });
           
@@ -282,7 +364,7 @@ export default function LiveHazardMap() {
               details: alert.description || 'Weather alert in effect',
               time: alert.startTime || new Date().toISOString(),
               source: 'NWS',
-              coordinates: [alert.coordinates.latitude, alert.coordinates.longitude],
+              coordinates: [lat, lon],
             });
           });
           
