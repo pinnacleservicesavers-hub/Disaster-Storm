@@ -5483,6 +5483,174 @@ Email: strategiclandmgmt@gmail.com
     }
   });
 
+  // ===== AI DAMAGE DETECTION UPLOAD & ANALYSIS =====
+  
+  // Store for damage analyses in memory
+  const damageAnalyses = new Map<string, any>();
+  
+  // Upload and analyze image for damage
+  const damageUpload = multer({ 
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 25 * 1024 * 1024 }, // 25MB limit
+    fileFilter: (req, file, cb) => {
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+      if (allowedTypes.includes(file.mimetype)) {
+        cb(null, true);
+      } else {
+        cb(new Error('Invalid file type. Only JPEG, PNG, WebP, and GIF are allowed.'));
+      }
+    }
+  });
+  
+  app.post('/api/ai-damage/analyze', damageUpload.single('image'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: 'No image file provided' });
+      }
+      
+      const { location, propertyAddress, propertyType, claimId } = req.body;
+      const analysisId = `analysis-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      
+      console.log(`🤖 Starting AI damage analysis ${analysisId} (${req.file.size} bytes)`);
+      
+      // Analyze the image
+      const analysisResult = await damageDetectionService.analyzeImageForDamage(
+        req.file.buffer,
+        location || propertyAddress || 'Unknown Location'
+      );
+      
+      // Store the analysis
+      const fullAnalysis = {
+        id: analysisId,
+        ...analysisResult,
+        metadata: {
+          originalFilename: req.file.originalname,
+          fileSize: req.file.size,
+          mimeType: req.file.mimetype,
+          uploadedAt: new Date(),
+          location: location || null,
+          propertyAddress: propertyAddress || null,
+          propertyType: propertyType || 'residential',
+          claimId: claimId || null
+        }
+      };
+      
+      damageAnalyses.set(analysisId, fullAnalysis);
+      
+      // Calculate summary stats
+      const totalEstimatedCost = analysisResult.detections.reduce((sum: number, d: any) => {
+        if (d.estimatedCost) {
+          return sum + ((d.estimatedCost.min + d.estimatedCost.max) / 2);
+        }
+        return sum;
+      }, 0);
+      
+      res.json({
+        success: true,
+        analysisId,
+        analysis: fullAnalysis,
+        summary: {
+          detectionsFound: analysisResult.detections.length,
+          highestSeverity: analysisResult.detections.reduce((max: string, d: any) => {
+            const order = ['minor', 'moderate', 'severe', 'critical'];
+            return order.indexOf(d.severity) > order.indexOf(max) ? d.severity : max;
+          }, 'minor'),
+          totalEstimatedCost: {
+            min: analysisResult.detections.reduce((sum: number, d: any) => sum + (d.estimatedCost?.min || 0), 0),
+            max: analysisResult.detections.reduce((sum: number, d: any) => sum + (d.estimatedCost?.max || 0), 0),
+            avg: totalEstimatedCost
+          },
+          contractorsNeeded: [...new Set(analysisResult.detections.flatMap((d: any) => d.contractorTypes || []))],
+          urgentItems: analysisResult.detections.filter((d: any) => d.urgencyLevel === 'emergency' || d.urgencyLevel === 'high').length,
+          leadPriority: analysisResult.maxProfitabilityScore >= 8 ? 'critical' : 
+                        analysisResult.maxProfitabilityScore >= 6 ? 'high' :
+                        analysisResult.maxProfitabilityScore >= 4 ? 'medium' : 'low'
+        }
+      });
+    } catch (error: any) {
+      console.error('Error analyzing damage:', error);
+      
+      // Handle AI disabled error gracefully
+      if (error.name === 'AI_FEATURE_DISABLED') {
+        return res.status(503).json({ 
+          error: 'AI damage detection requires ANTHROPIC_API_KEY to be configured',
+          code: 'AI_NOT_CONFIGURED'
+        });
+      }
+      
+      res.status(500).json({ error: 'Failed to analyze image for damage' });
+    }
+  });
+  
+  // Get analysis by ID
+  app.get('/api/ai-damage/analysis/:id', (req, res) => {
+    const analysis = damageAnalyses.get(req.params.id);
+    if (!analysis) {
+      return res.status(404).json({ error: 'Analysis not found' });
+    }
+    res.json({ success: true, analysis });
+  });
+  
+  // Get all analyses (paginated)
+  app.get('/api/ai-damage/analyses', (req, res) => {
+    const limit = parseInt(req.query.limit as string) || 20;
+    const offset = parseInt(req.query.offset as string) || 0;
+    
+    const allAnalyses = Array.from(damageAnalyses.values())
+      .sort((a, b) => new Date(b.analysisTimestamp).getTime() - new Date(a.analysisTimestamp).getTime());
+    
+    res.json({
+      success: true,
+      total: allAnalyses.length,
+      analyses: allAnalyses.slice(offset, offset + limit),
+      pagination: { limit, offset, hasMore: offset + limit < allAnalyses.length }
+    });
+  });
+  
+  // Generate PDF report for analysis
+  app.get('/api/ai-damage/analysis/:id/report', async (req, res) => {
+    try {
+      const analysis = damageAnalyses.get(req.params.id);
+      if (!analysis) {
+        return res.status(404).json({ error: 'Analysis not found' });
+      }
+      
+      // Generate text report
+      const report = {
+        title: 'AI Damage Detection Report',
+        generatedAt: new Date().toISOString(),
+        analysisId: analysis.id,
+        location: analysis.metadata?.propertyAddress || analysis.metadata?.location || 'Unknown',
+        propertyType: analysis.metadata?.propertyType || 'Residential',
+        analysisTimestamp: analysis.analysisTimestamp,
+        processingTime: `${analysis.processingTimeMs}ms`,
+        overallConfidence: `${(analysis.confidence * 100).toFixed(1)}%`,
+        detections: analysis.detections.map((d: any) => ({
+          type: d.alertType,
+          severity: d.severity,
+          severityScore: `${d.severityScore}/10`,
+          confidence: `${d.confidence}%`,
+          description: d.description,
+          estimatedCost: d.estimatedCost ? `$${d.estimatedCost.min.toLocaleString()} - $${d.estimatedCost.max.toLocaleString()}` : 'N/A',
+          urgency: d.urgencyLevel,
+          contractorsNeeded: d.contractorTypes?.join(', ') || 'N/A',
+          safetyHazards: d.safetyHazards?.join(', ') || 'None identified',
+          workScope: d.workScope?.join('; ') || 'To be determined'
+        })),
+        riskAssessment: analysis.riskAssessment,
+        recommendedActions: analysis.recommendedActions || [],
+        disclaimer: 'This AI-generated report is for informational purposes only. A licensed contractor should perform an on-site inspection to verify findings and provide accurate estimates.'
+      };
+      
+      res.json({ success: true, report });
+    } catch (error) {
+      console.error('Error generating report:', error);
+      res.status(500).json({ error: 'Failed to generate report' });
+    }
+  });
+  
+  console.log('🤖 AI Damage Detection upload routes registered - /api/ai-damage/analyze');
+
   // ===== UNIFIED 511 DIRECTORY ENDPOINTS =====
   
   // Get state directory with camera and incident counts per state
