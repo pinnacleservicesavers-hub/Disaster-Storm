@@ -320,7 +320,16 @@ export default function StormPredictions() {
     }
   }, [selectedEducationTopic]);
 
-  // Fetch prediction dashboard data
+  // Fetch LIVE prediction intelligence data from all hazard sources
+  const { data: intelligenceData, isLoading: isLoadingIntelligence, refetch: refetchIntelligence } = useQuery<any>({
+    queryKey: ['/api/hazards/predictions/intelligence'],
+    refetchInterval: 60000, // Refresh every minute for live data
+  });
+
+  // Expanded dropdown state for each metric
+  const [expandedMetric, setExpandedMetric] = useState<'storms' | 'zones' | 'opportunities' | null>(null);
+
+  // Legacy dashboard query (fallback)
   const { data: dashboardData, isLoading, refetch } = useQuery<any>({
     queryKey: ['/api/prediction-dashboard', selectedState, forecastHours],
     queryFn: async () => {
@@ -335,6 +344,15 @@ export default function StormPredictions() {
     },
     refetchInterval: 120000,
   });
+
+  // Use intelligence data as primary, fallback to legacy dashboard
+  const liveData = intelligenceData;
+  const summary = liveData?.summary || {};
+  const activeStorms = liveData?.activeStorms || [];
+  const impactZones = liveData?.impactZones || [];
+  const liveOpportunities = liveData?.opportunities || [];
+  const stateOpportunities = liveData?.stateOpportunities || [];
+  const dataSources = liveData?.dataSources || {};
 
   const dashboard = dashboardData?.dashboard as PredictionDashboard | undefined;
   const predictions = dashboardData?.data?.predictions as StormPrediction[] | undefined;
@@ -503,48 +521,256 @@ export default function StormPredictions() {
               <VoiceGuide currentPortal="predictions" />
             </div>
 
-            {isLoading ? (
+            {isLoadingIntelligence && !liveData ? (
               <div className="text-center text-cyan-300 py-12">
                 <div className="animate-spin w-12 h-12 border-4 border-cyan-500 border-t-transparent rounded-full mx-auto mb-4"></div>
-                Loading predictive intelligence...
+                Loading live prediction intelligence from 8 data sources...
               </div>
-            ) : !dashboard ? (
-              <div className="text-center text-yellow-300 py-12">No dashboard data available</div>
             ) : (
               <>
-                {/* Dashboard Summary */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-                  <Card className="bg-slate-900/60 border-purple-500/30 p-6">
-                    <div className="flex items-center gap-3 mb-2">
-                      <AlertTriangle className="w-5 h-5 text-purple-400" />
-                      <div className="text-sm text-purple-300/70">Active Storms</div>
+                {/* LIVE Dashboard Summary - Clickable Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                  {/* Active Storms - Clickable */}
+                  <Card 
+                    className={`p-6 cursor-pointer transition-all hover:scale-105 ${
+                      expandedMetric === 'storms' 
+                        ? 'bg-purple-900/60 border-purple-400 ring-2 ring-purple-400/50' 
+                        : 'bg-slate-900/60 border-purple-500/30 hover:border-purple-400/60'
+                    }`}
+                    onClick={() => setExpandedMetric(expandedMetric === 'storms' ? null : 'storms')}
+                    data-testid="card-active-storms"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-3">
+                        <AlertTriangle className="w-5 h-5 text-purple-400" />
+                        <div className="text-sm text-purple-300/70">Active Storms</div>
+                      </div>
+                      <ChevronRight className={`w-5 h-5 text-purple-400 transition-transform ${expandedMetric === 'storms' ? 'rotate-90' : ''}`} />
                     </div>
-                    <div className="text-3xl font-bold text-purple-300">{dashboard.activePredictions}</div>
+                    <div className="text-4xl font-bold text-purple-300">{summary.activeStorms || 0}</div>
+                    <div className="text-xs text-purple-300/50 mt-1">Click to view locations</div>
                   </Card>
 
-                  <Card className="bg-slate-900/60 border-orange-500/30 p-6">
-                    <div className="flex items-center gap-3 mb-2">
-                      <MapPin className="w-5 h-5 text-orange-400" />
-                      <div className="text-sm text-orange-300/70">Impact Zones</div>
+                  {/* Impact Zones - Clickable */}
+                  <Card 
+                    className={`p-6 cursor-pointer transition-all hover:scale-105 ${
+                      expandedMetric === 'zones' 
+                        ? 'bg-orange-900/60 border-orange-400 ring-2 ring-orange-400/50' 
+                        : 'bg-slate-900/60 border-orange-500/30 hover:border-orange-400/60'
+                    }`}
+                    onClick={() => setExpandedMetric(expandedMetric === 'zones' ? null : 'zones')}
+                    data-testid="card-impact-zones"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-3">
+                        <MapPin className="w-5 h-5 text-orange-400" />
+                        <div className="text-sm text-orange-300/70">Impact Zones</div>
+                      </div>
+                      <ChevronRight className={`w-5 h-5 text-orange-400 transition-transform ${expandedMetric === 'zones' ? 'rotate-90' : ''}`} />
                     </div>
-                    <div className="text-3xl font-bold text-orange-300">{dashboard.damageForecasts}</div>
+                    <div className="text-4xl font-bold text-orange-300">{summary.impactZones || 0}</div>
+                    <div className="text-xs text-orange-300/50 mt-1">Click to view locations</div>
                   </Card>
 
-                  <Card className="bg-slate-900/60 border-cyan-500/30 p-6">
-                    <div className="flex items-center gap-3 mb-2">
-                      <TrendingUp className="w-5 h-5 text-cyan-400" />
-                      <div className="text-sm text-cyan-300/70">Opportunities</div>
+                  {/* Opportunities - Clickable */}
+                  <Card 
+                    className={`p-6 cursor-pointer transition-all hover:scale-105 ${
+                      expandedMetric === 'opportunities' 
+                        ? 'bg-cyan-900/60 border-cyan-400 ring-2 ring-cyan-400/50' 
+                        : 'bg-slate-900/60 border-cyan-500/30 hover:border-cyan-400/60'
+                    }`}
+                    onClick={() => setExpandedMetric(expandedMetric === 'opportunities' ? null : 'opportunities')}
+                    data-testid="card-opportunities"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-3">
+                        <TrendingUp className="w-5 h-5 text-cyan-400" />
+                        <div className="text-sm text-cyan-300/70">Opportunities</div>
+                      </div>
+                      <ChevronRight className={`w-5 h-5 text-cyan-400 transition-transform ${expandedMetric === 'opportunities' ? 'rotate-90' : ''}`} />
                     </div>
-                    <div className="text-3xl font-bold text-cyan-300">{dashboard.contractorOpportunities}</div>
+                    <div className="text-4xl font-bold text-cyan-300">{summary.opportunities || 0}</div>
+                    <div className="text-xs text-cyan-300/50 mt-1">Click to view locations</div>
                   </Card>
 
-                  <Card className="bg-slate-900/60 border-green-500/30 p-6">
+                  {/* Total Revenue - Summary */}
+                  <Card className="bg-gradient-to-br from-green-900/60 to-emerald-900/60 border-green-500/50 p-6">
                     <div className="flex items-center gap-3 mb-2">
                       <DollarSign className="w-5 h-5 text-green-400" />
-                      <div className="text-sm text-green-300/70">Total Revenue</div>
+                      <div className="text-sm text-green-300/70">Total Prediction Revenue</div>
                     </div>
-                    <div className="text-2xl font-bold text-green-300">{formatCurrency(dashboard.totalEstimatedRevenue)}</div>
+                    <div className="text-3xl font-bold text-green-300">{formatCurrency(summary.totalEstimatedRevenue || 0)}</div>
+                    <div className="text-xs text-green-300/60 mt-1">{summary.totalEstimatedJobs || 0} estimated jobs</div>
                   </Card>
+                </div>
+
+                {/* Expanded Dropdown Panels */}
+                {expandedMetric === 'storms' && (
+                  <div className="mb-8 bg-purple-950/40 border border-purple-500/40 rounded-xl p-6 animate-in slide-in-from-top-2">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-xl font-bold text-purple-300 flex items-center gap-2">
+                        <AlertTriangle className="w-5 h-5" />
+                        Active Storms by Location
+                      </h3>
+                      <button onClick={() => setExpandedMetric(null)} className="text-purple-300/60 hover:text-purple-300">✕</button>
+                    </div>
+                    {activeStorms.length === 0 ? (
+                      <div className="text-center py-8 text-purple-300/60">
+                        <div className="text-4xl mb-2">🌤️</div>
+                        No active tropical storms at this time
+                      </div>
+                    ) : (
+                      <div className="space-y-3 max-h-80 overflow-y-auto">
+                        {activeStorms.map((storm: any, idx: number) => (
+                          <div key={storm.id || idx} className="bg-purple-900/30 border border-purple-500/30 rounded-lg p-4 hover:border-purple-400/50 transition-all">
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <div className="font-bold text-purple-200">{storm.name || 'Unnamed Storm'}</div>
+                                <div className="text-sm text-purple-300/70">{storm.type}</div>
+                                <div className="text-xs text-purple-300/50 mt-1">
+                                  📍 {storm.location?.description || 'Location pending'}
+                                  {storm.location?.state && ` • ${storm.location.state}`}
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <div className="text-lg font-bold text-green-400">{formatCurrency(storm.estimatedRevenue || 0)}</div>
+                                <div className="text-xs text-purple-300/50">{storm.estimatedJobs || 0} jobs</div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {expandedMetric === 'zones' && (
+                  <div className="mb-8 bg-orange-950/40 border border-orange-500/40 rounded-xl p-6 animate-in slide-in-from-top-2">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-xl font-bold text-orange-300 flex items-center gap-2">
+                        <MapPin className="w-5 h-5" />
+                        Impact Zones by Location ({impactZones.length})
+                      </h3>
+                      <button onClick={() => setExpandedMetric(null)} className="text-orange-300/60 hover:text-orange-300">✕</button>
+                    </div>
+                    {impactZones.length === 0 ? (
+                      <div className="text-center py-8 text-orange-300/60">
+                        <div className="text-4xl mb-2">✅</div>
+                        No active impact zones
+                      </div>
+                    ) : (
+                      <div className="space-y-3 max-h-96 overflow-y-auto">
+                        {impactZones.slice(0, 20).map((zone: any, idx: number) => (
+                          <div key={zone.id || idx} className="bg-orange-900/30 border border-orange-500/30 rounded-lg p-4 hover:border-orange-400/50 transition-all">
+                            <div className="flex justify-between items-start">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className={`px-2 py-0.5 rounded text-xs font-bold ${
+                                    zone.severity === 'Extreme' ? 'bg-red-600 text-white' :
+                                    zone.severity === 'Severe' ? 'bg-orange-600 text-white' :
+                                    'bg-yellow-600 text-black'
+                                  }`}>{zone.severity}</span>
+                                  <span className="text-sm font-medium text-orange-200">{zone.alertType}</span>
+                                </div>
+                                <div className="text-xs text-orange-300/70 mt-1">
+                                  📍 {zone.location?.state || ''} {zone.location?.counties?.slice(0, 3).join(', ') || zone.location?.description || 'Location data pending'}
+                                </div>
+                                <div className="text-xs text-orange-300/50 mt-1">
+                                  {zone.hazardType?.toUpperCase()} • Confidence: {zone.confidence}%
+                                </div>
+                              </div>
+                              <div className="text-right ml-4">
+                                <div className="text-lg font-bold text-green-400">{formatCurrency(zone.estimatedRevenue || 0)}</div>
+                                <div className="text-xs text-orange-300/50">{zone.estimatedJobs || 0} jobs</div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                        {impactZones.length > 20 && (
+                          <div className="text-center text-orange-300/50 text-sm py-2">
+                            + {impactZones.length - 20} more impact zones
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {expandedMetric === 'opportunities' && (
+                  <div className="mb-8 bg-cyan-950/40 border border-cyan-500/40 rounded-xl p-6 animate-in slide-in-from-top-2">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-xl font-bold text-cyan-300 flex items-center gap-2">
+                        <TrendingUp className="w-5 h-5" />
+                        Contractor Opportunities Ranked by Revenue ({liveOpportunities.length})
+                      </h3>
+                      <button onClick={() => setExpandedMetric(null)} className="text-cyan-300/60 hover:text-cyan-300">✕</button>
+                    </div>
+                    {liveOpportunities.length === 0 ? (
+                      <div className="text-center py-8 text-cyan-300/60">
+                        <div className="text-4xl mb-2">📊</div>
+                        No opportunities detected - monitoring continues
+                      </div>
+                    ) : (
+                      <div className="space-y-3 max-h-96 overflow-y-auto">
+                        {liveOpportunities.slice(0, 25).map((opp: any, idx: number) => (
+                          <div key={opp.id || idx} className="bg-cyan-900/30 border border-cyan-500/30 rounded-lg p-4 hover:border-cyan-400/50 transition-all">
+                            <div className="flex justify-between items-start">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="text-lg font-bold text-cyan-400">#{idx + 1}</span>
+                                  <span className={`px-2 py-0.5 rounded text-xs font-bold ${
+                                    opp.timing === 'Deploy Now' ? 'bg-red-600 text-white animate-pulse' :
+                                    opp.timing === 'Deploy in 24-48h' ? 'bg-orange-600 text-white' :
+                                    'bg-blue-600 text-white'
+                                  }`}>{opp.timing}</span>
+                                  <span className="text-sm font-medium text-cyan-200">{opp.alertType}</span>
+                                </div>
+                                <div className="text-xs text-cyan-300/70 mt-1">
+                                  📍 {opp.location?.state || ''} {opp.location?.counties?.slice(0, 2).join(', ') || opp.location?.description || ''}
+                                </div>
+                                <div className="text-xs text-cyan-300/50 mt-1">
+                                  {opp.hazardType?.toUpperCase()} • {opp.competitionLevel} • {opp.confidence}% confidence
+                                </div>
+                              </div>
+                              <div className="text-right ml-4">
+                                <div className="text-xl font-bold text-green-400">{formatCurrency(opp.estimatedRevenue || 0)}</div>
+                                <div className="text-xs text-cyan-300/50">{opp.estimatedJobs || 0} estimated jobs</div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* State-Level Opportunities Summary */}
+                {stateOpportunities.length > 0 && !expandedMetric && (
+                  <div className="mb-8 bg-slate-900/60 border border-cyan-500/30 rounded-xl p-6">
+                    <h3 className="text-xl font-bold text-cyan-300 mb-4 flex items-center gap-2">
+                      <MapPin className="w-5 h-5" />
+                      Top States by Opportunity
+                    </h3>
+                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                      {stateOpportunities.slice(0, 12).map((state: any, idx: number) => (
+                        <div key={state.state} className="bg-slate-800/60 border border-cyan-500/20 rounded-lg p-3 text-center hover:border-cyan-400/50 transition-all">
+                          <div className="text-2xl font-bold text-cyan-300">{state.state}</div>
+                          <div className="text-xs text-cyan-300/60">{state.hazardCount} hazards</div>
+                          <div className="text-sm font-bold text-green-400 mt-1">{formatCurrency(state.estimatedRevenue)}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Live Data Sources Status */}
+                <div className="mb-8 flex flex-wrap gap-2 justify-center">
+                  {Object.entries(dataSources).map(([source, data]: [string, any]) => (
+                    <div key={source} className="flex items-center gap-2 px-3 py-1.5 bg-slate-800/60 border border-green-500/30 rounded-full text-xs">
+                      <span className={`w-2 h-2 rounded-full ${data.status === 'live' ? 'bg-green-400 animate-pulse' : 'bg-yellow-400'}`} />
+                      <span className="text-green-300">{source.toUpperCase()}: {data.count}</span>
+                    </div>
+                  ))}
                 </div>
 
                 {/* Active Storm Predictions with AI Reasoning */}

@@ -527,4 +527,305 @@ router.get('/summary', async (req, res) => {
   }
 });
 
+// ===== PREDICTIONS INTELLIGENCE (for Storm Predictions module) =====
+// This endpoint aggregates all hazard data and transforms it into contractor-focused insights
+router.get('/predictions/intelligence', async (req, res) => {
+  try {
+    // Fetch all hazard data in parallel
+    const [storms, earthquakes, wildfires, nwsAlerts] = await Promise.all([
+      nhcService.fetchActiveStorms(),
+      usgsEarthquakeService.fetchRecentEarthquakes(3.5), // Higher magnitude for significant events
+      nasaFirmsService.fetchUSWildfires(1),
+      // Fetch all severe weather alerts
+      (async () => {
+        try {
+          const url = 'https://api.weather.gov/alerts/active?status=actual&urgency=Immediate,Expected';
+          const response = await fetch(url, {
+            headers: {
+              'User-Agent': 'DisasterDirect/1.0',
+              'Accept': 'application/geo+json'
+            }
+          });
+          if (!response.ok) return [];
+          const data: any = await response.json();
+          return data.features || [];
+        } catch (e) {
+          console.error('NWS alerts error:', e);
+          return [];
+        }
+      })()
+    ]);
+
+    // Revenue assumptions per hazard type (average job value)
+    const revenueModel = {
+      hurricane: { avgJobValue: 45000, jobsPerEvent: 150 },
+      tropicalStorm: { avgJobValue: 25000, jobsPerEvent: 80 },
+      tornado: { avgJobValue: 35000, jobsPerEvent: 50 },
+      winterStorm: { avgJobValue: 8000, jobsPerEvent: 200 },
+      earthquake: { avgJobValue: 55000, jobsPerEvent: 100 },
+      wildfire: { avgJobValue: 75000, jobsPerEvent: 40 },
+      flood: { avgJobValue: 22000, jobsPerEvent: 120 },
+      hail: { avgJobValue: 15000, jobsPerEvent: 300 },
+      wind: { avgJobValue: 12000, jobsPerEvent: 100 }
+    };
+
+    // Parse state from NWS alert areas
+    const extractLocationFromAlert = (alert: any) => {
+      const props = alert.properties || {};
+      const areaDesc = props.areaDesc || '';
+      // Parse state abbreviation from area description
+      const stateMatch = areaDesc.match(/,\s*([A-Z]{2})(?:\s|$|;)/);
+      const state = stateMatch ? stateMatch[1] : areaDesc.split(';')[0]?.trim();
+      // Get counties/zones
+      const counties = areaDesc.split(';').map((c: string) => c.trim()).filter((c: string) => c);
+      return { state, counties, fullArea: areaDesc };
+    };
+
+    // Categorize NWS alerts by hazard type
+    const categorizeAlert = (alert: any) => {
+      const event = (alert.properties?.event || '').toLowerCase();
+      if (event.includes('hurricane')) return 'hurricane';
+      if (event.includes('tropical storm')) return 'tropicalStorm';
+      if (event.includes('tornado')) return 'tornado';
+      if (event.includes('winter') || event.includes('blizzard') || event.includes('ice storm') || event.includes('snow')) return 'winterStorm';
+      if (event.includes('flood')) return 'flood';
+      if (event.includes('hail')) return 'hail';
+      if (event.includes('wind') || event.includes('high wind')) return 'wind';
+      return 'other';
+    };
+
+    // Build Active Storms list (tropical systems)
+    const activeStorms: any[] = [];
+    
+    // Add NHC storms
+    storms.forEach(storm => {
+      activeStorms.push({
+        id: storm.id,
+        name: storm.name,
+        type: storm.classification,
+        category: storm.intensity || 0,
+        windSpeed: storm.windSpeed,
+        pressure: storm.pressure,
+        location: {
+          latitude: storm.latitude,
+          longitude: storm.longitude,
+          state: null, // Would need reverse geocoding
+          description: `${storm.latitude.toFixed(1)}°N, ${Math.abs(storm.longitude).toFixed(1)}°W`
+        },
+        movement: storm.movement,
+        lastUpdate: storm.lastUpdate,
+        estimatedRevenue: storm.intensity >= 1 
+          ? revenueModel.hurricane.avgJobValue * revenueModel.hurricane.jobsPerEvent
+          : revenueModel.tropicalStorm.avgJobValue * revenueModel.tropicalStorm.jobsPerEvent,
+        estimatedJobs: storm.intensity >= 1 ? revenueModel.hurricane.jobsPerEvent : revenueModel.tropicalStorm.jobsPerEvent
+      });
+    });
+
+    // Add tropical NWS alerts
+    nwsAlerts.filter((a: any) => {
+      const event = (a.properties?.event || '').toLowerCase();
+      return event.includes('tropical') || event.includes('hurricane');
+    }).forEach((alert: any) => {
+      const location = extractLocationFromAlert(alert);
+      activeStorms.push({
+        id: alert.properties.id || `nws-${Date.now()}`,
+        name: alert.properties.headline || alert.properties.event,
+        type: alert.properties.event,
+        category: 0,
+        windSpeed: null,
+        pressure: null,
+        location: {
+          latitude: null,
+          longitude: null,
+          state: location.state,
+          counties: location.counties,
+          description: location.fullArea
+        },
+        severity: alert.properties.severity,
+        urgency: alert.properties.urgency,
+        lastUpdate: alert.properties.sent,
+        estimatedRevenue: revenueModel.tropicalStorm.avgJobValue * revenueModel.tropicalStorm.jobsPerEvent * 0.5,
+        estimatedJobs: Math.round(revenueModel.tropicalStorm.jobsPerEvent * 0.5)
+      });
+    });
+
+    // Build Impact Zones from all hazard sources
+    const impactZones: any[] = [];
+    const stateImpacts = new Map<string, { hazards: any[], totalRevenue: number, totalJobs: number }>();
+
+    // Process NWS alerts into impact zones
+    nwsAlerts.forEach((alert: any) => {
+      const category = categorizeAlert(alert);
+      if (category === 'other') return;
+      
+      const location = extractLocationFromAlert(alert);
+      const model = revenueModel[category as keyof typeof revenueModel] || revenueModel.wind;
+      const confidence = alert.properties?.certainty === 'Observed' ? 0.9 : 
+                        alert.properties?.certainty === 'Likely' ? 0.7 : 0.5;
+      const estimatedRevenue = Math.round(model.avgJobValue * model.jobsPerEvent * confidence);
+      const estimatedJobs = Math.round(model.jobsPerEvent * confidence);
+
+      const impactZone = {
+        id: alert.properties.id || `zone-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        hazardType: category,
+        alertType: alert.properties.event,
+        severity: alert.properties.severity,
+        urgency: alert.properties.urgency,
+        certainty: alert.properties.certainty,
+        location: {
+          state: location.state,
+          counties: location.counties.slice(0, 5), // Limit to first 5 counties
+          description: location.fullArea.substring(0, 200)
+        },
+        headline: alert.properties.headline,
+        description: (alert.properties.description || '').substring(0, 500),
+        startTime: alert.properties.effective,
+        endTime: alert.properties.expires,
+        estimatedRevenue,
+        estimatedJobs,
+        confidence: Math.round(confidence * 100)
+      };
+
+      impactZones.push(impactZone);
+
+      // Aggregate by state
+      if (location.state) {
+        const existing = stateImpacts.get(location.state) || { hazards: [], totalRevenue: 0, totalJobs: 0 };
+        existing.hazards.push({ type: category, severity: alert.properties.severity });
+        existing.totalRevenue += estimatedRevenue;
+        existing.totalJobs += estimatedJobs;
+        stateImpacts.set(location.state, existing);
+      }
+    });
+
+    // Add earthquakes to impact zones
+    earthquakes.filter(eq => eq.magnitude >= 4.0).forEach(eq => {
+      const confidence = eq.magnitude >= 6 ? 0.95 : eq.magnitude >= 5 ? 0.8 : 0.6;
+      const estimatedRevenue = Math.round(revenueModel.earthquake.avgJobValue * revenueModel.earthquake.jobsPerEvent * confidence);
+      const estimatedJobs = Math.round(revenueModel.earthquake.jobsPerEvent * confidence);
+
+      impactZones.push({
+        id: eq.id,
+        hazardType: 'earthquake',
+        alertType: `M${eq.magnitude.toFixed(1)} Earthquake`,
+        severity: eq.magnitude >= 6 ? 'Extreme' : eq.magnitude >= 5 ? 'Severe' : 'Moderate',
+        urgency: 'Immediate',
+        certainty: 'Observed',
+        location: {
+          state: null,
+          latitude: eq.latitude,
+          longitude: eq.longitude,
+          description: eq.location || `${eq.latitude.toFixed(2)}°, ${eq.longitude.toFixed(2)}°`,
+          depth: eq.depth
+        },
+        headline: `M${eq.magnitude.toFixed(1)} Earthquake - ${eq.location}`,
+        description: `Depth: ${eq.depth}km. ${eq.magnitude >= 5 ? 'Structural damage possible.' : 'Minor damage expected.'}`,
+        startTime: eq.time,
+        endTime: null,
+        estimatedRevenue,
+        estimatedJobs,
+        confidence: Math.round(confidence * 100)
+      });
+    });
+
+    // Add wildfires to impact zones
+    wildfires.forEach(fire => {
+      const confidence = fire.confidence === 'high' ? 0.9 : fire.confidence === 'nominal' ? 0.7 : 0.5;
+      const estimatedRevenue = Math.round(revenueModel.wildfire.avgJobValue * revenueModel.wildfire.jobsPerEvent * confidence);
+      const estimatedJobs = Math.round(revenueModel.wildfire.jobsPerEvent * confidence);
+
+      impactZones.push({
+        id: fire.id,
+        hazardType: 'wildfire',
+        alertType: 'Active Wildfire',
+        severity: fire.frp > 100 ? 'Extreme' : fire.frp > 50 ? 'Severe' : 'Moderate',
+        urgency: 'Immediate',
+        certainty: 'Observed',
+        location: {
+          state: null,
+          latitude: fire.latitude,
+          longitude: fire.longitude,
+          description: `${fire.latitude.toFixed(3)}°, ${fire.longitude.toFixed(3)}°`
+        },
+        headline: `Active Fire Detected`,
+        description: `Brightness: ${fire.brightness}K, FRP: ${fire.frp}MW`,
+        startTime: fire.acquisitionDate,
+        endTime: null,
+        estimatedRevenue,
+        estimatedJobs,
+        confidence: Math.round(confidence * 100)
+      });
+    });
+
+    // Build Contractor Opportunities (prioritized by revenue potential)
+    const opportunities = impactZones
+      .filter(zone => zone.estimatedRevenue > 0)
+      .map((zone, idx) => ({
+        id: `opp-${zone.id}`,
+        rank: idx + 1,
+        hazardType: zone.hazardType,
+        alertType: zone.alertType,
+        severity: zone.severity,
+        location: zone.location,
+        estimatedRevenue: zone.estimatedRevenue,
+        estimatedJobs: zone.estimatedJobs,
+        confidence: zone.confidence,
+        timing: zone.urgency === 'Immediate' ? 'Deploy Now' : 
+                zone.urgency === 'Expected' ? 'Deploy in 24-48h' : 'Monitor',
+        peakDemandTime: zone.startTime,
+        competitionLevel: zone.estimatedJobs > 100 ? 'High Demand' : 
+                         zone.estimatedJobs > 50 ? 'Moderate Competition' : 'Limited Competition',
+        recommendation: zone.urgency === 'Immediate' 
+          ? 'Immediate deployment recommended - high confidence opportunity'
+          : 'Pre-position crews and monitor for updates'
+      }))
+      .sort((a, b) => b.estimatedRevenue - a.estimatedRevenue)
+      .slice(0, 50); // Top 50 opportunities
+
+    // Calculate totals
+    const totalRevenue = opportunities.reduce((sum, opp) => sum + opp.estimatedRevenue, 0);
+    const totalJobs = opportunities.reduce((sum, opp) => sum + opp.estimatedJobs, 0);
+
+    // State-level summary
+    const stateOpportunities = Array.from(stateImpacts.entries())
+      .map(([state, data]) => ({
+        state,
+        hazardCount: data.hazards.length,
+        hazardTypes: [...new Set(data.hazards.map(h => h.type))],
+        estimatedRevenue: data.totalRevenue,
+        estimatedJobs: data.totalJobs
+      }))
+      .sort((a, b) => b.estimatedRevenue - a.estimatedRevenue);
+
+    res.json({
+      success: true,
+      timestamp: new Date(),
+      summary: {
+        activeStorms: activeStorms.length,
+        impactZones: impactZones.length,
+        opportunities: opportunities.length,
+        totalEstimatedRevenue: totalRevenue,
+        totalEstimatedJobs: totalJobs,
+        statesAffected: stateOpportunities.length
+      },
+      activeStorms,
+      impactZones: impactZones.slice(0, 100), // Limit response size
+      opportunities,
+      stateOpportunities,
+      dataSources: {
+        nhc: { count: storms.length, status: 'live' },
+        usgs: { count: earthquakes.length, status: 'live' },
+        firms: { count: wildfires.length, status: wildfires.length > 0 ? 'live' : 'mock' },
+        nws: { count: nwsAlerts.length, status: 'live' }
+      }
+    });
+  } catch (error: any) {
+    console.error('Predictions intelligence error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 export default router;
