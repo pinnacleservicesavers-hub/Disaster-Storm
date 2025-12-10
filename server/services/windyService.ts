@@ -43,11 +43,14 @@ export class WindyService {
 
   constructor() {
     this.webcamApiKey = process.env.WINDY_WEBCAM_API_KEY;
-    this.pointForecastKey = process.env.WINDY_PINT_FORECAST_KEY;
+    this.pointForecastKey = process.env.WINDY_POINT_FORECAST_KEY;
     this.trafficCamApiKey = process.env.TRAFFIC_CAM_API_KEY;
     
     if (this.webcamApiKey) {
       console.log('✅ Windy Webcam API key configured');
+    }
+    if (this.pointForecastKey) {
+      console.log('✅ Windy Point Forecast API key configured');
     }
     if (this.trafficCamApiKey) {
       console.log('✅ Traffic Camera API key configured');
