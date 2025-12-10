@@ -210,13 +210,12 @@ export default function StormPredictions() {
     try {
       const narrationText = generateNarrationText();
       
-      const response = await fetch('/api/voice/speak', {
+      // Use the correct voice AI endpoint
+      const response = await fetch('/api/voice-ai/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          text: narrationText,
-          voice: 'rachel',
-          speed: 1.0
+          text: narrationText
         })
       });
 
@@ -224,7 +223,19 @@ export default function StormPredictions() {
         throw new Error('Voice generation failed');
       }
 
-      const audioBlob = await response.blob();
+      const data = await response.json();
+      
+      if (!data.audioBase64) {
+        throw new Error('No audio data received');
+      }
+
+      // Convert base64 to audio
+      const audioData = atob(data.audioBase64);
+      const audioArray = new Uint8Array(audioData.length);
+      for (let i = 0; i < audioData.length; i++) {
+        audioArray[i] = audioData.charCodeAt(i);
+      }
+      const audioBlob = new Blob([audioArray], { type: 'audio/mpeg' });
       const audioUrl = URL.createObjectURL(audioBlob);
       
       const audio = new Audio(audioUrl);
