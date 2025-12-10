@@ -58,20 +58,23 @@ export class WindyService {
     try {
       if (this.webcamApiKey) {
         console.log(`🎥 Fetching Windy webcams near ${lat}, ${lon} (radius: ${radius}km)`);
+        console.log(`🔑 API Key configured: ${this.webcamApiKey.substring(0, 5)}...`);
         
-        const response = await fetch(
-          `https://api.windy.com/api/webcams/v2/list/nearby?lat=${lat}&lon=${lon}&radius=${radius}&show=webcams:image,location,player&limit=20`,
-          {
-            headers: {
-              'x-windy-api-key': this.webcamApiKey,
-              'Accept': 'application/json'
-            }
+        const url = `https://api.windy.com/api/webcams/v2/list/nearby?lat=${lat}&lon=${lon}&radius=${radius}&show=webcams:image,location,player&limit=20`;
+        console.log(`📡 Calling: ${url}`);
+        
+        const response = await fetch(url, {
+          headers: {
+            'x-windy-api-key': this.webcamApiKey,
+            'Accept': 'application/json'
           }
-        );
+        });
+
+        console.log(`📊 Windy API Response: ${response.status} ${response.statusText}`);
 
         if (response.ok) {
           const data: any = await response.json();
-          console.log(`✅ Got ${data.result?.webcams?.length || 0} webcams from Windy API`);
+          console.log(`✅ Windy API Success - Got ${data.result?.webcams?.length || 0} webcams`);
           if (data.result?.webcams && data.result.webcams.length > 0) {
             return data.result.webcams.map((cam: any) => ({
               id: cam.id,
@@ -99,8 +102,12 @@ export class WindyService {
             }));
           }
         } else {
-          console.warn(`⚠️ Windy API returned ${response.status}: ${response.statusText}`);
+          const errorBody = await response.text();
+          console.warn(`⚠️ Windy API Error ${response.status}: ${response.statusText}`);
+          console.warn(`📋 Response: ${errorBody.substring(0, 200)}`);
         }
+      } else {
+        console.warn('⚠️ WINDY_WEBCAM_API_KEY not configured in environment');
       }
 
       // Return mock data as fallback
