@@ -175,7 +175,7 @@ export default function StormPredictions() {
   const { toast } = useToast();
 
   // Generate narration text for the current educational topic
-  const generateNarrationText = () => {
+  const generateEducationNarration = () => {
     const topic = stormEducation[selectedEducationTopic];
     let narration = `Welcome to the Storm Science Academy. Today we're learning about ${topic.title}. `;
     
@@ -194,8 +194,27 @@ export default function StormPredictions() {
     return narration;
   };
 
+  // Generate narration for AI Transparency tab
+  const generateTransparencyNarration = () => {
+    let narration = `Welcome to the AI Transparency Dashboard. I want you to understand exactly how our AI makes predictions, because your business depends on accurate information. `;
+    
+    narration += `We use 8 live data sources to power our predictions. Let me walk you through each one. `;
+    
+    aiDataSources.forEach((source, idx) => {
+      narration += `Source ${idx + 1}: ${source.name}. This provides ${source.type} data with ${source.accuracy} accuracy and updates every ${source.latency}. `;
+    });
+    
+    narration += `Now let me explain our model performance. For track forecasts, we achieve 94% accuracy at 24 hours. For intensity forecasts, we're at 82% accuracy. For damage estimates, we're at 87% accuracy. And for pre-position timing recommendations, we achieve 91% accuracy. `;
+    
+    narration += `Our prediction methodology follows 5 steps. First, we ingest real-time data from all 8 feeds every 2 to 15 minutes. Second, we compare current conditions to over 100 years of historical storm data. Third, we blend multiple weather models including GFS, ECMWF, and HRRR. Fourth, we apply our damage probability model trained on over 2 million historical events. Finally, we calculate contractor opportunity scores based on revenue potential, timing, and competition. `;
+    
+    narration += `We believe in full transparency because your crews are deployed based on these predictions. When we're uncertain, we tell you. When confidence is high, we show you why. That's our commitment to you.`;
+    
+    return narration;
+  };
+
   // Play voice narration using Rachel AI
-  const playVoiceNarration = async () => {
+  const playVoiceNarration = async (type: 'education' | 'transparency' = 'education') => {
     if (isPlayingVoice) {
       // Stop playback
       if (audioRef.current) {
@@ -208,7 +227,7 @@ export default function StormPredictions() {
 
     setIsLoadingVoice(true);
     try {
-      const narrationText = generateNarrationText();
+      const narrationText = type === 'transparency' ? generateTransparencyNarration() : generateEducationNarration();
       
       // Use the correct voice AI endpoint
       const response = await fetch('/api/voice-ai/generate', {
@@ -260,7 +279,9 @@ export default function StormPredictions() {
       
       toast({
         title: "🎧 Rachel is Reading",
-        description: `Playing: ${stormEducation[selectedEducationTopic].title}`,
+        description: type === 'transparency' 
+          ? "Playing: AI Transparency Dashboard" 
+          : `Playing: ${stormEducation[selectedEducationTopic].title}`,
       });
       
     } catch (error) {
@@ -833,7 +854,7 @@ export default function StormPredictions() {
                     
                     {/* Rachel Voice Button */}
                     <button
-                      onClick={playVoiceNarration}
+                      onClick={() => playVoiceNarration('education')}
                       disabled={isLoadingVoice}
                       className={`flex items-center gap-3 px-6 py-4 rounded-xl font-semibold transition-all ${
                         isPlayingVoice 
@@ -932,18 +953,61 @@ export default function StormPredictions() {
           {/* AI TRANSPARENCY TAB */}
           <TabsContent value="ai-reasoning" className="mt-6">
             <div className="space-y-8">
-              {/* Header */}
+              {/* Header with Voice Button */}
               <div className="bg-gradient-to-r from-green-900/40 to-emerald-900/40 border border-green-500/30 rounded-xl p-6">
-                <div className="flex items-center gap-4 mb-4">
-                  <Brain className="w-12 h-12 text-green-400" />
-                  <div>
-                    <h2 className="text-2xl font-bold text-green-300">AI Transparency Dashboard</h2>
-                    <p className="text-green-300/70">Full visibility into how our AI makes predictions</p>
+                <div className="flex items-start justify-between gap-4 mb-4">
+                  <div className="flex items-center gap-4">
+                    <Brain className="w-12 h-12 text-green-400" />
+                    <div>
+                      <h2 className="text-2xl font-bold text-green-300">AI Transparency Dashboard</h2>
+                      <p className="text-green-300/70">Full visibility into how our AI makes predictions</p>
+                    </div>
                   </div>
+                  
+                  {/* Rachel Voice Button for Transparency */}
+                  <button
+                    onClick={() => playVoiceNarration('transparency')}
+                    disabled={isLoadingVoice}
+                    className={`flex items-center gap-3 px-6 py-4 rounded-xl font-semibold transition-all ${
+                      isPlayingVoice 
+                        ? 'bg-red-600 hover:bg-red-700 text-white'
+                        : 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white shadow-lg shadow-green-500/30'
+                    }`}
+                    data-testid="button-voice-transparency"
+                  >
+                    {isLoadingVoice ? (
+                      <>
+                        <Loader2 className="w-6 h-6 animate-spin" />
+                        <span>Loading Rachel...</span>
+                      </>
+                    ) : isPlayingVoice ? (
+                      <>
+                        <VolumeX className="w-6 h-6" />
+                        <span>Stop Reading</span>
+                      </>
+                    ) : (
+                      <>
+                        <Volume2 className="w-6 h-6" />
+                        <div className="text-left">
+                          <div className="text-sm">🎧 Listen to This</div>
+                          <div className="text-xs opacity-80">Rachel explains our AI</div>
+                        </div>
+                      </>
+                    )}
+                  </button>
                 </div>
-                <div className="flex items-center gap-2 text-sm text-green-400/80">
+                
+                <div className="flex items-center gap-2 text-sm text-green-400/80 mb-4">
                   <Info className="w-4 h-4" />
                   We believe you should understand exactly why we predict what we predict - your business depends on it.
+                </div>
+                
+                {/* Voice accessibility note */}
+                <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3 flex items-center gap-3">
+                  <Volume2 className="w-5 h-5 text-green-400 flex-shrink-0" />
+                  <p className="text-sm text-green-200/80">
+                    <strong>Accessibility:</strong> Click the button above to have Rachel explain all 8 data sources, model accuracy, and our prediction methodology.
+                  </p>
                 </div>
               </div>
 
