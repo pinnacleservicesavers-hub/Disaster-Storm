@@ -22,6 +22,7 @@ import {
   List
 } from 'lucide-react';
 import LiveHazardMap from './LiveHazardMap';
+import NamedStormsIndicator from './NamedStormsIndicator';
 
 interface LiveAlert {
   id: string;
@@ -145,9 +146,12 @@ export default function LiveHazardDashboard() {
                   Real-time severe weather alerts, earthquakes, wildfires, and hazards from NWS, USGS, NASA FIRMS
                 </CardDescription>
               </div>
-              {alertsLoading && (
-                <RefreshCw className="w-5 h-5 animate-spin text-cyan-400" />
-              )}
+              <div className="flex items-center gap-3">
+                <NamedStormsIndicator />
+                {alertsLoading && (
+                  <RefreshCw className="w-5 h-5 animate-spin text-cyan-400" />
+                )}
+              </div>
             </div>
           </CardHeader>
           <CardContent>

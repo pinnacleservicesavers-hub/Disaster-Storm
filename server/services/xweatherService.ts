@@ -502,4 +502,145 @@ export class XweatherService {
   }
 }
 
+// ==================== TROPICAL CYCLONES INTERFACES ====================
+
+export interface TropicalCyclone {
+  id: string;
+  name: string;
+  stormName: string;
+  year: number;
+  basin: string;
+  currentBasin: string;
+  stormType: string; // TD, TS, H1-H5, TY, STY
+  category: number;
+  windSpeedKTS: number;
+  windSpeedMPH: number;
+  windGustMPH: number;
+  pressureMB: number;
+  movement: {
+    direction: string;
+    directionDEG: number;
+    speedMPH: number;
+  };
+  position: {
+    lat: number;
+    lon: number;
+  };
+  advisory: {
+    number: string;
+    timestamp: number;
+    dateTimeISO: string;
+  };
+  isActive: boolean;
+}
+
+export interface TropicalCyclonesResponse {
+  success: boolean;
+  error?: any;
+  response: TropicalCyclone[];
+}
+
+// Add tropical cyclones methods to XweatherService class
+XweatherService.prototype.getTropicalCyclones = async function(): Promise<TropicalCyclone[]> {
+  if (!this.credentials.clientId || !this.credentials.clientSecret) {
+    console.warn('⚠️ Xweather credentials not configured - returning mock tropical data');
+    return this.getMockTropicalCyclones();
+  }
+
+  try {
+    const url = `https://data.api.xweather.com/tropicalcyclones?client_id=${this.credentials.clientId}&client_secret=${this.credentials.clientSecret}`;
+    
+    const response = await fetch(url);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Xweather tropical cyclones API error:', response.status, errorText);
+      return this.getMockTropicalCyclones();
+    }
+    
+    const data = await response.json() as any;
+    
+    if (!data.success || !data.response) {
+      console.warn('Xweather tropical cyclones returned no data');
+      return [];
+    }
+    
+    // Map the API response to our interface
+    return data.response.map((storm: any) => ({
+      id: storm.id || `${storm.year}-${storm.basin}-${storm.number}`,
+      name: storm.profile?.name || 'Unknown',
+      stormName: storm.profile?.stormName || storm.profile?.name || 'Unknown',
+      year: storm.profile?.year || new Date().getFullYear(),
+      basin: storm.profile?.basin || 'AL',
+      currentBasin: storm.profile?.basinCurrent || storm.profile?.basin || 'AL',
+      stormType: storm.position?.stormCat || 'TD',
+      category: storm.position?.stormCatNum || 0,
+      windSpeedKTS: storm.position?.windSpeedKTS || 0,
+      windSpeedMPH: storm.position?.windSpeedMPH || 0,
+      windGustMPH: storm.position?.windGustMPH || 0,
+      pressureMB: storm.position?.pressureMB || 0,
+      movement: {
+        direction: storm.position?.movementDir || 'N',
+        directionDEG: storm.position?.movementDirDEG || 0,
+        speedMPH: storm.position?.movementSpeedMPH || 0,
+      },
+      position: {
+        lat: storm.position?.loc?.lat || 0,
+        lon: storm.position?.loc?.long || 0,
+      },
+      advisory: {
+        number: storm.position?.advisoryNumber || '1',
+        timestamp: storm.position?.timestamp || Date.now() / 1000,
+        dateTimeISO: storm.position?.dateTimeISO || new Date().toISOString(),
+      },
+      isActive: true,
+    }));
+  } catch (error) {
+    console.error('Error fetching tropical cyclones:', error);
+    return this.getMockTropicalCyclones();
+  }
+};
+
+XweatherService.prototype.getMockTropicalCyclones = function(): TropicalCyclone[] {
+  // Return empty array during non-storm season, or mock data for testing
+  const isHurricaneSeason = new Date().getMonth() >= 5 && new Date().getMonth() <= 10; // June-November
+  
+  if (!isHurricaneSeason) {
+    return [];
+  }
+  
+  // Mock data for testing during hurricane season
+  return [
+    {
+      id: '2024-AL-01',
+      name: 'Test Storm',
+      stormName: 'Tropical Storm Test',
+      year: 2024,
+      basin: 'AL',
+      currentBasin: 'AL',
+      stormType: 'TS',
+      category: 0,
+      windSpeedKTS: 45,
+      windSpeedMPH: 52,
+      windGustMPH: 65,
+      pressureMB: 1002,
+      movement: {
+        direction: 'NW',
+        directionDEG: 315,
+        speedMPH: 12,
+      },
+      position: {
+        lat: 24.5,
+        lon: -75.2,
+      },
+      advisory: {
+        number: '5',
+        timestamp: Date.now() / 1000,
+        dateTimeISO: new Date().toISOString(),
+      },
+      isActive: true,
+    }
+  ];
+};
+
 export const xweatherService = new XweatherService();

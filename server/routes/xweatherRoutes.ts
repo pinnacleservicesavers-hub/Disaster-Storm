@@ -279,6 +279,70 @@ router.get('/threat-level', async (req, res) => {
   }
 });
 
+// ==================== TROPICAL CYCLONES ROUTES ====================
+
+/**
+ * GET /api/xweather/tropicalcyclones
+ * Get all active tropical cyclones globally
+ */
+router.get('/tropicalcyclones', async (req, res) => {
+  try {
+    const storms = await (xweatherService as any).getTropicalCyclones();
+    
+    res.json({
+      storms,
+      count: storms.length,
+      timestamp: new Date().toISOString(),
+      source: 'xweather',
+    });
+  } catch (error: any) {
+    console.error('Error fetching tropical cyclones:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/xweather/tropicalcyclones/summary
+ * Get summary count of named storms by basin
+ */
+router.get('/tropicalcyclones/summary', async (req, res) => {
+  try {
+    const storms = await (xweatherService as any).getTropicalCyclones();
+    
+    const byBasin = storms.reduce((acc: Record<string, number>, storm: any) => {
+      const basin = storm.basin || 'Unknown';
+      acc[basin] = (acc[basin] || 0) + 1;
+      return acc;
+    }, {});
+    
+    const byCategory = storms.reduce((acc: Record<string, number>, storm: any) => {
+      const type = storm.stormType || 'Unknown';
+      acc[type] = (acc[type] || 0) + 1;
+      return acc;
+    }, {});
+    
+    res.json({
+      totalActive: storms.length,
+      byBasin,
+      byCategory,
+      storms: storms.map((s: any) => ({
+        id: s.id,
+        name: s.name,
+        stormName: s.stormName,
+        stormType: s.stormType,
+        category: s.category,
+        windSpeedMPH: s.windSpeedMPH,
+        position: s.position,
+        basin: s.basin,
+      })),
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error: any) {
+    console.error('Error fetching tropical cyclones summary:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ==================== HEALTH CHECK ====================
 
 /**
