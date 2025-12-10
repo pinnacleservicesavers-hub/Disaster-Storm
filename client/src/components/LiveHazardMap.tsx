@@ -163,10 +163,12 @@ export default function LiveHazardMap() {
     if (earthquakesData?.earthquakes) {
       earthquakesData.earthquakes.forEach((eq: any) => {
         // Handle both flat lat/lon and nested coordinates object
-        const lat = eq.latitude ?? eq.coordinates?.latitude;
-        const lon = eq.longitude ?? eq.coordinates?.longitude;
+        const lat = Number(eq.latitude ?? eq.coordinates?.latitude);
+        const lon = Number(eq.longitude ?? eq.coordinates?.longitude);
         
-        if (lat && lon) {
+        // Strict validation - must be valid finite numbers within reasonable bounds
+        if (Number.isFinite(lat) && Number.isFinite(lon) && 
+            lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
           const magnitude = eq.magnitude || 3;
           const size = Math.min(32, Math.max(16, magnitude * 6));
           const color = magnitude >= 5 ? '#ef4444' : magnitude >= 4 ? '#f97316' : '#eab308';
@@ -195,11 +197,16 @@ export default function LiveHazardMap() {
 
     if (wildfiresData?.wildfires) {
       wildfiresData.wildfires.forEach((fire: any) => {
-        if (fire.latitude && fire.longitude) {
+        const lat = Number(fire.latitude);
+        const lon = Number(fire.longitude);
+        
+        // Strict validation - must be valid finite numbers within reasonable bounds
+        if (Number.isFinite(lat) && Number.isFinite(lon) && 
+            lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
           const confidence = fire.confidence || 50;
           const size = Math.min(28, Math.max(18, confidence / 4));
           
-          const marker = L.marker([fire.latitude, fire.longitude], {
+          const marker = L.marker([lat, lon], {
             icon: createIcon('🔥', '#f97316', size),
           });
           
@@ -208,11 +215,11 @@ export default function LiveHazardMap() {
               type: 'Wildfire',
               title: 'Active Fire Detected',
               severity: confidence > 80 ? 'Extreme' : confidence > 50 ? 'Severe' : 'Moderate',
-              location: `${fire.latitude.toFixed(3)}, ${fire.longitude.toFixed(3)}`,
+              location: `${lat.toFixed(3)}, ${lon.toFixed(3)}`,
               details: `Confidence: ${confidence}% | Brightness: ${fire.brightness || 'N/A'}K`,
               time: fire.acq_date || new Date().toISOString(),
               source: 'NASA FIRMS',
-              coordinates: [fire.latitude, fire.longitude],
+              coordinates: [lat, lon],
             });
           });
           
@@ -223,8 +230,13 @@ export default function LiveHazardMap() {
 
     if (hurricanesData?.storms) {
       hurricanesData.storms.forEach((storm: any) => {
-        if (storm.center?.latitude && storm.center?.longitude) {
-          const marker = L.marker([storm.center.latitude, storm.center.longitude], {
+        const lat = Number(storm.center?.latitude);
+        const lon = Number(storm.center?.longitude);
+        
+        // Strict validation - must be valid finite numbers within reasonable bounds
+        if (Number.isFinite(lat) && Number.isFinite(lon) && 
+            lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
+          const marker = L.marker([lat, lon], {
             icon: createIcon('🌀', '#8b5cf6', 36),
           });
           
@@ -233,11 +245,11 @@ export default function LiveHazardMap() {
               type: 'Hurricane',
               title: storm.name || 'Tropical System',
               severity: 'Extreme',
-              location: `${storm.center.latitude.toFixed(1)}°N, ${Math.abs(storm.center.longitude).toFixed(1)}°W`,
+              location: `${lat.toFixed(1)}°N, ${Math.abs(lon).toFixed(1)}°W`,
               details: `Category: ${storm.category || 'TD'} | Wind: ${storm.maxWind || 'N/A'} mph`,
               time: storm.advisoryTime || new Date().toISOString(),
               source: 'NHC',
-              coordinates: [storm.center.latitude, storm.center.longitude],
+              coordinates: [lat, lon],
             });
           });
           
