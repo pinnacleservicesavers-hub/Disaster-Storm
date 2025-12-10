@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { useQuery } from '@tanstack/react-query';
 import VoiceGuide from '@/components/VoiceGuide';
-import { StateCitySelector, useStateCitySelector } from '@/components/StateCitySelector';
+import { StateCitySelector, useStateCitySelector, getCityCoordinates } from '@/components/StateCitySelector';
 import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 import WindyMap from '@/components/WindyMap';
 import WindyWebcams from '@/components/WindyWebcams';
@@ -201,8 +201,8 @@ export default function WeatherCenter() {
           {activeView === 'map' && (
             <div className="lg:col-span-2" data-testid="section-live-weather-maps">
               <WindyMap 
-                defaultLat={selectedCity === 'Miami' ? 25.7617 : 30.4383}
-                defaultLon={selectedCity === 'Miami' ? -80.1918 : -84.2807}
+                defaultLat={getCityCoordinates(selectedCity, selectedState).lat}
+                defaultLon={getCityCoordinates(selectedCity, selectedState).lon}
                 defaultZoom={7}
                 height="500px"
               />
@@ -216,8 +216,8 @@ export default function WeatherCenter() {
                 style={{ boxShadow: '0 0 40px rgba(0, 194, 255, 0.1)', minHeight: '600px' }}
               >
                 <WindyWebcams 
-                  lat={selectedCity === 'Miami' ? 25.7617 : 30.4383}
-                  lon={selectedCity === 'Miami' ? -80.1918 : -84.2807}
+                  lat={getCityCoordinates(selectedCity, selectedState).lat}
+                  lon={getCityCoordinates(selectedCity, selectedState).lon}
                   radius={50}
                 />
               </div>
