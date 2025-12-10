@@ -57,23 +57,54 @@ export class WindyService {
   async getWebcamsNearLocation(lat: number, lon: number, radius: number = 50): Promise<WindyWebcam[]> {
     try {
       if (this.webcamApiKey) {
+        console.log(`🎥 Fetching Windy webcams near ${lat}, ${lon} (radius: ${radius}km)`);
+        
         const response = await fetch(
-          `https://api.windy.com/api/webcams/v2/list/nearby=${lat},${lon},${radius}?show=webcams:image,location,player&limit=20`,
+          `https://api.windy.com/api/webcams/v2/list/nearby?lat=${lat}&lon=${lon}&radius=${radius}&show=webcams:image,location,player&limit=20`,
           {
             headers: {
-              'x-windy-api-key': this.webcamApiKey
+              'x-windy-api-key': this.webcamApiKey,
+              'Accept': 'application/json'
             }
           }
         );
 
         if (response.ok) {
           const data: any = await response.json();
-          return data.result?.webcams || [];
+          console.log(`✅ Got ${data.result?.webcams?.length || 0} webcams from Windy API`);
+          if (data.result?.webcams && data.result.webcams.length > 0) {
+            return data.result.webcams.map((cam: any) => ({
+              id: cam.id,
+              title: cam.title,
+              status: cam.status,
+              location: {
+                latitude: cam.location.latitude,
+                longitude: cam.location.longitude,
+                city: cam.location.city || 'Unknown',
+                region: cam.location.region || 'Unknown',
+                country: cam.location.country || 'USA'
+              },
+              image: {
+                current: {
+                  preview: cam.image?.current?.preview || '',
+                  icon: cam.image?.current?.icon || '',
+                  thumbnail: cam.image?.current?.thumbnail || ''
+                }
+              },
+              player: {
+                day: {
+                  embed: cam.player?.day?.embed || `https://weathercams.windy.com/cam/${cam.id}`
+                }
+              }
+            }));
+          }
+        } else {
+          console.warn(`⚠️ Windy API returned ${response.status}: ${response.statusText}`);
         }
       }
 
-      // Return mock data for development
-      console.log('Using mock webcam data for development');
+      // Return mock data as fallback
+      console.log('📌 Using mock webcam data as fallback');
       return [
         {
           id: 'webcam-1',
@@ -157,23 +188,54 @@ export class WindyService {
   async getWebcamsByRegion(region: string, limit: number = 10): Promise<WindyWebcam[]> {
     try {
       if (this.webcamApiKey) {
+        console.log(`🎥 Fetching Windy webcams for region: ${region}`);
+        
         const response = await fetch(
-          `https://api.windy.com/api/webcams/v2/list/region=${region}?show=webcams:image,location,player&limit=${limit}`,
+          `https://api.windy.com/api/webcams/v2/list/region?region=${encodeURIComponent(region)}&show=webcams:image,location,player&limit=${limit}`,
           {
             headers: {
-              'x-windy-api-key': this.webcamApiKey
+              'x-windy-api-key': this.webcamApiKey,
+              'Accept': 'application/json'
             }
           }
         );
 
         if (response.ok) {
           const data: any = await response.json();
-          return data.result?.webcams || [];
+          console.log(`✅ Got ${data.result?.webcams?.length || 0} webcams from Windy API for region`);
+          if (data.result?.webcams && data.result.webcams.length > 0) {
+            return data.result.webcams.map((cam: any) => ({
+              id: cam.id,
+              title: cam.title,
+              status: cam.status,
+              location: {
+                latitude: cam.location.latitude,
+                longitude: cam.location.longitude,
+                city: cam.location.city || 'Unknown',
+                region: cam.location.region || 'Unknown',
+                country: cam.location.country || 'USA'
+              },
+              image: {
+                current: {
+                  preview: cam.image?.current?.preview || '',
+                  icon: cam.image?.current?.icon || '',
+                  thumbnail: cam.image?.current?.thumbnail || ''
+                }
+              },
+              player: {
+                day: {
+                  embed: cam.player?.day?.embed || `https://weathercams.windy.com/cam/${cam.id}`
+                }
+              }
+            }));
+          }
+        } else {
+          console.warn(`⚠️ Windy API returned ${response.status}: ${response.statusText}`);
         }
       }
 
-      // Return mock data for development
-      console.log('Using mock webcam data for development (region)', region);
+      // Return mock data as fallback
+      console.log('📌 Using mock webcam data as fallback for region:', region);
       return this.getMockWebcams(25.7617, -80.1918);
     } catch (error) {
       console.error('Error fetching Windy webcams by region:', error);
