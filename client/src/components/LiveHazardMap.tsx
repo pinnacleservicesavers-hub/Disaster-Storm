@@ -254,6 +254,41 @@ export default function LiveHazardMap() {
           markersRef.current?.addLayer(marker);
         }
       });
+
+      // General NWS alerts (flood, storm, wind, etc.) - not winter or tornado
+      const otherAlerts = nwsAlertsData.filter((a: any) => {
+        const alertType = a.alertType?.toLowerCase() || '';
+        const isWinter = alertType.includes('winter') || alertType.includes('snow') || 
+                         alertType.includes('ice') || alertType.includes('blizzard');
+        const isTornado = alertType.includes('tornado');
+        return !isWinter && !isTornado;
+      });
+
+      otherAlerts.forEach((alert: any) => {
+        if (alert.coordinates?.latitude && alert.coordinates?.longitude) {
+          const severity = alert.severity || 'Moderate';
+          const color = severity === 'Extreme' ? '#ef4444' : severity === 'Severe' ? '#f97316' : '#eab308';
+          
+          const marker = L.marker([alert.coordinates.latitude, alert.coordinates.longitude], {
+            icon: createIcon('⚠️', color, 22),
+          });
+          
+          marker.on('click', () => {
+            setSelectedHazard({
+              type: 'Alert',
+              title: alert.title || alert.alertType || 'Weather Alert',
+              severity: severity,
+              location: alert.areas?.join(', ') || 'Unknown area',
+              details: alert.description || 'Weather alert in effect',
+              time: alert.startTime || new Date().toISOString(),
+              source: 'NWS',
+              coordinates: [alert.coordinates.latitude, alert.coordinates.longitude],
+            });
+          });
+          
+          markersRef.current?.addLayer(marker);
+        }
+      });
     }
 
   }, [earthquakesData, wildfiresData, hurricanesData, nwsAlertsData]);
@@ -333,6 +368,10 @@ export default function LiveHazardMap() {
               <span>🌪️</span>
               <span className="text-cyan-300/80">Tornadoes</span>
             </div>
+            <div className="flex items-center gap-2">
+              <span>⚠️</span>
+              <span className="text-cyan-300/80">Alerts ({nwsAlertsData?.length || 0})</span>
+            </div>
           </div>
         </div>
       </div>
@@ -355,6 +394,7 @@ export default function LiveHazardMap() {
                     {selectedHazard.type === 'Hurricane' && '🌀'}
                     {selectedHazard.type === 'Winter Storm' && '❄️'}
                     {selectedHazard.type === 'Tornado' && '🌪️'}
+                    {selectedHazard.type === 'Alert' && '⚠️'}
                     {selectedHazard.title}
                   </CardTitle>
                   <button 
