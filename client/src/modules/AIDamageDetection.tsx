@@ -13,7 +13,8 @@ import {
   Upload, Camera, Image, Scan, AlertTriangle, CheckCircle2, 
   FileImage, Trash2, Eye, Download, Send, DollarSign, Shield,
   Zap, Clock, Users, MapPin, ChevronRight, Brain, Sparkles,
-  RefreshCw, FileText, Share2, Phone, Mail, X, Play, Pause
+  RefreshCw, FileText, Share2, Phone, Mail, X, Play, Pause,
+  Satellite, Globe, Layers, Calendar, TrendingDown, Flame, Droplets
 } from 'lucide-react';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 
@@ -30,6 +31,25 @@ interface DamageDetection {
   workScope?: string[];
   safetyHazards?: string[];
   leadPriority: string;
+}
+
+interface TreeDamageDetail {
+  count: number;
+  description: string;
+  locations: string[];
+}
+
+interface DamageInventory {
+  treesDown: TreeDamageDetail;
+  treesOnHomes: TreeDamageDetail;
+  treesOnCars: TreeDamageDetail;
+  treesOnBuildings: TreeDamageDetail;
+  treesOnPowerlines: TreeDamageDetail;
+  treesBlockingRoads: TreeDamageDetail;
+  roofsDamaged: number;
+  windowsBroken: number;
+  vehiclesDamaged: number;
+  structuresDamaged: number;
 }
 
 interface AnalysisResult {
@@ -51,6 +71,30 @@ interface AnalysisResult {
     location?: string;
     propertyAddress?: string;
   };
+  damageInventory?: DamageInventory;
+  aiNarrative?: string;
+}
+
+interface SatelliteImage {
+  url: string;
+  index: string;
+  date: string;
+  satellite: string;
+}
+
+interface SatelliteDamageAnalysis {
+  beforeImage: SatelliteImage | null;
+  afterImage: SatelliteImage | null;
+  changeDetected: boolean;
+  damageIndicators: {
+    vegetationLoss: number;
+    burnSeverity: number;
+    floodExtent: number;
+    structuralChange: number;
+  };
+  analysis: string;
+  dataSource: 'EOS_SATELLITE' | 'SIMULATION';
+  disclaimer: string;
 }
 
 export default function AIDamageDetection() {
@@ -67,6 +111,14 @@ export default function AIDamageDetection() {
   const [analysisProgress, setAnalysisProgress] = useState(0);
   const [showCamera, setShowCamera] = useState(false);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+  
+  // Satellite imagery state
+  const [satelliteLat, setSatelliteLat] = useState('');
+  const [satelliteLon, setSatelliteLon] = useState('');
+  const [stormDate, setStormDate] = useState(new Date().toISOString().split('T')[0]);
+  const [stormType, setStormType] = useState('hurricane');
+  const [satelliteAnalysis, setSatelliteAnalysis] = useState<SatelliteDamageAnalysis | null>(null);
+  const [isAnalyzingSatellite, setIsAnalyzingSatellite] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -266,6 +318,81 @@ export default function AIDamageDetection() {
     }
   };
 
+  // Analyze satellite imagery for storm damage
+  const analyzeSatelliteDamage = async () => {
+    if (!satelliteLat || !satelliteLon) {
+      toast({
+        title: "Location Required",
+        description: "Please enter latitude and longitude coordinates.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsAnalyzingSatellite(true);
+    setSatelliteAnalysis(null);
+
+    try {
+      const response = await fetch('/api/satellite/analyze-damage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          lat: parseFloat(satelliteLat),
+          lon: parseFloat(satelliteLon),
+          stormDate,
+          stormType
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Satellite analysis failed');
+      }
+
+      const data = await response.json();
+      if (data.success && data.analysis) {
+        setSatelliteAnalysis(data.analysis);
+        toast({
+          title: "Satellite Analysis Complete",
+          description: data.analysis.changeDetected 
+            ? "Storm damage detected in satellite imagery!" 
+            : "No significant damage detected.",
+        });
+      }
+    } catch (error: any) {
+      console.error('Satellite analysis error:', error);
+      toast({
+        title: "Analysis Failed",
+        description: "Could not analyze satellite imagery. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsAnalyzingSatellite(false);
+    }
+  };
+
+  // Get coordinates from current location
+  const useCurrentLocation = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setSatelliteLat(position.coords.latitude.toFixed(6));
+          setSatelliteLon(position.coords.longitude.toFixed(6));
+          toast({
+            title: "Location Detected",
+            description: "Coordinates set from your current location.",
+          });
+        },
+        (error) => {
+          toast({
+            title: "Location Error",
+            description: "Could not get your location. Please enter coordinates manually.",
+            variant: "destructive"
+          });
+        }
+      );
+    }
+  };
+
   const getSeverityColor = (severity: string) => {
     switch (severity) {
       case 'critical': return 'bg-red-600 text-white';
@@ -365,6 +492,10 @@ export default function AIDamageDetection() {
             <TabsTrigger value="history" className="px-6 py-3 data-[state=active]:bg-cyan-600 data-[state=active]:text-white font-semibold" data-testid="tab-history">
               <FileText className="w-5 h-5 mr-2" />
               Analysis History
+            </TabsTrigger>
+            <TabsTrigger value="satellite" className="px-6 py-3 data-[state=active]:bg-emerald-600 data-[state=active]:text-white font-semibold" data-testid="tab-satellite">
+              <Satellite className="w-5 h-5 mr-2" />
+              Satellite Imagery
             </TabsTrigger>
           </TabsList>
 
@@ -598,6 +729,99 @@ export default function AIDamageDetection() {
                       </div>
                     </Card>
 
+                    {/* AI Narrative - Voice-ready summary */}
+                    {currentAnalysis.aiNarrative && (
+                      <Card className="bg-gradient-to-br from-cyan-900/40 to-blue-900/40 border-cyan-500/50 p-4" data-testid="ai-narrative-card">
+                        <div className="flex items-center gap-2 mb-3">
+                          <Brain className="w-5 h-5 text-cyan-400" />
+                          <h4 className="font-semibold text-cyan-300">AI Damage Summary</h4>
+                        </div>
+                        <p className="text-cyan-100/90 italic">"{currentAnalysis.aiNarrative}"</p>
+                      </Card>
+                    )}
+
+                    {/* Damage Inventory - Precise Counts */}
+                    {currentAnalysis.damageInventory && (
+                      <Card className="bg-gradient-to-br from-amber-900/40 to-orange-900/40 border-amber-500/50 p-4" data-testid="damage-inventory-card">
+                        <div className="flex items-center gap-2 mb-4">
+                          <AlertTriangle className="w-5 h-5 text-amber-400" />
+                          <h4 className="font-semibold text-amber-300">Damage Inventory - Precise Counts</h4>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-3">
+                          {/* Tree Damage Summary */}
+                          {currentAnalysis.damageInventory.treesDown.count > 0 && (
+                            <div className="bg-slate-900/60 rounded-lg p-3">
+                              <div className="text-2xl font-bold text-amber-300">{currentAnalysis.damageInventory.treesDown.count}</div>
+                              <div className="text-sm text-amber-300/70">Trees Down</div>
+                              {currentAnalysis.damageInventory.treesDown.description && (
+                                <p className="text-xs text-amber-200/60 mt-1">{currentAnalysis.damageInventory.treesDown.description}</p>
+                              )}
+                            </div>
+                          )}
+                          
+                          {currentAnalysis.damageInventory.treesOnHomes.count > 0 && (
+                            <div className="bg-red-900/40 border border-red-500/50 rounded-lg p-3">
+                              <div className="text-2xl font-bold text-red-400">{currentAnalysis.damageInventory.treesOnHomes.count}</div>
+                              <div className="text-sm text-red-300/70 font-semibold">Trees on Homes (CRITICAL)</div>
+                              {currentAnalysis.damageInventory.treesOnHomes.description && (
+                                <p className="text-xs text-red-200/60 mt-1">{currentAnalysis.damageInventory.treesOnHomes.description}</p>
+                              )}
+                            </div>
+                          )}
+                          
+                          {currentAnalysis.damageInventory.treesOnCars.count > 0 && (
+                            <div className="bg-orange-900/40 border border-orange-500/50 rounded-lg p-3">
+                              <div className="text-2xl font-bold text-orange-400">{currentAnalysis.damageInventory.treesOnCars.count}</div>
+                              <div className="text-sm text-orange-300/70">Trees on Vehicles</div>
+                            </div>
+                          )}
+                          
+                          {currentAnalysis.damageInventory.treesOnBuildings.count > 0 && (
+                            <div className="bg-red-900/40 border border-red-500/50 rounded-lg p-3">
+                              <div className="text-2xl font-bold text-red-400">{currentAnalysis.damageInventory.treesOnBuildings.count}</div>
+                              <div className="text-sm text-red-300/70">Trees on Buildings</div>
+                            </div>
+                          )}
+                          
+                          {currentAnalysis.damageInventory.treesOnPowerlines.count > 0 && (
+                            <div className="bg-red-900/60 border-2 border-red-500 rounded-lg p-3 animate-pulse">
+                              <div className="text-2xl font-bold text-red-400">{currentAnalysis.damageInventory.treesOnPowerlines.count}</div>
+                              <div className="text-sm text-red-300 font-bold">EMERGENCY: On Power Lines</div>
+                            </div>
+                          )}
+                          
+                          {currentAnalysis.damageInventory.treesBlockingRoads.count > 0 && (
+                            <div className="bg-yellow-900/40 border border-yellow-500/50 rounded-lg p-3">
+                              <div className="text-2xl font-bold text-yellow-400">{currentAnalysis.damageInventory.treesBlockingRoads.count}</div>
+                              <div className="text-sm text-yellow-300/70">Trees Blocking Roads</div>
+                            </div>
+                          )}
+                          
+                          {currentAnalysis.damageInventory.roofsDamaged > 0 && (
+                            <div className="bg-purple-900/40 rounded-lg p-3">
+                              <div className="text-2xl font-bold text-purple-400">{currentAnalysis.damageInventory.roofsDamaged}</div>
+                              <div className="text-sm text-purple-300/70">Roofs Damaged</div>
+                            </div>
+                          )}
+                          
+                          {currentAnalysis.damageInventory.vehiclesDamaged > 0 && (
+                            <div className="bg-blue-900/40 rounded-lg p-3">
+                              <div className="text-2xl font-bold text-blue-400">{currentAnalysis.damageInventory.vehiclesDamaged}</div>
+                              <div className="text-sm text-blue-300/70">Vehicles Damaged</div>
+                            </div>
+                          )}
+                          
+                          {currentAnalysis.damageInventory.windowsBroken > 0 && (
+                            <div className="bg-slate-800/60 rounded-lg p-3">
+                              <div className="text-2xl font-bold text-slate-300">{currentAnalysis.damageInventory.windowsBroken}</div>
+                              <div className="text-sm text-slate-400/70">Windows Broken</div>
+                            </div>
+                          )}
+                        </div>
+                      </Card>
+                    )}
+
                     {/* Individual Damage Detections */}
                     <div className="space-y-4">
                       <h3 className="text-lg font-semibold text-fuchsia-300">Damage Detections</h3>
@@ -774,6 +998,295 @@ export default function AIDamageDetection() {
                   <p className="text-cyan-300/50">No analysis history yet. Upload images to get started.</p>
                 </Card>
               )}
+            </div>
+          </TabsContent>
+
+          {/* SATELLITE IMAGERY TAB */}
+          <TabsContent value="satellite" className="mt-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Left Column - Controls */}
+              <div className="space-y-6">
+                <Card className="bg-gradient-to-br from-slate-900/80 to-emerald-950/30 border-emerald-500/40 p-6">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-12 h-12 rounded-xl bg-emerald-500/20 flex items-center justify-center">
+                      <Satellite className="w-6 h-6 text-emerald-400" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold text-emerald-300">EOS Satellite Analysis</h3>
+                      <p className="text-sm text-emerald-300/60">Before/After Storm Damage Detection</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    {/* Location Inputs */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-emerald-300 mb-2">Latitude</label>
+                        <Input
+                          placeholder="25.7617"
+                          value={satelliteLat}
+                          onChange={(e) => setSatelliteLat(e.target.value)}
+                          className="bg-slate-900/60 border-emerald-500/30 text-white placeholder:text-emerald-300/40"
+                          data-testid="input-satellite-lat"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-emerald-300 mb-2">Longitude</label>
+                        <Input
+                          placeholder="-80.1918"
+                          value={satelliteLon}
+                          onChange={(e) => setSatelliteLon(e.target.value)}
+                          className="bg-slate-900/60 border-emerald-500/30 text-white placeholder:text-emerald-300/40"
+                          data-testid="input-satellite-lon"
+                        />
+                      </div>
+                    </div>
+
+                    <Button 
+                      variant="outline" 
+                      className="w-full border-emerald-500/50 text-emerald-300 hover:bg-emerald-500/20"
+                      onClick={useCurrentLocation}
+                      data-testid="button-use-location"
+                    >
+                      <MapPin className="w-4 h-4 mr-2" />
+                      Use Current Location
+                    </Button>
+
+                    {/* Storm Date */}
+                    <div>
+                      <label className="block text-sm font-medium text-emerald-300 mb-2">Storm Date</label>
+                      <Input
+                        type="date"
+                        value={stormDate}
+                        onChange={(e) => setStormDate(e.target.value)}
+                        className="bg-slate-900/60 border-emerald-500/30 text-white"
+                        data-testid="input-storm-date"
+                      />
+                    </div>
+
+                    {/* Storm Type */}
+                    <div>
+                      <label className="block text-sm font-medium text-emerald-300 mb-2">Storm Type</label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {[
+                          { id: 'hurricane', label: 'Hurricane', icon: Globe },
+                          { id: 'tornado', label: 'Tornado', icon: TrendingDown },
+                          { id: 'wildfire', label: 'Wildfire', icon: Flame },
+                          { id: 'flood', label: 'Flood', icon: Droplets },
+                          { id: 'hail', label: 'Hail', icon: Layers },
+                          { id: 'other', label: 'Other', icon: AlertTriangle }
+                        ].map(type => (
+                          <button
+                            key={type.id}
+                            onClick={() => setStormType(type.id)}
+                            className={`p-3 rounded-lg border text-center transition-all ${
+                              stormType === type.id 
+                                ? 'bg-emerald-600 border-emerald-400 text-white' 
+                                : 'bg-slate-900/40 border-emerald-500/30 text-emerald-300/70 hover:border-emerald-400/50'
+                            }`}
+                            data-testid={`button-storm-type-${type.id}`}
+                          >
+                            <type.icon className="w-5 h-5 mx-auto mb-1" />
+                            <span className="text-xs">{type.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Analyze Button */}
+                    <Button 
+                      onClick={analyzeSatelliteDamage}
+                      disabled={isAnalyzingSatellite || !satelliteLat || !satelliteLon}
+                      className="w-full bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-700 hover:to-cyan-700 py-6 text-lg font-bold"
+                      data-testid="button-analyze-satellite"
+                    >
+                      {isAnalyzingSatellite ? (
+                        <>
+                          <RefreshCw className="w-6 h-6 mr-3 animate-spin" />
+                          Analyzing Satellite Data...
+                        </>
+                      ) : (
+                        <>
+                          <Satellite className="w-6 h-6 mr-3" />
+                          Analyze Storm Damage
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </Card>
+
+                {/* Satellite Indices Info */}
+                <Card className="bg-slate-900/40 border-emerald-500/20 p-4">
+                  <h4 className="text-sm font-semibold text-emerald-300 mb-3">Detection Indices Used:</h4>
+                  <div className="space-y-2 text-xs text-emerald-300/70">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full bg-green-500" />
+                      <span><strong>NDVI</strong> - Vegetation health & storm damage</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full bg-orange-500" />
+                      <span><strong>NBR</strong> - Burn severity for wildfires</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full bg-blue-500" />
+                      <span><strong>NDWI</strong> - Flood extent detection</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full bg-purple-500" />
+                      <span><strong>Change Detection</strong> - Structural damage</span>
+                    </div>
+                  </div>
+                </Card>
+              </div>
+
+              {/* Right Column - Results */}
+              <div className="space-y-6">
+                {satelliteAnalysis ? (
+                  <>
+                    {/* Before/After Images */}
+                    <Card className="bg-slate-900/60 border-emerald-500/30 p-4">
+                      <h4 className="text-lg font-semibold text-emerald-300 mb-4">Satellite Imagery Comparison</h4>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <div className="text-xs text-emerald-300/60 mb-2 text-center">BEFORE Storm</div>
+                          {satelliteAnalysis.beforeImage ? (
+                            <img 
+                              src={satelliteAnalysis.beforeImage.url} 
+                              alt="Before storm" 
+                              className="w-full h-40 object-cover rounded-lg border border-emerald-500/30"
+                              onError={(e) => { (e.target as HTMLImageElement).src = 'https://via.placeholder.com/300x200?text=Before+Image'; }}
+                            />
+                          ) : (
+                            <div className="w-full h-40 bg-slate-800 rounded-lg flex items-center justify-center text-emerald-300/40">
+                              No image available
+                            </div>
+                          )}
+                        </div>
+                        <div>
+                          <div className="text-xs text-emerald-300/60 mb-2 text-center">AFTER Storm</div>
+                          {satelliteAnalysis.afterImage ? (
+                            <img 
+                              src={satelliteAnalysis.afterImage.url} 
+                              alt="After storm" 
+                              className="w-full h-40 object-cover rounded-lg border border-red-500/30"
+                              onError={(e) => { (e.target as HTMLImageElement).src = 'https://via.placeholder.com/300x200?text=After+Image'; }}
+                            />
+                          ) : (
+                            <div className="w-full h-40 bg-slate-800 rounded-lg flex items-center justify-center text-emerald-300/40">
+                              No image available
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </Card>
+
+                    {/* Damage Indicators */}
+                    <Card className="bg-slate-900/60 border-emerald-500/30 p-4">
+                      <h4 className="text-lg font-semibold text-emerald-300 mb-4">Damage Indicators</h4>
+                      <div className="space-y-4">
+                        {[
+                          { label: 'Vegetation Loss', value: satelliteAnalysis.damageIndicators.vegetationLoss, color: 'bg-green-500', icon: TrendingDown },
+                          { label: 'Burn Severity', value: satelliteAnalysis.damageIndicators.burnSeverity, color: 'bg-orange-500', icon: Flame },
+                          { label: 'Flood Extent', value: satelliteAnalysis.damageIndicators.floodExtent, color: 'bg-blue-500', icon: Droplets },
+                          { label: 'Structural Change', value: satelliteAnalysis.damageIndicators.structuralChange, color: 'bg-purple-500', icon: Layers }
+                        ].map(indicator => (
+                          <div key={indicator.label}>
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-sm text-emerald-300/80 flex items-center gap-2">
+                                <indicator.icon className="w-4 h-4" />
+                                {indicator.label}
+                              </span>
+                              <span className={`text-sm font-bold ${indicator.value > 30 ? 'text-red-400' : indicator.value > 15 ? 'text-yellow-400' : 'text-green-400'}`}>
+                                {indicator.value.toFixed(1)}%
+                              </span>
+                            </div>
+                            <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+                              <div 
+                                className={`h-full ${indicator.color} transition-all`}
+                                style={{ width: `${Math.min(indicator.value, 100)}%` }}
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </Card>
+
+                    {/* Analysis Report */}
+                    <Card className={`p-4 ${satelliteAnalysis.changeDetected ? 'bg-red-950/40 border-red-500/40' : 'bg-green-950/40 border-green-500/40'}`}>
+                      <div className="flex items-center gap-3 mb-4">
+                        {satelliteAnalysis.changeDetected ? (
+                          <AlertTriangle className="w-8 h-8 text-red-400" />
+                        ) : (
+                          <CheckCircle2 className="w-8 h-8 text-green-400" />
+                        )}
+                        <div>
+                          <h4 className={`text-lg font-bold ${satelliteAnalysis.changeDetected ? 'text-red-300' : 'text-green-300'}`}>
+                            {satelliteAnalysis.changeDetected ? 'DAMAGE DETECTED' : 'No Significant Damage'}
+                          </h4>
+                          <p className={`text-sm ${satelliteAnalysis.changeDetected ? 'text-red-300/60' : 'text-green-300/60'}`}>
+                            Based on satellite imagery analysis
+                          </p>
+                        </div>
+                      </div>
+                      <div className="bg-slate-900/60 rounded-lg p-4">
+                        <pre className="text-xs text-emerald-300/80 whitespace-pre-wrap font-mono">
+                          {satelliteAnalysis.analysis}
+                        </pre>
+                      </div>
+                    </Card>
+
+                    {/* Action Buttons */}
+                    <div className="flex gap-4">
+                      <Button className="flex-1 bg-emerald-600 hover:bg-emerald-700" data-testid="button-export-satellite">
+                        <Download className="w-4 h-4 mr-2" />
+                        Export Report
+                      </Button>
+                      <Button variant="outline" className="flex-1 border-emerald-500/50 text-emerald-300" data-testid="button-dispatch-satellite">
+                        <Send className="w-4 h-4 mr-2" />
+                        Dispatch Crew
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <Card className="bg-slate-900/40 border-emerald-500/20 p-12 text-center">
+                    <Satellite className="w-16 h-16 text-emerald-400/30 mx-auto mb-4" />
+                    <h3 className="text-xl font-semibold text-emerald-300 mb-2">Satellite Storm Analysis</h3>
+                    <p className="text-emerald-300/50 mb-6">
+                      Enter coordinates and storm date to analyze satellite imagery for damage assessment.
+                    </p>
+                    <div className="grid grid-cols-2 gap-4 text-left max-w-md mx-auto">
+                      <div className="flex items-start gap-3">
+                        <Globe className="w-5 h-5 text-emerald-400 mt-0.5" />
+                        <div>
+                          <div className="text-sm font-medium text-emerald-300">Before/After</div>
+                          <div className="text-xs text-emerald-300/50">Compare imagery pre & post storm</div>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-3">
+                        <TrendingDown className="w-5 h-5 text-red-400 mt-0.5" />
+                        <div>
+                          <div className="text-sm font-medium text-red-300">Damage Detection</div>
+                          <div className="text-xs text-red-300/50">AI-powered change analysis</div>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-3">
+                        <Layers className="w-5 h-5 text-blue-400 mt-0.5" />
+                        <div>
+                          <div className="text-sm font-medium text-blue-300">Multiple Indices</div>
+                          <div className="text-xs text-blue-300/50">NDVI, NBR, NDWI analysis</div>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-3">
+                        <DollarSign className="w-5 h-5 text-green-400 mt-0.5" />
+                        <div>
+                          <div className="text-sm font-medium text-green-300">Claim Support</div>
+                          <div className="text-xs text-green-300/50">Evidence for insurance</div>
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                )}
+              </div>
             </div>
           </TabsContent>
         </Tabs>

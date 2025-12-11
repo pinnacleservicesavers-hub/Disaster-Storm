@@ -1,7 +1,26 @@
 // Dynamic import of @anthropic-ai/sdk only when ANTHROPIC_API_KEY is available
 
+export interface TreeDamageDetail {
+  count: number;
+  description: string;
+  locations: string[];
+}
+
+export interface DamageInventory {
+  treesDown: TreeDamageDetail;
+  treesOnHomes: TreeDamageDetail;
+  treesOnCars: TreeDamageDetail;
+  treesOnBuildings: TreeDamageDetail;
+  treesOnPowerlines: TreeDamageDetail;
+  treesBlockingRoads: TreeDamageDetail;
+  roofsDamaged: number;
+  windowsBroken: number;
+  vehiclesDamaged: number;
+  structuresDamaged: number;
+}
+
 export interface DamageDetection {
-  alertType: 'structure_damage' | 'tree_down' | 'tree_on_powerline' | 'tree_blocking_road' | 'tree_on_vehicle' | 'flood_damage' | 'debris_blockage' | 'roof_damage' | 'siding_damage' | 'window_damage' | 'electrical_damage' | 'basement_flooding' | 'driveway_damage';
+  alertType: 'structure_damage' | 'tree_down' | 'tree_on_powerline' | 'tree_blocking_road' | 'tree_on_vehicle' | 'tree_on_home' | 'tree_on_building' | 'flood_damage' | 'debris_blockage' | 'roof_damage' | 'siding_damage' | 'window_damage' | 'electrical_damage' | 'basement_flooding' | 'driveway_damage';
   confidence: number; // 0-100 percentage
   severity: 'minor' | 'moderate' | 'severe' | 'critical';
   severityScore: number; // 1-10 scale for precise ranking
@@ -32,6 +51,8 @@ export interface DamageDetection {
   emergencyResponse: boolean; // True if needs immediate response
   insuranceLikelihood: number; // 1-10 likelihood of insurance claim
   competitionLevel: 'low' | 'medium' | 'high'; // Expected contractor competition
+  // Tree-specific counts for detailed inventory
+  itemCount?: number; // Number of items of this type detected
 }
 
 export interface DamageAnalysisResult {
@@ -60,6 +81,10 @@ export interface DamageAnalysisResult {
     intensity: string;
     timeElapsed: number; // minutes since storm passed
   };
+  // Detailed damage inventory with specific counts
+  damageInventory?: DamageInventory;
+  // AI narrative summary for voice guide
+  aiNarrative?: string;
 }
 
 export class DamageDetectionService {
@@ -192,37 +217,61 @@ export class DamageDetectionService {
   }
 
   private buildAnalysisPrompt(cameraLocation?: string): string {
-    return `You are an expert damage assessment AI analyzing traffic camera footage for storm-related damage and infrastructure issues that create profitable contractor opportunities.
+    return `You are an expert storm damage assessment AI. Analyze this image for ALL visible damage with PRECISE COUNTS and SPECIFIC LOCATIONS.
 
-LOCATION: ${cameraLocation || 'Traffic camera location'}
+LOCATION: ${cameraLocation || 'Image location'}
 
-ANALYZE this traffic camera image for contractor-serviceable damage with LEAD GENERATION focus:
+**CRITICAL: COUNT EVERY ITEM PRECISELY**
+You MUST count and report EXACT numbers for:
+- How many fallen/downed trees are visible
+- How many trees have fallen ON HOMES (crushing/impacting roofs)
+- How many trees have fallen ON CARS/VEHICLES
+- How many trees have fallen ON BUILDINGS (commercial/other structures)
+- How many trees are ON POWERLINES
+- How many trees are BLOCKING ROADS
+- How many roofs show visible damage
+- How many windows are broken
+- How many vehicles show damage
 
-**DAMAGE TYPES & PROFITABILITY:**
-1. **ROOF DAMAGE** - Missing shingles, structural damage, gutter issues (HIGH VALUE)
-2. **SIDING DAMAGE** - Damaged exterior walls, vinyl/wood siding issues (MEDIUM-HIGH VALUE)
-3. **WINDOW DAMAGE** - Broken windows, frame damage (MEDIUM VALUE)
-4. **TREE ON POWERLINE** - Electrical hazard, emergency tree removal (CRITICAL EMERGENCY)
-5. **TREE BLOCKING ROAD** - Public/private property tree removal (HIGH VALUE)
-6. **FLOOD DAMAGE** - Water damage to structures, cleanup needs (HIGH VALUE)
-7. **STRUCTURAL DAMAGE** - Building damage, fence damage (HIGH VALUE)
-8. **DEBRIS BLOCKAGE** - Storm cleanup, hauling services (MEDIUM VALUE)
+**ACCURACY RULES - ZERO TOLERANCE FOR FALSE DATA:**
+1. Only count what you can CLEARLY see in the image
+2. If uncertain, state "uncertain" - DO NOT GUESS
+3. Report "0" if you cannot confirm presence of an item
+4. Describe the EXACT position of each damaged item (e.g., "large oak tree fallen across driveway, crushing white sedan")
 
-**ENHANCED SCORING SYSTEM:**
-- SEVERITY SCORE: 1-10 scale (1=minor scratches, 10=total destruction)
-- PROFITABILITY SCORE: 1-10 scale (1=<$500 job, 10=$50,000+ job)
-- ACCESSIBILITY SCORE: 1-10 scale (1=hard to reach, 10=easy street access)
-- INSURANCE LIKELIHOOD: 1-10 scale (1=unlikely claim, 10=definite insurance claim)
-- LEAD PRIORITY: low/medium/high/critical
+**DAMAGE TYPES TO IDENTIFY:**
+1. **TREE_ON_HOME** - Tree fallen onto residential structure (CRITICAL)
+2. **TREE_ON_VEHICLE** - Tree fallen onto car/truck (HIGH VALUE)
+3. **TREE_ON_BUILDING** - Tree fallen onto commercial/other building (CRITICAL)
+4. **TREE_ON_POWERLINE** - Tree on electrical infrastructure (EMERGENCY)
+5. **TREE_BLOCKING_ROAD** - Tree blocking roadway (HIGH PRIORITY)
+6. **TREE_DOWN** - Fallen tree not impacting structures (MEDIUM)
+7. **ROOF_DAMAGE** - Visible shingle/structural roof damage
+8. **WINDOW_DAMAGE** - Broken/damaged windows
+9. **STRUCTURE_DAMAGE** - General building damage
+10. **FLOOD_DAMAGE** - Water intrusion/flooding visible
 
 **RESPONSE FORMAT:**
-Return a JSON object with this exact structure:
+Return a JSON object:
 {
   "hasDetection": boolean,
   "overallConfidence": number (0-100),
   "leadGenerated": boolean,
   "totalSeverityScore": number,
   "maxProfitabilityScore": number,
+  "damageInventory": {
+    "treesDown": {"count": number, "description": "string", "locations": ["location1", "location2"]},
+    "treesOnHomes": {"count": number, "description": "string", "locations": ["address or position"]},
+    "treesOnCars": {"count": number, "description": "string", "locations": ["vehicle description + location"]},
+    "treesOnBuildings": {"count": number, "description": "string", "locations": ["building type + location"]},
+    "treesOnPowerlines": {"count": number, "description": "string", "locations": ["pole/line location"]},
+    "treesBlockingRoads": {"count": number, "description": "string", "locations": ["road name/area"]},
+    "roofsDamaged": number,
+    "windowsBroken": number,
+    "vehiclesDamaged": number,
+    "structuresDamaged": number
+  },
+  "aiNarrative": "Conversational summary for voice guide. Example: 'I can see 3 fallen trees in this image. One large oak has fallen onto a white home, crushing the garage. Another tree is blocking the main road. A third tree has landed on a blue pickup truck in the driveway.'",
   "riskAssessment": {
     "publicSafety": number (1-10),
     "propertyDamage": number (1-10),
@@ -230,22 +279,22 @@ Return a JSON object with this exact structure:
   },
   "detections": [
     {
-      "alertType": "roof_damage|siding_damage|window_damage|tree_on_powerline|tree_blocking_road|flood_damage|structure_damage|debris_blockage",
+      "alertType": "tree_on_home|tree_on_vehicle|tree_on_building|tree_on_powerline|tree_blocking_road|tree_down|roof_damage|window_damage|structure_damage|flood_damage|debris_blockage",
+      "itemCount": number (how many of this type),
       "confidence": number (0-100),
       "severity": "minor|moderate|severe|critical",
       "severityScore": number (1-10),
       "profitabilityScore": number (1-10),
-      "description": "Detailed description focusing on repair needs",
-      "exactLocation": "Specific location for contractor dispatch",
+      "description": "SPECIFIC description: what item, what color, what size, exactly where",
+      "exactLocation": "Precise location in image/scene",
       "estimatedDamage": "low|medium|high|extensive",
       "urgencyLevel": "low|normal|high|emergency",
-      "contractorTypes": ["roofing", "siding", "electrical", "tree_removal", "water_damage", "general_contractor"],
-      "contractorSpecializations": ["storm_damage", "emergency_response", "insurance_claims"],
+      "contractorTypes": ["tree_removal", "roofing", "auto_body", "electrical", "general_contractor"],
+      "contractorSpecializations": ["storm_damage", "emergency_response", "insurance_claims", "crane_service"],
       "estimatedCost": {"min": number, "max": number, "currency": "USD"},
-      "workScope": ["specific contractor tasks"],
-      "safetyHazards": ["safety concerns for workers"],
-      "equipmentNeeded": ["specialized equipment required"],
-      "coordinates": {"lat": number, "lng": number},
+      "workScope": ["Remove 40ft oak tree from garage roof", "Tarp exposed roof section"],
+      "safetyHazards": ["Unstable tree", "Live power lines", "Structural collapse risk"],
+      "equipmentNeeded": ["Crane", "Chainsaw", "Safety harnesses"],
       "accessibilityScore": number (1-10),
       "leadPriority": "low|medium|high|critical",
       "emergencyResponse": boolean,
@@ -253,16 +302,15 @@ Return a JSON object with this exact structure:
       "competitionLevel": "low|medium|high"
     }
   ],
-  "recommendedActions": ["contractor action items"]
+  "recommendedActions": ["Call tree removal service immediately", "Contact homeowner for insurance claim"]
 }
 
-**LEAD GENERATION RULES:**
-- Generate leads for damage worth $1,000+ (profitabilityScore >= 4)
-- CRITICAL priority for safety hazards (trees on powerlines, structural collapse)
-- HIGH priority for visible roof/siding damage on residential properties
-- MEDIUM priority for commercial property damage
-- Consider insurance claim potential - storm damage = higher priority
-- Factor in accessibility - roadside damage easier than remote locations`;
+**PRIORITY SCORING:**
+- Trees ON structures (homes/buildings): CRITICAL priority, $10,000-50,000+ jobs
+- Trees ON vehicles: HIGH priority, $2,000-15,000 jobs
+- Trees ON powerlines: EMERGENCY (utility + tree crew)
+- Trees blocking roads: HIGH priority, quick response needed
+- General tree removal: MEDIUM priority`;
   }
 
   private parseAIResponse(analysisText: string, imageSize: number, processingTime: number): DamageAnalysisResult {
@@ -308,6 +356,32 @@ Return a JSON object with this exact structure:
       const maxProfitabilityScore = Math.max(...detections.map(d => d.profitabilityScore), 0);
       const leadGenerated = detections.some(d => d.profitabilityScore >= 4) && detections.length > 0;
 
+      // Parse damage inventory from AI response
+      const defaultTreeDetail = { count: 0, description: '', locations: [] };
+      const damageInventory: DamageInventory = aiResult.damageInventory ? {
+        treesDown: aiResult.damageInventory.treesDown || defaultTreeDetail,
+        treesOnHomes: aiResult.damageInventory.treesOnHomes || defaultTreeDetail,
+        treesOnCars: aiResult.damageInventory.treesOnCars || defaultTreeDetail,
+        treesOnBuildings: aiResult.damageInventory.treesOnBuildings || defaultTreeDetail,
+        treesOnPowerlines: aiResult.damageInventory.treesOnPowerlines || defaultTreeDetail,
+        treesBlockingRoads: aiResult.damageInventory.treesBlockingRoads || defaultTreeDetail,
+        roofsDamaged: aiResult.damageInventory.roofsDamaged || 0,
+        windowsBroken: aiResult.damageInventory.windowsBroken || 0,
+        vehiclesDamaged: aiResult.damageInventory.vehiclesDamaged || 0,
+        structuresDamaged: aiResult.damageInventory.structuresDamaged || 0
+      } : {
+        treesDown: defaultTreeDetail,
+        treesOnHomes: defaultTreeDetail,
+        treesOnCars: defaultTreeDetail,
+        treesOnBuildings: defaultTreeDetail,
+        treesOnPowerlines: defaultTreeDetail,
+        treesBlockingRoads: defaultTreeDetail,
+        roofsDamaged: 0,
+        windowsBroken: 0,
+        vehiclesDamaged: 0,
+        structuresDamaged: 0
+      };
+
       return {
         hasDetection: aiResult.hasDetection === true && detections.length > 0,
         detections,
@@ -326,7 +400,9 @@ Return a JSON object with this exact structure:
           propertyDamage: Math.min(10, Math.max(1, Math.max(...detections.map(d => d.severityScore), 1))),
           businessDisruption: Math.min(10, Math.max(1, totalSeverityScore > 15 ? 8 : 3))
         },
-        recommendedActions: Array.isArray(aiResult.recommendedActions) ? aiResult.recommendedActions : []
+        recommendedActions: Array.isArray(aiResult.recommendedActions) ? aiResult.recommendedActions : [],
+        damageInventory,
+        aiNarrative: aiResult.aiNarrative || this.generateNarrative(damageInventory, detections)
       };
     } catch (error) {
       console.error('Failed to parse AI response:', error);
@@ -431,6 +507,55 @@ Return a JSON object with this exact structure:
     if (avgCost >= 1000) return 4;        // $1k-2.5k = low profit (lead threshold)
     if (avgCost >= 500) return 3;         // $500-1k = minimal profit
     return 2;                             // <$500 = very low profit
+  }
+
+  // Generate natural language narrative for voice guide
+  private generateNarrative(inventory: DamageInventory, detections: DamageDetection[]): string {
+    const parts: string[] = [];
+    
+    const totalTrees = inventory.treesDown.count + inventory.treesOnHomes.count + 
+                       inventory.treesOnCars.count + inventory.treesOnBuildings.count +
+                       inventory.treesOnPowerlines.count + inventory.treesBlockingRoads.count;
+    
+    if (totalTrees === 0 && detections.length === 0) {
+      return "I've analyzed this image and found no visible storm damage. The area appears clear of fallen trees, structural damage, and debris.";
+    }
+    
+    parts.push(`I've analyzed this image and identified ${detections.length} damage detection${detections.length !== 1 ? 's' : ''}.`);
+    
+    if (totalTrees > 0) {
+      parts.push(`I can see ${totalTrees} fallen tree${totalTrees !== 1 ? 's' : ''} in this area.`);
+    }
+    
+    if (inventory.treesOnHomes.count > 0) {
+      parts.push(`CRITICAL: ${inventory.treesOnHomes.count} tree${inventory.treesOnHomes.count !== 1 ? 's have' : ' has'} fallen onto home${inventory.treesOnHomes.count !== 1 ? 's' : ''}. ${inventory.treesOnHomes.description}`);
+    }
+    
+    if (inventory.treesOnCars.count > 0) {
+      parts.push(`${inventory.treesOnCars.count} tree${inventory.treesOnCars.count !== 1 ? 's have' : ' has'} landed on vehicle${inventory.treesOnCars.count !== 1 ? 's' : ''}. ${inventory.treesOnCars.description}`);
+    }
+    
+    if (inventory.treesOnBuildings.count > 0) {
+      parts.push(`${inventory.treesOnBuildings.count} tree${inventory.treesOnBuildings.count !== 1 ? 's are' : ' is'} on commercial building${inventory.treesOnBuildings.count !== 1 ? 's' : ''}. ${inventory.treesOnBuildings.description}`);
+    }
+    
+    if (inventory.treesOnPowerlines.count > 0) {
+      parts.push(`EMERGENCY: ${inventory.treesOnPowerlines.count} tree${inventory.treesOnPowerlines.count !== 1 ? 's are' : ' is'} on power lines. Electrical hazard present.`);
+    }
+    
+    if (inventory.treesBlockingRoads.count > 0) {
+      parts.push(`${inventory.treesBlockingRoads.count} tree${inventory.treesBlockingRoads.count !== 1 ? 's are' : ' is'} blocking road${inventory.treesBlockingRoads.count !== 1 ? 's' : ''}.`);
+    }
+    
+    if (inventory.roofsDamaged > 0) {
+      parts.push(`${inventory.roofsDamaged} roof${inventory.roofsDamaged !== 1 ? 's show' : ' shows'} visible damage.`);
+    }
+    
+    if (inventory.vehiclesDamaged > 0) {
+      parts.push(`${inventory.vehiclesDamaged} vehicle${inventory.vehiclesDamaged !== 1 ? 's are' : ' is'} damaged.`);
+    }
+    
+    return parts.join(' ');
   }
 
   // Address resolution helper

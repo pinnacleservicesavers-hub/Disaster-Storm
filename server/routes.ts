@@ -5651,6 +5651,93 @@ Email: strategiclandmgmt@gmail.com
   
   console.log('🤖 AI Damage Detection upload routes registered - /api/ai-damage/analyze');
 
+  // ===== EOS SATELLITE IMAGERY ENDPOINTS =====
+  
+  const { searchSatelliteImagery, getSatelliteImage, analyzeStormDamage, getAvailableIndices } = await import('./services/eosSatellite');
+  
+  // Search for available satellite imagery
+  app.get('/api/satellite/search', async (req, res) => {
+    try {
+      const { lat, lon, startDate, endDate, maxCloudCover } = req.query;
+      
+      if (!lat || !lon) {
+        return res.status(400).json({ error: 'lat and lon are required' });
+      }
+      
+      const results = await searchSatelliteImagery(
+        parseFloat(lat as string),
+        parseFloat(lon as string),
+        (startDate as string) || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        (endDate as string) || new Date().toISOString().split('T')[0],
+        maxCloudCover ? parseInt(maxCloudCover as string) : 20
+      );
+      
+      res.json({ results, count: results.length });
+    } catch (error) {
+      console.error('Satellite search error:', error);
+      res.status(500).json({ error: 'Failed to search satellite imagery' });
+    }
+  });
+  
+  // Get satellite image for location
+  app.get('/api/satellite/image', async (req, res) => {
+    try {
+      const { lat, lon, date, index } = req.query;
+      
+      if (!lat || !lon) {
+        return res.status(400).json({ error: 'lat and lon are required' });
+      }
+      
+      const image = await getSatelliteImage(
+        parseFloat(lat as string),
+        parseFloat(lon as string),
+        (date as string) || new Date().toISOString().split('T')[0],
+        (index as string) || 'TrueColor'
+      );
+      
+      res.json({ image });
+    } catch (error) {
+      console.error('Satellite image error:', error);
+      res.status(500).json({ error: 'Failed to get satellite image' });
+    }
+  });
+  
+  // Analyze storm damage using satellite imagery
+  app.post('/api/satellite/analyze-damage', async (req, res) => {
+    try {
+      const { lat, lon, stormDate, stormType } = req.body;
+      
+      if (!lat || !lon || !stormDate) {
+        return res.status(400).json({ error: 'lat, lon, and stormDate are required' });
+      }
+      
+      const analysis = await analyzeStormDamage(
+        parseFloat(lat),
+        parseFloat(lon),
+        stormDate,
+        stormType || 'hurricane'
+      );
+      
+      res.json({ success: true, analysis });
+    } catch (error) {
+      console.error('Storm damage analysis error:', error);
+      res.status(500).json({ error: 'Failed to analyze storm damage' });
+    }
+  });
+  
+  // Get available satellite indices
+  app.get('/api/satellite/indices', async (req, res) => {
+    try {
+      const indices = await getAvailableIndices();
+      res.json({ indices });
+    } catch (error) {
+      console.error('Error getting indices:', error);
+      res.status(500).json({ error: 'Failed to get available indices' });
+    }
+  });
+  
+  console.log('🛰️ EOS Satellite Imagery routes registered - /api/satellite/*');
+
   // ===== UNIFIED 511 DIRECTORY ENDPOINTS =====
   
   // Get state directory with camera and incident counts per state
