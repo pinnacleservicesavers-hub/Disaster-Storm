@@ -4469,16 +4469,25 @@ export const mediaAssets = pgTable("media_assets", {
   capturedAt: timestamp("captured_at").defaultNow().notNull()
 });
 
-// Contracts - Legal agreements with AOB support
+// Contracts - Legal agreements with AOB support and DocuSign integration
 export const contracts = pgTable("contracts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   jobId: varchar("job_id").references(() => jobs.id).notNull(),
+  contractorId: varchar("contractor_id"),
+  customerId: varchar("customer_id"),
   originalContract: text("original_contract"),
   aiContract: text("ai_contract"),
   aobIncluded: boolean("aob_included").default(false),
   state: text("state"),
   signedByHomeowner: boolean("signed_by_homeowner").default(false),
+  signedByContractor: boolean("signed_by_contractor").default(false),
   signedAt: timestamp("signed_at"),
+  docusignEnvelopeId: varchar("docusign_envelope_id"),
+  docusignStatus: text("docusign_status").default("draft"),
+  docusignSentAt: timestamp("docusign_sent_at"),
+  docusignCompletedAt: timestamp("docusign_completed_at"),
+  documentUrl: text("document_url"),
+  signedDocumentUrl: text("signed_document_url"),
   createdAt: timestamp("created_at").defaultNow().notNull()
 });
 

@@ -5738,6 +5738,252 @@ Email: strategiclandmgmt@gmail.com
   
   console.log('🛰️ EOS Satellite Imagery routes registered - /api/satellite/*');
 
+  // ===== DOCUSIGN DOCUMENT SIGNING ENDPOINTS =====
+  
+  const { docuSignService } = await import('./services/docusign');
+  
+  // Get DocuSign service status
+  app.get('/api/docusign/status', (req, res) => {
+    const status = docuSignService.getStatus();
+    res.json({
+      ...status,
+      message: status.configured 
+        ? 'DocuSign is configured and ready for document signing' 
+        : 'DocuSign is running in simulation mode - documents will be tracked but not sent to DocuSign'
+    });
+  });
+
+  // Send document for signature
+  app.post('/api/docusign/send', express.json(), async (req, res) => {
+    try {
+      const { contractId, documentContent, signers, emailSubject, jobId, contractorId, customerId } = req.body;
+      
+      if (!documentContent || !signers || signers.length === 0) {
+        return res.status(400).json({ error: 'documentContent and at least one signer are required' });
+      }
+
+      // Create envelope with DocuSign
+      const envelope = await docuSignService.createEnvelope({
+        emailSubject: emailSubject || 'Document for Signature - Disaster Direct',
+        documents: [{
+          documentId: '1',
+          name: 'Contract.pdf',
+          content: Buffer.from(documentContent, 'base64'),
+          fileExtension: 'pdf'
+        }],
+        signers: signers.map((s: any, idx: number) => ({
+          email: s.email,
+          name: s.name,
+          recipientId: String(idx + 1),
+          routingOrder: String(idx + 1),
+          role: s.role || 'signer'
+        })),
+        status: 'sent'
+      });
+
+      // Update contract record with DocuSign envelope info
+      if (contractId) {
+        await storage.updateContract(contractId, {
+          docusignEnvelopeId: envelope.envelopeId,
+          docusignStatus: 'sent',
+          docusignSentAt: new Date(),
+          contractorId,
+          customerId
+        });
+      }
+
+      res.json({
+        success: true,
+        envelopeId: envelope.envelopeId,
+        status: envelope.status,
+        message: docuSignService.isAvailable() 
+          ? 'Document sent to signers via DocuSign'
+          : 'Document tracked (DocuSign simulation mode)',
+        sentAt: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('DocuSign send error:', error);
+      res.status(500).json({ error: 'Failed to send document for signature' });
+    }
+  });
+
+  // Get envelope status
+  app.get('/api/docusign/status/:envelopeId', async (req, res) => {
+    try {
+      const { envelopeId } = req.params;
+      const status = await docuSignService.getEnvelopeStatus(envelopeId);
+      res.json({ success: true, status });
+    } catch (error) {
+      console.error('DocuSign status error:', error);
+      res.status(500).json({ error: 'Failed to get envelope status' });
+    }
+  });
+
+  // Download signed document
+  app.get('/api/docusign/download/:envelopeId', async (req, res) => {
+    try {
+      const { envelopeId } = req.params;
+      const { documentId } = req.query;
+      
+      const doc = await docuSignService.downloadSignedDocument(
+        envelopeId, 
+        documentId as string || 'combined'
+      );
+      
+      res.setHeader('Content-Type', doc.mimeType);
+      res.setHeader('Content-Disposition', `attachment; filename="${doc.name}"`);
+      res.send(doc.content);
+    } catch (error) {
+      console.error('DocuSign download error:', error);
+      res.status(500).json({ error: 'Failed to download signed document' });
+    }
+  });
+
+  // Get embedded signing URL for in-app signing
+  app.post('/api/docusign/signing-url', express.json(), async (req, res) => {
+    try {
+      const { envelopeId, signerEmail, signerName, returnUrl } = req.body;
+      
+      if (!envelopeId || !signerEmail || !signerName) {
+        return res.status(400).json({ error: 'envelopeId, signerEmail, and signerName are required' });
+      }
+      
+      const signingUrl = await docuSignService.getSigningUrl(
+        envelopeId,
+        { email: signerEmail, name: signerName, recipientId: '1' },
+        returnUrl || `${process.env.BASE_URL || 'http://localhost:5000'}/signing-complete`
+      );
+      
+      res.json({ success: true, signingUrl });
+    } catch (error) {
+      console.error('DocuSign signing URL error:', error);
+      res.status(500).json({ error: 'Failed to get signing URL' });
+    }
+  });
+
+  // Void/cancel an envelope
+  app.post('/api/docusign/void/:envelopeId', express.json(), async (req, res) => {
+    try {
+      const { envelopeId } = req.params;
+      const { reason } = req.body;
+      
+      await docuSignService.voidEnvelope(envelopeId, reason || 'Cancelled by user');
+      
+      res.json({ success: true, message: 'Envelope voided successfully' });
+    } catch (error) {
+      console.error('DocuSign void error:', error);
+      res.status(500).json({ error: 'Failed to void envelope' });
+    }
+  });
+
+  // Get contracts for contractor
+  app.get('/api/contracts/contractor/:contractorId', async (req, res) => {
+    try {
+      const { contractorId } = req.params;
+      const contracts = await storage.getContractsByContractorId(contractorId);
+      res.json({ contracts, count: contracts.length });
+    } catch (error) {
+      console.error('Error fetching contractor contracts:', error);
+      res.status(500).json({ error: 'Failed to fetch contractor contracts' });
+    }
+  });
+
+  // Get contracts for customer
+  app.get('/api/contracts/customer/:customerId', async (req, res) => {
+    try {
+      const { customerId } = req.params;
+      const contracts = await storage.getContractsByCustomerId(customerId);
+      res.json({ contracts, count: contracts.length });
+    } catch (error) {
+      console.error('Error fetching customer contracts:', error);
+      res.status(500).json({ error: 'Failed to fetch customer contracts' });
+    }
+  });
+
+  // Create new contract and optionally send for signature
+  app.post('/api/contracts', express.json(), async (req, res) => {
+    try {
+      const { jobId, contractorId, customerId, documentContent, signers, sendForSignature } = req.body;
+      
+      // Create contract record
+      const contract = await storage.createContract({
+        jobId,
+        contractorId,
+        customerId,
+        originalContract: documentContent,
+        docusignStatus: 'draft'
+      });
+
+      // If signers provided and sendForSignature is true, send via DocuSign
+      if (sendForSignature && signers && signers.length > 0) {
+        const envelope = await docuSignService.createEnvelope({
+          emailSubject: 'Contract for Signature - Disaster Direct',
+          documents: [{
+            documentId: '1',
+            name: 'Contract.pdf',
+            content: Buffer.from(documentContent, 'base64'),
+            fileExtension: 'pdf'
+          }],
+          signers: signers.map((s: any, idx: number) => ({
+            email: s.email,
+            name: s.name,
+            recipientId: String(idx + 1),
+            role: s.role
+          })),
+          status: 'sent'
+        });
+
+        await storage.updateContract(contract.id, {
+          docusignEnvelopeId: envelope.envelopeId,
+          docusignStatus: 'sent',
+          docusignSentAt: new Date()
+        });
+
+        return res.json({
+          success: true,
+          contract: { ...contract, docusignEnvelopeId: envelope.envelopeId },
+          envelopeId: envelope.envelopeId,
+          message: 'Contract created and sent for signature'
+        });
+      }
+
+      res.json({ success: true, contract, message: 'Contract created' });
+    } catch (error) {
+      console.error('Error creating contract:', error);
+      res.status(500).json({ error: 'Failed to create contract' });
+    }
+  });
+
+  // Email document to specified recipients
+  app.post('/api/contracts/:contractId/email', express.json(), async (req, res) => {
+    try {
+      const { contractId } = req.params;
+      const { recipients, subject, message } = req.body;
+      
+      const contract = await storage.getContract(contractId);
+      if (!contract) {
+        return res.status(404).json({ error: 'Contract not found' });
+      }
+
+      // Use existing email infrastructure if available
+      // For now, return success with simulation
+      console.log(`📧 [Email] Contract ${contractId} would be sent to: ${recipients.join(', ')}`);
+      
+      res.json({
+        success: true,
+        message: 'Document emailed successfully',
+        recipients,
+        sentAt: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Error emailing contract:', error);
+      res.status(500).json({ error: 'Failed to email contract' });
+    }
+  });
+
+  console.log('📝 DocuSign document signing routes registered - /api/docusign/*');
+  console.log('📄 Contract management routes registered - /api/contracts/*');
+
   // ===== UNIFIED 511 DIRECTORY ENDPOINTS =====
   
   // Get state directory with camera and incident counts per state

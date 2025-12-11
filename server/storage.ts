@@ -132,7 +132,9 @@ import {
   type AdCampaign,
   type InsertAdCampaign,
   type DeviceAudience,
-  type InsertDeviceAudience
+  type InsertDeviceAudience,
+  type Contract,
+  type InsertContract
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import fs from "fs";
@@ -254,6 +256,15 @@ export interface IStorage {
   getClaimSubmissionsByContractor(contractorId: string): Promise<ClaimSubmission[]>;
   createClaimSubmission(submission: InsertClaimSubmission): Promise<ClaimSubmission>;
   updateClaimSubmission(id: string, updates: Partial<ClaimSubmission>): Promise<ClaimSubmission>;
+
+  // Contract methods (DocuSign integration)
+  getContract(id: string): Promise<Contract | undefined>;
+  getContracts(): Promise<Contract[]>;
+  getContractsByContractorId(contractorId: string): Promise<Contract[]>;
+  getContractsByCustomerId(customerId: string): Promise<Contract[]>;
+  getContractsByJobId(jobId: string): Promise<Contract[]>;
+  createContract(contract: InsertContract): Promise<Contract>;
+  updateContract(id: string, updates: Partial<Contract>): Promise<Contract>;
 
   // Contractor Document methods
   getContractorDocuments(): Promise<ContractorDocument[]>;
@@ -682,6 +693,7 @@ export class MemStorage implements IStorage {
   private photos: Map<string, Photo> = new Map();
   private xactimateComparables: Map<string, XactimateComparable> = new Map();
   private claimSubmissions: Map<string, ClaimSubmission> = new Map();
+  private contracts: Map<string, Contract> = new Map();
   private contractorDocuments: Map<string, ContractorDocument> = new Map();
   private contractorWatchlist: Map<string, ContractorWatchlist> = new Map();
   private stormHotZones: Map<string, StormHotZone> = new Map();
@@ -1496,6 +1508,50 @@ export class MemStorage implements IStorage {
     const updatedSubmission = { ...submission, ...updates };
     this.claimSubmissions.set(id, updatedSubmission);
     return updatedSubmission;
+  }
+
+  // Contract methods (DocuSign integration)
+  async getContract(id: string): Promise<Contract | undefined> {
+    return this.contracts.get(id);
+  }
+
+  async getContracts(): Promise<Contract[]> {
+    return Array.from(this.contracts.values());
+  }
+
+  async getContractsByContractorId(contractorId: string): Promise<Contract[]> {
+    return Array.from(this.contracts.values()).filter(c => c.contractorId === contractorId);
+  }
+
+  async getContractsByCustomerId(customerId: string): Promise<Contract[]> {
+    return Array.from(this.contracts.values()).filter(c => c.customerId === customerId);
+  }
+
+  async getContractsByJobId(jobId: string): Promise<Contract[]> {
+    return Array.from(this.contracts.values()).filter(c => c.jobId === jobId);
+  }
+
+  async createContract(insertContract: InsertContract): Promise<Contract> {
+    const id = randomUUID();
+    const contract: Contract = {
+      ...insertContract,
+      id,
+      signedByHomeowner: false,
+      signedByContractor: false,
+      docusignStatus: insertContract.docusignStatus || 'draft',
+      createdAt: new Date()
+    };
+    this.contracts.set(id, contract);
+    return contract;
+  }
+
+  async updateContract(id: string, updates: Partial<Contract>): Promise<Contract> {
+    const contract = this.contracts.get(id);
+    if (!contract) throw new Error("Contract not found");
+    
+    const updatedContract = { ...contract, ...updates };
+    this.contracts.set(id, updatedContract);
+    return updatedContract;
   }
 
   // Contractor Document methods
