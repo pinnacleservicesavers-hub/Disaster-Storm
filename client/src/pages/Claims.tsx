@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'wouter';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -365,95 +365,111 @@ Current Notes: ${newClaim.notes || 'None yet'}
     return 'bg-[hsl(0,84%,60%)]';
   };
 
-  // Voice Guide Function
-  const startVoiceGuide = () => {
-    // Feature detection
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
-      console.warn('Speech synthesis not supported in this browser');
-      return;
-    }
-
-    if (!isVoiceGuideActive) {
-      setIsVoiceGuideActive(true);
-      
-      // Cancel any ongoing speech
-      window.speechSynthesis.cancel();
-      
-      const voiceContent = `Welcome to the Claims Central Voice Navigation Guide. This is your comprehensive insurance claims processing and management system for disaster recovery operations.
-
-      The dashboard displays critical claims metrics:
-      - Open Claims showing 1,247 active claims with 87 new this week
-      - Pending Review displaying claims awaiting adjuster assignment
-      - Approval Rate showing 94% success rate over the last 30 days
-      - Total Value indicating 12.4 million dollars in claims this quarter
-
-      Main action buttons include:
-      - New Claim with a plus icon to file new insurance claims
-      - Search Claims with a search icon to quickly locate specific claim records
-      - Analytics with a trending up icon to view processing performance insights
-
-      The Claims Processing Pipeline shows the four critical stages:
-      - Submitted stage with blue progress indicator showing newly filed claims
-      - Under Review stage with yellow indicator for claims being assessed
-      - Approved stage with green indicator for claims ready for payout
-      - Paid Out stage with purple indicator showing completed claims
-
-      Each claim in the main list displays:
-      - Claim number for insurance company reference
-      - Customer name and damage type such as Storm, Water, Wind, Hail, or Tree damage
-      - Current status with color-coded badges - blue for Open, gray for Pending, green for Approved, outlined for Closed
-      - Claim value showing the financial settlement amount
-      - Assigned adjuster name for case management
-      - Priority level with color coding - red for urgent, orange for high, blue for medium, green for low
-      - Progress percentage with colored progress bars indicating processing completion
-
-      The Xactimate Comparables section provides:
-      - Industry-standard estimate comparisons for accurate claim valuation
-      - Historical pricing data for similar damage types in the area
-      - Adjustments for regional cost variations
-
-      This Claims Central system ensures efficient processing of disaster-related insurance claims, tracks adjuster workloads, and maintains compliance with insurance regulations. The voice guide supports accessibility and hands-free operation during high-volume claim processing periods.`;
-      
-      const utterance = new SpeechSynthesisUtterance(voiceContent);
-      utterance.rate = 0.9;
-      utterance.pitch = 1.0;
-      utterance.volume = 0.8;
-      
-      if (voices.length > 0) {
-        // Prefer natural female voices for professional, empathetic delivery
-        const femaleVoice = voices.find(voice => 
-          voice.lang.includes('en') && 
-          (voice.name.toLowerCase().includes('female') || 
-           voice.name.toLowerCase().includes('zira') ||
-           voice.name.toLowerCase().includes('samantha') ||
-           voice.name.toLowerCase().includes('google uk') ||
-           voice.name.toLowerCase().includes('fiona'))
-        );
-        utterance.voice = femaleVoice || voices.find(voice => voice.lang.includes('en')) || voices[0];
-      }
-      
-      utterance.onend = () => {
-        setIsVoiceGuideActive(false);
-      };
-      
-      utterance.onerror = (event) => {
-        console.error('Speech synthesis error:', event);
-        setIsVoiceGuideActive(false);
-      };
-      
-      window.speechSynthesis.speak(utterance);
-    } else {
-      window.speechSynthesis.cancel();
-      setIsVoiceGuideActive(false);
-    }
-  };
-
-  // Calculate metrics
+  // Calculate metrics (must be before voice function that uses them)
   const openClaims = claims.filter(c => c.status === 'open').length;
   const pendingClaims = claims.filter(c => c.status === 'pending').length;
   const approvedClaims = claims.filter(c => c.status === 'approved').length;
   const totalValue = claims.reduce((sum, c) => sum + c.value, 0);
-  const avgProcessingTime = 4.2; // Mock average
+  const avgProcessingTime = 4.2;
+
+  // Audio reference for ElevenLabs playback
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Voice Guide Function - Uses ElevenLabs Rachel voice
+  const startVoiceGuide = async () => {
+    if (isVoiceGuideActive) {
+      // Stop current playback
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+      setIsVoiceGuideActive(false);
+      return;
+    }
+
+    setIsVoiceGuideActive(true);
+    
+    const voiceContent = `Welcome to Claims Central. I'm Rachel, your claims management assistant.
+
+You're viewing ${claims.length} insurance claims with ${openClaims} currently open and ${pendingClaims} pending review.
+
+The total claim value this quarter is ${(totalValue / 1000000).toFixed(1)} million dollars with a 94% approval rate.
+
+Your claims pipeline shows four stages: Submitted, Under Review, Approved, and Paid Out. Each claim displays the claim number, customer name, damage type, current status, and assigned adjuster.
+
+Priority levels are color-coded: red for urgent, orange for high priority, blue for medium, and green for low priority.
+
+Need help with a specific claim? Just ask me anything about claim processing, adjuster assignments, or payment status.`;
+
+    try {
+      // Call ElevenLabs Rachel voice API
+      const response = await fetch('/api/voice-ai/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: voiceContent,
+          provider: 'elevenlabs'
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        
+        if (data.audioUrl) {
+          // Play ElevenLabs audio
+          audioRef.current = new Audio(data.audioUrl);
+          audioRef.current.onended = () => {
+            setIsVoiceGuideActive(false);
+            audioRef.current = null;
+          };
+          audioRef.current.onerror = () => {
+            console.warn('Audio playback failed, falling back to browser speech');
+            fallbackToSpeechSynthesis(voiceContent);
+          };
+          await audioRef.current.play();
+        } else if (data.text) {
+          // Fallback to browser speech if no audio URL
+          fallbackToSpeechSynthesis(voiceContent);
+        }
+      } else {
+        // API failed, use browser speech
+        fallbackToSpeechSynthesis(voiceContent);
+      }
+    } catch (error) {
+      console.warn('ElevenLabs API error, using fallback:', error);
+      fallbackToSpeechSynthesis(voiceContent);
+    }
+  };
+
+  // Fallback function for browser speech synthesis
+  const fallbackToSpeechSynthesis = (text: string) => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      setIsVoiceGuideActive(false);
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+    
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 0.9;
+    utterance.pitch = 1.0;
+    utterance.volume = 0.8;
+    
+    if (voices.length > 0) {
+      const femaleVoice = voices.find(voice => 
+        voice.lang.includes('en') && 
+        (voice.name.toLowerCase().includes('female') || 
+         voice.name.toLowerCase().includes('samantha') ||
+         voice.name.toLowerCase().includes('google uk'))
+      );
+      utterance.voice = femaleVoice || voices.find(voice => voice.lang.includes('en')) || voices[0];
+    }
+    
+    utterance.onend = () => setIsVoiceGuideActive(false);
+    utterance.onerror = () => setIsVoiceGuideActive(false);
+    
+    window.speechSynthesis.speak(utterance);
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[hsl(217,91%,15%)] via-[hsl(217,91%,25%)] to-[hsl(215,25%,25%)] dark:from-[hsl(217,91%,10%)] dark:via-[hsl(217,91%,20%)] dark:to-[hsl(215,25%,20%)]">
