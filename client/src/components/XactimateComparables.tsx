@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Plus, FileDown, Upload, Calculator, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
-interface XactimateComparablesProps {
+interface IndustryBenchmarkProps {
   customerId?: string;
   existingInvoiceItems?: InvoiceLine[];
 }
@@ -51,7 +51,7 @@ interface ComparisonRow {
   variance_pct: number | null;
 }
 
-export function XactimateComparables({ customerId, existingInvoiceItems = [] }: XactimateComparablesProps) {
+export function XactimateComparables({ customerId, existingInvoiceItems = [] }: IndustryBenchmarkProps) {
   const [catalogs, setCatalogs] = useState<Catalog[]>([]);
   const [catalogId, setCatalogId] = useState('');
   const [items, setItems] = useState<CatalogItem[]>([]);
@@ -85,7 +85,7 @@ export function XactimateComparables({ customerId, existingInvoiceItems = [] }: 
     } catch (error) {
       toast({
         title: 'Error',
-        description: 'Failed to load Xactimate catalogs',
+        description: 'Failed to load industry benchmark catalogs',
         variant: 'destructive'
       });
     }
@@ -207,12 +207,12 @@ export function XactimateComparables({ customerId, existingInvoiceItems = [] }: 
   }
 
   return (
-    <Card className="w-full" data-testid="card-xactimate-comparables">
+    <Card className="w-full" data-testid="card-industry-benchmarks">
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
           <span className="flex items-center">
             <Calculator className="w-5 h-5 mr-2" />
-            Xactimate Comparables
+            Industry Benchmark Comparables
           </span>
           <div className="flex space-x-2">
             <Button 
@@ -242,7 +242,7 @@ export function XactimateComparables({ customerId, existingInvoiceItems = [] }: 
         {/* Catalog Selection */}
         <div className="grid md:grid-cols-3 gap-4">
           <div className="space-y-2">
-            <label className="text-sm font-medium">Xactimate Catalog</label>
+            <label className="text-sm font-medium">Regional Benchmark Catalog</label>
             <Select value={catalogId} onValueChange={setCatalogId} data-testid="select-catalog">
               <SelectTrigger>
                 <SelectValue placeholder="Select catalog..." />
@@ -259,7 +259,7 @@ export function XactimateComparables({ customerId, existingInvoiceItems = [] }: 
             </Select>
           </div>
           <div className="md:col-span-2 text-sm text-gray-600">
-            <p>💡 <strong>Tip:</strong> Import a CSV of Xactimate line items you are licensed to use (code, name, unit, unit_price, notes).</p>
+            <p>💡 <strong>Tip:</strong> Import a CSV of industry-standard line items (code, name, unit, unit_price, notes) to compare against regional market averages.</p>
           </div>
         </div>
 
@@ -344,7 +344,7 @@ export function XactimateComparables({ customerId, existingInvoiceItems = [] }: 
                     <th className="border border-gray-200 p-2 text-center">Qty</th>
                     <th className="border border-gray-200 p-2 text-center">Unit</th>
                     <th className="border border-gray-200 p-2 text-right">Contractor</th>
-                    <th className="border border-gray-200 p-2 text-right">Xactimate</th>
+                    <th className="border border-gray-200 p-2 text-right">Benchmark</th>
                     <th className="border border-gray-200 p-2 text-right">Variance</th>
                     <th className="border border-gray-200 p-2 text-right">%</th>
                   </tr>

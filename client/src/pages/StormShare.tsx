@@ -272,12 +272,12 @@ export default function StormShare() {
   };
 
   // Resource handlers for contractors
-  const handleXactimateTraining = () => {
+  const handleEstimatingTraining = () => {
     if (currentUserType !== 'contractor') {
       toast({ title: 'Contractor Access Only', description: 'This resource is only available to contractors', variant: 'destructive' });
       return;
     }
-    window.open('https://www.xactware.com/en-us/training/', '_blank');
+    window.open('https://www.iicrc.org/', '_blank'); // Industry certification training
   };
 
   const handleLicensingInfo = () => {
@@ -1751,12 +1751,12 @@ export default function StormShare() {
                             <CardContent className="p-4">
                               <div className="flex items-center mb-2">
                                 <FileText className="w-5 h-5 mr-2 text-green-600" />
-                                <h5 className="font-medium">Xactimate Training</h5>
+                                <h5 className="font-medium">Estimating Training</h5>
                               </div>
                               <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                                Insurance estimating software training and certification.
+                                Industry-standard estimating training and certification.
                               </p>
-                              <Button size="sm" variant="outline" onClick={handleXactimateTraining} data-testid="button-xactimate-training">
+                              <Button size="sm" variant="outline" onClick={handleEstimatingTraining} data-testid="button-estimating-training">
                                 Get Certified
                               </Button>
                             </CardContent>

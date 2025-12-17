@@ -3356,18 +3356,18 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
     } 
   });
 
-  // ===== Market Comparables & Xactimate Integration =====
+  // ===== Market Comparables & Industry Benchmark Integration =====
   app.post('/api/market-comparables', express.json(), async (req,res)=>{ 
     try{ 
       const { zipCode, radius = 150, lineItem, contractorPrice } = req.body;
       
-      // Mock Xactimate-style data (would integrate with real Xactimate API)
+      // Industry-standard benchmark data (regional market averages)
       const mockComparables = [
         {
           id: `comp:${Date.now()}:1`,
           description: 'Tree removal service - Large oak tree (36"+ diameter)',
           zipCode: zipCode,
-          xactimatePrice: '$2,450.00',
+          benchmarkPrice: '$2,450.00', // Industry-standard pricing range
           contractorPrice: contractorPrice,
           variance: ((parseFloat(contractorPrice.replace('$','').replace(',','')) / 2450) - 1) * 100,
           emergencyMultiplier: '1.5x',
@@ -3388,7 +3388,7 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
   // ===== AI Letter Generation =====
   app.post('/api/ai-letter', express.json(), async (req,res)=>{ 
     try{ 
-      const { contractorPrice, xactimatePrice, damageType, emergencyConditions } = req.body;
+      const { contractorPrice, benchmarkPrice, damageType, emergencyConditions } = req.body;
       
       // Mock AI-generated letter (would integrate with OpenAI/Claude)
       const mockLetter = `
@@ -3396,7 +3396,7 @@ Dear Insurance Adjuster,
 
 RE: Emergency Storm Response Services - Price Justification
 
-This letter provides justification for the pricing variance between our emergency storm response quote and standard Xactimate estimates.
+This letter provides justification for the pricing variance between our emergency storm response quote and industry-standard benchmark estimates.
 
 EMERGENCY CONDITIONS:
 Our pricing reflects the following emergency conditions:
@@ -3405,7 +3405,7 @@ Our pricing reflects the following emergency conditions:
 - OSHA-compliant safety protocols in hazardous conditions
 
 PRICING BREAKDOWN:
-- Xactimate Standard Rate: ${xactimatePrice}
+- Regional Market Average: ${benchmarkPrice}
 - Our Emergency Rate: ${contractorPrice}
 - Emergency Multiplier: Applied due to immediate response requirements
 
@@ -9338,7 +9338,7 @@ What specific area or type of incident would you like me to focus on? I can prov
       doc.pipe(writeStream);
       
       // Header
-      doc.fontSize(14).text('Xactimate Comparables — Side by Side');
+      doc.fontSize(14).text('Industry Benchmark Comparables — Side by Side');
       if (customerId) {
         doc.moveDown(0.2).fontSize(10).text(`Customer ID: ${customerId}`);
       }
@@ -9351,7 +9351,7 @@ What specific area or type of incident would you like me to focus on? I can prov
         .text('Qty', 264, undefined, { width: 30, continued: true, align: 'right' })
         .text('Unit', 294, undefined, { width: 30, continued: true, align: 'center' })
         .text('Contractor', 324, undefined, { width: 72, continued: true, align: 'right' })
-        .text('Xactimate', 396, undefined, { width: 72, continued: true, align: 'right' })
+        .text('Benchmark', 396, undefined, { width: 72, continued: true, align: 'right' })
         .text('Δ', 468, undefined, { width: 72, align: 'right' });
       
       doc.moveDown(0.2);

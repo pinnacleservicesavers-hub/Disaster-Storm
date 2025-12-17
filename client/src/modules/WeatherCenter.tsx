@@ -632,7 +632,7 @@ export default function WeatherCenter() {
                   
                   <div className="pt-3 border-t border-green-500/20">
                     <p className="text-xs text-green-300/60">
-                      Based on Xactimate regional pricing + emergency markup
+                      Based on regional market averages + emergency markup
                     </p>
                   </div>
                 </div>

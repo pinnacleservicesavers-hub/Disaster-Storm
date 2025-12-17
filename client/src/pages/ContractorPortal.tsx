@@ -1286,9 +1286,9 @@ export default function ContractorPortal() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="bg-purple-50 p-4 rounded-lg">
-                    <h4 className="font-semibold text-purple-900 mb-2">Xactimate-Style Analysis</h4>
+                    <h4 className="font-semibold text-purple-900 mb-2">Industry Benchmark Analysis</h4>
                     <p className="text-sm text-purple-700">
-                      AI analyzes market rates within 150-mile radius and provides detailed cost breakdowns
+                      AI analyzes regional market averages within 150-mile radius and provides detailed cost breakdowns
                     </p>
                   </div>
                   <div className="space-y-2">
@@ -2162,9 +2162,9 @@ function JobCostingSection() {
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="bg-purple-50 p-4 rounded-lg">
-          <h4 className="font-semibold text-purple-900 mb-2">Xactimate-Style Analysis</h4>
+          <h4 className="font-semibold text-purple-900 mb-2">Industry Benchmark Analysis</h4>
           <p className="text-sm text-purple-700">
-            AI analyzes market rates within 150-mile radius and provides detailed cost breakdowns
+            AI analyzes regional market averages within 150-mile radius and provides detailed cost breakdowns
           </p>
         </div>
         

@@ -1141,7 +1141,7 @@ Need help with a specific claim? Just ask me anything about claim processing, ad
         </Card>
       </div>
 
-        {/* Xactimate Comparables Section */}
+        {/* Industry Benchmark Comparables Section */}
         <XactimateComparables />
       </DashboardSection>
         <ModuleAIAssistant moduleName="Claims" />
