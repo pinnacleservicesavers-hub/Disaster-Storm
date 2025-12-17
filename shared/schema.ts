@@ -5305,3 +5305,397 @@ export type TradeScopeConversion = typeof tradeScopeConversions.$inferSelect;
 export type InsertTradeScopeConversion = z.infer<typeof insertTradeScopeConversionSchema>;
 export type TreeAllometrics = typeof treeAllometrics.$inferSelect;
 export type InsertTreeAllometrics = z.infer<typeof insertTreeAllometricsSchema>;
+
+// ===== UNIVERSAL MEASUREMENT DATA MODEL =====
+// Extended tables for comprehensive measurement system supporting all contractor trades
+
+// Measurement Captures - Photo/video/LiDAR sessions with media and reference objects
+export const measurementCaptures = pgTable("measurement_captures", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  sessionId: uuid("session_id").notNull().references(() => measurementSessions.id, { onDelete: "cascade" }),
+  
+  // Capture type and mode
+  captureType: varchar("capture_type", { length: 50 }).notNull(), // photoset, video_walkaround, lidar, drone
+  captureMode: varchar("capture_mode", { length: 50 }).notNull(), // quick, pro, lidar_mode, drone_mode
+  
+  // Device metadata
+  deviceModel: varchar("device_model", { length: 100 }),
+  lidarAvailable: boolean("lidar_available").default(false),
+  
+  // Media assets
+  media: jsonb("media").$type<Array<{
+    mediaId: string;
+    type: 'photo' | 'video' | 'lidar' | 'drone';
+    url: string;
+    thumbnailUrl?: string;
+    timestamp: string;
+    metadata?: Record<string, unknown>;
+  }>>(),
+  
+  // Reference object for calibration
+  referenceType: varchar("reference_type", { length: 50 }), // person_height, measuring_stick, credit_card, paper_letter, shingle_exposure, door_height
+  referenceValue: numeric("reference_value", { precision: 10, scale: 2 }),
+  referenceUnit: varchar("reference_unit", { length: 20 }),
+  referenceConfidence: numeric("reference_confidence", { precision: 5, scale: 4 }),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Measurement Primitives - Universal atomic measurements extracted from captures
+export const measurementPrimitives = pgTable("measurement_primitives", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  sessionId: uuid("session_id").notNull().references(() => measurementSessions.id, { onDelete: "cascade" }),
+  captureId: uuid("capture_id").references(() => measurementCaptures.id, { onDelete: "set null" }),
+  
+  // Measurement identification
+  measurementType: varchar("measurement_type", { length: 50 }).notNull(), // area_sf, length_lf, count_ea, height_ft, diameter_in, volume_cy, pitch_ratio, angle_deg
+  label: varchar("label", { length: 200 }).notNull(), // "Roof total area", "Ridge length", "Tree height"
+  
+  // Value with uncertainty
+  value: numeric("value", { precision: 12, scale: 4 }).notNull(),
+  unit: varchar("unit", { length: 30 }).notNull(),
+  minValue: numeric("min_value", { precision: 12, scale: 4 }),
+  maxValue: numeric("max_value", { precision: 12, scale: 4 }),
+  
+  // Confidence and method
+  confidence: numeric("confidence", { precision: 5, scale: 4 }).notNull(), // 0-1
+  method: varchar("method", { length: 30 }).notNull(), // ai, manual, lidar, photogrammetry, hybrid
+  
+  // Evidence linking
+  sourceCaptureId: uuid("source_capture_id"),
+  evidenceMediaIds: jsonb("evidence_media_ids").$type<string[]>(),
+  geometry: jsonb("geometry").$type<Record<string, unknown>>(), // polygons/points for outlines
+  
+  // Assumptions made during measurement
+  assumptions: jsonb("assumptions").$type<string[]>(), // "species assumed: oak", "pitch banded to 8/12"
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Job Conditions - Access and complexity flags for scope class normalization
+export const jobConditions = pgTable("job_conditions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  sessionId: uuid("session_id").notNull().references(() => measurementSessions.id, { onDelete: "cascade" }),
+  
+  // Condition flag
+  flagKey: varchar("flag_key", { length: 100 }).notNull(), // two_story, steep_roof, limited_access, powerlines_nearby, occupied_home, crane_likely
+  flagValue: varchar("flag_value", { length: 100 }), // boolean string or enum value
+  
+  // Confidence and evidence
+  confidence: numeric("confidence", { precision: 5, scale: 4 }),
+  evidenceMediaIds: jsonb("evidence_media_ids").$type<string[]>(),
+  
+  // Source
+  detectedBy: varchar("detected_by", { length: 30 }), // ai, manual, hybrid
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Scope Questions - Confirmations asked during capture flow
+export const scopeQuestions = pgTable("scope_questions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  sessionId: uuid("session_id").notNull().references(() => measurementSessions.id, { onDelete: "cascade" }),
+  
+  // Question details
+  questionKey: varchar("question_key", { length: 100 }).notNull(), // roof_material, tearoff_layers, drywall_finish_level
+  prompt: text("prompt").notNull(),
+  answer: text("answer"),
+  answerType: varchar("answer_type", { length: 30 }), // string, number, boolean, enum
+  required: boolean("required").default(true),
+  
+  // For enum-type questions
+  options: jsonb("options").$type<string[]>(),
+  
+  answeredAt: timestamp("answered_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Job Line Items - Estimate and invoice lines linked to measurements
+export const jobLineItems = pgTable("job_line_items", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  sessionId: uuid("session_id").notNull().references(() => measurementSessions.id, { onDelete: "cascade" }),
+  
+  // Line item details
+  category: varchar("category", { length: 50 }).notNull(), // demo, protection, repair, finish, cleanup, admin, equipment
+  name: varchar("name", { length: 200 }).notNull(),
+  description: text("description"),
+  
+  // Quantity and pricing
+  unitType: varchar("unit_type", { length: 20 }).notNull(), // EA, LF, SF, SQ, HR, DAY, CY
+  quantity: numeric("quantity", { precision: 10, scale: 2 }).notNull(),
+  unitPrice: numeric("unit_price", { precision: 10, scale: 2 }),
+  totalAmount: numeric("total_amount", { precision: 12, scale: 2 }),
+  
+  // Cost breakdown (optional)
+  laborCost: numeric("labor_cost", { precision: 10, scale: 2 }),
+  materialCost: numeric("material_cost", { precision: 10, scale: 2 }),
+  equipmentCost: numeric("equipment_cost", { precision: 10, scale: 2 }),
+  taxable: boolean("taxable").default(true),
+  
+  // Measurement linkage
+  linkedMeasurementIds: jsonb("linked_measurement_ids").$type<string[]>(),
+  linkedPrimitiveIds: jsonb("linked_primitive_ids").$type<string[]>(),
+  
+  // Notes and evidence
+  notes: text("notes"),
+  evidenceMediaIds: jsonb("evidence_media_ids").$type<string[]>(),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Price Books - Contractor unit price templates
+export const priceBooks = pgTable("price_books", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  companyId: varchar("company_id", { length: 255 }),
+  tradeType: varchar("trade_type", { length: 50 }).notNull(),
+  
+  name: varchar("name", { length: 200 }).notNull(),
+  description: text("description"),
+  isDefault: boolean("is_default").default(false),
+  
+  // Regional settings
+  region: varchar("region", { length: 100 }),
+  currency: varchar("currency", { length: 10 }).default("USD"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Price Book Items - Individual unit prices
+export const priceBookItems = pgTable("price_book_items", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  priceBookId: uuid("price_book_id").notNull().references(() => priceBooks.id, { onDelete: "cascade" }),
+  
+  // Item details
+  sku: varchar("sku", { length: 50 }),
+  name: varchar("name", { length: 200 }).notNull(),
+  category: varchar("category", { length: 50 }).notNull(),
+  
+  // Pricing
+  unitType: varchar("unit_type", { length: 20 }).notNull(),
+  defaultUnitPrice: numeric("default_unit_price", { precision: 10, scale: 2 }).notNull(),
+  
+  // Rules (optional)
+  minCharge: numeric("min_charge", { precision: 10, scale: 2 }),
+  pricingRules: jsonb("pricing_rules").$type<Record<string, unknown>>(),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Scope Classes - Normalized job classification for apples-to-apples comparables
+export const scopeClasses = pgTable("scope_classes", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  sessionId: uuid("session_id").notNull().references(() => measurementSessions.id, { onDelete: "cascade" }),
+  
+  // Trade classification
+  tradeType: varchar("trade_type", { length: 50 }).notNull(),
+  regionKey: varchar("region_key", { length: 50 }), // ZIP or metro area
+  
+  // Normalized attributes (trade-specific)
+  attributes: jsonb("attributes").$type<{
+    // Roofing
+    material?: string; // asphalt, metal, tile, flat
+    tearoffLayers?: string; // 0, 1, 2plus
+    stories?: number;
+    pitchBand?: string; // low, med, steep
+    complexityBand?: string; // low, med, high
+    accessBand?: string; // easy, moderate, difficult
+    codeUpgradePossible?: boolean;
+    // Tree
+    species?: string;
+    hazardBand?: string;
+    craneLikely?: boolean;
+    // Drywall/Paint
+    finishLevel?: number; // 3, 4, 5
+    occupied?: boolean;
+    textureType?: string;
+    // Flooring
+    flooringMaterial?: string;
+    demoRequired?: boolean;
+    moveFurniture?: boolean;
+  }>(),
+  
+  // Key quantities for comparison
+  quantitySignature: jsonb("quantity_signature").$type<{
+    // Roofing
+    roofAreaSq?: number;
+    ridgeLf?: number;
+    valleyLf?: number;
+    penetrationsEa?: number;
+    // Tree
+    heightFtBand?: string;
+    dbhInBand?: string;
+    debrisCyBand?: string;
+    // Drywall/Paint
+    wallAreaSf?: number;
+    ceilingAreaSf?: number;
+    openingsEa?: number;
+    // Flooring
+    floorAreaSf?: number;
+    stairsEa?: number;
+    transitionsEa?: number;
+  }>(),
+  
+  // Hash for quick lookups
+  scopeClassHash: varchar("scope_class_hash", { length: 64 }),
+  
+  version: integer("version").default(1),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Comparable Stats - Anonymized benchmark data for scope classes
+export const comparableStats = pgTable("comparable_stats", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  scopeClassHash: varchar("scope_class_hash", { length: 64 }).notNull(),
+  tradeType: varchar("trade_type", { length: 50 }).notNull(),
+  regionKey: varchar("region_key", { length: 50 }),
+  
+  // Sample size
+  nSamples: integer("n_samples").default(0),
+  
+  // Price per unit statistics
+  pricePerUnitStats: jsonb("price_per_unit_stats").$type<{
+    [unitType: string]: {
+      median: number;
+      p25: number;
+      p75: number;
+      min?: number;
+      max?: number;
+    };
+  }>(),
+  
+  // Job total statistics
+  jobTotalStats: jsonb("job_total_stats").$type<{
+    median: number;
+    p25: number;
+    p75: number;
+    min?: number;
+    max?: number;
+  }>(),
+  
+  // Data quality
+  dataQuality: varchar("data_quality", { length: 30 }), // low, medium, high
+  confidenceNote: text("confidence_note"),
+  
+  lastUpdated: timestamp("last_updated").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Trade Module Configurations - Define capture flows for each trade
+export const tradeModules = pgTable("trade_modules", {
+  id: varchar("id", { length: 50 }).primaryKey(), // roofing, tree_removal, drywall_paint, flooring
+  
+  name: varchar("name", { length: 100 }).notNull(),
+  description: text("description"),
+  isActive: boolean("is_active").default(true),
+  
+  // Required primitives for this trade
+  requiredPrimitives: jsonb("required_primitives").$type<string[]>(), // ["area_sf", "length_lf", "count_ea"]
+  
+  // Capture checklist prompts
+  captureChecklist: jsonb("capture_checklist").$type<Array<{
+    step: number;
+    prompt: string;
+    required: boolean;
+    mediaType: string;
+    example?: string;
+  }>>(),
+  
+  // Line item templates
+  lineItemTemplates: jsonb("line_item_templates").$type<Array<{
+    name: string;
+    category: string;
+    unitType: string;
+    description?: string;
+  }>>(),
+  
+  // Scope questions for confirmations
+  scopeQuestionTemplates: jsonb("scope_question_templates").$type<Array<{
+    key: string;
+    prompt: string;
+    type: string;
+    options?: string[];
+    required: boolean;
+  }>>(),
+  
+  // Scope class attribute definitions
+  scopeClassFields: jsonb("scope_class_fields").$type<string[]>(),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Insert schemas for Universal Measurement Data Model
+export const insertMeasurementCaptureSchema = createInsertSchema(measurementCaptures).omit({
+  id: true,
+  createdAt: true
+});
+
+export const insertMeasurementPrimitiveSchema = createInsertSchema(measurementPrimitives).omit({
+  id: true,
+  createdAt: true
+});
+
+export const insertJobConditionSchema = createInsertSchema(jobConditions).omit({
+  id: true,
+  createdAt: true
+});
+
+export const insertScopeQuestionSchema = createInsertSchema(scopeQuestions).omit({
+  id: true,
+  createdAt: true
+});
+
+export const insertJobLineItemSchema = createInsertSchema(jobLineItems).omit({
+  id: true,
+  createdAt: true
+});
+
+export const insertPriceBookSchema = createInsertSchema(priceBooks).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
+});
+
+export const insertPriceBookItemSchema = createInsertSchema(priceBookItems).omit({
+  id: true,
+  createdAt: true
+});
+
+export const insertScopeClassSchema = createInsertSchema(scopeClasses).omit({
+  id: true,
+  createdAt: true
+});
+
+export const insertComparableStatsSchema = createInsertSchema(comparableStats).omit({
+  id: true,
+  createdAt: true,
+  lastUpdated: true
+});
+
+export const insertTradeModuleSchema = createInsertSchema(tradeModules).omit({
+  createdAt: true,
+  updatedAt: true
+});
+
+// Select types for Universal Measurement Data Model
+export type MeasurementCapture = typeof measurementCaptures.$inferSelect;
+export type InsertMeasurementCapture = z.infer<typeof insertMeasurementCaptureSchema>;
+export type MeasurementPrimitive = typeof measurementPrimitives.$inferSelect;
+export type InsertMeasurementPrimitive = z.infer<typeof insertMeasurementPrimitiveSchema>;
+export type JobCondition = typeof jobConditions.$inferSelect;
+export type InsertJobCondition = z.infer<typeof insertJobConditionSchema>;
+export type ScopeQuestion = typeof scopeQuestions.$inferSelect;
+export type InsertScopeQuestion = z.infer<typeof insertScopeQuestionSchema>;
+export type JobLineItem = typeof jobLineItems.$inferSelect;
+export type InsertJobLineItem = z.infer<typeof insertJobLineItemSchema>;
+export type PriceBook = typeof priceBooks.$inferSelect;
+export type InsertPriceBook = z.infer<typeof insertPriceBookSchema>;
+export type PriceBookItem = typeof priceBookItems.$inferSelect;
+export type InsertPriceBookItem = z.infer<typeof insertPriceBookItemSchema>;
+export type ScopeClass = typeof scopeClasses.$inferSelect;
+export type InsertScopeClass = z.infer<typeof insertScopeClassSchema>;
+export type ComparableStats = typeof comparableStats.$inferSelect;
+export type InsertComparableStats = z.infer<typeof insertComparableStatsSchema>;
+export type TradeModule = typeof tradeModules.$inferSelect;
+export type InsertTradeModule = z.infer<typeof insertTradeModuleSchema>;
