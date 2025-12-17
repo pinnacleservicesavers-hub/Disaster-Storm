@@ -125,3 +125,20 @@ The platform features an enterprise-grade design system with AI-selected backgro
 
 **Business Rationale:**
 Insurance companies pay scope — not software. Focus on capturing complete, well-documented scope to maximize claim success.
+
+### Industry Benchmark Pricing Language
+**Legal Compliance:** Use neutral benchmark terminology, never trademarked software names.
+
+**Approved Language:**
+- ✅ "Industry-standard pricing ranges"
+- ✅ "Insurance-aligned benchmarks"
+- ✅ "Regional market averages"
+- ✅ "Carrier-typical reimbursement ranges"
+
+**Prohibited Terms:**
+- ❌ Xactimate
+- ❌ Verisk
+- ❌ Carrier pricing engine
+- ❌ Any trademarked estimating software names
+
+**Application:** All UI labels, voice narration, reports, exports, and marketing materials must use approved neutral terminology when referencing pricing benchmarks or industry standards.
