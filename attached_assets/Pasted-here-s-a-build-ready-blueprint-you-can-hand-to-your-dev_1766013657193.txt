@@ -1,0 +1,526 @@
+here’s a build-ready blueprint you can hand to your dev team: database schema + capture/UI flows for Roofing, Tree Removal, Drywall/Paint (and Flooring), designed to scale to every other trade via a Module Builder.
+
+1) Universal Data Model (works for every contractor)
+A. Core tables/collections
+Users
+
+id
+
+role (contractor, estimator, admin)
+
+company_id
+
+auth fields
+
+Companies
+
+id
+
+name
+
+default_currency
+
+service_regions (zip list / radius)
+
+Trades
+
+id (roofing, tree_removal, drywall_paint, flooring, etc.)
+
+name
+
+is_active
+
+Jobs
+
+id
+
+company_id
+
+created_by_user_id
+
+trade_id
+
+job_status (lead, estimate, scheduled, in_progress, completed, invoiced)
+
+customer (name, phone, email)
+
+site_address
+
+geo (lat/lng optional)
+
+loss_type (insurance/retail/other) optional
+
+notes
+
+Captures (photo/video/LiDAR/drone sessions)
+
+id
+
+job_id
+
+capture_type (photoset, video_walkaround, lidar, drone)
+
+device_meta (model, lidar_available bool)
+
+created_at
+
+media[] (each item: media_id, type, url, thumbnail_url, timestamp)
+
+Measurements (your “primitives”)
+
+Each record is one measurable thing.
+
+id
+
+job_id
+
+trade_id
+
+measurement_type
+Examples: area_sf, length_lf, count_ea, height_ft, diameter_in, volume_cy, pitch_ratio, angle_deg
+
+label (e.g., “Roof total area”, “Ridge length”, “Tree height”, “Living room ceiling area”)
+
+value
+
+unit
+
+confidence (0–1)
+
+method (ai, manual, lidar, photogrammetry, hybrid)
+
+source_capture_id (optional)
+
+evidence_media_ids[] (photos proving it)
+
+geometry (optional: polygons/points if you store outlines)
+
+assumptions[] (strings) (e.g., “species assumed: oak”, “pitch banded to 8/12”)
+
+Conditions (apples-to-apples “job complexity + access” flags)
+
+id
+
+job_id
+
+flag_key
+Examples: two_story, steep_roof, limited_access, powerlines_nearby, occupied_home, crane_likely
+
+flag_value (bool/enum)
+
+confidence
+
+evidence_media_ids[]
+
+ScopeQuestions (confirmations the agent asks)
+
+id
+
+job_id
+
+question_key (e.g., roof_material, tearoff_layers, drywall_finish_level)
+
+prompt
+
+answer (string/enum/number)
+
+required (bool)
+
+LineItems (estimate + invoice lines)
+
+id
+
+job_id
+
+category (demo, protection, repair, finish, cleanup, admin, equipment)
+
+name
+
+unit_type (EA, LF, SF, SQ, HR, DAY, CY)
+
+quantity
+
+unit_price
+
+taxable (bool)
+
+labor_cost / material_cost / equipment_cost (optional)
+
+total (stored for audit)
+
+linked_measurement_ids[] (so lines are traceable)
+
+notes
+
+PriceBooks
+
+id
+
+company_id
+
+trade_id
+
+name
+
+PriceBookItems
+
+id
+
+pricebook_id
+
+sku (internal)
+
+name
+
+category
+
+unit_type
+
+default_unit_price
+
+rules (optional: min charge, tiered pricing, etc.)
+
+ScopeClass (your comparables key)
+
+job_id
+
+trade_id
+
+region_key (zip/metro)
+
+attributes (JSON) — normalized fields per trade (examples below)
+
+quantity_signature (JSON) — key quantities you compare on
+
+version (so you can evolve)
+
+ComparableStats (computed, anonymized)
+
+scope_class_hash
+
+trade_id
+
+region_key
+
+n_samples
+
+price_per_unit_stats (JSON: median, p25, p75 by unit)
+
+job_total_stats (median/p25/p75)
+
+last_updated
+
+2) Scope Class templates (for true apples-to-apples)
+Roofing ScopeClass.attributes
+
+material (asphalt/metal/tile/flat) (confirm)
+
+tearoff_layers (0/1/2plus) (confirm)
+
+stories (1/2/3) (ai + confirm)
+
+pitch_band (low/med/steep OR exact 6/12, 8/12)
+
+complexity_band (low/med/high) (planes/valleys)
+
+access_band (easy/moderate/difficult)
+
+code_upgrade_possible (bool)
+
+quantity_signature
+
+roof_area_sq (rounded)
+
+ridge_lf (rounded)
+
+valley_lf (rounded)
+
+penetrations_ea
+
+Tree Removal ScopeClass.attributes
+
+species (suggested + confirm optional)
+
+hazard_band (low/med/high)
+
+access_band (easy/moderate/difficult)
+
+crane_likely (bool)
+
+quantity_signature
+
+height_ft_band (e.g., 30–50, 50–70)
+
+dbh_in_band (e.g., 12–18, 18–24, 24–30)
+
+debris_cy_band
+
+Drywall/Paint ScopeClass.attributes
+
+finish_level (3/4/5) (confirm)
+
+occupied (bool)
+
+texture_type (none/orange_peel/knockdown/other) (confirm)
+
+quantity_signature
+
+wall_area_sf (rounded)
+
+ceiling_area_sf (rounded)
+
+openings_ea
+
+Flooring ScopeClass.attributes
+
+material (LVP/hardwood/tile/carpet) (confirm)
+
+demo_required (bool)
+
+move_furniture (bool)
+
+quantity_signature
+
+floor_area_sf (rounded)
+
+stairs_ea
+
+transitions_ea
+
+3) AI Agent UI Flows (exact screens + prompts)
+Global flow (all trades)
+
+Create Job
+
+trade, address, customer, insurance/retail
+
+Choose Capture Mode
+
+Quick (photos) / Pro (video) / LiDAR / Drone (roof)
+
+Guided Capture
+
+overlay checklist + “good/bad examples”
+
+AI Takeoff Results
+
+measurements + confidence + “needs retake” list
+
+Confirmations
+
+3–8 scope questions (fast)
+
+Auto Line Item Draft
+
+from module templates + price book
+
+Estimate View
+
+breakdown + margin + optional benchmark range
+
+Invoice Generate
+
+customer-friendly formatting + photos attached (optional)
+
+Roofing capture script (Quick mode)
+
+Required
+
+Front elevation photo
+
+Back elevation photo
+
+Left + right side photos
+
+“Roof edges” close-up (eave/rake)
+
+10–20 sec walkaround video
+
+Agent confirmations
+
+Roof material?
+
+Tear-off layers?
+
+Replace drip edge? (Y/N)
+
+Any decking damage visible? (Y/N)
+
+Permit required? (auto-suggest based on city, but user confirms)
+
+Outputs
+
+Roof area (sq)
+
+Pitch (band or exact)
+
+Ridge/hip/valley lengths
+
+Penetrations count
+
+Steep/two-story flags
+
+Line item auto-draft examples
+
+Protection/tarp
+
+Tear-off + haul-off
+
+Underlayment
+
+Drip edge
+
+Flashing/boots
+
+Ridge cap/ventilation
+
+Cleanup/magnet sweep
+
+Tree removal capture script (Quick mode)
+
+Required
+
+Full tree photo showing base + top (standing far enough back)
+
+Second full-tree angle
+
+Trunk close-up at ~4.5 ft height with reference (paper/card/tape)
+
+Agent confirmations
+
+Species (AI suggests top 3 → user picks “unknown” allowed)
+
+Emergency? (Y/N)
+
+Stump included? (Y/N)
+
+Haul-off included? (Y/N)
+
+Outputs
+
+Height ft + confidence
+
+DBH in + confidence
+
+Access/hazard flags (powerlines, structure proximity)
+
+Debris volume/weight range
+
+Line item auto-draft
+
+Site protection
+
+Tree removal (size band)
+
+Crane/bucket (if flagged)
+
+Rigging/sectioning (if hazard)
+
+Haul-off + disposal
+
+Optional stump grind
+
+Drywall/Paint capture script
+
+Interior Pro (best): LiDAR
+
+Scan room(s), auto wall/ceiling surfaces
+
+Interior Quick (no LiDAR)
+
+Stand in doorway → slow 360 video
+
+Corner photos (4 corners)
+
+One reference: standard door height (confirm 80 inches or local standard)
+
+Agent confirmations
+
+Finish level (3/4/5)
+
+Paint walls only or walls+ceiling?
+
+Trim/baseboards included?
+
+Texture type?
+
+Outputs
+
+Wall SF, ceiling SF
+
+Openings count
+
+Patch areas (if detected)
+
+Line item auto-draft
+
+Demo/protection
+
+Drywall patch/replace (SF)
+
+Tape/mud/finish level
+
+Texture (if applicable)
+
+Prime + paint (coats)
+
+Cleanup
+
+Flooring capture script
+
+Quick
+
+Room sweep video
+
+Photos of transitions + stairs
+
+Confirm material and demo required
+
+Outputs
+
+Floor SF per room
+
+Stairs count
+
+Transitions count
+
+Line item auto-draft
+
+Remove/dispose existing (if demo)
+
+Subfloor prep
+
+Install flooring (SF)
+
+Baseboard remove/replace (optional)
+
+Transitions (EA)
+
+Cleanup
+
+4) “All other contractors” support: Module Builder (what you implement)
+
+Create an admin UI where you define a new trade module using:
+
+Module definition
+
+Capture checklist (required media + tips)
+
+Required primitives (which measurement types matter)
+
+Scope questions (the confirmations)
+
+Line item templates
+
+formula rules like: quantity = measurement("wall_area_sf")
+
+Scope Class fields
+
+attributes + quantity_signature rules
+
+Comparable rules
+
+what units to benchmark (e.g., $/SF, $/LF, $/EA)
+
+This is how you add:
+fence, siding, windows/doors, concrete, plumbing, electrical, HVAC, etc. without redesigning the system.

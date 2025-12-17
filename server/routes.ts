@@ -12097,6 +12097,257 @@ What specific area or type of incident would you like me to focus on? I can prov
     }
   });
 
+  // ========== AI MEASUREMENT INTELLIGENCE API ==========
+  
+  const measurementService = await import('./services/measurementIntelligence.js');
+  const MEASUREMENTS_PATH = path.join(DATA_DIR, 'measurement-sessions.json');
+  
+  if (!fs.existsSync(MEASUREMENTS_PATH)) {
+    fs.writeFileSync(MEASUREMENTS_PATH, JSON.stringify({ sessions: [], estimates: [] }, null, 2));
+  }
+  
+  function readMeasurements() {
+    try { return JSON.parse(fs.readFileSync(MEASUREMENTS_PATH, 'utf8')); }
+    catch { return { sessions: [], estimates: [] }; }
+  }
+  
+  function writeMeasurements(data: any) {
+    try { fs.writeFileSync(MEASUREMENTS_PATH, JSON.stringify(data, null, 2)); }
+    catch (e) { console.error('Failed to write measurements:', e); }
+  }
+
+  // Analyze tree from image
+  app.post('/api/measurements/analyze-tree', express.json({ limit: '50mb' }), async (req, res) => {
+    try {
+      const { imageBase64, projectId, captureMode = 'single_photo', reference, latitude, longitude, address } = req.body;
+      
+      if (!imageBase64) {
+        return res.status(400).json({ error: 'imageBase64 is required' });
+      }
+      
+      const context: measurementService.CaptureContext = {
+        captureMode,
+        tradeType: 'tree',
+        latitude,
+        longitude,
+        address,
+        reference
+      };
+      
+      const result = await measurementService.analyzeTreeFromImage(imageBase64, context);
+      
+      // Store the session
+      const db = readMeasurements();
+      const sessionId = `sess:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`;
+      
+      db.sessions.push({
+        id: sessionId,
+        projectId,
+        captureMode,
+        tradeType: 'tree',
+        latitude,
+        longitude,
+        address,
+        reference,
+        status: 'completed',
+        createdAt: new Date().toISOString()
+      });
+      
+      db.estimates.push({
+        id: `est:${Date.now()}`,
+        sessionId,
+        ...result,
+        createdAt: new Date().toISOString()
+      });
+      
+      writeMeasurements(db);
+      
+      // Generate scope items
+      const scopeItems = measurementService.convertToScopeItems([result], 'tree');
+      
+      res.json({
+        ok: true,
+        sessionId,
+        measurement: result,
+        scopeItems,
+        disclaimer: measurementService.generateMeasurementDisclaimer([result])
+      });
+      
+    } catch (error) {
+      console.error('Tree measurement error:', error);
+      res.status(500).json({ error: 'Failed to analyze tree image' });
+    }
+  });
+
+  // Analyze roof from image  
+  app.post('/api/measurements/analyze-roof', express.json({ limit: '50mb' }), async (req, res) => {
+    try {
+      const { imageBase64, projectId, captureMode = 'single_photo', reference, latitude, longitude, address } = req.body;
+      
+      if (!imageBase64) {
+        return res.status(400).json({ error: 'imageBase64 is required' });
+      }
+      
+      const context: measurementService.CaptureContext = {
+        captureMode,
+        tradeType: 'roofing',
+        latitude,
+        longitude,
+        address,
+        reference
+      };
+      
+      const result = await measurementService.analyzeRoofFromImage(imageBase64, context);
+      
+      const db = readMeasurements();
+      const sessionId = `sess:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`;
+      
+      db.sessions.push({
+        id: sessionId,
+        projectId,
+        captureMode,
+        tradeType: 'roofing',
+        latitude,
+        longitude,
+        address,
+        reference,
+        status: 'completed',
+        createdAt: new Date().toISOString()
+      });
+      
+      db.estimates.push({
+        id: `est:${Date.now()}`,
+        sessionId,
+        ...result,
+        createdAt: new Date().toISOString()
+      });
+      
+      writeMeasurements(db);
+      
+      const scopeItems = measurementService.convertToScopeItems([result], 'roofing');
+      
+      res.json({
+        ok: true,
+        sessionId,
+        measurement: result,
+        scopeItems,
+        disclaimer: measurementService.generateMeasurementDisclaimer([result])
+      });
+      
+    } catch (error) {
+      console.error('Roof measurement error:', error);
+      res.status(500).json({ error: 'Failed to analyze roof image' });
+    }
+  });
+
+  // Analyze debris from image
+  app.post('/api/measurements/analyze-debris', express.json({ limit: '50mb' }), async (req, res) => {
+    try {
+      const { imageBase64, projectId, captureMode = 'single_photo', reference, latitude, longitude, address } = req.body;
+      
+      if (!imageBase64) {
+        return res.status(400).json({ error: 'imageBase64 is required' });
+      }
+      
+      const context: measurementService.CaptureContext = {
+        captureMode,
+        tradeType: 'debris',
+        latitude,
+        longitude,
+        address,
+        reference
+      };
+      
+      const result = await measurementService.analyzeDebrisFromImage(imageBase64, context);
+      
+      const db = readMeasurements();
+      const sessionId = `sess:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`;
+      
+      db.sessions.push({
+        id: sessionId,
+        projectId,
+        captureMode,
+        tradeType: 'debris',
+        latitude,
+        longitude,
+        address,
+        reference,
+        status: 'completed',
+        createdAt: new Date().toISOString()
+      });
+      
+      db.estimates.push({
+        id: `est:${Date.now()}`,
+        sessionId,
+        ...result,
+        createdAt: new Date().toISOString()
+      });
+      
+      writeMeasurements(db);
+      
+      const scopeItems = measurementService.convertToScopeItems([result], 'debris');
+      
+      res.json({
+        ok: true,
+        sessionId,
+        measurement: result,
+        scopeItems,
+        disclaimer: measurementService.generateMeasurementDisclaimer([result])
+      });
+      
+    } catch (error) {
+      console.error('Debris measurement error:', error);
+      res.status(500).json({ error: 'Failed to analyze debris image' });
+    }
+  });
+
+  // Get measurement sessions for a project
+  app.get('/api/measurements/sessions', (req, res) => {
+    try {
+      const { projectId } = req.query;
+      const db = readMeasurements();
+      
+      let sessions = db.sessions || [];
+      if (projectId) {
+        sessions = sessions.filter((s: any) => s.projectId === projectId);
+      }
+      
+      // Attach estimates to each session
+      sessions = sessions.map((session: any) => ({
+        ...session,
+        estimates: (db.estimates || []).filter((e: any) => e.sessionId === session.id)
+      }));
+      
+      res.json({ ok: true, sessions });
+    } catch (error) {
+      console.error('Error fetching measurement sessions:', error);
+      res.status(500).json({ error: 'Failed to fetch measurement sessions' });
+    }
+  });
+
+  // Get tree species list for confirmation
+  app.get('/api/measurements/tree-species', (req, res) => {
+    res.json({
+      ok: true,
+      species: [
+        { id: 'oak', name: 'Oak', woodType: 'hardwood', commonRegions: ['southeast', 'midwest', 'northeast'] },
+        { id: 'pine', name: 'Pine', woodType: 'softwood', commonRegions: ['southeast', 'northwest', 'northeast'] },
+        { id: 'maple', name: 'Maple', woodType: 'hardwood', commonRegions: ['northeast', 'midwest', 'northwest'] },
+        { id: 'elm', name: 'Elm', woodType: 'hardwood', commonRegions: ['midwest', 'northeast'] },
+        { id: 'ash', name: 'Ash', woodType: 'hardwood', commonRegions: ['midwest', 'northeast'] },
+        { id: 'willow', name: 'Willow', woodType: 'hardwood', commonRegions: ['southeast', 'midwest'] },
+        { id: 'cedar', name: 'Cedar', woodType: 'softwood', commonRegions: ['northwest', 'southeast'] },
+        { id: 'birch', name: 'Birch', woodType: 'hardwood', commonRegions: ['northeast', 'northwest'] },
+        { id: 'palm', name: 'Palm', woodType: 'monocot', commonRegions: ['southeast', 'southwest'] },
+        { id: 'magnolia', name: 'Magnolia', woodType: 'hardwood', commonRegions: ['southeast'] },
+        { id: 'cypress', name: 'Cypress', woodType: 'softwood', commonRegions: ['southeast'] },
+        { id: 'pecan', name: 'Pecan', woodType: 'hardwood', commonRegions: ['southeast', 'southwest'] },
+        { id: 'sweetgum', name: 'Sweetgum', woodType: 'hardwood', commonRegions: ['southeast'] },
+        { id: 'hickory', name: 'Hickory', woodType: 'hardwood', commonRegions: ['southeast', 'midwest'] }
+      ]
+    });
+  });
+
   // ========== DISASTER LENS API ROUTES ==========
   
   // Import permission middleware

@@ -5112,3 +5112,196 @@ export type AiAssignment = typeof aiAssignments.$inferSelect;
 export type InsertAiAssignment = z.infer<typeof insertAiAssignmentSchema>;
 export type AiOutreachLog = typeof aiOutreachLog.$inferSelect;
 export type InsertAiOutreachLog = z.infer<typeof insertAiOutreachLogSchema>;
+
+// ===== AI MEASUREMENT INTELLIGENCE (for Disaster Lens) =====
+
+// Measurement Sessions - Track each measurement capture session
+export const measurementSessions = pgTable("measurement_sessions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  
+  // Project/Claim association
+  projectId: varchar("project_id", { length: 255 }),
+  claimId: uuid("claim_id"),
+  
+  // Capture details
+  captureMode: varchar("capture_mode", { length: 50 }).notNull(), // single_photo, video_walkthrough, lidar_scan
+  tradeType: varchar("trade_type", { length: 50 }).notNull(), // tree, roofing, siding, flooring, fencing, debris, drywall, concrete
+  
+  // Location
+  latitude: numeric("latitude", { precision: 10, scale: 7 }),
+  longitude: numeric("longitude", { precision: 10, scale: 7 }),
+  address: text("address"),
+  
+  // Reference calibration
+  referenceType: varchar("reference_type", { length: 50 }), // person, measuring_stick, credit_card, sheet_paper, known_distance
+  referenceValue: numeric("reference_value", { precision: 10, scale: 2 }), // Value in standard units (inches/feet)
+  referenceUnit: varchar("reference_unit", { length: 20 }), // inches, feet, meters
+  
+  // Media assets (array of file URLs or IDs)
+  mediaAssets: jsonb("media_assets").$type<Array<{
+    type: 'photo' | 'video' | 'lidar';
+    url: string;
+    timestamp: string;
+    metadata?: Record<string, unknown>;
+  }>>(),
+  
+  // Status and validation
+  status: varchar("status", { length: 30 }).default("pending").notNull(), // pending, processing, completed, failed, reviewed
+  reviewedBy: varchar("reviewed_by", { length: 255 }),
+  reviewedAt: timestamp("reviewed_at"),
+  
+  // AI processing
+  aiModelUsed: varchar("ai_model_used", { length: 100 }),
+  processingTime: integer("processing_time"), // milliseconds
+  
+  createdBy: varchar("created_by", { length: 255 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Measurement Estimates - Individual measurement outputs with uncertainty
+export const measurementEstimates = pgTable("measurement_estimates", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  sessionId: uuid("session_id").notNull().references(() => measurementSessions.id, { onDelete: "cascade" }),
+  
+  // What was measured
+  targetType: varchar("target_type", { length: 50 }).notNull(), // tree, roof_facet, wall, floor, fence_section, debris_pile
+  targetDescription: text("target_description"),
+  
+  // Measurement category
+  measurementType: varchar("measurement_type", { length: 50 }).notNull(), // height, diameter, area, length, volume, weight, pitch
+  
+  // Values with uncertainty ranges
+  estimatedValue: numeric("estimated_value", { precision: 12, scale: 2 }).notNull(),
+  minValue: numeric("min_value", { precision: 12, scale: 2 }),
+  maxValue: numeric("max_value", { precision: 12, scale: 2 }),
+  unit: varchar("unit", { length: 20 }).notNull(), // ft, in, sqft, linear_ft, cubic_yd, lbs, degrees
+  
+  // Confidence scoring
+  confidenceLevel: varchar("confidence_level", { length: 10 }).notNull(), // low, medium, high
+  confidenceScore: integer("confidence_score"), // 0-100
+  confidenceFactors: jsonb("confidence_factors").$type<Array<{
+    factor: string;
+    impact: 'positive' | 'negative';
+    note: string;
+  }>>(),
+  
+  // For tree-specific measurements
+  treeSpecies: varchar("tree_species", { length: 100 }),
+  speciesConfirmed: boolean("species_confirmed").default(false),
+  dbhInches: numeric("dbh_inches", { precision: 6, scale: 2 }), // Diameter at breast height
+  crownSpreadFt: numeric("crown_spread_ft", { precision: 6, scale: 2 }),
+  
+  // For roofing measurements
+  roofPitch: varchar("roof_pitch", { length: 20 }), // e.g., "6/12", "8/12"
+  roofSquares: numeric("roof_squares", { precision: 6, scale: 2 }),
+  facetCount: integer("facet_count"),
+  
+  // AI analysis notes
+  aiNotes: text("ai_notes"),
+  limitationsNoted: jsonb("limitations_noted").$type<string[]>(), // Things AI cannot detect
+  
+  // Verification
+  verifiedBy: varchar("verified_by", { length: 255 }),
+  verifiedAt: timestamp("verified_at"),
+  manualOverride: boolean("manual_override").default(false),
+  overrideValue: numeric("override_value", { precision: 12, scale: 2 }),
+  overrideReason: text("override_reason"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Trade Scope Conversions - Maps measurements to insurance-ready scope items
+export const tradeScopeConversions = pgTable("trade_scope_conversions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  sessionId: uuid("session_id").notNull().references(() => measurementSessions.id, { onDelete: "cascade" }),
+  
+  // Scope item details
+  scopeCategory: varchar("scope_category", { length: 50 }).notNull(), // labor, materials, equipment, disposal, permits
+  scopeDescription: text("scope_description").notNull(),
+  lineItemCode: varchar("line_item_code", { length: 50 }), // Industry-standard code for estimating software compatibility
+  
+  // Calculated quantities from measurements
+  quantity: numeric("quantity", { precision: 10, scale: 2 }).notNull(),
+  quantityUnit: varchar("quantity_unit", { length: 20 }).notNull(), // hours, sqft, each, linear_ft, cubic_yd
+  
+  // Derived from which measurements
+  derivedFromEstimates: jsonb("derived_from_estimates").$type<string[]>(), // Array of measurementEstimate IDs
+  calculationMethod: text("calculation_method"), // How quantity was derived
+  
+  // Industry benchmark reference (NOT pricing - scope only)
+  benchmarkClass: varchar("benchmark_class", { length: 50 }), // small, medium, large, extra_large for trees; squares for roofing
+  accessClass: varchar("access_class", { length: 50 }), // standard, difficult, hazardous
+  hazardFlags: jsonb("hazard_flags").$type<string[]>(), // powerlines, slope, confined_space, etc.
+  
+  // Trade-specific attributes
+  tradeAttributes: jsonb("trade_attributes").$type<Record<string, unknown>>(),
+  
+  // Confidence inheritance
+  overallConfidence: varchar("overall_confidence", { length: 10 }), // low, medium, high
+  
+  // Claim integration
+  addedToClaimAt: timestamp("added_to_claim_at"),
+  claimEvidenceId: varchar("claim_evidence_id", { length: 255 }),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Tree Species Allometric Coefficients - For weight/biomass estimation
+export const treeAllometrics = pgTable("tree_allometrics", {
+  id: serial("id").primaryKey(),
+  
+  speciesCommonName: varchar("species_common_name", { length: 100 }).notNull(),
+  speciesScientific: varchar("species_scientific", { length: 100 }),
+  woodType: varchar("wood_type", { length: 20 }), // hardwood, softwood
+  
+  // Allometric equation coefficients: biomass = a * (DBH^b) * (Height^c)
+  coefficientA: numeric("coefficient_a", { precision: 10, scale: 6 }),
+  coefficientB: numeric("coefficient_b", { precision: 10, scale: 6 }),
+  coefficientC: numeric("coefficient_c", { precision: 10, scale: 6 }),
+  
+  // Average density (lbs per cubic foot)
+  greenDensity: numeric("green_density", { precision: 8, scale: 2 }),
+  dryDensity: numeric("dry_density", { precision: 8, scale: 2 }),
+  
+  // Typical characteristics
+  maxHeight: numeric("max_height", { precision: 6, scale: 1 }), // feet
+  maxDbh: numeric("max_dbh", { precision: 6, scale: 1 }), // inches
+  
+  // Common regions
+  commonRegions: jsonb("common_regions").$type<string[]>(), // ['southeast', 'midwest', etc.]
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Insert schemas for Measurement Intelligence
+export const insertMeasurementSessionSchema = createInsertSchema(measurementSessions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
+});
+
+export const insertMeasurementEstimateSchema = createInsertSchema(measurementEstimates).omit({
+  id: true,
+  createdAt: true
+});
+
+export const insertTradeScopeConversionSchema = createInsertSchema(tradeScopeConversions).omit({
+  id: true,
+  createdAt: true
+});
+
+export const insertTreeAllometricsSchema = createInsertSchema(treeAllometrics).omit({
+  id: true,
+  createdAt: true
+});
+
+// Select types for Measurement Intelligence
+export type MeasurementSession = typeof measurementSessions.$inferSelect;
+export type InsertMeasurementSession = z.infer<typeof insertMeasurementSessionSchema>;
+export type MeasurementEstimate = typeof measurementEstimates.$inferSelect;
+export type InsertMeasurementEstimate = z.infer<typeof insertMeasurementEstimateSchema>;
+export type TradeScopeConversion = typeof tradeScopeConversions.$inferSelect;
+export type InsertTradeScopeConversion = z.infer<typeof insertTradeScopeConversionSchema>;
+export type TreeAllometrics = typeof treeAllometrics.$inferSelect;
+export type InsertTreeAllometrics = z.infer<typeof insertTreeAllometricsSchema>;

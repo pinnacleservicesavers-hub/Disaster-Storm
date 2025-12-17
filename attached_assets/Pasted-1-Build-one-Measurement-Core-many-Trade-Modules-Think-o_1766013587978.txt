@@ -1,0 +1,278 @@
+1) Build one “Measurement Core” + many Trade Modules
+
+Think of your app like this:
+
+A. Measurement Core (universal)
+
+Outputs the same set of “primitives” for every job:
+
+Areas (sq ft)
+
+Lengths (linear ft)
+
+Counts (each)
+
+Angles/pitch
+
+Volumes (cubic yd)
+
+Heights (ft)
+
+Access & hazard flags
+
+Confidence scores per measurement
+
+Photos/video evidence linked to each measurement
+
+B. Trade Modules (plug-ins)
+
+Each contractor type just maps those primitives into its own takeoff + scope language + invoice template.
+
+This is how you support “all other contractors not listed” — you don’t hardcode trades, you ship a Module Builder.
+
+2) The “Scope Class” system (how you get true apples-to-apples comparables)
+
+Every job becomes a normalized record that can be compared fairly:
+
+Scope Class = Trade + Region + Complexity + Conditions + Quantities
+
+Example (Roof):
+
+Trade: Roofing
+
+Region: ZIP/Metro
+
+Material: Asphalt / Metal / Tile (user confirm)
+
+Tear-off: 1 layer / 2+ layers (user confirm)
+
+Pitch: Low / Med / Steep (measured)
+
+Stories: 1 / 2 / 3 (estimated + confirm)
+
+Complexity: Low/Med/High (planes/valleys count)
+
+Quantity: squares, ridge LF, valleys LF, penetrations count
+
+Access: easy/moderate/difficult (flags)
+
+Then comparables are only pulled from the same scope class, not random “roof jobs.”
+
+3) Launch Trade #1: Roofing — what the AI should measure
+Capture modes
+
+Quick (no drone):
+
+8–12 exterior photos + 15–25 sec video walkaround
+
+Ask user to include one reference: person height OR a known object (ladder rung spacing, door height, etc.)
+
+Pro (best):
+
+Drone video OR aerial imagery
+
+Or LiDAR where possible (ground-based helps edges, not top)
+
+Outputs (takeoff)
+
+Roof area (sq ft → squares)
+
+Pitch (or pitch band: 4/12, 6/12, 8/12…)
+
+Planes/facets count
+
+Ridge / hip / valley / eave / rake lengths (LF)
+
+Penetrations count (vents, skylights, chimneys)
+
+Edge height / steep flags (safety/access)
+
+Tear-off layers (confirm)
+
+Material type (AI suggests → user confirms)
+
+Scope checklist (auto-generated)
+
+Protection (landscaping, tarps)
+
+Tear-off + disposal
+
+Underlayment
+
+Drip edge
+
+Flashing
+
+Ridge cap / ventilation
+
+Step flashing / pipe boots
+
+Cleanup / magnet sweep
+
+Permit / code flags (user location)
+
+4) Launch Trade #2: Tree Removal — what the AI should measure
+Capture modes
+
+Quick:
+
+2 photos (full tree showing base + top)
+
+1 trunk close-up with a reference (paper/credit card/tape measure)
+
+Pro:
+
+10–20 sec video walkaround OR LiDAR scan (best)
+
+Outputs
+
+Height (ft) + confidence
+
+DBH (diameter at breast height, in)
+
+Crown spread (optional)
+
+Lean angle risk flag
+
+Proximity flags: structures, powerlines, fences
+
+Access flags: slope, gated backyard, crane-likely
+
+Estimated debris volume / weight range (derived from DBH + height + species assumption)
+
+Scope checklist
+
+Site protection
+
+Climb vs bucket vs crane
+
+Sectioning/rigging needs
+
+Haul-off & dump fees
+
+Stump grind? (optional module)
+
+Temporary repairs (if structure impacted)
+
+Emergency response (if applicable)
+
+5) Launch Trade #3: Drywall/Paint (and Flooring) — what the AI should measure
+Capture modes
+
+Interior Pro (best): LiDAR room scan
+Interior Quick: corner-to-corner video + a known reference (standard door height)
+
+Outputs for Drywall/Paint
+
+Room L/W/H
+
+Wall area & ceiling area
+
+Openings count (doors/windows)
+
+Patch sizes (if damage localized)
+
+Texture tag suggestion (confirm)
+
+Paint surfaces (walls only vs walls+ceiling vs trim)
+
+Outputs for Flooring
+
+Floor area by room
+
+Transitions count
+
+Stairs count
+
+Baseboard LF estimate (optional)
+
+Demo/remove vs install vs move furniture flags
+
+6) Contractor pricing + breakdown + invoice (the part contractors care about)
+
+Give contractors a Unit Price Book and let them override per job.
+
+Data model for every line item
+
+Line Item Name
+
+Unit Type: EA / LF / SF / SY / SQ / HR / DAY
+
+Quantity (from AI or manual)
+
+Unit Price (contractor set)
+
+Labor / Material / Equipment split (optional)
+
+Taxable? Y/N
+
+Notes + photos linked
+
+Outputs
+
+Job cost breakdown (by category: demo/protection/repair/finish/cleanup)
+
+Invoice (customer-facing)
+
+Internal estimate (profit/margin view)
+
+Change orders
+
+7) Benchmarks without Xactimate (still gives “over/under charging” insight)
+
+You show two comparison modes:
+
+Peer Comparables (best long-term):
+
+“Typical range for this scope class in your region based on X similar jobs”
+
+Market Index Range (early days):
+
+“Estimated market range using public market inputs + your app’s early dataset”
+
+Important: always show as range + a confidence score, never “the price.”
+
+8) How you support “all other contractors not listed”
+
+You add a Trade Module Builder in your admin:
+
+To create a new trade, you define:
+
+Required primitives (area/length/count/volume/etc.)
+
+Capture checklist (photos/video prompts)
+
+Line item templates (unit types + categories)
+
+Scope questions (2–8 confirmations)
+
+Comparable “Scope Class” fields (the apples-to-apples filters)
+
+Examples of “other” trades that drop in easily:
+
+Fencing (LF + gates count)
+
+Siding (elevation SF + openings)
+
+Windows/Doors (count + size)
+
+Concrete (SF + thickness input)
+
+HVAC/plumbing/electrical (more count-based + user-entered specs)
+
+For complicated trades (mechanical), your AI still helps with:
+
+counts, room sizes, access flags, documentation/photo checklists
+…but you rely more on guided forms than pure vision measurements.
+
+9) What I recommend you build next (in order)
+
+Universal Job Schema (primitives + scope class + line items)
+
+Capture Flows for Roofing, Tree, Interior
+
+Unit Price Book + Invoice Generator
+
+Comparable Engine (scope class filtering)
+
+Module Builder for “all other contractors”
