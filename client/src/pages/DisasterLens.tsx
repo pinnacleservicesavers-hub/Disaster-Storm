@@ -1693,21 +1693,21 @@ export default function App() {
                 </div>
               </div>
               
-              <div className="flex gap-2 mt-6">
-                <button
-                  type="submit"
-                  className="flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
-                  data-testid="button-create-project"
-                >
-                  Create Project
-                </button>
+              <div className="flex gap-3 mt-6">
                 <button
                   type="button"
                   onClick={() => setShowProjectModal(false)}
-                  className="px-4 py-2 border rounded hover:bg-gray-50"
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-100 font-medium"
                   data-testid="button-cancel-project"
                 >
                   Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-700 font-medium"
+                  data-testid="button-create-project"
+                >
+                  Create Project
                 </button>
               </div>
             </form>
