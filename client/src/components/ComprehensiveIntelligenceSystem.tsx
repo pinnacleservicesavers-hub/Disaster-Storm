@@ -262,61 +262,66 @@ export function ComprehensiveIntelligenceSystem({ className = '', onIncidentAler
     }
   }, []);
 
-  // Natural female voice using Rachel from ElevenLabs (ID: 21m00Tcm4TlvDq8ikWAM)
+  // Get the best available female voice from browser
+  const getPreferredFemaleVoice = () => {
+    const voices = window.speechSynthesis.getVoices();
+    const preferredVoices = [
+      'Samantha', 'Karen', 'Moira', 'Fiona', 'Victoria',
+      'Google US English Female', 'Google UK English Female',
+      'Microsoft Zira', 'Microsoft Aria', 'Microsoft Jenny',
+    ];
+    
+    for (const preferred of preferredVoices) {
+      const voice = voices.find(v => v.name.toLowerCase().includes(preferred.toLowerCase()));
+      if (voice) return voice;
+    }
+    
+    const englishFemale = voices.find(v => 
+      v.lang.startsWith('en') && 
+      ['samantha', 'zira', 'aria', 'jenny', 'karen', 'moira', 'fiona', 'victoria', 'susan', 'kate'].some(
+        name => v.name.toLowerCase().includes(name)
+      )
+    );
+    return englishFemale || voices.find(v => v.lang.startsWith('en')) || voices[0];
+  };
+
+  // Natural female voice using browser speech synthesis
   const speakResponse = async (text: string) => {
     if (!voiceEnabled) return;
     
-    setIsSpeaking(true);
-    
     try {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(true);
+      
       // Clean up text for more natural speech
       const cleanText = text
-        .replace(/\*\*(.*?)\*\*/g, '$1') // Remove bold formatting
-        .replace(/\*(.*?)\*/g, '$1') // Remove italic formatting
-        .replace(/```[\s\S]*?```/g, '') // Remove code blocks
-        .replace(/#{1,6}\s/g, '') // Remove headers
-        .replace(/\n+/g, '. ') // Replace line breaks with pauses
-        .replace(/\s+/g, ' ') // Clean up extra spaces
+        .replace(/\*\*(.*?)\*\*/g, '$1')
+        .replace(/\*(.*?)\*/g, '$1')
+        .replace(/```[\s\S]*?```/g, '')
+        .replace(/#{1,6}\s/g, '')
+        .replace(/\n+/g, '. ')
+        .replace(/\s+/g, ' ')
         .trim();
       
-      // Use Rachel voice (ElevenLabs ID: 21m00Tcm4TlvDq8ikWAM) via backend
-      const response = await apiRequest('/api/voice-ai/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          text: cleanText,
-          provider: 'elevenlabs',
-          voiceId: '21m00Tcm4TlvDq8ikWAM' // Rachel - natural female voice
-        })
-      });
+      const utterance = new SpeechSynthesisUtterance(cleanText);
+      const voice = getPreferredFemaleVoice();
+      if (voice) utterance.voice = voice;
       
-      if (response.audioBase64) {
-        // Convert base64 to blob and play
-        const audioBlob = await fetch(`data:audio/mp3;base64,${response.audioBase64}`).then(r => r.blob());
-        const audioUrl = URL.createObjectURL(audioBlob);
-        const audio = new Audio(audioUrl);
-        
-        audio.onended = () => {
-          setIsSpeaking(false);
-          URL.revokeObjectURL(audioUrl);
-        };
-        
-        audio.onerror = () => {
-          setIsSpeaking(false);
-          URL.revokeObjectURL(audioUrl);
-        };
-        
-        await audio.play();
-      } else {
-        setIsSpeaking(false);
-      }
+      utterance.rate = 1.05;
+      utterance.pitch = 1.1;
+      utterance.volume = 1.0;
+      
+      utterance.onend = () => setIsSpeaking(false);
+      utterance.onerror = () => setIsSpeaking(false);
+      
+      window.speechSynthesis.speak(utterance);
     } catch (error) {
-      console.error('Voice generation error:', error);
+      console.error('Voice error:', error);
       setIsSpeaking(false);
     }
   };
 
-  // Speak critical incident alerts with Rachel voice
+  // Speak critical incident alerts
   const speakIncidentAlert = async (incident: LiveIncident) => {
     if (!voiceEnabled) return;
     
@@ -327,26 +332,18 @@ export function ComprehensiveIntelligenceSystem({ className = '', onIncidentAler
     }`;
     
     try {
-      const response = await apiRequest('/api/voice-ai/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          text: alertText,
-          provider: 'elevenlabs',
-          voiceId: '21m00Tcm4TlvDq8ikWAM' // Rachel - natural female voice
-        })
-      });
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(alertText);
+      const voice = getPreferredFemaleVoice();
+      if (voice) utterance.voice = voice;
       
-      if (response.audioBase64) {
-        const audioBlob = await fetch(`data:audio/mp3;base64,${response.audioBase64}`).then(r => r.blob());
-        const audioUrl = URL.createObjectURL(audioBlob);
-        const audio = new Audio(audioUrl);
-        audio.onended = () => URL.revokeObjectURL(audioUrl);
-        audio.onerror = () => URL.revokeObjectURL(audioUrl);
-        await audio.play();
-      }
+      utterance.rate = 1.05;
+      utterance.pitch = 1.1;
+      utterance.volume = 1.0;
+      
+      window.speechSynthesis.speak(utterance);
     } catch (error) {
-      console.error('Alert voice generation error:', error);
+      console.error('Alert voice error:', error);
     }
   };
 

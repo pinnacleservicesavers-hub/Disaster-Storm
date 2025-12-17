@@ -97,93 +97,73 @@ export default function ModuleAIAssistant({ moduleName, moduleContext, externalT
     }
   };
 
+  // Get the best available female voice from browser
+  const getPreferredFemaleVoice = () => {
+    const voices = window.speechSynthesis.getVoices();
+    
+    // Priority list of natural-sounding female voices (upbeat and friendly)
+    const preferredVoices = [
+      'Samantha', 'Karen', 'Moira', 'Fiona', 'Victoria',
+      'Google US English Female', 'Google UK English Female',
+      'Microsoft Zira', 'Microsoft Aria', 'Microsoft Jenny',
+    ];
+    
+    for (const preferred of preferredVoices) {
+      const voice = voices.find(v => 
+        v.name.toLowerCase().includes(preferred.toLowerCase())
+      );
+      if (voice) return voice;
+    }
+    
+    // Fall back to any English female voice
+    const englishFemale = voices.find(v => 
+      v.lang.startsWith('en') && 
+      ['samantha', 'zira', 'aria', 'jenny', 'karen', 'moira', 'fiona', 'victoria', 'susan', 'kate'].some(
+        name => v.name.toLowerCase().includes(name)
+      )
+    );
+    if (englishFemale) return englishFemale;
+    
+    return voices.find(v => v.lang.startsWith('en')) || voices[0];
+  };
+
   const speakResponse = async (text: string) => {
     if (!audioEnabled) return;
     
     try {
       setIsSpeaking(true);
+      window.speechSynthesis.cancel();
       
       const truncatedText = text.length > 800 
         ? text.substring(0, 800) + '... For the complete response, please review the full text above.'
         : text;
       
-      const response = await fetch('/api/voice-ai/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          text: truncatedText,
-          voiceId: '21m00Tcm4TlvDq8ikWAM',
-          provider: 'elevenlabs'
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Voice generation failed');
-      }
-
-      const data = await response.json();
+      const utterance = new SpeechSynthesisUtterance(truncatedText);
       
-      if (!data.audioBase64) {
-        throw new Error('No audio data received');
+      // Configure for natural, upbeat female voice
+      const voice = getPreferredFemaleVoice();
+      if (voice) {
+        utterance.voice = voice;
       }
       
-      const audioBlob = base64ToBlob(data.audioBase64, 'audio/mpeg');
-      const audioUrl = URL.createObjectURL(audioBlob);
-      audioUrlRef.current = audioUrl;
+      utterance.rate = 1.05;
+      utterance.pitch = 1.1;
+      utterance.volume = 1.0;
       
-      if (audioRef.current) {
-        audioRef.current.pause();
-      }
-      
-      audioRef.current = new Audio(audioUrl);
-      audioRef.current.onended = () => {
+      utterance.onend = () => {
         setIsSpeaking(false);
-        if (audioUrlRef.current) {
-          URL.revokeObjectURL(audioUrlRef.current);
-          audioUrlRef.current = null;
-        }
-      };
-      audioRef.current.onerror = () => {
-        setIsSpeaking(false);
-        if (audioUrlRef.current) {
-          URL.revokeObjectURL(audioUrlRef.current);
-          audioUrlRef.current = null;
-        }
-        console.error('Audio playback failed');
       };
       
-      audioRef.current.play().catch((error) => {
-        console.error('Voice playback error:', error);
+      utterance.onerror = () => {
         setIsSpeaking(false);
-        if (audioUrlRef.current) {
-          URL.revokeObjectURL(audioUrlRef.current);
-          audioUrlRef.current = null;
-        }
-        toast({
-          title: "Voice Error",
-          description: "Could not play voice response. Audio may be unavailable.",
-          variant: "destructive",
-        });
-      });
+        console.error('Speech synthesis error');
+      };
+      
+      window.speechSynthesis.speak(utterance);
     } catch (error) {
-      console.error('Voice generation error:', error);
+      console.error('Voice error:', error);
       setIsSpeaking(false);
-      toast({
-        title: "Voice Error",
-        description: "Could not generate voice response. Please try again.",
-        variant: "destructive",
-      });
     }
-  };
-  
-  const base64ToBlob = (base64: string, mimeType: string): Blob => {
-    const byteCharacters = atob(base64);
-    const byteNumbers = new Array(byteCharacters.length);
-    for (let i = 0; i < byteCharacters.length; i++) {
-      byteNumbers[i] = byteCharacters.charCodeAt(i);
-    }
-    const byteArray = new Uint8Array(byteNumbers);
-    return new Blob([byteArray], { type: mimeType });
   };
 
   const handleSend = async (messageText?: string) => {

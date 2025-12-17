@@ -322,71 +322,65 @@ export default function PortalVoiceGuide({
     };
   }, []);
 
-  // ARIA STORM voice synthesis using server API
+  // Get the best available female voice from browser
+  const getPreferredFemaleVoice = useCallback(() => {
+    const voices = window.speechSynthesis.getVoices();
+    const preferredVoices = [
+      'Samantha', 'Karen', 'Moira', 'Fiona', 'Victoria',
+      'Google US English Female', 'Google UK English Female',
+      'Microsoft Zira', 'Microsoft Aria', 'Microsoft Jenny',
+    ];
+    
+    for (const preferred of preferredVoices) {
+      const voice = voices.find(v => v.name.toLowerCase().includes(preferred.toLowerCase()));
+      if (voice) return voice;
+    }
+    
+    const englishFemale = voices.find(v => 
+      v.lang.startsWith('en') && 
+      ['samantha', 'zira', 'aria', 'jenny', 'karen', 'moira', 'fiona', 'victoria', 'susan', 'kate'].some(
+        name => v.name.toLowerCase().includes(name)
+      )
+    );
+    return englishFemale || voices.find(v => v.lang.startsWith('en')) || voices[0];
+  }, []);
+
+  // Voice synthesis using browser's natural female voice
   const speak = useCallback(async (text: string, onComplete?: () => void) => {
     try {
-      // Stop any existing audio first
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
-      
+      window.speechSynthesis.cancel();
       setIsPlaying(true);
       
-      // Call server API to generate ARIA STORM voice (Lily - Female Voice)
-      const response = await fetch('/api/voice-ai/generate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ text }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Voice generation failed');
-      }
-
-      const data = await response.json();
+      const utterance = new SpeechSynthesisUtterance(text);
+      const voice = getPreferredFemaleVoice();
+      if (voice) utterance.voice = voice;
       
-      if (data.audioBase64) {
-        // Create audio element and play
-        const audio = new Audio(`data:audio/mpeg;base64,${data.audioBase64}`);
-        audioRef.current = audio;
-        
-        audio.onended = () => {
-          setIsPlaying(false);
-          audioRef.current = null;
-          onComplete?.();
-        };
-        
-        audio.onerror = () => {
-          setIsPlaying(false);
-          audioRef.current = null;
-          console.error('Audio playback error');
-          onComplete?.();
-        };
-        
-        await audio.play();
-      } else {
+      utterance.rate = 1.05;
+      utterance.pitch = 1.1;
+      utterance.volume = 1.0;
+      
+      utterance.onend = () => {
         setIsPlaying(false);
         onComplete?.();
-      }
+      };
+      
+      utterance.onerror = () => {
+        setIsPlaying(false);
+        onComplete?.();
+      };
+      
+      window.speechSynthesis.speak(utterance);
     } catch (error) {
-      console.error('ARIA voice error:', error);
+      console.error('Voice error:', error);
       setIsPlaying(false);
-      audioRef.current = null;
       onComplete?.();
     }
-  }, []);
+  }, [getPreferredFemaleVoice]);
 
   // Stop speaking
   const stopSpeaking = useCallback(() => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-      audioRef.current = null;
-      setIsPlaying(false);
-    }
+    window.speechSynthesis.cancel();
+    setIsPlaying(false);
   }, []);
 
   // Explain current section

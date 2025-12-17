@@ -243,6 +243,9 @@ export default function VoiceGuide({
   }, []);
 
   const stopSpeaking = useCallback(() => {
+    // Cancel browser speech synthesis
+    window.speechSynthesis.cancel();
+    
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
@@ -250,96 +253,132 @@ export default function VoiceGuide({
     }
     setIsPlaying(false);
     setProgress(0);
+    isGeneratingRef.current = false;
     if (progressIntervalRef.current) {
       clearInterval(progressIntervalRef.current);
     }
   }, []);
 
+  // Get the best available female voice from browser
+  const getPreferredFemaleVoice = useCallback(() => {
+    const voices = window.speechSynthesis.getVoices();
+    
+    // Priority list of natural-sounding female voices (upbeat and friendly)
+    const preferredVoices = [
+      'Samantha', // macOS/iOS - very natural and upbeat
+      'Karen', // macOS - Australian female, friendly
+      'Moira', // macOS - Irish female
+      'Fiona', // macOS - Scottish female  
+      'Victoria', // macOS - US female
+      'Google US English Female', // Chrome - natural
+      'Google UK English Female',
+      'Microsoft Zira', // Windows - US female
+      'Microsoft Zira Desktop',
+      'Zira',
+      'Microsoft Aria', // Windows 11 - natural neural voice
+      'Microsoft Jenny', // Windows 11 - friendly neural voice
+      'Female', // Generic fallback
+    ];
+    
+    // First try exact matches
+    for (const preferred of preferredVoices) {
+      const voice = voices.find(v => 
+        v.name.toLowerCase().includes(preferred.toLowerCase()) ||
+        v.name === preferred
+      );
+      if (voice) return voice;
+    }
+    
+    // Fall back to any English female voice
+    const englishFemale = voices.find(v => 
+      v.lang.startsWith('en') && 
+      (v.name.toLowerCase().includes('female') || 
+       v.name.toLowerCase().includes('woman') ||
+       // Common female voice names
+       ['samantha', 'zira', 'aria', 'jenny', 'karen', 'moira', 'fiona', 'victoria', 'susan', 'kate'].some(
+         name => v.name.toLowerCase().includes(name)
+       ))
+    );
+    if (englishFemale) return englishFemale;
+    
+    // Last resort: any English voice
+    return voices.find(v => v.lang.startsWith('en')) || voices[0];
+  }, []);
+
   const speakText = useCallback(async (text: string, onComplete?: () => void) => {
     try {
-      // Prevent multiple simultaneous voice generation calls
+      // Prevent multiple simultaneous voice calls
       if (isGeneratingRef.current) {
-        console.log('Voice generation already in progress, skipping duplicate call');
+        console.log('Voice already in progress, skipping duplicate call');
         return;
       }
       
       isGeneratingRef.current = true;
       stopSpeaking();
+      window.speechSynthesis.cancel(); // Clear any queued speech
       
       setCurrentText(text);
       setProgress(0);
       
-      // Call server API to generate Rachel's energetic female voice (ElevenLabs)
-      const response = await fetch('/api/voice-ai/generate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          text,
-          provider: 'elevenlabs',
-          voiceId: '21m00Tcm4TlvDq8ikWAM' // Rachel - energetic female voice from ElevenLabs
-        }),
-      });
-
-      if (!response.ok) {
-        isGeneratingRef.current = false;
-        throw new Error('Voice generation failed');
-      }
-
-      const data = await response.json();
+      // Use browser's built-in speech synthesis with natural female voice
+      const utterance = new SpeechSynthesisUtterance(text);
       
-      if (data.audioBase64) {
-        setIsPlaying(true);
-        
-        // Create audio element and play
-        const audio = new Audio(`data:audio/mpeg;base64,${data.audioBase64}`);
-        audioRef.current = audio;
-        
-        // Estimate duration and update progress
-        const estimatedDuration = text.length * 50;
-        const intervalTime = estimatedDuration / 100;
-        progressIntervalRef.current = setInterval(() => {
-          setProgress(prev => {
-            if (prev >= 100) {
-              if (progressIntervalRef.current) {
-                clearInterval(progressIntervalRef.current);
-              }
-              return 100;
-            }
-            return prev + 1;
-          });
-        }, intervalTime);
-        
-        audio.onended = () => {
-          setIsPlaying(false);
-          setProgress(100);
-          isGeneratingRef.current = false;
-          if (progressIntervalRef.current) {
-            clearInterval(progressIntervalRef.current);
-          }
-          onComplete?.();
-        };
-        
-        audio.onerror = () => {
-          setIsPlaying(false);
-          setProgress(0);
-          isGeneratingRef.current = false;
-          if (progressIntervalRef.current) {
-            clearInterval(progressIntervalRef.current);
-          }
-          console.error('Audio playback error');
-          onComplete?.();
-        };
-        
-        await audio.play();
-      } else {
-        isGeneratingRef.current = false;
-        setIsPlaying(false);
-        onComplete?.();
+      // Configure for natural, upbeat female voice
+      const voice = getPreferredFemaleVoice();
+      if (voice) {
+        utterance.voice = voice;
+        console.log('🎤 Using voice:', voice.name);
       }
+      
+      utterance.rate = 1.05; // Slightly faster for upbeat feel
+      utterance.pitch = 1.1; // Slightly higher pitch for friendly tone
+      utterance.volume = 1.0;
+      
+      setIsPlaying(true);
+      
+      // Track progress based on estimated duration
+      const wordsPerMinute = 150;
+      const wordCount = text.split(/\s+/).length;
+      const estimatedDuration = (wordCount / wordsPerMinute) * 60 * 1000; // in ms
+      const intervalTime = estimatedDuration / 100;
+      
+      progressIntervalRef.current = setInterval(() => {
+        setProgress(prev => {
+          if (prev >= 100) {
+            if (progressIntervalRef.current) {
+              clearInterval(progressIntervalRef.current);
+            }
+            return 100;
+          }
+          return prev + 1;
+        });
+      }, intervalTime);
+      
+      utterance.onend = () => {
+        setIsPlaying(false);
+        setProgress(100);
+        isGeneratingRef.current = false;
+        if (progressIntervalRef.current) {
+          clearInterval(progressIntervalRef.current);
+        }
+        onComplete?.();
+      };
+      
+      utterance.onerror = (event) => {
+        setIsPlaying(false);
+        setProgress(0);
+        isGeneratingRef.current = false;
+        if (progressIntervalRef.current) {
+          clearInterval(progressIntervalRef.current);
+        }
+        console.error('Speech error:', event.error);
+        onComplete?.();
+      };
+      
+      window.speechSynthesis.speak(utterance);
+      
     } catch (error) {
-      console.error('ARIA voice error:', error);
+      console.error('Voice error:', error);
       isGeneratingRef.current = false;
       setIsPlaying(false);
       setProgress(0);
@@ -348,7 +387,7 @@ export default function VoiceGuide({
       }
       onComplete?.();
     }
-  }, [stopSpeaking]);
+  }, [stopSpeaking, getPreferredFemaleVoice]);
 
   const explainPortal = useCallback((portalId: string) => {
     const explanation = explanations[portalId];

@@ -220,80 +220,54 @@ export function WeatherAIAssistant({ currentLocation, weatherData, className = '
     }
   };
 
+  // Get the best available female voice from browser
+  const getPreferredFemaleVoice = () => {
+    const voices = window.speechSynthesis.getVoices();
+    const preferredVoices = [
+      'Samantha', 'Karen', 'Moira', 'Fiona', 'Victoria',
+      'Google US English Female', 'Google UK English Female',
+      'Microsoft Zira', 'Microsoft Aria', 'Microsoft Jenny',
+    ];
+    
+    for (const preferred of preferredVoices) {
+      const voice = voices.find(v => v.name.toLowerCase().includes(preferred.toLowerCase()));
+      if (voice) return voice;
+    }
+    
+    const englishFemale = voices.find(v => 
+      v.lang.startsWith('en') && 
+      ['samantha', 'zira', 'aria', 'jenny', 'karen', 'moira', 'fiona', 'victoria', 'susan', 'kate'].some(
+        name => v.name.toLowerCase().includes(name)
+      )
+    );
+    return englishFemale || voices.find(v => v.lang.startsWith('en')) || voices[0];
+  };
+
   const speakText = async (text: string) => {
     try {
-      // Stop any existing audio
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
-      
+      window.speechSynthesis.cancel();
       setIsSpeaking(true);
       
-      // Call backend API to generate Rachel's energetic female voice (ElevenLabs)
-      const response = await fetch('/api/voice-ai/generate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          text,
-          provider: 'elevenlabs',
-          voiceId: '21m00Tcm4TlvDq8ikWAM' // Rachel - energetic female voice
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Voice generation failed');
-      }
-
-      const data = await response.json();
+      const utterance = new SpeechSynthesisUtterance(text);
+      const voice = getPreferredFemaleVoice();
+      if (voice) utterance.voice = voice;
       
-      if (data.audioBase64) {
-        // Create audio element and play
-        const audio = new Audio(`data:audio/mpeg;base64,${data.audioBase64}`);
-        audioRef.current = audio;
-        
-        audio.onended = () => {
-          setIsSpeaking(false);
-          audioRef.current = null;
-        };
-        
-        audio.onerror = (e) => {
-          setIsSpeaking(false);
-          audioRef.current = null;
-          console.error('Voice playback error:', e);
-        };
-        
-        // Add load handler to ensure audio is ready
-        audio.onloadeddata = async () => {
-          try {
-            await audio.play();
-          } catch (playError: any) {
-            console.error('Auto-play blocked. User interaction required:', playError);
-            // Browser blocked autoplay - this is normal, user needs to click
-            setIsSpeaking(false);
-          }
-        };
-        
-        // Trigger load
-        audio.load();
-      } else {
-        setIsSpeaking(false);
-      }
+      utterance.rate = 1.05;
+      utterance.pitch = 1.1;
+      utterance.volume = 1.0;
+      
+      utterance.onend = () => setIsSpeaking(false);
+      utterance.onerror = () => setIsSpeaking(false);
+      
+      window.speechSynthesis.speak(utterance);
     } catch (error) {
-      console.error('Rachel voice error:', error);
+      console.error('Voice error:', error);
       setIsSpeaking(false);
-      audioRef.current = null;
     }
   };
 
   const stopSpeaking = () => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-      audioRef.current = null;
-    }
+    window.speechSynthesis.cancel();
     setIsSpeaking(false);
   };
 

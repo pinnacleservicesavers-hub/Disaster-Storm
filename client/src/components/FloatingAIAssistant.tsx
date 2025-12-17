@@ -170,72 +170,62 @@ export function FloatingAIAssistant({ className = '' }: FloatingAIAssistantProps
     }
   });
 
-  // Text-to-speech using Rachel's natural voice via backend API
+  // Get the best available female voice from browser
+  const getPreferredFemaleVoice = () => {
+    const voices = window.speechSynthesis.getVoices();
+    const preferredVoices = [
+      'Samantha', 'Karen', 'Moira', 'Fiona', 'Victoria',
+      'Google US English Female', 'Google UK English Female',
+      'Microsoft Zira', 'Microsoft Aria', 'Microsoft Jenny',
+    ];
+    
+    for (const preferred of preferredVoices) {
+      const voice = voices.find(v => v.name.toLowerCase().includes(preferred.toLowerCase()));
+      if (voice) return voice;
+    }
+    
+    const englishFemale = voices.find(v => 
+      v.lang.startsWith('en') && 
+      ['samantha', 'zira', 'aria', 'jenny', 'karen', 'moira', 'fiona', 'victoria', 'susan', 'kate'].some(
+        name => v.name.toLowerCase().includes(name)
+      )
+    );
+    return englishFemale || voices.find(v => v.lang.startsWith('en')) || voices[0];
+  };
+
+  // Text-to-speech using browser's natural female voice
   const speakResponse = async (text: string) => {
     if (!voiceEnabled) return;
 
     try {
-      // Stop any existing audio
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
-      
+      window.speechSynthesis.cancel();
       setIsSpeaking(true);
       
       // Clean up text for natural speech
       const cleanText = text
-        .replace(/\*\*(.*?)\*\*/g, '$1') // Remove bold formatting
-        .replace(/\*(.*?)\*/g, '$1') // Remove italic formatting
-        .replace(/```[\s\S]*?```/g, '') // Remove code blocks
-        .replace(/#{1,6}\s/g, '') // Remove headers
-        .replace(/\n+/g, '. ') // Replace line breaks with pauses
-        .replace(/\s+/g, ' ') // Clean up extra spaces
+        .replace(/\*\*(.*?)\*\*/g, '$1')
+        .replace(/\*(.*?)\*/g, '$1')
+        .replace(/```[\s\S]*?```/g, '')
+        .replace(/#{1,6}\s/g, '')
+        .replace(/\n+/g, '. ')
+        .replace(/\s+/g, ' ')
         .trim();
       
-      // Call backend API to generate Rachel's energetic female voice (ElevenLabs)
-      const response = await fetch('/api/voice-ai/generate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          text: cleanText,
-          provider: 'elevenlabs',
-          voiceId: '21m00Tcm4TlvDq8ikWAM' // Rachel - energetic female voice
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Voice generation failed');
-      }
-
-      const data = await response.json();
+      const utterance = new SpeechSynthesisUtterance(cleanText);
+      const voice = getPreferredFemaleVoice();
+      if (voice) utterance.voice = voice;
       
-      if (data.audioBase64) {
-        // Create audio element and play
-        const audio = new Audio(`data:audio/mpeg;base64,${data.audioBase64}`);
-        audioRef.current = audio;
-        
-        audio.onended = () => {
-          setIsSpeaking(false);
-          audioRef.current = null;
-        };
-        
-        audio.onerror = () => {
-          setIsSpeaking(false);
-          audioRef.current = null;
-          console.error('Audio playback error');
-        };
-        
-        await audio.play();
-      } else {
-        setIsSpeaking(false);
-      }
+      utterance.rate = 1.05;
+      utterance.pitch = 1.1;
+      utterance.volume = 1.0;
+      
+      utterance.onend = () => setIsSpeaking(false);
+      utterance.onerror = () => setIsSpeaking(false);
+      
+      window.speechSynthesis.speak(utterance);
     } catch (error) {
-      console.error('Rachel voice error:', error);
+      console.error('Voice error:', error);
       setIsSpeaking(false);
-      audioRef.current = null;
     }
   };
 

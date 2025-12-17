@@ -277,13 +277,10 @@ export default function AIAssistant({ portalContext, userLocation, className }: 
     }
   };
 
-  // Cleanup audio on unmount
+  // Cleanup speech on unmount
   useEffect(() => {
     return () => {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
+      window.speechSynthesis.cancel();
     };
   }, []);
 
@@ -329,65 +326,53 @@ export default function AIAssistant({ portalContext, userLocation, className }: 
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [conversation]);
 
-  // Speech synthesis function using ARIA STORM female voice
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  
+  // Get the best available female voice from browser
+  const getPreferredFemaleVoice = useCallback(() => {
+    const voices = window.speechSynthesis.getVoices();
+    const preferredVoices = [
+      'Samantha', 'Karen', 'Moira', 'Fiona', 'Victoria',
+      'Google US English Female', 'Google UK English Female',
+      'Microsoft Zira', 'Microsoft Aria', 'Microsoft Jenny',
+    ];
+    
+    for (const preferred of preferredVoices) {
+      const voice = voices.find(v => v.name.toLowerCase().includes(preferred.toLowerCase()));
+      if (voice) return voice;
+    }
+    
+    const englishFemale = voices.find(v => 
+      v.lang.startsWith('en') && 
+      ['samantha', 'zira', 'aria', 'jenny', 'karen', 'moira', 'fiona', 'victoria', 'susan', 'kate'].some(
+        name => v.name.toLowerCase().includes(name)
+      )
+    );
+    return englishFemale || voices.find(v => v.lang.startsWith('en')) || voices[0];
+  }, []);
+
+  // Speech synthesis function using browser's natural female voice
   const speak = useCallback(async (text: string) => {
     try {
-      // Stop any existing audio
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
-      
+      window.speechSynthesis.cancel();
       setIsSpeaking(true);
       setCurrentMessage(text);
       
-      // Call server API to generate Rachel's voice (ElevenLabs)
-      const response = await fetch('/api/voice-ai/generate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          text,
-          voiceId: '21m00Tcm4TlvDq8ikWAM', // Rachel's ElevenLabs voice ID
-          provider: 'elevenlabs'
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Voice generation failed');
-      }
-
-      const data = await response.json();
+      const utterance = new SpeechSynthesisUtterance(text);
+      const voice = getPreferredFemaleVoice();
+      if (voice) utterance.voice = voice;
       
-      if (data.audioBase64) {
-        // Create audio element and play
-        const audio = new Audio(`data:audio/mpeg;base64,${data.audioBase64}`);
-        audioRef.current = audio;
-        
-        audio.onended = () => {
-          setIsSpeaking(false);
-          audioRef.current = null;
-        };
-        
-        audio.onerror = () => {
-          setIsSpeaking(false);
-          audioRef.current = null;
-          console.error('Audio playback error');
-        };
-        
-        await audio.play();
-      } else {
-        setIsSpeaking(false);
-      }
+      utterance.rate = 1.05;
+      utterance.pitch = 1.1;
+      utterance.volume = 1.0;
+      
+      utterance.onend = () => setIsSpeaking(false);
+      utterance.onerror = () => setIsSpeaking(false);
+      
+      window.speechSynthesis.speak(utterance);
     } catch (error) {
-      console.error('ARIA voice error:', error);
+      console.error('Voice error:', error);
       setIsSpeaking(false);
-      audioRef.current = null;
     }
-  }, []);
+  }, [getPreferredFemaleVoice]);
 
   // Initialize WebSocket for real-time data
   useEffect(() => {
@@ -684,11 +669,8 @@ export default function AIAssistant({ portalContext, userLocation, className }: 
 
   // Stop speaking function
   const stopSpeaking = useCallback(() => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current = null;
-      setIsSpeaking(false);
-    }
+    window.speechSynthesis.cancel();
+    setIsSpeaking(false);
   }, []);
 
   // Toggle AI assistant
