@@ -14,23 +14,33 @@ import { Camera, TreePine, Home, Trash2, Upload, Ruler, AlertTriangle, CheckCirc
 
 interface MeasurementResult {
   measurements: Record<string, any>;
-  confidence: number;
+  confidenceLevel: 'low' | 'medium' | 'high';
+  confidenceScore: number;
   aiModel: string;
-  methodology: string;
-  limitations: string[];
+  measurementMethodology?: string;
+  limitationsNoted: string[];
+  limitations?: string[];
   reviewRequired: boolean;
   estimatedWeight?: { value: number; unit: string };
   species?: { detected: string; confidence: number };
+  referenceObject?: any;
+  captureContext?: any;
 }
 
 interface ScopeItem {
-  code: string;
+  industryStandardCategory: string;
   description: string;
   quantity: number;
   unit: string;
-  notes: string;
-  sourceSessionId: string;
-  confidenceScore: number;
+  notes?: string;
+  sourceSessionId?: string;
+  confidenceScore?: number;
+  confidenceLevel: 'low' | 'medium' | 'high';
+  aiModelUsed: string;
+  measurementMethodology: string;
+  accessComplexity?: string;
+  hazardFlags?: string[];
+  captureContext?: any;
 }
 
 interface MeasurementSession {
@@ -40,6 +50,9 @@ interface MeasurementSession {
   status: string;
   createdAt: string;
   estimates: MeasurementResult[];
+  overallConfidence?: number;
+  hasLowConfidence?: boolean;
+  requiresReview?: boolean;
 }
 
 type TradeType = 'tree' | 'roofing' | 'debris';
@@ -394,44 +407,55 @@ export default function MeasurementCapture({ projectId }: { projectId?: string }
                     </span>
                   </div>
                   
-                  {session.estimates?.map((est: any, idx: number) => (
-                    <div key={idx} className="mt-3 bg-gray-50 rounded p-3">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className={`px-2 py-1 rounded text-xs font-medium ${getConfidenceColor(est.confidence || 0)}`}>
-                          {((est.confidence || 0) * 100).toFixed(0)}% Confidence
-                        </span>
-                        {est.reviewRequired && (
-                          <Badge variant="destructive" className="text-xs">
-                            <AlertTriangle className="w-3 h-3 mr-1" /> Review Required
-                          </Badge>
+                  {session.estimates?.map((est: any, idx: number) => {
+                    const confidence = est.confidenceScore || est.confidence || 0;
+                    const limitations = est.limitations || est.limitationsNoted || [];
+                    const reviewRequired = est.reviewRequired || confidence < 0.7;
+                    
+                    return (
+                      <div key={idx} className="mt-3 bg-gray-50 rounded p-3">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className={`px-2 py-1 rounded text-xs font-medium ${getConfidenceColor(confidence)}`}>
+                            {(confidence * 100).toFixed(0)}% Confidence
+                          </span>
+                          {reviewRequired && (
+                            <Badge variant="destructive" className="text-xs">
+                              <AlertTriangle className="w-3 h-3 mr-1" /> Review Required
+                            </Badge>
+                          )}
+                          {!reviewRequired && confidence >= 0.85 && (
+                            <Badge variant="outline" className="text-xs text-green-600 border-green-300">
+                              <CheckCircle className="w-3 h-3 mr-1" /> High Confidence
+                            </Badge>
+                          )}
+                          {est.aiModel && (
+                            <span className="text-xs text-gray-400" title={est.aiModel}>
+                              AI: {est.aiModel.split('+')[0].trim().slice(-15)}
+                            </span>
+                          )}
+                        </div>
+                        
+                        {est.measurements && (
+                          <div className="grid grid-cols-3 gap-2 text-sm">
+                            {Object.entries(est.measurements).map(([key, val]: [string, any]) => (
+                              <div key={key} className="bg-white p-2 rounded border">
+                                <div className="text-xs text-gray-500 capitalize">{key.replace(/_/g, ' ')}</div>
+                                <div className="font-medium">
+                                  {typeof val === 'object' ? `${val.value} ${val.unit}` : val}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
                         )}
-                        {!est.reviewRequired && est.confidence >= 0.85 && (
-                          <Badge variant="outline" className="text-xs text-green-600 border-green-300">
-                            <CheckCircle className="w-3 h-3 mr-1" /> High Confidence
-                          </Badge>
+
+                        {limitations.length > 0 && (
+                          <div className="mt-2 text-xs text-orange-600">
+                            <strong>Limitations:</strong> {limitations.join('; ')}
+                          </div>
                         )}
                       </div>
-                      
-                      {est.measurements && (
-                        <div className="grid grid-cols-3 gap-2 text-sm">
-                          {Object.entries(est.measurements).map(([key, val]: [string, any]) => (
-                            <div key={key} className="bg-white p-2 rounded border">
-                              <div className="text-xs text-gray-500 capitalize">{key.replace(/_/g, ' ')}</div>
-                              <div className="font-medium">
-                                {typeof val === 'object' ? `${val.value} ${val.unit}` : val}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                      {est.limitations && est.limitations.length > 0 && (
-                        <div className="mt-2 text-xs text-orange-600">
-                          <strong>Limitations:</strong> {est.limitations.join('; ')}
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ))}
             </div>

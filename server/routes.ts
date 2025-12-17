@@ -12157,19 +12157,31 @@ What specific area or type of incident would you like me to focus on? I can prov
         id: `est:${Date.now()}`,
         sessionId,
         ...result,
+        aiModel: 'Anthropic Claude 3.5 Sonnet + Forestry Allometric Equations',
+        referenceObject: reference || null,
+        captureContext: context,
+        confidenceLevel: result.confidenceLevel,
+        confidenceScore: result.confidenceScore,
+        limitations: result.limitationsNoted || [],
         createdAt: new Date().toISOString()
       });
       
       writeMeasurements(db);
       
-      // Generate scope items
-      const scopeItems = measurementService.convertToScopeItems([result], 'tree');
+      // Generate scope items with provenance
+      const scopeItems = measurementService.convertToScopeItems([result], 'tree', context);
       
       res.json({
         ok: true,
         sessionId,
         measurement: result,
         scopeItems,
+        provenance: {
+          aiModel: 'Anthropic Claude 3.5 Sonnet + Forestry Allometric Equations',
+          measurementMethodology: 'AI-assisted photogrammetric analysis with confidence scoring',
+          referenceObject: reference || null,
+          captureContext: context
+        },
         disclaimer: measurementService.generateMeasurementDisclaimer([result])
       });
       
@@ -12219,18 +12231,30 @@ What specific area or type of incident would you like me to focus on? I can prov
         id: `est:${Date.now()}`,
         sessionId,
         ...result,
+        aiModel: 'Anthropic Claude 3.5 Sonnet + Photogrammetric Analysis',
+        referenceObject: reference || null,
+        captureContext: context,
+        confidenceLevel: result.confidenceLevel,
+        confidenceScore: result.confidenceScore,
+        limitations: result.limitationsNoted || [],
         createdAt: new Date().toISOString()
       });
       
       writeMeasurements(db);
       
-      const scopeItems = measurementService.convertToScopeItems([result], 'roofing');
+      const scopeItems = measurementService.convertToScopeItems([result], 'roofing', context);
       
       res.json({
         ok: true,
         sessionId,
         measurement: result,
         scopeItems,
+        provenance: {
+          aiModel: 'Anthropic Claude 3.5 Sonnet + Photogrammetric Analysis',
+          measurementMethodology: 'AI-assisted photogrammetric analysis with confidence scoring',
+          referenceObject: reference || null,
+          captureContext: context
+        },
         disclaimer: measurementService.generateMeasurementDisclaimer([result])
       });
       
@@ -12280,18 +12304,30 @@ What specific area or type of incident would you like me to focus on? I can prov
         id: `est:${Date.now()}`,
         sessionId,
         ...result,
+        aiModel: 'Anthropic Claude 3.5 Sonnet + Volume Estimation',
+        referenceObject: reference || null,
+        captureContext: context,
+        confidenceLevel: result.confidenceLevel,
+        confidenceScore: result.confidenceScore,
+        limitations: result.limitationsNoted || [],
         createdAt: new Date().toISOString()
       });
       
       writeMeasurements(db);
       
-      const scopeItems = measurementService.convertToScopeItems([result], 'debris');
+      const scopeItems = measurementService.convertToScopeItems([result], 'debris', context);
       
       res.json({
         ok: true,
         sessionId,
         measurement: result,
         scopeItems,
+        provenance: {
+          aiModel: 'Anthropic Claude 3.5 Sonnet + Volume Estimation',
+          measurementMethodology: 'AI-assisted photogrammetric analysis with confidence scoring',
+          referenceObject: reference || null,
+          captureContext: context
+        },
         disclaimer: measurementService.generateMeasurementDisclaimer([result])
       });
       
@@ -12312,11 +12348,31 @@ What specific area or type of incident would you like me to focus on? I can prov
         sessions = sessions.filter((s: any) => s.projectId === projectId);
       }
       
-      // Attach estimates to each session
-      sessions = sessions.map((session: any) => ({
-        ...session,
-        estimates: (db.estimates || []).filter((e: any) => e.sessionId === session.id)
-      }));
+      // Attach estimates to each session with full provenance and confidence data
+      sessions = sessions.map((session: any) => {
+        const estimates = (db.estimates || [])
+          .filter((e: any) => e.sessionId === session.id)
+          .map((est: any) => ({
+            ...est,
+            confidenceLevel: est.confidenceLevel || 'low',
+            confidenceScore: est.confidenceScore || 0,
+            limitations: est.limitations || est.limitationsNoted || [],
+            aiModel: est.aiModel || 'Anthropic Claude 3.5 Sonnet',
+            referenceObject: est.referenceObject || null,
+            captureContext: est.captureContext || null,
+            reviewRequired: (est.confidenceScore || 0) < 0.7
+          }));
+        
+        return {
+          ...session,
+          estimates,
+          overallConfidence: estimates.length > 0 
+            ? estimates.reduce((sum: number, e: any) => sum + (e.confidenceScore || 0), 0) / estimates.length
+            : 0,
+          hasLowConfidence: estimates.some((e: any) => e.confidenceLevel === 'low'),
+          requiresReview: estimates.some((e: any) => (e.confidenceScore || 0) < 0.7)
+        };
+      });
       
       res.json({ ok: true, sessions });
     } catch (error) {

@@ -60,10 +60,13 @@ export interface ScopeOutput {
   description: string;
   quantity: number;
   unit: string;
-  benchmarkClass: string;
-  accessClass: string;
+  industryStandardCategory: string;
+  accessComplexity: string;
   hazardFlags: string[];
   confidenceLevel: 'low' | 'medium' | 'high';
+  aiModelUsed: string;
+  measurementMethodology: string;
+  captureContext: CaptureContext | null;
 }
 
 const TREE_ALLOMETRICS: Record<string, { a: number; b: number; c: number; greenDensity: number }> = {
@@ -486,26 +489,52 @@ Remember:
 
 export function convertToScopeItems(
   measurements: MeasurementResult[],
-  tradeType: string
+  tradeType: string,
+  captureContext?: CaptureContext
 ): ScopeOutput[] {
   const scopeItems: ScopeOutput[] = [];
+  
+  // Derive AI model from trade type for accurate provenance
+  const getAiModelForTrade = (trade: string): string => {
+    switch (trade) {
+      case 'tree': return 'Anthropic Claude 3.5 Sonnet + Forestry Allometric Equations';
+      case 'roofing': return 'Anthropic Claude 3.5 Sonnet + Photogrammetric Analysis';
+      case 'debris': return 'Anthropic Claude 3.5 Sonnet + Volume Estimation';
+      default: return 'Anthropic Claude 3.5 Sonnet';
+    }
+  };
+  
+  const getMethodologyForTrade = (trade: string): string => {
+    switch (trade) {
+      case 'tree': return 'AI-assisted photogrammetric analysis with forestry allometric equations and confidence scoring';
+      case 'roofing': return 'AI-assisted roof area and pitch estimation with photogrammetric analysis';
+      case 'debris': return 'AI-assisted volume estimation using reference object calibration';
+      default: return 'AI-assisted measurement with confidence scoring';
+    }
+  };
+  
+  const aiModelUsed = getAiModelForTrade(tradeType);
+  const measurementMethodology = getMethodologyForTrade(tradeType);
 
   for (const m of measurements) {
     if (m.targetType === 'tree') {
       const tree = m as TreeMeasurement;
-      const dbhClass = tree.dbhInches 
+      const sizeCategory = tree.dbhInches 
         ? (tree.dbhInches < 12 ? 'small' : tree.dbhInches < 24 ? 'medium' : tree.dbhInches < 36 ? 'large' : 'extra_large')
         : 'unknown';
       
       scopeItems.push({
         category: 'labor',
-        description: `Tree removal - ${tree.species || 'Unknown species'} (${dbhClass} class, ~${tree.heightFeet || 'unknown'}ft)`,
+        description: `Tree removal - ${tree.species || 'Unknown species'} (${sizeCategory} category, ~${tree.heightFeet || 'unknown'}ft)`,
         quantity: 1,
         unit: 'each',
-        benchmarkClass: dbhClass,
-        accessClass: tree.requiresCrane ? 'hazardous' : (tree.accessIssues?.length ? 'difficult' : 'standard'),
+        industryStandardCategory: `tree_removal_${sizeCategory}`,
+        accessComplexity: tree.requiresCrane ? 'hazardous' : (tree.accessIssues?.length ? 'difficult' : 'standard'),
         hazardFlags: tree.accessIssues || [],
-        confidenceLevel: m.confidenceLevel
+        confidenceLevel: m.confidenceLevel,
+        aiModelUsed,
+        measurementMethodology,
+        captureContext: captureContext || null
       });
 
       if (tree.requiresCrane) {
@@ -514,10 +543,13 @@ export function convertToScopeItems(
           description: 'Crane required for tree removal',
           quantity: 1,
           unit: 'day',
-          benchmarkClass: 'crane_rental',
-          accessClass: 'hazardous',
+          industryStandardCategory: 'equipment_rental_crane',
+          accessComplexity: 'hazardous',
           hazardFlags: ['crane_required'],
-          confidenceLevel: m.confidenceLevel
+          confidenceLevel: m.confidenceLevel,
+          aiModelUsed,
+          measurementMethodology,
+          captureContext: captureContext || null
         });
       }
 
@@ -529,10 +561,13 @@ export function convertToScopeItems(
           description: `Debris haul-off (est. ${loadEstimate} loads, ${tree.estimatedWeightLbs.min.toLocaleString()}-${tree.estimatedWeightLbs.max.toLocaleString()} lbs total)`,
           quantity: loadEstimate,
           unit: 'loads',
-          benchmarkClass: 'green_waste',
-          accessClass: 'standard',
+          industryStandardCategory: 'debris_disposal_organic',
+          accessComplexity: 'standard',
           hazardFlags: [],
-          confidenceLevel: m.confidenceLevel
+          confidenceLevel: m.confidenceLevel,
+          aiModelUsed,
+          measurementMethodology,
+          captureContext: captureContext || null
         });
       }
     }
@@ -541,15 +576,19 @@ export function convertToScopeItems(
       const roof = m as RoofMeasurement;
       
       if (roof.totalSquares) {
+        const sizeCategory = roof.totalSquares < 15 ? 'small' : roof.totalSquares < 30 ? 'medium' : 'large';
         scopeItems.push({
           category: 'labor',
           description: `Roof repair/replacement - ${roof.pitch || 'unknown pitch'} (${roof.totalSquares} squares)`,
           quantity: roof.totalSquares,
           unit: 'squares',
-          benchmarkClass: roof.totalSquares < 15 ? 'small' : roof.totalSquares < 30 ? 'medium' : 'large',
-          accessClass: 'standard',
+          industryStandardCategory: `roofing_${sizeCategory}`,
+          accessComplexity: 'standard',
           hazardFlags: roof.damageIndicators || [],
-          confidenceLevel: m.confidenceLevel
+          confidenceLevel: m.confidenceLevel,
+          aiModelUsed,
+          measurementMethodology,
+          captureContext: captureContext || null
         });
       }
 
@@ -560,25 +599,32 @@ export function convertToScopeItems(
             description: `${pen.type} flashing/repair`,
             quantity: pen.count,
             unit: 'each',
-            benchmarkClass: 'penetration',
-            accessClass: 'standard',
+            industryStandardCategory: 'roofing_penetration_repair',
+            accessComplexity: 'standard',
             hazardFlags: [],
-            confidenceLevel: m.confidenceLevel
+            confidenceLevel: m.confidenceLevel,
+            aiModelUsed,
+            measurementMethodology,
+            captureContext: captureContext || null
           });
         }
       }
     }
 
     if (m.targetType === 'debris_pile') {
+      const sizeCategory = m.estimatedValue < 5 ? 'small' : m.estimatedValue < 20 ? 'medium' : 'large';
       scopeItems.push({
         category: 'labor',
         description: `Debris cleanup and removal (${m.minValue}-${m.maxValue} cubic yards)`,
         quantity: m.estimatedValue,
         unit: 'cubic_yd',
-        benchmarkClass: m.estimatedValue < 5 ? 'small' : m.estimatedValue < 20 ? 'medium' : 'large',
-        accessClass: 'standard',
+        industryStandardCategory: `debris_cleanup_${sizeCategory}`,
+        accessComplexity: 'standard',
         hazardFlags: [],
-        confidenceLevel: m.confidenceLevel
+        confidenceLevel: m.confidenceLevel,
+        aiModelUsed,
+        measurementMethodology,
+        captureContext: captureContext || null
       });
     }
   }
