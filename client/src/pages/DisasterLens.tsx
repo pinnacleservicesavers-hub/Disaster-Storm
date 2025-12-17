@@ -1176,8 +1176,10 @@ const VOICE_GUIDE_SCRIPTS = {
   }
 };
 
+import MeasurementCapture from '@/components/MeasurementCapture';
+
 export default function App() {
-  const tabs = ["Capture", "Timeline", "Annotator", "Calibrate", "Report Builder"] as const;
+  const tabs = ["Capture", "Timeline", "Annotator", "Calibrate", "Measurements", "Report Builder"] as const;
   const { selectedState, setSelectedState, selectedCity, setSelectedCity, availableCities } = useStateCitySelector('Florida', 'Miami');
   const [tab, setTab] = useState<typeof tabs[number]>("Capture");
   const [scalePxPerInch, setScalePxPerInchState] = useState<number | null>(null);
@@ -1596,6 +1598,7 @@ export default function App() {
         {tab === "Timeline" && <TimelineTab />}
         {tab === "Annotator" && <AnnotatorTab scalePxPerInch={scalePxPerInch} />}
         {tab === "Calibrate" && <CalibrateTab scalePxPerInch={scalePxPerInch} setScalePxPerInch={setScalePxPerInch} />}
+        {tab === "Measurements" && <MeasurementCapture projectId={currentProject?.id} />}
         {tab === "Report Builder" && <ReportBuilderTab />}
       </main>
 
