@@ -84,3 +84,44 @@ The platform features an enterprise-grade design system with AI-selected backgro
 - **Replit Object Storage**: Disaster Lens media.
 - **jsQR Library**: QR code detection.
 - **Jimp / Sharp**: Image processing.
+
+## Strategic Business Direction
+
+### Xactimate-Ready Estimating Strategy
+**Core Principle:** Don't replace Xactimate — feed it.
+
+**Compliance Model:**
+1. Platform collects: measurements, photos, scope documentation
+2. Output: Pre-estimate worksheets with complete scope
+3. Human estimator inputs into Xactimate
+4. Xactimate produces carrier-approved estimates
+
+**Key Messaging:**
+- ❌ Don't promise "Xactimate integration"
+- ✅ Promise "Xactimate-ready estimates"
+- ✅ Generate line-item suggestions, not prices
+- ✅ Focus on scope completeness (where money is lost)
+
+**Deliverables:**
+- Normalized scope bundles (room/area breakdown, trade categorization, damage metadata)
+- Photo logs with location/device metadata and annotations
+- Measurement tables with dimensions
+- AI-generated line-item suggestions with confidence scores
+- Export formats: PDF, CSV, Xactimate-friendly templates
+- Compliance notes (jurisdictional liens, permits)
+
+**AI Damage Detection Role:**
+- Propose scope items from analyzed imagery
+- Flag uncertainty and attach annotated photos
+- Log model provenance for estimator verification
+- Prioritize completeness and documentation over pricing
+
+**Quote Builder Adjustments:**
+- Reframe as "Scope Builder" experience
+- Disable automated pricing totals by default
+- Add workflow states for estimator review
+- Include Xactimate field mappings
+- Surface scope completeness scorecards and checklists
+
+**Business Rationale:**
+Insurance companies pay scope — not software. Focus on capturing complete, well-documented scope to maximize claim success.
