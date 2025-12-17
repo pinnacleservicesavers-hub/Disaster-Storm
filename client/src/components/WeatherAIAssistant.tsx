@@ -230,13 +230,17 @@ export function WeatherAIAssistant({ currentLocation, weatherData, className = '
       
       setIsSpeaking(true);
       
-      // Call backend API to generate Rachel's natural voice
+      // Call backend API to generate Rachel's energetic female voice (ElevenLabs)
       const response = await fetch('/api/voice-ai/generate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({ 
+          text,
+          provider: 'elevenlabs',
+          voiceId: '21m00Tcm4TlvDq8ikWAM' // Rachel - energetic female voice
+        }),
       });
 
       if (!response.ok) {

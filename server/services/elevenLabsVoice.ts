@@ -104,18 +104,44 @@ export class ElevenLabsVoiceService {
 
       console.log('🎙️ Generating speech with ElevenLabs...');
 
-      const audio = await this.client.textToSpeech.convert(request.voiceId, {
+      // Use the official SDK API format
+      const audio = await (this.client as any).textToSpeech.convert(request.voiceId, {
         text: request.text,
         model_id: modelId,
         voice_settings: voiceSettings
       });
 
-      // Convert stream to buffer
-      const chunks: Uint8Array[] = [];
-      for await (const chunk of audio) {
-        chunks.push(chunk);
+      // Convert response to buffer - handle different return types
+      let buffer: Buffer;
+      if (audio instanceof Buffer) {
+        buffer = audio;
+      } else if (audio instanceof ArrayBuffer) {
+        buffer = Buffer.from(audio);
+      } else if (audio && typeof audio.arrayBuffer === 'function') {
+        // Blob or Response object
+        const arrayBuf = await audio.arrayBuffer();
+        buffer = Buffer.from(arrayBuf);
+      } else if (Symbol.asyncIterator in (audio as any)) {
+        const chunks: Uint8Array[] = [];
+        for await (const chunk of audio as AsyncIterable<Uint8Array>) {
+          chunks.push(chunk);
+        }
+        buffer = Buffer.concat(chunks);
+      } else if (Array.isArray(audio)) {
+        buffer = Buffer.concat(audio);
+      } else if (audio && typeof audio.getReader === 'function') {
+        // ReadableStream
+        const chunks: Uint8Array[] = [];
+        const reader = audio.getReader();
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          if (value) chunks.push(value);
+        }
+        buffer = Buffer.concat(chunks);
+      } else {
+        throw new Error('Unknown audio format from ElevenLabs');
       }
-      const buffer = Buffer.concat(chunks);
 
       console.log('✅ Speech generated successfully');
       return buffer;

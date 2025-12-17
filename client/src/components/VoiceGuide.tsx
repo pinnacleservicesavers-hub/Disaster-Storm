@@ -269,13 +269,17 @@ export default function VoiceGuide({
       setCurrentText(text);
       setProgress(0);
       
-      // Call server API to generate ARIA STORM voice
+      // Call server API to generate Rachel's energetic female voice (ElevenLabs)
       const response = await fetch('/api/voice-ai/generate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({ 
+          text,
+          provider: 'elevenlabs',
+          voiceId: '21m00Tcm4TlvDq8ikWAM' // Rachel - energetic female voice from ElevenLabs
+        }),
       });
 
       if (!response.ok) {

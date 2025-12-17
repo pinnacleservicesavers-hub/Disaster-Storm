@@ -300,11 +300,15 @@ export default function PredictionDashboard() {
       const voiceContent = `Welcome to Predictive Storm Intelligence! This advanced forecasting system uses AI models and NOAA data to predict storm paths, intensity changes, and damage potential. The main dashboard shows active storm predictions with confidence levels, predicted paths with time stamps, and damage forecasts by county including wind, flood, and tornado risks. You'll see risk level indicators from minimal to extreme, estimated property damage amounts, and potential restoration job volumes. Use the tabs to switch between storm tracking, damage forecasts, and historical analysis. The map displays storm paths with color-coded intensity levels, and you can click on any forecast point for detailed information. All predictions update automatically as new weather data becomes available.`;
       
       try {
-        // Call Rachel voice API (ElevenLabs)
+        // Call Rachel voice API (ElevenLabs) - energetic female voice
         const response = await fetch('/api/voice-ai/generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: voiceContent }),
+          body: JSON.stringify({ 
+            text: voiceContent,
+            provider: 'elevenlabs',
+            voiceId: '21m00Tcm4TlvDq8ikWAM' // Rachel - energetic female voice
+          }),
           signal: abortController.signal,
         });
 
