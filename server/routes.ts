@@ -12404,6 +12404,113 @@ What specific area or type of incident would you like me to focus on? I can prov
     });
   });
 
+  // ========== VOICE GUIDE API ROUTES ==========
+  
+  // Import voice guide configuration
+  const voiceGuideConfig = await import('./services/voiceGuideConfig.js');
+
+  // Get voice guide for a specific module
+  app.get('/api/voice-guide/module/:moduleId', (req, res) => {
+    try {
+      const { moduleId } = req.params;
+      const guide = voiceGuideConfig.getModuleVoiceGuide(moduleId);
+      
+      if (!guide) {
+        return res.status(404).json({ error: `Module voice guide not found: ${moduleId}` });
+      }
+      
+      res.json({ ok: true, guide });
+    } catch (error) {
+      console.error('Error fetching module voice guide:', error);
+      res.status(500).json({ error: 'Failed to fetch voice guide' });
+    }
+  });
+
+  // Get voice guide for a specific trade
+  app.get('/api/voice-guide/trade/:tradeId', (req, res) => {
+    try {
+      const { tradeId } = req.params;
+      const guide = voiceGuideConfig.getTradeVoiceGuide(tradeId);
+      
+      if (!guide) {
+        return res.status(404).json({ error: `Trade voice guide not found: ${tradeId}` });
+      }
+      
+      res.json({ ok: true, guide });
+    } catch (error) {
+      console.error('Error fetching trade voice guide:', error);
+      res.status(500).json({ error: 'Failed to fetch voice guide' });
+    }
+  });
+
+  // Get all available module voice guides
+  app.get('/api/voice-guide/modules', (req, res) => {
+    try {
+      const moduleIds = voiceGuideConfig.getAllModuleIds();
+      const guides = moduleIds.map(id => voiceGuideConfig.getModuleVoiceGuide(id));
+      res.json({ ok: true, modules: guides });
+    } catch (error) {
+      console.error('Error fetching module voice guides:', error);
+      res.status(500).json({ error: 'Failed to fetch voice guides' });
+    }
+  });
+
+  // Get all available trade voice guides
+  app.get('/api/voice-guide/trades', (req, res) => {
+    try {
+      const tradeIds = voiceGuideConfig.getAllTradeIds();
+      const guides = tradeIds.map(id => voiceGuideConfig.getTradeVoiceGuide(id));
+      res.json({ ok: true, trades: guides });
+    } catch (error) {
+      console.error('Error fetching trade voice guides:', error);
+      res.status(500).json({ error: 'Failed to fetch voice guides' });
+    }
+  });
+
+  // Get general voice scripts (welcome, disclaimers, etc.)
+  app.get('/api/voice-guide/general', (req, res) => {
+    try {
+      res.json({ ok: true, scripts: voiceGuideConfig.generalVoiceScripts });
+    } catch (error) {
+      console.error('Error fetching general voice scripts:', error);
+      res.status(500).json({ error: 'Failed to fetch voice scripts' });
+    }
+  });
+
+  // Get capture step voice script for a trade
+  app.get('/api/voice-guide/trade/:tradeId/capture/:stepNumber', (req, res) => {
+    try {
+      const { tradeId, stepNumber } = req.params;
+      const script = voiceGuideConfig.getCaptureStepScript(tradeId, parseInt(stepNumber));
+      
+      if (!script) {
+        return res.status(404).json({ error: `Capture step not found: ${tradeId} step ${stepNumber}` });
+      }
+      
+      res.json({ ok: true, voiceScript: script });
+    } catch (error) {
+      console.error('Error fetching capture step script:', error);
+      res.status(500).json({ error: 'Failed to fetch capture step script' });
+    }
+  });
+
+  // Get scope question voice script for a trade
+  app.get('/api/voice-guide/trade/:tradeId/question/:questionKey', (req, res) => {
+    try {
+      const { tradeId, questionKey } = req.params;
+      const script = voiceGuideConfig.getScopeQuestionScript(tradeId, questionKey);
+      
+      if (!script) {
+        return res.status(404).json({ error: `Scope question not found: ${tradeId} question ${questionKey}` });
+      }
+      
+      res.json({ ok: true, voiceScript: script });
+    } catch (error) {
+      console.error('Error fetching scope question script:', error);
+      res.status(500).json({ error: 'Failed to fetch scope question script' });
+    }
+  });
+
   // ========== DISASTER LENS API ROUTES ==========
   
   // Import permission middleware

@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { Button } from '@/components/ui/button';
@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
-import { Camera, TreePine, Home, Trash2, Upload, Ruler, AlertTriangle, CheckCircle, FileText, Loader2 } from 'lucide-react';
+import { Camera, TreePine, Home, Trash2, Upload, Ruler, AlertTriangle, CheckCircle, FileText, Loader2, PaintBucket, Square } from 'lucide-react';
 
 interface MeasurementResult {
   measurements: Record<string, any>;
@@ -55,10 +55,34 @@ interface MeasurementSession {
   requiresReview?: boolean;
 }
 
-type TradeType = 'tree' | 'roofing' | 'debris';
+type TradeType = 'tree' | 'roofing' | 'debris' | 'drywall' | 'flooring';
+
+interface VoiceGuide {
+  tradeId: string;
+  tradeName: string;
+  intro: string;
+  captureSteps: Array<{
+    step: number;
+    prompt: string;
+    voiceScript: string;
+    required: boolean;
+    mediaType: string;
+    tips: string[];
+  }>;
+  scopeQuestions: Array<{
+    key: string;
+    prompt: string;
+    options?: string[];
+    required: boolean;
+  }>;
+  lineItemTemplates: string[];
+  safetyReminders: string[];
+}
 
 export default function MeasurementCapture({ projectId }: { projectId?: string }) {
   const [selectedTrade, setSelectedTrade] = useState<TradeType>('tree');
+  const [voiceGuide, setVoiceGuide] = useState<VoiceGuide | null>(null);
+  const [currentCaptureStep, setCurrentCaptureStep] = useState(1);
   const [captureMode, setCaptureMode] = useState<'single_photo' | 'video_walkthrough'>('single_photo');
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>('');
@@ -79,6 +103,17 @@ export default function MeasurementCapture({ projectId }: { projectId?: string }
   const { data: speciesData } = useQuery({
     queryKey: ['/api/measurements/tree-species']
   });
+
+  const { data: voiceGuideData } = useQuery({
+    queryKey: [`/api/voice-guide/trade/${selectedTrade}`],
+    enabled: !!selectedTrade
+  });
+
+  useEffect(() => {
+    if (voiceGuideData?.guide) {
+      setVoiceGuide(voiceGuideData.guide);
+    }
+  }, [voiceGuideData]);
 
   const treeMutation = useMutation({
     mutationFn: async (imageBase64: string) => {
@@ -189,6 +224,13 @@ export default function MeasurementCapture({ projectId }: { projectId?: string }
         case 'debris':
           debrisMutation.mutate(base64);
           break;
+        case 'drywall':
+        case 'flooring':
+          toast({ 
+            title: 'Coming Soon', 
+            description: `${selectedTrade.charAt(0).toUpperCase() + selectedTrade.slice(1)} measurement is in development. Use tree, roofing, or debris for now.` 
+          });
+          break;
       }
     };
     reader.readAsDataURL(selectedImage);
@@ -222,6 +264,8 @@ export default function MeasurementCapture({ projectId }: { projectId?: string }
       case 'tree': return <TreePine className="w-5 h-5" />;
       case 'roofing': return <Home className="w-5 h-5" />;
       case 'debris': return <Trash2 className="w-5 h-5" />;
+      case 'drywall': return <PaintBucket className="w-5 h-5" />;
+      case 'flooring': return <Square className="w-5 h-5" />;
     }
   };
 
@@ -236,28 +280,72 @@ export default function MeasurementCapture({ projectId }: { projectId?: string }
         </CardHeader>
         <CardContent>
           <Tabs value={selectedTrade} onValueChange={(v) => setSelectedTrade(v as TradeType)}>
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="tree" data-testid="tab-tree">
-                <TreePine className="w-4 h-4 mr-2" /> Tree Removal
+                <TreePine className="w-4 h-4 mr-1" /> Tree
               </TabsTrigger>
               <TabsTrigger value="roofing" data-testid="tab-roofing">
-                <Home className="w-4 h-4 mr-2" /> Roofing
+                <Home className="w-4 h-4 mr-1" /> Roofing
+              </TabsTrigger>
+              <TabsTrigger value="drywall" data-testid="tab-drywall">
+                <PaintBucket className="w-4 h-4 mr-1" /> Drywall
+              </TabsTrigger>
+              <TabsTrigger value="flooring" data-testid="tab-flooring">
+                <Square className="w-4 h-4 mr-1" /> Flooring
               </TabsTrigger>
               <TabsTrigger value="debris" data-testid="tab-debris">
-                <Trash2 className="w-4 h-4 mr-2" /> Debris
+                <Trash2 className="w-4 h-4 mr-1" /> Debris
               </TabsTrigger>
             </TabsList>
 
             <TabsContent value="tree" className="space-y-4 mt-4">
               <div className="text-sm text-gray-600">
-                Capture trees with a reference object for precise height, trunk diameter, and weight estimation using forestry allometric equations.
+                {voiceGuide?.tradeId === 'tree' ? voiceGuide.intro : 
+                  'Capture trees with a reference object for precise height, trunk diameter, and weight estimation using forestry allometric equations.'}
               </div>
+              {voiceGuide?.safetyReminders && voiceGuide.tradeId === 'tree' && (
+                <div className="bg-amber-50 border border-amber-200 rounded p-3 text-sm">
+                  <strong className="text-amber-800">Safety:</strong> {voiceGuide.safetyReminders[0]}
+                </div>
+              )}
             </TabsContent>
 
             <TabsContent value="roofing" className="space-y-4 mt-4">
               <div className="text-sm text-gray-600">
-                Analyze roof damage with area calculations, pitch detection, and trade-specific scope items for insurance claims.
+                {voiceGuide?.tradeId === 'roofing' ? voiceGuide.intro :
+                  'Analyze roof damage with area calculations, pitch detection, and trade-specific scope items for insurance claims.'}
               </div>
+              {voiceGuide?.safetyReminders && voiceGuide.tradeId === 'roofing' && (
+                <div className="bg-amber-50 border border-amber-200 rounded p-3 text-sm">
+                  <strong className="text-amber-800">Safety:</strong> {voiceGuide.safetyReminders[0]}
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="drywall" className="space-y-4 mt-4">
+              <div className="text-sm text-gray-600">
+                {voiceGuide?.tradeId === 'drywall' ? voiceGuide.intro :
+                  'Document interior damage for drywall and paint repairs. Use LiDAR or video for accurate wall and ceiling measurements.'}
+              </div>
+              {voiceGuide?.safetyReminders && voiceGuide.tradeId === 'drywall' && (
+                <div className="bg-amber-50 border border-amber-200 rounded p-3 text-sm">
+                  <strong className="text-amber-800">Safety:</strong> {voiceGuide.safetyReminders[0]}
+                </div>
+              )}
+              <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">Coming Soon</Badge>
+            </TabsContent>
+
+            <TabsContent value="flooring" className="space-y-4 mt-4">
+              <div className="text-sm text-gray-600">
+                {voiceGuide?.tradeId === 'flooring' ? voiceGuide.intro :
+                  'Measure flooring damage and calculate square footage for replacement. AI identifies transitions and stair counts.'}
+              </div>
+              {voiceGuide?.safetyReminders && voiceGuide.tradeId === 'flooring' && (
+                <div className="bg-amber-50 border border-amber-200 rounded p-3 text-sm">
+                  <strong className="text-amber-800">Safety:</strong> {voiceGuide.safetyReminders[0]}
+                </div>
+              )}
+              <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">Coming Soon</Badge>
             </TabsContent>
 
             <TabsContent value="debris" className="space-y-4 mt-4">

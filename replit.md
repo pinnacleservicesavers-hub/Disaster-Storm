@@ -37,6 +37,16 @@ The platform features an enterprise-grade design system with AI-selected backgro
 - **Quote/Estimate Builder**: Professional quote generation, line item management, smart templates, PDF export, email delivery (SendGrid), and version control.
 - **Kanban Pipeline Dashboard**: Visual pipeline boards for Leads, Quotes, Jobs with drag & drop updates, real-time metrics, and multi-view support.
 - **AI Lead Management System**: AI-powered lead pipeline with multi-service tracking, automated outreach (Twilio, SendGrid), smart contractor routing, and lead re-engagement.
+- **Universal Measurement Data Model**: Comprehensive measurement system supporting all contractor trades with:
+  - **Measurement Core**: Universal primitives (areas, lengths, counts, volumes, heights, angles) extracted from photos/video/LiDAR
+  - **Trade Modules**: Roofing, Tree Removal, Drywall/Paint, Flooring, Debris - each with specialized capture flows and scope outputs
+  - **Scope Class System**: Normalized job classification for apples-to-apples comparables across regions and complexity levels
+  - **Provenance Tracking**: Full audit trail with AI model, methodology, confidence scores, and human review flags
+  - **Price Books**: Contractor unit price templates for job cost breakdown and invoice generation
+- **Rachel Voice Guide System**: Centralized voice scripts for each module and trade-specific contractor guidance:
+  - **Module Guides**: Dashboard, Weather Intelligence, Disaster Lens, Claims Management, Lead Pipeline, Scope Builder, Contract Center
+  - **Trade Guides**: Roofing, Tree Removal, Drywall/Paint, Flooring with capture steps, scope questions, and safety reminders
+  - **Voice API**: `/api/voice-guide/*` endpoints serving intro scripts, capture prompts, and scope question scripts
 
 ## External Dependencies
 
