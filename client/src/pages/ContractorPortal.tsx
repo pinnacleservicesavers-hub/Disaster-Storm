@@ -290,6 +290,88 @@ export default function ContractorPortal() {
   const [currentLocation, setCurrentLocation] = useState<GeolocationPosition | null>(null);
   const { toast } = useToast();
   
+  // Authentication state
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  const [contractorInfo, setContractorInfo] = useState({
+    name: '',
+    email: '',
+    company: '',
+    phone: '',
+    licenseNumber: ''
+  });
+  const [loginForm, setLoginForm] = useState({ email: '', password: '' });
+  const [registerForm, setRegisterForm] = useState({ 
+    name: '', 
+    email: '', 
+    password: '', 
+    company: '', 
+    phone: '', 
+    licenseNumber: '' 
+  });
+
+  // Check for existing session or admin access
+  useEffect(() => {
+    const savedSession = localStorage.getItem('contractor_session');
+    const adminAccess = localStorage.getItem('admin_contractor_access');
+    if (savedSession) {
+      const session = JSON.parse(savedSession);
+      setIsLoggedIn(true);
+      setContractorInfo(session);
+    }
+    if (adminAccess === 'true') {
+      setIsAdmin(true);
+      setIsLoggedIn(true);
+    }
+  }, []);
+
+  const handleLogin = () => {
+    if (!loginForm.email || !loginForm.password) {
+      toast({ variant: 'destructive', title: 'Please fill in all fields' });
+      return;
+    }
+    // Demo login - in production would validate against backend
+    const demoContractor = {
+      name: 'Demo Contractor',
+      email: loginForm.email,
+      company: 'Storm Repair Pros',
+      phone: '(555) 123-4567',
+      licenseNumber: 'GC-12345'
+    };
+    localStorage.setItem('contractor_session', JSON.stringify(demoContractor));
+    setContractorInfo(demoContractor);
+    setIsLoggedIn(true);
+    toast({ title: 'Welcome back!', description: 'Successfully logged in to your contractor portal.' });
+  };
+
+  const handleRegister = () => {
+    if (!registerForm.name || !registerForm.email || !registerForm.password || !registerForm.company) {
+      toast({ variant: 'destructive', title: 'Please fill in all required fields' });
+      return;
+    }
+    const newContractor = {
+      name: registerForm.name,
+      email: registerForm.email,
+      company: registerForm.company,
+      phone: registerForm.phone,
+      licenseNumber: registerForm.licenseNumber
+    };
+    localStorage.setItem('contractor_session', JSON.stringify(newContractor));
+    setContractorInfo(newContractor);
+    setIsLoggedIn(true);
+    toast({ title: 'Registration successful!', description: 'Welcome to Disaster Direct Contractor Portal.' });
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('contractor_session');
+    localStorage.removeItem('admin_contractor_access');
+    setIsLoggedIn(false);
+    setIsAdmin(false);
+    setContractorInfo({ name: '', email: '', company: '', phone: '', licenseNumber: '' });
+    toast({ title: 'Logged out', description: 'You have been logged out successfully.' });
+  };
+  
   // Quick actions for dashboard
   const handleClaimLead = () => {
     setActiveTab('leads');
@@ -419,7 +501,51 @@ export default function ContractorPortal() {
     }] : [])
   ];
 
-  // Robust Voice Guide Function
+  // Get best natural female voice (same as VoiceGuide component)
+  const getBestFemaleVoice = (): SpeechSynthesisVoice | null => {
+    const availableVoices = window.speechSynthesis.getVoices();
+    
+    // Priority order for natural female voices
+    const preferredVoices = [
+      'Samantha', // Mac/iOS - very natural
+      'Karen', // Mac/iOS Australian
+      'Moira', // Mac/iOS Irish
+      'Fiona', // Mac/iOS Scottish
+      'Victoria', // Mac/iOS
+      'Microsoft Zira', // Windows
+      'Microsoft Aria', // Windows 11
+      'Microsoft Jenny', // Windows 11 Neural
+      'Google US English Female', // Chrome
+      'Google UK English Female', // Chrome UK
+      'Joanna', // Amazon Polly
+      'Salli', // Amazon Polly
+      'Kimberly', // Amazon Polly
+    ];
+    
+    // Try to find preferred voices first
+    for (const preferred of preferredVoices) {
+      const voice = availableVoices.find(v => 
+        v.name.toLowerCase().includes(preferred.toLowerCase())
+      );
+      if (voice) return voice;
+    }
+    
+    // Fallback: find any female English voice
+    const femaleVoice = availableVoices.find(v => 
+      v.lang.startsWith('en') && 
+      (v.name.toLowerCase().includes('female') || 
+       v.name.toLowerCase().includes('woman') ||
+       v.name.toLowerCase().includes('zira') ||
+       v.name.toLowerCase().includes('hazel') ||
+       v.name.toLowerCase().includes('susan'))
+    );
+    if (femaleVoice) return femaleVoice;
+    
+    // Last fallback: any English voice
+    return availableVoices.find(v => v.lang.startsWith('en')) || availableVoices[0] || null;
+  };
+
+  // Robust Voice Guide Function with natural female voice
   const startVoiceGuide = () => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
       console.warn('Speech synthesis not supported in this browser');
@@ -430,72 +556,32 @@ export default function ContractorPortal() {
       setIsVoiceGuideActive(true);
       window.speechSynthesis.cancel();
       
-      const voiceContent = `Welcome to the Contractor Portal Voice Navigation Guide. This is your comprehensive contractor dashboard for managing leads, customer relationships, invoices, and project documentation.
+      const voiceContent = `Welcome to your Contractor Portal! I'm Rachel, your AI assistant, and I'll guide you through managing your storm damage business.
 
-      The main navigation tabs across the top include:
-      - Dashboard tab with a bar chart icon showing your business overview and key metrics
-      - Leads tab with a target icon for managing new business opportunities from storm damage
-      - Photos tab with a camera icon for uploading and organizing project documentation
-      - Invoices tab with a credit card icon for billing and payment management
-      - Customers tab with a users icon for customer relationship management
+      Let me walk you through the main sections. The Dashboard shows your active projects, monthly revenue, new leads, and critical alerts at a glance. You can see everything you need to run your business efficiently.
 
-      The Dashboard section displays:
-      - Active Projects count showing your current workload
-      - Monthly Revenue total from completed and ongoing projects
-      - New Leads counter indicating available opportunities in your area
-      - Notification alerts for urgent items like approaching lien deadlines
+      In the Leads section, you'll find new storm damage opportunities in your area. Each lead shows the damage type, location, and estimated value so you can prioritize your time.
 
-      Quick action buttons on the dashboard include:
-      - Claim Lead button to accept new storm damage opportunities
-      - Upload Photos button to document project progress and completion
-      - Create Invoice button to bill customers for completed work
-      - Contact Customer button to manage customer communications
+      The Photos tab helps you document your work. Upload before, during, and after photos to build strong documentation for insurance claims and customer records.
 
-      The Leads section features:
-      - Available leads list with damage type, location, and estimated value
-      - Lead status indicators showing new, claimed, or in progress
-      - Priority ratings for urgent vs standard opportunities
-      - Contact information and project details for each lead
-      - Acceptance and rejection controls for lead management
+      For billing, the Invoices section lets you create professional invoices, track payment status, and manage your revenue. Everything integrates with your project photos automatically.
 
-      The Photos section includes:
-      - Project photo galleries organized by customer and date
-      - Upload capabilities for before, during, and after photos
-      - Photo categorization by damage type and repair stage
-      - Integration with invoice generation for billing documentation
-      - Sharing options for insurance companies and customers
+      The Customers tab keeps all your client relationships organized with contact info, project history, and communication logs.
 
-      The Invoices section provides:
-      - Invoice creation tools with line item management
-      - Payment status tracking showing sent, viewed, and paid invoices
-      - Revenue reporting and financial analytics
-      - Integration with customer records and project photos
-      - Export options for accounting and tax reporting
-
-      The Customers section contains:
-      - Customer contact database with project history
-      - Communication logs showing calls, emails, and messages
-      - Service history and satisfaction ratings
-      - Emergency contact information and property details
-      - Follow-up scheduling for maintenance and additional services
-
-      Advanced features include:
-      - Real-time notifications for new leads in your service area
-      - Automated invoice generation from completed project photos
-      - Customer communication templates for professional correspondence
-      - Performance analytics showing completion rates and customer satisfaction
-      - Integration with legal compliance for lien management and contractor licensing
-
-      This Contractor Portal empowers independent contractors to efficiently manage their disaster recovery business, from lead acquisition through project completion and payment collection. The voice guide provides accessibility support and hands-free operation for contractors working in challenging field conditions.`;
+      I'm here to help you succeed. Just ask if you need assistance with estimates, scheduling, or any part of your business!`;
       
       const utterance = new SpeechSynthesisUtterance(voiceContent);
-      utterance.rate = 0.9;
-      utterance.pitch = 1.0;
-      utterance.volume = 0.8;
       
-      if (voices.length > 0) {
-        utterance.voice = voices.find(voice => voice.lang.includes('en')) || voices[0];
+      // Use natural female voice with upbeat tone
+      const femaleVoice = getBestFemaleVoice();
+      if (femaleVoice) {
+        utterance.voice = femaleVoice;
       }
+      
+      // Natural, friendly speaking style
+      utterance.rate = 1.05;
+      utterance.pitch = 1.1;
+      utterance.volume = 0.9;
       
       utterance.onend = () => {
         setIsVoiceGuideActive(false);
@@ -513,35 +599,191 @@ export default function ContractorPortal() {
     }
   };
 
+  // Login/Register Screen
+  if (!isLoggedIn) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100">
+        <div className="container mx-auto px-4 py-8">
+          {/* Header */}
+          <div className="flex items-center gap-4 mb-8">
+            <Link href="/">
+              <Button variant="outline" className="flex items-center gap-2">
+                <ArrowLeft className="w-4 h-4" />
+                Back to Hub
+              </Button>
+            </Link>
+          </div>
+
+          {/* Login/Register Card */}
+          <div className="max-w-md mx-auto">
+            <Card className="shadow-xl border-0">
+              <CardHeader className="text-center pb-2">
+                <div className="mx-auto w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center mb-4">
+                  <Briefcase className="w-8 h-8 text-white" />
+                </div>
+                <CardTitle className="text-2xl font-bold">Contractor Portal</CardTitle>
+                <CardDescription>
+                  {authMode === 'login' 
+                    ? 'Sign in to access your contractor dashboard' 
+                    : 'Create your contractor account'}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {authMode === 'login' ? (
+                  <>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Email</label>
+                      <Input
+                        type="email"
+                        placeholder="contractor@example.com"
+                        value={loginForm.email}
+                        onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
+                        data-testid="input-login-email"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Password</label>
+                      <Input
+                        type="password"
+                        placeholder="••••••••"
+                        value={loginForm.password}
+                        onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+                        data-testid="input-login-password"
+                      />
+                    </div>
+                    <Button 
+                      className="w-full bg-blue-600 hover:bg-blue-700" 
+                      onClick={handleLogin}
+                      data-testid="button-login"
+                    >
+                      Sign In
+                    </Button>
+                    <div className="text-center text-sm text-gray-600">
+                      Don't have an account?{' '}
+                      <button 
+                        className="text-blue-600 hover:underline font-medium"
+                        onClick={() => setAuthMode('register')}
+                        data-testid="button-switch-to-register"
+                      >
+                        Register here
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Full Name *</label>
+                        <Input
+                          placeholder="John Smith"
+                          value={registerForm.name}
+                          onChange={(e) => setRegisterForm({ ...registerForm, name: e.target.value })}
+                          data-testid="input-register-name"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Company *</label>
+                        <Input
+                          placeholder="Storm Repair Co"
+                          value={registerForm.company}
+                          onChange={(e) => setRegisterForm({ ...registerForm, company: e.target.value })}
+                          data-testid="input-register-company"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Email *</label>
+                      <Input
+                        type="email"
+                        placeholder="contractor@example.com"
+                        value={registerForm.email}
+                        onChange={(e) => setRegisterForm({ ...registerForm, email: e.target.value })}
+                        data-testid="input-register-email"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Password *</label>
+                      <Input
+                        type="password"
+                        placeholder="••••••••"
+                        value={registerForm.password}
+                        onChange={(e) => setRegisterForm({ ...registerForm, password: e.target.value })}
+                        data-testid="input-register-password"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Phone</label>
+                        <Input
+                          placeholder="(555) 123-4567"
+                          value={registerForm.phone}
+                          onChange={(e) => setRegisterForm({ ...registerForm, phone: e.target.value })}
+                          data-testid="input-register-phone"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">License #</label>
+                        <Input
+                          placeholder="GC-12345"
+                          value={registerForm.licenseNumber}
+                          onChange={(e) => setRegisterForm({ ...registerForm, licenseNumber: e.target.value })}
+                          data-testid="input-register-license"
+                        />
+                      </div>
+                    </div>
+                    <Button 
+                      className="w-full bg-blue-600 hover:bg-blue-700" 
+                      onClick={handleRegister}
+                      data-testid="button-register"
+                    >
+                      Create Account
+                    </Button>
+                    <div className="text-center text-sm text-gray-600">
+                      Already have an account?{' '}
+                      <button 
+                        className="text-blue-600 hover:underline font-medium"
+                        onClick={() => setAuthMode('login')}
+                        data-testid="button-switch-to-login"
+                      >
+                        Sign in
+                      </button>
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Admin Quick Access (for demo) */}
+            <div className="mt-6 text-center">
+              <p className="text-sm text-gray-500 mb-2">Administrator Access</p>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => {
+                  localStorage.setItem('admin_contractor_access', 'true');
+                  setIsAdmin(true);
+                  setIsLoggedIn(true);
+                  setContractorInfo({ name: 'Admin User', email: 'admin@disasterdirect.com', company: 'Disaster Direct', phone: '', licenseNumber: '' });
+                  toast({ title: 'Admin Access Granted', description: 'You can now view and manage all contractor portals.' });
+                }}
+                data-testid="button-admin-access"
+              >
+                <Shield className="w-4 h-4 mr-2" />
+                Enter as Administrator
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={`min-h-screen transition-all duration-500 ${
       isFullscreen 
-        ? 'fixed inset-0 z-50 bg-gradient-to-br from-[hsl(217,91%,15%)] via-[hsl(217,91%,25%)] to-[hsl(215,25%,25%)]' 
-        : 'bg-gradient-to-br from-[hsl(217,91%,15%)] via-[hsl(217,91%,25%)] to-[hsl(215,25%,25%)]'
+        ? 'fixed inset-0 z-50 bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100' 
+        : 'bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100'
     } relative overflow-hidden`}>
-      {/* Enhanced Background Effects */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        {Array.from({ length: 15 }).map((_, i) => (
-          <motion.div
-            key={i}
-            className="absolute w-1 h-1 bg-blue-400/20 rounded-full"
-            style={{
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
-            }}
-            animate={{
-              y: [-10, 10],
-              opacity: [0.2, 0.6, 0.2],
-              scale: [0.5, 1, 0.5],
-            }}
-            transition={{
-              duration: 4 + Math.random() * 2,
-              repeat: Infinity,
-              delay: Math.random() * 2,
-            }}
-          />
-        ))}
-      </div>
       {/* Enhanced Header */}
       <motion.div 
         className="bg-white/80 backdrop-blur-sm border-b border-blue-200/50 shadow-lg relative z-20"
@@ -716,7 +958,28 @@ export default function ContractorPortal() {
                   onClick={() => setActiveTab('profile')}
                 >
                   <User className="w-4 h-4 mr-2" />
-                  Profile
+                  {contractorInfo.name || 'Profile'}
+                </Button>
+              </HoverLift>
+              
+              {/* Admin Badge */}
+              {isAdmin && (
+                <Badge className="bg-purple-100 text-purple-800 border-purple-200">
+                  <Shield className="w-3 h-3 mr-1" />
+                  Admin Access
+                </Badge>
+              )}
+              
+              {/* Logout Button */}
+              <HoverLift>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleLogout}
+                  data-testid="button-logout"
+                  className="text-red-600 hover:bg-red-50 border-red-200"
+                >
+                  Sign Out
                 </Button>
               </HoverLift>
             </motion.div>
