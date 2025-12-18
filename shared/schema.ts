@@ -6552,3 +6552,37 @@ export type WorkhubLegalAcceptance = typeof workhubLegalAcceptances.$inferSelect
 export type InsertWorkhubLegalAcceptance = z.infer<typeof insertWorkhubLegalAcceptanceSchema>;
 export type WorkhubPricingTier = typeof workhubPricingTiers.$inferSelect;
 export type InsertWorkhubPricingTier = z.infer<typeof insertWorkhubPricingTierSchema>;
+
+// ===== CUSTOMER SUBMISSIONS (WorkHub Customer Portal) =====
+// Stores customer project submissions with AI analysis, pricing, and budget confirmation
+
+export const customerSubmissions = pgTable("customer_submissions", {
+  id: serial("id").primaryKey(),
+  workType: varchar("work_type", { length: 100 }).notNull(),
+  customerName: varchar("customer_name", { length: 255 }).notNull(),
+  email: varchar("email", { length: 255 }).notNull(),
+  phone: varchar("phone", { length: 50 }),
+  address: text("address"),
+  city: varchar("city", { length: 100 }),
+  state: varchar("state", { length: 50 }),
+  zip: varchar("zip", { length: 20 }),
+  description: text("description"),
+  photoUrls: text("photo_urls").array(),
+  aiAnalysis: jsonb("ai_analysis"),
+  estimatedPrice: jsonb("estimated_price"), // {min: number, max: number}
+  budgetConfirmed: boolean("budget_confirmed"),
+  budgetReason: text("budget_reason"), // Customer's reason if budget declined
+  afterPreviewUrl: text("after_preview_url"), // AI-generated "after" image URL
+  matchedContractors: jsonb("matched_contractors"), // Array of matched contractor info
+  status: varchar("status", { length: 50 }).default("pending"),
+  urgency: varchar("urgency", { length: 50 }),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertCustomerSubmissionSchema = createInsertSchema(customerSubmissions).omit({
+  id: true,
+  createdAt: true
+});
+
+export type CustomerSubmission = typeof customerSubmissions.$inferSelect;
+export type InsertCustomerSubmission = z.infer<typeof insertCustomerSubmissionSchema>;
