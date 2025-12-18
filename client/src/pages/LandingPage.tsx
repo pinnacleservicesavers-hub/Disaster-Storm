@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import logoImage from '@assets/STRATEGIC_FRONT_(1)_1766075695615.png';
+import logoImage from '@assets/ChatGPT_Image_Dec_18,_2025,_10_36_54_AM_1766072229170.png';
 
 export default function LandingPage() {
   return (
@@ -18,7 +18,7 @@ export default function LandingPage() {
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
           <div className="text-center mb-16">
             <div className="flex items-center justify-center gap-3 mb-6">
-              <img src={logoImage} alt="Strategic Service Savers" className="w-40 h-40 rounded-xl shadow-lg bg-white p-2" />
+              <img src={logoImage} alt="Strategic Service Savers" className="w-40 h-40 rounded-xl shadow-lg" />
             </div>
             <h1 className="text-5xl md:text-6xl font-bold text-white mb-4">
               Welcome to <span className="bg-gradient-to-r from-purple-400 via-blue-400 to-green-400 bg-clip-text text-transparent">Strategic Service Savers</span>
