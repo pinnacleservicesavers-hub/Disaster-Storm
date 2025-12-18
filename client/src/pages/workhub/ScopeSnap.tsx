@@ -10,8 +10,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import TopNav from '@/components/TopNav';
 import ModuleAIAssistant from '@/components/ModuleAIAssistant';
+import { apiRequest } from '@/lib/queryClient';
 
 export default function ScopeSnap() {
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
@@ -72,29 +72,66 @@ export default function ScopeSnap() {
   };
 
   const handleAnalyze = async () => {
+    if (uploadedFiles.length === 0) {
+      speakGuidance("Please upload at least one photo or video first.");
+      return;
+    }
+    
     setIsAnalyzing(true);
     speakGuidance("Analyzing your photos now. I'm using advanced AI vision to identify the work needed, detect potential issues, and determine which trade professionals you'll need.");
     
-    await new Promise(resolve => setTimeout(resolve, 3000));
-    
-    const results = {
-      detectedCategory: 'Tree Services',
-      confidence: 94,
-      identifiedIssues: [
-        { issue: 'Large dead oak tree - safety hazard', severity: 'high', location: 'Backyard center' },
-        { issue: 'Overgrown branches near power lines', severity: 'medium', location: 'Front yard' },
-        { issue: 'Root damage to sidewalk', severity: 'low', location: 'North side' }
-      ],
-      recommendedTrades: ['Certified Arborist', 'Tree Removal Service', 'Stump Grinding'],
-      estimatedScope: { min: 1500, max: 4500 },
-      complexity: 'Medium-High',
-      timeEstimate: '1-2 days',
-      specialRequirements: ['Crane may be required', 'Permit needed for tree over 24" diameter']
-    };
-    
-    setAnalysisResults(results);
-    setIsAnalyzing(false);
-    speakGuidance(`Analysis complete! I've identified this as a ${results.detectedCategory} project with ${results.identifiedIssues.length} issues. The estimated scope is $${results.estimatedScope.min} to $${results.estimatedScope.max}. I found ${results.identifiedIssues.filter(i => i.severity === 'high').length} high priority items that need attention.`);
+    try {
+      const file = uploadedFiles[0];
+      const reader = new FileReader();
+      
+      const imageBase64 = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => {
+          const result = reader.result as string;
+          const base64 = result.split(',')[1];
+          resolve(base64);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      const response = await apiRequest('POST', '/api/workhub/analyze', {
+        imageBase64,
+        jobType: 'general',
+        description: 'Customer uploaded photo for analysis'
+      });
+
+      const data = await response.json();
+      
+      if (data.ok) {
+        const results = {
+          detectedCategory: data.analysis.detectedJobType.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()),
+          confidence: Math.round(data.analysis.confidence * 100),
+          identifiedIssues: data.analysis.recommendations.map((rec: string, idx: number) => ({
+            issue: rec,
+            severity: idx === 0 ? 'high' : idx === 1 ? 'medium' : 'low',
+            location: 'Property'
+          })),
+          recommendedTrades: data.analysis.tags.slice(0, 3),
+          estimatedScope: { min: data.analysis.priceEstimate.min, max: data.analysis.priceEstimate.max },
+          complexity: data.analysis.severity,
+          timeEstimate: data.analysis.urgency === 'emergency' ? 'Immediate' : '1-3 days',
+          specialRequirements: data.analysis.safetyNotes ? [data.analysis.safetyNotes] : [],
+          contractors: data.contractors,
+          summary: data.analysis.summary,
+          title: data.analysis.title
+        };
+        
+        setAnalysisResults(results);
+        speakGuidance(`Analysis complete! I've identified this as a ${results.detectedCategory} project. The estimated cost is $${results.estimatedScope.min} to $${results.estimatedScope.max}. I found ${data.contractors?.length || 0} contractors who can help.`);
+      } else {
+        throw new Error(data.error || 'Analysis failed');
+      }
+    } catch (error) {
+      console.error('Analysis error:', error);
+      speakGuidance("Sorry, there was an error analyzing your photo. Please try again.");
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   const removeFile = (index: number) => {
@@ -104,8 +141,6 @@ export default function ScopeSnap() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-violet-50 to-white dark:from-slate-950 dark:to-slate-900">
-      <TopNav />
-
       {/* Header */}
       <div className="bg-gradient-to-r from-violet-600 to-purple-600 text-white py-12 px-4">
         <div className="max-w-6xl mx-auto">

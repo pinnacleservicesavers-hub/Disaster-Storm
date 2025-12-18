@@ -13400,6 +13400,117 @@ What specific area or type of incident would you like me to focus on? I can prov
     }
   });
 
+  // ============================================================
+  // WORKHUB AI ANALYSIS ENDPOINTS
+  // ============================================================
+  
+  // Sample contractors for WorkHub
+  const WORKHUB_CONTRACTORS = [
+    { id: 'wc-001', name: 'Pro Tree Services LLC', trades: ['tree_removal', 'tree_trimming', 'stump_grinding'], rating: 4.9, reviews: 127, location: 'Austin, TX', distance: 3.2, yearsExp: 15, licensed: true, insured: true, availability: 'Available now', photo: null },
+    { id: 'wc-002', name: 'Texas Tree Experts', trades: ['tree_removal', 'tree_trimming', 'emergency_tree'], rating: 4.8, reviews: 89, location: 'Round Rock, TX', distance: 8.5, yearsExp: 12, licensed: true, insured: true, availability: 'Available in 2 days', photo: null },
+    { id: 'wc-003', name: 'Lone Star Arborists', trades: ['tree_removal', 'tree_health', 'landscaping'], rating: 4.7, reviews: 203, location: 'Cedar Park, TX', distance: 12.1, yearsExp: 20, licensed: true, insured: true, availability: 'Available now', photo: null },
+    { id: 'wc-004', name: 'Capital City Roofing', trades: ['roofing', 'roof_repair', 'gutters'], rating: 4.9, reviews: 156, location: 'Austin, TX', distance: 5.0, yearsExp: 18, licensed: true, insured: true, availability: 'Available now', photo: null },
+    { id: 'wc-005', name: 'Hill Country Painters', trades: ['painting', 'drywall', 'stucco'], rating: 4.6, reviews: 78, location: 'Lakeway, TX', distance: 15.3, yearsExp: 10, licensed: true, insured: true, availability: 'Available in 3 days', photo: null },
+    { id: 'wc-006', name: 'Premier Fencing Co', trades: ['fencing', 'gates', 'deck_building'], rating: 4.8, reviews: 112, location: 'Pflugerville, TX', distance: 9.8, yearsExp: 14, licensed: true, insured: true, availability: 'Available now', photo: null },
+  ];
+
+  // WorkHub AI Job Analysis - Analyzes photos/videos and provides pricing
+  app.post('/api/workhub/analyze', express.json({ limit: '50mb' }), async (req, res) => {
+    try {
+      const { imageBase64, jobType, description, location } = req.body;
+      
+      if (!imageBase64) {
+        return res.status(400).json({ error: 'Image data is required' });
+      }
+
+      console.log('🔍 WorkHub AI Analysis requested for:', jobType || 'general');
+
+      // Use the existing enhanced image analysis service
+      const analysis = await enhancedImageAnalysisService.analyzeDisasterImage(
+        imageBase64,
+        location || { lat: 30.2672, lng: -97.7431, address: 'Austin, TX' },
+        `WorkHub job analysis for ${jobType || 'home service'}: ${description || ''}`
+      );
+
+      // Determine trade type from analysis
+      let detectedTrade = 'general';
+      const tags = analysis.autoTags.map(t => t.toLowerCase());
+      
+      if (tags.some(t => t.includes('tree') || t.includes('branch') || t.includes('stump'))) {
+        detectedTrade = 'tree_removal';
+      } else if (tags.some(t => t.includes('roof') || t.includes('shingle'))) {
+        detectedTrade = 'roofing';
+      } else if (tags.some(t => t.includes('paint') || t.includes('wall'))) {
+        detectedTrade = 'painting';
+      } else if (tags.some(t => t.includes('fence') || t.includes('gate'))) {
+        detectedTrade = 'fencing';
+      }
+
+      // Match contractors based on detected trade
+      const matchedContractors = WORKHUB_CONTRACTORS
+        .filter(c => c.trades.includes(detectedTrade) || detectedTrade === 'general')
+        .sort((a, b) => b.rating - a.rating)
+        .slice(0, 5);
+
+      res.json({
+        ok: true,
+        analysis: {
+          id: analysis.id,
+          detectedJobType: detectedTrade,
+          title: analysis.professionalDescription.title,
+          summary: analysis.professionalDescription.summary,
+          details: analysis.professionalDescription.technicalDetails,
+          recommendations: analysis.professionalDescription.recommendedActions,
+          priceEstimate: {
+            min: analysis.damageAssessment.estimatedCost.min,
+            max: analysis.damageAssessment.estimatedCost.max,
+            currency: 'USD'
+          },
+          urgency: analysis.damageAssessment.repairPriority,
+          severity: analysis.damageAssessment.severity,
+          safetyNotes: analysis.professionalDescription.safetyNotes,
+          tags: analysis.autoTags,
+          confidence: analysis.confidence,
+          treeDetails: analysis.treeAnalysis
+        },
+        contractors: matchedContractors,
+        timestamp: new Date().toISOString()
+      });
+
+    } catch (error) {
+      console.error('WorkHub analysis error:', error);
+      res.status(500).json({ 
+        error: 'AI analysis failed', 
+        message: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Get available contractors by trade
+  app.get('/api/workhub/contractors', (req, res) => {
+    const { trade, location } = req.query;
+    
+    let contractors = [...WORKHUB_CONTRACTORS];
+    
+    if (trade && typeof trade === 'string') {
+      contractors = contractors.filter(c => 
+        c.trades.includes(trade) || 
+        c.trades.some(t => t.includes(trade))
+      );
+    }
+    
+    // Sort by rating
+    contractors.sort((a, b) => b.rating - a.rating);
+    
+    res.json({
+      ok: true,
+      contractors,
+      total: contractors.length
+    });
+  });
+
+  console.log('🏠 WorkHub AI analysis routes registered');
+
   const httpServer = createServer(app);
   return httpServer;
 }

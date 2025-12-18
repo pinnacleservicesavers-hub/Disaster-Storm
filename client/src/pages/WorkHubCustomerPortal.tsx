@@ -114,29 +114,95 @@ export default function WorkHubCustomerPortal() {
   };
 
   const handleAnalyzePhotos = async () => {
+    if (request.photos.length === 0) return;
+    
     setIsAnalyzing(true);
     speakGuidance("Analyzing your photos with AI. I'm identifying the type of work needed and potential issues.");
     
-    // Simulate AI analysis
-    await new Promise(resolve => setTimeout(resolve, 2500));
-    
-    const mockAnalysis = {
-      detectedCategory: request.category || 'tree',
-      identifiedIssues: [
-        'Large oak tree showing signs of disease',
-        'Dead branches overhanging property',
-        'Stump from previous removal needs grinding'
-      ],
-      recommendedTrades: ['Tree Service', 'Stump Removal'],
-      estimatedPriceRange: { min: 800, max: 2500 },
-      complexity: 'Medium',
-      timeEstimate: '1-2 days',
-      aiConfidence: 92
-    };
-    
-    setAiAnalysis(mockAnalysis);
-    setIsAnalyzing(false);
-    speakGuidance(`Analysis complete. I've identified ${mockAnalysis.identifiedIssues.length} issues. The estimated price range is $${mockAnalysis.estimatedPriceRange.min} to $${mockAnalysis.estimatedPriceRange.max}. This appears to be a ${mockAnalysis.complexity.toLowerCase()} complexity job.`);
+    try {
+      // Convert first photo to base64 for AI analysis
+      const file = request.photos[0];
+      const reader = new FileReader();
+      const base64Promise = new Promise<string>((resolve, reject) => {
+        reader.onload = () => {
+          const result = reader.result as string;
+          // Remove the data:image/...;base64, prefix
+          const base64 = result.split(',')[1];
+          resolve(base64);
+        };
+        reader.onerror = reject;
+      });
+      reader.readAsDataURL(file);
+      const imageBase64 = await base64Promise;
+
+      // Call the real AI analysis API
+      const response = await fetch('/api/workhub/analyze', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          imageBase64: imageBase64,
+          description: request.description || '',
+          jobType: request.category || '',
+          location: request.location.city && request.location.state 
+            ? `${request.location.city}, ${request.location.state}` 
+            : ''
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Analysis failed');
+      }
+
+      const data = await response.json();
+      
+      // Transform API response to match the expected format
+      // details is a string, convert to array for display
+      const issuesList: string[] = [];
+      if (data.analysis?.summary) issuesList.push(data.analysis.summary);
+      if (data.analysis?.details) issuesList.push(data.analysis.details);
+      if (issuesList.length === 0) issuesList.push('Work identified from photo analysis');
+      
+      // Confidence is 0-1 from backend, convert to percentage
+      const confidencePercent = Math.round((data.analysis?.confidence || 0.85) * 100);
+      
+      const analysis = {
+        detectedCategory: data.analysis?.detectedJobType || request.category || 'general',
+        identifiedIssues: issuesList,
+        recommendedTrades: data.analysis?.recommendations || [],
+        estimatedPriceRange: { 
+          min: data.analysis?.priceEstimate?.min || 500, 
+          max: data.analysis?.priceEstimate?.max || 2000 
+        },
+        complexity: data.analysis?.severity || 'Medium',
+        timeEstimate: data.analysis?.urgency || '1-3 days',
+        aiConfidence: confidencePercent,
+        contractors: data.contractors || [],
+        tags: data.analysis?.tags || [],
+        safetyNotes: data.analysis?.safetyNotes || ''
+      };
+      
+      setAiAnalysis(analysis);
+      speakGuidance(`Analysis complete. I've identified ${analysis.identifiedIssues.length} issues. The estimated price range is $${analysis.estimatedPriceRange.min} to $${analysis.estimatedPriceRange.max}. This appears to be a ${analysis.complexity.toLowerCase()} complexity job. I found ${analysis.contractors.length} available contractors in your area.`);
+    } catch (error) {
+      console.error('AI analysis error:', error);
+      // Fallback to basic analysis if API fails
+      const fallbackAnalysis = {
+        detectedCategory: request.category || 'general',
+        identifiedIssues: ['Photo uploaded - professional inspection recommended'],
+        recommendedTrades: [SERVICE_CATEGORIES.find(c => c.id === request.category)?.name || 'General Contractor'],
+        estimatedPriceRange: { min: 500, max: 2500 },
+        complexity: 'Medium',
+        timeEstimate: '1-3 days',
+        aiConfidence: 70,
+        contractors: []
+      };
+      setAiAnalysis(fallbackAnalysis);
+      speakGuidance("I've received your photos. A professional inspection will provide a detailed estimate.");
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   const progressPercentage = (step / 5) * 100;
@@ -308,6 +374,61 @@ export default function WorkHubCustomerPortal() {
                         </div>
                       </div>
                     </div>
+                    
+                    {/* Matched Contractors Section */}
+                    {aiAnalysis.contractors && aiAnalysis.contractors.length > 0 && (
+                      <div className="mt-6 pt-4 border-t border-green-200 dark:border-green-800">
+                        <h4 className="font-semibold text-green-700 dark:text-green-400 mb-3 flex items-center gap-2">
+                          <User className="w-4 h-4" />
+                          Available Contractors ({aiAnalysis.contractors.length})
+                        </h4>
+                        <div className="grid gap-3">
+                          {aiAnalysis.contractors.slice(0, 3).map((contractor: any, idx: number) => (
+                            <div 
+                              key={contractor.id || idx} 
+                              className="flex items-center justify-between p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700"
+                              data-testid={`contractor-${contractor.id || idx}`}
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+                                  <User className="w-5 h-5 text-purple-600" />
+                                </div>
+                                <div>
+                                  <p className="font-medium text-slate-900 dark:text-white">{contractor.name}</p>
+                                  <div className="flex items-center gap-2 text-sm text-slate-500">
+                                    <Star className="w-3 h-3 text-yellow-500 fill-yellow-500" />
+                                    <span>{contractor.rating}</span>
+                                    <span className="text-slate-400">•</span>
+                                    <span>{contractor.reviews} reviews</span>
+                                    {contractor.distance && (
+                                      <>
+                                        <span className="text-slate-400">•</span>
+                                        <span>{contractor.distance} mi</span>
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <Badge className="bg-purple-600 capitalize">
+                                  {contractor.trades?.[0]?.replace(/_/g, ' ') || 'Contractor'}
+                                </Badge>
+                                {contractor.availability && (
+                                  <p className={`text-xs mt-1 ${contractor.availability.includes('now') ? 'text-green-600' : 'text-amber-600'}`}>
+                                    {contractor.availability}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        {aiAnalysis.contractors.length > 3 && (
+                          <p className="text-sm text-center text-purple-600 mt-3">
+                            +{aiAnalysis.contractors.length - 3} more contractors available
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </motion.div>
