@@ -134,7 +134,20 @@ import {
   type DeviceAudience,
   type InsertDeviceAudience,
   type Contract,
-  type InsertContract
+  type InsertContract,
+  // WorkHub Leads CRM
+  type WorkhubLead,
+  type InsertWorkhubLead,
+  type WorkhubCommunicationLog,
+  type InsertWorkhubCommunicationLog,
+  type WorkhubLeadNote,
+  type InsertWorkhubLeadNote,
+  type WorkhubLeadStageHistory,
+  type InsertWorkhubLeadStageHistory,
+  type WorkhubLeadQuote,
+  type InsertWorkhubLeadQuote,
+  type WorkhubLostReason,
+  type InsertWorkhubLostReason
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import fs from "fs";
@@ -674,6 +687,65 @@ export interface IStorage {
   // OIDC settings methods
   getOIDCSettings(): Promise<{ issuer?: string; audience?: string; enforce?: boolean; jwks?: any }>;
   setOIDCSettings(settings: { issuer?: string; audience?: string; enforce?: boolean; jwks?: any }): Promise<void>;
+
+  // ===== WORKHUB LEADS CRM METHODS =====
+  getWorkhubLeads(filters: {
+    stage?: string;
+    serviceType?: string;
+    contractorId?: string;
+    source?: string;
+    priority?: string;
+    search?: string;
+  }): Promise<WorkhubLead[]>;
+  getWorkhubLead(id: string): Promise<WorkhubLead | undefined>;
+  createWorkhubLead(lead: InsertWorkhubLead): Promise<WorkhubLead>;
+  updateWorkhubLead(id: string, updates: Partial<WorkhubLead>): Promise<WorkhubLead>;
+  
+  getWorkhubCommunicationLogs(leadId: string): Promise<WorkhubCommunicationLog[]>;
+  createWorkhubCommunicationLog(log: InsertWorkhubCommunicationLog): Promise<WorkhubCommunicationLog>;
+  
+  getWorkhubLeadNotes(leadId: string): Promise<WorkhubLeadNote[]>;
+  createWorkhubLeadNote(note: InsertWorkhubLeadNote): Promise<WorkhubLeadNote>;
+  deleteWorkhubLeadNote(id: string): Promise<boolean>;
+  
+  getWorkhubLeadStageHistory(leadId: string): Promise<WorkhubLeadStageHistory[]>;
+  createWorkhubLeadStageHistory(history: InsertWorkhubLeadStageHistory): Promise<WorkhubLeadStageHistory>;
+  getLatestStageHistory(leadId: string): Promise<WorkhubLeadStageHistory | undefined>;
+  
+  getWorkhubLeadQuotes(leadId: string): Promise<WorkhubLeadQuote[]>;
+  createWorkhubLeadQuote(quote: InsertWorkhubLeadQuote): Promise<WorkhubLeadQuote>;
+  updateWorkhubLeadQuote(id: string, updates: Partial<WorkhubLeadQuote>): Promise<WorkhubLeadQuote>;
+  
+  getWorkhubLostReasons(): Promise<WorkhubLostReason[]>;
+  
+  getWorkhubLeadAnalytics(filters: {
+    contractorId?: string;
+    startDate?: Date;
+    endDate?: Date;
+  }): Promise<{
+    totalLeads: number;
+    newLeads: number;
+    activeLeads: number;
+    wonLeads: number;
+    lostLeads: number;
+    conversionRate: string;
+    totalPotentialValue: number;
+    totalWonValue: number;
+    avgDaysToClose: number;
+    leadsByStage: Record<string, number>;
+    leadsBySource: Record<string, number>;
+  }>;
+  
+  getWorkhubLostLeadReport(filters: {
+    contractorId?: string;
+    startDate?: Date;
+    endDate?: Date;
+  }): Promise<{
+    totalLost: number;
+    lostValue: number;
+    reasonBreakdown: { reason: string; count: number; value: number }[];
+    recentLostLeads: WorkhubLead[];
+  }>;
 }
 
 export class MemStorage implements IStorage {
@@ -768,6 +840,14 @@ export class MemStorage implements IStorage {
   private zipPrefixMap: Record<string, string> = {};
   private jobs: Map<string, any> = new Map();
   private welcomeTemplates: Record<string, string> = {};
+  
+  // WorkHub Leads CRM Storage
+  private workhubLeads: Map<string, WorkhubLead> = new Map();
+  private workhubCommunicationLogs: Map<string, WorkhubCommunicationLog> = new Map();
+  private workhubLeadNotes: Map<string, WorkhubLeadNote> = new Map();
+  private workhubLeadStageHistory: Map<string, WorkhubLeadStageHistory> = new Map();
+  private workhubLeadQuotes: Map<string, WorkhubLeadQuote> = new Map();
+  private workhubLostReasons: Map<string, WorkhubLostReason> = new Map();
   private smtpSettings: { host: string; port: number; user: string; password: string; use_tls: boolean } = {
     host: '',
     port: 587,
@@ -4531,6 +4611,278 @@ export class MemStorage implements IStorage {
     }
   }): Promise<void> {
     this.oidcSettings = { ...this.oidcSettings, ...settings };
+  }
+
+  // ===== WORKHUB LEADS CRM METHODS =====
+
+  async getWorkhubLeads(filters: {
+    stage?: string;
+    serviceType?: string;
+    contractorId?: string;
+    source?: string;
+    priority?: string;
+    search?: string;
+  }): Promise<WorkhubLead[]> {
+    let leads = Array.from(this.workhubLeads.values());
+    
+    if (filters.stage) {
+      leads = leads.filter(l => l.stage === filters.stage);
+    }
+    if (filters.serviceType) {
+      leads = leads.filter(l => l.serviceType === filters.serviceType);
+    }
+    if (filters.contractorId) {
+      leads = leads.filter(l => l.assignedContractorId === filters.contractorId);
+    }
+    if (filters.source) {
+      leads = leads.filter(l => l.source === filters.source);
+    }
+    if (filters.priority) {
+      leads = leads.filter(l => l.priority === filters.priority);
+    }
+    if (filters.search) {
+      const searchLower = filters.search.toLowerCase();
+      leads = leads.filter(l => 
+        l.customerName?.toLowerCase().includes(searchLower) ||
+        l.customerEmail?.toLowerCase().includes(searchLower) ||
+        l.customerPhone?.includes(searchLower) ||
+        l.propertyAddress?.toLowerCase().includes(searchLower)
+      );
+    }
+    
+    return leads.sort((a, b) => 
+      new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+    );
+  }
+
+  async getWorkhubLead(id: string): Promise<WorkhubLead | undefined> {
+    return this.workhubLeads.get(id);
+  }
+
+  async createWorkhubLead(lead: InsertWorkhubLead): Promise<WorkhubLead> {
+    const newLead: WorkhubLead = {
+      id: randomUUID(),
+      ...lead,
+      stage: lead.stage || "new_lead",
+      priority: lead.priority || "medium",
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.workhubLeads.set(newLead.id, newLead);
+    return newLead;
+  }
+
+  async updateWorkhubLead(id: string, updates: Partial<WorkhubLead>): Promise<WorkhubLead> {
+    const lead = this.workhubLeads.get(id);
+    if (!lead) {
+      throw new Error(`Lead ${id} not found`);
+    }
+    const updated: WorkhubLead = { ...lead, ...updates, updatedAt: new Date() };
+    this.workhubLeads.set(id, updated);
+    return updated;
+  }
+
+  async getWorkhubCommunicationLogs(leadId: string): Promise<WorkhubCommunicationLog[]> {
+    return Array.from(this.workhubCommunicationLogs.values())
+      .filter(log => log.leadId === leadId)
+      .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+  }
+
+  async createWorkhubCommunicationLog(log: InsertWorkhubCommunicationLog): Promise<WorkhubCommunicationLog> {
+    const newLog: WorkhubCommunicationLog = {
+      id: randomUUID(),
+      ...log,
+      createdAt: new Date()
+    };
+    this.workhubCommunicationLogs.set(newLog.id, newLog);
+    return newLog;
+  }
+
+  async getWorkhubLeadNotes(leadId: string): Promise<WorkhubLeadNote[]> {
+    return Array.from(this.workhubLeadNotes.values())
+      .filter(note => note.leadId === leadId)
+      .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+  }
+
+  async createWorkhubLeadNote(note: InsertWorkhubLeadNote): Promise<WorkhubLeadNote> {
+    const newNote: WorkhubLeadNote = {
+      id: randomUUID(),
+      ...note,
+      createdAt: new Date()
+    };
+    this.workhubLeadNotes.set(newNote.id, newNote);
+    return newNote;
+  }
+
+  async deleteWorkhubLeadNote(id: string): Promise<boolean> {
+    return this.workhubLeadNotes.delete(id);
+  }
+
+  async getWorkhubLeadStageHistory(leadId: string): Promise<WorkhubLeadStageHistory[]> {
+    return Array.from(this.workhubLeadStageHistory.values())
+      .filter(h => h.leadId === leadId)
+      .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+  }
+
+  async createWorkhubLeadStageHistory(history: InsertWorkhubLeadStageHistory): Promise<WorkhubLeadStageHistory> {
+    const newHistory: WorkhubLeadStageHistory = {
+      id: randomUUID(),
+      ...history,
+      createdAt: new Date()
+    };
+    this.workhubLeadStageHistory.set(newHistory.id, newHistory);
+    return newHistory;
+  }
+
+  async getLatestStageHistory(leadId: string): Promise<WorkhubLeadStageHistory | undefined> {
+    const history = await this.getWorkhubLeadStageHistory(leadId);
+    return history[0];
+  }
+
+  async getWorkhubLeadQuotes(leadId: string): Promise<WorkhubLeadQuote[]> {
+    return Array.from(this.workhubLeadQuotes.values())
+      .filter(q => q.leadId === leadId)
+      .sort((a, b) => (b.version || 0) - (a.version || 0));
+  }
+
+  async createWorkhubLeadQuote(quote: InsertWorkhubLeadQuote): Promise<WorkhubLeadQuote> {
+    const existingQuotes = await this.getWorkhubLeadQuotes(quote.leadId);
+    const newQuote: WorkhubLeadQuote = {
+      id: randomUUID(),
+      ...quote,
+      version: (existingQuotes[0]?.version || 0) + 1,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.workhubLeadQuotes.set(newQuote.id, newQuote);
+    return newQuote;
+  }
+
+  async updateWorkhubLeadQuote(id: string, updates: Partial<WorkhubLeadQuote>): Promise<WorkhubLeadQuote> {
+    const quote = this.workhubLeadQuotes.get(id);
+    if (!quote) {
+      throw new Error(`Quote ${id} not found`);
+    }
+    const updated: WorkhubLeadQuote = { ...quote, ...updates, updatedAt: new Date() };
+    this.workhubLeadQuotes.set(id, updated);
+    return updated;
+  }
+
+  async getWorkhubLostReasons(): Promise<WorkhubLostReason[]> {
+    return Array.from(this.workhubLostReasons.values())
+      .filter(r => r.isActive)
+      .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
+  }
+
+  async getWorkhubLeadAnalytics(filters: {
+    contractorId?: string;
+    startDate?: Date;
+    endDate?: Date;
+  }): Promise<{
+    totalLeads: number;
+    newLeads: number;
+    activeLeads: number;
+    wonLeads: number;
+    lostLeads: number;
+    conversionRate: string;
+    totalPotentialValue: number;
+    totalWonValue: number;
+    avgDaysToClose: number;
+    leadsByStage: Record<string, number>;
+    leadsBySource: Record<string, number>;
+  }> {
+    let leads = Array.from(this.workhubLeads.values());
+    
+    if (filters.contractorId) {
+      leads = leads.filter(l => l.assignedContractorId === filters.contractorId);
+    }
+    if (filters.startDate) {
+      leads = leads.filter(l => new Date(l.createdAt || 0) >= filters.startDate!);
+    }
+    if (filters.endDate) {
+      leads = leads.filter(l => new Date(l.createdAt || 0) <= filters.endDate!);
+    }
+    
+    const wonLeads = leads.filter(l => l.stage === "job_completed");
+    const lostLeads = leads.filter(l => l.stage === "lost");
+    const activeLeads = leads.filter(l => !["job_completed", "lost"].includes(l.stage || ""));
+    const newLeads = leads.filter(l => l.stage === "new_lead");
+    
+    const leadsByStage: Record<string, number> = {};
+    const leadsBySource: Record<string, number> = {};
+    
+    leads.forEach(l => {
+      const stage = l.stage || "unknown";
+      leadsByStage[stage] = (leadsByStage[stage] || 0) + 1;
+      const source = l.source || "unknown";
+      leadsBySource[source] = (leadsBySource[source] || 0) + 1;
+    });
+    
+    const completedLeads = wonLeads.filter(l => l.createdAt && l.completedDate);
+    const totalDays = completedLeads.reduce((sum, l) => {
+      const days = Math.floor((new Date(l.completedDate!).getTime() - new Date(l.createdAt!).getTime()) / (1000 * 60 * 60 * 24));
+      return sum + days;
+    }, 0);
+    
+    return {
+      totalLeads: leads.length,
+      newLeads: newLeads.length,
+      activeLeads: activeLeads.length,
+      wonLeads: wonLeads.length,
+      lostLeads: lostLeads.length,
+      conversionRate: leads.length > 0 ? ((wonLeads.length / leads.length) * 100).toFixed(1) : "0",
+      totalPotentialValue: activeLeads.reduce((sum, l) => sum + parseFloat(l.estimatedAmount || "0"), 0),
+      totalWonValue: wonLeads.reduce((sum, l) => sum + parseFloat(l.finalAmount || l.estimatedAmount || "0"), 0),
+      avgDaysToClose: completedLeads.length > 0 ? Math.round(totalDays / completedLeads.length) : 0,
+      leadsByStage,
+      leadsBySource
+    };
+  }
+
+  async getWorkhubLostLeadReport(filters: {
+    contractorId?: string;
+    startDate?: Date;
+    endDate?: Date;
+  }): Promise<{
+    totalLost: number;
+    lostValue: number;
+    reasonBreakdown: { reason: string; count: number; value: number }[];
+    recentLostLeads: WorkhubLead[];
+  }> {
+    let leads = Array.from(this.workhubLeads.values()).filter(l => l.stage === "lost");
+    
+    if (filters.contractorId) {
+      leads = leads.filter(l => l.assignedContractorId === filters.contractorId);
+    }
+    if (filters.startDate) {
+      leads = leads.filter(l => new Date(l.lostAt || l.createdAt || 0) >= filters.startDate!);
+    }
+    if (filters.endDate) {
+      leads = leads.filter(l => new Date(l.lostAt || l.createdAt || 0) <= filters.endDate!);
+    }
+    
+    const reasonMap: Record<string, { count: number; value: number }> = {};
+    leads.forEach(l => {
+      const reason = l.lostReason || "Unknown";
+      if (!reasonMap[reason]) {
+        reasonMap[reason] = { count: 0, value: 0 };
+      }
+      reasonMap[reason].count++;
+      reasonMap[reason].value += parseFloat(l.estimatedAmount || "0");
+    });
+    
+    const reasonBreakdown = Object.entries(reasonMap)
+      .map(([reason, data]) => ({ reason, ...data }))
+      .sort((a, b) => b.count - a.count);
+    
+    return {
+      totalLost: leads.length,
+      lostValue: leads.reduce((sum, l) => sum + parseFloat(l.estimatedAmount || "0"), 0),
+      reasonBreakdown,
+      recentLostLeads: leads
+        .sort((a, b) => new Date(b.lostAt || 0).getTime() - new Date(a.lostAt || 0).getTime())
+        .slice(0, 10)
+    };
   }
 }
 
