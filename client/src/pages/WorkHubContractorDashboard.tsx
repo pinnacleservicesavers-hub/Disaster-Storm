@@ -16,7 +16,6 @@ import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import TopNav from '@/components/TopNav';
 import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 
 // Mock data for leads
@@ -175,8 +174,6 @@ export default function WorkHubContractorDashboard() {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
-      <TopNav />
-
       {/* Header */}
       <div className="bg-gradient-to-r from-slate-800 to-slate-900 text-white">
         <div className="max-w-7xl mx-auto px-4 py-6">
