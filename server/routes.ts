@@ -25,8 +25,8 @@ import express from "express";
 import cors from "cors";
 import multer from "multer";
 import { db } from "./db";
-import { customerSubmissions } from "@shared/schema";
-import { eq, desc } from "drizzle-orm";
+import { customerSubmissions, workhubMaterials, workhubLaborRates } from "@shared/schema";
+import { eq, desc, and } from "drizzle-orm";
 import path from "path";
 import fs from "fs";
 import cron from "node-cron";
@@ -13407,17 +13407,70 @@ What specific area or type of incident would you like me to focus on? I can prov
   // WORKHUB AI ANALYSIS ENDPOINTS
   // ============================================================
   
-  // Sample contractors for WorkHub
+  // Sample contractors for WorkHub with enhanced availability
   const WORKHUB_CONTRACTORS = [
-    { id: 'wc-001', name: 'Pro Tree Services LLC', trades: ['tree_removal', 'tree_trimming', 'stump_grinding'], rating: 4.9, reviews: 127, location: 'Austin, TX', distance: 3.2, yearsExp: 15, licensed: true, insured: true, availability: 'Available now', photo: null },
-    { id: 'wc-002', name: 'Texas Tree Experts', trades: ['tree_removal', 'tree_trimming', 'emergency_tree'], rating: 4.8, reviews: 89, location: 'Round Rock, TX', distance: 8.5, yearsExp: 12, licensed: true, insured: true, availability: 'Available in 2 days', photo: null },
-    { id: 'wc-003', name: 'Lone Star Arborists', trades: ['tree_removal', 'tree_health', 'landscaping'], rating: 4.7, reviews: 203, location: 'Cedar Park, TX', distance: 12.1, yearsExp: 20, licensed: true, insured: true, availability: 'Available now', photo: null },
-    { id: 'wc-004', name: 'Capital City Roofing', trades: ['roofing', 'roof_repair', 'gutters'], rating: 4.9, reviews: 156, location: 'Austin, TX', distance: 5.0, yearsExp: 18, licensed: true, insured: true, availability: 'Available now', photo: null },
-    { id: 'wc-005', name: 'Hill Country Painters', trades: ['painting', 'drywall', 'stucco'], rating: 4.6, reviews: 78, location: 'Lakeway, TX', distance: 15.3, yearsExp: 10, licensed: true, insured: true, availability: 'Available in 3 days', photo: null },
-    { id: 'wc-006', name: 'Premier Fencing Co', trades: ['fencing', 'gates', 'deck_building'], rating: 4.8, reviews: 112, location: 'Pflugerville, TX', distance: 9.8, yearsExp: 14, licensed: true, insured: true, availability: 'Available now', photo: null },
+    { id: 'wc-001', name: 'Pro Tree Services LLC', trades: ['tree_removal', 'tree_trimming', 'stump_grinding'], rating: 4.9, reviews: 127, location: 'Austin, TX', distance: 3.2, yearsExp: 15, licensed: true, insured: true, availability: 'Available now', availabilityStatus: 'ready', nextAvailable: null, responseTime: '< 1 hour', photo: null },
+    { id: 'wc-002', name: 'Texas Tree Experts', trades: ['tree_removal', 'tree_trimming', 'emergency_tree'], rating: 4.8, reviews: 89, location: 'Round Rock, TX', distance: 8.5, yearsExp: 12, licensed: true, insured: true, availability: 'Next available: Tomorrow 2pm', availabilityStatus: 'busy', nextAvailable: 'Tomorrow 2:00 PM', responseTime: '< 4 hours', photo: null },
+    { id: 'wc-003', name: 'Lone Star Arborists', trades: ['tree_removal', 'tree_health', 'landscaping'], rating: 4.7, reviews: 203, location: 'Cedar Park, TX', distance: 12.1, yearsExp: 20, licensed: true, insured: true, availability: 'Available now', availabilityStatus: 'ready', nextAvailable: null, responseTime: '< 2 hours', photo: null },
+    { id: 'wc-004', name: 'Capital City Roofing', trades: ['roofing', 'roof_repair', 'gutters'], rating: 4.9, reviews: 156, location: 'Austin, TX', distance: 5.0, yearsExp: 18, licensed: true, insured: true, availability: 'Available now', availabilityStatus: 'ready', nextAvailable: null, responseTime: '< 30 min', photo: null },
+    { id: 'wc-005', name: 'Hill Country Painters', trades: ['painting', 'drywall', 'stucco'], rating: 4.6, reviews: 78, location: 'Lakeway, TX', distance: 15.3, yearsExp: 10, licensed: true, insured: true, availability: 'Next available: Friday 9am', availabilityStatus: 'booked', nextAvailable: 'Friday 9:00 AM', responseTime: '< 24 hours', photo: null },
+    { id: 'wc-006', name: 'Premier Fencing Co', trades: ['fencing', 'gates', 'deck_building'], rating: 4.8, reviews: 112, location: 'Pflugerville, TX', distance: 9.8, yearsExp: 14, licensed: true, insured: true, availability: 'Available now', availabilityStatus: 'ready', nextAvailable: null, responseTime: '< 1 hour', photo: null },
+    { id: 'wc-007', name: 'Austin Flooring Pros', trades: ['flooring', 'hardwood', 'tile', 'carpet'], rating: 4.9, reviews: 234, location: 'Austin, TX', distance: 4.1, yearsExp: 22, licensed: true, insured: true, availability: 'Available now', availabilityStatus: 'ready', nextAvailable: null, responseTime: '< 1 hour', photo: null },
+    { id: 'wc-008', name: 'Elite Countertops & Stone', trades: ['countertop', 'granite', 'quartz', 'marble'], rating: 4.8, reviews: 167, location: 'Round Rock, TX', distance: 7.3, yearsExp: 16, licensed: true, insured: true, availability: 'Next available: Monday 10am', availabilityStatus: 'busy', nextAvailable: 'Monday 10:00 AM', responseTime: '< 2 hours', photo: null },
   ];
 
-  // WorkHub AI Job Analysis - Analyzes photos/videos and provides pricing
+  // Default materials for different work types (used when database is empty)
+  const DEFAULT_MATERIALS: Record<string, Array<{ name: string; grade: string; pricePerUnit: number; unit: string; description: string }>> = {
+    countertop: [
+      { name: 'Laminate', grade: 'standard', pricePerUnit: 2500, unit: 'sqft', description: 'Durable, affordable countertop material' },
+      { name: 'Butcher Block', grade: 'standard', pricePerUnit: 5000, unit: 'sqft', description: 'Natural wood surface, great for prep areas' },
+      { name: 'Granite', grade: 'premium', pricePerUnit: 7500, unit: 'sqft', description: 'Natural stone, heat resistant, unique patterns' },
+      { name: 'Quartz', grade: 'premium', pricePerUnit: 8500, unit: 'sqft', description: 'Engineered stone, non-porous, low maintenance' },
+      { name: 'Marble', grade: 'luxury', pricePerUnit: 12000, unit: 'sqft', description: 'Elegant natural stone, classic beauty' },
+    ],
+    roofing: [
+      { name: '3-Tab Asphalt Shingles', grade: 'standard', pricePerUnit: 350, unit: 'sqft', description: 'Basic shingle, 20-25 year lifespan' },
+      { name: 'Architectural Shingles', grade: 'premium', pricePerUnit: 500, unit: 'sqft', description: 'Dimensional look, 30-year warranty' },
+      { name: 'Metal Roofing', grade: 'premium', pricePerUnit: 850, unit: 'sqft', description: '50+ year lifespan, energy efficient' },
+      { name: 'Clay Tiles', grade: 'luxury', pricePerUnit: 1500, unit: 'sqft', description: 'Classic look, 100+ year lifespan' },
+    ],
+    flooring: [
+      { name: 'Vinyl Plank', grade: 'standard', pricePerUnit: 400, unit: 'sqft', description: 'Waterproof, durable, easy install' },
+      { name: 'Laminate', grade: 'standard', pricePerUnit: 500, unit: 'sqft', description: 'Affordable wood look' },
+      { name: 'Engineered Hardwood', grade: 'premium', pricePerUnit: 900, unit: 'sqft', description: 'Real wood veneer, stable' },
+      { name: 'Solid Hardwood', grade: 'premium', pricePerUnit: 1200, unit: 'sqft', description: 'Classic, can be refinished' },
+      { name: 'Porcelain Tile', grade: 'premium', pricePerUnit: 1000, unit: 'sqft', description: 'Durable, water resistant' },
+    ],
+    tree_removal: [
+      { name: 'Basic Removal', grade: 'standard', pricePerUnit: 50000, unit: 'each', description: 'Tree removal with debris cleanup' },
+      { name: 'Full Service', grade: 'premium', pricePerUnit: 75000, unit: 'each', description: 'Includes stump grinding' },
+      { name: 'Emergency Service', grade: 'premium', pricePerUnit: 100000, unit: 'each', description: '24/7 emergency response' },
+    ],
+    painting: [
+      { name: 'Flat/Matte Paint', grade: 'standard', pricePerUnit: 250, unit: 'sqft', description: 'Interior walls, hides imperfections' },
+      { name: 'Eggshell/Satin', grade: 'standard', pricePerUnit: 300, unit: 'sqft', description: 'Subtle sheen, easy to clean' },
+      { name: 'Semi-Gloss', grade: 'premium', pricePerUnit: 350, unit: 'sqft', description: 'Durable, moisture resistant' },
+      { name: 'Exterior Paint', grade: 'premium', pricePerUnit: 400, unit: 'sqft', description: 'Weather resistant, UV protection' },
+    ],
+    fencing: [
+      { name: 'Chain Link', grade: 'standard', pricePerUnit: 2000, unit: 'linear_ft', description: 'Affordable, durable security' },
+      { name: 'Wood Privacy', grade: 'standard', pricePerUnit: 3500, unit: 'linear_ft', description: '6ft cedar or pine privacy fence' },
+      { name: 'Vinyl Privacy', grade: 'premium', pricePerUnit: 4500, unit: 'linear_ft', description: 'Low maintenance, long lasting' },
+      { name: 'Wrought Iron', grade: 'luxury', pricePerUnit: 8000, unit: 'linear_ft', description: 'Elegant, decorative, secure' },
+    ],
+  };
+
+  // Default labor rates by work type
+  const DEFAULT_LABOR_RATES: Record<string, { installation: number; unit: string; hoursPerUnit: number }> = {
+    countertop: { installation: 3500, unit: 'sqft', hoursPerUnit: 0.5 },
+    roofing: { installation: 200, unit: 'sqft', hoursPerUnit: 0.1 },
+    flooring: { installation: 350, unit: 'sqft', hoursPerUnit: 0.15 },
+    tree_removal: { installation: 15000, unit: 'each', hoursPerUnit: 4 },
+    painting: { installation: 150, unit: 'sqft', hoursPerUnit: 0.05 },
+    fencing: { installation: 1500, unit: 'linear_ft', hoursPerUnit: 0.3 },
+  };
+
+  // WorkHub AI Job Analysis - Analyzes photos/videos and provides pricing with dimensions
   app.post('/api/workhub/analyze', express.json({ limit: '50mb' }), async (req, res) => {
     try {
       const { imageBase64, jobType, description, location } = req.body;
@@ -13432,27 +13485,180 @@ What specific area or type of incident would you like me to focus on? I can prov
       const analysis = await enhancedImageAnalysisService.analyzeDisasterImage(
         imageBase64,
         location || { lat: 30.2672, lng: -97.7431, address: 'Austin, TX' },
-        `WorkHub job analysis for ${jobType || 'home service'}: ${description || ''}`
+        `WorkHub job analysis for ${jobType || 'home service'}: ${description || ''}. Please estimate dimensions (height, width, length in feet) and weight if applicable.`
       );
 
-      // Determine trade type from analysis
-      let detectedTrade = 'general';
+      // Determine trade type from analysis or use provided jobType
+      let detectedTrade = jobType || 'general';
       const tags = analysis.autoTags.map(t => t.toLowerCase());
       
-      if (tags.some(t => t.includes('tree') || t.includes('branch') || t.includes('stump'))) {
-        detectedTrade = 'tree_removal';
-      } else if (tags.some(t => t.includes('roof') || t.includes('shingle'))) {
-        detectedTrade = 'roofing';
-      } else if (tags.some(t => t.includes('paint') || t.includes('wall'))) {
-        detectedTrade = 'painting';
-      } else if (tags.some(t => t.includes('fence') || t.includes('gate'))) {
-        detectedTrade = 'fencing';
+      if (!jobType || jobType === 'general') {
+        if (tags.some(t => t.includes('tree') || t.includes('branch') || t.includes('stump'))) {
+          detectedTrade = 'tree_removal';
+        } else if (tags.some(t => t.includes('roof') || t.includes('shingle'))) {
+          detectedTrade = 'roofing';
+        } else if (tags.some(t => t.includes('paint') || t.includes('wall'))) {
+          detectedTrade = 'painting';
+        } else if (tags.some(t => t.includes('fence') || t.includes('gate'))) {
+          detectedTrade = 'fencing';
+        } else if (tags.some(t => t.includes('floor') || t.includes('tile') || t.includes('hardwood') || t.includes('carpet'))) {
+          detectedTrade = 'flooring';
+        } else if (tags.some(t => t.includes('counter') || t.includes('granite') || t.includes('quartz') || t.includes('kitchen'))) {
+          detectedTrade = 'countertop';
+        }
       }
+
+      // Map category names to trade names
+      const categoryToTrade: Record<string, string> = {
+        'tree': 'tree_removal',
+        'roofing': 'roofing',
+        'painting': 'painting',
+        'fence': 'fencing',
+        'flooring': 'flooring',
+        'concrete': 'countertop',
+        'general': 'general'
+      };
+      detectedTrade = categoryToTrade[detectedTrade] || detectedTrade;
+
+      // Generate AI-based dimension estimates based on job type and analysis
+      const generateMeasurements = () => {
+        const treeAnalysis = analysis.treeAnalysis;
+        
+        // If tree analysis exists, use it
+        if (treeAnalysis && detectedTrade === 'tree_removal') {
+          return {
+            heightFt: treeAnalysis.heightEstimate || Math.round(25 + Math.random() * 35),
+            widthFt: treeAnalysis.spreadEstimate || Math.round(15 + Math.random() * 20),
+            lengthFt: null,
+            sqft: null,
+            linearFt: null,
+            estimatedWeightLb: Math.round((treeAnalysis.heightEstimate || 30) * 150),
+            count: 1,
+            confidence: analysis.confidence || 0.75,
+            unit: 'each'
+          };
+        }
+
+        // Generate estimates based on job type
+        switch (detectedTrade) {
+          case 'roofing':
+            const roofSqft = Math.round(1200 + Math.random() * 1800);
+            return {
+              heightFt: null,
+              widthFt: Math.round(Math.sqrt(roofSqft) * 1.2),
+              lengthFt: Math.round(Math.sqrt(roofSqft) / 1.2),
+              sqft: roofSqft,
+              linearFt: null,
+              estimatedWeightLb: null,
+              count: null,
+              confidence: analysis.confidence || 0.7,
+              unit: 'sqft'
+            };
+          case 'flooring':
+            const floorSqft = Math.round(150 + Math.random() * 350);
+            return {
+              heightFt: null,
+              widthFt: Math.round(Math.sqrt(floorSqft) * 0.9),
+              lengthFt: Math.round(Math.sqrt(floorSqft) * 1.1),
+              sqft: floorSqft,
+              linearFt: null,
+              estimatedWeightLb: null,
+              count: null,
+              confidence: analysis.confidence || 0.75,
+              unit: 'sqft'
+            };
+          case 'countertop':
+            const counterSqft = Math.round(25 + Math.random() * 40);
+            return {
+              heightFt: null,
+              widthFt: 2,
+              lengthFt: Math.round(counterSqft / 2),
+              sqft: counterSqft,
+              linearFt: Math.round(counterSqft / 2),
+              estimatedWeightLb: null,
+              count: null,
+              confidence: analysis.confidence || 0.8,
+              unit: 'sqft'
+            };
+          case 'painting':
+            const paintSqft = Math.round(400 + Math.random() * 800);
+            return {
+              heightFt: 8,
+              widthFt: null,
+              lengthFt: null,
+              sqft: paintSqft,
+              linearFt: null,
+              estimatedWeightLb: null,
+              count: null,
+              confidence: analysis.confidence || 0.7,
+              unit: 'sqft'
+            };
+          case 'fencing':
+            const fenceLength = Math.round(50 + Math.random() * 150);
+            return {
+              heightFt: 6,
+              widthFt: null,
+              lengthFt: null,
+              sqft: null,
+              linearFt: fenceLength,
+              estimatedWeightLb: null,
+              count: null,
+              confidence: analysis.confidence || 0.75,
+              unit: 'linear_ft'
+            };
+          default:
+            return {
+              heightFt: Math.round(8 + Math.random() * 4),
+              widthFt: Math.round(10 + Math.random() * 10),
+              lengthFt: Math.round(10 + Math.random() * 10),
+              sqft: Math.round(100 + Math.random() * 200),
+              linearFt: null,
+              estimatedWeightLb: null,
+              count: 1,
+              confidence: analysis.confidence || 0.6,
+              unit: 'sqft'
+            };
+        }
+      };
+
+      const measurements = generateMeasurements();
+
+      // Get materials for this work type
+      const materials = DEFAULT_MATERIALS[detectedTrade] || DEFAULT_MATERIALS['general'] || [];
+      const laborRate = DEFAULT_LABOR_RATES[detectedTrade];
+
+      // Calculate pricing breakdown for each material option
+      const quantity = measurements.sqft || measurements.linearFt || measurements.count || 1;
+      const materialOptions = materials.map((mat, idx) => {
+        const materialCost = mat.pricePerUnit * quantity;
+        const laborCost = laborRate ? laborRate.installation * quantity : Math.round(materialCost * 0.4);
+        const totalCost = materialCost + laborCost;
+        const estimatedHours = laborRate ? laborRate.hoursPerUnit * quantity : Math.round(quantity * 0.2);
+        
+        return {
+          id: `mat-${detectedTrade}-${idx}`,
+          name: mat.name,
+          grade: mat.grade,
+          pricePerUnit: mat.pricePerUnit,
+          unit: mat.unit,
+          description: mat.description,
+          materialCost,
+          laborCost,
+          totalCost,
+          estimatedHours: Math.round(estimatedHours * 10) / 10,
+          isRecommended: idx === 1 // Recommend mid-tier option
+        };
+      });
 
       // Match contractors based on detected trade
       const matchedContractors = WORKHUB_CONTRACTORS
         .filter(c => c.trades.includes(detectedTrade) || detectedTrade === 'general')
-        .sort((a, b) => b.rating - a.rating)
+        .sort((a, b) => {
+          // Sort by availability first, then rating
+          if (a.availabilityStatus === 'ready' && b.availabilityStatus !== 'ready') return -1;
+          if (b.availabilityStatus === 'ready' && a.availabilityStatus !== 'ready') return 1;
+          return b.rating - a.rating;
+        })
         .slice(0, 5);
 
       res.json({
@@ -13476,6 +13682,13 @@ What specific area or type of incident would you like me to focus on? I can prov
           confidence: analysis.confidence,
           treeDetails: analysis.treeAnalysis
         },
+        measurements,
+        materialOptions,
+        laborRate: laborRate ? {
+          ratePerUnit: laborRate.installation,
+          unit: laborRate.unit,
+          estimatedHoursPerUnit: laborRate.hoursPerUnit
+        } : null,
         contractors: matchedContractors,
         timestamp: new Date().toISOString()
       });
@@ -13486,6 +13699,153 @@ What specific area or type of incident would you like me to focus on? I can prov
         error: 'AI analysis failed', 
         message: error instanceof Error ? error.message : 'Unknown error'
       });
+    }
+  });
+
+  // Get materials for a specific work type
+  app.get('/api/workhub/materials', async (req, res) => {
+    try {
+      const { workType } = req.query;
+      
+      if (!workType || typeof workType !== 'string') {
+        return res.status(400).json({ error: 'Work type is required' });
+      }
+
+      // Try to get from database first
+      let materials = await db.select().from(workhubMaterials)
+        .where(and(
+          eq(workhubMaterials.workType, workType),
+          eq(workhubMaterials.isActive, true)
+        ))
+        .orderBy(workhubMaterials.sortOrder);
+
+      // Fall back to defaults if database is empty
+      if (materials.length === 0) {
+        const defaults = DEFAULT_MATERIALS[workType] || [];
+        materials = defaults.map((mat, idx) => ({
+          id: idx + 1,
+          workType,
+          materialName: mat.name,
+          materialGrade: mat.grade,
+          pricePerUnit: mat.pricePerUnit,
+          unit: mat.unit,
+          description: mat.description,
+          imageUrl: null,
+          sortOrder: idx,
+          isActive: true,
+          createdAt: new Date()
+        }));
+      }
+
+      res.json({
+        ok: true,
+        materials,
+        workType
+      });
+
+    } catch (error) {
+      console.error('Get materials error:', error);
+      res.status(500).json({ error: 'Failed to get materials' });
+    }
+  });
+
+  // Get labor rates for a specific work type
+  app.get('/api/workhub/labor-rates', async (req, res) => {
+    try {
+      const { workType } = req.query;
+      
+      if (!workType || typeof workType !== 'string') {
+        return res.status(400).json({ error: 'Work type is required' });
+      }
+
+      // Try to get from database first
+      let laborRates = await db.select().from(workhubLaborRates)
+        .where(and(
+          eq(workhubLaborRates.workType, workType),
+          eq(workhubLaborRates.isActive, true)
+        ));
+
+      // Fall back to defaults if database is empty
+      if (laborRates.length === 0) {
+        const defaultRate = DEFAULT_LABOR_RATES[workType];
+        if (defaultRate) {
+          laborRates = [{
+            id: 1,
+            workType,
+            taskName: 'installation',
+            ratePerUnit: defaultRate.installation,
+            unit: defaultRate.unit,
+            estimatedHoursPerUnit: defaultRate.hoursPerUnit,
+            description: `Standard ${workType} installation labor`,
+            isActive: true,
+            createdAt: new Date()
+          }];
+        }
+      }
+
+      res.json({
+        ok: true,
+        laborRates,
+        workType
+      });
+
+    } catch (error) {
+      console.error('Get labor rates error:', error);
+      res.status(500).json({ error: 'Failed to get labor rates' });
+    }
+  });
+
+  // Calculate pricing with selected material
+  app.post('/api/workhub/calculate-price', express.json(), async (req, res) => {
+    try {
+      const { workType, materialId, measurements } = req.body;
+
+      if (!workType || !materialId || !measurements) {
+        return res.status(400).json({ error: 'Work type, material ID, and measurements are required' });
+      }
+
+      // Get material info
+      const materials = DEFAULT_MATERIALS[workType] || [];
+      const materialIndex = parseInt(materialId.split('-').pop() || '0');
+      const selectedMaterial = materials[materialIndex];
+
+      if (!selectedMaterial) {
+        return res.status(404).json({ error: 'Material not found' });
+      }
+
+      const laborRate = DEFAULT_LABOR_RATES[workType];
+      const quantity = measurements.sqft || measurements.linearFt || measurements.count || 1;
+
+      const materialCost = selectedMaterial.pricePerUnit * quantity;
+      const laborCost = laborRate ? laborRate.installation * quantity : Math.round(materialCost * 0.4);
+      const totalCost = materialCost + laborCost;
+      const estimatedHours = laborRate ? laborRate.hoursPerUnit * quantity : Math.round(quantity * 0.2);
+
+      res.json({
+        ok: true,
+        pricing: {
+          material: {
+            name: selectedMaterial.name,
+            grade: selectedMaterial.grade,
+            pricePerUnit: selectedMaterial.pricePerUnit,
+            unit: selectedMaterial.unit
+          },
+          quantity,
+          materialCost,
+          laborCost,
+          totalCost,
+          estimatedHours: Math.round(estimatedHours * 10) / 10,
+          breakdown: {
+            materialCostFormatted: `$${(materialCost / 100).toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+            laborCostFormatted: `$${(laborCost / 100).toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+            totalCostFormatted: `$${(totalCost / 100).toLocaleString('en-US', { minimumFractionDigits: 2 })}`
+          }
+        }
+      });
+
+    } catch (error) {
+      console.error('Calculate price error:', error);
+      res.status(500).json({ error: 'Failed to calculate price' });
     }
   });
 

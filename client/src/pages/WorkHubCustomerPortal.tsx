@@ -69,6 +69,10 @@ export default function WorkHubCustomerPortal() {
   const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submissionComplete, setSubmissionComplete] = useState(false);
+  const [measurements, setMeasurements] = useState<any>(null);
+  const [materialOptions, setMaterialOptions] = useState<any[]>([]);
+  const [selectedMaterial, setSelectedMaterial] = useState<any>(null);
+  const [pricingBreakdown, setPricingBreakdown] = useState<{ materialCost: number; laborCost: number; totalCost: number } | null>(null);
   const [request, setRequest] = useState<ProjectRequest>({
     category: '',
     description: '',
@@ -217,6 +221,25 @@ export default function WorkHubCustomerPortal() {
       };
       
       setAiAnalysis(analysis);
+      
+      // Capture measurements and material options from the enhanced API
+      if (data.measurements) {
+        setMeasurements(data.measurements);
+      }
+      if (data.materialOptions && data.materialOptions.length > 0) {
+        setMaterialOptions(data.materialOptions);
+        // Auto-select the recommended material
+        const recommended = data.materialOptions.find((m: any) => m.isRecommended);
+        if (recommended) {
+          setSelectedMaterial(recommended);
+          setPricingBreakdown({
+            materialCost: recommended.materialCost,
+            laborCost: recommended.laborCost,
+            totalCost: recommended.totalCost
+          });
+        }
+      }
+      
       speakGuidance(`Analysis complete. I've identified ${analysis.identifiedIssues.length} issues. The estimated price range is $${analysis.estimatedPriceRange.min} to $${analysis.estimatedPriceRange.max}. This appears to be a ${analysis.complexity.toLowerCase()} complexity job. I found ${analysis.contractors.length} available contractors in your area.`);
     } catch (error) {
       console.error('AI analysis error:', error);
@@ -514,6 +537,153 @@ export default function WorkHubCustomerPortal() {
                         </div>
                       </div>
                     </div>
+
+                    {/* AI Measurements Section */}
+                    {measurements && (
+                      <div className="mt-4 pt-4 border-t border-green-200 dark:border-green-800">
+                        <h4 className="font-semibold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
+                          <Wrench className="w-4 h-4 text-purple-600" />
+                          AI-Estimated Dimensions
+                        </h4>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                          {measurements.sqft && (
+                            <div className="bg-purple-50 dark:bg-purple-900/20 p-3 rounded-lg text-center">
+                              <p className="text-2xl font-bold text-purple-700 dark:text-purple-400">{measurements.sqft}</p>
+                              <p className="text-xs text-slate-500">Square Feet</p>
+                            </div>
+                          )}
+                          {measurements.linearFt && (
+                            <div className="bg-purple-50 dark:bg-purple-900/20 p-3 rounded-lg text-center">
+                              <p className="text-2xl font-bold text-purple-700 dark:text-purple-400">{measurements.linearFt}</p>
+                              <p className="text-xs text-slate-500">Linear Feet</p>
+                            </div>
+                          )}
+                          {measurements.heightFt && (
+                            <div className="bg-purple-50 dark:bg-purple-900/20 p-3 rounded-lg text-center">
+                              <p className="text-2xl font-bold text-purple-700 dark:text-purple-400">{measurements.heightFt}</p>
+                              <p className="text-xs text-slate-500">Height (ft)</p>
+                            </div>
+                          )}
+                          {measurements.widthFt && (
+                            <div className="bg-purple-50 dark:bg-purple-900/20 p-3 rounded-lg text-center">
+                              <p className="text-2xl font-bold text-purple-700 dark:text-purple-400">{measurements.widthFt}</p>
+                              <p className="text-xs text-slate-500">Width (ft)</p>
+                            </div>
+                          )}
+                          {measurements.estimatedWeightLb && (
+                            <div className="bg-purple-50 dark:bg-purple-900/20 p-3 rounded-lg text-center">
+                              <p className="text-2xl font-bold text-purple-700 dark:text-purple-400">{measurements.estimatedWeightLb.toLocaleString()}</p>
+                              <p className="text-xs text-slate-500">Est. Weight (lbs)</p>
+                            </div>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-400 mt-2 flex items-center gap-1">
+                          <AlertCircle className="w-3 h-3" />
+                          AI confidence: {Math.round((measurements.confidence || 0.7) * 100)}% - Final measurements verified on-site
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Material Selection Section */}
+                    {materialOptions.length > 0 && (
+                      <div className="mt-4 pt-4 border-t border-green-200 dark:border-green-800">
+                        <h4 className="font-semibold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
+                          <Settings className="w-4 h-4 text-blue-600" />
+                          Choose Your Materials
+                        </h4>
+                        <div className="space-y-2">
+                          {materialOptions.map((material: any) => (
+                            <motion.div
+                              key={material.id}
+                              whileHover={{ scale: 1.01 }}
+                              className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                                selectedMaterial?.id === material.id
+                                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                                  : 'border-slate-200 hover:border-blue-300 bg-white dark:bg-slate-800'
+                              }`}
+                              onClick={() => {
+                                setSelectedMaterial(material);
+                                setPricingBreakdown({
+                                  materialCost: material.materialCost,
+                                  laborCost: material.laborCost,
+                                  totalCost: material.totalCost
+                                });
+                              }}
+                              data-testid={`material-option-${material.id}`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                  <div className={`w-4 h-4 rounded-full border-2 ${
+                                    selectedMaterial?.id === material.id
+                                      ? 'bg-blue-500 border-blue-500'
+                                      : 'border-slate-300'
+                                  }`}>
+                                    {selectedMaterial?.id === material.id && (
+                                      <CheckCircle className="w-4 h-4 text-white -m-0.5" />
+                                    )}
+                                  </div>
+                                  <div>
+                                    <p className="font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                                      {material.name}
+                                      {material.isRecommended && (
+                                        <Badge className="bg-amber-500 text-xs">Recommended</Badge>
+                                      )}
+                                    </p>
+                                    <p className="text-sm text-slate-500">{material.description}</p>
+                                  </div>
+                                </div>
+                                <div className="text-right">
+                                  <p className="font-bold text-lg text-blue-600">
+                                    ${(material.totalCost / 100).toLocaleString('en-US', { minimumFractionDigits: 0 })}
+                                  </p>
+                                  <p className="text-xs text-slate-500">Total est.</p>
+                                </div>
+                              </div>
+                              <div className="mt-2 flex gap-2">
+                                <Badge variant="outline" className="text-xs">
+                                  {material.grade}
+                                </Badge>
+                                <Badge variant="outline" className="text-xs">
+                                  ~{material.estimatedHours} hrs
+                                </Badge>
+                              </div>
+                            </motion.div>
+                          ))}
+                        </div>
+
+                        {/* Pricing Breakdown */}
+                        {pricingBreakdown && selectedMaterial && (
+                          <div className="mt-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
+                            <h5 className="font-semibold text-blue-700 dark:text-blue-400 mb-3 flex items-center gap-2">
+                              <DollarSign className="w-4 h-4" />
+                              Your Pricing Breakdown
+                            </h5>
+                            <div className="space-y-2">
+                              <div className="flex justify-between text-sm">
+                                <span className="text-slate-600 dark:text-slate-400">Materials ({selectedMaterial.name})</span>
+                                <span className="font-medium">${(pricingBreakdown.materialCost / 100).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                              </div>
+                              <div className="flex justify-between text-sm">
+                                <span className="text-slate-600 dark:text-slate-400">Labor & Installation</span>
+                                <span className="font-medium">${(pricingBreakdown.laborCost / 100).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                              </div>
+                              <div className="border-t border-blue-200 dark:border-blue-700 pt-2 mt-2">
+                                <div className="flex justify-between">
+                                  <span className="font-semibold text-blue-800 dark:text-blue-300">Estimated Total</span>
+                                  <span className="font-bold text-xl text-blue-700 dark:text-blue-400">
+                                    ${(pricingBreakdown.totalCost / 100).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                            <p className="text-xs text-slate-400 mt-3 flex items-center gap-1">
+                              <AlertCircle className="w-3 h-3" />
+                              Price based on AI estimates. Final quote provided after inspection.
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
                     
                     {/* Budget Confirmation Section */}
                     {budgetConfirmed === null && (
@@ -662,38 +832,79 @@ export default function WorkHubCustomerPortal() {
                           {aiAnalysis.contractors.slice(0, 3).map((contractor: any, idx: number) => (
                             <div 
                               key={contractor.id || idx} 
-                              className="flex items-center justify-between p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700"
+                              className="p-4 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-purple-300 transition-all"
                               data-testid={`contractor-${contractor.id || idx}`}
                             >
-                              <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
-                                  <User className="w-5 h-5 text-purple-600" />
-                                </div>
-                                <div>
-                                  <p className="font-medium text-slate-900 dark:text-white">{contractor.name}</p>
-                                  <div className="flex items-center gap-2 text-sm text-slate-500">
-                                    <Star className="w-3 h-3 text-yellow-500 fill-yellow-500" />
-                                    <span>{contractor.rating}</span>
-                                    <span className="text-slate-400">•</span>
-                                    <span>{contractor.reviews} reviews</span>
-                                    {contractor.distance && (
-                                      <>
-                                        <span className="text-slate-400">•</span>
-                                        <span>{contractor.distance} mi</span>
-                                      </>
+                              <div className="flex items-start justify-between">
+                                <div className="flex items-start gap-3">
+                                  <div className="relative">
+                                    <div className="w-12 h-12 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+                                      <User className="w-6 h-6 text-purple-600" />
+                                    </div>
+                                    {contractor.availabilityStatus === 'ready' && (
+                                      <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-green-500 rounded-full border-2 border-white dark:border-slate-800" title="Available Now" />
                                     )}
                                   </div>
+                                  <div>
+                                    <p className="font-semibold text-slate-900 dark:text-white">{contractor.name}</p>
+                                    <div className="flex items-center gap-2 text-sm text-slate-500 mt-0.5">
+                                      <Star className="w-3 h-3 text-yellow-500 fill-yellow-500" />
+                                      <span className="font-medium">{contractor.rating}</span>
+                                      <span className="text-slate-400">•</span>
+                                      <span>{contractor.reviews} reviews</span>
+                                      {contractor.distance && (
+                                        <>
+                                          <span className="text-slate-400">•</span>
+                                          <span>{contractor.distance} mi away</span>
+                                        </>
+                                      )}
+                                    </div>
+                                    <div className="flex items-center gap-2 mt-2">
+                                      <Badge variant="outline" className="text-xs capitalize">
+                                        {contractor.trades?.[0]?.replace(/_/g, ' ') || 'Contractor'}
+                                      </Badge>
+                                      {contractor.yearsExp && (
+                                        <Badge variant="outline" className="text-xs">
+                                          {contractor.yearsExp} yrs exp
+                                        </Badge>
+                                      )}
+                                      {contractor.licensed && (
+                                        <Badge variant="outline" className="text-xs text-green-600 border-green-300">
+                                          Licensed
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  </div>
                                 </div>
-                              </div>
-                              <div className="text-right">
-                                <Badge className="bg-purple-600 capitalize">
-                                  {contractor.trades?.[0]?.replace(/_/g, ' ') || 'Contractor'}
-                                </Badge>
-                                {contractor.availability && (
-                                  <p className={`text-xs mt-1 ${contractor.availability.includes('now') ? 'text-green-600' : 'text-amber-600'}`}>
-                                    {contractor.availability}
-                                  </p>
-                                )}
+                                <div className="text-right space-y-1">
+                                  {contractor.availabilityStatus === 'ready' ? (
+                                    <Badge className="bg-green-500">
+                                      <Zap className="w-3 h-3 mr-1" />
+                                      Available Now
+                                    </Badge>
+                                  ) : contractor.availabilityStatus === 'busy' ? (
+                                    <Badge className="bg-amber-500">
+                                      <Clock className="w-3 h-3 mr-1" />
+                                      Busy
+                                    </Badge>
+                                  ) : (
+                                    <Badge className="bg-slate-500">
+                                      <Calendar className="w-3 h-3 mr-1" />
+                                      Scheduled
+                                    </Badge>
+                                  )}
+                                  {contractor.nextAvailable && (
+                                    <p className="text-xs text-slate-500">
+                                      Next: {contractor.nextAvailable}
+                                    </p>
+                                  )}
+                                  {contractor.responseTime && (
+                                    <p className="text-xs text-green-600 flex items-center justify-end gap-1">
+                                      <MessageSquare className="w-3 h-3" />
+                                      Responds {contractor.responseTime}
+                                    </p>
+                                  )}
+                                </div>
                               </div>
                             </div>
                           ))}
