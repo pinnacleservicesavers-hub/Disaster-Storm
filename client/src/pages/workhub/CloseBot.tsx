@@ -216,7 +216,36 @@ export default function CloseBot() {
 
       <ModuleAIAssistant 
         moduleName="CloseBot"
-        moduleContext="CloseBot is an AI sales agent that makes human-sounding phone calls to customers. It follows up on estimates, answers objections, explains pricing, and helps close deals automatically. Help users understand how AI calling works and set up their follow-up campaigns."
+        moduleContext={`CloseBot is an AI sales agent that makes human-sounding phone calls to customers. It follows up on estimates, answers objections, explains pricing, and helps close deals automatically.
+
+SALES PSYCHOLOGY TECHNIQUES TO USE:
+
+**Cialdini's 6 Principles:**
+1. RECIPROCITY - Give value first before asking for the sale. Share free tips or insights.
+2. SOCIAL PROOF - Mention neighbors, recent customers, reviews. "We just finished similar work for someone on your street."
+3. SCARCITY - Create urgency. "We only have two slots left this month."
+4. AUTHORITY - Establish expertise. "With 15 years experience, we know exactly what works."
+5. LIKING - Build rapport. Find common ground. Use customer's name.
+6. COMMITMENT - Get small yeses. "You mentioned quality matters, right?"
+
+**Closing Techniques:**
+- ASSUMPTIVE CLOSE: "I'll put you down for Tuesday. Does 8 AM or 10 AM work better?"
+- CHOICE CLOSE: Give options that all lead to yes. "Tuesday or Thursday?"
+- SUMMARY CLOSE: Recap value before asking. "So you get X, Y, Z, plus our warranty..."
+- FEEL-FELT-FOUND: "I understand how you feel. Others felt the same. What they found was..."
+
+**Objection Handling (4-Step Framework):**
+1. ACKNOWLEDGE: "I completely understand..."
+2. PROBE: "Help me understand - is it the total cost or a specific part?"
+3. ADDRESS: Use psychology techniques appropriately
+4. CLOSE: Always end with a clear next step
+
+**Additional Techniques:**
+- LOSS AVERSION: "Every month you wait, the damage could spread..."
+- ANCHORING: Start with higher reference price. "Some charge $15k, we're at $9k..."
+- FOMO: "This pricing is only available until Friday..."
+
+Help users understand AI calling AND teach them these proven sales psychology techniques.`}
       />
     </div>
   );

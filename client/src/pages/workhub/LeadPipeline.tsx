@@ -673,7 +673,33 @@ export default function LeadPipeline() {
 
       <ModuleAIAssistant 
         moduleName="Lead Pipeline" 
-        moduleContext="WorkHub lead management system for tracking customer opportunities from first contact to job completion for everyday contractor work"
+        moduleContext={`WorkHub lead management system for tracking customer opportunities from first contact to job completion.
+
+SALES PSYCHOLOGY FOR LEAD CONVERSION:
+
+**Cialdini's 6 Principles:**
+1. RECIPROCITY - Give value first (free tips, advice) before asking for business
+2. SOCIAL PROOF - "8 out of 10 homeowners choose this option"
+3. SCARCITY - "Only 2 scheduling slots left this week"
+4. AUTHORITY - Emphasize certifications, experience, expertise
+5. LIKING - Build rapport, use names, find common ground
+6. COMMITMENT - Get small yeses: "Quality matters to you, right?"
+
+**Lead Stage Psychology:**
+- NEW: Use Reciprocity - offer free value to build goodwill
+- CONTACTED: Use Liking - establish rapport and connection
+- QUOTED: Use Anchoring - frame price against higher alternatives
+- NEGOTIATING: Use Feel-Felt-Found for objections
+- WON: Use Commitment - reinforce their good decision
+- LOST: Use Reciprocity for re-engagement later
+
+**Quick Closing Tips:**
+- Assumptive: "I'll put you down for Tuesday..."
+- Choice: "Tuesday or Thursday work better?"
+- Summary: Recap all value before the ask
+- Loss Aversion: "Every month you wait..."
+
+Help users move leads through the pipeline with proven psychology.`}
       />
     </div>
   );
