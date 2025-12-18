@@ -109,8 +109,8 @@ export default function ContractorMatch() {
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.voice = getBestFemaleVoice(voices);
-    utterance.pitch = 1.1;
-    utterance.rate = 1.05;
+    utterance.pitch = 1.0;
+    utterance.rate = 0.88;
     utterance.onstart = () => setIsVoiceActive(true);
     utterance.onend = () => setIsVoiceActive(false);
     window.speechSynthesis.speak(utterance);

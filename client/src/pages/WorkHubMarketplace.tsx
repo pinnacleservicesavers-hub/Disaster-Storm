@@ -205,11 +205,17 @@ export default function WorkHubMarketplace() {
     
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(
-      "Welcome to WorkHub Marketplace! I'm Rachel, your AI assistant. WorkHub connects customers with verified contractors for everyday home and business services. Whether you need tree removal, roofing, plumbing, or any trade - we've got you covered nationwide. Upload photos of your project and let AI do the rest!"
+      "Hey there! ... Welcome to WorkHub! ... " +
+      "I'm Rachel, ... and I'm so excited to show you around. ... " +
+      "So here's the deal, ... we connect customers with amazing, verified contractors, ... " +
+      "for pretty much anything you need done around your home or business. ... " +
+      "Roofing, ... tree removal, ... plumbing, ... you name it. ... " +
+      "And the cool part? ... Just snap a photo, ... and our AI figures out what you need. ... " +
+      "Go ahead and explore, ... I'm here if you need me!"
     );
     utterance.voice = getBestFemaleVoice(voices);
-    utterance.pitch = 1.1;
-    utterance.rate = 1.05;
+    utterance.pitch = 1.0;
+    utterance.rate = 0.88;
     utterance.onstart = () => setIsVoiceActive(true);
     utterance.onend = () => setIsVoiceActive(false);
     window.speechSynthesis.speak(utterance);

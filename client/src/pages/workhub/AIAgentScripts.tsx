@@ -202,16 +202,19 @@ export default function AIAgentScripts() {
       
       speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(
-        "Welcome to the AI Agent Scripts library. " +
-        "I'm Rachel, and these are the scripts I use when making calls on behalf of contractors. " +
-        "Each script is designed to sound natural and convert leads into booked appointments. " +
-        "Click play on any script to hear how it sounds."
+        "Hey! ... So glad you're here. ... " +
+        "This is where you can see all the scripts I use when I'm making calls for you. ... " +
+        "I've been doing this for a while now, ... " +
+        "and honestly? ... These scripts really work. ... " +
+        "They sound natural, ... they handle objections smoothly, ... " +
+        "and they get people to book appointments. ... " +
+        "Click play on any script if you wanna hear how it sounds!"
       );
       
       const voice = getBestFemaleVoice(voices);
       if (voice) utterance.voice = voice;
-      utterance.pitch = 1.1;
-      utterance.rate = 1.05;
+      utterance.pitch = 1.0;
+      utterance.rate = 0.9;
       
       speechSynthesis.speak(utterance);
       setHasSpoken(true);
@@ -246,8 +249,8 @@ export default function AIAgentScripts() {
     const utterance = new SpeechSynthesisUtterance(cleanText);
     const voice = getBestFemaleVoice(voices);
     if (voice) utterance.voice = voice;
-    utterance.pitch = 1.1;
-    utterance.rate = 1.0;
+    utterance.pitch = 1.0;
+    utterance.rate = 0.88;
     
     utterance.onend = () => setPlayingScript(null);
     speechSynthesis.speak(utterance);

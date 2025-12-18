@@ -190,16 +190,20 @@ export default function PitchDeck() {
       
       speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(
-        "Welcome to the WorkHub investor presentation. " +
-        "I'm Rachel, and I'll walk you through our vision for revolutionizing the home services industry. " +
-        "We're building AI that closes deals while contractors work. " +
-        "Scroll down to explore each section of our pitch."
+        "Hi there! ... Thanks for checking out WorkHub. ... " +
+        "I'm Rachel, ... and I'd love to tell you a bit about what we're building here. ... " +
+        "You know how contractors lose almost half their leads? ... " +
+        "Just because they're too busy working to follow up? ... " +
+        "Well, ... that's exactly the problem we're solving. ... " +
+        "We've built AI that handles the sales calls, ... " +
+        "the scheduling, ... the quotes, ... all of it. ... " +
+        "Go ahead and scroll through, ... I think you'll really like what you see."
       );
       
       const voice = getBestFemaleVoice(voices);
       if (voice) utterance.voice = voice;
-      utterance.pitch = 1.1;
-      utterance.rate = 1.0;
+      utterance.pitch = 1.0;
+      utterance.rate = 0.88;
       
       speechSynthesis.speak(utterance);
       setHasSpoken(true);

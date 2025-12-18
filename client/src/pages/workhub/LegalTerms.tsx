@@ -367,16 +367,19 @@ export default function LegalTerms() {
       
       speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(
-        "Welcome to the WorkHub Legal Center. " +
-        "I'm Rachel. Here you'll find our Terms of Service, Contractor Agreement, and Privacy Policy. " +
-        "These documents are designed to protect both contractors and customers using our platform. " +
-        "Please review the sections marked as critical carefully."
+        "Hey, ... so I know legal stuff isn't exactly exciting, ... " +
+        "but it's really important. ... " +
+        "I'm Rachel, ... and I'll walk you through this. ... " +
+        "We've got our Terms of Service, ... the Contractor Agreement, ... " +
+        "and our Privacy Policy all right here. ... " +
+        "The sections highlighted in red? ... Those are the really important ones. ... " +
+        "Take your time, ... and let me know if you have any questions."
       );
       
       const voice = getBestFemaleVoice(voices);
       if (voice) utterance.voice = voice;
-      utterance.pitch = 1.1;
-      utterance.rate = 1.0;
+      utterance.pitch = 1.0;
+      utterance.rate = 0.88;
       
       speechSynthesis.speak(utterance);
       setHasSpoken(true);

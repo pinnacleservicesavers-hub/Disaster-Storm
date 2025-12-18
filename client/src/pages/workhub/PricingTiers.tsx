@@ -144,16 +144,19 @@ export default function PricingTiers() {
       
       speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(
-        "Welcome to WorkHub Pricing! I'm Rachel, and I'll help you choose the perfect plan. " +
-        "We have four tiers designed for contractors at every stage. " +
-        "Start free, then upgrade as you grow. " +
-        "Pro is our most popular plan with unlimited leads and AI-powered sales calls."
+        "Hey there! ... Welcome to WorkHub Pricing. ... " +
+        "I'm Rachel, and I'm here to help you find the right plan for your business. ... " +
+        "So, we've got four options, ... starting completely free, ... " +
+        "and going up to Enterprise for larger teams. ... " +
+        "Most contractors love our Pro plan ... because it gives you unlimited leads, ... " +
+        "and that AI sales assistant that actually books jobs for you. ... " +
+        "Take your time browsing, ... and feel free to ask me anything!"
       );
       
       const voice = getBestFemaleVoice(voices);
       if (voice) utterance.voice = voice;
-      utterance.pitch = 1.1;
-      utterance.rate = 1.05;
+      utterance.pitch = 1.0;
+      utterance.rate = 0.9;
       
       speechSynthesis.speak(utterance);
       setHasSpoken(true);
