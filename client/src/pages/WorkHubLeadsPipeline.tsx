@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -7,7 +7,8 @@ import { motion } from 'framer-motion';
 import {
   Users, DollarSign, TrendingUp, Target, Phone, Mail, MapPin, 
   Calendar, Clock, Plus, Search, Filter, MessageSquare, FileText, 
-  XCircle, CheckCircle, ArrowRight, RefreshCw, User
+  XCircle, CheckCircle, ArrowRight, RefreshCw, User, History, 
+  StickyNote, Send, Trash2, Edit, PhoneCall
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -19,10 +20,18 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest, queryClient } from '@/lib/queryClient';
-import type { WorkhubLead } from '@shared/schema';
+import type { WorkhubLead, WorkhubCommunicationLog, WorkhubLeadNote, WorkhubLeadStageHistory, WorkhubLeadQuote } from '@shared/schema';
 import { insertWorkhubLeadSchema } from '@shared/schema';
+
+interface LeadDetail extends WorkhubLead {
+  communications: WorkhubCommunicationLog[];
+  notes: WorkhubLeadNote[];
+  stageHistory: WorkhubLeadStageHistory[];
+  quotes: WorkhubLeadQuote[];
+}
 
 interface PipelineStage {
   id: string;
@@ -75,8 +84,17 @@ export default function WorkHubLeadsPipeline() {
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [serviceFilter, setServiceFilter] = useState<string>('all');
-  const [selectedLead, setSelectedLead] = useState<WorkhubLead | null>(null);
+  const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
   const [isAddLeadOpen, setIsAddLeadOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState('overview');
+  const [newNote, setNewNote] = useState('');
+  const [commType, setCommType] = useState<'call' | 'text' | 'email'>('call');
+  const [commNotes, setCommNotes] = useState('');
+
+  const { data: leadDetail, isLoading: isLoadingDetail } = useQuery<LeadDetail>({
+    queryKey: ['/api/workhub/leads', selectedLeadId],
+    enabled: !!selectedLeadId
+  });
 
   const form = useForm<AddLeadFormValues>({
     resolver: zodResolver(addLeadFormSchema),
@@ -129,9 +147,78 @@ export default function WorkHubLeadsPipeline() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/workhub/leads/pipeline', serviceFilter] });
+      queryClient.invalidateQueries({ queryKey: ['/api/workhub/leads', selectedLeadId] });
       toast({ title: 'Stage updated', description: 'Lead moved to new stage.' });
     }
   });
+
+  const addNoteMutation = useMutation({
+    mutationFn: async ({ leadId, content }: { leadId: string; content: string }) => {
+      return apiRequest(`/api/workhub/leads/${leadId}/notes`, {
+        method: 'POST',
+        body: JSON.stringify({ content, createdBy: 'user' }),
+        headers: { 'Content-Type': 'application/json' }
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/workhub/leads', selectedLeadId] });
+      setNewNote('');
+      toast({ title: 'Note added', description: 'Note has been saved.' });
+    }
+  });
+
+  const deleteNoteMutation = useMutation({
+    mutationFn: async ({ leadId, noteId }: { leadId: string; noteId: string }) => {
+      return apiRequest(`/api/workhub/leads/${leadId}/notes/${noteId}`, {
+        method: 'DELETE'
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/workhub/leads', selectedLeadId] });
+      toast({ title: 'Note deleted', description: 'Note has been removed.' });
+    }
+  });
+
+  const addCommunicationMutation = useMutation({
+    mutationFn: async ({ leadId, type, notes, outcome }: { leadId: string; type: string; notes: string; outcome?: string }) => {
+      return apiRequest(`/api/workhub/leads/${leadId}/communications`, {
+        method: 'POST',
+        body: JSON.stringify({ 
+          type, 
+          notes,
+          outcome: outcome || 'completed',
+          direction: 'outbound',
+          contactedAt: new Date().toISOString()
+        }),
+        headers: { 'Content-Type': 'application/json' }
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/workhub/leads', selectedLeadId] });
+      setCommNotes('');
+      toast({ title: 'Communication logged', description: 'Activity has been recorded.' });
+    }
+  });
+
+  const formatDate = (date: Date | string | null) => {
+    if (!date) return '';
+    return new Date(date).toLocaleDateString('en-US', { 
+      month: 'short', 
+      day: 'numeric', 
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit'
+    });
+  };
+
+  const getCommIcon = (type: string) => {
+    switch (type) {
+      case 'call': return <PhoneCall className="h-4 w-4" />;
+      case 'text': return <MessageSquare className="h-4 w-4" />;
+      case 'email': return <Mail className="h-4 w-4" />;
+      default: return <MessageSquare className="h-4 w-4" />;
+    }
+  };
 
   const getPriorityBadge = (priority: string | null) => {
     const config = PRIORITIES.find(p => p.value === priority) || PRIORITIES[1];
@@ -503,7 +590,7 @@ export default function WorkHubLeadsPipeline() {
                             <Card
                               data-testid={`card-lead-${lead.id}`}
                               className="bg-white dark:bg-slate-750 border border-slate-200 dark:border-slate-600 hover:border-blue-300 dark:hover:border-blue-600 transition-colors"
-                              onClick={() => setSelectedLead(lead)}
+                              onClick={() => setSelectedLeadId(lead.id)}
                             >
                               <CardContent className="p-3 space-y-2">
                                 <div className="flex items-start justify-between">
@@ -547,137 +634,343 @@ export default function WorkHubLeadsPipeline() {
         </div>
       </div>
 
-      <Dialog open={!!selectedLead} onOpenChange={(open) => !open && setSelectedLead(null)}>
-        <DialogContent className="max-w-lg">
-          {selectedLead && (
+      <Dialog open={!!selectedLeadId} onOpenChange={(open) => { if (!open) { setSelectedLeadId(null); setActiveTab('overview'); } }}>
+        <DialogContent className="max-w-2xl max-h-[85vh]">
+          {isLoadingDetail ? (
+            <div className="flex items-center justify-center py-12">
+              <RefreshCw className="h-6 w-6 animate-spin text-blue-600" />
+              <span className="ml-2 text-slate-600">Loading lead details...</span>
+            </div>
+          ) : leadDetail ? (
             <>
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
                   <User className="h-5 w-5" />
-                  <span data-testid="text-detail-customer-name">{selectedLead.customerName}</span>
+                  <span data-testid="text-detail-customer-name">{leadDetail.customerName}</span>
                 </DialogTitle>
               </DialogHeader>
-              <div className="mt-4 space-y-6 max-h-[70vh] overflow-y-auto">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <Badge data-testid="badge-detail-stage" variant="secondary" className="text-sm">
-                      {stages.find(s => s.id === selectedLead.stage)?.label}
-                    </Badge>
-                    {getPriorityBadge(selectedLead.priority)}
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <p className="text-slate-500">Service</p>
-                      <p data-testid="text-detail-service" className="font-medium">{selectedLead.serviceType}</p>
-                    </div>
-                    <div>
-                      <p className="text-slate-500">Estimated Value</p>
-                      <p data-testid="text-detail-value" className="font-medium text-green-600">{formatCurrency(selectedLead.estimatedAmount || 0)}</p>
-                    </div>
-                  </div>
 
-                  <Separator />
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4">
+                <TabsList className="grid w-full grid-cols-4">
+                  <TabsTrigger value="overview" data-testid="tab-overview">Overview</TabsTrigger>
+                  <TabsTrigger value="activity" data-testid="tab-activity">Activity</TabsTrigger>
+                  <TabsTrigger value="notes" data-testid="tab-notes">Notes ({leadDetail.notes?.length || 0})</TabsTrigger>
+                  <TabsTrigger value="communicate" data-testid="tab-communicate">Communicate</TabsTrigger>
+                </TabsList>
 
-                  <div className="space-y-2">
-                    <h4 className="font-medium text-slate-900 dark:text-white">Contact Info</h4>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex items-center gap-2">
-                        <Phone className="h-4 w-4 text-slate-400" />
-                        <a href={`tel:${selectedLead.customerPhone}`} data-testid="link-phone" className="text-blue-600 hover:underline">
-                          {selectedLead.customerPhone}
-                        </a>
+                <ScrollArea className="h-[55vh] mt-4">
+                  <TabsContent value="overview" className="space-y-4 mt-0">
+                    <div className="flex items-center justify-between">
+                      <Badge data-testid="badge-detail-stage" variant="secondary" className="text-sm">
+                        {stages.find(s => s.id === leadDetail.stage)?.label}
+                      </Badge>
+                      {getPriorityBadge(leadDetail.priority)}
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <p className="text-slate-500">Service</p>
+                        <p data-testid="text-detail-service" className="font-medium">{leadDetail.serviceType}</p>
                       </div>
-                      {selectedLead.customerEmail && (
+                      <div>
+                        <p className="text-slate-500">Estimated Value</p>
+                        <p data-testid="text-detail-value" className="font-medium text-green-600">{formatCurrency(leadDetail.estimatedAmount || 0)}</p>
+                      </div>
+                    </div>
+
+                    <Separator />
+
+                    <div className="space-y-2">
+                      <h4 className="font-medium text-slate-900 dark:text-white">Contact Info</h4>
+                      <div className="space-y-2 text-sm">
                         <div className="flex items-center gap-2">
-                          <Mail className="h-4 w-4 text-slate-400" />
-                          <a href={`mailto:${selectedLead.customerEmail}`} data-testid="link-email" className="text-blue-600 hover:underline">
-                            {selectedLead.customerEmail}
+                          <Phone className="h-4 w-4 text-slate-400" />
+                          <a href={`tel:${leadDetail.customerPhone}`} data-testid="link-phone" className="text-blue-600 hover:underline">
+                            {leadDetail.customerPhone}
                           </a>
                         </div>
+                        {leadDetail.customerEmail && (
+                          <div className="flex items-center gap-2">
+                            <Mail className="h-4 w-4 text-slate-400" />
+                            <a href={`mailto:${leadDetail.customerEmail}`} data-testid="link-email" className="text-blue-600 hover:underline">
+                              {leadDetail.customerEmail}
+                            </a>
+                          </div>
+                        )}
+                        <div className="flex items-center gap-2">
+                          <MapPin className="h-4 w-4 text-slate-400" />
+                          <span data-testid="text-detail-address">{leadDetail.propertyAddress}, {leadDetail.city}, {leadDetail.state} {leadDetail.zip}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {leadDetail.description && (
+                      <>
+                        <Separator />
+                        <div className="space-y-2">
+                          <h4 className="font-medium text-slate-900 dark:text-white">Description</h4>
+                          <p data-testid="text-detail-description" className="text-sm text-slate-600 dark:text-slate-400">{leadDetail.description}</p>
+                        </div>
+                      </>
+                    )}
+
+                    <Separator />
+
+                    <div className="space-y-3">
+                      <h4 className="font-medium text-slate-900 dark:text-white">Move to Stage</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {stages.filter(s => s.id !== leadDetail.stage && s.id !== 'lost').map(stage => (
+                          <Button
+                            key={stage.id}
+                            data-testid={`button-move-to-${stage.id}`}
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              updateStageMutation.mutate({ leadId: leadDetail.id, stage: stage.id });
+                            }}
+                            style={{ borderColor: stage.color, color: stage.color }}
+                          >
+                            {stage.label}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {leadDetail.stage !== 'lost' && leadDetail.stage !== 'job_completed' && (
+                      <Button
+                        variant="destructive"
+                        className="w-full"
+                        data-testid="button-mark-lost"
+                        onClick={() => {
+                          updateStageMutation.mutate({ leadId: leadDetail.id, stage: 'lost' });
+                          setSelectedLeadId(null);
+                        }}
+                      >
+                        <XCircle className="h-4 w-4 mr-2" />
+                        Mark as Lost
+                      </Button>
+                    )}
+                  </TabsContent>
+
+                  <TabsContent value="activity" className="space-y-4 mt-0">
+                    <h4 className="font-medium text-slate-900 dark:text-white flex items-center gap-2">
+                      <History className="h-4 w-4" />
+                      Stage History & Activity Timeline
+                    </h4>
+                    
+                    {(leadDetail.stageHistory?.length || 0) === 0 && (leadDetail.communications?.length || 0) === 0 ? (
+                      <p className="text-sm text-slate-500 text-center py-8">No activity recorded yet</p>
+                    ) : (
+                      <div className="relative border-l-2 border-slate-200 dark:border-slate-700 ml-2 space-y-4">
+                        {[...(leadDetail.stageHistory || []).map(h => ({ ...h, activityType: 'stage' as const })),
+                          ...(leadDetail.communications || []).map(c => ({ ...c, activityType: 'comm' as const }))]
+                          .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+                          .map((item, idx) => (
+                            <div key={`${item.activityType}-${item.id}`} className="relative pl-6" data-testid={`activity-item-${idx}`}>
+                              <div className="absolute -left-2 top-1 w-4 h-4 rounded-full bg-white dark:bg-slate-800 border-2 border-blue-500 flex items-center justify-center">
+                                {item.activityType === 'stage' ? (
+                                  <ArrowRight className="h-2 w-2 text-blue-500" />
+                                ) : (
+                                  <div className="text-blue-500 scale-50">{getCommIcon((item as any).type || 'call')}</div>
+                                )}
+                              </div>
+                              <div className="bg-slate-50 dark:bg-slate-800 rounded-lg p-3">
+                                <div className="flex items-center justify-between">
+                                  <p className="text-sm font-medium text-slate-900 dark:text-white">
+                                    {item.activityType === 'stage' 
+                                      ? `Stage changed: ${(item as any).fromStage || 'New'} → ${(item as any).toStage}`
+                                      : `${(item as any).type?.charAt(0).toUpperCase() + (item as any).type?.slice(1)} - ${(item as any).outcome || 'completed'}`
+                                    }
+                                  </p>
+                                  <span className="text-xs text-slate-400">{formatDate(item.createdAt)}</span>
+                                </div>
+                                {((item as any).notes) && (
+                                  <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">{(item as any).notes}</p>
+                                )}
+                              </div>
+                            </div>
+                          ))
+                        }
+                      </div>
+                    )}
+                  </TabsContent>
+
+                  <TabsContent value="notes" className="space-y-4 mt-0">
+                    <div className="space-y-3">
+                      <h4 className="font-medium text-slate-900 dark:text-white flex items-center gap-2">
+                        <StickyNote className="h-4 w-4" />
+                        Notes
+                      </h4>
+                      
+                      <div className="flex gap-2">
+                        <Textarea
+                          data-testid="input-new-note"
+                          placeholder="Add a note..."
+                          value={newNote}
+                          onChange={(e) => setNewNote(e.target.value)}
+                          className="min-h-[80px]"
+                        />
+                      </div>
+                      <Button
+                        data-testid="button-add-note"
+                        size="sm"
+                        onClick={() => {
+                          if (newNote.trim() && selectedLeadId) {
+                            addNoteMutation.mutate({ leadId: selectedLeadId, content: newNote });
+                          }
+                        }}
+                        disabled={!newNote.trim() || addNoteMutation.isPending}
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        {addNoteMutation.isPending ? 'Adding...' : 'Add Note'}
+                      </Button>
+                    </div>
+
+                    <Separator />
+
+                    <div className="space-y-3">
+                      {(leadDetail.notes?.length || 0) === 0 ? (
+                        <p className="text-sm text-slate-500 text-center py-4">No notes yet</p>
+                      ) : (
+                        leadDetail.notes?.map((note) => (
+                          <div key={note.id} data-testid={`note-item-${note.id}`} className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3">
+                            <div className="flex items-start justify-between">
+                              <p className="text-sm text-slate-700 dark:text-slate-300 flex-1">{note.content}</p>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                data-testid={`button-delete-note-${note.id}`}
+                                onClick={() => {
+                                  if (selectedLeadId) {
+                                    deleteNoteMutation.mutate({ leadId: selectedLeadId, noteId: note.id });
+                                  }
+                                }}
+                                className="text-slate-400 hover:text-red-500 -mr-2 -mt-1"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                            <p className="text-xs text-slate-400 mt-2">{formatDate(note.createdAt)}</p>
+                          </div>
+                        ))
                       )}
-                      <div className="flex items-center gap-2">
-                        <MapPin className="h-4 w-4 text-slate-400" />
-                        <span data-testid="text-detail-address">{selectedLead.propertyAddress}, {selectedLead.city}, {selectedLead.state} {selectedLead.zip}</span>
-                      </div>
                     </div>
-                  </div>
+                  </TabsContent>
 
-                  <Separator />
-
-                  <div className="space-y-3">
-                    <h4 className="font-medium text-slate-900 dark:text-white">Quick Actions</h4>
-                    <div className="grid grid-cols-2 gap-2">
-                      <Button variant="outline" size="sm" className="w-full" data-testid="button-action-call">
-                        <Phone className="h-4 w-4 mr-2" />
-                        Call
-                      </Button>
-                      <Button variant="outline" size="sm" className="w-full" data-testid="button-action-text">
-                        <MessageSquare className="h-4 w-4 mr-2" />
-                        Text
-                      </Button>
-                      <Button variant="outline" size="sm" className="w-full" data-testid="button-action-email">
-                        <Mail className="h-4 w-4 mr-2" />
-                        Email
-                      </Button>
-                      <Button variant="outline" size="sm" className="w-full" data-testid="button-action-quote">
-                        <FileText className="h-4 w-4 mr-2" />
-                        Quote
-                      </Button>
-                    </div>
-                  </div>
-
-                  {selectedLead.description && (
-                    <>
-                      <Separator />
-                      <div className="space-y-2">
-                        <h4 className="font-medium text-slate-900 dark:text-white">Description</h4>
-                        <p data-testid="text-detail-description" className="text-sm text-slate-600 dark:text-slate-400">{selectedLead.description}</p>
-                      </div>
-                    </>
-                  )}
-
-                  <Separator />
-
-                  <div className="space-y-3">
-                    <h4 className="font-medium text-slate-900 dark:text-white">Move to Stage</h4>
-                    <div className="flex flex-wrap gap-2">
-                      {stages.filter(s => s.id !== selectedLead.stage && s.id !== 'lost').map(stage => (
+                  <TabsContent value="communicate" className="space-y-4 mt-0">
+                    <div className="space-y-3">
+                      <h4 className="font-medium text-slate-900 dark:text-white">Log Communication</h4>
+                      
+                      <div className="grid grid-cols-3 gap-2">
                         <Button
-                          key={stage.id}
-                          data-testid={`button-move-to-${stage.id}`}
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            updateStageMutation.mutate({ leadId: selectedLead.id, stage: stage.id });
-                            setSelectedLead(null);
-                          }}
-                          style={{ borderColor: stage.color, color: stage.color }}
+                          variant={commType === 'call' ? 'default' : 'outline'}
+                          data-testid="button-comm-type-call"
+                          onClick={() => setCommType('call')}
                         >
-                          {stage.label}
+                          <PhoneCall className="h-4 w-4 mr-2" />
+                          Call
                         </Button>
-                      ))}
-                    </div>
-                  </div>
+                        <Button
+                          variant={commType === 'text' ? 'default' : 'outline'}
+                          data-testid="button-comm-type-text"
+                          onClick={() => setCommType('text')}
+                        >
+                          <MessageSquare className="h-4 w-4 mr-2" />
+                          Text
+                        </Button>
+                        <Button
+                          variant={commType === 'email' ? 'default' : 'outline'}
+                          data-testid="button-comm-type-email"
+                          onClick={() => setCommType('email')}
+                        >
+                          <Mail className="h-4 w-4 mr-2" />
+                          Email
+                        </Button>
+                      </div>
 
-                  {selectedLead.stage !== 'lost' && selectedLead.stage !== 'job_completed' && (
-                    <Button
-                      variant="destructive"
-                      className="w-full"
-                      data-testid="button-mark-lost"
-                      onClick={() => {
-                        updateStageMutation.mutate({ leadId: selectedLead.id, stage: 'lost' });
-                        setSelectedLead(null);
-                      }}
-                    >
-                      <XCircle className="h-4 w-4 mr-2" />
-                      Mark as Lost
-                    </Button>
-                  )}
-                </div>
-              </div>
+                      <Textarea
+                        data-testid="input-comm-notes"
+                        placeholder={`Notes about this ${commType}...`}
+                        value={commNotes}
+                        onChange={(e) => setCommNotes(e.target.value)}
+                        className="min-h-[100px]"
+                      />
+
+                      <Button
+                        data-testid="button-log-communication"
+                        className="w-full"
+                        onClick={() => {
+                          if (selectedLeadId && commNotes.trim()) {
+                            addCommunicationMutation.mutate({ 
+                              leadId: selectedLeadId, 
+                              type: commType, 
+                              notes: commNotes.trim()
+                            });
+                          }
+                        }}
+                        disabled={!commNotes.trim() || addCommunicationMutation.isPending}
+                      >
+                        <Send className="h-4 w-4 mr-2" />
+                        {addCommunicationMutation.isPending ? 'Logging...' : `Log ${commType.charAt(0).toUpperCase() + commType.slice(1)}`}
+                      </Button>
+                    </div>
+
+                    <Separator />
+
+                    <div className="space-y-3">
+                      <h4 className="font-medium text-slate-900 dark:text-white">Quick Actions</h4>
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button variant="outline" size="sm" className="w-full" data-testid="button-quick-call" asChild>
+                          <a href={`tel:${leadDetail.customerPhone}`}>
+                            <Phone className="h-4 w-4 mr-2" />
+                            Call Now
+                          </a>
+                        </Button>
+                        <Button variant="outline" size="sm" className="w-full" data-testid="button-quick-text" asChild>
+                          <a href={`sms:${leadDetail.customerPhone}`}>
+                            <MessageSquare className="h-4 w-4 mr-2" />
+                            Send Text
+                          </a>
+                        </Button>
+                        {leadDetail.customerEmail && (
+                          <Button variant="outline" size="sm" className="w-full col-span-2" data-testid="button-quick-email" asChild>
+                            <a href={`mailto:${leadDetail.customerEmail}`}>
+                              <Mail className="h-4 w-4 mr-2" />
+                              Send Email
+                            </a>
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+
+                    <Separator />
+
+                    <div className="space-y-2">
+                      <h4 className="font-medium text-slate-900 dark:text-white">Communication History</h4>
+                      {(leadDetail.communications?.length || 0) === 0 ? (
+                        <p className="text-sm text-slate-500 text-center py-4">No communications logged yet</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {leadDetail.communications?.slice(0, 5).map((comm) => (
+                            <div key={comm.id} data-testid={`comm-item-${comm.id}`} className="flex items-start gap-3 p-2 bg-slate-50 dark:bg-slate-800 rounded">
+                              <div className="p-1.5 rounded bg-blue-100 dark:bg-blue-900 text-blue-600">
+                                {getCommIcon(comm.type || '')}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium">{comm.type?.charAt(0).toUpperCase()}{comm.type?.slice(1)} - {comm.outcome}</p>
+                                {comm.notes && <p className="text-xs text-slate-500 truncate">{comm.notes}</p>}
+                                <p className="text-xs text-slate-400">{formatDate(comm.createdAt)}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </TabsContent>
+                </ScrollArea>
+              </Tabs>
             </>
-          )}
+          ) : null}
         </DialogContent>
       </Dialog>
     </div>

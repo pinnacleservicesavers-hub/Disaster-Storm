@@ -1,0 +1,107 @@
+This is a classic (and very smart) marketplace question, and the decision you make here will directly affect adoption, revenue, and trust. I’ll give you a clear recommendation first, then explain why, plus an exact structure you can implement.
+
+Short Answer (Best Practice)
+
+Yes, add contractors to the app, but gate lead access until they pay.
+
+👉 Do NOT make the app empty on day one.
+👉 Do NOT give free leads to unpaid contractors.
+
+The Winning Model (Proven & Scalable)
+1️⃣ Customers: 100% Free (No Friction)
+
+Customers can:
+
+Request services
+
+Submit jobs
+
+Browse categories
+
+No payment, no login wall if possible
+
+Why:
+Customers create the demand. Demand is your leverage.
+
+2️⃣ Contractors: Pre-Listed but “Locked”
+
+Add contractors to your platform before they pay, but:
+
+Unpaid contractors can:
+
+See their profile exists
+
+Claim their business
+
+Edit basic info (logo, services, service area)
+
+See lead notifications blurred/locked
+
+Unpaid contractors CANNOT:
+
+See customer phone numbers
+
+Receive calls or texts
+
+Message customers
+
+Accept jobs
+
+Example notification:
+“New Lead Available – Upgrade to Unlock”
+
+3️⃣ Paid Contractors: Full Access
+
+Once they subscribe monthly, they get:
+
+Real-time leads
+
+Calls & texts
+
+In-app messaging
+
+CRM tools
+
+Job tracking
+
+Reviews & ranking boost
+
+Why This Works (Psychology + Business)
+🔥 1. Social Proof from Day One
+
+When customers open the app and see:
+
+“23 contractors available in your area”
+
+…it feels legit.
+
+An empty app = no trust.
+
+💰 2. Contractors Pay Faster When They See Demand
+
+Nothing converts like:
+
+“You have 4 missed leads this week.”
+
+This creates FOMO and urgency.
+
+🚫 3. Prevents Free Riders
+
+If contractors must pay before even being listed, many won’t.
+
+If contractors get leads without paying, they never will.
+
+This model avoids both problems.
+
+Subscription Positioning (Important)
+
+Do NOT position it as:
+
+“Pay us to be listed.”
+
+Instead say:
+
+“Get exclusive, verified local leads delivered directly to you.”
+
+Listing = free
+Leads = paid
