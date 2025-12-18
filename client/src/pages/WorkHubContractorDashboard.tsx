@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Link } from 'wouter';
+import { Link } from 'react-router-dom';
 import {
   LayoutDashboard, Users, Calendar, Briefcase, CreditCard,
   Star, TrendingUp, Image, Settings, Bell, Search,
@@ -183,7 +183,7 @@ export default function WorkHubContractorDashboard() {
           <div className="flex items-center justify-between">
             <div>
               <div className="flex items-center gap-2 text-slate-400 text-sm mb-1">
-                <Link href="/workhub" className="hover:text-white">WorkHub</Link>
+                <Link to="/workhub" className="hover:text-white">WorkHub</Link>
                 <ChevronRight className="w-4 h-4" />
                 <span>Contractor Dashboard</span>
               </div>
@@ -383,7 +383,7 @@ export default function WorkHubContractorDashboard() {
                       <p className="text-sm text-slate-600">Let AI call customers and close deals for you</p>
                     </div>
                   </div>
-                  <Link href="/workhub/closebot">
+                  <Link to="/workhub/closebot">
                     <Button className="bg-gradient-to-r from-purple-600 to-indigo-600" data-testid="button-closebot">
                       Launch CloseBot
                       <ArrowUpRight className="w-4 h-4 ml-2" />
@@ -450,7 +450,7 @@ export default function WorkHubContractorDashboard() {
               </CardHeader>
               <CardContent>
                 <p className="text-slate-600">AI-powered scheduling coming soon. Set your availability and let AI coordinate with customers automatically.</p>
-                <Link href="/workhub/calendarsync">
+                <Link to="/workhub/calendarsync">
                   <Button className="mt-4" data-testid="button-calendarsync">
                     Open CalendarSync
                     <ArrowUpRight className="w-4 h-4 ml-2" />
@@ -484,7 +484,7 @@ export default function WorkHubContractorDashboard() {
                     <p className="text-2xl font-bold text-blue-700">$19,650</p>
                   </div>
                 </div>
-                <Link href="/workhub/paystream">
+                <Link to="/workhub/paystream">
                   <Button data-testid="button-paystream">
                     Manage Payments
                     <ArrowUpRight className="w-4 h-4 ml-2" />
@@ -525,7 +525,7 @@ export default function WorkHubContractorDashboard() {
                     </p>
                   </div>
                 </div>
-                <Link href="/workhub/reviewrocket">
+                <Link to="/workhub/reviewrocket">
                   <Button data-testid="button-reviewrocket">
                     Manage Reviews
                     <ArrowUpRight className="w-4 h-4 ml-2" />

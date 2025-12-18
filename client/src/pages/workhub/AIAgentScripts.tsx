@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'wouter';
+import { Link } from 'react-router-dom';
 import { 
   Phone, MessageSquare, Mail, Clock, CheckCircle, AlertCircle,
   Volume2, VolumeX, Play, Pause, Copy, Edit, Sparkles, Bot

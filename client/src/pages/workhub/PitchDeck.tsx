@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'wouter';
+import { Link } from 'react-router-dom';
 import { 
   Rocket, Target, TrendingUp, Users, DollarSign, Shield, 
   Zap, Brain, Phone, Star, BarChart3, Globe, Volume2, VolumeX,

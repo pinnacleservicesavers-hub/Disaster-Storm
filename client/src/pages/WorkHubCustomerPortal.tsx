@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Link } from 'wouter';
+import { Link } from 'react-router-dom';
 import {
   Camera, Video, Upload, MapPin, Sparkles, CheckCircle,
   ArrowRight, ArrowLeft, Image, Loader2, Volume2, VolumeX,
@@ -668,7 +668,7 @@ export default function WorkHubCustomerPortal() {
       <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-12 px-4">
         <div className="max-w-4xl mx-auto">
           <div className="flex items-center gap-2 mb-4">
-            <Link href="/workhub" className="text-purple-200 hover:text-white">
+            <Link to="/workhub" className="text-purple-200 hover:text-white">
               WorkHub
             </Link>
             <ChevronRight className="w-4 h-4 text-purple-200" />

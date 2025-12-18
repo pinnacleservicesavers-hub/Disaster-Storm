@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Link } from 'wouter';
+import { Link } from 'react-router-dom';
 import { 
   Camera, DollarSign, Users, Calendar, Briefcase, Shield, 
   Bot, CreditCard, Star, TrendingUp, Wallet, Image,
@@ -276,13 +276,13 @@ export default function WorkHubMarketplace() {
               transition={{ delay: 0.3 }}
               className="flex flex-wrap justify-center gap-4 mb-12"
             >
-              <Link href="/workhub/customer">
+              <Link to="/workhub/customer">
                 <Button size="lg" className="bg-white text-purple-700 hover:bg-white/90 h-14 px-8 text-lg font-semibold shadow-xl" data-testid="button-customer-portal">
                   <Camera className="w-5 h-5 mr-2" />
                   I Need Work Done
                 </Button>
               </Link>
-              <Link href="/workhub/contractor">
+              <Link to="/workhub/contractor">
                 <Button size="lg" variant="outline" className="border-2 border-white text-white hover:bg-white/10 h-14 px-8 text-lg font-semibold" data-testid="button-contractor-portal">
                   <Hammer className="w-5 h-5 mr-2" />
                   I'm a Contractor
@@ -408,7 +408,7 @@ export default function WorkHubMarketplace() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: idx * 0.05 }}
             >
-              <Link href={module.path}>
+              <Link to={module.path}>
                 <Card className={`h-full cursor-pointer transition-all hover:scale-[1.02] hover:shadow-xl ${module.bgPattern} border-0`} data-testid={`module-${module.id}`}>
                   <CardHeader className="pb-3">
                     <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${module.color} flex items-center justify-center mb-3`}>
@@ -526,7 +526,7 @@ export default function WorkHubMarketplace() {
           </p>
         </div>
         <div className="grid md:grid-cols-4 gap-6">
-          <Link href="/workhub/pricing">
+          <Link to="/workhub/pricing">
             <Card className="group hover:shadow-xl transition-all cursor-pointer border-0 bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 h-full" data-testid="card-pricing-plans">
               <CardContent className="pt-6">
                 <DollarSign className="w-10 h-10 text-purple-600 mb-4 group-hover:scale-110 transition-transform" />
@@ -537,7 +537,7 @@ export default function WorkHubMarketplace() {
               </CardContent>
             </Card>
           </Link>
-          <Link href="/workhub/scripts">
+          <Link to="/workhub/scripts">
             <Card className="group hover:shadow-xl transition-all cursor-pointer border-0 bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 h-full" data-testid="card-ai-scripts">
               <CardContent className="pt-6">
                 <Bot className="w-10 h-10 text-emerald-600 mb-4 group-hover:scale-110 transition-transform" />
@@ -548,7 +548,7 @@ export default function WorkHubMarketplace() {
               </CardContent>
             </Card>
           </Link>
-          <Link href="/workhub/pitch">
+          <Link to="/workhub/pitch">
             <Card className="group hover:shadow-xl transition-all cursor-pointer border-0 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 h-full" data-testid="card-pitch-deck">
               <CardContent className="pt-6">
                 <TrendingUp className="w-10 h-10 text-amber-600 mb-4 group-hover:scale-110 transition-transform" />
@@ -559,7 +559,7 @@ export default function WorkHubMarketplace() {
               </CardContent>
             </Card>
           </Link>
-          <Link href="/workhub/legal">
+          <Link to="/workhub/legal">
             <Card className="group hover:shadow-xl transition-all cursor-pointer border-0 bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 h-full" data-testid="card-legal-terms">
               <CardContent className="pt-6">
                 <Shield className="w-10 h-10 text-blue-600 mb-4 group-hover:scale-110 transition-transform" />
@@ -583,13 +583,13 @@ export default function WorkHubMarketplace() {
             Join thousands of contractors using WorkHub to grow their business
           </p>
           <div className="flex flex-wrap justify-center gap-4">
-            <Link href="/workhub/contractor/register">
+            <Link to="/workhub/contractor/register">
               <Button size="lg" className="bg-white text-purple-700 hover:bg-white/90 h-14 px-8 text-lg" data-testid="button-join-contractor">
                 Join as Contractor
                 <ArrowRight className="w-5 h-5 ml-2" />
               </Button>
             </Link>
-            <Link href="/workhub/customer">
+            <Link to="/workhub/customer">
               <Button size="lg" variant="outline" className="border-2 border-white text-white hover:bg-white/10 h-14 px-8 text-lg" data-testid="button-start-project">
                 Start a Project
               </Button>
