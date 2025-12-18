@@ -94,18 +94,18 @@ export default function LandingPage() {
 
                 <div className="space-y-4 mb-6">
                   <Link to="/dashboard" className="block">
-                    <div className="bg-amber-900/40 border border-amber-500/30 rounded-lg p-4 hover:border-amber-400/50 transition-all group/card">
+                    <div className="bg-blue-900/40 border border-cyan-500/30 rounded-lg p-4 hover:border-cyan-400/50 transition-all group/card">
                       <div className="flex items-center gap-3 mb-2">
-                        <AlertTriangle className="w-6 h-6 text-amber-400" />
-                        <h3 className="text-xl font-bold text-white">Storm Response</h3>
+                        <AlertTriangle className="w-6 h-6 text-cyan-400" />
+                        <h3 className="text-xl font-bold text-white">Disaster Direct Storm Response</h3>
                       </div>
                       <p className="text-slate-300 text-sm mb-3">
                         Hurricanes, tornadoes, hail damage - AI-powered tools for emergency storm work and insurance claims.
                       </p>
                       <div className="flex flex-wrap gap-2">
-                        <span className="px-2 py-1 bg-amber-500/20 text-amber-300 text-xs rounded">Weather Intel</span>
-                        <span className="px-2 py-1 bg-amber-500/20 text-amber-300 text-xs rounded">AI Damage Detection</span>
-                        <span className="px-2 py-1 bg-amber-500/20 text-amber-300 text-xs rounded">Claims Processing</span>
+                        <span className="px-2 py-1 bg-cyan-500/20 text-cyan-300 text-xs rounded">Weather Intel</span>
+                        <span className="px-2 py-1 bg-cyan-500/20 text-cyan-300 text-xs rounded">AI Damage Detection</span>
+                        <span className="px-2 py-1 bg-cyan-500/20 text-cyan-300 text-xs rounded">Claims Processing</span>
                       </div>
                     </div>
                   </Link>

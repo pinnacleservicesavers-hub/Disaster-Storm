@@ -78,10 +78,10 @@ export default function TopNav() {
                 <>
                   <Link 
                     to="/dashboard" 
-                    className="px-3 py-1.5 rounded-md bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 transition-colors font-medium"
-                    data-testid="nav-storm-response"
+                    className="px-3 py-1.5 rounded-md bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 transition-colors font-medium"
+                    data-testid="nav-disaster-direct"
                   >
-                    Storm Response
+                    Disaster Direct
                   </Link>
                   <Link 
                     to="/workhub/contractor" 
