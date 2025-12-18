@@ -24,6 +24,9 @@
 import express from "express";
 import cors from "cors";
 import multer from "multer";
+import { db } from "./db";
+import { customerSubmissions } from "@shared/schema";
+import { eq, desc } from "drizzle-orm";
 import path from "path";
 import fs from "fs";
 import cron from "node-cron";
@@ -13510,6 +13513,251 @@ What specific area or type of incident would you like me to focus on? I can prov
   });
 
   console.log('🏠 WorkHub AI analysis routes registered');
+
+  // ============================================================
+  // WORKHUB CUSTOMER SUBMISSIONS ENDPOINTS
+  // ============================================================
+
+  // Save customer submission with AI analysis
+  app.post('/api/workhub/submissions', express.json({ limit: '50mb' }), async (req, res) => {
+    try {
+      const { 
+        workType, customerName, email, phone, address, city, state, zip,
+        description, photoUrls, aiAnalysis, estimatedPrice, budgetConfirmed,
+        budgetReason, matchedContractors, urgency
+      } = req.body;
+
+      if (!workType || !customerName || !email) {
+        return res.status(400).json({ error: 'Work type, customer name, and email are required' });
+      }
+
+      const [submission] = await db.insert(customerSubmissions).values({
+        workType,
+        customerName,
+        email,
+        phone,
+        address,
+        city,
+        state,
+        zip,
+        description,
+        photoUrls,
+        aiAnalysis,
+        estimatedPrice,
+        budgetConfirmed,
+        budgetReason,
+        matchedContractors,
+        urgency,
+        status: 'pending'
+      }).returning();
+
+      console.log('📋 Customer submission saved:', submission.id);
+
+      res.json({
+        ok: true,
+        submission,
+        message: budgetConfirmed 
+          ? 'Thank you! Matched contractors will contact you shortly.'
+          : 'We\'ve noted your budget concerns. Our team will review options for you.'
+      });
+
+    } catch (error) {
+      console.error('Customer submission error:', error);
+      res.status(500).json({ 
+        error: 'Failed to save submission',
+        message: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Get all customer submissions (admin endpoint)
+  app.get('/api/workhub/admin/submissions', async (req, res) => {
+    try {
+      const { workType, status } = req.query;
+
+      // Build filter conditions
+      const conditions: any[] = [];
+      
+      if (workType && typeof workType === 'string') {
+        conditions.push(eq(customerSubmissions.workType, workType));
+      }
+      
+      if (status && typeof status === 'string') {
+        conditions.push(eq(customerSubmissions.status, status));
+      }
+
+      let submissions;
+      if (conditions.length > 0) {
+        const { and } = await import('drizzle-orm');
+        submissions = await db.select().from(customerSubmissions)
+          .where(and(...conditions))
+          .orderBy(desc(customerSubmissions.createdAt));
+      } else {
+        submissions = await db.select().from(customerSubmissions)
+          .orderBy(desc(customerSubmissions.createdAt));
+      }
+
+      // Group by work type for admin view
+      const grouped: Record<string, typeof submissions> = {};
+      submissions.forEach(sub => {
+        if (!grouped[sub.workType]) {
+          grouped[sub.workType] = [];
+        }
+        grouped[sub.workType].push(sub);
+      });
+
+      res.json({
+        ok: true,
+        submissions,
+        grouped,
+        total: submissions.length
+      });
+
+    } catch (error) {
+      console.error('Admin fetch submissions error:', error);
+      res.status(500).json({ 
+        error: 'Failed to fetch submissions',
+        message: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Delete customer submission (admin endpoint)
+  app.delete('/api/workhub/admin/submissions/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const submissionId = parseInt(id, 10);
+
+      if (isNaN(submissionId)) {
+        return res.status(400).json({ error: 'Invalid submission ID' });
+      }
+
+      const [deleted] = await db
+        .delete(customerSubmissions)
+        .where(eq(customerSubmissions.id, submissionId))
+        .returning();
+
+      if (!deleted) {
+        return res.status(404).json({ error: 'Submission not found' });
+      }
+
+      console.log('🗑️ Customer submission deleted:', submissionId);
+
+      res.json({
+        ok: true,
+        deleted,
+        message: 'Submission deleted successfully'
+      });
+
+    } catch (error) {
+      console.error('Admin delete submission error:', error);
+      res.status(500).json({ 
+        error: 'Failed to delete submission',
+        message: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Update submission status (admin endpoint)
+  app.patch('/api/workhub/admin/submissions/:id', express.json(), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const submissionId = parseInt(id, 10);
+      const { status, afterPreviewUrl } = req.body;
+
+      if (isNaN(submissionId)) {
+        return res.status(400).json({ error: 'Invalid submission ID' });
+      }
+
+      const updateData: Record<string, any> = {};
+      if (status) updateData.status = status;
+      if (afterPreviewUrl) updateData.afterPreviewUrl = afterPreviewUrl;
+
+      const [updated] = await db
+        .update(customerSubmissions)
+        .set(updateData)
+        .where(eq(customerSubmissions.id, submissionId))
+        .returning();
+
+      if (!updated) {
+        return res.status(404).json({ error: 'Submission not found' });
+      }
+
+      res.json({
+        ok: true,
+        submission: updated
+      });
+
+    } catch (error) {
+      console.error('Admin update submission error:', error);
+      res.status(500).json({ 
+        error: 'Failed to update submission',
+        message: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Generate AI "after" preview image
+  app.post('/api/workhub/generate-after-preview', express.json({ limit: '10mb' }), async (req, res) => {
+    try {
+      const { beforeImageBase64, workType, description } = req.body;
+
+      if (!beforeImageBase64) {
+        return res.status(400).json({ error: 'Before image is required' });
+      }
+
+      // Generate appropriate "after" description based on work type
+      const afterDescriptions: Record<string, string> = {
+        tree: 'Show the same area but with the tree completely removed, stump ground down, and fresh grass growing in its place. The yard looks clean and well-maintained.',
+        tree_removal: 'Show the same area but with the tree completely removed, stump ground down, and fresh grass growing in its place. The yard looks clean and well-maintained.',
+        roofing: 'Show the same roof but with brand new, perfectly installed shingles, clean gutters, and no visible damage.',
+        painting: 'Show the same area with a fresh, professional paint job, clean lines, and no peeling or damage.',
+        fencing: 'Show a new, sturdy fence installed in the same area, straight and properly finished.',
+        concrete: 'Show the same area with smooth, newly poured concrete, level and free of cracks.',
+        flooring: 'Show the same room with beautiful new flooring installed, clean and level.',
+        general: 'Show the completed professional repair work on the same area.'
+      };
+
+      const afterDescription = afterDescriptions[workType] || afterDescriptions.general;
+      const fullPrompt = `Transform this "before" image to show the "after" result: ${afterDescription} ${description || ''} Keep the same perspective and surroundings but show the completed work.`;
+
+      console.log('🎨 Generating after preview for:', workType);
+
+      // Use OpenAI for image editing/generation
+      const OpenAI = (await import('openai')).default;
+      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+      // Generate an artistic vision of the completed work
+      const response = await openai.images.generate({
+        model: 'dall-e-3',
+        prompt: fullPrompt,
+        n: 1,
+        size: '1024x1024',
+        quality: 'standard'
+      });
+
+      const imageUrl = response.data[0]?.url;
+
+      if (!imageUrl) {
+        throw new Error('Failed to generate after preview image');
+      }
+
+      res.json({
+        ok: true,
+        afterPreviewUrl: imageUrl,
+        description: afterDescription
+      });
+
+    } catch (error) {
+      console.error('After preview generation error:', error);
+      res.status(500).json({ 
+        error: 'Failed to generate after preview',
+        message: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  console.log('📝 WorkHub customer submission routes registered');
 
   const httpServer = createServer(app);
   return httpServer;

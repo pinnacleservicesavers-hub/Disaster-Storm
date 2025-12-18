@@ -1,0 +1,145 @@
+🔷 COMPANY BRAND
+Strategic Service Savers
+
+Positioning Statement:
+
+Strategic Service Savers uses AI to qualify, schedule, and streamline contractor estimates—saving homeowners time and contractors money.
+
+🔹 FEATURE NAME (UNDER YOUR BRAND)
+
+You were right — this deserves its own named system.
+
+🏆 OFFICIAL FEATURE NAME
+Strategic SmartBid™
+
+What it means:
+
+Strategic → intentional, controlled, fair
+
+Smart → AI-driven
+
+Bid → contractor estimates
+
+Tagline Options:
+
+“Qualified estimates. Scheduled intelligently.”
+
+“No calls. No chaos. Just estimates.”
+
+“Where estimates happen on your schedule.”
+
+🧠 HOW SMARTBID™ FITS INSIDE STRATEGIC SERVICE SAVERS
+App Structure:
+
+Strategic Service Savers = the platform
+
+SmartBid™ = the AI engine that runs estimates & scheduling
+
+This is exactly how big companies do it (Uber → Dispatch, Amazon → Fulfillment).
+
+🔄 FULL SYSTEM FLOW (BRAND-LOCKED)
+👤 Homeowner Experience
+
+“Strategic Service Savers handles contractor scheduling for you using our SmartBid™ AI.”
+
+No phone calls
+
+No repeated explanations
+
+One day, multiple estimates
+
+Pressure-free experience
+
+🧑‍🔧 Contractor Experience
+
+“SmartBid™ delivers qualified, scheduled estimates—no chasing, no guesswork.”
+
+AI-qualified jobs only
+
+Budget known upfront
+
+Schedule controlled by contractor
+
+Less gas, less time wasted
+
+💰 MONETIZATION (STRATEGIC SERVICE SAVERS)
+🔵 Contractor Subscription (Required for SmartBid™)
+Plan	Price	Access
+Starter	$79/mo	Limited SmartBid™ estimates
+Pro	$129/mo	Unlimited SmartBid™ estimates
+Elite	$199/mo	Priority SmartBid™ placement + schedule preference
+
+💡 Language to use:
+
+“Subscription grants access to SmartBid™ estimate scheduling.”
+
+Not:
+
+“Pay for leads.”
+
+🛡️ LEGAL POSITIONING (BRAND-SAFE)
+
+Use this wording consistently:
+
+“Strategic Service Savers is a marketplace and scheduling platform.”
+
+“SmartBid™ provides informational estimates only.”
+
+“Final pricing and work are provided solely by independent contractors.”
+
+This protects the parent brand while letting SmartBid™ shine.
+
+🧩 APP MENU STRUCTURE (CLEAN)
+Homeowners See:
+
+Request Service
+
+My Estimates
+
+Scheduled Appointments
+
+Messages
+
+Support
+
+Contractors See:
+
+SmartBid™ Requests
+
+My Schedule
+
+Submit Estimate
+
+Profile & Verification
+
+Subscription
+
+🚀 WHY THIS BRAND WORKS LONG-TERM
+
+Strategic Service Savers can later expand into:
+
+Auto services
+
+Commercial services
+
+Facility management
+
+Government & nonprofit partnerships
+
+SmartBid™ stays the core engine.
+
+Final Recommendation (Important)
+
+Do NOT change the company name again.
+Do NOT overcomplicate the feature name.
+
+👉 Strategic Service Savers + SmartBid™ is clean, defensible, and scalable.
+
+Next Steps (Choose One)
+
+I can next:
+1️⃣ Draft Terms of Service & disclaimers using your brand
+2️⃣ Build MVP feature list for devs
+3️⃣ Write investor pitch language
+4️⃣ Create AI prompt system architecture
+5️⃣ Design contractor onboarding flow

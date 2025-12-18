@@ -62,6 +62,13 @@ export default function WorkHubCustomerPortal() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState<any>(null);
   const [isVoiceActive, setIsVoiceActive] = useState(false);
+  const [budgetConfirmed, setBudgetConfirmed] = useState<boolean | null>(null);
+  const [budgetReason, setBudgetReason] = useState('');
+  const [showContractors, setShowContractors] = useState(false);
+  const [afterPreviewUrl, setAfterPreviewUrl] = useState<string | null>(null);
+  const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submissionComplete, setSubmissionComplete] = useState(false);
   const [request, setRequest] = useState<ProjectRequest>({
     category: '',
     description: '',
@@ -228,6 +235,113 @@ export default function WorkHubCustomerPortal() {
       speakGuidance("I've received your photos. A professional inspection will provide a detailed estimate.");
     } finally {
       setIsAnalyzing(false);
+    }
+  };
+
+  // Handle budget confirmation
+  const handleBudgetConfirm = async (confirmed: boolean) => {
+    setBudgetConfirmed(confirmed);
+    
+    if (confirmed) {
+      setShowContractors(true);
+      speakGuidance("Great! Here are your matched contractors. They will contact you soon to discuss your project.");
+      
+      // Generate after preview for visualization
+      if (previewUrls.length > 0 && !afterPreviewUrl) {
+        generateAfterPreview();
+      }
+    } else {
+      speakGuidance("We understand budget concerns. Please share more details. Our team works with non-profit organizations that may be able to assist with your project.");
+    }
+  };
+
+  // Generate AI "after" preview image
+  const generateAfterPreview = async () => {
+    if (!previewUrls.length || !request.photos.length) return;
+    
+    setIsGeneratingPreview(true);
+    try {
+      const firstPhoto = request.photos[0];
+      const reader = new FileReader();
+      
+      reader.onload = async () => {
+        const base64 = (reader.result as string).split(',')[1];
+        
+        const response = await fetch('/api/workhub/generate-after-preview', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            beforeImageBase64: base64,
+            workType: request.category || aiAnalysis?.detectedCategory || 'general',
+            description: request.description
+          }),
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          setAfterPreviewUrl(data.afterPreviewUrl);
+          speakGuidance("I've generated a preview of how your project could look when completed.");
+        }
+      };
+      
+      reader.readAsDataURL(firstPhoto);
+    } catch (error) {
+      console.error('After preview generation error:', error);
+    } finally {
+      setIsGeneratingPreview(false);
+    }
+  };
+
+  // Submit customer request to backend
+  const submitCustomerRequest = async () => {
+    if (!request.contact.name || !request.contact.email) {
+      speakGuidance("Please provide your name and email so contractors can reach you.");
+      return;
+    }
+    
+    setIsSubmitting(true);
+    try {
+      const response = await fetch('/api/workhub/submissions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          workType: request.category || aiAnalysis?.detectedCategory || 'general',
+          customerName: request.contact.name,
+          email: request.contact.email,
+          phone: request.contact.phone,
+          address: request.location.address,
+          city: request.location.city,
+          state: request.location.state,
+          zip: request.location.zip,
+          description: request.description,
+          photoUrls: previewUrls,
+          aiAnalysis: aiAnalysis,
+          estimatedPrice: aiAnalysis?.estimatedPriceRange ? {
+            min: aiAnalysis.estimatedPriceRange.min,
+            max: aiAnalysis.estimatedPriceRange.max
+          } : null,
+          budgetConfirmed,
+          budgetReason: budgetReason || null,
+          afterPreviewUrl,
+          matchedContractors: aiAnalysis?.contractors || [],
+          urgency: request.preferences.urgency
+        }),
+      });
+      
+      if (response.ok) {
+        setSubmissionComplete(true);
+        speakGuidance(budgetConfirmed 
+          ? "Your request has been submitted! Matched contractors will contact you shortly."
+          : "Your request has been submitted. Our team will review options that fit your budget."
+        );
+      } else {
+        throw new Error('Submission failed');
+      }
+    } catch (error) {
+      console.error('Submission error:', error);
+      speakGuidance("There was an issue submitting your request. Please try again.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -401,13 +515,149 @@ export default function WorkHubCustomerPortal() {
                       </div>
                     </div>
                     
-                    {/* Matched Contractors Section */}
-                    {aiAnalysis.contractors && aiAnalysis.contractors.length > 0 && (
+                    {/* Budget Confirmation Section */}
+                    {budgetConfirmed === null && (
+                      <div className="mt-6 pt-4 border-t border-green-200 dark:border-green-800">
+                        <div className="text-center space-y-4">
+                          <h4 className="font-semibold text-lg text-slate-900 dark:text-white flex items-center justify-center gap-2">
+                            <DollarSign className="w-5 h-5 text-green-600" />
+                            Would you like to stay within this price range?
+                          </h4>
+                          <p className="text-sm text-slate-500 max-w-md mx-auto">
+                            This helps us match you with contractors who can work within your budget.
+                          </p>
+                          <div className="flex justify-center gap-4">
+                            <Button
+                              onClick={() => handleBudgetConfirm(true)}
+                              className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 px-8"
+                              data-testid="button-budget-yes"
+                            >
+                              <ThumbsUp className="w-4 h-4 mr-2" />
+                              Yes, this works for me
+                            </Button>
+                            <Button
+                              variant="outline"
+                              onClick={() => handleBudgetConfirm(false)}
+                              className="px-8"
+                              data-testid="button-budget-no"
+                            >
+                              I have budget concerns
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Budget Declined - Show reason input */}
+                    {budgetConfirmed === false && (
+                      <div className="mt-6 pt-4 border-t border-amber-200 dark:border-amber-800">
+                        <Card className="border-amber-200 bg-amber-50 dark:bg-amber-900/10">
+                          <CardContent className="pt-4 space-y-4">
+                            <h4 className="font-semibold text-amber-700 dark:text-amber-400 flex items-center gap-2">
+                              <MessageSquare className="w-4 h-4" />
+                              Tell us about your budget needs
+                            </h4>
+                            <Textarea
+                              placeholder="Share your budget constraints or what you can afford..."
+                              value={budgetReason}
+                              onChange={(e) => setBudgetReason(e.target.value)}
+                              className="min-h-[100px]"
+                              data-testid="input-budget-reason"
+                            />
+                            <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
+                              <p className="text-sm text-blue-700 dark:text-blue-300 flex items-start gap-2">
+                                <Shield className="w-4 h-4 mt-0.5 shrink-0" />
+                                <span>
+                                  <strong>Good news!</strong> We work with non-profit organizations that may be able to assist with your project costs. 
+                                  Our team will review your situation and explore all available options.
+                                </span>
+                              </p>
+                            </div>
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                variant="outline"
+                                onClick={() => setBudgetConfirmed(null)}
+                                data-testid="button-budget-back"
+                              >
+                                <ArrowLeft className="w-4 h-4 mr-2" />
+                                Back
+                              </Button>
+                              <Button
+                                onClick={() => setShowContractors(true)}
+                                className="bg-gradient-to-r from-amber-600 to-orange-600"
+                                data-testid="button-submit-budget-reason"
+                              >
+                                Continue with my request
+                                <ArrowRight className="w-4 h-4 ml-2" />
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </div>
+                    )}
+                    
+                    {/* Before/After Preview Section */}
+                    {(budgetConfirmed === true || showContractors) && previewUrls.length > 0 && (
                       <div className="mt-6 pt-4 border-t border-green-200 dark:border-green-800">
                         <h4 className="font-semibold text-green-700 dark:text-green-400 mb-3 flex items-center gap-2">
-                          <User className="w-4 h-4" />
-                          Available Contractors ({aiAnalysis.contractors.length})
+                          <Image className="w-4 h-4" />
+                          Project Preview
                         </h4>
+                        <div className="grid md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <p className="text-sm text-slate-500 text-center">Before</p>
+                            <div className="aspect-video rounded-lg overflow-hidden border-2 border-slate-200">
+                              <img src={previewUrls[0]} alt="Before" className="w-full h-full object-cover" />
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <p className="text-sm text-slate-500 text-center">After (AI Preview)</p>
+                            <div className="aspect-video rounded-lg overflow-hidden border-2 border-green-300 bg-green-50 dark:bg-green-900/10">
+                              {isGeneratingPreview ? (
+                                <div className="w-full h-full flex items-center justify-center">
+                                  <div className="text-center">
+                                    <Loader2 className="w-8 h-8 animate-spin text-green-600 mx-auto mb-2" />
+                                    <p className="text-sm text-slate-500">Generating preview...</p>
+                                  </div>
+                                </div>
+                              ) : afterPreviewUrl ? (
+                                <img src={afterPreviewUrl} alt="After Preview" className="w-full h-full object-cover" />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center">
+                                  <Button
+                                    variant="outline"
+                                    onClick={generateAfterPreview}
+                                    className="border-green-300 text-green-700 hover:bg-green-100"
+                                    data-testid="button-generate-preview"
+                                  >
+                                    <Sparkles className="w-4 h-4 mr-2" />
+                                    Generate Preview
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Matched Contractors Section - Only show after budget confirmed */}
+                    {(budgetConfirmed === true || showContractors) && aiAnalysis.contractors && aiAnalysis.contractors.length > 0 && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="mt-6 pt-4 border-t border-green-200 dark:border-green-800"
+                      >
+                        <h4 className="font-semibold text-green-700 dark:text-green-400 mb-3 flex items-center gap-2">
+                          <User className="w-4 h-4" />
+                          Your Matched Contractors ({aiAnalysis.contractors.length})
+                        </h4>
+                        <p className="text-sm text-slate-500 mb-4">
+                          {budgetConfirmed 
+                            ? "These contractors will contact you to discuss your project and provide detailed quotes."
+                            : "These contractors will review your budget situation and explore options with you."
+                          }
+                        </p>
                         <div className="grid gap-3">
                           {aiAnalysis.contractors.slice(0, 3).map((contractor: any, idx: number) => (
                             <div 
@@ -453,7 +703,7 @@ export default function WorkHubCustomerPortal() {
                             +{aiAnalysis.contractors.length - 3} more contractors available
                           </p>
                         )}
-                      </div>
+                      </motion.div>
                     )}
                   </CardContent>
                 </Card>
@@ -789,16 +1039,40 @@ export default function WorkHubCustomerPortal() {
               </CardContent>
             </Card>
 
-            <Button 
-              className="w-full h-14 text-lg bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
-              onClick={() => {
-                speakGuidance("Your project request has been submitted! You'll start receiving contractor estimates within 24 hours. I'll keep you updated on any new matches.");
-              }}
-              data-testid="button-submit-request"
-            >
-              <CheckCircle className="w-6 h-6 mr-2" />
-              Submit Project Request
-            </Button>
+            {submissionComplete ? (
+              <Card className="bg-green-50 dark:bg-green-900/20 border-green-200">
+                <CardContent className="py-8 text-center">
+                  <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
+                  <h3 className="text-xl font-bold text-green-800 dark:text-green-200 mb-2">
+                    Request Submitted Successfully!
+                  </h3>
+                  <p className="text-green-700 dark:text-green-300">
+                    {budgetConfirmed 
+                      ? "Matched contractors will contact you within 24 hours."
+                      : "Our team will review options that fit your budget."}
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <Button 
+                className="w-full h-14 text-lg bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
+                onClick={submitCustomerRequest}
+                disabled={isSubmitting}
+                data-testid="button-submit-request"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="w-6 h-6 mr-2 animate-spin" />
+                    Submitting...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="w-6 h-6 mr-2" />
+                    Submit Project Request
+                  </>
+                )}
+              </Button>
+            )}
           </div>
         );
 

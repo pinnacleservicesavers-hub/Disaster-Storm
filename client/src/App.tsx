@@ -65,6 +65,7 @@ const WorkHubAIAgentScripts = lazy(() => import("./pages/workhub/AIAgentScripts"
 const WorkHubLegalTerms = lazy(() => import("./pages/workhub/LegalTerms"));
 const WorkHubLeadPipeline = lazy(() => import("./pages/workhub/LeadPipeline"));
 const WorkHubJobSnap = lazy(() => import("./pages/workhub/JobSnap"));
+const WorkHubAdminSubmissions = lazy(() => import("./pages/workhub/AdminSubmissions"));
 
 // Loading indicator
 function Loader() {
@@ -194,6 +195,7 @@ export default function App() {
           <Route path="/workhub/legal" element={<WorkHubLegalTerms />} />
           <Route path="/workhub/leadpipeline" element={<WorkHubLeadPipeline />} />
           <Route path="/workhub/jobsnap" element={<WorkHubJobSnap />} />
+          <Route path="/workhub/admin/submissions" element={<WorkHubAdminSubmissions />} />
         </Routes>
       </Suspense>
     </>
