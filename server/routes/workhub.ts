@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import { z } from "zod";
 import { storage } from "../storage";
+import { smartBidAI, LeadQualificationInput } from "../services/smartBidAI";
 
 const router = Router();
 
@@ -811,6 +812,161 @@ router.get("/leads/analytics/lost", async (req: Request, res: Response) => {
   } catch (error) {
     console.error("Error fetching lost job report:", error);
     res.status(500).json({ error: "Failed to fetch lost job report" });
+  }
+});
+
+// ===== SMARTBID™ AI ROUTES =====
+
+const qualificationSchema = z.object({
+  customerName: z.string().min(1, "Customer name is required"),
+  projectDescription: z.string().min(10, "Please provide more details about your project"),
+  serviceType: z.string().min(1, "Service type is required"),
+  location: z.object({
+    city: z.string().min(1, "City is required"),
+    state: z.string().min(2, "State is required"),
+    zipCode: z.string().optional()
+  }),
+  budget: z.string().optional(),
+  urgency: z.enum(["flexible", "normal", "urgent", "emergency"]).optional(),
+  photos: z.array(z.string()).optional(),
+  customerPhone: z.string().optional(),
+  customerEmail: z.string().email().optional()
+});
+
+router.post("/smartbid/qualify", async (req: Request, res: Response) => {
+  try {
+    const validated = qualificationSchema.parse(req.body);
+    const qualification = await smartBidAI.qualifyLead(validated as LeadQualificationInput);
+    res.json({
+      success: true,
+      qualification,
+      message: qualification.isQualified 
+        ? "Your request has been qualified. We're finding the best contractors for you."
+        : "We need more information to process your request."
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({
+        success: false,
+        error: "Validation failed",
+        details: error.errors
+      });
+    }
+    console.error("SmartBid qualification error:", error);
+    res.status(500).json({ success: false, error: "Failed to qualify lead" });
+  }
+});
+
+router.post("/smartbid/match", async (req: Request, res: Response) => {
+  try {
+    const { qualifiedLead, location } = req.body;
+    
+    if (!qualifiedLead || !location) {
+      return res.status(400).json({
+        success: false,
+        error: "Qualified lead and location are required"
+      });
+    }
+    
+    const matches = await smartBidAI.matchContractors(qualifiedLead, location);
+    
+    const secureMatches = matches.map(match => ({
+      ...match,
+      contactInfo: null
+    }));
+    
+    res.json({
+      success: true,
+      matches: secureMatches,
+      matchCount: matches.length,
+      message: matches.length > 0 
+        ? `Found ${matches.length} qualified contractors for your project.`
+        : "No contractors currently available. We'll notify you when matches are found."
+    });
+  } catch (error) {
+    console.error("SmartBid matching error:", error);
+    res.status(500).json({ success: false, error: "Failed to match contractors" });
+  }
+});
+
+router.post("/smartbid/schedule", async (req: Request, res: Response) => {
+  try {
+    const { lead, contractor } = req.body;
+    
+    if (!lead) {
+      return res.status(400).json({
+        success: false,
+        error: "Lead information is required"
+      });
+    }
+    
+    const schedule = await smartBidAI.generateSchedulingRecommendation(lead, contractor);
+    
+    res.json({
+      success: true,
+      schedule,
+      message: "Scheduling options generated successfully."
+    });
+  } catch (error) {
+    console.error("SmartBid scheduling error:", error);
+    res.status(500).json({ success: false, error: "Failed to generate schedule" });
+  }
+});
+
+router.post("/smartbid/communicate", async (req: Request, res: Response) => {
+  try {
+    const { context, recipientType, purpose, keyPoints, includeContactInfo } = req.body;
+    
+    if (!context || !recipientType || !purpose || !keyPoints) {
+      return res.status(400).json({
+        success: false,
+        error: "Context, recipient type, purpose, and key points are required"
+      });
+    }
+    
+    const hasPayment = includeContactInfo === true;
+    
+    const message = await smartBidAI.generateCommunication(
+      context,
+      recipientType,
+      purpose,
+      keyPoints,
+      hasPayment
+    );
+    
+    res.json({
+      success: true,
+      message,
+      contactIncluded: hasPayment
+    });
+  } catch (error) {
+    console.error("SmartBid communication error:", error);
+    res.status(500).json({ success: false, error: "Failed to generate communication" });
+  }
+});
+
+router.get("/smartbid/prompts", async (req: Request, res: Response) => {
+  try {
+    const prompts = smartBidAI.getPrompts();
+    res.json({ success: true, prompts });
+  } catch (error) {
+    console.error("Error fetching prompts:", error);
+    res.status(500).json({ success: false, error: "Failed to fetch prompts" });
+  }
+});
+
+router.post("/smartbid/prompts", async (req: Request, res: Response) => {
+  try {
+    const updates = req.body;
+    smartBidAI.updatePrompts(updates);
+    res.json({ 
+      success: true, 
+      message: "SmartBid™ prompts updated successfully",
+      prompts: smartBidAI.getPrompts()
+    });
+  } catch (error) {
+    console.error("Error updating prompts:", error);
+    res.status(500).json({ success: false, error: "Failed to update prompts" });
   }
 });
 
