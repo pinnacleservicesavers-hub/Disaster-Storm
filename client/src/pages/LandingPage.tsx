@@ -2,7 +2,8 @@ import { Link } from 'react-router-dom';
 import { 
   Cloud, AlertTriangle, Camera, Users, FileText, Shield, 
   Wrench, TreePine, Paintbrush, Home, DollarSign, Calendar,
-  Star, Phone, CheckCircle2, TrendingUp, Building2, Sparkles, Zap
+  Star, Phone, CheckCircle2, TrendingUp, Building2, Sparkles, 
+  Zap, HardHat, UserCircle, ArrowRight
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -22,100 +23,123 @@ export default function LandingPage() {
             <h1 className="text-5xl md:text-6xl font-bold text-white mb-4">
               Welcome to <span className="bg-gradient-to-r from-purple-400 via-blue-400 to-green-400 bg-clip-text text-transparent">Strategic Service Savers</span>
             </h1>
-            <p className="text-xl text-slate-300 max-w-3xl mx-auto mb-8">
-              The complete contractor platform for emergency storm response and everyday home services. 
-              Choose your path below to get started.
+            <p className="text-xl text-slate-300 max-w-3xl mx-auto mb-4">
+              Connecting homeowners with trusted contractors for storm damage repair and everyday home services.
+            </p>
+            <p className="text-lg text-slate-400 max-w-2xl mx-auto">
+              Tell us who you are to get started
             </p>
           </div>
 
           <div className="grid lg:grid-cols-2 gap-8 mb-16">
-            <Card className="bg-gradient-to-br from-amber-900/40 to-orange-900/40 border-amber-500/30 overflow-hidden group hover:border-amber-400/50 transition-all duration-300">
+            <Card className="bg-gradient-to-br from-cyan-900/40 to-blue-900/40 border-cyan-500/30 overflow-hidden group hover:border-cyan-400/50 transition-all duration-300">
               <CardContent className="p-8">
                 <div className="flex items-center gap-4 mb-6">
-                  <div className="p-4 bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl shadow-lg">
-                    <AlertTriangle className="w-8 h-8 text-white" />
+                  <div className="p-4 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-xl shadow-lg">
+                    <Home className="w-8 h-8 text-white" />
                   </div>
                   <div>
-                    <h2 className="text-3xl font-bold text-white">Storm Response</h2>
-                    <p className="text-amber-300">Emergency Storm Operations</p>
+                    <h2 className="text-3xl font-bold text-white">I'm a Homeowner</h2>
+                    <p className="text-cyan-300">Need work done on my property</p>
                   </div>
                 </div>
 
                 <p className="text-slate-300 mb-6 text-lg">
-                  AI-powered storm operations platform for contractors responding to hurricanes, 
-                  tornadoes, hail storms, and natural disasters. Maximize insurance claims and 
-                  streamline emergency response.
+                  Get free quotes from verified contractors. Whether you need storm damage repair, 
+                  home improvements, or regular maintenance - we connect you with trusted professionals.
                 </p>
 
-                <div className="grid grid-cols-2 gap-4 mb-8">
-                  <FeatureItem icon={Cloud} text="Live Weather Intelligence" />
-                  <FeatureItem icon={Camera} text="AI Damage Detection" />
-                  <FeatureItem icon={AlertTriangle} text="Storm Predictions" />
-                  <FeatureItem icon={Users} text="Lead Management" />
-                  <FeatureItem icon={FileText} text="Claims Processing" />
-                  <FeatureItem icon={Shield} text="Legal Compliance" />
-                  <FeatureItem icon={TrendingUp} text="Contractor Deployment" />
-                  <FeatureItem icon={Building2} text="Property Data" />
+                <div className="grid grid-cols-1 gap-3 mb-8">
+                  <FeatureItem icon={Camera} text="Upload photos for instant AI analysis" color="cyan" />
+                  <FeatureItem icon={DollarSign} text="Get fair, transparent pricing" color="cyan" />
+                  <FeatureItem icon={Users} text="Match with verified local contractors" color="cyan" />
+                  <FeatureItem icon={Star} text="Read reviews from other homeowners" color="cyan" />
+                  <FeatureItem icon={Shield} text="Protected payments and guarantees" color="cyan" />
+                  <FeatureItem icon={Calendar} text="Easy online scheduling" color="cyan" />
                 </div>
 
-                <div className="bg-amber-950/50 rounded-lg p-4 mb-6">
-                  <h3 className="text-amber-300 font-semibold mb-2">Perfect For:</h3>
+                <div className="bg-cyan-950/50 rounded-lg p-4 mb-6">
+                  <h3 className="text-cyan-300 font-semibold mb-2">Services We Offer:</h3>
                   <p className="text-slate-300 text-sm">
-                    Storm chasers, restoration contractors, roofing companies, tree services, 
-                    and property restoration professionals responding to weather disasters.
+                    Roofing, tree removal, painting, plumbing, HVAC, electrical, landscaping, 
+                    storm damage repair, remodeling, and more.
                   </p>
                 </div>
 
-                <Link to="/dashboard">
-                  <Button className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-bold py-6 text-lg">
-                    Enter Storm Response
-                    <AlertTriangle className="ml-2 w-5 h-5" />
+                <Link to="/workhub/customer">
+                  <Button className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white font-bold py-6 text-lg" data-testid="button-homeowner-entry">
+                    Get Started - Find a Contractor
+                    <ArrowRight className="ml-2 w-5 h-5" />
                   </Button>
                 </Link>
               </CardContent>
             </Card>
 
-            <Card className="bg-gradient-to-br from-purple-900/40 to-indigo-900/40 border-purple-500/30 overflow-hidden group hover:border-purple-400/50 transition-all duration-300">
+            <Card className="bg-gradient-to-br from-emerald-900/40 to-green-900/40 border-emerald-500/30 overflow-hidden group hover:border-emerald-400/50 transition-all duration-300">
               <CardContent className="p-8">
                 <div className="flex items-center gap-4 mb-6">
-                  <div className="p-4 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl shadow-lg">
-                    <Sparkles className="w-8 h-8 text-white" />
+                  <div className="p-4 bg-gradient-to-br from-emerald-500 to-green-600 rounded-xl shadow-lg">
+                    <HardHat className="w-8 h-8 text-white" />
                   </div>
                   <div>
-                    <h2 className="text-3xl font-bold text-white">The WorkHub</h2>
-                    <p className="text-purple-300">Everyday Contractor Marketplace</p>
+                    <h2 className="text-3xl font-bold text-white">I'm a Contractor</h2>
+                    <p className="text-emerald-300">Ready to grow my business</p>
                   </div>
                 </div>
 
                 <p className="text-slate-300 mb-6 text-lg">
-                  AI-powered marketplace connecting homeowners with verified contractors for 
-                  everyday home improvement and maintenance work. Built for non-emergency 
-                  projects nationwide.
+                  Access powerful tools to find leads, manage jobs, and grow your business. 
+                  Choose your specialty below - storm response or everyday services.
                 </p>
 
-                <div className="grid grid-cols-2 gap-4 mb-8">
-                  <FeatureItem icon={Camera} text="ScopeSnap AI Analysis" color="purple" />
-                  <FeatureItem icon={DollarSign} text="Smart Pricing Engine" color="purple" />
-                  <FeatureItem icon={Users} text="ContractorMatch" color="purple" />
-                  <FeatureItem icon={Calendar} text="AI Scheduling" color="purple" />
-                  <FeatureItem icon={Phone} text="CloseBot AI Sales" color="purple" />
-                  <FeatureItem icon={Star} text="Review Management" color="purple" />
-                  <FeatureItem icon={CheckCircle2} text="Payment Processing" color="purple" />
-                  <FeatureItem icon={TrendingUp} text="Lead Pipeline" color="purple" />
+                <div className="space-y-4 mb-6">
+                  <Link to="/dashboard" className="block">
+                    <div className="bg-amber-900/40 border border-amber-500/30 rounded-lg p-4 hover:border-amber-400/50 transition-all group/card">
+                      <div className="flex items-center gap-3 mb-2">
+                        <AlertTriangle className="w-6 h-6 text-amber-400" />
+                        <h3 className="text-xl font-bold text-white">Storm Response</h3>
+                      </div>
+                      <p className="text-slate-300 text-sm mb-3">
+                        Hurricanes, tornadoes, hail damage - AI-powered tools for emergency storm work and insurance claims.
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        <span className="px-2 py-1 bg-amber-500/20 text-amber-300 text-xs rounded">Weather Intel</span>
+                        <span className="px-2 py-1 bg-amber-500/20 text-amber-300 text-xs rounded">AI Damage Detection</span>
+                        <span className="px-2 py-1 bg-amber-500/20 text-amber-300 text-xs rounded">Claims Processing</span>
+                      </div>
+                    </div>
+                  </Link>
+
+                  <Link to="/workhub/contractor" className="block">
+                    <div className="bg-purple-900/40 border border-purple-500/30 rounded-lg p-4 hover:border-purple-400/50 transition-all group/card">
+                      <div className="flex items-center gap-3 mb-2">
+                        <Sparkles className="w-6 h-6 text-purple-400" />
+                        <h3 className="text-xl font-bold text-white">WorkHub Marketplace</h3>
+                      </div>
+                      <p className="text-slate-300 text-sm mb-3">
+                        Everyday home services - painting, plumbing, HVAC, landscaping. Get matched with local customers.
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        <span className="px-2 py-1 bg-purple-500/20 text-purple-300 text-xs rounded">Lead Pipeline</span>
+                        <span className="px-2 py-1 bg-purple-500/20 text-purple-300 text-xs rounded">AI Scheduling</span>
+                        <span className="px-2 py-1 bg-purple-500/20 text-purple-300 text-xs rounded">Payments</span>
+                      </div>
+                    </div>
+                  </Link>
                 </div>
 
-                <div className="bg-purple-950/50 rounded-lg p-4 mb-6">
-                  <h3 className="text-purple-300 font-semibold mb-2">Perfect For:</h3>
+                <div className="bg-emerald-950/50 rounded-lg p-4 mb-6">
+                  <h3 className="text-emerald-300 font-semibold mb-2">Contractor Benefits:</h3>
                   <p className="text-slate-300 text-sm">
-                    Local contractors, handymen, painters, plumbers, HVAC technicians, 
-                    landscapers, and home service professionals looking for steady work.
+                    Qualified leads, AI-powered tools, easy payments, reputation management, 
+                    and Rachel voice guide to help you every step of the way.
                   </p>
                 </div>
 
-                <Link to="/workhub">
-                  <Button className="w-full bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white font-bold py-6 text-lg">
-                    Enter The WorkHub
-                    <Sparkles className="ml-2 w-5 h-5" />
+                <Link to="/workhub/contractor">
+                  <Button className="w-full bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white font-bold py-6 text-lg" data-testid="button-contractor-entry">
+                    Contractor Dashboard
+                    <ArrowRight className="ml-2 w-5 h-5" />
                   </Button>
                 </Link>
               </CardContent>
@@ -124,7 +148,7 @@ export default function LandingPage() {
 
           <div className="bg-slate-800/50 rounded-2xl border border-slate-700 p-8 mb-16">
             <h2 className="text-2xl font-bold text-white text-center mb-8">
-              Why Choose Our Platform?
+              Why Choose Strategic Service Savers?
             </h2>
             <div className="grid md:grid-cols-4 gap-6">
               <BenefitCard 
@@ -151,27 +175,27 @@ export default function LandingPage() {
           </div>
 
           <div className="grid md:grid-cols-2 gap-8 mb-16">
-            <div className="bg-gradient-to-br from-amber-900/30 to-orange-900/30 rounded-xl border border-amber-500/20 p-6">
-              <h3 className="text-xl font-bold text-amber-400 mb-4">Storm Response Services</h3>
+            <div className="bg-gradient-to-br from-cyan-900/30 to-blue-900/30 rounded-xl border border-cyan-500/20 p-6">
+              <h3 className="text-xl font-bold text-cyan-400 mb-4">For Homeowners</h3>
               <div className="grid grid-cols-2 gap-3">
-                <ServiceTag icon={Home} text="Roof Damage" />
-                <ServiceTag icon={TreePine} text="Tree Removal" />
-                <ServiceTag icon={AlertTriangle} text="Storm Cleanup" />
-                <ServiceTag icon={Wrench} text="Restoration" />
-                <ServiceTag icon={FileText} text="Insurance Claims" />
-                <ServiceTag icon={Shield} text="Emergency Tarps" />
+                <ServiceTag icon={Home} text="Roof Repair" color="cyan" />
+                <ServiceTag icon={TreePine} text="Tree Service" color="cyan" />
+                <ServiceTag icon={Paintbrush} text="Painting" color="cyan" />
+                <ServiceTag icon={Wrench} text="Plumbing" color="cyan" />
+                <ServiceTag icon={Zap} text="Electrical" color="cyan" />
+                <ServiceTag icon={Building2} text="HVAC" color="cyan" />
               </div>
             </div>
             
-            <div className="bg-gradient-to-br from-purple-900/30 to-indigo-900/30 rounded-xl border border-purple-500/20 p-6">
-              <h3 className="text-xl font-bold text-purple-400 mb-4">WorkHub Services</h3>
+            <div className="bg-gradient-to-br from-emerald-900/30 to-green-900/30 rounded-xl border border-emerald-500/20 p-6">
+              <h3 className="text-xl font-bold text-emerald-400 mb-4">For Contractors</h3>
               <div className="grid grid-cols-2 gap-3">
-                <ServiceTag icon={Paintbrush} text="Painting" color="purple" />
-                <ServiceTag icon={Wrench} text="Plumbing" color="purple" />
-                <ServiceTag icon={Home} text="Remodeling" color="purple" />
-                <ServiceTag icon={TreePine} text="Landscaping" color="purple" />
-                <ServiceTag icon={Zap} text="Electrical" color="purple" />
-                <ServiceTag icon={Building2} text="HVAC" color="purple" />
+                <ServiceTag icon={Users} text="Qualified Leads" color="emerald" />
+                <ServiceTag icon={Camera} text="AI Tools" color="emerald" />
+                <ServiceTag icon={DollarSign} text="Easy Payments" color="emerald" />
+                <ServiceTag icon={Star} text="Reviews" color="emerald" />
+                <ServiceTag icon={Calendar} text="Scheduling" color="emerald" />
+                <ServiceTag icon={TrendingUp} text="Growth" color="emerald" />
               </div>
             </div>
           </div>
@@ -188,9 +212,12 @@ export default function LandingPage() {
 }
 
 function FeatureItem({ icon: Icon, text, color = 'amber' }: { icon: any; text: string; color?: string }) {
-  const colorClasses = color === 'purple' 
-    ? 'text-purple-400 bg-purple-500/20' 
-    : 'text-amber-400 bg-amber-500/20';
+  const colorClasses = {
+    amber: 'text-amber-400 bg-amber-500/20',
+    purple: 'text-purple-400 bg-purple-500/20',
+    cyan: 'text-cyan-400 bg-cyan-500/20',
+    emerald: 'text-emerald-400 bg-emerald-500/20',
+  }[color] || 'text-amber-400 bg-amber-500/20';
   
   return (
     <div className="flex items-center gap-2">
@@ -215,9 +242,12 @@ function BenefitCard({ icon: Icon, title, description }: { icon: any; title: str
 }
 
 function ServiceTag({ icon: Icon, text, color = 'amber' }: { icon: any; text: string; color?: string }) {
-  const colorClasses = color === 'purple' 
-    ? 'bg-purple-500/20 text-purple-300 border-purple-500/30' 
-    : 'bg-amber-500/20 text-amber-300 border-amber-500/30';
+  const colorClasses = {
+    amber: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
+    purple: 'bg-purple-500/20 text-purple-300 border-purple-500/30',
+    cyan: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30',
+    emerald: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
+  }[color] || 'bg-amber-500/20 text-amber-300 border-amber-500/30';
   
   return (
     <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${colorClasses}`}>

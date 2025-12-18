@@ -55,43 +55,59 @@ export default function TopNav() {
               </Link>
             </div>
 
-            {/* Quick Links */}
+            {/* Quick Links - Role-based navigation */}
             <nav className="hidden md:flex items-center gap-2 text-sm" data-testid="quick-nav">
-              <Link 
-                to="/dashboard" 
-                className="px-3 py-1.5 rounded-md bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 transition-colors font-medium"
-                data-testid="nav-storm-response"
-              >
-                Storm Response
-              </Link>
-              <Link 
-                to="/workhub" 
-                className="px-3 py-1.5 rounded-md bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 transition-colors font-medium"
-                data-testid="nav-workhub"
-              >
-                WorkHub
-              </Link>
-              <Link 
-                to="/contractor/jobs" 
-                className="px-3 py-1.5 rounded-md hover:bg-white/10 transition-colors"
-                data-testid="nav-contractor"
-              >
-                Contractor
-              </Link>
-              <Link 
-                to="/admin/legal/zipmap" 
-                className="px-3 py-1.5 rounded-md hover:bg-white/10 transition-colors"
-                data-testid="nav-admin"
-              >
-                Admin
-              </Link>
-              <Link 
-                to="/homeowner" 
-                className="px-3 py-1.5 rounded-md hover:bg-white/10 transition-colors"
-                data-testid="nav-homeowner"
-              >
-                Homeowner
-              </Link>
+              {role === 'homeowner' ? (
+                <>
+                  <Link 
+                    to="/workhub/customer" 
+                    className="px-3 py-1.5 rounded-md bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 transition-colors font-medium"
+                    data-testid="nav-customer-portal"
+                  >
+                    My Projects
+                  </Link>
+                  <Link 
+                    to="/homeowner" 
+                    className="px-3 py-1.5 rounded-md hover:bg-white/10 transition-colors"
+                    data-testid="nav-homeowner"
+                  >
+                    Dashboard
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <Link 
+                    to="/dashboard" 
+                    className="px-3 py-1.5 rounded-md bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 transition-colors font-medium"
+                    data-testid="nav-storm-response"
+                  >
+                    Storm Response
+                  </Link>
+                  <Link 
+                    to="/workhub/contractor" 
+                    className="px-3 py-1.5 rounded-md bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 transition-colors font-medium"
+                    data-testid="nav-workhub"
+                  >
+                    WorkHub
+                  </Link>
+                  <Link 
+                    to="/contractor/jobs" 
+                    className="px-3 py-1.5 rounded-md hover:bg-white/10 transition-colors"
+                    data-testid="nav-contractor"
+                  >
+                    My Jobs
+                  </Link>
+                  {role === 'admin' && (
+                    <Link 
+                      to="/admin/legal/zipmap" 
+                      className="px-3 py-1.5 rounded-md hover:bg-white/10 transition-colors"
+                      data-testid="nav-admin"
+                    >
+                      Admin
+                    </Link>
+                  )}
+                </>
+              )}
             </nav>
 
             {/* Right Side - Auth Controls */}
