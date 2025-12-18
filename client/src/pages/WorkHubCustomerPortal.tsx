@@ -61,7 +61,6 @@ export default function WorkHubCustomerPortal() {
   const [step, setStep] = useState(1);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState<any>(null);
-  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [isVoiceActive, setIsVoiceActive] = useState(false);
   const [request, setRequest] = useState<ProjectRequest>({
     category: '',
@@ -73,37 +72,64 @@ export default function WorkHubCustomerPortal() {
   });
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
 
+  const [audioRef] = useState<HTMLAudioElement | null>(() => typeof Audio !== 'undefined' ? new Audio() : null);
+
   useEffect(() => {
-    const loadVoices = () => {
-      const availableVoices = window.speechSynthesis.getVoices();
-      if (availableVoices.length > 0) {
-        setVoices(availableVoices);
+    return () => {
+      if (audioRef) {
+        audioRef.pause();
+        audioRef.src = '';
       }
     };
-    loadVoices();
-    window.speechSynthesis.onvoiceschanged = loadVoices;
-    return () => { window.speechSynthesis.cancel(); };
-  }, []);
+  }, [audioRef]);
 
-  const getBestFemaleVoice = (voiceList: SpeechSynthesisVoice[]) => {
-    const preferredVoices = ['Samantha', 'Zira', 'Jenny', 'Google US English Female', 'Microsoft Zira'];
-    for (const preferred of preferredVoices) {
-      const found = voiceList.find(v => v.name.includes(preferred));
-      if (found) return found;
+  const speakGuidance = async (text: string) => {
+    try {
+      setIsVoiceActive(true);
+      
+      // Use ElevenLabs API for natural female voice
+      const response = await fetch('/api/voice-ai/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          text,
+          provider: 'elevenlabs',
+          voiceId: 'pNInz6obpgDQGcFmaJgB' // Lily - natural female voice
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.audioUrl && audioRef) {
+          audioRef.src = data.audioUrl;
+          audioRef.onended = () => setIsVoiceActive(false);
+          audioRef.onerror = () => setIsVoiceActive(false);
+          await audioRef.play();
+          return;
+        }
+      }
+      
+      // Fallback to browser speech if ElevenLabs fails
+      const voices = window.speechSynthesis.getVoices();
+      const preferredVoices = ['Samantha', 'Karen', 'Moira', 'Tessa', 'Google UK English Female', 'Microsoft Zira'];
+      let voice = null;
+      for (const preferred of preferredVoices) {
+        voice = voices.find(v => v.name.includes(preferred));
+        if (voice) break;
+      }
+      if (!voice) voice = voices.find(v => v.name.toLowerCase().includes('female') && v.lang.startsWith('en'));
+      if (!voice) voice = voices.find(v => v.lang.startsWith('en'));
+      
+      const utterance = new SpeechSynthesisUtterance(text);
+      if (voice) utterance.voice = voice;
+      utterance.pitch = 1.15;
+      utterance.rate = 0.95;
+      utterance.onend = () => setIsVoiceActive(false);
+      window.speechSynthesis.speak(utterance);
+    } catch (error) {
+      console.error('Voice guidance error:', error);
+      setIsVoiceActive(false);
     }
-    return voiceList.find(v => v.lang.startsWith('en')) || voiceList[0];
-  };
-
-  const speakGuidance = (text: string) => {
-    if (voices.length === 0) return;
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.voice = getBestFemaleVoice(voices);
-    utterance.pitch = 1.1;
-    utterance.rate = 1.05;
-    utterance.onstart = () => setIsVoiceActive(true);
-    utterance.onend = () => setIsVoiceActive(false);
-    window.speechSynthesis.speak(utterance);
   };
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
