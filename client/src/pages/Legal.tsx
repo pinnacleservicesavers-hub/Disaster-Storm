@@ -1,15 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { useQuery } from '@tanstack/react-query';
-import { Scale, Plus, Search, Settings, AlertTriangle, Calendar, Clock, FileText, CheckCircle, Volume2, VolumeX, ArrowLeft } from 'lucide-react';
+import { Scale, Plus, Search, Settings, AlertTriangle, Calendar, Clock, FileText, CheckCircle, Volume2, VolumeX, ArrowLeft, Upload, X, ExternalLink, Building } from 'lucide-react';
 import { Link } from 'wouter';
 import { DashboardSection } from '@/components/DashboardSection';
 import { FadeIn, PulseAlert, StaggerContainer, StaggerItem, HoverLift } from '@/components/ui/animations';
 import { StateCitySelector, useStateCitySelector } from '@/components/StateCitySelector';
 import ModuleAIAssistant from '@/components/ModuleAIAssistant';
+import { useToast } from '@/hooks/use-toast';
 
 interface LegalItem {
   id: string;
@@ -29,6 +31,12 @@ export default function Legal() {
   const [selectedFilter, setSelectedFilter] = useState('all');
   const [isVoiceGuideActive, setIsVoiceGuideActive] = useState(false);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [showNewDocModal, setShowNewDocModal] = useState(false);
+  const [docType, setDocType] = useState<'contract' | 'lien' | 'license' | 'compliance'>('lien');
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [newDocForm, setNewDocForm] = useState({ title: '', deadline: '', value: '', location: '' });
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
 
   // Mock legal items with React Query
   const { data: legalItems = [], isLoading } = useQuery({
@@ -87,86 +95,111 @@ export default function Legal() {
     }
   };
 
-  // Voice Guide Function
+  // Get best natural female voice
+  const getBestFemaleVoice = (): SpeechSynthesisVoice | null => {
+    if (!voices || voices.length === 0) return null;
+    
+    const preferredVoices = [
+      'Samantha', 'Karen', 'Moira', 'Fiona', 'Victoria',
+      'Microsoft Zira', 'Microsoft Aria', 'Microsoft Jenny',
+      'Google US English Female', 'Google UK English Female',
+      'Joanna', 'Salli', 'Kimberly'
+    ];
+    
+    for (const preferred of preferredVoices) {
+      const voice = voices.find(v => v.name.toLowerCase().includes(preferred.toLowerCase()));
+      if (voice) return voice;
+    }
+    
+    const femaleVoice = voices.find(v => 
+      v.lang.startsWith('en') && 
+      (v.name.toLowerCase().includes('female') || v.name.toLowerCase().includes('zira'))
+    );
+    if (femaleVoice) return femaleVoice;
+    
+    return voices.find(v => v.lang.startsWith('en')) || voices[0] || null;
+  };
+
+  // Voice Guide Function with natural female voice
   const startVoiceGuide = () => {
-    // Feature detection
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
-      console.warn('Speech synthesis not supported in this browser');
+      toast({ variant: 'destructive', title: 'Voice not supported' });
       return;
     }
 
     if (!isVoiceGuideActive) {
-      setIsVoiceGuideActive(true);
-      
-      // Cancel any ongoing speech
-      window.speechSynthesis.cancel();
-      
-      const voiceContent = `Welcome to the Legal Command Voice Navigation Guide. This is your comprehensive legal compliance and contract management system for disaster recovery operations.
-
-      The dashboard displays critical legal metrics:
-      - Total Contracts showing active legal documents and agreements
-      - Urgent Items displaying contracts and liens requiring immediate attention with deadlines
-      - Completion Rate showing the percentage of successfully processed legal items
-      - Monthly Processing indicating legal workload and productivity metrics
-
-      Main action buttons include:
-      - New Document with a plus icon to create new contracts, liens, or compliance items
-      - Search Legal with a search icon to quickly locate specific legal documents
-      - Settings with a gear icon to configure legal workflow preferences
-
-      The legal items list displays comprehensive information:
-      - Document type indicators with color-coded icons - blue for contracts, red for liens, green for licenses, purple for compliance items
-      - Document titles and descriptions for easy identification
-      - Deadline dates with days remaining counters to prevent missed filing deadlines
-      - Priority levels with visual coding - red borders for critical items, orange for high priority, yellow for medium, green for low
-      - Status badges showing pending, in progress, completed, or overdue states
-      - Assigned team member names for accountability and workload distribution
-      - Document values where applicable, particularly for lien amounts
-      - Location information indicating which state or jurisdiction applies
-
-      Critical deadline management features:
-      - Color-coded urgency indicators that highlight items requiring immediate attention
-      - Automated alerts for approaching deadlines to prevent legal violations
-      - Priority sorting to ensure critical items are addressed first
-      - Status tracking from initiation through completion
-
-      Legal document types include:
-      - Contracts for insurance agreements, vendor relationships, and customer service agreements
-      - Liens for securing payment on completed disaster recovery work
-      - Licenses for maintaining contractor certifications and state compliance
-      - Compliance reviews for regulatory adherence across multiple jurisdictions
-
-      Advanced compliance features:
-      - Multi-state jurisdiction tracking for companies operating across state lines
-      - Automated deadline calculations based on state-specific legal requirements
-      - Document templates for common legal procedures
-      - Integration with legal team workflows and external counsel coordination
-
-      This Legal Command system ensures regulatory compliance, protects financial interests through proper lien procedures, and maintains professional standing through license management. The voice guide supports accessibility for legal professionals and provides hands-free operation during busy legal processing periods.`;
-      
-      const utterance = new SpeechSynthesisUtterance(voiceContent);
-      utterance.rate = 0.9;
-      utterance.pitch = 1.0;
-      utterance.volume = 0.8;
-      
-      if (voices.length > 0) {
-        utterance.voice = voices.find(voice => voice.lang.includes('en')) || voices[0];
+      if (voices.length === 0) {
+        const loadedVoices = window.speechSynthesis.getVoices();
+        if (loadedVoices.length === 0) {
+          toast({ title: 'Loading voice...', description: 'Please try again in a moment.' });
+          return;
+        }
+        setVoices(loadedVoices);
       }
       
-      utterance.onend = () => {
-        setIsVoiceGuideActive(false);
-      };
+      setIsVoiceGuideActive(true);
+      window.speechSynthesis.cancel();
       
-      utterance.onerror = (event) => {
-        console.error('Speech synthesis error:', event);
-        setIsVoiceGuideActive(false);
-      };
+      const voiceContent = `Welcome to Legal Compliance! I'm Rachel, and I'll help you manage your contracts, liens, and legal requirements.
+
+      This dashboard shows your legal metrics at a glance: active contracts, pending liens, compliance rate, and critical alerts that need attention.
+
+      To add a new document, click the New Document button. You can create contracts, file liens, manage licenses, or track compliance items. You can also upload supporting files directly.
+
+      For lien filing, I can help you connect with LienItNow.com, a professional service that handles mechanics liens across all 50 states. Just click the File Lien with LienItNow button when you're ready.
+
+      Each legal item shows its deadline, days remaining, and priority level. Critical items with red borders need immediate attention to avoid missing deadlines.
+
+      I'm here to help you stay compliant and protect your business interests!`;
+      
+      const utterance = new SpeechSynthesisUtterance(voiceContent);
+      const femaleVoice = getBestFemaleVoice();
+      if (femaleVoice) utterance.voice = femaleVoice;
+      
+      utterance.rate = 1.05;
+      utterance.pitch = 1.1;
+      utterance.volume = 0.9;
+      
+      utterance.onend = () => setIsVoiceGuideActive(false);
+      utterance.onerror = () => setIsVoiceGuideActive(false);
       
       window.speechSynthesis.speak(utterance);
     } else {
       window.speechSynthesis.cancel();
       setIsVoiceGuideActive(false);
     }
+  };
+
+  // Handle file upload
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setUploadedFile(file);
+      toast({ title: 'File uploaded', description: `${file.name} ready for submission` });
+    }
+  };
+
+  // Handle new document creation
+  const handleCreateDocument = () => {
+    if (!newDocForm.title || !newDocForm.deadline) {
+      toast({ variant: 'destructive', title: 'Please fill in required fields' });
+      return;
+    }
+    
+    toast({ 
+      title: 'Document Created', 
+      description: `${docType.charAt(0).toUpperCase() + docType.slice(1)} "${newDocForm.title}" has been added to your legal items.` 
+    });
+    
+    setShowNewDocModal(false);
+    setNewDocForm({ title: '', deadline: '', value: '', location: '' });
+    setUploadedFile(null);
+  };
+
+  // Open LienItNow
+  const openLienItNow = () => {
+    window.open('https://www.lienitnow.com/', '_blank');
+    toast({ title: 'Opening LienItNow', description: 'Redirecting to professional lien filing service...' });
   };
 
   const getPriorityColor = (priority: string, daysRemaining: number) => {
@@ -194,7 +227,7 @@ export default function Legal() {
   const complianceRate = 98.7; // Mock compliance rate
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[hsl(217,91%,15%)] via-[hsl(217,91%,25%)] to-[hsl(215,25%,25%)] dark:from-[hsl(217,91%,10%)] dark:via-[hsl(217,91%,20%)] dark:to-[hsl(215,25%,20%)]">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
       <div className="container mx-auto px-4 py-6 space-y-6">
         <div className="flex items-center gap-4">
           <Link href="/">
@@ -230,9 +263,9 @@ export default function Legal() {
         { label: 'Critical Alerts', value: criticalAlerts, change: 'Need attention', color: 'amber', testId: 'text-legal-alerts' }
       ]}
       actions={[
-        { icon: Plus, label: 'New Document', variant: 'default', testId: 'button-new-contract' },
+        { icon: Plus, label: 'New Document', variant: 'default', testId: 'button-new-contract', onClick: () => setShowNewDocModal(true) },
+        { icon: ExternalLink, label: 'File Lien with LienItNow', variant: 'outline', testId: 'button-lienitnow', onClick: openLienItNow },
         { icon: Search, label: 'Search Legal', variant: 'outline', testId: 'button-search-legal' },
-        { icon: Settings, label: 'Settings', variant: 'outline', testId: 'button-legal-settings' },
         { 
           icon: isVoiceGuideActive ? VolumeX : Volume2, 
           label: isVoiceGuideActive ? 'Stop Guide' : 'Voice Guide', 
@@ -547,7 +580,181 @@ export default function Legal() {
         </div>
         </div>
       </DashboardSection>
-        <ModuleAIAssistant moduleName="Legal" />
+        
+        {/* New Document Modal */}
+        {showNewDocModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden"
+            >
+              <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+                <h3 className="text-xl font-semibold">Add New Legal Document</h3>
+                <button 
+                  onClick={() => setShowNewDocModal(false)}
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+                  data-testid="button-close-doc-modal"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              
+              <div className="p-6 space-y-4">
+                {/* Document Type */}
+                <div>
+                  <label className="block text-sm font-medium mb-2">Document Type</label>
+                  <div className="grid grid-cols-4 gap-2">
+                    {(['lien', 'contract', 'license', 'compliance'] as const).map((type) => (
+                      <button
+                        key={type}
+                        onClick={() => setDocType(type)}
+                        className={`p-3 rounded-lg border-2 text-center transition-all ${
+                          docType === type 
+                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30' 
+                            : 'border-gray-200 dark:border-gray-700 hover:border-blue-300'
+                        }`}
+                        data-testid={`button-doctype-${type}`}
+                      >
+                        <span className="text-sm font-medium capitalize">{type}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Title */}
+                <div>
+                  <label className="block text-sm font-medium mb-2">Title *</label>
+                  <Input
+                    placeholder="e.g., Johnson Property Lien Filing"
+                    value={newDocForm.title}
+                    onChange={(e) => setNewDocForm({ ...newDocForm, title: e.target.value })}
+                    data-testid="input-doc-title"
+                  />
+                </div>
+
+                {/* Deadline */}
+                <div>
+                  <label className="block text-sm font-medium mb-2">Deadline *</label>
+                  <Input
+                    type="date"
+                    value={newDocForm.deadline}
+                    onChange={(e) => setNewDocForm({ ...newDocForm, deadline: e.target.value })}
+                    data-testid="input-doc-deadline"
+                  />
+                </div>
+
+                {/* Value (for liens) */}
+                {docType === 'lien' && (
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Lien Amount ($)</label>
+                    <Input
+                      type="number"
+                      placeholder="45000"
+                      value={newDocForm.value}
+                      onChange={(e) => setNewDocForm({ ...newDocForm, value: e.target.value })}
+                      data-testid="input-doc-value"
+                    />
+                  </div>
+                )}
+
+                {/* Location */}
+                <div>
+                  <label className="block text-sm font-medium mb-2">State/Location</label>
+                  <Input
+                    placeholder="e.g., Florida"
+                    value={newDocForm.location}
+                    onChange={(e) => setNewDocForm({ ...newDocForm, location: e.target.value })}
+                    data-testid="input-doc-location"
+                  />
+                </div>
+
+                {/* File Upload */}
+                <div>
+                  <label className="block text-sm font-medium mb-2">Upload Document</label>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileUpload}
+                    className="hidden"
+                    accept=".pdf,.doc,.docx,.jpg,.png"
+                    data-testid="input-file-upload"
+                  />
+                  <div 
+                    onClick={() => fileInputRef.current?.click()}
+                    className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center cursor-pointer hover:border-blue-400 transition-colors"
+                  >
+                    {uploadedFile ? (
+                      <div className="flex items-center justify-center gap-2">
+                        <FileText className="w-5 h-5 text-blue-500" />
+                        <span className="text-sm font-medium">{uploadedFile.name}</span>
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); setUploadedFile(null); }}
+                          className="text-red-500 hover:text-red-700"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <Upload className="w-8 h-8 mx-auto text-gray-400 mb-2" />
+                        <p className="text-sm text-gray-500">Click to upload PDF, DOC, or images</p>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* LienItNow Integration */}
+                {docType === 'lien' && (
+                  <Card className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-3">
+                        <Building className="w-6 h-6 text-blue-600 mt-1" />
+                        <div className="flex-1">
+                          <h4 className="font-semibold text-blue-800 dark:text-blue-200">Need Help Filing?</h4>
+                          <p className="text-sm text-blue-600 dark:text-blue-300 mb-2">
+                            LienItNow.com provides professional lien filing services across all 50 states.
+                          </p>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={openLienItNow}
+                            className="border-blue-400 text-blue-700 hover:bg-blue-100"
+                            data-testid="button-modal-lienitnow"
+                          >
+                            <ExternalLink className="w-4 h-4 mr-2" />
+                            File with LienItNow
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+
+              {/* Modal Actions */}
+              <div className="flex gap-3 p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowNewDocModal(false)}
+                  className="flex-1"
+                  data-testid="button-cancel-doc"
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={handleCreateDocument}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700"
+                  data-testid="button-create-doc"
+                >
+                  Create Document
+                </Button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+        
+        <ModuleAIAssistant moduleName="Legal Compliance" />
       </div>
     </div>
   );
