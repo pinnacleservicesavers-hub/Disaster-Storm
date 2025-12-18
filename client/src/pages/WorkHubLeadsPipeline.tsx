@@ -8,7 +8,8 @@ import {
   Users, DollarSign, TrendingUp, Target, Phone, Mail, MapPin, 
   Calendar, Clock, Plus, Search, Filter, MessageSquare, FileText, 
   XCircle, CheckCircle, ArrowRight, RefreshCw, User, History, 
-  StickyNote, Send, Trash2, Edit, PhoneCall
+  StickyNote, Send, Trash2, Edit, PhoneCall, BarChart3, AlertTriangle,
+  RotateCcw, PieChart, CalendarClock
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -90,6 +91,11 @@ export default function WorkHubLeadsPipeline() {
   const [newNote, setNewNote] = useState('');
   const [commType, setCommType] = useState<'call' | 'text' | 'email'>('call');
   const [commNotes, setCommNotes] = useState('');
+  const [isLostDialogOpen, setIsLostDialogOpen] = useState(false);
+  const [lostLeadId, setLostLeadId] = useState<string | null>(null);
+  const [selectedLostReason, setSelectedLostReason] = useState('');
+  const [lostNotes, setLostNotes] = useState('');
+  const [showLostReport, setShowLostReport] = useState(false);
 
   const { data: leadDetail, isLoading: isLoadingDetail } = useQuery<LeadDetail>({
     queryKey: ['/api/workhub/leads', selectedLeadId],
@@ -116,6 +122,22 @@ export default function WorkHubLeadsPipeline() {
 
   const { data: pipelineData, isLoading } = useQuery<PipelineData>({
     queryKey: ['/api/workhub/leads/pipeline', serviceFilter],
+  });
+
+  const { data: lostReasons } = useQuery<{ id: string; reason: string; description?: string }[]>({
+    queryKey: ['/api/workhub/lost-reasons'],
+  });
+
+  interface LostReportData {
+    totalLost: number;
+    lostValue: number;
+    reasonBreakdown: { reason: string; count: number; value: number }[];
+    recentLostLeads: WorkhubLead[];
+  }
+
+  const { data: lostReport, isLoading: isLoadingLostReport } = useQuery<LostReportData>({
+    queryKey: ['/api/workhub/leads/analytics/lost'],
+    enabled: showLostReport,
   });
 
   const createLeadMutation = useMutation({
@@ -197,6 +219,49 @@ export default function WorkHubLeadsPipeline() {
       queryClient.invalidateQueries({ queryKey: ['/api/workhub/leads', selectedLeadId] });
       setCommNotes('');
       toast({ title: 'Communication logged', description: 'Activity has been recorded.' });
+    }
+  });
+
+  const markAsLostMutation = useMutation({
+    mutationFn: async ({ leadId, lostReason, lostNotes }: { leadId: string; lostReason: string; lostNotes?: string }) => {
+      return apiRequest(`/api/workhub/leads/${leadId}/lost`, {
+        method: 'POST',
+        body: JSON.stringify({ lostReason, lostNotes }),
+        headers: { 'Content-Type': 'application/json' }
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/workhub/leads/pipeline', serviceFilter] });
+      queryClient.invalidateQueries({ queryKey: ['/api/workhub/leads', selectedLeadId] });
+      queryClient.invalidateQueries({ queryKey: ['/api/workhub/leads/analytics/lost'] });
+      setIsLostDialogOpen(false);
+      setLostLeadId(null);
+      setSelectedLostReason('');
+      setLostNotes('');
+      setSelectedLeadId(null);
+      toast({ title: 'Lead marked as lost', description: 'The lead has been moved to the lost stage.' });
+    },
+    onError: () => {
+      toast({ title: 'Error', description: 'Failed to mark lead as lost.', variant: 'destructive' });
+    }
+  });
+
+  const reactivateLeadMutation = useMutation({
+    mutationFn: async ({ leadId, stage, notes }: { leadId: string; stage?: string; notes?: string }) => {
+      return apiRequest(`/api/workhub/leads/${leadId}/reactivate`, {
+        method: 'POST',
+        body: JSON.stringify({ stage: stage || 'new_lead', notes }),
+        headers: { 'Content-Type': 'application/json' }
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/workhub/leads/pipeline', serviceFilter] });
+      queryClient.invalidateQueries({ queryKey: ['/api/workhub/leads', selectedLeadId] });
+      queryClient.invalidateQueries({ queryKey: ['/api/workhub/leads/analytics/lost'] });
+      toast({ title: 'Lead reactivated', description: 'The lead has been moved back to the pipeline.' });
+    },
+    onError: () => {
+      toast({ title: 'Error', description: 'Failed to reactivate lead.', variant: 'destructive' });
     }
   });
 
@@ -290,13 +355,23 @@ export default function WorkHubLeadsPipeline() {
             <h1 data-testid="text-page-title" className="text-3xl font-bold text-slate-900 dark:text-white">Lead Pipeline</h1>
             <p className="text-slate-600 dark:text-slate-400">Manage your leads from first contact to job completion</p>
           </div>
-          <Dialog open={isAddLeadOpen} onOpenChange={setIsAddLeadOpen}>
-            <DialogTrigger asChild>
-              <Button data-testid="button-add-lead" className="bg-blue-600 hover:bg-blue-700">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Lead
-              </Button>
-            </DialogTrigger>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              data-testid="button-lost-report"
+              onClick={() => setShowLostReport(true)}
+              className="border-red-300 text-red-600 hover:bg-red-50"
+            >
+              <BarChart3 className="h-4 w-4 mr-2" />
+              Lost Report ({metrics.lostLeads})
+            </Button>
+            <Dialog open={isAddLeadOpen} onOpenChange={setIsAddLeadOpen}>
+              <DialogTrigger asChild>
+                <Button data-testid="button-add-lead" className="bg-blue-600 hover:bg-blue-700">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Lead
+                </Button>
+              </DialogTrigger>
             <DialogContent className="max-w-2xl">
               <DialogHeader>
                 <DialogTitle>Add New Lead</DialogTitle>
@@ -452,6 +527,7 @@ export default function WorkHubLeadsPipeline() {
               </Form>
             </DialogContent>
           </Dialog>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -742,13 +818,45 @@ export default function WorkHubLeadsPipeline() {
                         className="w-full"
                         data-testid="button-mark-lost"
                         onClick={() => {
-                          updateStageMutation.mutate({ leadId: leadDetail.id, stage: 'lost' });
-                          setSelectedLeadId(null);
+                          setLostLeadId(leadDetail.id);
+                          setIsLostDialogOpen(true);
                         }}
                       >
                         <XCircle className="h-4 w-4 mr-2" />
                         Mark as Lost
                       </Button>
+                    )}
+
+                    {leadDetail.stage === 'lost' && (
+                      <div className="space-y-3">
+                        {leadDetail.lostReason && (
+                          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
+                            <div className="flex items-center gap-2 text-red-600 dark:text-red-400 mb-1">
+                              <AlertTriangle className="h-4 w-4" />
+                              <span className="font-medium">Lost Reason</span>
+                            </div>
+                            <p className="text-sm text-slate-700 dark:text-slate-300">{leadDetail.lostReason}</p>
+                            {leadDetail.lostNotes && (
+                              <p className="text-xs text-slate-500 mt-1">{leadDetail.lostNotes}</p>
+                            )}
+                            {leadDetail.lostAt && (
+                              <p className="text-xs text-slate-400 mt-2">Lost on: {formatDate(leadDetail.lostAt)}</p>
+                            )}
+                          </div>
+                        )}
+                        <Button
+                          variant="outline"
+                          className="w-full border-green-500 text-green-600 hover:bg-green-50"
+                          data-testid="button-reactivate-lead"
+                          onClick={() => {
+                            reactivateLeadMutation.mutate({ leadId: leadDetail.id, notes: 'Lead reactivated from detail view' });
+                          }}
+                          disabled={reactivateLeadMutation.isPending}
+                        >
+                          <RotateCcw className="h-4 w-4 mr-2" />
+                          {reactivateLeadMutation.isPending ? 'Reactivating...' : 'Reactivate Lead'}
+                        </Button>
+                      </div>
                     )}
                   </TabsContent>
 
@@ -971,6 +1079,179 @@ export default function WorkHubLeadsPipeline() {
               </Tabs>
             </>
           ) : null}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isLostDialogOpen} onOpenChange={(open) => { if (!open) { setIsLostDialogOpen(false); setLostLeadId(null); setSelectedLostReason(''); setLostNotes(''); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <XCircle className="h-5 w-5" />
+              Mark Lead as Lost
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-900 dark:text-white">Why was this lead lost? *</label>
+              <Select value={selectedLostReason} onValueChange={setSelectedLostReason}>
+                <SelectTrigger data-testid="select-lost-reason">
+                  <SelectValue placeholder="Select a reason" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(lostReasons || [
+                    { id: '1', reason: 'Price too high' },
+                    { id: '2', reason: 'Chose competitor' },
+                    { id: '3', reason: 'Project cancelled' },
+                    { id: '4', reason: 'No response' },
+                    { id: '5', reason: 'Timeline issue' },
+                    { id: '6', reason: 'Not qualified' },
+                    { id: '7', reason: 'Other' }
+                  ]).map(r => (
+                    <SelectItem key={r.id} value={r.reason}>{r.reason}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-900 dark:text-white">Additional Notes</label>
+              <Textarea
+                data-testid="input-lost-notes"
+                placeholder="Any additional context about losing this lead..."
+                value={lostNotes}
+                onChange={(e) => setLostNotes(e.target.value)}
+                rows={3}
+              />
+            </div>
+            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
+              <div className="flex items-start gap-2">
+                <CalendarClock className="h-4 w-4 text-amber-600 mt-0.5" />
+                <div className="text-sm">
+                  <p className="font-medium text-amber-800 dark:text-amber-300">Follow-up Reminder</p>
+                  <p className="text-amber-700 dark:text-amber-400 text-xs">Lost leads are added to your follow-up queue for re-engagement in 30, 60, or 90 days.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="flex justify-end gap-3">
+            <Button variant="outline" onClick={() => { setIsLostDialogOpen(false); setLostLeadId(null); setSelectedLostReason(''); setLostNotes(''); }} data-testid="button-cancel-lost">
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={() => {
+                if (lostLeadId && selectedLostReason) {
+                  markAsLostMutation.mutate({ leadId: lostLeadId, lostReason: selectedLostReason, lostNotes });
+                }
+              }}
+              disabled={!selectedLostReason || markAsLostMutation.isPending}
+              data-testid="button-confirm-lost"
+            >
+              {markAsLostMutation.isPending ? 'Processing...' : 'Mark as Lost'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showLostReport} onOpenChange={setShowLostReport}>
+        <DialogContent className="max-w-4xl max-h-[85vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5 text-red-600" />
+              Lost Jobs Report
+            </DialogTitle>
+          </DialogHeader>
+          <ScrollArea className="h-[65vh]">
+            {isLoadingLostReport ? (
+              <div className="flex items-center justify-center py-12">
+                <RefreshCw className="h-6 w-6 animate-spin text-blue-600" />
+                <span className="ml-2 text-slate-600">Loading report...</span>
+              </div>
+            ) : lostReport ? (
+              <div className="space-y-6 pr-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <Card className="bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800">
+                    <CardContent className="p-4 text-center">
+                      <p className="text-sm text-red-600 dark:text-red-400">Total Lost</p>
+                      <p data-testid="text-lost-total" className="text-3xl font-bold text-red-700 dark:text-red-300">{lostReport.totalLost || 0}</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800">
+                    <CardContent className="p-4 text-center">
+                      <p className="text-sm text-red-600 dark:text-red-400">Lost Value</p>
+                      <p data-testid="text-lost-value" className="text-3xl font-bold text-red-700 dark:text-red-300">{formatCurrency(lostReport.lostValue || 0)}</p>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <div className="space-y-3">
+                  <h4 className="font-medium text-slate-900 dark:text-white flex items-center gap-2">
+                    <PieChart className="h-4 w-4" />
+                    Loss Reasons Breakdown
+                  </h4>
+                  {(lostReport.reasonBreakdown || []).length === 0 ? (
+                    <p className="text-sm text-slate-500 text-center py-4">No lost leads yet</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {(lostReport.reasonBreakdown || []).map((item, idx) => (
+                        <div key={idx} data-testid={`lost-reason-row-${idx}`} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                          <div className="flex items-center gap-3">
+                            <div className="w-3 h-3 rounded-full bg-red-500" />
+                            <span className="font-medium text-slate-900 dark:text-white">{item.reason || 'Unspecified'}</span>
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <span className="text-slate-600 dark:text-slate-400">{item.count} leads</span>
+                            <span className="font-medium text-red-600">{formatCurrency(item.value)}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <Separator />
+
+                <div className="space-y-3">
+                  <h4 className="font-medium text-slate-900 dark:text-white flex items-center gap-2">
+                    <Clock className="h-4 w-4" />
+                    Recent Lost Leads
+                  </h4>
+                  {(lostReport.recentLostLeads || []).length === 0 ? (
+                    <p className="text-sm text-slate-500 text-center py-4">No lost leads to display</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {(lostReport.recentLostLeads || []).slice(0, 10).map((lead) => (
+                        <div key={lead.id} data-testid={`lost-lead-row-${lead.id}`} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                          <div>
+                            <p className="font-medium text-slate-900 dark:text-white">{lead.customerName}</p>
+                            <p className="text-xs text-slate-500">{lead.serviceType} - {lead.city}, {lead.state}</p>
+                            <p className="text-xs text-red-500 mt-1">{lead.lostReason}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-medium text-slate-600">{formatCurrency(lead.estimatedAmount || 0)}</p>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="mt-1 text-xs border-green-500 text-green-600 hover:bg-green-50"
+                              data-testid={`button-reactivate-${lead.id}`}
+                              onClick={() => {
+                                reactivateLeadMutation.mutate({ leadId: lead.id, notes: 'Reactivated from lost report' });
+                              }}
+                              disabled={reactivateLeadMutation.isPending}
+                            >
+                              <RotateCcw className="h-3 w-3 mr-1" />
+                              Reactivate
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <p className="text-center text-slate-500 py-8">No data available</p>
+            )}
+          </ScrollArea>
         </DialogContent>
       </Dialog>
     </div>
