@@ -150,6 +150,28 @@ const WORKHUB_MODULES = [
     bgPattern: 'bg-gradient-to-br from-pink-500/10 to-rose-600/10',
     features: ['Auto Social Posts', 'Website Galleries', 'Ad Generation', 'Brand Builder'],
     path: '/workhub/contentforge'
+  },
+  {
+    id: 'leadpipeline',
+    name: 'Lead Pipeline',
+    tagline: 'Customer Opportunity Tracker',
+    description: 'Manage leads from first contact to job completion. Never miss a follow-up or opportunity.',
+    icon: Users,
+    color: 'from-emerald-500 to-teal-600',
+    bgPattern: 'bg-gradient-to-br from-emerald-500/10 to-teal-600/10',
+    features: ['Lead Tracking', 'Status Pipeline', 'Follow-up Alerts', 'Conversion Analytics'],
+    path: '/workhub/leadpipeline'
+  },
+  {
+    id: 'jobsnap',
+    name: 'JobSnap',
+    tagline: 'Job Documentation Pro',
+    description: 'Capture before, during & after photos. Timestamps, GPS, and organized by project.',
+    icon: Camera,
+    color: 'from-purple-500 to-indigo-600',
+    bgPattern: 'bg-gradient-to-br from-purple-500/10 to-indigo-600/10',
+    features: ['Before/During/After', 'GPS Tagging', 'Project Organization', 'Report Builder'],
+    path: '/workhub/jobsnap'
   }
 ];
 

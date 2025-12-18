@@ -62,6 +62,8 @@ const WorkHubPricingTiers = lazy(() => import("./pages/workhub/PricingTiers"));
 const WorkHubPitchDeck = lazy(() => import("./pages/workhub/PitchDeck"));
 const WorkHubAIAgentScripts = lazy(() => import("./pages/workhub/AIAgentScripts"));
 const WorkHubLegalTerms = lazy(() => import("./pages/workhub/LegalTerms"));
+const WorkHubLeadPipeline = lazy(() => import("./pages/workhub/LeadPipeline"));
+const WorkHubJobSnap = lazy(() => import("./pages/workhub/JobSnap"));
 
 // Loading indicator
 function Loader() {
@@ -186,6 +188,8 @@ export default function App() {
           <Route path="/workhub/pitch" element={<WorkHubPitchDeck />} />
           <Route path="/workhub/scripts" element={<WorkHubAIAgentScripts />} />
           <Route path="/workhub/legal" element={<WorkHubLegalTerms />} />
+          <Route path="/workhub/leadpipeline" element={<WorkHubLeadPipeline />} />
+          <Route path="/workhub/jobsnap" element={<WorkHubJobSnap />} />
         </Routes>
       </Suspense>
     </>

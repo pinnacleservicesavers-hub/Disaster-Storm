@@ -371,11 +371,57 @@ export default function WorkHubContractorDashboard() {
               ))}
             </div>
 
-            <Card className="bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 border-purple-200">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Card className="bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border-emerald-200">
+                <CardContent className="py-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
+                        <Users className="w-6 h-6 text-white" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold">Lead Pipeline</h3>
+                        <p className="text-sm text-slate-600">Track every opportunity</p>
+                      </div>
+                    </div>
+                    <Link to="/workhub/leadpipeline">
+                      <Button className="bg-gradient-to-r from-emerald-600 to-teal-600" data-testid="button-leadpipeline">
+                        Open
+                        <ArrowUpRight className="w-4 h-4 ml-2" />
+                      </Button>
+                    </Link>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 border-purple-200">
+                <CardContent className="py-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center">
+                        <Camera className="w-6 h-6 text-white" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold">JobSnap</h3>
+                        <p className="text-sm text-slate-600">Document your jobs</p>
+                      </div>
+                    </div>
+                    <Link to="/workhub/jobsnap">
+                      <Button className="bg-gradient-to-r from-purple-600 to-indigo-600" data-testid="button-jobsnap">
+                        Open
+                        <ArrowUpRight className="w-4 h-4 ml-2" />
+                      </Button>
+                    </Link>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            <Card className="bg-gradient-to-r from-rose-50 to-pink-50 dark:from-rose-900/20 dark:to-pink-900/20 border-rose-200">
               <CardContent className="py-6">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center">
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-rose-500 to-pink-600 flex items-center justify-center">
                       <Zap className="w-6 h-6 text-white" />
                     </div>
                     <div>
@@ -384,7 +430,7 @@ export default function WorkHubContractorDashboard() {
                     </div>
                   </div>
                   <Link to="/workhub/closebot">
-                    <Button className="bg-gradient-to-r from-purple-600 to-indigo-600" data-testid="button-closebot">
+                    <Button className="bg-gradient-to-r from-rose-600 to-pink-600" data-testid="button-closebot">
                       Launch CloseBot
                       <ArrowUpRight className="w-4 h-4 ml-2" />
                     </Button>
