@@ -211,13 +211,13 @@ export default function LandingPage() {
   );
 }
 
-function FeatureItem({ icon: Icon, text, color = 'amber' }: { icon: any; text: string; color?: string }) {
+function FeatureItem({ icon: Icon, text, color = 'cyan' }: { icon: any; text: string; color?: string }) {
   const colorClasses = {
-    amber: 'text-amber-400 bg-amber-500/20',
+    blue: 'text-blue-400 bg-blue-500/20',
     purple: 'text-purple-400 bg-purple-500/20',
     cyan: 'text-cyan-400 bg-cyan-500/20',
     emerald: 'text-emerald-400 bg-emerald-500/20',
-  }[color] || 'text-amber-400 bg-amber-500/20';
+  }[color] || 'text-cyan-400 bg-cyan-500/20';
   
   return (
     <div className="flex items-center gap-2">
@@ -241,13 +241,13 @@ function BenefitCard({ icon: Icon, title, description }: { icon: any; title: str
   );
 }
 
-function ServiceTag({ icon: Icon, text, color = 'amber' }: { icon: any; text: string; color?: string }) {
+function ServiceTag({ icon: Icon, text, color = 'cyan' }: { icon: any; text: string; color?: string }) {
   const colorClasses = {
-    amber: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
+    blue: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
     purple: 'bg-purple-500/20 text-purple-300 border-purple-500/30',
     cyan: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30',
     emerald: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
-  }[color] || 'bg-amber-500/20 text-amber-300 border-amber-500/30';
+  }[color] || 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30';
   
   return (
     <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${colorClasses}`}>
