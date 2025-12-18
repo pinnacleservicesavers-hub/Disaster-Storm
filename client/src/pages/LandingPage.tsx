@@ -1,11 +1,12 @@
 import { Link } from 'react-router-dom';
 import { 
-  Zap, Cloud, AlertTriangle, Camera, Users, FileText, Shield, 
+  Cloud, AlertTriangle, Camera, Users, FileText, Shield, 
   Wrench, TreePine, Paintbrush, Home, DollarSign, Calendar,
-  Star, Phone, CheckCircle2, TrendingUp, Building2, Sparkles
+  Star, Phone, CheckCircle2, TrendingUp, Building2, Sparkles, Zap
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import logoImage from '@assets/ChatGPT_Image_Dec_18,_2025,_10_36_54_AM_1766072229170.png';
 
 export default function LandingPage() {
   return (
@@ -16,12 +17,10 @@ export default function LandingPage() {
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
           <div className="text-center mb-16">
             <div className="flex items-center justify-center gap-3 mb-6">
-              <div className="p-3 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-xl shadow-lg shadow-orange-500/30">
-                <Zap className="w-10 h-10 text-white" />
-              </div>
+              <img src={logoImage} alt="Strategic Service Savers" className="w-24 h-24 rounded-xl shadow-lg" />
             </div>
             <h1 className="text-5xl md:text-6xl font-bold text-white mb-4">
-              Welcome to <span className="bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">Strategic Service Savers</span>
+              Welcome to <span className="bg-gradient-to-r from-purple-400 via-blue-400 to-green-400 bg-clip-text text-transparent">Strategic Service Savers</span>
             </h1>
             <p className="text-xl text-slate-300 max-w-3xl mx-auto mb-8">
               The complete contractor platform for emergency storm response and everyday home services. 
@@ -37,8 +36,8 @@ export default function LandingPage() {
                     <AlertTriangle className="w-8 h-8 text-white" />
                   </div>
                   <div>
-                    <h2 className="text-3xl font-bold text-white">Disaster Direct</h2>
-                    <p className="text-amber-300">Emergency Storm Response</p>
+                    <h2 className="text-3xl font-bold text-white">Storm Response</h2>
+                    <p className="text-amber-300">Emergency Storm Operations</p>
                   </div>
                 </div>
 
@@ -69,8 +68,8 @@ export default function LandingPage() {
 
                 <Link to="/dashboard">
                   <Button className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-bold py-6 text-lg">
-                    Enter Disaster Direct
-                    <Zap className="ml-2 w-5 h-5" />
+                    Enter Storm Response
+                    <AlertTriangle className="ml-2 w-5 h-5" />
                   </Button>
                 </Link>
               </CardContent>
@@ -153,7 +152,7 @@ export default function LandingPage() {
 
           <div className="grid md:grid-cols-2 gap-8 mb-16">
             <div className="bg-gradient-to-br from-amber-900/30 to-orange-900/30 rounded-xl border border-amber-500/20 p-6">
-              <h3 className="text-xl font-bold text-amber-400 mb-4">Disaster Direct Services</h3>
+              <h3 className="text-xl font-bold text-amber-400 mb-4">Storm Response Services</h3>
               <div className="grid grid-cols-2 gap-3">
                 <ServiceTag icon={Home} text="Roof Damage" />
                 <ServiceTag icon={TreePine} text="Tree Removal" />

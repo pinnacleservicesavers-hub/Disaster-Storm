@@ -1,8 +1,9 @@
 import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { Zap, LogOut, LogIn } from 'lucide-react';
+import { LogOut, LogIn } from 'lucide-react';
 import { auth, type Role } from '@/lib/auth';
 import Breadcrumbs from '@/components/Breadcrumbs';
+import logoImage from '@assets/ChatGPT_Image_Dec_18,_2025,_10_36_54_AM_1766072229170.png';
 
 export default function TopNav() {
   const [role, setRole] = useState<Role>('contractor');
@@ -41,12 +42,10 @@ export default function TopNav() {
           <div className="flex items-center justify-between h-16">
             {/* Logo and Brand */}
             <div className="flex items-center space-x-4">
-              <Link to="/" className="flex items-center space-x-2">
-                <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
-                  <Zap className="w-6 h-6 text-yellow-300" />
-                </div>
+              <Link to="/" className="flex items-center space-x-3">
+                <img src={logoImage} alt="Strategic Service Savers" className="w-10 h-10 rounded-lg" />
                 <div>
-                  <h1 className="text-xl font-bold tracking-tight">
+                  <h1 className="text-xl font-bold tracking-tight bg-gradient-to-r from-purple-400 via-blue-400 to-green-400 bg-clip-text text-transparent">
                     Strategic Service Savers
                   </h1>
                   <p className="text-xs text-white/80 hidden sm:block">
@@ -61,9 +60,9 @@ export default function TopNav() {
               <Link 
                 to="/dashboard" 
                 className="px-3 py-1.5 rounded-md bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 transition-colors font-medium"
-                data-testid="nav-disaster-direct"
+                data-testid="nav-storm-response"
               >
-                Disaster Direct
+                Storm Response
               </Link>
               <Link 
                 to="/workhub" 
