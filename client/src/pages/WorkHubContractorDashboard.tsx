@@ -7,7 +7,7 @@ import {
   ChevronRight, ArrowUpRight, Clock, CheckCircle, XCircle,
   DollarSign, MapPin, Phone, Mail, Camera, MessageSquare,
   Volume2, VolumeX, Filter, MoreVertical, Eye, Send,
-  ThumbsUp, AlertCircle, Zap, Award, Shield, Hammer
+  ThumbsUp, AlertCircle, Zap, Award, Shield, Hammer, Lock, Heart
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,13 +16,16 @@ import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 
-// Mock data for leads
+// Mock data for leads - Customer contact info is NEVER stored in frontend code
+// Contact info is fetched from secure backend only after subscription verification
+// See /api/workhub/leads/:id/contact endpoint for authorized access
 const MOCK_LEADS = [
   {
     id: 'L001',
-    customer: { name: 'John Martinez', phone: '(555) 123-4567', email: 'john@email.com' },
+    customer: { name: 'John M.', initials: 'JM' },
     category: 'Tree Services',
     description: 'Large oak tree removal in backyard',
     location: { city: 'Austin', state: 'TX', distance: 5.2 },
@@ -35,7 +38,7 @@ const MOCK_LEADS = [
   },
   {
     id: 'L002',
-    customer: { name: 'Sarah Johnson', phone: '(555) 987-6543', email: 'sarah@email.com' },
+    customer: { name: 'Sarah J.', initials: 'SJ' },
     category: 'Roofing',
     description: 'Roof inspection after storm damage',
     location: { city: 'Round Rock', state: 'TX', distance: 12.4 },
@@ -48,7 +51,7 @@ const MOCK_LEADS = [
   },
   {
     id: 'L003',
-    customer: { name: 'Michael Chen', phone: '(555) 456-7890', email: 'mchen@email.com' },
+    customer: { name: 'Michael C.', initials: 'MC' },
     category: 'Fencing',
     description: '200ft privacy fence installation',
     location: { city: 'Cedar Park', state: 'TX', distance: 8.1 },
@@ -61,7 +64,7 @@ const MOCK_LEADS = [
   },
   {
     id: 'L004',
-    customer: { name: 'Emily Rodriguez', phone: '(555) 321-0987', email: 'emily@email.com' },
+    customer: { name: 'Emily R.', initials: 'ER' },
     category: 'Painting',
     description: 'Interior painting - 4 bedroom house',
     location: { city: 'Georgetown', state: 'TX', distance: 15.3 },
@@ -104,12 +107,24 @@ const STATS = [
   { label: 'Rating', value: '4.9', change: '23 reviews', trend: 'neutral', icon: Star, color: 'text-yellow-600 bg-yellow-100' }
 ];
 
+// Mock contractor subscription status - in production, this comes from backend
+const MOCK_CONTRACTOR_STATUS = {
+  isSubscribed: false, // Set to true when contractor has active subscription
+  isVerifiedNonprofit: false, // Verified nonprofits get FREE access
+  contractorType: 'commercial' as 'commercial' | 'nonprofit',
+  subscriptionTier: 'free' // 'free', 'starter', 'pro', 'enterprise'
+};
+
 export default function WorkHubContractorDashboard() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [searchQuery, setSearchQuery] = useState('');
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [isVoiceActive, setIsVoiceActive] = useState(false);
   const [selectedLead, setSelectedLead] = useState<typeof MOCK_LEADS[0] | null>(null);
+  const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
+  
+  // Check if contractor has access to contact info
+  const hasContactAccess = MOCK_CONTRACTOR_STATUS.isSubscribed || MOCK_CONTRACTOR_STATUS.isVerifiedNonprofit;
 
   useEffect(() => {
     const loadVoices = () => {
@@ -304,7 +319,7 @@ export default function WorkHubContractorDashboard() {
                           <div className="flex items-center gap-3 mb-2">
                             <Avatar className="w-10 h-10">
                               <AvatarFallback className="bg-purple-100 text-purple-700">
-                                {lead.customer.name.split(' ').map(n => n[0]).join('')}
+                                {lead.customer.initials}
                               </AvatarFallback>
                             </Avatar>
                             <div>
@@ -348,10 +363,22 @@ export default function WorkHubContractorDashboard() {
                         </div>
 
                         <div className="flex flex-col gap-2">
-                          <Button size="sm" className="bg-purple-600 hover:bg-purple-700" data-testid={`button-contact-${lead.id}`}>
-                            <Phone className="w-4 h-4 mr-1" />
-                            Contact
-                          </Button>
+                          {hasContactAccess ? (
+                            <Button size="sm" className="bg-purple-600 hover:bg-purple-700" data-testid={`button-contact-${lead.id}`}>
+                              <Phone className="w-4 h-4 mr-1" />
+                              Contact
+                            </Button>
+                          ) : (
+                            <Button 
+                              size="sm" 
+                              className="bg-slate-400 hover:bg-slate-500" 
+                              onClick={(e) => { e.stopPropagation(); setShowUpgradePrompt(true); }}
+                              data-testid={`button-contact-locked-${lead.id}`}
+                            >
+                              <Lock className="w-4 h-4 mr-1" />
+                              Unlock Contact
+                            </Button>
+                          )}
                           <Button size="sm" variant="outline" data-testid={`button-estimate-${lead.id}`}>
                             <Send className="w-4 h-4 mr-1" />
                             Send Estimate
@@ -584,6 +611,77 @@ export default function WorkHubContractorDashboard() {
         moduleName="Contractor Dashboard"
         moduleContext="This is the contractor dashboard in WorkHub. Contractors can view leads, manage jobs, check payments, and see reviews. Help contractors respond to leads quickly, send estimates, and grow their business."
       />
+      
+      {/* Subscription Upgrade Dialog - Required to access customer contact info */}
+      <Dialog open={showUpgradePrompt} onOpenChange={setShowUpgradePrompt}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Lock className="w-5 h-5 text-purple-600" />
+              Unlock Customer Contact Info
+            </DialogTitle>
+            <DialogDescription>
+              Subscribe to access customer phone numbers and email addresses for direct communication.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 rounded-lg p-4">
+              <h4 className="font-semibold mb-2">Pro Contractor Plan</h4>
+              <ul className="text-sm space-y-2 text-slate-600 dark:text-slate-400">
+                <li className="flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4 text-green-500" />
+                  Unlimited lead access & contact info
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4 text-green-500" />
+                  Priority matching for new leads
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4 text-green-500" />
+                  Direct customer messaging
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4 text-green-500" />
+                  AI-powered estimate builder
+                </li>
+              </ul>
+              <p className="mt-3 text-lg font-bold text-purple-700 dark:text-purple-400">
+                $49/month
+              </p>
+            </div>
+            
+            <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-lg p-4 border border-emerald-200 dark:border-emerald-800">
+              <div className="flex items-center gap-2 mb-2">
+                <Heart className="w-5 h-5 text-emerald-600" />
+                <h4 className="font-semibold text-emerald-700 dark:text-emerald-400">Non-Profit?</h4>
+              </div>
+              <p className="text-sm text-slate-600 dark:text-slate-400">
+                Verified 501(c)(3) organizations get <span className="font-bold text-emerald-600">FREE access</span> to all features!
+              </p>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="mt-2 border-emerald-300 text-emerald-700 hover:bg-emerald-100"
+                onClick={() => { setShowUpgradePrompt(false); /* Navigate to nonprofit signup */ }}
+                data-testid="button-nonprofit-apply"
+              >
+                Apply as Non-Profit
+              </Button>
+            </div>
+          </div>
+          
+          <DialogFooter className="flex gap-2">
+            <Button variant="outline" onClick={() => setShowUpgradePrompt(false)}>
+              Maybe Later
+            </Button>
+            <Button className="bg-purple-600 hover:bg-purple-700" data-testid="button-subscribe">
+              <CreditCard className="w-4 h-4 mr-2" />
+              Subscribe Now
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

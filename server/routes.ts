@@ -13872,6 +13872,67 @@ What specific area or type of incident would you like me to focus on? I can prov
     });
   });
 
+  // SECURE LEAD CONTACT INFO ENDPOINT
+  // Only returns customer contact info if contractor has:
+  // 1. Active paid subscription OR
+  // 2. Verified nonprofit status
+  // CRITICAL: Never expose contact info without payment/verification
+  app.get('/api/workhub/leads/:leadId/contact', async (req, res) => {
+    try {
+      const { leadId } = req.params;
+      const contractorId = req.headers['x-contractor-id'] as string;
+      
+      if (!contractorId) {
+        return res.status(401).json({ 
+          error: 'Contractor authentication required',
+          contactLocked: true 
+        });
+      }
+      
+      // In production: Query workhub_contractors table for subscription status
+      // For now, we simulate the check - contractors are locked by default
+      const mockContractorStatus = {
+        isSubscribed: false,
+        isVerifiedNonprofit: false,
+        subscriptionTier: 'free'
+      };
+      
+      // Check if contractor has access to contact info
+      const hasAccess = mockContractorStatus.isSubscribed || mockContractorStatus.isVerifiedNonprofit;
+      
+      if (!hasAccess) {
+        return res.status(403).json({
+          error: 'Subscription required to access customer contact info',
+          contactLocked: true,
+          upgradeRequired: true,
+          upgradeOptions: {
+            pro: { price: 4900, period: 'month', features: ['Unlimited lead contacts', 'Priority matching'] },
+            nonprofit: { price: 0, period: 'free', features: ['Free for verified 501(c)(3) orgs'] }
+          }
+        });
+      }
+      
+      // If contractor has access, fetch the lead contact info from database
+      // In production: Query customerSubmissions or workhubLeads table
+      // For now, return a placeholder that indicates contact would be revealed
+      return res.json({
+        ok: true,
+        leadId,
+        contactLocked: false,
+        contact: {
+          // In production: Real customer contact info from database
+          // This is where the actual phone/email would be returned
+          message: 'Contact info available for subscribed contractors'
+        }
+      });
+      
+    } catch (error) {
+      console.error('Lead contact access error:', error);
+      res.status(500).json({ error: 'Failed to retrieve contact info' });
+    }
+  });
+
+  console.log('🔒 WorkHub secure contact access routes registered');
   console.log('🏠 WorkHub AI analysis routes registered');
 
   // ============================================================

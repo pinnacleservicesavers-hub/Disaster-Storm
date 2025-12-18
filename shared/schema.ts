@@ -5742,6 +5742,13 @@ export const workhubContractors = pgTable("workhub_contractors", {
   verificationDate: timestamp("verification_date"),
   backgroundCheckPassed: boolean("background_check_passed").default(false),
   
+  // Contractor Type & Nonprofit Status
+  contractorType: varchar("contractor_type", { length: 20 }).default("commercial"), // "commercial" or "nonprofit"
+  isVerifiedNonprofit: boolean("is_verified_nonprofit").default(false),
+  nonprofitTaxId: varchar("nonprofit_tax_id", { length: 50 }), // EIN/501(c)(3) number
+  nonprofitName: varchar("nonprofit_name", { length: 200 }), // Organization name if different from business name
+  nonprofitVerificationDate: timestamp("nonprofit_verification_date"),
+  
   // Ratings & Performance
   overallRating: numeric("overall_rating", { precision: 3, scale: 2 }).default("0"),
   totalReviews: integer("total_reviews").default(0),
