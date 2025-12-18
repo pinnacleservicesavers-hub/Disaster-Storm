@@ -2,6 +2,7 @@ import { lazy, Suspense } from "react";
 import { Routes, Route } from "react-router-dom";
 import ModuleGallery from "./pages/ModuleGallery";
 import TopNav from "./components/TopNav";
+import LandingPage from "./pages/LandingPage";
 
 // Lazy-load all 17 module pages
 const WeatherCenter = lazy(() => import("./modules/WeatherCenter"));
@@ -107,8 +108,11 @@ export default function App() {
       {/* All routes */}
       <Suspense fallback={<Loader />}>
         <Routes>
-          {/* Home - Module Gallery */}
-          <Route path="/" element={
+          {/* Landing Page - App Overview */}
+          <Route path="/" element={<LandingPage />} />
+          
+          {/* Disaster Direct Dashboard - Module Gallery */}
+          <Route path="/dashboard" element={
             <ModuleGallery 
               routes={galleryRoutes}
               onLaunch={(m) => console.log("🚀 Launch:", m.id, m.name)}
