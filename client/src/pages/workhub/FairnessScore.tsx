@@ -1,0 +1,201 @@
+import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import {
+  TrendingUp, ChevronRight, Volume2, VolumeX, Award, CheckCircle,
+  Clock, DollarSign, ThumbsUp, Shield, Star, BarChart3
+} from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import TopNav from '@/components/TopNav';
+import ModuleAIAssistant from '@/components/ModuleAIAssistant';
+
+export default function FairnessScore() {
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [isVoiceActive, setIsVoiceActive] = useState(false);
+
+  useEffect(() => {
+    const loadVoices = () => {
+      const availableVoices = window.speechSynthesis.getVoices();
+      if (availableVoices.length > 0) {
+        setVoices(availableVoices);
+      }
+    };
+    loadVoices();
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+    return () => { window.speechSynthesis.cancel(); };
+  }, []);
+
+  useEffect(() => {
+    if (voices.length > 0) {
+      setTimeout(() => {
+        speakGuidance("Welcome to FairnessScore! I'm Rachel. This is your trust transparency dashboard. Your overall FairnessScore is 94, which means customers see you as reliable, fairly priced, and high quality. You've earned the 'Fair Pricing' and 'Reliable' badges.");
+      }, 500);
+    }
+  }, [voices]);
+
+  const getBestFemaleVoice = (voiceList: SpeechSynthesisVoice[]) => {
+    const preferredVoices = ['Samantha', 'Zira', 'Jenny', 'Google US English Female', 'Microsoft Zira'];
+    for (const preferred of preferredVoices) {
+      const found = voiceList.find(v => v.name.includes(preferred));
+      if (found) return found;
+    }
+    return voiceList.find(v => v.lang.startsWith('en')) || voiceList[0];
+  };
+
+  const speakGuidance = (text: string) => {
+    if (voices.length === 0) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.voice = getBestFemaleVoice(voices);
+    utterance.pitch = 1.1;
+    utterance.rate = 1.05;
+    utterance.onstart = () => setIsVoiceActive(true);
+    utterance.onend = () => setIsVoiceActive(false);
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const scores = [
+    { name: 'Pricing Accuracy', score: 96, desc: 'How close final prices are to estimates', icon: DollarSign },
+    { name: 'On-Time Arrival', score: 92, desc: 'Arriving when scheduled', icon: Clock },
+    { name: 'Completion Speed', score: 88, desc: 'Finishing within estimated timeframe', icon: TrendingUp },
+    { name: 'Customer Satisfaction', score: 98, desc: 'Based on reviews and feedback', icon: ThumbsUp }
+  ];
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-lime-50 to-white dark:from-slate-950 dark:to-slate-900">
+      <TopNav />
+
+      <div className="bg-gradient-to-r from-lime-500 to-green-600 text-white py-12 px-4">
+        <div className="max-w-6xl mx-auto">
+          <div className="flex items-center gap-2 text-lime-200 text-sm mb-2">
+            <Link to="/workhub" className="hover:text-white">WorkHub</Link>
+            <ChevronRight className="w-4 h-4" />
+            <span>FairnessScore</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-4xl font-bold mb-2">FairnessScore</h1>
+              <p className="text-lime-100 text-lg">Trust Transparency - Build customer confidence</p>
+            </div>
+            <Button
+              variant="ghost"
+              size="lg"
+              onClick={() => isVoiceActive ? window.speechSynthesis.cancel() : speakGuidance("I'm Rachel. FairnessScore shows customers how trustworthy you are based on pricing accuracy, reliability, and satisfaction scores.")}
+              className="text-white hover:bg-white/10"
+            >
+              {isVoiceActive ? <Volume2 className="w-6 h-6 animate-pulse" /> : <VolumeX className="w-6 h-6" />}
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-6xl mx-auto px-4 py-8">
+        <div className="grid lg:grid-cols-3 gap-8">
+          <Card className="lg:row-span-2 bg-gradient-to-br from-lime-50 to-green-50 border-lime-200">
+            <CardContent className="pt-8">
+              <div className="text-center">
+                <div className="relative w-40 h-40 mx-auto mb-6">
+                  <svg className="w-full h-full transform -rotate-90">
+                    <circle cx="80" cy="80" r="70" stroke="currentColor" strokeWidth="12" fill="none" className="text-lime-200" />
+                    <circle cx="80" cy="80" r="70" stroke="currentColor" strokeWidth="12" fill="none" className="text-lime-600" strokeDasharray={440} strokeDashoffset={440 * (1 - 0.94)} strokeLinecap="round" />
+                  </svg>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="text-center">
+                      <p className="text-5xl font-bold text-lime-700">94</p>
+                      <p className="text-sm text-lime-600">FairnessScore</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="flex flex-wrap justify-center gap-2 mb-6">
+                  <Badge className="bg-green-100 text-green-700 text-sm py-1 px-3">
+                    <CheckCircle className="w-4 h-4 mr-1" />
+                    Fair Pricing
+                  </Badge>
+                  <Badge className="bg-blue-100 text-blue-700 text-sm py-1 px-3">
+                    <Clock className="w-4 h-4 mr-1" />
+                    Reliable
+                  </Badge>
+                  <Badge className="bg-purple-100 text-purple-700 text-sm py-1 px-3">
+                    <Star className="w-4 h-4 mr-1" />
+                    Top Rated
+                  </Badge>
+                </div>
+
+                <p className="text-slate-600 text-sm">
+                  Your FairnessScore is displayed to customers, building trust before they even contact you.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className="lg:col-span-2 space-y-4">
+            {scores.map((item) => (
+              <Card key={item.name}>
+                <CardContent className="py-4">
+                  <div className="flex items-center gap-4">
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                      item.score >= 95 ? 'bg-green-100 text-green-600' :
+                      item.score >= 90 ? 'bg-blue-100 text-blue-600' :
+                      'bg-amber-100 text-amber-600'
+                    }`}>
+                      <item.icon className="w-6 h-6" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between mb-1">
+                        <p className="font-semibold">{item.name}</p>
+                        <p className={`font-bold ${
+                          item.score >= 95 ? 'text-green-600' :
+                          item.score >= 90 ? 'text-blue-600' :
+                          'text-amber-600'
+                        }`}>{item.score}</p>
+                      </div>
+                      <Progress value={item.score} className="h-2 mb-1" />
+                      <p className="text-sm text-slate-500">{item.desc}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          <div className="lg:col-span-2">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Award className="w-5 h-5 text-lime-600" />
+                  How to Improve Your Score
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid md:grid-cols-2 gap-4">
+                  {[
+                    { title: 'Be Accurate', desc: 'Keep final prices close to your estimates' },
+                    { title: 'Be On Time', desc: 'Arrive when scheduled or communicate delays' },
+                    { title: 'Finish Fast', desc: 'Complete work within your quoted timeframe' },
+                    { title: 'Delight Customers', desc: 'Go above and beyond to earn 5-star reviews' }
+                  ].map((tip) => (
+                    <div key={tip.title} className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg">
+                      <CheckCircle className="w-5 h-5 text-lime-600 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-medium">{tip.title}</p>
+                        <p className="text-sm text-slate-500">{tip.desc}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+
+      <ModuleAIAssistant 
+        moduleName="FairnessScore"
+        moduleContext="FairnessScore is a trust transparency system that calculates contractor reliability scores based on pricing accuracy, on-time arrival, completion speed, and customer satisfaction. Help users understand their scores and how to improve them."
+      />
+    </div>
+  );
+}

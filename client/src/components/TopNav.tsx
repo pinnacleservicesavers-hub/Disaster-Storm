@@ -59,6 +59,13 @@ export default function TopNav() {
             {/* Quick Links */}
             <nav className="hidden md:flex items-center gap-2 text-sm" data-testid="quick-nav">
               <Link 
+                to="/workhub" 
+                className="px-3 py-1.5 rounded-md bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 transition-colors font-medium"
+                data-testid="nav-workhub"
+              >
+                WorkHub
+              </Link>
+              <Link 
                 to="/contractor/jobs" 
                 className="px-3 py-1.5 rounded-md hover:bg-white/10 transition-colors"
                 data-testid="nav-contractor"

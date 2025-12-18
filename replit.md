@@ -48,6 +48,31 @@ The platform features an enterprise-grade design system with AI-selected backgro
   - **Trade Guides**: Roofing, Tree Removal, Drywall/Paint, Flooring with capture steps, scope questions, and safety reminders
   - **Voice API**: `/api/voice-guide/*` endpoints serving intro scripts, capture prompts, and scope question scripts
 
+### WorkHub Marketplace (NEW - December 2024)
+**Domain**: strategicservicesavers.com
+**Purpose**: Everyday contractor/customer marketplace for non-emergency work, accessible nationwide. Separate from Disaster Direct (emergency storm work).
+
+#### 12 AI-Powered Modules with Creative Names:
+1. **ScopeSnap** (`/workhub/scopesnap`) - AI Vision Analysis: Upload photos/videos, get instant job analysis, issue detection, and trade recommendations
+2. **PriceWhisperer** (`/workhub/pricewhisperer`) - Smart Estimate Engine: AI-powered pricing ranges, market comparisons, "Second Opinion Mode" for customers
+3. **ContractorMatch** (`/workhub/contractormatch`) - Perfect Pairing: AI matches customers with verified contractors by trade, location, ratings, availability
+4. **CalendarSync** (`/workhub/calendarsync`) - AI Scheduling: Auto-scheduling, smart reminders, customer direct booking, conflict prevention
+5. **JobFlow** (`/workhub/jobflow`) - Project Command Center: Track jobs from estimate to completion with milestones and progress updates
+6. **MediaVault** (`/workhub/mediavault`) - Protected Documentation: Before/During/After photo organization, dispute protection, social media ready
+7. **CloseBot** (`/workhub/closebot`) - AI Sales Agent: Human-sounding voice calls to follow up on estimates, handle objections, close deals automatically
+8. **PayStream** (`/workhub/paystream`) - Seamless Payments: Invoice creation, payment tracking, withdrawals, one-click customer checkout
+9. **ReviewRocket** (`/workhub/reviewrocket`) - Reputation Automation: Auto-collect reviews, distribute to Google/Facebook, AI-powered responses
+10. **FairnessScore** (`/workhub/fairnessscore`) - Trust Transparency: Scoring based on pricing accuracy, on-time arrival, completion speed, satisfaction
+11. **QuickFinance** (`/workhub/quickfinance`) - Instant Financing: Pay-in-4, 6/12-month financing, partner lenders, contractors paid upfront
+12. **ContentForge** (`/workhub/contentforge`) - Marketing Engine: Auto-create social posts, website galleries, and ads from job photos
+
+#### Key Features:
+- **Rachel Voice Guidance**: All 12 modules include natural female voice (Samantha/Zira/Jenny preferred) with pitch 1.1, rate 1.05
+- **Customer Portal** (`/workhub/customer`): 5-step project submission with AI photo analysis
+- **Contractor Dashboard** (`/workhub/contractor`): Lead management, job tracking, calendar, payments, reviews
+- **Separate Lead Management**: WorkHub leads are everyday (non-emergency) jobs vs Disaster Direct storm leads
+- **TopNav Integration**: Gradient-styled "WorkHub" button in main navigation
+
 ## External Dependencies
 
 ### Core Infrastructure

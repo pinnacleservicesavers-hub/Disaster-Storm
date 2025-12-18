@@ -42,6 +42,23 @@ const OIDCSettings = lazy(() => import("./pages/admin/OIDCSettings"));
 const ContractorAlertsDashboard = lazy(() => import("./pages/ContractorAlertsDashboard"));
 const SMSTestPage = lazy(() => import("./pages/SMSTestPage"));
 
+// WorkHub Marketplace Pages
+const WorkHubMarketplace = lazy(() => import("./pages/WorkHubMarketplace"));
+const WorkHubCustomerPortal = lazy(() => import("./pages/WorkHubCustomerPortal"));
+const WorkHubContractorDashboard = lazy(() => import("./pages/WorkHubContractorDashboard"));
+const WorkHubScopeSnap = lazy(() => import("./pages/workhub/ScopeSnap"));
+const WorkHubPriceWhisperer = lazy(() => import("./pages/workhub/PriceWhisperer"));
+const WorkHubContractorMatch = lazy(() => import("./pages/workhub/ContractorMatch"));
+const WorkHubCalendarSync = lazy(() => import("./pages/workhub/CalendarSync"));
+const WorkHubJobFlow = lazy(() => import("./pages/workhub/JobFlow"));
+const WorkHubMediaVault = lazy(() => import("./pages/workhub/MediaVault"));
+const WorkHubCloseBot = lazy(() => import("./pages/workhub/CloseBot"));
+const WorkHubPayStream = lazy(() => import("./pages/workhub/PayStream"));
+const WorkHubReviewRocket = lazy(() => import("./pages/workhub/ReviewRocket"));
+const WorkHubFairnessScore = lazy(() => import("./pages/workhub/FairnessScore"));
+const WorkHubQuickFinance = lazy(() => import("./pages/workhub/QuickFinance"));
+const WorkHubContentForge = lazy(() => import("./pages/workhub/ContentForge"));
+
 // Loading indicator
 function Loader() {
   return (
@@ -144,6 +161,23 @@ export default function App() {
           
           {/* Admin Routes */}
           <Route path="/admin/oidc" element={<OIDCSettings />} />
+          
+          {/* WorkHub Marketplace Routes */}
+          <Route path="/workhub" element={<WorkHubMarketplace />} />
+          <Route path="/workhub/customer" element={<WorkHubCustomerPortal />} />
+          <Route path="/workhub/contractor" element={<WorkHubContractorDashboard />} />
+          <Route path="/workhub/scopesnap" element={<WorkHubScopeSnap />} />
+          <Route path="/workhub/pricewhisperer" element={<WorkHubPriceWhisperer />} />
+          <Route path="/workhub/contractormatch" element={<WorkHubContractorMatch />} />
+          <Route path="/workhub/calendarsync" element={<WorkHubCalendarSync />} />
+          <Route path="/workhub/jobflow" element={<WorkHubJobFlow />} />
+          <Route path="/workhub/mediavault" element={<WorkHubMediaVault />} />
+          <Route path="/workhub/closebot" element={<WorkHubCloseBot />} />
+          <Route path="/workhub/paystream" element={<WorkHubPayStream />} />
+          <Route path="/workhub/reviewrocket" element={<WorkHubReviewRocket />} />
+          <Route path="/workhub/fairnessscore" element={<WorkHubFairnessScore />} />
+          <Route path="/workhub/quickfinance" element={<WorkHubQuickFinance />} />
+          <Route path="/workhub/contentforge" element={<WorkHubContentForge />} />
         </Routes>
       </Suspense>
     </>
