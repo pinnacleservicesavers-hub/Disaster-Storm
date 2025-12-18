@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import logoImage from '@assets/ChatGPT_Image_Dec_18,_2025,_10_36_54_AM_1766072229170.png';
+import logoImage from '@assets/ChatGPT_Image_Dec_18,_2025,_03_12_06_PM_1766088772916.png';
 
 export default function LandingPage() {
   return (
