@@ -55,14 +55,33 @@ interface LienFilingAssistantProps {
   jobId?: string;
 }
 
+const LEGAL_DISCLAIMER = `IMPORTANT LEGAL DISCLAIMER: This tool provides general information about mechanics lien procedures and is NOT a substitute for professional legal advice. Lien laws vary by state and are subject to change. Filing an improper or invalid lien can result in:
+
+• Liability for slander of title
+• Payment of attorney fees and damages
+• Criminal penalties in some states
+• Loss of lien rights
+
+We strongly recommend consulting with a licensed construction attorney in your state before filing any lien. LienItNow.com provides professional lien filing services and can help ensure compliance with state-specific requirements.
+
+By using this tool, you acknowledge that:
+1. This information is for educational purposes only
+2. You will verify all deadlines and requirements with legal counsel
+3. You are responsible for the accuracy of all information provided
+4. Strategic Service Savers is not liable for any errors or omissions`;
+
+const ATTORNEY_RECOMMENDATION = "We recommend consulting with a licensed construction attorney to verify your lien rights before filing.";
+
 export default function LienFilingAssistant({ isOpen, onClose, prefillData, customerName, jobId }: LienFilingAssistantProps) {
   const { toast } = useToast();
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(0);
   const [isValidating, setIsValidating] = useState(false);
   const [isVoiceActive, setIsVoiceActive] = useState(false);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [complianceChecks, setComplianceChecks] = useState<ComplianceCheck[]>([]);
   const [formProgress, setFormProgress] = useState(0);
+  const [disclaimerAccepted, setDisclaimerAccepted] = useState(false);
+  const [attorneyConsulted, setAttorneyConsulted] = useState(false);
   
   const [formData, setFormData] = useState<LienFilingData>({
     propertyOwnerName: prefillData?.propertyOwnerName || '',
@@ -301,6 +320,76 @@ export default function LienFilingAssistant({ isOpen, onClose, prefillData, cust
 
   const getStepContent = () => {
     switch (step) {
+      case 0:
+        return (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 mb-4">
+              <AlertTriangle className="w-6 h-6 text-amber-600" />
+              <h3 className="font-semibold text-lg">Legal Disclaimer & Acknowledgment</h3>
+            </div>
+            
+            <Card className="border-2 border-amber-300 bg-amber-50 dark:bg-amber-900/20">
+              <CardContent className="p-4">
+                <div className="text-sm whitespace-pre-line text-amber-900 dark:text-amber-100">
+                  {LEGAL_DISCLAIMER}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-blue-200 bg-blue-50 dark:bg-blue-900/20">
+              <CardContent className="p-4">
+                <div className="flex items-start gap-3">
+                  <Scale className="w-5 h-5 text-blue-600 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="font-medium text-blue-800 dark:text-blue-200">Professional Legal Services</p>
+                    <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+                      LienItNow.com is a professional lien filing service that works with licensed attorneys 
+                      in each state. They verify compliance with state-specific requirements before filing.
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <div className="space-y-3 pt-4">
+              <div className="flex items-start gap-3 p-3 rounded-lg border bg-white dark:bg-gray-800">
+                <Checkbox 
+                  id="disclaimer-accept"
+                  checked={disclaimerAccepted}
+                  onCheckedChange={(checked) => setDisclaimerAccepted(checked as boolean)}
+                  data-testid="checkbox-disclaimer"
+                />
+                <Label htmlFor="disclaimer-accept" className="text-sm leading-relaxed cursor-pointer">
+                  I have read and understand the legal disclaimer above. I acknowledge that this tool 
+                  provides general information only and is not legal advice. I understand I am responsible 
+                  for verifying all information with a licensed attorney.
+                </Label>
+              </div>
+
+              <div className="flex items-start gap-3 p-3 rounded-lg border bg-white dark:bg-gray-800">
+                <Checkbox 
+                  id="attorney-consult"
+                  checked={attorneyConsulted}
+                  onCheckedChange={(checked) => setAttorneyConsulted(checked as boolean)}
+                  data-testid="checkbox-attorney"
+                />
+                <Label htmlFor="attorney-consult" className="text-sm leading-relaxed cursor-pointer">
+                  I have consulted with a licensed construction attorney in the applicable state, OR 
+                  I understand that LienItNow.com will verify my lien rights before filing and I accept 
+                  responsibility for the accuracy of the information I provide.
+                </Label>
+              </div>
+            </div>
+
+            {(!disclaimerAccepted || !attorneyConsulted) && (
+              <p className="text-sm text-amber-600 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4" />
+                Please acknowledge both items above to continue
+              </p>
+            )}
+          </div>
+        );
+        
       case 1:
         return (
           <div className="space-y-4">
@@ -760,6 +849,19 @@ export default function LienFilingAssistant({ isOpen, onClose, prefillData, cust
               </CardContent>
             </Card>
 
+            <Card className="bg-amber-50 dark:bg-amber-900/20 border-amber-200">
+              <CardContent className="p-3">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+                  <p className="text-xs text-amber-700 dark:text-amber-300">
+                    <strong>Legal Reminder:</strong> LienItNow.com will verify your lien rights and state compliance 
+                    before filing. Filing an improper lien can result in liability. You are responsible for the 
+                    accuracy of the information provided.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
             <Button 
               onClick={handleSubmitToLienItNow}
               className="w-full bg-blue-600 hover:bg-blue-700 h-12 text-lg"
@@ -817,15 +919,15 @@ export default function LienFilingAssistant({ isOpen, onClose, prefillData, cust
 
           <div className="px-4 py-3 border-b bg-gray-50 dark:bg-gray-800">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-gray-600">Step {step} of 5</span>
+              <span className="text-sm text-gray-600">Step {step + 1} of 6</span>
               <span className="text-sm text-gray-600">{formProgress}% complete</span>
             </div>
-            <Progress value={(step / 5) * 100} className="h-2" />
+            <Progress value={((step + 1) / 6) * 100} className="h-2" />
             <div className="flex justify-between mt-2">
-              {['Property', 'Parties', 'Work/Amount', 'Notices', 'Submit'].map((label, idx) => (
+              {['Disclaimer', 'Property', 'Parties', 'Work', 'Notices', 'Submit'].map((label, idx) => (
                 <span 
                   key={label}
-                  className={`text-xs ${step > idx ? 'text-blue-600 font-medium' : 'text-gray-400'}`}
+                  className={`text-xs ${step >= idx ? 'text-blue-600 font-medium' : 'text-gray-400'}`}
                 >
                   {label}
                 </span>
@@ -840,8 +942,8 @@ export default function LienFilingAssistant({ isOpen, onClose, prefillData, cust
           <div className="flex items-center justify-between p-4 border-t bg-gray-50 dark:bg-gray-800">
             <Button 
               variant="outline" 
-              onClick={() => setStep(Math.max(1, step - 1))}
-              disabled={step === 1}
+              onClick={() => setStep(Math.max(0, step - 1))}
+              disabled={step === 0}
               data-testid="button-prev-step"
             >
               Previous
@@ -851,9 +953,10 @@ export default function LienFilingAssistant({ isOpen, onClose, prefillData, cust
               {step < 5 ? (
                 <Button 
                   onClick={() => setStep(Math.min(5, step + 1))}
+                  disabled={step === 0 && (!disclaimerAccepted || !attorneyConsulted)}
                   data-testid="button-next-step"
                 >
-                  Next Step
+                  {step === 0 ? 'I Understand, Continue' : 'Next Step'}
                 </Button>
               ) : null}
             </div>
