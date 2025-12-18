@@ -21,7 +21,7 @@ export default function LandingPage() {
               </div>
             </div>
             <h1 className="text-5xl md:text-6xl font-bold text-white mb-4">
-              Welcome to <span className="bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">Disaster Direct</span>
+              Welcome to <span className="bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">Strategic Service Savers</span>
             </h1>
             <p className="text-xl text-slate-300 max-w-3xl mx-auto mb-8">
               The complete contractor platform for emergency storm response and everyday home services. 
@@ -178,9 +178,6 @@ export default function LandingPage() {
           </div>
 
           <div className="text-center">
-            <p className="text-slate-400 mb-4">
-              Part of the Strategic Services Savers family
-            </p>
             <p className="text-slate-500 text-sm">
               strategicservicesavers.com
             </p>

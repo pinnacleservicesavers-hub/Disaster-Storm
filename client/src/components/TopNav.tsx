@@ -47,10 +47,10 @@ export default function TopNav() {
                 </div>
                 <div>
                   <h1 className="text-xl font-bold tracking-tight">
-                    Disaster Direct
+                    Strategic Service Savers
                   </h1>
                   <p className="text-xs text-white/80 hidden sm:block">
-                    Storm Operations Platform
+                    Contractor Platform
                   </p>
                 </div>
               </Link>
