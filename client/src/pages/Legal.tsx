@@ -5,12 +5,13 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { useQuery } from '@tanstack/react-query';
-import { Scale, Plus, Search, Settings, AlertTriangle, Calendar, Clock, FileText, CheckCircle, Volume2, VolumeX, ArrowLeft, Upload, X, ExternalLink, Building } from 'lucide-react';
+import { Scale, Plus, Search, Settings, AlertTriangle, Calendar, Clock, FileText, CheckCircle, Volume2, VolumeX, ArrowLeft, Upload, X, ExternalLink, Building, Gavel } from 'lucide-react';
 import { Link } from 'wouter';
 import { DashboardSection } from '@/components/DashboardSection';
 import { FadeIn, PulseAlert, StaggerContainer, StaggerItem, HoverLift } from '@/components/ui/animations';
 import { StateCitySelector, useStateCitySelector } from '@/components/StateCitySelector';
 import ModuleAIAssistant from '@/components/ModuleAIAssistant';
+import LienFilingAssistant from '@/components/LienFilingAssistant';
 import { useToast } from '@/hooks/use-toast';
 
 interface LegalItem {
@@ -35,6 +36,7 @@ export default function Legal() {
   const [docType, setDocType] = useState<'contract' | 'lien' | 'license' | 'compliance'>('lien');
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [newDocForm, setNewDocForm] = useState({ title: '', deadline: '', value: '', location: '' });
+  const [showLienAssistant, setShowLienAssistant] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -264,7 +266,8 @@ export default function Legal() {
       ]}
       actions={[
         { icon: Plus, label: 'New Document', variant: 'default', testId: 'button-new-contract', onClick: () => setShowNewDocModal(true) },
-        { icon: ExternalLink, label: 'File Lien with LienItNow', variant: 'outline', testId: 'button-lienitnow', onClick: openLienItNow },
+        { icon: Gavel, label: 'AI Lien Filing', variant: 'default', testId: 'button-ai-lien', onClick: () => setShowLienAssistant(true) },
+        { icon: ExternalLink, label: 'LienItNow Direct', variant: 'outline', testId: 'button-lienitnow', onClick: openLienItNow },
         { icon: Search, label: 'Search Legal', variant: 'outline', testId: 'button-search-legal' },
         { 
           icon: isVoiceGuideActive ? VolumeX : Volume2, 
@@ -754,6 +757,15 @@ export default function Legal() {
           </div>
         )}
         
+        {/* AI Lien Filing Assistant */}
+        <LienFilingAssistant 
+          isOpen={showLienAssistant}
+          onClose={() => setShowLienAssistant(false)}
+          prefillData={{
+            propertyState: selectedState === 'Florida' ? 'FL' : selectedState === 'Texas' ? 'TX' : 'FL'
+          }}
+        />
+
         <ModuleAIAssistant moduleName="Legal Compliance" />
       </div>
     </div>
