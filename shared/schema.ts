@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, numeric, boolean, jsonb, integer, uuid, unique, foreignKey, serial } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, numeric, boolean, jsonb, integer, uuid, unique, foreignKey, serial, real } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -6553,6 +6553,50 @@ export type InsertWorkhubLegalAcceptance = z.infer<typeof insertWorkhubLegalAcce
 export type WorkhubPricingTier = typeof workhubPricingTiers.$inferSelect;
 export type InsertWorkhubPricingTier = z.infer<typeof insertWorkhubPricingTierSchema>;
 
+// ===== MATERIAL PRICING (WorkHub Material Options & Labor Rates) =====
+// Stores material options with pricing for different work types
+
+export const workhubMaterials = pgTable("workhub_materials", {
+  id: serial("id").primaryKey(),
+  workType: varchar("work_type", { length: 100 }).notNull(), // 'countertop', 'roofing', 'flooring', etc.
+  materialName: varchar("material_name", { length: 255 }).notNull(), // 'Granite', 'Quartz', 'Laminate'
+  materialGrade: varchar("material_grade", { length: 50 }), // 'standard', 'premium', 'luxury'
+  pricePerUnit: integer("price_per_unit").notNull(), // Price in cents per unit
+  unit: varchar("unit", { length: 50 }).notNull(), // 'sqft', 'linear_ft', 'each'
+  description: text("description"),
+  imageUrl: text("image_url"),
+  sortOrder: integer("sort_order").default(0),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const workhubLaborRates = pgTable("workhub_labor_rates", {
+  id: serial("id").primaryKey(),
+  workType: varchar("work_type", { length: 100 }).notNull(),
+  taskName: varchar("task_name", { length: 255 }).notNull(), // 'demolition', 'installation', 'finishing'
+  ratePerUnit: integer("rate_per_unit").notNull(), // Price in cents per unit
+  unit: varchar("unit", { length: 50 }).notNull(), // 'sqft', 'hour', 'each'
+  estimatedHoursPerUnit: real("estimated_hours_per_unit"), // Hours per unit for time estimates
+  description: text("description"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertWorkhubMaterialSchema = createInsertSchema(workhubMaterials).omit({
+  id: true,
+  createdAt: true
+});
+
+export const insertWorkhubLaborRateSchema = createInsertSchema(workhubLaborRates).omit({
+  id: true,
+  createdAt: true
+});
+
+export type WorkhubMaterial = typeof workhubMaterials.$inferSelect;
+export type InsertWorkhubMaterial = z.infer<typeof insertWorkhubMaterialSchema>;
+export type WorkhubLaborRate = typeof workhubLaborRates.$inferSelect;
+export type InsertWorkhubLaborRate = z.infer<typeof insertWorkhubLaborRateSchema>;
+
 // ===== CUSTOMER SUBMISSIONS (WorkHub Customer Portal) =====
 // Stores customer project submissions with AI analysis, pricing, and budget confirmation
 
@@ -6569,6 +6613,13 @@ export const customerSubmissions = pgTable("customer_submissions", {
   description: text("description"),
   photoUrls: text("photo_urls").array(),
   aiAnalysis: jsonb("ai_analysis"),
+  // Enhanced measurements from AI
+  measurements: jsonb("measurements"), // {heightFt, widthFt, lengthFt, sqft, estimatedWeightLb, confidence}
+  // Selected material and pricing breakdown
+  selectedMaterial: jsonb("selected_material"), // {id, name, grade, pricePerUnit, unit}
+  materialCost: integer("material_cost"), // Total material cost in cents
+  laborCost: integer("labor_cost"), // Total labor cost in cents
+  totalEstimate: integer("total_estimate"), // Combined total in cents
   estimatedPrice: jsonb("estimated_price"), // {min: number, max: number}
   budgetConfirmed: boolean("budget_confirmed"),
   budgetReason: text("budget_reason"), // Customer's reason if budget declined
