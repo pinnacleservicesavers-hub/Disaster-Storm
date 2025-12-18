@@ -5699,3 +5699,622 @@ export type ComparableStats = typeof comparableStats.$inferSelect;
 export type InsertComparableStats = z.infer<typeof insertComparableStatsSchema>;
 export type TradeModule = typeof tradeModules.$inferSelect;
 export type InsertTradeModule = z.infer<typeof insertTradeModuleSchema>;
+
+// ===== WORKHUB MARKETPLACE SCHEMA =====
+// Separate everyday contractor/customer marketplace (non-emergency work)
+// Domain: strategicservicesavers.com
+
+// WorkHub Contractors - Professional profiles for everyday marketplace
+export const workhubContractors = pgTable("workhub_contractors", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: varchar("user_id", { length: 100 }),
+  
+  // Business Info
+  businessName: varchar("business_name", { length: 200 }).notNull(),
+  contactName: varchar("contact_name", { length: 100 }).notNull(),
+  email: varchar("email", { length: 200 }).notNull(),
+  phone: varchar("phone", { length: 20 }).notNull(),
+  
+  // Location & Service Area
+  address: text("address"),
+  city: varchar("city", { length: 100 }),
+  state: varchar("state", { length: 2 }),
+  zipCode: varchar("zip_code", { length: 10 }),
+  serviceRadius: integer("service_radius").default(25), // miles
+  serviceZipCodes: jsonb("service_zip_codes").$type<string[]>(),
+  
+  // Trades & Specializations
+  primaryTrade: varchar("primary_trade", { length: 50 }).notNull(), // roofing, plumbing, hvac, electrical, etc.
+  additionalTrades: jsonb("additional_trades").$type<string[]>(),
+  specializations: jsonb("specializations").$type<string[]>(),
+  
+  // Licensing & Insurance
+  licenseNumber: varchar("license_number", { length: 100 }),
+  licenseState: varchar("license_state", { length: 2 }),
+  licenseExpiry: timestamp("license_expiry"),
+  insuranceProvider: varchar("insurance_provider", { length: 100 }),
+  insurancePolicyNumber: varchar("insurance_policy_number", { length: 100 }),
+  insuranceExpiry: timestamp("insurance_expiry"),
+  bondAmount: numeric("bond_amount", { precision: 12, scale: 2 }),
+  
+  // Verification Status
+  isVerified: boolean("is_verified").default(false),
+  verificationDate: timestamp("verification_date"),
+  backgroundCheckPassed: boolean("background_check_passed").default(false),
+  
+  // Ratings & Performance
+  overallRating: numeric("overall_rating", { precision: 3, scale: 2 }).default("0"),
+  totalReviews: integer("total_reviews").default(0),
+  completedJobs: integer("completed_jobs").default(0),
+  responseTimeMinutes: integer("response_time_minutes"),
+  onTimePercentage: numeric("on_time_percentage", { precision: 5, scale: 2 }),
+  
+  // FairnessScore Metrics
+  fairnessScore: integer("fairness_score").default(50), // 0-100
+  pricingAccuracyScore: integer("pricing_accuracy_score").default(50),
+  punctualityScore: integer("punctuality_score").default(50),
+  qualityScore: integer("quality_score").default(50),
+  communicationScore: integer("communication_score").default(50),
+  
+  // Subscription & Billing
+  subscriptionTier: varchar("subscription_tier", { length: 20 }).default("free"), // free, starter, pro, enterprise
+  subscriptionStatus: varchar("subscription_status", { length: 20 }).default("active"),
+  stripeCustomerId: varchar("stripe_customer_id", { length: 100 }),
+  stripeSubscriptionId: varchar("stripe_subscription_id", { length: 100 }),
+  
+  // Calendar Settings
+  availabilitySchedule: jsonb("availability_schedule").$type<{
+    monday?: { start: string; end: string; }[];
+    tuesday?: { start: string; end: string; }[];
+    wednesday?: { start: string; end: string; }[];
+    thursday?: { start: string; end: string; }[];
+    friday?: { start: string; end: string; }[];
+    saturday?: { start: string; end: string; }[];
+    sunday?: { start: string; end: string; }[];
+  }>(),
+  bookingLeadTime: integer("booking_lead_time").default(24), // hours
+  maxDailyJobs: integer("max_daily_jobs").default(3),
+  
+  // Financial
+  bankAccountConnected: boolean("bank_account_connected").default(false),
+  stripeConnectAccountId: varchar("stripe_connect_account_id", { length: 100 }),
+  availableBalance: numeric("available_balance", { precision: 12, scale: 2 }).default("0"),
+  
+  // Profile
+  bio: text("bio"),
+  profilePhotoUrl: text("profile_photo_url"),
+  portfolioUrls: jsonb("portfolio_urls").$type<string[]>(),
+  yearsExperience: integer("years_experience"),
+  
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// WorkHub Customers - Homeowners/businesses seeking services
+export const workhubCustomers = pgTable("workhub_customers", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: varchar("user_id", { length: 100 }),
+  
+  // Contact Info
+  firstName: varchar("first_name", { length: 100 }).notNull(),
+  lastName: varchar("last_name", { length: 100 }).notNull(),
+  email: varchar("email", { length: 200 }).notNull(),
+  phone: varchar("phone", { length: 20 }),
+  
+  // Property Info
+  propertyAddress: text("property_address"),
+  propertyCity: varchar("property_city", { length: 100 }),
+  propertyState: varchar("property_state", { length: 2 }),
+  propertyZipCode: varchar("property_zip_code", { length: 10 }),
+  propertyType: varchar("property_type", { length: 50 }), // residential, commercial, multi-family
+  
+  // Preferences
+  preferredContactMethod: varchar("preferred_contact_method", { length: 20 }).default("email"),
+  notificationsEnabled: boolean("notifications_enabled").default(true),
+  
+  // Payment
+  stripeCustomerId: varchar("stripe_customer_id", { length: 100 }),
+  defaultPaymentMethodId: varchar("default_payment_method_id", { length: 100 }),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// WorkHub Projects/Jobs - Customer requests matched with contractors
+export const workhubProjects = pgTable("workhub_projects", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  customerId: uuid("customer_id").references(() => workhubCustomers.id),
+  contractorId: uuid("contractor_id").references(() => workhubContractors.id),
+  
+  // Project Details
+  title: varchar("title", { length: 200 }).notNull(),
+  description: text("description"),
+  tradeType: varchar("trade_type", { length: 50 }).notNull(),
+  urgency: varchar("urgency", { length: 20 }).default("normal"), // emergency, urgent, normal, flexible
+  
+  // AI Analysis from ScopeSnap
+  aiAnalysis: jsonb("ai_analysis").$type<{
+    detectedIssues: string[];
+    recommendedTrades: string[];
+    estimatedComplexity: string;
+    estimatedDuration: string;
+    aiConfidence: number;
+    suggestedQuestions: string[];
+  }>(),
+  
+  // Location
+  address: text("address"),
+  city: varchar("city", { length: 100 }),
+  state: varchar("state", { length: 2 }),
+  zipCode: varchar("zip_code", { length: 10 }),
+  
+  // Status Workflow
+  status: varchar("status", { length: 30 }).default("new"), // new, quoted, accepted, scheduled, in_progress, completed, cancelled, disputed
+  
+  // Estimate/Quote
+  estimatedAmount: numeric("estimated_amount", { precision: 12, scale: 2 }),
+  finalAmount: numeric("final_amount", { precision: 12, scale: 2 }),
+  estimateNotes: text("estimate_notes"),
+  estimateValidUntil: timestamp("estimate_valid_until"),
+  
+  // PriceWhisperer AI pricing
+  aiPriceRange: jsonb("ai_price_range").$type<{
+    low: number;
+    mid: number;
+    high: number;
+    marketAverage: number;
+    confidence: string;
+    factors: string[];
+  }>(),
+  
+  // Scheduling
+  preferredDate: timestamp("preferred_date"),
+  scheduledDate: timestamp("scheduled_date"),
+  scheduledTimeSlot: varchar("scheduled_time_slot", { length: 50 }),
+  estimatedDuration: integer("estimated_duration"), // hours
+  actualStartTime: timestamp("actual_start_time"),
+  actualEndTime: timestamp("actual_end_time"),
+  
+  // Milestones (JobFlow)
+  milestones: jsonb("milestones").$type<Array<{
+    id: string;
+    title: string;
+    description?: string;
+    status: string;
+    completedAt?: string;
+    notes?: string;
+  }>>(),
+  
+  // Customer Communications
+  lastContactDate: timestamp("last_contact_date"),
+  followUpCount: integer("follow_up_count").default(0),
+  closeAttempts: integer("close_attempts").default(0), // CloseBot attempts
+  
+  // Payment
+  paymentStatus: varchar("payment_status", { length: 30 }).default("pending"), // pending, partial, paid, refunded
+  paidAmount: numeric("paid_amount", { precision: 12, scale: 2 }).default("0"),
+  paymentMethod: varchar("payment_method", { length: 30 }),
+  
+  // Financing (QuickFinance)
+  financingUsed: boolean("financing_used").default(false),
+  financingPlan: varchar("financing_plan", { length: 50 }),
+  financingProvider: varchar("financing_provider", { length: 100 }),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// WorkHub Project Media (MediaVault)
+export const workhubMedia = pgTable("workhub_media", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("project_id").references(() => workhubProjects.id),
+  contractorId: uuid("contractor_id").references(() => workhubContractors.id),
+  
+  // Media Info
+  type: varchar("type", { length: 20 }).notNull(), // photo, video, document
+  category: varchar("category", { length: 30 }).default("general"), // before, during, after, estimate, invoice
+  
+  // Storage
+  url: text("url").notNull(),
+  thumbnailUrl: text("thumbnail_url"),
+  fileName: varchar("file_name", { length: 200 }),
+  fileSize: integer("file_size"),
+  mimeType: varchar("mime_type", { length: 100 }),
+  
+  // Metadata
+  caption: text("caption"),
+  gpsLatitude: numeric("gps_latitude", { precision: 10, scale: 7 }),
+  gpsLongitude: numeric("gps_longitude", { precision: 10, scale: 7 }),
+  capturedAt: timestamp("captured_at"),
+  
+  // AI Analysis
+  aiDescription: text("ai_description"),
+  aiTags: jsonb("ai_tags").$type<string[]>(),
+  
+  // ContentForge metadata
+  usedInMarketing: boolean("used_in_marketing").default(false),
+  socialMediaPosts: jsonb("social_media_posts").$type<Array<{
+    platform: string;
+    postUrl?: string;
+    postedAt?: string;
+  }>>(),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// WorkHub Reviews (ReviewRocket)
+export const workhubReviews = pgTable("workhub_reviews", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("project_id").references(() => workhubProjects.id),
+  contractorId: uuid("contractor_id").references(() => workhubContractors.id),
+  customerId: uuid("customer_id").references(() => workhubCustomers.id),
+  
+  // Ratings (1-5)
+  overallRating: integer("overall_rating").notNull(),
+  qualityRating: integer("quality_rating"),
+  punctualityRating: integer("punctuality_rating"),
+  communicationRating: integer("communication_rating"),
+  valueRating: integer("value_rating"),
+  
+  // Review Content
+  title: varchar("title", { length: 200 }),
+  content: text("content"),
+  
+  // Contractor Response
+  contractorResponse: text("contractor_response"),
+  contractorRespondedAt: timestamp("contractor_responded_at"),
+  aiSuggestedResponse: text("ai_suggested_response"),
+  
+  // Distribution
+  distributedTo: jsonb("distributed_to").$type<Array<{
+    platform: string; // google, facebook, yelp, etc.
+    externalReviewId?: string;
+    distributedAt: string;
+    status: string;
+  }>>(),
+  
+  // Review Request
+  requestedAt: timestamp("requested_at"),
+  requestMethod: varchar("request_method", { length: 30 }), // email, sms, in_app
+  reminderCount: integer("reminder_count").default(0),
+  
+  isVerified: boolean("is_verified").default(false),
+  isPublic: boolean("is_public").default(true),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// WorkHub Invoices (PayStream)
+export const workhubInvoices = pgTable("workhub_invoices", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("project_id").references(() => workhubProjects.id),
+  contractorId: uuid("contractor_id").references(() => workhubContractors.id),
+  customerId: uuid("customer_id").references(() => workhubCustomers.id),
+  
+  // Invoice Details
+  invoiceNumber: varchar("invoice_number", { length: 50 }).notNull(),
+  status: varchar("status", { length: 20 }).default("draft"), // draft, sent, viewed, paid, overdue, cancelled
+  
+  // Line Items
+  lineItems: jsonb("line_items").$type<Array<{
+    description: string;
+    quantity: number;
+    unitPrice: number;
+    total: number;
+  }>>(),
+  
+  // Amounts
+  subtotal: numeric("subtotal", { precision: 12, scale: 2 }).notNull(),
+  taxRate: numeric("tax_rate", { precision: 5, scale: 2 }),
+  taxAmount: numeric("tax_amount", { precision: 12, scale: 2 }),
+  discountAmount: numeric("discount_amount", { precision: 12, scale: 2 }),
+  totalAmount: numeric("total_amount", { precision: 12, scale: 2 }).notNull(),
+  
+  // Payment
+  paidAmount: numeric("paid_amount", { precision: 12, scale: 2 }).default("0"),
+  paymentDueDate: timestamp("payment_due_date"),
+  paidAt: timestamp("paid_at"),
+  paymentMethod: varchar("payment_method", { length: 30 }),
+  stripePaymentIntentId: varchar("stripe_payment_intent_id", { length: 100 }),
+  
+  // Communication
+  sentAt: timestamp("sent_at"),
+  viewedAt: timestamp("viewed_at"),
+  remindersSent: integer("reminders_sent").default(0),
+  
+  notes: text("notes"),
+  termsAndConditions: text("terms_and_conditions"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// WorkHub Subscriptions/Pricing Tiers
+export const workhubSubscriptions = pgTable("workhub_subscriptions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  contractorId: uuid("contractor_id").references(() => workhubContractors.id),
+  
+  // Plan Info
+  tier: varchar("tier", { length: 20 }).notNull(), // free, starter, pro, enterprise
+  status: varchar("status", { length: 20 }).default("active"), // active, cancelled, past_due, trialing
+  
+  // Billing
+  billingCycle: varchar("billing_cycle", { length: 20 }).default("monthly"), // monthly, annual
+  pricePerMonth: numeric("price_per_month", { precision: 10, scale: 2 }),
+  
+  // Stripe
+  stripeSubscriptionId: varchar("stripe_subscription_id", { length: 100 }),
+  stripePriceId: varchar("stripe_price_id", { length: 100 }),
+  
+  // Dates
+  currentPeriodStart: timestamp("current_period_start"),
+  currentPeriodEnd: timestamp("current_period_end"),
+  trialEndsAt: timestamp("trial_ends_at"),
+  cancelledAt: timestamp("cancelled_at"),
+  
+  // Usage Limits
+  monthlyLeads: integer("monthly_leads").default(10),
+  leadsUsed: integer("leads_used").default(0),
+  monthlyCloseBot: integer("monthly_closebot").default(0),
+  closeBotUsed: integer("closebot_used").default(0),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// WorkHub AI Agent Interactions (CloseBot & others)
+export const workhubAgentInteractions = pgTable("workhub_agent_interactions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("project_id").references(() => workhubProjects.id),
+  contractorId: uuid("contractor_id").references(() => workhubContractors.id),
+  customerId: uuid("customer_id").references(() => workhubCustomers.id),
+  
+  // Agent Info
+  agentType: varchar("agent_type", { length: 30 }).notNull(), // closebot, pricewhisperer, scopesnap, etc.
+  
+  // Interaction Details
+  interactionType: varchar("interaction_type", { length: 30 }).notNull(), // call, sms, email, chat
+  direction: varchar("direction", { length: 10 }).notNull(), // inbound, outbound
+  
+  // Call Details (for CloseBot voice)
+  phoneNumber: varchar("phone_number", { length: 20 }),
+  callDuration: integer("call_duration"), // seconds
+  callRecordingUrl: text("call_recording_url"),
+  voiceProvider: varchar("voice_provider", { length: 50 }), // elevenlabs, twilio
+  
+  // Conversation
+  transcript: text("transcript"),
+  summary: text("summary"),
+  
+  // Outcome
+  outcome: varchar("outcome", { length: 30 }), // appointment_set, callback_requested, declined, no_answer, voicemail
+  appointmentScheduled: timestamp("appointment_scheduled"),
+  followUpRequired: boolean("follow_up_required").default(false),
+  
+  // AI Analysis
+  sentiment: varchar("sentiment", { length: 20 }), // positive, neutral, negative
+  objections: jsonb("objections").$type<string[]>(),
+  aiRecommendations: jsonb("ai_recommendations").$type<string[]>(),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// WorkHub AI Agent Scripts
+export const workhubAgentScripts = pgTable("workhub_agent_scripts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  
+  // Script Info
+  name: varchar("name", { length: 100 }).notNull(),
+  agentType: varchar("agent_type", { length: 30 }).notNull(), // closebot, review_request, appointment_reminder
+  category: varchar("category", { length: 50 }).notNull(), // opening, objection_handling, closing, follow_up
+  
+  // Content
+  scriptContent: text("script_content").notNull(),
+  voiceInstructions: text("voice_instructions"), // tone, pace, emphasis
+  
+  // Variables
+  variables: jsonb("variables").$type<Array<{
+    name: string;
+    description: string;
+    required: boolean;
+    defaultValue?: string;
+  }>>(),
+  
+  // Objection Responses
+  objectionResponses: jsonb("objection_responses").$type<Record<string, string>>(),
+  
+  // Performance
+  usageCount: integer("usage_count").default(0),
+  conversionRate: numeric("conversion_rate", { precision: 5, scale: 2 }),
+  averageCallDuration: integer("average_call_duration"),
+  
+  isActive: boolean("is_active").default(true),
+  isDefault: boolean("is_default").default(false),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// WorkHub Terms & Legal Documents
+export const workhubLegalDocuments = pgTable("workhub_legal_documents", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  
+  // Document Info
+  type: varchar("type", { length: 50 }).notNull(), // terms_of_service, privacy_policy, contractor_agreement, customer_agreement, liability_waiver
+  version: varchar("version", { length: 20 }).notNull(),
+  
+  // Content
+  title: varchar("title", { length: 200 }).notNull(),
+  content: text("content").notNull(),
+  summary: text("summary"), // Plain language summary
+  
+  // Clauses
+  clauses: jsonb("clauses").$type<Array<{
+    id: string;
+    title: string;
+    content: string;
+    isCritical: boolean;
+  }>>(),
+  
+  // Status
+  status: varchar("status", { length: 20 }).default("draft"), // draft, active, archived
+  effectiveDate: timestamp("effective_date"),
+  expirationDate: timestamp("expiration_date"),
+  
+  // Jurisdiction
+  applicableStates: jsonb("applicable_states").$type<string[]>(),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// WorkHub User Acceptances (for legal docs)
+export const workhubLegalAcceptances = pgTable("workhub_legal_acceptances", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  documentId: uuid("document_id").references(() => workhubLegalDocuments.id),
+  
+  // User Info
+  userType: varchar("user_type", { length: 20 }).notNull(), // contractor, customer
+  userId: uuid("user_id").notNull(),
+  
+  // Acceptance Details
+  acceptedAt: timestamp("accepted_at").notNull(),
+  ipAddress: varchar("ip_address", { length: 45 }),
+  userAgent: text("user_agent"),
+  
+  // Digital Signature
+  signatureHash: varchar("signature_hash", { length: 128 }),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// WorkHub Pricing Tiers Configuration
+export const workhubPricingTiers = pgTable("workhub_pricing_tiers", {
+  id: varchar("id", { length: 20 }).primaryKey(), // free, starter, pro, enterprise
+  
+  name: varchar("name", { length: 50 }).notNull(),
+  description: text("description"),
+  tagline: varchar("tagline", { length: 200 }),
+  
+  // Pricing
+  monthlyPrice: numeric("monthly_price", { precision: 10, scale: 2 }).notNull(),
+  annualPrice: numeric("annual_price", { precision: 10, scale: 2 }),
+  stripePriceIdMonthly: varchar("stripe_price_id_monthly", { length: 100 }),
+  stripePriceIdAnnual: varchar("stripe_price_id_annual", { length: 100 }),
+  
+  // Features & Limits
+  features: jsonb("features").$type<Array<{
+    name: string;
+    included: boolean;
+    limit?: number;
+    description?: string;
+  }>>(),
+  
+  // Limits
+  monthlyLeadsLimit: integer("monthly_leads_limit"),
+  closeBotCallsLimit: integer("closebot_calls_limit"),
+  projectsLimit: integer("projects_limit"),
+  mediaStorageGb: integer("media_storage_gb"),
+  teamMembersLimit: integer("team_members_limit"),
+  
+  // Display
+  isPopular: boolean("is_popular").default(false),
+  displayOrder: integer("display_order").default(0),
+  
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Insert schemas for WorkHub
+export const insertWorkhubContractorSchema = createInsertSchema(workhubContractors).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
+});
+
+export const insertWorkhubCustomerSchema = createInsertSchema(workhubCustomers).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
+});
+
+export const insertWorkhubProjectSchema = createInsertSchema(workhubProjects).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
+});
+
+export const insertWorkhubMediaSchema = createInsertSchema(workhubMedia).omit({
+  id: true,
+  createdAt: true
+});
+
+export const insertWorkhubReviewSchema = createInsertSchema(workhubReviews).omit({
+  id: true,
+  createdAt: true
+});
+
+export const insertWorkhubInvoiceSchema = createInsertSchema(workhubInvoices).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
+});
+
+export const insertWorkhubSubscriptionSchema = createInsertSchema(workhubSubscriptions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
+});
+
+export const insertWorkhubAgentInteractionSchema = createInsertSchema(workhubAgentInteractions).omit({
+  id: true,
+  createdAt: true
+});
+
+export const insertWorkhubAgentScriptSchema = createInsertSchema(workhubAgentScripts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
+});
+
+export const insertWorkhubLegalDocumentSchema = createInsertSchema(workhubLegalDocuments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
+});
+
+export const insertWorkhubLegalAcceptanceSchema = createInsertSchema(workhubLegalAcceptances).omit({
+  id: true,
+  createdAt: true
+});
+
+export const insertWorkhubPricingTierSchema = createInsertSchema(workhubPricingTiers).omit({
+  createdAt: true
+});
+
+// Select types for WorkHub
+export type WorkhubContractor = typeof workhubContractors.$inferSelect;
+export type InsertWorkhubContractor = z.infer<typeof insertWorkhubContractorSchema>;
+export type WorkhubCustomer = typeof workhubCustomers.$inferSelect;
+export type InsertWorkhubCustomer = z.infer<typeof insertWorkhubCustomerSchema>;
+export type WorkhubProject = typeof workhubProjects.$inferSelect;
+export type InsertWorkhubProject = z.infer<typeof insertWorkhubProjectSchema>;
+export type WorkhubMedia = typeof workhubMedia.$inferSelect;
+export type InsertWorkhubMedia = z.infer<typeof insertWorkhubMediaSchema>;
+export type WorkhubReview = typeof workhubReviews.$inferSelect;
+export type InsertWorkhubReview = z.infer<typeof insertWorkhubReviewSchema>;
+export type WorkhubInvoice = typeof workhubInvoices.$inferSelect;
+export type InsertWorkhubInvoice = z.infer<typeof insertWorkhubInvoiceSchema>;
+export type WorkhubSubscription = typeof workhubSubscriptions.$inferSelect;
+export type InsertWorkhubSubscription = z.infer<typeof insertWorkhubSubscriptionSchema>;
+export type WorkhubAgentInteraction = typeof workhubAgentInteractions.$inferSelect;
+export type InsertWorkhubAgentInteraction = z.infer<typeof insertWorkhubAgentInteractionSchema>;
+export type WorkhubAgentScript = typeof workhubAgentScripts.$inferSelect;
+export type InsertWorkhubAgentScript = z.infer<typeof insertWorkhubAgentScriptSchema>;
+export type WorkhubLegalDocument = typeof workhubLegalDocuments.$inferSelect;
+export type InsertWorkhubLegalDocument = z.infer<typeof insertWorkhubLegalDocumentSchema>;
+export type WorkhubLegalAcceptance = typeof workhubLegalAcceptances.$inferSelect;
+export type InsertWorkhubLegalAcceptance = z.infer<typeof insertWorkhubLegalAcceptanceSchema>;
+export type WorkhubPricingTier = typeof workhubPricingTiers.$inferSelect;
+export type InsertWorkhubPricingTier = z.infer<typeof insertWorkhubPricingTierSchema>;

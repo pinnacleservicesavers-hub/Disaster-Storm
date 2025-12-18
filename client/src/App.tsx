@@ -58,6 +58,10 @@ const WorkHubReviewRocket = lazy(() => import("./pages/workhub/ReviewRocket"));
 const WorkHubFairnessScore = lazy(() => import("./pages/workhub/FairnessScore"));
 const WorkHubQuickFinance = lazy(() => import("./pages/workhub/QuickFinance"));
 const WorkHubContentForge = lazy(() => import("./pages/workhub/ContentForge"));
+const WorkHubPricingTiers = lazy(() => import("./pages/workhub/PricingTiers"));
+const WorkHubPitchDeck = lazy(() => import("./pages/workhub/PitchDeck"));
+const WorkHubAIAgentScripts = lazy(() => import("./pages/workhub/AIAgentScripts"));
+const WorkHubLegalTerms = lazy(() => import("./pages/workhub/LegalTerms"));
 
 // Loading indicator
 function Loader() {
@@ -178,6 +182,10 @@ export default function App() {
           <Route path="/workhub/fairnessscore" element={<WorkHubFairnessScore />} />
           <Route path="/workhub/quickfinance" element={<WorkHubQuickFinance />} />
           <Route path="/workhub/contentforge" element={<WorkHubContentForge />} />
+          <Route path="/workhub/pricing" element={<WorkHubPricingTiers />} />
+          <Route path="/workhub/pitch" element={<WorkHubPitchDeck />} />
+          <Route path="/workhub/scripts" element={<WorkHubAIAgentScripts />} />
+          <Route path="/workhub/legal" element={<WorkHubLegalTerms />} />
         </Routes>
       </Suspense>
     </>

@@ -508,6 +508,65 @@ export default function WorkHubMarketplace() {
         </div>
       </section>
 
+      {/* Business Resources */}
+      <section className="py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+        <div className="text-center mb-12">
+          <Badge className="mb-4 bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
+            For Contractors
+          </Badge>
+          <h2 className="text-3xl font-bold mb-4">Business Resources</h2>
+          <p className="text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
+            Everything you need to grow your business on WorkHub
+          </p>
+        </div>
+        <div className="grid md:grid-cols-4 gap-6">
+          <Link href="/workhub/pricing">
+            <Card className="group hover:shadow-xl transition-all cursor-pointer border-0 bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 h-full" data-testid="card-pricing-plans">
+              <CardContent className="pt-6">
+                <DollarSign className="w-10 h-10 text-purple-600 mb-4 group-hover:scale-110 transition-transform" />
+                <h3 className="text-lg font-semibold mb-2">Pricing Plans</h3>
+                <p className="text-sm text-slate-600 dark:text-slate-400">
+                  Choose the right plan for your business size and goals
+                </p>
+              </CardContent>
+            </Card>
+          </Link>
+          <Link href="/workhub/scripts">
+            <Card className="group hover:shadow-xl transition-all cursor-pointer border-0 bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 h-full" data-testid="card-ai-scripts">
+              <CardContent className="pt-6">
+                <Bot className="w-10 h-10 text-emerald-600 mb-4 group-hover:scale-110 transition-transform" />
+                <h3 className="text-lg font-semibold mb-2">AI Agent Scripts</h3>
+                <p className="text-sm text-slate-600 dark:text-slate-400">
+                  Customize CloseBot scripts and voice guidelines
+                </p>
+              </CardContent>
+            </Card>
+          </Link>
+          <Link href="/workhub/pitch">
+            <Card className="group hover:shadow-xl transition-all cursor-pointer border-0 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 h-full" data-testid="card-pitch-deck">
+              <CardContent className="pt-6">
+                <TrendingUp className="w-10 h-10 text-amber-600 mb-4 group-hover:scale-110 transition-transform" />
+                <h3 className="text-lg font-semibold mb-2">Pitch Deck</h3>
+                <p className="text-sm text-slate-600 dark:text-slate-400">
+                  Investor presentation and business overview
+                </p>
+              </CardContent>
+            </Card>
+          </Link>
+          <Link href="/workhub/legal">
+            <Card className="group hover:shadow-xl transition-all cursor-pointer border-0 bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 h-full" data-testid="card-legal-terms">
+              <CardContent className="pt-6">
+                <Shield className="w-10 h-10 text-blue-600 mb-4 group-hover:scale-110 transition-transform" />
+                <h3 className="text-lg font-semibold mb-2">Legal & Terms</h3>
+                <p className="text-sm text-slate-600 dark:text-slate-400">
+                  Terms of service, privacy policy, and contractor agreement
+                </p>
+              </CardContent>
+            </Card>
+          </Link>
+        </div>
+      </section>
+
       {/* CTA Section */}
       <section className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-r from-purple-600 to-indigo-600">
         <div className="max-w-4xl mx-auto text-center">
