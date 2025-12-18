@@ -69,6 +69,7 @@ const WorkHubAdminSubmissions = lazy(() => import("./pages/workhub/AdminSubmissi
 const WorkHubTermsOfService = lazy(() => import("./pages/WorkHubTermsOfService"));
 const WorkHubContractorCRM = lazy(() => import("./pages/WorkHubContractorCRM"));
 const WorkHubAdminPricing = lazy(() => import("./pages/WorkHubAdminPricing"));
+const WorkHubContractorOnboarding = lazy(() => import("./pages/WorkHubContractorOnboarding"));
 
 // Loading indicator
 function Loader() {
@@ -202,6 +203,7 @@ export default function App() {
           <Route path="/workhub/terms" element={<WorkHubTermsOfService />} />
           <Route path="/workhub/crm" element={<WorkHubContractorCRM />} />
           <Route path="/workhub/admin/pricing" element={<WorkHubAdminPricing />} />
+          <Route path="/workhub/onboarding" element={<WorkHubContractorOnboarding />} />
         </Routes>
       </Suspense>
     </>

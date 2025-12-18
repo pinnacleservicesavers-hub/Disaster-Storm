@@ -1,9 +1,79 @@
 import { Router, Request, Response } from "express";
 import { z } from "zod";
+import multer from "multer";
+import path from "path";
 import { storage } from "../storage";
 import { smartBidAI, LeadQualificationInput } from "../services/smartBidAI";
 
 const router = Router();
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only PDF, JPG, and PNG files are allowed.'));
+    }
+  }
+});
+
+const contractorRegisterFields = upload.fields([
+  { name: 'licenseDocument', maxCount: 1 },
+  { name: 'insuranceDocument', maxCount: 1 },
+  { name: 'businessDocument', maxCount: 1 },
+  { name: 'nonprofitDocument', maxCount: 1 }
+]);
+
+// ===== CONTRACTOR REGISTRATION WITH FILE UPLOADS =====
+
+router.post("/contractors/register", contractorRegisterFields, async (req: Request, res: Response) => {
+  try {
+    const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
+    
+    const contractorData = {
+      businessName: req.body.businessName,
+      ownerName: req.body.ownerName,
+      email: req.body.email,
+      phone: req.body.phone,
+      address: req.body.address || '',
+      city: req.body.city,
+      state: req.body.state,
+      zipCode: req.body.zipCode,
+      website: req.body.website || '',
+      trades: JSON.parse(req.body.trades || '[]'),
+      yearsInBusiness: parseInt(req.body.yearsInBusiness) || 0,
+      employeeCount: req.body.employeeCount || '',
+      licenseNumber: req.body.licenseNumber || '',
+      licenseState: req.body.licenseState || '',
+      insuranceProvider: req.body.insuranceProvider || '',
+      insurancePolicy: req.body.insurancePolicy || '',
+      insuranceExpiry: req.body.insuranceExpiry || '',
+      serviceZipCodes: JSON.parse(req.body.serviceZipCodes || '[]'),
+      serviceRadius: parseInt(req.body.serviceRadius) || 25,
+      subscriptionTier: req.body.subscriptionTier || 'starter',
+      isNonprofit: req.body.isNonprofit === 'true',
+      nonprofitEIN: req.body.nonprofitEIN || '',
+      status: 'pending_verification',
+      hasLicenseDocument: !!(files?.licenseDocument?.length),
+      hasInsuranceDocument: !!(files?.insuranceDocument?.length),
+      hasBusinessDocument: !!(files?.businessDocument?.length),
+      hasNonprofitDocument: !!(files?.nonprofitDocument?.length),
+    };
+
+    const contractor = await storage.createWorkhubContractor(contractorData);
+    res.status(201).json({ 
+      success: true, 
+      contractor,
+      message: 'Registration submitted successfully. Your credentials are pending verification.'
+    });
+  } catch (error) {
+    console.error('Contractor registration error:', error);
+    res.status(500).json({ error: "Failed to register contractor" });
+  }
+});
 
 // ===== WORKHUB CONTRACTORS =====
 
