@@ -501,9 +501,11 @@ export default function ContractorPortal() {
     }] : [])
   ];
 
-  // Get best natural female voice (same as VoiceGuide component)
-  const getBestFemaleVoice = (): SpeechSynthesisVoice | null => {
-    const availableVoices = window.speechSynthesis.getVoices();
+  // Get best natural female voice using the loaded voices state
+  const getBestFemaleVoice = (availableVoices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | null => {
+    if (!availableVoices || availableVoices.length === 0) {
+      return null;
+    }
     
     // Priority order for natural female voices
     const preferredVoices = [
@@ -545,16 +547,58 @@ export default function ContractorPortal() {
     return availableVoices.find(v => v.lang.startsWith('en')) || availableVoices[0] || null;
   };
 
-  // Robust Voice Guide Function with natural female voice
+  // Speak with natural female voice
+  const speakWithFemaleVoice = (text: string) => {
+    window.speechSynthesis.cancel();
+    
+    const utterance = new SpeechSynthesisUtterance(text);
+    
+    // Use the voices state that's already loaded
+    const femaleVoice = getBestFemaleVoice(voices);
+    if (femaleVoice) {
+      utterance.voice = femaleVoice;
+      console.log('Using voice:', femaleVoice.name);
+    } else {
+      console.warn('No female voice found, using default');
+    }
+    
+    // Natural, friendly speaking style - upbeat female tone
+    utterance.rate = 1.05;
+    utterance.pitch = 1.1;
+    utterance.volume = 0.9;
+    
+    utterance.onend = () => {
+      setIsVoiceGuideActive(false);
+    };
+    
+    utterance.onerror = (event) => {
+      console.error('Speech synthesis error:', event);
+      setIsVoiceGuideActive(false);
+    };
+    
+    window.speechSynthesis.speak(utterance);
+  };
+
+  // Voice Guide Function with natural female voice
   const startVoiceGuide = () => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
-      console.warn('Speech synthesis not supported in this browser');
+      toast({ variant: 'destructive', title: 'Voice not supported', description: 'Your browser does not support speech synthesis.' });
       return;
     }
 
     if (!isVoiceGuideActive) {
+      // Check if voices are loaded
+      if (voices.length === 0) {
+        // Try to load voices and retry
+        const loadedVoices = window.speechSynthesis.getVoices();
+        if (loadedVoices.length === 0) {
+          toast({ title: 'Loading voice...', description: 'Please wait a moment and try again.' });
+          return;
+        }
+        setVoices(loadedVoices);
+      }
+      
       setIsVoiceGuideActive(true);
-      window.speechSynthesis.cancel();
       
       const voiceContent = `Welcome to your Contractor Portal! I'm Rachel, your AI assistant, and I'll guide you through managing your storm damage business.
 
@@ -570,29 +614,7 @@ export default function ContractorPortal() {
 
       I'm here to help you succeed. Just ask if you need assistance with estimates, scheduling, or any part of your business!`;
       
-      const utterance = new SpeechSynthesisUtterance(voiceContent);
-      
-      // Use natural female voice with upbeat tone
-      const femaleVoice = getBestFemaleVoice();
-      if (femaleVoice) {
-        utterance.voice = femaleVoice;
-      }
-      
-      // Natural, friendly speaking style
-      utterance.rate = 1.05;
-      utterance.pitch = 1.1;
-      utterance.volume = 0.9;
-      
-      utterance.onend = () => {
-        setIsVoiceGuideActive(false);
-      };
-      
-      utterance.onerror = (event) => {
-        console.error('Speech synthesis error:', event);
-        setIsVoiceGuideActive(false);
-      };
-      
-      window.speechSynthesis.speak(utterance);
+      speakWithFemaleVoice(voiceContent);
     } else {
       window.speechSynthesis.cancel();
       setIsVoiceGuideActive(false);
