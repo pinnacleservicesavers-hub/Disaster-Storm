@@ -53,6 +53,7 @@ export default function JobSnap() {
   const [capturePhase, setCapturePhase] = useState<'before' | 'during' | 'after'>('before');
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
+  const [sortBy, setSortBy] = useState<'customerName' | 'address'>('customerName');
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -550,14 +551,43 @@ export default function JobSnap() {
           <TabsContent value="projects" className="space-y-4">
             <Card className="bg-white/10 backdrop-blur border-purple-500/30">
               <CardHeader>
-                <CardTitle className="text-white">Your Projects</CardTitle>
-                <CardDescription className="text-purple-200">
-                  Select a project to capture media for
-                </CardDescription>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-white">Your Projects</CardTitle>
+                    <CardDescription className="text-purple-200">
+                      Select a project to capture media for
+                    </CardDescription>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-purple-300 text-sm">Sort by:</span>
+                    <Button
+                      variant={sortBy === 'customerName' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setSortBy('customerName')}
+                      className={sortBy === 'customerName' ? 'bg-purple-500 text-white' : 'border-purple-500/50 text-purple-300'}
+                      data-testid="button-sort-customer"
+                    >
+                      Customer Name
+                    </Button>
+                    <Button
+                      variant={sortBy === 'address' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setSortBy('address')}
+                      className={sortBy === 'address' ? 'bg-purple-500 text-white' : 'border-purple-500/50 text-purple-300'}
+                      data-testid="button-sort-address"
+                    >
+                      Address
+                    </Button>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {sampleProjects.map((project) => (
+                  {[...sampleProjects].sort((a, b) => 
+                    sortBy === 'customerName' 
+                      ? a.customerName.localeCompare(b.customerName)
+                      : a.address.localeCompare(b.address)
+                  ).map((project) => (
                     <Card
                       key={project.id}
                       className={`bg-white/5 border-purple-500/20 hover:bg-white/10 transition-all cursor-pointer ${
