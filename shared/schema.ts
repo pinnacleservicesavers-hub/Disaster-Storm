@@ -6226,6 +6226,240 @@ export const workhubPricingTiers = pgTable("workhub_pricing_tiers", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// ===== WORKHUB LEADS CRM TABLES =====
+
+// WorkHub Leads Pipeline Table
+export const workhubLeads = pgTable("workhub_leads", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  contractorId: uuid("contractor_id").references(() => workhubContractors.id),
+  customerId: uuid("customer_id").references(() => workhubCustomers.id),
+  
+  // Customer Info (for leads without customer record)
+  customerName: varchar("customer_name", { length: 200 }).notNull(),
+  customerPhone: varchar("customer_phone", { length: 20 }),
+  customerEmail: varchar("customer_email", { length: 200 }),
+  propertyAddress: text("property_address"),
+  city: varchar("city", { length: 100 }),
+  state: varchar("state", { length: 50 }),
+  zip: varchar("zip", { length: 10 }),
+  
+  // Job Details
+  serviceType: varchar("service_type", { length: 50 }), // tree, roofing, painting, flooring, drywall, etc
+  description: text("description"),
+  
+  // Pipeline Stage
+  stage: varchar("stage", { length: 50 }).default("new_lead").notNull(),
+  // Stages: new_lead, contacted, estimate_scheduled, estimate_completed, closing, job_scheduled, job_completed, lost
+  
+  // Estimate/Quote Info
+  estimatedAmount: numeric("estimated_amount", { precision: 12, scale: 2 }),
+  estimateDetails: jsonb("estimate_details").$type<{
+    lineItems?: Array<{ description: string; quantity: number; unitPrice: number; total: number }>;
+    materials?: string[];
+    laborHours?: number;
+    equipment?: string[];
+    notes?: string;
+  }>(),
+  estimateDate: timestamp("estimate_date"),
+  
+  // Job Info
+  scheduledJobDate: timestamp("scheduled_job_date"),
+  completedDate: timestamp("completed_date"),
+  finalAmount: numeric("final_amount", { precision: 12, scale: 2 }),
+  
+  // Lost Job Info
+  lostReason: varchar("lost_reason", { length: 100 }), // price, timing, competitor, no_response, cancelled, other
+  lostNotes: text("lost_notes"),
+  lostAt: timestamp("lost_at"),
+  
+  // Follow-up Info
+  followUpDate: timestamp("follow_up_date"),
+  followUpNotes: text("follow_up_notes"),
+  
+  // Source
+  source: varchar("source", { length: 50 }).default("workhub"), // workhub, ai_analysis, referral, website, phone, etc
+  
+  // Priority & Assignment
+  priority: varchar("priority", { length: 20 }).default("normal"), // low, normal, high, urgent
+  assignedTo: uuid("assigned_to"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Communication Logs for Leads
+export const workhubCommunicationLogs = pgTable("workhub_communication_logs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  leadId: uuid("lead_id").references(() => workhubLeads.id).notNull(),
+  
+  channel: varchar("channel", { length: 20 }).notNull(), // sms, email, call, ai_sms, ai_email, ai_call
+  direction: varchar("direction", { length: 10 }).notNull(), // inbound, outbound
+  
+  // Content
+  subject: varchar("subject", { length: 500 }),
+  content: text("content"),
+  
+  // Status
+  status: varchar("status", { length: 20 }).default("sent"), // sent, delivered, failed, answered, no_answer, voicemail
+  
+  // Provider Info
+  providerId: varchar("provider_id", { length: 100 }), // Twilio SID, SendGrid ID
+  duration: integer("duration"), // call duration in seconds
+  
+  // AI Agent Info
+  isAiGenerated: boolean("is_ai_generated").default(false),
+  aiAgentId: varchar("ai_agent_id", { length: 100 }),
+  aiTranscript: text("ai_transcript"),
+  
+  // Recipient Info
+  recipientPhone: varchar("recipient_phone", { length: 20 }),
+  recipientEmail: varchar("recipient_email", { length: 200 }),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Lead Notes
+export const workhubLeadNotes = pgTable("workhub_lead_notes", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  leadId: uuid("lead_id").references(() => workhubLeads.id).notNull(),
+  
+  content: text("content").notNull(),
+  authorName: varchar("author_name", { length: 100 }),
+  authorId: uuid("author_id"),
+  
+  // Note type for categorization
+  noteType: varchar("note_type", { length: 20 }).default("general"), // general, follow_up, estimate, job, issue
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Stage History (for tracking pipeline movements)
+export const workhubLeadStageHistory = pgTable("workhub_lead_stage_history", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  leadId: uuid("lead_id").references(() => workhubLeads.id).notNull(),
+  
+  fromStage: varchar("from_stage", { length: 50 }),
+  toStage: varchar("to_stage", { length: 50 }).notNull(),
+  
+  changedBy: varchar("changed_by", { length: 100 }),
+  notes: text("notes"),
+  
+  // Track time in each stage
+  timeInPreviousStage: integer("time_in_previous_stage"), // seconds
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Lead Quotes/Estimates
+export const workhubLeadQuotes = pgTable("workhub_lead_quotes", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  leadId: uuid("lead_id").references(() => workhubLeads.id).notNull(),
+  
+  // Quote Details
+  quoteNumber: varchar("quote_number", { length: 50 }),
+  title: varchar("title", { length: 200 }),
+  
+  // Line Items
+  lineItems: jsonb("line_items").$type<Array<{
+    description: string;
+    quantity: number;
+    unit: string;
+    unitPrice: number;
+    total: number;
+    category?: string;
+  }>>(),
+  
+  // Totals
+  subtotal: numeric("subtotal", { precision: 12, scale: 2 }),
+  taxRate: numeric("tax_rate", { precision: 5, scale: 2 }),
+  taxAmount: numeric("tax_amount", { precision: 12, scale: 2 }),
+  discountAmount: numeric("discount_amount", { precision: 12, scale: 2 }),
+  totalAmount: numeric("total_amount", { precision: 12, scale: 2 }),
+  
+  // Status
+  status: varchar("status", { length: 20 }).default("draft"), // draft, sent, viewed, accepted, rejected, expired
+  
+  // Dates
+  validUntil: timestamp("valid_until"),
+  sentAt: timestamp("sent_at"),
+  viewedAt: timestamp("viewed_at"),
+  respondedAt: timestamp("responded_at"),
+  
+  // Notes
+  notes: text("notes"),
+  customerNotes: text("customer_notes"),
+  internalNotes: text("internal_notes"),
+  
+  // Version Control
+  version: integer("version").default(1),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Lost Job Reasons (configurable list)
+export const workhubLostReasons = pgTable("workhub_lost_reasons", {
+  id: varchar("id", { length: 50 }).primaryKey(),
+  
+  label: varchar("label", { length: 100 }).notNull(),
+  description: text("description"),
+  
+  // Categorization
+  category: varchar("category", { length: 50 }), // pricing, timing, competition, customer, other
+  
+  // Display
+  displayOrder: integer("display_order").default(0),
+  isActive: boolean("is_active").default(true),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Insert schemas for WorkHub Leads CRM
+export const insertWorkhubLeadSchema = createInsertSchema(workhubLeads).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
+});
+
+export const insertWorkhubCommunicationLogSchema = createInsertSchema(workhubCommunicationLogs).omit({
+  id: true,
+  createdAt: true
+});
+
+export const insertWorkhubLeadNoteSchema = createInsertSchema(workhubLeadNotes).omit({
+  id: true,
+  createdAt: true
+});
+
+export const insertWorkhubLeadStageHistorySchema = createInsertSchema(workhubLeadStageHistory).omit({
+  id: true,
+  createdAt: true
+});
+
+export const insertWorkhubLeadQuoteSchema = createInsertSchema(workhubLeadQuotes).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
+});
+
+export const insertWorkhubLostReasonSchema = createInsertSchema(workhubLostReasons).omit({
+  createdAt: true
+});
+
+// Select types for WorkHub Leads CRM
+export type WorkhubLead = typeof workhubLeads.$inferSelect;
+export type InsertWorkhubLead = z.infer<typeof insertWorkhubLeadSchema>;
+export type WorkhubCommunicationLog = typeof workhubCommunicationLogs.$inferSelect;
+export type InsertWorkhubCommunicationLog = z.infer<typeof insertWorkhubCommunicationLogSchema>;
+export type WorkhubLeadNote = typeof workhubLeadNotes.$inferSelect;
+export type InsertWorkhubLeadNote = z.infer<typeof insertWorkhubLeadNoteSchema>;
+export type WorkhubLeadStageHistory = typeof workhubLeadStageHistory.$inferSelect;
+export type InsertWorkhubLeadStageHistory = z.infer<typeof insertWorkhubLeadStageHistorySchema>;
+export type WorkhubLeadQuote = typeof workhubLeadQuotes.$inferSelect;
+export type InsertWorkhubLeadQuote = z.infer<typeof insertWorkhubLeadQuoteSchema>;
+export type WorkhubLostReason = typeof workhubLostReasons.$inferSelect;
+export type InsertWorkhubLostReason = z.infer<typeof insertWorkhubLostReasonSchema>;
+
 // Insert schemas for WorkHub
 export const insertWorkhubContractorSchema = createInsertSchema(workhubContractors).omit({
   id: true,
