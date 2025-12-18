@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { LogOut, LogIn } from 'lucide-react';
 import { auth, type Role } from '@/lib/auth';
 import Breadcrumbs from '@/components/Breadcrumbs';
-import logoImage from '@assets/ChatGPT_Image_Dec_18,_2025,_10_36_54_AM_1766072229170.png';
+import logoImage from '@assets/STRATEGIC_FRONT_(1)_1766075695615.png';
 
 export default function TopNav() {
   const [role, setRole] = useState<Role>('contractor');
@@ -43,7 +43,7 @@ export default function TopNav() {
             {/* Logo and Brand */}
             <div className="flex items-center space-x-4">
               <Link to="/" className="flex items-center space-x-3">
-                <img src={logoImage} alt="Strategic Service Savers" className="w-10 h-10 rounded-lg" />
+                <img src={logoImage} alt="Strategic Service Savers" className="w-10 h-10 rounded-lg bg-white p-1" />
                 <div>
                   <h1 className="text-xl font-bold tracking-tight bg-gradient-to-r from-purple-400 via-blue-400 to-green-400 bg-clip-text text-transparent">
                     Strategic Service Savers
