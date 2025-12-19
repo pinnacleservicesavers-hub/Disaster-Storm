@@ -11610,6 +11610,77 @@ What specific area or type of incident would you like me to focus on? I can prov
     });
   });
 
+  // ===== TEXT-TO-SPEECH ENDPOINT (OpenAI Nova Voice - Natural Female) =====
+  
+  // Simple TTS endpoint for frontend - uses OpenAI's natural "nova" voice
+  app.post('/api/tts', express.json(), async (req, res) => {
+    try {
+      const { text, voice } = req.body;
+      
+      if (!text || typeof text !== 'string') {
+        return res.status(400).json({ error: 'Text is required' });
+      }
+
+      // Limit text length to prevent abuse
+      const maxLength = 4096;
+      const truncatedText = text.slice(0, maxLength);
+      
+      const apiKey = process.env.OPENAI_API_KEY;
+      if (!apiKey) {
+        return res.status(503).json({ 
+          error: 'Voice service unavailable',
+          fallback: true 
+        });
+      }
+      
+      // Use nova voice - natural-sounding female voice (alternatives: alloy, echo, fable, onyx, shimmer)
+      const selectedVoice = voice || 'nova';
+      
+      const response = await fetch('https://api.openai.com/v1/audio/speech', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: 'tts-1-hd', // High-definition model for better quality
+          voice: selectedVoice,
+          input: truncatedText,
+          response_format: 'mp3',
+          speed: 1.0 // Natural speed
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('OpenAI TTS error:', errorText);
+        return res.status(500).json({ 
+          error: 'Failed to generate speech',
+          fallback: true 
+        });
+      }
+
+      const arrayBuffer = await response.arrayBuffer();
+      const audioBuffer = Buffer.from(arrayBuffer);
+      
+      // Return audio as base64 for easy frontend consumption
+      const audioBase64 = audioBuffer.toString('base64');
+      res.json({ 
+        audioBase64,
+        format: 'mp3',
+        voice: selectedVoice,
+        provider: 'openai'
+      });
+      
+    } catch (error) {
+      console.error('TTS error:', error);
+      res.status(500).json({ 
+        error: 'Failed to generate speech',
+        fallback: true 
+      });
+    }
+  });
+
   // ===== VOICE PROFILE MANAGEMENT ENDPOINTS =====
 
   // Get all voice profiles
