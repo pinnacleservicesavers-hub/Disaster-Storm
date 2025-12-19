@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react';
 import { LogOut, LogIn } from 'lucide-react';
 import { auth, type Role } from '@/lib/auth';
 import Breadcrumbs from '@/components/Breadcrumbs';
-import logoImage from '@assets/ChatGPT_Image_Dec_18,_2025,_03_12_06_PM_1766088772916.png';
 
 export default function TopNav() {
   const [role, setRole] = useState<Role>('contractor');
@@ -40,10 +39,9 @@ export default function TopNav() {
       <header className="sticky top-0 z-50 bg-gradient-to-r from-blue-900 via-purple-900 to-blue-900 text-white shadow-lg border-b border-white/20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            {/* Logo and Brand */}
+            {/* Brand */}
             <div className="flex items-center space-x-4">
               <Link to="/" className="flex items-center space-x-3">
-                <img src={logoImage} alt="Strategic Service Savers" className="w-10 h-10 rounded-lg" />
                 <div>
                   <h1 className="text-xl font-bold tracking-tight bg-gradient-to-r from-purple-400 via-blue-400 to-green-400 bg-clip-text text-transparent">
                     Strategic Service Savers
