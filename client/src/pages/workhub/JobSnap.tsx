@@ -17,6 +17,10 @@ import {
 } from 'lucide-react';
 import TopNav from '@/components/TopNav';
 import ModuleAIAssistant from '@/components/ModuleAIAssistant';
+import TeamInvite from '@/components/TeamInvite';
+import BeforeAfterComparison from '@/components/BeforeAfterComparison';
+import AIVideoGenerator from '@/components/AIVideoGenerator';
+import { Users, Film, SplitSquareHorizontal } from 'lucide-react';
 
 interface JobProject {
   id: string;
@@ -390,6 +394,10 @@ export default function JobSnap() {
               <FileText className="h-4 w-4 mr-2" />
               Reports
             </TabsTrigger>
+            <TabsTrigger value="team" className="data-[state=active]:bg-purple-500 data-[state=active]:text-white" data-testid="tab-team">
+              <Users className="h-4 w-4 mr-2" />
+              Team
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="capture" className="space-y-4">
@@ -716,6 +724,39 @@ export default function JobSnap() {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="team" className="space-y-4">
+            <TeamInvite 
+              projectId={selectedProject?.id}
+              projectName={selectedProject?.name}
+            />
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <BeforeAfterComparison 
+                photos={sampleMedia.map(m => ({
+                  id: m.id,
+                  url: m.url,
+                  thumbnail: m.thumbnail,
+                  phase: m.phase,
+                  timestamp: m.createdAt,
+                  location: m.location
+                }))}
+                projectName={selectedProject?.name}
+              />
+              
+              <AIVideoGenerator 
+                photos={sampleMedia.map(m => ({
+                  id: m.id,
+                  url: m.url,
+                  thumbnail: m.thumbnail,
+                  phase: m.phase,
+                  timestamp: m.createdAt,
+                  caption: m.caption
+                }))}
+                projectName={selectedProject?.name}
+              />
+            </div>
           </TabsContent>
         </Tabs>
 

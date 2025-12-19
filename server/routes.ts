@@ -14337,31 +14337,61 @@ What specific area or type of incident would you like me to focus on? I can prov
         return res.status(400).json({ error: 'Image data required' });
       }
 
-      // Extract EXIF data using sharp
       const sharp = (await import('sharp')).default;
       const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
       const imageBuffer = Buffer.from(base64Data, 'base64');
       
       const metadata = await sharp(imageBuffer).metadata();
 
-      // Try to get EXIF GPS data
-      let gps = null;
-      let timestamp = null;
+      let gps: { latitude: number | null; longitude: number | null } = { latitude: null, longitude: null };
+      let timestamp: string | null = null;
+      let orientation = 1;
 
       if (metadata.exif) {
         try {
-          const exifParser = await import('exif');
-          // Parse EXIF data for GPS and timestamp
-          // Note: This is a simplified version - full implementation would parse the buffer
-          gps = {
-            latitude: null,
-            longitude: null
-          };
-          timestamp = new Date().toISOString();
-        } catch (e) {
-          console.log('EXIF parsing not available');
+          const exifBuffer = metadata.exif;
+          
+          // Parse EXIF buffer manually for GPS and DateTime
+          const exifString = exifBuffer.toString('binary');
+          
+          // Extract GPS coordinates from EXIF
+          const gpsLatMatch = exifString.match(/GPSLatitude[^\x00-\x1f]*?([\d.]+)/);
+          const gpsLonMatch = exifString.match(/GPSLongitude[^\x00-\x1f]*?([\d.]+)/);
+          const gpsLatRefMatch = exifString.match(/GPSLatitudeRef[^\x00-\x1f]*?([NS])/);
+          const gpsLonRefMatch = exifString.match(/GPSLongitudeRef[^\x00-\x1f]*?([EW])/);
+          
+          if (gpsLatMatch && gpsLonMatch) {
+            let lat = parseFloat(gpsLatMatch[1]);
+            let lon = parseFloat(gpsLonMatch[1]);
+            
+            if (gpsLatRefMatch && gpsLatRefMatch[1] === 'S') lat = -lat;
+            if (gpsLonRefMatch && gpsLonRefMatch[1] === 'W') lon = -lon;
+            
+            if (!isNaN(lat) && !isNaN(lon)) {
+              gps = { latitude: lat, longitude: lon };
+            }
+          }
+          
+          // Extract DateTime from EXIF
+          const dateMatch = exifString.match(/DateTime[^\x00-\x1f]*?(\d{4}:\d{2}:\d{2} \d{2}:\d{2}:\d{2})/);
+          if (dateMatch) {
+            const dateStr = dateMatch[1].replace(/:/g, '-').replace(' ', 'T') + '.000Z';
+            const parsedDate = new Date(dateStr.replace(/-/g, (m, i) => i < 10 ? '-' : ':'));
+            if (!isNaN(parsedDate.getTime())) {
+              timestamp = parsedDate.toISOString();
+            }
+          }
+          
+          // Get orientation
+          orientation = metadata.orientation || 1;
+          
+        } catch (exifError) {
+          console.log('EXIF parsing encountered issue, using available metadata:', exifError);
         }
       }
+
+      // Use browser geolocation as fallback indicator
+      const hasGps = gps.latitude !== null && gps.longitude !== null;
 
       res.json({
         ok: true,
@@ -14371,8 +14401,13 @@ What specific area or type of incident would you like me to focus on? I can prov
           format: metadata.format,
           size: imageBuffer.length,
           gps,
+          hasGps,
           timestamp: timestamp || new Date().toISOString(),
-          hasExif: !!metadata.exif
+          hasExifTimestamp: timestamp !== null,
+          hasExif: !!metadata.exif,
+          orientation,
+          colorSpace: metadata.space,
+          density: metadata.density
         }
       });
 

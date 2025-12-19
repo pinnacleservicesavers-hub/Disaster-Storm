@@ -10,6 +10,10 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import TopNav from '@/components/TopNav';
 import ModuleAIAssistant from '@/components/ModuleAIAssistant';
+import TeamInvite from '@/components/TeamInvite';
+import BeforeAfterComparison from '@/components/BeforeAfterComparison';
+import AIVideoGenerator from '@/components/AIVideoGenerator';
+import { Users, Film, SplitSquareHorizontal } from 'lucide-react';
 
 export default function MediaVault() {
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
@@ -169,6 +173,29 @@ export default function MediaVault() {
               </Badge>
             </CardContent>
           </Card>
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-6 mt-8">
+          <BeforeAfterComparison 
+            photos={[
+              { id: 'demo-1', url: 'https://picsum.photos/seed/before1/800/600', phase: 'before', timestamp: new Date().toISOString() },
+              { id: 'demo-2', url: 'https://picsum.photos/seed/after1/800/600', phase: 'after', timestamp: new Date().toISOString() }
+            ]}
+            projectName="Sample Project"
+          />
+          
+          <AIVideoGenerator 
+            photos={[
+              { id: 'v1', url: 'https://picsum.photos/seed/vid1/800/600', phase: 'before', timestamp: new Date().toISOString() },
+              { id: 'v2', url: 'https://picsum.photos/seed/vid2/800/600', phase: 'during', timestamp: new Date().toISOString() },
+              { id: 'v3', url: 'https://picsum.photos/seed/vid3/800/600', phase: 'after', timestamp: new Date().toISOString() }
+            ]}
+            projectName="Sample Project"
+          />
+        </div>
+
+        <div className="mt-8">
+          <TeamInvite />
         </div>
       </div>
 
