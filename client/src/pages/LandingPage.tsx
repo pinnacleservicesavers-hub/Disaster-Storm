@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { useState } from 'react';
 import { 
   Cloud, AlertTriangle, Camera, Users, FileText, Shield, 
   Wrench, TreePine, Paintbrush, Home, DollarSign, Calendar,
@@ -7,9 +8,11 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import logoImage from '@assets/ChatGPT_Image_Dec_18,_2025,_03_12_06_PM_1766088772916.png';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 
 export default function LandingPage() {
+  const [showHomeownerChoice, setShowHomeownerChoice] = useState(false);
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900">
       <div className="relative overflow-hidden">
@@ -17,9 +20,6 @@ export default function LandingPage() {
         
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
           <div className="text-center mb-16">
-            <div className="flex items-center justify-center gap-3 mb-6">
-              <img src={logoImage} alt="Strategic Service Savers" className="w-56 h-56 rounded-xl shadow-lg" />
-            </div>
             <h1 className="text-5xl md:text-6xl font-bold text-white mb-4">
               Welcome to <span className="bg-gradient-to-r from-purple-400 via-blue-400 to-green-400 bg-clip-text text-transparent">Strategic Service Savers</span>
             </h1>
@@ -66,12 +66,14 @@ export default function LandingPage() {
                   </p>
                 </div>
 
-                <Link to="/workhub/customer">
-                  <Button className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white font-bold py-6 text-lg" data-testid="button-homeowner-entry">
-                    Get Started - Find a Contractor
-                    <ArrowRight className="ml-2 w-5 h-5" />
-                  </Button>
-                </Link>
+                <Button 
+                  onClick={() => setShowHomeownerChoice(true)}
+                  className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white font-bold py-6 text-lg" 
+                  data-testid="button-homeowner-entry"
+                >
+                  Get Started - Find a Contractor
+                  <ArrowRight className="ml-2 w-5 h-5" />
+                </Button>
               </CardContent>
             </Card>
 
@@ -207,6 +209,67 @@ export default function LandingPage() {
           </div>
         </div>
       </div>
+
+      <Dialog open={showHomeownerChoice} onOpenChange={setShowHomeownerChoice}>
+        <DialogContent className="bg-slate-900 border-slate-700 max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-2xl text-white text-center">
+              Is this an emergency due to a disaster?
+            </DialogTitle>
+            <DialogDescription className="text-slate-400 text-center">
+              Help us direct you to the right place
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 mt-6">
+            <Link to="/homeowner" onClick={() => setShowHomeownerChoice(false)}>
+              <div className="bg-gradient-to-r from-red-900/50 to-orange-900/50 border border-red-500/40 rounded-xl p-6 hover:border-red-400/60 transition-all cursor-pointer group" data-testid="button-emergency-yes">
+                <div className="flex items-center gap-4 mb-3">
+                  <div className="p-3 bg-red-500/20 rounded-lg">
+                    <AlertTriangle className="w-8 h-8 text-red-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-white group-hover:text-red-300 transition-colors">
+                      Yes - Storm or Disaster Damage
+                    </h3>
+                    <p className="text-red-300 text-sm">Hurricane, tornado, hail, flood, fire damage</p>
+                  </div>
+                </div>
+                <p className="text-slate-300 text-sm">
+                  We'll connect you with emergency response contractors and help with insurance claims.
+                </p>
+                <div className="flex items-center justify-end mt-3 text-red-400 group-hover:text-red-300">
+                  <span className="text-sm font-medium">Go to Disaster Direct</span>
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </div>
+              </div>
+            </Link>
+
+            <Link to="/workhub/customer" onClick={() => setShowHomeownerChoice(false)}>
+              <div className="bg-gradient-to-r from-purple-900/50 to-indigo-900/50 border border-purple-500/40 rounded-xl p-6 hover:border-purple-400/60 transition-all cursor-pointer group" data-testid="button-emergency-no">
+                <div className="flex items-center gap-4 mb-3">
+                  <div className="p-3 bg-purple-500/20 rounded-lg">
+                    <Sparkles className="w-8 h-8 text-purple-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-white group-hover:text-purple-300 transition-colors">
+                      No - Regular Home Services
+                    </h3>
+                    <p className="text-purple-300 text-sm">Repairs, maintenance, improvements</p>
+                  </div>
+                </div>
+                <p className="text-slate-300 text-sm">
+                  Get quotes from local contractors for painting, plumbing, roofing, landscaping, and more.
+                </p>
+                <div className="flex items-center justify-end mt-3 text-purple-400 group-hover:text-purple-300">
+                  <span className="text-sm font-medium">Go to WorkHub</span>
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </div>
+              </div>
+            </Link>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
