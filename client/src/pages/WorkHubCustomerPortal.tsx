@@ -95,68 +95,101 @@ export default function WorkHubCustomerPortal() {
   });
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
 
-  const [audioRef] = useState<HTMLAudioElement | null>(() => typeof Audio !== 'undefined' ? new Audio() : null);
+  const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [speechSupported, setSpeechSupported] = useState(false);
 
   useEffect(() => {
-    return () => {
-      if (audioRef) {
-        audioRef.pause();
-        audioRef.src = '';
+    if (typeof window === 'undefined' || !window.speechSynthesis) {
+      setSpeechSupported(false);
+      return;
+    }
+    
+    setSpeechSupported(true);
+    
+    const loadVoices = () => {
+      try {
+        const voices = window.speechSynthesis.getVoices();
+        if (voices.length > 0) {
+          setAvailableVoices(voices);
+        }
+      } catch {
+        setSpeechSupported(false);
       }
     };
-  }, [audioRef]);
+    
+    loadVoices();
+    
+    if (window.speechSynthesis.onvoiceschanged !== undefined) {
+      window.speechSynthesis.onvoiceschanged = loadVoices;
+    }
+    
+    const timer = setTimeout(loadVoices, 100);
+    
+    return () => {
+      clearTimeout(timer);
+      try {
+        window.speechSynthesis.cancel();
+      } catch {}
+    };
+  }, []);
+
+  const getBestVoice = (): SpeechSynthesisVoice | null => {
+    if (!speechSupported) return null;
+    
+    try {
+      const voices = availableVoices.length > 0 ? availableVoices : window.speechSynthesis.getVoices();
+      if (voices.length === 0) return null;
+      
+      const preferredVoices = [
+        'Samantha', 'Karen', 'Moira', 'Tessa', 'Victoria', 'Fiona',
+        'Google US English', 'Google UK English Female',
+        'Microsoft Zira', 'Microsoft Jenny', 'Microsoft Aria',
+        'Nicky', 'Allison', 'Susan'
+      ];
+      
+      for (const preferred of preferredVoices) {
+        const voice = voices.find(v => v.name.includes(preferred));
+        if (voice) return voice;
+      }
+      
+      let voice = voices.find(v => v.name.toLowerCase().includes('female') && v.lang.startsWith('en'));
+      if (voice) return voice;
+      
+      voice = voices.find(v => v.lang.startsWith('en-US'));
+      if (voice) return voice;
+      
+      voice = voices.find(v => v.lang.startsWith('en'));
+      return voice || voices[0];
+    } catch {
+      return null;
+    }
+  };
 
   const speakGuidance = async (text: string) => {
+    if (!speechSupported || typeof window === 'undefined' || !window.speechSynthesis) {
+      return;
+    }
+    
     try {
+      window.speechSynthesis.cancel();
       setIsVoiceActive(true);
       
-      // Use OpenAI TTS API for natural voice (nova voice)
-      const response = await fetch('/api/tts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          text,
-          voice: 'nova' // Natural female voice
-        })
-      });
-
-      if (response.ok) {
-        const blob = await response.blob();
-        const audioUrl = URL.createObjectURL(blob);
-        if (audioRef) {
-          audioRef.src = audioUrl;
-          audioRef.onended = () => {
-            setIsVoiceActive(false);
-            URL.revokeObjectURL(audioUrl);
-          };
-          audioRef.onerror = () => {
-            setIsVoiceActive(false);
-            URL.revokeObjectURL(audioUrl);
-          };
-          await audioRef.play();
-          return;
-        }
-      }
-      
-      // Fallback to browser speech if API fails
-      const voices = window.speechSynthesis.getVoices();
-      const preferredVoices = ['Samantha', 'Karen', 'Moira', 'Tessa', 'Google UK English Female', 'Microsoft Zira'];
-      let voice = null;
-      for (const preferred of preferredVoices) {
-        voice = voices.find(v => v.name.includes(preferred));
-        if (voice) break;
-      }
-      if (!voice) voice = voices.find(v => v.name.toLowerCase().includes('female') && v.lang.startsWith('en'));
-      if (!voice) voice = voices.find(v => v.lang.startsWith('en'));
-      
+      const voice = getBestVoice();
       const utterance = new SpeechSynthesisUtterance(text);
-      if (voice) utterance.voice = voice;
-      utterance.pitch = 1.15;
-      utterance.rate = 0.95;
+      
+      if (voice) {
+        utterance.voice = voice;
+      }
+      
+      utterance.pitch = 1.1;
+      utterance.rate = 1.05;
+      utterance.volume = 1.0;
+      
       utterance.onend = () => setIsVoiceActive(false);
+      utterance.onerror = () => setIsVoiceActive(false);
+      
       window.speechSynthesis.speak(utterance);
     } catch (error) {
-      console.error('Voice guidance error:', error);
       setIsVoiceActive(false);
     }
   };
