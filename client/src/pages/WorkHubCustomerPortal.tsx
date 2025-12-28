@@ -64,6 +64,9 @@ export default function WorkHubCustomerPortal() {
   const [isVoiceActive, setIsVoiceActive] = useState(false);
   const [budgetConfirmed, setBudgetConfirmed] = useState<boolean | null>(null);
   const [budgetReason, setBudgetReason] = useState('');
+  const [customerBudgetMin, setCustomerBudgetMin] = useState<string>('');
+  const [customerBudgetMax, setCustomerBudgetMax] = useState<string>('');
+  const [preferredDate, setPreferredDate] = useState<string>('');
   const [showContractors, setShowContractors] = useState(false);
   const [preferredTimeframe, setPreferredTimeframe] = useState<string | null>(null);
   const [jobDetails, setJobDetails] = useState<{
@@ -564,17 +567,20 @@ export default function WorkHubCustomerPortal() {
     setPreferredTimeframe(null);
     setShowContractors(false);
     setBudgetConfirmed(confirmed);
+    setCustomerBudgetMin('');
+    setCustomerBudgetMax('');
+    setBudgetReason('');
     
     if (confirmed) {
       // Ask about timeframe before showing contractors
-      speakGuidance("Excellent! That's great to hear this fits your budget. Now, what timeframe are you looking to have this work done? Please select when you'd like to schedule this project.");
+      speakGuidance("Excellent! That's great to hear this fits your budget. Are you ready to have your work completed now, or would you like to pick a specific date?");
       
       // Generate after preview for visualization
       if (previewUrls.length > 0 && !afterPreviewUrl) {
         generateAfterPreview();
       }
     } else {
-      speakGuidance("We understand budget concerns. Please share more details. Our team works with non-profit organizations that may be able to assist with your project.");
+      speakGuidance("No problem! Please enter your budget range and we'll match you with contractors who can work within it.");
     }
   };
   
@@ -583,16 +589,11 @@ export default function WorkHubCustomerPortal() {
     setPreferredTimeframe(timeframe);
     setShowContractors(true);
     
-    const timeframeLabels: Record<string, string> = {
-      'asap': 'as soon as possible',
-      'this_week': 'this week',
-      'next_week': 'next week',
-      '2_weeks': 'within 2 weeks',
-      'this_month': 'this month',
-      'flexible': 'flexible timing'
-    };
-    
-    speakGuidance(`Perfect! You've selected ${timeframeLabels[timeframe] || timeframe}. A contractor will be in contact with you shortly to schedule your project. You'll receive a call or message to confirm the details.`);
+    if (timeframe === 'ready_now') {
+      speakGuidance("Perfect! You're ready to get started right away. A contractor will be in contact with you shortly to schedule your project.");
+    } else {
+      speakGuidance(`Perfect! You've selected ${timeframe}. A contractor will be in contact with you shortly to schedule your project.`);
+    }
   };
 
   // Generate AI "after" preview image
@@ -662,10 +663,15 @@ export default function WorkHubCustomerPortal() {
           } : null,
           budgetConfirmed,
           budgetReason: budgetReason || null,
+          customerBudget: customerBudgetMin && customerBudgetMax ? {
+            min: parseInt(customerBudgetMin),
+            max: parseInt(customerBudgetMax)
+          } : null,
           afterPreviewUrl,
           matchedContractors: aiAnalysis?.contractors || [],
           urgency: request.preferences.urgency,
           preferredTimeframe: preferredTimeframe || null,
+          preferredDate: preferredDate || null,
           jobDetails: jobDetails || null
         }),
       });
@@ -1063,13 +1069,29 @@ export default function WorkHubCustomerPortal() {
                         <div className="text-center space-y-4">
                           <h4 className="font-semibold text-lg text-slate-900 dark:text-white flex items-center justify-center gap-2">
                             <DollarSign className="w-5 h-5 text-green-600" />
-                            Would you like to proceed with this work?
+                            AI Estimate Range
                           </h4>
+                          <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 p-6 rounded-xl border border-green-200 dark:border-green-800 max-w-md mx-auto">
+                            <p className="text-sm text-slate-600 dark:text-slate-400 mb-2">
+                              Based on your photos, here's our estimate:
+                            </p>
+                            <div className="flex items-center justify-center gap-4">
+                              <div className="text-center">
+                                <p className="text-xs text-slate-500 uppercase">Low End</p>
+                                <p className="text-2xl font-bold text-green-600">${aiAnalysis.estimatedPriceRange.min.toLocaleString()}</p>
+                              </div>
+                              <div className="text-slate-400">—</div>
+                              <div className="text-center">
+                                <p className="text-xs text-slate-500 uppercase">High End</p>
+                                <p className="text-2xl font-bold text-green-600">${aiAnalysis.estimatedPriceRange.max.toLocaleString()}</p>
+                              </div>
+                            </div>
+                            <p className="text-xs text-slate-500 mt-3 italic">
+                              *These are estimates based on AI analysis. Final pricing may vary.
+                            </p>
+                          </div>
                           <p className="text-lg text-slate-700 dark:text-slate-300 max-w-md mx-auto font-medium">
-                            Does this fit your budget?
-                          </p>
-                          <p className="text-sm text-slate-500 max-w-md mx-auto">
-                            Estimated cost: <span className="font-bold text-green-600">${aiAnalysis.estimatedPriceRange.min.toLocaleString()} - ${aiAnalysis.estimatedPriceRange.max.toLocaleString()}</span>
+                            Will this fit your budget?
                           </p>
                           <div className="flex justify-center gap-4">
                             <Button
@@ -1078,7 +1100,7 @@ export default function WorkHubCustomerPortal() {
                               data-testid="button-budget-yes"
                             >
                               <ThumbsUp className="w-5 h-5 mr-2" />
-                              Yes, proceed!
+                              Yes
                             </Button>
                             <Button
                               variant="outline"
@@ -1086,35 +1108,55 @@ export default function WorkHubCustomerPortal() {
                               className="px-8 py-3 text-lg"
                               data-testid="button-budget-no"
                             >
-                              No, budget concerns
+                              No
                             </Button>
                           </div>
                         </div>
                       </div>
                     )}
                     
-                    {/* Budget Declined - Show reason input */}
-                    {budgetConfirmed === false && (
+                    {/* Budget Declined - Ask for their budget range */}
+                    {budgetConfirmed === false && preferredTimeframe === null && (
                       <div className="mt-6 pt-4 border-t border-amber-200 dark:border-amber-800">
                         <Card className="border-amber-200 bg-amber-50 dark:bg-amber-900/10">
                           <CardContent className="pt-4 space-y-4">
                             <h4 className="font-semibold text-amber-700 dark:text-amber-400 flex items-center gap-2">
-                              <MessageSquare className="w-4 h-4" />
-                              Tell us about your budget needs
+                              <DollarSign className="w-4 h-4" />
+                              What is your budget?
                             </h4>
-                            <Textarea
-                              placeholder="Share your budget constraints or what you can afford..."
-                              value={budgetReason}
-                              onChange={(e) => setBudgetReason(e.target.value)}
-                              className="min-h-[100px]"
-                              data-testid="input-budget-reason"
-                            />
+                            <p className="text-sm text-slate-600 dark:text-slate-400">
+                              Enter your budget range and we'll match you with contractors who can work within it.
+                            </p>
+                            <div className="flex items-center gap-4 justify-center">
+                              <div className="flex items-center gap-2">
+                                <span className="text-lg font-semibold text-slate-700">$</span>
+                                <Input
+                                  type="number"
+                                  placeholder="Min"
+                                  value={customerBudgetMin}
+                                  onChange={(e) => setCustomerBudgetMin(e.target.value)}
+                                  className="w-28 text-center text-lg font-semibold"
+                                  data-testid="input-budget-min"
+                                />
+                              </div>
+                              <span className="text-slate-400 font-medium">to</span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-lg font-semibold text-slate-700">$</span>
+                                <Input
+                                  type="number"
+                                  placeholder="Max"
+                                  value={customerBudgetMax}
+                                  onChange={(e) => setCustomerBudgetMax(e.target.value)}
+                                  className="w-28 text-center text-lg font-semibold"
+                                  data-testid="input-budget-max"
+                                />
+                              </div>
+                            </div>
                             <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
                               <p className="text-sm text-blue-700 dark:text-blue-300 flex items-start gap-2">
                                 <Shield className="w-4 h-4 mt-0.5 shrink-0" />
                                 <span>
-                                  <strong>Good news!</strong> We work with non-profit organizations that may be able to assist with your project costs. 
-                                  Our team will review your situation and explore all available options.
+                                  We'll only send your request to contractors who can work within your budget range.
                                 </span>
                               </p>
                             </div>
@@ -1128,11 +1170,15 @@ export default function WorkHubCustomerPortal() {
                                 Back
                               </Button>
                               <Button
-                                onClick={() => setShowContractors(true)}
+                                onClick={() => {
+                                  setBudgetReason(`Budget: $${customerBudgetMin} - $${customerBudgetMax}`);
+                                  speakGuidance("Great! Now when would you like this work completed?");
+                                }}
+                                disabled={!customerBudgetMin || !customerBudgetMax}
                                 className="bg-gradient-to-r from-amber-600 to-orange-600"
-                                data-testid="button-submit-budget-reason"
+                                data-testid="button-submit-budget-range"
                               >
-                                Continue with my request
+                                Continue
                                 <ArrowRight className="w-4 h-4 ml-2" />
                               </Button>
                             </div>
@@ -1141,8 +1187,8 @@ export default function WorkHubCustomerPortal() {
                       </div>
                     )}
                     
-                    {/* Timeframe Selection - Shows after budget confirmed, before contractors */}
-                    {budgetConfirmed === true && preferredTimeframe === null && (
+                    {/* Timeframe Selection - Shows after budget confirmed OR after custom budget entered */}
+                    {((budgetConfirmed === true) || (budgetConfirmed === false && budgetReason)) && preferredTimeframe === null && (
                       <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -1152,31 +1198,85 @@ export default function WorkHubCustomerPortal() {
                           <CardHeader className="pb-3">
                             <CardTitle className="flex items-center gap-2 text-purple-700 dark:text-purple-400">
                               <Calendar className="w-5 h-5" />
-                              What timeframe are you looking to have this work done?
+                              Are you ready for your work to be completed now?
                             </CardTitle>
                           </CardHeader>
-                          <CardContent>
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                              {[
-                                { id: 'asap', label: 'ASAP', description: 'As soon as possible' },
-                                { id: 'this_week', label: 'This Week', description: 'Within the next 7 days' },
-                                { id: 'next_week', label: 'Next Week', description: '7-14 days from now' },
-                                { id: '2_weeks', label: '2 Weeks', description: 'Within 2 weeks' },
-                                { id: 'this_month', label: 'This Month', description: 'Within 30 days' },
-                                { id: 'flexible', label: 'Flexible', description: 'No rush, find best time' }
-                              ].map((option) => (
-                                <motion.button
-                                  key={option.id}
-                                  whileHover={{ scale: 1.02 }}
-                                  whileTap={{ scale: 0.98 }}
-                                  onClick={() => handleTimeframeSelect(option.id)}
-                                  className="p-4 rounded-xl border-2 border-purple-200 hover:border-purple-400 bg-white dark:bg-slate-800 text-left transition-all hover:shadow-md"
-                                  data-testid={`timeframe-${option.id}`}
-                                >
-                                  <p className="font-semibold text-purple-700 dark:text-purple-400">{option.label}</p>
-                                  <p className="text-xs text-slate-500 mt-1">{option.description}</p>
-                                </motion.button>
-                              ))}
+                          <CardContent className="space-y-4">
+                            <div className="grid grid-cols-2 gap-4">
+                              <motion.button
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
+                                onClick={() => handleTimeframeSelect('ready_now')}
+                                className="p-6 rounded-xl border-2 border-green-300 hover:border-green-500 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 text-center transition-all hover:shadow-lg"
+                                data-testid="timeframe-ready-now"
+                              >
+                                <CheckCircle className="w-10 h-10 mx-auto mb-3 text-green-600" />
+                                <p className="font-bold text-lg text-green-700 dark:text-green-400">Ready Now</p>
+                                <p className="text-sm text-slate-500 mt-1">Get started as soon as possible</p>
+                              </motion.button>
+                              
+                              <motion.button
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
+                                onClick={() => setPreferredTimeframe('pick_date')}
+                                className="p-6 rounded-xl border-2 border-purple-200 hover:border-purple-400 bg-white dark:bg-slate-800 text-center transition-all hover:shadow-lg"
+                                data-testid="timeframe-pick-date"
+                              >
+                                <Calendar className="w-10 h-10 mx-auto mb-3 text-purple-600" />
+                                <p className="font-bold text-lg text-purple-700 dark:text-purple-400">Pick a Date</p>
+                                <p className="text-sm text-slate-500 mt-1">Choose when you want it done</p>
+                              </motion.button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </motion.div>
+                    )}
+                    
+                    {/* Date Picker - Shows when user selects "Pick a Date" */}
+                    {preferredTimeframe === 'pick_date' && !showContractors && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="mt-6 pt-4 border-t border-purple-200 dark:border-purple-800"
+                      >
+                        <Card className="border-2 border-purple-300 bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20">
+                          <CardHeader className="pb-3">
+                            <CardTitle className="flex items-center gap-2 text-purple-700 dark:text-purple-400">
+                              <Calendar className="w-5 h-5" />
+                              When would you like the work completed?
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent className="space-y-4">
+                            <Input
+                              type="date"
+                              value={preferredDate}
+                              onChange={(e) => setPreferredDate(e.target.value)}
+                              min={new Date().toISOString().split('T')[0]}
+                              className="text-lg p-4"
+                              data-testid="input-preferred-date"
+                            />
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                variant="outline"
+                                onClick={() => setPreferredTimeframe(null)}
+                                data-testid="button-date-back"
+                              >
+                                <ArrowLeft className="w-4 h-4 mr-2" />
+                                Back
+                              </Button>
+                              <Button
+                                onClick={() => {
+                                  setPreferredTimeframe(`date:${preferredDate}`);
+                                  setShowContractors(true);
+                                  speakGuidance(`Perfect! You've selected ${new Date(preferredDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}. A contractor will be in contact with you shortly.`);
+                                }}
+                                disabled={!preferredDate}
+                                className="bg-gradient-to-r from-purple-600 to-indigo-600"
+                                data-testid="button-confirm-date"
+                              >
+                                Confirm Date
+                                <ArrowRight className="w-4 h-4 ml-2" />
+                              </Button>
                             </div>
                           </CardContent>
                         </Card>
@@ -1184,7 +1284,7 @@ export default function WorkHubCustomerPortal() {
                     )}
                     
                     {/* Confirmation Message - Shows after timeframe selected */}
-                    {preferredTimeframe && showContractors && (
+                    {preferredTimeframe && preferredTimeframe !== 'pick_date' && showContractors && (
                       <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -1201,15 +1301,26 @@ export default function WorkHubCustomerPortal() {
                               </h3>
                               <p className="text-slate-600 dark:text-slate-400 max-w-md mx-auto">
                                 You'll receive a call or message to confirm the details and schedule your project.
-                                Your preferred timeframe: <strong className="text-purple-600">
-                                  {preferredTimeframe === 'asap' ? 'As Soon As Possible' :
-                                   preferredTimeframe === 'this_week' ? 'This Week' :
-                                   preferredTimeframe === 'next_week' ? 'Next Week' :
-                                   preferredTimeframe === '2_weeks' ? 'Within 2 Weeks' :
-                                   preferredTimeframe === 'this_month' ? 'This Month' :
-                                   'Flexible Timing'}
-                                </strong>
                               </p>
+                              <div className="bg-purple-50 dark:bg-purple-900/20 p-3 rounded-lg border border-purple-200 inline-block">
+                                <p className="text-sm text-purple-700 dark:text-purple-300">
+                                  <Calendar className="w-4 h-4 inline mr-2" />
+                                  Your preferred timing: <strong>
+                                    {preferredTimeframe === 'ready_now' ? 'Ready Now - ASAP' :
+                                     preferredTimeframe.startsWith('date:') ? 
+                                       new Date(preferredTimeframe.replace('date:', '')).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) :
+                                     preferredTimeframe}
+                                  </strong>
+                                </p>
+                              </div>
+                              {budgetConfirmed === false && customerBudgetMin && customerBudgetMax && (
+                                <div className="bg-amber-50 dark:bg-amber-900/20 p-3 rounded-lg border border-amber-200 inline-block">
+                                  <p className="text-sm text-amber-700 dark:text-amber-300">
+                                    <DollarSign className="w-4 h-4 inline mr-2" />
+                                    Your budget: <strong>${parseInt(customerBudgetMin).toLocaleString()} - ${parseInt(customerBudgetMax).toLocaleString()}</strong>
+                                  </p>
+                                </div>
+                              )}
                             </div>
                           </CardContent>
                         </Card>

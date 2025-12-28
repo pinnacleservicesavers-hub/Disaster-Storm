@@ -14016,7 +14016,7 @@ What specific area or type of incident would you like me to focus on? I can prov
       const { 
         workType, customerName, email, phone, address, city, state, zip,
         description, photoUrls, aiAnalysis, estimatedPrice, budgetConfirmed,
-        budgetReason, matchedContractors, urgency, preferredTimeframe, jobDetails
+        budgetReason, customerBudget, matchedContractors, urgency, preferredTimeframe, preferredDate, jobDetails
       } = req.body;
 
       if (!workType || !customerName || !email) {
@@ -14074,6 +14074,11 @@ What specific area or type of incident would you like me to focus on? I can prov
             ? `$${estimatedPrice.min?.toLocaleString()} - $${estimatedPrice.max?.toLocaleString()}`
             : 'Quote pending';
           
+          // Build customer budget info
+          const customerBudgetInfo = customerBudget 
+            ? `\n💵 Customer Budget: $${customerBudget.min?.toLocaleString()} - $${customerBudget.max?.toLocaleString()}`
+            : '';
+          
           // Build job-specific info for SMS based on work type
           let jobInfo = '';
           if (jobDetails) {
@@ -14083,10 +14088,21 @@ What specific area or type of incident would you like me to focus on? I can prov
             }
           }
           
+          // Format timeframe for display
+          let timeframeDisplay = 'Not specified';
+          if (preferredTimeframe === 'ready_now') {
+            timeframeDisplay = 'READY NOW - ASAP';
+          } else if (preferredTimeframe?.startsWith('date:')) {
+            const dateStr = preferredTimeframe.replace('date:', '');
+            timeframeDisplay = new Date(dateStr).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+          } else if (preferredTimeframe) {
+            timeframeDisplay = timeframeLabels[preferredTimeframe] || preferredTimeframe;
+          }
+          
           const smsMessage = `🏠 NEW WORKHUB LEAD #${submission.id}
 📋 ${workType.toUpperCase()}${jobInfo}
-💰 AI Quote: ${priceRange}
-⏰ Timeframe: ${timeframeLabels[preferredTimeframe] || preferredTimeframe || 'Not specified'}
+💰 AI Quote: ${priceRange}${customerBudgetInfo}
+⏰ Timeframe: ${timeframeDisplay}
 
 👤 ${customerName}
 📍 ${address || 'No address'}${city ? `, ${city}` : ''}${state ? `, ${state}` : ''} ${zip || ''}
@@ -14153,12 +14169,16 @@ Photos attached via email. Reply to claim this job!`;
                   </tr>
                   ${jobHtmlDetails}
                   <tr>
-                    <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>AI Quote</strong></td>
+                    <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>AI Quote (Estimate)</strong></td>
                     <td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold; color: #16a34a;">${priceRange}</td>
                   </tr>
+                  ${customerBudget ? `<tr>
+                    <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Customer Budget</strong></td>
+                    <td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold; color: #d97706;">$${customerBudget.min?.toLocaleString()} - $${customerBudget.max?.toLocaleString()}</td>
+                  </tr>` : ''}
                   <tr>
                     <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Preferred Timeframe</strong></td>
-                    <td style="padding: 8px; border-bottom: 1px solid #eee;">${timeframeLabels[preferredTimeframe] || preferredTimeframe || 'Not specified'}</td>
+                    <td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold;">${timeframeDisplay}</td>
                   </tr>
                   <tr>
                     <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Description</strong></td>
