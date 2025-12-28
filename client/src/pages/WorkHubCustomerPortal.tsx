@@ -66,13 +66,16 @@ export default function WorkHubCustomerPortal() {
   const [budgetReason, setBudgetReason] = useState('');
   const [showContractors, setShowContractors] = useState(false);
   const [preferredTimeframe, setPreferredTimeframe] = useState<string | null>(null);
-  const [treeDetails, setTreeDetails] = useState<{
-    treeType: string;
-    heightFt: number;
-    widthFt: number;
-    estimatedWeightLb: number;
+  const [jobDetails, setJobDetails] = useState<{
+    itemType: string;
+    primaryMeasurement: string;
+    primaryValue: number | string;
+    secondaryMeasurement?: string;
+    secondaryValue?: number | string;
+    additionalInfo?: string;
     complexity: string;
     complexityReason: string;
+    workType: string;
   } | null>(null);
   const [afterPreviewUrl, setAfterPreviewUrl] = useState<string | null>(null);
   const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
@@ -170,7 +173,7 @@ export default function WorkHubCustomerPortal() {
     
     // Reset all analysis-related state for fresh analysis
     setAiAnalysis(null);
-    setTreeDetails(null);
+    setJobDetails(null);
     setBudgetConfirmed(null);
     setPreferredTimeframe(null);
     setShowContractors(false);
@@ -268,50 +271,240 @@ export default function WorkHubCustomerPortal() {
         }
       }
       
-      // Extract tree details if this is a tree job
-      const isTreeJob = analysis.detectedCategory === 'tree_removal' || request.category === 'tree' || 
-                        analysis.tags?.some((t: string) => t.toLowerCase().includes('tree'));
+      // Extract job details based on work type
+      const detectedCategory = analysis.detectedCategory || request.category || 'general';
+      const complexityLevel = analysis.complexity || 'Medium';
+      const minPrice = analysis.estimatedPriceRange.min;
+      const maxPrice = analysis.estimatedPriceRange.max;
       
-      if (isTreeJob && data.measurements) {
-        const complexityLevel = analysis.complexity || 'Medium';
-        let complexityReason = '';
-        if (complexityLevel === 'High' || complexityLevel === 'severe') {
-          complexityReason = 'Large tree requiring heavy equipment, close to structures, or hazardous conditions';
-        } else if (complexityLevel === 'Medium' || complexityLevel === 'moderate') {
-          complexityReason = 'Standard removal with moderate accessibility and typical equipment needed';
-        } else {
-          complexityReason = 'Straightforward removal with easy access and basic equipment';
-        }
+      // Build work-type specific job details
+      const workTypeLabels: Record<string, string> = {
+        'tree': 'Tree Services', 'tree_removal': 'Tree Removal',
+        'roofing': 'Roofing', 'hvac': 'HVAC', 
+        'plumbing': 'Plumbing', 'electrical': 'Electrical',
+        'painting': 'Painting', 'fence': 'Fencing',
+        'flooring': 'Flooring', 'concrete': 'Concrete',
+        'general': 'General Contractor', 'auto': 'Auto Repair',
+        'other': 'Custom Project'
+      };
+      
+      let jobInfo: any = {
+        workType: workTypeLabels[detectedCategory] || detectedCategory,
+        complexity: complexityLevel,
+        complexityReason: ''
+      };
+      
+      // Work-type specific measurements and details
+      if (detectedCategory === 'tree' || detectedCategory === 'tree_removal') {
+        const treeType = data.analysis?.treeDetails?.species || data.analysis?.title?.split(' ').slice(0, 2).join(' ') || 'Tree';
+        const height = data.measurements?.heightFt || 30;
+        const width = data.measurements?.widthFt || 20;
+        const weight = data.measurements?.estimatedWeightLb || 4500;
         
-        setTreeDetails({
-          treeType: data.analysis?.treeDetails?.species || data.analysis?.title?.split(' ').slice(0, 2).join(' ') || 'Tree',
-          heightFt: data.measurements.heightFt || 30,
-          widthFt: data.measurements.widthFt || 20,
-          estimatedWeightLb: data.measurements.estimatedWeightLb || 4500,
-          complexity: complexityLevel,
-          complexityReason: complexityReason
-        });
-        
-        // Tree-specific voice guidance
-        const treeType = data.analysis?.treeDetails?.species || 'this tree';
-        const height = data.measurements.heightFt || 30;
-        const width = data.measurements.widthFt || 20;
-        const weight = data.measurements.estimatedWeightLb || 4500;
-        const minPrice = analysis.estimatedPriceRange.min;
-        const maxPrice = analysis.estimatedPriceRange.max;
+        jobInfo = {
+          ...jobInfo,
+          itemType: treeType,
+          primaryMeasurement: 'Height',
+          primaryValue: `${height} ft`,
+          secondaryMeasurement: 'Width',
+          secondaryValue: `${width} ft`,
+          additionalInfo: `Est. Weight: ${weight.toLocaleString()} lbs`,
+          complexityReason: complexityLevel === 'High' || complexityLevel === 'severe' 
+            ? 'Large tree requiring heavy equipment or close to structures'
+            : complexityLevel === 'Medium' || complexityLevel === 'moderate'
+            ? 'Standard removal with moderate accessibility'
+            : 'Straightforward removal with easy access'
+        };
         
         speakGuidance(
-          `I've analyzed your photo. Here's what I see: This appears to be ${treeType}, approximately ${height} feet tall and ${width} feet wide, with an estimated weight of about ${weight.toLocaleString()} pounds. ` +
-          `Based on the size and complexity, I estimate this job would cost between $${minPrice.toLocaleString()} and $${maxPrice.toLocaleString()} in your area. ` +
-          `This is a ${complexityLevel.toLowerCase()} complexity job. Would you like to proceed with this work? Does this fit your budget?`
+          `I've analyzed your photo. This appears to be ${treeType}, approximately ${height} feet tall and ${width} feet wide, with an estimated weight of about ${weight.toLocaleString()} pounds. ` +
+          `Based on the size and complexity, I estimate this job would cost between $${minPrice.toLocaleString()} and $${maxPrice.toLocaleString()}. ` +
+          `This is a ${complexityLevel.toLowerCase()} complexity job. Does this fit your budget?`
+        );
+      } else if (detectedCategory === 'roofing') {
+        const sqFt = data.measurements?.squareFt || data.measurements?.areaSqFt || 1500;
+        const roofType = data.analysis?.roofType || data.analysis?.material || 'Shingle Roof';
+        
+        jobInfo = {
+          ...jobInfo,
+          itemType: roofType,
+          primaryMeasurement: 'Area',
+          primaryValue: `${sqFt.toLocaleString()} sq ft`,
+          secondaryMeasurement: 'Squares',
+          secondaryValue: Math.ceil(sqFt / 100),
+          complexityReason: complexityLevel === 'High' ? 'Steep pitch, multiple layers, or structural repairs needed'
+            : complexityLevel === 'Medium' ? 'Standard roof with moderate accessibility'
+            : 'Simple repair or flat/low-pitch roof'
+        };
+        
+        speakGuidance(
+          `I've analyzed your roofing photos. The area appears to be approximately ${sqFt.toLocaleString()} square feet. ` +
+          `Based on the condition and scope of work, I estimate this job would cost between $${minPrice.toLocaleString()} and $${maxPrice.toLocaleString()}. ` +
+          `This is a ${complexityLevel.toLowerCase()} complexity job. Does this fit your budget?`
+        );
+      } else if (detectedCategory === 'hvac') {
+        const units = data.measurements?.units || 1;
+        const systemType = data.analysis?.systemType || 'HVAC System';
+        const tonnage = data.measurements?.tonnage || data.analysis?.tonnage || 'N/A';
+        
+        jobInfo = {
+          ...jobInfo,
+          itemType: systemType,
+          primaryMeasurement: 'Units',
+          primaryValue: units,
+          secondaryMeasurement: 'Tonnage',
+          secondaryValue: tonnage,
+          complexityReason: complexityLevel === 'High' ? 'Full system replacement or major ductwork modifications'
+            : complexityLevel === 'Medium' ? 'Component replacement or significant repairs'
+            : 'Minor repair or maintenance'
+        };
+        
+        speakGuidance(
+          `I've analyzed your HVAC photos. I can see the ${systemType} needs attention. ` +
+          `Based on the scope of work, I estimate this job would cost between $${minPrice.toLocaleString()} and $${maxPrice.toLocaleString()}. ` +
+          `This is a ${complexityLevel.toLowerCase()} complexity job. Does this fit your budget?`
+        );
+      } else if (detectedCategory === 'fence') {
+        const linearFt = data.measurements?.linearFt || data.measurements?.lengthFt || 100;
+        const heightFt = data.measurements?.heightFt || 6;
+        const fenceType = data.analysis?.fenceType || data.analysis?.material || 'Fence';
+        
+        jobInfo = {
+          ...jobInfo,
+          itemType: fenceType,
+          primaryMeasurement: 'Length',
+          primaryValue: `${linearFt} linear ft`,
+          secondaryMeasurement: 'Height',
+          secondaryValue: `${heightFt} ft`,
+          complexityReason: complexityLevel === 'High' ? 'Difficult terrain, removal of old fence, or custom design'
+            : complexityLevel === 'Medium' ? 'Standard installation with some obstacles'
+            : 'Simple repair or basic installation'
+        };
+        
+        speakGuidance(
+          `I've analyzed your fencing photos. This appears to be approximately ${linearFt} linear feet of ${fenceType.toLowerCase()}. ` +
+          `I estimate this job would cost between $${minPrice.toLocaleString()} and $${maxPrice.toLocaleString()}. ` +
+          `This is a ${complexityLevel.toLowerCase()} complexity job. Does this fit your budget?`
+        );
+      } else if (detectedCategory === 'electrical') {
+        const outlets = data.measurements?.outlets || data.measurements?.points || 'Multiple';
+        const amperage = data.measurements?.amperage || data.analysis?.amperage || 'Standard';
+        
+        jobInfo = {
+          ...jobInfo,
+          itemType: data.analysis?.workType || 'Electrical Work',
+          primaryMeasurement: 'Points/Outlets',
+          primaryValue: outlets,
+          secondaryMeasurement: 'Service',
+          secondaryValue: amperage,
+          complexityReason: complexityLevel === 'High' ? 'Panel upgrade, rewiring, or major electrical work'
+            : complexityLevel === 'Medium' ? 'Multiple outlets, circuits, or fixture installations'
+            : 'Simple repairs or single fixture installation'
+        };
+        
+        speakGuidance(
+          `I've analyzed your electrical photos. Based on the scope of work needed, ` +
+          `I estimate this job would cost between $${minPrice.toLocaleString()} and $${maxPrice.toLocaleString()}. ` +
+          `This is a ${complexityLevel.toLowerCase()} complexity job. Does this fit your budget?`
+        );
+      } else if (detectedCategory === 'plumbing') {
+        const fixtures = data.measurements?.fixtures || 'Multiple';
+        
+        jobInfo = {
+          ...jobInfo,
+          itemType: data.analysis?.workType || 'Plumbing Work',
+          primaryMeasurement: 'Fixtures',
+          primaryValue: fixtures,
+          complexityReason: complexityLevel === 'High' ? 'Main line work, repiping, or water heater replacement'
+            : complexityLevel === 'Medium' ? 'Fixture replacement or drain repairs'
+            : 'Minor leak repair or simple fixture work'
+        };
+        
+        speakGuidance(
+          `I've analyzed your plumbing photos. Based on what I can see, ` +
+          `I estimate this job would cost between $${minPrice.toLocaleString()} and $${maxPrice.toLocaleString()}. ` +
+          `This is a ${complexityLevel.toLowerCase()} complexity job. Does this fit your budget?`
+        );
+      } else if (detectedCategory === 'painting') {
+        const sqFt = data.measurements?.squareFt || data.measurements?.areaSqFt || 500;
+        const rooms = data.measurements?.rooms || 1;
+        
+        jobInfo = {
+          ...jobInfo,
+          itemType: data.analysis?.paintType || 'Paint Job',
+          primaryMeasurement: 'Area',
+          primaryValue: `${sqFt.toLocaleString()} sq ft`,
+          secondaryMeasurement: 'Rooms',
+          secondaryValue: rooms,
+          complexityReason: complexityLevel === 'High' ? 'High ceilings, extensive prep work, or specialty finishes'
+            : complexityLevel === 'Medium' ? 'Standard rooms with moderate prep'
+            : 'Simple touch-up or single room'
+        };
+        
+        speakGuidance(
+          `I've analyzed your painting project photos. This looks like approximately ${sqFt.toLocaleString()} square feet of work. ` +
+          `I estimate this job would cost between $${minPrice.toLocaleString()} and $${maxPrice.toLocaleString()}. ` +
+          `This is a ${complexityLevel.toLowerCase()} complexity job. Does this fit your budget?`
+        );
+      } else if (detectedCategory === 'flooring') {
+        const sqFt = data.measurements?.squareFt || data.measurements?.areaSqFt || 300;
+        const floorType = data.analysis?.floorType || data.analysis?.material || 'Flooring';
+        
+        jobInfo = {
+          ...jobInfo,
+          itemType: floorType,
+          primaryMeasurement: 'Area',
+          primaryValue: `${sqFt.toLocaleString()} sq ft`,
+          complexityReason: complexityLevel === 'High' ? 'Subfloor repair, pattern installation, or multiple rooms'
+            : complexityLevel === 'Medium' ? 'Standard installation with furniture moving'
+            : 'Simple repair or small area'
+        };
+        
+        speakGuidance(
+          `I've analyzed your flooring photos. This looks like approximately ${sqFt.toLocaleString()} square feet of ${floorType.toLowerCase()}. ` +
+          `I estimate this job would cost between $${minPrice.toLocaleString()} and $${maxPrice.toLocaleString()}. ` +
+          `This is a ${complexityLevel.toLowerCase()} complexity job. Does this fit your budget?`
+        );
+      } else if (detectedCategory === 'concrete') {
+        const sqFt = data.measurements?.squareFt || data.measurements?.areaSqFt || 200;
+        const thickness = data.measurements?.thicknessIn || 4;
+        
+        jobInfo = {
+          ...jobInfo,
+          itemType: data.analysis?.concreteType || 'Concrete Work',
+          primaryMeasurement: 'Area',
+          primaryValue: `${sqFt.toLocaleString()} sq ft`,
+          secondaryMeasurement: 'Thickness',
+          secondaryValue: `${thickness} inches`,
+          complexityReason: complexityLevel === 'High' ? 'Demolition required, stamped/decorative, or structural work'
+            : complexityLevel === 'Medium' ? 'Standard pour with forming'
+            : 'Simple repair or small slab'
+        };
+        
+        speakGuidance(
+          `I've analyzed your concrete project photos. This looks like approximately ${sqFt.toLocaleString()} square feet of work. ` +
+          `I estimate this job would cost between $${minPrice.toLocaleString()} and $${maxPrice.toLocaleString()}. ` +
+          `This is a ${complexityLevel.toLowerCase()} complexity job. Does this fit your budget?`
         );
       } else {
-        // Generic voice guidance for non-tree jobs
+        // Generic job details for other work types
+        jobInfo = {
+          ...jobInfo,
+          itemType: data.analysis?.title || 'Service Request',
+          primaryMeasurement: 'Scope',
+          primaryValue: data.analysis?.summary || 'See analysis details',
+          complexityReason: complexityLevel === 'High' ? 'Complex project requiring specialized skills or equipment'
+            : complexityLevel === 'Medium' ? 'Standard project with moderate requirements'
+            : 'Simple repair or basic service'
+        };
+        
         speakGuidance(
-          `Analysis complete. I've identified the work needed. The estimated price range is $${analysis.estimatedPriceRange.min.toLocaleString()} to $${analysis.estimatedPriceRange.max.toLocaleString()}. ` +
-          `This is a ${analysis.complexity.toLowerCase()} complexity job. Would you like to proceed? Does this fit your budget?`
+          `Analysis complete. I've identified the work needed. The estimated price range is $${minPrice.toLocaleString()} to $${maxPrice.toLocaleString()}. ` +
+          `This is a ${complexityLevel.toLowerCase()} complexity job. Does this fit your budget?`
         );
       }
+      
+      setJobDetails(jobInfo);
     } catch (error) {
       console.error('AI analysis error:', error);
       // Fallback to basic analysis if API fails
@@ -440,7 +633,7 @@ export default function WorkHubCustomerPortal() {
           matchedContractors: aiAnalysis?.contractors || [],
           urgency: request.preferences.urgency,
           preferredTimeframe: preferredTimeframe || null,
-          treeDetails: treeDetails || null
+          jobDetails: jobDetails || null
         }),
       });
       
@@ -778,49 +971,53 @@ export default function WorkHubCustomerPortal() {
                       </div>
                     )}
                     
-                    {/* Tree Details Section - Shows detailed tree analysis */}
-                    {treeDetails && (
+                    {/* Job Details Section - Shows AI analysis for any work type */}
+                    {jobDetails && (
                       <div className="mt-6 pt-4 border-t border-emerald-200 dark:border-emerald-800">
                         <Card className="border-2 border-emerald-300 bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-900/20 dark:to-green-900/20">
                           <CardHeader className="pb-3">
                             <CardTitle className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400">
-                              <TreePine className="w-5 h-5" />
-                              AI Tree Analysis
+                              <Sparkles className="w-5 h-5" />
+                              AI {jobDetails.workType} Analysis
                             </CardTitle>
                           </CardHeader>
                           <CardContent className="space-y-4">
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                               <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-emerald-100">
-                                <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">Tree Type</p>
-                                <p className="text-lg font-bold text-emerald-700 dark:text-emerald-400">{treeDetails.treeType}</p>
+                                <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">{jobDetails.workType} Type</p>
+                                <p className="text-lg font-bold text-emerald-700 dark:text-emerald-400">{jobDetails.itemType}</p>
                               </div>
                               <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-emerald-100">
-                                <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">Estimated Height</p>
-                                <p className="text-lg font-bold text-emerald-700 dark:text-emerald-400">{treeDetails.heightFt} ft</p>
+                                <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">{jobDetails.primaryMeasurement}</p>
+                                <p className="text-lg font-bold text-emerald-700 dark:text-emerald-400">{jobDetails.primaryValue}</p>
                               </div>
-                              <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-emerald-100">
-                                <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">Estimated Width</p>
-                                <p className="text-lg font-bold text-emerald-700 dark:text-emerald-400">{treeDetails.widthFt} ft</p>
-                              </div>
-                              <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-emerald-100">
-                                <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">Estimated Weight</p>
-                                <p className="text-lg font-bold text-emerald-700 dark:text-emerald-400">{treeDetails.estimatedWeightLb.toLocaleString()} lbs</p>
-                              </div>
+                              {jobDetails.secondaryMeasurement && (
+                                <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-emerald-100">
+                                  <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">{jobDetails.secondaryMeasurement}</p>
+                                  <p className="text-lg font-bold text-emerald-700 dark:text-emerald-400">{jobDetails.secondaryValue}</p>
+                                </div>
+                              )}
+                              {jobDetails.additionalInfo && (
+                                <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-emerald-100">
+                                  <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">Additional Info</p>
+                                  <p className="text-lg font-bold text-emerald-700 dark:text-emerald-400">{jobDetails.additionalInfo}</p>
+                                </div>
+                              )}
                             </div>
                             <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-emerald-100">
                               <div className="flex items-center justify-between mb-2">
                                 <p className="text-xs text-slate-500 uppercase tracking-wide">Job Complexity</p>
                                 <Badge className={`${
-                                  treeDetails.complexity.toLowerCase() === 'high' || treeDetails.complexity.toLowerCase() === 'severe' 
+                                  jobDetails.complexity.toLowerCase() === 'high' || jobDetails.complexity.toLowerCase() === 'severe' 
                                     ? 'bg-red-500' 
-                                    : treeDetails.complexity.toLowerCase() === 'medium' || treeDetails.complexity.toLowerCase() === 'moderate'
+                                    : jobDetails.complexity.toLowerCase() === 'medium' || jobDetails.complexity.toLowerCase() === 'moderate'
                                     ? 'bg-amber-500'
                                     : 'bg-green-500'
                                 }`}>
-                                  {treeDetails.complexity}
+                                  {jobDetails.complexity}
                                 </Badge>
                               </div>
-                              <p className="text-sm text-slate-600 dark:text-slate-400">{treeDetails.complexityReason}</p>
+                              <p className="text-sm text-slate-600 dark:text-slate-400">{jobDetails.complexityReason}</p>
                             </div>
                           </CardContent>
                         </Card>

@@ -14016,7 +14016,7 @@ What specific area or type of incident would you like me to focus on? I can prov
       const { 
         workType, customerName, email, phone, address, city, state, zip,
         description, photoUrls, aiAnalysis, estimatedPrice, budgetConfirmed,
-        budgetReason, matchedContractors, urgency, preferredTimeframe, treeDetails
+        budgetReason, matchedContractors, urgency, preferredTimeframe, jobDetails
       } = req.body;
 
       if (!workType || !customerName || !email) {
@@ -14041,7 +14041,7 @@ What specific area or type of incident would you like me to focus on? I can prov
         matchedContractors,
         urgency,
         preferredTimeframe,
-        treeDetails,
+        treeDetails: jobDetails,
         status: 'pending'
       }).returning();
 
@@ -14074,12 +14074,17 @@ What specific area or type of incident would you like me to focus on? I can prov
             ? `$${estimatedPrice.min?.toLocaleString()} - $${estimatedPrice.max?.toLocaleString()}`
             : 'Quote pending';
           
-          const treeInfo = treeDetails 
-            ? `\n🌳 ${treeDetails.treeType || 'Tree'}: ${treeDetails.heightFt || '?'}ft H x ${treeDetails.widthFt || '?'}ft W, ~${treeDetails.estimatedWeightLb?.toLocaleString() || '?'} lbs`
-            : '';
+          // Build job-specific info for SMS based on work type
+          let jobInfo = '';
+          if (jobDetails) {
+            jobInfo = `\n📊 ${jobDetails.itemType || jobDetails.workType}: ${jobDetails.primaryValue || 'See details'}`;
+            if (jobDetails.additionalInfo) {
+              jobInfo += ` (${jobDetails.additionalInfo})`;
+            }
+          }
           
           const smsMessage = `🏠 NEW WORKHUB LEAD #${submission.id}
-📋 ${workType.toUpperCase()}${treeInfo}
+📋 ${workType.toUpperCase()}${jobInfo}
 💰 AI Quote: ${priceRange}
 ⏰ Timeframe: ${timeframeLabels[preferredTimeframe] || preferredTimeframe || 'Not specified'}
 
@@ -14100,24 +14105,37 @@ Photos attached via email. Reply to claim this job!`;
               </div>`
             : '';
 
-          const treeHtmlDetails = treeDetails 
-            ? `<tr>
-                <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Tree Type</strong></td>
-                <td style="padding: 8px; border-bottom: 1px solid #eee;">${treeDetails.treeType || 'Unknown'}</td>
+          // Build job-specific HTML details for email
+          let jobHtmlDetails = '';
+          if (jobDetails) {
+            jobHtmlDetails = `<tr>
+                <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>${jobDetails.workType || 'Job'} Type</strong></td>
+                <td style="padding: 8px; border-bottom: 1px solid #eee;">${jobDetails.itemType || 'Not specified'}</td>
               </tr>
               <tr>
-                <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Dimensions</strong></td>
-                <td style="padding: 8px; border-bottom: 1px solid #eee;">${treeDetails.heightFt || '?'}ft H x ${treeDetails.widthFt || '?'}ft W</td>
-              </tr>
-              <tr>
-                <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Est. Weight</strong></td>
-                <td style="padding: 8px; border-bottom: 1px solid #eee;">${treeDetails.estimatedWeightLb?.toLocaleString() || 'Unknown'} lbs</td>
-              </tr>
-              <tr>
+                <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>${jobDetails.primaryMeasurement || 'Primary'}</strong></td>
+                <td style="padding: 8px; border-bottom: 1px solid #eee;">${jobDetails.primaryValue || 'See photos'}</td>
+              </tr>`;
+            
+            if (jobDetails.secondaryMeasurement) {
+              jobHtmlDetails += `<tr>
+                <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>${jobDetails.secondaryMeasurement}</strong></td>
+                <td style="padding: 8px; border-bottom: 1px solid #eee;">${jobDetails.secondaryValue || 'N/A'}</td>
+              </tr>`;
+            }
+            
+            if (jobDetails.additionalInfo) {
+              jobHtmlDetails += `<tr>
+                <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Additional Info</strong></td>
+                <td style="padding: 8px; border-bottom: 1px solid #eee;">${jobDetails.additionalInfo}</td>
+              </tr>`;
+            }
+            
+            jobHtmlDetails += `<tr>
                 <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Complexity</strong></td>
-                <td style="padding: 8px; border-bottom: 1px solid #eee;">${treeDetails.complexity || 'Unknown'}</td>
-              </tr>`
-            : '';
+                <td style="padding: 8px; border-bottom: 1px solid #eee;">${jobDetails.complexity || 'Unknown'}</td>
+              </tr>`;
+          }
 
           const emailHtml = `
             <div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto;">
@@ -14133,7 +14151,7 @@ Photos attached via email. Reply to claim this job!`;
                     <td style="padding: 8px; border-bottom: 1px solid #eee; width: 30%;"><strong>Work Type</strong></td>
                     <td style="padding: 8px; border-bottom: 1px solid #eee;">${workType}</td>
                   </tr>
-                  ${treeHtmlDetails}
+                  ${jobHtmlDetails}
                   <tr>
                     <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>AI Quote</strong></td>
                     <td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold; color: #16a34a;">${priceRange}</td>
