@@ -65,6 +65,15 @@ export default function WorkHubCustomerPortal() {
   const [budgetConfirmed, setBudgetConfirmed] = useState<boolean | null>(null);
   const [budgetReason, setBudgetReason] = useState('');
   const [showContractors, setShowContractors] = useState(false);
+  const [preferredTimeframe, setPreferredTimeframe] = useState<string | null>(null);
+  const [treeDetails, setTreeDetails] = useState<{
+    treeType: string;
+    heightFt: number;
+    widthFt: number;
+    estimatedWeightLb: number;
+    complexity: string;
+    complexityReason: string;
+  } | null>(null);
   const [afterPreviewUrl, setAfterPreviewUrl] = useState<string | null>(null);
   const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -98,29 +107,35 @@ export default function WorkHubCustomerPortal() {
     try {
       setIsVoiceActive(true);
       
-      // Use ElevenLabs API for natural female voice
-      const response = await fetch('/api/voice-ai/generate', {
+      // Use OpenAI TTS API for natural voice (nova voice)
+      const response = await fetch('/api/tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           text,
-          provider: 'elevenlabs',
-          voiceId: 'pNInz6obpgDQGcFmaJgB' // Lily - natural female voice
+          voice: 'nova' // Natural female voice
         })
       });
 
       if (response.ok) {
-        const data = await response.json();
-        if (data.audioUrl && audioRef) {
-          audioRef.src = data.audioUrl;
-          audioRef.onended = () => setIsVoiceActive(false);
-          audioRef.onerror = () => setIsVoiceActive(false);
+        const blob = await response.blob();
+        const audioUrl = URL.createObjectURL(blob);
+        if (audioRef) {
+          audioRef.src = audioUrl;
+          audioRef.onended = () => {
+            setIsVoiceActive(false);
+            URL.revokeObjectURL(audioUrl);
+          };
+          audioRef.onerror = () => {
+            setIsVoiceActive(false);
+            URL.revokeObjectURL(audioUrl);
+          };
           await audioRef.play();
           return;
         }
       }
       
-      // Fallback to browser speech if ElevenLabs fails
+      // Fallback to browser speech if API fails
       const voices = window.speechSynthesis.getVoices();
       const preferredVoices = ['Samantha', 'Karen', 'Moira', 'Tessa', 'Google UK English Female', 'Microsoft Zira'];
       let voice = null;
@@ -152,6 +167,19 @@ export default function WorkHubCustomerPortal() {
 
   const handleAnalyzePhotos = async () => {
     if (request.photos.length === 0) return;
+    
+    // Reset all analysis-related state for fresh analysis
+    setAiAnalysis(null);
+    setTreeDetails(null);
+    setBudgetConfirmed(null);
+    setPreferredTimeframe(null);
+    setShowContractors(false);
+    setBudgetReason('');
+    setAfterPreviewUrl(null);
+    setMeasurements(null);
+    setMaterialOptions([]);
+    setSelectedMaterial(null);
+    setPricingBreakdown(null);
     
     setIsAnalyzing(true);
     speakGuidance("Analyzing your photos with AI. I'm identifying the type of work needed and potential issues.");
@@ -240,7 +268,50 @@ export default function WorkHubCustomerPortal() {
         }
       }
       
-      speakGuidance(`Analysis complete. I've identified ${analysis.identifiedIssues.length} issues. The estimated price range is $${analysis.estimatedPriceRange.min} to $${analysis.estimatedPriceRange.max}. This appears to be a ${analysis.complexity.toLowerCase()} complexity job. I found ${analysis.contractors.length} available contractors in your area.`);
+      // Extract tree details if this is a tree job
+      const isTreeJob = analysis.detectedCategory === 'tree_removal' || request.category === 'tree' || 
+                        analysis.tags?.some((t: string) => t.toLowerCase().includes('tree'));
+      
+      if (isTreeJob && data.measurements) {
+        const complexityLevel = analysis.complexity || 'Medium';
+        let complexityReason = '';
+        if (complexityLevel === 'High' || complexityLevel === 'severe') {
+          complexityReason = 'Large tree requiring heavy equipment, close to structures, or hazardous conditions';
+        } else if (complexityLevel === 'Medium' || complexityLevel === 'moderate') {
+          complexityReason = 'Standard removal with moderate accessibility and typical equipment needed';
+        } else {
+          complexityReason = 'Straightforward removal with easy access and basic equipment';
+        }
+        
+        setTreeDetails({
+          treeType: data.analysis?.treeDetails?.species || data.analysis?.title?.split(' ').slice(0, 2).join(' ') || 'Tree',
+          heightFt: data.measurements.heightFt || 30,
+          widthFt: data.measurements.widthFt || 20,
+          estimatedWeightLb: data.measurements.estimatedWeightLb || 4500,
+          complexity: complexityLevel,
+          complexityReason: complexityReason
+        });
+        
+        // Tree-specific voice guidance
+        const treeType = data.analysis?.treeDetails?.species || 'this tree';
+        const height = data.measurements.heightFt || 30;
+        const width = data.measurements.widthFt || 20;
+        const weight = data.measurements.estimatedWeightLb || 4500;
+        const minPrice = analysis.estimatedPriceRange.min;
+        const maxPrice = analysis.estimatedPriceRange.max;
+        
+        speakGuidance(
+          `I've analyzed your photo. Here's what I see: This appears to be ${treeType}, approximately ${height} feet tall and ${width} feet wide, with an estimated weight of about ${weight.toLocaleString()} pounds. ` +
+          `Based on the size and complexity, I estimate this job would cost between $${minPrice.toLocaleString()} and $${maxPrice.toLocaleString()} in your area. ` +
+          `This is a ${complexityLevel.toLowerCase()} complexity job. Would you like to proceed with this work? Does this fit your budget?`
+        );
+      } else {
+        // Generic voice guidance for non-tree jobs
+        speakGuidance(
+          `Analysis complete. I've identified the work needed. The estimated price range is $${analysis.estimatedPriceRange.min.toLocaleString()} to $${analysis.estimatedPriceRange.max.toLocaleString()}. ` +
+          `This is a ${analysis.complexity.toLowerCase()} complexity job. Would you like to proceed? Does this fit your budget?`
+        );
+      }
     } catch (error) {
       console.error('AI analysis error:', error);
       // Fallback to basic analysis if API fails
@@ -263,11 +334,14 @@ export default function WorkHubCustomerPortal() {
 
   // Handle budget confirmation
   const handleBudgetConfirm = async (confirmed: boolean) => {
+    // Reset timeframe and contractors state to ensure fresh flow
+    setPreferredTimeframe(null);
+    setShowContractors(false);
     setBudgetConfirmed(confirmed);
     
     if (confirmed) {
-      setShowContractors(true);
-      speakGuidance("Great! Here are your matched contractors. They will contact you soon to discuss your project.");
+      // Ask about timeframe before showing contractors
+      speakGuidance("Excellent! That's great to hear this fits your budget. Now, what timeframe are you looking to have this work done? Please select when you'd like to schedule this project.");
       
       // Generate after preview for visualization
       if (previewUrls.length > 0 && !afterPreviewUrl) {
@@ -276,6 +350,23 @@ export default function WorkHubCustomerPortal() {
     } else {
       speakGuidance("We understand budget concerns. Please share more details. Our team works with non-profit organizations that may be able to assist with your project.");
     }
+  };
+  
+  // Handle timeframe selection
+  const handleTimeframeSelect = (timeframe: string) => {
+    setPreferredTimeframe(timeframe);
+    setShowContractors(true);
+    
+    const timeframeLabels: Record<string, string> = {
+      'asap': 'as soon as possible',
+      'this_week': 'this week',
+      'next_week': 'next week',
+      '2_weeks': 'within 2 weeks',
+      'this_month': 'this month',
+      'flexible': 'flexible timing'
+    };
+    
+    speakGuidance(`Perfect! You've selected ${timeframeLabels[timeframe] || timeframe}. A contractor will be in contact with you shortly to schedule your project. You'll receive a call or message to confirm the details.`);
   };
 
   // Generate AI "after" preview image
@@ -347,7 +438,9 @@ export default function WorkHubCustomerPortal() {
           budgetReason: budgetReason || null,
           afterPreviewUrl,
           matchedContractors: aiAnalysis?.contractors || [],
-          urgency: request.preferences.urgency
+          urgency: request.preferences.urgency,
+          preferredTimeframe: preferredTimeframe || null,
+          treeDetails: treeDetails || null
         }),
       });
       
@@ -685,33 +778,85 @@ export default function WorkHubCustomerPortal() {
                       </div>
                     )}
                     
+                    {/* Tree Details Section - Shows detailed tree analysis */}
+                    {treeDetails && (
+                      <div className="mt-6 pt-4 border-t border-emerald-200 dark:border-emerald-800">
+                        <Card className="border-2 border-emerald-300 bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-900/20 dark:to-green-900/20">
+                          <CardHeader className="pb-3">
+                            <CardTitle className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400">
+                              <TreePine className="w-5 h-5" />
+                              AI Tree Analysis
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent className="space-y-4">
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                              <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-emerald-100">
+                                <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">Tree Type</p>
+                                <p className="text-lg font-bold text-emerald-700 dark:text-emerald-400">{treeDetails.treeType}</p>
+                              </div>
+                              <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-emerald-100">
+                                <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">Estimated Height</p>
+                                <p className="text-lg font-bold text-emerald-700 dark:text-emerald-400">{treeDetails.heightFt} ft</p>
+                              </div>
+                              <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-emerald-100">
+                                <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">Estimated Width</p>
+                                <p className="text-lg font-bold text-emerald-700 dark:text-emerald-400">{treeDetails.widthFt} ft</p>
+                              </div>
+                              <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-emerald-100">
+                                <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">Estimated Weight</p>
+                                <p className="text-lg font-bold text-emerald-700 dark:text-emerald-400">{treeDetails.estimatedWeightLb.toLocaleString()} lbs</p>
+                              </div>
+                            </div>
+                            <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-emerald-100">
+                              <div className="flex items-center justify-between mb-2">
+                                <p className="text-xs text-slate-500 uppercase tracking-wide">Job Complexity</p>
+                                <Badge className={`${
+                                  treeDetails.complexity.toLowerCase() === 'high' || treeDetails.complexity.toLowerCase() === 'severe' 
+                                    ? 'bg-red-500' 
+                                    : treeDetails.complexity.toLowerCase() === 'medium' || treeDetails.complexity.toLowerCase() === 'moderate'
+                                    ? 'bg-amber-500'
+                                    : 'bg-green-500'
+                                }`}>
+                                  {treeDetails.complexity}
+                                </Badge>
+                              </div>
+                              <p className="text-sm text-slate-600 dark:text-slate-400">{treeDetails.complexityReason}</p>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </div>
+                    )}
+                    
                     {/* Budget Confirmation Section */}
                     {budgetConfirmed === null && (
                       <div className="mt-6 pt-4 border-t border-green-200 dark:border-green-800">
                         <div className="text-center space-y-4">
                           <h4 className="font-semibold text-lg text-slate-900 dark:text-white flex items-center justify-center gap-2">
                             <DollarSign className="w-5 h-5 text-green-600" />
-                            Would you like to stay within this price range?
+                            Would you like to proceed with this work?
                           </h4>
+                          <p className="text-lg text-slate-700 dark:text-slate-300 max-w-md mx-auto font-medium">
+                            Does this fit your budget?
+                          </p>
                           <p className="text-sm text-slate-500 max-w-md mx-auto">
-                            This helps us match you with contractors who can work within your budget.
+                            Estimated cost: <span className="font-bold text-green-600">${aiAnalysis.estimatedPriceRange.min.toLocaleString()} - ${aiAnalysis.estimatedPriceRange.max.toLocaleString()}</span>
                           </p>
                           <div className="flex justify-center gap-4">
                             <Button
                               onClick={() => handleBudgetConfirm(true)}
-                              className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 px-8"
+                              className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 px-8 py-3 text-lg"
                               data-testid="button-budget-yes"
                             >
-                              <ThumbsUp className="w-4 h-4 mr-2" />
-                              Yes, this works for me
+                              <ThumbsUp className="w-5 h-5 mr-2" />
+                              Yes, proceed!
                             </Button>
                             <Button
                               variant="outline"
                               onClick={() => handleBudgetConfirm(false)}
-                              className="px-8"
+                              className="px-8 py-3 text-lg"
                               data-testid="button-budget-no"
                             >
-                              I have budget concerns
+                              No, budget concerns
                             </Button>
                           </div>
                         </div>
@@ -766,8 +911,83 @@ export default function WorkHubCustomerPortal() {
                       </div>
                     )}
                     
+                    {/* Timeframe Selection - Shows after budget confirmed, before contractors */}
+                    {budgetConfirmed === true && preferredTimeframe === null && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="mt-6 pt-4 border-t border-purple-200 dark:border-purple-800"
+                      >
+                        <Card className="border-2 border-purple-300 bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20">
+                          <CardHeader className="pb-3">
+                            <CardTitle className="flex items-center gap-2 text-purple-700 dark:text-purple-400">
+                              <Calendar className="w-5 h-5" />
+                              What timeframe are you looking to have this work done?
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                              {[
+                                { id: 'asap', label: 'ASAP', description: 'As soon as possible' },
+                                { id: 'this_week', label: 'This Week', description: 'Within the next 7 days' },
+                                { id: 'next_week', label: 'Next Week', description: '7-14 days from now' },
+                                { id: '2_weeks', label: '2 Weeks', description: 'Within 2 weeks' },
+                                { id: 'this_month', label: 'This Month', description: 'Within 30 days' },
+                                { id: 'flexible', label: 'Flexible', description: 'No rush, find best time' }
+                              ].map((option) => (
+                                <motion.button
+                                  key={option.id}
+                                  whileHover={{ scale: 1.02 }}
+                                  whileTap={{ scale: 0.98 }}
+                                  onClick={() => handleTimeframeSelect(option.id)}
+                                  className="p-4 rounded-xl border-2 border-purple-200 hover:border-purple-400 bg-white dark:bg-slate-800 text-left transition-all hover:shadow-md"
+                                  data-testid={`timeframe-${option.id}`}
+                                >
+                                  <p className="font-semibold text-purple-700 dark:text-purple-400">{option.label}</p>
+                                  <p className="text-xs text-slate-500 mt-1">{option.description}</p>
+                                </motion.button>
+                              ))}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </motion.div>
+                    )}
+                    
+                    {/* Confirmation Message - Shows after timeframe selected */}
+                    {preferredTimeframe && showContractors && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="mt-6 pt-4 border-t border-green-200 dark:border-green-800"
+                      >
+                        <Card className="border-2 border-green-400 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20">
+                          <CardContent className="py-6">
+                            <div className="text-center space-y-4">
+                              <div className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center mx-auto">
+                                <CheckCircle className="w-8 h-8 text-green-600" />
+                              </div>
+                              <h3 className="text-xl font-bold text-green-700 dark:text-green-400">
+                                A contractor will be in contact with you!
+                              </h3>
+                              <p className="text-slate-600 dark:text-slate-400 max-w-md mx-auto">
+                                You'll receive a call or message to confirm the details and schedule your project.
+                                Your preferred timeframe: <strong className="text-purple-600">
+                                  {preferredTimeframe === 'asap' ? 'As Soon As Possible' :
+                                   preferredTimeframe === 'this_week' ? 'This Week' :
+                                   preferredTimeframe === 'next_week' ? 'Next Week' :
+                                   preferredTimeframe === '2_weeks' ? 'Within 2 Weeks' :
+                                   preferredTimeframe === 'this_month' ? 'This Month' :
+                                   'Flexible Timing'}
+                                </strong>
+                              </p>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </motion.div>
+                    )}
+                    
                     {/* Before/After Preview Section */}
-                    {(budgetConfirmed === true || showContractors) && previewUrls.length > 0 && (
+                    {(budgetConfirmed === true || showContractors) && previewUrls.length > 0 && preferredTimeframe && (
                       <div className="mt-6 pt-4 border-t border-green-200 dark:border-green-800">
                         <h4 className="font-semibold text-green-700 dark:text-green-400 mb-3 flex items-center gap-2">
                           <Image className="w-4 h-4" />
@@ -811,8 +1031,8 @@ export default function WorkHubCustomerPortal() {
                       </div>
                     )}
                     
-                    {/* Matched Contractors Section - Only show after budget confirmed */}
-                    {(budgetConfirmed === true || showContractors) && aiAnalysis.contractors && aiAnalysis.contractors.length > 0 && (
+                    {/* Matched Contractors Section - Only show after timeframe selected */}
+                    {showContractors && preferredTimeframe && aiAnalysis.contractors && aiAnalysis.contractors.length > 0 && (
                       <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
