@@ -676,7 +676,7 @@ export default function WorkHubCustomerPortal() {
                     setRequest(prev => ({ ...prev, category: category.id }));
                     speakGuidance(`${category.name} selected. ${category.description}`);
                   }}
-                  className={`p-4 rounded-xl border-2 transition-all text-left ${
+                  className={`p-4 rounded-xl border-2 transition-all text-left relative ${
                     request.category === category.id
                       ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20 shadow-lg'
                       : 'border-slate-200 dark:border-slate-700 hover:border-purple-300'
