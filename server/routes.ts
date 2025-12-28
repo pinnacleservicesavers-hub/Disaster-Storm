@@ -14010,13 +14010,13 @@ What specific area or type of incident would you like me to focus on? I can prov
   // WORKHUB CUSTOMER SUBMISSIONS ENDPOINTS
   // ============================================================
 
-  // Save customer submission with AI analysis
+  // Save customer submission with AI analysis and notify contractor
   app.post('/api/workhub/submissions', express.json({ limit: '50mb' }), async (req, res) => {
     try {
       const { 
         workType, customerName, email, phone, address, city, state, zip,
         description, photoUrls, aiAnalysis, estimatedPrice, budgetConfirmed,
-        budgetReason, matchedContractors, urgency
+        budgetReason, matchedContractors, urgency, preferredTimeframe, treeDetails
       } = req.body;
 
       if (!workType || !customerName || !email) {
@@ -14040,10 +14040,198 @@ What specific area or type of incident would you like me to focus on? I can prov
         budgetReason,
         matchedContractors,
         urgency,
+        preferredTimeframe,
+        treeDetails,
         status: 'pending'
       }).returning();
 
       console.log('📋 Customer submission saved:', submission.id);
+
+      // Send contractor notification if budget confirmed
+      if (budgetConfirmed) {
+        try {
+          const { sendSms } = await import('./services/twilio.js');
+          const { sendClaimPacket } = await import('./services/sendgrid.js');
+          
+          // Contractor contact info - in production this would come from a database
+          const CONTRACTOR_CONTACTS = [
+            { name: 'John Culpepper', phone: '+17066044820', email: 'john@disasterdirect.com' },
+            { name: 'Shannon Wise', phone: '+17068408949', email: 'shannon@disasterdirect.com' }
+          ];
+          
+          // Format timeframe for display
+          const timeframeLabels: Record<string, string> = {
+            'asap': 'ASAP',
+            'this_week': 'This Week',
+            'next_week': 'Next Week',
+            '2_weeks': 'Within 2 Weeks',
+            'this_month': 'This Month',
+            'flexible': 'Flexible'
+          };
+          
+          // Build SMS message with all key info
+          const priceRange = estimatedPrice 
+            ? `$${estimatedPrice.min?.toLocaleString()} - $${estimatedPrice.max?.toLocaleString()}`
+            : 'Quote pending';
+          
+          const treeInfo = treeDetails 
+            ? `\n🌳 ${treeDetails.treeType || 'Tree'}: ${treeDetails.heightFt || '?'}ft H x ${treeDetails.widthFt || '?'}ft W, ~${treeDetails.estimatedWeightLb?.toLocaleString() || '?'} lbs`
+            : '';
+          
+          const smsMessage = `🏠 NEW WORKHUB LEAD #${submission.id}
+📋 ${workType.toUpperCase()}${treeInfo}
+💰 AI Quote: ${priceRange}
+⏰ Timeframe: ${timeframeLabels[preferredTimeframe] || preferredTimeframe || 'Not specified'}
+
+👤 ${customerName}
+📍 ${address || 'No address'}${city ? `, ${city}` : ''}${state ? `, ${state}` : ''} ${zip || ''}
+📞 ${phone || 'No phone'}
+📧 ${email}
+
+Photos attached via email. Reply to claim this job!`;
+
+          // Build HTML email with full details and photos
+          const photoHtml = photoUrls && photoUrls.length > 0 
+            ? `<div style="margin-top: 20px;">
+                <h3 style="color: #333;">Customer Photos (${photoUrls.length})</h3>
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px;">
+                  ${photoUrls.map((url: string, i: number) => `<img src="${url}" alt="Photo ${i + 1}" style="max-width: 100%; border-radius: 8px; border: 1px solid #ddd;" />`).join('')}
+                </div>
+              </div>`
+            : '';
+
+          const treeHtmlDetails = treeDetails 
+            ? `<tr>
+                <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Tree Type</strong></td>
+                <td style="padding: 8px; border-bottom: 1px solid #eee;">${treeDetails.treeType || 'Unknown'}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Dimensions</strong></td>
+                <td style="padding: 8px; border-bottom: 1px solid #eee;">${treeDetails.heightFt || '?'}ft H x ${treeDetails.widthFt || '?'}ft W</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Est. Weight</strong></td>
+                <td style="padding: 8px; border-bottom: 1px solid #eee;">${treeDetails.estimatedWeightLb?.toLocaleString() || 'Unknown'} lbs</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Complexity</strong></td>
+                <td style="padding: 8px; border-bottom: 1px solid #eee;">${treeDetails.complexity || 'Unknown'}</td>
+              </tr>`
+            : '';
+
+          const emailHtml = `
+            <div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto;">
+              <div style="background: linear-gradient(135deg, #7c3aed, #a855f7); color: white; padding: 20px; border-radius: 8px 8px 0 0;">
+                <h1 style="margin: 0;">🏠 New WorkHub Lead #${submission.id}</h1>
+                <p style="margin: 10px 0 0 0; opacity: 0.9;">Customer ready to hire - Budget confirmed!</p>
+              </div>
+              
+              <div style="background: #fff; padding: 20px; border: 1px solid #ddd; border-top: none;">
+                <h2 style="color: #7c3aed; margin-top: 0;">Job Details</h2>
+                <table style="width: 100%; border-collapse: collapse;">
+                  <tr>
+                    <td style="padding: 8px; border-bottom: 1px solid #eee; width: 30%;"><strong>Work Type</strong></td>
+                    <td style="padding: 8px; border-bottom: 1px solid #eee;">${workType}</td>
+                  </tr>
+                  ${treeHtmlDetails}
+                  <tr>
+                    <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>AI Quote</strong></td>
+                    <td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold; color: #16a34a;">${priceRange}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Preferred Timeframe</strong></td>
+                    <td style="padding: 8px; border-bottom: 1px solid #eee;">${timeframeLabels[preferredTimeframe] || preferredTimeframe || 'Not specified'}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Description</strong></td>
+                    <td style="padding: 8px; border-bottom: 1px solid #eee;">${description || 'No description provided'}</td>
+                  </tr>
+                </table>
+                
+                <h2 style="color: #7c3aed; margin-top: 30px;">Customer Contact</h2>
+                <table style="width: 100%; border-collapse: collapse;">
+                  <tr>
+                    <td style="padding: 8px; border-bottom: 1px solid #eee; width: 30%;"><strong>Name</strong></td>
+                    <td style="padding: 8px; border-bottom: 1px solid #eee;">${customerName}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Phone</strong></td>
+                    <td style="padding: 8px; border-bottom: 1px solid #eee;"><a href="tel:${phone}">${phone || 'Not provided'}</a></td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Email</strong></td>
+                    <td style="padding: 8px; border-bottom: 1px solid #eee;"><a href="mailto:${email}">${email}</a></td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Address</strong></td>
+                    <td style="padding: 8px; border-bottom: 1px solid #eee;">${address || 'Not provided'}${city ? `, ${city}` : ''}${state ? `, ${state}` : ''} ${zip || ''}</td>
+                  </tr>
+                </table>
+                
+                ${photoHtml}
+                
+                <div style="margin-top: 30px; padding: 15px; background: #f0fdf4; border-radius: 8px; border-left: 4px solid #16a34a;">
+                  <strong style="color: #16a34a;">✅ Customer has confirmed this fits their budget</strong>
+                  <p style="margin: 5px 0 0 0; color: #166534;">Contact them promptly to schedule the work!</p>
+                </div>
+              </div>
+              
+              <div style="background: #f5f5f5; padding: 15px; border-radius: 0 0 8px 8px; text-align: center; font-size: 12px; color: #666;">
+                <p style="margin: 0;">WorkHub by Disaster Direct | <a href="https://strategicservicesavers.com">strategicservicesavers.com</a></p>
+              </div>
+            </div>
+          `;
+
+          // Send notifications to all contractors
+          const notificationResults: string[] = [];
+          let successCount = 0;
+          
+          for (const contractor of CONTRACTOR_CONTACTS) {
+            try {
+              // Send SMS
+              await sendSms({ to: contractor.phone, message: smsMessage });
+              notificationResults.push(`✅ SMS sent to ${contractor.name}`);
+              console.log(`📱 WorkHub SMS sent to ${contractor.name} (${contractor.phone})`);
+              successCount++;
+            } catch (smsError) {
+              console.error(`❌ SMS to ${contractor.name} failed:`, smsError);
+              notificationResults.push(`❌ SMS to ${contractor.name} failed`);
+            }
+            
+            try {
+              // Send email with photo links (photos are accessible via embedded URLs in the email)
+              await sendClaimPacket({
+                toEmail: contractor.email,
+                toName: contractor.name,
+                subject: `🏠 New WorkHub Lead #${submission.id} - ${workType} - ${customerName}`,
+                html: emailHtml
+              });
+              notificationResults.push(`✅ Email sent to ${contractor.name}`);
+              console.log(`📧 WorkHub email sent to ${contractor.name} (${contractor.email})`);
+              successCount++;
+            } catch (emailError) {
+              console.error(`❌ Email to ${contractor.name} failed:`, emailError);
+              notificationResults.push(`❌ Email to ${contractor.name} failed`);
+            }
+          }
+          
+          // Only mark as notified if at least one notification succeeded
+          if (successCount > 0) {
+            await db.update(customerSubmissions)
+              .set({ 
+                contractorNotified: true, 
+                contractorNotifiedAt: new Date() 
+              })
+              .where(eq(customerSubmissions.id, submission.id));
+            console.log(`📬 Contractor notifications (${successCount} succeeded):`, notificationResults.join(', '));
+          } else {
+            console.error('⚠️ All contractor notifications failed:', notificationResults.join(', '));
+          }
+          
+        } catch (notifyError) {
+          console.error('⚠️ Contractor notification error (submission still saved):', notifyError);
+        }
+      }
 
       res.json({
         ok: true,

@@ -6634,6 +6634,10 @@ export const customerSubmissions = pgTable("customer_submissions", {
   matchedContractors: jsonb("matched_contractors"), // Array of matched contractor info
   status: varchar("status", { length: 50 }).default("pending"),
   urgency: varchar("urgency", { length: 50 }),
+  preferredTimeframe: varchar("preferred_timeframe", { length: 50 }), // asap, this_week, next_week, 2_weeks, this_month, flexible
+  treeDetails: jsonb("tree_details"), // {treeType, heightFt, widthFt, estimatedWeightLb, complexity}
+  contractorNotified: boolean("contractor_notified").default(false),
+  contractorNotifiedAt: timestamp("contractor_notified_at"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
