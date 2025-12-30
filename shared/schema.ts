@@ -6648,3 +6648,171 @@ export const insertCustomerSubmissionSchema = createInsertSchema(customerSubmiss
 
 export type CustomerSubmission = typeof customerSubmissions.$inferSelect;
 export type InsertCustomerSubmission = z.infer<typeof insertCustomerSubmissionSchema>;
+
+// ===== EMERGENCY CONTRACTOR READINESS PLATFORM =====
+// Tables for managing storm agencies, contractor profiles, and outreach
+
+// Storm Agencies - List of agencies/primes where contractors can register
+export const stormAgencies = pgTable("storm_agencies", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  category: varchar("category", { length: 100 }), // 'utility', 'prime_contractor', 'government', 'cooperative', 'vegetation_mgmt'
+  phone: varchar("phone", { length: 50 }),
+  email: varchar("email", { length: 255 }),
+  website: varchar("website", { length: 500 }),
+  address: text("address"),
+  city: varchar("city", { length: 100 }),
+  state: varchar("state", { length: 50 }),
+  vendorPortalUrl: varchar("vendor_portal_url", { length: 500 }), // Link to register as vendor
+  registrationNotes: text("registration_notes"),
+  servicesNeeded: text("services_needed").array(), // ['tree_removal', 'line_clearance', 'debris_hauling', etc]
+  stormRegions: text("storm_regions").array(), // States/regions they cover
+  isActive: boolean("is_active").default(true),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Storm Contractor Profiles - Full contractor business info
+export const stormContractorProfiles = pgTable("storm_contractor_profiles", {
+  id: serial("id").primaryKey(),
+  companyName: varchar("company_name", { length: 255 }).notNull(),
+  legalName: varchar("legal_name", { length: 255 }),
+  ein: varchar("ein", { length: 20 }),
+  phone: varchar("phone", { length: 50 }),
+  tollFree: varchar("toll_free", { length: 50 }),
+  email: varchar("email", { length: 255 }),
+  website: varchar("website", { length: 500 }),
+  address: text("address"),
+  city: varchar("city", { length: 100 }),
+  state: varchar("state", { length: 50 }),
+  zip: varchar("zip", { length: 20 }),
+  yearFounded: integer("year_founded"),
+  isVeteranOwned: boolean("is_veteran_owned").default(false),
+  isDisabledVeteran: boolean("is_disabled_veteran").default(false),
+  isMinorityOwned: boolean("is_minority_owned").default(false),
+  isWomanOwned: boolean("is_woman_owned").default(false),
+  samUei: varchar("sam_uei", { length: 50 }), // SAM.gov Unique Entity ID
+  capabilities: text("capabilities").array(), // ['utility_line_clearance', 'hazard_tree_removal', 'debris_hauling', 'site_restoration']
+  serviceStates: text("service_states").array(),
+  equipmentSummary: text("equipment_summary"),
+  crewCapacity: integer("crew_capacity"),
+  certifications: text("certifications").array(), // ['ISNetworld', 'Avetta', 'OSHA 10', 'CPR/First Aid']
+  insuranceSummary: text("insurance_summary"),
+  companyDescription: text("company_description"),
+  introEmailTemplate: text("intro_email_template"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Storm Team Members - Team contacts for notifications
+export const stormTeamMembers = pgTable("storm_team_members", {
+  id: serial("id").primaryKey(),
+  contractorId: integer("contractor_id").notNull().references(() => stormContractorProfiles.id),
+  name: varchar("name", { length: 255 }).notNull(),
+  role: varchar("role", { length: 100 }), // 'owner', 'project_manager', 'office_manager', 'assistant_manager', 'field_supervisor'
+  phone: varchar("phone", { length: 50 }),
+  email: varchar("email", { length: 255 }),
+  receiveStormAlerts: boolean("receive_storm_alerts").default(true),
+  receiveJobAlerts: boolean("receive_job_alerts").default(true),
+  receiveClaimsUpdates: boolean("receive_claims_updates").default(true),
+  isEmergencyContact: boolean("is_emergency_contact").default(false),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Storm Contractor Documents - W9, COI, etc.
+export const stormContractorDocuments = pgTable("storm_contractor_documents", {
+  id: serial("id").primaryKey(),
+  contractorId: integer("contractor_id").notNull().references(() => stormContractorProfiles.id),
+  documentType: varchar("document_type", { length: 100 }).notNull(), // 'w9', 'coi_general', 'coi_auto', 'coi_workers_comp', 'coi_umbrella', 'capability_packet', 'safety_cert'
+  documentName: varchar("document_name", { length: 255 }),
+  fileUrl: text("file_url"),
+  expirationDate: timestamp("expiration_date"),
+  isActive: boolean("is_active").default(true),
+  uploadedAt: timestamp("uploaded_at").defaultNow(),
+});
+
+// Agency Registrations - Track registration status with each agency
+export const stormAgencyRegistrations = pgTable("storm_agency_registrations", {
+  id: serial("id").primaryKey(),
+  contractorId: integer("contractor_id").notNull().references(() => stormContractorProfiles.id),
+  agencyId: integer("agency_id").notNull().references(() => stormAgencies.id),
+  status: varchar("status", { length: 50 }).default("not_started"), // 'not_started', 'in_progress', 'submitted', 'pending_review', 'approved', 'rejected', 'expired'
+  submittedDate: timestamp("submitted_date"),
+  approvedDate: timestamp("approved_date"),
+  expirationDate: timestamp("expiration_date"),
+  vendorId: varchar("vendor_id", { length: 100 }), // Their vendor ID if approved
+  notes: text("notes"),
+  lastContactDate: timestamp("last_contact_date"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Outreach Communications Log - Track all emails/SMS/calls
+export const stormOutreachLog = pgTable("storm_outreach_log", {
+  id: serial("id").primaryKey(),
+  contractorId: integer("contractor_id").references(() => stormContractorProfiles.id),
+  agencyId: integer("agency_id").references(() => stormAgencies.id),
+  communicationType: varchar("communication_type", { length: 50 }).notNull(), // 'email', 'sms', 'call'
+  direction: varchar("direction", { length: 20 }).default("outbound"), // 'outbound', 'inbound'
+  recipientName: varchar("recipient_name", { length: 255 }),
+  recipientEmail: varchar("recipient_email", { length: 255 }),
+  recipientPhone: varchar("recipient_phone", { length: 50 }),
+  subject: varchar("subject", { length: 500 }),
+  content: text("content"),
+  status: varchar("status", { length: 50 }).default("sent"), // 'sent', 'delivered', 'failed', 'opened', 'clicked', 'replied'
+  sentAt: timestamp("sent_at").defaultNow(),
+  responseReceived: boolean("response_received").default(false),
+  responseContent: text("response_content"),
+  responseDate: timestamp("response_date"),
+});
+
+// Insert schemas
+export const insertStormAgencySchema = createInsertSchema(stormAgencies).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
+});
+
+export const insertStormContractorProfileSchema = createInsertSchema(stormContractorProfiles).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
+});
+
+export const insertStormTeamMemberSchema = createInsertSchema(stormTeamMembers).omit({
+  id: true,
+  createdAt: true
+});
+
+export const insertStormContractorDocumentSchema = createInsertSchema(stormContractorDocuments).omit({
+  id: true,
+  uploadedAt: true
+});
+
+export const insertStormAgencyRegistrationSchema = createInsertSchema(stormAgencyRegistrations).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
+});
+
+export const insertStormOutreachLogSchema = createInsertSchema(stormOutreachLog).omit({
+  id: true,
+  sentAt: true
+});
+
+// Type exports
+export type StormAgency = typeof stormAgencies.$inferSelect;
+export type InsertStormAgency = z.infer<typeof insertStormAgencySchema>;
+export type StormContractorProfile = typeof stormContractorProfiles.$inferSelect;
+export type InsertStormContractorProfile = z.infer<typeof insertStormContractorProfileSchema>;
+export type StormTeamMember = typeof stormTeamMembers.$inferSelect;
+export type InsertStormTeamMember = z.infer<typeof insertStormTeamMemberSchema>;
+export type StormContractorDocument = typeof stormContractorDocuments.$inferSelect;
+export type InsertStormContractorDocument = z.infer<typeof insertStormContractorDocumentSchema>;
+export type StormAgencyRegistration = typeof stormAgencyRegistrations.$inferSelect;
+export type InsertStormAgencyRegistration = z.infer<typeof insertStormAgencyRegistrationSchema>;
+export type StormOutreachLog = typeof stormOutreachLog.$inferSelect;
+export type InsertStormOutreachLog = z.infer<typeof insertStormOutreachLogSchema>;
