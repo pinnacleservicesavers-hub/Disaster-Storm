@@ -2490,10 +2490,17 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
 
   // ---- Contractor Subscription Checkout ----
   // Server-side pricing map - authoritative pricing (never trust client amounts)
-  const SUBSCRIPTION_TIERS: Record<string, { name: string; monthlyPrice: number; annualPrice: number }> = {
-    storm_starter: { name: 'Storm Starter', monthlyPrice: 97, annualPrice: 970 },
-    storm_pro: { name: 'Storm Pro', monthlyPrice: 197, annualPrice: 1970 },
-    storm_elite: { name: 'Storm Elite', monthlyPrice: 397, annualPrice: 3970 },
+  const SUBSCRIPTION_TIERS: Record<string, { name: string; monthlyPrice: number; annualPrice: number; track: 'disaster_direct' | 'workhub' | 'ultimate' }> = {
+    // Disaster Direct (Storm Contractors) - Full weather intel & ECRP
+    storm_starter: { name: 'Storm Starter', monthlyPrice: 97, annualPrice: 970, track: 'disaster_direct' },
+    storm_pro: { name: 'Storm Pro', monthlyPrice: 197, annualPrice: 1970, track: 'disaster_direct' },
+    storm_elite: { name: 'Storm Elite', monthlyPrice: 397, annualPrice: 3970, track: 'disaster_direct' },
+    // WorkHub (Everyday Contractors) - No weather, core business tools
+    workhub_essentials: { name: 'WorkHub Essentials', monthlyPrice: 59, annualPrice: 590, track: 'workhub' },
+    workhub_growth: { name: 'WorkHub Growth', monthlyPrice: 129, annualPrice: 1290, track: 'workhub' },
+    workhub_scale: { name: 'WorkHub Scale', monthlyPrice: 229, annualPrice: 2290, track: 'workhub' },
+    // Ultimate Bundle - Everything (Storm Pro + WorkHub Scale + Premium)
+    ultimate: { name: 'Ultimate Contractor Command', monthlyPrice: 447, annualPrice: 4470, track: 'ultimate' },
   };
 
   app.post('/api/subscriptions/checkout', express.json(), async (req, res) => {
@@ -2546,7 +2553,7 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
 
   // ---- Get subscription plans/tiers ----
   app.get('/api/subscriptions/tiers', async (req, res) => {
-    const tiers = [
+    const disasterDirectTiers = [
       {
         id: 'storm_starter',
         name: 'Storm Starter',
@@ -2554,6 +2561,7 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
         monthlyPrice: 97,
         annualPrice: 970,
         savings: 194,
+        track: 'disaster_direct',
         features: [
           'Real-time storm tracking & alerts',
           'AI damage detection (50 photos/month)',
@@ -2571,6 +2579,7 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
         annualPrice: 1970,
         savings: 394,
         popular: true,
+        track: 'disaster_direct',
         features: [
           'Everything in Storm Starter',
           'Unlimited AI damage detection',
@@ -2589,6 +2598,7 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
         monthlyPrice: 397,
         annualPrice: 3970,
         savings: 794,
+        track: 'disaster_direct',
         features: [
           'Everything in Storm Pro',
           'Unlimited team members',
@@ -2603,7 +2613,94 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
         ],
       }
     ];
-    res.json({ tiers });
+
+    const workhubTiers = [
+      {
+        id: 'workhub_essentials',
+        name: 'WorkHub Essentials',
+        tagline: 'Core tools to run your everyday contracting business',
+        monthlyPrice: 59,
+        annualPrice: 590,
+        savings: 118,
+        track: 'workhub',
+        features: [
+          'Customer CRM & job tracking',
+          'CalendarSync smart scheduling',
+          'MediaVault photo documentation',
+          'PayStream invoicing & payments',
+          'Basic lead management',
+          'Email support',
+        ],
+      },
+      {
+        id: 'workhub_growth',
+        name: 'WorkHub Growth',
+        tagline: 'Scale your business with AI-powered tools',
+        monthlyPrice: 129,
+        annualPrice: 1290,
+        savings: 258,
+        popular: true,
+        track: 'workhub',
+        features: [
+          'Everything in Essentials',
+          'ContractorMatch lead matching',
+          'PriceWhisperer AI estimates',
+          'ReviewRocket reputation automation',
+          'ContentForge marketing engine',
+          'ScopeSnap photo analysis',
+          'Priority email support',
+        ],
+      },
+      {
+        id: 'workhub_scale',
+        name: 'WorkHub Scale',
+        tagline: 'Dominate your market with full automation',
+        monthlyPrice: 229,
+        annualPrice: 2290,
+        savings: 458,
+        track: 'workhub',
+        features: [
+          'Everything in Growth',
+          'CloseBot AI voice follow-ups',
+          'QuickFinance customer financing',
+          'FairnessScore trust metrics',
+          '3 team member seats',
+          'Advanced analytics dashboard',
+          'Phone support',
+        ],
+      }
+    ];
+
+    const ultimateTier = {
+      id: 'ultimate',
+      name: 'Ultimate Contractor Command',
+      tagline: 'Storm response + everyday operations. Everything in one platform.',
+      monthlyPrice: 447,
+      annualPrice: 4470,
+      savings: 894,
+      track: 'ultimate',
+      features: [
+        'ALL Disaster Direct features (Storm Pro level)',
+        'ALL WorkHub features (Scale level)',
+        'Real-time weather intel & storm tracking',
+        'ECRP 40+ agency registration',
+        'AI damage detection unlimited',
+        'CloseBot voice automation',
+        'QuickFinance customer financing',
+        '10 team member seats',
+        'Dedicated account manager',
+        '24/7 priority support',
+        'Custom onboarding & training',
+        'API access & integrations',
+      ],
+    };
+
+    res.json({ 
+      disasterDirect: disasterDirectTiers,
+      workhub: workhubTiers,
+      ultimate: ultimateTier,
+      all: [...disasterDirectTiers, ...workhubTiers, ultimateTier]
+    });
   });
 
   // ---- PDF brochure generator (tri-fold, landscape letter) ----

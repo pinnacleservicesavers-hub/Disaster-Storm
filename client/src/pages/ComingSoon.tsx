@@ -190,7 +190,7 @@ export default function ComingSoon() {
             <span className="text-red-200">•</span>
             <span className="flex items-center gap-2">
               <Activity className="w-4 h-4" />
-              <span className="font-bold">40+ AGENCIES</span> ready for deployment
+              <span className="font-bold">REAL-TIME</span> weather intelligence
             </span>
             <span className="text-red-200">•</span>
             <span className="flex items-center gap-2">
@@ -205,7 +205,7 @@ export default function ComingSoon() {
             <span className="text-red-200">•</span>
             <span className="flex items-center gap-2">
               <Activity className="w-4 h-4" />
-              <span className="font-bold">40+ AGENCIES</span> ready for deployment
+              <span className="font-bold">CLAIMS AUTOMATION</span> ready
             </span>
           </motion.div>
         </div>
@@ -260,8 +260,8 @@ export default function ComingSoon() {
             transition={{ delay: 0.6 }}
             className="text-lg text-slate-400 max-w-2xl mx-auto mb-8"
           >
-            The first AI-powered platform that connects contractors to storm agencies, 
-            automates damage detection, and maximizes insurance claim success.
+            The first AI-powered platform that automates damage detection, 
+            streamlines claims management, and maximizes insurance claim success.
           </motion.p>
 
           {/* Launch Badge */}
@@ -313,7 +313,7 @@ export default function ComingSoon() {
           className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto mb-16"
         >
           {[
-            { icon: Radar, value: 40, suffix: '+', label: 'Storm Agencies', color: 'from-blue-500 to-cyan-500' },
+            { icon: CloudLightning, value: 24, suffix: '/7', label: 'Storm Monitoring', color: 'from-blue-500 to-cyan-500' },
             { icon: Eye, value: 500, suffix: 'K+', label: 'Properties Analyzed', color: 'from-purple-500 to-pink-500' },
             { icon: FileCheck, value: 98, suffix: '%', label: 'Claim Success Rate', color: 'from-green-500 to-emerald-500' },
             { icon: TrendingUp, value: 3, suffix: 'X', label: 'Faster Response', color: 'from-orange-500 to-amber-500' },
@@ -360,9 +360,9 @@ export default function ComingSoon() {
               gradient: 'from-purple-600 to-pink-600',
             },
             {
-              icon: Building2,
-              title: 'ECRP Registration',
-              description: 'Get registered with 40+ emergency contractor rosters. Be first in line when storms hit.',
+              icon: FileCheck,
+              title: 'Claims Management',
+              description: 'Streamline documentation, maximize claim success rates, and get paid faster with automated workflows.',
               gradient: 'from-orange-600 to-red-600',
             },
           ].map((feature, i) => (
