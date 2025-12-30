@@ -171,16 +171,12 @@ export default function ContractorPricing() {
   const handleSubscribe = async (tier: typeof contractorTiers[0]) => {
     setLoading(tier.id);
     try {
-      const priceId = isAnnual ? tier.stripeAnnualPriceId : tier.stripeMonthlyPriceId;
-      
+      // Only send tierId and isAnnual - pricing is validated server-side
       const response = await apiRequest('/api/subscriptions/checkout', {
         method: 'POST',
         body: JSON.stringify({
-          priceId,
           tierId: tier.id,
-          tierName: tier.name,
           isAnnual,
-          amount: isAnnual ? tier.annualPrice : tier.monthlyPrice,
         }),
       });
 

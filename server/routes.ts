@@ -2489,15 +2489,28 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
   });
 
   // ---- Contractor Subscription Checkout ----
+  // Server-side pricing map - authoritative pricing (never trust client amounts)
+  const SUBSCRIPTION_TIERS: Record<string, { name: string; monthlyPrice: number; annualPrice: number }> = {
+    storm_starter: { name: 'Storm Starter', monthlyPrice: 97, annualPrice: 970 },
+    storm_pro: { name: 'Storm Pro', monthlyPrice: 197, annualPrice: 1970 },
+    storm_elite: { name: 'Storm Elite', monthlyPrice: 397, annualPrice: 3970 },
+  };
+
   app.post('/api/subscriptions/checkout', express.json(), async (req, res) => {
     try {
       if (!stripe) return res.status(500).json({ error: 'Stripe not configured' });
       
-      const { tierId, tierName, isAnnual, amount } = req.body || {};
+      const { tierId, isAnnual } = req.body || {};
       
-      if (!tierId || !tierName || amount === undefined) {
-        return res.status(400).json({ error: 'tierId, tierName, and amount are required' });
+      // Validate tierId against allowlist
+      if (!tierId || !SUBSCRIPTION_TIERS[tierId]) {
+        return res.status(400).json({ error: 'Invalid tier. Must be: storm_starter, storm_pro, or storm_elite' });
       }
+
+      // Get server-side pricing (never trust client-supplied amounts)
+      const tier = SUBSCRIPTION_TIERS[tierId];
+      const amount = isAnnual ? tier.annualPrice : tier.monthlyPrice;
+      const interval = isAnnual ? 'year' : 'month';
 
       // Create a checkout session for the subscription
       const session = await stripe.checkout.sessions.create({
@@ -2507,19 +2520,17 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
           price_data: {
             currency: 'usd',
             product_data: {
-              name: `Disaster Direct - ${tierName}`,
-              description: `${isAnnual ? 'Annual' : 'Monthly'} subscription to ${tierName} plan`,
+              name: `Disaster Direct - ${tier.name}`,
+              description: `${isAnnual ? 'Annual' : 'Monthly'} subscription to ${tier.name} plan`,
             },
-            unit_amount: Math.round(Number(amount) * 100),
-            recurring: {
-              interval: isAnnual ? 'year' : 'month',
-            },
+            unit_amount: Math.round(amount * 100),
+            recurring: { interval },
           },
           quantity: 1,
         }],
         metadata: {
           tierId,
-          tierName,
+          tierName: tier.name,
           billingCycle: isAnnual ? 'annual' : 'monthly',
         },
         success_url: `${process.env.BASE_URL || 'http://localhost:5000'}/dashboard?subscription=success&tier=${tierId}`,
