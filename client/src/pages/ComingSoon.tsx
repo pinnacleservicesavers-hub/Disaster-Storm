@@ -10,7 +10,8 @@ import {
   Users,
   Mail,
   CheckCircle,
-  AlertTriangle
+  AlertTriangle,
+  DollarSign
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -191,8 +192,16 @@ export default function ComingSoon() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 1.6 }}
-          className="mt-8"
+          className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4"
         >
+          <a 
+            href="/pricing" 
+            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white font-semibold rounded-lg transition-all"
+            data-testid="link-contractor-pricing"
+          >
+            <DollarSign className="w-4 h-4" />
+            Contractor Pricing
+          </a>
           <a 
             href="/auth/login" 
             className="text-blue-400 hover:text-blue-300 text-sm underline"

@@ -2488,6 +2488,113 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
     }catch(e){ res.status(500).json({ error:'stripe_checkout_failed', detail:String(e) }); }
   });
 
+  // ---- Contractor Subscription Checkout ----
+  app.post('/api/subscriptions/checkout', express.json(), async (req, res) => {
+    try {
+      if (!stripe) return res.status(500).json({ error: 'Stripe not configured' });
+      
+      const { tierId, tierName, isAnnual, amount } = req.body || {};
+      
+      if (!tierId || !tierName || amount === undefined) {
+        return res.status(400).json({ error: 'tierId, tierName, and amount are required' });
+      }
+
+      // Create a checkout session for the subscription
+      const session = await stripe.checkout.sessions.create({
+        mode: 'subscription',
+        payment_method_types: ['card'],
+        line_items: [{
+          price_data: {
+            currency: 'usd',
+            product_data: {
+              name: `Disaster Direct - ${tierName}`,
+              description: `${isAnnual ? 'Annual' : 'Monthly'} subscription to ${tierName} plan`,
+            },
+            unit_amount: Math.round(Number(amount) * 100),
+            recurring: {
+              interval: isAnnual ? 'year' : 'month',
+            },
+          },
+          quantity: 1,
+        }],
+        metadata: {
+          tierId,
+          tierName,
+          billingCycle: isAnnual ? 'annual' : 'monthly',
+        },
+        success_url: `${process.env.BASE_URL || 'http://localhost:5000'}/dashboard?subscription=success&tier=${tierId}`,
+        cancel_url: `${process.env.BASE_URL || 'http://localhost:5000'}/pricing?cancelled=true`,
+      });
+
+      res.json({ ok: true, url: session.url, sessionId: session.id });
+    } catch (e: any) {
+      console.error('Subscription checkout error:', e);
+      res.status(500).json({ error: 'subscription_checkout_failed', detail: e.message });
+    }
+  });
+
+  // ---- Get subscription plans/tiers ----
+  app.get('/api/subscriptions/tiers', async (req, res) => {
+    const tiers = [
+      {
+        id: 'storm_starter',
+        name: 'Storm Starter',
+        tagline: 'Perfect for new contractors entering storm work',
+        monthlyPrice: 97,
+        annualPrice: 970,
+        savings: 194,
+        features: [
+          'Real-time storm tracking & alerts',
+          'AI damage detection (50 photos/month)',
+          'Basic claims documentation',
+          'StormShare community access',
+          'Email & chat support',
+          'Mobile app access',
+        ],
+      },
+      {
+        id: 'storm_pro',
+        name: 'Storm Pro',
+        tagline: 'The go-to choice for serious storm chasers',
+        monthlyPrice: 197,
+        annualPrice: 1970,
+        savings: 394,
+        popular: true,
+        features: [
+          'Everything in Storm Starter',
+          'Unlimited AI damage detection',
+          'ECRP storm agency registration (40+ agencies)',
+          'AI-powered Xactimate-ready estimates',
+          'Contract & AOB document management',
+          'Lead pipeline with automation',
+          'SMS & email outreach campaigns',
+          'Priority phone support',
+        ],
+      },
+      {
+        id: 'storm_elite',
+        name: 'Storm Elite',
+        tagline: 'For established contractors who dominate the market',
+        monthlyPrice: 397,
+        annualPrice: 3970,
+        savings: 794,
+        features: [
+          'Everything in Storm Pro',
+          'Unlimited team members',
+          'White-label proposals & reports',
+          'Multi-location management',
+          'API access & custom integrations',
+          'Custom AI training on your data',
+          'Dedicated account manager',
+          '24/7 priority support',
+          'Custom onboarding & training',
+          'Revenue share program access',
+        ],
+      }
+    ];
+    res.json({ tiers });
+  });
+
   // ---- PDF brochure generator (tri-fold, landscape letter) ----
   app.post('/api/brochure/strategic', async (req, res) => {
     try{

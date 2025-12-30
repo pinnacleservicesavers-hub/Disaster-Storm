@@ -78,6 +78,9 @@ const WorkHubContractorOnboarding = lazy(() => import("./pages/WorkHubContractor
 // Emergency Contractor Readiness Platform
 const EmergencyContractorReadiness = lazy(() => import("./pages/EmergencyContractorReadiness"));
 
+// Contractor Pricing Page
+const ContractorPricing = lazy(() => import("./pages/ContractorPricing"));
+
 // Loading indicator
 function Loader() {
   return (
@@ -142,7 +145,7 @@ export default function App() {
   const location = useLocation();
   
   // Public routes that don't need auth
-  const isPublicRoute = ['/', '/auth/login', '/auth/callback'].includes(location.pathname);
+  const isPublicRoute = ['/', '/auth/login', '/auth/callback', '/pricing'].includes(location.pathname);
   
   // Show TopNav only for authenticated users
   const showNav = user && !isPublicRoute;
@@ -161,6 +164,7 @@ export default function App() {
           {/* Auth Routes - Public */}
           <Route path="/auth/login" element={<Login />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
+          <Route path="/pricing" element={<ContractorPricing />} />
           
           {/* Disaster Direct Dashboard - Protected */}
           <Route path="/dashboard" element={
