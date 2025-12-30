@@ -271,13 +271,13 @@ export default function EmergencyContractorReadiness() {
 
   const openEmailDialog = (agency: Agency) => {
     setSelectedAgency(agency);
-    setSmsContent(`Hi, this is John Culpepper from Strategic Land Management LLC. We're a storm-response-ready contractor looking to register as a vendor with ${agency.name}. Please call me at 706-604-4820 or email strategiclandmgmt@gmail.com. Thank you!`);
+    setSmsContent(`Hi, this is John Culpepper from Strategic Land Management LLC. We're a storm-response-ready contractor looking to register as a vendor with ${agency.name}. Please call me at 706-604-4820 or email strategicservicesavers@gmail.com. Thank you!`);
     setEmailDialogOpen(true);
   };
 
   const openSmsDialog = (agency: Agency) => {
     setSelectedAgency(agency);
-    setSmsContent(`Hi, this is John Culpepper from Strategic Land Management LLC. We're a storm-response-ready contractor looking to register as a vendor with ${agency.name}. Please call me at 706-604-4820 or email strategiclandmgmt@gmail.com. Thank you!`);
+    setSmsContent(`Hi, this is John Culpepper from Strategic Land Management LLC. We're a storm-response-ready contractor looking to register as a vendor with ${agency.name}. Please call me at 706-604-4820 or email strategicservicesavers@gmail.com. Thank you!`);
     setSmsDialogOpen(true);
   };
 

@@ -3142,7 +3142,7 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
   // ===== Contractors store =====
   const CONTRACTORS_PATH = path.join(DATA_DIR, 'contractors.json');
   if (!fs.existsSync(CONTRACTORS_PATH)) fs.writeFileSync(CONTRACTORS_PATH, JSON.stringify({ items: [
-    { id:'ctr:default', name:'Strategic Land Management LLC', email:'strategiclandmgmt@gmail.com', phone:'+18886282229', timezone:'America/New_York', color:'#0ea5e9' }
+    { id:'ctr:default', name:'Strategic Land Management LLC', email:'strategicservicesavers@gmail.com', phone:'+18886282229', timezone:'America/New_York', color:'#0ea5e9' }
   ] }, null, 2));
   function readContractors(){ try{ return JSON.parse(fs.readFileSync(CONTRACTORS_PATH,'utf8')); }catch{ return { items: [] }; } }
   function writeContractors(d: any){ try{ fs.writeFileSync(CONTRACTORS_PATH, JSON.stringify(d,null,2)); }catch{} }
