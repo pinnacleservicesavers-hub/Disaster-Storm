@@ -25,7 +25,7 @@ import express from "express";
 import cors from "cors";
 import multer from "multer";
 import { db } from "./db";
-import { customerSubmissions, workhubMaterials, workhubLaborRates, stormAgencies, stormContractorProfiles, stormTeamMembers, stormContractorDocuments, stormAgencyRegistrations, stormOutreachLog } from "@shared/schema";
+import { customerSubmissions, workhubMaterials, workhubLaborRates, stormAgencies, stormContractorProfiles, stormTeamMembers, stormContractorDocuments, stormAgencyRegistrations, stormOutreachLog, users, stormSharePosts } from "@shared/schema";
 import { eq, desc, and } from "drizzle-orm";
 import path from "path";
 import fs from "fs";
@@ -113,58 +113,54 @@ interface AuthenticatedRequest extends express.Request {
   };
 }
 
-// Authentication middleware - extracts user info from request
+// Extend express-session types for user storage
+declare module 'express-session' {
+  interface SessionData {
+    user?: {
+      id: string;
+      username: string;
+      role: string;
+      email?: string;
+    };
+  }
+}
+
+// Authentication middleware - verifies user from server-managed session ONLY
 const authenticate = async (req: AuthenticatedRequest, res: express.Response, next: express.NextFunction) => {
   try {
-    // For now, get user info from headers (can be upgraded to JWT later)
-    const userId = req.headers['x-user-id'] as string;
-    const userRole = req.headers['x-user-role'] as string;
-    const username = req.headers['x-username'] as string;
-
-    if (!userId || !userRole || !username) {
-      return res.status(401).json({ error: 'Authentication required' });
+    // Check for server-side session (the ONLY trusted source)
+    if (req.session?.user) {
+      req.user = req.session.user;
+      return next();
     }
 
-    // For development mode, trust the headers from AuthContext
-    // In production, this should verify against JWT or session store
-    const isDevelopmentUser = [
-      'victim-001', 'contractor-001', 'business-001', 'admin-001'
-    ].includes(userId);
-
-    if (isDevelopmentUser) {
-      // Trust development users from AuthContext
-      req.user = {
-        id: userId,
-        username: username,
-        role: userRole,
-        email: username.includes('@') ? username : undefined
-      };
-    } else {
-      // For other users, verify they exist in storage
-      try {
-        const user = await storage.getUser(userId);
-        if (!user) {
-          return res.status(401).json({ error: 'Invalid user' });
-        }
-        req.user = {
-          id: user.id,
-          username: user.username,
-          role: user.role || userRole,
-          email: user.email || undefined
-        };
-      } catch (storageError) {
-        // If storage fails, but we have valid headers, continue for dev mode
-        console.warn('Storage user lookup failed, using headers for dev mode:', storageError);
+    // DEV MODE ONLY: Allow header-based auth for seeded test users
+    // This is gated behind NODE_ENV check and a dev secret
+    const isDevelopmentMode = process.env.NODE_ENV === 'development';
+    const devSecret = req.headers['x-dev-secret'] as string;
+    const expectedDevSecret = process.env.DEV_AUTH_SECRET || 'local-dev-only-2024';
+    
+    if (isDevelopmentMode && devSecret === expectedDevSecret) {
+      const userId = req.headers['x-user-id'] as string;
+      const userRole = req.headers['x-user-role'] as string;
+      const username = req.headers['x-username'] as string;
+      
+      // Only allow seeded development users via headers
+      const allowedDevUsers = ['victim-001', 'contractor-001', 'business-001', 'admin-001'];
+      
+      if (allowedDevUsers.includes(userId) && userId && userRole && username) {
         req.user = {
           id: userId,
           username: username,
           role: userRole,
           email: username.includes('@') ? username : undefined
         };
+        return next();
       }
     }
 
-    next();
+    // No valid session found
+    return res.status(401).json({ error: 'Authentication required - please log in' });
   } catch (error) {
     console.error('Authentication error:', error);
     res.status(500).json({ error: 'Authentication failed' });
@@ -495,6 +491,159 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
   mountAdmin(app);
   mountSigner(app);
   console.log('📍 Locations, Alerts, Cache Warming, Slack, Admin, and Signer routes registered');
+
+  // ---- Authentication Routes ----
+  // User registration
+  app.post('/api/auth/register', express.json(), async (req, res) => {
+    try {
+      const { email, password, name, phone, role } = req.body;
+      
+      if (!email || !password || !name) {
+        return res.status(400).json({ ok: false, error: 'Email, password, and name are required' });
+      }
+      
+      const validRoles = ['contractor', 'admin', 'homeowner'];
+      const userRole = validRoles.includes(role) ? role : 'contractor';
+      
+      // Check if email already exists
+      const existingUsers = await db.select().from(users).where(eq(users.email, email)).limit(1);
+      if (existingUsers.length > 0) {
+        return res.status(400).json({ ok: false, error: 'Email already registered' });
+      }
+      
+      // Hash password
+      const hashedPassword = await bcrypt.hash(password, 10);
+      
+      // Create user
+      const newUser = await db.insert(users).values({
+        username: name,
+        email: email,
+        password: hashedPassword,
+        role: userRole,
+        phone: phone || null,
+      }).returning();
+      
+      if (newUser.length === 0) {
+        return res.status(500).json({ ok: false, error: 'Failed to create user' });
+      }
+      
+      const user = newUser[0];
+      
+      // Create secure server-side session
+      const sessionUser = {
+        id: String(user.id),
+        username: user.username,
+        role: user.role || 'contractor',
+        email: user.email || undefined,
+      };
+      req.session.user = sessionUser;
+      
+      // Save session before sending response
+      req.session.save((err) => {
+        if (err) {
+          console.error('Session save error:', err);
+          return res.status(500).json({ ok: false, error: 'Session creation failed' });
+        }
+        
+        res.json({
+          ok: true,
+          user: {
+            id: String(user.id),
+            username: user.username,
+            email: user.email,
+            role: user.role,
+            phone: user.phone,
+          },
+        });
+      });
+    } catch (error) {
+      console.error('Registration error:', error);
+      res.status(500).json({ ok: false, error: 'Registration failed' });
+    }
+  });
+  
+  // User login
+  app.post('/api/auth/login', express.json(), async (req, res) => {
+    try {
+      const { email, password } = req.body;
+      
+      if (!email || !password) {
+        return res.status(400).json({ ok: false, error: 'Email and password are required' });
+      }
+      
+      // Find user by email
+      const foundUsers = await db.select().from(users).where(eq(users.email, email)).limit(1);
+      if (foundUsers.length === 0) {
+        return res.status(401).json({ ok: false, error: 'Invalid email or password' });
+      }
+      
+      const user = foundUsers[0];
+      
+      // Verify password
+      const isValid = await bcrypt.compare(password, user.password);
+      if (!isValid) {
+        return res.status(401).json({ ok: false, error: 'Invalid email or password' });
+      }
+      
+      // Create secure server-side session
+      const sessionUser = {
+        id: String(user.id),
+        username: user.username,
+        role: user.role || 'contractor',
+        email: user.email || undefined,
+      };
+      req.session.user = sessionUser;
+      
+      // Save session before sending response
+      req.session.save((err) => {
+        if (err) {
+          console.error('Session save error:', err);
+          return res.status(500).json({ ok: false, error: 'Session creation failed' });
+        }
+        
+        res.json({
+          ok: true,
+          user: {
+            id: String(user.id),
+            username: user.username,
+            email: user.email,
+            role: user.role,
+            phone: user.phone,
+          },
+        });
+      });
+    } catch (error) {
+      console.error('Login error:', error);
+      res.status(500).json({ ok: false, error: 'Login failed' });
+    }
+  });
+  
+  // Get current user (for session validation)
+  app.get('/api/auth/me', async (req, res) => {
+    if (req.session?.user) {
+      res.json({ 
+        ok: true, 
+        authenticated: true,
+        user: req.session.user
+      });
+    } else {
+      res.json({ ok: true, authenticated: false });
+    }
+  });
+  
+  // Logout - destroy session
+  app.post('/api/auth/logout', async (req, res) => {
+    req.session.destroy((err) => {
+      if (err) {
+        console.error('Logout error:', err);
+        return res.status(500).json({ ok: false, error: 'Logout failed' });
+      }
+      res.clearCookie('connect.sid');
+      res.json({ ok: true });
+    });
+  });
+  
+  console.log('🔐 Authentication routes registered');
 
   // ---- ZIP→State Mapping Admin API ----
   // Get current ZIP prefix map
@@ -10109,6 +10258,64 @@ What specific area or type of incident would you like me to focus on? I can prov
   });
 
   // ===== STORMSHARE COMMUNITY API ROUTES =====
+
+  // STORMSHARE POSTS - Community stories with photos/videos
+  app.get("/api/stormshare/posts", async (req, res) => {
+    try {
+      const { userId, category, limit = 50 } = req.query;
+      // Fetch from database
+      let query = db.select().from(stormSharePosts).orderBy(desc(stormSharePosts.createdAt)).limit(Number(limit) || 50);
+      const posts = await query;
+      res.json({ posts });
+    } catch (error) {
+      console.error('Error fetching StormShare posts:', error);
+      res.status(500).json({ error: 'Failed to fetch posts' });
+    }
+  });
+
+  app.post("/api/stormshare/posts", authenticate, upload.array('media', 10), async (req: AuthenticatedRequest, res) => {
+    try {
+      const { content, location, postType = 'text' } = req.body;
+      
+      // Get userId from authenticated user, not from request body
+      const userId = req.user?.id;
+      
+      if (!content) {
+        return res.status(400).json({ error: 'Content is required' });
+      }
+      
+      if (!userId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+      
+      // Handle uploaded files
+      const files = req.files as Express.Multer.File[];
+      const mediaUrls: string[] = [];
+      
+      if (files && files.length > 0) {
+        for (const file of files) {
+          mediaUrls.push(`/uploads/${file.filename}`);
+        }
+      }
+      
+      // Insert into database
+      const [post] = await db.insert(stormSharePosts).values({
+        userId,
+        content,
+        postType: files.length > 0 ? 'media' : postType,
+        location: location || null,
+        mediaUrls,
+        mediaCount: mediaUrls.length,
+        status: 'active',
+      }).returning();
+      
+      console.log('StormShare post created:', post);
+      res.status(201).json({ ok: true, post });
+    } catch (error) {
+      console.error('Error creating StormShare post:', error);
+      res.status(500).json({ error: 'Failed to create post' });
+    }
+  });
 
   // STORMSHARE GROUPS
   app.get("/api/stormshare/groups", async (req, res) => {

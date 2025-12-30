@@ -245,7 +245,7 @@ export const users = pgTable("users", {
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
   email: text("email"),
-  role: text("role").default("contractor"), // contractor, admin, crew_member
+  role: text("role").default("contractor"), // contractor, admin, homeowner, crew_member
   
   // Contractor Availability Settings
   workAreas: jsonb("work_areas").$type<string[]>(), // Array of zip codes or counties where contractor works

@@ -1,8 +1,12 @@
-import { lazy, Suspense } from "react";
-import { Routes, Route } from "react-router-dom";
+import { lazy, Suspense, useEffect, useState } from "react";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import ModuleGallery from "./pages/ModuleGallery";
 import TopNav from "./components/TopNav";
 import LandingPage from "./pages/LandingPage";
+import { getStoredUser, isHomeownerAllowedPath } from "./components/AuthGuard";
+
+// Coming Soon page
+const ComingSoon = lazy(() => import("./pages/ComingSoon"));
 
 // Lazy-load all 17 module pages
 const WeatherCenter = lazy(() => import("./modules/WeatherCenter"));
@@ -107,107 +111,147 @@ const galleryRoutes = {
   "xray":               { launch: "/modules/xray-reality" },
 };
 
+// Route guard component for protected routes
+function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode; allowedRoles?: string[] }) {
+  const user = getStoredUser();
+  const location = useLocation();
+  
+  // If not logged in, redirect to login
+  if (!user) {
+    return <Navigate to="/auth/login" replace />;
+  }
+  
+  // If homeowner, only allow specific routes
+  if (user.role === 'homeowner' && !isHomeownerAllowedPath(location.pathname)) {
+    return <Navigate to="/homeowner" replace />;
+  }
+  
+  // If specific roles required, check role
+  if (allowedRoles && !allowedRoles.includes(user.role)) {
+    if (user.role === 'homeowner') {
+      return <Navigate to="/homeowner" replace />;
+    }
+    return <Navigate to="/dashboard" replace />;
+  }
+  
+  return <>{children}</>;
+}
+
 export default function App() {
+  const user = getStoredUser();
+  const location = useLocation();
+  
+  // Public routes that don't need auth
+  const isPublicRoute = ['/', '/auth/login', '/auth/callback'].includes(location.pathname);
+  
+  // Show TopNav only for authenticated users
+  const showNav = user && !isPublicRoute;
+  
   return (
     <>
-      {/* Top Navigation */}
-      <TopNav />
+      {/* Top Navigation - only show when logged in */}
+      {showNav && <TopNav />}
       
       {/* All routes */}
       <Suspense fallback={<Loader />}>
         <Routes>
-          {/* Landing Page - App Overview */}
-          <Route path="/" element={<LandingPage />} />
+          {/* Coming Soon - Public Landing */}
+          <Route path="/" element={<ComingSoon />} />
           
-          {/* Disaster Direct Dashboard - Module Gallery */}
+          {/* Auth Routes - Public */}
+          <Route path="/auth/login" element={<Login />} />
+          <Route path="/auth/callback" element={<AuthCallback />} />
+          
+          {/* Disaster Direct Dashboard - Protected */}
           <Route path="/dashboard" element={
-            <ModuleGallery 
-              routes={galleryRoutes}
-              onLaunch={(m) => console.log("🚀 Launch:", m.id, m.name)}
-              onPreview={(m) => console.log("👁️ Preview:", m.id, m.name)}
-              onDocs={(m) => console.log("📖 Docs:", m.id, m.name)}
-            />
+            <ProtectedRoute>
+              <ModuleGallery 
+                routes={galleryRoutes}
+                onLaunch={(m) => console.log("🚀 Launch:", m.id, m.name)}
+                onPreview={(m) => console.log("👁️ Preview:", m.id, m.name)}
+                onDocs={(m) => console.log("📖 Docs:", m.id, m.name)}
+              />
+            </ProtectedRoute>
           } />
 
-          {/* All 17 Module Routes */}
-          <Route path="/weather" element={<WeatherCenter />} />
-          <Route path="/prediction-dashboard" element={<StormPredictions />} />
-          <Route path="/storm-predictions" element={<StormPredictions />} />
-          <Route path="/deployment-map" element={<DeploymentMap />} />
-          <Route path="/deployment-intelligence" element={<DeploymentIntelligence />} />
-          <Route path="/traffic-cam-watcher" element={<TrafficCamWatcherModule />} />
-          <Route path="/eyes-in-the-sky" element={<EyesInSky />} />
-          <Route path="/drone-operation" element={<DroneOperations />} />
-          <Route path="/damage-detection" element={<AIDamageDetection />} />
-          <Route path="/ai-damage-detection" element={<AIDamageDetection />} />
-          <Route path="/leads" element={<Leads />} />
-          <Route path="/ai-leads" element={<AILeadManagement />} />
-          <Route path="/victim/dashboard" element={<VictimDashboard />} />
-          <Route path="/stormshare" element={<StormShare />} />
-          <Route path="/disaster-essentials-marketplace" element={<DisasterEssentialsMarketplace />} />
-          <Route path="/customers" element={<Customers />} />
-          <Route path="/claims" element={<Claims />} />
-          <Route path="/contractor-management" element={<ContractorManagement />} />
-          <Route path="/contractors" element={<ContractorPortal />} />
-          <Route path="/contractor-alerts" element={<ContractorAlertsDashboard />} />
-          <Route path="/sms-test" element={<SMSTestPage />} />
-          <Route path="/banking-settings" element={<BankingSettings />} />
-          <Route path="/legal" element={<Legal />} />
-          <Route path="/disaster-lens" element={<DisasterLens />} />
-          <Route path="/modules/xray-reality" element={<XrayRealityModule />} />
-          <Route path="/hazard-dashboard" element={<HazardDashboard />} />
-          <Route path="/admin" element={<AdminDashboard />} />
-          <Route path="/admin/ecrp" element={<EmergencyContractorReadiness />} />
-          <Route path="/admin/legal/zipmap" element={<ZipStateAdmin />} />
-          <Route path="/admin/legal/welcome" element={<WelcomeTemplates />} />
-          <Route path="/admin/jobs/fill-states" element={<BulkFillStates />} />
-          <Route path="/admin/smtp" element={<SMTPSettings />} />
-          <Route path="/admin/auth-stub" element={<AuthStub />} />
+          {/* Protected Module Routes - Contractor/Admin only */}
+          <Route path="/weather" element={<ProtectedRoute><WeatherCenter /></ProtectedRoute>} />
+          <Route path="/prediction-dashboard" element={<ProtectedRoute><StormPredictions /></ProtectedRoute>} />
+          <Route path="/storm-predictions" element={<ProtectedRoute><StormPredictions /></ProtectedRoute>} />
+          <Route path="/deployment-map" element={<ProtectedRoute><DeploymentMap /></ProtectedRoute>} />
+          <Route path="/deployment-intelligence" element={<ProtectedRoute><DeploymentIntelligence /></ProtectedRoute>} />
+          <Route path="/traffic-cam-watcher" element={<ProtectedRoute><TrafficCamWatcherModule /></ProtectedRoute>} />
+          <Route path="/eyes-in-the-sky" element={<ProtectedRoute><EyesInSky /></ProtectedRoute>} />
+          <Route path="/drone-operation" element={<ProtectedRoute><DroneOperations /></ProtectedRoute>} />
+          <Route path="/damage-detection" element={<ProtectedRoute><AIDamageDetection /></ProtectedRoute>} />
+          <Route path="/ai-damage-detection" element={<ProtectedRoute><AIDamageDetection /></ProtectedRoute>} />
+          <Route path="/leads" element={<ProtectedRoute><Leads /></ProtectedRoute>} />
+          <Route path="/ai-leads" element={<ProtectedRoute><AILeadManagement /></ProtectedRoute>} />
+          <Route path="/victim/dashboard" element={<ProtectedRoute><VictimDashboard /></ProtectedRoute>} />
+          
+          {/* StormShare - Accessible by ALL authenticated users including homeowners */}
+          <Route path="/stormshare" element={<ProtectedRoute><StormShare /></ProtectedRoute>} />
+          
+          <Route path="/disaster-essentials-marketplace" element={<ProtectedRoute><DisasterEssentialsMarketplace /></ProtectedRoute>} />
+          <Route path="/customers" element={<ProtectedRoute><Customers /></ProtectedRoute>} />
+          <Route path="/claims" element={<ProtectedRoute><Claims /></ProtectedRoute>} />
+          <Route path="/contractor-management" element={<ProtectedRoute><ContractorManagement /></ProtectedRoute>} />
+          <Route path="/contractors" element={<ProtectedRoute><ContractorPortal /></ProtectedRoute>} />
+          <Route path="/contractor-alerts" element={<ProtectedRoute><ContractorAlertsDashboard /></ProtectedRoute>} />
+          <Route path="/sms-test" element={<ProtectedRoute><SMSTestPage /></ProtectedRoute>} />
+          <Route path="/banking-settings" element={<ProtectedRoute><BankingSettings /></ProtectedRoute>} />
+          <Route path="/legal" element={<ProtectedRoute><Legal /></ProtectedRoute>} />
+          <Route path="/disaster-lens" element={<ProtectedRoute><DisasterLens /></ProtectedRoute>} />
+          <Route path="/modules/xray-reality" element={<ProtectedRoute><XrayRealityModule /></ProtectedRoute>} />
+          <Route path="/hazard-dashboard" element={<ProtectedRoute><HazardDashboard /></ProtectedRoute>} />
+          
+          {/* Admin Routes - Admin only */}
+          <Route path="/admin" element={<ProtectedRoute allowedRoles={['admin']}><AdminDashboard /></ProtectedRoute>} />
+          <Route path="/admin/ecrp" element={<ProtectedRoute allowedRoles={['admin']}><EmergencyContractorReadiness /></ProtectedRoute>} />
+          <Route path="/admin/legal/zipmap" element={<ProtectedRoute allowedRoles={['admin']}><ZipStateAdmin /></ProtectedRoute>} />
+          <Route path="/admin/legal/welcome" element={<ProtectedRoute allowedRoles={['admin']}><WelcomeTemplates /></ProtectedRoute>} />
+          <Route path="/admin/jobs/fill-states" element={<ProtectedRoute allowedRoles={['admin']}><BulkFillStates /></ProtectedRoute>} />
+          <Route path="/admin/smtp" element={<ProtectedRoute allowedRoles={['admin']}><SMTPSettings /></ProtectedRoute>} />
+          <Route path="/admin/auth-stub" element={<ProtectedRoute allowedRoles={['admin']}><AuthStub /></ProtectedRoute>} />
+          <Route path="/admin/oidc" element={<ProtectedRoute allowedRoles={['admin']}><OIDCSettings /></ProtectedRoute>} />
           
           {/* Contractor Portal */}
-          <Route path="/contractor/jobs" element={<ContractorJobs />} />
-          <Route path="/contractor/profile" element={<ContractorProfile />} />
+          <Route path="/contractor/jobs" element={<ProtectedRoute allowedRoles={['contractor', 'admin']}><ContractorJobs /></ProtectedRoute>} />
+          <Route path="/contractor/profile" element={<ProtectedRoute allowedRoles={['contractor', 'admin']}><ContractorProfile /></ProtectedRoute>} />
           
-          {/* Homeowner Portal */}
-          <Route path="/homeowner" element={<HomeownerPortal />} />
+          {/* Homeowner Portal - Accessible by homeowners */}
+          <Route path="/homeowner" element={<ProtectedRoute><HomeownerPortal /></ProtectedRoute>} />
           
           {/* Sign Out */}
           <Route path="/signout" element={<SignOut />} />
           
-          {/* Auth Routes */}
-          <Route path="/auth/login" element={<Login />} />
-          <Route path="/auth/callback" element={<AuthCallback />} />
-          
-          {/* Admin Routes */}
-          <Route path="/admin/oidc" element={<OIDCSettings />} />
-          
-          {/* WorkHub Marketplace Routes */}
-          <Route path="/workhub" element={<WorkHubMarketplace />} />
-          <Route path="/workhub/customer" element={<WorkHubCustomerPortal />} />
-          <Route path="/workhub/contractor" element={<WorkHubContractorDashboard />} />
-          <Route path="/workhub/scopesnap" element={<WorkHubScopeSnap />} />
-          <Route path="/workhub/pricewhisperer" element={<WorkHubPriceWhisperer />} />
-          <Route path="/workhub/contractormatch" element={<WorkHubContractorMatch />} />
-          <Route path="/workhub/calendarsync" element={<WorkHubCalendarSync />} />
-          <Route path="/workhub/jobflow" element={<WorkHubJobFlow />} />
-          <Route path="/workhub/mediavault" element={<WorkHubMediaVault />} />
-          <Route path="/workhub/closebot" element={<WorkHubCloseBot />} />
-          <Route path="/workhub/paystream" element={<WorkHubPayStream />} />
-          <Route path="/workhub/reviewrocket" element={<WorkHubReviewRocket />} />
-          <Route path="/workhub/fairnessscore" element={<WorkHubFairnessScore />} />
-          <Route path="/workhub/quickfinance" element={<WorkHubQuickFinance />} />
-          <Route path="/workhub/contentforge" element={<WorkHubContentForge />} />
-          <Route path="/workhub/pricing" element={<WorkHubPricingTiers />} />
-          <Route path="/workhub/pitch" element={<WorkHubPitchDeck />} />
-          <Route path="/workhub/scripts" element={<WorkHubAIAgentScripts />} />
-          <Route path="/workhub/legal" element={<WorkHubLegalTerms />} />
-          <Route path="/workhub/leadpipeline" element={<WorkHubLeadPipeline />} />
-          <Route path="/workhub/jobsnap" element={<WorkHubJobSnap />} />
-          <Route path="/workhub/admin/submissions" element={<WorkHubAdminSubmissions />} />
-          <Route path="/workhub/terms" element={<WorkHubTermsOfService />} />
-          <Route path="/workhub/crm" element={<WorkHubContractorCRM />} />
-          <Route path="/workhub/admin/pricing" element={<WorkHubAdminPricing />} />
-          <Route path="/workhub/onboarding" element={<WorkHubContractorOnboarding />} />
+          {/* WorkHub Marketplace Routes - Protected */}
+          <Route path="/workhub" element={<ProtectedRoute><WorkHubMarketplace /></ProtectedRoute>} />
+          <Route path="/workhub/customer" element={<ProtectedRoute><WorkHubCustomerPortal /></ProtectedRoute>} />
+          <Route path="/workhub/contractor" element={<ProtectedRoute><WorkHubContractorDashboard /></ProtectedRoute>} />
+          <Route path="/workhub/scopesnap" element={<ProtectedRoute><WorkHubScopeSnap /></ProtectedRoute>} />
+          <Route path="/workhub/pricewhisperer" element={<ProtectedRoute><WorkHubPriceWhisperer /></ProtectedRoute>} />
+          <Route path="/workhub/contractormatch" element={<ProtectedRoute><WorkHubContractorMatch /></ProtectedRoute>} />
+          <Route path="/workhub/calendarsync" element={<ProtectedRoute><WorkHubCalendarSync /></ProtectedRoute>} />
+          <Route path="/workhub/jobflow" element={<ProtectedRoute><WorkHubJobFlow /></ProtectedRoute>} />
+          <Route path="/workhub/mediavault" element={<ProtectedRoute><WorkHubMediaVault /></ProtectedRoute>} />
+          <Route path="/workhub/closebot" element={<ProtectedRoute><WorkHubCloseBot /></ProtectedRoute>} />
+          <Route path="/workhub/paystream" element={<ProtectedRoute><WorkHubPayStream /></ProtectedRoute>} />
+          <Route path="/workhub/reviewrocket" element={<ProtectedRoute><WorkHubReviewRocket /></ProtectedRoute>} />
+          <Route path="/workhub/fairnessscore" element={<ProtectedRoute><WorkHubFairnessScore /></ProtectedRoute>} />
+          <Route path="/workhub/quickfinance" element={<ProtectedRoute><WorkHubQuickFinance /></ProtectedRoute>} />
+          <Route path="/workhub/contentforge" element={<ProtectedRoute><WorkHubContentForge /></ProtectedRoute>} />
+          <Route path="/workhub/pricing" element={<ProtectedRoute><WorkHubPricingTiers /></ProtectedRoute>} />
+          <Route path="/workhub/pitch" element={<ProtectedRoute><WorkHubPitchDeck /></ProtectedRoute>} />
+          <Route path="/workhub/scripts" element={<ProtectedRoute><WorkHubAIAgentScripts /></ProtectedRoute>} />
+          <Route path="/workhub/legal" element={<ProtectedRoute><WorkHubLegalTerms /></ProtectedRoute>} />
+          <Route path="/workhub/leadpipeline" element={<ProtectedRoute><WorkHubLeadPipeline /></ProtectedRoute>} />
+          <Route path="/workhub/jobsnap" element={<ProtectedRoute><WorkHubJobSnap /></ProtectedRoute>} />
+          <Route path="/workhub/admin/submissions" element={<ProtectedRoute allowedRoles={['admin']}><WorkHubAdminSubmissions /></ProtectedRoute>} />
+          <Route path="/workhub/terms" element={<ProtectedRoute><WorkHubTermsOfService /></ProtectedRoute>} />
+          <Route path="/workhub/crm" element={<ProtectedRoute><WorkHubContractorCRM /></ProtectedRoute>} />
+          <Route path="/workhub/admin/pricing" element={<ProtectedRoute allowedRoles={['admin']}><WorkHubAdminPricing /></ProtectedRoute>} />
+          <Route path="/workhub/onboarding" element={<ProtectedRoute><WorkHubContractorOnboarding /></ProtectedRoute>} />
         </Routes>
       </Suspense>
     </>

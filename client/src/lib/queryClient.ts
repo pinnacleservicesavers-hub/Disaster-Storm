@@ -13,9 +13,16 @@ export const getAuthHeaders = () => ({ ...authHeaders });
 
 // Helper to get authenticated headers
 const getAuthenticatedHeaders = (additionalHeaders: Record<string, string> = {}) => {
+  // In development mode, add the dev secret for seeded user authentication
+  const devHeaders: Record<string, string> = {};
+  if (import.meta.env.DEV && authHeaders['x-user-id']) {
+    devHeaders['x-dev-secret'] = 'local-dev-only-2024';
+  }
+  
   return {
     'Content-Type': 'application/json',
     ...authHeaders,
+    ...devHeaders,
     ...additionalHeaders,
   };
 };
@@ -39,6 +46,7 @@ export const queryClient = new QueryClient({
         }
         
         const response = await fetch(urlObj.toString(), {
+          credentials: 'include', // Include session cookies for authentication
           headers: getAuthenticatedHeaders(),
         });
         
@@ -82,7 +90,10 @@ export const apiRequest = async (
     }
   }
 
-  const response = await fetch(url, requestOptions);
+  const response = await fetch(url, {
+    ...requestOptions,
+    credentials: 'include', // Include session cookies for authentication
+  });
 
   if (!response.ok) {
     throw new Error(`HTTP error! status: ${response.status}`);

@@ -248,7 +248,7 @@ export default function StormShare() {
   };
 
   // Handle posting a story
-  const handlePostStory = () => {
+  const handlePostStory = async () => {
     if (!storyContent.trim()) {
       toast({
         title: 'Story content required',
@@ -258,17 +258,65 @@ export default function StormShare() {
       return;
     }
 
-    // Success message
-    const fileCount = attachedFiles.length;
-    toast({
-      title: 'Story posted successfully!',
-      description: `Your story${fileCount > 0 ? ` with ${fileCount} file(s)` : ''} has been shared with the community`,
-    });
+    try {
+      // Create FormData for multipart upload
+      const formData = new FormData();
+      formData.append('content', storyContent);
+      formData.append('location', storyLocation);
+      formData.append('userId', user?.id || 'anonymous');
+      formData.append('postType', attachedFiles.length > 0 ? 'media' : 'text');
+      
+      // Add all attached files
+      attachedFiles.forEach((file) => {
+        formData.append('media', file);
+      });
+      
+      // Post to API with session credentials
+      const headers: Record<string, string> = {};
+      
+      // In development mode, add dev headers for seeded users
+      if (import.meta.env.DEV && user?.id?.includes('-')) {
+        headers['x-user-id'] = user?.id || '';
+        headers['x-user-role'] = user?.role || '';
+        headers['x-username'] = user?.username || '';
+        headers['x-dev-secret'] = 'local-dev-only-2024';
+      }
+      
+      const response = await fetch('/api/stormshare/posts', {
+        method: 'POST',
+        credentials: 'include', // Include session cookies
+        headers,
+        body: formData, // Don't set Content-Type, browser will set multipart/form-data
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to post story');
+      }
+      
+      const result = await response.json();
+      
+      // Success message
+      const fileCount = attachedFiles.length;
+      toast({
+        title: 'Story posted successfully!',
+        description: `Your story${fileCount > 0 ? ` with ${fileCount} file(s)` : ''} has been shared with the community`,
+      });
 
-    // Clear the form
-    setStoryContent('');
-    setStoryLocation('');
-    setAttachedFiles([]);
+      // Clear the form
+      setStoryContent('');
+      setStoryLocation('');
+      setAttachedFiles([]);
+      
+      // Invalidate posts query to refresh
+      queryClient.invalidateQueries({ queryKey: ['/api/stormshare/posts'] });
+    } catch (error) {
+      console.error('Error posting story:', error);
+      toast({
+        title: 'Failed to post story',
+        description: 'Please try again',
+        variant: 'destructive',
+      });
+    }
   };
 
   // Resource handlers for contractors
