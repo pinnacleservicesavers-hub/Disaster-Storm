@@ -1,8 +1,9 @@
-import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { 
   Shield, 
   Zap, 
@@ -11,13 +12,107 @@ import {
   Mail,
   CheckCircle,
   AlertTriangle,
-  DollarSign
+  DollarSign,
+  Radio,
+  MapPin,
+  Clock,
+  TrendingUp,
+  Building2,
+  FileCheck,
+  Phone,
+  ChevronRight,
+  Activity,
+  Eye,
+  Target,
+  Radar,
+  Wind,
+  CloudLightning,
+  Sparkles
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+
+// Lightning bolt animation component
+function LightningBolt({ delay = 0 }: { delay?: number }) {
+  return (
+    <motion.div
+      className="absolute pointer-events-none"
+      style={{
+        left: `${Math.random() * 80 + 10}%`,
+        top: 0,
+      }}
+      initial={{ opacity: 0, scaleY: 0 }}
+      animate={{ 
+        opacity: [0, 1, 1, 0],
+        scaleY: [0, 1, 1, 0],
+      }}
+      transition={{
+        duration: 0.3,
+        delay: delay,
+        repeat: Infinity,
+        repeatDelay: Math.random() * 8 + 4,
+      }}
+    >
+      <svg width="40" height="200" viewBox="0 0 40 200" className="fill-blue-300/60">
+        <path d="M20 0 L25 60 L35 65 L18 120 L25 125 L10 200 L15 130 L5 125 L22 70 L12 65 Z" />
+      </svg>
+    </motion.div>
+  );
+}
+
+// Animated storm particles
+function StormParticle({ index }: { index: number }) {
+  const startX = Math.random() * 100;
+  const duration = Math.random() * 3 + 2;
+  
+  return (
+    <motion.div
+      className="absolute w-1 h-1 bg-blue-400/30 rounded-full"
+      style={{ left: `${startX}%` }}
+      initial={{ y: -10, opacity: 0 }}
+      animate={{ 
+        y: '100vh',
+        opacity: [0, 0.6, 0.6, 0],
+        x: [0, Math.random() * 50 - 25],
+      }}
+      transition={{
+        duration,
+        delay: index * 0.1,
+        repeat: Infinity,
+        ease: 'linear',
+      }}
+    />
+  );
+}
+
+// Live stats counter
+function AnimatedCounter({ target, duration = 2, suffix = '' }: { target: number; duration?: number; suffix?: string }) {
+  const [count, setCount] = useState(0);
+  
+  useEffect(() => {
+    let start = 0;
+    const end = target;
+    const incrementTime = (duration * 1000) / end;
+    
+    const timer = setInterval(() => {
+      start += Math.ceil(end / 50);
+      if (start >= end) {
+        setCount(end);
+        clearInterval(timer);
+      } else {
+        setCount(start);
+      }
+    }, incrementTime);
+    
+    return () => clearInterval(timer);
+  }, [target, duration]);
+  
+  return <span>{count.toLocaleString()}{suffix}</span>;
+}
 
 export default function ComingSoon() {
   const [email, setEmail] = useState('');
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [activeStormCount] = useState(Math.floor(Math.random() * 5) + 3);
   const { toast } = useToast();
 
   const handleNotifyMe = async () => {
@@ -32,185 +127,332 @@ export default function ComingSoon() {
 
     setIsSubmitted(true);
     toast({
-      title: 'Thank you!',
-      description: 'We will notify you when we launch.',
+      title: 'Welcome to the Storm Response Revolution!',
+      description: 'You\'re on the priority list. We\'ll contact you before launch.',
     });
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center p-4">
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute top-20 left-10 w-72 h-72 bg-blue-500/10 rounded-full blur-3xl animate-pulse" />
-        <div className="absolute bottom-20 right-10 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-purple-500/5 rounded-full blur-3xl" />
+    <div className="min-h-screen bg-black overflow-hidden relative">
+      {/* Cinematic storm background layers */}
+      <div className="absolute inset-0">
+        {/* Deep storm gradient */}
+        <div className="absolute inset-0 bg-gradient-to-b from-slate-950 via-blue-950/80 to-purple-950/60" />
+        
+        {/* Animated storm clouds */}
+        <motion.div 
+          className="absolute inset-0 opacity-30"
+          animate={{ 
+            backgroundPosition: ['0% 0%', '100% 100%'],
+          }}
+          transition={{ duration: 60, repeat: Infinity, ease: 'linear' }}
+          style={{
+            backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 400 400\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'noiseFilter\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.65\' numOctaves=\'3\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23noiseFilter)\'/%3E%3C/svg%3E")',
+            backgroundSize: '400px 400px',
+          }}
+        />
+        
+        {/* Radial gradient spotlight */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1200px] h-[600px] bg-gradient-radial from-blue-500/20 via-transparent to-transparent blur-3xl" />
+        
+        {/* Lightning bolts */}
+        <LightningBolt delay={0} />
+        <LightningBolt delay={2} />
+        <LightningBolt delay={5} />
+        
+        {/* Storm rain particles */}
+        <div className="absolute inset-0 overflow-hidden opacity-40">
+          {[...Array(30)].map((_, i) => (
+            <StormParticle key={i} index={i} />
+          ))}
+        </div>
+        
+        {/* Bottom fog */}
+        <div className="absolute bottom-0 left-0 right-0 h-64 bg-gradient-to-t from-black via-black/80 to-transparent" />
       </div>
 
+      {/* Live Status Bar */}
       <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8 }}
-        className="relative z-10 max-w-2xl w-full text-center"
+        initial={{ y: -50, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        className="relative z-20 bg-gradient-to-r from-red-600/90 via-orange-500/90 to-red-600/90 border-b border-red-400/30"
       >
-        <div className="flex justify-center mb-8">
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ delay: 0.3, type: 'spring', stiffness: 200 }}
-            className="relative"
+        <div className="container mx-auto px-4 py-2 flex items-center justify-center gap-6 text-white text-sm overflow-hidden">
+          <motion.div 
+            animate={{ x: [0, -1000] }}
+            transition={{ duration: 20, repeat: Infinity, ease: 'linear' }}
+            className="flex items-center gap-8 whitespace-nowrap"
           >
-            <div className="w-24 h-24 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-2xl flex items-center justify-center shadow-2xl shadow-blue-500/30">
-              <Shield className="w-12 h-12 text-white" />
-            </div>
-            <motion.div
-              animate={{ rotate: 360 }}
-              transition={{ duration: 20, repeat: Infinity, ease: 'linear' }}
-              className="absolute -inset-4 border-2 border-dashed border-blue-400/30 rounded-3xl"
-            />
+            <span className="flex items-center gap-2">
+              <Radio className="w-4 h-4 animate-pulse" />
+              <span className="font-bold">{activeStormCount} ACTIVE STORMS</span> tracked nationwide
+            </span>
+            <span className="text-red-200">•</span>
+            <span className="flex items-center gap-2">
+              <Activity className="w-4 h-4" />
+              <span className="font-bold">40+ AGENCIES</span> ready for deployment
+            </span>
+            <span className="text-red-200">•</span>
+            <span className="flex items-center gap-2">
+              <Target className="w-4 h-4" />
+              <span className="font-bold">AI DAMAGE DETECTION</span> operational
+            </span>
+            <span className="text-red-200">•</span>
+            <span className="flex items-center gap-2">
+              <Radio className="w-4 h-4 animate-pulse" />
+              <span className="font-bold">{activeStormCount} ACTIVE STORMS</span> tracked nationwide
+            </span>
+            <span className="text-red-200">•</span>
+            <span className="flex items-center gap-2">
+              <Activity className="w-4 h-4" />
+              <span className="font-bold">40+ AGENCIES</span> ready for deployment
+            </span>
           </motion.div>
         </div>
+      </motion.div>
 
-        <motion.h1 
-          initial={{ opacity: 0, y: 20 }}
+      {/* Main Hero Content */}
+      <div className="relative z-10 container mx-auto px-4 pt-16 pb-8">
+        <motion.div 
+          initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          className="text-5xl md:text-6xl font-bold text-white mb-4"
+          transition={{ duration: 1 }}
+          className="text-center max-w-5xl mx-auto"
         >
-          Strategic Services Savers
-        </motion.h1>
+          {/* Brand Badge */}
+          <motion.div
+            initial={{ scale: 0, rotate: -10 }}
+            animate={{ scale: 1, rotate: 0 }}
+            transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-300 mb-6"
+          >
+            <Sparkles className="w-4 h-4" />
+            <span className="text-sm font-medium">AI-Powered Storm Response Platform</span>
+          </motion.div>
 
-        <motion.p 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-          className="text-xl text-blue-200 mb-2"
-        >
-          Disaster Direct Platform
-        </motion.p>
+          {/* Main Headline */}
+          <motion.h1 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="text-5xl md:text-7xl lg:text-8xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-blue-100 to-cyan-200 mb-4 leading-tight tracking-tight"
+          >
+            DISASTER
+            <br />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-500">
+              DIRECT
+            </span>
+          </motion.h1>
 
-        <motion.p 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.6 }}
-          className="text-lg text-slate-400 mb-8"
-        >
-          The next generation of storm response and claims management
-        </motion.p>
+          {/* Tagline */}
+          <motion.p 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5 }}
+            className="text-xl md:text-2xl text-blue-200/90 mb-4 font-light"
+          >
+            Command the Storm. Dominate the Response.
+          </motion.p>
 
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.7 }}
-          className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 mb-8 flex items-center justify-center gap-3"
-        >
-          <AlertTriangle className="w-5 h-5 text-amber-400" />
-          <span className="text-amber-200 font-medium">Coming Soon - Launch Date TBD</span>
+          <motion.p 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.6 }}
+            className="text-lg text-slate-400 max-w-2xl mx-auto mb-8"
+          >
+            The first AI-powered platform that connects contractors to storm agencies, 
+            automates damage detection, and maximizes insurance claim success.
+          </motion.p>
+
+          {/* Launch Badge */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.7 }}
+            className="inline-flex items-center gap-3 bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/40 rounded-2xl px-6 py-3 mb-10"
+          >
+            <Clock className="w-5 h-5 text-amber-400" />
+            <span className="text-amber-200 font-semibold">Launching Q1 2025</span>
+            <Badge className="bg-amber-500 text-black font-bold">EARLY ACCESS</Badge>
+          </motion.div>
         </motion.div>
 
+        {/* Dual CTA Section */}
         <motion.div 
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.8 }}
-          className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10"
+          className="flex flex-col md:flex-row gap-4 justify-center items-center mb-16"
+        >
+          <a 
+            href="/pricing"
+            className="group relative overflow-hidden px-8 py-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-lg rounded-xl shadow-2xl shadow-purple-500/30 transition-all hover:scale-105 flex items-center gap-3"
+            data-testid="link-contractor-pricing"
+          >
+            <Building2 className="w-5 h-5" />
+            Contractor Pricing
+            <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+            <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
+          </a>
+          
+          <a 
+            href="/auth/login" 
+            className="px-8 py-4 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold text-lg rounded-xl transition-all flex items-center gap-3"
+            data-testid="link-admin-login"
+          >
+            <Shield className="w-5 h-5" />
+            Staff / Contractor Login
+          </a>
+        </motion.div>
+
+        {/* Stats Grid */}
+        <motion.div 
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 1 }}
+          className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto mb-16"
         >
           {[
-            { icon: Cloud, label: 'Live Weather Intel', color: 'from-blue-500 to-cyan-500' },
-            { icon: Zap, label: 'AI-Powered Tools', color: 'from-purple-500 to-pink-500' },
-            { icon: Shield, label: 'Claims Management', color: 'from-green-500 to-emerald-500' },
-            { icon: Users, label: 'StormShare Network', color: 'from-orange-500 to-amber-500' },
-          ].map((feature, i) => (
+            { icon: Radar, value: 40, suffix: '+', label: 'Storm Agencies', color: 'from-blue-500 to-cyan-500' },
+            { icon: Eye, value: 500, suffix: 'K+', label: 'Properties Analyzed', color: 'from-purple-500 to-pink-500' },
+            { icon: FileCheck, value: 98, suffix: '%', label: 'Claim Success Rate', color: 'from-green-500 to-emerald-500' },
+            { icon: TrendingUp, value: 3, suffix: 'X', label: 'Faster Response', color: 'from-orange-500 to-amber-500' },
+          ].map((stat, i) => (
             <motion.div
-              key={feature.label}
+              key={stat.label}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.9 + i * 0.1 }}
+              transition={{ delay: 1.1 + i * 0.1 }}
             >
-              <Card className="bg-white/5 border-white/10 backdrop-blur-sm hover:bg-white/10 transition-colors">
-                <CardContent className="p-4 flex flex-col items-center">
-                  <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${feature.color} flex items-center justify-center mb-2`}>
-                    <feature.icon className="w-5 h-5 text-white" />
+              <Card className="bg-white/5 border-white/10 backdrop-blur-xl hover:bg-white/10 transition-all group">
+                <CardContent className="p-6 text-center">
+                  <div className={`w-12 h-12 mx-auto rounded-xl bg-gradient-to-br ${stat.color} flex items-center justify-center mb-3 group-hover:scale-110 transition-transform`}>
+                    <stat.icon className="w-6 h-6 text-white" />
                   </div>
-                  <span className="text-xs text-slate-300 text-center">{feature.label}</span>
+                  <div className="text-3xl font-black text-white mb-1">
+                    <AnimatedCounter target={stat.value} suffix={stat.suffix} />
+                  </div>
+                  <div className="text-sm text-slate-400">{stat.label}</div>
                 </CardContent>
               </Card>
             </motion.div>
           ))}
         </motion.div>
 
-        {!isSubmitted ? (
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 1.2 }}
-            className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto"
-          >
-            <Input
-              type="email"
-              placeholder="Enter your email for updates"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="bg-white/10 border-white/20 text-white placeholder:text-slate-400 h-12"
-              data-testid="input-email-notify"
-            />
-            <Button 
-              onClick={handleNotifyMe}
-              className="h-12 px-6 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-semibold"
-              data-testid="button-notify-me"
-            >
-              <Mail className="w-4 h-4 mr-2" />
-              Notify Me
-            </Button>
-          </motion.div>
-        ) : (
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="flex items-center justify-center gap-2 text-green-400"
-          >
-            <CheckCircle className="w-5 h-5" />
-            <span>You're on the list! We'll be in touch soon.</span>
-          </motion.div>
-        )}
-
+        {/* Feature Cards */}
         <motion.div 
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 1.4 }}
-          className="mt-10 pt-8 border-t border-white/10"
+          className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto mb-16"
         >
-          <p className="text-slate-500 text-sm">
-            Questions? Contact us at{' '}
-            <a href="mailto:strategicservicesavers@gmail.com" className="text-blue-400 hover:text-blue-300">
-              strategicservicesavers@gmail.com
-            </a>
-          </p>
-          <p className="text-slate-600 text-xs mt-2">
-            www.strategicservicesavers.org
-          </p>
+          {[
+            {
+              icon: CloudLightning,
+              title: 'Real-Time Storm Intel',
+              description: 'Multi-hazard monitoring from NHC, NWS, USGS, NASA FIRMS. Know where to deploy before the storm hits.',
+              gradient: 'from-blue-600 to-cyan-600',
+            },
+            {
+              icon: Zap,
+              title: 'AI Damage Detection',
+              description: 'Upload photos, get instant Xactimate-ready scope. Our AI catches damage others miss.',
+              gradient: 'from-purple-600 to-pink-600',
+            },
+            {
+              icon: Building2,
+              title: 'ECRP Registration',
+              description: 'Get registered with 40+ emergency contractor rosters. Be first in line when storms hit.',
+              gradient: 'from-orange-600 to-red-600',
+            },
+          ].map((feature, i) => (
+            <motion.div
+              key={feature.title}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 1.5 + i * 0.1 }}
+              whileHover={{ y: -5, scale: 1.02 }}
+            >
+              <Card className="h-full bg-gradient-to-br from-white/10 to-white/5 border-white/10 backdrop-blur-xl overflow-hidden group">
+                <CardContent className="p-6">
+                  <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${feature.gradient} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-lg`}>
+                    <feature.icon className="w-7 h-7 text-white" />
+                  </div>
+                  <h3 className="text-xl font-bold text-white mb-2">{feature.title}</h3>
+                  <p className="text-slate-400 leading-relaxed">{feature.description}</p>
+                </CardContent>
+              </Card>
+            </motion.div>
+          ))}
         </motion.div>
 
+        {/* Email Signup */}
+        <motion.div 
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 1.7 }}
+          className="max-w-xl mx-auto text-center mb-16"
+        >
+          <h3 className="text-2xl font-bold text-white mb-2">Get Early Access</h3>
+          <p className="text-slate-400 mb-6">Join the waitlist for exclusive launch pricing and priority onboarding.</p>
+          
+          {!isSubmitted ? (
+            <div className="flex flex-col sm:flex-row gap-3">
+              <Input
+                type="email"
+                placeholder="Enter your email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="bg-white/10 border-white/20 text-white placeholder:text-slate-500 h-14 text-lg"
+                data-testid="input-email-notify"
+              />
+              <Button 
+                onClick={handleNotifyMe}
+                className="h-14 px-8 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-bold text-lg shadow-xl shadow-blue-500/30"
+                data-testid="button-notify-me"
+              >
+                <Mail className="w-5 h-5 mr-2" />
+                Notify Me
+              </Button>
+            </div>
+          ) : (
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="flex items-center justify-center gap-3 py-4 px-6 bg-green-500/20 border border-green-500/30 rounded-xl"
+            >
+              <CheckCircle className="w-6 h-6 text-green-400" />
+              <span className="text-green-300 font-semibold text-lg">You're on the priority list!</span>
+            </motion.div>
+          )}
+        </motion.div>
+
+        {/* Trust Bar */}
         <motion.div 
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 1.6 }}
-          className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4"
+          transition={{ delay: 2 }}
+          className="text-center border-t border-white/10 pt-8"
         >
-          <a 
-            href="/pricing" 
-            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white font-semibold rounded-lg transition-all"
-            data-testid="link-contractor-pricing"
-          >
-            <DollarSign className="w-4 h-4" />
-            Contractor Pricing
-          </a>
-          <a 
-            href="/auth/login" 
-            className="text-blue-400 hover:text-blue-300 text-sm underline"
-            data-testid="link-admin-login"
-          >
-            Staff / Contractor Login
-          </a>
+          <p className="text-slate-500 text-sm mb-4">Trusted technology partners</p>
+          <div className="flex flex-wrap justify-center items-center gap-8 text-slate-600">
+            {['Stripe', 'Twilio', 'OpenAI', 'Anthropic', 'ElevenLabs'].map((partner) => (
+              <span key={partner} className="text-lg font-semibold opacity-50 hover:opacity-80 transition-opacity">
+                {partner}
+              </span>
+            ))}
+          </div>
+          
+          <div className="mt-8 flex flex-col items-center gap-2">
+            <p className="text-slate-500 text-sm">
+              Questions? <a href="mailto:strategicservicesavers@gmail.com" className="text-blue-400 hover:text-blue-300">strategicservicesavers@gmail.com</a>
+            </p>
+            <p className="text-slate-600 text-xs">
+              www.strategicservicesavers.org • Strategic Services Savers LLC
+            </p>
+          </div>
         </motion.div>
-      </motion.div>
+      </div>
     </div>
   );
 }
