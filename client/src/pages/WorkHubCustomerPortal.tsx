@@ -608,19 +608,19 @@ export default function WorkHubCustomerPortal() {
       reader.onload = async () => {
         const base64 = (reader.result as string).split(',')[1];
         
-        const response = await fetch('/api/workhub/generate-after-preview', {
+        const response = await fetch('/api/workhub/generate-after-image', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            beforeImageBase64: base64,
-            workType: request.category || aiAnalysis?.detectedCategory || 'general',
-            description: request.description
+            imageBase64: base64,
+            jobType: request.category || aiAnalysis?.detectedCategory || 'general',
+            issues: aiAnalysis?.identifiedIssues || []
           }),
         });
         
         if (response.ok) {
           const data = await response.json();
-          setAfterPreviewUrl(data.afterPreviewUrl);
+          setAfterPreviewUrl(data.afterImageUrl);
           speakGuidance("I've generated a preview of how your project could look when completed.");
         }
       };
@@ -693,7 +693,7 @@ export default function WorkHubCustomerPortal() {
     }
   };
 
-  const progressPercentage = (step / 5) * 100;
+  const progressPercentage = (step / 4) * 100;
 
   const renderStepContent = () => {
     switch (step) {
@@ -737,6 +737,133 @@ export default function WorkHubCustomerPortal() {
         );
 
       case 2:
+        // Step 2: Your Information (Contact + Location combined)
+        return (
+          <div className="space-y-6">
+            <div className="text-center mb-8">
+              <h2 className="text-2xl font-bold mb-2">Your Information</h2>
+              <p className="text-slate-600 dark:text-slate-400">We need a few details to get you accurate local pricing</p>
+            </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <User className="w-5 h-5 text-purple-600" />
+                  Contact Details
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label>Full Name *</Label>
+                  <Input
+                    placeholder="John Smith"
+                    value={request.contact.name}
+                    onChange={(e) => setRequest(prev => ({
+                      ...prev,
+                      contact: { ...prev.contact, name: e.target.value }
+                    }))}
+                    data-testid="input-name"
+                  />
+                </div>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <Label>Phone Number *</Label>
+                    <Input
+                      type="tel"
+                      placeholder="(555) 123-4567"
+                      value={request.contact.phone}
+                      onChange={(e) => setRequest(prev => ({
+                        ...prev,
+                        contact: { ...prev.contact, phone: e.target.value }
+                      }))}
+                      data-testid="input-phone"
+                    />
+                  </div>
+                  <div>
+                    <Label>Email Address *</Label>
+                    <Input
+                      type="email"
+                      placeholder="john@example.com"
+                      value={request.contact.email}
+                      onChange={(e) => setRequest(prev => ({
+                        ...prev,
+                        contact: { ...prev.contact, email: e.target.value }
+                      }))}
+                      data-testid="input-email"
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <MapPin className="w-5 h-5 text-purple-600" />
+                  Project Location
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label>Street Address</Label>
+                  <Input
+                    placeholder="123 Main Street"
+                    value={request.location.address}
+                    onChange={(e) => setRequest(prev => ({
+                      ...prev,
+                      location: { ...prev.location, address: e.target.value }
+                    }))}
+                    data-testid="input-address"
+                  />
+                </div>
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <Label>City *</Label>
+                    <Input
+                      placeholder="Atlanta"
+                      value={request.location.city}
+                      onChange={(e) => setRequest(prev => ({
+                        ...prev,
+                        location: { ...prev.location, city: e.target.value }
+                      }))}
+                      data-testid="input-city"
+                    />
+                  </div>
+                  <div>
+                    <Label>State *</Label>
+                    <Input
+                      placeholder="GA"
+                      value={request.location.state}
+                      onChange={(e) => setRequest(prev => ({
+                        ...prev,
+                        location: { ...prev.location, state: e.target.value }
+                      }))}
+                      data-testid="input-state"
+                    />
+                  </div>
+                  <div>
+                    <Label>ZIP Code</Label>
+                    <Input
+                      placeholder="30301"
+                      value={request.location.zip}
+                      onChange={(e) => setRequest(prev => ({
+                        ...prev,
+                        location: { ...prev.location, zip: e.target.value }
+                      }))}
+                      data-testid="input-zip"
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-slate-500 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" />
+                  Location helps us provide accurate pricing for your area
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        );
+
+      case 3:
         return (
           <div className="space-y-6">
             <div className="text-center mb-8">
@@ -1327,48 +1454,64 @@ export default function WorkHubCustomerPortal() {
                       </motion.div>
                     )}
                     
-                    {/* Before/After Preview Section */}
-                    {(budgetConfirmed === true || showContractors) && previewUrls.length > 0 && preferredTimeframe && (
+                    {/* Before/After Preview Section - Show right after analysis */}
+                    {previewUrls.length > 0 && (
                       <div className="mt-6 pt-4 border-t border-green-200 dark:border-green-800">
                         <h4 className="font-semibold text-green-700 dark:text-green-400 mb-3 flex items-center gap-2">
                           <Image className="w-4 h-4" />
-                          Project Preview
+                          Your Before & After Preview
                         </h4>
+                        <p className="text-sm text-slate-500 mb-3">
+                          See what your project could look like when completed!
+                        </p>
                         <div className="grid md:grid-cols-2 gap-4">
                           <div className="space-y-2">
-                            <p className="text-sm text-slate-500 text-center">Before</p>
-                            <div className="aspect-video rounded-lg overflow-hidden border-2 border-slate-200">
+                            <p className="text-sm font-medium text-red-600 text-center flex items-center justify-center gap-1">
+                              <AlertCircle className="w-3 h-3" />
+                              Before (Your Photo)
+                            </p>
+                            <div className="aspect-video rounded-lg overflow-hidden border-2 border-red-200 shadow-md">
                               <img src={previewUrls[0]} alt="Before" className="w-full h-full object-cover" />
                             </div>
                           </div>
                           <div className="space-y-2">
-                            <p className="text-sm text-slate-500 text-center">After (AI Preview)</p>
-                            <div className="aspect-video rounded-lg overflow-hidden border-2 border-green-300 bg-green-50 dark:bg-green-900/10">
+                            <p className="text-sm font-medium text-green-600 text-center flex items-center justify-center gap-1">
+                              <CheckCircle className="w-3 h-3" />
+                              After (AI Vision)
+                            </p>
+                            <div className="aspect-video rounded-lg overflow-hidden border-2 border-green-400 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 shadow-md">
                               {isGeneratingPreview ? (
                                 <div className="w-full h-full flex items-center justify-center">
                                   <div className="text-center">
                                     <Loader2 className="w-8 h-8 animate-spin text-green-600 mx-auto mb-2" />
-                                    <p className="text-sm text-slate-500">Generating preview...</p>
+                                    <p className="text-sm text-slate-500">AI is creating your preview...</p>
+                                    <p className="text-xs text-slate-400 mt-1">This takes about 10-15 seconds</p>
                                   </div>
                                 </div>
                               ) : afterPreviewUrl ? (
-                                <img src={afterPreviewUrl} alt="After Preview" className="w-full h-full object-cover" />
+                                <>
+                                  <img src={afterPreviewUrl} alt="After Preview" className="w-full h-full object-cover" />
+                                </>
                               ) : (
-                                <div className="w-full h-full flex items-center justify-center">
+                                <div className="w-full h-full flex items-center justify-center p-4">
                                   <Button
-                                    variant="outline"
                                     onClick={generateAfterPreview}
-                                    className="border-green-300 text-green-700 hover:bg-green-100"
+                                    className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600"
                                     data-testid="button-generate-preview"
                                   >
                                     <Sparkles className="w-4 h-4 mr-2" />
-                                    Generate Preview
+                                    See Completed Work Preview
                                   </Button>
                                 </div>
                               )}
                             </div>
                           </div>
                         </div>
+                        {afterPreviewUrl && (
+                          <p className="text-xs text-slate-400 mt-3 text-center italic">
+                            AI-generated preview for illustration only. Actual results may vary based on on-site conditions.
+                          </p>
+                        )}
                       </div>
                     )}
                     
@@ -1495,202 +1638,7 @@ export default function WorkHubCustomerPortal() {
           </div>
         );
 
-      case 3:
-        return (
-          <div className="space-y-6">
-            <div className="text-center mb-8">
-              <h2 className="text-2xl font-bold mb-2">Project Location</h2>
-              <p className="text-slate-600 dark:text-slate-400">Where is this work needed?</p>
-            </div>
-
-            <Card>
-              <CardContent className="pt-6 space-y-4">
-                <div>
-                  <Label>Street Address</Label>
-                  <Input
-                    placeholder="123 Main Street"
-                    value={request.location.address}
-                    onChange={(e) => setRequest(prev => ({
-                      ...prev,
-                      location: { ...prev.location, address: e.target.value }
-                    }))}
-                    data-testid="input-address"
-                  />
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  <div>
-                    <Label>City</Label>
-                    <Input
-                      placeholder="City"
-                      value={request.location.city}
-                      onChange={(e) => setRequest(prev => ({
-                        ...prev,
-                        location: { ...prev.location, city: e.target.value }
-                      }))}
-                      data-testid="input-city"
-                    />
-                  </div>
-                  <div>
-                    <Label>State</Label>
-                    <Input
-                      placeholder="State"
-                      value={request.location.state}
-                      onChange={(e) => setRequest(prev => ({
-                        ...prev,
-                        location: { ...prev.location, state: e.target.value }
-                      }))}
-                      data-testid="input-state"
-                    />
-                  </div>
-                  <div>
-                    <Label>ZIP Code</Label>
-                    <Input
-                      placeholder="12345"
-                      value={request.location.zip}
-                      onChange={(e) => setRequest(prev => ({
-                        ...prev,
-                        location: { ...prev.location, zip: e.target.value }
-                      }))}
-                      data-testid="input-zip"
-                    />
-                  </div>
-                </div>
-
-                <div className="pt-4 border-t">
-                  <Button variant="outline" className="w-full" data-testid="button-use-location">
-                    <MapPin className="w-5 h-5 mr-2" />
-                    Use My Current Location
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        );
-
       case 4:
-        return (
-          <div className="space-y-6">
-            <div className="text-center mb-8">
-              <h2 className="text-2xl font-bold mb-2">Your Contact Information</h2>
-              <p className="text-slate-600 dark:text-slate-400">How should contractors reach you?</p>
-            </div>
-
-            <Card>
-              <CardContent className="pt-6 space-y-4">
-                <div>
-                  <Label>Full Name</Label>
-                  <Input
-                    placeholder="John Smith"
-                    value={request.contact.name}
-                    onChange={(e) => setRequest(prev => ({
-                      ...prev,
-                      contact: { ...prev.contact, name: e.target.value }
-                    }))}
-                    data-testid="input-name"
-                  />
-                </div>
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div>
-                    <Label>Phone Number</Label>
-                    <Input
-                      type="tel"
-                      placeholder="(555) 123-4567"
-                      value={request.contact.phone}
-                      onChange={(e) => setRequest(prev => ({
-                        ...prev,
-                        contact: { ...prev.contact, phone: e.target.value }
-                      }))}
-                      data-testid="input-phone"
-                    />
-                  </div>
-                  <div>
-                    <Label>Email Address</Label>
-                    <Input
-                      type="email"
-                      placeholder="john@example.com"
-                      value={request.contact.email}
-                      onChange={(e) => setRequest(prev => ({
-                        ...prev,
-                        contact: { ...prev.contact, email: e.target.value }
-                      }))}
-                      data-testid="input-email"
-                    />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Your Preferences</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label>How urgent is this project?</Label>
-                  <Select
-                    value={request.preferences.urgency}
-                    onValueChange={(value) => setRequest(prev => ({
-                      ...prev,
-                      preferences: { ...prev.preferences, urgency: value }
-                    }))}
-                  >
-                    <SelectTrigger data-testid="select-urgency">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="emergency">Emergency - Need help ASAP</SelectItem>
-                      <SelectItem value="urgent">Urgent - Within 48 hours</SelectItem>
-                      <SelectItem value="normal">Normal - Within a week</SelectItem>
-                      <SelectItem value="flexible">Flexible - No rush</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label>Scheduling preference</Label>
-                  <Select
-                    value={request.preferences.schedulingOption}
-                    onValueChange={(value) => setRequest(prev => ({
-                      ...prev,
-                      preferences: { ...prev.preferences, schedulingOption: value }
-                    }))}
-                  >
-                    <SelectTrigger data-testid="select-scheduling">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="customer">I'll choose my preferred times</SelectItem>
-                      <SelectItem value="contractor">Let contractors reach out</SelectItem>
-                      <SelectItem value="ai">Let AI schedule for me automatically</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label>Estimate preference</Label>
-                  <Select
-                    value={request.preferences.estimatePreference}
-                    onValueChange={(value) => setRequest(prev => ({
-                      ...prev,
-                      preferences: { ...prev.preferences, estimatePreference: value }
-                    }))}
-                  >
-                    <SelectTrigger data-testid="select-estimate-pref">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="multiple">Get multiple estimates</SelectItem>
-                      <SelectItem value="single">Match me with one contractor</SelectItem>
-                      <SelectItem value="best">AI recommends best contractor</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        );
-
-      case 5:
         return (
           <div className="space-y-6">
             <div className="text-center mb-8">
@@ -1876,7 +1824,7 @@ export default function WorkHubCustomerPortal() {
       <div className="sticky top-0 z-40 bg-white dark:bg-slate-900 border-b shadow-sm">
         <div className="max-w-4xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium">Step {step} of 5</span>
+            <span className="text-sm font-medium">Step {step} of 4</span>
             <Button
               variant="ghost"
               size="sm"
@@ -1891,7 +1839,7 @@ export default function WorkHubCustomerPortal() {
           </div>
           <Progress value={progressPercentage} className="h-2" />
           <div className="flex justify-between mt-2">
-            {['Category', 'Photos', 'Location', 'Contact', 'Review'].map((label, idx) => (
+            {['Category', 'Your Info', 'Photos', 'Review'].map((label, idx) => (
               <span 
                 key={label}
                 className={`text-xs ${step > idx ? 'text-purple-600 font-medium' : 'text-slate-400'}`}
@@ -1929,10 +1877,10 @@ export default function WorkHubCustomerPortal() {
             Previous
           </Button>
 
-          {step < 5 && (
+          {step < 4 && (
             <Button
-              onClick={() => setStep(prev => Math.min(5, prev + 1))}
-              disabled={step === 1 && !request.category}
+              onClick={() => setStep(prev => Math.min(4, prev + 1))}
+              disabled={(step === 1 && !request.category) || (step === 2 && (!request.contact.name || !request.contact.phone || !request.contact.email || !request.location.city || !request.location.state))}
               data-testid="button-next-step"
             >
               Next Step

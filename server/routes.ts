@@ -13698,11 +13698,53 @@ What specific area or type of incident would you like me to focus on? I can prov
       const materials = DEFAULT_MATERIALS[detectedTrade] || DEFAULT_MATERIALS['general'] || [];
       const laborRate = DEFAULT_LABOR_RATES[detectedTrade];
 
+      // Regional pricing multipliers based on state/city cost of living
+      const getRegionalMultiplier = (loc: string): { multiplier: number; tier: string } => {
+        if (!loc) return { multiplier: 1.0, tier: 'average' };
+        
+        const locationLower = loc.toLowerCase();
+        
+        // High cost areas (1.25-1.5x)
+        const highCostStates = ['ca', 'california', 'ny', 'new york', 'ma', 'massachusetts', 'ct', 'connecticut', 'nj', 'new jersey', 'wa', 'washington', 'hi', 'hawaii'];
+        const highCostCities = ['san francisco', 'new york', 'boston', 'los angeles', 'seattle', 'manhattan', 'brooklyn'];
+        
+        // Medium-high cost areas (1.1-1.2x)
+        const medHighStates = ['co', 'colorado', 'md', 'maryland', 'va', 'virginia', 'il', 'illinois', 'or', 'oregon'];
+        const medHighCities = ['denver', 'portland', 'chicago', 'dc', 'washington dc', 'austin', 'miami'];
+        
+        // Low cost areas (0.8-0.9x)
+        const lowCostStates = ['ms', 'mississippi', 'ar', 'arkansas', 'wv', 'west virginia', 'ok', 'oklahoma', 'ky', 'kentucky', 'al', 'alabama'];
+        
+        for (const city of highCostCities) {
+          if (locationLower.includes(city)) return { multiplier: 1.4, tier: 'high' };
+        }
+        for (const state of highCostStates) {
+          if (locationLower.includes(state)) return { multiplier: 1.3, tier: 'high' };
+        }
+        for (const city of medHighCities) {
+          if (locationLower.includes(city)) return { multiplier: 1.15, tier: 'medium-high' };
+        }
+        for (const state of medHighStates) {
+          if (locationLower.includes(state)) return { multiplier: 1.1, tier: 'medium-high' };
+        }
+        for (const state of lowCostStates) {
+          if (locationLower.includes(state)) return { multiplier: 0.85, tier: 'low' };
+        }
+        
+        return { multiplier: 1.0, tier: 'average' };
+      };
+
+      const regionInfo = getRegionalMultiplier(location || '');
+      console.log(`📍 Regional pricing: ${location || 'unknown'} -> ${regionInfo.tier} (${regionInfo.multiplier}x)`);
+
       // Calculate pricing breakdown for each material option
       const quantity = measurements.sqft || measurements.linearFt || measurements.count || 1;
       const materialOptions = materials.map((mat, idx) => {
-        const materialCost = mat.pricePerUnit * quantity;
-        const laborCost = laborRate ? laborRate.installation * quantity : Math.round(materialCost * 0.4);
+        const baseMaterialCost = mat.pricePerUnit * quantity;
+        const baseLaborCost = laborRate ? laborRate.installation * quantity : Math.round(baseMaterialCost * 0.4);
+        // Apply regional multiplier primarily to labor (materials are more standardized)
+        const materialCost = Math.round(baseMaterialCost * (1 + (regionInfo.multiplier - 1) * 0.3)); // 30% regional impact on materials
+        const laborCost = Math.round(baseLaborCost * regionInfo.multiplier); // Full regional impact on labor
         const totalCost = materialCost + laborCost;
         const estimatedHours = laborRate ? laborRate.hoursPerUnit * quantity : Math.round(quantity * 0.2);
         
@@ -13742,9 +13784,11 @@ What specific area or type of incident would you like me to focus on? I can prov
           details: analysis.professionalDescription.technicalDetails,
           recommendations: analysis.professionalDescription.recommendedActions,
           priceEstimate: {
-            min: analysis.damageAssessment.estimatedCost.min,
-            max: analysis.damageAssessment.estimatedCost.max,
-            currency: 'USD'
+            min: Math.round(analysis.damageAssessment.estimatedCost.min * regionInfo.multiplier),
+            max: Math.round(analysis.damageAssessment.estimatedCost.max * regionInfo.multiplier),
+            currency: 'USD',
+            regionalAdjustment: regionInfo.tier,
+            location: location || 'National average'
           },
           urgency: analysis.damageAssessment.repairPriority,
           severity: analysis.damageAssessment.severity,
@@ -13769,6 +13813,113 @@ What specific area or type of incident would you like me to focus on? I can prov
       res.status(500).json({ 
         error: 'AI analysis failed', 
         message: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Generate AI "after" image - shows what the completed work would look like
+  app.post('/api/workhub/generate-after-image', express.json({ limit: '10mb' }), async (req, res) => {
+    try {
+      const { imageBase64, jobType, issues } = req.body;
+      
+      // Input validation
+      if (!imageBase64) {
+        return res.status(400).json({ error: 'Image data is required' });
+      }
+      
+      // Validate base64 size (max 5MB decoded ~6.7MB encoded)
+      if (typeof imageBase64 !== 'string' || imageBase64.length > 7000000) {
+        return res.status(413).json({ error: 'Image too large. Maximum size is 5MB.' });
+      }
+      
+      // Basic base64 format validation
+      if (!/^[A-Za-z0-9+/=]+$/.test(imageBase64.replace(/\s/g, ''))) {
+        return res.status(400).json({ error: 'Invalid image data format' });
+      }
+
+      console.log('🎨 Generating AI "after" preview for:', jobType || 'general repair');
+
+      // Create a detailed prompt based on the job type and issues
+      const getAfterPrompt = (type: string, detectedIssues: string[]): string => {
+        const basePrompt = 'Create a photorealistic image showing this EXACT same scene ';
+        
+        const issuesList = detectedIssues?.length > 0 
+          ? detectedIssues.slice(0, 3).join(', ') 
+          : 'the damage';
+        
+        switch (type?.toLowerCase()) {
+          case 'tree':
+          case 'tree_removal':
+            return `${basePrompt} but with the damaged/fallen tree completely removed. Show the area cleaned up with fresh grass or clean ground where the tree was. The surrounding landscape should look pristine and well-maintained. Keep all other elements exactly the same.`;
+          
+          case 'roofing':
+          case 'roof':
+            return `${basePrompt} but with a brand new, perfectly installed roof. Replace any damaged, missing, or worn shingles with fresh, new matching shingles. The roof should look pristine, properly aligned, and professionally completed. Keep the house structure exactly the same.`;
+          
+          case 'painting':
+          case 'paint':
+            return `${basePrompt} but with fresh, professionally applied paint. The surfaces should be smooth, evenly coated, and vibrant with no peeling, fading, or damage. Colors should be rich and consistent. Keep the architectural details exactly the same.`;
+          
+          case 'fence':
+          case 'fencing':
+            return `${basePrompt} but with a brand new, perfectly installed fence. Replace any damaged, broken, or leaning sections with straight, sturdy new fence panels that match the style. The fence should look pristine and professionally installed.`;
+          
+          case 'concrete':
+            return `${basePrompt} but with brand new, smooth, professionally finished concrete. Any cracks, chips, or damage should be replaced with fresh, level concrete. The surface should be clean and properly sealed.`;
+          
+          case 'flooring':
+            return `${basePrompt} but with brand new, professionally installed flooring. Replace any damaged, worn, or outdated flooring with fresh, properly aligned new flooring materials. The floor should look pristine with perfect seams.`;
+          
+          case 'hvac':
+            return `${basePrompt} but with a new, modern, professionally installed HVAC unit. The equipment should look brand new, properly positioned, and cleanly installed with proper ventilation and connections.`;
+          
+          case 'plumbing':
+            return `${basePrompt} but with all plumbing issues fixed. Show clean, new pipes and fixtures, no leaks or water damage, and everything properly sealed and functional.`;
+          
+          case 'electrical':
+            return `${basePrompt} but with all electrical work professionally completed. Show new, properly installed electrical components, clean wiring, and modern fixtures with no damage or hazards.`;
+          
+          default:
+            return `${basePrompt} but with all repairs professionally completed. ${issuesList} should be fixed, showing the area fully restored to pristine, like-new condition. Keep the overall setting and surroundings exactly the same.`;
+        }
+      };
+
+      const prompt = getAfterPrompt(jobType, issues);
+      
+      // Use OpenAI to generate the "after" image
+      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+      
+      const response = await openai.images.generate({
+        model: "dall-e-3",
+        prompt: prompt,
+        n: 1,
+        size: "1024x1024",
+        quality: "standard",
+        style: "natural"
+      });
+
+      const afterImageUrl = response.data?.[0]?.url;
+
+      if (!afterImageUrl) {
+        throw new Error('Failed to generate after image');
+      }
+
+      console.log('✅ AI "after" image generated successfully');
+
+      res.json({
+        ok: true,
+        afterImageUrl,
+        prompt: prompt.substring(0, 100) + '...',
+        disclaimer: 'AI-generated preview for illustration purposes only. Actual results may vary.',
+        timestamp: new Date().toISOString()
+      });
+
+    } catch (error) {
+      console.error('AI after image generation error:', error);
+      res.status(500).json({ 
+        error: 'Failed to generate after image', 
+        message: error instanceof Error ? error.message : 'Unknown error',
+        fallbackMessage: 'We could not generate a preview at this time. Our contractors will provide detailed before/after expectations during the consultation.'
       });
     }
   });
