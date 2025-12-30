@@ -154,17 +154,17 @@ export default function EmergencyContractorReadiness() {
 
   // Fetch contractor registrations (for Strategic Land Management - ID 1)
   const { data: registrationsData, isLoading: registrationsLoading, refetch: refetchRegistrations } = useQuery({
-    queryKey: ['/api/ecrp/contractors', 1, 'registrations']
+    queryKey: ['/api/ecrp/contractors/1/registrations']
   });
 
   // Fetch contractor details
   const { data: contractorData } = useQuery({
-    queryKey: ['/api/ecrp/contractors', 1]
+    queryKey: ['/api/ecrp/contractors/1']
   });
 
   // Fetch outreach history
   const { data: outreachData, refetch: refetchOutreach } = useQuery({
-    queryKey: ['/api/ecrp/contractors', 1, 'outreach']
+    queryKey: ['/api/ecrp/contractors/1/outreach']
   });
 
   // Load email template when contractor data loads
