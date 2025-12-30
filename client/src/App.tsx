@@ -71,6 +71,9 @@ const WorkHubContractorCRM = lazy(() => import("./pages/WorkHubContractorCRM"));
 const WorkHubAdminPricing = lazy(() => import("./pages/WorkHubAdminPricing"));
 const WorkHubContractorOnboarding = lazy(() => import("./pages/WorkHubContractorOnboarding"));
 
+// Emergency Contractor Readiness Platform
+const EmergencyContractorReadiness = lazy(() => import("./pages/EmergencyContractorReadiness"));
+
 // Loading indicator
 function Loader() {
   return (
@@ -154,6 +157,7 @@ export default function App() {
           <Route path="/modules/xray-reality" element={<XrayRealityModule />} />
           <Route path="/hazard-dashboard" element={<HazardDashboard />} />
           <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/admin/ecrp" element={<EmergencyContractorReadiness />} />
           <Route path="/admin/legal/zipmap" element={<ZipStateAdmin />} />
           <Route path="/admin/legal/welcome" element={<WelcomeTemplates />} />
           <Route path="/admin/jobs/fill-states" element={<BulkFillStates />} />

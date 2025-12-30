@@ -25,7 +25,7 @@ import express from "express";
 import cors from "cors";
 import multer from "multer";
 import { db } from "./db";
-import { customerSubmissions, workhubMaterials, workhubLaborRates } from "@shared/schema";
+import { customerSubmissions, workhubMaterials, workhubLaborRates, stormAgencies, stormContractorProfiles, stormTeamMembers, stormContractorDocuments, stormAgencyRegistrations, stormOutreachLog } from "@shared/schema";
 import { eq, desc, and } from "drizzle-orm";
 import path from "path";
 import fs from "fs";
@@ -14869,6 +14869,439 @@ Photos attached via email. Reply to claim this job!`;
   });
 
   console.log('📷 EXIF metadata extraction routes registered');
+
+  // ===== EMERGENCY CONTRACTOR READINESS PLATFORM (ECRP) =====
+  
+  // Get all storm agencies
+  app.get('/api/ecrp/agencies', async (_req, res) => {
+    try {
+      const agencies = await db.select().from(stormAgencies)
+        .where(eq(stormAgencies.isActive, true))
+        .orderBy(stormAgencies.sortOrder);
+      
+      res.json({ ok: true, agencies });
+    } catch (error) {
+      console.error('Get agencies error:', error);
+      res.status(500).json({ error: 'Failed to get agencies' });
+    }
+  });
+
+  // Get single agency by ID
+  app.get('/api/ecrp/agencies/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const agency = await db.select().from(stormAgencies)
+        .where(eq(stormAgencies.id, parseInt(id)))
+        .limit(1);
+      
+      if (agency.length === 0) {
+        return res.status(404).json({ error: 'Agency not found' });
+      }
+      
+      res.json({ ok: true, agency: agency[0] });
+    } catch (error) {
+      console.error('Get agency error:', error);
+      res.status(500).json({ error: 'Failed to get agency' });
+    }
+  });
+
+  // Get all contractor profiles
+  app.get('/api/ecrp/contractors', async (_req, res) => {
+    try {
+      const contractors = await db.select().from(stormContractorProfiles)
+        .where(eq(stormContractorProfiles.isActive, true));
+      
+      res.json({ ok: true, contractors });
+    } catch (error) {
+      console.error('Get contractors error:', error);
+      res.status(500).json({ error: 'Failed to get contractors' });
+    }
+  });
+
+  // Get single contractor with team members and documents
+  app.get('/api/ecrp/contractors/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const contractorId = parseInt(id);
+      
+      const contractor = await db.select().from(stormContractorProfiles)
+        .where(eq(stormContractorProfiles.id, contractorId))
+        .limit(1);
+      
+      if (contractor.length === 0) {
+        return res.status(404).json({ error: 'Contractor not found' });
+      }
+      
+      const teamMembers = await db.select().from(stormTeamMembers)
+        .where(eq(stormTeamMembers.contractorId, contractorId))
+        .orderBy(stormTeamMembers.sortOrder);
+      
+      const documents = await db.select().from(stormContractorDocuments)
+        .where(and(
+          eq(stormContractorDocuments.contractorId, contractorId),
+          eq(stormContractorDocuments.isActive, true)
+        ));
+      
+      res.json({ 
+        ok: true, 
+        contractor: contractor[0],
+        teamMembers,
+        documents
+      });
+    } catch (error) {
+      console.error('Get contractor error:', error);
+      res.status(500).json({ error: 'Failed to get contractor' });
+    }
+  });
+
+  // Get registration status for a contractor with all agencies
+  app.get('/api/ecrp/contractors/:id/registrations', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const contractorId = parseInt(id);
+      
+      // Get all agencies
+      const agencies = await db.select().from(stormAgencies)
+        .where(eq(stormAgencies.isActive, true))
+        .orderBy(stormAgencies.sortOrder);
+      
+      // Get existing registrations
+      const registrations = await db.select().from(stormAgencyRegistrations)
+        .where(eq(stormAgencyRegistrations.contractorId, contractorId));
+      
+      // Combine agencies with registration status
+      const registrationMap = new Map(registrations.map(r => [r.agencyId, r]));
+      
+      const agencyStatuses = agencies.map(agency => ({
+        ...agency,
+        registration: registrationMap.get(agency.id) || {
+          status: 'not_started',
+          submittedDate: null,
+          approvedDate: null,
+          vendorId: null,
+          notes: null
+        }
+      }));
+      
+      res.json({ ok: true, agencyStatuses });
+    } catch (error) {
+      console.error('Get registrations error:', error);
+      res.status(500).json({ error: 'Failed to get registrations' });
+    }
+  });
+
+  // Update registration status
+  app.post('/api/ecrp/registrations', express.json(), async (req, res) => {
+    try {
+      const { contractorId, agencyId, status, notes, vendorId } = req.body;
+      
+      // Check if registration exists
+      const existing = await db.select().from(stormAgencyRegistrations)
+        .where(and(
+          eq(stormAgencyRegistrations.contractorId, contractorId),
+          eq(stormAgencyRegistrations.agencyId, agencyId)
+        ))
+        .limit(1);
+      
+      if (existing.length > 0) {
+        // Update existing
+        await db.update(stormAgencyRegistrations)
+          .set({
+            status,
+            notes,
+            vendorId,
+            submittedDate: status === 'submitted' ? new Date() : existing[0].submittedDate,
+            approvedDate: status === 'approved' ? new Date() : existing[0].approvedDate,
+            updatedAt: new Date()
+          })
+          .where(eq(stormAgencyRegistrations.id, existing[0].id));
+      } else {
+        // Create new
+        await db.insert(stormAgencyRegistrations).values({
+          contractorId,
+          agencyId,
+          status,
+          notes,
+          vendorId,
+          submittedDate: status === 'submitted' ? new Date() : null,
+          approvedDate: status === 'approved' ? new Date() : null
+        });
+      }
+      
+      res.json({ ok: true, message: 'Registration updated' });
+    } catch (error) {
+      console.error('Update registration error:', error);
+      res.status(500).json({ error: 'Failed to update registration' });
+    }
+  });
+
+  // Get outreach history for a contractor
+  app.get('/api/ecrp/contractors/:id/outreach', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const contractorId = parseInt(id);
+      
+      const outreach = await db.select().from(stormOutreachLog)
+        .where(eq(stormOutreachLog.contractorId, contractorId))
+        .orderBy(desc(stormOutreachLog.sentAt));
+      
+      res.json({ ok: true, outreach });
+    } catch (error) {
+      console.error('Get outreach error:', error);
+      res.status(500).json({ error: 'Failed to get outreach history' });
+    }
+  });
+
+  // Send outreach email
+  app.post('/api/ecrp/outreach/email', express.json(), async (req, res) => {
+    try {
+      const { contractorId, agencyId, recipientEmail, recipientName, subject, content } = req.body;
+      
+      if (!recipientEmail || !subject || !content) {
+        return res.status(400).json({ error: 'Email, subject, and content are required' });
+      }
+
+      // Get contractor info for the email
+      const contractor = await db.select().from(stormContractorProfiles)
+        .where(eq(stormContractorProfiles.id, contractorId))
+        .limit(1);
+
+      if (contractor.length === 0) {
+        return res.status(404).json({ error: 'Contractor not found' });
+      }
+
+      // Try to send email via SendGrid
+      let emailSent = false;
+      let emailError = null;
+
+      try {
+        const sgMail = require('@sendgrid/mail');
+        if (process.env.SENDGRID_API_KEY) {
+          sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+          
+          await sgMail.send({
+            to: recipientEmail,
+            from: process.env.SMTP_FROM_EMAIL || 'no-reply@strategiclandmgmt.com',
+            subject: subject,
+            text: content,
+            html: content.replace(/\n/g, '<br>')
+          });
+          emailSent = true;
+        }
+      } catch (sendError) {
+        emailError = sendError instanceof Error ? sendError.message : 'Email send failed';
+        console.error('SendGrid error:', sendError);
+      }
+
+      // Log the outreach
+      await db.insert(stormOutreachLog).values({
+        contractorId,
+        agencyId,
+        communicationType: 'email',
+        direction: 'outbound',
+        recipientName,
+        recipientEmail,
+        subject,
+        content,
+        status: emailSent ? 'sent' : 'failed'
+      });
+
+      res.json({ 
+        ok: true, 
+        sent: emailSent,
+        error: emailError,
+        message: emailSent ? 'Email sent successfully' : 'Email logged but sending failed - check SendGrid configuration'
+      });
+    } catch (error) {
+      console.error('Send email error:', error);
+      res.status(500).json({ error: 'Failed to send email' });
+    }
+  });
+
+  // Send outreach SMS
+  app.post('/api/ecrp/outreach/sms', express.json(), async (req, res) => {
+    try {
+      const { contractorId, agencyId, recipientPhone, recipientName, content } = req.body;
+      
+      if (!recipientPhone || !content) {
+        return res.status(400).json({ error: 'Phone and message content are required' });
+      }
+
+      // Try to send SMS via Twilio
+      let smsSent = false;
+      let smsError = null;
+
+      try {
+        if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_PHONE_NUMBER) {
+          const twilio = require('twilio');
+          const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+          
+          await client.messages.create({
+            body: content,
+            from: process.env.TWILIO_PHONE_NUMBER,
+            to: recipientPhone
+          });
+          smsSent = true;
+        }
+      } catch (sendError) {
+        smsError = sendError instanceof Error ? sendError.message : 'SMS send failed';
+        console.error('Twilio error:', sendError);
+      }
+
+      // Log the outreach
+      await db.insert(stormOutreachLog).values({
+        contractorId,
+        agencyId,
+        communicationType: 'sms',
+        direction: 'outbound',
+        recipientName,
+        recipientPhone,
+        content,
+        status: smsSent ? 'sent' : 'failed'
+      });
+
+      res.json({ 
+        ok: true, 
+        sent: smsSent,
+        error: smsError,
+        message: smsSent ? 'SMS sent successfully' : 'SMS logged but sending failed - check Twilio configuration'
+      });
+    } catch (error) {
+      console.error('Send SMS error:', error);
+      res.status(500).json({ error: 'Failed to send SMS' });
+    }
+  });
+
+  // Get team members to notify
+  app.get('/api/ecrp/contractors/:id/notifications', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const contractorId = parseInt(id);
+      
+      const teamMembers = await db.select().from(stormTeamMembers)
+        .where(eq(stormTeamMembers.contractorId, contractorId))
+        .orderBy(stormTeamMembers.sortOrder);
+      
+      res.json({ ok: true, teamMembers });
+    } catch (error) {
+      console.error('Get team notifications error:', error);
+      res.status(500).json({ error: 'Failed to get team members' });
+    }
+  });
+
+  // Send notification to team members
+  app.post('/api/ecrp/notify-team', express.json(), async (req, res) => {
+    try {
+      const { contractorId, notificationType, message, subject } = req.body;
+      
+      // Get team members with appropriate notification settings
+      let whereCondition;
+      switch (notificationType) {
+        case 'storm_alert':
+          whereCondition = and(
+            eq(stormTeamMembers.contractorId, contractorId),
+            eq(stormTeamMembers.receiveStormAlerts, true)
+          );
+          break;
+        case 'job_alert':
+          whereCondition = and(
+            eq(stormTeamMembers.contractorId, contractorId),
+            eq(stormTeamMembers.receiveJobAlerts, true)
+          );
+          break;
+        case 'claims_update':
+          whereCondition = and(
+            eq(stormTeamMembers.contractorId, contractorId),
+            eq(stormTeamMembers.receiveClaimsUpdates, true)
+          );
+          break;
+        default:
+          whereCondition = eq(stormTeamMembers.contractorId, contractorId);
+      }
+      
+      const teamMembers = await db.select().from(stormTeamMembers)
+        .where(whereCondition);
+      
+      const results = {
+        total: teamMembers.length,
+        smsSent: 0,
+        emailSent: 0,
+        failed: 0
+      };
+
+      // Send SMS to each team member
+      for (const member of teamMembers) {
+        if (member.phone) {
+          try {
+            if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_PHONE_NUMBER) {
+              const twilio = require('twilio');
+              const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+              
+              await client.messages.create({
+                body: `[Strategic Land Mgmt] ${notificationType.replace('_', ' ').toUpperCase()}: ${message}`,
+                from: process.env.TWILIO_PHONE_NUMBER,
+                to: member.phone
+              });
+              results.smsSent++;
+            }
+          } catch (smsError) {
+            console.error(`SMS to ${member.name} failed:`, smsError);
+            results.failed++;
+          }
+        }
+      }
+
+      res.json({ 
+        ok: true, 
+        results,
+        message: `Notified ${results.smsSent} team members`
+      });
+    } catch (error) {
+      console.error('Notify team error:', error);
+      res.status(500).json({ error: 'Failed to notify team' });
+    }
+  });
+
+  // ECRP Dashboard stats
+  app.get('/api/ecrp/dashboard', async (_req, res) => {
+    try {
+      const contractors = await db.select().from(stormContractorProfiles)
+        .where(eq(stormContractorProfiles.isActive, true));
+      
+      const agencies = await db.select().from(stormAgencies)
+        .where(eq(stormAgencies.isActive, true));
+      
+      const registrations = await db.select().from(stormAgencyRegistrations);
+      
+      const outreachLogs = await db.select().from(stormOutreachLog);
+      
+      // Calculate stats
+      const stats = {
+        totalContractors: contractors.length,
+        totalAgencies: agencies.length,
+        registrations: {
+          approved: registrations.filter(r => r.status === 'approved').length,
+          pending: registrations.filter(r => r.status === 'pending_review' || r.status === 'submitted').length,
+          inProgress: registrations.filter(r => r.status === 'in_progress').length,
+          notStarted: agencies.length - registrations.length
+        },
+        outreach: {
+          totalSent: outreachLogs.length,
+          emails: outreachLogs.filter(o => o.communicationType === 'email').length,
+          sms: outreachLogs.filter(o => o.communicationType === 'sms').length,
+          responses: outreachLogs.filter(o => o.responseReceived).length
+        },
+        recentOutreach: outreachLogs.slice(0, 5)
+      };
+      
+      res.json({ ok: true, stats, contractors, agencies });
+    } catch (error) {
+      console.error('Dashboard error:', error);
+      res.status(500).json({ error: 'Failed to get dashboard data' });
+    }
+  });
+
+  console.log('🚨 Emergency Contractor Readiness Platform (ECRP) routes registered');
 
   const httpServer = createServer(app);
   return httpServer;

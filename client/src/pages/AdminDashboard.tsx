@@ -193,6 +193,9 @@ export function AdminDashboard() {
             <TabsTrigger value="alerts" data-testid="tab-alerts">
               Contractor Alerts
             </TabsTrigger>
+            <TabsTrigger value="ecrp" data-testid="tab-ecrp" onClick={() => window.location.href = '/admin/ecrp'}>
+              Emergency Contractor Readiness
+            </TabsTrigger>
           </TabsList>
 
           {/* Overview Tab */}
