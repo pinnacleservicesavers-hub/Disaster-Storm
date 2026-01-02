@@ -7,7 +7,7 @@ import {
   DollarSign, Clock, Star, User, Phone, Mail, Calendar,
   MessageSquare, Shield, Zap, ChevronRight, Building2,
   TreePine, Home, Wind, Droplets, Plug, Paintbrush, Car,
-  Hammer, Wrench, Settings, ThumbsUp, AlertCircle
+  Hammer, Wrench, Settings, ThumbsUp, AlertCircle, Users
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -97,6 +97,8 @@ export default function WorkHubCustomerPortal() {
     preferences: { urgency: 'normal', schedulingOption: 'customer', estimatePreference: 'multiple' }
   });
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
+  const [matchedContractors, setMatchedContractors] = useState<any[]>([]);
+  const [isLoadingContractors, setIsLoadingContractors] = useState(false);
 
   const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [speechSupported, setSpeechSupported] = useState(false);
@@ -135,6 +137,37 @@ export default function WorkHubCustomerPortal() {
       } catch {}
     };
   }, []);
+
+  useEffect(() => {
+    const fetchContractors = async () => {
+      if (!request.location.state || request.location.state.length < 2) {
+        setMatchedContractors([]);
+        return;
+      }
+      
+      setIsLoadingContractors(true);
+      try {
+        const stateCode = request.location.state.toUpperCase().substring(0, 2);
+        const params = new URLSearchParams({ state: stateCode });
+        if (request.category && request.category !== 'other') {
+          params.append('trade', request.category);
+        }
+        
+        const response = await fetch(`/api/public/contractor-directory?${params}`);
+        if (response.ok) {
+          const data = await response.json();
+          setMatchedContractors(data.contractors || []);
+        }
+      } catch (error) {
+        console.error('Failed to fetch contractors:', error);
+      } finally {
+        setIsLoadingContractors(false);
+      }
+    };
+
+    const debounceTimer = setTimeout(fetchContractors, 500);
+    return () => clearTimeout(debounceTimer);
+  }, [request.location.state, request.category]);
 
   const getBestVoice = (): SpeechSynthesisVoice | null => {
     if (!speechSupported) return null;
@@ -896,6 +929,100 @@ export default function WorkHubCustomerPortal() {
                 </p>
               </CardContent>
             </Card>
+
+            {request.location.state && request.location.state.length >= 2 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Users className="w-5 h-5 text-purple-600" />
+                    Contractors in Your Area
+                    {matchedContractors.length > 0 && (
+                      <Badge variant="secondary" className="ml-2">{matchedContractors.length} Found</Badge>
+                    )}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {isLoadingContractors ? (
+                    <div className="flex items-center justify-center py-6">
+                      <Loader2 className="w-6 h-6 animate-spin text-purple-600" />
+                      <span className="ml-2 text-slate-500">Finding contractors...</span>
+                    </div>
+                  ) : matchedContractors.length > 0 ? (
+                    <div className="space-y-3">
+                      <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
+                        These contractors serve your area. Only those with active subscriptions will receive your project request.
+                      </p>
+                      <div className="grid gap-3 max-h-80 overflow-y-auto">
+                        {matchedContractors.slice(0, 10).map((contractor) => (
+                          <div 
+                            key={contractor.id} 
+                            className={`p-4 rounded-lg border ${contractor.receivesLeads ? 'border-green-300 bg-green-50/50 dark:bg-green-900/10' : 'border-slate-200 dark:border-slate-700'}`}
+                            data-testid={`contractor-card-${contractor.id}`}
+                          >
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                  <h4 className="font-semibold text-slate-900 dark:text-white">{contractor.businessName}</h4>
+                                  {contractor.isVerified && (
+                                    <Badge variant="secondary" className="bg-blue-100 text-blue-700 text-xs">
+                                      <Shield className="w-3 h-3 mr-1" />
+                                      Verified
+                                    </Badge>
+                                  )}
+                                  {contractor.receivesLeads && (
+                                    <Badge className="bg-green-600 text-xs">Active</Badge>
+                                  )}
+                                </div>
+                                <p className="text-sm text-slate-600 dark:text-slate-400">{contractor.contactName}</p>
+                                <p className="text-xs text-slate-500 mt-1">
+                                  {contractor.city}, {contractor.state} • {contractor.primaryTrade.replace('_', ' ')}
+                                  {contractor.yearsExperience && ` • ${contractor.yearsExperience}+ years`}
+                                </p>
+                              </div>
+                              <div className="text-right">
+                                {contractor.overallRating && parseFloat(contractor.overallRating) > 0 && (
+                                  <div className="flex items-center gap-1 text-amber-500">
+                                    <Star className="w-4 h-4 fill-current" />
+                                    <span className="text-sm font-medium">{parseFloat(contractor.overallRating).toFixed(1)}</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            <div className="mt-2 flex items-center gap-4 text-xs text-slate-600 dark:text-slate-400">
+                              <span className="flex items-center gap-1">
+                                <Phone className="w-3 h-3" />
+                                {contractor.phone}
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <Mail className="w-3 h-3" />
+                                {contractor.email}
+                              </span>
+                            </div>
+                            {contractor.address && (
+                              <p className="mt-1 text-xs text-slate-500 flex items-center gap-1">
+                                <MapPin className="w-3 h-3" />
+                                {contractor.address}
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                      {matchedContractors.length > 10 && (
+                        <p className="text-sm text-center text-slate-500 pt-2">
+                          +{matchedContractors.length - 10} more contractors available
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-center py-6 text-slate-500">
+                      <Users className="w-10 h-10 mx-auto mb-2 opacity-50" />
+                      <p>No contractors found in {request.location.state.toUpperCase()}</p>
+                      <p className="text-sm mt-1">We're expanding our network - check back soon!</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
           </div>
         );
 

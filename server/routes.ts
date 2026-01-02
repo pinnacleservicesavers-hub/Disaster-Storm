@@ -1615,6 +1615,144 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
   
   console.log('🏗️ Georgia contractors routes registered');
 
+  // Seed nationwide contractors (all 50 states)
+  app.post('/api/admin/seed-nationwide-contractors', async (_req, res) => {
+    try {
+      const { NATIONWIDE_CONTRACTORS } = await import('./data/nationwide-contractors');
+      
+      let insertedCount = 0;
+      let skippedCount = 0;
+      
+      for (const contractor of NATIONWIDE_CONTRACTORS) {
+        try {
+          const existing = await db.select().from(workhubContractors)
+            .where(and(
+              eq(workhubContractors.businessName, contractor.businessName),
+              eq(workhubContractors.state, contractor.state)
+            ))
+            .limit(1);
+          
+          if (existing.length > 0) {
+            skippedCount++;
+            continue;
+          }
+          
+          await db.insert(workhubContractors).values({
+            businessName: contractor.businessName,
+            contactName: contractor.contactName,
+            email: contractor.email,
+            phone: contractor.phone,
+            address: contractor.address,
+            city: contractor.city,
+            state: contractor.state,
+            zipCode: contractor.zipCode,
+            primaryTrade: contractor.primaryTrade,
+            additionalTrades: contractor.additionalTrades || [],
+            yearsExperience: contractor.yearsExperience || 10,
+            overallRating: "4.5",
+            isVerified: true,
+            isActive: true,
+            serviceRadius: 50
+          });
+          
+          insertedCount++;
+        } catch (err) {
+          console.error(`Failed to insert contractor ${contractor.businessName}:`, err);
+        }
+      }
+      
+      console.log(`✅ Nationwide contractors seeded: ${insertedCount} inserted, ${skippedCount} skipped`);
+      
+      res.json({
+        ok: true,
+        message: `Nationwide contractors seeded successfully`,
+        inserted: insertedCount,
+        skipped: skippedCount,
+        total: NATIONWIDE_CONTRACTORS.length
+      });
+      
+    } catch (error) {
+      console.error('Error seeding nationwide contractors:', error);
+      res.status(500).json({ error: 'Failed to seed nationwide contractors', message: error instanceof Error ? error.message : 'Unknown error' });
+    }
+  });
+  
+  // Public contractor directory - for customers to see contractors in their area
+  // Note: Only shows basic info - leads are only sent to subscribed contractors
+  app.get('/api/public/contractor-directory', async (req, res) => {
+    try {
+      const { state, city, trade } = req.query;
+      
+      if (!state || typeof state !== 'string') {
+        return res.status(400).json({ error: 'State parameter is required' });
+      }
+      
+      const conditions = [
+        eq(workhubContractors.isActive, true),
+        eq(workhubContractors.state, state.toUpperCase())
+      ];
+      
+      if (city && typeof city === 'string') {
+        conditions.push(eq(workhubContractors.city, city));
+      }
+      
+      if (trade && typeof trade === 'string') {
+        conditions.push(eq(workhubContractors.primaryTrade, trade.toLowerCase()));
+      }
+      
+      const contractors = await db.select({
+        id: workhubContractors.id,
+        businessName: workhubContractors.businessName,
+        contactName: workhubContractors.contactName,
+        email: workhubContractors.email,
+        phone: workhubContractors.phone,
+        address: workhubContractors.address,
+        city: workhubContractors.city,
+        state: workhubContractors.state,
+        zipCode: workhubContractors.zipCode,
+        primaryTrade: workhubContractors.primaryTrade,
+        additionalTrades: workhubContractors.additionalTrades,
+        overallRating: workhubContractors.overallRating,
+        totalReviews: workhubContractors.totalReviews,
+        completedJobs: workhubContractors.completedJobs,
+        yearsExperience: workhubContractors.yearsExperience,
+        isVerified: workhubContractors.isVerified
+      }).from(workhubContractors)
+        .where(and(...conditions))
+        .orderBy(desc(workhubContractors.overallRating))
+        .limit(50);
+      
+      // Check which contractors have active subscriptions (only these get leads)
+      const subscribedContractorIds = new Set<string>();
+      const subscriptions = await db.select({ contractorId: contractorSubscriptions.contractorId })
+        .from(contractorSubscriptions)
+        .where(eq(contractorSubscriptions.status, 'active'));
+      
+      subscriptions.forEach(s => {
+        if (s.contractorId) subscribedContractorIds.add(s.contractorId);
+      });
+      
+      const contractorsWithSubscriptionStatus = contractors.map(c => ({
+        ...c,
+        receivesLeads: subscribedContractorIds.has(c.id)
+      }));
+      
+      res.json({
+        ok: true,
+        contractors: contractorsWithSubscriptionStatus,
+        count: contractors.length,
+        filters: { state, city, trade },
+        note: 'Only contractors with active subscriptions receive customer leads. All contractors shown for reference.'
+      });
+      
+    } catch (error) {
+      console.error('Error fetching contractor directory:', error);
+      res.status(500).json({ error: 'Failed to fetch contractor directory' });
+    }
+  });
+  
+  console.log('🌎 Nationwide contractor directory routes registered');
+
   // ---- Ambee Environmental Intelligence Routes ----
   app.use('/api/ambee', ambeeRoutes);
 
