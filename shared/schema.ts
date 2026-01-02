@@ -6816,3 +6816,6 @@ export type StormAgencyRegistration = typeof stormAgencyRegistrations.$inferSele
 export type InsertStormAgencyRegistration = z.infer<typeof insertStormAgencyRegistrationSchema>;
 export type StormOutreachLog = typeof stormOutreachLog.$inferSelect;
 export type InsertStormOutreachLog = z.infer<typeof insertStormOutreachLogSchema>;
+
+// Chat schema for AI integrations
+export * from "./models/chat";
