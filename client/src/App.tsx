@@ -145,7 +145,7 @@ export default function App() {
   const location = useLocation();
   
   // Public routes that don't need auth
-  const isPublicRoute = ['/', '/auth/login', '/auth/callback', '/pricing'].includes(location.pathname);
+  const isPublicRoute = ['/', '/auth/login', '/auth/callback', '/pricing', '/workhub/customer'].includes(location.pathname);
   
   // Show TopNav only for authenticated users
   const showNav = user && !isPublicRoute;
@@ -158,8 +158,8 @@ export default function App() {
       {/* All routes */}
       <Suspense fallback={<Loader />}>
         <Routes>
-          {/* Coming Soon - Public Landing */}
-          <Route path="/" element={<ComingSoon />} />
+          {/* Public Landing Page with Customer Help */}
+          <Route path="/" element={<LandingPage />} />
           
           {/* Auth Routes - Public */}
           <Route path="/auth/login" element={<Login />} />
@@ -229,9 +229,10 @@ export default function App() {
           {/* Sign Out */}
           <Route path="/signout" element={<SignOut />} />
           
-          {/* WorkHub Marketplace Routes - Protected */}
+          {/* WorkHub Marketplace Routes */}
           <Route path="/workhub" element={<ProtectedRoute><WorkHubMarketplace /></ProtectedRoute>} />
-          <Route path="/workhub/customer" element={<ProtectedRoute><WorkHubCustomerPortal /></ProtectedRoute>} />
+          {/* Customer portal is public - no login required for customers to submit requests */}
+          <Route path="/workhub/customer" element={<WorkHubCustomerPortal />} />
           <Route path="/workhub/contractor" element={<ProtectedRoute><WorkHubContractorDashboard /></ProtectedRoute>} />
           <Route path="/workhub/scopesnap" element={<ProtectedRoute><WorkHubScopeSnap /></ProtectedRoute>} />
           <Route path="/workhub/pricewhisperer" element={<ProtectedRoute><WorkHubPriceWhisperer /></ProtectedRoute>} />

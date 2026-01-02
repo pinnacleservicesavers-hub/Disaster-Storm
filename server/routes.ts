@@ -26,7 +26,7 @@ import cors from "cors";
 import multer from "multer";
 import { db } from "./db";
 import { customerSubmissions, workhubMaterials, workhubLaborRates, stormAgencies, stormContractorProfiles, stormTeamMembers, stormContractorDocuments, stormAgencyRegistrations, stormOutreachLog, users, stormSharePosts, workhubContractors, contractorSubscriptions, qualifiedLeads } from "@shared/schema";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, or } from "drizzle-orm";
 import path from "path";
 import fs from "fs";
 import cron from "node-cron";
@@ -1615,8 +1615,8 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
   
   console.log('🏗️ Georgia contractors routes registered');
 
-  // Seed nationwide contractors (all 50 states)
-  app.post('/api/admin/seed-nationwide-contractors', async (_req, res) => {
+  // Seed nationwide contractors (all 50 states) - Admin only
+  app.post('/api/admin/seed-nationwide-contractors', authenticate, requireAdmin, async (_req: AuthenticatedRequest, res) => {
     try {
       const { NATIONWIDE_CONTRACTORS } = await import('./data/nationwide-contractors');
       
@@ -1696,8 +1696,26 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
         conditions.push(eq(workhubContractors.city, city));
       }
       
-      if (trade && typeof trade === 'string') {
-        conditions.push(eq(workhubContractors.primaryTrade, trade.toLowerCase()));
+      // Trade taxonomy mapping - map UI categories to database primaryTrade values
+      const tradeMapping: Record<string, string[]> = {
+        'tree': ['tree', 'tree_removal', 'tree_service', 'arborist', 'landscaping'],
+        'roofing': ['roofing', 'roof', 'roof_repair', 'storm_damage', 'hurricane_damage', 'hail_damage'],
+        'hvac': ['hvac', 'heating', 'cooling', 'air_conditioning', 'furnace'],
+        'plumbing': ['plumbing', 'plumber', 'pipes', 'water_heater'],
+        'electrical': ['electrical', 'electrician', 'wiring', 'panels'],
+        'painting': ['painting', 'painter', 'interior_painting', 'exterior_painting'],
+        'auto': ['auto', 'auto_repair', 'automotive', 'mechanic'],
+        'general': ['general', 'general_contractor', 'contractor', 'renovation', 'remodel'],
+        'flooring': ['flooring', 'floors', 'hardwood', 'tile', 'carpet'],
+        'fence': ['fence', 'fencing', 'gates', 'privacy_fence'],
+        'concrete': ['concrete', 'cement', 'driveway', 'patio', 'sidewalk'],
+      };
+      
+      if (trade && typeof trade === 'string' && trade !== 'other') {
+        const tradeVariants = tradeMapping[trade.toLowerCase()] || [trade.toLowerCase()];
+        conditions.push(
+          or(...tradeVariants.map(t => eq(workhubContractors.primaryTrade, t))) as any
+        );
       }
       
       const contractors = await db.select({
