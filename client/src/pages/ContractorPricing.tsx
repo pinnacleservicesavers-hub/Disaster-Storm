@@ -254,14 +254,14 @@ export default function ContractorPricing() {
       
       speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(
-        "Welcome to Disaster Direct Contractor Pricing! ... " +
+        "Welcome to Strategic Services Savers Contractor Pricing! ... " +
         "I'm Rachel, your AI assistant. ... " +
-        "We've got three powerful plans designed specifically for storm contractors. ... " +
-        "Most of our successful contractors go with Storm Pro ... " +
-        "because it includes unlimited AI damage detection, ... " +
-        "plus our exclusive ECRP system to get you registered with over 40 storm agencies. ... " +
-        "Choose annual billing and you'll save up to two months free! ... " +
-        "Take your time and pick the plan that fits your business."
+        "We have two powerful tracks for contractors. ... " +
+        "WorkHub is for everyday jobs, like roofing, painting, HVAC, and general contracting. ... " +
+        "Disaster Direct is for storm response specialists who need real-time weather intel and damage detection. ... " +
+        "Or save big with our Ultimate bundle that includes everything! ... " +
+        "Choose annual billing and save up to two months free. ... " +
+        "Use the tabs below to compare plans."
       );
       
       const voice = getBestFemaleVoice(voices);
