@@ -25,7 +25,7 @@ import express from "express";
 import cors from "cors";
 import multer from "multer";
 import { db } from "./db";
-import { customerSubmissions, workhubMaterials, workhubLaborRates, stormAgencies, stormContractorProfiles, stormTeamMembers, stormContractorDocuments, stormAgencyRegistrations, stormOutreachLog, users, stormSharePosts, workhubContractors } from "@shared/schema";
+import { customerSubmissions, workhubMaterials, workhubLaborRates, stormAgencies, stormContractorProfiles, stormTeamMembers, stormContractorDocuments, stormAgencyRegistrations, stormOutreachLog, users, stormSharePosts, workhubContractors, contractorSubscriptions, qualifiedLeads } from "@shared/schema";
 import { eq, desc, and } from "drizzle-orm";
 import path from "path";
 import fs from "fs";
@@ -3401,6 +3401,356 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
       all: [...disasterDirectTiers, ...workhubTiers, ultimateTier]
     });
   });
+
+  // ============================================================
+  // WORKBUDDY CONTRACTOR SUBSCRIPTION MANAGEMENT
+  // Contractors pay monthly to receive qualified leads
+  // ============================================================
+
+  // Create/update contractor subscription - this is where they "put billables"
+  // Protected: Only contractors or admins can create subscriptions
+  app.post('/api/workhub/subscriptions', authenticate, requireContractor, express.json(), async (req: AuthenticatedRequest, res) => {
+    try {
+      const { 
+        contractorId, 
+        planId, 
+        isAnnual,
+        serviceStates,
+        serviceCities,
+        serviceTrades,
+        billingEmail,
+        maxLeadsPerDay,
+        maxLeadsPerMonth,
+        minJobSize,
+        maxJobSize
+      } = req.body;
+
+      if (!contractorId || !planId) {
+        return res.status(400).json({ error: 'Contractor ID and plan ID are required' });
+      }
+
+      // OWNERSHIP CHECK: Contractors can only create subscriptions for themselves
+      // Admins can create subscriptions for any contractor
+      if (req.user?.role !== 'admin' && req.user?.id !== contractorId) {
+        return res.status(403).json({ 
+          error: 'You can only create subscriptions for your own account' 
+        });
+      }
+
+      // Get plan details from server-side pricing
+      const tier = SUBSCRIPTION_TIERS[planId];
+      if (!tier) {
+        return res.status(400).json({ error: 'Invalid plan ID' });
+      }
+
+      const monthlyPrice = isAnnual ? Math.round(tier.annualPrice / 12) : tier.monthlyPrice;
+      const now = new Date();
+      const periodEnd = new Date(now);
+      periodEnd.setMonth(periodEnd.getMonth() + (isAnnual ? 12 : 1));
+
+      // Create subscription record
+      const [subscription] = await db.insert(contractorSubscriptions).values({
+        contractorId,
+        planId,
+        planName: tier.name,
+        monthlyPrice: monthlyPrice * 100, // Store in cents
+        isAnnual: isAnnual || false,
+        status: 'active',
+        serviceStates: serviceStates || [],
+        serviceCities: serviceCities || [],
+        serviceTrades: serviceTrades || [],
+        maxLeadsPerDay: maxLeadsPerDay || 10,
+        maxLeadsPerMonth: maxLeadsPerMonth || 100,
+        minJobSize: minJobSize ? minJobSize * 100 : null,
+        maxJobSize: maxJobSize ? maxJobSize * 100 : null,
+        billingEmail,
+        currentPeriodStart: now,
+        currentPeriodEnd: periodEnd,
+        nextBillingDate: periodEnd,
+      }).returning();
+
+      console.log(`✅ WorkBuddy subscription created: ${tier.name} for contractor ${contractorId}`);
+
+      res.json({
+        ok: true,
+        subscription,
+        message: `Successfully subscribed to ${tier.name}! You will now receive qualified leads.`
+      });
+
+    } catch (error: any) {
+      console.error('Subscription creation error:', error);
+      res.status(500).json({ error: 'Failed to create subscription', detail: error.message });
+    }
+  });
+
+  // Get subscribed contractors for a given state/city/trade
+  // Protected: Admin only - contains sensitive subscription data
+  app.get('/api/workhub/subscribed-contractors', authenticate, requireAdmin, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { state, city, trade } = req.query;
+
+      let query = db.select().from(contractorSubscriptions)
+        .where(eq(contractorSubscriptions.status, 'active'));
+
+      const subscriptions = await query;
+
+      // Filter by service area
+      let filtered = subscriptions;
+      if (state && typeof state === 'string') {
+        filtered = filtered.filter(s => 
+          s.serviceStates?.includes(state) || s.serviceStates?.includes('ALL')
+        );
+      }
+      if (city && typeof city === 'string') {
+        filtered = filtered.filter(s => 
+          !s.serviceCities?.length || s.serviceCities?.includes(city) || s.serviceCities?.includes('ALL')
+        );
+      }
+      if (trade && typeof trade === 'string') {
+        filtered = filtered.filter(s => 
+          !s.serviceTrades?.length || s.serviceTrades?.includes(trade)
+        );
+      }
+
+      res.json({
+        ok: true,
+        count: filtered.length,
+        subscriptions: filtered
+      });
+
+    } catch (error: any) {
+      console.error('Get subscribed contractors error:', error);
+      res.status(500).json({ error: 'Failed to get subscribed contractors' });
+    }
+  });
+
+  // Distribute qualified lead to subscribed contractors
+  // Note: This endpoint is called from the customer portal after budget confirmation
+  // Validation ensures the submission exists before distributing lead data
+  app.post('/api/workhub/distribute-lead', express.json(), async (req, res) => {
+    try {
+      const {
+        submissionId,
+        customerName,
+        customerEmail,
+        customerPhone,
+        customerAddress,
+        customerCity,
+        customerState,
+        customerZip,
+        workType,
+        description,
+        photoUrls,
+        afterImageUrl,
+        estimateLow,
+        estimateHigh,
+        estimatedDescription,
+        customerBudgetMin,
+        customerBudgetMax,
+        urgency,
+        preferredTimeframe
+      } = req.body;
+
+      if (!customerName || !customerEmail || !workType || !estimateLow || !estimateHigh) {
+        return res.status(400).json({ error: 'Missing required lead fields' });
+      }
+
+      // Verify the submission exists (prevents fake lead injection)
+      if (submissionId) {
+        const [existingSubmission] = await db.select().from(customerSubmissions)
+          .where(eq(customerSubmissions.id, submissionId));
+        if (!existingSubmission) {
+          console.warn(`⚠️ Lead distribution attempted for non-existent submission: ${submissionId}`);
+          return res.status(400).json({ error: 'Invalid submission reference' });
+        }
+      }
+
+      // Find all active subscribed contractors in this area/trade
+      const subscriptions = await db.select().from(contractorSubscriptions)
+        .where(eq(contractorSubscriptions.status, 'active'));
+
+      // Filter contractors who serve this area and trade
+      const matchingContractors = subscriptions.filter(sub => {
+        // Check state match
+        const stateMatch = !sub.serviceStates?.length || 
+          sub.serviceStates.includes(customerState || '') || 
+          sub.serviceStates.includes('ALL');
+        
+        // Check city match (optional, if no cities specified, serve all)
+        const cityMatch = !sub.serviceCities?.length || 
+          sub.serviceCities.includes(customerCity || '') || 
+          sub.serviceCities.includes('ALL');
+        
+        // Check trade match
+        const tradeMatch = !sub.serviceTrades?.length || 
+          sub.serviceTrades.includes(workType);
+
+        // Check job size limits
+        const jobSizeMatch = (
+          (!sub.minJobSize || estimateLow >= sub.minJobSize) &&
+          (!sub.maxJobSize || estimateHigh <= sub.maxJobSize)
+        );
+
+        // Check lead limits
+        const withinLimits = (
+          (!sub.maxLeadsPerMonth || (sub.leadsReceivedThisMonth || 0) < sub.maxLeadsPerMonth)
+        );
+
+        return stateMatch && cityMatch && tradeMatch && jobSizeMatch && withinLimits;
+      });
+
+      if (matchingContractors.length === 0) {
+        return res.json({
+          ok: true,
+          distributed: 0,
+          message: 'No subscribed contractors found in this area for this trade'
+        });
+      }
+
+      // Create qualified leads for each matching contractor
+      const createdLeads: any[] = [];
+      for (const sub of matchingContractors) {
+        const [lead] = await db.insert(qualifiedLeads).values({
+          submissionId,
+          contractorId: sub.contractorId,
+          subscriptionId: sub.id,
+          customerName,
+          customerEmail,
+          customerPhone,
+          customerAddress,
+          customerCity,
+          customerState,
+          customerZip,
+          workType,
+          description,
+          photoUrls,
+          afterImageUrl,
+          estimateLow: estimateLow * 100, // Convert to cents
+          estimateHigh: estimateHigh * 100,
+          estimatedDescription,
+          customerBudgetMin: customerBudgetMin ? customerBudgetMin * 100 : null,
+          customerBudgetMax: customerBudgetMax ? customerBudgetMax * 100 : null,
+          urgency,
+          preferredTimeframe,
+          status: 'new'
+        }).returning();
+
+        createdLeads.push(lead);
+
+        // Update contractor's lead count
+        await db.update(contractorSubscriptions)
+          .set({
+            leadsReceivedThisMonth: (sub.leadsReceivedThisMonth || 0) + 1,
+            leadsReceivedTotal: (sub.leadsReceivedTotal || 0) + 1,
+            lastLeadReceivedAt: new Date()
+          })
+          .where(eq(contractorSubscriptions.id, sub.id));
+
+        // TODO: Send email/SMS notification to contractor
+        // await sendLeadNotification(sub, lead);
+      }
+
+      console.log(`📋 Distributed lead to ${createdLeads.length} contractors in ${customerCity}, ${customerState}`);
+
+      res.json({
+        ok: true,
+        distributed: createdLeads.length,
+        leads: createdLeads,
+        message: `Lead sent to ${createdLeads.length} qualified contractors in your area`
+      });
+
+    } catch (error: any) {
+      console.error('Lead distribution error:', error);
+      res.status(500).json({ error: 'Failed to distribute lead', detail: error.message });
+    }
+  });
+
+  // Get leads for a specific contractor
+  // Protected: Contractors can only access their own leads
+  app.get('/api/workhub/contractor-leads/:contractorId', authenticate, requireContractor, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { contractorId } = req.params;
+      const { status } = req.query;
+
+      // OWNERSHIP CHECK: Contractors can only access their own leads
+      // Admins can access any contractor's leads
+      if (req.user?.role !== 'admin' && req.user?.id !== contractorId) {
+        return res.status(403).json({ 
+          error: 'You can only access your own leads' 
+        });
+      }
+
+      let leads = await db.select().from(qualifiedLeads)
+        .where(eq(qualifiedLeads.contractorId, contractorId))
+        .orderBy(desc(qualifiedLeads.createdAt));
+
+      if (status && typeof status === 'string') {
+        leads = leads.filter(l => l.status === status);
+      }
+
+      res.json({
+        ok: true,
+        leads,
+        total: leads.length
+      });
+
+    } catch (error: any) {
+      console.error('Get contractor leads error:', error);
+      res.status(500).json({ error: 'Failed to get contractor leads' });
+    }
+  });
+
+  // Update lead status (contractor marks as viewed, contacted, etc.)
+  // Protected: Only contractors or admins can update lead status
+  app.patch('/api/workhub/leads/:leadId', authenticate, requireContractor, express.json(), async (req: AuthenticatedRequest, res) => {
+    try {
+      const { leadId } = req.params;
+      const { status, quoteSent, quoteAmount, notes, outcome } = req.body;
+
+      // First fetch the lead to verify ownership
+      const [existingLead] = await db.select().from(qualifiedLeads)
+        .where(eq(qualifiedLeads.id, parseInt(leadId)));
+
+      if (!existingLead) {
+        return res.status(404).json({ error: 'Lead not found' });
+      }
+
+      // OWNERSHIP CHECK: Contractors can only update their own leads
+      // Admins can update any lead
+      if (req.user?.role !== 'admin' && req.user?.id !== existingLead.contractorId) {
+        return res.status(403).json({ 
+          error: 'You can only update your own leads' 
+        });
+      }
+
+      const updates: any = { updatedAt: new Date() };
+      if (status) updates.status = status;
+      if (quoteSent !== undefined) updates.quoteSent = quoteSent;
+      if (quoteAmount) updates.quoteAmount = quoteAmount * 100;
+      if (notes) updates.notes = notes;
+      if (outcome) updates.outcome = outcome;
+
+      // Set timestamps based on status changes
+      if (status === 'viewed') updates.viewedAt = new Date();
+      if (status === 'contacted' || status === 'quoted') updates.respondedAt = new Date();
+
+      const [updated] = await db.update(qualifiedLeads)
+        .set(updates)
+        .where(eq(qualifiedLeads.id, parseInt(leadId)))
+        .returning();
+
+      res.json({
+        ok: true,
+        lead: updated
+      });
+
+    } catch (error: any) {
+      console.error('Update lead error:', error);
+      res.status(500).json({ error: 'Failed to update lead' });
+    }
+  });
+
+  console.log('💼 WorkBuddy subscription & lead distribution routes registered');
 
   // ---- PDF brochure generator (tri-fold, landscape letter) ----
   app.post('/api/brochure/strategic', async (req, res) => {

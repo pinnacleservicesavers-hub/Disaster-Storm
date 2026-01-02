@@ -11,6 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 
 // WorkBuddy Tiers - Everyday Contractors
+// Key Benefit: AI estimates job cost, confirms customer budget, then sends QUALIFIED leads to subscribed contractors
 const workhubTiers = [
   {
     id: 'workhub_essentials',
@@ -29,20 +30,21 @@ const workhubTiers = [
       { name: 'Mobile app access', included: true },
       { name: 'Email support', included: true },
       { name: 'Photo documentation', included: true },
+      { name: 'Qualified leads (AI pre-screened)', included: false, highlight: true },
       { name: 'AI-powered estimates', included: false },
       { name: 'Automated follow-ups', included: false },
-      { name: 'Review management', included: false },
     ],
     limits: {
       monthlyJobs: 25,
       teamMembers: 1,
-      storageGB: 5
+      storageGB: 5,
+      leadsPerMonth: 0
     }
   },
   {
     id: 'workhub_growth',
     name: 'WorkBuddy Growth',
-    tagline: 'Scale your business efficiently',
+    tagline: 'Get qualified leads - no more wasted time!',
     monthlyPrice: 129,
     annualPrice: 1290,
     savings: 258,
@@ -52,25 +54,26 @@ const workhubTiers = [
     priceId: 'workhub_growth',
     features: [
       { name: 'Everything in Essentials', included: true },
+      { name: 'QUALIFIED LEADS: AI confirms customer budget first', included: true, highlight: true },
+      { name: 'Get customer name, address, email, phone & photos', included: true, highlight: true },
+      { name: 'Up to 25 qualified leads/month', included: true },
       { name: 'AI-powered estimates & scope', included: true },
       { name: 'Automated follow-ups & reminders', included: true },
       { name: 'Review collection & management', included: true },
       { name: 'QuickBooks integration', included: true },
       { name: 'Priority phone support', included: true },
-      { name: 'Custom branding', included: true },
-      { name: 'Multi-location support', included: false },
-      { name: 'API access', included: false },
     ],
     limits: {
       monthlyJobs: 100,
       teamMembers: 5,
-      storageGB: 25
+      storageGB: 25,
+      leadsPerMonth: 25
     }
   },
   {
     id: 'workhub_scale',
     name: 'WorkBuddy Scale',
-    tagline: 'Enterprise tools for growing teams',
+    tagline: 'Unlimited qualified leads for growing teams',
     monthlyPrice: 229,
     annualPrice: 2290,
     savings: 458,
@@ -79,19 +82,20 @@ const workhubTiers = [
     priceId: 'workhub_scale',
     features: [
       { name: 'Everything in Growth', included: true },
+      { name: 'UNLIMITED qualified leads per month', included: true, highlight: true },
+      { name: 'Priority lead matching in your area', included: true, highlight: true },
+      { name: 'See AI price range given to customer', included: true },
       { name: 'Unlimited team members', included: true },
       { name: 'Multi-location management', included: true },
       { name: 'API access & integrations', included: true },
-      { name: 'White-label proposals', included: true },
       { name: 'Dedicated account manager', included: true },
-      { name: 'Custom training', included: true },
       { name: 'Advanced analytics', included: true },
-      { name: 'Revenue optimization AI', included: true },
     ],
     limits: {
       monthlyJobs: -1,
       teamMembers: -1,
-      storageGB: 100
+      storageGB: 100,
+      leadsPerMonth: -1
     }
   }
 ];
@@ -467,6 +471,52 @@ export default function ContractorPricing() {
               <h2 className="text-2xl font-bold text-white mb-2">WorkBuddy - Everyday Contractor Tools</h2>
               <p className="text-blue-200">CRM, scheduling, invoicing, and AI estimates for daily operations</p>
             </div>
+            
+            {/* Lead Generation Explainer */}
+            <Card className="max-w-4xl mx-auto mb-10 bg-gradient-to-br from-green-500/20 to-emerald-500/20 border-2 border-green-500/50 backdrop-blur-lg">
+              <CardHeader className="text-center pb-2">
+                <Badge className="mx-auto mb-2 bg-green-500 text-white border-0">
+                  <Star className="w-3 h-3 mr-1" />
+                  EXCLUSIVE BENEFIT: QUALIFIED LEADS
+                </Badge>
+                <CardTitle className="text-xl text-white">Stop Wasting Time on Customers Who Can't Afford You!</CardTitle>
+              </CardHeader>
+              <CardContent className="text-center">
+                <div className="grid md:grid-cols-4 gap-4 text-sm">
+                  <div className="bg-white/10 rounded-lg p-4">
+                    <div className="w-10 h-10 mx-auto rounded-full bg-blue-500/30 flex items-center justify-center mb-2">
+                      <span className="text-xl font-bold text-blue-400">1</span>
+                    </div>
+                    <p className="text-white font-medium">Customer Uploads Photos</p>
+                    <p className="text-blue-200 text-xs mt-1">Customer submits job photos via our portal</p>
+                  </div>
+                  <div className="bg-white/10 rounded-lg p-4">
+                    <div className="w-10 h-10 mx-auto rounded-full bg-purple-500/30 flex items-center justify-center mb-2">
+                      <span className="text-xl font-bold text-purple-400">2</span>
+                    </div>
+                    <p className="text-white font-medium">AI Gives Ballpark Estimate</p>
+                    <p className="text-blue-200 text-xs mt-1">AI analyzes photos and provides price range (low to high)</p>
+                  </div>
+                  <div className="bg-white/10 rounded-lg p-4">
+                    <div className="w-10 h-10 mx-auto rounded-full bg-amber-500/30 flex items-center justify-center mb-2">
+                      <span className="text-xl font-bold text-amber-400">3</span>
+                    </div>
+                    <p className="text-white font-medium">Customer Confirms Budget</p>
+                    <p className="text-blue-200 text-xs mt-1">Customer told prices may change after inspection</p>
+                  </div>
+                  <div className="bg-white/10 rounded-lg p-4">
+                    <div className="w-10 h-10 mx-auto rounded-full bg-green-500/30 flex items-center justify-center mb-2">
+                      <span className="text-xl font-bold text-green-400">4</span>
+                    </div>
+                    <p className="text-white font-medium">You Get the Lead!</p>
+                    <p className="text-blue-200 text-xs mt-1">Name, address, email, phone, photos & price range</p>
+                  </div>
+                </div>
+                <p className="text-emerald-300 text-sm mt-4 italic">
+                  Only customers who confirm the ballpark estimate fits their budget become leads. No more tire kickers!
+                </p>
+              </CardContent>
+            </Card>
             <div className="grid md:grid-cols-3 gap-8">
               {workhubTiers.map((tier) => (
                 <Card 

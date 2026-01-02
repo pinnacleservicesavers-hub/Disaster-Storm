@@ -677,9 +677,45 @@ export default function WorkHubCustomerPortal() {
       });
       
       if (response.ok) {
+        const submissionData = await response.json();
+        
+        // If customer confirmed budget, distribute lead to subscribed contractors
+        if (budgetConfirmed && aiAnalysis?.estimatedPriceRange) {
+          try {
+            await fetch('/api/workhub/distribute-lead', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                submissionId: submissionData.submission?.id || submissionData.id,
+                customerName: request.contact.name,
+                customerEmail: request.contact.email,
+                customerPhone: request.contact.phone,
+                customerAddress: request.location.address,
+                customerCity: request.location.city,
+                customerState: request.location.state,
+                customerZip: request.location.zip,
+                workType: request.category || aiAnalysis?.detectedCategory || 'general',
+                description: request.description,
+                photoUrls: previewUrls,
+                afterImageUrl: afterPreviewUrl,
+                estimateLow: aiAnalysis.estimatedPriceRange.min,
+                estimateHigh: aiAnalysis.estimatedPriceRange.max,
+                estimatedDescription: aiAnalysis.summary || null,
+                customerBudgetMin: customerBudgetMin ? parseInt(customerBudgetMin) : null,
+                customerBudgetMax: customerBudgetMax ? parseInt(customerBudgetMax) : null,
+                urgency: request.preferences.urgency,
+                preferredTimeframe: preferredTimeframe || null
+              }),
+            });
+            console.log('Lead distributed to subscribed contractors');
+          } catch (leadError) {
+            console.error('Lead distribution error:', leadError);
+          }
+        }
+        
         setSubmissionComplete(true);
         speakGuidance(budgetConfirmed 
-          ? "Your request has been submitted! Matched contractors will contact you shortly."
+          ? "Your request has been submitted! Qualified contractors in your area will contact you shortly."
           : "Your request has been submitted. Our team will review options that fit your budget."
         );
       } else {
@@ -1213,9 +1249,14 @@ export default function WorkHubCustomerPortal() {
                                 <p className="text-2xl font-bold text-green-600">${aiAnalysis.estimatedPriceRange.max.toLocaleString()}</p>
                               </div>
                             </div>
-                            <p className="text-xs text-slate-500 mt-3 italic">
-                              *These are estimates based on AI analysis. Final pricing may vary.
-                            </p>
+                            <div className="bg-amber-50 dark:bg-amber-900/20 p-3 rounded-lg border border-amber-200 dark:border-amber-700 mt-3">
+                              <p className="text-xs text-amber-700 dark:text-amber-300 flex items-start gap-2">
+                                <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                                <span>
+                                  <strong>This is a ballpark estimate.</strong> Prices are subject to change once a contractor inspects the job in person. The final quote may be lower or higher depending on actual conditions.
+                                </span>
+                              </p>
+                            </div>
                           </div>
                           <p className="text-lg text-slate-700 dark:text-slate-300 max-w-md mx-auto font-medium">
                             Will this fit your budget?

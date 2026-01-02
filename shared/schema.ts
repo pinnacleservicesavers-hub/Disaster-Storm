@@ -6649,6 +6649,102 @@ export const insertCustomerSubmissionSchema = createInsertSchema(customerSubmiss
 export type CustomerSubmission = typeof customerSubmissions.$inferSelect;
 export type InsertCustomerSubmission = z.infer<typeof insertCustomerSubmissionSchema>;
 
+// ===== WORKBUDDY CONTRACTOR SUBSCRIPTIONS =====
+// Tracks contractors who have subscribed and "put billables" to receive qualified leads
+
+export const contractorSubscriptions = pgTable("contractor_subscriptions", {
+  id: serial("id").primaryKey(),
+  contractorId: uuid("contractor_id").references(() => workhubContractors.id),
+  planId: varchar("plan_id", { length: 100 }).notNull(), // 'workhub_essentials', 'workhub_growth', 'workhub_scale', 'ultimate'
+  planName: varchar("plan_name", { length: 255 }).notNull(),
+  monthlyPrice: integer("monthly_price").notNull(), // Price in cents
+  isAnnual: boolean("is_annual").default(false),
+  status: varchar("status", { length: 50 }).default("active"), // 'active', 'cancelled', 'past_due', 'trial'
+  // Service areas where contractor wants to receive leads
+  serviceStates: text("service_states").array(), // States where they operate
+  serviceCities: text("service_cities").array(), // Cities/metro areas
+  serviceTrades: text("service_trades").array(), // ['roofing', 'tree', 'hvac', 'plumbing', 'electrical', 'painting']
+  // Lead preferences
+  maxLeadsPerDay: integer("max_leads_per_day").default(10),
+  maxLeadsPerMonth: integer("max_leads_per_month").default(100),
+  minJobSize: integer("min_job_size"), // Minimum job estimate in cents
+  maxJobSize: integer("max_job_size"), // Maximum job estimate in cents
+  // Billing info
+  billingEmail: varchar("billing_email", { length: 255 }),
+  currentPeriodStart: timestamp("current_period_start"),
+  currentPeriodEnd: timestamp("current_period_end"),
+  nextBillingDate: timestamp("next_billing_date"),
+  // Stats
+  leadsReceivedThisMonth: integer("leads_received_this_month").default(0),
+  leadsReceivedTotal: integer("leads_received_total").default(0),
+  lastLeadReceivedAt: timestamp("last_lead_received_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// ===== QUALIFIED LEADS - Distributed to Subscribed Contractors =====
+// When customer confirms budget, lead is distributed to contractors in that area
+
+export const qualifiedLeads = pgTable("qualified_leads", {
+  id: serial("id").primaryKey(),
+  submissionId: integer("submission_id").references(() => customerSubmissions.id),
+  contractorId: uuid("contractor_id").references(() => workhubContractors.id),
+  subscriptionId: integer("subscription_id").references(() => contractorSubscriptions.id),
+  // Customer info (copied for quick access)
+  customerName: varchar("customer_name", { length: 255 }).notNull(),
+  customerEmail: varchar("customer_email", { length: 255 }).notNull(),
+  customerPhone: varchar("customer_phone", { length: 50 }),
+  customerAddress: text("customer_address"),
+  customerCity: varchar("customer_city", { length: 100 }),
+  customerState: varchar("customer_state", { length: 50 }),
+  customerZip: varchar("customer_zip", { length: 20 }),
+  // Job details
+  workType: varchar("work_type", { length: 100 }).notNull(),
+  description: text("description"),
+  photoUrls: text("photo_urls").array(),
+  afterImageUrl: text("after_image_url"), // AI-generated "after" preview
+  // AI Estimate - ballpark figure shown to customer
+  estimateLow: integer("estimate_low").notNull(), // Low end in cents
+  estimateHigh: integer("estimate_high").notNull(), // High end in cents
+  estimatedDescription: text("estimated_description"), // AI description of scope
+  // Customer budget confirmation
+  customerBudgetMin: integer("customer_budget_min"), // Customer's stated min budget
+  customerBudgetMax: integer("customer_budget_max"), // Customer's stated max budget
+  // Lead status
+  status: varchar("status", { length: 50 }).default("new"), // 'new', 'viewed', 'contacted', 'quoted', 'won', 'lost'
+  urgency: varchar("urgency", { length: 50 }),
+  preferredTimeframe: varchar("preferred_timeframe", { length: 100 }),
+  // Contractor interaction tracking
+  viewedAt: timestamp("viewed_at"),
+  respondedAt: timestamp("responded_at"),
+  quoteSent: boolean("quote_sent").default(false),
+  quoteAmount: integer("quote_amount"), // Contractor's actual quote in cents
+  outcome: varchar("outcome", { length: 50 }), // 'won', 'lost', 'no_response', 'customer_cancelled'
+  notes: text("notes"),
+  // Notification tracking
+  emailSent: boolean("email_sent").default(false),
+  smsSent: boolean("sms_sent").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertContractorSubscriptionSchema = createInsertSchema(contractorSubscriptions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
+});
+
+export const insertQualifiedLeadSchema = createInsertSchema(qualifiedLeads).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true
+});
+
+export type ContractorSubscription = typeof contractorSubscriptions.$inferSelect;
+export type InsertContractorSubscription = z.infer<typeof insertContractorSubscriptionSchema>;
+export type QualifiedLead = typeof qualifiedLeads.$inferSelect;
+export type InsertQualifiedLead = z.infer<typeof insertQualifiedLeadSchema>;
+
 // ===== EMERGENCY CONTRACTOR READINESS PLATFORM =====
 // Tables for managing storm agencies, contractor profiles, and outreach
 
