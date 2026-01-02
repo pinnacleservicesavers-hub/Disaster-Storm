@@ -605,7 +605,7 @@ export default function ComingSoon() {
         >
           <p className="text-slate-500 text-sm mb-4">Trusted technology partners</p>
           <div className="flex flex-wrap justify-center items-center gap-8 text-slate-600">
-            {['Stripe', 'Twilio', 'OpenAI', 'Anthropic', 'ElevenLabs'].map((partner) => (
+            {['QuickBooks', 'Twilio', 'OpenAI', 'Anthropic', 'ElevenLabs'].map((partner) => (
               <span key={partner} className="text-lg font-semibold opacity-50 hover:opacity-80 transition-opacity">
                 {partner}
               </span>

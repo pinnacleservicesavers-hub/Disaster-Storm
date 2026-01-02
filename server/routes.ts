@@ -2505,46 +2505,38 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
 
   app.post('/api/subscriptions/checkout', express.json(), async (req, res) => {
     try {
-      if (!stripe) return res.status(500).json({ error: 'Stripe not configured' });
-      
       const { tierId, isAnnual } = req.body || {};
       
       // Validate tierId against allowlist
       if (!tierId || !SUBSCRIPTION_TIERS[tierId]) {
-        return res.status(400).json({ error: 'Invalid tier. Must be: storm_starter, storm_pro, or storm_elite' });
+        return res.status(400).json({ error: 'Invalid tier. Must be: storm_starter, storm_pro, storm_elite, workhub_essentials, workhub_growth, workhub_scale, or ultimate' });
       }
 
       // Get server-side pricing (never trust client-supplied amounts)
       const tier = SUBSCRIPTION_TIERS[tierId];
       const amount = isAnnual ? tier.annualPrice : tier.monthlyPrice;
-      const interval = isAnnual ? 'year' : 'month';
+      const billingCycle = isAnnual ? 'annual' : 'monthly';
 
-      // Create a checkout session for the subscription
-      const session = await stripe.checkout.sessions.create({
-        mode: 'subscription',
-        payment_method_types: ['card'],
-        line_items: [{
-          price_data: {
-            currency: 'usd',
-            product_data: {
-              name: `Disaster Direct - ${tier.name}`,
-              description: `${isAnnual ? 'Annual' : 'Monthly'} subscription to ${tier.name} plan`,
-            },
-            unit_amount: Math.round(amount * 100),
-            recurring: { interval },
-          },
-          quantity: 1,
-        }],
-        metadata: {
-          tierId,
-          tierName: tier.name,
-          billingCycle: isAnnual ? 'annual' : 'monthly',
-        },
-        success_url: `${process.env.BASE_URL || 'http://localhost:5000'}/dashboard?subscription=success&tier=${tierId}`,
-        cancel_url: `${process.env.BASE_URL || 'http://localhost:5000'}/pricing?cancelled=true`,
+      // QuickBooks ACH Integration - 1% capped at $10 per transaction
+      // For now, store subscription intent and redirect to dashboard
+      // Full QuickBooks integration coming soon
+      
+      // TODO: Implement QuickBooks ACH payment flow
+      // - Connect to QuickBooks Payments API
+      // - Create ACH bank transfer for subscription
+      // - Fee: 1% capped at $10 (much cheaper than card processing)
+      
+      console.log(`Subscription request: ${tier.name} - ${billingCycle} - $${amount}`);
+      
+      // For now, redirect to dashboard with subscription pending
+      res.json({ 
+        ok: true, 
+        message: `${tier.name} subscription pending - QuickBooks ACH setup coming soon`,
+        tier: tierId,
+        amount,
+        billingCycle,
+        paymentMethod: 'quickbooks_ach'
       });
-
-      res.json({ ok: true, url: session.url, sessionId: session.id });
     } catch (e: any) {
       console.error('Subscription checkout error:', e);
       res.status(500).json({ error: 'subscription_checkout_failed', detail: e.message });

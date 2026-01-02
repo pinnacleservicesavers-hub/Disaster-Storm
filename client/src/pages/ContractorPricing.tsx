@@ -19,8 +19,7 @@ const contractorTiers = [
     savings: 194,
     icon: Zap,
     color: 'from-emerald-500 to-teal-600',
-    stripeMonthlyPriceId: 'price_storm_starter_monthly',
-    stripeAnnualPriceId: 'price_storm_starter_annual',
+    priceId: 'storm_starter',
     features: [
       { name: 'Real-time storm tracking & alerts', included: true },
       { name: 'AI damage detection (50 photos/month)', included: true },
@@ -50,8 +49,7 @@ const contractorTiers = [
     icon: Crown,
     color: 'from-purple-500 to-indigo-600',
     popular: true,
-    stripeMonthlyPriceId: 'price_storm_pro_monthly',
-    stripeAnnualPriceId: 'price_storm_pro_annual',
+    priceId: 'storm_pro',
     features: [
       { name: 'Everything in Storm Starter', included: true },
       { name: 'Unlimited AI damage detection', included: true },
@@ -80,8 +78,7 @@ const contractorTiers = [
     savings: 794,
     icon: Building2,
     color: 'from-amber-500 to-orange-600',
-    stripeMonthlyPriceId: 'price_storm_elite_monthly',
-    stripeAnnualPriceId: 'price_storm_elite_annual',
+    priceId: 'storm_elite',
     features: [
       { name: 'Everything in Storm Pro', included: true },
       { name: 'Unlimited team members', included: true },
@@ -180,15 +177,12 @@ export default function ContractorPricing() {
         }),
       });
 
-      if (response.url) {
-        window.location.href = response.url;
-      } else {
-        toast({
-          title: 'Subscription Started!',
-          description: `Welcome to ${tier.name}! Your subscription is now active.`,
-        });
-        setLocation('/dashboard');
-      }
+      // QuickBooks ACH - show success and redirect to dashboard
+      toast({
+        title: 'Subscription Request Received!',
+        description: `${tier.name} selected - QuickBooks ACH bank transfer setup coming soon. 1% fee capped at $10!`,
+      });
+      setLocation('/dashboard');
     } catch (error) {
       console.error('Subscription error:', error);
       toast({
