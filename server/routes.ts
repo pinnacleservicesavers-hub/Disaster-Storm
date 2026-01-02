@@ -2499,8 +2499,8 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
     workhub_essentials: { name: 'WorkHub Essentials', monthlyPrice: 59, annualPrice: 590, track: 'workhub' },
     workhub_growth: { name: 'WorkHub Growth', monthlyPrice: 129, annualPrice: 1290, track: 'workhub' },
     workhub_scale: { name: 'WorkHub Scale', monthlyPrice: 229, annualPrice: 2290, track: 'workhub' },
-    // Ultimate Bundle - Everything (Storm Pro + WorkHub Scale + Premium)
-    ultimate: { name: 'Ultimate Contractor Command', monthlyPrice: 447, annualPrice: 4470, track: 'ultimate' },
+    // Ultimate Bundle - Everything (Storm Pro + WorkBuddy Scale + Premium)
+    ultimate: { name: 'Ultimate Contractor Command', monthlyPrice: 499, annualPrice: 4990, track: 'ultimate' },
   };
 
   app.post('/api/subscriptions/checkout', express.json(), async (req, res) => {
