@@ -27,7 +27,11 @@ import {
   Radar,
   Wind,
   CloudLightning,
-  Sparkles
+  Sparkles,
+  Home,
+  Briefcase,
+  Crown,
+  Star
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -386,11 +390,157 @@ export default function ComingSoon() {
           ))}
         </motion.div>
 
+        {/* Pricing Section */}
+        <motion.div 
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 1.6 }}
+          className="max-w-6xl mx-auto mb-16"
+        >
+          <div className="text-center mb-10">
+            <h2 className="text-3xl md:text-4xl font-bold text-white mb-3">Simple, Transparent Pricing</h2>
+            <p className="text-slate-400 text-lg">Choose the plan that fits your needs</p>
+          </div>
+
+          <div className="grid md:grid-cols-4 gap-4">
+            {/* Homeowners - FREE */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 1.7 }}
+              whileHover={{ y: -5 }}
+            >
+              <Card className="h-full bg-gradient-to-br from-green-500/20 to-emerald-500/10 border-green-500/30 backdrop-blur-xl relative overflow-hidden">
+                <div className="absolute top-0 right-0 bg-green-500 text-black text-xs font-bold px-3 py-1 rounded-bl-lg">
+                  FREE
+                </div>
+                <CardContent className="p-6 pt-8">
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center mb-4">
+                    <Home className="w-6 h-6 text-white" />
+                  </div>
+                  <h3 className="text-xl font-bold text-white mb-1">Homeowners</h3>
+                  <div className="text-3xl font-black text-green-400 mb-2">$0</div>
+                  <p className="text-slate-400 text-sm mb-4">Always free for property owners</p>
+                  <ul className="space-y-2 text-sm text-slate-300">
+                    <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-400" /> Storm alerts for your area</li>
+                    <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-400" /> Connect with contractors</li>
+                    <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-400" /> StormShare community</li>
+                    <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-400" /> Photo documentation</li>
+                  </ul>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            {/* WorkHub - Everyday Contractors */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 1.8 }}
+              whileHover={{ y: -5 }}
+            >
+              <Card className="h-full bg-gradient-to-br from-blue-500/20 to-cyan-500/10 border-blue-500/30 backdrop-blur-xl">
+                <CardContent className="p-6">
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center mb-4">
+                    <Briefcase className="w-6 h-6 text-white" />
+                  </div>
+                  <h3 className="text-xl font-bold text-white mb-1">WorkHub</h3>
+                  <div className="flex items-baseline gap-1 mb-2">
+                    <span className="text-3xl font-black text-blue-400">$59</span>
+                    <span className="text-slate-400">- $229/mo</span>
+                  </div>
+                  <p className="text-slate-400 text-sm mb-4">Everyday contractor tools</p>
+                  <ul className="space-y-2 text-sm text-slate-300">
+                    <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-blue-400" /> CRM & job tracking</li>
+                    <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-blue-400" /> Smart scheduling</li>
+                    <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-blue-400" /> Invoicing & payments</li>
+                    <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-blue-400" /> AI estimates</li>
+                  </ul>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            {/* Disaster Direct - Storm Contractors */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 1.9 }}
+              whileHover={{ y: -5 }}
+            >
+              <Card className="h-full bg-gradient-to-br from-purple-500/20 to-indigo-500/10 border-purple-500/30 backdrop-blur-xl relative overflow-hidden">
+                <div className="absolute top-0 right-0 bg-purple-500 text-white text-xs font-bold px-3 py-1 rounded-bl-lg">
+                  POPULAR
+                </div>
+                <CardContent className="p-6 pt-8">
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-500 flex items-center justify-center mb-4">
+                    <CloudLightning className="w-6 h-6 text-white" />
+                  </div>
+                  <h3 className="text-xl font-bold text-white mb-1">Disaster Direct</h3>
+                  <div className="flex items-baseline gap-1 mb-2">
+                    <span className="text-3xl font-black text-purple-400">$97</span>
+                    <span className="text-slate-400">- $397/mo</span>
+                  </div>
+                  <p className="text-slate-400 text-sm mb-4">Storm response specialists</p>
+                  <ul className="space-y-2 text-sm text-slate-300">
+                    <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-purple-400" /> Real-time storm intel</li>
+                    <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-purple-400" /> AI damage detection</li>
+                    <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-purple-400" /> Claims management</li>
+                    <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-purple-400" /> Xactimate-ready scope</li>
+                  </ul>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            {/* Ultimate - Everything */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 2.0 }}
+              whileHover={{ y: -5 }}
+            >
+              <Card className="h-full bg-gradient-to-br from-amber-500/20 to-orange-500/10 border-amber-500/30 backdrop-blur-xl">
+                <CardContent className="p-6">
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center mb-4">
+                    <Crown className="w-6 h-6 text-white" />
+                  </div>
+                  <h3 className="text-xl font-bold text-white mb-1">Ultimate</h3>
+                  <div className="flex items-baseline gap-1 mb-2">
+                    <span className="text-3xl font-black text-amber-400">$447</span>
+                    <span className="text-slate-400">/mo</span>
+                  </div>
+                  <p className="text-slate-400 text-sm mb-4">Everything included</p>
+                  <ul className="space-y-2 text-sm text-slate-300">
+                    <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-amber-400" /> All WorkHub features</li>
+                    <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-amber-400" /> All Disaster Direct</li>
+                    <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-amber-400" /> 10 team members</li>
+                    <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-amber-400" /> Dedicated support</li>
+                  </ul>
+                </CardContent>
+              </Card>
+            </motion.div>
+          </div>
+
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 2.1 }}
+            className="text-center mt-8"
+          >
+            <a 
+              href="/pricing"
+              className="inline-flex items-center gap-2 text-purple-400 hover:text-purple-300 font-semibold transition-colors"
+              data-testid="link-view-full-pricing"
+            >
+              View Full Pricing Details
+              <ChevronRight className="w-4 h-4" />
+            </a>
+          </motion.div>
+        </motion.div>
+
         {/* Email Signup */}
         <motion.div 
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 1.7 }}
+          transition={{ delay: 2.2 }}
           className="max-w-xl mx-auto text-center mb-16"
         >
           <h3 className="text-2xl font-bold text-white mb-2">Get Early Access</h3>
