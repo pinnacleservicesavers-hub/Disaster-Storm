@@ -19,15 +19,29 @@ export default function LandingPage() {
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-blue-900/20 via-transparent to-transparent" />
         
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-          <div className="text-center mb-16">
+          <div className="text-center mb-12">
             <h1 className="text-5xl md:text-6xl font-bold text-white mb-4">
               Welcome to <span className="bg-gradient-to-r from-purple-400 via-blue-400 to-green-400 bg-clip-text text-transparent">Strategic Service Savers</span>
             </h1>
-            <p className="text-xl text-slate-300 max-w-3xl mx-auto mb-4">
+            <p className="text-xl text-slate-300 max-w-3xl mx-auto mb-6">
               Connecting homeowners with trusted contractors for storm damage repair and everyday home services.
             </p>
+            
+            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-8">
+              <Button 
+                onClick={() => setShowHomeownerChoice(true)}
+                size="lg"
+                className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white font-bold py-6 px-10 text-xl shadow-lg shadow-cyan-500/25 animate-pulse"
+                data-testid="button-get-help-hero"
+              >
+                <Home className="w-6 h-6 mr-3" />
+                Need Help? Start Here
+                <ArrowRight className="w-6 h-6 ml-3" />
+              </Button>
+            </div>
+            
             <p className="text-lg text-slate-400 max-w-2xl mx-auto">
-              Tell us who you are to get started
+              Or tell us who you are below to get started
             </p>
           </div>
 
