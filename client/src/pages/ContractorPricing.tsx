@@ -1,14 +1,138 @@
 import { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
-import { Check, X, Zap, Crown, Building2, Rocket, Star, Shield, Clock, Award, ArrowLeft, Volume2, VolumeX } from 'lucide-react';
+import { Check, X, Zap, Crown, Building2, Rocket, Star, Shield, Clock, Award, ArrowLeft, Volume2, VolumeX, Briefcase, TrendingUp, Layers } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 
+// WorkHub Tiers - Everyday Contractors
+const workhubTiers = [
+  {
+    id: 'workhub_essentials',
+    name: 'WorkHub Essentials',
+    tagline: 'Get organized and start growing',
+    monthlyPrice: 59,
+    annualPrice: 590,
+    savings: 118,
+    icon: Briefcase,
+    color: 'from-blue-500 to-cyan-600',
+    priceId: 'workhub_essentials',
+    features: [
+      { name: 'CRM & customer management', included: true },
+      { name: 'Job tracking & scheduling', included: true },
+      { name: 'Basic invoicing & quotes', included: true },
+      { name: 'Mobile app access', included: true },
+      { name: 'Email support', included: true },
+      { name: 'Photo documentation', included: true },
+      { name: 'AI-powered estimates', included: false },
+      { name: 'Automated follow-ups', included: false },
+      { name: 'Review management', included: false },
+    ],
+    limits: {
+      monthlyJobs: 25,
+      teamMembers: 1,
+      storageGB: 5
+    }
+  },
+  {
+    id: 'workhub_growth',
+    name: 'WorkHub Growth',
+    tagline: 'Scale your business efficiently',
+    monthlyPrice: 129,
+    annualPrice: 1290,
+    savings: 258,
+    icon: TrendingUp,
+    color: 'from-indigo-500 to-purple-600',
+    popular: true,
+    priceId: 'workhub_growth',
+    features: [
+      { name: 'Everything in Essentials', included: true },
+      { name: 'AI-powered estimates & scope', included: true },
+      { name: 'Automated follow-ups & reminders', included: true },
+      { name: 'Review collection & management', included: true },
+      { name: 'QuickBooks integration', included: true },
+      { name: 'Priority phone support', included: true },
+      { name: 'Custom branding', included: true },
+      { name: 'Multi-location support', included: false },
+      { name: 'API access', included: false },
+    ],
+    limits: {
+      monthlyJobs: 100,
+      teamMembers: 5,
+      storageGB: 25
+    }
+  },
+  {
+    id: 'workhub_scale',
+    name: 'WorkHub Scale',
+    tagline: 'Enterprise tools for growing teams',
+    monthlyPrice: 229,
+    annualPrice: 2290,
+    savings: 458,
+    icon: Layers,
+    color: 'from-violet-500 to-fuchsia-600',
+    priceId: 'workhub_scale',
+    features: [
+      { name: 'Everything in Growth', included: true },
+      { name: 'Unlimited team members', included: true },
+      { name: 'Multi-location management', included: true },
+      { name: 'API access & integrations', included: true },
+      { name: 'White-label proposals', included: true },
+      { name: 'Dedicated account manager', included: true },
+      { name: 'Custom training', included: true },
+      { name: 'Advanced analytics', included: true },
+      { name: 'Revenue optimization AI', included: true },
+    ],
+    limits: {
+      monthlyJobs: -1,
+      teamMembers: -1,
+      storageGB: 100
+    }
+  }
+];
+
+// Ultimate Bundle - Both Programs Together
+const ultimateTier = {
+  id: 'ultimate',
+  name: 'Ultimate Contractor Command',
+  tagline: 'Everything you need - everyday work AND storm response',
+  monthlyPrice: 447,
+  annualPrice: 4470,
+  savings: 894,
+  icon: Crown,
+  color: 'from-amber-500 to-orange-600',
+  priceId: 'ultimate',
+  features: [
+    { name: 'All WorkHub Scale features', included: true },
+    { name: 'All Disaster Direct Elite features', included: true },
+    { name: 'Unlimited everything', included: true },
+    { name: '10 team members included', included: true },
+    { name: 'Priority storm deployment', included: true },
+    { name: 'White-label everything', included: true },
+    { name: 'Custom AI training', included: true },
+    { name: 'Dedicated success manager', included: true },
+    { name: 'Revenue share program', included: true },
+    { name: 'VIP 24/7 support', included: true },
+  ],
+  limits: {
+    monthlyPhotos: -1,
+    monthlyJobs: -1,
+    activeJobs: -1,
+    teamMembers: 10,
+    storageGB: 500
+  },
+  comparison: {
+    separatePrice: 626, // $397 (Elite) + $229 (Scale)
+    savings: 179 // per month savings vs buying separately
+  }
+};
+
+// Disaster Direct Tiers - Storm Contractors
 const contractorTiers = [
   {
     id: 'storm_starter',
@@ -232,8 +356,8 @@ export default function ContractorPricing() {
             Contractor Subscription Plans
           </h1>
           <p className="text-xl text-purple-200 max-w-3xl mx-auto">
-            Join thousands of storm contractors using Disaster Direct to dominate their market. 
-            Get AI-powered damage detection, automated claims processing, and exclusive agency access.
+            Choose your track: WorkHub for everyday contractor work, Disaster Direct for storm response, 
+            or get the Ultimate bundle with everything included.
           </p>
         </div>
 
@@ -251,13 +375,219 @@ export default function ContractorPricing() {
           <Label htmlFor="billing-toggle" className={`text-lg ${isAnnual ? 'text-white font-semibold' : 'text-purple-300'}`}>
             Annual
             <Badge className="ml-2 bg-green-500/20 text-green-400 border-green-500/30">
-              Save up to $794/yr
+              Save up to $894/yr
             </Badge>
           </Label>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-          {contractorTiers.map((tier) => (
+        {/* Ultimate Bundle - Featured at Top */}
+        <div className="max-w-4xl mx-auto mb-16">
+          <div className="text-center mb-6">
+            <Badge className="bg-gradient-to-r from-amber-500 to-orange-500 text-white border-0 text-lg px-4 py-1">
+              <Crown className="w-4 h-4 mr-2 inline" />
+              BEST VALUE - SAVE $179/mo
+            </Badge>
+          </div>
+          <Card className="relative overflow-hidden border-2 border-amber-500 shadow-2xl shadow-amber-500/20 bg-gradient-to-br from-amber-500/10 to-orange-500/10 backdrop-blur-lg">
+            <CardHeader className="text-center pb-4">
+              <div className="w-16 h-16 mx-auto rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center mb-4">
+                <Crown className="w-8 h-8 text-white" />
+              </div>
+              <CardTitle className="text-3xl text-white">{ultimateTier.name}</CardTitle>
+              <CardDescription className="text-amber-200 text-lg">{ultimateTier.tagline}</CardDescription>
+              
+              <div className="mt-4">
+                <div className="flex items-baseline justify-center gap-2">
+                  <span className="text-5xl font-bold text-white">
+                    ${isAnnual ? ultimateTier.annualPrice : ultimateTier.monthlyPrice}
+                  </span>
+                  <span className="text-amber-200 text-xl">
+                    /{isAnnual ? 'year' : 'month'}
+                  </span>
+                </div>
+                <div className="mt-2 flex items-center justify-center gap-3">
+                  <span className="text-gray-400 line-through text-lg">${isAnnual ? 7512 : 626}/{ isAnnual ? 'year' : 'month'}</span>
+                  <Badge className="bg-green-500 text-white">
+                    Save ${isAnnual ? ultimateTier.savings : 179}/{isAnnual ? 'year' : 'month'}
+                  </Badge>
+                </div>
+                {isAnnual && (
+                  <p className="text-amber-200 text-sm mt-2">(${Math.round(ultimateTier.annualPrice / 12)}/mo billed annually)</p>
+                )}
+              </div>
+            </CardHeader>
+            
+            <CardContent>
+              <div className="grid md:grid-cols-2 gap-4 max-w-2xl mx-auto">
+                {ultimateTier.features.map((feature, idx) => (
+                  <div key={idx} className="flex items-center gap-3">
+                    <Check className="w-5 h-5 text-green-400 flex-shrink-0" />
+                    <span className="text-white">{feature.name}</span>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+            
+            <CardFooter className="justify-center pb-8">
+              <Button
+                onClick={() => handleSubscribe(ultimateTier as any)}
+                disabled={loading === ultimateTier.id}
+                className="h-14 px-12 text-xl font-bold bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600"
+                data-testid="button-subscribe-ultimate"
+              >
+                {loading === ultimateTier.id ? (
+                  <span className="flex items-center gap-2">
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Processing...
+                  </span>
+                ) : (
+                  <>Get Ultimate - Everything Included</>
+                )}
+              </Button>
+            </CardFooter>
+          </Card>
+        </div>
+
+        {/* Tabs for WorkHub and Disaster Direct */}
+        <Tabs defaultValue="disaster" className="max-w-6xl mx-auto">
+          <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 mb-8 bg-white/10">
+            <TabsTrigger value="workhub" className="data-[state=active]:bg-blue-500 text-white" data-testid="tab-workhub">
+              <Briefcase className="w-4 h-4 mr-2" />
+              WorkHub
+            </TabsTrigger>
+            <TabsTrigger value="disaster" className="data-[state=active]:bg-purple-500 text-white" data-testid="tab-disaster">
+              <Zap className="w-4 h-4 mr-2" />
+              Disaster Direct
+            </TabsTrigger>
+          </TabsList>
+          
+          {/* WorkHub Tiers */}
+          <TabsContent value="workhub">
+            <div className="text-center mb-8">
+              <h2 className="text-2xl font-bold text-white mb-2">WorkHub - Everyday Contractor Tools</h2>
+              <p className="text-blue-200">CRM, scheduling, invoicing, and AI estimates for daily operations</p>
+            </div>
+            <div className="grid md:grid-cols-3 gap-8">
+              {workhubTiers.map((tier) => (
+                <Card 
+                  key={tier.id}
+                  className={`relative overflow-hidden border-2 transition-all duration-300 hover:scale-105 ${
+                    tier.popular 
+                      ? 'border-blue-500 shadow-2xl shadow-blue-500/20' 
+                      : 'border-white/10 hover:border-white/30'
+                  } bg-white/5 backdrop-blur-lg`}
+                  data-testid={`card-tier-${tier.id}`}
+                >
+                  {tier.popular && (
+                    <div className="absolute top-0 left-0 right-0 bg-gradient-to-r from-blue-500 to-indigo-500 text-white text-center py-2 text-sm font-semibold">
+                      <Star className="w-4 h-4 inline mr-1" />
+                      MOST POPULAR
+                    </div>
+                  )}
+                  
+                  <CardHeader className={tier.popular ? 'pt-12' : ''}>
+                    <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${tier.color} flex items-center justify-center mb-4`}>
+                      <tier.icon className="w-7 h-7 text-white" />
+                    </div>
+                    
+                    <CardTitle className="text-2xl text-white">{tier.name}</CardTitle>
+                    <CardDescription className="text-blue-200">{tier.tagline}</CardDescription>
+                    
+                    <div className="mt-4">
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-4xl font-bold text-white">
+                          ${isAnnual ? tier.annualPrice : tier.monthlyPrice}
+                        </span>
+                        <span className="text-blue-300">
+                          /{isAnnual ? 'year' : 'month'}
+                        </span>
+                      </div>
+                      
+                      {isAnnual && (
+                        <div className="mt-2 flex items-center gap-2">
+                          <Badge variant="outline" className="border-green-500/50 text-green-400 text-xs">
+                            Save ${tier.savings}
+                          </Badge>
+                          <span className="text-blue-300 text-sm">
+                            (${Math.round(tier.annualPrice / 12)}/mo)
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </CardHeader>
+                  
+                  <CardContent>
+                    <ul className="space-y-3">
+                      {tier.features.map((feature, idx) => (
+                        <li key={idx} className="flex items-start gap-3">
+                          {feature.included ? (
+                            <Check className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
+                          ) : (
+                            <X className="w-5 h-5 text-gray-500 flex-shrink-0 mt-0.5" />
+                          )}
+                          <span className={feature.included ? 'text-white' : 'text-gray-500'}>
+                            {feature.name}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                    
+                    <div className="mt-6 pt-6 border-t border-white/10">
+                      <h4 className="text-sm font-semibold text-blue-300 mb-3 flex items-center gap-2">
+                        <Shield className="w-4 h-4" />
+                        Plan Limits
+                      </h4>
+                      <div className="grid grid-cols-3 gap-2 text-sm">
+                        <div className="flex flex-col items-center text-white">
+                          <span className="font-bold">{tier.limits.monthlyJobs === -1 ? '∞' : tier.limits.monthlyJobs}</span>
+                          <span className="text-xs text-blue-300">jobs/mo</span>
+                        </div>
+                        <div className="flex flex-col items-center text-white">
+                          <span className="font-bold">{tier.limits.teamMembers === -1 ? '∞' : tier.limits.teamMembers}</span>
+                          <span className="text-xs text-blue-300">team</span>
+                        </div>
+                        <div className="flex flex-col items-center text-white">
+                          <span className="font-bold">{tier.limits.storageGB}</span>
+                          <span className="text-xs text-blue-300">GB</span>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                  
+                  <CardFooter>
+                    <Button
+                      onClick={() => handleSubscribe(tier as any)}
+                      disabled={loading === tier.id}
+                      className={`w-full h-12 text-lg font-semibold ${
+                        tier.popular
+                          ? 'bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600'
+                          : `bg-gradient-to-r ${tier.color} hover:opacity-90`
+                      }`}
+                      data-testid={`button-subscribe-${tier.id}`}
+                    >
+                      {loading === tier.id ? (
+                        <span className="flex items-center gap-2">
+                          <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          Processing...
+                        </span>
+                      ) : (
+                        `Get ${tier.name}`
+                      )}
+                    </Button>
+                  </CardFooter>
+                </Card>
+              ))}
+            </div>
+          </TabsContent>
+          
+          {/* Disaster Direct Tiers */}
+          <TabsContent value="disaster">
+            <div className="text-center mb-8">
+              <h2 className="text-2xl font-bold text-white mb-2">Disaster Direct - Storm Response Platform</h2>
+              <p className="text-purple-200">Real-time weather intel, AI damage detection, claims management, and ECRP access</p>
+            </div>
+            <div className="grid md:grid-cols-3 gap-8">
+              {contractorTiers.map((tier) => (
             <Card 
               key={tier.id}
               className={`relative overflow-hidden border-2 transition-all duration-300 hover:scale-105 ${
@@ -375,8 +705,10 @@ export default function ContractorPricing() {
                 </Button>
               </CardFooter>
             </Card>
-          ))}
-        </div>
+              ))}
+            </div>
+          </TabsContent>
+        </Tabs>
 
         <div className="mt-16 text-center">
           <div className="inline-flex items-center gap-8 bg-white/5 backdrop-blur-lg rounded-2xl px-8 py-6 border border-white/10">
