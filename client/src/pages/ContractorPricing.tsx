@@ -10,11 +10,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 
-// WorkHub Tiers - Everyday Contractors
+// WorkBuddy Tiers - Everyday Contractors
 const workhubTiers = [
   {
     id: 'workhub_essentials',
-    name: 'WorkHub Essentials',
+    name: 'WorkBuddy Essentials',
     tagline: 'Get organized and start growing',
     monthlyPrice: 59,
     annualPrice: 590,
@@ -41,7 +41,7 @@ const workhubTiers = [
   },
   {
     id: 'workhub_growth',
-    name: 'WorkHub Growth',
+    name: 'WorkBuddy Growth',
     tagline: 'Scale your business efficiently',
     monthlyPrice: 129,
     annualPrice: 1290,
@@ -69,7 +69,7 @@ const workhubTiers = [
   },
   {
     id: 'workhub_scale',
-    name: 'WorkHub Scale',
+    name: 'WorkBuddy Scale',
     tagline: 'Enterprise tools for growing teams',
     monthlyPrice: 229,
     annualPrice: 2290,
@@ -108,7 +108,7 @@ const ultimateTier = {
   color: 'from-amber-500 to-orange-600',
   priceId: 'ultimate',
   features: [
-    { name: 'All WorkHub Scale features', included: true },
+    { name: 'All WorkBuddy Scale features', included: true },
     { name: 'All Disaster Direct Elite features', included: true },
     { name: 'Unlimited everything', included: true },
     { name: '10 team members included', included: true },
@@ -257,7 +257,7 @@ export default function ContractorPricing() {
         "Welcome to Strategic Services Savers Contractor Pricing! ... " +
         "I'm Rachel, your AI assistant. ... " +
         "We have two powerful tracks for contractors. ... " +
-        "WorkHub is for everyday jobs, like roofing, painting, HVAC, and general contracting. ... " +
+        "WorkBuddy is for everyday jobs, like roofing, painting, HVAC, and general contracting. ... " +
         "Disaster Direct is for storm response specialists who need real-time weather intel and damage detection. ... " +
         "Or save big with our Ultimate bundle that includes everything! ... " +
         "Choose annual billing and save up to two months free. ... " +
@@ -356,7 +356,7 @@ export default function ContractorPricing() {
             Contractor Subscription Plans
           </h1>
           <p className="text-xl text-purple-200 max-w-3xl mx-auto">
-            Choose your track: WorkHub for everyday contractor work, Disaster Direct for storm response, 
+            Choose your track: WorkBuddy for everyday contractor work, Disaster Direct for storm response, 
             or get the Ultimate bundle with everything included.
           </p>
         </div>
@@ -448,12 +448,12 @@ export default function ContractorPricing() {
           </Card>
         </div>
 
-        {/* Tabs for WorkHub and Disaster Direct */}
+        {/* Tabs for WorkBuddy and Disaster Direct */}
         <Tabs defaultValue="disaster" className="max-w-6xl mx-auto">
           <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 mb-8 bg-white/10">
             <TabsTrigger value="workhub" className="data-[state=active]:bg-blue-500 text-white" data-testid="tab-workhub">
               <Briefcase className="w-4 h-4 mr-2" />
-              WorkHub
+              WorkBuddy
             </TabsTrigger>
             <TabsTrigger value="disaster" className="data-[state=active]:bg-purple-500 text-white" data-testid="tab-disaster">
               <Zap className="w-4 h-4 mr-2" />
@@ -461,10 +461,10 @@ export default function ContractorPricing() {
             </TabsTrigger>
           </TabsList>
           
-          {/* WorkHub Tiers */}
+          {/* WorkBuddy Tiers */}
           <TabsContent value="workhub">
             <div className="text-center mb-8">
-              <h2 className="text-2xl font-bold text-white mb-2">WorkHub - Everyday Contractor Tools</h2>
+              <h2 className="text-2xl font-bold text-white mb-2">WorkBuddy - Everyday Contractor Tools</h2>
               <p className="text-blue-200">CRM, scheduling, invoicing, and AI estimates for daily operations</p>
             </div>
             <div className="grid md:grid-cols-3 gap-8">

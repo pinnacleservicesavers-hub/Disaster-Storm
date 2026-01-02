@@ -241,10 +241,10 @@ export default function ComingSoon() {
             transition={{ delay: 0.3 }}
             className="text-5xl md:text-7xl lg:text-8xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-blue-100 to-cyan-200 mb-4 leading-tight tracking-tight"
           >
-            DISASTER
+            STRATEGIC
             <br />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-500">
-              DIRECT
+              SERVICE SAVERS
             </span>
           </motion.h1>
 
@@ -450,7 +450,7 @@ export default function ComingSoon() {
               </Card>
             </motion.div>
 
-            {/* WorkHub - Everyday Contractors */}
+            {/* WorkBuddy - Everyday Contractors */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -462,7 +462,7 @@ export default function ComingSoon() {
                   <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center mb-4">
                     <Briefcase className="w-6 h-6 text-white" />
                   </div>
-                  <h3 className="text-xl font-bold text-white mb-1">WorkHub</h3>
+                  <h3 className="text-xl font-bold text-white mb-1">WorkBuddy</h3>
                   <div className="flex items-baseline gap-1 mb-2">
                     <span className="text-3xl font-black text-blue-400">$59</span>
                     <span className="text-slate-400">- $229/mo</span>
@@ -528,7 +528,7 @@ export default function ComingSoon() {
                   </div>
                   <p className="text-slate-400 text-sm mb-4">Everything included</p>
                   <ul className="space-y-2 text-sm text-slate-300">
-                    <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-amber-400" /> All WorkHub features</li>
+                    <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-amber-400" /> All WorkBuddy features</li>
                     <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-amber-400" /> All Disaster Direct</li>
                     <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-amber-400" /> 10 team members</li>
                     <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-amber-400" /> Dedicated support</li>
