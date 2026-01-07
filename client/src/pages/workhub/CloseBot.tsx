@@ -31,7 +31,7 @@ export default function CloseBot() {
   useEffect(() => {
     if (voices.length > 0) {
       setTimeout(() => {
-        speakGuidance("Welcome to CloseBot! I'm Rachel, your AI sales agent. I can call customers for you using a natural, human-sounding voice. I explain estimates, answer objections, and help close deals - all automatically. Let me show you how I work.");
+        speakGuidance("Welcome to CloseBot! I'm Evelyn, your AI sales agent. I can call customers for you using a natural, human-sounding voice. I explain estimates, answer objections, and help close deals - all automatically. Let me show you how I work.");
       }, 500);
     }
   }, [voices]);
@@ -59,7 +59,7 @@ export default function CloseBot() {
 
   const handleDemoCall = () => {
     setIsCallingDemo(true);
-    speakGuidance("Hi, this is Rachel calling from Oak City Tree Service. I'm following up on your estimate for tree removal. Our team reviewed the photos you submitted, and we've put together a competitive quote of $2,100. This includes removing the large oak, grinding the stump, and complete cleanup. Do you have any questions about the work?");
+    speakGuidance("Hi, this is Evelyn calling from Oak City Tree Service. I'm following up on your estimate for tree removal. Our team reviewed the photos you submitted, and we've put together a competitive quote of $2,100. This includes removing the large oak, grinding the stump, and complete cleanup. Do you have any questions about the work?");
     setTimeout(() => setIsCallingDemo(false), 15000);
   };
 
@@ -82,7 +82,7 @@ export default function CloseBot() {
             <Button
               variant="ghost"
               size="lg"
-              onClick={() => isVoiceActive ? window.speechSynthesis.cancel() : speakGuidance("I'm Rachel, your AI sales agent. I make human-sounding calls to follow up with customers, explain estimates, handle objections, and close deals automatically.")}
+              onClick={() => isVoiceActive ? window.speechSynthesis.cancel() : speakGuidance("I'm Evelyn, your AI sales agent. I make human-sounding calls to follow up with customers, explain estimates, handle objections, and close deals automatically.")}
               className="text-white hover:bg-white/10"
             >
               {isVoiceActive ? <Volume2 className="w-6 h-6 animate-pulse" /> : <VolumeX className="w-6 h-6" />}

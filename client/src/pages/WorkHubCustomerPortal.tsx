@@ -1999,7 +1999,7 @@ export default function WorkHubCustomerPortal() {
               onClick={() => {
                 isVoiceActive 
                   ? window.speechSynthesis.cancel() 
-                  : speakGuidance("I'm Rachel, your AI assistant. I'll guide you through submitting your project request. Let's get started!");
+                  : speakGuidance("I'm Evelyn, your AI assistant. I'll guide you through submitting your project request. Let's get started!");
               }}
             >
               {isVoiceActive ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}

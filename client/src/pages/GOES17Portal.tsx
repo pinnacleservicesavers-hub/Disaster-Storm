@@ -643,7 +643,7 @@ export default function GOES17Portal() {
       </div>
       <ModuleAIAssistant 
         moduleName="GOES-17 Portal"
-        moduleContext="GOES-17 satellite data monitoring for Western United States. Rachel can explain infrared and visible imagery, interpret lightning strike data, understand atmospheric readings, and help you track real-time storm patterns for contractor deployment planning."
+        moduleContext="GOES-17 satellite data monitoring for Western United States. Evelyn can explain infrared and visible imagery, interpret lightning strike data, understand atmospheric readings, and help you track real-time storm patterns for contractor deployment planning."
       />
     </div>
   );

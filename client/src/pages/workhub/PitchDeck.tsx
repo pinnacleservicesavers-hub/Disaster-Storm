@@ -191,7 +191,7 @@ export default function PitchDeck() {
       speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(
         "Hi there! ... Thanks for checking out WorkHub. ... " +
-        "I'm Rachel, ... and I'd love to tell you a bit about what we're building here. ... " +
+        "I'm Evelyn, ... and I'd love to tell you a bit about what we're building here. ... " +
         "You know how contractors lose almost half their leads? ... " +
         "Just because they're too busy working to follow up? ... " +
         "Well, ... that's exactly the problem we're solving. ... " +

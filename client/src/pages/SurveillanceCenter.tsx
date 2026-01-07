@@ -793,7 +793,7 @@ export default function SurveillanceCenter() {
       </FadeIn>
       <ModuleAIAssistant 
         moduleName="Surveillance Center"
-        moduleContext="Multi-source surveillance and intelligence platform. Rachel can explain live camera feeds, drone monitoring, contractor opportunity detection from visual data, and how to leverage traffic cameras and community feeds for storm damage assessment."
+        moduleContext="Multi-source surveillance and intelligence platform. Evelyn can explain live camera feeds, drone monitoring, contractor opportunity detection from visual data, and how to leverage traffic cameras and community feeds for storm damage assessment."
       />
     </div>
   );

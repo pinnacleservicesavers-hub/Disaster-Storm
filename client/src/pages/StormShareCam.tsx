@@ -527,7 +527,7 @@ export default function StormShareCam() {
       </AnimatePresence>
       <ModuleAIAssistant 
         moduleName="StormShare Cam"
-        moduleContext="Community storm damage sharing platform. Rachel can help you understand live streams, browse damage reports, engage with posts from homeowners, and identify contractor opportunities from user-generated content and help requests."
+        moduleContext="Community storm damage sharing platform. Evelyn can help you understand live streams, browse damage reports, engage with posts from homeowners, and identify contractor opportunities from user-generated content and help requests."
       />
     </DashboardSection>
   );

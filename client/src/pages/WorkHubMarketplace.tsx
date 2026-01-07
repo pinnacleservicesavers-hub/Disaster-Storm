@@ -227,7 +227,7 @@ export default function WorkHubMarketplace() {
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(
       "Hey there! ... Welcome to WorkHub! ... " +
-      "I'm Rachel, ... and I'm so excited to show you around. ... " +
+      "I'm Evelyn, ... and I'm so excited to show you around. ... " +
       "So here's the deal, ... we connect customers with amazing, verified contractors, ... " +
       "for pretty much anything you need done around your home or business. ... " +
       "Roofing, ... tree removal, ... plumbing, ... you name it. ... " +
@@ -316,7 +316,7 @@ export default function WorkHubMarketplace() {
                 data-testid="button-voice-intro"
               >
                 {isVoiceActive ? <Volume2 className="w-5 h-5 animate-pulse" /> : <Play className="w-5 h-5" />}
-                <span className="ml-2">Hear Rachel Explain</span>
+                <span className="ml-2">Hear Evelyn Explain</span>
               </Button>
             </motion.div>
 
@@ -527,7 +527,7 @@ export default function WorkHubMarketplace() {
               <MessageSquare className="w-12 h-12 text-purple-600 mb-4" />
               <h3 className="text-xl font-semibold mb-2">AI Support 24/7</h3>
               <p className="text-slate-600 dark:text-slate-400">
-                Rachel, your AI assistant, is always available for voice or text help.
+                Evelyn, your AI assistant, is always available for voice or text help.
               </p>
             </CardContent>
           </Card>

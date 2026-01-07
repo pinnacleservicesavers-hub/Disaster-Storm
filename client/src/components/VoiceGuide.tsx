@@ -28,7 +28,7 @@ export const PORTAL_EXPLANATIONS: Record<string, VoiceExplanation> = {
     id: 'modules',
     portal: 'modules',
     title: 'Welcome to Disaster Direct StormOps Modules',
-    content: `Welcome to Disaster Direct StormOps Modules. I'm Rachel, your professional voice guide. You have access to seventeen powerful modules organized into five categories. Operations modules include Weather Center for live radar, TrafficCamWatcher for camera monitoring, Eyes in the Sky for route planning, Drone Operations for fleet management, Disaster Essentials Marketplace for emergency supplies, and Disaster Lens for damage documentation. Intelligence modules provide Storm Predictions with AI forecasting, AI Damage Detection for image analysis, and X-RAY REALITY for augmented reality operations. Sales tools include Lead Management for tracking opportunities. Customer modules offer Victim Portal for damage reporting, StormShare community platform, and Customer Hub for relationship management. Management modules include Claims Central for insurance processing, Contractor Command for crew dispatch, Contractor Portal for sign-ups, and Legal Command for compliance tracking. Click Launch on any module to access detailed features and navigation guidance.`,
+    content: `Welcome to Disaster Direct StormOps Modules. I'm Evelyn, your professional voice guide. You have access to seventeen powerful modules organized into five categories. Operations modules include Weather Center for live radar, TrafficCamWatcher for camera monitoring, Eyes in the Sky for route planning, Drone Operations for fleet management, Disaster Essentials Marketplace for emergency supplies, and Disaster Lens for damage documentation. Intelligence modules provide Storm Predictions with AI forecasting, AI Damage Detection for image analysis, and X-RAY REALITY for augmented reality operations. Sales tools include Lead Management for tracking opportunities. Customer modules offer Victim Portal for damage reporting, StormShare community platform, and Customer Hub for relationship management. Management modules include Claims Central for insurance processing, Contractor Command for crew dispatch, Contractor Portal for sign-ups, and Legal Command for compliance tracking. Click Launch on any module to access detailed features and navigation guidance.`,
     keyFeatures: ['17 integrated modules', '5 operational categories', 'Real-time intelligence', 'AI-powered tools', 'Professional operations', 'Complete storm response platform'],
     navigation: 'Click Launch on any module card to access it. Use search to find modules or filter by category: Operations, Intelligence, Sales, Customers, or Management.',
     benefits: ['Comprehensive storm operations', 'Enterprise-grade tools', 'End-to-end workflow coverage'],
@@ -623,7 +623,7 @@ ${explanation.benefits ? `Benefits include: ${explanation.benefits.join(', ')}.`
                 <div className="space-y-3">
                   <div>
                     <label className="text-xs text-cyan-400 mb-1 block">
-                      Voice: Rachel - Professional Female
+                      Voice: Evelyn - Professional Female
                     </label>
                     <Badge variant="outline" className="text-xs bg-cyan-500/20 text-cyan-300 border-cyan-500/30">
                       ElevenLabs Broadcast Pro

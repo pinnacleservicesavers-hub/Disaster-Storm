@@ -96,7 +96,7 @@ export default function LeadPipeline() {
   useEffect(() => {
     if (voices.length > 0) {
       setTimeout(() => {
-        speakGuidance("Welcome to Lead Pipeline! I'm Rachel... your AI assistant for managing customer leads. Here you can track every opportunity... from first contact to job completion. Let me help you stay organized and never miss a follow-up.");
+        speakGuidance("Welcome to Lead Pipeline! I'm Evelyn... your AI assistant for managing customer leads. Here you can track every opportunity... from first contact to job completion. Let me help you stay organized and never miss a follow-up.");
       }, 500);
     }
   }, [voices]);

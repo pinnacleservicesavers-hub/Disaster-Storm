@@ -713,7 +713,7 @@ export default function WeatherCenter() {
             </Button>
           </div>
           <p className="text-sm text-cyan-300/60 mb-4">
-            Click "Start Voice Guide" to talk with Rachel, your AI weather assistant, or use the AI chat button (bottom-right) for text questions about current conditions, forecast changes, storm risks, or contractor deployment strategies.
+            Click "Start Voice Guide" to talk with Evelyn, your AI weather assistant, or use the AI chat button (bottom-right) for text questions about current conditions, forecast changes, storm risks, or contractor deployment strategies.
           </p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <div className="p-3 bg-slate-800/40 rounded-lg border border-cyan-500/20 text-xs text-cyan-300/70">

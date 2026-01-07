@@ -461,7 +461,7 @@ export default function Watchlist() {
       </Card>
       <ModuleAIAssistant 
         moduleName="Watchlist"
-        moduleContext="Location-based impact monitoring and alerting system. Rachel can help you add locations to watch, configure impact score thresholds, set up webhook alerts, understand storm risk scoring, and monitor multiple areas for contractor deployment opportunities."
+        moduleContext="Location-based impact monitoring and alerting system. Evelyn can help you add locations to watch, configure impact score thresholds, set up webhook alerts, understand storm risk scoring, and monitor multiple areas for contractor deployment opportunities."
       />
     </div>
   );

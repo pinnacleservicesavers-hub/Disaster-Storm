@@ -43,7 +43,7 @@ The platform features an enterprise-grade design system with AI-selected backgro
   - **Scope Class System**: Normalized job classification for apples-to-apples comparables across regions and complexity levels
   - **Provenance Tracking**: Full audit trail with AI model, methodology, confidence scores, and human review flags
   - **Price Books**: Contractor unit price templates for job cost breakdown and invoice generation
-- **Rachel Voice Guide System**: Centralized voice scripts for each module and trade-specific contractor guidance:
+- **Evelyn Voice Guide System**: Centralized voice scripts for each module and trade-specific contractor guidance:
   - **Module Guides**: Dashboard, Weather Intelligence, Disaster Lens, Claims Management, Lead Pipeline, Scope Builder, Contract Center
   - **Trade Guides**: Roofing, Tree Removal, Drywall/Paint, Flooring with capture steps, scope questions, and safety reminders
   - **Voice API**: `/api/voice-guide/*` endpoints serving intro scripts, capture prompts, and scope question scripts
@@ -67,7 +67,7 @@ The platform features an enterprise-grade design system with AI-selected backgro
 12. **ContentForge** (`/workhub/contentforge`) - Marketing Engine: Auto-create social posts, website galleries, and ads from job photos
 
 #### Key Features:
-- **Rachel Voice Guidance**: All 12 modules include natural female voice (Samantha/Zira/Jenny preferred) with pitch 1.1, rate 1.05
+- **Evelyn Voice Guidance**: All 12 modules include natural female voice (Samantha/Zira/Jenny preferred) with pitch 1.1, rate 1.05
 - **Customer Portal** (`/workhub/customer`): 5-step project submission with AI photo analysis
 - **Contractor Dashboard** (`/workhub/contractor`): Lead management, job tracking, calendar, payments, reviews
 - **Separate Lead Management**: WorkHub leads are everyday (non-emergency) jobs vs Disaster Direct storm leads
@@ -110,7 +110,7 @@ The platform features an enterprise-grade design system with AI-selected backgro
 - **xAI Grok**: Primary AI intelligence engine (Grok-2-1212, Grok-2-vision-1212).
 - **OpenAI**: GPT-5-mini, GPT-4 for various AI tasks.
 - **Twilio**: SMS alerts, voice calls.
-- **ElevenLabs**: Voice cloning and TTS (Rachel voice).
+- **ElevenLabs**: Voice cloning and TTS (Evelyn voice).
 - **Slack**: Team collaboration.
 - **SendGrid**: Email delivery.
 

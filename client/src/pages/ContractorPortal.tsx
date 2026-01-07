@@ -600,7 +600,7 @@ export default function ContractorPortal() {
       
       setIsVoiceGuideActive(true);
       
-      const voiceContent = `Welcome to your Contractor Portal! I'm Rachel, your AI assistant, and I'll guide you through managing your storm damage business.
+      const voiceContent = `Welcome to your Contractor Portal! I'm Evelyn, your AI assistant, and I'll guide you through managing your storm damage business.
 
       Let me walk you through the main sections. The Dashboard shows your active projects, monthly revenue, new leads, and critical alerts at a glance. You can see everything you need to run your business efficiently.
 

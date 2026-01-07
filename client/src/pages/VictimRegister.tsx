@@ -493,7 +493,7 @@ export default function VictimRegister() {
       </div>
       <ModuleAIAssistant 
         moduleName="Victim Registration"
-        moduleContext="New homeowner account registration for storm damage reporting. Rachel can guide you through the registration process, explain required information, help with property details, and answer questions about data privacy and next steps."
+        moduleContext="New homeowner account registration for storm damage reporting. Evelyn can guide you through the registration process, explain required information, help with property details, and answer questions about data privacy and next steps."
       />
     </div>
   );

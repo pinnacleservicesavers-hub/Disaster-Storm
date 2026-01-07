@@ -61,7 +61,7 @@ export default function BankingSettingsPage() {
       </div>
       <ModuleAIAssistant 
         moduleName="Banking Settings"
-        moduleContext="Secure bank account configuration for direct deposit payments. Rachel can help you set up routing and account numbers, explain payment verification, and ensure secure transactions for contractor payments."
+        moduleContext="Secure bank account configuration for direct deposit payments. Evelyn can help you set up routing and account numbers, explain payment verification, and ensure secure transactions for contractor payments."
       />
     </div>
   );

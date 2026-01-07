@@ -26,7 +26,7 @@ export default function SignOut() {
       </div>
       <ModuleAIAssistant 
         moduleName="Sign Out"
-        moduleContext="Session termination page. Rachel can answer questions about session management, authentication flow, and next steps after signing out."
+        moduleContext="Session termination page. Evelyn can answer questions about session management, authentication flow, and next steps after signing out."
       />
     </main>
   );

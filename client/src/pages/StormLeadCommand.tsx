@@ -626,7 +626,7 @@ export default function StormLeadCommand() {
       </Tabs>
       <ModuleAIAssistant 
         moduleName="Storm Lead Command"
-        moduleContext="Predictive storm lead generation system. Rachel can explain geo-capture zones, social media monitoring for damage reports, weather trigger automation, and how to turn storm predictions into qualified contractor leads."
+        moduleContext="Predictive storm lead generation system. Evelyn can explain geo-capture zones, social media monitoring for damage reports, weather trigger automation, and how to turn storm predictions into qualified contractor leads."
       />
     </div>
   );

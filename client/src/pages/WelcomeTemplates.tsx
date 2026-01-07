@@ -161,7 +161,7 @@ export function WelcomeTemplates() {
       </div>
       <ModuleAIAssistant 
         moduleName="Welcome Templates"
-        moduleContext="State-specific welcome letter templates for disaster victims. Rachel can help you customize HTML content, explain template variables, understand state-specific legal requirements, and manage automated letter generation."
+        moduleContext="State-specific welcome letter templates for disaster victims. Evelyn can help you customize HTML content, explain template variables, understand state-specific legal requirements, and manage automated letter generation."
       />
     </div>
   );

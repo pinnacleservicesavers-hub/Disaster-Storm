@@ -30,7 +30,7 @@ export default function ReviewRocket() {
   useEffect(() => {
     if (voices.length > 0) {
       setTimeout(() => {
-        speakGuidance("Welcome to ReviewRocket! I'm Rachel. I automatically collect reviews after every job and distribute them to Google, Facebook, and other platforms. You have a 4.9 star rating with 156 reviews. I also respond to reviews automatically using AI.");
+        speakGuidance("Welcome to ReviewRocket! I'm Evelyn. I automatically collect reviews after every job and distribute them to Google, Facebook, and other platforms. You have a 4.9 star rating with 156 reviews. I also respond to reviews automatically using AI.");
       }, 500);
     }
   }, [voices]);
@@ -81,7 +81,7 @@ export default function ReviewRocket() {
             <Button
               variant="ghost"
               size="lg"
-              onClick={() => isVoiceActive ? window.speechSynthesis.cancel() : speakGuidance("I'm Rachel. ReviewRocket automatically collects reviews, distributes them to multiple platforms, and responds using AI. Building your reputation has never been easier.")}
+              onClick={() => isVoiceActive ? window.speechSynthesis.cancel() : speakGuidance("I'm Evelyn. ReviewRocket automatically collects reviews, distributes them to multiple platforms, and responds using AI. Building your reputation has never been easier.")}
               className="text-white hover:bg-white/10"
             >
               {isVoiceActive ? <Volume2 className="w-6 h-6 animate-pulse" /> : <VolumeX className="w-6 h-6" />}

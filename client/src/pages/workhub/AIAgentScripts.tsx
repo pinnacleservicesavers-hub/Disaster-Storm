@@ -22,7 +22,7 @@ const agentScripts = {
         category: 'opening',
         timing: '2-4 hours after estimate',
         psychologyUsed: ['Reciprocity', 'Social Proof', 'Scarcity'],
-        script: `Hi, this is Rachel calling from {contractor_name}. 
+        script: `Hi, this is Evelyn calling from {contractor_name}. 
 
 I'm reaching out because you recently requested an estimate for {service_type} work at your property.
 
@@ -54,7 +54,7 @@ Perfect! I'm looking at the schedule and we have a really good crew with an open
         category: 'follow_up',
         timing: '48 hours after initial call',
         psychologyUsed: ['Loss Aversion', 'FOMO', 'Commitment & Consistency'],
-        script: `Hi {customer_name}, this is Rachel from {contractor_name} again.
+        script: `Hi {customer_name}, this is Evelyn from {contractor_name} again.
 
 [LIKING - Personal touch]
 I hope I'm not catching you at a bad time! 
@@ -86,7 +86,7 @@ We have openings on {available_date_1} or {available_date_2} - which would work 
         category: 'follow_up',
         timing: '5 days after initial contact',
         psychologyUsed: ['Scarcity', 'FOMO', 'Loss Aversion'],
-        script: `Hi {customer_name}, this is Rachel from {contractor_name}.
+        script: `Hi {customer_name}, this is Evelyn from {contractor_name}.
 
 [LIKING]
 I know you're probably busy, so I'll keep this quick.
@@ -115,7 +115,7 @@ What do you say - should I lock that in for you? Tuesday or Thursday work better
         category: 'scheduling',
         timing: '24 hours before appointment',
         psychologyUsed: ['Commitment & Consistency', 'Authority'],
-        script: `Hi {customer_name}, this is Rachel from {contractor_name}.
+        script: `Hi {customer_name}, this is Evelyn from {contractor_name}.
 
 [EXCITEMENT + LIKING]
 I'm so excited to call you today!
@@ -149,7 +149,7 @@ Perfect! We'll see you tomorrow. Have a great day, {customer_name}!`,
         category: 'reengagement',
         timing: '30 days after going cold',
         psychologyUsed: ['Reciprocity', 'Social Proof', 'Fresh Start'],
-        script: `Hi {customer_name}, this is Rachel from {contractor_name}.
+        script: `Hi {customer_name}, this is Evelyn from {contractor_name}.
 
 [LIKING + HONESTY]
 I hope you remember me - we chatted about your {service_type} project about a month ago. I know we didn't connect on timing back then, and I'm not calling to pressure you.

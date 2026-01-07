@@ -808,7 +808,7 @@ export default function FormBuilder() {
       </div>
       <ModuleAIAssistant 
         moduleName="Form Builder"
-        moduleContext="Dynamic form creation and management tool. Rachel can guide you through building custom forms, adding fields with validation rules, configuring conditional logic, setting up webhooks, and analyzing form submission data and conversion rates."
+        moduleContext="Dynamic form creation and management tool. Evelyn can guide you through building custom forms, adding fields with validation rules, configuring conditional logic, setting up webhooks, and analyzing form submission data and conversion rates."
       />
     </div>
   );

@@ -259,7 +259,7 @@ export default function ContractorPricing() {
       speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(
         "Welcome to Strategic Services Savers Contractor Pricing! ... " +
-        "I'm Rachel, your AI assistant. ... " +
+        "I'm Evelyn, your AI assistant. ... " +
         "We have two powerful tracks for contractors. ... " +
         "WorkBuddy is for everyday jobs, like roofing, painting, HVAC, and general contracting. ... " +
         "Disaster Direct is for storm response specialists who need real-time weather intel and damage detection. ... " +

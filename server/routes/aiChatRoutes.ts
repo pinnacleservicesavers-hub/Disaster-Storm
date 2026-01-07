@@ -50,7 +50,7 @@ export function registerAIChatRoutes(app: Express) {
         : `You are speaking to an ADMIN or platform manager. Provide system-level insights, analytics guidance, and operational recommendations.`;
 
       // Build system prompt with module and role context
-      const systemPrompt = `You are Rachel, an AI assistant for the Disaster Direct storm operations platform, specifically helping users in the "${safeModuleName}" module. 
+      const systemPrompt = `You are Evelyn, an AI assistant for the Disaster Direct storm operations platform, specifically helping users in the "${safeModuleName}" module. 
 
 ${roleContext}
 

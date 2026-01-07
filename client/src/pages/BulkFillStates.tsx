@@ -278,7 +278,7 @@ export function BulkFillStates() {
       </div>
       <ModuleAIAssistant 
         moduleName="Bulk Fill States"
-        moduleContext="Automated state field population tool using ZIP code prefix mapping. Rachel can explain how the longest-prefix matching algorithm works, help troubleshoot bulk updates, and guide you through filtering and exporting results."
+        moduleContext="Automated state field population tool using ZIP code prefix mapping. Evelyn can explain how the longest-prefix matching algorithm works, help troubleshoot bulk updates, and guide you through filtering and exporting results."
       />
     </div>
   );

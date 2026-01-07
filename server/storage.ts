@@ -941,11 +941,11 @@ export class MemStorage implements IStorage {
     // Debug: log all users in storage
     console.log('🔍 Users in storage after seeding:', Array.from(this.users.keys()));
 
-    // Initialize default FEMALE VOICE PROFILES (Rachel & Lily from ElevenLabs)
+    // Initialize default FEMALE VOICE PROFILES (Evelyn & Lily from ElevenLabs)
     const defaultVoiceProfiles = [
       {
         id: 'voice-rachel-default',
-        name: 'Rachel - Professional Female Voice',
+        name: 'Evelyn - Professional Female Voice',
         provider: 'elevenlabs',
         providerVoiceId: '21m00Tcm4TlvDq8ikWAM',
         isDefault: true,
@@ -1014,7 +1014,7 @@ export class MemStorage implements IStorage {
       this.voiceProfiles.set(profile.id, profile as VoiceProfile);
     });
     
-    console.log('🎤 Seeded default FEMALE voice profiles: Rachel (default), Lily, Nova (fallback)');
+    console.log('🎤 Seeded default FEMALE voice profiles: Evelyn (default), Lily, Nova (fallback)');
 
     // Initialize with some basic insurance companies
     const companies = [

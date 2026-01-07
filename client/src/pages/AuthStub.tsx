@@ -113,7 +113,7 @@ export default function AuthStub() {
       </Card>
       <ModuleAIAssistant 
         moduleName="Authentication Stub"
-        moduleContext="Demo authentication page for testing role-based access. Rachel can help you understand how to configure roles, user IDs, and permissions for admin, contractor, and homeowner portals."
+        moduleContext="Demo authentication page for testing role-based access. Evelyn can help you understand how to configure roles, user IDs, and permissions for admin, contractor, and homeowner portals."
       />
     </main>
   );

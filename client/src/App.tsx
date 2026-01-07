@@ -81,6 +81,13 @@ const EmergencyContractorReadiness = lazy(() => import("./pages/EmergencyContrac
 // Contractor Pricing Page
 const ContractorPricing = lazy(() => import("./pages/ContractorPricing"));
 
+// Legal & Trust Pages (Public)
+const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
+const TermsOfService = lazy(() => import("./pages/TermsOfService"));
+const Disclaimers = lazy(() => import("./pages/Disclaimers"));
+const TrustedDataSources = lazy(() => import("./pages/TrustedDataSources"));
+const SecurityTrust = lazy(() => import("./pages/SecurityTrust"));
+
 // Loading indicator
 function Loader() {
   return (
@@ -145,7 +152,7 @@ export default function App() {
   const location = useLocation();
   
   // Public routes that don't need auth
-  const isPublicRoute = ['/', '/auth/login', '/auth/callback', '/pricing', '/workhub/customer'].includes(location.pathname);
+  const isPublicRoute = ['/', '/auth/login', '/auth/callback', '/pricing', '/workhub/customer', '/privacy', '/terms', '/disclaimers', '/data-sources', '/security'].includes(location.pathname);
   
   // Show TopNav only for authenticated users
   const showNav = user && !isPublicRoute;
@@ -165,6 +172,13 @@ export default function App() {
           <Route path="/auth/login" element={<Login />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="/pricing" element={<ContractorPricing />} />
+          
+          {/* Legal & Trust Pages - Public (Required for App Store, Google Play, and Legal Compliance) */}
+          <Route path="/privacy" element={<PrivacyPolicy />} />
+          <Route path="/terms" element={<TermsOfService />} />
+          <Route path="/disclaimers" element={<Disclaimers />} />
+          <Route path="/data-sources" element={<TrustedDataSources />} />
+          <Route path="/security" element={<SecurityTrust />} />
           
           {/* Disaster Direct Dashboard - Protected */}
           <Route path="/dashboard" element={
