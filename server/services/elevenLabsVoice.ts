@@ -15,6 +15,32 @@ export interface CloneVoiceRequest {
   labels?: Record<string, string>;
 }
 
+export interface ConversationalAgentConfig {
+  name: string;
+  prompt: string;
+  firstMessage?: string;
+  voiceId?: string;
+  language?: string;
+  modelId?: string;
+  maxDurationSeconds?: number;
+  tools?: ConversationalTool[];
+  knowledgeBase?: string[];
+}
+
+export interface ConversationalTool {
+  name: string;
+  description: string;
+  parameters: Record<string, { type: string; description: string }>;
+  webhookUrl?: string;
+}
+
+export interface ConversationalAgentResponse {
+  agentId: string;
+  name: string;
+  status: string;
+  signedUrl?: string;
+}
+
 export interface CloneVoiceResponse {
   voiceId: string;
   name: string;
@@ -190,6 +216,177 @@ export class ElevenLabsVoiceService {
    */
   isAvailable(): boolean {
     return !!this.client;
+  }
+
+  // ===== CONVERSATIONAL AI AGENTS =====
+
+  /**
+   * Create a conversational AI agent
+   */
+  async createAgent(config: ConversationalAgentConfig): Promise<ConversationalAgentResponse> {
+    if (!this.client) {
+      throw new Error('ElevenLabs API key not configured');
+    }
+
+    try {
+      console.log('🤖 Creating ElevenLabs Conversational AI agent:', config.name);
+
+      const agent = await (this.client as any).conversationalAi.agents.create({
+        name: config.name,
+        conversationConfig: {
+          agent: {
+            prompt: {
+              prompt: config.prompt,
+            },
+            firstMessage: config.firstMessage || "Hello! How can I help you today?",
+            language: config.language || "en",
+          },
+          tts: {
+            voiceId: config.voiceId || "JBFqnCBsd6RMkjVDRZzb", // Default: Adam voice
+            modelId: config.modelId || "eleven_flash_v2_5", // Best for real-time agents
+          },
+        },
+      });
+
+      console.log('✅ Conversational AI agent created:', agent.agent_id || agent.agentId);
+
+      return {
+        agentId: agent.agent_id || agent.agentId,
+        name: config.name,
+        status: 'active',
+      };
+    } catch (error) {
+      console.error('ElevenLabs create agent error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get a conversational AI agent by ID
+   */
+  async getAgent(agentId: string): Promise<any> {
+    if (!this.client) {
+      throw new Error('ElevenLabs API key not configured');
+    }
+
+    try {
+      const agent = await (this.client as any).conversationalAi.agents.get(agentId);
+      return agent;
+    } catch (error) {
+      console.error('ElevenLabs get agent error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update a conversational AI agent
+   */
+  async updateAgent(agentId: string, config: Partial<ConversationalAgentConfig>): Promise<any> {
+    if (!this.client) {
+      throw new Error('ElevenLabs API key not configured');
+    }
+
+    try {
+      console.log('🔄 Updating ElevenLabs agent:', agentId);
+
+      const updatePayload: any = {};
+      
+      if (config.name) updatePayload.name = config.name;
+      if (config.prompt || config.firstMessage || config.language) {
+        updatePayload.conversationConfig = {
+          agent: {
+            ...(config.prompt && { prompt: { prompt: config.prompt } }),
+            ...(config.firstMessage && { firstMessage: config.firstMessage }),
+            ...(config.language && { language: config.language }),
+          },
+        };
+      }
+      if (config.voiceId || config.modelId) {
+        updatePayload.conversationConfig = updatePayload.conversationConfig || {};
+        updatePayload.conversationConfig.tts = {
+          ...(config.voiceId && { voiceId: config.voiceId }),
+          ...(config.modelId && { modelId: config.modelId }),
+        };
+      }
+
+      const agent = await (this.client as any).conversationalAi.agents.update(agentId, updatePayload);
+      console.log('✅ Agent updated successfully');
+      return agent;
+    } catch (error) {
+      console.error('ElevenLabs update agent error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete a conversational AI agent
+   */
+  async deleteAgent(agentId: string): Promise<void> {
+    if (!this.client) {
+      throw new Error('ElevenLabs API key not configured');
+    }
+
+    try {
+      await (this.client as any).conversationalAi.agents.delete(agentId);
+      console.log('✅ Agent deleted:', agentId);
+    } catch (error) {
+      console.error('ElevenLabs delete agent error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get signed URL for client-side agent access (secure, no API key exposure)
+   */
+  async getAgentSignedUrl(agentId: string): Promise<string> {
+    if (!this.client) {
+      throw new Error('ElevenLabs API key not configured');
+    }
+
+    try {
+      const result = await (this.client as any).conversationalAi.agents.getSignedUrl(agentId);
+      return result.signed_url || result.signedUrl;
+    } catch (error) {
+      console.error('ElevenLabs get signed URL error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * List all conversational AI agents
+   */
+  async listAgents(): Promise<any[]> {
+    if (!this.client) {
+      throw new Error('ElevenLabs API key not configured');
+    }
+
+    try {
+      const response = await (this.client as any).conversationalAi.agents.getAll();
+      return response.agents || [];
+    } catch (error) {
+      console.error('ElevenLabs list agents error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get conversation history for an agent
+   */
+  async getConversations(agentId: string, options?: { startDate?: string; endDate?: string }): Promise<any[]> {
+    if (!this.client) {
+      throw new Error('ElevenLabs API key not configured');
+    }
+
+    try {
+      const response = await (this.client as any).conversationalAi.conversations.list({
+        agent_id: agentId,
+        ...options,
+      });
+      return response.conversations || [];
+    } catch (error) {
+      console.error('ElevenLabs get conversations error:', error);
+      throw error;
+    }
   }
 }
 

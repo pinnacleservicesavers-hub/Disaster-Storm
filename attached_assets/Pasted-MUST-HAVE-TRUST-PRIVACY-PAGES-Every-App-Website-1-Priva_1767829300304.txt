@@ -1,0 +1,228 @@
+MUST-HAVE TRUST & PRIVACY PAGES (Every App + Website)
+1) Privacy Policy (Required)
+
+This is the #1 legal protection page and is REQUIRED by:
+
+App Store (Apple)
+
+Google Play Store
+
+Most payment processors
+
+Any platform collecting user data
+
+What it must include:
+
+✅ What data you collect
+✅ Why you collect it
+✅ How you store it (encryption, secured systems)
+✅ Who you share it with (if anyone: Twilio, Stripe, Google, etc.)
+✅ Cookies + tracking (if website)
+✅ User rights (delete data, request copies)
+✅ How users contact you about privacy
+✅ Policy “Last Updated” date (important!)
+
+2) Terms of Service / Terms & Conditions (Required)
+
+This protects you from:
+
+lawsuits
+
+misunderstandings
+
+users claiming your app “promised” something
+
+liability from decisions made based on Evelyn
+
+Must include:
+
+✅ No guarantee of results (weather, predictions, money estimates, claim outcomes)
+✅ Users are responsible for their decisions
+✅ Liability limitation (you’re not responsible for losses due to using app)
+✅ Dispute resolution / arbitration clause (optional but VERY helpful)
+✅ Termination clause (you can suspend users)
+✅ Acceptable use policy
+✅ “Last Updated” date
+
+3) Trusted Data & Sources Page (STRONGLY Recommended)
+
+Since Evelyn is giving:
+
+weather facts
+
+storm predictions
+
+traffic logistics
+
+environmental data
+
+legal education on claims laws
+
+You MUST clearly explain:
+✅ where data comes from (NOAA, NWS, FEMA, DOT, etc.)
+✅ that data is sometimes delayed or inaccurate
+✅ you do not control these sources
+✅ the user should verify critical info (evacuation orders, etc.)
+✅ “Last Updated” + “Data refreshed every ___ minutes/hours”
+
+This page builds trust and protects you legally.
+
+4) Disclaimer Page (EXTREMELY IMPORTANT for Evelyn)
+
+Evelyn should have multiple disclaimers because she speaks about sensitive topics.
+
+You need these disclaimers:
+✅ Weather & Disaster Disclaimer
+
+Predictions are probabilistic, not certain
+
+Use official emergency alerts for evacuation
+
+Not responsible for injury, loss, or damages
+
+✅ Financial / Revenue Estimate Disclaimer
+
+Estimates are projections only
+
+No guarantee of earnings
+
+Many factors affect revenue (labor, insurance approvals, market, etc.)
+
+✅ Legal Disclaimer (VERY IMPORTANT)
+
+Evelyn does not provide legal advice
+
+Laws vary by state and change over time
+
+Users should consult an attorney for legal counsel
+
+✅ Claims & Insurance Disclaimer
+
+Evelyn provides educational guidance, not insurance representation
+
+Not a public adjuster (unless you are licensed)
+
+Always confirm claim requirements with insurer
+
+5) Security & Trust Page (Highly Recommended)
+
+This should highlight what you do to protect data:
+✅ Secure storage
+✅ Encryption
+✅ Role-based access
+✅ Limited employee access
+✅ Audit logging
+✅ Reporting vulnerabilities
+
+This page helps:
+
+customers trust you
+
+contractors trust you
+
+insurance companies take you more seriously
+
+✅ Where These Pages Must Appear (For Protection)
+✅ Website:
+
+Footer links: Privacy | Terms | Disclaimers | Trusted Data | Security
+
+Visible on ALL pages
+
+✅ App:
+
+Settings / About screen
+
+During onboarding (checkbox for terms + privacy acceptance)
+
+In login screen or sign-up screen
+
+For iOS/Android: link in app store listing
+
+✅ “Updated Date” Requirement (Must Have)
+
+Every policy page should show:
+
+✅ Effective Date: January 7, 2026
+✅ Last Updated: January 7, 2026
+✅ Version: v1.0
+
+This protects you because it proves:
+
+the rules existed before a dispute
+
+users accepted them
+
+you can update policies later
+
+✅ Extra Protection for Your Specific Business
+
+Since you’re dealing with:
+
+insurance claims
+
+contractor communications
+
+AI phone calls
+
+storm predictions
+
+You need these additional protections:
+
+✅ A) Consent to Call / Text (VERY IMPORTANT)
+
+If Evelyn will call customers and leads, you need:
+✅ TCPA Consent language
+✅ Opt-out instructions (“Reply STOP” or “Press 9 to opt out”)
+✅ Disclosure that calls may be recorded and may use AI
+
+This should be:
+
+included in sign-up
+
+in lead forms
+
+on contracts
+
+and inside app Terms
+
+✅ B) AI Disclosure
+
+Some states and platforms are now stricter about AI communication.
+
+You should include:
+✅ “You are interacting with an AI assistant (Evelyn).”
+
+✅ C) Data Retention Policy
+
+State how long you keep:
+
+call logs
+
+claim info
+
+recorded audio
+
+messages
+
+✅ Best Practice Layout (For Every Website + App)
+
+Here is the clean set of links you’ll want:
+
+✅ Privacy Policy
+✅ Terms of Service
+✅ Disclaimers (Weather + Legal + Financial)
+✅ Trusted Data & Sources
+✅ Security & Trust
+✅ Contact / Support
+
+✅ Want me to write these for you?
+
+I can write you:
+✅ a full Privacy Policy
+✅ Terms of Service
+✅ Disclaimers page
+✅ Trusted Data page
+✅ TCPA Consent language
+✅ AI Disclosure language
+✅ “Last Updated” headers for all pages

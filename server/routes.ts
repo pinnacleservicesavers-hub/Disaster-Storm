@@ -13697,6 +13697,112 @@ What specific area or type of incident would you like me to focus on? I can prov
     }
   });
 
+  // ===== ELEVENLABS CONVERSATIONAL AI AGENTS =====
+
+  // Create a conversational AI agent
+  app.post('/api/elevenlabs/agents', express.json(), async (req, res) => {
+    try {
+      const { elevenLabsVoice } = await import('./services/elevenLabsVoice.js');
+      const { name, prompt, firstMessage, voiceId, language, modelId } = req.body;
+
+      if (!name || !prompt) {
+        return res.status(400).json({ error: 'Name and prompt are required' });
+      }
+
+      const agent = await elevenLabsVoice.createAgent({
+        name,
+        prompt,
+        firstMessage,
+        voiceId,
+        language,
+        modelId: modelId || 'eleven_flash_v2_5', // Best for real-time
+      });
+
+      res.status(201).json({ success: true, agent });
+    } catch (error) {
+      console.error('Error creating conversational AI agent:', error);
+      res.status(500).json({ error: 'Failed to create conversational AI agent' });
+    }
+  });
+
+  // List all conversational AI agents
+  app.get('/api/elevenlabs/agents', async (req, res) => {
+    try {
+      const { elevenLabsVoice } = await import('./services/elevenLabsVoice.js');
+      const agents = await elevenLabsVoice.listAgents();
+      res.json({ agents, count: agents.length });
+    } catch (error) {
+      console.error('Error listing agents:', error);
+      res.status(500).json({ error: 'Failed to list agents' });
+    }
+  });
+
+  // Get a specific agent
+  app.get('/api/elevenlabs/agents/:agentId', async (req, res) => {
+    try {
+      const { elevenLabsVoice } = await import('./services/elevenLabsVoice.js');
+      const agent = await elevenLabsVoice.getAgent(req.params.agentId);
+      res.json({ agent });
+    } catch (error) {
+      console.error('Error getting agent:', error);
+      res.status(500).json({ error: 'Failed to get agent' });
+    }
+  });
+
+  // Update an agent
+  app.patch('/api/elevenlabs/agents/:agentId', express.json(), async (req, res) => {
+    try {
+      const { elevenLabsVoice } = await import('./services/elevenLabsVoice.js');
+      const agent = await elevenLabsVoice.updateAgent(req.params.agentId, req.body);
+      res.json({ success: true, agent });
+    } catch (error) {
+      console.error('Error updating agent:', error);
+      res.status(500).json({ error: 'Failed to update agent' });
+    }
+  });
+
+  // Delete an agent
+  app.delete('/api/elevenlabs/agents/:agentId', async (req, res) => {
+    try {
+      const { elevenLabsVoice } = await import('./services/elevenLabsVoice.js');
+      await elevenLabsVoice.deleteAgent(req.params.agentId);
+      res.json({ success: true, message: 'Agent deleted' });
+    } catch (error) {
+      console.error('Error deleting agent:', error);
+      res.status(500).json({ error: 'Failed to delete agent' });
+    }
+  });
+
+  // Get signed URL for client-side agent access (secure, no API key exposure)
+  app.post('/api/elevenlabs/agents/:agentId/signed-url', async (req, res) => {
+    try {
+      const { elevenLabsVoice } = await import('./services/elevenLabsVoice.js');
+      const signedUrl = await elevenLabsVoice.getAgentSignedUrl(req.params.agentId);
+      res.json({ signedUrl, expiresIn: '15 minutes' });
+    } catch (error) {
+      console.error('Error getting signed URL:', error);
+      res.status(500).json({ error: 'Failed to get signed URL' });
+    }
+  });
+
+  // Get conversation history for an agent
+  app.get('/api/elevenlabs/agents/:agentId/conversations', async (req, res) => {
+    try {
+      const { elevenLabsVoice } = await import('./services/elevenLabsVoice.js');
+      const { startDate, endDate } = req.query;
+      const conversations = await elevenLabsVoice.getConversations(
+        req.params.agentId,
+        { startDate: startDate as string, endDate: endDate as string }
+      );
+      res.json({ conversations, count: conversations.length });
+    } catch (error) {
+      console.error('Error getting conversations:', error);
+      res.status(500).json({ error: 'Failed to get conversations' });
+    }
+  });
+
+  console.log('🤖 ElevenLabs Conversational AI routes registered');
+
   // ===== DRONE FLEET MANAGEMENT ENDPOINTS =====
 
   // Get all drones
