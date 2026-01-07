@@ -97,72 +97,69 @@ export default function ModuleAIAssistant({ moduleName, moduleContext, externalT
     }
   };
 
-  // Get the best available female voice from browser
-  const getPreferredFemaleVoice = () => {
-    const voices = window.speechSynthesis.getVoices();
-    
-    // Priority list of natural-sounding female voices (upbeat and friendly)
-    const preferredVoices = [
-      'Samantha', 'Karen', 'Moira', 'Fiona', 'Victoria',
-      'Google US English Female', 'Google UK English Female',
-      'Microsoft Zira', 'Microsoft Aria', 'Microsoft Jenny',
-    ];
-    
-    for (const preferred of preferredVoices) {
-      const voice = voices.find(v => 
-        v.name.toLowerCase().includes(preferred.toLowerCase())
-      );
-      if (voice) return voice;
-    }
-    
-    // Fall back to any English female voice
-    const englishFemale = voices.find(v => 
-      v.lang.startsWith('en') && 
-      ['samantha', 'zira', 'aria', 'jenny', 'karen', 'moira', 'fiona', 'victoria', 'susan', 'kate'].some(
-        name => v.name.toLowerCase().includes(name)
-      )
-    );
-    if (englishFemale) return englishFemale;
-    
-    return voices.find(v => v.lang.startsWith('en')) || voices[0];
-  };
-
+  // Use ElevenLabs via backend API for natural voice (Evelyn)
   const speakResponse = async (text: string) => {
     if (!audioEnabled) return;
     
     try {
       setIsSpeaking(true);
-      window.speechSynthesis.cancel();
       
+      // Stop any currently playing audio
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+      
+      // Truncate text for reasonable audio length
       const truncatedText = text.length > 800 
         ? text.substring(0, 800) + '... For the complete response, please review the full text above.'
         : text;
       
-      const utterance = new SpeechSynthesisUtterance(truncatedText);
+      // Call backend ElevenLabs TTS API
+      const response = await fetch('/api/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: truncatedText }),
+      });
       
-      // Configure for natural, upbeat female voice
-      const voice = getPreferredFemaleVoice();
-      if (voice) {
-        utterance.voice = voice;
+      if (!response.ok) {
+        throw new Error('TTS request failed');
       }
       
-      utterance.rate = 1.05;
-      utterance.pitch = 1.1;
-      utterance.volume = 1.0;
+      const data = await response.json();
       
-      utterance.onend = () => {
+      if (data.audioBase64) {
+        // Play ElevenLabs audio
+        const audioBlob = new Blob(
+          [Uint8Array.from(atob(data.audioBase64), c => c.charCodeAt(0))],
+          { type: 'audio/mpeg' }
+        );
+        const audioUrl = URL.createObjectURL(audioBlob);
+        
+        audioRef.current = new Audio(audioUrl);
+        audioRef.current.onended = () => {
+          setIsSpeaking(false);
+          URL.revokeObjectURL(audioUrl);
+        };
+        audioRef.current.onerror = () => {
+          setIsSpeaking(false);
+          console.error('Audio playback error');
+        };
+        
+        await audioRef.current.play();
+      } else {
         setIsSpeaking(false);
-      };
-      
-      utterance.onerror = () => {
-        setIsSpeaking(false);
-        console.error('Speech synthesis error');
-      };
-      
-      window.speechSynthesis.speak(utterance);
+      }
     } catch (error) {
-      console.error('Voice error:', error);
+      console.error('ElevenLabs voice error:', error);
       setIsSpeaking(false);
+      
+      // Show toast only if it's an API error, not just missing config
+      toast({
+        title: "Voice Unavailable",
+        description: "Using text-only mode. Voice will be restored soon.",
+        variant: "default",
+      });
     }
   };
 

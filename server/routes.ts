@@ -13370,12 +13370,12 @@ What specific area or type of incident would you like me to focus on? I can prov
     });
   });
 
-  // ===== TEXT-TO-SPEECH ENDPOINT (OpenAI Nova Voice - Natural Female) =====
+  // ===== TEXT-TO-SPEECH ENDPOINT (ElevenLabs Evelyn Voice) =====
   
-  // Simple TTS endpoint for frontend - uses OpenAI's natural "nova" voice
+  // TTS endpoint using ElevenLabs for natural Evelyn voice
   app.post('/api/tts', express.json(), async (req, res) => {
     try {
-      const { text, voice } = req.body;
+      const { text } = req.body;
       
       if (!text || typeof text !== 'string') {
         return res.status(400).json({ error: 'Text is required' });
@@ -13385,35 +13385,74 @@ What specific area or type of incident would you like me to focus on? I can prov
       const maxLength = 4096;
       const truncatedText = text.slice(0, maxLength);
       
-      const apiKey = process.env.OPENAI_API_KEY;
-      if (!apiKey) {
-        return res.status(503).json({ 
-          error: 'Voice service unavailable',
-          fallback: true 
+      const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
+      
+      if (!elevenLabsApiKey) {
+        console.log('ElevenLabs API key not found, falling back to OpenAI');
+        // Fall back to OpenAI if ElevenLabs not available
+        const openAiKey = process.env.OPENAI_API_KEY;
+        if (!openAiKey) {
+          return res.status(503).json({ 
+            error: 'Voice service unavailable',
+            fallback: true 
+          });
+        }
+        
+        const openAiResponse = await fetch('https://api.openai.com/v1/audio/speech', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${openAiKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model: 'tts-1-hd',
+            voice: 'nova',
+            input: truncatedText,
+            response_format: 'mp3',
+            speed: 1.0
+          })
+        });
+
+        if (!openAiResponse.ok) {
+          return res.status(500).json({ error: 'Failed to generate speech', fallback: true });
+        }
+
+        const arrayBuffer = await openAiResponse.arrayBuffer();
+        const audioBuffer = Buffer.from(arrayBuffer);
+        return res.json({ 
+          audioBase64: audioBuffer.toString('base64'),
+          format: 'mp3',
+          voice: 'nova',
+          provider: 'openai-fallback'
         });
       }
       
-      // Use nova voice - natural-sounding female voice (alternatives: alloy, echo, fable, onyx, shimmer)
-      const selectedVoice = voice || 'nova';
+      // Use ElevenLabs with Evelyn voice (Rachel voice ID: 21m00Tcm4TlvDq8ikWAM)
+      // Evelyn is our branded name for this natural female voice
+      const voiceId = '21m00Tcm4TlvDq8ikWAM';
       
-      const response = await fetch('https://api.openai.com/v1/audio/speech', {
+      const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${apiKey}`,
+          'Accept': 'audio/mpeg',
+          'xi-api-key': elevenLabsApiKey,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          model: 'tts-1-hd', // High-definition model for better quality
-          voice: selectedVoice,
-          input: truncatedText,
-          response_format: 'mp3',
-          speed: 1.0 // Natural speed
+          text: truncatedText,
+          model_id: 'eleven_turbo_v2_5',
+          voice_settings: {
+            stability: 0.35,
+            similarity_boost: 0.85,
+            style: 0.45,
+            use_speaker_boost: true
+          }
         })
       });
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('OpenAI TTS error:', errorText);
+        console.error('ElevenLabs TTS error:', errorText);
         return res.status(500).json({ 
           error: 'Failed to generate speech',
           fallback: true 
@@ -13425,11 +13464,12 @@ What specific area or type of incident would you like me to focus on? I can prov
       
       // Return audio as base64 for easy frontend consumption
       const audioBase64 = audioBuffer.toString('base64');
+      console.log('🎤 ElevenLabs TTS generated successfully with Evelyn voice');
       res.json({ 
         audioBase64,
         format: 'mp3',
-        voice: selectedVoice,
-        provider: 'openai'
+        voice: 'Evelyn',
+        provider: 'elevenlabs'
       });
       
     } catch (error) {
