@@ -6913,5 +6913,85 @@ export type InsertStormAgencyRegistration = z.infer<typeof insertStormAgencyRegi
 export type StormOutreachLog = typeof stormOutreachLog.$inferSelect;
 export type InsertStormOutreachLog = z.infer<typeof insertStormOutreachLogSchema>;
 
+// ===== SIGNATURE AUDIT LOGS - Legal Compliance =====
+// Captures IP address, device info, and browser for every signature for legal protection
+
+export const signatureAuditLogs = pgTable("signature_audit_logs", {
+  id: serial("id").primaryKey(),
+  
+  // Signature event identification
+  signatureId: varchar("signature_id", { length: 100 }).notNull(), // Unique ID for the signature event
+  documentType: varchar("document_type", { length: 100 }).notNull(), // 'customer_agreement', 'contractor_agreement', 'service_contract', 'aob_agreement', 'terms_of_service'
+  documentName: varchar("document_name", { length: 500 }),
+  documentVersion: varchar("document_version", { length: 50 }),
+  
+  // Signer information
+  signerType: varchar("signer_type", { length: 50 }).notNull(), // 'customer', 'contractor', 'homeowner', 'business'
+  signerName: varchar("signer_name", { length: 255 }).notNull(),
+  signerEmail: varchar("signer_email", { length: 255 }).notNull(),
+  signerPhone: varchar("signer_phone", { length: 50 }),
+  signerUserId: varchar("signer_user_id", { length: 100 }), // Link to users table if applicable
+  
+  // Legal capture data - Critical for disputes
+  ipAddress: varchar("ip_address", { length: 45 }).notNull(), // IPv4 or IPv6
+  ipGeolocation: jsonb("ip_geolocation"), // { city, state, country, isp, coordinates }
+  userAgent: text("user_agent").notNull(), // Full browser user agent string
+  deviceType: varchar("device_type", { length: 50 }), // 'desktop', 'mobile', 'tablet'
+  deviceOS: varchar("device_os", { length: 100 }), // 'Windows 11', 'iOS 17', 'Android 14'
+  browserName: varchar("browser_name", { length: 100 }), // 'Chrome', 'Safari', 'Firefox'
+  browserVersion: varchar("browser_version", { length: 50 }),
+  screenResolution: varchar("screen_resolution", { length: 20 }), // '1920x1080'
+  timezone: varchar("timezone", { length: 100 }), // 'America/New_York'
+  language: varchar("language", { length: 20 }), // 'en-US'
+  
+  // Signature method and data
+  signatureMethod: varchar("signature_method", { length: 50 }).notNull(), // 'typed', 'drawn', 'uploaded', 'docusign', 'click_to_sign'
+  signatureData: text("signature_data"), // Base64 encoded signature image or typed name
+  signatureHash: varchar("signature_hash", { length: 128 }), // SHA-256 hash of signature for integrity verification
+  documentHash: varchar("document_hash", { length: 128 }), // SHA-256 hash of document at time of signing
+  
+  // Consent and acknowledgment tracking
+  termsAccepted: boolean("terms_accepted").default(false),
+  termsVersion: varchar("terms_version", { length: 50 }),
+  privacyAccepted: boolean("privacy_accepted").default(false),
+  privacyVersion: varchar("privacy_version", { length: 50 }),
+  
+  // Associated entities
+  contractorId: integer("contractor_id"), // Which contractor is involved
+  customerId: integer("customer_id"), // Which customer signed
+  jobId: integer("job_id"), // Related job if applicable
+  contractId: integer("contract_id"), // Related contract if applicable
+  leadId: integer("lead_id"), // Related lead if applicable
+  
+  // Audit report delivery
+  auditReportGenerated: boolean("audit_report_generated").default(false),
+  auditReportUrl: text("audit_report_url"), // URL to stored PDF audit report
+  auditReportSentToContractor: boolean("audit_report_sent_to_contractor").default(false),
+  auditReportSentAt: timestamp("audit_report_sent_at"),
+  contractorNotificationEmail: varchar("contractor_notification_email", { length: 255 }),
+  
+  // Timestamps
+  signedAt: timestamp("signed_at").notNull().defaultNow(), // When the signature was captured
+  createdAt: timestamp("created_at").defaultNow(),
+  
+  // Session and verification
+  sessionId: varchar("session_id", { length: 100 }), // Browser session ID
+  verificationCode: varchar("verification_code", { length: 20 }), // Unique code sent to signer for verification
+  verificationCompleted: boolean("verification_completed").default(false),
+  
+  // Legal status
+  legalStatus: varchar("legal_status", { length: 50 }).default("valid"), // 'valid', 'disputed', 'revoked', 'expired'
+  disputeNotes: text("dispute_notes"),
+});
+
+export const insertSignatureAuditLogSchema = createInsertSchema(signatureAuditLogs).omit({
+  id: true,
+  createdAt: true,
+  signedAt: true,
+});
+
+export type SignatureAuditLog = typeof signatureAuditLogs.$inferSelect;
+export type InsertSignatureAuditLog = z.infer<typeof insertSignatureAuditLogSchema>;
+
 // Chat schema for AI integrations
 export * from "./models/chat";
