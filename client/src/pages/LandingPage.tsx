@@ -4,7 +4,7 @@ import {
   Cloud, AlertTriangle, Camera, Users, FileText, Shield, 
   Wrench, TreePine, Paintbrush, Home, DollarSign, Calendar,
   Star, Phone, CheckCircle2, TrendingUp, Building2, Sparkles, 
-  Zap, HardHat, UserCircle, ArrowRight
+  Zap, HardHat, UserCircle, ArrowRight, LogIn
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -15,6 +15,32 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900">
+      {/* Top Navigation Bar with Login */}
+      <div className="bg-slate-900/80 backdrop-blur-sm border-b border-slate-700/50 sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex justify-between items-center">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-lg flex items-center justify-center">
+              <Sparkles className="w-5 h-5 text-white" />
+            </div>
+            <span className="text-xl font-bold text-white">Strategic Service Savers</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <Link to="/privacy" className="text-slate-400 hover:text-white text-sm hidden md:block">Privacy</Link>
+            <Link to="/terms" className="text-slate-400 hover:text-white text-sm hidden md:block">Terms</Link>
+            <Link to="/auth/login">
+              <Button 
+                variant="outline" 
+                className="border-slate-600 text-slate-300 hover:bg-slate-700 hover:text-white"
+                data-testid="button-login"
+              >
+                <LogIn className="w-4 h-4 mr-2" />
+                Login
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </div>
+
       <div className="relative overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-blue-900/20 via-transparent to-transparent" />
         
@@ -223,6 +249,42 @@ export default function LandingPage() {
           </div>
         </div>
       </div>
+
+      {/* Footer with Legal Links */}
+      <footer className="bg-slate-900 border-t border-slate-700/50 py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 bg-gradient-to-br from-cyan-500 to-blue-600 rounded flex items-center justify-center">
+                <Sparkles className="w-4 h-4 text-white" />
+              </div>
+              <span className="text-sm text-slate-400">
+                © 2026 Strategic Service Savers. All rights reserved.
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center justify-center gap-4 text-sm">
+              <Link to="/privacy" className="text-slate-400 hover:text-white transition-colors">Privacy Policy</Link>
+              <span className="text-slate-600">|</span>
+              <Link to="/terms" className="text-slate-400 hover:text-white transition-colors">Terms of Service</Link>
+              <span className="text-slate-600">|</span>
+              <Link to="/disclaimers" className="text-slate-400 hover:text-white transition-colors">Disclaimers</Link>
+              <span className="text-slate-600">|</span>
+              <Link to="/data-sources" className="text-slate-400 hover:text-white transition-colors">Data Sources</Link>
+              <span className="text-slate-600">|</span>
+              <Link to="/security" className="text-slate-400 hover:text-white transition-colors">Security</Link>
+            </div>
+            <div className="text-sm text-slate-500">
+              <a href="mailto:strategicservicesavers@gmail.com" className="hover:text-white transition-colors">
+                strategicservicesavers@gmail.com
+              </a>
+              <span className="mx-2">|</span>
+              <a href="tel:+18773785143" className="hover:text-white transition-colors">
+                (877) 378-5143
+              </a>
+            </div>
+          </div>
+        </div>
+      </footer>
 
       <Dialog open={showHomeownerChoice} onOpenChange={setShowHomeownerChoice}>
         <DialogContent className="bg-slate-900 border-slate-700 max-w-lg">
