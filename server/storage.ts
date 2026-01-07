@@ -746,6 +746,12 @@ export interface IStorage {
     reasonBreakdown: { reason: string; count: number; value: number }[];
     recentLostLeads: WorkhubLead[];
   }>;
+
+  // Signature Audit Log methods - Legal Compliance
+  createSignatureAuditLog(log: any): Promise<any>;
+  getSignatureAuditLog(signatureId: string): Promise<any | undefined>;
+  updateSignatureAuditLog(signatureId: string, updates: any): Promise<any>;
+  listSignatureAuditLogs(filters: { signerEmail?: string; documentType?: string; limit?: number }): Promise<any[]>;
 }
 
 export class MemStorage implements IStorage {
@@ -848,6 +854,9 @@ export class MemStorage implements IStorage {
   private workhubLeadStageHistory: Map<string, WorkhubLeadStageHistory> = new Map();
   private workhubLeadQuotes: Map<string, WorkhubLeadQuote> = new Map();
   private workhubLostReasons: Map<string, WorkhubLostReason> = new Map();
+  
+  // Signature Audit Log Storage - Legal Compliance
+  private signatureAuditLogs: Map<string, any> = new Map();
   private smtpSettings: { host: string; port: number; user: string; password: string; use_tls: boolean } = {
     host: '',
     port: 587,
@@ -4883,6 +4892,54 @@ export class MemStorage implements IStorage {
         .sort((a, b) => new Date(b.lostAt || 0).getTime() - new Date(a.lostAt || 0).getTime())
         .slice(0, 10)
     };
+  }
+
+  // ===== SIGNATURE AUDIT LOG METHODS - Legal Compliance =====
+  
+  async createSignatureAuditLog(log: any): Promise<any> {
+    const id = log.signatureId || `SIG-${Date.now()}`;
+    const entry = {
+      ...log,
+      id: this.signatureAuditLogs.size + 1,
+      signedAt: new Date(),
+      createdAt: new Date()
+    };
+    this.signatureAuditLogs.set(id, entry);
+    console.log(`✍️ Signature audit log created: ${id}`);
+    return entry;
+  }
+
+  async getSignatureAuditLog(signatureId: string): Promise<any | undefined> {
+    return this.signatureAuditLogs.get(signatureId);
+  }
+
+  async updateSignatureAuditLog(signatureId: string, updates: any): Promise<any> {
+    const existing = this.signatureAuditLogs.get(signatureId);
+    if (!existing) {
+      throw new Error('Signature audit log not found');
+    }
+    const updated = { ...existing, ...updates };
+    this.signatureAuditLogs.set(signatureId, updated);
+    return updated;
+  }
+
+  async listSignatureAuditLogs(filters: { signerEmail?: string; documentType?: string; limit?: number }): Promise<any[]> {
+    let logs = Array.from(this.signatureAuditLogs.values());
+    
+    if (filters.signerEmail) {
+      logs = logs.filter(l => l.signerEmail === filters.signerEmail);
+    }
+    if (filters.documentType) {
+      logs = logs.filter(l => l.documentType === filters.documentType);
+    }
+    
+    logs.sort((a, b) => new Date(b.signedAt || 0).getTime() - new Date(a.signedAt || 0).getTime());
+    
+    if (filters.limit) {
+      logs = logs.slice(0, filters.limit);
+    }
+    
+    return logs;
   }
 }
 

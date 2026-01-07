@@ -92,15 +92,15 @@ export class ElevenLabsVoiceService {
     }
 
     try {
-      // Enhanced settings for broadcast quality
+      // Optimized settings for natural, human-like speech
       const voiceSettings = {
-        stability: request.settings?.stability ?? 0.5, // Balanced stability
-        similarity_boost: request.settings?.similarityBoost ?? 0.75, // High similarity to original
-        style: request.settings?.style ?? 0.3, // Moderate style exaggeration
+        stability: request.settings?.stability ?? 0.35, // Lower stability = more expressive/natural
+        similarity_boost: request.settings?.similarityBoost ?? 0.85, // High similarity to original voice
+        style: request.settings?.style ?? 0.45, // Higher style = more natural inflection
         use_speaker_boost: request.settings?.useSpeakerBoost ?? true // Enhanced clarity
       };
 
-      const modelId = request.modelId || 'eleven_monolingual_v1'; // High quality model
+      const modelId = request.modelId || 'eleven_turbo_v2_5'; // Latest high-quality model - most natural sounding
 
       console.log('🎙️ Generating speech with ElevenLabs...');
 
