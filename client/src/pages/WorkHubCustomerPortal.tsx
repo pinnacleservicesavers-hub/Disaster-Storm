@@ -2231,6 +2231,51 @@ DEBRIS HANDLING:
 ${jobDetails.estimatedHours ? `- Estimated duration: ${jobDetails.estimatedHours} hours` : ''}
 ` : ''}
 
+${request.category === 'flooring' && aiAnalysis ? `
+FLOORING-SPECIFIC DETAILS:
+- Square footage estimate: ${jobDetails?.primaryValue || 'Based on photos'}
+- Flooring type detected: ${jobDetails?.itemType || 'TBD'}
+- Subfloor assessment: May need inspection for hidden damage
+- Common flooring options: Hardwood ($8-15/sqft installed), Laminate ($4-8/sqft), Vinyl/LVP ($5-10/sqft), Tile ($10-20/sqft), Carpet ($3-8/sqft)
+
+FLOORING QUOTE FACTORS TO EXPLAIN:
+1. Material quality - builder grade vs premium affects durability and look
+2. Subfloor condition - repairs add $1-3/sqft if needed
+3. Removal of old flooring - adds $1-2/sqft for disposal
+4. Transitions and trim - baseboards, thresholds between rooms
+5. Furniture moving - some contractors include, others charge extra
+6. Pattern complexity - diagonal or herringbone costs more than straight lay
+7. Moisture barriers - required for concrete subfloors
+` : ''}
+${request.category === 'roofing' && aiAnalysis ? `
+ROOFING-SPECIFIC DETAILS:
+- Roof area estimate: ${jobDetails?.primaryValue || 'Based on photos'}
+- Roof type: ${jobDetails?.itemType || 'TBD'}
+
+ROOFING QUOTE FACTORS TO EXPLAIN:
+1. Material options - 3-tab shingles ($) vs architectural shingles ($$) vs metal ($$$)
+2. Layers - removing old shingles adds to cost
+3. Pitch/steepness - steeper roofs are harder to work on
+4. Decking condition - damaged plywood needs replacement
+5. Ventilation - ridge vents, soffit vents for attic airflow
+6. Flashing - around chimneys, vents, skylights
+` : ''}
+${request.category === 'tree' || request.category === 'tree_removal' && aiAnalysis ? `
+TREE-SPECIFIC DETAILS:
+- Tree dimensions: ${jobDetails?.primaryValue || 'Based on photos'} height, ${jobDetails?.secondaryValue || 'TBD'} width
+- Equipment needed: ${jobDetails?.equipmentNeeded?.join(', ') || 'TBD based on size'}
+- Crew requirements: ${jobDetails?.crewSize || 2} workers
+- Debris handling: ${jobDetails?.debrisInfo?.volumeCuYd || 'TBD'} cubic yards
+
+TREE QUOTE FACTORS TO EXPLAIN:
+1. Tree height and diameter - larger trees need more equipment
+2. Access - tight spaces, fences, or slopes add difficulty
+3. Proximity to structures - near houses/power lines requires more care
+4. Stump removal - usually separate cost, $100-400 per stump
+5. Debris hauling - wood chips vs log sections vs full removal
+6. Crane rental - required for very large trees, adds $500-1500
+` : ''}
+
 WHAT YOU CAN HELP WITH:
 1. Explain what type of work is needed based on photos
 2. Answer questions about pricing estimates and what affects cost
@@ -2239,6 +2284,14 @@ WHAT YOU CAN HELP WITH:
 5. Answer general home improvement questions
 6. Explain what contractors will do
 7. Help with scheduling and timeline questions
+
+IMPORTANT REMINDERS WHEN ANSWERING QUOTE QUESTIONS:
+- Always remind customers that the AI estimate is based on photos only
+- Explain that a contractor will visit in person to give the final quote
+- Be transparent about what could make the price go up or down
+- Help customers understand what's included vs what might be extra
+- If they ask "why is it so expensive" - break down labor, materials, equipment costs
+- If they ask "can I get it cheaper" - explain DIY options or material alternatives
 
 Be friendly, use simple language (avoid jargon), and always offer to explain anything the homeowner doesn't understand. If they ask about something you can see in their photos/analysis, reference that specific information.`}
       />
