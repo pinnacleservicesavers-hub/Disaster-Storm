@@ -508,24 +508,46 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
       const userRole = validRoles.includes(role) ? role : 'contractor';
       
       // Check if email already exists
-      const existingUsers = await db.select().from(users).where(eq(users.email, email)).limit(1);
-      if (existingUsers.length > 0) {
+      const existingUsersByEmail = await db.select().from(users).where(eq(users.email, email)).limit(1);
+      if (existingUsersByEmail.length > 0) {
         return res.status(400).json({ ok: false, error: 'Email already registered' });
+      }
+      
+      // Check if username already exists
+      const existingUsersByName = await db.select().from(users).where(eq(users.username, name)).limit(1);
+      if (existingUsersByName.length > 0) {
+        return res.status(400).json({ ok: false, error: 'An account with this name already exists. Please use a different name.' });
       }
       
       // Hash password
       const hashedPassword = await bcrypt.hash(password, 10);
       
       // Create user
-      const newUser = await db.insert(users).values({
-        username: name,
-        email: email,
-        password: hashedPassword,
-        role: userRole,
-        phone: phone || null,
-      }).returning();
+      let newUser;
+      try {
+        newUser = await db.insert(users).values({
+          username: name,
+          email: email,
+          password: hashedPassword,
+          role: userRole,
+          phone: phone || null,
+        }).returning();
+      } catch (dbError: any) {
+        console.error('Database error during registration:', dbError);
+        // Handle unique constraint violations
+        if (dbError.code === '23505') {
+          if (dbError.constraint?.includes('email')) {
+            return res.status(400).json({ ok: false, error: 'Email already registered' });
+          }
+          if (dbError.constraint?.includes('username')) {
+            return res.status(400).json({ ok: false, error: 'An account with this name already exists. Please use a different name.' });
+          }
+          return res.status(400).json({ ok: false, error: 'An account with these details already exists' });
+        }
+        throw dbError;
+      }
       
-      if (newUser.length === 0) {
+      if (!newUser || newUser.length === 0) {
         return res.status(500).json({ ok: false, error: 'Failed to create user' });
       }
       
@@ -560,7 +582,7 @@ export async function registerRoutes(app: express.Application): Promise<Server> 
       });
     } catch (error) {
       console.error('Registration error:', error);
-      res.status(500).json({ ok: false, error: 'Registration failed' });
+      res.status(500).json({ ok: false, error: 'Registration failed. Please try again.' });
     }
   });
   
