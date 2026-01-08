@@ -47,6 +47,14 @@ The platform features an enterprise-grade design system with AI-selected backgro
   - **Module Guides**: Dashboard, Weather Intelligence, Disaster Lens, Claims Management, Lead Pipeline, Scope Builder, Contract Center
   - **Trade Guides**: Roofing, Tree Removal, Drywall/Paint, Flooring with capture steps, scope questions, and safety reminders
   - **Voice API**: `/api/voice-guide/*` endpoints serving intro scripts, capture prompts, and scope question scripts
+- **Professional Tree Pricing Engine** (January 2025): ChatGPT-competitive pricing accuracy for tree removal jobs
+  - **Size Categories**: Small (<12" trunk, <35ft): $300-500, Medium (12-20", 35-55ft): $600-1,200, Large (20-30", 55-75ft): $1,500-3,500, Extra-Large (30-40", 75-95ft): $3,000-6,000, Giant (>40", >95ft): $5,000-10,000+
+  - **Hazard Multipliers**: Powerlines (+100%), Structure proximity (+50%), Lean angle (+40%), Limited fall zone (+50%), Decay (+30%), Multi-trunk (+25%)
+  - **Equipment Costs**: Climbing only (base), Bucket truck (+$400-600), Crane (+$1,500-3,500), Utility coordination (+$500-1,500)
+  - **Crew Estimation**: 3-5 crew members, 4-8+ hours, $55/hr per person
+  - **Risk Levels**: low, medium, high, extreme (based on cumulative hazard multipliers)
+  - **Hazard Detection**: Regex patterns detect powerlines, structure proximity, lean angle, decay from AI analysis text
+  - **Frontend Display**: Risk level badge, safety warnings, detailed cost breakdown, crew info cards
 
 ### WorkHub Marketplace (NEW - December 2024)
 **Domain**: strategicservicesavers.org

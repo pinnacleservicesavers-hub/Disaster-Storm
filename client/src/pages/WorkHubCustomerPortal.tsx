@@ -7,7 +7,7 @@ import {
   DollarSign, Clock, Star, User, Phone, Mail, Calendar,
   MessageSquare, MessageCircle, Shield, Zap, ChevronRight, Building2,
   TreePine, Home, Wind, Droplets, Plug, Paintbrush, Car,
-  Hammer, Wrench, Settings, ThumbsUp, AlertCircle, Users
+  Hammer, Wrench, Settings, ThumbsUp, AlertCircle, AlertTriangle, Users
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -123,6 +123,19 @@ export default function WorkHubCustomerPortal() {
   const [materialOptions, setMaterialOptions] = useState<any[]>([]);
   const [selectedMaterial, setSelectedMaterial] = useState<any>(null);
   const [pricingBreakdown, setPricingBreakdown] = useState<{ materialCost: number; laborCost: number; totalCost: number } | null>(null);
+  const [treePricing, setTreePricing] = useState<{
+    riskLevel: 'low' | 'medium' | 'high' | 'extreme';
+    crewInfo: { crewSize: number; estimatedHours: number; laborRate: number };
+    breakdown: {
+      baseRemoval: { min: number; max: number; description: string };
+      hazardPremium: { min: number; max: number; factors: string[] };
+      equipmentCost: { min: number; max: number; equipment: string };
+      stumpGrinding?: { min: number; max: number };
+      haulOff?: { min: number; max: number };
+      utilityCoordination?: { min: number; max: number };
+    };
+    warnings: string[];
+  } | null>(null);
   const [request, setRequest] = useState<ProjectRequest>({
     category: '',
     description: '',
@@ -334,6 +347,7 @@ export default function WorkHubCustomerPortal() {
     setMaterialOptions([]);
     setSelectedMaterial(null);
     setPricingBreakdown(null);
+    setTreePricing(null); // Reset tree pricing to avoid showing stale data for non-tree jobs
     
     setIsAnalyzing(true);
     speakGuidance("Analyzing your photos with AI. I'm identifying the type of work needed and potential issues.");
@@ -422,6 +436,11 @@ export default function WorkHubCustomerPortal() {
             totalCost: recommended.totalCost
           });
         }
+      }
+      
+      // Capture professional tree pricing breakdown
+      if (data.analysis?.treePricing) {
+        setTreePricing(data.analysis.treePricing);
       }
       
       // Extract job details based on work type
@@ -1341,6 +1360,128 @@ export default function WorkHubCustomerPortal() {
                         <p className="text-xs text-slate-400 mt-2 flex items-center gap-1">
                           <AlertCircle className="w-3 h-3" />
                           AI confidence: {Math.round((measurements.confidence || 0.7) * 100)}% - Final measurements verified on-site
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Professional Tree Pricing Breakdown - ChatGPT-level detail */}
+                    {treePricing && (aiAnalysis?.detectedCategory === 'tree' || aiAnalysis?.detectedCategory === 'tree_removal') && (
+                      <div className="mt-4 pt-4 border-t border-green-200 dark:border-green-800">
+                        <h4 className="font-semibold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
+                          <AlertTriangle className={`w-5 h-5 ${
+                            treePricing.riskLevel === 'extreme' ? 'text-red-600' :
+                            treePricing.riskLevel === 'high' ? 'text-orange-500' :
+                            treePricing.riskLevel === 'medium' ? 'text-amber-500' : 'text-green-500'
+                          }`} />
+                          Professional Risk Assessment
+                        </h4>
+                        
+                        {/* Risk Level Badge */}
+                        <div className="mb-4">
+                          <Badge className={`text-sm px-3 py-1 ${
+                            treePricing.riskLevel === 'extreme' ? 'bg-red-600 text-white' :
+                            treePricing.riskLevel === 'high' ? 'bg-orange-500 text-white' :
+                            treePricing.riskLevel === 'medium' ? 'bg-amber-500 text-white' : 'bg-green-500 text-white'
+                          }`} data-testid="tree-risk-level">
+                            {treePricing.riskLevel.toUpperCase()} RISK REMOVAL
+                          </Badge>
+                        </div>
+
+                        {/* Warnings */}
+                        {treePricing.warnings && treePricing.warnings.length > 0 && (
+                          <div className="mb-4 bg-red-50 dark:bg-red-900/20 p-3 rounded-lg border border-red-200 dark:border-red-800">
+                            <p className="font-semibold text-red-700 dark:text-red-400 text-sm mb-2 flex items-center gap-2">
+                              <AlertCircle className="w-4 h-4" />
+                              Important Safety Considerations
+                            </p>
+                            <ul className="space-y-1">
+                              {treePricing.warnings.map((warning, idx) => (
+                                <li key={idx} className="text-sm text-red-600 dark:text-red-300 flex items-start gap-2">
+                                  <span className="text-red-400 mt-0.5">•</span>
+                                  {warning}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {/* Hazard Factors */}
+                        {treePricing.breakdown.hazardPremium.factors.length > 0 && (
+                          <div className="mb-4">
+                            <p className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Complexity Factors Affecting Price:</p>
+                            <div className="flex flex-wrap gap-2">
+                              {treePricing.breakdown.hazardPremium.factors.map((factor, idx) => (
+                                <Badge key={idx} variant="outline" className="text-xs bg-amber-50 dark:bg-amber-900/20 border-amber-300">
+                                  {factor}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Detailed Cost Breakdown - Note: tree pricing values are in cents, convert to dollars */}
+                        <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-lg border border-slate-200 dark:border-slate-700">
+                          <h5 className="font-semibold text-slate-800 dark:text-slate-200 mb-3">Detailed Price Breakdown</h5>
+                          <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-slate-600 dark:text-slate-400">Base Removal ({treePricing.breakdown.baseRemoval.description})</span>
+                              <span className="font-medium">${Math.round(treePricing.breakdown.baseRemoval.min / 100).toLocaleString()} - ${Math.round(treePricing.breakdown.baseRemoval.max / 100).toLocaleString()}</span>
+                            </div>
+                            {treePricing.breakdown.hazardPremium.min > 0 && (
+                              <div className="flex justify-between text-orange-600 dark:text-orange-400">
+                                <span>Risk/Hazard Premium</span>
+                                <span className="font-medium">+ ${Math.round(treePricing.breakdown.hazardPremium.min / 100).toLocaleString()} - ${Math.round(treePricing.breakdown.hazardPremium.max / 100).toLocaleString()}</span>
+                              </div>
+                            )}
+                            {treePricing.breakdown.equipmentCost.min > 0 && (
+                              <div className="flex justify-between">
+                                <span className="text-slate-600 dark:text-slate-400">{treePricing.breakdown.equipmentCost.equipment}</span>
+                                <span className="font-medium">+ ${Math.round(treePricing.breakdown.equipmentCost.min / 100).toLocaleString()} - ${Math.round(treePricing.breakdown.equipmentCost.max / 100).toLocaleString()}</span>
+                              </div>
+                            )}
+                            {treePricing.breakdown.utilityCoordination && (
+                              <div className="flex justify-between text-blue-600 dark:text-blue-400">
+                                <span>Utility Coordination</span>
+                                <span className="font-medium">+ ${Math.round(treePricing.breakdown.utilityCoordination.min / 100).toLocaleString()} - ${Math.round(treePricing.breakdown.utilityCoordination.max / 100).toLocaleString()}</span>
+                              </div>
+                            )}
+                            {treePricing.breakdown.stumpGrinding && (
+                              <div className="flex justify-between">
+                                <span className="text-slate-600 dark:text-slate-400">Stump Grinding</span>
+                                <span className="font-medium">+ ${Math.round(treePricing.breakdown.stumpGrinding.min / 100).toLocaleString()} - ${Math.round(treePricing.breakdown.stumpGrinding.max / 100).toLocaleString()}</span>
+                              </div>
+                            )}
+                            {treePricing.breakdown.haulOff && (
+                              <div className="flex justify-between">
+                                <span className="text-slate-600 dark:text-slate-400">Debris Haul-Off</span>
+                                <span className="font-medium">+ ${Math.round(treePricing.breakdown.haulOff.min / 100).toLocaleString()} - ${Math.round(treePricing.breakdown.haulOff.max / 100).toLocaleString()}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Crew Information */}
+                        <div className="mt-4 grid grid-cols-3 gap-3">
+                          <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg text-center">
+                            <Users className="w-5 h-5 mx-auto text-blue-600 mb-1" />
+                            <p className="text-xl font-bold text-blue-700 dark:text-blue-400">{treePricing.crewInfo.crewSize}</p>
+                            <p className="text-xs text-slate-500">Crew Members</p>
+                          </div>
+                          <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg text-center">
+                            <Clock className="w-5 h-5 mx-auto text-blue-600 mb-1" />
+                            <p className="text-xl font-bold text-blue-700 dark:text-blue-400">{treePricing.crewInfo.estimatedHours}+</p>
+                            <p className="text-xs text-slate-500">Hours</p>
+                          </div>
+                          <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg text-center">
+                            <DollarSign className="w-5 h-5 mx-auto text-blue-600 mb-1" />
+                            <p className="text-xl font-bold text-blue-700 dark:text-blue-400">${Math.round(treePricing.crewInfo.laborRate / 100)}</p>
+                            <p className="text-xs text-slate-500">/hr per person</p>
+                          </div>
+                        </div>
+
+                        <p className="text-xs text-slate-400 mt-3 flex items-center gap-1">
+                          <AlertCircle className="w-3 h-3" />
+                          This is a professional-grade estimate. Actual price confirmed after on-site inspection.
                         </p>
                       </div>
                     )}
