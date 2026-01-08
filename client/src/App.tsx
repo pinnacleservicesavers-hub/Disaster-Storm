@@ -44,6 +44,7 @@ const SignOut = lazy(() => import("./pages/SignOut"));
 const Login = lazy(() => import("./pages/auth/Login"));
 const AuthCallback = lazy(() => import("./pages/auth/Callback"));
 const OIDCSettings = lazy(() => import("./pages/admin/OIDCSettings"));
+const AffiliateManagement = lazy(() => import("./pages/admin/AffiliateManagement"));
 const EnterpriseAuditLog = lazy(() => import("./pages/EnterpriseAuditLog"));
 const BusinessAssessment = lazy(() => import("./pages/BusinessAssessment"));
 const ImplementationPlaybooks = lazy(() => import("./pages/ImplementationPlaybooks"));
@@ -242,6 +243,7 @@ export default function App() {
           <Route path="/admin/playbooks" element={<ProtectedRoute allowedRoles={['admin']}><ImplementationPlaybooks /></ProtectedRoute>} />
           <Route path="/admin/monitoring" element={<ProtectedRoute allowedRoles={['admin']}><MonitoringDashboard /></ProtectedRoute>} />
           <Route path="/admin/payment-approvals" element={<ProtectedRoute allowedRoles={['admin']}><PaymentApprovals /></ProtectedRoute>} />
+          <Route path="/admin/affiliates" element={<ProtectedRoute allowedRoles={['admin']}><AffiliateManagement /></ProtectedRoute>} />
           
           {/* Contractor Portal */}
           <Route path="/contractor/jobs" element={<ProtectedRoute allowedRoles={['contractor', 'admin']}><ContractorJobs /></ProtectedRoute>} />

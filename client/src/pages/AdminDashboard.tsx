@@ -17,8 +17,10 @@ import {
   MapPin,
   Settings,
   Play,
-  Eye
+  Eye,
+  DollarSign
 } from 'lucide-react';
+import { Link } from 'wouter';
 import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 
 export function AdminDashboard() {
@@ -179,6 +181,26 @@ export function AdminDashboard() {
               </div>
             </CardContent>
           </Card>
+        </div>
+
+        {/* Quick Navigation */}
+        <div className="mb-8">
+          <Link href="/admin/affiliates">
+            <Card className="bg-gradient-to-r from-green-900/50 to-emerald-900/50 border-green-700/50 hover:border-green-500/50 transition-all cursor-pointer" data-testid="link-affiliate-management">
+              <CardContent className="p-4 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 rounded-lg bg-green-500/20">
+                    <DollarSign className="h-6 w-6 text-green-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-white">Affiliate Partnership Management</h3>
+                    <p className="text-sm text-slate-400">Track partners, commissions, and earnings from affiliate links</p>
+                  </div>
+                </div>
+                <span className="text-green-400">→</span>
+              </CardContent>
+            </Card>
+          </Link>
         </div>
 
         {/* Tabs */}
