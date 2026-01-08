@@ -445,7 +445,9 @@ export default function WorkHubCustomerPortal() {
         }
         
         voiceMessage += `Based on the size and complexity, I estimate this job would cost between $${minPrice.toLocaleString()} and $${maxPrice.toLocaleString()}. `;
-        voiceMessage += `This is a ${complexityLevel.toLowerCase()} complexity job. Does this fit your budget?`;
+        voiceMessage += `Now, keep in mind this is just an estimate based on the photos you provided. A contractor will need to come out in person to give you a final quote. `;
+        voiceMessage += `Prices can change based on things like access to the tree, hidden damage, roots that need removal, or obstacles nearby. `;
+        voiceMessage += `Does this initial estimate fit your budget?`;
         
         speakGuidance(voiceMessage);
       } else if (detectedCategory === 'roofing') {
@@ -467,7 +469,9 @@ export default function WorkHubCustomerPortal() {
         speakGuidance(
           `I've analyzed your roofing photos. The area appears to be approximately ${sqFt.toLocaleString()} square feet. ` +
           `Based on the condition and scope of work, I estimate this job would cost between $${minPrice.toLocaleString()} and $${maxPrice.toLocaleString()}. ` +
-          `This is a ${complexityLevel.toLowerCase()} complexity job. Does this fit your budget?`
+          `Keep in mind, this is just an estimate based on photos. A contractor will need to inspect in person to give you a final quote. ` +
+          `Prices can change based on hidden damage, material upgrades, or structural repairs that aren't visible in photos. ` +
+          `Does this initial estimate fit your budget?`
         );
       } else if (detectedCategory === 'hvac') {
         const units = data.measurements?.units || 1;
@@ -489,7 +493,9 @@ export default function WorkHubCustomerPortal() {
         speakGuidance(
           `I've analyzed your HVAC photos. I can see the ${systemType} needs attention. ` +
           `Based on the scope of work, I estimate this job would cost between $${minPrice.toLocaleString()} and $${maxPrice.toLocaleString()}. ` +
-          `This is a ${complexityLevel.toLowerCase()} complexity job. Does this fit your budget?`
+          `This is just an estimate based on what I can see in the photos. A technician will need to inspect the system in person to give you a final quote. ` +
+          `Prices can change based on the age of your system, ductwork condition, or parts availability. ` +
+          `Does this initial estimate fit your budget?`
         );
       } else if (detectedCategory === 'fence') {
         const linearFt = data.measurements?.linearFt || data.measurements?.lengthFt || 100;
@@ -511,7 +517,9 @@ export default function WorkHubCustomerPortal() {
         speakGuidance(
           `I've analyzed your fencing photos. This appears to be approximately ${linearFt} linear feet of ${fenceType.toLowerCase()}. ` +
           `I estimate this job would cost between $${minPrice.toLocaleString()} and $${maxPrice.toLocaleString()}. ` +
-          `This is a ${complexityLevel.toLowerCase()} complexity job. Does this fit your budget?`
+          `This is just an estimate based on photos. A contractor will need to come out to measure and check the terrain before giving a final quote. ` +
+          `Prices can change based on soil conditions, old fence removal, or gate requirements. ` +
+          `Does this initial estimate fit your budget?`
         );
       } else if (detectedCategory === 'electrical') {
         const outlets = data.measurements?.outlets || data.measurements?.points || 'Multiple';
@@ -532,7 +540,9 @@ export default function WorkHubCustomerPortal() {
         speakGuidance(
           `I've analyzed your electrical photos. Based on the scope of work needed, ` +
           `I estimate this job would cost between $${minPrice.toLocaleString()} and $${maxPrice.toLocaleString()}. ` +
-          `This is a ${complexityLevel.toLowerCase()} complexity job. Does this fit your budget?`
+          `This is just an estimate based on what I can see. An electrician will need to inspect in person to give a final quote. ` +
+          `Prices can change based on panel capacity, wiring condition, or permit requirements. ` +
+          `Does this initial estimate fit your budget?`
         );
       } else if (detectedCategory === 'plumbing') {
         const fixtures = data.measurements?.fixtures || 'Multiple';
@@ -550,7 +560,9 @@ export default function WorkHubCustomerPortal() {
         speakGuidance(
           `I've analyzed your plumbing photos. Based on what I can see, ` +
           `I estimate this job would cost between $${minPrice.toLocaleString()} and $${maxPrice.toLocaleString()}. ` +
-          `This is a ${complexityLevel.toLowerCase()} complexity job. Does this fit your budget?`
+          `This is just an estimate based on photos. A plumber will need to inspect in person to give a final quote. ` +
+          `Prices can change based on pipe condition, access difficulty, or additional issues found. ` +
+          `Does this initial estimate fit your budget?`
         );
       } else if (detectedCategory === 'painting') {
         const sqFt = data.measurements?.squareFt || data.measurements?.areaSqFt || 500;
@@ -571,7 +583,9 @@ export default function WorkHubCustomerPortal() {
         speakGuidance(
           `I've analyzed your painting project photos. This looks like approximately ${sqFt.toLocaleString()} square feet of work. ` +
           `I estimate this job would cost between $${minPrice.toLocaleString()} and $${maxPrice.toLocaleString()}. ` +
-          `This is a ${complexityLevel.toLowerCase()} complexity job. Does this fit your budget?`
+          `This is just an estimate based on photos. A painter will need to see the space in person to give a final quote. ` +
+          `Prices can change based on wall condition, prep work needed, or paint quality you choose. ` +
+          `Does this initial estimate fit your budget?`
         );
       } else if (detectedCategory === 'flooring') {
         const sqFt = data.measurements?.squareFt || data.measurements?.areaSqFt || 300;
@@ -590,7 +604,9 @@ export default function WorkHubCustomerPortal() {
         speakGuidance(
           `I've analyzed your flooring photos. This looks like approximately ${sqFt.toLocaleString()} square feet of ${floorType.toLowerCase()}. ` +
           `I estimate this job would cost between $${minPrice.toLocaleString()} and $${maxPrice.toLocaleString()}. ` +
-          `This is a ${complexityLevel.toLowerCase()} complexity job. Does this fit your budget?`
+          `This is just an estimate based on photos. A flooring installer will need to measure in person and check the subfloor to give a final quote. ` +
+          `Prices can change based on subfloor condition, transitions, or material selection. ` +
+          `Does this initial estimate fit your budget?`
         );
       } else if (detectedCategory === 'concrete') {
         const sqFt = data.measurements?.squareFt || data.measurements?.areaSqFt || 200;
@@ -611,6 +627,8 @@ export default function WorkHubCustomerPortal() {
         speakGuidance(
           `I've analyzed your concrete project photos. This looks like approximately ${sqFt.toLocaleString()} square feet of work. ` +
           `I estimate this job would cost between $${minPrice.toLocaleString()} and $${maxPrice.toLocaleString()}. ` +
+          `This is just an estimate based on photos. A concrete contractor will need to inspect the site in person to give a final quote. ` +
+          `Prices can change based on site prep, demolition needs, or finish options. ` +
           `This is a ${complexityLevel.toLowerCase()} complexity job. Does this fit your budget?`
         );
       } else {
@@ -627,7 +645,9 @@ export default function WorkHubCustomerPortal() {
         
         speakGuidance(
           `Analysis complete. I've identified the work needed. The estimated price range is $${minPrice.toLocaleString()} to $${maxPrice.toLocaleString()}. ` +
-          `This is a ${complexityLevel.toLowerCase()} complexity job. Does this fit your budget?`
+          `Keep in mind, this is just an estimate based on the photos you provided. A contractor will need to come out in person to give you a final quote. ` +
+          `Prices can change once they see the full scope of work and any hidden issues. ` +
+          `Does this initial estimate fit your budget?`
         );
       }
       
@@ -668,7 +688,7 @@ export default function WorkHubCustomerPortal() {
       };
       setJobDetails(fallbackJobDetails);
       
-      speakGuidance("I've received your photos. Based on your project type, I estimate this would cost between $500 and $2,500. Does this fit your budget?");
+      speakGuidance("I've received your photos. Based on your project type, I estimate this would cost between $500 and $2,500. Keep in mind, this is just an estimate based on the photos. A contractor will need to visit in person to give you an accurate quote. Prices can vary based on what they find on-site. Does this initial estimate fit your budget?");
     } finally {
       setIsAnalyzing(false);
     }
