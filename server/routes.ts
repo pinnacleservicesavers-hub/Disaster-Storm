@@ -2800,6 +2800,47 @@ Include 3-4 phases, 3-5 tasks per phase, 2-3 SOPs, 3 risks, and 4 KPIs. Be speci
     }
   });
 
+  // Redirect-based click tracking - logs click then redirects to retailer
+  // Use this URL pattern: /api/affiliates/redirect?partner=autozone&url=<encoded_url>&product=<product_name>&type=<auto|flooring>&source=<analysis_id>
+  app.get('/api/affiliates/redirect', async (req, res) => {
+    try {
+      const { partner, url, product, type, source, sku } = req.query;
+      
+      if (!url) {
+        return res.status(400).json({ error: 'Missing url parameter' });
+      }
+      
+      const decodedUrl = decodeURIComponent(url as string);
+      const ipAddress = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+      const userAgent = req.headers['user-agent'] || 'unknown';
+      
+      // Find partner ID by name (case insensitive)
+      let partnerId = null;
+      if (partner) {
+        const partnerResult = await db.execute(sql`
+          SELECT id FROM affiliate_partners WHERE LOWER(name) LIKE LOWER(${'%' + partner + '%'}) LIMIT 1
+        `);
+        if (partnerResult.rows.length > 0) {
+          partnerId = partnerResult.rows[0].id;
+        }
+      }
+      
+      // Log the click (async - don't block redirect)
+      db.execute(sql`
+        INSERT INTO affiliate_clicks (partner_id, product_type, product_name, product_sku, referral_url, source, ip_address, user_agent)
+        VALUES (${partnerId}, ${type || 'unknown'}, ${product || 'unknown'}, ${sku || null}, ${decodedUrl}, ${source || 'workhub'}, ${ipAddress as string}, ${userAgent as string})
+      `).catch(err => console.error('Click tracking error:', err));
+      
+      // Redirect to affiliate URL
+      res.redirect(302, decodedUrl);
+    } catch (error) {
+      console.error('Error in redirect tracking:', error);
+      // Still redirect even on error
+      const fallbackUrl = req.query.url ? decodeURIComponent(req.query.url as string) : '/';
+      res.redirect(302, fallbackUrl);
+    }
+  });
+
   // Get click statistics
   app.get('/api/admin/affiliates/clicks/stats', async (req, res) => {
     try {
