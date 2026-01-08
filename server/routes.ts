@@ -4195,6 +4195,22 @@ Return this exact JSON structure:
   app.use(healthRoutes);
   console.log('🏥 Health routes registered - /api/health/auth for JWKS diagnostics');
 
+  // ---- Database Connection Test ----
+  app.get('/api/db-test', async (req, res) => {
+    try {
+      const result = await db.execute(sql`SELECT NOW() as now`);
+      res.json({ 
+        connected: true, 
+        now: result.rows?.[0]?.now || null,
+        database: 'PostgreSQL (Neon serverless)',
+        message: 'Database connection successful!'
+      });
+    } catch (e) {
+      res.status(500).json({ connected: false, error: String(e) });
+    }
+  });
+  console.log('🧪 Database test route registered - /api/db-test');
+
   // ---- AI Intelligence Orchestrator Routes ----
   const aiIntelligenceRoutes = await import('./routes/aiIntelligenceRoutes.js');
   app.use('/api/ai-intelligence', aiIntelligenceRoutes.default);
