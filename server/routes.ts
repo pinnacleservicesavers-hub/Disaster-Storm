@@ -2567,6 +2567,262 @@ Include 3-4 phases, 3-5 tasks per phase, 2-3 SOPs, 3 risks, and 4 KPIs. Be speci
   app.use(adminOidcRoutes);
   console.log('🔐 Admin OIDC routes registered - JWT/JWKS configuration and verification');
 
+  // ---- Affiliate Partnership Management Routes ----
+  // Get all affiliate partners
+  app.get('/api/admin/affiliates', async (req, res) => {
+    try {
+      const result = await db.execute(sql`
+        SELECT * FROM affiliate_partners ORDER BY name
+      `);
+      res.json({ ok: true, partners: result.rows });
+    } catch (error) {
+      console.error('Error fetching affiliate partners:', error);
+      res.status(500).json({ error: 'Failed to fetch affiliate partners' });
+    }
+  });
+
+  // Get affiliate partner by ID
+  app.get('/api/admin/affiliates/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const result = await db.execute(sql`
+        SELECT * FROM affiliate_partners WHERE id = ${id}
+      `);
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'Partner not found' });
+      }
+      res.json({ ok: true, partner: result.rows[0] });
+    } catch (error) {
+      console.error('Error fetching affiliate partner:', error);
+      res.status(500).json({ error: 'Failed to fetch affiliate partner' });
+    }
+  });
+
+  // Create new affiliate partner
+  app.post('/api/admin/affiliates', express.json(), async (req, res) => {
+    try {
+      const { name, category, websiteUrl, affiliateId, affiliateProgram, commissionType, commissionRate, status, notes, contactName, contactEmail, contactPhone } = req.body;
+      
+      const result = await db.execute(sql`
+        INSERT INTO affiliate_partners (name, category, website_url, affiliate_id, affiliate_program, commission_type, commission_rate, status, notes, contact_name, contact_email, contact_phone)
+        VALUES (${name}, ${category}, ${websiteUrl}, ${affiliateId}, ${affiliateProgram}, ${commissionType}, ${commissionRate}, ${status || 'active'}, ${notes}, ${contactName}, ${contactEmail}, ${contactPhone})
+        RETURNING *
+      `);
+      res.json({ ok: true, partner: result.rows[0] });
+    } catch (error) {
+      console.error('Error creating affiliate partner:', error);
+      res.status(500).json({ error: 'Failed to create affiliate partner' });
+    }
+  });
+
+  // Update affiliate partner
+  app.patch('/api/admin/affiliates/:id', express.json(), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { name, category, websiteUrl, affiliateId, affiliateProgram, commissionType, commissionRate, status, notes, contactName, contactEmail, contactPhone } = req.body;
+      
+      const result = await db.execute(sql`
+        UPDATE affiliate_partners SET
+          name = COALESCE(${name}, name),
+          category = COALESCE(${category}, category),
+          website_url = COALESCE(${websiteUrl}, website_url),
+          affiliate_id = COALESCE(${affiliateId}, affiliate_id),
+          affiliate_program = COALESCE(${affiliateProgram}, affiliate_program),
+          commission_type = COALESCE(${commissionType}, commission_type),
+          commission_rate = COALESCE(${commissionRate}, commission_rate),
+          status = COALESCE(${status}, status),
+          notes = COALESCE(${notes}, notes),
+          contact_name = COALESCE(${contactName}, contact_name),
+          contact_email = COALESCE(${contactEmail}, contact_email),
+          contact_phone = COALESCE(${contactPhone}, contact_phone),
+          updated_at = NOW()
+        WHERE id = ${id}
+        RETURNING *
+      `);
+      
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'Partner not found' });
+      }
+      res.json({ ok: true, partner: result.rows[0] });
+    } catch (error) {
+      console.error('Error updating affiliate partner:', error);
+      res.status(500).json({ error: 'Failed to update affiliate partner' });
+    }
+  });
+
+  // Delete affiliate partner
+  app.delete('/api/admin/affiliates/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      await db.execute(sql`DELETE FROM affiliate_partners WHERE id = ${id}`);
+      res.json({ ok: true, message: 'Partner deleted' });
+    } catch (error) {
+      console.error('Error deleting affiliate partner:', error);
+      res.status(500).json({ error: 'Failed to delete affiliate partner' });
+    }
+  });
+
+  // Get affiliate earnings summary
+  app.get('/api/admin/affiliates/earnings/summary', async (req, res) => {
+    try {
+      // Get total earnings by partner
+      const earningsByPartner = await db.execute(sql`
+        SELECT 
+          p.id as partner_id,
+          p.name as partner_name,
+          p.category,
+          p.commission_rate,
+          p.status,
+          COUNT(e.id) as total_conversions,
+          COALESCE(SUM(e.order_amount_cents), 0) as total_order_value_cents,
+          COALESCE(SUM(e.commission_cents), 0) as total_commission_cents,
+          COALESCE(SUM(CASE WHEN e.status = 'paid' THEN e.commission_cents ELSE 0 END), 0) as paid_commission_cents,
+          COALESCE(SUM(CASE WHEN e.status = 'pending' THEN e.commission_cents ELSE 0 END), 0) as pending_commission_cents,
+          COALESCE(SUM(CASE WHEN e.status = 'approved' THEN e.commission_cents ELSE 0 END), 0) as approved_commission_cents
+        FROM affiliate_partners p
+        LEFT JOIN affiliate_earnings e ON p.id = e.partner_id
+        GROUP BY p.id, p.name, p.category, p.commission_rate, p.status
+        ORDER BY total_commission_cents DESC
+      `);
+
+      // Get grand totals
+      const grandTotals = await db.execute(sql`
+        SELECT 
+          COUNT(*) as total_conversions,
+          COALESCE(SUM(order_amount_cents), 0) as total_order_value_cents,
+          COALESCE(SUM(commission_cents), 0) as total_commission_cents,
+          COALESCE(SUM(CASE WHEN status = 'paid' THEN commission_cents ELSE 0 END), 0) as paid_commission_cents,
+          COALESCE(SUM(CASE WHEN status = 'pending' THEN commission_cents ELSE 0 END), 0) as pending_commission_cents,
+          COALESCE(SUM(CASE WHEN status = 'approved' THEN commission_cents ELSE 0 END), 0) as approved_commission_cents
+        FROM affiliate_earnings
+      `);
+
+      res.json({ 
+        ok: true, 
+        byPartner: earningsByPartner.rows,
+        totals: grandTotals.rows[0]
+      });
+    } catch (error) {
+      console.error('Error fetching earnings summary:', error);
+      res.status(500).json({ error: 'Failed to fetch earnings summary' });
+    }
+  });
+
+  // Get recent affiliate earnings
+  app.get('/api/admin/affiliates/earnings/recent', async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 20;
+      const result = await db.execute(sql`
+        SELECT 
+          e.*,
+          p.name as partner_name,
+          p.category as partner_category
+        FROM affiliate_earnings e
+        JOIN affiliate_partners p ON e.partner_id = p.id
+        ORDER BY e.conversion_date DESC
+        LIMIT ${limit}
+      `);
+      res.json({ ok: true, earnings: result.rows });
+    } catch (error) {
+      console.error('Error fetching recent earnings:', error);
+      res.status(500).json({ error: 'Failed to fetch recent earnings' });
+    }
+  });
+
+  // Record manual earnings entry (for imports from partner dashboards)
+  app.post('/api/admin/affiliates/earnings', express.json(), async (req, res) => {
+    try {
+      const { partnerId, orderReference, orderAmountCents, commissionCents, status, conversionDate, productDetails, notes } = req.body;
+      
+      const result = await db.execute(sql`
+        INSERT INTO affiliate_earnings (partner_id, order_reference, order_amount_cents, commission_cents, status, conversion_date, product_details, notes)
+        VALUES (${partnerId}, ${orderReference}, ${orderAmountCents}, ${commissionCents}, ${status || 'pending'}, ${conversionDate}, ${JSON.stringify(productDetails)}, ${notes})
+        RETURNING *
+      `);
+      res.json({ ok: true, earning: result.rows[0] });
+    } catch (error) {
+      console.error('Error recording earnings:', error);
+      res.status(500).json({ error: 'Failed to record earnings' });
+    }
+  });
+
+  // Update earning status (pending -> approved -> paid)
+  app.patch('/api/admin/affiliates/earnings/:id', express.json(), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { status, paymentReference, notes } = req.body;
+      
+      let updateQuery;
+      if (status === 'approved') {
+        updateQuery = sql`
+          UPDATE affiliate_earnings SET status = ${status}, approval_date = NOW(), notes = COALESCE(${notes}, notes), updated_at = NOW()
+          WHERE id = ${id} RETURNING *
+        `;
+      } else if (status === 'paid') {
+        updateQuery = sql`
+          UPDATE affiliate_earnings SET status = ${status}, payment_date = NOW(), payment_reference = ${paymentReference}, notes = COALESCE(${notes}, notes), updated_at = NOW()
+          WHERE id = ${id} RETURNING *
+        `;
+      } else {
+        updateQuery = sql`
+          UPDATE affiliate_earnings SET status = ${status}, notes = COALESCE(${notes}, notes), updated_at = NOW()
+          WHERE id = ${id} RETURNING *
+        `;
+      }
+      
+      const result = await db.execute(updateQuery);
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'Earning not found' });
+      }
+      res.json({ ok: true, earning: result.rows[0] });
+    } catch (error) {
+      console.error('Error updating earning:', error);
+      res.status(500).json({ error: 'Failed to update earning' });
+    }
+  });
+
+  // Track affiliate click (called when user clicks affiliate link)
+  app.post('/api/affiliates/track-click', express.json(), async (req, res) => {
+    try {
+      const { partnerId, productType, productName, productSku, referralUrl, source, analysisId } = req.body;
+      const ipAddress = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+      const userAgent = req.headers['user-agent'] || 'unknown';
+      
+      const result = await db.execute(sql`
+        INSERT INTO affiliate_clicks (partner_id, product_type, product_name, product_sku, referral_url, source, analysis_id, ip_address, user_agent)
+        VALUES (${partnerId}, ${productType}, ${productName}, ${productSku}, ${referralUrl}, ${source}, ${analysisId}, ${ipAddress as string}, ${userAgent as string})
+        RETURNING id
+      `);
+      res.json({ ok: true, clickId: result.rows[0]?.id });
+    } catch (error) {
+      console.error('Error tracking click:', error);
+      res.status(500).json({ error: 'Failed to track click' });
+    }
+  });
+
+  // Get click statistics
+  app.get('/api/admin/affiliates/clicks/stats', async (req, res) => {
+    try {
+      const clickStats = await db.execute(sql`
+        SELECT 
+          p.id as partner_id,
+          p.name as partner_name,
+          COUNT(c.id) as total_clicks,
+          COUNT(DISTINCT DATE(c.clicked_at)) as active_days
+        FROM affiliate_partners p
+        LEFT JOIN affiliate_clicks c ON p.id = c.partner_id
+        GROUP BY p.id, p.name
+        ORDER BY total_clicks DESC
+      `);
+      res.json({ ok: true, stats: clickStats.rows });
+    } catch (error) {
+      console.error('Error fetching click stats:', error);
+      res.status(500).json({ error: 'Failed to fetch click stats' });
+    }
+  });
+
+  console.log('💰 Affiliate Partnership routes registered - Partner CRUD, earnings tracking, click analytics');
+
   // ---- Health Routes ----
   app.use(healthRoutes);
   console.log('🏥 Health routes registered - /api/health/auth for JWKS diagnostics');
