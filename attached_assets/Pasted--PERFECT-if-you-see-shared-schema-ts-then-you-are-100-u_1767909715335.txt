@@ -1,0 +1,221 @@
+🔥 PERFECT — if you see shared/schema.ts then you are 100% using Drizzle (that file is the Drizzle schema file). ✅✅✅
+
+Now we’re ready to wire your Campaign Builder + Follow-Up Scheduler to your REAL Neon Postgres database.
+
+Below is the exact step-by-step, and I’ll make it copy/paste safe.
+
+✅ STEP 1 — Open shared/schema.ts
+
+You’re going to add 4 tables (and you already have users/leads etc).
+
+Add these Drizzle tables into shared/schema.ts
+
+⚠️ Add them near your other pgTable(...) definitions.
+
+✅ 1) Lead Campaigns Table
+import { pgTable, uuid, text, integer, boolean, timestamp, jsonb } from "drizzle-orm/pg-core";
+
+export const leadCampaigns = pgTable("lead_campaigns", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: uuid("user_id").notNull(),
+
+  name: text("name").notNull(),
+  tradeType: text("trade_type").notNull().default("tree_service"),
+
+  targetLocation: text("target_location").notNull(),
+  radius: integer("radius").notNull().default(25),
+
+  leadTargets: jsonb("lead_targets").notNull().default([]),
+  minScore: integer("min_score").notNull().default(25),
+  maxLeadsPerRun: integer("max_leads_per_run").notNull().default(30),
+
+  generateOutreachFor: text("generate_outreach_for").notNull().default("hot"), // hot|warm|all
+  scheduleType: text("schedule_type").notNull().default("weekly"), // daily|weekly|trigger
+  scheduleHour: integer("schedule_hour").notNull().default(8),
+
+  enabled: boolean("enabled").notNull().default(true),
+  lastRunAt: timestamp("last_run_at"),
+
+  createdAt: timestamp("created_at").defaultNow()
+});
+
+✅ 2) Campaign Runs Table
+export const campaignRuns = pgTable("campaign_runs", {
+  id: uuid("id").defaultRandom().primaryKey(),
+
+  campaignId: uuid("campaign_id").notNull(),
+  userId: uuid("user_id").notNull(),
+
+  status: text("status").notNull().default("running"), // running|completed|failed
+
+  leadsFound: integer("leads_found").default(0),
+  hotLeads: integer("hot_leads").default(0),
+  warmLeads: integer("warm_leads").default(0),
+
+  createdAt: timestamp("created_at").defaultNow(),
+  completedAt: timestamp("completed_at")
+});
+
+✅ 3) Campaign Leads Table (Dedup + History)
+export const campaignLeads = pgTable("campaign_leads", {
+  id: uuid("id").defaultRandom().primaryKey(),
+
+  campaignRunId: uuid("campaign_run_id").notNull(),
+  campaignId: uuid("campaign_id").notNull(),
+  userId: uuid("user_id").notNull(),
+
+  leadExternalId: text("lead_external_id").notNull(),
+  leadSnapshot: jsonb("lead_snapshot").notNull(),
+
+  score: integer("score").default(0),
+  scoreLabel: text("score_label").default("cold"),
+
+  createdAt: timestamp("created_at").defaultNow()
+});
+
+✅ 4) Follow-Up Tasks Table
+export const followUpTasks = pgTable("followup_tasks", {
+  id: uuid("id").defaultRandom().primaryKey(),
+
+  userId: uuid("user_id").notNull(),
+  leadId: text("lead_id").notNull(), // lead external id or internal id
+  outreachMessageId: text("outreach_message_id"),
+
+  channel: text("channel").notNull(), // sms|email|call
+  messageText: text("message_text").notNull(),
+  taskTitle: text("task_title").notNull(),
+
+  dueAt: timestamp("due_at").notNull(),
+  status: text("status").notNull().default("pending"), // pending|completed|skipped
+
+  createdAt: timestamp("created_at").defaultNow()
+});
+
+✅ STEP 2 — Push Schema to Neon Postgres
+
+Run:
+
+npm run db:push
+
+
+✅ This will create the tables in your Neon database.
+
+✅ STEP 3 — Add DB Functions (Campaign CRUD + Tasks)
+
+Create:
+
+✅ server/db/campaigns.ts
+import { db } from "./index";
+import { leadCampaigns, campaignRuns, campaignLeads, followUpTasks } from "../../shared/schema";
+import { eq, and, sql } from "drizzle-orm";
+
+export async function createCampaign(userId: string, campaign: any) {
+  const [created] = await db.insert(leadCampaigns).values({
+    userId,
+    ...campaign
+  }).returning();
+
+  return created;
+}
+
+export async function getCampaigns(userId: string) {
+  return db.select().from(leadCampaigns).where(eq(leadCampaigns.userId, userId));
+}
+
+export async function setCampaignEnabled(userId: string, campaignId: string, enabled: boolean) {
+  const [updated] = await db.update(leadCampaigns)
+    .set({ enabled })
+    .where(and(eq(leadCampaigns.id, campaignId), eq(leadCampaigns.userId, userId)))
+    .returning();
+  return updated;
+}
+
+export async function createRun(userId: string, campaignId: string) {
+  const [run] = await db.insert(campaignRuns).values({
+    userId,
+    campaignId,
+    status: "running"
+  }).returning();
+  return run;
+}
+
+export async function completeRun(runId: string, updates: any) {
+  const [updated] = await db.update(campaignRuns)
+    .set({ ...updates, status: "completed", completedAt: new Date() })
+    .where(eq(campaignRuns.id, runId))
+    .returning();
+  return updated;
+}
+
+export async function saveCampaignLead(runId: string, campaignId: string, userId: string, lead: any) {
+  const [saved] = await db.insert(campaignLeads).values({
+    campaignRunId: runId,
+    campaignId,
+    userId,
+    leadExternalId: lead.external_id || lead.place_id || lead.company_name,
+    leadSnapshot: lead,
+    score: lead.score || 0,
+    scoreLabel: lead.score_label || "cold"
+  }).returning();
+
+  return saved;
+}
+
+export async function getTasksDueToday(userId: string) {
+  return db.select()
+    .from(followUpTasks)
+    .where(and(
+      eq(followUpTasks.userId, userId),
+      eq(followUpTasks.status, "pending"),
+      sql`DATE(${followUpTasks.dueAt}) = CURRENT_DATE`
+    ))
+    .orderBy(followUpTasks.dueAt);
+}
+
+✅ STEP 4 — Update API Routes to Use Real DB
+
+Now we replace your mock campaign arrays with DB calls.
+
+✅ /api/leadvault/campaigns/list
+
+Instead of mock, call:
+
+const campaigns = await getCampaigns(user.id);
+
+✅ /api/leadvault/followups/today
+
+Instead of mock tasks:
+
+const tasks = await getTasksDueToday(user.id);
+return res.json({ tasks });
+
+✅ WHAT YOU’VE JUST UNLOCKED 🎯
+
+Once this is wired:
+
+✅ campaigns persist permanently
+✅ follow-ups appear on dashboard daily
+✅ campaign history can be shown
+✅ dedupe works
+✅ outreach can be stored
+✅ ROI tracker becomes possible
+
+Your app becomes a REAL contractor sales machine.
+
+✅ NEXT: I NEED ONE THING FROM YOU
+
+To generate the exact “drop-in” code for your API routes:
+
+✅ Please open shared/schema.ts and paste the FIRST 30 LINES here.
+
+Just the top section where imports and your existing tables start.
+
+That lets me match:
+✅ your import style
+✅ naming convention
+✅ db file location
+✅ existing lead/user table names
+
+…and I’ll produce the final “no-errors” integration update for your project.
+
+Send me the first 30 lines of shared/schema.ts and I’ll finish it for you.

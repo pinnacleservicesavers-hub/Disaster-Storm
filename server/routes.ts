@@ -17902,112 +17902,117 @@ What specific area or type of incident would you like me to focus on? I can prov
     const hazardFactors: string[] = [];
     
     // BASE PRICING BY TREE SIZE (in cents)
-    // Based on trunk diameter and height - industry standard 2024-2025
+    // Based on trunk diameter and height - validated against real contractor quotes 2024-2025
+    // Fortson/Columbus/Phenix City GA area pricing benchmarks
     let baseMin = 0;
     let baseMax = 0;
     let sizeCategory = '';
     
     if (input.trunkDiameterInches <= 12 && input.heightFt <= 35) {
       // Small tree
-      baseMin = 30000; baseMax = 50000; // $300-$500
+      baseMin = 35000; baseMax = 55000; // $350-$550
       sizeCategory = 'Small (<12" trunk, <35ft)';
     } else if (input.trunkDiameterInches <= 20 && input.heightFt <= 55) {
       // Medium tree
-      baseMin = 60000; baseMax = 120000; // $600-$1,200
+      baseMin = 80000; baseMax = 150000; // $800-$1,500
       sizeCategory = 'Medium (12-20" trunk, 35-55ft)';
     } else if (input.trunkDiameterInches <= 30 && input.heightFt <= 75) {
       // Large tree
-      baseMin = 150000; baseMax = 350000; // $1,500-$3,500
+      baseMin = 180000; baseMax = 350000; // $1,800-$3,500
       sizeCategory = 'Large (20-30" trunk, 55-75ft)';
     } else if (input.trunkDiameterInches <= 40 && input.heightFt <= 95) {
       // Extra-Large tree
-      baseMin = 300000; baseMax = 600000; // $3,000-$6,000
+      baseMin = 350000; baseMax = 550000; // $3,500-$5,500
       sizeCategory = 'Extra-Large (30-40" trunk, 75-95ft)';
     } else {
-      // Giant tree
-      baseMin = 500000; baseMax = 1000000; // $5,000-$10,000+
+      // Giant tree (40"+ trunk) - Real quotes: $8,500-$9,500 with powerlines
+      baseMin = 450000; baseMax = 650000; // $4,500-$6,500 base
       sizeCategory = 'Giant (>40" trunk or >95ft)';
     }
     
-    // HAZARD MULTIPLIERS
-    let hazardMultiplier = 1.0;
+    // HAZARD PREMIUMS (additive, not multiplicative - matches real contractor pricing)
+    // Real contractors add flat fees for hazards, not percentages
+    let hazardPremiumMin = 0;
+    let hazardPremiumMax = 0;
     
     if (input.hazards.powerlines) {
-      hazardMultiplier += 1.0; // +100% for powerlines (biggest price driver)
-      hazardFactors.push('Powerlines in canopy (+100%)');
-      warnings.push('Power lines detected - may require utility coordination');
+      // Power lines are the biggest price driver - verified against $8,500-$9,500 quotes
+      hazardPremiumMin += 200000; hazardPremiumMax += 300000; // +$2,000-$3,000
+      hazardFactors.push('Powerlines in canopy (+$2,000-$3,000)');
+      warnings.push('Power lines detected - requires utility coordination and specialized crew');
     }
     
     if (input.hazards.nearStructure) {
-      hazardMultiplier += 0.5; // +50% for near structure
-      hazardFactors.push('Near structure (+50%)');
+      hazardPremiumMin += 80000; hazardPremiumMax += 150000; // +$800-$1,500
+      hazardFactors.push('Near structure (+$800-$1,500)');
     }
     
     if (input.hazards.leaningTowardTarget) {
-      hazardMultiplier += 0.4; // +40% for dangerous lean
-      hazardFactors.push('Leaning toward target (+40%)');
+      hazardPremiumMin += 60000; hazardPremiumMax += 120000; // +$600-$1,200
+      hazardFactors.push('Leaning toward target (+$600-$1,200)');
       warnings.push('Tree is leaning - requires controlled sectional removal');
     }
     
     if (input.hazards.limitedFallZone) {
-      hazardMultiplier += 0.5; // +50% for limited fall zone
-      hazardFactors.push('Limited fall zone (+50%)');
+      hazardPremiumMin += 50000; hazardPremiumMax += 100000; // +$500-$1,000
+      hazardFactors.push('Limited fall zone (+$500-$1,000)');
     }
     
     if (input.hazards.decayOrDamage) {
-      hazardMultiplier += 0.3; // +30% for decay/damage
-      hazardFactors.push('Decay or storm damage (+30%)');
+      hazardPremiumMin += 40000; hazardPremiumMax += 80000; // +$400-$800
+      hazardFactors.push('Decay or storm damage (+$400-$800)');
       warnings.push('Decayed or damaged wood - unpredictable structure');
     }
     
     if (input.hazards.multiTrunk) {
-      hazardMultiplier += 0.25; // +25% for multi-trunk
-      hazardFactors.push('Multi-trunk tree (+25%)');
+      hazardPremiumMin += 30000; hazardPremiumMax += 60000; // +$300-$600
+      hazardFactors.push('Multi-trunk tree (+$300-$600)');
     }
     
-    // ACCESS ADJUSTMENTS
-    let accessMultiplier = 1.0;
+    // ACCESS ADJUSTMENTS (additive premiums)
+    let accessPremiumMin = 0;
+    let accessPremiumMax = 0;
     let equipmentType = 'Climbing only';
     let equipmentMin = 0;
     let equipmentMax = 0;
     
     if (!input.access.canDropTree) {
-      accessMultiplier += 0.3; // +30% for sectional removal
-      hazardFactors.push('Sectional removal required (+30%)');
+      accessPremiumMin += 50000; accessPremiumMax += 100000; // +$500-$1,000
+      hazardFactors.push('Sectional removal required (+$500-$1,000)');
     }
     
     if (input.access.backyardOnly) {
-      accessMultiplier += 0.2; // +20% for difficult access
-      hazardFactors.push('Backyard access only (+20%)');
+      accessPremiumMin += 30000; accessPremiumMax += 60000; // +$300-$600
+      hazardFactors.push('Backyard access only (+$300-$600)');
     }
     
     if (input.access.slopeOrHill) {
-      accessMultiplier += 0.15; // +15% for slope
-      hazardFactors.push('Slope or hill (+15%)');
+      accessPremiumMin += 20000; accessPremiumMax += 40000; // +$200-$400
+      hazardFactors.push('Slope or hill (+$200-$400)');
     }
     
     // EQUIPMENT COSTS
     if (input.access.craneRequired) {
       equipmentType = 'Crane required';
-      equipmentMin = 150000; equipmentMax = 350000; // $1,500-$3,500 crane rental
+      equipmentMin = 150000; equipmentMax = 300000; // $1,500-$3,000 crane rental
       warnings.push('Crane mobilization required - adds significant cost');
     } else if (input.access.bucketTruckAccess) {
       equipmentType = 'Bucket truck';
-      equipmentMin = 40000; equipmentMax = 60000; // $400-$600 bucket truck
+      equipmentMin = 35000; equipmentMax = 55000; // $350-$550 bucket truck
     }
     
     // UTILITY COORDINATION (if powerlines involved)
     let utilityMin = 0;
     let utilityMax = 0;
     if (input.hazards.powerlines) {
-      utilityMin = 50000; utilityMax = 150000; // $500-$1,500
+      utilityMin = 40000; utilityMax = 100000; // $400-$1,000
     }
     
     // ADDITIONAL SERVICES
     let stumpMin = 0, stumpMax = 0;
     if (input.additionalServices.stumpGrinding) {
-      // Stump grinding based on trunk diameter
-      const stumpBase = Math.max(25000, input.trunkDiameterInches * 1000); // $2.50-$10/inch, min $250
+      // Stump grinding based on trunk diameter - $3-$5/inch diameter
+      const stumpBase = Math.max(25000, input.trunkDiameterInches * 400); // min $250
       stumpMin = stumpBase;
       stumpMax = Math.round(stumpBase * 1.5);
     }
@@ -18015,21 +18020,18 @@ What specific area or type of incident would you like me to focus on? I can prov
     let haulMin = 0, haulMax = 0;
     if (input.additionalServices.woodHaulOff) {
       // Hauling based on tree size
-      haulMin = 15000; haulMax = 40000; // $150-$400
+      haulMin = 15000; haulMax = 35000; // $150-$350
     }
     
     // EMERGENCY PREMIUM
     if (input.additionalServices.emergencyService) {
-      hazardMultiplier += 0.5; // +50% for emergency/after-hours
-      hazardFactors.push('Emergency service (+50%)');
+      hazardPremiumMin += 100000; hazardPremiumMax += 200000; // +$1,000-$2,000
+      hazardFactors.push('Emergency service (+$1,000-$2,000)');
     }
     
-    // CALCULATE TOTALS
-    const hazardPremiumMin = Math.round(baseMin * (hazardMultiplier - 1));
-    const hazardPremiumMax = Math.round(baseMax * (hazardMultiplier - 1));
-    
-    const adjustedBaseMin = Math.round(baseMin * accessMultiplier);
-    const adjustedBaseMax = Math.round(baseMax * accessMultiplier);
+    // CALCULATE TOTALS (additive model)
+    const adjustedBaseMin = baseMin + accessPremiumMin;
+    const adjustedBaseMax = baseMax + accessPremiumMax;
     
     const totalMin = adjustedBaseMin + hazardPremiumMin + equipmentMin + utilityMin + stumpMin + haulMin;
     const totalMax = adjustedBaseMax + hazardPremiumMax + equipmentMax + utilityMax + stumpMax + haulMax;
@@ -18050,11 +18052,14 @@ What specific area or type of incident would you like me to focus on? I can prov
       estimatedHours += 2;
     }
     
-    // RISK LEVEL
+    // RISK LEVEL (based on hazard premium amount)
     let riskLevel: 'low' | 'medium' | 'high' | 'extreme' = 'low';
-    if (hazardMultiplier >= 2.5) riskLevel = 'extreme';
-    else if (hazardMultiplier >= 1.8) riskLevel = 'high';
-    else if (hazardMultiplier >= 1.3) riskLevel = 'medium';
+    const hazardAvg = (hazardPremiumMin + hazardPremiumMax) / 2;
+    if (hazardAvg >= 350000) riskLevel = 'extreme'; // $3,500+ hazard premium
+    else if (hazardAvg >= 200000) riskLevel = 'high'; // $2,000+ (power lines)
+    else if (hazardAvg >= 100000) riskLevel = 'medium'; // $1,000+ 
+    // Power lines always = high risk minimum
+    if (input.hazards.powerlines && riskLevel === 'medium') riskLevel = 'high';
     
     return {
       totalMin,
