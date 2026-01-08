@@ -3905,7 +3905,291 @@ Return this exact JSON structure:
     }
   });
 
+  // ===== LEADVAULT CAMPAIGN MANAGEMENT ROUTES =====
+
+  // List campaigns for contractor
+  app.get('/api/leadvault/campaigns', authenticate, requireContractor, async (req: AuthenticatedRequest, res) => {
+    try {
+      const contractorId = req.user?.id || 'demo';
+      const result = await db.execute(sql`
+        SELECT c.*, 
+               (SELECT COUNT(*) FROM lead_vault_campaign_runs WHERE campaign_id = c.id) as total_runs,
+               (SELECT SUM(leads_found) FROM lead_vault_campaign_runs WHERE campaign_id = c.id AND status = 'completed') as total_leads_found
+        FROM lead_vault_campaigns c
+        WHERE c.contractor_id = ${contractorId}
+        ORDER BY c.created_at DESC
+      `);
+      res.json({ ok: true, campaigns: result.rows });
+    } catch (error) {
+      console.error('Error fetching campaigns:', error);
+      res.status(500).json({ error: 'Failed to fetch campaigns' });
+    }
+  });
+
+  // Create new campaign
+  app.post('/api/leadvault/campaigns', authenticate, requireContractor, express.json(), async (req: AuthenticatedRequest, res) => {
+    try {
+      const contractorId = req.user?.id || 'demo';
+      const { name, targetLocation, radius, leadTargets, scheduleType, scheduleHour, minScore, maxLeadsPerRun, generateOutreachFor, stormTriggerEnabled, stormTriggerThreshold } = req.body;
+      
+      if (!name || !targetLocation) {
+        return res.status(400).json({ error: 'Name and target location required' });
+      }
+
+      const result = await db.execute(sql`
+        INSERT INTO lead_vault_campaigns 
+        (contractor_id, name, target_location, radius, lead_targets, schedule_type, schedule_hour, min_score, max_leads_per_run, generate_outreach_for, storm_trigger_enabled, storm_trigger_threshold)
+        VALUES (${contractorId}, ${name}, ${targetLocation}, ${radius || 25}, ${JSON.stringify(leadTargets || ['property management', 'hoa', 'apartment complex'])}, ${scheduleType || 'weekly'}, ${scheduleHour || 8}, ${minScore || 25}, ${maxLeadsPerRun || 30}, ${generateOutreachFor || 'hot'}, ${stormTriggerEnabled || false}, ${stormTriggerThreshold || 50})
+        RETURNING *
+      `);
+      
+      res.json({ ok: true, campaign: result.rows[0] });
+    } catch (error) {
+      console.error('Error creating campaign:', error);
+      res.status(500).json({ error: 'Failed to create campaign' });
+    }
+  });
+
+  // Update campaign (enable/disable, modify settings)
+  app.patch('/api/leadvault/campaigns/:id', authenticate, requireContractor, express.json(), async (req: AuthenticatedRequest, res) => {
+    try {
+      const contractorId = req.user?.id || 'demo';
+      const { id } = req.params;
+      const updates = req.body;
+      
+      // Validate and sanitize input - only allow specific fields
+      const validUpdates: Record<string, any> = {};
+      
+      if (typeof updates.name === 'string' && updates.name.length <= 100) {
+        validUpdates.name = updates.name.replace(/[^\w\s-]/g, '').substring(0, 100);
+      }
+      if (typeof updates.enabled === 'boolean') {
+        validUpdates.enabled = updates.enabled;
+      }
+      if (typeof updates.targetLocation === 'string' && updates.targetLocation.length <= 200) {
+        validUpdates.targetLocation = updates.targetLocation.replace(/[^\w\s,.-]/g, '').substring(0, 200);
+      }
+      if (typeof updates.radius === 'number' && updates.radius >= 1 && updates.radius <= 100) {
+        validUpdates.radius = Math.floor(updates.radius);
+      }
+      if (typeof updates.scheduleType === 'string' && ['daily', 'weekly'].includes(updates.scheduleType)) {
+        validUpdates.scheduleType = updates.scheduleType;
+      }
+      if (typeof updates.scheduleHour === 'number' && updates.scheduleHour >= 0 && updates.scheduleHour <= 23) {
+        validUpdates.scheduleHour = Math.floor(updates.scheduleHour);
+      }
+      if (typeof updates.stormTriggerEnabled === 'boolean') {
+        validUpdates.stormTriggerEnabled = updates.stormTriggerEnabled;
+      }
+      if (Array.isArray(updates.leadTargets) && updates.leadTargets.every((t: any) => typeof t === 'string')) {
+        validUpdates.leadTargets = updates.leadTargets.slice(0, 10).map((t: string) => t.replace(/[^\w\s-]/g, '').substring(0, 50));
+      }
+      
+      // Use parameterized query for safe updates
+      const result = await db.execute(sql`
+        UPDATE lead_vault_campaigns 
+        SET 
+          name = COALESCE(${validUpdates.name ?? null}, name),
+          enabled = COALESCE(${validUpdates.enabled ?? null}, enabled),
+          target_location = COALESCE(${validUpdates.targetLocation ?? null}, target_location),
+          radius = COALESCE(${validUpdates.radius ?? null}, radius),
+          schedule_type = COALESCE(${validUpdates.scheduleType ?? null}, schedule_type),
+          schedule_hour = COALESCE(${validUpdates.scheduleHour ?? null}, schedule_hour),
+          storm_trigger_enabled = COALESCE(${validUpdates.stormTriggerEnabled ?? null}, storm_trigger_enabled),
+          lead_targets = COALESCE(${validUpdates.leadTargets ? JSON.stringify(validUpdates.leadTargets) : null}::jsonb, lead_targets),
+          updated_at = NOW()
+        WHERE id = ${parseInt(id)} AND contractor_id = ${contractorId}
+        RETURNING *
+      `);
+      
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'Campaign not found' });
+      }
+      
+      res.json({ ok: true, campaign: result.rows[0] });
+    } catch (error) {
+      console.error('Error updating campaign:', error);
+      res.status(500).json({ error: 'Failed to update campaign' });
+    }
+  });
+
+  // Run campaign now (manual trigger)
+  app.post('/api/leadvault/campaigns/:id/run', authenticate, requireContractor, async (req: AuthenticatedRequest, res) => {
+    try {
+      const contractorId = req.user?.id || 'demo';
+      const { id } = req.params;
+      
+      // Import campaign scheduler
+      const { campaignScheduler } = await import('./scheduler.js');
+      
+      // Get campaign
+      const campaignResult = await db.execute(sql`
+        SELECT * FROM lead_vault_campaigns WHERE id = ${id} AND contractor_id = ${contractorId}
+      `);
+      
+      if (campaignResult.rows.length === 0) {
+        return res.status(404).json({ error: 'Campaign not found' });
+      }
+      
+      const campaign = campaignResult.rows[0];
+      
+      // Run the campaign manually
+      await campaignScheduler.manualRun(parseInt(id));
+      
+      res.json({ ok: true, message: 'Campaign started' });
+    } catch (error) {
+      console.error('Error running campaign:', error);
+      res.status(500).json({ error: 'Failed to run campaign' });
+    }
+  });
+
+  // Get campaign run history
+  app.get('/api/leadvault/campaigns/:id/runs', authenticate, requireContractor, async (req: AuthenticatedRequest, res) => {
+    try {
+      const contractorId = req.user?.id || 'demo';
+      const { id } = req.params;
+      
+      const result = await db.execute(sql`
+        SELECT r.* FROM lead_vault_campaign_runs r
+        JOIN lead_vault_campaigns c ON c.id = r.campaign_id
+        WHERE r.campaign_id = ${id} AND c.contractor_id = ${contractorId}
+        ORDER BY r.started_at DESC
+        LIMIT 50
+      `);
+      
+      res.json({ ok: true, runs: result.rows });
+    } catch (error) {
+      console.error('Error fetching campaign runs:', error);
+      res.status(500).json({ error: 'Failed to fetch campaign runs' });
+    }
+  });
+
+  // Delete campaign
+  app.delete('/api/leadvault/campaigns/:id', authenticate, requireContractor, async (req: AuthenticatedRequest, res) => {
+    try {
+      const contractorId = req.user?.id || 'demo';
+      const { id } = req.params;
+      
+      // Delete related runs first
+      await db.execute(sql`DELETE FROM lead_vault_campaign_leads WHERE campaign_id = ${id}`);
+      await db.execute(sql`DELETE FROM lead_vault_campaign_runs WHERE campaign_id = ${id}`);
+      await db.execute(sql`DELETE FROM lead_vault_campaigns WHERE id = ${id} AND contractor_id = ${contractorId}`);
+      
+      res.json({ ok: true });
+    } catch (error) {
+      console.error('Error deleting campaign:', error);
+      res.status(500).json({ error: 'Failed to delete campaign' });
+    }
+  });
+
+  // Get follow-up tasks due today
+  app.get('/api/leadvault/followups/today', authenticate, requireContractor, async (req: AuthenticatedRequest, res) => {
+    try {
+      const contractorId = req.user?.id || 'demo';
+      
+      const result = await db.execute(sql`
+        SELECT f.*, l.company_name, l.contact_name, l.phone, l.email
+        FROM lead_vault_followup_tasks f
+        LEFT JOIN lead_vault_leads l ON l.id = f.lead_id
+        WHERE f.contractor_id = ${contractorId}
+        AND f.status = 'pending'
+        AND f.due_at::date <= CURRENT_DATE
+        ORDER BY f.due_at ASC
+        LIMIT 20
+      `);
+      
+      res.json({ ok: true, tasks: result.rows });
+    } catch (error) {
+      console.error('Error fetching follow-ups:', error);
+      res.status(500).json({ error: 'Failed to fetch follow-ups' });
+    }
+  });
+
+  // Mark follow-up task as complete
+  app.post('/api/leadvault/followups/:id/complete', authenticate, requireContractor, async (req: AuthenticatedRequest, res) => {
+    try {
+      const contractorId = req.user?.id || 'demo';
+      const { id } = req.params;
+      const { status = 'completed' } = req.body || {};
+      
+      await db.execute(sql`
+        UPDATE lead_vault_followup_tasks 
+        SET status = ${status}, completed_at = NOW()
+        WHERE id = ${id} AND contractor_id = ${contractorId}
+      `);
+      
+      res.json({ ok: true });
+    } catch (error) {
+      console.error('Error completing follow-up:', error);
+      res.status(500).json({ error: 'Failed to complete follow-up' });
+    }
+  });
+
+  // Create default campaign templates for new contractors
+  app.post('/api/leadvault/campaigns/create-defaults', authenticate, requireContractor, async (req: AuthenticatedRequest, res) => {
+    try {
+      const contractorId = req.user?.id || 'demo';
+      const { targetLocation } = req.body;
+      
+      if (!targetLocation) {
+        return res.status(400).json({ error: 'Target location required' });
+      }
+
+      // Create 3 default campaign templates
+      const defaultCampaigns = [
+        {
+          name: 'Property Manager Contracts',
+          lead_targets: ['property management', 'hoa', 'apartment complex', 'commercial property'],
+          schedule_type: 'weekly',
+          schedule_hour: 8
+        },
+        {
+          name: 'Construction Clearing Pipeline',
+          lead_targets: ['general contractor', 'construction company', 'grading contractor', 'builder'],
+          schedule_type: 'weekly',
+          schedule_hour: 8
+        },
+        {
+          name: 'Storm Cleanup Blitz',
+          lead_targets: ['restoration', 'insurance', 'property management', 'hoa'],
+          schedule_type: 'daily',
+          schedule_hour: 8,
+          storm_trigger_enabled: true
+        }
+      ];
+
+      const created = [];
+      for (const campaign of defaultCampaigns) {
+        const result = await db.execute(sql`
+          INSERT INTO lead_vault_campaigns 
+          (contractor_id, name, target_location, radius, lead_targets, schedule_type, schedule_hour, storm_trigger_enabled)
+          VALUES (${contractorId}, ${campaign.name}, ${targetLocation}, 25, ${JSON.stringify(campaign.lead_targets)}, ${campaign.schedule_type}, ${campaign.schedule_hour}, ${campaign.storm_trigger_enabled || false})
+          RETURNING *
+        `);
+        created.push(result.rows[0]);
+      }
+      
+      res.json({ ok: true, campaigns: created });
+    } catch (error) {
+      console.error('Error creating default campaigns:', error);
+      res.status(500).json({ error: 'Failed to create default campaigns' });
+    }
+  });
+
+  // Get campaign scheduler stats
+  app.get('/api/leadvault/scheduler/stats', authenticate, requireContractor, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { campaignScheduler } = await import('./scheduler.js');
+      const stats = campaignScheduler.getStats();
+      res.json({ ok: true, stats });
+    } catch (error) {
+      console.error('Error fetching scheduler stats:', error);
+      res.status(500).json({ error: 'Failed to fetch scheduler stats' });
+    }
+  });
+
   console.log('🔐 ContractorLeadVault™ routes registered - Contractor-only B2B lead finder with AI scoring');
+  console.log('📅 LeadVault Campaign routes registered - 8 AM scheduled campaigns + storm triggers');
 
   // ---- Health Routes ----
   app.use(healthRoutes);

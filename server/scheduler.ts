@@ -368,3 +368,273 @@ export class DamageMonitoringScheduler {
 
 // Export singleton instance
 export const scheduler = DamageMonitoringScheduler.getInstance();
+
+// ===== LEADVAULT CAMPAIGN SCHEDULER =====
+// Runs contractor campaigns at 8 AM local time + storm triggers
+
+interface CampaignSchedulerStats {
+  lastDailyRun: Date | null;
+  lastWeeklyRun: Date | null;
+  lastStormTrigger: Date | null;
+  totalCampaignsRun: number;
+  totalLeadsFound: number;
+  totalOutreachGenerated: number;
+  isRunning: boolean;
+}
+
+export class LeadVaultCampaignScheduler {
+  private static instance: LeadVaultCampaignScheduler;
+  private cronJobs: cron.ScheduledTask[] = [];
+  private stats: CampaignSchedulerStats = {
+    lastDailyRun: null,
+    lastWeeklyRun: null,
+    lastStormTrigger: null,
+    totalCampaignsRun: 0,
+    totalLeadsFound: 0,
+    totalOutreachGenerated: 0,
+    isRunning: false
+  };
+
+  private constructor() {
+    console.log('📋 Initializing LeadVault Campaign Scheduler');
+  }
+
+  static getInstance(): LeadVaultCampaignScheduler {
+    if (!LeadVaultCampaignScheduler.instance) {
+      LeadVaultCampaignScheduler.instance = new LeadVaultCampaignScheduler();
+    }
+    return LeadVaultCampaignScheduler.instance;
+  }
+
+  start() {
+    if (this.stats.isRunning) {
+      console.log('📋 LeadVault Campaign Scheduler already running');
+      return;
+    }
+
+    console.log('🚀 Starting LeadVault Campaign Scheduler');
+    this.stats.isRunning = true;
+
+    // Daily campaigns at 8:05 AM America/Chicago (13:05 UTC in winter, 12:05 UTC in summer)
+    // Using 13:05 UTC as baseline for Central Standard Time
+    const dailyCampaignJob = cron.schedule('5 13 * * *', async () => {
+      console.log('📅 Running daily LeadVault campaigns (8:05 AM CST)...');
+      await this.runScheduledCampaigns('daily');
+    }, {
+      timezone: 'America/Chicago'
+    });
+
+    // Weekly campaigns on Monday at 8:10 AM America/Chicago
+    const weeklyCampaignJob = cron.schedule('10 8 * * 1', async () => {
+      console.log('📅 Running weekly LeadVault campaigns (Monday 8:10 AM CST)...');
+      await this.runScheduledCampaigns('weekly');
+    }, {
+      timezone: 'America/Chicago'
+    });
+
+    // Storm trigger check every 30 minutes (checks weather and fires campaigns if threshold exceeded)
+    const stormTriggerJob = cron.schedule('*/30 * * * *', async () => {
+      await this.checkStormTriggers();
+    });
+
+    this.cronJobs = [dailyCampaignJob, weeklyCampaignJob, stormTriggerJob];
+
+    console.log('✅ LeadVault Campaign Scheduler started:');
+    console.log('   📅 Daily campaigns: 8:05 AM America/Chicago');
+    console.log('   📅 Weekly campaigns: Monday 8:10 AM America/Chicago');
+    console.log('   ⛈️ Storm triggers: every 30 minutes');
+  }
+
+  stop() {
+    if (!this.stats.isRunning) return;
+    
+    this.cronJobs.forEach(job => {
+      job.stop();
+      job.destroy();
+    });
+    this.cronJobs = [];
+    this.stats.isRunning = false;
+    console.log('🛑 LeadVault Campaign Scheduler stopped');
+  }
+
+  getStats(): CampaignSchedulerStats {
+    return { ...this.stats };
+  }
+
+  // Run campaigns of a specific schedule type
+  async runScheduledCampaigns(scheduleType: 'daily' | 'weekly' | 'storm') {
+    const { db } = await import('./db.js');
+    const { sql } = await import('drizzle-orm');
+    
+    try {
+      // Get enabled campaigns for this schedule type
+      const campaignsResult = await db.execute(sql`
+        SELECT * FROM lead_vault_campaigns 
+        WHERE enabled = true 
+        AND (schedule_type = ${scheduleType} OR ${scheduleType} = 'storm' AND storm_trigger_enabled = true)
+      `);
+      
+      const campaigns = campaignsResult.rows as any[];
+      
+      if (campaigns.length === 0) {
+        console.log(`📋 No ${scheduleType} campaigns to run`);
+        return;
+      }
+
+      console.log(`📋 Running ${campaigns.length} ${scheduleType} campaigns...`);
+
+      for (const campaign of campaigns) {
+        try {
+          await this.runSingleCampaign(campaign, scheduleType);
+          this.stats.totalCampaignsRun++;
+        } catch (err) {
+          console.error(`❌ Campaign ${campaign.name} failed:`, err);
+        }
+      }
+
+      // Update stats
+      if (scheduleType === 'daily') {
+        this.stats.lastDailyRun = new Date();
+      } else if (scheduleType === 'weekly') {
+        this.stats.lastWeeklyRun = new Date();
+      } else if (scheduleType === 'storm') {
+        this.stats.lastStormTrigger = new Date();
+      }
+
+    } catch (error) {
+      console.error(`❌ Error running ${scheduleType} campaigns:`, error);
+    }
+  }
+
+  // Run a single campaign
+  async runSingleCampaign(campaign: any, triggerType: string, stormData?: any) {
+    const { db } = await import('./db.js');
+    const { sql } = await import('drizzle-orm');
+    
+    console.log(`🎯 Running campaign: ${campaign.name} (${triggerType})`);
+
+    // Create campaign run record
+    const runResult = await db.execute(sql`
+      INSERT INTO lead_vault_campaign_runs (campaign_id, contractor_id, trigger_type, status, storm_data)
+      VALUES (${campaign.id}, ${campaign.contractor_id}, ${triggerType}, 'running', ${JSON.stringify(stormData || null)})
+      RETURNING id
+    `);
+    
+    const runId = (runResult.rows[0] as any)?.id;
+    
+    try {
+      // For now, log the campaign run - actual lead finding will be added when Google Places is enabled
+      // The campaign runner will integrate with the existing leadvault search endpoint
+      
+      console.log(`   📍 Location: ${campaign.target_location}, Radius: ${campaign.radius}mi`);
+      console.log(`   🎯 Targets: ${JSON.stringify(campaign.lead_targets)}`);
+      console.log(`   📊 Min Score: ${campaign.min_score}, Max Leads: ${campaign.max_leads_per_run}`);
+
+      // TODO: Call the lead search API when Google Places is enabled
+      // For now, mark as completed with placeholder stats
+      
+      await db.execute(sql`
+        UPDATE lead_vault_campaign_runs 
+        SET status = 'completed', completed_at = NOW(), leads_found = 0
+        WHERE id = ${runId}
+      `);
+
+      // Update last run time on campaign
+      await db.execute(sql`
+        UPDATE lead_vault_campaigns SET last_run_at = NOW() WHERE id = ${campaign.id}
+      `);
+
+      console.log(`   ✅ Campaign ${campaign.name} completed`);
+
+    } catch (error) {
+      await db.execute(sql`
+        UPDATE lead_vault_campaign_runs 
+        SET status = 'failed', completed_at = NOW(), error_message = ${String(error)}
+        WHERE id = ${runId}
+      `);
+      throw error;
+    }
+  }
+
+  // Check for storm conditions that should trigger campaigns
+  async checkStormTriggers() {
+    const { db } = await import('./db.js');
+    const { sql } = await import('drizzle-orm');
+    
+    try {
+      // Get campaigns with storm triggers enabled
+      const stormCampaignsResult = await db.execute(sql`
+        SELECT * FROM lead_vault_campaigns 
+        WHERE enabled = true AND storm_trigger_enabled = true
+      `);
+      
+      const stormCampaigns = stormCampaignsResult.rows as any[];
+      
+      if (stormCampaigns.length === 0) return;
+
+      // Check for active weather alerts (from existing NWS sync)
+      const alertsResult = await db.execute(sql`
+        SELECT * FROM weather_alerts 
+        WHERE is_active = true 
+        AND (severity = 'Extreme' OR severity = 'Severe')
+        AND created_at > NOW() - INTERVAL '6 hours'
+        LIMIT 10
+      `);
+      
+      const activeAlerts = alertsResult.rows as any[];
+      
+      if (activeAlerts.length === 0) {
+        // No severe weather - skip storm triggers
+        return;
+      }
+
+      console.log(`⛈️ Storm trigger: ${activeAlerts.length} severe alerts detected!`);
+
+      // Run storm-triggered campaigns
+      for (const campaign of stormCampaigns) {
+        const stormData = {
+          alertCount: activeAlerts.length,
+          maxSeverity: activeAlerts[0]?.severity || 'Severe',
+          triggeredAt: new Date().toISOString()
+        };
+
+        // Only trigger if not run in last 4 hours (avoid spam)
+        const lastRunCheck = await db.execute(sql`
+          SELECT * FROM lead_vault_campaign_runs 
+          WHERE campaign_id = ${campaign.id} 
+          AND trigger_type = 'storm'
+          AND started_at > NOW() - INTERVAL '4 hours'
+          LIMIT 1
+        `);
+
+        if (lastRunCheck.rows.length === 0) {
+          console.log(`⛈️ Storm triggering campaign: ${campaign.name}`);
+          await this.runSingleCampaign(campaign, 'storm', stormData);
+          this.stats.lastStormTrigger = new Date();
+        }
+      }
+
+    } catch (error) {
+      console.error('❌ Error checking storm triggers:', error);
+    }
+  }
+
+  // Manual trigger for testing
+  async manualRun(campaignId: number) {
+    const { db } = await import('./db.js');
+    const { sql } = await import('drizzle-orm');
+    
+    const result = await db.execute(sql`
+      SELECT * FROM lead_vault_campaigns WHERE id = ${campaignId}
+    `);
+    
+    if (result.rows.length === 0) {
+      throw new Error('Campaign not found');
+    }
+
+    await this.runSingleCampaign(result.rows[0], 'manual');
+    return { success: true };
+  }
+}
+
+export const campaignScheduler = LeadVaultCampaignScheduler.getInstance();

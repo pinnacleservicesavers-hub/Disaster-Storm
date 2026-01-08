@@ -31,7 +31,13 @@ import {
   Shield,
   MapPin,
   Building2,
-  Zap
+  Zap,
+  CalendarDays,
+  Play,
+  Pause,
+  Trash2,
+  Plus,
+  CloudLightning
 } from 'lucide-react';
 
 interface Lead {
@@ -276,6 +282,9 @@ export default function ContractorLeadVault() {
             <TabsTrigger value="search" data-testid="tab-search">Lead Search</TabsTrigger>
             <TabsTrigger value="pipeline" data-testid="tab-pipeline">Pipeline</TabsTrigger>
             <TabsTrigger value="outreach" data-testid="tab-outreach">AI Outreach</TabsTrigger>
+            <TabsTrigger value="campaigns" data-testid="tab-campaigns">
+              <CalendarDays className="h-4 w-4 mr-1" /> Campaigns
+            </TabsTrigger>
           </TabsList>
 
           {/* Dashboard / Vault Feed */}
@@ -708,8 +717,449 @@ export default function ContractorLeadVault() {
               </CardContent>
             </Card>
           </TabsContent>
+
+          {/* Campaigns */}
+          <TabsContent value="campaigns">
+            <CampaignsSection />
+          </TabsContent>
         </Tabs>
       </div>
     </div>
+  );
+}
+
+// Campaigns Section Component
+function CampaignsSection() {
+  const { toast } = useToast();
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [newCampaignName, setNewCampaignName] = useState('');
+  const [newCampaignLocation, setNewCampaignLocation] = useState('');
+  const [newCampaignSchedule, setNewCampaignSchedule] = useState('weekly');
+  const [newCampaignStormTrigger, setNewCampaignStormTrigger] = useState(false);
+
+  // Fetch campaigns
+  const { data: campaignsData, isLoading: campaignsLoading, refetch: refetchCampaigns } = useQuery<{ campaigns: any[] }>({
+    queryKey: ['/api/leadvault/campaigns'],
+  });
+
+  // Fetch scheduler stats
+  const { data: schedulerStats } = useQuery<{ stats: any }>({
+    queryKey: ['/api/leadvault/scheduler/stats'],
+  });
+
+  // Create campaign mutation
+  const createCampaign = useMutation({
+    mutationFn: async (data: any) => {
+      return apiRequest('/api/leadvault/campaigns', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+    },
+    onSuccess: () => {
+      toast({ title: 'Campaign created!' });
+      setShowCreateDialog(false);
+      setNewCampaignName('');
+      setNewCampaignLocation('');
+      refetchCampaigns();
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Failed to create campaign', description: error.message, variant: 'destructive' });
+    }
+  });
+
+  // Toggle campaign enabled
+  const toggleCampaign = useMutation({
+    mutationFn: async ({ id, enabled }: { id: number; enabled: boolean }) => {
+      return apiRequest(`/api/leadvault/campaigns/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ enabled }),
+      });
+    },
+    onSuccess: () => {
+      toast({ title: 'Campaign updated!' });
+      refetchCampaigns();
+    }
+  });
+
+  // Run campaign now
+  const runCampaign = useMutation({
+    mutationFn: async (id: number) => {
+      return apiRequest(`/api/leadvault/campaigns/${id}/run`, {
+        method: 'POST',
+      });
+    },
+    onSuccess: () => {
+      toast({ title: 'Campaign started!' });
+      refetchCampaigns();
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Failed to run campaign', description: error.message, variant: 'destructive' });
+    }
+  });
+
+  // Delete campaign
+  const deleteCampaign = useMutation({
+    mutationFn: async (id: number) => {
+      return apiRequest(`/api/leadvault/campaigns/${id}`, {
+        method: 'DELETE',
+      });
+    },
+    onSuccess: () => {
+      toast({ title: 'Campaign deleted' });
+      refetchCampaigns();
+    }
+  });
+
+  // Create default campaigns
+  const createDefaults = useMutation({
+    mutationFn: async (targetLocation: string) => {
+      return apiRequest('/api/leadvault/campaigns/create-defaults', {
+        method: 'POST',
+        body: JSON.stringify({ targetLocation }),
+      });
+    },
+    onSuccess: () => {
+      toast({ title: 'Default campaigns created!' });
+      refetchCampaigns();
+    }
+  });
+
+  const campaigns = campaignsData?.campaigns || [];
+  const stats = schedulerStats?.stats;
+
+  return (
+    <div className="space-y-6">
+      {/* Scheduler Status */}
+      <Card className="bg-gradient-to-br from-cyan-900/50 to-cyan-950/50 border-cyan-700/50">
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-cyan-500/20">
+                <CalendarDays className="h-5 w-5 text-cyan-400" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-cyan-300">Campaign Scheduler</h3>
+                <p className="text-xs text-slate-400">
+                  Daily: 8:05 AM CST | Weekly: Monday 8:10 AM CST | Storm: Active
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {stats?.isRunning ? (
+                <Badge className="bg-green-500/20 text-green-400">Running</Badge>
+              ) : (
+                <Badge className="bg-slate-500/20 text-slate-400">Stopped</Badge>
+              )}
+            </div>
+          </div>
+          {stats?.lastDailyRun && (
+            <p className="text-xs text-slate-500 mt-2">
+              Last daily run: {new Date(stats.lastDailyRun).toLocaleString()}
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Campaign Actions */}
+      <div className="flex gap-3 flex-wrap">
+        <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+          <DialogTrigger asChild>
+            <Button className="bg-amber-500 hover:bg-amber-600" data-testid="button-create-campaign">
+              <Plus className="h-4 w-4 mr-2" /> Create Campaign
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="bg-slate-900 border-slate-700">
+            <DialogHeader>
+              <DialogTitle className="text-white">Create New Campaign</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 mt-4">
+              <div>
+                <label className="text-sm text-slate-400">Campaign Name</label>
+                <Input 
+                  value={newCampaignName}
+                  onChange={(e) => setNewCampaignName(e.target.value)}
+                  placeholder="e.g., Property Manager Contracts"
+                  className="bg-slate-800 border-slate-700 text-white"
+                  data-testid="input-campaign-name"
+                />
+              </div>
+              <div>
+                <label className="text-sm text-slate-400">Target Location</label>
+                <Input 
+                  value={newCampaignLocation}
+                  onChange={(e) => setNewCampaignLocation(e.target.value)}
+                  placeholder="e.g., Columbus, GA"
+                  className="bg-slate-800 border-slate-700 text-white"
+                  data-testid="input-campaign-location"
+                />
+              </div>
+              <div>
+                <label className="text-sm text-slate-400">Schedule</label>
+                <Select value={newCampaignSchedule} onValueChange={setNewCampaignSchedule}>
+                  <SelectTrigger className="bg-slate-800 border-slate-700 text-white">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-slate-800 border-slate-700">
+                    <SelectItem value="daily">Daily (8 AM)</SelectItem>
+                    <SelectItem value="weekly">Weekly (Monday 8 AM)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center gap-2">
+                <input 
+                  type="checkbox" 
+                  checked={newCampaignStormTrigger}
+                  onChange={(e) => setNewCampaignStormTrigger(e.target.checked)}
+                  className="rounded"
+                  id="stormTrigger"
+                />
+                <label htmlFor="stormTrigger" className="text-sm text-slate-400 flex items-center gap-1">
+                  <CloudLightning className="h-4 w-4 text-yellow-400" />
+                  Enable Storm Triggers
+                </label>
+              </div>
+              <Button 
+                className="w-full bg-amber-500 hover:bg-amber-600"
+                onClick={() => createCampaign.mutate({
+                  name: newCampaignName,
+                  targetLocation: newCampaignLocation,
+                  scheduleType: newCampaignSchedule,
+                  stormTriggerEnabled: newCampaignStormTrigger
+                })}
+                disabled={!newCampaignName || !newCampaignLocation || createCampaign.isPending}
+                data-testid="button-submit-campaign"
+              >
+                {createCampaign.isPending ? 'Creating...' : 'Create Campaign'}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {campaigns.length === 0 && (
+          <Button 
+            variant="outline" 
+            className="border-amber-500/50 text-amber-400"
+            onClick={() => {
+              const location = prompt('Enter your target location (e.g., "Columbus, GA"):');
+              if (location) createDefaults.mutate(location);
+            }}
+            data-testid="button-create-defaults"
+          >
+            <Zap className="h-4 w-4 mr-2" /> Create Default Campaigns
+          </Button>
+        )}
+      </div>
+
+      {/* Campaigns List */}
+      <Card className="bg-slate-900 border-slate-800">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <CalendarDays className="h-5 w-5 text-amber-400" />
+            Your Campaigns
+          </CardTitle>
+          <CardDescription>Automated lead finding runs at 8 AM CST</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {campaignsLoading ? (
+            <div className="text-center py-8 text-slate-400">Loading campaigns...</div>
+          ) : campaigns.length === 0 ? (
+            <div className="text-center py-12">
+              <CalendarDays className="h-12 w-12 text-slate-600 mx-auto mb-4" />
+              <p className="text-slate-400">No campaigns yet</p>
+              <p className="text-xs text-slate-500 mt-2">Create a campaign to automate your lead finding</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {campaigns.map((campaign: any) => (
+                <div 
+                  key={campaign.id} 
+                  className={`p-4 rounded-lg border ${campaign.enabled ? 'bg-slate-800/50 border-slate-700' : 'bg-slate-800/20 border-slate-800'}`}
+                  data-testid={`campaign-${campaign.id}`}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-semibold text-white">{campaign.name}</h4>
+                        {campaign.enabled ? (
+                          <Badge className="bg-green-500/20 text-green-400 text-xs">Active</Badge>
+                        ) : (
+                          <Badge className="bg-slate-500/20 text-slate-400 text-xs">Paused</Badge>
+                        )}
+                        {campaign.storm_trigger_enabled && (
+                          <Badge className="bg-yellow-500/20 text-yellow-400 text-xs">
+                            <CloudLightning className="h-3 w-3 mr-1" /> Storm
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-sm text-slate-400 mt-1">
+                        <MapPin className="h-3 w-3 inline mr-1" />
+                        {campaign.target_location} • {campaign.radius}mi radius
+                      </p>
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {(campaign.lead_targets || []).slice(0, 3).map((target: string, i: number) => (
+                          <Badge key={i} variant="outline" className="text-xs">{target}</Badge>
+                        ))}
+                        {(campaign.lead_targets || []).length > 3 && (
+                          <Badge variant="outline" className="text-xs">+{campaign.lead_targets.length - 3} more</Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-4 mt-3 text-xs text-slate-500">
+                        <span>Schedule: {campaign.schedule_type} @ {campaign.schedule_hour}:00 AM</span>
+                        <span>Runs: {campaign.total_runs || 0}</span>
+                        <span>Leads Found: {campaign.total_leads_found || 0}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 w-8 p-0"
+                        onClick={() => runCampaign.mutate(campaign.id)}
+                        disabled={runCampaign.isPending}
+                        data-testid={`run-campaign-${campaign.id}`}
+                      >
+                        <Play className="h-4 w-4 text-green-400" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 w-8 p-0"
+                        onClick={() => toggleCampaign.mutate({ id: campaign.id, enabled: !campaign.enabled })}
+                        data-testid={`toggle-campaign-${campaign.id}`}
+                      >
+                        {campaign.enabled ? (
+                          <Pause className="h-4 w-4 text-yellow-400" />
+                        ) : (
+                          <Play className="h-4 w-4 text-green-400" />
+                        )}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 w-8 p-0"
+                        onClick={() => {
+                          if (confirm('Delete this campaign?')) {
+                            deleteCampaign.mutate(campaign.id);
+                          }
+                        }}
+                        data-testid={`delete-campaign-${campaign.id}`}
+                      >
+                        <Trash2 className="h-4 w-4 text-red-400" />
+                      </Button>
+                    </div>
+                  </div>
+                  {campaign.last_run_at && (
+                    <p className="text-xs text-slate-500 mt-2">
+                      Last run: {new Date(campaign.last_run_at).toLocaleString()}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Follow-ups Due Today */}
+      <FollowUpWidget />
+    </div>
+  );
+}
+
+// Follow-up Widget Component
+function FollowUpWidget() {
+  const { toast } = useToast();
+  
+  const { data: followupsData, isLoading, refetch } = useQuery<{ tasks: any[] }>({
+    queryKey: ['/api/leadvault/followups/today'],
+  });
+
+  const completeFollowup = useMutation({
+    mutationFn: async ({ id, status }: { id: number; status: string }) => {
+      return apiRequest(`/api/leadvault/followups/${id}/complete`, {
+        method: 'POST',
+        body: JSON.stringify({ status }),
+      });
+    },
+    onSuccess: () => {
+      toast({ title: 'Follow-up updated!' });
+      refetch();
+    }
+  });
+
+  const tasks = followupsData?.tasks || [];
+
+  if (isLoading) {
+    return (
+      <Card className="bg-slate-900 border-slate-800">
+        <CardContent className="p-4">
+          <p className="text-slate-400">Loading follow-ups...</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="bg-slate-900 border-slate-800">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Clock className="h-5 w-5 text-cyan-400" />
+          Follow-ups Due Today
+        </CardTitle>
+        <CardDescription>Your scheduled outreach tasks</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {tasks.length === 0 ? (
+          <div className="text-center py-8">
+            <CheckCircle className="h-12 w-12 text-green-500/50 mx-auto mb-4" />
+            <p className="text-slate-400">No follow-ups due today</p>
+            <p className="text-xs text-slate-500">Keep pushing hot leads!</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {tasks.map((task: any) => (
+              <div key={task.id} className="p-3 bg-slate-800/50 rounded-lg border border-slate-700">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="font-medium text-white">{task.task_title}</p>
+                    <p className="text-sm text-slate-400">{task.company_name}</p>
+                    <p className="text-xs text-slate-500 mt-1">
+                      {task.channel?.toUpperCase()} • Due: {new Date(task.due_at).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <Badge variant="outline" className="text-xs">{task.channel}</Badge>
+                </div>
+                <p className="text-sm text-slate-300 mt-2 bg-slate-700/50 p-2 rounded">{task.message_text}</p>
+                <div className="flex gap-2 mt-3">
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="text-xs"
+                    onClick={() => navigator.clipboard.writeText(task.message_text)}
+                  >
+                    Copy Message
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    className="text-xs bg-green-600 hover:bg-green-700"
+                    onClick={() => completeFollowup.mutate({ id: task.id, status: 'completed' })}
+                  >
+                    Mark Complete
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant="ghost" 
+                    className="text-xs text-slate-400"
+                    onClick={() => completeFollowup.mutate({ id: task.id, status: 'skipped' })}
+                  >
+                    Skip
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

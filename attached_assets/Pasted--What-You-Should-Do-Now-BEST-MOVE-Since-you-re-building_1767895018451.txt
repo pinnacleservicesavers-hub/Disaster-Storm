@@ -1,0 +1,108 @@
+✅ What You Should Do Now (BEST MOVE)
+
+Since you’re building a contractor product and want subscriptions…
+
+✅ Switch to Postgres now
+Because you’ll need:
+
+follow-ups saved reliably
+
+campaign history
+
+dedupe across campaign runs
+
+multiple contractors with their own pipelines
+
+long-term analytics/ROI tracking
+
+scaling
+
+Postgres is the correct production base.
+
+✅ Here’s the Quick Setup Path (Replit)
+✅ Step 1: Add Postgres
+
+In Replit, go to:
+✅ Tools → Database → Create Database → PostgreSQL
+
+(If you don’t see it, it may be under “Deployments” or “Extensions” depending on your Replit plan.)
+
+✅ Step 2: Copy the connection string
+
+Replit will give you a URL like:
+
+postgresql://user:pass@host:5432/dbname
+
+✅ Step 3: Add it to Secrets 🔒
+
+Go to Secrets and add:
+
+✅ Key: DATABASE_URL
+✅ Value: postgresql://....
+
+✅ Step 4: Install pg
+
+In your project root:
+
+npm i pg
+
+✅ Step 5: Add the DB test endpoint
+
+Create:
+
+server/routes/dbTest.ts (Express)
+
+or if Next.js API route:
+
+/app/api/db-test/route.js
+
+Here’s the Express version (since your log shows rest-express):
+
+import { Pool } from "pg";
+
+export function registerDbTestRoute(app: any) {
+  app.get("/api/db-test", async (req, res) => {
+    if (!process.env.DATABASE_URL) {
+      return res.json({ connected: false, error: "DATABASE_URL missing" });
+    }
+
+    const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+
+    try {
+      const result = await pool.query("SELECT NOW()");
+      res.json({ connected: true, now: result.rows[0].now });
+    } catch (e) {
+      res.status(500).json({ connected: false, error: String(e) });
+    }
+  });
+}
+
+
+✅ Then visit:
+
+/api/db-test
+
+✅ After Postgres is connected…
+
+I will generate the full DB wiring for campaigns + followups:
+
+✅ lead_campaigns inserts
+✅ campaign_runs history
+✅ dedupe leads by external_id
+✅ save outreach packs
+✅ schedule followups
+✅ show “Today’s Followups”
+✅ show “Campaign Results”
+✅ ROI tracking structure
+
+✅ ONE QUESTION
+
+Do you see PostgreSQL available inside Replit Tools → Database?
+
+Reply:
+✅ YES
+or
+❌ NO
+
+If YES → I’ll give you the exact “create DB + migrate schema + wire code” steps.
+If NO → I’ll give you the best alternate setup (Neon / Supabase Postgres) and still use DATABASE_URL.

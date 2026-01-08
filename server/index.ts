@@ -17,7 +17,7 @@ import { router as area } from "./routes/area.js";
 import { router as damage } from "../apps/server/src/routes/damage.js";
 import { registerRoutes } from "./routes.js";
 import { setupVite, log } from "./vite.js";
-import { scheduler } from "./scheduler.js";
+import { scheduler, campaignScheduler } from "./scheduler.js";
 import { jwksRefresher } from "./services/jwksRefresher.js";
 
 const app = express();
@@ -166,6 +166,9 @@ server.listen(port, () => {
   
   // Start DamageMonitoringScheduler for real-time updates
   scheduler.start();
+  
+  // Start LeadVault Campaign Scheduler (8 AM daily + storm triggers)
+  campaignScheduler.start();
   
   setInterval(async () => {
     try {
