@@ -1,0 +1,671 @@
+🔥 LET’S GO. #4 is the BEST possible system — because it gives you:
+
+✅ Next.js = the premium “wow” UI + user accounts + pipeline
+✅ Node.js microservice = fast lead discovery + enrichment
+✅ Python microservice = heavy intelligence + signals + scoring + predictive triggers
+✅ All connected cleanly so your Replit app feels like a Contractor-only AI sales machine
+
+Below is a FULL MULTI-SERVICE BUILD PACK that you can copy into Replit and start running.
+
+✅ SYSTEM NAME (FINAL)
+⭐ ContractorLeadVault™
+
+“Your Contractor-only AI Lead Intelligence & Sales Engine.”
+
+✅ WHAT YOU’RE BUILDING (IN ONE VIEW)
+3 Services (WOW Architecture)
+
+Next.js App (UI + Auth + Database + Vault Experience)
+
+Node Lead Engine (Lead Hunter + enrichment + competition + caching)
+
+Python Signal Engine (permit signals, violations, scoring, prediction, job triggers)
+
+Communication
+
+Next.js calls Node + Python via REST endpoints.
+
+Node & Python return leads + scoring + outreach pack data.
+
+Next.js stores leads + pipeline + outreach messages in PostgreSQL.
+
+✅ REPLIT PROJECT STRUCTURE (MULTI-SERVICE)
+
+You can do this in ONE Replit project using folders, or multiple Repls.
+
+Recommended One-Replit layout:
+/app-next            (Next.js UI + API + DB)
+ /app
+ /lib
+ /components
+ /api
+
+/lead-engine-node    (Node microservice)
+ index.js
+ routes/
+ services/
+
+/signal-engine-py    (Python microservice)
+ main.py
+ routes/
+ services/
+
+/shared              (schemas + shared types)
+ leadSchemas.json
+
+✅ THE WOW EXPERIENCE (IMPORTANT)
+
+When contractors log in, they see:
+
+✅ Today’s Work Opportunities
+
+🔥 Hot Leads Today
+
+🏆 High Ticket Opportunities
+
+⚡ Fast Cash Jobs
+
+📍 Route Plan (8 best leads near you)
+
+🔔 Alerts (permits / storm / inspections / new openings)
+
+And they also see:
+✅ Your 5 Money Moves Today
+
+Call 3 hot leads
+
+Send 5 SMS offers
+
+Follow up on 2 estimates
+
+Visit 3 nearby leads
+
+Generate 1 marketing kit
+
+This is what makes contractors say:
+
+“This app is like having a sales manager.”
+
+✅ CONTRACTOR-ONLY ACCESS (LOCK IT HARD)
+
+You’ll enforce access at three levels:
+
+1) UI lock
+
+If user.role !== contractor → hide module
+
+2) Next.js API lock
+
+All API routes check user.role
+
+3) Microservice lock
+
+Node + Python require API key header:
+X-VAULT-KEY: your_secret_key
+
+So Disaster Direct cannot access it even if they try.
+
+✅ DATABASE SCHEMA (SAME FOR ALL SERVICES)
+✅ Postgres Tables
+users
+
+id uuid pk
+
+name
+
+email
+
+password_hash
+
+role (contractor, disaster_direct, admin)
+
+trade_type
+
+verified_contractor boolean
+
+subscription_level
+
+created_at
+
+leads
+
+id uuid pk
+
+user_id uuid fk
+
+company_name
+
+contact_name
+
+phone
+
+email
+
+website
+
+address
+
+city
+
+state
+
+zip
+
+lat
+
+lng
+
+category
+
+source
+
+signal_tags jsonb
+
+score int
+
+score_label text
+
+competition_level text
+
+status text
+
+notes text
+
+created_at
+
+outreach_messages
+
+id uuid pk
+
+lead_id uuid fk
+
+sms_script text
+
+email_script text
+
+phone_script text
+
+followup_sequence jsonb
+
+offer_stack jsonb
+
+created_at
+
+lead_activity
+
+id uuid pk
+
+lead_id uuid fk
+
+action_type text
+
+action_detail text
+
+created_at
+
+✅ SERVICE 1: NEXT.JS APP (UI + API + DB)
+✅ NEXT.js Folder Layout
+/app-next
+  /app
+    /leadvault
+      page.jsx
+    /login
+      page.jsx
+  /components
+    LeadCard.jsx
+    VaultStats.jsx
+    Filters.jsx
+    PipelineBoard.jsx
+    ActionList.jsx
+  /lib
+    db.js
+    auth.js
+    contractorOnly.js
+    vaultApi.js
+  /app/api
+    /leadvault/search/route.js
+    /leadvault/save/route.js
+    /leadvault/outreach/route.js
+    /leadvault/dashboard/route.js
+
+✅ Next.js ENV
+
+Inside /app-next/.env
+
+DATABASE_URL=postgresql://...
+NODE_LEAD_ENGINE_URL=http://localhost:5050
+PY_SIGNAL_ENGINE_URL=http://localhost:6060
+VAULT_SERVICE_KEY=supersecretkey
+
+✅ lib/contractorOnly.js
+export function contractorOnly(user) {
+  if (!user || user.role !== "contractor") {
+    throw new Error("Contractor-only module.");
+  }
+}
+
+✅ lib/vaultApi.js (calls Node + Python)
+export async function fetchLeadsFromEngines({ location, radius, tradeType }) {
+  const headers = {
+    "Content-Type": "application/json",
+    "X-VAULT-KEY": process.env.VAULT_SERVICE_KEY,
+  };
+
+  const nodeRes = await fetch(`${process.env.NODE_LEAD_ENGINE_URL}/leads/search`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ location, radius, tradeType }),
+  });
+
+  const pyRes = await fetch(`${process.env.PY_SIGNAL_ENGINE_URL}/signals/enrich`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ location, radius, tradeType }),
+  });
+
+  const nodeData = await nodeRes.json();
+  const pyData = await pyRes.json();
+
+  // Merge results (node provides base leads, python adds signal enrichment)
+  const merged = nodeData.leads.map((lead) => {
+    const signals = pyData.signalsByLeadId?.[lead.external_id] || [];
+    return { ...lead, signal_tags: [...(lead.signal_tags || []), ...signals] };
+  });
+
+  return merged;
+}
+
+✅ Next.js API route: /app/api/leadvault/search/route.js
+import { fetchLeadsFromEngines } from "@/lib/vaultApi";
+import { contractorOnly } from "@/lib/contractorOnly";
+import { getUser } from "@/lib/auth";
+
+export async function POST(req) {
+  const user = await getUser();
+  try {
+    contractorOnly(user);
+  } catch {
+    return Response.json({ error: "Contractor-only module" }, { status: 403 });
+  }
+
+  const body = await req.json();
+  const { location, radius } = body;
+
+  const leads = await fetchLeadsFromEngines({
+    location,
+    radius,
+    tradeType: user.trade_type,
+  });
+
+  return Response.json({ leads });
+}
+
+✅ Next.js UI: /app/leadvault/page.jsx
+"use client";
+import { useState } from "react";
+import VaultStats from "@/components/VaultStats";
+import Filters from "@/components/Filters";
+import LeadCard from "@/components/LeadCard";
+import ActionList from "@/components/ActionList";
+
+export default function LeadVaultPage() {
+  const [leads, setLeads] = useState([]);
+
+  async function runSearch(filters) {
+    const res = await fetch("/api/leadvault/search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(filters),
+    });
+    const data = await res.json();
+    setLeads(data.leads || []);
+  }
+
+  return (
+    <div className="p-6 space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold">ContractorLeadVault™</h1>
+        <p className="text-gray-500">Contractor-only AI lead intelligence & sales engine.</p>
+      </div>
+
+      <VaultStats leads={leads} />
+      <ActionList leads={leads} />
+
+      <Filters onSearch={runSearch} />
+
+      <div className="grid gap-4">
+        {leads.map((lead, i) => (
+          <LeadCard key={i} lead={lead} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+✅ SERVICE 2: NODE.JS LEAD ENGINE (SEARCH + ENRICH + COMPETITION)
+
+This service is responsible for:
+
+✅ Lead discovery (places, categories)
+✅ Basic enrichment (site, phone, hours)
+✅ Competition detection
+✅ Caching duplicate prevention
+✅ Returns leads with:
+
+external_id
+
+name, phone, website, address
+
+score, score_label, competition_level
+
+✅ Node Folder Layout
+/lead-engine-node
+  index.js
+  middleware/authKey.js
+  routes/leads.js
+  services/leadHunter.js
+  services/leadScorer.js
+  services/competitionDetector.js
+
+✅ Node ENV
+
+/lead-engine-node/.env
+
+PORT=5050
+VAULT_SERVICE_KEY=supersecretkey
+
+✅ middleware/authKey.js
+export function authKey(req, res, next) {
+  if (req.headers["x-vault-key"] !== process.env.VAULT_SERVICE_KEY) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  next();
+}
+
+✅ index.js
+import express from "express";
+import dotenv from "dotenv";
+import leadsRoutes from "./routes/leads.js";
+
+dotenv.config();
+
+const app = express();
+app.use(express.json());
+
+app.use("/leads", leadsRoutes);
+
+app.listen(process.env.PORT, () =>
+  console.log(`Lead Engine running on ${process.env.PORT}`)
+);
+
+✅ routes/leads.js
+import express from "express";
+import { authKey } from "../middleware/authKey.js";
+import { leadHunter } from "../services/leadHunter.js";
+import { leadScorer } from "../services/leadScorer.js";
+import { competitionDetector } from "../services/competitionDetector.js";
+
+const router = express.Router();
+
+router.post("/search", authKey, async (req, res) => {
+  const { location, radius, tradeType } = req.body;
+
+  const rawLeads = await leadHunter({ location, radius, tradeType });
+
+  const leads = await Promise.all(rawLeads.map(async (lead) => {
+    const scoreData = leadScorer(lead, tradeType);
+    const comp = await competitionDetector(lead, location, radius);
+
+    return {
+      ...lead,
+      ...scoreData,
+      ...comp,
+    };
+  }));
+
+  res.json({ leads });
+});
+
+export default router;
+
+✅ services/leadScorer.js
+export function leadScorer(lead, tradeType) {
+  let score = 0;
+  const tags = [];
+
+  if (!lead.website) { score += 15; tags.push("no_website"); }
+  if (lead.rating && lead.rating < 4.2) { score += 12; tags.push("low_rating"); }
+  if (lead.reviewCount && lead.reviewCount > 50) { score += 8; tags.push("high_reviews"); }
+
+  // Trade-specific rules
+  if (tradeType === "pressure_washing" && /restaurant|gas|retail/i.test(lead.category)) {
+    score += 10;
+    tags.push("trade_match");
+  }
+  if (tradeType === "tree_service" && /hoa|property management|apartment/i.test(lead.category)) {
+    score += 12;
+    tags.push("property_match");
+  }
+
+  let score_label = "cold";
+  if (score >= 38) score_label = "hot";
+  else if (score >= 22) score_label = "warm";
+
+  return { score, score_label, signal_tags: tags };
+}
+
+✅ SERVICE 3: PYTHON SIGNAL ENGINE (PERMITS + VIOLATIONS + PREDICTIVE SIGNALS)
+
+This service is responsible for:
+
+✅ Permit signals
+✅ Code enforcement signals
+✅ Review complaint extraction (optional later)
+✅ Predictive “job triggers”
+✅ Advanced scoring adjustments
+✅ Returns:
+
+signalsByLeadId
+
+areaSignals
+
+alerts
+
+✅ Python Folder Layout
+/signal-engine-py
+  main.py
+  middleware/auth_key.py
+  routes/signals.py
+  services/permit_signals.py
+  services/predictive_signals.py
+  services/violation_signals.py
+
+✅ Python ENV
+
+/signal-engine-py/.env
+
+PORT=6060
+VAULT_SERVICE_KEY=supersecretkey
+
+✅ middleware/auth_key.py
+import os
+from fastapi import Header, HTTPException
+
+def auth_key(x_vault_key: str = Header(None)):
+    if x_vault_key != os.getenv("VAULT_SERVICE_KEY"):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+✅ main.py
+from fastapi import FastAPI
+from routes.signals import router as signals_router
+
+app = FastAPI()
+app.include_router(signals_router, prefix="/signals")
+
+✅ routes/signals.py
+from fastapi import APIRouter, Depends
+from middleware.auth_key import auth_key
+from services.permit_signals import get_permit_signals
+from services.violation_signals import get_violation_signals
+from services.predictive_signals import predictive_signals
+
+router = APIRouter()
+
+@router.post("/enrich")
+def enrich(payload: dict, authorized=Depends(auth_key)):
+    location = payload["location"]
+    radius = payload["radius"]
+    trade_type = payload["tradeType"]
+
+    permits = get_permit_signals(location, radius, trade_type)
+    violations = get_violation_signals(location, radius, trade_type)
+    prediction = predictive_signals(location, trade_type)
+
+    return {
+        "signalsByLeadId": {},  # later: map to external lead IDs
+        "areaSignals": {
+            "permits": permits,
+            "violations": violations,
+            "prediction": prediction
+        }
+    }
+
+✅ HOW THESE 3 SERVICES WORK TOGETHER (REAL FLOW)
+Contractor clicks “Find Leads”
+
+Next.js calls Node /leads/search
+
+Node returns lead list scored + competition level
+
+Next.js calls Python /signals/enrich
+
+Python returns area alerts + trigger signals
+
+Next.js merges and shows:
+
+Hot leads
+
+Alerts like permits + storms + violations
+
+“Perfect timing” tags
+
+Then contractor clicks:
+✅ Generate Outreach Pack
+Next.js calls OpenAI (or you can route this through Node for security)
+and stores outreach_messages in DB.
+
+✅ THE WOW FACTOR BUILT-IN FEATURES (OUTSIDE-THE-BOX)
+
+Here are the features that make this module “the best” and keep contractors paying:
+
+✅ WOW FEATURE: “Lead Route Builder”
+
+Contractor chooses 8 leads
+
+system orders them by proximity
+
+launches navigation
+
+🔥 This makes your app “real-world useful.”
+
+✅ WOW FEATURE: “AI Offer Stack Builder”
+
+Each lead gets 3 offers:
+
+Quick win (easy yes)
+
+Standard offer
+
+Premium (recurring maintenance contract)
+
+This dramatically increases sales conversion.
+
+✅ WOW FEATURE: “Competition Detector”
+
+Shows:
+
+Low competition = easy win
+
+High competition = needs stronger offer
+
+estimated “time-to-close”
+
+Contractors will LOVE this.
+
+✅ WOW FEATURE: “Hidden Lead Mode”
+
+Pulls leads from:
+
+permits
+
+code violations
+
+foreclosures
+
+new business registrations
+
+rezoning requests
+
+Most lead finders never touch these.
+
+✅ WOW FEATURE: “Daily Money Moves”
+
+This turns your app into a routine they use every morning.
+
+✅ HOW TO DEPLOY THIS IN REPLIT (EASY)
+Option A (Best)
+
+Run 3 services using separate “Run” buttons or separate Repls:
+
+Replit 1: Next.js app
+
+Replit 2: Node lead engine
+
+Replit 3: Python signal engine
+
+✅ best performance and scaling
+
+Option B
+
+Run all in one Replit with one command using concurrently (Node) + Uvicorn + Next.
+It’s possible — but heavier.
+
+✅ WHAT I CAN DO NEXT (WITHOUT ASKING QUESTIONS)
+
+Since you chose #4, the next best step is:
+
+✅ I will generate the FULL COPY/PASTE “Starter Repo” for all 3 services including:
+
+package.json scripts
+
+CORS setup
+
+Postgres models
+
+Save lead route
+
+Outreach generator route
+
+Contractor verification lock
+
+Sample lead sources (mock + API-ready)
+
+✅ BEFORE I GENERATE THAT, PICK YOUR FIRST TRADE TEMPLATE (ONLY 1 ANSWER)
+
+Because this controls scoring + outreach prompts + lead categories.
+
+Reply with ONE:
+
+Tree Service
+
+Pressure Washing
+
+Roofing
+
+General Contractor
+
+HVAC
+
+Flooring
+
+Once you reply, I’ll generate your full “starter pack” codebase with that trade as the default blueprint (others will be selectable later).

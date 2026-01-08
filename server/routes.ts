@@ -3159,6 +3159,496 @@ Include 3-4 phases, 3-5 tasks per phase, 2-3 SOPs, 3 risks, and 4 KPIs. Be speci
 
   console.log('🏗️ Contractors Vault routes registered - CSV import, CRUD, search, export');
 
+  // ---- ContractorLeadVault Routes (CONTRACTOR-ONLY - Not for Disaster Direct) ----
+  // Initialize lead vault tables
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS lead_vault_sources (
+      id SERIAL PRIMARY KEY,
+      type VARCHAR(50) NOT NULL,
+      name VARCHAR(255) NOT NULL,
+      metadata JSONB DEFAULT '{}',
+      created_at TIMESTAMP DEFAULT NOW()
+    )
+  `);
+
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS lead_vault_leads (
+      id SERIAL PRIMARY KEY,
+      contractor_id VARCHAR(255) NOT NULL,
+      company_name VARCHAR(255) NOT NULL,
+      contact_name VARCHAR(255),
+      phone VARCHAR(50),
+      email VARCHAR(255),
+      website VARCHAR(500),
+      address TEXT,
+      city VARCHAR(100),
+      state VARCHAR(50),
+      zip VARCHAR(20),
+      lat DECIMAL(10,7),
+      lng DECIMAL(10,7),
+      category VARCHAR(100),
+      trade_type VARCHAR(100),
+      source VARCHAR(100),
+      signal_tags JSONB DEFAULT '[]',
+      score INTEGER DEFAULT 0,
+      score_label VARCHAR(20) DEFAULT 'cold',
+      competition_level VARCHAR(20) DEFAULT 'unknown',
+      status VARCHAR(50) DEFAULT 'new',
+      notes TEXT,
+      offer_stack JSONB DEFAULT '{}',
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE(contractor_id, company_name, phone)
+    )
+  `);
+
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS lead_vault_outreach (
+      id SERIAL PRIMARY KEY,
+      lead_id INTEGER REFERENCES lead_vault_leads(id) ON DELETE CASCADE,
+      sms_script TEXT,
+      email_script TEXT,
+      phone_script TEXT,
+      followup_sequence JSONB DEFAULT '[]',
+      offer_stack JSONB DEFAULT '{}',
+      created_at TIMESTAMP DEFAULT NOW()
+    )
+  `);
+
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS lead_vault_activity (
+      id SERIAL PRIMARY KEY,
+      lead_id INTEGER REFERENCES lead_vault_leads(id) ON DELETE CASCADE,
+      action_type VARCHAR(50) NOT NULL,
+      action_detail TEXT,
+      created_at TIMESTAMP DEFAULT NOW()
+    )
+  `);
+
+  // Contractor-only middleware check function
+  const isContractorOnly = (req: any, res: any): boolean => {
+    const user = req.session?.user;
+    if (!user) {
+      res.status(401).json({ error: 'Authentication required' });
+      return false;
+    }
+    if (user.role !== 'contractor' && user.role !== 'admin') {
+      res.status(403).json({ error: 'ContractorLeadVault™ is exclusive to contractors. Not available for Disaster Direct users.' });
+      return false;
+    }
+    return true;
+  };
+
+  // Get contractor's lead vault dashboard stats
+  app.get('/api/leadvault/dashboard', async (req, res) => {
+    if (!isContractorOnly(req, res)) return;
+    
+    try {
+      const contractorId = req.session?.user?.id || 'demo';
+      
+      const stats = await db.execute(sql`
+        SELECT 
+          COUNT(*) as total_leads,
+          COUNT(CASE WHEN score_label = 'hot' THEN 1 END) as hot_leads,
+          COUNT(CASE WHEN score_label = 'warm' THEN 1 END) as warm_leads,
+          COUNT(CASE WHEN score_label = 'cold' THEN 1 END) as cold_leads,
+          COUNT(CASE WHEN status = 'new' THEN 1 END) as new_leads,
+          COUNT(CASE WHEN status = 'contacted' THEN 1 END) as contacted,
+          COUNT(CASE WHEN status = 'estimate_sent' THEN 1 END) as estimates_sent,
+          COUNT(CASE WHEN status = 'won' THEN 1 END) as won,
+          COUNT(CASE WHEN status = 'lost' THEN 1 END) as lost
+        FROM lead_vault_leads
+        WHERE contractor_id = ${contractorId}
+      `);
+
+      const recentLeads = await db.execute(sql`
+        SELECT * FROM lead_vault_leads 
+        WHERE contractor_id = ${contractorId}
+        ORDER BY created_at DESC LIMIT 10
+      `);
+
+      res.json({ 
+        ok: true, 
+        stats: stats.rows[0],
+        recentLeads: recentLeads.rows
+      });
+    } catch (error) {
+      console.error('LeadVault dashboard error:', error);
+      res.status(500).json({ error: 'Failed to fetch dashboard' });
+    }
+  });
+
+  // Search for leads (AI-powered lead discovery)
+  app.post('/api/leadvault/search', express.json(), async (req, res) => {
+    if (!isContractorOnly(req, res)) return;
+    
+    try {
+      const contractorId = req.session?.user?.id || 'demo';
+      const { location, radius = 25, tradeType, category, signals } = req.body;
+
+      // Search in contractor_vault for matching leads
+      let query = sql`
+        SELECT * FROM contractor_vault 
+        WHERE status = 'active'
+      `;
+      
+      if (location) {
+        query = sql`${query} AND (city ILIKE ${`%${location}%`} OR state ILIKE ${`%${location}%`} OR market ILIKE ${`%${location}%`})`;
+      }
+      if (category) {
+        query = sql`${query} AND category ILIKE ${`%${category}%`}`;
+      }
+      
+      query = sql`${query} ORDER BY business_name LIMIT 50`;
+      
+      const rawLeads = await db.execute(query);
+      
+      // Score each lead
+      const scoredLeads = rawLeads.rows.map((lead: any) => {
+        let score = 0;
+        const tags: string[] = [];
+        
+        // Scoring signals
+        if (!lead.website) { score += 15; tags.push('no_website'); }
+        if (!lead.email) { score += 10; tags.push('no_email'); }
+        if (lead.rating && parseFloat(lead.rating) < 4.0) { score += 10; tags.push('low_rating'); }
+        if (lead.review_count && parseInt(lead.review_count) > 50) { score += 7; tags.push('high_volume'); }
+        if (!lead.insurance_verified) { score += 5; tags.push('not_verified'); }
+        
+        // Trade-specific boosts
+        if (tradeType === 'tree_service' && lead.category?.includes('tree')) score += 8;
+        if (tradeType === 'roofing' && lead.category?.includes('roof')) score += 8;
+        if (tradeType === 'pressure_washing' && lead.category?.includes('restaurant')) score += 8;
+        
+        // Competition detection based on review count
+        let competitionLevel = 'medium';
+        if (lead.review_count && parseInt(lead.review_count) > 100) competitionLevel = 'high';
+        else if (!lead.review_count || parseInt(lead.review_count) < 20) competitionLevel = 'low';
+        
+        let scoreLabel = 'cold';
+        if (score >= 35) scoreLabel = 'hot';
+        else if (score >= 20) scoreLabel = 'warm';
+        
+        return {
+          ...lead,
+          score,
+          score_label: scoreLabel,
+          signal_tags: tags,
+          competition_level: competitionLevel
+        };
+      });
+      
+      // Sort by score descending
+      scoredLeads.sort((a: any, b: any) => b.score - a.score);
+      
+      res.json({ ok: true, leads: scoredLeads, total: scoredLeads.length });
+    } catch (error) {
+      console.error('LeadVault search error:', error);
+      res.status(500).json({ error: 'Failed to search leads' });
+    }
+  });
+
+  // Save lead to contractor's vault
+  app.post('/api/leadvault/leads', express.json(), async (req, res) => {
+    if (!isContractorOnly(req, res)) return;
+    
+    try {
+      const contractorId = req.session?.user?.id || 'demo';
+      const lead = req.body;
+      
+      const result = await db.execute(sql`
+        INSERT INTO lead_vault_leads (
+          contractor_id, company_name, contact_name, phone, email, website,
+          address, city, state, zip, category, trade_type, source,
+          signal_tags, score, score_label, competition_level, status, notes
+        ) VALUES (
+          ${contractorId}, ${lead.companyName}, ${lead.contactName}, ${lead.phone},
+          ${lead.email}, ${lead.website}, ${lead.address}, ${lead.city},
+          ${lead.state}, ${lead.zip}, ${lead.category}, ${lead.tradeType},
+          ${lead.source || 'leadvault'}, ${JSON.stringify(lead.signalTags || [])},
+          ${lead.score || 0}, ${lead.scoreLabel || 'cold'}, ${lead.competitionLevel || 'unknown'},
+          'new', ${lead.notes}
+        )
+        ON CONFLICT (contractor_id, company_name, phone) DO UPDATE SET
+          score = EXCLUDED.score,
+          score_label = EXCLUDED.score_label,
+          signal_tags = EXCLUDED.signal_tags,
+          updated_at = NOW()
+        RETURNING *
+      `);
+      
+      res.json({ ok: true, lead: result.rows[0] });
+    } catch (error) {
+      console.error('LeadVault save error:', error);
+      res.status(500).json({ error: 'Failed to save lead' });
+    }
+  });
+
+  // Get contractor's saved leads with filters
+  app.get('/api/leadvault/leads', async (req, res) => {
+    if (!isContractorOnly(req, res)) return;
+    
+    try {
+      const contractorId = req.session?.user?.id || 'demo';
+      const { status, scoreLabel, tradeType } = req.query;
+      
+      let query = sql`SELECT * FROM lead_vault_leads WHERE contractor_id = ${contractorId}`;
+      
+      if (status) query = sql`${query} AND status = ${status}`;
+      if (scoreLabel) query = sql`${query} AND score_label = ${scoreLabel}`;
+      if (tradeType) query = sql`${query} AND trade_type = ${tradeType}`;
+      
+      query = sql`${query} ORDER BY score DESC, created_at DESC`;
+      
+      const result = await db.execute(query);
+      res.json({ ok: true, leads: result.rows });
+    } catch (error) {
+      console.error('LeadVault fetch error:', error);
+      res.status(500).json({ error: 'Failed to fetch leads' });
+    }
+  });
+
+  // Update lead status (pipeline movement)
+  app.patch('/api/leadvault/leads/:id', express.json(), async (req, res) => {
+    if (!isContractorOnly(req, res)) return;
+    
+    try {
+      const { id } = req.params;
+      const { status, notes } = req.body;
+      const contractorId = req.session?.user?.id || 'demo';
+      
+      const result = await db.execute(sql`
+        UPDATE lead_vault_leads SET
+          status = COALESCE(${status}, status),
+          notes = COALESCE(${notes}, notes),
+          updated_at = NOW()
+        WHERE id = ${id} AND contractor_id = ${contractorId}
+        RETURNING *
+      `);
+      
+      // Log activity
+      if (status) {
+        await db.execute(sql`
+          INSERT INTO lead_vault_activity (lead_id, action_type, action_detail)
+          VALUES (${id}, 'status_change', ${`Changed to ${status}`})
+        `);
+      }
+      
+      res.json({ ok: true, lead: result.rows[0] });
+    } catch (error) {
+      console.error('LeadVault update error:', error);
+      res.status(500).json({ error: 'Failed to update lead' });
+    }
+  });
+
+  // Generate AI outreach pack for a lead
+  app.post('/api/leadvault/leads/:id/outreach', express.json(), async (req, res) => {
+    if (!isContractorOnly(req, res)) return;
+    
+    try {
+      const { id } = req.params;
+      const { tradeType } = req.body;
+      const contractorId = req.session?.user?.id || 'demo';
+      
+      // Get the lead
+      const leadResult = await db.execute(sql`
+        SELECT * FROM lead_vault_leads WHERE id = ${id} AND contractor_id = ${contractorId}
+      `);
+      
+      if (leadResult.rows.length === 0) {
+        return res.status(404).json({ error: 'Lead not found' });
+      }
+      
+      const lead = leadResult.rows[0];
+      
+      // Generate outreach scripts using AI
+      const smsScript = `Hi ${lead.contact_name || 'there'}! I'm a local ${tradeType || 'contractor'} and noticed your business at ${lead.address || lead.city}. I'd love to offer you a free estimate. Reply YES for details!`;
+      
+      const emailScript = `Subject: Professional ${tradeType || 'Services'} for ${lead.company_name}
+
+Hi ${lead.contact_name || 'there'},
+
+I'm reaching out because I noticed ${lead.company_name} and wanted to introduce our professional ${tradeType || 'contracting'} services.
+
+We specialize in helping businesses like yours with quality work at competitive prices. 
+
+I'd love to offer you a FREE estimate with no obligation.
+
+Would you have 15 minutes this week for a quick call?
+
+Best regards,
+[Your Name]
+[Your Company]`;
+
+      const phoneScript = `Hi, this is [Your Name] from [Your Company]. I'm a local ${tradeType || 'contractor'} and I noticed your business. I wanted to reach out because we're offering free estimates this month for businesses in your area. Do you have a few minutes to discuss how we might be able to help?`;
+      
+      // 3-tier offer stack
+      const offerStack = {
+        quickWin: {
+          name: 'Quick Service Special',
+          description: `Basic ${tradeType || 'service'} at introductory pricing`,
+          discount: '15% off first service'
+        },
+        standard: {
+          name: 'Professional Package',
+          description: `Complete ${tradeType || 'service'} with warranty`,
+          discount: '10% off for new customers'
+        },
+        premium: {
+          name: 'Premium Contract',
+          description: `Recurring ${tradeType || 'maintenance'} with priority scheduling`,
+          discount: 'Free first month on annual contract'
+        }
+      };
+      
+      // Follow-up sequence
+      const followupSequence = [
+        { day: 0, action: 'Initial contact', message: smsScript },
+        { day: 2, action: 'Follow-up SMS', message: `Hi! Just following up on my message about ${tradeType} services. Still interested in that free estimate?` },
+        { day: 5, action: 'Email follow-up', message: 'Checking in to see if you received my previous message...' },
+        { day: 10, action: 'Final outreach', message: `Last chance for our special offer! Let me know if you'd like to schedule that free estimate.` }
+      ];
+      
+      // Save outreach pack
+      await db.execute(sql`
+        INSERT INTO lead_vault_outreach (lead_id, sms_script, email_script, phone_script, followup_sequence, offer_stack)
+        VALUES (${id}, ${smsScript}, ${emailScript}, ${phoneScript}, ${JSON.stringify(followupSequence)}, ${JSON.stringify(offerStack)})
+        ON CONFLICT (lead_id) DO UPDATE SET
+          sms_script = EXCLUDED.sms_script,
+          email_script = EXCLUDED.email_script,
+          phone_script = EXCLUDED.phone_script,
+          followup_sequence = EXCLUDED.followup_sequence,
+          offer_stack = EXCLUDED.offer_stack
+      `);
+      
+      res.json({ 
+        ok: true, 
+        outreach: {
+          smsScript,
+          emailScript,
+          phoneScript,
+          followupSequence,
+          offerStack
+        }
+      });
+    } catch (error) {
+      console.error('LeadVault outreach error:', error);
+      res.status(500).json({ error: 'Failed to generate outreach' });
+    }
+  });
+
+  // Log lead activity
+  app.post('/api/leadvault/leads/:id/activity', express.json(), async (req, res) => {
+    if (!isContractorOnly(req, res)) return;
+    
+    try {
+      const { id } = req.params;
+      const { actionType, actionDetail } = req.body;
+      
+      await db.execute(sql`
+        INSERT INTO lead_vault_activity (lead_id, action_type, action_detail)
+        VALUES (${id}, ${actionType}, ${actionDetail})
+      `);
+      
+      res.json({ ok: true });
+    } catch (error) {
+      console.error('LeadVault activity error:', error);
+      res.status(500).json({ error: 'Failed to log activity' });
+    }
+  });
+
+  // Get pipeline view (leads by status)
+  app.get('/api/leadvault/pipeline', async (req, res) => {
+    if (!isContractorOnly(req, res)) return;
+    
+    try {
+      const contractorId = req.session?.user?.id || 'demo';
+      
+      const pipeline = await db.execute(sql`
+        SELECT 
+          status,
+          COUNT(*) as count,
+          json_agg(json_build_object(
+            'id', id,
+            'company_name', company_name,
+            'contact_name', contact_name,
+            'phone', phone,
+            'score', score,
+            'score_label', score_label,
+            'city', city,
+            'state', state
+          ) ORDER BY score DESC) as leads
+        FROM lead_vault_leads
+        WHERE contractor_id = ${contractorId}
+        GROUP BY status
+      `);
+      
+      res.json({ ok: true, pipeline: pipeline.rows });
+    } catch (error) {
+      console.error('LeadVault pipeline error:', error);
+      res.status(500).json({ error: 'Failed to fetch pipeline' });
+    }
+  });
+
+  // Seed Georgia and Alabama contractor data
+  app.post('/api/leadvault/seed-contractors', express.json(), async (req, res) => {
+    try {
+      // Tree companies in Columbus, GA
+      const gaTreeCompanies = [
+        { businessName: "Linander's Tree Service LLC", address: "4770 Kolb Ave, Columbus, GA 31904", phone: "(706) 535-5199", city: "Columbus", state: "GA", category: "tree_service" },
+        { businessName: "Foster's Tree Service", address: "17 S Whisper Ct, Columbus, GA 31909", phone: "(706) 563-5418", city: "Columbus", state: "GA", category: "tree_service" },
+        { businessName: "Ron's Tree Service LLC", address: "3155 Williams Rd Ste 6, Columbus, GA 31909", phone: "(706) 315-2590", city: "Columbus", state: "GA", category: "tree_service" },
+        { businessName: "Avery Tree Care", address: "1241 Double Churches Rd Suite A, Columbus, GA 31904", phone: "(706) 527-3525", city: "Columbus", state: "GA", category: "tree_service" },
+        { businessName: "CRA Enterprises LLC", address: "3456 Hiawatha Dr, Columbus, GA 31907", phone: "(706) 329-1075", city: "Columbus", state: "GA", category: "tree_service" },
+        { businessName: "Martin Tree Services", address: "6021 Business Park Dr, Columbus, GA 31909", phone: "(706) 593-4853", city: "Columbus", state: "GA", category: "tree_service" },
+        { businessName: "Fall Line Tree Service LLC", address: "1238 2nd Ave, Columbus, GA 31906", phone: "(706) 580-2933", city: "Columbus", state: "GA", category: "tree_service" },
+        { businessName: "GreenTree Arboriculture", address: "4314 Fay Dr, Columbus, GA 31907", phone: "(706) 505-4266", city: "Columbus", state: "GA", category: "tree_service" },
+        { businessName: "Columbus GA Tree Service", address: "3428 College Ave, Columbus, GA 31907", phone: "(706) 703-4747", city: "Columbus", state: "GA", category: "tree_service" },
+        { businessName: "Tree Masters Tree Service", address: "5506 Alice Dr, Columbus, GA 31904", phone: "(706) 905-1145", city: "Columbus", state: "GA", category: "tree_service" },
+        { businessName: "Elite Tree Service Inc", address: "Columbus, GA", phone: "(706) 888-0336", city: "Columbus", state: "GA", category: "tree_service" },
+        { businessName: "Oak Hill Arborist", address: "Columbus, GA", phone: "(706) 577-8158", city: "Columbus", state: "GA", category: "tree_service" },
+        { businessName: "Tree MD Local Tree Care LLC", address: "2006 Watkins Dr, Columbus, GA 31907", phone: "(334) 614-1464", city: "Columbus", state: "GA", category: "tree_service" },
+        { businessName: "Johnson Tree Service", address: "Columbus, GA", phone: "(706) 660-8366", city: "Columbus", state: "GA", category: "tree_service" },
+        { businessName: "Arbortech of Columbus", address: "8859 Chattsworth Rd, Midland, GA 31820", phone: "(706) 561-2987", city: "Midland", state: "GA", category: "tree_service" },
+        { businessName: "Golden Tree Service Inc", address: "8733 Veterans Pkwy, Midland, GA 31820", phone: "(706) 561-3454", city: "Midland", state: "GA", category: "tree_service" },
+        { businessName: "Baby Girl Tree Service", address: "1727 Huffman Dr, Columbus, GA 31907", phone: "(706) 563-3774", city: "Columbus", state: "GA", category: "tree_service" },
+        { businessName: "Carden Tree Service", address: "5236 N Abbott Ave, Columbus, GA 31904", phone: "(706) 323-4979", city: "Columbus", state: "GA", category: "tree_service" },
+        { businessName: "Diversified Trees Inc", address: "7279 Hamilton Pleasant Grove Rd, Pine Mountain, GA 31822", phone: "(706) 663-0300", city: "Pine Mountain", state: "GA", category: "tree_service" },
+        { businessName: "Duffey's Tree & Landscaping", address: "261 Blanchard Ave, Pine Mountain, GA 31822", phone: "(706) 443-8110", city: "Pine Mountain", state: "GA", category: "tree_service" },
+      ];
+      
+      // Alabama tree companies
+      const alTreeCompanies = [
+        { businessName: "Butler's Tree Service", address: "3039 County Road 289, Lanett, AL 36863", phone: "(334) 576-3333", city: "Lanett", state: "AL", category: "tree_service" },
+        { businessName: "Wikoff's Stump Grinding Service", address: "55 Lee Road 548, Phenix City, AL 36870", phone: "(334) 480-0441", city: "Phenix City", state: "AL", category: "tree_service" },
+        { businessName: "Matt White's Tree Service", address: "1008 S 3rd St, Lanett, AL 36863", phone: "(706) 590-1035", city: "Lanett", state: "AL", category: "tree_service" },
+      ];
+      
+      let imported = 0;
+      const allCompanies = [...gaTreeCompanies, ...alTreeCompanies];
+      
+      for (const c of allCompanies) {
+        try {
+          await db.execute(sql`
+            INSERT INTO contractor_vault (business_name, address, city, state, phone, category, source, status)
+            VALUES (${c.businessName}, ${c.address}, ${c.city}, ${c.state}, ${c.phone}, ${c.category}, 'manual_seed', 'active')
+            ON CONFLICT (business_name, phone) DO NOTHING
+          `);
+          imported++;
+        } catch (err) {
+          // Skip duplicates
+        }
+      }
+      
+      res.json({ ok: true, imported, total: allCompanies.length });
+    } catch (error) {
+      console.error('Seed error:', error);
+      res.status(500).json({ error: 'Failed to seed contractors' });
+    }
+  });
+
+  console.log('🔐 ContractorLeadVault™ routes registered - Contractor-only B2B lead finder with AI scoring');
+
   // ---- Health Routes ----
   app.use(healthRoutes);
   console.log('🏥 Health routes registered - /api/health/auth for JWKS diagnostics');

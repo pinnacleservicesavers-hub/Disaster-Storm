@@ -45,6 +45,7 @@ const Login = lazy(() => import("./pages/auth/Login"));
 const AuthCallback = lazy(() => import("./pages/auth/Callback"));
 const OIDCSettings = lazy(() => import("./pages/admin/OIDCSettings"));
 const AffiliateManagement = lazy(() => import("./pages/admin/AffiliateManagement"));
+const ContractorLeadVault = lazy(() => import("./pages/ContractorLeadVault"));
 const EnterpriseAuditLog = lazy(() => import("./pages/EnterpriseAuditLog"));
 const BusinessAssessment = lazy(() => import("./pages/BusinessAssessment"));
 const ImplementationPlaybooks = lazy(() => import("./pages/ImplementationPlaybooks"));
@@ -248,6 +249,7 @@ export default function App() {
           {/* Contractor Portal */}
           <Route path="/contractor/jobs" element={<ProtectedRoute allowedRoles={['contractor', 'admin']}><ContractorJobs /></ProtectedRoute>} />
           <Route path="/contractor/profile" element={<ProtectedRoute allowedRoles={['contractor', 'admin']}><ContractorProfile /></ProtectedRoute>} />
+          <Route path="/contractor/leadvault" element={<ProtectedRoute allowedRoles={['contractor', 'admin']}><ContractorLeadVault /></ProtectedRoute>} />
           
           {/* Homeowner Portal - Accessible by homeowners */}
           <Route path="/homeowner" element={<ProtectedRoute><HomeownerPortal /></ProtectedRoute>} />

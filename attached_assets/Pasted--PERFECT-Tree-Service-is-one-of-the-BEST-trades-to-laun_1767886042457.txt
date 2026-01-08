@@ -1,0 +1,734 @@
+🔥 PERFECT. Tree Service is one of the BEST trades to launch with because:
+
+✅ You can find leads from multiple powerful sources (storm zones, property managers, HOAs, permits, commercial lots, city work, insurance referrals, hazard trees, etc.)
+✅ It’s high-ticket + emergency-driven
+✅ Contractors LOVE “fast cash” + “storm response” leads
+✅ Tree leads are naturally time-sensitive → your “Perfect Timing Alerts” becomes insanely valuable
+
+So below is your FULL “Starter Pack” Multi-Service System (#4):
+
+✅ Next.js UI + API + DB
+✅ Node Lead Engine (Tree Service lead discovery + scoring + competition detector)
+✅ Python Signal Engine (storm triggers, permit/violation signals, predictive alerts)
+✅ Contractor-only locks (hard security)
+✅ Built for Replit (copy/paste ready)
+✅ Includes Tree Service “Lead Blueprint” + “WOW” features
+
+✅ CONTRACTORLEADVAULT™ — TREE SERVICE EDITION
+
+Positioning tagline:
+“Contractor-only AI lead intelligence that finds tree work before your competitors do.”
+
+✅ 0) ENVIRONMENT VARIABLES (ALL SERVICES)
+
+Use the SAME service key everywhere.
+
+Shared
+VAULT_SERVICE_KEY=supersecretkey
+
+✅ 1) NEXT.JS APP (UI + DB + Contractor LeadVault Module)
+✅ Folder
+/app-next
+  /app
+    /leadvault
+      page.jsx
+  /app/api
+    /leadvault
+      search/route.js
+      save/route.js
+      outreach/route.js
+      dashboard/route.js
+  /components
+    VaultStats.jsx
+    Filters.jsx
+    LeadCard.jsx
+    ActionList.jsx
+  /lib
+    vaultApi.js
+    contractorOnly.js
+    auth.js
+    db.js
+  package.json
+  next.config.js
+  .env
+
+✅ app-next/.env
+DATABASE_URL=postgresql://...
+NODE_LEAD_ENGINE_URL=http://localhost:5050
+PY_SIGNAL_ENGINE_URL=http://localhost:6060
+VAULT_SERVICE_KEY=supersecretkey
+
+✅ app-next/lib/contractorOnly.js
+export function contractorOnly(user) {
+  if (!user || user.role !== "contractor") {
+    throw new Error("Contractor-only module.");
+  }
+  if (!user.verified_contractor && user.subscription_level !== "pro" && user.subscription_level !== "elite") {
+    throw new Error("Upgrade or verify contractor to access LeadVault.");
+  }
+}
+
+✅ app-next/lib/auth.js (MOCK FOR NOW)
+
+This is a placeholder so you can wire it up to your login system later.
+
+export async function getUser() {
+  // Replace with real auth (JWT, session, Clerk, etc.)
+  return {
+    id: "demo-user",
+    role: "contractor",
+    verified_contractor: true,
+    subscription_level: "pro",
+    trade_type: "tree_service",
+    name: "Demo Tree Contractor",
+  };
+}
+
+✅ app-next/lib/vaultApi.js (calls Node + Python)
+export async function fetchLeadsFromEngines({ location, radius, tradeType }) {
+  const headers = {
+    "Content-Type": "application/json",
+    "X-VAULT-KEY": process.env.VAULT_SERVICE_KEY,
+  };
+
+  const nodeRes = await fetch(`${process.env.NODE_LEAD_ENGINE_URL}/leads/search`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ location, radius, tradeType }),
+  });
+
+  const pyRes = await fetch(`${process.env.PY_SIGNAL_ENGINE_URL}/signals/enrich`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ location, radius, tradeType }),
+  });
+
+  const nodeData = await nodeRes.json();
+  const pyData = await pyRes.json();
+
+  const merged = (nodeData.leads || []).map((lead) => {
+    const areaSignals = pyData.areaSignals || {};
+    const leadSignals = pyData.signalsByLeadId?.[lead.external_id] || [];
+    return {
+      ...lead,
+      signal_tags: [...(lead.signal_tags || []), ...leadSignals],
+      area_alerts: areaSignals.alerts || [],
+      storm_risk: areaSignals.stormRisk || null,
+    };
+  });
+
+  return merged;
+}
+
+✅ app-next/app/api/leadvault/search/route.js
+import { fetchLeadsFromEngines } from "@/lib/vaultApi";
+import { contractorOnly } from "@/lib/contractorOnly";
+import { getUser } from "@/lib/auth";
+
+export async function POST(req) {
+  const user = await getUser();
+
+  try {
+    contractorOnly(user);
+  } catch (e) {
+    return Response.json({ error: e.message }, { status: 403 });
+  }
+
+  const body = await req.json();
+  const { location, radius } = body;
+
+  const leads = await fetchLeadsFromEngines({
+    location,
+    radius,
+    tradeType: "tree_service",
+  });
+
+  return Response.json({ leads });
+}
+
+✅ app-next/app/leadvault/page.jsx (WOW Dashboard UI)
+"use client";
+import { useState } from "react";
+import VaultStats from "@/components/VaultStats";
+import Filters from "@/components/Filters";
+import LeadCard from "@/components/LeadCard";
+import ActionList from "@/components/ActionList";
+
+export default function LeadVaultPage() {
+  const [leads, setLeads] = useState([]);
+  const [alerts, setAlerts] = useState([]);
+
+  async function runSearch(filters) {
+    const res = await fetch("/api/leadvault/search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(filters),
+    });
+    const data = await res.json();
+    setLeads(data.leads || []);
+    setAlerts(data.leads?.[0]?.area_alerts || []);
+  }
+
+  return (
+    <div className="p-6 space-y-6">
+      <div className="space-y-2">
+        <h1 className="text-3xl font-bold">ContractorLeadVault™</h1>
+        <p className="text-gray-500">Tree Service Edition — Contractor-only AI lead intelligence.</p>
+      </div>
+
+      <VaultStats leads={leads} />
+
+      {alerts.length > 0 && (
+        <div className="rounded-2xl border p-4 shadow-sm">
+          <h2 className="text-lg font-semibold">Perfect Timing Alerts</h2>
+          <ul className="mt-2 list-disc pl-5 text-sm text-gray-600">
+            {alerts.map((a, i) => <li key={i}>{a}</li>)}
+          </ul>
+        </div>
+      )}
+
+      <ActionList leads={leads} />
+      <Filters onSearch={runSearch} />
+
+      <div className="grid gap-4">
+        {leads.map((lead, i) => (
+          <LeadCard key={i} lead={lead} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+✅ app-next/components/VaultStats.jsx
+export default function VaultStats({ leads }) {
+  const hot = leads.filter(l => l.score_label === "hot").length;
+  const warm = leads.filter(l => l.score_label === "warm").length;
+  const highValue = leads.filter(l => (l.score || 0) >= 45).length;
+  const quickWins = leads.filter(l => (l.signal_tags || []).includes("quick_win")).length;
+
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <Stat title="🔥 Hot Leads Today" value={hot} />
+      <Stat title="✅ Warm Leads Today" value={warm} />
+      <Stat title="🏆 High Ticket" value={highValue} />
+      <Stat title="⚡ Quick Wins" value={quickWins} />
+    </div>
+  );
+}
+
+function Stat({ title, value }) {
+  return (
+    <div className="rounded-2xl border p-4 shadow-sm">
+      <p className="text-sm text-gray-500">{title}</p>
+      <p className="text-3xl font-bold">{value}</p>
+    </div>
+  );
+}
+
+✅ app-next/components/Filters.jsx
+"use client";
+import { useState } from "react";
+
+export default function Filters({ onSearch }) {
+  const [location, setLocation] = useState("Cataula, GA");
+  const [radius, setRadius] = useState(25);
+
+  return (
+    <div className="rounded-2xl border p-4 shadow-sm flex flex-col md:flex-row gap-3">
+      <input
+        className="border rounded-xl p-2 flex-1"
+        value={location}
+        onChange={(e) => setLocation(e.target.value)}
+        placeholder="City, State or Zip"
+      />
+      <input
+        className="border rounded-xl p-2 w-32"
+        type="number"
+        value={radius}
+        onChange={(e) => setRadius(Number(e.target.value))}
+        placeholder="Radius"
+      />
+      <button
+        className="rounded-xl bg-black text-white px-4 py-2"
+        onClick={() => onSearch({ location, radius })}
+      >
+        Find Leads
+      </button>
+    </div>
+  );
+}
+
+✅ app-next/components/ActionList.jsx (DAILY MONEY MOVES)
+export default function ActionList({ leads }) {
+  const hotLeads = leads.filter(l => l.score_label === "hot").slice(0, 3);
+  const followUps = leads.filter(l => l.status === "followup_needed").slice(0, 2);
+
+  return (
+    <div className="rounded-2xl border p-4 shadow-sm">
+      <h2 className="text-lg font-semibold">Your 5 Money Moves Today</h2>
+      <ol className="mt-2 list-decimal pl-5 text-sm text-gray-600 space-y-1">
+        <li>Call {hotLeads.length || 3} hot leads and offer “same-week availability.”</li>
+        <li>Send 5 SMS messages with a 3-tier offer stack.</li>
+        <li>Follow up on {followUps.length || 2} estimate opportunities.</li>
+        <li>Route plan: choose 6 nearby leads and door-knock/commercial visit.</li>
+        <li>Generate 1 “Before/After Sales Kit” from a recent job photo.</li>
+      </ol>
+    </div>
+  );
+}
+
+✅ app-next/components/LeadCard.jsx (WOW Card)
+export default function LeadCard({ lead }) {
+  return (
+    <div className="rounded-2xl border p-4 shadow-sm space-y-2">
+      <div className="flex justify-between items-start gap-3">
+        <div>
+          <h3 className="text-lg font-semibold">{lead.company_name}</h3>
+          <p className="text-sm text-gray-500">{lead.address}</p>
+        </div>
+        <div className="text-right">
+          <p className="text-sm font-semibold">Score: {lead.score}</p>
+          <p className="text-sm text-gray-500">Competition: {lead.competition_level}</p>
+          <p className="text-sm">{label(lead.score_label)}</p>
+        </div>
+      </div>
+
+      {lead.signal_tags?.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {lead.signal_tags.slice(0, 6).map((t, i) => (
+            <span key={i} className="text-xs bg-gray-100 rounded-full px-3 py-1">
+              {t.replaceAll("_", " ")}
+            </span>
+          ))}
+        </div>
+      )}
+
+      <div className="flex flex-wrap gap-2 pt-2">
+        {lead.phone && <a className="text-sm underline" href={`tel:${lead.phone}`}>Call</a>}
+        {lead.website && <a className="text-sm underline" href={lead.website} target="_blank">Website</a>}
+        <button className="text-sm underline">Generate Outreach Pack</button>
+        <button className="text-sm underline">Save to Pipeline</button>
+      </div>
+    </div>
+  );
+}
+
+function label(l) {
+  if (l === "hot") return "🔥 Hot";
+  if (l === "warm") return "✅ Warm";
+  return "🧊 Cold";
+}
+
+✅ 2) NODE LEAD ENGINE (TREE SERVICE LEAD HUNTER + SCORE + COMPETITION)
+
+This service returns “business-type leads” that tree companies want:
+
+✅ Property managers
+✅ HOAs
+✅ Apartment complexes
+✅ Commercial properties
+✅ Land clearing opportunities
+✅ Construction sites
+✅ Municipal / city departments
+✅ Real estate offices
+✅ Insurance agents (later)
+
+Node service returns leads + scoring + competition:
+✅ Node Structure
+/lead-engine-node
+  index.js
+  routes/leads.js
+  middleware/authKey.js
+  services/leadHunter.js
+  services/leadScorer.js
+  services/competitionDetector.js
+  .env
+  package.json
+
+✅ lead-engine-node/.env
+PORT=5050
+VAULT_SERVICE_KEY=supersecretkey
+
+✅ lead-engine-node/middleware/authKey.js
+export function authKey(req, res, next) {
+  if (req.headers["x-vault-key"] !== process.env.VAULT_SERVICE_KEY) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  next();
+}
+
+✅ lead-engine-node/index.js
+import express from "express";
+import dotenv from "dotenv";
+import leadsRoutes from "./routes/leads.js";
+
+dotenv.config();
+
+const app = express();
+app.use(express.json());
+
+app.use("/leads", leadsRoutes);
+
+app.listen(process.env.PORT, () =>
+  console.log(`Lead Engine (Node) running on ${process.env.PORT}`)
+);
+
+✅ lead-engine-node/services/leadHunter.js (MOCK LEAD DATA READY FOR REAL API)
+
+This is a mock for now — but structured so you can swap in Google Places later.
+
+export async function leadHunter({ location, radius, tradeType }) {
+  // Replace with real API calls later (Google Places, directories, etc.)
+  return [
+    {
+      external_id: "pm-001",
+      company_name: "Evergreen Property Management",
+      category: "Property Management",
+      phone: "+17065551234",
+      website: "https://example.com",
+      address: `Near ${location}`,
+      rating: 4.1,
+      reviewCount: 62,
+    },
+    {
+      external_id: "hoa-002",
+      company_name: "Oak Ridge HOA Office",
+      category: "Homeowners Association",
+      phone: "+17065554567",
+      website: null,
+      address: `Near ${location}`,
+      rating: 3.8,
+      reviewCount: 14,
+    },
+    {
+      external_id: "apt-003",
+      company_name: "Brookstone Apartments",
+      category: "Apartment Complex",
+      phone: "+17065559876",
+      website: "https://example.com",
+      address: `Near ${location}`,
+      rating: 3.9,
+      reviewCount: 129,
+    },
+    {
+      external_id: "gc-004",
+      company_name: "Hightower Construction",
+      category: "General Contractor",
+      phone: "+17065552345",
+      website: "https://example.com",
+      address: `Near ${location}`,
+      rating: 4.5,
+      reviewCount: 27,
+    }
+  ];
+}
+
+✅ lead-engine-node/services/leadScorer.js (TREE SERVICE SCORING)
+export function leadScorer(lead) {
+  let score = 0;
+  const tags = [];
+
+  // Universal signals
+  if (!lead.website) { score += 18; tags.push("no_website"); }
+  if (lead.rating && lead.rating < 4.2) { score += 10; tags.push("low_rating_opportunity"); }
+  if (lead.reviewCount && lead.reviewCount > 60) { score += 8; tags.push("high_traffic_location"); }
+
+  // Tree Service trade blueprint (where the money is)
+  const cat = (lead.category || "").toLowerCase();
+
+  if (cat.includes("property")) { score += 18; tags.push("property_manager_contracts"); }
+  if (cat.includes("apartment")) { score += 16; tags.push("apartment_complex_maintenance"); }
+  if (cat.includes("hoa")) { score += 16; tags.push("hoa_vendor_contract"); }
+  if (cat.includes("construction")) { score += 12; tags.push("land_clearing_opportunity"); }
+  if (cat.includes("government") || cat.includes("municipal")) { score += 15; tags.push("city_vendor_work"); }
+
+  // Quick win: no site + poor rating = needs vendor help + easy pitch
+  if (!lead.website && lead.rating && lead.rating < 4.0) {
+    score += 10;
+    tags.push("quick_win");
+  }
+
+  let score_label = "cold";
+  if (score >= 45) score_label = "hot";
+  else if (score >= 25) score_label = "warm";
+
+  return { score, score_label, signal_tags: tags };
+}
+
+✅ lead-engine-node/services/competitionDetector.js
+export async function competitionDetector(lead, location, radius) {
+  // Simple version now; later: count competitor density from places API
+  // For now, use rating/reviews to estimate "hard to win"
+  let competition_level = "low";
+  if ((lead.reviewCount || 0) > 100) competition_level = "high";
+  else if ((lead.reviewCount || 0) > 40) competition_level = "medium";
+
+  return { competition_level };
+}
+
+✅ lead-engine-node/routes/leads.js
+import express from "express";
+import { authKey } from "../middleware/authKey.js";
+import { leadHunter } from "../services/leadHunter.js";
+import { leadScorer } from "../services/leadScorer.js";
+import { competitionDetector } from "../services/competitionDetector.js";
+
+const router = express.Router();
+
+router.post("/search", authKey, async (req, res) => {
+  const { location, radius } = req.body;
+
+  const rawLeads = await leadHunter({ location, radius, tradeType: "tree_service" });
+
+  const leads = await Promise.all(rawLeads.map(async (lead) => {
+    const scoreData = leadScorer(lead);
+    const comp = await competitionDetector(lead, location, radius);
+
+    return { ...lead, ...scoreData, ...comp };
+  }));
+
+  res.json({ leads });
+});
+
+export default router;
+
+✅ 3) PYTHON SIGNAL ENGINE (TREE SERVICE SIGNALS + STORM TRIGGERS)
+
+This service gives you the true “WOW factor”:
+
+✅ “Perfect Timing Alerts”
+✅ storm risk + cleanup opportunities
+✅ permit/violation signals
+✅ predictive seasonal triggers
+
+✅ Python Structure
+/signal-engine-py
+  main.py
+  routes/signals.py
+  middleware/auth_key.py
+  services/storm_risk.py
+  services/predictive_signals.py
+  services/permit_signals.py
+  services/violation_signals.py
+  .env
+  requirements.txt
+
+✅ signal-engine-py/.env
+PORT=6060
+VAULT_SERVICE_KEY=supersecretkey
+
+✅ signal-engine-py/middleware/auth_key.py
+import os
+from fastapi import Header, HTTPException
+
+def auth_key(x_vault_key: str = Header(None)):
+    if x_vault_key != os.getenv("VAULT_SERVICE_KEY"):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+✅ signal-engine-py/main.py
+import os
+from fastapi import FastAPI
+from routes.signals import router as signals_router
+from dotenv import load_dotenv
+
+load_dotenv()
+
+app = FastAPI()
+app.include_router(signals_router, prefix="/signals")
+
+✅ signal-engine-py/routes/signals.py
+from fastapi import APIRouter, Depends
+from middleware.auth_key import auth_key
+from services.storm_risk import storm_risk
+from services.predictive_signals import predictive_signals
+from services.permit_signals import permit_signals
+from services.violation_signals import violation_signals
+
+router = APIRouter()
+
+@router.post("/enrich")
+def enrich(payload: dict, authorized=Depends(auth_key)):
+    location = payload.get("location")
+    radius = payload.get("radius")
+    trade_type = payload.get("tradeType", "tree_service")
+
+    storm = storm_risk(location)
+    predictive = predictive_signals(location, trade_type)
+    permits = permit_signals(location, trade_type)
+    violations = violation_signals(location, trade_type)
+
+    alerts = []
+    alerts.extend(storm.get("alerts", []))
+    alerts.extend(predictive.get("alerts", []))
+    alerts.extend(permits.get("alerts", []))
+    alerts.extend(violations.get("alerts", []))
+
+    return {
+        "signalsByLeadId": {},
+        "areaSignals": {
+            "stormRisk": storm,
+            "alerts": alerts,
+            "predictive": predictive,
+            "permits": permits,
+            "violations": violations
+        }
+    }
+
+✅ signal-engine-py/services/storm_risk.py (MOCK — later integrate weather API)
+def storm_risk(location: str):
+    # Later: integrate weather/NOAA storm alerts + wind speeds
+    return {
+        "riskLevel": "medium",
+        "alerts": [
+            f"Storm risk elevated near {location}. Offer emergency tree removal & debris cleanup.",
+            "Perfect timing: market ‘same-day storm response’ to property managers + HOAs."
+        ]
+    }
+
+✅ signal-engine-py/services/predictive_signals.py
+def predictive_signals(location: str, trade_type: str):
+    # Later: seasonal trends + weather + storm season + vegetation cycles
+    return {
+        "alerts": [
+            "Predictive trigger: Winter wind events increase hazard tree calls.",
+            "Target commercial lots + apartment complexes with monthly lot clearing contracts."
+        ]
+    }
+
+✅ signal-engine-py/services/permit_signals.py
+def permit_signals(location: str, trade_type: str):
+    # Later: integrate permit feeds from county/city portals
+    return {
+        "alerts": [
+            f"Permit signal: New construction activity near {location}. Target land clearing & grading contractors.",
+            "Watch for permits mentioning: clearing, grading, new driveway, drainage—tree removal often needed."
+        ]
+    }
+
+✅ signal-engine-py/services/violation_signals.py
+def violation_signals(location: str, trade_type: str):
+    # Later: integrate code enforcement / municipal violation feeds
+    return {
+        "alerts": [
+            "Hidden lead mode: properties with overgrowth or unsafe tree citations are prime leads.",
+            "Offer compliance cleanup packages to commercial properties & rentals."
+        ]
+    }
+
+✅ signal-engine-py/requirements.txt
+fastapi
+uvicorn
+python-dotenv
+
+✅ HOW TO RUN EVERYTHING IN REPLIT (EASY)
+OPTION A (BEST): 3 Repls
+
+Repl #1 → app-next
+
+Repl #2 → lead-engine-node
+
+Repl #3 → signal-engine-py
+
+✅ Best performance, simplest setup, easiest scaling.
+
+OPTION B: ONE REPL (advanced)
+
+Use a single “Start” script that launches all 3 services.
+I can generate this next if you want.
+
+✅ TREE SERVICE “LEAD BLUEPRINT” (THE SECRET SAUCE)
+
+Your LeadVault should ALWAYS prioritize these lead groups for tree contractors:
+
+✅ 1) RECURRING CONTRACT LEADS (The best money)
+
+Property managers
+
+Apartment complexes
+
+HOAs
+
+City / municipal departments
+
+Commercial lots (strip malls)
+
+✅ 2) FAST CASH EMERGENCY LEADS
+
+storm risk alerts
+
+wind alerts
+
+insurance agents
+
+restoration companies
+
+✅ 3) HIGH TICKET LAND CLEARING
+
+general contractors
+
+builders
+
+grading companies
+
+new construction permits
+
+✅ 4) “HIDDEN LEAD MODE” (WOW FACTOR)
+
+code violations (overgrowth, hazard trees)
+
+foreclosure properties (cleanup needed)
+
+recent property sales (new owner invests)
+
+✅ THE 5 “WOW” FEATURES YOU SHOULD ADD FIRST (Tree Service)
+
+These are what will make contractors LOVE it:
+
+✅ Storm Response Alerts (Perfect Timing)
+✅ Property Manager Contract Finder (Recurring money)
+✅ Route Builder (daily action tool)
+✅ Offer Stack Builder (quick/standard/premium)
+✅ Hidden Lead Mode (violations + permits)
+
+✅ NEXT: I WILL GENERATE YOUR “PRODUCTION” VERSION
+
+Right now you have the Starter Pack (mock leads but real architecture).
+
+If you want, I’ll now generate the production-level upgrades:
+
+✅ Upgrade Pack A (Real Leads)
+
+Google Places API integration
+
+Overpass/OpenStreetMap fallback
+
+Duplicate prevention & caching
+
+✅ Upgrade Pack B (Real Signals)
+
+NOAA / weather alerts integration
+
+County permit feed scrapers (structured & ethical)
+
+Code violations integration where available
+
+✅ Upgrade Pack C (WOW Monetization)
+
+Elite lead tiers
+
+Verified contractor badges
+
+Auto-refresh weekly leads
+
+“Lead campaigns” that run in the background
+
+✅ QUICK QUESTION (SO I BUILD THE RIGHT NEXT STEP)
+
+Do you want the real Google Places leads integrated next?
+
+Reply:
+✅ YES – integrate Google Places
+or
+✅ NO – keep mock leads for now and build UI/pipeline first
+
+Either way is correct — but YES is what makes it immediately WOW.
