@@ -553,8 +553,18 @@ export default function WorkHubCustomerPortal() {
     } catch (error) {
       console.error('AI analysis error:', error);
       // Fallback to basic analysis if API fails
+      const workTypeLabels: Record<string, string> = {
+        'tree': 'Tree Services', 'tree_removal': 'Tree Removal',
+        'roofing': 'Roofing', 'hvac': 'HVAC', 
+        'plumbing': 'Plumbing', 'electrical': 'Electrical',
+        'painting': 'Painting', 'fence': 'Fencing',
+        'flooring': 'Flooring', 'concrete': 'Concrete',
+        'general': 'General Contractor', 'auto': 'Auto Repair',
+        'other': 'Custom Project'
+      };
+      const detectedCategory = request.category || 'general';
       const fallbackAnalysis = {
-        detectedCategory: request.category || 'general',
+        detectedCategory: detectedCategory,
         identifiedIssues: ['Photo uploaded - professional inspection recommended'],
         recommendedTrades: [SERVICE_CATEGORIES.find(c => c.id === request.category)?.name || 'General Contractor'],
         estimatedPriceRange: { min: 500, max: 2500 },
@@ -564,7 +574,19 @@ export default function WorkHubCustomerPortal() {
         contractors: []
       };
       setAiAnalysis(fallbackAnalysis);
-      speakGuidance("I've received your photos. A professional inspection will provide a detailed estimate.");
+      
+      // Set fallback jobDetails so scheduling flow can proceed
+      const fallbackJobDetails = {
+        itemType: workTypeLabels[detectedCategory] || 'Project',
+        primaryMeasurement: 'Scope',
+        primaryValue: 'To be determined',
+        complexity: 'Medium',
+        complexityReason: 'Professional on-site inspection recommended for accurate estimate',
+        workType: workTypeLabels[detectedCategory] || detectedCategory
+      };
+      setJobDetails(fallbackJobDetails);
+      
+      speakGuidance("I've received your photos. Based on your project type, I estimate this would cost between $500 and $2,500. Does this fit your budget?");
     } finally {
       setIsAnalyzing(false);
     }
