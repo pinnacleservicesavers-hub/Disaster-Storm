@@ -599,51 +599,108 @@ export default function ContractorLeadVault() {
                     )}
                   </div>
                   
-                  <div>
+                  <div className="max-h-[600px] overflow-y-auto">
                     {outreachData ? (
                       <div className="space-y-4">
+                        {outreachData.personalization_notes && (
+                          <div className="p-3 bg-amber-900/30 border border-amber-600/50 rounded-lg">
+                            <h5 className="flex items-center gap-2 font-medium mb-1 text-amber-400">
+                              <Sparkles className="h-4 w-4" /> AI Personalization Notes
+                            </h5>
+                            <p className="text-sm text-amber-200">{outreachData.personalization_notes}</p>
+                          </div>
+                        )}
+                        
                         <div>
                           <h5 className="flex items-center gap-2 font-medium mb-2">
-                            <MessageSquare className="h-4 w-4 text-green-400" /> SMS Script
+                            <MessageSquare className="h-4 w-4 text-green-400" /> SMS Pitch
+                            <Badge variant="outline" className="text-xs">{(outreachData.sms_pitch || '').length}/280 chars</Badge>
+                          </h5>
+                          <div className="p-3 bg-slate-800 rounded-lg text-sm" data-testid="outreach-sms">
+                            {outreachData.sms_pitch || outreachData.smsScript}
+                          </div>
+                        </div>
+                        
+                        <div>
+                          <h5 className="flex items-center gap-2 font-medium mb-2">
+                            <Mail className="h-4 w-4 text-blue-400" /> Email
                           </h5>
                           <div className="p-3 bg-slate-800 rounded-lg text-sm">
-                            {outreachData.smsScript}
+                            <p className="font-semibold text-blue-300 mb-2">Subject: {outreachData.email_subject || 'Professional Services'}</p>
+                            <div className="whitespace-pre-wrap text-slate-300" data-testid="outreach-email">
+                              {outreachData.email_body || outreachData.emailScript}
+                            </div>
                           </div>
                         </div>
-                        <div>
-                          <h5 className="flex items-center gap-2 font-medium mb-2">
-                            <Mail className="h-4 w-4 text-blue-400" /> Email Script
-                          </h5>
-                          <div className="p-3 bg-slate-800 rounded-lg text-sm whitespace-pre-wrap">
-                            {outreachData.emailScript}
-                          </div>
-                        </div>
+                        
                         <div>
                           <h5 className="flex items-center gap-2 font-medium mb-2">
                             <Phone className="h-4 w-4 text-purple-400" /> Phone Script
                           </h5>
-                          <div className="p-3 bg-slate-800 rounded-lg text-sm">
-                            {outreachData.phoneScript}
+                          <div className="p-3 bg-slate-800 rounded-lg text-sm" data-testid="outreach-phone">
+                            {outreachData.phone_script || outreachData.phoneScript}
                           </div>
                         </div>
+                        
                         <div>
                           <h5 className="flex items-center gap-2 font-medium mb-2">
                             <DollarSign className="h-4 w-4 text-amber-400" /> 3-Tier Offer Stack
                           </h5>
-                          <div className="grid grid-cols-3 gap-2">
-                            {outreachData.offerStack && Object.entries(outreachData.offerStack).map(([key, offer]: [string, any]) => (
-                              <div key={key} className="p-2 bg-slate-800 rounded-lg text-xs">
-                                <p className="font-medium text-amber-400">{offer.name}</p>
-                                <p className="text-slate-400 mt-1">{offer.discount}</p>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                            {(outreachData.offer_stack || outreachData.offerStack) && Object.entries(outreachData.offer_stack || outreachData.offerStack).map(([key, offer]: [string, any]) => (
+                              <div key={key} className="p-3 bg-slate-800 rounded-lg text-xs">
+                                <p className="font-medium text-amber-400 capitalize">{key.replace(/_/g, ' ')}</p>
+                                <p className="text-slate-300 mt-1">{offer.name || offer}</p>
+                                <p className="text-green-400 mt-1">{offer.discount}</p>
                               </div>
                             ))}
                           </div>
                         </div>
+                        
+                        {outreachData.followups && outreachData.followups.length > 0 && (
+                          <div>
+                            <h5 className="flex items-center gap-2 font-medium mb-2">
+                              <Clock className="h-4 w-4 text-cyan-400" /> Follow-up Sequence
+                            </h5>
+                            <div className="space-y-2">
+                              {outreachData.followups.map((followup: any, i: number) => (
+                                <div key={i} className="p-2 bg-slate-800 rounded-lg text-xs flex items-start gap-2">
+                                  <Badge variant="outline" className="shrink-0">Day {followup.day}</Badge>
+                                  <p className="text-slate-300">{followup.message}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {outreachData.objection_handlers && (
+                          <div>
+                            <h5 className="flex items-center gap-2 font-medium mb-2">
+                              <Shield className="h-4 w-4 text-red-400" /> Objection Handlers
+                            </h5>
+                            <div className="space-y-2">
+                              {Object.entries(outreachData.objection_handlers).map(([objection, response]: [string, any]) => (
+                                <div key={objection} className="p-2 bg-slate-800 rounded-lg text-xs">
+                                  <p className="font-medium text-red-400 capitalize mb-1">"{objection.replace(/_/g, ' ')}"</p>
+                                  <p className="text-slate-300">{response}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {outreachData.call_to_action && (
+                          <div className="p-3 bg-green-900/30 border border-green-600/50 rounded-lg text-center">
+                            <p className="text-xs text-green-400 mb-1">Call To Action</p>
+                            <p className="font-semibold text-green-300">{outreachData.call_to_action}</p>
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <div className="text-center py-12">
                         <Sparkles className="h-12 w-12 text-slate-600 mx-auto mb-4" />
                         <p className="text-slate-400">Select a lead and generate an outreach pack</p>
+                        <p className="text-xs text-slate-500 mt-2">Powered by OpenAI GPT-4o-mini</p>
                       </div>
                     )}
                   </div>

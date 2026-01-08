@@ -3575,11 +3575,43 @@ Include 3-4 phases, 3-5 tasks per phase, 2-3 SOPs, 3 risks, and 4 KPIs. Be speci
     }
   });
 
-  // Generate AI outreach pack for a lead
+  // Helper: Sanitize text for safe prompt inclusion (prevent injection)
+  function sanitizeForPrompt(text: string | undefined | null, maxLen = 100): string {
+    if (!text) return '';
+    return String(text)
+      .replace(/[<>{}[\]\\`]/g, '') // Remove control chars
+      .replace(/\n/g, ' ') // Flatten newlines
+      .slice(0, maxLen)
+      .trim();
+  }
+  
+  // Helper: Normalize AI response to consistent camelCase format for UI
+  function normalizeOutreachPack(pack: any): any {
+    return {
+      smsScript: pack.sms_pitch || pack.smsScript || '',
+      sms_pitch: pack.sms_pitch || pack.smsScript || '',
+      emailSubject: pack.email_subject || pack.emailSubject || '',
+      email_subject: pack.email_subject || pack.emailSubject || '',
+      emailScript: pack.email_body || pack.emailScript || '',
+      email_body: pack.email_body || pack.emailScript || '',
+      phoneScript: pack.phone_script || pack.phoneScript || '',
+      phone_script: pack.phone_script || pack.phoneScript || '',
+      followups: pack.followups || pack.followupSequence || [],
+      followupSequence: pack.followups || pack.followupSequence || [],
+      offerStack: pack.offer_stack || pack.offerStack || {},
+      offer_stack: pack.offer_stack || pack.offerStack || {},
+      objection_handlers: pack.objection_handlers || {},
+      call_to_action: pack.call_to_action || '',
+      best_time_to_contact: pack.best_time_to_contact || '',
+      personalization_notes: pack.personalization_notes || ''
+    };
+  }
+
+  // Generate AI outreach pack for a lead (REAL OpenAI-powered)
   app.post('/api/leadvault/leads/:id/outreach', authenticate, requireContractor, express.json(), async (req: AuthenticatedRequest, res) => {
     try {
       const { id } = req.params;
-      const { tradeType } = req.body;
+      const { tradeType = 'tree_service', contractorName, location, useAI = true } = req.body;
       const contractorId = req.user?.id || 'demo';
       
       // Get the lead
@@ -3591,60 +3623,163 @@ Include 3-4 phases, 3-5 tasks per phase, 2-3 SOPs, 3 risks, and 4 KPIs. Be speci
         return res.status(404).json({ error: 'Lead not found' });
       }
       
-      const lead = leadResult.rows[0];
+      const lead = leadResult.rows[0] as any;
       
-      // Generate outreach scripts using AI
-      const smsScript = `Hi ${lead.contact_name || 'there'}! I'm a local ${tradeType || 'contractor'} and noticed your business at ${lead.address || lead.city}. I'd love to offer you a free estimate. Reply YES for details!`;
+      let outreachPack: any;
+      let aiGenerated = false;
       
-      const emailScript = `Subject: Professional ${tradeType || 'Services'} for ${lead.company_name}
+      // Use OpenAI for real AI-powered outreach generation
+      const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
+      if (useAI && apiKey) {
+        try {
+          const openai = new OpenAI({ apiKey });
+          
+          // Build trade-specific context
+          const tradeContextMap: Record<string, string> = {
+            tree_service: 'Tree Service (removal, trimming, storm cleanup, hazard trees, lot clearing)',
+            roofing: 'Roofing (repairs, replacements, storm damage, inspections)',
+            pressure_washing: 'Pressure Washing (commercial cleaning, deck/driveway, graffiti removal)',
+            flooring: 'Flooring (installation, refinishing, commercial flooring)',
+            hvac: 'HVAC (installation, repairs, maintenance contracts)',
+            general: 'General Contracting Services'
+          };
+          
+          const tradeContext = tradeContextMap[tradeType] || tradeContextMap.general;
+          
+          // Category-specific offer focus
+          const categoryFocusMap: Record<string, string> = {
+            property_management: 'recurring maintenance contract + hazard inspections',
+            apartment: 'recurring maintenance contract + emergency response',
+            hoa: 'annual service agreements + community beautification',
+            construction: 'clearing & debris hauling + schedule coordination',
+            commercial: 'monthly maintenance + compliance documentation',
+            restaurant: 'regular cleaning schedule + health code compliance',
+            default: 'professional service + free estimate'
+          };
+          
+          const category = sanitizeForPrompt(lead.category, 50).toLowerCase();
+          let offerFocus = categoryFocusMap.default;
+          for (const [key, value] of Object.entries(categoryFocusMap)) {
+            if (category.includes(key)) {
+              offerFocus = value;
+              break;
+            }
+          }
+          
+          // Sanitize all lead fields to prevent prompt injection
+          const safeLead = {
+            company_name: sanitizeForPrompt(lead.company_name, 80),
+            contact_name: sanitizeForPrompt(lead.contact_name, 50),
+            category: sanitizeForPrompt(lead.category, 50),
+            address: sanitizeForPrompt(lead.address || lead.city, 100),
+            phone: sanitizeForPrompt(lead.phone, 20),
+            website: sanitizeForPrompt(lead.website, 50),
+            score_label: sanitizeForPrompt(lead.score_label, 10),
+            score: Number(lead.score) || 0,
+            signal_tags: Array.isArray(lead.signal_tags) ? lead.signal_tags.slice(0, 5).map((t: string) => sanitizeForPrompt(t, 20)) : [],
+            competition_level: sanitizeForPrompt(lead.competition_level, 10)
+          };
 
-Hi ${lead.contact_name || 'there'},
+          // Use system message for instructions (harder to override with injection)
+          const systemPrompt = `You are a high-converting B2B sales strategist for contractors. Generate professional outreach content. ALWAYS respond with valid JSON only - no markdown, no code blocks, no extra text. Your response must be parseable JSON.`;
+          
+          const userPrompt = `Generate an outreach pack for this ${tradeContext} contractor targeting a lead.
 
-I'm reaching out because I noticed ${lead.company_name} and wanted to introduce our professional ${tradeType || 'contracting'} services.
+CONTRACTOR: ${sanitizeForPrompt(contractorName, 50) || 'Local Professional Contractor'}
+GOAL: schedule a site visit / quote this week
 
-We specialize in helping businesses like yours with quality work at competitive prices. 
+LEAD INFO:
+Company: ${safeLead.company_name || 'Unknown Business'}
+Contact: ${safeLead.contact_name || 'Decision Maker'}
+Category: ${safeLead.category || 'Commercial'}
+Location: ${safeLead.address || 'Local Area'}
+Score: ${safeLead.score_label || 'warm'}
+Signals: ${safeLead.signal_tags.join(', ') || 'none'}
+Competition: ${safeLead.competition_level || 'medium'}
 
-I'd love to offer you a FREE estimate with no obligation.
+OFFER FOCUS: ${offerFocus}
 
-Would you have 15 minutes this week for a quick call?
+Return this exact JSON structure:
+{"sms_pitch":"under 280 chars","email_subject":"string","email_body":"professional email","phone_script":"with qualifying question","followups":[{"day":2,"message":"string"},{"day":5,"message":"string"},{"day":10,"message":"string"},{"day":20,"message":"string"}],"offer_stack":{"quick_win":{"name":"string","description":"string","discount":"string"},"standard":{"name":"string","description":"string","discount":"string"},"premium":{"name":"string","description":"string","discount":"string"}},"objection_handlers":{"price":"string","already_have_vendor":"string","not_now":"string"},"call_to_action":"string","best_time_to_contact":"string","personalization_notes":"why target this lead"}`;
 
-Best regards,
-[Your Name]
-[Your Company]`;
-
-      const phoneScript = `Hi, this is [Your Name] from [Your Company]. I'm a local ${tradeType || 'contractor'} and I noticed your business. I wanted to reach out because we're offering free estimates this month for businesses in your area. Do you have a few minutes to discuss how we might be able to help?`;
-      
-      // 3-tier offer stack
-      const offerStack = {
-        quickWin: {
-          name: 'Quick Service Special',
-          description: `Basic ${tradeType || 'service'} at introductory pricing`,
-          discount: '15% off first service'
-        },
-        standard: {
-          name: 'Professional Package',
-          description: `Complete ${tradeType || 'service'} with warranty`,
-          discount: '10% off for new customers'
-        },
-        premium: {
-          name: 'Premium Contract',
-          description: `Recurring ${tradeType || 'maintenance'} with priority scheduling`,
-          discount: 'Free first month on annual contract'
+          const completion = await openai.chat.completions.create({
+            model: 'gpt-4o-mini',
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: userPrompt }
+            ],
+            max_tokens: 1200,
+            temperature: 0.7,
+          });
+          
+          const responseText = completion.choices[0]?.message?.content?.trim() || '';
+          
+          // Robust JSON extraction - handle markdown code blocks and extra text
+          let cleanedResponse = responseText;
+          // Remove markdown code blocks
+          cleanedResponse = cleanedResponse.replace(/```json\s*/gi, '').replace(/```\s*/g, '');
+          // Try to extract JSON object if there's extra text
+          const jsonMatch = cleanedResponse.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            cleanedResponse = jsonMatch[0];
+          }
+          
+          try {
+            const parsed = JSON.parse(cleanedResponse);
+            // Validate required fields exist
+            if (parsed.sms_pitch || parsed.email_body || parsed.phone_script) {
+              outreachPack = normalizeOutreachPack(parsed);
+              aiGenerated = true;
+              console.log(`🤖 AI-generated outreach pack for lead ${id} (${safeLead.company_name})`);
+            } else {
+              console.warn('AI response missing required fields, using fallback');
+              outreachPack = null;
+            }
+          } catch (parseErr) {
+            console.error('Failed to parse AI response:', parseErr, 'Raw:', responseText.slice(0, 200));
+            outreachPack = null;
+          }
+        } catch (aiError) {
+          console.error('OpenAI outreach generation failed, using fallback:', aiError);
+          outreachPack = null;
         }
-      };
+      }
       
-      // Follow-up sequence
-      const followupSequence = [
-        { day: 0, action: 'Initial contact', message: smsScript },
-        { day: 2, action: 'Follow-up SMS', message: `Hi! Just following up on my message about ${tradeType} services. Still interested in that free estimate?` },
-        { day: 5, action: 'Email follow-up', message: 'Checking in to see if you received my previous message...' },
-        { day: 10, action: 'Final outreach', message: `Last chance for our special offer! Let me know if you'd like to schedule that free estimate.` }
-      ];
+      // Fallback to template-based generation if AI fails or is disabled
+      if (!outreachPack) {
+        const tradeName = tradeType.replace(/_/g, ' ');
+        const fallbackPack = {
+          sms_pitch: `Hi ${sanitizeForPrompt(lead.contact_name, 20) || 'there'}! I'm a local ${tradeName} pro. Noticed your business - offering FREE estimates this week. Reply YES for details!`,
+          email_subject: `Professional ${tradeName} Services for ${sanitizeForPrompt(lead.company_name, 40) || 'Your Business'}`,
+          email_body: `Hi ${sanitizeForPrompt(lead.contact_name, 20) || 'there'},\n\nI'm reaching out because I noticed ${sanitizeForPrompt(lead.company_name, 40) || 'your business'} and wanted to introduce our professional ${tradeName} services.\n\nWe specialize in helping businesses like yours with quality work at competitive prices.\n\nI'd love to offer you a FREE estimate with no obligation.\n\nWould you have 15 minutes this week for a quick call?\n\nBest regards`,
+          phone_script: `Hi, this is [Your Name]. I'm a local ${tradeName} contractor. I noticed your business and wanted to reach out because we're offering free estimates this month. Do you handle the property maintenance decisions? Great - what's the biggest challenge you're facing right now with your outdoor spaces?`,
+          followups: [
+            { day: 2, message: `Hi! Following up on my message about ${tradeName} services. Still interested in that free estimate?` },
+            { day: 5, message: `Quick check-in - did you get a chance to think about the free estimate I offered?` },
+            { day: 10, message: `Last chance for our special introductory pricing! Let me know if you'd like to schedule.` },
+            { day: 20, message: `Hi again! Just wanted to reconnect. We have some new availability and would love to help with your ${tradeName} needs.` }
+          ],
+          offer_stack: {
+            quick_win: { name: 'Quick Service Special', description: `Basic ${tradeName} at introductory pricing`, discount: '15% off first service' },
+            standard: { name: 'Professional Package', description: `Complete ${tradeName} with warranty`, discount: '10% off for new customers' },
+            premium: { name: 'Premium Contract', description: `Recurring ${tradeName} with priority scheduling`, discount: 'Free first month on annual contract' }
+          },
+          objection_handlers: {
+            price: `I understand budget is important. Our pricing is competitive and we offer flexible payment options. Plus, the free estimate lets you see exactly what you're getting.`,
+            already_have_vendor: `That's great you have someone! We'd love to be your backup option or provide a second opinion. Many clients keep us for specific projects.`,
+            not_now: `Totally understand! When would be a better time? I can follow up then, or feel free to reach out when you're ready.`
+          },
+          call_to_action: 'Schedule your free estimate today',
+          best_time_to_contact: 'Tuesday-Thursday, 9am-11am',
+          personalization_notes: `Lead scored as ${lead.score_label || 'warm'} with signals: ${(Array.isArray(lead.signal_tags) ? lead.signal_tags.join(', ') : '') || 'none detected'}`
+        };
+        outreachPack = normalizeOutreachPack(fallbackPack);
+      }
       
-      // Save outreach pack
+      // Save outreach pack to database
       await db.execute(sql`
         INSERT INTO lead_vault_outreach (lead_id, sms_script, email_script, phone_script, followup_sequence, offer_stack)
-        VALUES (${id}, ${smsScript}, ${emailScript}, ${phoneScript}, ${JSON.stringify(followupSequence)}, ${JSON.stringify(offerStack)})
+        VALUES (${id}, ${outreachPack.smsScript || outreachPack.sms_pitch}, ${JSON.stringify({ subject: outreachPack.emailSubject || outreachPack.email_subject, body: outreachPack.emailScript || outreachPack.email_body })}, ${outreachPack.phoneScript || outreachPack.phone_script}, ${JSON.stringify(outreachPack.followups || outreachPack.followupSequence)}, ${JSON.stringify(outreachPack.offerStack || outreachPack.offer_stack)})
         ON CONFLICT (lead_id) DO UPDATE SET
           sms_script = EXCLUDED.sms_script,
           email_script = EXCLUDED.email_script,
@@ -3655,13 +3790,8 @@ Best regards,
       
       res.json({ 
         ok: true, 
-        outreach: {
-          smsScript,
-          emailScript,
-          phoneScript,
-          followupSequence,
-          offerStack
-        }
+        outreach: outreachPack,
+        aiGenerated
       });
     } catch (error) {
       console.error('LeadVault outreach error:', error);
