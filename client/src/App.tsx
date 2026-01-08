@@ -44,6 +44,11 @@ const SignOut = lazy(() => import("./pages/SignOut"));
 const Login = lazy(() => import("./pages/auth/Login"));
 const AuthCallback = lazy(() => import("./pages/auth/Callback"));
 const OIDCSettings = lazy(() => import("./pages/admin/OIDCSettings"));
+const EnterpriseAuditLog = lazy(() => import("./pages/EnterpriseAuditLog"));
+const BusinessAssessment = lazy(() => import("./pages/BusinessAssessment"));
+const ImplementationPlaybooks = lazy(() => import("./pages/ImplementationPlaybooks"));
+const MonitoringDashboard = lazy(() => import("./pages/MonitoringDashboard"));
+const PaymentApprovals = lazy(() => import("./pages/PaymentApprovals"));
 const ContractorAlertsDashboard = lazy(() => import("./pages/ContractorAlertsDashboard"));
 const SMSTestPage = lazy(() => import("./pages/SMSTestPage"));
 
@@ -232,6 +237,11 @@ export default function App() {
           <Route path="/admin/smtp" element={<ProtectedRoute allowedRoles={['admin']}><SMTPSettings /></ProtectedRoute>} />
           <Route path="/admin/auth-stub" element={<ProtectedRoute allowedRoles={['admin']}><AuthStub /></ProtectedRoute>} />
           <Route path="/admin/oidc" element={<ProtectedRoute allowedRoles={['admin']}><OIDCSettings /></ProtectedRoute>} />
+          <Route path="/admin/audit-log" element={<ProtectedRoute allowedRoles={['admin']}><EnterpriseAuditLog /></ProtectedRoute>} />
+          <Route path="/admin/business-assessment" element={<ProtectedRoute allowedRoles={['admin']}><BusinessAssessment /></ProtectedRoute>} />
+          <Route path="/admin/playbooks" element={<ProtectedRoute allowedRoles={['admin']}><ImplementationPlaybooks /></ProtectedRoute>} />
+          <Route path="/admin/monitoring" element={<ProtectedRoute allowedRoles={['admin']}><MonitoringDashboard /></ProtectedRoute>} />
+          <Route path="/admin/payment-approvals" element={<ProtectedRoute allowedRoles={['admin']}><PaymentApprovals /></ProtectedRoute>} />
           
           {/* Contractor Portal */}
           <Route path="/contractor/jobs" element={<ProtectedRoute allowedRoles={['contractor', 'admin']}><ContractorJobs /></ProtectedRoute>} />

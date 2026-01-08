@@ -635,9 +635,19 @@ export interface IStorage {
   createMediaFrame(frame: InsertMediaFrame): Promise<MediaFrame>;
   getMediaFramesByMedia(mediaId: string): Promise<MediaFrame[]>;
   
-  // Audit Log methods
+  // Audit Log methods (Enterprise-grade)
   createAuditLog(entry: InsertAuditLogEntry): Promise<AuditLogEntry>;
   getAuditLogByProject(projectId: string): Promise<AuditLogEntry[]>;
+  getAuditLogs(filters?: { 
+    userId?: string; 
+    action?: string; 
+    entity?: string; 
+    startDate?: Date; 
+    endDate?: Date;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ entries: AuditLogEntry[]; total: number }>;
+  getAuditLogById(id: string): Promise<AuditLogEntry | undefined>;
   
   // Voice Profile methods
   getVoiceProfiles(): Promise<VoiceProfile[]>;
@@ -1169,6 +1179,32 @@ export class MemStorage implements IStorage {
     });
 
     console.log('👥 Seeded sample StormShare groups:', sampleGroups.length);
+
+    // Seed sample audit log entries for enterprise compliance demo
+    const sampleAuditLogs = [
+      { userId: 'admin-001', action: 'user.login', entity: 'session', entityId: 'sess-001', meta: { ip: '192.168.1.100', userAgent: 'Chrome/120' } },
+      { userId: 'admin-001', action: 'claim.create', entity: 'claim', entityId: 'claim-001', meta: { claimType: 'storm_damage', amount: 15000 } },
+      { userId: 'contractor-001', action: 'quote.submit', entity: 'quote', entityId: 'quote-001', meta: { total: 8500, lineItems: 12 } },
+      { userId: 'admin-001', action: 'payment.approve', entity: 'payment', entityId: 'pay-001', meta: { amount: 5000, method: 'ACH' } },
+      { userId: 'contractor-001', action: 'user.login', entity: 'session', entityId: 'sess-002', meta: { ip: '10.0.0.50', userAgent: 'Safari/17' } },
+      { userId: 'victim-001', action: 'claim.view', entity: 'claim', entityId: 'claim-001', meta: { viewedFields: ['status', 'amount'] } },
+      { userId: 'admin-001', action: 'contractor.verify', entity: 'contractor', entityId: 'contractor-001', meta: { verificationLevel: 'premium' } },
+      { userId: 'admin-001', action: 'settings.update', entity: 'system', entityId: 'config-001', meta: { setting: 'smtp', changed: ['host', 'port'] } },
+      { userId: 'contractor-001', action: 'lead.accept', entity: 'lead', entityId: 'lead-001', meta: { leadValue: 2500, responseTime: '15m' } },
+      { userId: 'admin-001', action: 'report.export', entity: 'report', entityId: 'rpt-001', meta: { format: 'csv', records: 150 } },
+    ];
+
+    sampleAuditLogs.forEach((log, i) => {
+      const id = randomUUID();
+      const entry = {
+        ...log,
+        id,
+        at: new Date(Date.now() - (i * 3600000)), // Stagger timestamps by 1 hour each
+        orgId: null
+      };
+      this.auditLog.set(id, entry as any);
+    });
+    console.log('📋 Seeded sample audit log entries:', sampleAuditLogs.length);
     
     // Initialize Disaster Lens sample data
     this.initializeDisasterLensSampleData();
@@ -3767,6 +3803,55 @@ export class MemStorage implements IStorage {
 
   async getAuditLogByProject(projectId: string): Promise<AuditLogEntry[]> {
     return Array.from(this.auditLog.values()).filter(entry => entry.entityId === projectId);
+  }
+
+  async getAuditLogs(filters?: { 
+    userId?: string; 
+    action?: string; 
+    entity?: string; 
+    startDate?: Date; 
+    endDate?: Date;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ entries: AuditLogEntry[]; total: number }> {
+    let entries = Array.from(this.auditLog.values());
+    
+    // Apply filters
+    if (filters?.userId) {
+      entries = entries.filter(e => e.userId === filters.userId);
+    }
+    if (filters?.action) {
+      entries = entries.filter(e => e.action.includes(filters.action!));
+    }
+    if (filters?.entity) {
+      entries = entries.filter(e => e.entity === filters.entity);
+    }
+    if (filters?.startDate) {
+      entries = entries.filter(e => e.at && e.at >= filters.startDate!);
+    }
+    if (filters?.endDate) {
+      entries = entries.filter(e => e.at && e.at <= filters.endDate!);
+    }
+    
+    // Sort by date descending (most recent first)
+    entries.sort((a, b) => {
+      const dateA = a.at ? new Date(a.at).getTime() : 0;
+      const dateB = b.at ? new Date(b.at).getTime() : 0;
+      return dateB - dateA;
+    });
+    
+    const total = entries.length;
+    
+    // Apply pagination
+    const offset = filters?.offset || 0;
+    const limit = filters?.limit || 50;
+    entries = entries.slice(offset, offset + limit);
+    
+    return { entries, total };
+  }
+
+  async getAuditLogById(id: string): Promise<AuditLogEntry | undefined> {
+    return this.auditLog.get(id);
   }
 
   // Initialize Disaster Lens sample data
