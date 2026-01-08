@@ -1,0 +1,333 @@
+🔥 DONE — we’re going to set up BOTH.
+Meaning:
+
+✅ You’ll have a 1-Repl “All-in-One” monorepo build (fastest to launch + develop)
+✅ AND you’ll have a 3-Repl production build (best speed + scaling)
+✅ AND I’ll show you how to switch between them in minutes with zero code changes
+
+This response gives you everything copy/paste, including:
+
+✅ Folder structure
+
+✅ Root scripts
+
+✅ .replit configs
+
+✅ package.json + start.sh files
+
+✅ CORS + Service Key Security
+
+✅ Health-check endpoints
+
+✅ Migration steps from 1→3 Repls
+
+✅ PART 1 — ONE REPL RUNNING ALL 3 SERVICES (BEST FOR DEVELOPMENT)
+
+This is your “dev monorepo” mode.
+
+✅ Root Folder Structure
+
+Inside ONE Replit project, your structure should be:
+
+/app-next
+/lead-engine-node
+/signal-engine-py
+/package.json
+/.env
+/.replit
+
+✅ 1) ROOT package.json (RUNS ALL 3)
+
+Create this at the root:
+
+/package.json
+{
+  "name": "contractor-leadvault-monorepo",
+  "private": true,
+  "scripts": {
+    "install-all": "npm install --prefix app-next && npm install --prefix lead-engine-node && pip install -r signal-engine-py/requirements.txt",
+    "dev": "concurrently \"npm run dev --prefix app-next\" \"npm start --prefix lead-engine-node\" \"bash signal-engine-py/start.sh\""
+  },
+  "dependencies": {
+    "concurrently": "^9.0.0"
+  }
+}
+
+✅ 2) ROOT .env (LOCAL URLs)
+
+Create this at root:
+
+/.env
+# Shared
+VAULT_SERVICE_KEY=supersecretkey
+
+# Next.js
+DATABASE_URL=postgresql://...
+NODE_LEAD_ENGINE_URL=http://localhost:5050
+PY_SIGNAL_ENGINE_URL=http://localhost:6060
+
+# Node Lead Engine
+PORT=5050
+GOOGLE_API_KEY=YOUR_GOOGLE_API_KEY
+
+# Python Signal Engine
+PY_PORT=6060
+
+
+✅ This makes everything communicate locally inside ONE Repl.
+
+✅ 3) ROOT .replit (RUN THE ENTIRE SYSTEM)
+
+Create this at root:
+
+/.replit
+run = "npm run dev"
+
+✅ 4) Node Service package.json
+
+Inside /lead-engine-node/package.json
+
+{
+  "name": "lead-engine-node",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "node-fetch": "^3.3.2"
+  }
+}
+
+✅ 5) Python Start Script
+
+Create this file:
+
+/signal-engine-py/start.sh
+#!/bin/bash
+cd signal-engine-py
+uvicorn main:app --host 0.0.0.0 --port 6060
+
+
+Then run:
+
+chmod +x signal-engine-py/start.sh
+
+✅ 6) Add CORS + Security to Node (REQUIRED)
+
+Inside /lead-engine-node/index.js:
+
+import express from "express";
+import cors from "cors";
+import dotenv from "dotenv";
+import leadsRoutes from "./routes/leads.js";
+
+dotenv.config();
+
+const app = express();
+app.use(cors({ origin: "*" }));
+app.use(express.json());
+
+// ✅ Health Check
+app.get("/health", (req, res) => res.json({ status: "ok", service: "lead-engine-node" }));
+
+app.use("/leads", leadsRoutes);
+
+const PORT = process.env.PORT || 5050;
+app.listen(PORT, () => console.log(`Lead Engine running on ${PORT}`));
+
+✅ 7) Add CORS + Security to Python (REQUIRED)
+
+Inside /signal-engine-py/main.py:
+
+import os
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from routes.signals import router as signals_router
+from dotenv import load_dotenv
+
+load_dotenv()
+
+app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# ✅ Health Check
+@app.get("/health")
+def health():
+    return {"status": "ok", "service": "signal-engine-py"}
+
+app.include_router(signals_router, prefix="/signals")
+
+✅ 8) Run All Services (ONE COMMAND)
+
+Run this ONE time:
+
+npm install
+npm run install-all
+
+
+Then start:
+
+npm run dev
+
+
+✅ Now you have:
+
+Next.js → http://localhost:3000
+
+Node engine → http://localhost:5050/health
+
+Python engine → http://localhost:6060/health
+
+✅ PART 2 — THREE REPLS (BEST FOR PRODUCTION + SPEED)
+
+This is your “scale” mode.
+
+Repl 1 → Next.js UI (app-next)
+Repl 2 → Node lead engine (lead-engine-node)
+Repl 3 → Python signals (signal-engine-py)
+✅ REPL 1 (Next.js UI + API)
+.replit
+run = "npm run dev -- --port 3000"
+
+.env
+DATABASE_URL=postgresql://...
+
+NODE_LEAD_ENGINE_URL=https://YOUR-NODE-REPL.repl.co
+PY_SIGNAL_ENGINE_URL=https://YOUR-PYTHON-REPL.repl.co
+VAULT_SERVICE_KEY=supersecretkey
+
+
+✅ Contractors use this.
+
+✅ REPL 2 (Node Lead Engine)
+.replit
+run = "node index.js"
+
+.env
+PORT=5050
+VAULT_SERVICE_KEY=supersecretkey
+GOOGLE_API_KEY=YOUR_GOOGLE_API_KEY
+
+
+✅ Real lead discovery + scoring.
+
+✅ REPL 3 (Python Signal Engine)
+.replit
+run = "uvicorn main:app --host 0.0.0.0 --port 6060"
+
+.env
+PORT=6060
+VAULT_SERVICE_KEY=supersecretkey
+
+
+✅ Alerts + storm triggers + predictive signals.
+
+✅ PART 3 — SWITCH BETWEEN 1-REPL MODE AND 3-REPL MODE (ZERO REWRITE)
+
+This is the key to doing BOTH.
+
+You never change code.
+You only change environment variables.
+
+In ONE-Repl mode
+NODE_LEAD_ENGINE_URL=http://localhost:5050
+PY_SIGNAL_ENGINE_URL=http://localhost:6060
+
+In THREE-Repl mode
+NODE_LEAD_ENGINE_URL=https://YOUR-NODE-REPL.repl.co
+PY_SIGNAL_ENGINE_URL=https://YOUR-PYTHON-REPL.repl.co
+
+
+✅ That’s it.
+
+✅ PART 4 — REQUIRED SECURITY (CONTRACTOR-ONLY PROTECTION)
+
+Your microservices must reject unauthorized calls.
+
+✅ Node: middleware/authKey.js
+export function authKey(req, res, next) {
+  if (req.headers["x-vault-key"] !== process.env.VAULT_SERVICE_KEY) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  next();
+}
+
+✅ Python: middleware/auth_key.py
+import os
+from fastapi import Header, HTTPException
+
+def auth_key(x_vault_key: str = Header(None)):
+    if x_vault_key != os.getenv("VAULT_SERVICE_KEY"):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+
+✅ This makes it contractor-only + locked behind your service key.
+
+✅ PART 5 — YOUR “IT’S WORKING” CHECKLIST (INSTANT TESTS)
+✅ Test Node Engine
+
+Open:
+/health
+
+✅ Expected:
+
+{ "status": "ok", "service": "lead-engine-node" }
+
+✅ Test Python Engine
+
+Open:
+/health
+
+✅ Expected:
+
+{ "status": "ok", "service": "signal-engine-py" }
+
+✅ Test Lead Search Through Next.js
+
+Go to:
+/leadvault
+
+Search:
+✅ Cataula GA
+✅ radius 25
+
+Leads should appear + alerts.
+
+✅ NOW THE BIG QUESTION (BUT I’M NOT MAKING YOU ANSWER IT)
+
+Since you want BOTH, here’s what I’ll do next automatically:
+
+✅ I will generate:
+
+The Save-to-Pipeline Postgres code (real DB inserts)
+
+The OpenAI Outreach Pack generator with GPT-4o-mini
+
+The Lead Campaign Builder (auto-refresh weekly leads)
+
+The Route Builder (8 stops auto-ordered for door-knocking)
+
+The Verified Contractor Unlock flow (upgrade paywall + badge)
+
+✅ NEXT STEP (PICK ONE AND I WILL BUILD IT NEXT)
+
+Reply with A, B, C, or D:
+
+A) Save-to-Pipeline (Postgres DB + pipeline board)
+B) Outreach Pack (real OpenAI integration + follow-up sequence)
+C) Auto Lead Refresh Campaigns (weekly/daily scheduled pulls)
+D) Route Builder (map + optimized stop list + navigation links)
+
+🔥 If you want the BIGGEST WOW FIRST, choose B (Outreach Pack) because contractors instantly feel:
+
+“This app is literally my sales assistant.”

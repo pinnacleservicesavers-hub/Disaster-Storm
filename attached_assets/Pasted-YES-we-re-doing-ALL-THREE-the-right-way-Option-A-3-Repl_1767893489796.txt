@@ -1,0 +1,273 @@
+YES — we’re doing ALL THREE the right way:
+
+✅ Option A: 3 Repls (best performance + easiest scaling)
+✅ Option B: 1 Repl running all 3 services (best convenience)
+✅ Option C: Hybrid (start in 1 repl, split later without rewriting anything)
+
+I’m going to give you exact copy/paste run scripts, package.json, replit settings, AND the ports + URLs so it works instantly.
+
+✅ OPTION A (BEST): 3 REPLS (Next + Node + Python)
+
+This is the cleanest way and what you’ll want long-term.
+
+✅ REPL 1 — app-next (Next.js UI + API)
+Run Command:
+npm run dev -- --port 3000
+
+.env for Repl 1:
+DATABASE_URL=postgresql://...
+NODE_LEAD_ENGINE_URL=https://<your-node-repl>.repl.co
+PY_SIGNAL_ENGINE_URL=https://<your-python-repl>.repl.co
+VAULT_SERVICE_KEY=supersecretkey
+
+
+✅ This is your main app contractors log into.
+
+✅ REPL 2 — lead-engine-node (Node Lead Engine)
+Run Command:
+node index.js
+
+.env for Repl 2:
+PORT=5050
+VAULT_SERVICE_KEY=supersecretkey
+GOOGLE_API_KEY=YOUR_GOOGLE_API_KEY
+
+
+✅ This is your lead finder engine (Google Places + scoring + competition).
+
+✅ REPL 3 — signal-engine-py (Python Signal Engine)
+Run Command:
+uvicorn main:app --host 0.0.0.0 --port 6060
+
+.env for Repl 3:
+PORT=6060
+VAULT_SERVICE_KEY=supersecretkey
+
+
+✅ This is your signals engine (storm triggers, permits, violations, predictive alerts).
+
+✅ IMPORTANT: Add CORS to Node + Python
+
+Because Next.js will call them.
+
+✅ Add to Node index.js:
+import cors from "cors";
+app.use(cors({ origin: "*" }));
+
+
+Install:
+
+npm i cors
+
+✅ Add to Python main.py:
+from fastapi.middleware.cors import CORSMiddleware
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+✅ OPTION B: 1 REPL RUNNING ALL 3 SERVICES (CONVENIENT MODE)
+
+This is AWESOME for development and still WOW.
+
+You’ll create a single root Replit with:
+
+/app-next
+/lead-engine-node
+/signal-engine-py
+
+
+Then you’ll run all 3 with one command.
+
+✅ STEP 1: Create ROOT package.json
+
+At the root of the Replit, create:
+
+/package.json
+{
+  "name": "contractor-leadvault-monorepo",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"npm run dev --prefix app-next\" \"npm start --prefix lead-engine-node\" \"bash signal-engine-py/start.sh\"",
+    "install-all": "npm install --prefix app-next && npm install --prefix lead-engine-node && pip install -r signal-engine-py/requirements.txt"
+  },
+  "dependencies": {
+    "concurrently": "^9.0.0"
+  }
+}
+
+✅ STEP 2: Create Node Service package.json
+
+Inside /lead-engine-node/package.json
+
+{
+  "name": "lead-engine-node",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "node-fetch": "^3.3.2",
+    "cors": "^2.8.5"
+  }
+}
+
+
+✅ You already have index.js and routes.
+
+✅ STEP 3: Create Python Start Script
+
+Create this file:
+
+/signal-engine-py/start.sh
+#!/bin/bash
+cd signal-engine-py
+uvicorn main:app --host 0.0.0.0 --port 6060
+
+
+Then make it executable:
+
+chmod +x signal-engine-py/start.sh
+
+✅ STEP 4: Root .env
+
+Create a root .env (or use separate .env files — but root is easiest).
+
+/.env
+VAULT_SERVICE_KEY=supersecretkey
+
+# Node Lead Engine
+GOOGLE_API_KEY=YOUR_GOOGLE_API_KEY
+PORT=5050
+
+# Next.js
+DATABASE_URL=postgresql://...
+NODE_LEAD_ENGINE_URL=http://localhost:5050
+PY_SIGNAL_ENGINE_URL=http://localhost:6060
+
+✅ STEP 5: Update Node service to use PORT=5050
+
+In lead-engine-node/index.js:
+
+const PORT = process.env.PORT || 5050;
+
+app.listen(PORT, () => console.log(`Lead Engine running on ${PORT}`));
+
+✅ STEP 6: Update Next.js to run on 3000
+
+Replit typically defaults to 3000.
+In /app-next/package.json scripts:
+
+"scripts": {
+  "dev": "next dev -p 3000"
+}
+
+✅ STEP 7: Install + Run
+
+Run this ONE TIME:
+
+npm install
+npm run install-all
+
+
+Then run:
+
+npm run dev
+
+
+✅ BOOM — all 3 services launch together.
+
+✅ OPTION C (BEST OF BOTH): START IN 1 REPL → SPLIT INTO 3 LATER (ZERO REWORK)
+
+This is how pros do it:
+
+✅ Build in 1 Repl for speed
+✅ When ready to scale, split to 3 Repls
+✅ No rewriting or code changes (only update URLs)
+
+✅ HOW YOU KNOW IT’S WORKING (TEST ROUTES)
+✅ Test Node Lead Engine
+
+Send a request:
+
+POST:
+http://localhost:5050/leads/search
+
+Body:
+
+{
+  "location": "Cataula, GA",
+  "radius": 25,
+  "tradeType": "tree_service"
+}
+
+
+Headers:
+
+X-VAULT-KEY: supersecretkey
+
+
+✅ Response = list of leads (Google Places + scored)
+
+✅ Test Python Signals
+
+POST:
+http://localhost:6060/signals/enrich
+
+Body:
+
+{
+  "location": "Cataula, GA",
+  "radius": 25,
+  "tradeType": "tree_service"
+}
+
+
+Headers:
+
+X-VAULT-KEY: supersecretkey
+
+
+✅ Response = alerts + predictive triggers
+
+✅ Test Next.js UI
+
+Go to:
+http://localhost:3000/leadvault
+
+Search:
+Location = Cataula GA
+Radius = 25
+Click Find Leads
+
+✅ Leads appear + alerts + money moves
+
+✅ NOW HERE’S THE REAL WOW UPGRADE (NEXT STEP)
+
+Once the 3 services run, the next 3 moves will make this module feel like “the best”:
+
+1) ✅ Save lead to pipeline (Postgres insert)
+2) ✅ Generate outreach pack with OpenAI
+3) ✅ Route Builder (map + “8 best leads” navigation)
+
+I can generate the full working code for these next.
+
+✅ QUICK QUESTION (1 ANSWER)
+
+Which setup do you want FIRST?
+
+One Repl running all 3 (fastest to launch today)
+
+Three Repls (best for scaling and production)
+
+Reply with 1 or 2, and I’ll generate the complete Replit configuration:
+✅ .replit file
+✅ replit.nix (if needed)
+✅ correct start command
+✅ and I’ll also add health-check endpoints for each service so you can confirm everything is live instantly.
