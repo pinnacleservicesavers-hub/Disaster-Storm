@@ -16127,54 +16127,84 @@ What specific area or type of incident would you like me to focus on? I can prov
   ];
 
   // Default materials for different work types (used when database is empty)
+  // All prices in CENTS - based on 2024-2025 industry standard installed pricing
   const DEFAULT_MATERIALS: Record<string, Array<{ name: string; grade: string; pricePerUnit: number; unit: string; description: string }>> = {
     countertop: [
       { name: 'Laminate', grade: 'standard', pricePerUnit: 2500, unit: 'sqft', description: 'Durable, affordable countertop material' },
-      { name: 'Butcher Block', grade: 'standard', pricePerUnit: 5000, unit: 'sqft', description: 'Natural wood surface, great for prep areas' },
-      { name: 'Granite', grade: 'premium', pricePerUnit: 7500, unit: 'sqft', description: 'Natural stone, heat resistant, unique patterns' },
-      { name: 'Quartz', grade: 'premium', pricePerUnit: 8500, unit: 'sqft', description: 'Engineered stone, non-porous, low maintenance' },
-      { name: 'Marble', grade: 'luxury', pricePerUnit: 12000, unit: 'sqft', description: 'Elegant natural stone, classic beauty' },
+      { name: 'Butcher Block', grade: 'standard', pricePerUnit: 4500, unit: 'sqft', description: 'Natural wood surface, great for prep areas' },
+      { name: 'Granite', grade: 'premium', pricePerUnit: 6500, unit: 'sqft', description: 'Natural stone, heat resistant, unique patterns' },
+      { name: 'Quartz', grade: 'premium', pricePerUnit: 7500, unit: 'sqft', description: 'Engineered stone, non-porous, low maintenance' },
+      { name: 'Marble', grade: 'luxury', pricePerUnit: 11000, unit: 'sqft', description: 'Elegant natural stone, classic beauty' },
     ],
     roofing: [
-      { name: '3-Tab Asphalt Shingles', grade: 'standard', pricePerUnit: 350, unit: 'sqft', description: 'Basic shingle, 20-25 year lifespan' },
-      { name: 'Architectural Shingles', grade: 'premium', pricePerUnit: 500, unit: 'sqft', description: 'Dimensional look, 30-year warranty' },
-      { name: 'Metal Roofing', grade: 'premium', pricePerUnit: 850, unit: 'sqft', description: '50+ year lifespan, energy efficient' },
-      { name: 'Clay Tiles', grade: 'luxury', pricePerUnit: 1500, unit: 'sqft', description: 'Classic look, 100+ year lifespan' },
+      { name: '3-Tab Asphalt Shingles', grade: 'standard', pricePerUnit: 300, unit: 'sqft', description: 'Basic shingle, 20-25 year lifespan' },
+      { name: 'Architectural Shingles', grade: 'premium', pricePerUnit: 450, unit: 'sqft', description: 'Dimensional look, 30-year warranty' },
+      { name: 'Metal Roofing', grade: 'premium', pricePerUnit: 750, unit: 'sqft', description: '50+ year lifespan, energy efficient' },
+      { name: 'Clay Tiles', grade: 'luxury', pricePerUnit: 1400, unit: 'sqft', description: 'Classic look, 100+ year lifespan' },
     ],
     flooring: [
-      { name: 'Vinyl Plank', grade: 'standard', pricePerUnit: 400, unit: 'sqft', description: 'Waterproof, durable, easy install' },
-      { name: 'Laminate', grade: 'standard', pricePerUnit: 500, unit: 'sqft', description: 'Affordable wood look' },
-      { name: 'Engineered Hardwood', grade: 'premium', pricePerUnit: 900, unit: 'sqft', description: 'Real wood veneer, stable' },
-      { name: 'Solid Hardwood', grade: 'premium', pricePerUnit: 1200, unit: 'sqft', description: 'Classic, can be refinished' },
-      { name: 'Porcelain Tile', grade: 'premium', pricePerUnit: 1000, unit: 'sqft', description: 'Durable, water resistant' },
+      { name: 'Vinyl Plank', grade: 'standard', pricePerUnit: 300, unit: 'sqft', description: 'Waterproof, durable, easy install' },
+      { name: 'Laminate', grade: 'standard', pricePerUnit: 350, unit: 'sqft', description: 'Affordable wood look' },
+      { name: 'Engineered Hardwood', grade: 'premium', pricePerUnit: 650, unit: 'sqft', description: 'Real wood veneer, stable' },
+      { name: 'Solid Hardwood', grade: 'premium', pricePerUnit: 900, unit: 'sqft', description: 'Classic, can be refinished' },
+      { name: 'Porcelain Tile', grade: 'premium', pricePerUnit: 700, unit: 'sqft', description: 'Durable, water resistant' },
     ],
     tree_removal: [
-      { name: 'Basic Removal', grade: 'standard', pricePerUnit: 50000, unit: 'each', description: 'Tree removal with debris cleanup' },
-      { name: 'Full Service', grade: 'premium', pricePerUnit: 75000, unit: 'each', description: 'Includes stump grinding' },
-      { name: 'Emergency Service', grade: 'premium', pricePerUnit: 100000, unit: 'each', description: '24/7 emergency response' },
+      { name: 'Small Tree (under 30ft)', grade: 'standard', pricePerUnit: 35000, unit: 'each', description: 'Tree removal with debris cleanup' },
+      { name: 'Medium Tree (30-60ft)', grade: 'standard', pricePerUnit: 65000, unit: 'each', description: 'Standard tree removal with cleanup' },
+      { name: 'Large Tree (60-100ft)', grade: 'premium', pricePerUnit: 120000, unit: 'each', description: 'Large tree with crane if needed' },
+      { name: 'Emergency/Hazard Tree', grade: 'premium', pricePerUnit: 150000, unit: 'each', description: '24/7 emergency response, hazard trees' },
     ],
     painting: [
-      { name: 'Flat/Matte Paint', grade: 'standard', pricePerUnit: 250, unit: 'sqft', description: 'Interior walls, hides imperfections' },
-      { name: 'Eggshell/Satin', grade: 'standard', pricePerUnit: 300, unit: 'sqft', description: 'Subtle sheen, easy to clean' },
-      { name: 'Semi-Gloss', grade: 'premium', pricePerUnit: 350, unit: 'sqft', description: 'Durable, moisture resistant' },
-      { name: 'Exterior Paint', grade: 'premium', pricePerUnit: 400, unit: 'sqft', description: 'Weather resistant, UV protection' },
+      { name: 'Interior Flat/Matte', grade: 'standard', pricePerUnit: 150, unit: 'sqft', description: 'Interior walls, hides imperfections' },
+      { name: 'Interior Eggshell/Satin', grade: 'standard', pricePerUnit: 175, unit: 'sqft', description: 'Subtle sheen, easy to clean' },
+      { name: 'Interior Semi-Gloss', grade: 'premium', pricePerUnit: 200, unit: 'sqft', description: 'Durable, moisture resistant' },
+      { name: 'Exterior Paint', grade: 'premium', pricePerUnit: 250, unit: 'sqft', description: 'Weather resistant, UV protection' },
     ],
     fencing: [
-      { name: 'Chain Link', grade: 'standard', pricePerUnit: 2000, unit: 'linear_ft', description: 'Affordable, durable security' },
-      { name: 'Wood Privacy', grade: 'standard', pricePerUnit: 3500, unit: 'linear_ft', description: '6ft cedar or pine privacy fence' },
-      { name: 'Vinyl Privacy', grade: 'premium', pricePerUnit: 4500, unit: 'linear_ft', description: 'Low maintenance, long lasting' },
-      { name: 'Wrought Iron', grade: 'luxury', pricePerUnit: 8000, unit: 'linear_ft', description: 'Elegant, decorative, secure' },
+      { name: 'Chain Link (4ft)', grade: 'standard', pricePerUnit: 1200, unit: 'linear_ft', description: 'Affordable, durable security' },
+      { name: 'Wood Privacy (6ft)', grade: 'standard', pricePerUnit: 2500, unit: 'linear_ft', description: '6ft cedar or pine privacy fence' },
+      { name: 'Vinyl Privacy (6ft)', grade: 'premium', pricePerUnit: 3500, unit: 'linear_ft', description: 'Low maintenance, long lasting' },
+      { name: 'Wrought Iron', grade: 'luxury', pricePerUnit: 7500, unit: 'linear_ft', description: 'Elegant, decorative, secure' },
+    ],
+    concrete: [
+      { name: 'Basic Slab (4 inch)', grade: 'standard', pricePerUnit: 600, unit: 'sqft', description: 'Standard concrete slab, broom finish' },
+      { name: 'Stamped Concrete', grade: 'premium', pricePerUnit: 1200, unit: 'sqft', description: 'Decorative patterns, colored' },
+      { name: 'Exposed Aggregate', grade: 'premium', pricePerUnit: 1000, unit: 'sqft', description: 'Decorative pebble surface' },
+    ],
+    hvac: [
+      { name: 'Basic AC Install (2-3 ton)', grade: 'standard', pricePerUnit: 450000, unit: 'each', description: 'Standard efficiency AC system' },
+      { name: 'High-Efficiency AC (2-3 ton)', grade: 'premium', pricePerUnit: 650000, unit: 'each', description: '16+ SEER, energy savings' },
+      { name: 'Ductless Mini-Split', grade: 'standard', pricePerUnit: 350000, unit: 'each', description: 'Single zone, no ductwork needed' },
+    ],
+    electrical: [
+      { name: 'Outlet/Switch Install', grade: 'standard', pricePerUnit: 15000, unit: 'each', description: 'Standard outlet or switch' },
+      { name: 'Panel Upgrade (200A)', grade: 'premium', pricePerUnit: 250000, unit: 'each', description: 'Upgrade to 200 amp panel' },
+      { name: 'EV Charger Install', grade: 'premium', pricePerUnit: 150000, unit: 'each', description: 'Level 2 EV charger installation' },
+    ],
+    plumbing: [
+      { name: 'Faucet Replacement', grade: 'standard', pricePerUnit: 25000, unit: 'each', description: 'Standard faucet install' },
+      { name: 'Water Heater (Tank)', grade: 'standard', pricePerUnit: 180000, unit: 'each', description: '40-50 gallon tank water heater' },
+      { name: 'Water Heater (Tankless)', grade: 'premium', pricePerUnit: 350000, unit: 'each', description: 'On-demand tankless system' },
+      { name: 'Toilet Replacement', grade: 'standard', pricePerUnit: 45000, unit: 'each', description: 'Standard toilet install' },
     ],
   };
 
-  // Default labor rates by work type
+  // Default labor rates by work type (in CENTS)
+  // Labor is included in material prices above for most trades - these are additional labor-only adjustments
   const DEFAULT_LABOR_RATES: Record<string, { installation: number; unit: string; hoursPerUnit: number }> = {
-    countertop: { installation: 3500, unit: 'sqft', hoursPerUnit: 0.5 },
-    roofing: { installation: 200, unit: 'sqft', hoursPerUnit: 0.1 },
-    flooring: { installation: 350, unit: 'sqft', hoursPerUnit: 0.15 },
-    tree_removal: { installation: 15000, unit: 'each', hoursPerUnit: 4 },
-    painting: { installation: 150, unit: 'sqft', hoursPerUnit: 0.05 },
-    fencing: { installation: 1500, unit: 'linear_ft', hoursPerUnit: 0.3 },
+    countertop: { installation: 2000, unit: 'sqft', hoursPerUnit: 0.4 },
+    roofing: { installation: 150, unit: 'sqft', hoursPerUnit: 0.08 },
+    flooring: { installation: 200, unit: 'sqft', hoursPerUnit: 0.1 },
+    tree_removal: { installation: 10000, unit: 'each', hoursPerUnit: 3 },
+    tree: { installation: 10000, unit: 'each', hoursPerUnit: 3 },
+    painting: { installation: 100, unit: 'sqft', hoursPerUnit: 0.04 },
+    fencing: { installation: 800, unit: 'linear_ft', hoursPerUnit: 0.25 },
+    fence: { installation: 800, unit: 'linear_ft', hoursPerUnit: 0.25 },
+    concrete: { installation: 300, unit: 'sqft', hoursPerUnit: 0.15 },
+    hvac: { installation: 50000, unit: 'each', hoursPerUnit: 8 },
+    electrical: { installation: 5000, unit: 'each', hoursPerUnit: 1.5 },
+    plumbing: { installation: 8000, unit: 'each', hoursPerUnit: 2 },
   };
 
   // WorkHub AI Job Analysis - Analyzes photos/videos and provides pricing with dimensions
@@ -16382,9 +16412,15 @@ What specific area or type of incident would you like me to focus on? I can prov
 
       const measurements = generateMeasurements();
 
-      // Get materials for this work type
-      const materials = DEFAULT_MATERIALS[detectedTrade] || DEFAULT_MATERIALS['general'] || [];
-      const laborRate = DEFAULT_LABOR_RATES[detectedTrade];
+      // Get materials for this work type (with aliases)
+      const getTradeKey = (trade: string): string => {
+        if (trade === 'tree') return 'tree_removal';
+        if (trade === 'fence') return 'fencing';
+        return trade;
+      };
+      const tradeKey = getTradeKey(detectedTrade);
+      const materials = DEFAULT_MATERIALS[tradeKey] || DEFAULT_MATERIALS['general'] || [];
+      const laborRate = DEFAULT_LABOR_RATES[detectedTrade] || DEFAULT_LABOR_RATES[tradeKey];
 
       // Regional pricing multipliers based on state/city cost of living
       const getRegionalMultiplier = (loc: string): { multiplier: number; tier: string } => {
@@ -16897,8 +16933,14 @@ What specific area or type of incident would you like me to focus on? I can prov
         return res.status(400).json({ error: 'Work type, material ID, and measurements are required' });
       }
 
-      // Get material info
-      const materials = DEFAULT_MATERIALS[workType] || [];
+      // Get material info (with aliases)
+      const getTradeKey = (trade: string): string => {
+        if (trade === 'tree') return 'tree_removal';
+        if (trade === 'fence') return 'fencing';
+        return trade;
+      };
+      const tradeKey = getTradeKey(workType);
+      const materials = DEFAULT_MATERIALS[tradeKey] || [];
       const materialIndex = parseInt(materialId.split('-').pop() || '0');
       const selectedMaterial = materials[materialIndex];
 
@@ -16906,8 +16948,17 @@ What specific area or type of incident would you like me to focus on? I can prov
         return res.status(404).json({ error: 'Material not found' });
       }
 
-      const laborRate = DEFAULT_LABOR_RATES[workType];
-      const quantity = measurements.sqft || measurements.linearFt || measurements.count || 1;
+      const laborRate = DEFAULT_LABOR_RATES[workType] || DEFAULT_LABOR_RATES[tradeKey];
+      
+      // Use correct quantity based on work type (same logic as analyze endpoint)
+      let quantity = 1;
+      if (workType === 'tree_removal' || workType === 'tree' || workType === 'hvac' || workType === 'electrical' || workType === 'plumbing') {
+        quantity = measurements.count || 1;
+      } else if (workType === 'fencing' || workType === 'fence') {
+        quantity = measurements.linearFt || 1;
+      } else {
+        quantity = measurements.sqft || measurements.linearFt || measurements.count || 1;
+      }
 
       const materialCost = selectedMaterial.pricePerUnit * quantity;
       const laborCost = laborRate ? laborRate.installation * quantity : Math.round(materialCost * 0.4);
