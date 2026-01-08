@@ -150,6 +150,52 @@ export default function WorkHubCustomerPortal() {
     };
     warnings: string[];
   } | null>(null);
+  
+  // Auto repair pricing state
+  const [autoRepairPricing, setAutoRepairPricing] = useState<{
+    vehicle: { year: number; make: string; model: string; vin?: string; engine?: string };
+    diagnosis: string;
+    partsNeeded: {
+      partName: string;
+      category: string;
+      prices: { retailer: string; price: number; affiliateUrl: string; inStock: boolean }[];
+      cheapestPrice: number;
+      cheapestRetailer: string;
+      laborCost: { min: number; max: number };
+    }[];
+    totalPartsMin: number;
+    totalPartsMax: number;
+    totalLaborMin: number;
+    totalLaborMax: number;
+    grandTotalMin: number;
+    grandTotalMax: number;
+    recommendations: string[];
+    warnings: string[];
+    affiliateDisclosure: string;
+  } | null>(null);
+  const [vehicleInfo, setVehicleInfo] = useState<{ year: string; make: string; model: string; vin: string }>({ year: '', make: '', model: '', vin: '' });
+  const [isDecodingVin, setIsDecodingVin] = useState(false);
+  
+  // Flooring pricing state
+  const [flooringPricing, setFlooringPricing] = useState<{
+    squareFootage: number;
+    materials: {
+      material: { id: string; name: string; type: string; description: string; waterResistant: boolean };
+      totalMaterialCost: { min: number; max: number };
+      retailerPrices: { retailer: string; pricePerSqFt: number; totalPrice: number; affiliateUrl: string }[];
+      cheapestRetailer: string;
+      cheapestTotal: number;
+    }[];
+    laborCost: { min: number; max: number };
+    additionalCosts: { name: string; cost: { min: number; max: number } }[];
+    grandTotalMin: number;
+    grandTotalMax: number;
+    recommendations: string[];
+    warnings: string[];
+    affiliateDisclosure: string;
+  } | null>(null);
+  const [flooringInput, setFlooringInput] = useState<{ sqFt: string; type: string; hasSubfloorDamage: boolean; needsRemoval: boolean }>({ sqFt: '', type: '', hasSubfloorDamage: false, needsRemoval: false });
+  
   const [request, setRequest] = useState<ProjectRequest>({
     category: '',
     description: '',
@@ -460,6 +506,16 @@ export default function WorkHubCustomerPortal() {
       // Capture professional roofing pricing breakdown
       if (data.analysis?.roofingPricing) {
         setRoofingPricing(data.analysis.roofingPricing);
+      }
+      
+      // Capture auto repair pricing breakdown
+      if (data.analysis?.autoRepairPricing) {
+        setAutoRepairPricing(data.analysis.autoRepairPricing);
+      }
+      
+      // Capture flooring pricing breakdown
+      if (data.analysis?.flooringPricing) {
+        setFlooringPricing(data.analysis.flooringPricing);
       }
       
       // Extract job details based on work type
@@ -1661,6 +1717,236 @@ export default function WorkHubCustomerPortal() {
                         <p className="text-xs text-slate-400 mt-3 flex items-center gap-1">
                           <AlertCircle className="w-3 h-3" />
                           Roofing prices based on {roofingPricing.roofingSquares * 100} sq ft. 1 roofing square = 100 sq ft.
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Auto Repair Pricing Breakdown with Affiliate Links */}
+                    {autoRepairPricing && aiAnalysis?.detectedCategory === 'auto' && (
+                      <div className="mt-4 pt-4 border-t border-orange-200 dark:border-orange-800">
+                        <h4 className="font-semibold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
+                          <Car className="w-5 h-5 text-orange-600" />
+                          Auto Repair Estimate - {autoRepairPricing.vehicle.year} {autoRepairPricing.vehicle.make} {autoRepairPricing.vehicle.model}
+                        </h4>
+                        
+                        {autoRepairPricing.vehicle.engine && (
+                          <Badge variant="outline" className="mb-3">{autoRepairPricing.vehicle.engine}</Badge>
+                        )}
+
+                        {/* Warnings */}
+                        {autoRepairPricing.warnings.length > 0 && (
+                          <div className="mb-4 bg-amber-50 dark:bg-amber-900/20 p-3 rounded-lg border border-amber-200 dark:border-amber-800">
+                            <ul className="space-y-1">
+                              {autoRepairPricing.warnings.map((warning, idx) => (
+                                <li key={idx} className="text-sm text-amber-600 dark:text-amber-300 flex items-start gap-2">
+                                  <AlertCircle className="w-4 h-4 mt-0.5" />
+                                  {warning}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {/* Parts with Affiliate Pricing */}
+                        {autoRepairPricing.partsNeeded.length > 0 && (
+                          <div className="space-y-3">
+                            <h5 className="font-medium text-slate-700 dark:text-slate-300">Parts Needed:</h5>
+                            {autoRepairPricing.partsNeeded.map((part, idx) => (
+                              <div key={idx} className="bg-slate-50 dark:bg-slate-800 p-4 rounded-lg border border-slate-200 dark:border-slate-700">
+                                <div className="flex justify-between items-start mb-2">
+                                  <div>
+                                    <p className="font-medium text-slate-900 dark:text-white">{part.partName}</p>
+                                    <p className="text-xs text-slate-500">{part.category}</p>
+                                  </div>
+                                  <Badge className="bg-green-600 text-white">
+                                    Best: ${(part.cheapestPrice / 100).toFixed(2)} at {part.cheapestRetailer}
+                                  </Badge>
+                                </div>
+                                
+                                {/* Retailer Price Comparison */}
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-3">
+                                  {part.prices.slice(0, 4).map((retailerPrice, rIdx) => (
+                                    <a
+                                      key={rIdx}
+                                      href={retailerPrice.affiliateUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className={`p-2 rounded border text-center text-sm hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors ${
+                                        retailerPrice.retailer === part.cheapestRetailer 
+                                          ? 'border-green-500 bg-green-50 dark:bg-green-900/20' 
+                                          : 'border-slate-200 dark:border-slate-600'
+                                      }`}
+                                      data-testid={`affiliate-link-${retailerPrice.retailer.toLowerCase().replace(/\s+/g, '-')}`}
+                                    >
+                                      <p className="font-medium">{retailerPrice.retailer}</p>
+                                      <p className={`font-bold ${retailerPrice.retailer === part.cheapestRetailer ? 'text-green-600' : 'text-slate-700 dark:text-slate-300'}`}>
+                                        ${(retailerPrice.price / 100).toFixed(2)}
+                                      </p>
+                                      {retailerPrice.inStock ? (
+                                        <span className="text-xs text-green-600">In Stock</span>
+                                      ) : (
+                                        <span className="text-xs text-orange-500">Check Availability</span>
+                                      )}
+                                    </a>
+                                  ))}
+                                </div>
+                                
+                                <div className="mt-2 text-sm text-slate-500">
+                                  Labor: ${(part.laborCost.min / 100).toFixed(0)} - ${(part.laborCost.max / 100).toFixed(0)}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Total Estimate */}
+                        <div className="mt-4 bg-orange-50 dark:bg-orange-900/20 p-4 rounded-lg border border-orange-200 dark:border-orange-800">
+                          <div className="flex justify-between items-center">
+                            <span className="font-medium text-slate-700 dark:text-slate-300">Total Estimate:</span>
+                            <span className="text-2xl font-bold text-orange-600">
+                              ${(autoRepairPricing.grandTotalMin / 100).toFixed(0)} - ${(autoRepairPricing.grandTotalMax / 100).toFixed(0)}
+                            </span>
+                          </div>
+                          <div className="text-sm text-slate-500 mt-2 grid grid-cols-2 gap-2">
+                            <span>Parts: ${(autoRepairPricing.totalPartsMin / 100).toFixed(0)} - ${(autoRepairPricing.totalPartsMax / 100).toFixed(0)}</span>
+                            <span>Labor: ${(autoRepairPricing.totalLaborMin / 100).toFixed(0)} - ${(autoRepairPricing.totalLaborMax / 100).toFixed(0)}</span>
+                          </div>
+                        </div>
+
+                        {/* Recommendations */}
+                        {autoRepairPricing.recommendations.length > 0 && (
+                          <div className="mt-3">
+                            <p className="text-sm font-medium text-slate-600 dark:text-slate-400 mb-2">Recommendations:</p>
+                            <ul className="space-y-1">
+                              {autoRepairPricing.recommendations.map((rec, idx) => (
+                                <li key={idx} className="text-sm text-slate-500 flex items-start gap-2">
+                                  <CheckCircle className="w-4 h-4 text-green-500 mt-0.5" />
+                                  {rec}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        <p className="text-xs text-slate-400 mt-3 italic">
+                          {autoRepairPricing.affiliateDisclosure}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Flooring Pricing Breakdown with Affiliate Links */}
+                    {flooringPricing && aiAnalysis?.detectedCategory === 'flooring' && (
+                      <div className="mt-4 pt-4 border-t border-amber-200 dark:border-amber-800">
+                        <h4 className="font-semibold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
+                          <Building2 className="w-5 h-5 text-amber-600" />
+                          Flooring Estimate - {flooringPricing.squareFootage} sq ft
+                        </h4>
+
+                        {/* Warnings */}
+                        {flooringPricing.warnings.length > 0 && (
+                          <div className="mb-4 bg-amber-50 dark:bg-amber-900/20 p-3 rounded-lg border border-amber-200 dark:border-amber-800">
+                            <ul className="space-y-1">
+                              {flooringPricing.warnings.map((warning, idx) => (
+                                <li key={idx} className="text-sm text-amber-600 dark:text-amber-300 flex items-start gap-2">
+                                  <AlertCircle className="w-4 h-4 mt-0.5" />
+                                  {warning}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {/* Material Options with Retailer Comparison */}
+                        <div className="space-y-3">
+                          <h5 className="font-medium text-slate-700 dark:text-slate-300">Material Options:</h5>
+                          {flooringPricing.materials.slice(0, 4).map((mat, idx) => (
+                            <div key={idx} className="bg-slate-50 dark:bg-slate-800 p-4 rounded-lg border border-slate-200 dark:border-slate-700">
+                              <div className="flex justify-between items-start mb-2">
+                                <div>
+                                  <p className="font-medium text-slate-900 dark:text-white">{mat.material.name}</p>
+                                  <p className="text-xs text-slate-500">{mat.material.description}</p>
+                                  {mat.material.waterResistant && (
+                                    <Badge variant="outline" className="mt-1 text-xs">
+                                      <Droplets className="w-3 h-3 mr-1" /> Water Resistant
+                                    </Badge>
+                                  )}
+                                </div>
+                                <Badge className="bg-green-600 text-white">
+                                  Best: ${(mat.cheapestTotal / 100).toFixed(0)} at {mat.cheapestRetailer}
+                                </Badge>
+                              </div>
+                              
+                              {/* Retailer Price Comparison */}
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-3">
+                                {mat.retailerPrices.map((retailerPrice, rIdx) => (
+                                  <a
+                                    key={rIdx}
+                                    href={retailerPrice.affiliateUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className={`p-2 rounded border text-center text-sm hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors ${
+                                      retailerPrice.retailer === mat.cheapestRetailer 
+                                        ? 'border-green-500 bg-green-50 dark:bg-green-900/20' 
+                                        : 'border-slate-200 dark:border-slate-600'
+                                    }`}
+                                    data-testid={`flooring-affiliate-${retailerPrice.retailer.toLowerCase().replace(/\s+/g, '-')}`}
+                                  >
+                                    <p className="font-medium text-xs">{retailerPrice.retailer}</p>
+                                    <p className={`font-bold ${retailerPrice.retailer === mat.cheapestRetailer ? 'text-green-600' : 'text-slate-700 dark:text-slate-300'}`}>
+                                      ${(retailerPrice.totalPrice / 100).toFixed(0)}
+                                    </p>
+                                    <span className="text-xs text-slate-400">${(retailerPrice.pricePerSqFt / 100).toFixed(2)}/sq ft</span>
+                                  </a>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Additional Costs */}
+                        {flooringPricing.additionalCosts.length > 0 && (
+                          <div className="mt-4 bg-slate-50 dark:bg-slate-800 p-3 rounded-lg">
+                            <h5 className="font-medium text-slate-700 dark:text-slate-300 mb-2">Additional Costs:</h5>
+                            <div className="space-y-1">
+                              {flooringPricing.additionalCosts.map((cost, idx) => (
+                                <div key={idx} className="flex justify-between text-sm">
+                                  <span className="text-slate-600 dark:text-slate-400">{cost.name}</span>
+                                  <span className="font-medium">${(cost.cost.min / 100).toFixed(0)} - ${(cost.cost.max / 100).toFixed(0)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Total Estimate */}
+                        <div className="mt-4 bg-amber-50 dark:bg-amber-900/20 p-4 rounded-lg border border-amber-200 dark:border-amber-800">
+                          <div className="flex justify-between items-center">
+                            <span className="font-medium text-slate-700 dark:text-slate-300">Total Estimate (installed):</span>
+                            <span className="text-2xl font-bold text-amber-600">
+                              ${(flooringPricing.grandTotalMin / 100).toFixed(0)} - ${(flooringPricing.grandTotalMax / 100).toFixed(0)}
+                            </span>
+                          </div>
+                          <div className="text-sm text-slate-500 mt-2">
+                            Installation: ${(flooringPricing.laborCost.min / 100).toFixed(0)} - ${(flooringPricing.laborCost.max / 100).toFixed(0)}
+                          </div>
+                        </div>
+
+                        {/* Recommendations */}
+                        {flooringPricing.recommendations.length > 0 && (
+                          <div className="mt-3">
+                            <ul className="space-y-1">
+                              {flooringPricing.recommendations.map((rec, idx) => (
+                                <li key={idx} className="text-sm text-slate-500 flex items-start gap-2">
+                                  <CheckCircle className="w-4 h-4 text-green-500 mt-0.5" />
+                                  {rec}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        <p className="text-xs text-slate-400 mt-3 italic">
+                          {flooringPricing.affiliateDisclosure}
                         </p>
                       </div>
                     )}

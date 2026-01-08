@@ -16853,6 +16853,833 @@ What specific area or type of incident would you like me to focus on? I can prov
     };
   }
 
+  // ============ AUTO REPAIR PRICING ENGINE ============
+  // VIN decoding, parts lookup, and affiliate pricing from multiple auto parts retailers
+  
+  interface VehicleInfo {
+    vin?: string;
+    year: number;
+    make: string;
+    model: string;
+    trim?: string;
+    engine?: string;
+    transmission?: string;
+  }
+
+  interface AutoPartPricing {
+    partNumber: string;
+    partName: string;
+    description: string;
+    category: string;
+    prices: {
+      retailer: string;
+      price: number; // in cents
+      affiliateUrl: string;
+      inStock: boolean;
+      shippingEstimate?: string;
+    }[];
+    cheapestPrice: number;
+    cheapestRetailer: string;
+    laborHours: number;
+    laborCost: { min: number; max: number };
+    totalEstimate: { min: number; max: number };
+  }
+
+  interface AutoRepairPricingOutput {
+    vehicle: VehicleInfo;
+    diagnosis: string;
+    partsNeeded: AutoPartPricing[];
+    totalPartsMin: number;
+    totalPartsMax: number;
+    totalLaborMin: number;
+    totalLaborMax: number;
+    grandTotalMin: number;
+    grandTotalMax: number;
+    recommendations: string[];
+    warnings: string[];
+    affiliateDisclosure: string;
+  }
+
+  // Common auto parts with typical pricing (in cents) - curated database for MVP
+  const AUTO_PARTS_DATABASE: Record<string, {
+    partName: string;
+    category: string;
+    basePrice: { min: number; max: number };
+    laborHours: number;
+    commonSymptoms: string[];
+  }> = {
+    'radiator_fan_motor': {
+      partName: 'Radiator Fan Motor',
+      category: 'Cooling System',
+      basePrice: { min: 8000, max: 25000 }, // $80-$250
+      laborHours: 1.5,
+      commonSymptoms: ['overheating', 'fan not working', 'engine hot', 'no airflow', 'fan motor'],
+    },
+    'alternator': {
+      partName: 'Alternator',
+      category: 'Electrical',
+      basePrice: { min: 15000, max: 45000 }, // $150-$450
+      laborHours: 2.0,
+      commonSymptoms: ['battery light', 'dim lights', 'car won\'t start', 'electrical issues', 'charging'],
+    },
+    'starter_motor': {
+      partName: 'Starter Motor',
+      category: 'Electrical',
+      basePrice: { min: 12000, max: 35000 }, // $120-$350
+      laborHours: 1.5,
+      commonSymptoms: ['clicking', 'won\'t start', 'grinding', 'starter', 'cranking'],
+    },
+    'brake_pads_front': {
+      partName: 'Front Brake Pads (Set)',
+      category: 'Brakes',
+      basePrice: { min: 3500, max: 12000 }, // $35-$120
+      laborHours: 1.0,
+      commonSymptoms: ['squeaking', 'grinding brakes', 'brake noise', 'stopping', 'brake pads'],
+    },
+    'brake_pads_rear': {
+      partName: 'Rear Brake Pads (Set)',
+      category: 'Brakes',
+      basePrice: { min: 3000, max: 10000 }, // $30-$100
+      laborHours: 1.0,
+      commonSymptoms: ['rear brakes', 'back brakes', 'parking brake'],
+    },
+    'brake_rotors_front': {
+      partName: 'Front Brake Rotors (Pair)',
+      category: 'Brakes',
+      basePrice: { min: 6000, max: 20000 }, // $60-$200
+      laborHours: 1.5,
+      commonSymptoms: ['warped rotors', 'pulsing brakes', 'vibration braking', 'rotor'],
+    },
+    'water_pump': {
+      partName: 'Water Pump',
+      category: 'Cooling System',
+      basePrice: { min: 5000, max: 15000 }, // $50-$150
+      laborHours: 3.0,
+      commonSymptoms: ['leaking coolant', 'overheating', 'water pump', 'coolant leak'],
+    },
+    'thermostat': {
+      partName: 'Thermostat',
+      category: 'Cooling System',
+      basePrice: { min: 1500, max: 5000 }, // $15-$50
+      laborHours: 1.0,
+      commonSymptoms: ['overheating', 'running cold', 'temperature gauge', 'thermostat'],
+    },
+    'serpentine_belt': {
+      partName: 'Serpentine Belt',
+      category: 'Engine',
+      basePrice: { min: 2000, max: 6000 }, // $20-$60
+      laborHours: 0.5,
+      commonSymptoms: ['squealing', 'belt noise', 'accessory belt', 'serpentine'],
+    },
+    'spark_plugs': {
+      partName: 'Spark Plugs (Set)',
+      category: 'Ignition',
+      basePrice: { min: 2000, max: 8000 }, // $20-$80
+      laborHours: 1.0,
+      commonSymptoms: ['misfiring', 'rough idle', 'poor acceleration', 'spark plugs'],
+    },
+    'ignition_coil': {
+      partName: 'Ignition Coil',
+      category: 'Ignition',
+      basePrice: { min: 4000, max: 12000 }, // $40-$120
+      laborHours: 0.5,
+      commonSymptoms: ['misfiring', 'check engine', 'coil', 'ignition'],
+    },
+    'oxygen_sensor': {
+      partName: 'O2 Sensor',
+      category: 'Emissions',
+      basePrice: { min: 5000, max: 15000 }, // $50-$150
+      laborHours: 0.5,
+      commonSymptoms: ['check engine', 'poor fuel economy', 'o2 sensor', 'emissions'],
+    },
+    'mass_air_flow_sensor': {
+      partName: 'Mass Air Flow Sensor',
+      category: 'Engine Management',
+      basePrice: { min: 8000, max: 25000 }, // $80-$250
+      laborHours: 0.5,
+      commonSymptoms: ['rough idle', 'stalling', 'maf sensor', 'hesitation'],
+    },
+    'fuel_pump': {
+      partName: 'Fuel Pump',
+      category: 'Fuel System',
+      basePrice: { min: 20000, max: 50000 }, // $200-$500
+      laborHours: 2.5,
+      commonSymptoms: ['won\'t start', 'fuel pump', 'no fuel pressure', 'sputtering'],
+    },
+    'ac_compressor': {
+      partName: 'A/C Compressor',
+      category: 'HVAC',
+      basePrice: { min: 25000, max: 60000 }, // $250-$600
+      laborHours: 3.0,
+      commonSymptoms: ['no cold air', 'ac not working', 'compressor', 'air conditioning'],
+    },
+    'blower_motor': {
+      partName: 'Blower Motor',
+      category: 'HVAC',
+      basePrice: { min: 6000, max: 18000 }, // $60-$180
+      laborHours: 1.5,
+      commonSymptoms: ['no air flow', 'heater not working', 'blower', 'fan speed'],
+    },
+    'wheel_bearing': {
+      partName: 'Wheel Bearing',
+      category: 'Suspension',
+      basePrice: { min: 4000, max: 15000 }, // $40-$150
+      laborHours: 1.5,
+      commonSymptoms: ['humming', 'grinding wheel', 'wheel bearing', 'noise while driving'],
+    },
+    'struts_front': {
+      partName: 'Front Struts (Pair)',
+      category: 'Suspension',
+      basePrice: { min: 15000, max: 40000 }, // $150-$400
+      laborHours: 2.5,
+      commonSymptoms: ['bouncy ride', 'struts', 'shocks', 'suspension'],
+    },
+    'battery': {
+      partName: 'Car Battery',
+      category: 'Electrical',
+      basePrice: { min: 10000, max: 25000 }, // $100-$250
+      laborHours: 0.3,
+      commonSymptoms: ['won\'t start', 'dead battery', 'battery', 'slow crank'],
+    },
+    'catalytic_converter': {
+      partName: 'Catalytic Converter',
+      category: 'Exhaust',
+      basePrice: { min: 50000, max: 200000 }, // $500-$2000
+      laborHours: 2.0,
+      commonSymptoms: ['check engine', 'rotten egg smell', 'catalytic', 'p0420'],
+    },
+  };
+
+  // Auto parts retailers with affiliate info - tags loaded from environment variables
+  const AUTO_RETAILERS = [
+    { 
+      name: 'AutoZone', 
+      affiliateBaseUrl: 'https://www.autozone.com/search?searchText=',
+      priceMultiplier: 1.0,
+      affiliateTag: process.env.AFFILIATE_AUTOZONE || ''
+    },
+    { 
+      name: 'O\'Reilly Auto Parts', 
+      affiliateBaseUrl: 'https://www.oreillyauto.com/shop/b/',
+      priceMultiplier: 0.95,
+      affiliateTag: process.env.AFFILIATE_OREILLY || ''
+    },
+    { 
+      name: 'Advance Auto Parts', 
+      affiliateBaseUrl: 'https://shop.advanceautoparts.com/web/search?searchTerm=',
+      priceMultiplier: 0.98,
+      affiliateTag: process.env.AFFILIATE_ADVANCE_AUTO || ''
+    },
+    { 
+      name: 'RockAuto', 
+      affiliateBaseUrl: 'https://www.rockauto.com/en/catalog/',
+      priceMultiplier: 0.75, // RockAuto is usually cheapest
+      affiliateTag: process.env.AFFILIATE_ROCKAUTO || ''
+    },
+    { 
+      name: 'NAPA Auto Parts', 
+      affiliateBaseUrl: 'https://www.napaonline.com/en/search?text=',
+      priceMultiplier: 1.1, // NAPA usually premium
+      affiliateTag: process.env.AFFILIATE_NAPA || ''
+    },
+  ];
+
+  // Decode VIN using NHTSA free API
+  async function decodeVIN(vin: string): Promise<VehicleInfo | null> {
+    try {
+      const response = await fetch(`https://vpic.nhtsa.dot.gov/api/vehicles/decodevinvalues/${vin}?format=json`);
+      const data = await response.json();
+      
+      if (data.Results && data.Results[0]) {
+        const result = data.Results[0];
+        return {
+          vin,
+          year: parseInt(result.ModelYear) || new Date().getFullYear(),
+          make: result.Make || 'Unknown',
+          model: result.Model || 'Unknown',
+          trim: result.Trim || undefined,
+          engine: result.DisplacementL ? `${result.DisplacementL}L ${result.FuelTypePrimary || ''}`.trim() : undefined,
+          transmission: result.TransmissionStyle || undefined,
+        };
+      }
+      return null;
+    } catch (error) {
+      console.error('VIN decode error:', error);
+      return null;
+    }
+  }
+
+  // Match symptoms to parts
+  function matchSymptomsToparts(description: string): string[] {
+    const text = description.toLowerCase();
+    const matchedParts: string[] = [];
+    
+    for (const [partId, partInfo] of Object.entries(AUTO_PARTS_DATABASE)) {
+      for (const symptom of partInfo.commonSymptoms) {
+        if (text.includes(symptom.toLowerCase())) {
+          if (!matchedParts.includes(partId)) {
+            matchedParts.push(partId);
+          }
+          break;
+        }
+      }
+    }
+    
+    return matchedParts;
+  }
+
+  // Generate part pricing with affiliate links
+  function generatePartPricing(partId: string, vehicle: VehicleInfo): AutoPartPricing | null {
+    const partInfo = AUTO_PARTS_DATABASE[partId];
+    if (!partInfo) return null;
+    
+    // Vehicle-specific price adjustments
+    let vehicleMultiplier = 1.0;
+    const make = vehicle.make.toLowerCase();
+    
+    // Luxury brands cost more
+    if (['bmw', 'mercedes', 'audi', 'lexus', 'porsche', 'land rover', 'jaguar'].includes(make)) {
+      vehicleMultiplier = 1.5;
+    } else if (['acura', 'infiniti', 'volvo', 'cadillac', 'lincoln'].includes(make)) {
+      vehicleMultiplier = 1.3;
+    } else if (['toyota', 'honda', 'ford', 'chevrolet', 'hyundai', 'kia', 'nissan'].includes(make)) {
+      vehicleMultiplier = 1.0;
+    }
+    
+    // Older vehicles may have cheaper parts
+    const currentYear = new Date().getFullYear();
+    if (vehicle.year < currentYear - 15) {
+      vehicleMultiplier *= 0.9;
+    }
+    
+    const searchTerm = `${vehicle.year} ${vehicle.make} ${vehicle.model} ${partInfo.partName}`.replace(/\s+/g, '+');
+    
+    const prices = AUTO_RETAILERS.map(retailer => {
+      const basePrice = Math.round((partInfo.basePrice.min + partInfo.basePrice.max) / 2 * vehicleMultiplier);
+      const adjustedPrice = Math.round(basePrice * retailer.priceMultiplier);
+      
+      return {
+        retailer: retailer.name,
+        price: adjustedPrice,
+        affiliateUrl: `${retailer.affiliateBaseUrl}${searchTerm}${retailer.affiliateTag}`,
+        inStock: Math.random() > 0.15, // 85% in stock simulation
+        shippingEstimate: retailer.name === 'RockAuto' ? '3-5 business days' : 'Same day pickup available',
+      };
+    });
+    
+    // Sort by price
+    prices.sort((a, b) => a.price - b.price);
+    
+    const laborRate = 9500; // $95/hr average labor rate (in cents)
+    const laborCost = {
+      min: Math.round(partInfo.laborHours * laborRate * 0.8),
+      max: Math.round(partInfo.laborHours * laborRate * 1.2),
+    };
+    
+    return {
+      partNumber: `${partId.toUpperCase()}-${vehicle.year}`,
+      partName: partInfo.partName,
+      description: `${partInfo.partName} for ${vehicle.year} ${vehicle.make} ${vehicle.model}`,
+      category: partInfo.category,
+      prices,
+      cheapestPrice: prices[0].price,
+      cheapestRetailer: prices[0].retailer,
+      laborHours: partInfo.laborHours,
+      laborCost,
+      totalEstimate: {
+        min: prices[0].price + laborCost.min,
+        max: prices[prices.length - 1].price + laborCost.max,
+      },
+    };
+  }
+
+  // Calculate full auto repair estimate
+  function calculateAutoRepairPrice(
+    vehicle: VehicleInfo,
+    symptomDescription: string
+  ): AutoRepairPricingOutput {
+    const matchedPartIds = matchSymptomsToparts(symptomDescription);
+    const partsNeeded: AutoPartPricing[] = [];
+    const warnings: string[] = [];
+    const recommendations: string[] = [];
+    
+    for (const partId of matchedPartIds) {
+      const partPricing = generatePartPricing(partId, vehicle);
+      if (partPricing) {
+        partsNeeded.push(partPricing);
+      }
+    }
+    
+    // If no parts matched, suggest diagnostic
+    if (partsNeeded.length === 0) {
+      warnings.push('Could not identify specific parts from description. Professional diagnostic recommended.');
+      recommendations.push('Visit a mechanic for a diagnostic scan ($50-$150)');
+    }
+    
+    // Calculate totals
+    const totalPartsMin = partsNeeded.reduce((sum, p) => sum + p.cheapestPrice, 0);
+    const totalPartsMax = partsNeeded.reduce((sum, p) => sum + p.prices[p.prices.length - 1]?.price || p.cheapestPrice, 0);
+    const totalLaborMin = partsNeeded.reduce((sum, p) => sum + p.laborCost.min, 0);
+    const totalLaborMax = partsNeeded.reduce((sum, p) => sum + p.laborCost.max, 0);
+    
+    // Add recommendations based on vehicle
+    const make = vehicle.make.toLowerCase();
+    if (['bmw', 'mercedes', 'audi'].includes(make)) {
+      recommendations.push('Consider visiting a European car specialist for best results');
+    }
+    
+    if (partsNeeded.some(p => p.category === 'Brakes')) {
+      recommendations.push('Always replace brake pads in pairs (both sides of axle)');
+      recommendations.push('Inspect rotors when replacing pads - they may need resurfacing or replacement');
+    }
+    
+    if (partsNeeded.some(p => p.category === 'Cooling System')) {
+      recommendations.push('Flush cooling system when replacing water pump or thermostat');
+    }
+    
+    return {
+      vehicle,
+      diagnosis: symptomDescription,
+      partsNeeded,
+      totalPartsMin,
+      totalPartsMax,
+      totalLaborMin,
+      totalLaborMax,
+      grandTotalMin: totalPartsMin + totalLaborMin,
+      grandTotalMax: totalPartsMax + totalLaborMax,
+      recommendations,
+      warnings,
+      affiliateDisclosure: 'We may earn a small commission from purchases made through these links at no extra cost to you. This helps support our free service.',
+    };
+  }
+
+  // VIN decode endpoint
+  app.post('/api/workhub/decode-vin', express.json(), async (req, res) => {
+    try {
+      const { vin } = req.body;
+      
+      if (!vin || vin.length !== 17) {
+        return res.status(400).json({ 
+          error: 'Invalid VIN', 
+          message: 'VIN must be exactly 17 characters' 
+        });
+      }
+      
+      const vehicleInfo = await decodeVIN(vin);
+      
+      if (!vehicleInfo) {
+        return res.status(404).json({ 
+          error: 'VIN not found', 
+          message: 'Could not decode this VIN. Please enter vehicle details manually.' 
+        });
+      }
+      
+      console.log(`🚗 VIN Decoded: ${vehicleInfo.year} ${vehicleInfo.make} ${vehicleInfo.model}`);
+      
+      res.json({
+        ok: true,
+        vehicle: vehicleInfo,
+      });
+    } catch (error) {
+      console.error('VIN decode error:', error);
+      res.status(500).json({ error: 'VIN decode failed' });
+    }
+  });
+
+  // Auto repair pricing endpoint
+  app.post('/api/workhub/auto-repair-estimate', express.json(), async (req, res) => {
+    try {
+      const { vehicle, symptoms, vin } = req.body;
+      
+      let vehicleInfo: VehicleInfo;
+      
+      // Try to decode VIN if provided
+      if (vin && vin.length === 17) {
+        const decoded = await decodeVIN(vin);
+        if (decoded) {
+          vehicleInfo = decoded;
+        } else {
+          vehicleInfo = vehicle;
+        }
+      } else {
+        vehicleInfo = vehicle;
+      }
+      
+      if (!vehicleInfo || !vehicleInfo.year || !vehicleInfo.make || !vehicleInfo.model) {
+        return res.status(400).json({ 
+          error: 'Vehicle information required', 
+          message: 'Please provide year, make, and model or a valid VIN' 
+        });
+      }
+      
+      if (!symptoms) {
+        return res.status(400).json({ 
+          error: 'Symptoms required', 
+          message: 'Please describe the issue with your vehicle' 
+        });
+      }
+      
+      const estimate = calculateAutoRepairPrice(vehicleInfo, symptoms);
+      
+      console.log(`🔧 Auto Repair Estimate: ${vehicleInfo.year} ${vehicleInfo.make} ${vehicleInfo.model} - $${(estimate.grandTotalMin/100).toFixed(0)} - $${(estimate.grandTotalMax/100).toFixed(0)}`);
+      
+      res.json({
+        ok: true,
+        estimate,
+      });
+    } catch (error) {
+      console.error('Auto repair estimate error:', error);
+      res.status(500).json({ error: 'Estimate generation failed' });
+    }
+  });
+
+  // ============ FLOORING PRICING ENGINE ============
+  // Square footage based pricing with Home Depot/Lowes affiliate integration
+  
+  interface FlooringMaterial {
+    id: string;
+    name: string;
+    type: 'hardwood' | 'laminate' | 'lvp' | 'tile' | 'carpet' | 'vinyl_sheet';
+    pricePerSqFt: { min: number; max: number }; // in cents
+    installationPerSqFt: { min: number; max: number }; // in cents
+    description: string;
+    durability: 'low' | 'medium' | 'high' | 'very_high';
+    waterResistant: boolean;
+  }
+
+  interface FlooringRetailer {
+    name: string;
+    affiliateBaseUrl: string;
+    affiliateTag: string;
+    priceMultiplier: number;
+  }
+
+  interface FlooringPricingOutput {
+    squareFootage: number;
+    materialType: string;
+    materials: {
+      material: FlooringMaterial;
+      totalMaterialCost: { min: number; max: number };
+      retailerPrices: {
+        retailer: string;
+        pricePerSqFt: number;
+        totalPrice: number;
+        affiliateUrl: string;
+      }[];
+      cheapestRetailer: string;
+      cheapestTotal: number;
+    }[];
+    laborCost: { min: number; max: number };
+    additionalCosts: {
+      name: string;
+      cost: { min: number; max: number };
+    }[];
+    grandTotalMin: number;
+    grandTotalMax: number;
+    recommendations: string[];
+    warnings: string[];
+    affiliateDisclosure: string;
+  }
+
+  // Flooring materials database with 2024-2025 pricing
+  const FLOORING_MATERIALS: FlooringMaterial[] = [
+    {
+      id: 'hardwood_oak',
+      name: 'Solid Oak Hardwood',
+      type: 'hardwood',
+      pricePerSqFt: { min: 500, max: 1200 }, // $5-$12/sq ft
+      installationPerSqFt: { min: 400, max: 800 }, // $4-$8/sq ft
+      description: 'Classic solid oak flooring, can be refinished multiple times',
+      durability: 'high',
+      waterResistant: false,
+    },
+    {
+      id: 'hardwood_maple',
+      name: 'Solid Maple Hardwood',
+      type: 'hardwood',
+      pricePerSqFt: { min: 600, max: 1400 }, // $6-$14/sq ft
+      installationPerSqFt: { min: 400, max: 800 },
+      description: 'Durable maple hardwood with tight grain pattern',
+      durability: 'very_high',
+      waterResistant: false,
+    },
+    {
+      id: 'engineered_hardwood',
+      name: 'Engineered Hardwood',
+      type: 'hardwood',
+      pricePerSqFt: { min: 400, max: 1000 }, // $4-$10/sq ft
+      installationPerSqFt: { min: 300, max: 600 },
+      description: 'Real wood veneer over plywood, more stable than solid',
+      durability: 'high',
+      waterResistant: false,
+    },
+    {
+      id: 'laminate_standard',
+      name: 'Standard Laminate',
+      type: 'laminate',
+      pricePerSqFt: { min: 100, max: 300 }, // $1-$3/sq ft
+      installationPerSqFt: { min: 200, max: 400 },
+      description: 'Budget-friendly wood look, easy DIY installation',
+      durability: 'medium',
+      waterResistant: false,
+    },
+    {
+      id: 'laminate_premium',
+      name: 'Premium Laminate',
+      type: 'laminate',
+      pricePerSqFt: { min: 250, max: 500 }, // $2.50-$5/sq ft
+      installationPerSqFt: { min: 200, max: 400 },
+      description: 'High-quality laminate with realistic wood texture',
+      durability: 'high',
+      waterResistant: false,
+    },
+    {
+      id: 'lvp_standard',
+      name: 'Luxury Vinyl Plank (LVP)',
+      type: 'lvp',
+      pricePerSqFt: { min: 200, max: 500 }, // $2-$5/sq ft
+      installationPerSqFt: { min: 250, max: 450 },
+      description: 'Waterproof, durable, realistic wood look',
+      durability: 'very_high',
+      waterResistant: true,
+    },
+    {
+      id: 'lvp_premium',
+      name: 'Premium LVP (LifeProof/COREtec)',
+      type: 'lvp',
+      pricePerSqFt: { min: 400, max: 800 }, // $4-$8/sq ft
+      installationPerSqFt: { min: 250, max: 450 },
+      description: 'Top-tier vinyl plank, commercial-grade durability',
+      durability: 'very_high',
+      waterResistant: true,
+    },
+    {
+      id: 'ceramic_tile',
+      name: 'Ceramic Tile',
+      type: 'tile',
+      pricePerSqFt: { min: 100, max: 400 }, // $1-$4/sq ft
+      installationPerSqFt: { min: 500, max: 1000 },
+      description: 'Classic tile, wide variety of styles',
+      durability: 'very_high',
+      waterResistant: true,
+    },
+    {
+      id: 'porcelain_tile',
+      name: 'Porcelain Tile',
+      type: 'tile',
+      pricePerSqFt: { min: 300, max: 800 }, // $3-$8/sq ft
+      installationPerSqFt: { min: 600, max: 1200 },
+      description: 'Dense, durable, excellent for high-traffic areas',
+      durability: 'very_high',
+      waterResistant: true,
+    },
+    {
+      id: 'carpet_standard',
+      name: 'Standard Carpet',
+      type: 'carpet',
+      pricePerSqFt: { min: 200, max: 500 }, // $2-$5/sq ft (includes pad)
+      installationPerSqFt: { min: 100, max: 250 },
+      description: 'Comfortable, affordable, variety of colors',
+      durability: 'low',
+      waterResistant: false,
+    },
+    {
+      id: 'carpet_premium',
+      name: 'Premium Carpet (Stainmaster)',
+      type: 'carpet',
+      pricePerSqFt: { min: 400, max: 900 }, // $4-$9/sq ft
+      installationPerSqFt: { min: 100, max: 250 },
+      description: 'Stain-resistant, pet-friendly, high durability',
+      durability: 'medium',
+      waterResistant: false,
+    },
+  ];
+
+  // Flooring retailers with affiliate info - tags loaded from environment variables
+  const FLOORING_RETAILERS: FlooringRetailer[] = [
+    {
+      name: 'Home Depot',
+      affiliateBaseUrl: 'https://www.homedepot.com/s/',
+      affiliateTag: process.env.AFFILIATE_HOME_DEPOT || '',
+      priceMultiplier: 1.0,
+    },
+    {
+      name: 'Lowe\'s',
+      affiliateBaseUrl: 'https://www.lowes.com/search?searchTerm=',
+      affiliateTag: process.env.AFFILIATE_LOWES || '',
+      priceMultiplier: 0.98,
+    },
+    {
+      name: 'Floor & Decor',
+      affiliateBaseUrl: 'https://www.flooranddecor.com/search?q=',
+      affiliateTag: process.env.AFFILIATE_FLOOR_DECOR || '',
+      priceMultiplier: 0.92,
+    },
+    {
+      name: 'LL Flooring',
+      affiliateBaseUrl: 'https://www.llflooring.com/search/?q=',
+      affiliateTag: process.env.AFFILIATE_LL_FLOORING || '',
+      priceMultiplier: 0.95,
+    },
+  ];
+
+  function calculateFlooringPrice(
+    squareFootage: number,
+    preferredType?: string,
+    conditions?: {
+      hasSubfloorDamage: boolean;
+      needsRemoval: boolean;
+      hasMoisture: boolean;
+      isBasement: boolean;
+    }
+  ): FlooringPricingOutput {
+    const warnings: string[] = [];
+    const recommendations: string[] = [];
+    const additionalCosts: { name: string; cost: { min: number; max: number } }[] = [];
+    
+    // Filter materials by type if specified
+    let materials = FLOORING_MATERIALS;
+    if (preferredType) {
+      materials = FLOORING_MATERIALS.filter(m => 
+        m.type === preferredType || 
+        m.name.toLowerCase().includes(preferredType.toLowerCase())
+      );
+      if (materials.length === 0) {
+        materials = FLOORING_MATERIALS;
+      }
+    }
+    
+    // Check conditions
+    if (conditions?.hasMoisture || conditions?.isBasement) {
+      materials = materials.filter(m => m.waterResistant);
+      if (materials.length === 0) {
+        materials = FLOORING_MATERIALS.filter(m => m.waterResistant);
+      }
+      warnings.push('Moisture detected - recommending water-resistant flooring only');
+      recommendations.push('Consider installing a vapor barrier for additional protection');
+    }
+    
+    if (conditions?.hasSubfloorDamage) {
+      additionalCosts.push({
+        name: 'Subfloor Repair',
+        cost: { min: squareFootage * 150, max: squareFootage * 400 }, // $1.50-$4/sq ft
+      });
+      warnings.push('Subfloor damage must be repaired before installation');
+    }
+    
+    if (conditions?.needsRemoval) {
+      additionalCosts.push({
+        name: 'Old Flooring Removal & Disposal',
+        cost: { min: squareFootage * 100, max: squareFootage * 250 }, // $1-$2.50/sq ft
+      });
+    }
+    
+    // Add 10% for waste/cuts
+    const materialSquareFootage = Math.ceil(squareFootage * 1.1);
+    
+    // Generate pricing for each material
+    const materialPricing = materials.slice(0, 6).map(material => {
+      const searchTerm = material.name.replace(/\s+/g, '+');
+      
+      const retailerPrices = FLOORING_RETAILERS.map(retailer => {
+        const avgPrice = (material.pricePerSqFt.min + material.pricePerSqFt.max) / 2;
+        const adjustedPrice = Math.round(avgPrice * retailer.priceMultiplier);
+        
+        return {
+          retailer: retailer.name,
+          pricePerSqFt: adjustedPrice,
+          totalPrice: adjustedPrice * materialSquareFootage,
+          affiliateUrl: `${retailer.affiliateBaseUrl}${searchTerm}${retailer.affiliateTag}`,
+        };
+      });
+      
+      retailerPrices.sort((a, b) => a.totalPrice - b.totalPrice);
+      
+      return {
+        material,
+        totalMaterialCost: {
+          min: material.pricePerSqFt.min * materialSquareFootage,
+          max: material.pricePerSqFt.max * materialSquareFootage,
+        },
+        retailerPrices,
+        cheapestRetailer: retailerPrices[0].retailer,
+        cheapestTotal: retailerPrices[0].totalPrice,
+      };
+    });
+    
+    // Calculate labor costs (use average of materials)
+    const avgInstallMin = materials.reduce((sum, m) => sum + m.installationPerSqFt.min, 0) / materials.length;
+    const avgInstallMax = materials.reduce((sum, m) => sum + m.installationPerSqFt.max, 0) / materials.length;
+    
+    const laborCost = {
+      min: Math.round(squareFootage * avgInstallMin),
+      max: Math.round(squareFootage * avgInstallMax),
+    };
+    
+    // Calculate additional costs total
+    const additionalMin = additionalCosts.reduce((sum, c) => sum + c.cost.min, 0);
+    const additionalMax = additionalCosts.reduce((sum, c) => sum + c.cost.max, 0);
+    
+    // Grand totals using cheapest material option
+    const cheapestMaterial = materialPricing.reduce((min, m) => 
+      m.cheapestTotal < min.cheapestTotal ? m : min
+    );
+    const expensiveMaterial = materialPricing.reduce((max, m) => 
+      m.totalMaterialCost.max > max.totalMaterialCost.max ? m : max
+    );
+    
+    recommendations.push('Order 10% extra material to account for cuts and waste');
+    if (squareFootage > 500) {
+      recommendations.push('Consider professional installation for best results on large areas');
+    }
+    
+    return {
+      squareFootage,
+      materialType: preferredType || 'all types',
+      materials: materialPricing,
+      laborCost,
+      additionalCosts,
+      grandTotalMin: cheapestMaterial.cheapestTotal + laborCost.min + additionalMin,
+      grandTotalMax: expensiveMaterial.totalMaterialCost.max + laborCost.max + additionalMax,
+      recommendations,
+      warnings,
+      affiliateDisclosure: 'We may earn a small commission from purchases made through these links at no extra cost to you. This helps support our free service.',
+    };
+  }
+
+  // Flooring estimate endpoint
+  app.post('/api/workhub/flooring-estimate', express.json(), async (req, res) => {
+    try {
+      const { squareFootage, flooringType, conditions, roomDimensions } = req.body;
+      
+      let sqFt = squareFootage;
+      
+      // Calculate from room dimensions if provided
+      if (!sqFt && roomDimensions) {
+        sqFt = roomDimensions.length * roomDimensions.width;
+      }
+      
+      if (!sqFt || sqFt < 1) {
+        return res.status(400).json({ 
+          error: 'Square footage required', 
+          message: 'Please provide square footage or room dimensions' 
+        });
+      }
+      
+      const estimate = calculateFlooringPrice(sqFt, flooringType, conditions);
+      
+      console.log(`🏠 Flooring Estimate: ${sqFt} sq ft - $${(estimate.grandTotalMin/100).toFixed(0)} - $${(estimate.grandTotalMax/100).toFixed(0)}`);
+      
+      res.json({
+        ok: true,
+        estimate,
+      });
+    } catch (error) {
+      console.error('Flooring estimate error:', error);
+      res.status(500).json({ error: 'Estimate generation failed' });
+    }
+  });
+
   // WorkHub AI Job Analysis - Analyzes photos/videos and provides pricing with dimensions
   app.post('/api/workhub/analyze', express.json({ limit: '50mb' }), async (req, res) => {
     try {
@@ -17290,6 +18117,8 @@ What specific area or type of incident would you like me to focus on? I can prov
       // ============================================================
       let treePricingResult: TreePricingOutput | null = null;
       let roofingPricingResult: RoofingPricingOutput | null = null;
+      let autoRepairPricingResult: AutoRepairPricingOutput | null = null;
+      let flooringPricingResult: FlooringPricingOutput | null = null;
       let adjustedMaterialOptions = materialOptions;
       
       if (detectedTrade === 'tree_removal' || detectedTrade === 'tree') {
@@ -17481,6 +18310,70 @@ What specific area or type of incident would you like me to focus on? I can prov
         timeEstimate = `${roofingPricingResult.crewInfo.estimatedDays} days`;
         
         console.log(`🏠 Roofing Pricing Engine: $${(roofRegionalMin/100).toFixed(0)} - $${(roofRegionalMax/100).toFixed(0)} (${roofingPricingResult.roofingSquares} squares)`);
+      } else if (detectedTrade === 'auto' || detectedTrade === 'auto_repair' || detectedTrade === 'automotive') {
+        // ============================================================
+        // PROFESSIONAL AUTO REPAIR PRICING
+        // ============================================================
+        const analysisText = analysis.professionalDescription.summary + ' ' + 
+                            analysis.professionalDescription.technicalDetails + ' ' +
+                            (description || '');
+        
+        // Extract vehicle info from description or use defaults
+        const vehicleMatch = analysisText.match(/(\d{4})\s+([A-Za-z]+)\s+([A-Za-z0-9]+)/);
+        const vehicle: VehicleInfo = vehicleMatch ? {
+          year: parseInt(vehicleMatch[1]) || new Date().getFullYear(),
+          make: vehicleMatch[2] || 'Unknown',
+          model: vehicleMatch[3] || 'Unknown',
+        } : {
+          year: new Date().getFullYear(),
+          make: 'Generic',
+          model: 'Vehicle',
+        };
+        
+        // Calculate auto repair pricing
+        autoRepairPricingResult = calculateAutoRepairPrice(vehicle, analysisText);
+        
+        // Update complexity based on parts needed
+        complexity = autoRepairPricingResult.partsNeeded.length > 2 ? 'complex' : 'standard';
+        timeEstimate = `${autoRepairPricingResult.partsNeeded.reduce((sum, p) => sum + p.laborHours, 0)} labor hours`;
+        
+        console.log(`🚗 Auto Repair Pricing Engine: $${(autoRepairPricingResult.grandTotalMin/100).toFixed(0)} - $${(autoRepairPricingResult.grandTotalMax/100).toFixed(0)} (${autoRepairPricingResult.partsNeeded.length} parts)`);
+      } else if (detectedTrade === 'flooring' || detectedTrade === 'floor') {
+        // ============================================================
+        // PROFESSIONAL FLOORING PRICING
+        // ============================================================
+        const analysisText = analysis.professionalDescription.summary + ' ' + 
+                            analysis.professionalDescription.technicalDetails + ' ' +
+                            (description || '');
+        
+        // Extract square footage from description
+        const sqftMatch = analysisText.match(/(\d{1,2},?\d{3})\s*(?:sq\.?\s*ft|square\s*feet|sqft)/i);
+        const squareFootage = sqftMatch ? parseInt(sqftMatch[1].replace(',', '')) : 500;
+        
+        // Detect flooring type preference
+        let flooringType: string | undefined;
+        if (/hardwood|oak|maple/i.test(analysisText)) flooringType = 'hardwood';
+        else if (/laminate/i.test(analysisText)) flooringType = 'laminate';
+        else if (/lvp|vinyl|luxury\s*vinyl/i.test(analysisText)) flooringType = 'lvp';
+        else if (/tile|ceramic|porcelain/i.test(analysisText)) flooringType = 'tile';
+        else if (/carpet/i.test(analysisText)) flooringType = 'carpet';
+        
+        // Detect conditions
+        const conditions = {
+          hasSubfloorDamage: /subfloor\s*damage|rot|soft\s*spot|damaged\s*subfloor/i.test(analysisText),
+          needsRemoval: /remove|tear\s*out|rip\s*out|old\s*floor/i.test(analysisText),
+          hasMoisture: /moisture|wet|water|flood|basement/i.test(analysisText),
+          isBasement: /basement/i.test(analysisText),
+        };
+        
+        // Calculate flooring pricing
+        flooringPricingResult = calculateFlooringPrice(squareFootage, flooringType, conditions);
+        
+        // Update complexity based on conditions
+        complexity = flooringPricingResult.additionalCosts.length > 0 ? 'moderate' : 'standard';
+        timeEstimate = `${Math.ceil(squareFootage / 200)} days`;
+        
+        console.log(`🏠 Flooring Pricing Engine: $${(flooringPricingResult.grandTotalMin/100).toFixed(0)} - $${(flooringPricingResult.grandTotalMax/100).toFixed(0)} (${squareFootage} sq ft)`);
       } else {
         // Apply hazard multiplier to material options for other jobs
         adjustedMaterialOptions = materialOptions.map(mat => ({
@@ -17561,6 +18454,35 @@ What specific area or type of incident would you like me to focus on? I can prov
             breakdown: roofingPricingResult.breakdown,
             warnings: roofingPricingResult.warnings,
           } : null,
+          // Professional auto repair pricing details
+          autoRepairPricing: autoRepairPricingResult ? {
+            vehicle: autoRepairPricingResult.vehicle,
+            diagnosis: autoRepairPricingResult.diagnosis,
+            partsNeeded: autoRepairPricingResult.partsNeeded,
+            totalPartsMin: autoRepairPricingResult.totalPartsMin,
+            totalPartsMax: autoRepairPricingResult.totalPartsMax,
+            totalLaborMin: autoRepairPricingResult.totalLaborMin,
+            totalLaborMax: autoRepairPricingResult.totalLaborMax,
+            grandTotalMin: autoRepairPricingResult.grandTotalMin,
+            grandTotalMax: autoRepairPricingResult.grandTotalMax,
+            recommendations: autoRepairPricingResult.recommendations,
+            warnings: autoRepairPricingResult.warnings,
+            affiliateDisclosure: autoRepairPricingResult.affiliateDisclosure,
+          } : null,
+          // Professional flooring pricing details
+          flooringPricing: flooringPricingResult ? {
+            squareFootage: flooringPricingResult.squareFootage,
+            materials: flooringPricingResult.materials,
+            laborCost: flooringPricingResult.laborCost,
+            additionalCosts: flooringPricingResult.additionalCosts,
+            grandTotalMin: flooringPricingResult.grandTotalMin,
+            grandTotalMax: flooringPricingResult.grandTotalMax,
+            recommendations: flooringPricingResult.recommendations,
+            warnings: flooringPricingResult.warnings,
+            affiliateDisclosure: flooringPricingResult.affiliateDisclosure,
+          } : null,
+          // Detected category for frontend display
+          detectedCategory: detectedTrade,
         },
         measurements,
         materialOptions: adjustedMaterialOptions,
