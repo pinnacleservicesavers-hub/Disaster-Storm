@@ -7131,5 +7131,157 @@ export const insertAffiliateMonthlySummarySchema = createInsertSchema(affiliateM
 export type AffiliateMonthlySummary = typeof affiliateMonthlySummary.$inferSelect;
 export type InsertAffiliateMonthlySummary = z.infer<typeof insertAffiliateMonthlySummarySchema>;
 
+// ===== CONTRACTOR LEADVAULT CAMPAIGN TABLES =====
+
+// LeadVault Campaigns - Automated lead finding + outreach campaigns
+export const leadVaultCampaigns = pgTable("lead_vault_campaigns", {
+  id: serial("id").primaryKey(),
+  contractorId: varchar("contractor_id", { length: 255 }).notNull(),
+  
+  name: varchar("name", { length: 255 }).notNull(),
+  tradeType: varchar("trade_type", { length: 50 }).default("tree_service"),
+  targetLocation: varchar("target_location", { length: 255 }).notNull(),
+  radius: integer("radius").default(25),
+  
+  leadTargets: jsonb("lead_targets").$type<string[]>(), // ["property management", "hoa", "apartment"]
+  minScore: integer("min_score").default(25), // warm/hot threshold
+  maxLeadsPerRun: integer("max_leads_per_run").default(30),
+  generateOutreachFor: varchar("generate_outreach_for", { length: 20 }).default("hot"), // hot | warm | all
+  
+  scheduleType: varchar("schedule_type", { length: 20 }).default("weekly"), // daily | weekly
+  scheduleHour: integer("schedule_hour").default(8), // 8 AM default
+  timezone: varchar("timezone", { length: 50 }).default("America/Chicago"),
+  
+  enabled: boolean("enabled").default(true),
+  lastRunAt: timestamp("last_run_at"),
+  nextRunAt: timestamp("next_run_at"),
+  
+  // Storm trigger settings
+  stormTriggerEnabled: boolean("storm_trigger_enabled").default(false),
+  stormTriggerThreshold: integer("storm_trigger_threshold").default(50), // wind speed mph
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertLeadVaultCampaignSchema = createInsertSchema(leadVaultCampaigns).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type LeadVaultCampaign = typeof leadVaultCampaigns.$inferSelect;
+export type InsertLeadVaultCampaign = z.infer<typeof insertLeadVaultCampaignSchema>;
+
+// Campaign Runs - Tracks each campaign execution
+export const leadVaultCampaignRuns = pgTable("lead_vault_campaign_runs", {
+  id: serial("id").primaryKey(),
+  campaignId: integer("campaign_id").references(() => leadVaultCampaigns.id).notNull(),
+  contractorId: varchar("contractor_id", { length: 255 }).notNull(),
+  
+  triggerType: varchar("trigger_type", { length: 20 }).default("scheduled"), // scheduled | manual | storm
+  status: varchar("status", { length: 20 }).default("running"), // running | completed | failed
+  
+  leadsFound: integer("leads_found").default(0),
+  hotLeads: integer("hot_leads").default(0),
+  warmLeads: integer("warm_leads").default(0),
+  outreachGenerated: integer("outreach_generated").default(0),
+  followupsScheduled: integer("followups_scheduled").default(0),
+  
+  stormData: jsonb("storm_data"), // If storm-triggered: { windSpeed, riskLevel, location }
+  errorMessage: text("error_message"),
+  
+  startedAt: timestamp("started_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+});
+
+export const insertLeadVaultCampaignRunSchema = createInsertSchema(leadVaultCampaignRuns).omit({
+  id: true,
+  startedAt: true,
+});
+
+export type LeadVaultCampaignRun = typeof leadVaultCampaignRuns.$inferSelect;
+export type InsertLeadVaultCampaignRun = z.infer<typeof insertLeadVaultCampaignRunSchema>;
+
+// Campaign Leads - Leads found by campaigns (prevents duplicates + shows history)
+export const leadVaultCampaignLeads = pgTable("lead_vault_campaign_leads", {
+  id: serial("id").primaryKey(),
+  campaignRunId: integer("campaign_run_id").references(() => leadVaultCampaignRuns.id).notNull(),
+  campaignId: integer("campaign_id").references(() => leadVaultCampaigns.id).notNull(),
+  contractorId: varchar("contractor_id", { length: 255 }).notNull(),
+  leadExternalId: varchar("lead_external_id", { length: 255 }).notNull(),
+  
+  leadSnapshot: jsonb("lead_snapshot"), // Full lead data at discovery time
+  score: integer("score").default(0),
+  scoreLabel: varchar("score_label", { length: 20 }).default("cold"),
+  
+  outreachGenerated: boolean("outreach_generated").default(false),
+  addedToVault: boolean("added_to_vault").default(false),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertLeadVaultCampaignLeadSchema = createInsertSchema(leadVaultCampaignLeads).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type LeadVaultCampaignLead = typeof leadVaultCampaignLeads.$inferSelect;
+export type InsertLeadVaultCampaignLead = z.infer<typeof insertLeadVaultCampaignLeadSchema>;
+
+// Follow-up Tasks - Scheduled outreach tasks
+export const leadVaultFollowupTasks = pgTable("lead_vault_followup_tasks", {
+  id: serial("id").primaryKey(),
+  contractorId: varchar("contractor_id", { length: 255 }).notNull(),
+  leadId: integer("lead_id").notNull(), // References lead_vault_leads
+  outreachId: integer("outreach_id"), // References lead_vault_outreach
+  
+  channel: varchar("channel", { length: 20 }).notNull(), // sms | email | call
+  taskTitle: varchar("task_title", { length: 255 }).notNull(),
+  messageText: text("message_text").notNull(),
+  
+  dueAt: timestamp("due_at").notNull(),
+  status: varchar("status", { length: 20 }).default("pending"), // pending | completed | skipped | sent
+  
+  sentAt: timestamp("sent_at"),
+  completedAt: timestamp("completed_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertLeadVaultFollowupTaskSchema = createInsertSchema(leadVaultFollowupTasks).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type LeadVaultFollowupTask = typeof leadVaultFollowupTasks.$inferSelect;
+export type InsertLeadVaultFollowupTask = z.infer<typeof insertLeadVaultFollowupTaskSchema>;
+
+// Follow-up Settings - Contractor customization
+export const leadVaultFollowupSettings = pgTable("lead_vault_followup_settings", {
+  id: serial("id").primaryKey(),
+  contractorId: varchar("contractor_id", { length: 255 }).notNull().unique(),
+  
+  day2Enabled: boolean("day_2_enabled").default(true),
+  day5Enabled: boolean("day_5_enabled").default(true),
+  day10Enabled: boolean("day_10_enabled").default(true),
+  day20Enabled: boolean("day_20_enabled").default(true),
+  
+  defaultChannel: varchar("default_channel", { length: 20 }).default("sms"),
+  autoSendEnabled: boolean("auto_send_enabled").default(false), // Future: auto-send via Twilio
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertLeadVaultFollowupSettingsSchema = createInsertSchema(leadVaultFollowupSettings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type LeadVaultFollowupSettings = typeof leadVaultFollowupSettings.$inferSelect;
+export type InsertLeadVaultFollowupSettings = z.infer<typeof insertLeadVaultFollowupSettingsSchema>;
+
 // Chat schema for AI integrations
 export * from "./models/chat";
