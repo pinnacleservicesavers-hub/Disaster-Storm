@@ -3205,7 +3205,7 @@ Include 3-4 phases, 3-5 tasks per phase, 2-3 SOPs, 3 risks, and 4 KPIs. Be speci
   await db.execute(sql`
     CREATE TABLE IF NOT EXISTS lead_vault_outreach (
       id SERIAL PRIMARY KEY,
-      lead_id INTEGER REFERENCES lead_vault_leads(id) ON DELETE CASCADE,
+      lead_id INTEGER UNIQUE REFERENCES lead_vault_leads(id) ON DELETE CASCADE,
       sms_script TEXT,
       email_script TEXT,
       phone_script TEXT,
@@ -3213,6 +3213,11 @@ Include 3-4 phases, 3-5 tasks per phase, 2-3 SOPs, 3 risks, and 4 KPIs. Be speci
       offer_stack JSONB DEFAULT '{}',
       created_at TIMESTAMP DEFAULT NOW()
     )
+  `);
+  
+  // Add unique constraint if it doesn't exist (for existing tables)
+  await db.execute(sql`
+    CREATE UNIQUE INDEX IF NOT EXISTS lead_vault_outreach_lead_id_unique ON lead_vault_outreach(lead_id)
   `);
 
   await db.execute(sql`
