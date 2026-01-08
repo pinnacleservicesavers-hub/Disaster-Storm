@@ -26,7 +26,7 @@ import cors from "cors";
 import multer from "multer";
 import { db } from "./db";
 import { customerSubmissions, workhubMaterials, workhubLaborRates, stormAgencies, stormContractorProfiles, stormTeamMembers, stormContractorDocuments, stormAgencyRegistrations, stormOutreachLog, users, stormSharePosts, workhubContractors, contractorSubscriptions, qualifiedLeads } from "@shared/schema";
-import { eq, desc, and, or } from "drizzle-orm";
+import { eq, desc, and, or, sql } from "drizzle-orm";
 import path from "path";
 import fs from "fs";
 import cron from "node-cron";
