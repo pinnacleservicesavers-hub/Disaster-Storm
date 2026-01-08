@@ -16209,18 +16209,70 @@ What specific area or type of incident would you like me to focus on? I can prov
       const generateMeasurements = () => {
         const treeAnalysis = analysis.treeAnalysis;
         
-        // If tree analysis exists, use it
+        // If tree analysis exists, use it with comprehensive equipment/crew analysis
         if (treeAnalysis && detectedTrade === 'tree_removal') {
+          const heightFt = treeAnalysis.heightEstimate || Math.round(25 + Math.random() * 35);
+          const widthFt = treeAnalysis.spreadEstimate || Math.round(15 + Math.random() * 20);
+          const estimatedWeightLb = Math.round(heightFt * 150);
+          
+          // Determine equipment needs based on tree size and complexity
+          const needsCrane = heightFt > 60 || estimatedWeightLb > 10000;
+          const needsBucketTruck = heightFt > 35 && !needsCrane;
+          const needsClimber = heightFt > 20 && !needsCrane && !needsBucketTruck;
+          const needsChainsaw = true;
+          const needsChipper = true;
+          
+          // Debris equipment based on tree size
+          const debrisVolumeCuYd = Math.round((heightFt * widthFt * 0.5) / 27); // Rough cubic yards
+          const needsDumpTrailer = debrisVolumeCuYd > 5;
+          const needsDebrisHauler = debrisVolumeCuYd > 15;
+          const debrisLoads = Math.ceil(debrisVolumeCuYd / 12); // 12 cu yd per trailer load
+          
+          // Crew size based on complexity
+          let crewSize = 2; // Minimum crew
+          if (needsCrane) crewSize = 5; // Crane operator + 4 ground crew
+          else if (needsBucketTruck) crewSize = 3; // Bucket operator + 2 ground
+          else if (heightFt > 40) crewSize = 3; // Climber + 2 ground
+          
+          const groundWorkers = crewSize - (needsClimber ? 1 : 0) - (needsBucketTruck || needsCrane ? 1 : 0);
+          
           return {
-            heightFt: treeAnalysis.heightEstimate || Math.round(25 + Math.random() * 35),
-            widthFt: treeAnalysis.spreadEstimate || Math.round(15 + Math.random() * 20),
+            heightFt,
+            widthFt,
             lengthFt: null,
             sqft: null,
             linearFt: null,
-            estimatedWeightLb: Math.round((treeAnalysis.heightEstimate || 30) * 150),
+            estimatedWeightLb,
             count: 1,
             confidence: analysis.confidence || 0.75,
-            unit: 'each'
+            unit: 'each',
+            // Enhanced tree job details
+            equipmentNeeded: {
+              crane: needsCrane,
+              bucketTruck: needsBucketTruck,
+              climber: needsClimber,
+              chainsaw: needsChainsaw,
+              chipper: needsChipper,
+              stumpGrinder: true
+            },
+            crewRequirements: {
+              totalCrew: crewSize,
+              climbers: needsClimber ? 1 : 0,
+              bucketTruckOperator: needsBucketTruck ? 1 : 0,
+              craneOperator: needsCrane ? 1 : 0,
+              groundWorkers: groundWorkers
+            },
+            debrisHandling: {
+              estimatedVolumeCuYd: debrisVolumeCuYd,
+              needsDumpTrailer,
+              needsDebrisHauler,
+              estimatedLoads: debrisLoads,
+              disposalMethod: debrisVolumeCuYd > 20 ? 'Commercial debris hauler required' : 'Standard dump trailer'
+            },
+            estimatedDuration: {
+              hours: needsCrane ? 8 : needsBucketTruck ? 6 : heightFt > 30 ? 5 : 3,
+              days: needsCrane ? 1 : 1
+            }
           };
         }
 
@@ -16388,6 +16440,104 @@ What specific area or type of incident would you like me to focus on? I can prov
         })
         .slice(0, 5);
 
+      // Calculate contractor cost breakdown and profit projection for tree jobs
+      const generateContractorCostBreakdown = () => {
+        const priceMin = Math.round(analysis.damageAssessment.estimatedCost.min * regionInfo.multiplier);
+        const priceMax = Math.round(analysis.damageAssessment.estimatedCost.max * regionInfo.multiplier);
+        const avgPrice = Math.round((priceMin + priceMax) / 2);
+        
+        if (detectedTrade === 'tree_removal' && measurements.equipmentNeeded) {
+          const equipment = measurements.equipmentNeeded;
+          const crew = measurements.crewRequirements;
+          const debris = measurements.debrisHandling;
+          const duration = measurements.estimatedDuration;
+          
+          // Equipment rental costs (daily rates)
+          const craneRental = equipment.crane ? 1500 : 0;
+          const bucketTruckRental = equipment.bucketTruck ? 400 : 0;
+          const chipperRental = equipment.chipper ? 250 : 0;
+          const stumpGrinderRental = 150;
+          const chainsawsFuel = 75;
+          
+          // Labor costs (hourly rates x hours x crew)
+          const laborRatePerHour = 35; // Average crew rate
+          const laborCost = Math.round(crew.totalCrew * laborRatePerHour * duration.hours);
+          
+          // Debris disposal costs
+          const dumpFees = debris.estimatedLoads * 150; // $150 per dump load
+          const debrisHaulerCost = debris.needsDebrisHauler ? 500 : 0;
+          
+          // Insurance, fuel, travel
+          const overheadCost = Math.round(avgPrice * 0.10); // 10% overhead
+          
+          const totalEquipmentCost = craneRental + bucketTruckRental + chipperRental + stumpGrinderRental + chainsawsFuel;
+          const totalDisposalCost = dumpFees + debrisHaulerCost;
+          const totalCost = laborCost + totalEquipmentCost + totalDisposalCost + overheadCost;
+          
+          const projectedProfit = avgPrice - totalCost;
+          const profitMargin = Math.round((projectedProfit / avgPrice) * 100);
+          
+          return {
+            customerQuote: {
+              min: priceMin,
+              max: priceMax,
+              recommended: avgPrice
+            },
+            contractorCosts: {
+              labor: {
+                crewSize: crew.totalCrew,
+                hoursEstimate: duration.hours,
+                ratePerHour: laborRatePerHour,
+                totalLabor: laborCost
+              },
+              equipment: {
+                craneRental: craneRental > 0 ? craneRental : undefined,
+                bucketTruckRental: bucketTruckRental > 0 ? bucketTruckRental : undefined,
+                chipperRental,
+                stumpGrinderRental,
+                chainsawsFuel,
+                totalEquipment: totalEquipmentCost
+              },
+              debrisDisposal: {
+                loads: debris.estimatedLoads,
+                dumpFees,
+                debrisHaulerCost: debrisHaulerCost > 0 ? debrisHaulerCost : undefined,
+                totalDisposal: totalDisposalCost
+              },
+              overhead: overheadCost,
+              totalCosts: totalCost
+            },
+            profitProjection: {
+              projectedProfit,
+              profitMargin,
+              profitRating: profitMargin >= 40 ? 'Excellent' : profitMargin >= 30 ? 'Good' : profitMargin >= 20 ? 'Fair' : 'Low'
+            }
+          };
+        }
+        
+        // Generic cost breakdown for other trades
+        const laborPct = 0.45;
+        const materialPct = 0.25;
+        const overheadPct = 0.10;
+        
+        return {
+          customerQuote: { min: priceMin, max: priceMax, recommended: avgPrice },
+          contractorCosts: {
+            labor: { totalLabor: Math.round(avgPrice * laborPct) },
+            materials: { totalMaterials: Math.round(avgPrice * materialPct) },
+            overhead: Math.round(avgPrice * overheadPct),
+            totalCosts: Math.round(avgPrice * (laborPct + materialPct + overheadPct))
+          },
+          profitProjection: {
+            projectedProfit: Math.round(avgPrice * (1 - laborPct - materialPct - overheadPct)),
+            profitMargin: Math.round((1 - laborPct - materialPct - overheadPct) * 100),
+            profitRating: 'Good'
+          }
+        };
+      };
+
+      const costBreakdown = generateContractorCostBreakdown();
+
       res.json({
         ok: true,
         analysis: {
@@ -16418,6 +16568,15 @@ What specific area or type of incident would you like me to focus on? I can prov
           unit: laborRate.unit,
           estimatedHoursPerUnit: laborRate.hoursPerUnit
         } : null,
+        // Enhanced job requirements for contractors
+        jobRequirements: detectedTrade === 'tree_removal' ? {
+          equipmentNeeded: measurements.equipmentNeeded,
+          crewRequirements: measurements.crewRequirements,
+          debrisHandling: measurements.debrisHandling,
+          estimatedDuration: measurements.estimatedDuration
+        } : null,
+        // Contractor cost breakdown and profit projection
+        contractorFinancials: costBreakdown,
         contractors: matchedContractors,
         timestamp: new Date().toISOString()
       });
@@ -17304,6 +17463,39 @@ Customer is on schedule - NO spam calls needed!`;
                   <td style="padding: 8px; border-bottom: 1px solid #eee;">${description || 'See photos'}</td>
                 </tr>
               </table>
+              
+              ${jobDetails?.equipmentNeeded || jobDetails?.crewSize ? `
+              <div style="background: #fef3c7; border: 2px solid #f59e0b; border-radius: 8px; padding: 15px; margin: 20px 0;">
+                <h3 style="color: #d97706; margin: 0 0 10px 0;">🛠️ Job Requirements (Contractor Info)</h3>
+                <table style="width: 100%;">
+                  ${jobDetails?.equipmentNeeded ? `<tr>
+                    <td style="padding: 5px 0;"><strong>Equipment Needed:</strong></td>
+                    <td>${Array.isArray(jobDetails.equipmentNeeded) ? jobDetails.equipmentNeeded.join(', ') : 
+                      [jobDetails.equipmentNeeded.crane ? 'Crane' : '', 
+                       jobDetails.equipmentNeeded.bucketTruck ? 'Bucket Truck' : '',
+                       jobDetails.equipmentNeeded.climber ? 'Climber' : '',
+                       'Chainsaw', 'Chipper', 'Stump Grinder'].filter(Boolean).join(', ')}</td>
+                  </tr>` : ''}
+                  ${jobDetails?.crewSize ? `<tr>
+                    <td style="padding: 5px 0;"><strong>Crew Size:</strong></td>
+                    <td>${jobDetails.crewSize} workers ${jobDetails.crewBreakdown ? 
+                      `(${jobDetails.crewBreakdown.groundWorkers || 0} ground, ${jobDetails.crewBreakdown.climbers || 0} climber${jobDetails.crewBreakdown.craneOperator ? ', 1 crane operator' : ''}${jobDetails.crewBreakdown.bucketTruckOperator ? ', 1 bucket truck operator' : ''})` : ''}</td>
+                  </tr>` : ''}
+                  ${jobDetails?.debrisInfo ? `<tr>
+                    <td style="padding: 5px 0;"><strong>Debris Disposal:</strong></td>
+                    <td>${jobDetails.debrisInfo.volumeCuYd || 0} cu yards, ${jobDetails.debrisInfo.estimatedLoads || 1} load(s) - ${jobDetails.debrisInfo.disposalMethod || 'Standard dump trailer'}</td>
+                  </tr>` : ''}
+                  ${jobDetails?.estimatedHours ? `<tr>
+                    <td style="padding: 5px 0;"><strong>Estimated Duration:</strong></td>
+                    <td>${jobDetails.estimatedHours} hours</td>
+                  </tr>` : ''}
+                  ${jobDetails?.profitProjection ? `<tr>
+                    <td style="padding: 5px 0;"><strong>💰 Projected Profit:</strong></td>
+                    <td style="font-weight: bold; color: #16a34a;">$${jobDetails.profitProjection.projectedProfit?.toLocaleString() || 'N/A'} (${jobDetails.profitProjection.profitMargin || 0}% margin - ${jobDetails.profitProjection.profitRating || 'Good'})</td>
+                  </tr>` : ''}
+                </table>
+              </div>
+              ` : ''}
               
               <h2 style="color: #7c3aed; margin-top: 30px;">Customer Contact</h2>
               <table style="width: 100%; border-collapse: collapse;">

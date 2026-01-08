@@ -86,6 +86,34 @@ export default function WorkHubCustomerPortal() {
     complexity: string;
     complexityReason: string;
     workType: string;
+    equipmentNeeded?: string[];
+    crewSize?: number;
+    crewBreakdown?: {
+      climbers: number;
+      bucketTruckOperator: number;
+      craneOperator: number;
+      groundWorkers: number;
+    };
+    debrisInfo?: {
+      volumeCuYd: number;
+      needsDumpTrailer: boolean;
+      needsDebrisHauler: boolean;
+      estimatedLoads: number;
+      disposalMethod: string;
+    };
+    estimatedHours?: number;
+    contractorCosts?: {
+      laborCost: number;
+      equipmentCost: number;
+      debrisDisposalCost: number;
+      overheadPercent: number;
+      totalCost: number;
+    };
+    profitProjection?: {
+      projectedProfit: number;
+      profitMargin: number;
+      profitRating: string;
+    };
   } | null>(null);
   const [afterPreviewUrl, setAfterPreviewUrl] = useState<string | null>(null);
   const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
@@ -346,6 +374,22 @@ export default function WorkHubCustomerPortal() {
         const width = data.measurements?.widthFt || 20;
         const weight = data.measurements?.estimatedWeightLb || 4500;
         
+        // Enhanced equipment and crew requirements from API
+        const equipmentNeeded = data.jobRequirements?.equipmentNeeded || data.measurements?.equipmentNeeded;
+        const crewRequirements = data.jobRequirements?.crewRequirements || data.measurements?.crewRequirements;
+        const debrisHandling = data.jobRequirements?.debrisHandling || data.measurements?.debrisHandling;
+        const estimatedDuration = data.jobRequirements?.estimatedDuration || data.measurements?.estimatedDuration;
+        const contractorFinancials = data.contractorFinancials;
+        
+        // Build equipment list for display
+        const equipmentList: string[] = [];
+        if (equipmentNeeded?.crane) equipmentList.push('Crane');
+        if (equipmentNeeded?.bucketTruck) equipmentList.push('Bucket Truck');
+        if (equipmentNeeded?.climber) equipmentList.push('Climber');
+        if (equipmentNeeded?.chainsaw) equipmentList.push('Chainsaw');
+        if (equipmentNeeded?.chipper) equipmentList.push('Chipper');
+        if (equipmentNeeded?.stumpGrinder) equipmentList.push('Stump Grinder');
+        
         jobInfo = {
           ...jobInfo,
           itemType: treeType,
@@ -358,14 +402,52 @@ export default function WorkHubCustomerPortal() {
             ? 'Large tree requiring heavy equipment or close to structures'
             : complexityLevel === 'Medium' || complexityLevel === 'moderate'
             ? 'Standard removal with moderate accessibility'
-            : 'Straightforward removal with easy access'
+            : 'Straightforward removal with easy access',
+          // Enhanced tree job details
+          equipmentNeeded: equipmentList,
+          crewSize: crewRequirements?.totalCrew || 2,
+          crewBreakdown: crewRequirements ? {
+            climbers: crewRequirements.climbers || 0,
+            bucketTruckOperator: crewRequirements.bucketTruckOperator || 0,
+            craneOperator: crewRequirements.craneOperator || 0,
+            groundWorkers: crewRequirements.groundWorkers || 2
+          } : null,
+          debrisInfo: debrisHandling ? {
+            volumeCuYd: debrisHandling.estimatedVolumeCuYd || 0,
+            needsDumpTrailer: debrisHandling.needsDumpTrailer || false,
+            needsDebrisHauler: debrisHandling.needsDebrisHauler || false,
+            estimatedLoads: debrisHandling.estimatedLoads || 1,
+            disposalMethod: debrisHandling.disposalMethod || 'Standard dump trailer'
+          } : null,
+          estimatedHours: estimatedDuration?.hours || 4,
+          // Contractor financials for contractor view
+          contractorCosts: contractorFinancials?.contractorCosts || null,
+          profitProjection: contractorFinancials?.profitProjection || null
         };
         
-        speakGuidance(
-          `I've analyzed your photo. This appears to be ${treeType}, approximately ${height} feet tall and ${width} feet wide, with an estimated weight of about ${weight.toLocaleString()} pounds. ` +
-          `Based on the size and complexity, I estimate this job would cost between $${minPrice.toLocaleString()} and $${maxPrice.toLocaleString()}. ` +
-          `This is a ${complexityLevel.toLowerCase()} complexity job. Does this fit your budget?`
-        );
+        // Build voice guidance with equipment details
+        let voiceMessage = `I've analyzed your photo. This appears to be ${treeType}, approximately ${height} feet tall and ${width} feet wide, with an estimated weight of about ${weight.toLocaleString()} pounds. `;
+        
+        if (equipmentNeeded?.crane) {
+          voiceMessage += `This job will require a crane due to the tree's size. `;
+        } else if (equipmentNeeded?.bucketTruck) {
+          voiceMessage += `This job will need a bucket truck for safe access. `;
+        } else if (equipmentNeeded?.climber) {
+          voiceMessage += `A professional climber will handle this removal. `;
+        }
+        
+        if (crewRequirements?.totalCrew) {
+          voiceMessage += `We estimate ${crewRequirements.totalCrew} crew members will be needed. `;
+        }
+        
+        if (debrisHandling?.estimatedLoads > 1) {
+          voiceMessage += `Debris removal will require ${debrisHandling.estimatedLoads} loads to haul away. `;
+        }
+        
+        voiceMessage += `Based on the size and complexity, I estimate this job would cost between $${minPrice.toLocaleString()} and $${maxPrice.toLocaleString()}. `;
+        voiceMessage += `This is a ${complexityLevel.toLowerCase()} complexity job. Does this fit your budget?`;
+        
+        speakGuidance(voiceMessage);
       } else if (detectedCategory === 'roofing') {
         const sqFt = data.measurements?.squareFt || data.measurements?.areaSqFt || 1500;
         const roofType = data.analysis?.roofType || data.analysis?.material || 'Shingle Roof';
@@ -2111,6 +2193,22 @@ JOB DETAILS:
 - ${jobDetails.primaryMeasurement || 'Scope'}: ${jobDetails.primaryValue || 'TBD'}
 ${jobDetails.secondaryMeasurement ? `- ${jobDetails.secondaryMeasurement}: ${jobDetails.secondaryValue}` : ''}
 - Complexity reason: ${jobDetails.complexityReason || 'Standard job'}
+${jobDetails.equipmentNeeded ? `
+EQUIPMENT NEEDED:
+${jobDetails.equipmentNeeded.join(', ')}` : ''}
+${jobDetails.crewSize ? `
+CREW REQUIREMENTS:
+- Total crew: ${jobDetails.crewSize} workers
+${jobDetails.crewBreakdown ? `- Climbers: ${jobDetails.crewBreakdown.climbers}
+- Ground workers: ${jobDetails.crewBreakdown.groundWorkers}
+${jobDetails.crewBreakdown.craneOperator ? `- Crane operator: ${jobDetails.crewBreakdown.craneOperator}` : ''}
+${jobDetails.crewBreakdown.bucketTruckOperator ? `- Bucket truck operator: ${jobDetails.crewBreakdown.bucketTruckOperator}` : ''}` : ''}` : ''}
+${jobDetails.debrisInfo ? `
+DEBRIS HANDLING:
+- Estimated volume: ${jobDetails.debrisInfo.volumeCuYd} cubic yards
+- Disposal method: ${jobDetails.debrisInfo.disposalMethod}
+- Number of loads: ${jobDetails.debrisInfo.estimatedLoads}` : ''}
+${jobDetails.estimatedHours ? `- Estimated duration: ${jobDetails.estimatedHours} hours` : ''}
 ` : ''}
 
 WHAT YOU CAN HELP WITH:
