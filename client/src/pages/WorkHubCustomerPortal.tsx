@@ -465,8 +465,8 @@ export default function WorkHubCustomerPortal() {
         identifiedIssues: issuesList,
         recommendedTrades: data.analysis?.recommendations || [],
         estimatedPriceRange: { 
-          min: data.analysis?.priceEstimate?.min || 500, 
-          max: data.analysis?.priceEstimate?.max || 2000 
+          min: data.analysis?.priceEstimate?.min || 3500, 
+          max: data.analysis?.priceEstimate?.max || 5800 
         },
         complexity: data.analysis?.complexity || data.analysis?.severity || 'minimal',
         timeEstimate: data.analysis?.timeEstimate || data.analysis?.urgency || 'routine',
@@ -843,7 +843,7 @@ export default function WorkHubCustomerPortal() {
         detectedCategory: detectedCategory,
         identifiedIssues: ['Photo uploaded - professional inspection recommended'],
         recommendedTrades: [SERVICE_CATEGORIES.find(c => c.id === request.category)?.name || 'General Contractor'],
-        estimatedPriceRange: { min: 500, max: 2500 },
+        estimatedPriceRange: { min: 3500, max: 5800 },
         complexity: 'Medium',
         timeEstimate: '1-3 days',
         aiConfidence: 70,
@@ -862,7 +862,7 @@ export default function WorkHubCustomerPortal() {
       };
       setJobDetails(fallbackJobDetails);
       
-      speakGuidance("I've received your photos. Based on your project type, I estimate this would cost between $500 and $2,500. Keep in mind, this is just an estimate based on the photos. A contractor will need to visit in person to give you an accurate quote. Prices can vary based on what they find on-site. Does this initial estimate fit your budget?");
+      speakGuidance("I've received your photos. Based on your project type, I estimate this would cost between $3,500 and $5,800. Keep in mind, this is just an estimate based on the photos. A contractor will need to visit in person to give you an accurate quote. Prices can vary based on what they find on-site. Does this initial estimate fit your budget?");
     } finally {
       setIsAnalyzing(false);
     }

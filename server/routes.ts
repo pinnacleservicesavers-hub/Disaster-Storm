@@ -20027,32 +20027,50 @@ What specific area or type of incident would you like me to focus on? I can prov
       // Calculate final price estimate based on detected trade
       let priceEstimate: any;
       
+      // Helper function to convert breakdown object values from cents to dollars
+      const convertBreakdownToDollars = (breakdown: Record<string, any>): Record<string, any> => {
+        const converted: Record<string, any> = {};
+        for (const key of Object.keys(breakdown)) {
+          const val = breakdown[key];
+          if (typeof val === 'number') {
+            converted[key] = Math.round(val / 100);
+          } else if (val && typeof val === 'object' && !Array.isArray(val)) {
+            converted[key] = convertBreakdownToDollars(val);
+          } else {
+            converted[key] = val;
+          }
+        }
+        return converted;
+      };
+      
+      // All pricing engines return values in CENTS - convert to DOLLARS by dividing by 100
+      // Target range for typical home projects: $3,500 - $5,800
       if ((detectedTrade === 'tree_removal' || detectedTrade === 'tree') && treePricingResult) {
         priceEstimate = {
-          min: Math.round(treePricingResult.totalMin * regionInfo.multiplier),
-          max: Math.round(treePricingResult.totalMax * regionInfo.multiplier),
+          min: Math.round((treePricingResult.totalMin / 100) * regionInfo.multiplier),
+          max: Math.round((treePricingResult.totalMax / 100) * regionInfo.multiplier),
           currency: 'USD',
           regionalAdjustment: regionInfo.tier,
           location: location || 'National average',
-          breakdown: treePricingResult.breakdown,
+          breakdown: convertBreakdownToDollars(treePricingResult.breakdown),
           warnings: treePricingResult.warnings,
         };
       } else if ((detectedTrade === 'roofing' || detectedTrade === 'roof') && roofingPricingResult) {
         priceEstimate = {
-          min: Math.round(roofingPricingResult.totalMin * regionInfo.multiplier),
-          max: Math.round(roofingPricingResult.totalMax * regionInfo.multiplier),
+          min: Math.round((roofingPricingResult.totalMin / 100) * regionInfo.multiplier),
+          max: Math.round((roofingPricingResult.totalMax / 100) * regionInfo.multiplier),
           currency: 'USD',
           regionalAdjustment: regionInfo.tier,
           location: location || 'National average',
-          breakdown: roofingPricingResult.breakdown,
+          breakdown: convertBreakdownToDollars(roofingPricingResult.breakdown),
           warnings: roofingPricingResult.warnings,
           roofingSquares: roofingPricingResult.roofingSquares,
           materialGrade: roofingPricingResult.materialGrade,
         };
       } else if ((detectedTrade === 'auto' || detectedTrade === 'auto_repair' || detectedTrade === 'automotive') && autoRepairPricingResult) {
         priceEstimate = {
-          min: Math.round(autoRepairPricingResult.grandTotalMin * regionInfo.multiplier),
-          max: Math.round(autoRepairPricingResult.grandTotalMax * regionInfo.multiplier),
+          min: Math.round((autoRepairPricingResult.grandTotalMin / 100) * regionInfo.multiplier),
+          max: Math.round((autoRepairPricingResult.grandTotalMax / 100) * regionInfo.multiplier),
           currency: 'USD',
           regionalAdjustment: regionInfo.tier,
           location: location || 'National average',
@@ -20062,8 +20080,8 @@ What specific area or type of incident would you like me to focus on? I can prov
         };
       } else if ((detectedTrade === 'flooring' || detectedTrade === 'floor') && flooringPricingResult) {
         priceEstimate = {
-          min: Math.round(flooringPricingResult.grandTotalMin * regionInfo.multiplier),
-          max: Math.round(flooringPricingResult.grandTotalMax * regionInfo.multiplier),
+          min: Math.round((flooringPricingResult.grandTotalMin / 100) * regionInfo.multiplier),
+          max: Math.round((flooringPricingResult.grandTotalMax / 100) * regionInfo.multiplier),
           currency: 'USD',
           regionalAdjustment: regionInfo.tier,
           location: location || 'National average',
@@ -20072,9 +20090,16 @@ What specific area or type of incident would you like me to focus on? I can prov
           warnings: flooringPricingResult.warnings,
         };
       } else {
+        // Fallback: AI damageAssessment.estimatedCost is already in dollars, apply multipliers
+        // Default to $3,500-$5,800 if AI returns no estimate
+        const baseMin = analysis.damageAssessment.estimatedCost.min || 3500;
+        const baseMax = analysis.damageAssessment.estimatedCost.max || 5800;
+        const adjustedMin = Math.round(baseMin * regionInfo.multiplier * hazardMultiplier);
+        const adjustedMax = Math.round(baseMax * regionInfo.multiplier * hazardMultiplier);
+        // Clamp to reasonable residential range: min $3,500, max $25,000
         priceEstimate = {
-          min: Math.round(analysis.damageAssessment.estimatedCost.min * regionInfo.multiplier * hazardMultiplier),
-          max: Math.round(analysis.damageAssessment.estimatedCost.max * regionInfo.multiplier * hazardMultiplier),
+          min: Math.max(3500, Math.min(25000, adjustedMin)),
+          max: Math.max(3500, Math.min(25000, adjustedMax)),
           currency: 'USD',
           regionalAdjustment: regionInfo.tier,
           location: location || 'National average'
@@ -20101,19 +20126,19 @@ What specific area or type of incident would you like me to focus on? I can prov
           tags: analysis.autoTags,
           confidence: analysis.confidence,
           treeDetails: analysis.treeAnalysis,
-          // Professional tree pricing details
+          // Professional tree pricing details (converted to dollars)
           treePricing: treePricingResult ? {
             riskLevel: treePricingResult.riskLevel,
             crewInfo: treePricingResult.crewInfo,
-            breakdown: treePricingResult.breakdown,
+            breakdown: convertBreakdownToDollars(treePricingResult.breakdown),
             warnings: treePricingResult.warnings,
           } : null,
-          // Professional roofing pricing details
+          // Professional roofing pricing details (converted to dollars)
           roofingPricing: roofingPricingResult ? {
             roofingSquares: roofingPricingResult.roofingSquares,
             materialGrade: roofingPricingResult.materialGrade,
             crewInfo: roofingPricingResult.crewInfo,
-            breakdown: roofingPricingResult.breakdown,
+            breakdown: convertBreakdownToDollars(roofingPricingResult.breakdown),
             warnings: roofingPricingResult.warnings,
           } : null,
           // Professional auto repair pricing details
