@@ -17089,7 +17089,37 @@ Photos attached via email. Reply to claim this job!`;
         return res.status(400).json({ error: 'Work type, customer name, and email are required' });
       }
 
-      console.log('🎯 Enhanced contractor matching request:', { workType, desiredQuoteCount, estimateDateFrom, estimateDateTo });
+      // Validate required scheduling fields
+      if (!estimateDateFrom || !estimateDateTo) {
+        return res.status(400).json({ error: 'Estimate date range (from and to dates) is required' });
+      }
+
+      // Validate date formats
+      const fromDate = new Date(estimateDateFrom);
+      const toDate = new Date(estimateDateTo);
+      if (isNaN(fromDate.getTime()) || isNaN(toDate.getTime())) {
+        return res.status(400).json({ error: 'Invalid date format. Please provide valid dates.' });
+      }
+
+      // Validate job completion date if provided
+      let completionDate: Date | null = null;
+      if (jobCompletionDate) {
+        completionDate = new Date(jobCompletionDate);
+        if (isNaN(completionDate.getTime())) {
+          return res.status(400).json({ error: 'Invalid job completion date format' });
+        }
+      }
+
+      // Validate time preference
+      const validTimePreferences = ['morning', 'afternoon', 'evening', 'any'];
+      const safeTimePreference = validTimePreferences.includes(estimateTimePreference) 
+        ? estimateTimePreference 
+        : 'any';
+
+      // Validate and bound quote count
+      const safeQuoteCount = Math.min(Math.max(parseInt(desiredQuoteCount) || 1, 1), 5);
+
+      console.log('🎯 Enhanced contractor matching request:', { workType, safeQuoteCount, estimateDateFrom, estimateDateTo });
 
       // Match contractors based on trade, budget, and availability
       let matchedContractors = WORKHUB_CONTRACTORS
@@ -17107,14 +17137,14 @@ Photos attached via email. Reply to claim this job!`;
           if (b.availabilityStatus === 'ready' && a.availabilityStatus !== 'ready') return 1;
           return b.rating - a.rating;
         })
-        .slice(0, desiredQuoteCount || 3);
+        .slice(0, safeQuoteCount);
 
       // If not enough matches, expand search
-      if (matchedContractors.length < (desiredQuoteCount || 1)) {
+      if (matchedContractors.length < safeQuoteCount) {
         const additionalContractors = WORKHUB_CONTRACTORS
           .filter(c => !matchedContractors.find(mc => mc.id === c.id))
           .sort((a, b) => b.rating - a.rating)
-          .slice(0, (desiredQuoteCount || 3) - matchedContractors.length);
+          .slice(0, safeQuoteCount - matchedContractors.length);
         matchedContractors = [...matchedContractors, ...additionalContractors];
       }
 
@@ -17154,16 +17184,39 @@ Photos attached via email. Reply to claim this job!`;
         const { sendSms } = await import('./services/twilio.js');
         const { sendClaimPacket } = await import('./services/sendgrid.js');
         
-        // Contractor contact info - in production this would come from database based on matchedContractors
-        const CONTRACTOR_CONTACTS = [
+        // Build contractor notification list from matched contractors
+        // Fall back to static contacts only for contractors missing contact info
+        const FALLBACK_CONTACTS = [
           { name: 'John Culpepper', phone: '+17066044820', email: 'john@disasterdirect.com' },
           { name: 'Shannon Wise', phone: '+17068408949', email: 'shannon@disasterdirect.com' }
         ];
+        
+        // Build notification list with per-contractor fallback
+        let contractorsToNotify: Array<{ name: string; phone: string; email: string }> = [];
+        
+        if (matchedContractors.length > 0) {
+          contractorsToNotify = matchedContractors.slice(0, safeQuoteCount).map((c, idx) => ({
+            name: c.name || FALLBACK_CONTACTS[idx % FALLBACK_CONTACTS.length]?.name || 'Contractor',
+            phone: c.phone || FALLBACK_CONTACTS[idx % FALLBACK_CONTACTS.length]?.phone || FALLBACK_CONTACTS[0].phone,
+            email: c.email || FALLBACK_CONTACTS[idx % FALLBACK_CONTACTS.length]?.email || FALLBACK_CONTACTS[0].email
+          }));
+        }
+        
+        // If no matched contractors at all, use fallback
+        if (contractorsToNotify.length === 0) {
+          contractorsToNotify = FALLBACK_CONTACTS.slice(0, safeQuoteCount);
+        }
 
-        // Format dates for display
-        const formatDate = (dateStr: string) => {
-          if (!dateStr) return 'Not specified';
-          return new Date(dateStr).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+        // Safe date formatting with validation (dates already validated above)
+        const formatDate = (dateStr: string | undefined | null): string => {
+          if (!dateStr) return 'Flexible';
+          try {
+            const date = new Date(dateStr);
+            if (isNaN(date.getTime())) return 'Flexible';
+            return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+          } catch {
+            return 'Flexible';
+          }
         };
 
         const timePreferenceLabels: Record<string, string> = {
@@ -17181,15 +17234,20 @@ Photos attached via email. Reply to claim this job!`;
           ? `\n💵 Customer Budget: $${customerBudget.min?.toLocaleString()} - $${customerBudget.max?.toLocaleString()}`
           : '';
 
+        // Pre-format all dates for consistent use
+        const formattedFromDate = formatDate(estimateDateFrom);
+        const formattedToDate = formatDate(estimateDateTo);
+        const formattedCompletionDate = completionDate ? formatDate(jobCompletionDate) : 'Flexible';
+
         const smsMessage = `🏠 NEW SCHEDULED LEAD #${submission.id}
 📋 ${workType.toUpperCase()}
 💰 AI Quote: ${priceRange}${customerBudgetInfo}
 
 📅 ESTIMATE VISIT:
-   ${formatDate(estimateDateFrom)} - ${formatDate(estimateDateTo)}
-   ${timePreferenceLabels[estimateTimePreference] || estimateTimePreference}
+   ${formattedFromDate} - ${formattedToDate}
+   ${timePreferenceLabels[safeTimePreference] || safeTimePreference}
 
-🎯 Job Complete By: ${formatDate(jobCompletionDate)}
+🎯 Job Complete By: ${formattedCompletionDate}
 
 👤 ${customerName}
 📍 ${address || 'No address'}${city ? `, ${city}` : ''}${state ? `, ${state}` : ''} ${zip || ''}
@@ -17210,19 +17268,19 @@ Customer is on schedule - NO spam calls needed!`;
                 <table style="width: 100%;">
                   <tr>
                     <td style="padding: 5px 0;"><strong>Estimate Visit:</strong></td>
-                    <td>${formatDate(estimateDateFrom)} - ${formatDate(estimateDateTo)}</td>
+                    <td>${formattedFromDate} - ${formattedToDate}</td>
                   </tr>
                   <tr>
                     <td style="padding: 5px 0;"><strong>Preferred Time:</strong></td>
-                    <td>${timePreferenceLabels[estimateTimePreference] || estimateTimePreference}</td>
+                    <td>${timePreferenceLabels[safeTimePreference] || safeTimePreference}</td>
                   </tr>
                   <tr>
                     <td style="padding: 5px 0;"><strong>Complete By:</strong></td>
-                    <td style="font-weight: bold; color: #d97706;">${formatDate(jobCompletionDate)}</td>
+                    <td style="font-weight: bold; color: #d97706;">${formattedCompletionDate}</td>
                   </tr>
                   <tr>
                     <td style="padding: 5px 0;"><strong>Estimates Requested:</strong></td>
-                    <td>${desiredQuoteCount || 1} contractor${(desiredQuoteCount || 1) > 1 ? 's' : ''}</td>
+                    <td>${safeQuoteCount} contractor${safeQuoteCount > 1 ? 's' : ''}</td>
                   </tr>
                 </table>
               </div>
@@ -17291,9 +17349,7 @@ Customer is on schedule - NO spam calls needed!`;
         const notificationResults: string[] = [];
         let successCount = 0;
         
-        // Send to matched contractors (limit to desiredQuoteCount)
-        const contractorsToNotify = CONTRACTOR_CONTACTS.slice(0, desiredQuoteCount || 3);
-        
+        // contractorsToNotify was already defined above using matched contractors or fallback
         for (const contractor of contractorsToNotify) {
           try {
             await sendSms({ to: contractor.phone, message: smsMessage });
@@ -17335,6 +17391,10 @@ Customer is on schedule - NO spam calls needed!`;
         console.error('⚠️ Contractor notification error:', notifyError);
       }
 
+      // Safe date formatting for response (dates were validated above)
+      const safeFromDate = fromDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      const safeToDate = toDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
       res.json({
         ok: true,
         submission,
@@ -17351,7 +17411,7 @@ Customer is on schedule - NO spam calls needed!`;
           desiredQuoteCount,
           jobCompletionDate
         },
-        message: `Perfect! ${desiredQuoteCount || 1} contractor${(desiredQuoteCount || 1) > 1 ? 's' : ''} will come to give you an estimate between ${new Date(estimateDateFrom).toLocaleDateString()} and ${new Date(estimateDateTo).toLocaleDateString()}.`
+        message: `Perfect! ${safeQuoteCount} contractor${safeQuoteCount > 1 ? 's' : ''} will come to give you an estimate between ${safeFromDate} and ${safeToDate}.`
       });
 
     } catch (error) {
