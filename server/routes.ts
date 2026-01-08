@@ -3267,68 +3267,221 @@ Include 3-4 phases, 3-5 tasks per phase, 2-3 SOPs, 3 risks, and 4 KPIs. Be speci
     }
   });
 
-  // Search for leads (AI-powered lead discovery)
+  // Google Places API helper functions
+  const GOOGLE_PLACES_API_KEY = process.env.GOOGLE_PLACES_API_KEY;
+  
+  // Tree service contract targets - businesses that need tree services
+  const TREE_SERVICE_TARGETS = [
+    "property management company",
+    "apartment complex",
+    "homeowners association",
+    "shopping center",
+    "commercial property",
+    "real estate agency",
+    "construction company",
+    "general contractor",
+    "restoration company",
+    "insurance agency",
+    "city hall",
+    "public works department",
+    "hotel",
+    "church",
+    "school",
+    "hospital"
+  ];
+  
+  // Trade-specific targets
+  const TRADE_TARGETS: Record<string, string[]> = {
+    tree_service: TREE_SERVICE_TARGETS,
+    roofing: ["property management", "apartment complex", "commercial building", "real estate", "homeowners association", "construction company", "insurance agency"],
+    pressure_washing: ["restaurant", "gas station", "shopping center", "apartment complex", "hotel", "car dealership", "medical office"],
+    flooring: ["property management", "apartment complex", "real estate agency", "construction company", "commercial office", "hotel"],
+    hvac: ["property management", "apartment complex", "commercial building", "restaurant", "medical office", "hotel", "school"],
+    general: ["property management", "construction company", "real estate agency", "commercial building"]
+  };
+  
+  async function geocodeLocation(location: string): Promise<{ lat: number; lng: number }> {
+    if (!GOOGLE_PLACES_API_KEY) throw new Error('Google Places API key not configured');
+    
+    const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(location)}&key=${GOOGLE_PLACES_API_KEY}`;
+    const response = await fetch(url);
+    const data = await response.json() as any;
+    
+    if (!data.results?.length) throw new Error('Location not found');
+    return data.results[0].geometry.location;
+  }
+  
+  async function placesTextSearch(query: string, lat: number, lng: number, radiusMeters: number): Promise<any[]> {
+    if (!GOOGLE_PLACES_API_KEY) return [];
+    
+    const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&location=${lat},${lng}&radius=${radiusMeters}&key=${GOOGLE_PLACES_API_KEY}`;
+    const response = await fetch(url);
+    const data = await response.json() as any;
+    return data.results || [];
+  }
+  
+  async function getPlaceDetails(placeId: string): Promise<{ phone: string | null; website: string | null; hours: string[] | null }> {
+    if (!GOOGLE_PLACES_API_KEY) return { phone: null, website: null, hours: null };
+    
+    const fields = ['formatted_phone_number', 'website', 'opening_hours', 'name'].join(',');
+    const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=${fields}&key=${GOOGLE_PLACES_API_KEY}`;
+    
+    const response = await fetch(url);
+    const data = await response.json() as any;
+    const result = data.result || {};
+    
+    return {
+      phone: result.formatted_phone_number || null,
+      website: result.website || null,
+      hours: result.opening_hours?.weekday_text || null
+    };
+  }
+  
+  // Score a lead based on signals
+  function scoreLead(lead: any, tradeType: string): { score: number; scoreLabel: string; signalTags: string[]; competitionLevel: string } {
+    let score = 0;
+    const tags: string[] = [];
+    
+    // Scoring signals
+    if (!lead.website) { score += 15; tags.push('no_website'); }
+    if (!lead.phone) { score += 10; tags.push('no_phone'); }
+    if (lead.rating && parseFloat(lead.rating) < 4.0) { score += 10; tags.push('low_rating'); }
+    if (lead.reviewCount && parseInt(lead.reviewCount) > 50) { score += 7; tags.push('high_volume'); }
+    if (lead.reviewCount && parseInt(lead.reviewCount) < 10) { score += 12; tags.push('new_business'); }
+    
+    // Trade-specific boosts
+    const category = (lead.category || '').toLowerCase();
+    if (tradeType === 'tree_service' && (category.includes('property') || category.includes('apartment'))) score += 10;
+    if (tradeType === 'roofing' && (category.includes('property') || category.includes('construction'))) score += 10;
+    if (tradeType === 'pressure_washing' && (category.includes('restaurant') || category.includes('gas'))) score += 10;
+    
+    // Competition detection based on review count
+    let competitionLevel = 'medium';
+    if (lead.reviewCount && parseInt(lead.reviewCount) > 100) competitionLevel = 'high';
+    else if (!lead.reviewCount || parseInt(lead.reviewCount) < 20) competitionLevel = 'low';
+    
+    let scoreLabel = 'cold';
+    if (score >= 35) scoreLabel = 'hot';
+    else if (score >= 20) scoreLabel = 'warm';
+    
+    return { score, scoreLabel, signalTags: tags, competitionLevel };
+  }
+
+  // Search for leads (AI-powered lead discovery with Google Places)
   app.post('/api/leadvault/search', authenticate, requireContractor, express.json(), async (req: AuthenticatedRequest, res) => {
     try {
       const contractorId = req.user?.id || 'demo';
-      const { location, radius = 25, tradeType, category, signals } = req.body;
+      const { location, radius = 25, tradeType = 'tree_service', category, useGooglePlaces = true } = req.body;
 
-      // Search in contractor_vault for matching leads
-      let query = sql`
-        SELECT * FROM contractor_vault 
-        WHERE status = 'active'
-      `;
+      let allLeads: any[] = [];
       
-      if (location) {
-        query = sql`${query} AND (city ILIKE ${`%${location}%`} OR state ILIKE ${`%${location}%`} OR market ILIKE ${`%${location}%`})`;
+      // Try Google Places API first if enabled and key is available
+      if (useGooglePlaces && GOOGLE_PLACES_API_KEY && location) {
+        try {
+          const radiusMeters = Math.min(Math.floor(radius * 1609.34), 50000); // Convert miles to meters, cap at 50km
+          const { lat, lng } = await geocodeLocation(location);
+          
+          // Get targets for this trade type
+          const targets = TRADE_TARGETS[tradeType] || TRADE_TARGETS.general;
+          
+          // Search for each target type
+          for (const keyword of targets.slice(0, 8)) { // Limit to 8 keywords to control API costs
+            const query = `${keyword} near ${location}`;
+            const results = await placesTextSearch(query, lat, lng, radiusMeters);
+            
+            const leads = results.map((r: any) => ({
+              external_id: r.place_id,
+              business_name: r.name,
+              category: r.types?.[0] || keyword,
+              phone: null,
+              website: null,
+              address: r.formatted_address || r.vicinity || '',
+              city: location.split(',')[0]?.trim() || '',
+              state: location.split(',')[1]?.trim() || '',
+              rating: r.rating || null,
+              reviewCount: r.user_ratings_total || 0,
+              lat: r.geometry?.location?.lat,
+              lng: r.geometry?.location?.lng,
+              source: 'google_places'
+            }));
+            
+            allLeads.push(...leads);
+          }
+          
+          // Remove duplicates by external_id
+          const seen = new Set();
+          allLeads = allLeads.filter((l: any) => {
+            if (seen.has(l.external_id)) return false;
+            seen.add(l.external_id);
+            return true;
+          });
+          
+          // Enrich first 12 leads with phone/website details (to control API costs)
+          for (let i = 0; i < Math.min(12, allLeads.length); i++) {
+            try {
+              const details = await getPlaceDetails(allLeads[i].external_id);
+              allLeads[i].phone = details.phone;
+              allLeads[i].website = details.website;
+            } catch (err) {
+              // Skip enrichment on error
+            }
+          }
+          
+          console.log(`📍 Google Places returned ${allLeads.length} leads for "${location}"`);
+        } catch (googleError) {
+          console.error('Google Places API error, falling back to local data:', googleError);
+          allLeads = []; // Reset to trigger fallback
+        }
       }
-      if (category) {
-        query = sql`${query} AND category ILIKE ${`%${category}%`}`;
+      
+      // Fallback to local contractor_vault if Google Places fails or returns no results
+      if (allLeads.length === 0) {
+        let query = sql`
+          SELECT * FROM contractor_vault 
+          WHERE status = 'active'
+        `;
+        
+        if (location) {
+          query = sql`${query} AND (city ILIKE ${`%${location}%`} OR state ILIKE ${`%${location}%`} OR market ILIKE ${`%${location}%`})`;
+        }
+        if (category) {
+          query = sql`${query} AND category ILIKE ${`%${category}%`}`;
+        }
+        
+        query = sql`${query} ORDER BY business_name LIMIT 50`;
+        
+        const localResults = await db.execute(query);
+        allLeads = localResults.rows.map((lead: any) => ({
+          ...lead,
+          reviewCount: lead.review_count,
+          source: 'local_vault'
+        }));
+        
+        console.log(`📍 Local vault returned ${allLeads.length} leads`);
       }
-      
-      query = sql`${query} ORDER BY business_name LIMIT 50`;
-      
-      const rawLeads = await db.execute(query);
       
       // Score each lead
-      const scoredLeads = rawLeads.rows.map((lead: any) => {
-        let score = 0;
-        const tags: string[] = [];
-        
-        // Scoring signals
-        if (!lead.website) { score += 15; tags.push('no_website'); }
-        if (!lead.email) { score += 10; tags.push('no_email'); }
-        if (lead.rating && parseFloat(lead.rating) < 4.0) { score += 10; tags.push('low_rating'); }
-        if (lead.review_count && parseInt(lead.review_count) > 50) { score += 7; tags.push('high_volume'); }
-        if (!lead.insurance_verified) { score += 5; tags.push('not_verified'); }
-        
-        // Trade-specific boosts
-        if (tradeType === 'tree_service' && lead.category?.includes('tree')) score += 8;
-        if (tradeType === 'roofing' && lead.category?.includes('roof')) score += 8;
-        if (tradeType === 'pressure_washing' && lead.category?.includes('restaurant')) score += 8;
-        
-        // Competition detection based on review count
-        let competitionLevel = 'medium';
-        if (lead.review_count && parseInt(lead.review_count) > 100) competitionLevel = 'high';
-        else if (!lead.review_count || parseInt(lead.review_count) < 20) competitionLevel = 'low';
-        
-        let scoreLabel = 'cold';
-        if (score >= 35) scoreLabel = 'hot';
-        else if (score >= 20) scoreLabel = 'warm';
-        
+      const scoredLeads = allLeads.map((lead: any) => {
+        const scoring = scoreLead(lead, tradeType);
         return {
           ...lead,
-          score,
-          score_label: scoreLabel,
-          signal_tags: tags,
-          competition_level: competitionLevel
+          score: scoring.score,
+          score_label: scoring.scoreLabel,
+          signal_tags: scoring.signalTags,
+          competition_level: scoring.competitionLevel
         };
       });
       
-      // Sort by score descending
+      // Sort by score descending and limit to 40
       scoredLeads.sort((a: any, b: any) => b.score - a.score);
+      const topLeads = scoredLeads.slice(0, 40);
       
-      res.json({ ok: true, leads: scoredLeads, total: scoredLeads.length });
+      res.json({ 
+        ok: true, 
+        leads: topLeads, 
+        total: topLeads.length,
+        source: topLeads[0]?.source || 'none'
+      });
     } catch (error) {
       console.error('LeadVault search error:', error);
       res.status(500).json({ error: 'Failed to search leads' });
