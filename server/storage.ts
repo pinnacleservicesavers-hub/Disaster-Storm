@@ -939,6 +939,14 @@ export class MemStorage implements IStorage {
         email: 'admin@stormshare.com',
         role: 'admin', 
         createdAt: new Date(),
+      },
+      {
+        id: 'admin-002',
+        username: 'Shannonwise',
+        password: 'Nineball38!',
+        email: 'strategicservicesavers@gmail.com',
+        role: 'admin', 
+        createdAt: new Date(),
       }
     ];
 
