@@ -100,43 +100,7 @@ export default function WorkHubCustomerPortal() {
   const [matchedContractors, setMatchedContractors] = useState<any[]>([]);
   const [isLoadingContractors, setIsLoadingContractors] = useState(false);
 
-  const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
-  const [speechSupported, setSpeechSupported] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === 'undefined' || !window.speechSynthesis) {
-      setSpeechSupported(false);
-      return;
-    }
-    
-    setSpeechSupported(true);
-    
-    const loadVoices = () => {
-      try {
-        const voices = window.speechSynthesis.getVoices();
-        if (voices.length > 0) {
-          setAvailableVoices(voices);
-        }
-      } catch {
-        setSpeechSupported(false);
-      }
-    };
-    
-    loadVoices();
-    
-    if (window.speechSynthesis.onvoiceschanged !== undefined) {
-      window.speechSynthesis.onvoiceschanged = loadVoices;
-    }
-    
-    const timer = setTimeout(loadVoices, 100);
-    
-    return () => {
-      clearTimeout(timer);
-      try {
-        window.speechSynthesis.cancel();
-      } catch {}
-    };
-  }, []);
+  const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     const fetchContractors = async () => {
@@ -169,65 +133,63 @@ export default function WorkHubCustomerPortal() {
     return () => clearTimeout(debounceTimer);
   }, [request.location.state, request.category]);
 
-  const getBestVoice = (): SpeechSynthesisVoice | null => {
-    if (!speechSupported) return null;
-    
+  const speakGuidance = async (text: string) => {
     try {
-      const voices = availableVoices.length > 0 ? availableVoices : window.speechSynthesis.getVoices();
-      if (voices.length === 0) return null;
-      
-      const preferredVoices = [
-        'Samantha', 'Karen', 'Moira', 'Tessa', 'Victoria', 'Fiona',
-        'Google US English', 'Google UK English Female',
-        'Microsoft Zira', 'Microsoft Jenny', 'Microsoft Aria',
-        'Nicky', 'Allison', 'Susan'
-      ];
-      
-      for (const preferred of preferredVoices) {
-        const voice = voices.find(v => v.name.includes(preferred));
-        if (voice) return voice;
+      // Stop any currently playing audio
+      if (currentAudio) {
+        currentAudio.pause();
+        currentAudio.src = '';
+        setCurrentAudio(null);
       }
       
-      let voice = voices.find(v => v.name.toLowerCase().includes('female') && v.lang.startsWith('en'));
-      if (voice) return voice;
-      
-      voice = voices.find(v => v.lang.startsWith('en-US'));
-      if (voice) return voice;
-      
-      voice = voices.find(v => v.lang.startsWith('en'));
-      return voice || voices[0];
-    } catch {
-      return null;
-    }
-  };
-
-  const speakGuidance = async (text: string) => {
-    if (!speechSupported || typeof window === 'undefined' || !window.speechSynthesis) {
-      return;
-    }
-    
-    try {
-      window.speechSynthesis.cancel();
       setIsVoiceActive(true);
       
-      const voice = getBestVoice();
-      const utterance = new SpeechSynthesisUtterance(text);
+      // Use ElevenLabs natural voice via backend API
+      const response = await fetch('/api/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text })
+      });
       
-      if (voice) {
-        utterance.voice = voice;
+      if (!response.ok) {
+        console.error('TTS request failed');
+        setIsVoiceActive(false);
+        return;
       }
       
-      utterance.pitch = 1.1;
-      utterance.rate = 1.05;
-      utterance.volume = 1.0;
+      const data = await response.json();
       
-      utterance.onend = () => setIsVoiceActive(false);
-      utterance.onerror = () => setIsVoiceActive(false);
-      
-      window.speechSynthesis.speak(utterance);
+      if (data.audioBase64) {
+        const audio = new Audio(`data:audio/mp3;base64,${data.audioBase64}`);
+        setCurrentAudio(audio);
+        
+        audio.onended = () => {
+          setIsVoiceActive(false);
+          setCurrentAudio(null);
+        };
+        
+        audio.onerror = () => {
+          setIsVoiceActive(false);
+          setCurrentAudio(null);
+        };
+        
+        await audio.play();
+      } else {
+        setIsVoiceActive(false);
+      }
     } catch (error) {
+      console.error('Voice guidance error:', error);
       setIsVoiceActive(false);
     }
+  };
+  
+  const stopVoice = () => {
+    if (currentAudio) {
+      currentAudio.pause();
+      currentAudio.src = '';
+      setCurrentAudio(null);
+    }
+    setIsVoiceActive(false);
   };
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1998,7 +1960,7 @@ export default function WorkHubCustomerPortal() {
               size="sm"
               onClick={() => {
                 isVoiceActive 
-                  ? window.speechSynthesis.cancel() 
+                  ? stopVoice() 
                   : speakGuidance("I'm Evelyn, your AI assistant. I'll guide you through submitting your project request. Let's get started!");
               }}
             >
