@@ -118,15 +118,20 @@ export class ElevenLabsVoiceService {
     }
 
     try {
-      // Optimized settings for natural, human-like speech
+      // ULTRA-NATURAL settings for human-like speech (tuned for broadcast quality)
+      // Lower stability = more expressive variation (like real humans)
+      // Higher similarity = maintains voice character
+      // Higher style = natural inflection and emotion
       const voiceSettings = {
-        stability: request.settings?.stability ?? 0.35, // Lower stability = more expressive/natural
-        similarity_boost: request.settings?.similarityBoost ?? 0.85, // High similarity to original voice
-        style: request.settings?.style ?? 0.45, // Higher style = more natural inflection
+        stability: request.settings?.stability ?? 0.30, // Lower = more natural variation/expression
+        similarity_boost: request.settings?.similarityBoost ?? 0.80, // Good balance of voice clarity
+        style: request.settings?.style ?? 0.55, // Higher = more natural emotional inflection  
         use_speaker_boost: request.settings?.useSpeakerBoost ?? true // Enhanced clarity
       };
 
-      const modelId = request.modelId || 'eleven_turbo_v2_5'; // Latest high-quality model - most natural sounding
+      // Use eleven_multilingual_v2 for most natural, emotional voice quality
+      // This is ElevenLabs' most realistic model with best prosody
+      const modelId = request.modelId || 'eleven_multilingual_v2';
 
       console.log('🎙️ Generating speech with ElevenLabs...');
 

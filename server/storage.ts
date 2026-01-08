@@ -959,25 +959,28 @@ export class MemStorage implements IStorage {
     // Debug: log all users in storage
     console.log('🔍 Users in storage after seeding:', Array.from(this.users.keys()));
 
-    // Initialize default FEMALE VOICE PROFILES (Evelyn & Lily from ElevenLabs)
+    // Initialize default FEMALE VOICE PROFILES with ULTRA-NATURAL settings
+    // Key insight: Lower stability + Higher style = More natural human-like speech
     const defaultVoiceProfiles = [
       {
         id: 'voice-rachel-default',
         name: 'Evelyn - Professional Female Voice',
         provider: 'elevenlabs',
-        providerVoiceId: '21m00Tcm4TlvDq8ikWAM',
+        providerVoiceId: '21m00Tcm4TlvDq8ikWAM', // Rachel - most natural ElevenLabs voice
         isDefault: true,
         isActive: true,
         settings: {
-          stability: 0.5,
-          similarityBoost: 0.75,
-          useSpeakerBoost: true
+          stability: 0.28,        // LOW = natural variation like real humans
+          similarityBoost: 0.78,  // Good clarity while allowing natural variation
+          style: 0.60,            // HIGH = natural emotional inflection & prosody
+          useSpeakerBoost: true   // Enhanced clarity
         },
         metadata: {
-          description: 'Professional female voice with natural delivery',
+          description: 'Ultra-natural professional female voice with emotional depth',
           language: 'en-US',
           gender: 'female',
-          voiceCharacteristics: ['professional', 'clear', 'natural', 'warm']
+          model: 'eleven_multilingual_v2', // Best model for natural speech
+          voiceCharacteristics: ['professional', 'clear', 'natural', 'warm', 'emotional']
         },
         createdBy: 'system',
         createdAt: new Date(),
@@ -987,19 +990,21 @@ export class MemStorage implements IStorage {
         id: 'voice-lily-backup',
         name: 'Lily - Natural Female Voice',
         provider: 'elevenlabs',
-        providerVoiceId: 'pNInz6obpgDQGcFmaJgB',
+        providerVoiceId: 'pNInz6obpgDQGcFmaJgB', // Lily voice
         isDefault: false,
         isActive: true,
         settings: {
-          stability: 0.5,
-          similarityBoost: 0.75,
+          stability: 0.30,        // LOW for natural variation
+          similarityBoost: 0.80,  // Maintain voice character
+          style: 0.55,            // HIGH for natural inflection
           useSpeakerBoost: true
         },
         metadata: {
-          description: 'Natural, warm female voice',
+          description: 'Natural, warm female voice with conversational tone',
           language: 'en-US',
           gender: 'female',
-          voiceCharacteristics: ['natural', 'warm', 'friendly']
+          model: 'eleven_multilingual_v2',
+          voiceCharacteristics: ['natural', 'warm', 'friendly', 'conversational']
         },
         createdBy: 'system',
         createdAt: new Date(),
