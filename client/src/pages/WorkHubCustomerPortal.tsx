@@ -69,6 +69,13 @@ export default function WorkHubCustomerPortal() {
   const [preferredDate, setPreferredDate] = useState<string>('');
   const [showContractors, setShowContractors] = useState(false);
   const [preferredTimeframe, setPreferredTimeframe] = useState<string | null>(null);
+  const [estimateDateFrom, setEstimateDateFrom] = useState<string>('');
+  const [estimateDateTo, setEstimateDateTo] = useState<string>('');
+  const [estimateTimePreference, setEstimateTimePreference] = useState<string>('any');
+  const [desiredQuoteCount, setDesiredQuoteCount] = useState<number | null>(null);
+  const [jobCompletionDate, setJobCompletionDate] = useState<string>('');
+  const [schedulingConfirmed, setSchedulingConfirmed] = useState(false);
+  const [isMatchingContractors, setIsMatchingContractors] = useState(false);
   const [jobDetails, setJobDetails] = useState<{
     itemType: string;
     primaryMeasurement: string;
@@ -892,99 +899,6 @@ export default function WorkHubCustomerPortal() {
               </CardContent>
             </Card>
 
-            {request.location.state && request.location.state.length >= 2 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Users className="w-5 h-5 text-purple-600" />
-                    Contractors in Your Area
-                    {matchedContractors.length > 0 && (
-                      <Badge variant="secondary" className="ml-2">{matchedContractors.length} Found</Badge>
-                    )}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {isLoadingContractors ? (
-                    <div className="flex items-center justify-center py-6">
-                      <Loader2 className="w-6 h-6 animate-spin text-purple-600" />
-                      <span className="ml-2 text-slate-500">Finding contractors...</span>
-                    </div>
-                  ) : matchedContractors.length > 0 ? (
-                    <div className="space-y-3">
-                      <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
-                        These contractors serve your area. Only those with active subscriptions will receive your project request.
-                      </p>
-                      <div className="grid gap-3 max-h-80 overflow-y-auto">
-                        {matchedContractors.slice(0, 10).map((contractor) => (
-                          <div 
-                            key={contractor.id} 
-                            className={`p-4 rounded-lg border ${contractor.receivesLeads ? 'border-green-300 bg-green-50/50 dark:bg-green-900/10' : 'border-slate-200 dark:border-slate-700'}`}
-                            data-testid={`contractor-card-${contractor.id}`}
-                          >
-                            <div className="flex items-start justify-between">
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2">
-                                  <h4 className="font-semibold text-slate-900 dark:text-white">{contractor.businessName}</h4>
-                                  {contractor.isVerified && (
-                                    <Badge variant="secondary" className="bg-blue-100 text-blue-700 text-xs">
-                                      <Shield className="w-3 h-3 mr-1" />
-                                      Verified
-                                    </Badge>
-                                  )}
-                                  {contractor.receivesLeads && (
-                                    <Badge className="bg-green-600 text-xs">Active</Badge>
-                                  )}
-                                </div>
-                                <p className="text-sm text-slate-600 dark:text-slate-400">{contractor.contactName}</p>
-                                <p className="text-xs text-slate-500 mt-1">
-                                  {contractor.city}, {contractor.state} • {contractor.primaryTrade.replace('_', ' ')}
-                                  {contractor.yearsExperience && ` • ${contractor.yearsExperience}+ years`}
-                                </p>
-                              </div>
-                              <div className="text-right">
-                                {contractor.overallRating && parseFloat(contractor.overallRating) > 0 && (
-                                  <div className="flex items-center gap-1 text-amber-500">
-                                    <Star className="w-4 h-4 fill-current" />
-                                    <span className="text-sm font-medium">{parseFloat(contractor.overallRating).toFixed(1)}</span>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                            <div className="mt-2 flex items-center gap-4 text-xs text-slate-600 dark:text-slate-400">
-                              <span className="flex items-center gap-1">
-                                <Phone className="w-3 h-3" />
-                                {contractor.phone}
-                              </span>
-                              <span className="flex items-center gap-1">
-                                <Mail className="w-3 h-3" />
-                                {contractor.email}
-                              </span>
-                            </div>
-                            {contractor.address && (
-                              <p className="mt-1 text-xs text-slate-500 flex items-center gap-1">
-                                <MapPin className="w-3 h-3" />
-                                {contractor.address}
-                              </p>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                      {matchedContractors.length > 10 && (
-                        <p className="text-sm text-center text-slate-500 pt-2">
-                          +{matchedContractors.length - 10} more contractors available
-                        </p>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="text-center py-6 text-slate-500">
-                      <Users className="w-10 h-10 mx-auto mb-2 opacity-50" />
-                      <p>No contractors found in {request.location.state.toUpperCase()}</p>
-                      <p className="text-sm mt-1">We're expanding our network - check back soon!</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
           </div>
         );
 
@@ -1444,8 +1358,8 @@ export default function WorkHubCustomerPortal() {
                       </div>
                     )}
                     
-                    {/* Timeframe Selection - Shows after budget confirmed OR after custom budget entered */}
-                    {((budgetConfirmed === true) || (budgetConfirmed === false && budgetReason)) && preferredTimeframe === null && (
+                    {/* Step 1: Estimate Date Range - Shows after budget confirmed */}
+                    {((budgetConfirmed === true) || (budgetConfirmed === false && budgetReason)) && !estimateDateFrom && (
                       <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -1455,83 +1369,157 @@ export default function WorkHubCustomerPortal() {
                           <CardHeader className="pb-3">
                             <CardTitle className="flex items-center gap-2 text-purple-700 dark:text-purple-400">
                               <Calendar className="w-5 h-5" />
-                              Are you ready for your work to be completed now?
+                              When would you like a contractor to come give you an estimate?
                             </CardTitle>
+                            <p className="text-sm text-slate-600 dark:text-slate-400">
+                              Select a date range that works for you
+                            </p>
                           </CardHeader>
                           <CardContent className="space-y-4">
                             <div className="grid grid-cols-2 gap-4">
-                              <motion.button
-                                whileHover={{ scale: 1.02 }}
-                                whileTap={{ scale: 0.98 }}
-                                onClick={() => handleTimeframeSelect('ready_now')}
-                                className="p-6 rounded-xl border-2 border-green-300 hover:border-green-500 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 text-center transition-all hover:shadow-lg"
-                                data-testid="timeframe-ready-now"
-                              >
-                                <CheckCircle className="w-10 h-10 mx-auto mb-3 text-green-600" />
-                                <p className="font-bold text-lg text-green-700 dark:text-green-400">Ready Now</p>
-                                <p className="text-sm text-slate-500 mt-1">Get started as soon as possible</p>
-                              </motion.button>
-                              
-                              <motion.button
-                                whileHover={{ scale: 1.02 }}
-                                whileTap={{ scale: 0.98 }}
-                                onClick={() => setPreferredTimeframe('pick_date')}
-                                className="p-6 rounded-xl border-2 border-purple-200 hover:border-purple-400 bg-white dark:bg-slate-800 text-center transition-all hover:shadow-lg"
-                                data-testid="timeframe-pick-date"
-                              >
-                                <Calendar className="w-10 h-10 mx-auto mb-3 text-purple-600" />
-                                <p className="font-bold text-lg text-purple-700 dark:text-purple-400">Pick a Date</p>
-                                <p className="text-sm text-slate-500 mt-1">Choose when you want it done</p>
-                              </motion.button>
+                              <div>
+                                <Label className="text-sm font-medium">From Date</Label>
+                                <Input
+                                  type="date"
+                                  value={estimateDateFrom}
+                                  onChange={(e) => setEstimateDateFrom(e.target.value)}
+                                  min={new Date().toISOString().split('T')[0]}
+                                  className="mt-1"
+                                  data-testid="input-estimate-date-from"
+                                />
+                              </div>
+                              <div>
+                                <Label className="text-sm font-medium">To Date</Label>
+                                <Input
+                                  type="date"
+                                  value={estimateDateTo}
+                                  onChange={(e) => setEstimateDateTo(e.target.value)}
+                                  min={estimateDateFrom || new Date().toISOString().split('T')[0]}
+                                  className="mt-1"
+                                  data-testid="input-estimate-date-to"
+                                />
+                              </div>
+                            </div>
+                            <div>
+                              <Label className="text-sm font-medium">Preferred Time of Day</Label>
+                              <div className="grid grid-cols-4 gap-2 mt-2">
+                                {[
+                                  { id: 'morning', label: 'Morning', time: '8am-12pm' },
+                                  { id: 'afternoon', label: 'Afternoon', time: '12pm-5pm' },
+                                  { id: 'evening', label: 'Evening', time: '5pm-8pm' },
+                                  { id: 'any', label: 'Any Time', time: 'Flexible' }
+                                ].map((time) => (
+                                  <button
+                                    key={time.id}
+                                    type="button"
+                                    onClick={() => setEstimateTimePreference(time.id)}
+                                    className={`p-3 rounded-lg border-2 text-center transition-all ${
+                                      estimateTimePreference === time.id
+                                        ? 'border-purple-500 bg-purple-100 dark:bg-purple-900/30'
+                                        : 'border-slate-200 hover:border-purple-300'
+                                    }`}
+                                    data-testid={`time-${time.id}`}
+                                  >
+                                    <p className="font-medium text-sm">{time.label}</p>
+                                    <p className="text-xs text-slate-500">{time.time}</p>
+                                  </button>
+                                ))}
+                              </div>
                             </div>
                           </CardContent>
                         </Card>
                       </motion.div>
                     )}
-                    
-                    {/* Date Picker - Shows when user selects "Pick a Date" */}
-                    {preferredTimeframe === 'pick_date' && !showContractors && (
+
+                    {/* Step 2: Quote Count - Shows after date range selected */}
+                    {estimateDateFrom && estimateDateTo && desiredQuoteCount === null && (
                       <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="mt-6 pt-4 border-t border-purple-200 dark:border-purple-800"
+                        className="mt-6 pt-4 border-t border-blue-200 dark:border-blue-800"
                       >
-                        <Card className="border-2 border-purple-300 bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20">
+                        <Card className="border-2 border-blue-300 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20">
                           <CardHeader className="pb-3">
-                            <CardTitle className="flex items-center gap-2 text-purple-700 dark:text-purple-400">
-                              <Calendar className="w-5 h-5" />
-                              When would you like the work completed?
+                            <CardTitle className="flex items-center gap-2 text-blue-700 dark:text-blue-400">
+                              <Users className="w-5 h-5" />
+                              How many estimates would you like?
                             </CardTitle>
+                            <p className="text-sm text-slate-600 dark:text-slate-400">
+                              We'll match you with the best-rated contractors in your area
+                            </p>
+                          </CardHeader>
+                          <CardContent className="space-y-4">
+                            <div className="grid grid-cols-3 gap-4">
+                              {[1, 2, 3].map((count) => (
+                                <motion.button
+                                  key={count}
+                                  whileHover={{ scale: 1.02 }}
+                                  whileTap={{ scale: 0.98 }}
+                                  onClick={() => {
+                                    setDesiredQuoteCount(count);
+                                    speakGuidance(`Great choice! ${count === 1 ? 'One contractor' : `${count} contractors`} will come to give you an estimate. Now, when would you like the work to be completed?`);
+                                  }}
+                                  className="p-6 rounded-xl border-2 border-blue-200 hover:border-blue-400 bg-white dark:bg-slate-800 text-center transition-all hover:shadow-lg"
+                                  data-testid={`quote-count-${count}`}
+                                >
+                                  <p className="text-4xl font-bold text-blue-600 mb-2">{count}</p>
+                                  <p className="font-medium text-slate-700 dark:text-slate-300">
+                                    {count === 1 ? 'Estimate' : 'Estimates'}
+                                  </p>
+                                </motion.button>
+                              ))}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </motion.div>
+                    )}
+
+                    {/* Step 3: Job Completion Date - Shows after quote count selected */}
+                    {desiredQuoteCount !== null && !jobCompletionDate && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="mt-6 pt-4 border-t border-amber-200 dark:border-amber-800"
+                      >
+                        <Card className="border-2 border-amber-300 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20">
+                          <CardHeader className="pb-3">
+                            <CardTitle className="flex items-center gap-2 text-amber-700 dark:text-amber-400">
+                              <Calendar className="w-5 h-5" />
+                              When would you like the work to be completed?
+                            </CardTitle>
+                            <p className="text-sm text-slate-600 dark:text-slate-400">
+                              We'll share this with contractors so they can plan accordingly
+                            </p>
                           </CardHeader>
                           <CardContent className="space-y-4">
                             <Input
                               type="date"
-                              value={preferredDate}
-                              onChange={(e) => setPreferredDate(e.target.value)}
-                              min={new Date().toISOString().split('T')[0]}
+                              value={jobCompletionDate}
+                              onChange={(e) => setJobCompletionDate(e.target.value)}
+                              min={estimateDateTo || new Date().toISOString().split('T')[0]}
                               className="text-lg p-4"
-                              data-testid="input-preferred-date"
+                              data-testid="input-job-completion-date"
                             />
                             <div className="flex justify-end gap-2">
                               <Button
                                 variant="outline"
-                                onClick={() => setPreferredTimeframe(null)}
-                                data-testid="button-date-back"
+                                onClick={() => setDesiredQuoteCount(null)}
+                                data-testid="button-completion-back"
                               >
                                 <ArrowLeft className="w-4 h-4 mr-2" />
                                 Back
                               </Button>
                               <Button
                                 onClick={() => {
-                                  setPreferredTimeframe(`date:${preferredDate}`);
-                                  setShowContractors(true);
-                                  speakGuidance(`Perfect! You've selected ${new Date(preferredDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}. A contractor will be in contact with you shortly.`);
+                                  setJobCompletionDate(jobCompletionDate);
+                                  setSchedulingConfirmed(true);
+                                  speakGuidance("Perfect! We're now matching you with contractors based on your budget, dates, and preferences. No worries about receiving tons of phone calls - we have you on the schedule. The contractor will come out to give you an estimate.");
                                 }}
-                                disabled={!preferredDate}
-                                className="bg-gradient-to-r from-purple-600 to-indigo-600"
-                                data-testid="button-confirm-date"
+                                disabled={!jobCompletionDate}
+                                className="bg-gradient-to-r from-amber-600 to-orange-600"
+                                data-testid="button-confirm-completion"
                               >
-                                Confirm Date
+                                Confirm & Find Contractors
                                 <ArrowRight className="w-4 h-4 ml-2" />
                               </Button>
                             </div>
@@ -1539,9 +1527,9 @@ export default function WorkHubCustomerPortal() {
                         </Card>
                       </motion.div>
                     )}
-                    
-                    {/* Confirmation Message - Shows after timeframe selected */}
-                    {preferredTimeframe && preferredTimeframe !== 'pick_date' && showContractors && (
+
+                    {/* Final Confirmation - Shows after all scheduling confirmed */}
+                    {schedulingConfirmed && (
                       <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -1550,34 +1538,49 @@ export default function WorkHubCustomerPortal() {
                         <Card className="border-2 border-green-400 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20">
                           <CardContent className="py-6">
                             <div className="text-center space-y-4">
-                              <div className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center mx-auto">
-                                <CheckCircle className="w-8 h-8 text-green-600" />
+                              <div className="w-20 h-20 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center mx-auto">
+                                <CheckCircle className="w-10 h-10 text-green-600" />
                               </div>
-                              <h3 className="text-xl font-bold text-green-700 dark:text-green-400">
-                                A contractor will be in contact with you!
+                              <h3 className="text-2xl font-bold text-green-700 dark:text-green-400">
+                                You're All Set!
                               </h3>
-                              <p className="text-slate-600 dark:text-slate-400 max-w-md mx-auto">
-                                You'll receive a call or message to confirm the details and schedule your project.
-                              </p>
-                              <div className="bg-purple-50 dark:bg-purple-900/20 p-3 rounded-lg border border-purple-200 inline-block">
-                                <p className="text-sm text-purple-700 dark:text-purple-300">
-                                  <Calendar className="w-4 h-4 inline mr-2" />
-                                  Your preferred timing: <strong>
-                                    {preferredTimeframe === 'ready_now' ? 'Ready Now - ASAP' :
-                                     preferredTimeframe.startsWith('date:') ? 
-                                       new Date(preferredTimeframe.replace('date:', '')).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) :
-                                     preferredTimeframe}
-                                  </strong>
+                              <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 max-w-lg mx-auto">
+                                <p className="text-blue-700 dark:text-blue-300 font-medium">
+                                  No worries about receiving tons of phone calls - we have you on the schedule!
+                                </p>
+                                <p className="text-sm text-blue-600 dark:text-blue-400 mt-2">
+                                  {desiredQuoteCount === 1 
+                                    ? 'A contractor will come out to give you an estimate.'
+                                    : `${desiredQuoteCount} contractors will come out to give you estimates.`}
                                 </p>
                               </div>
-                              {budgetConfirmed === false && customerBudgetMin && customerBudgetMax && (
-                                <div className="bg-amber-50 dark:bg-amber-900/20 p-3 rounded-lg border border-amber-200 inline-block">
+                              <div className="grid md:grid-cols-2 gap-3 max-w-lg mx-auto text-left">
+                                <div className="bg-purple-50 dark:bg-purple-900/20 p-3 rounded-lg border border-purple-200">
+                                  <p className="text-xs text-purple-600 dark:text-purple-400 font-medium mb-1">Estimate Appointment</p>
+                                  <p className="text-sm text-purple-700 dark:text-purple-300">
+                                    {new Date(estimateDateFrom).toLocaleDateString()} - {new Date(estimateDateTo).toLocaleDateString()}
+                                    <br />
+                                    <span className="text-xs">{estimateTimePreference === 'any' ? 'Any time' : estimateTimePreference}</span>
+                                  </p>
+                                </div>
+                                <div className="bg-amber-50 dark:bg-amber-900/20 p-3 rounded-lg border border-amber-200">
+                                  <p className="text-xs text-amber-600 dark:text-amber-400 font-medium mb-1">Work Completion By</p>
                                   <p className="text-sm text-amber-700 dark:text-amber-300">
-                                    <DollarSign className="w-4 h-4 inline mr-2" />
-                                    Your budget: <strong>${parseInt(customerBudgetMin).toLocaleString()} - ${parseInt(customerBudgetMax).toLocaleString()}</strong>
+                                    {new Date(jobCompletionDate).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+                                  </p>
+                                </div>
+                              </div>
+                              {customerBudgetMin && customerBudgetMax && (
+                                <div className="bg-green-100 dark:bg-green-900/30 p-3 rounded-lg border border-green-300 inline-block">
+                                  <p className="text-sm text-green-700 dark:text-green-300">
+                                    <DollarSign className="w-4 h-4 inline mr-1" />
+                                    Budget: <strong>${parseInt(customerBudgetMin).toLocaleString()} - ${parseInt(customerBudgetMax).toLocaleString()}</strong>
                                   </p>
                                 </div>
                               )}
+                              <p className="text-slate-500 text-sm max-w-md mx-auto">
+                                We're notifying contractors now. They'll receive your photos, job details, budget, and preferred dates.
+                              </p>
                             </div>
                           </CardContent>
                         </Card>
