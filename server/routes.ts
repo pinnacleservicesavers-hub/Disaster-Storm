@@ -19574,17 +19574,43 @@ What specific area or type of incident would you like me to focus on? I can prov
       const regionInfo = getRegionalMultiplier(location || '');
       console.log(`📍 Regional pricing: ${location || 'unknown'} -> ${regionInfo.tier} (${regionInfo.multiplier}x)`);
 
-      // Detect hazards from tags and description (powerlines, structures, etc.)
+      // Detect hazards from tags, description, AND new utility/access assessment
       const descLower = (description || '').toLowerCase();
+      const utilityAssessment = (analysis as any).utilityAssessment;
+      const accessAssessment = (analysis as any).accessAssessment;
+      const pricingFactors = (analysis as any).pricingFactors;
+      
+      // Check for power lines from multiple sources
+      const powerLinesDetected = 
+        utilityAssessment?.powerLinesPresent === true ||
+        utilityAssessment?.linesInCanopy === true ||
+        tags.some(t => t.includes('power') || t.includes('wire') || t.includes('electric') || t.includes('utility') || t.includes('line')) || 
+        descLower.includes('power') || descLower.includes('powerline') || descLower.includes('wire') || descLower.includes('electric') ||
+        analysis.safetyAssessment.immediateHazards.some(h => h.toLowerCase().includes('power') || h.toLowerCase().includes('line') || h.toLowerCase().includes('electric'));
+      
+      // Check for near structure from multiple sources
+      const nearStructureDetected = 
+        tags.some(t => t.includes('house') || t.includes('building') || t.includes('roof') || t.includes('structure')) ||
+        descLower.includes('house') || descLower.includes('building') || descLower.includes('roof') ||
+        analysis.damageAssessment.affectedStructures.length > 0;
+      
+      // Check for access difficulty from multiple sources
+      const accessDifficult = 
+        accessAssessment?.accessDifficulty === 'difficult' || accessAssessment?.accessDifficulty === 'extreme' ||
+        accessAssessment?.craneRequired === true ||
+        accessAssessment?.riggingRequired === true ||
+        descLower.includes('slope') || descLower.includes('hill') || descLower.includes('fence') || descLower.includes('tight');
+      
       const hasHazards = {
-        powerlines: tags.some(t => t.includes('power') || t.includes('wire') || t.includes('electric') || t.includes('utility')) || 
-                    descLower.includes('power') || descLower.includes('powerline') || descLower.includes('wire') || descLower.includes('electric'),
-        nearStructure: tags.some(t => t.includes('house') || t.includes('building') || t.includes('roof')) ||
-                       descLower.includes('house') || descLower.includes('building') || descLower.includes('roof'),
-        accessDifficult: descLower.includes('slope') || descLower.includes('hill') || descLower.includes('fence') || descLower.includes('tight')
+        powerlines: powerLinesDetected,
+        nearStructure: nearStructureDetected,
+        accessDifficult: accessDifficult,
+        craneRequired: accessAssessment?.craneRequired === true,
+        utilityCoordination: utilityAssessment?.utilityCoordinationRequired === true,
+        powerLineType: utilityAssessment?.powerLineType || 'none'
       };
       const isHazardous = hasHazards.powerlines || (hasHazards.nearStructure && hasHazards.accessDifficult);
-      console.log(`⚠️ Hazard detection: powerlines=${hasHazards.powerlines}, nearStructure=${hasHazards.nearStructure}, difficult=${hasHazards.accessDifficult}`);
+      console.log(`⚠️ Hazard detection: powerlines=${hasHazards.powerlines}, nearStructure=${hasHazards.nearStructure}, difficult=${hasHazards.accessDifficult}, crane=${hasHazards.craneRequired}`);
 
       // Calculate pricing breakdown for each material option
       // For tree jobs, use count (1 tree). For area jobs, use sqft. For linear jobs, use linearFt.
@@ -19737,19 +19763,30 @@ What specific area or type of incident would you like me to focus on? I can prov
       if (hasHazards.powerlines) {
         complexity = 'high';
         timeEstimate = 'requires utility coordination';
-        hazardMultiplier = 1.5; // 50% increase for powerline work
+        // Apply power line multipliers based on type (primary lines are much more expensive)
+        if (hasHazards.powerLineType === 'high_voltage') {
+          hazardMultiplier = 2.5; // 150% increase for high voltage lines
+        } else if (hasHazards.powerLineType === 'primary') {
+          hazardMultiplier = 2.0; // 100% increase for primary lines
+        } else {
+          hazardMultiplier = 1.8; // 80% increase for service drops
+        }
+      } else if (hasHazards.craneRequired) {
+        complexity = 'high';
+        timeEstimate = 'crane lift required';
+        hazardMultiplier = 1.6; // 60% increase for crane work
       } else if (hasHazards.nearStructure && hasHazards.accessDifficult) {
         complexity = 'high';
         timeEstimate = 'careful work required';
-        hazardMultiplier = 1.3;
+        hazardMultiplier = 1.4;
       } else if (hasHazards.nearStructure || hasHazards.accessDifficult) {
         complexity = 'moderate';
         timeEstimate = 'standard';
-        hazardMultiplier = 1.15;
+        hazardMultiplier = 1.2;
       } else if (detectedTrade === 'tree_removal' && measurements.heightFt && measurements.heightFt > 40) {
         complexity = 'moderate';
         timeEstimate = 'standard';
-        hazardMultiplier = 1.2;
+        hazardMultiplier = 1.25;
       }
       
       // ============================================================
@@ -19773,11 +19810,12 @@ What specific area or type of incident would you like me to focus on? I can prov
         const treeHeight = measurements.heightFt || dimensions.heightFt;
         const trunkDiameter = measurements.trunkDiameterInches || dimensions.trunkDiameterInches;
         
-        // Build tree pricing input
+        // Build tree pricing input - use ALL hazard detection sources
         const treePricingInput: TreePricingInput = {
           heightFt: treeHeight,
           trunkDiameterInches: trunkDiameter,
           hazards: {
+            // Use enhanced hazard detection (includes utility assessment)
             powerlines: hasHazards.powerlines || detectedHazards.powerlines,
             nearStructure: hasHazards.nearStructure || detectedHazards.nearStructure,
             leaningTowardTarget: detectedHazards.leaningTowardTarget,
@@ -19786,9 +19824,9 @@ What specific area or type of incident would you like me to focus on? I can prov
             multiTrunk: detectedHazards.multiTrunk,
           },
           access: {
-            canDropTree: detectedHazards.canDropTree,
-            bucketTruckAccess: detectedHazards.bucketTruckAccess,
-            craneRequired: detectedHazards.craneRequired,
+            canDropTree: detectedHazards.canDropTree && !hasHazards.craneRequired,
+            bucketTruckAccess: detectedHazards.bucketTruckAccess && !hasHazards.craneRequired,
+            craneRequired: detectedHazards.craneRequired || hasHazards.craneRequired,
             backyardOnly: detectedHazards.backyardOnly || hasHazards.accessDifficult,
             slopeOrHill: detectedHazards.slopeOrHill,
           },
@@ -20091,11 +20129,20 @@ What specific area or type of incident would you like me to focus on? I can prov
         };
       } else {
         // Fallback: AI damageAssessment.estimatedCost is already in dollars, apply multipliers
-        // Default to $3,500-$5,800 if AI returns no estimate
-        const baseMin = analysis.damageAssessment.estimatedCost.min || 3500;
-        const baseMax = analysis.damageAssessment.estimatedCost.max || 5800;
+        // Validate numeric values from AI
+        let baseMin = Number(analysis.damageAssessment.estimatedCost.min) || 3500;
+        let baseMax = Number(analysis.damageAssessment.estimatedCost.max) || 5800;
+        
+        // Enforce minimum pricing based on hazards detected
+        // Power line trees have mandatory minimum of $3,500
+        if (hasHazards.powerlines) {
+          baseMin = Math.max(baseMin, 3500);
+          baseMax = Math.max(baseMax, 6000);
+        }
+        
         const adjustedMin = Math.round(baseMin * regionInfo.multiplier * hazardMultiplier);
         const adjustedMax = Math.round(baseMax * regionInfo.multiplier * hazardMultiplier);
+        
         // Clamp to reasonable residential range: min $3,500, max $25,000
         priceEstimate = {
           min: Math.max(3500, Math.min(25000, adjustedMin)),
@@ -20306,14 +20353,22 @@ What specific area or type of incident would you like me to focus on? I can prov
       const imageBuffer = Buffer.from(imageBase64, 'base64');
       const imageFile = await toFile(imageBuffer, 'input.png', { type: 'image/png' });
       
-      // Use gpt-image-1 for realistic image editing - this preserves the original photo
-      const response = await openai.images.edit({
+      // Use gpt-image-1 for realistic image editing - 512x512 for faster generation
+      // Add timeout wrapper for better UX
+      const timeoutMs = 45000; // 45 second timeout
+      const imageEditPromise = openai.images.edit({
         model: "gpt-image-1",
         image: imageFile,
         prompt: prompt,
         n: 1,
-        size: "1024x1024"
+        size: "512x512" // Use smaller size for faster generation (preview quality is sufficient)
       });
+      
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Image generation timeout - please try again')), timeoutMs)
+      );
+      
+      const response = await Promise.race([imageEditPromise, timeoutPromise]) as any;
 
       // gpt-image-1 returns base64 by default
       const imageData = response.data?.[0];

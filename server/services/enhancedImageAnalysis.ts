@@ -8,6 +8,31 @@ interface TreeAnalysis {
   stumpDiameter: string;
   healthStatus: 'healthy' | 'damaged' | 'dying' | 'dead';
   hazardLevel: 'low' | 'moderate' | 'high' | 'extreme';
+  canopySpread?: string;
+  multipleTreesCount?: number;
+}
+
+interface UtilityAssessment {
+  powerLinesPresent: boolean;
+  powerLineType: 'none' | 'service_drop' | 'primary' | 'high_voltage';
+  linesInCanopy: boolean;
+  utilityCoordinationRequired: boolean;
+  riskMultiplier: number;
+}
+
+interface AccessAssessment {
+  bucketTruckAccess: boolean;
+  craneRequired: boolean;
+  riggingRequired: boolean;
+  groundConditions: 'stable' | 'soft' | 'paved' | 'sloped';
+  accessDifficulty: 'easy' | 'moderate' | 'difficult' | 'extreme';
+}
+
+interface PricingFactors {
+  baseJobType: 'standard' | 'technical' | 'high_risk' | 'emergency';
+  sizeCategory: 'small' | 'medium' | 'large' | 'giant';
+  complexityMultiplier: number;
+  equipmentCosts: string;
 }
 
 interface SafetyAssessment {
@@ -48,6 +73,9 @@ export interface EnhancedImageAnalysis {
     address: string;
   };
   treeAnalysis: TreeAnalysis | null;
+  utilityAssessment: UtilityAssessment | null;
+  accessAssessment: AccessAssessment | null;
+  pricingFactors: PricingFactors | null;
   safetyAssessment: SafetyAssessment;
   damageAssessment: DamageAssessment;
   professionalDescription: ProfessionalDescription;
@@ -83,59 +111,99 @@ export class EnhancedImageAnalysisService {
       throw new Error('Enhanced Image Analysis service not available');
     }
 
-    const analysisPrompt = `You are a professional disaster response and tree service expert analyzing this image for damage assessment and safety evaluation. 
+    const analysisPrompt = `You are a professional ISA-certified arborist and disaster response expert. Analyze this image with extreme detail - examine EVERY element visible in the photo.
 
-Please provide a comprehensive analysis in JSON format with the following structure:
+CRITICAL: Scan the entire image for:
+- Power lines, utility lines, cables (ANY wires visible = HIGH RISK removal)
+- Proximity to structures (house, garage, fence, shed, pool)
+- Access constraints (driveway width, obstacles, slope)
+- Equipment requirements (bucket truck, crane, rigging)
+- Multiple trees vs single tree
+- Ground conditions (soft soil, pavement, landscaping)
+
+Provide analysis in JSON format:
 
 {
   "treeAnalysis": {
-    "species": "Identify the tree species if visible (e.g., 'Southern Live Oak', 'Slash Pine', 'Bald Cypress')",
-    "estimatedHeight": "Height in feet (e.g., '45-50 feet')",
-    "estimatedWeight": "Estimated weight in tons (e.g., '8-12 tons')",
-    "rootBallDiameter": "Root ball diameter if uprooted (e.g., '15-18 feet')",
-    "stumpDiameter": "Trunk/stump diameter at base (e.g., '3.5-4 feet')",
+    "species": "Specific species (e.g., 'Southern Live Oak', 'Water Oak', 'Pecan')",
+    "estimatedHeight": "Height in feet (e.g., '55-65 feet')",
+    "estimatedWeight": "Weight in tons based on species/size (e.g., '6-10 tons')",
+    "rootBallDiameter": "If uprooted, diameter in feet",
+    "stumpDiameter": "Trunk diameter at base in feet (e.g., '3-4 feet')",
     "healthStatus": "healthy|damaged|dying|dead",
-    "hazardLevel": "low|moderate|high|extreme"
+    "hazardLevel": "low|moderate|high|extreme",
+    "canopySpread": "Width of canopy in feet (e.g., '40-50 feet')",
+    "multipleTreesCount": 1
+  },
+  "utilityAssessment": {
+    "powerLinesPresent": true/false,
+    "powerLineType": "none|service_drop|primary|high_voltage",
+    "linesInCanopy": true/false,
+    "utilityCoordinationRequired": true/false,
+    "riskMultiplier": 1.0-3.0
+  },
+  "accessAssessment": {
+    "bucketTruckAccess": true/false,
+    "craneRequired": true/false,
+    "riggingRequired": true/false,
+    "groundConditions": "stable|soft|paved|sloped",
+    "accessDifficulty": "easy|moderate|difficult|extreme"
   },
   "safetyAssessment": {
     "blocksEgress": true/false,
     "blocksIngress": true/false,
-    "immediateHazards": ["Array of specific safety hazards"],
-    "accessibilityImpact": "Description of how this impacts property access",
+    "immediateHazards": ["power lines", "structure proximity", "leaning", "dead branches", etc.],
+    "accessibilityImpact": "Description of access impact",
     "emergencyRisk": "none|low|moderate|high|critical"
   },
   "damageAssessment": {
     "severity": "minimal|moderate|severe|catastrophic",
-    "damageType": ["roof damage", "structural damage", "landscaping", etc.],
-    "affectedStructures": ["house", "garage", "fence", "driveway", etc.],
+    "damageType": ["roof damage", "structural", "landscaping", "fence", "driveway", etc.],
+    "affectedStructures": ["house", "garage", "fence", "power lines", etc.],
     "repairPriority": "routine|priority|urgent|emergency",
     "estimatedCost": {
-      "min": 5000,
-      "max": 15000,
+      "min": NUMBER,
+      "max": NUMBER,
       "currency": "USD"
     }
   },
   "professionalDescription": {
-    "title": "Brief professional title for this incident",
-    "summary": "2-3 sentence overview of what occurred",
-    "technicalDetails": "Detailed technical assessment including measurements and specifications",
-    "recommendedActions": ["Array of specific recommended actions"],
-    "safetyNotes": "Critical safety information for workers and residents",
-    "insuranceNotes": "Relevant information for insurance claims and adjusters"
+    "title": "Professional incident title",
+    "summary": "2-3 sentences describing the situation and required work",
+    "technicalDetails": "Include: tree size, access method, equipment needed, crew size, estimated time",
+    "recommendedActions": ["Step-by-step professional recommendations"],
+    "safetyNotes": "Critical safety info - MUST mention power lines if present",
+    "insuranceNotes": "Document: utility coordination, specialized equipment, complexity factors"
   },
-  "autoTags": ["storm damage", "tree removal", "emergency", etc.],
-  "confidence": 0.85
+  "autoTags": ["tree removal", "power lines", "crane work", "technical removal", etc.],
+  "confidence": 0.85,
+  "pricingFactors": {
+    "baseJobType": "standard|technical|high_risk|emergency",
+    "sizeCategory": "small|medium|large|giant",
+    "complexityMultiplier": 1.0-2.5,
+    "equipmentCosts": "Describe equipment needed and approximate costs"
+  }
 }
 
-CRITICAL REQUIREMENTS:
-1. If trees are blocking driveways, sidewalks, or doorways, mark blocksEgress/blocksIngress as true
-2. Provide specific tree species identification when possible
-3. Give realistic weight and diameter measurements based on visible size
-4. Include detailed professional descriptions suitable for insurance claims
-5. Focus on safety hazards and immediate risks
-6. Provide actionable recommendations for contractors
+PRICING GUIDANCE (CRITICAL - Use these ranges):
+- Small tree, open yard, no hazards: $800-$2,000
+- Medium tree, easy access: $1,500-$3,500
+- Large tree, easy access: $2,500-$5,000
+- Large tree near structure: $3,500-$6,500
+- Tree touching/near power lines (SERVICE DROP): $3,500-$8,000
+- Tree in PRIMARY power lines: $5,000-$12,000+
+- Giant tree requiring crane: $4,500-$9,000
+- Emergency/storm damage: Add 25-50% premium
 
-Context: ${projectContext || 'General disaster response assessment'}
+CRITICAL REQUIREMENTS:
+1. ALWAYS check for power lines - if visible, set powerLinesPresent=true and adjust pricing UP significantly
+2. Power line involvement = minimum $3,500 for ANY tree
+3. Large trees (>40ft) near structures = minimum $3,000
+4. If crane is needed, add $800-$2,500 to estimate
+5. Count ALL trees visible - price for total removal scope
+6. Document everything visible for insurance purposes
+
+Context: ${projectContext || 'General contractor estimate'}
 Location: ${location?.address || 'Location not specified'}`;
 
     try {
@@ -181,12 +249,36 @@ Location: ${location?.address || 'Location not specified'}`;
         throw new Error('Failed to parse AI analysis response');
       }
 
-      // Create the enhanced analysis object
+      // Create the enhanced analysis object with utility/access assessment
       const enhancedAnalysis: EnhancedImageAnalysis = {
         id: `analysis_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         timestamp: new Date().toISOString(),
         location: location || { lat: 0, lng: 0, address: 'Unknown location' },
-        treeAnalysis: analysisData.treeAnalysis || null,
+        treeAnalysis: analysisData.treeAnalysis ? {
+          ...analysisData.treeAnalysis,
+          canopySpread: analysisData.treeAnalysis.canopySpread || undefined,
+          multipleTreesCount: analysisData.treeAnalysis.multipleTreesCount || 1
+        } : null,
+        utilityAssessment: analysisData.utilityAssessment ? {
+          powerLinesPresent: analysisData.utilityAssessment.powerLinesPresent || false,
+          powerLineType: analysisData.utilityAssessment.powerLineType || 'none',
+          linesInCanopy: analysisData.utilityAssessment.linesInCanopy || false,
+          utilityCoordinationRequired: analysisData.utilityAssessment.utilityCoordinationRequired || false,
+          riskMultiplier: analysisData.utilityAssessment.riskMultiplier || 1.0
+        } : null,
+        accessAssessment: analysisData.accessAssessment ? {
+          bucketTruckAccess: analysisData.accessAssessment.bucketTruckAccess ?? true,
+          craneRequired: analysisData.accessAssessment.craneRequired || false,
+          riggingRequired: analysisData.accessAssessment.riggingRequired || false,
+          groundConditions: analysisData.accessAssessment.groundConditions || 'stable',
+          accessDifficulty: analysisData.accessAssessment.accessDifficulty || 'moderate'
+        } : null,
+        pricingFactors: analysisData.pricingFactors ? {
+          baseJobType: analysisData.pricingFactors.baseJobType || 'standard',
+          sizeCategory: analysisData.pricingFactors.sizeCategory || 'medium',
+          complexityMultiplier: analysisData.pricingFactors.complexityMultiplier || 1.0,
+          equipmentCosts: analysisData.pricingFactors.equipmentCosts || 'Standard equipment'
+        } : null,
         safetyAssessment: {
           blocksEgress: analysisData.safetyAssessment?.blocksEgress || false,
           blocksIngress: analysisData.safetyAssessment?.blocksIngress || false,
@@ -228,12 +320,15 @@ Location: ${location?.address || 'Location not specified'}`;
     } catch (error) {
       console.error('❌ Enhanced image analysis failed:', error);
       
-      // Return a basic analysis structure on error
+      // Return a basic analysis structure on error with defaults for typical residential job
       return {
         id: `analysis_${Date.now()}_error`,
         timestamp: new Date().toISOString(),
         location: location || { lat: 0, lng: 0, address: 'Unknown location' },
         treeAnalysis: null,
+        utilityAssessment: null,
+        accessAssessment: null,
+        pricingFactors: null,
         safetyAssessment: {
           blocksEgress: false,
           blocksIngress: false,
@@ -242,11 +337,11 @@ Location: ${location?.address || 'Location not specified'}`;
           emergencyRisk: 'none'
         },
         damageAssessment: {
-          severity: 'minimal',
+          severity: 'moderate',
           damageType: ['assessment pending'],
           affectedStructures: [],
           repairPriority: 'routine',
-          estimatedCost: { min: 0, max: 0, currency: 'USD' }
+          estimatedCost: { min: 3500, max: 5800, currency: 'USD' }
         },
         professionalDescription: {
           title: 'Analysis Unavailable',
