@@ -4125,6 +4125,246 @@ Return this exact JSON structure:
     }
   });
 
+  // ===== MONEY MOVES TODAY - Unified Dashboard Data =====
+  app.get('/api/leadvault/money-moves-today', authenticate, requireContractor, async (req: AuthenticatedRequest, res) => {
+    try {
+      const contractorId = req.user?.id || 'demo';
+      
+      // Get followups due today
+      const followupsResult = await db.execute(sql`
+        SELECT f.*, l.company_name, l.contact_name, l.phone, l.email, l.score_label
+        FROM lead_vault_followup_tasks f
+        LEFT JOIN lead_vault_leads l ON l.id = f.lead_id
+        WHERE f.contractor_id = ${contractorId}
+        AND f.status = 'pending'
+        AND f.due_at::date <= CURRENT_DATE
+        ORDER BY f.due_at ASC
+        LIMIT 10
+      `);
+      
+      // Get hot leads (score_label = 'hot')
+      const hotLeadsResult = await db.execute(sql`
+        SELECT * FROM lead_vault_leads 
+        WHERE contractor_id = ${contractorId}
+        AND score_label = 'hot'
+        AND status NOT IN ('won', 'lost')
+        ORDER BY created_at DESC
+        LIMIT 10
+      `);
+      
+      // Get 3 priority calls to make (hot leads not yet contacted)
+      const callsToMakeResult = await db.execute(sql`
+        SELECT * FROM lead_vault_leads 
+        WHERE contractor_id = ${contractorId}
+        AND status = 'new'
+        AND phone IS NOT NULL AND phone != ''
+        ORDER BY 
+          CASE WHEN score_label = 'hot' THEN 0 
+               WHEN score_label = 'warm' THEN 1 
+               ELSE 2 END,
+          created_at DESC
+        LIMIT 3
+      `);
+      
+      // Get recent campaign runs (last 24 hours)
+      const recentRunsResult = await db.execute(sql`
+        SELECT r.*, c.name as campaign_name
+        FROM lead_vault_campaign_runs r
+        JOIN lead_vault_campaigns c ON c.id = r.campaign_id
+        WHERE c.contractor_id = ${contractorId}
+        AND r.started_at > NOW() - INTERVAL '24 hours'
+        ORDER BY r.started_at DESC
+        LIMIT 5
+      `);
+      
+      // Calculate estimated revenue from hot leads
+      const estimatedRevenue = hotLeadsResult.rows.length * 2500; // $2500 avg job value
+      
+      res.json({
+        ok: true,
+        followups: followupsResult.rows,
+        hotLeads: hotLeadsResult.rows,
+        callsToMake: callsToMakeResult.rows,
+        recentRuns: recentRunsResult.rows,
+        summary: {
+          followupsDueToday: followupsResult.rows.length,
+          hotLeadsCount: hotLeadsResult.rows.length,
+          callsToMakeCount: callsToMakeResult.rows.length,
+          estimatedRevenue: estimatedRevenue,
+          recentRunsCount: recentRunsResult.rows.length
+        }
+      });
+    } catch (error) {
+      console.error('Error fetching money moves today:', error);
+      res.status(500).json({ error: 'Failed to fetch dashboard data' });
+    }
+  });
+
+  // ===== AUTOPILOT MODE SETTINGS =====
+  app.get('/api/leadvault/autopilot', authenticate, requireContractor, async (req: AuthenticatedRequest, res) => {
+    try {
+      const contractorId = req.user?.id || 'demo';
+      
+      // Get all campaigns to check autopilot status
+      const campaignsResult = await db.execute(sql`
+        SELECT id, name, enabled, schedule_type, schedule_hour
+        FROM lead_vault_campaigns 
+        WHERE contractor_id = ${contractorId}
+      `);
+      
+      const campaigns = campaignsResult.rows;
+      const activeCampaigns = campaigns.filter((c: any) => c.enabled);
+      const autopilotActive = activeCampaigns.length > 0;
+      
+      res.json({
+        ok: true,
+        autopilotActive,
+        totalCampaigns: campaigns.length,
+        activeCampaigns: activeCampaigns.length,
+        scheduleTime: '8:05 AM CST',
+        campaigns: campaigns
+      });
+    } catch (error) {
+      console.error('Error fetching autopilot status:', error);
+      res.status(500).json({ error: 'Failed to fetch autopilot status' });
+    }
+  });
+
+  app.post('/api/leadvault/autopilot/toggle', authenticate, requireContractor, async (req: AuthenticatedRequest, res) => {
+    try {
+      const contractorId = req.user?.id || 'demo';
+      const { enabled } = req.body;
+      
+      // Enable or disable all campaigns
+      await db.execute(sql`
+        UPDATE lead_vault_campaigns 
+        SET enabled = ${enabled}
+        WHERE contractor_id = ${contractorId}
+      `);
+      
+      res.json({ ok: true, autopilotActive: enabled });
+    } catch (error) {
+      console.error('Error toggling autopilot:', error);
+      res.status(500).json({ error: 'Failed to toggle autopilot' });
+    }
+  });
+
+  // ===== CAMPAIGN RUN REPORT =====
+  app.get('/api/leadvault/campaign-run-report/:runId', authenticate, requireContractor, async (req: AuthenticatedRequest, res) => {
+    try {
+      const contractorId = req.user?.id || 'demo';
+      const { runId } = req.params;
+      
+      // Get run details
+      const runResult = await db.execute(sql`
+        SELECT r.*, c.name as campaign_name, c.target_location
+        FROM lead_vault_campaign_runs r
+        JOIN lead_vault_campaigns c ON c.id = r.campaign_id
+        WHERE r.id = ${runId} AND c.contractor_id = ${contractorId}
+      `);
+      
+      if (runResult.rows.length === 0) {
+        return res.status(404).json({ error: 'Run not found' });
+      }
+      
+      const run = runResult.rows[0];
+      
+      // Get leads from this run
+      const leadsResult = await db.execute(sql`
+        SELECT * FROM lead_vault_campaign_leads
+        WHERE run_id = ${runId}
+        ORDER BY score DESC
+      `);
+      
+      const leads = leadsResult.rows;
+      const hotLeads = leads.filter((l: any) => l.score_label === 'hot');
+      const warmLeads = leads.filter((l: any) => l.score_label === 'warm');
+      
+      // Estimate revenue potential (hot=$5000, warm=$2500)
+      const estimatedRevenue = (hotLeads.length * 5000) + (warmLeads.length * 2500);
+      
+      res.json({
+        ok: true,
+        run,
+        report: {
+          campaignName: run.campaign_name,
+          targetLocation: run.target_location,
+          runDate: run.started_at,
+          completedAt: run.completed_at,
+          leadsFound: leads.length,
+          hotLeads: hotLeads.length,
+          warmLeads: warmLeads.length,
+          coldLeads: leads.length - hotLeads.length - warmLeads.length,
+          outreachGenerated: run.outreach_generated || 0,
+          followupsScheduled: run.followups_scheduled || 0,
+          estimatedRevenue,
+          leads
+        }
+      });
+    } catch (error) {
+      console.error('Error fetching campaign run report:', error);
+      res.status(500).json({ error: 'Failed to fetch run report' });
+    }
+  });
+
+  // Get latest campaign run report (most recent)
+  app.get('/api/leadvault/latest-run-report', authenticate, requireContractor, async (req: AuthenticatedRequest, res) => {
+    try {
+      const contractorId = req.user?.id || 'demo';
+      
+      // Get the most recent run
+      const runResult = await db.execute(sql`
+        SELECT r.*, c.name as campaign_name, c.target_location
+        FROM lead_vault_campaign_runs r
+        JOIN lead_vault_campaigns c ON c.id = r.campaign_id
+        WHERE c.contractor_id = ${contractorId}
+        ORDER BY r.started_at DESC
+        LIMIT 1
+      `);
+      
+      if (runResult.rows.length === 0) {
+        return res.json({ ok: true, hasRun: false });
+      }
+      
+      const run = runResult.rows[0];
+      
+      // Get leads from this run
+      const leadsResult = await db.execute(sql`
+        SELECT * FROM lead_vault_campaign_leads
+        WHERE run_id = ${run.id}
+        ORDER BY score DESC
+      `);
+      
+      const leads = leadsResult.rows;
+      const hotLeads = leads.filter((l: any) => l.score_label === 'hot');
+      const warmLeads = leads.filter((l: any) => l.score_label === 'warm');
+      const estimatedRevenue = (hotLeads.length * 5000) + (warmLeads.length * 2500);
+      
+      res.json({
+        ok: true,
+        hasRun: true,
+        report: {
+          runId: run.id,
+          campaignName: run.campaign_name,
+          targetLocation: run.target_location,
+          runDate: run.started_at,
+          completedAt: run.completed_at,
+          leadsFound: leads.length,
+          hotLeads: hotLeads.length,
+          warmLeads: warmLeads.length,
+          coldLeads: leads.length - hotLeads.length - warmLeads.length,
+          outreachGenerated: run.outreach_generated || 0,
+          followupsScheduled: run.followups_scheduled || 0,
+          estimatedRevenue,
+          topLeads: leads.slice(0, 5)
+        }
+      });
+    } catch (error) {
+      console.error('Error fetching latest run report:', error);
+      res.status(500).json({ error: 'Failed to fetch latest run report' });
+    }
+  });
+
   // Create default campaign templates for new contractors
   app.post('/api/leadvault/campaigns/create-defaults', authenticate, requireContractor, async (req: AuthenticatedRequest, res) => {
     try {

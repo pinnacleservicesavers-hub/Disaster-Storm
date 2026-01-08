@@ -37,7 +37,14 @@ import {
   Pause,
   Trash2,
   Plus,
-  CloudLightning
+  CloudLightning,
+  Rocket,
+  PhoneCall,
+  FileBarChart,
+  ToggleLeft,
+  ToggleRight,
+  TrendingDown,
+  Activity
 } from 'lucide-react';
 
 interface Lead {
@@ -277,66 +284,24 @@ export default function ContractorLeadVault() {
 
         {/* Main Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="bg-slate-900 border border-slate-700">
-            <TabsTrigger value="dashboard" data-testid="tab-dashboard">Vault Feed</TabsTrigger>
+          <TabsList className="bg-slate-900 border border-slate-700 flex-wrap h-auto gap-1 p-1">
+            <TabsTrigger value="dashboard" data-testid="tab-dashboard" className="gap-1">
+              <Rocket className="h-4 w-4" /> Money Moves
+            </TabsTrigger>
             <TabsTrigger value="search" data-testid="tab-search">Lead Search</TabsTrigger>
             <TabsTrigger value="pipeline" data-testid="tab-pipeline">Pipeline</TabsTrigger>
             <TabsTrigger value="outreach" data-testid="tab-outreach">AI Outreach</TabsTrigger>
-            <TabsTrigger value="campaigns" data-testid="tab-campaigns">
-              <CalendarDays className="h-4 w-4 mr-1" /> Campaigns
+            <TabsTrigger value="campaigns" data-testid="tab-campaigns" className="gap-1">
+              <CalendarDays className="h-4 w-4" /> Campaigns
+            </TabsTrigger>
+            <TabsTrigger value="reports" data-testid="tab-reports" className="gap-1">
+              <FileBarChart className="h-4 w-4" /> Reports
             </TabsTrigger>
           </TabsList>
 
-          {/* Dashboard / Vault Feed */}
+          {/* Money Moves Today Dashboard */}
           <TabsContent value="dashboard">
-            <Card className="bg-slate-900 border-slate-800">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5 text-amber-400" />
-                  Today's Money Moves
-                </CardTitle>
-                <CardDescription>Your recent leads and opportunities</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {dashboardLoading ? (
-                  <div className="text-center py-8 text-slate-400">Loading your vault...</div>
-                ) : (
-                  <div className="space-y-4">
-                    {dashboard?.recentLeads?.length === 0 ? (
-                      <div className="text-center py-8">
-                        <Target className="h-12 w-12 text-slate-600 mx-auto mb-4" />
-                        <p className="text-slate-400">No leads yet. Start searching to fill your vault!</p>
-                        <Button 
-                          className="mt-4 bg-amber-500 hover:bg-amber-600"
-                          onClick={() => setActiveTab('search')}
-                          data-testid="button-start-searching"
-                        >
-                          Start Searching
-                        </Button>
-                      </div>
-                    ) : (
-                      dashboard?.recentLeads?.map((lead, i) => (
-                        <div key={i} className="flex items-center justify-between p-4 bg-slate-800/50 rounded-lg border border-slate-700">
-                          <div className="flex items-center gap-4">
-                            <div className="p-2 rounded-lg bg-amber-500/20">
-                              <Building2 className="h-5 w-5 text-amber-400" />
-                            </div>
-                            <div>
-                              <h4 className="font-medium text-white">{lead.company_name}</h4>
-                              <p className="text-sm text-slate-400">{lead.city}, {lead.state}</p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {getScoreBadge(lead.score_label || 'cold')}
-                            <Badge variant="outline">{lead.status}</Badge>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            <MoneyMovesToday />
           </TabsContent>
 
           {/* Lead Search */}
@@ -721,6 +686,11 @@ export default function ContractorLeadVault() {
           {/* Campaigns */}
           <TabsContent value="campaigns">
             <CampaignsSection />
+          </TabsContent>
+
+          {/* Reports */}
+          <TabsContent value="reports">
+            <CampaignRunReport />
           </TabsContent>
         </Tabs>
       </div>
@@ -1161,5 +1131,461 @@ function FollowUpWidget() {
         )}
       </CardContent>
     </Card>
+  );
+}
+
+// 🔥 Money Moves Today Dashboard Component
+function MoneyMovesToday() {
+  const { toast } = useToast();
+  
+  const { data, isLoading, refetch } = useQuery<{
+    followups: any[];
+    hotLeads: any[];
+    callsToMake: any[];
+    recentRuns: any[];
+    summary: {
+      followupsDueToday: number;
+      hotLeadsCount: number;
+      callsToMakeCount: number;
+      estimatedRevenue: number;
+      recentRunsCount: number;
+    };
+  }>({
+    queryKey: ['/api/leadvault/money-moves-today'],
+  });
+
+  // Autopilot status
+  const { data: autopilotData, refetch: refetchAutopilot } = useQuery<{
+    autopilotActive: boolean;
+    totalCampaigns: number;
+    activeCampaigns: number;
+    scheduleTime: string;
+  }>({
+    queryKey: ['/api/leadvault/autopilot'],
+  });
+
+  const toggleAutopilot = useMutation({
+    mutationFn: async (enabled: boolean) => {
+      return apiRequest('/api/leadvault/autopilot/toggle', {
+        method: 'POST',
+        body: JSON.stringify({ enabled }),
+      });
+    },
+    onSuccess: (data: any) => {
+      toast({ 
+        title: data.autopilotActive ? '🚀 Autopilot Activated!' : 'Autopilot Paused',
+        description: data.autopilotActive 
+          ? 'Campaigns will run daily at 8:05 AM CST' 
+          : 'Campaigns paused until you reactivate'
+      });
+      refetchAutopilot();
+    }
+  });
+
+  const completeFollowup = useMutation({
+    mutationFn: async ({ id, status }: { id: number; status: string }) => {
+      return apiRequest(`/api/leadvault/followups/${id}/complete`, {
+        method: 'POST',
+        body: JSON.stringify({ status }),
+      });
+    },
+    onSuccess: () => {
+      toast({ title: 'Follow-up updated!' });
+      refetch();
+    }
+  });
+
+  if (isLoading) {
+    return (
+      <div className="grid gap-6">
+        <Card className="bg-slate-900 border-slate-800">
+          <CardContent className="p-8 text-center">
+            <Activity className="h-12 w-12 text-amber-400 mx-auto animate-pulse mb-4" />
+            <p className="text-slate-400">Loading your money moves...</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const summary = data?.summary;
+
+  return (
+    <div className="space-y-6">
+      {/* Autopilot Control */}
+      <Card className="bg-gradient-to-r from-purple-900/50 to-indigo-900/50 border-purple-500/50">
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-3 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-500 shadow-lg">
+                <Rocket className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-white">Autopilot Mode</h3>
+                <p className="text-sm text-purple-300">
+                  {autopilotData?.activeCampaigns || 0} of {autopilotData?.totalCampaigns || 0} campaigns active • Runs 8:05 AM CST
+                </p>
+              </div>
+            </div>
+            <Button
+              onClick={() => toggleAutopilot.mutate(!autopilotData?.autopilotActive)}
+              disabled={toggleAutopilot.isPending}
+              className={autopilotData?.autopilotActive 
+                ? "bg-green-600 hover:bg-green-700" 
+                : "bg-slate-600 hover:bg-slate-700"
+              }
+              data-testid="button-toggle-autopilot"
+            >
+              {autopilotData?.autopilotActive ? (
+                <>
+                  <ToggleRight className="h-5 w-5 mr-2" />
+                  Active
+                </>
+              ) : (
+                <>
+                  <ToggleLeft className="h-5 w-5 mr-2" />
+                  Inactive
+                </>
+              )}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Summary Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card className="bg-gradient-to-br from-green-900/50 to-green-950/50 border-green-700/50">
+          <CardContent className="p-4 text-center">
+            <DollarSign className="h-8 w-8 text-green-400 mx-auto mb-2" />
+            <div className="text-3xl font-bold text-green-400">
+              ${(summary?.estimatedRevenue || 0).toLocaleString()}
+            </div>
+            <div className="text-xs text-slate-400">Revenue Potential</div>
+          </CardContent>
+        </Card>
+        <Card className="bg-gradient-to-br from-red-900/50 to-red-950/50 border-red-700/50">
+          <CardContent className="p-4 text-center">
+            <Flame className="h-8 w-8 text-red-400 mx-auto mb-2" />
+            <div className="text-3xl font-bold text-red-400">{summary?.hotLeadsCount || 0}</div>
+            <div className="text-xs text-slate-400">Hot Leads</div>
+          </CardContent>
+        </Card>
+        <Card className="bg-gradient-to-br from-cyan-900/50 to-cyan-950/50 border-cyan-700/50">
+          <CardContent className="p-4 text-center">
+            <Clock className="h-8 w-8 text-cyan-400 mx-auto mb-2" />
+            <div className="text-3xl font-bold text-cyan-400">{summary?.followupsDueToday || 0}</div>
+            <div className="text-xs text-slate-400">Follow-ups Due</div>
+          </CardContent>
+        </Card>
+        <Card className="bg-gradient-to-br from-amber-900/50 to-amber-950/50 border-amber-700/50">
+          <CardContent className="p-4 text-center">
+            <PhoneCall className="h-8 w-8 text-amber-400 mx-auto mb-2" />
+            <div className="text-3xl font-bold text-amber-400">{summary?.callsToMakeCount || 0}</div>
+            <div className="text-xs text-slate-400">Calls to Make</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* 3 Calls to Make */}
+      <Card className="bg-slate-900 border-slate-800">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-amber-400">
+            <PhoneCall className="h-5 w-5" />
+            Priority Calls to Make
+          </CardTitle>
+          <CardDescription>Your top 3 leads to call right now</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {data?.callsToMake?.length === 0 ? (
+            <div className="text-center py-6 text-slate-400">
+              <Phone className="h-10 w-10 mx-auto mb-2 opacity-50" />
+              <p>No calls needed right now</p>
+            </div>
+          ) : (
+            <div className="grid gap-3">
+              {data?.callsToMake?.map((lead: any, i: number) => (
+                <div key={lead.id} className="flex items-center justify-between p-4 bg-gradient-to-r from-amber-900/20 to-slate-800/50 rounded-lg border border-amber-700/30">
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full bg-amber-500 text-white font-bold text-lg">
+                      {i + 1}
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-white">{lead.company_name}</h4>
+                      <p className="text-sm text-slate-400">{lead.contact_name || 'Owner'}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Badge className={lead.score_label === 'hot' ? 'bg-red-500' : 'bg-orange-500'}>
+                      {lead.score_label === 'hot' ? <Flame className="h-3 w-3 mr-1" /> : <Thermometer className="h-3 w-3 mr-1" />}
+                      {lead.score_label?.toUpperCase()}
+                    </Badge>
+                    <a 
+                      href={`tel:${lead.phone}`} 
+                      className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-white font-medium transition-colors"
+                      data-testid={`call-lead-${lead.id}`}
+                    >
+                      <Phone className="h-4 w-4" />
+                      {lead.phone}
+                    </a>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Hot Leads */}
+      <Card className="bg-slate-900 border-slate-800">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-red-400">
+            <Flame className="h-5 w-5" />
+            Hot Leads from Campaigns
+          </CardTitle>
+          <CardDescription>Your highest-potential opportunities</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {data?.hotLeads?.length === 0 ? (
+            <div className="text-center py-6 text-slate-400">
+              <Target className="h-10 w-10 mx-auto mb-2 opacity-50" />
+              <p>No hot leads yet. Run a campaign to find them!</p>
+            </div>
+          ) : (
+            <div className="grid gap-2">
+              {data?.hotLeads?.slice(0, 5).map((lead: any) => (
+                <div key={lead.id} className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg border border-slate-700">
+                  <div className="flex items-center gap-3">
+                    <Flame className="h-5 w-5 text-red-400" />
+                    <div>
+                      <p className="font-medium text-white">{lead.company_name}</p>
+                      <p className="text-xs text-slate-400">{lead.city}, {lead.state}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="text-xs">{lead.status}</Badge>
+                    {lead.phone && (
+                      <a href={`tel:${lead.phone}`} className="p-2 bg-green-600/20 hover:bg-green-600/40 rounded text-green-400">
+                        <Phone className="h-4 w-4" />
+                      </a>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Followups Due Today */}
+      <Card className="bg-slate-900 border-slate-800">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-cyan-400">
+            <Clock className="h-5 w-5" />
+            Follow-ups Due Today
+          </CardTitle>
+          <CardDescription>Complete these to stay on top of your pipeline</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {data?.followups?.length === 0 ? (
+            <div className="text-center py-6 text-slate-400">
+              <CheckCircle className="h-10 w-10 mx-auto mb-2 text-green-500/50" />
+              <p>All caught up! No follow-ups due today.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {data?.followups?.map((task: any) => (
+                <div key={task.id} className="p-3 bg-slate-800/50 rounded-lg border border-slate-700">
+                  <div className="flex items-center justify-between mb-2">
+                    <div>
+                      <p className="font-medium text-white">{task.task_title}</p>
+                      <p className="text-sm text-slate-400">{task.company_name}</p>
+                    </div>
+                    <Badge variant="outline">{task.channel}</Badge>
+                  </div>
+                  <p className="text-sm text-slate-300 bg-slate-700/50 p-2 rounded mb-2">{task.message_text}</p>
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" className="text-xs" onClick={() => navigator.clipboard.writeText(task.message_text)}>
+                      Copy
+                    </Button>
+                    <Button size="sm" className="text-xs bg-green-600" onClick={() => completeFollowup.mutate({ id: task.id, status: 'completed' })}>
+                      Done
+                    </Button>
+                    <Button size="sm" variant="ghost" className="text-xs" onClick={() => completeFollowup.mutate({ id: task.id, status: 'skipped' })}>
+                      Skip
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// 🔥 Campaign Run Report Component
+function CampaignRunReport() {
+  const { data, isLoading } = useQuery<{
+    hasRun: boolean;
+    report?: {
+      runId: number;
+      campaignName: string;
+      targetLocation: string;
+      runDate: string;
+      completedAt: string;
+      leadsFound: number;
+      hotLeads: number;
+      warmLeads: number;
+      coldLeads: number;
+      outreachGenerated: number;
+      followupsScheduled: number;
+      estimatedRevenue: number;
+      topLeads: any[];
+    };
+  }>({
+    queryKey: ['/api/leadvault/latest-run-report'],
+  });
+
+  if (isLoading) {
+    return (
+      <Card className="bg-slate-900 border-slate-800">
+        <CardContent className="p-8 text-center">
+          <Activity className="h-12 w-12 text-amber-400 mx-auto animate-pulse mb-4" />
+          <p className="text-slate-400">Loading campaign report...</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!data?.hasRun) {
+    return (
+      <Card className="bg-slate-900 border-slate-800">
+        <CardContent className="p-12 text-center">
+          <FileBarChart className="h-16 w-16 text-slate-600 mx-auto mb-4" />
+          <h3 className="text-xl font-semibold text-white mb-2">No Campaign Runs Yet</h3>
+          <p className="text-slate-400 mb-4">Run your first campaign to see detailed reports here.</p>
+          <p className="text-sm text-slate-500">
+            Go to Campaigns tab → Click Play button to run a campaign
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const report = data.report!;
+
+  return (
+    <div className="space-y-6">
+      {/* Report Header */}
+      <Card className="bg-gradient-to-r from-emerald-900/50 to-teal-900/50 border-emerald-700/50">
+        <CardContent className="p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <FileBarChart className="h-6 w-6 text-emerald-400" />
+                <h2 className="text-2xl font-bold text-white">Campaign Run Report</h2>
+              </div>
+              <p className="text-emerald-300">{report.campaignName}</p>
+              <p className="text-sm text-slate-400 mt-1">
+                <MapPin className="h-3 w-3 inline mr-1" />
+                {report.targetLocation} • {new Date(report.runDate).toLocaleString()}
+              </p>
+            </div>
+            <div className="text-right">
+              <div className="text-4xl font-bold text-emerald-400">
+                ${report.estimatedRevenue.toLocaleString()}
+              </div>
+              <div className="text-sm text-slate-400">Estimated Revenue Potential</div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Report Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+        <Card className="bg-slate-900 border-slate-800">
+          <CardContent className="p-4 text-center">
+            <Users className="h-6 w-6 text-blue-400 mx-auto mb-2" />
+            <div className="text-2xl font-bold text-blue-400">{report.leadsFound}</div>
+            <div className="text-xs text-slate-400">Leads Found</div>
+          </CardContent>
+        </Card>
+        <Card className="bg-slate-900 border-slate-800">
+          <CardContent className="p-4 text-center">
+            <Flame className="h-6 w-6 text-red-400 mx-auto mb-2" />
+            <div className="text-2xl font-bold text-red-400">{report.hotLeads}</div>
+            <div className="text-xs text-slate-400">Hot Leads</div>
+          </CardContent>
+        </Card>
+        <Card className="bg-slate-900 border-slate-800">
+          <CardContent className="p-4 text-center">
+            <Thermometer className="h-6 w-6 text-orange-400 mx-auto mb-2" />
+            <div className="text-2xl font-bold text-orange-400">{report.warmLeads}</div>
+            <div className="text-xs text-slate-400">Warm Leads</div>
+          </CardContent>
+        </Card>
+        <Card className="bg-slate-900 border-slate-800">
+          <CardContent className="p-4 text-center">
+            <Snowflake className="h-6 w-6 text-cyan-400 mx-auto mb-2" />
+            <div className="text-2xl font-bold text-cyan-400">{report.coldLeads}</div>
+            <div className="text-xs text-slate-400">Cold Leads</div>
+          </CardContent>
+        </Card>
+        <Card className="bg-slate-900 border-slate-800">
+          <CardContent className="p-4 text-center">
+            <MessageSquare className="h-6 w-6 text-purple-400 mx-auto mb-2" />
+            <div className="text-2xl font-bold text-purple-400">{report.outreachGenerated}</div>
+            <div className="text-xs text-slate-400">Outreach Packs</div>
+          </CardContent>
+        </Card>
+        <Card className="bg-slate-900 border-slate-800">
+          <CardContent className="p-4 text-center">
+            <CalendarDays className="h-6 w-6 text-green-400 mx-auto mb-2" />
+            <div className="text-2xl font-bold text-green-400">{report.followupsScheduled}</div>
+            <div className="text-xs text-slate-400">Follow-ups</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Top Leads */}
+      <Card className="bg-slate-900 border-slate-800">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Target className="h-5 w-5 text-amber-400" />
+            Top Leads from This Run
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {report.topLeads?.length === 0 ? (
+            <p className="text-slate-400 text-center py-4">No leads in this run</p>
+          ) : (
+            <div className="space-y-2">
+              {report.topLeads?.map((lead: any, i: number) => (
+                <div key={i} className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-400 font-bold">
+                      {i + 1}
+                    </div>
+                    <div>
+                      <p className="font-medium text-white">{lead.company_name}</p>
+                      <p className="text-xs text-slate-400">{lead.city}, {lead.state}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge className={
+                      lead.score_label === 'hot' ? 'bg-red-500' :
+                      lead.score_label === 'warm' ? 'bg-orange-500' : 'bg-blue-500'
+                    }>
+                      Score: {lead.score}
+                    </Badge>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 }
