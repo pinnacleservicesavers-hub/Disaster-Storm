@@ -3230,26 +3230,10 @@ Include 3-4 phases, 3-5 tasks per phase, 2-3 SOPs, 3 risks, and 4 KPIs. Be speci
     )
   `);
 
-  // Contractor-only middleware check function
-  const isContractorOnly = (req: any, res: any): boolean => {
-    const user = req.session?.user;
-    if (!user) {
-      res.status(401).json({ error: 'Authentication required' });
-      return false;
-    }
-    if (user.role !== 'contractor' && user.role !== 'admin') {
-      res.status(403).json({ error: 'ContractorLeadVault™ is exclusive to contractors. Not available for Disaster Direct users.' });
-      return false;
-    }
-    return true;
-  };
-
-  // Get contractor's lead vault dashboard stats
-  app.get('/api/leadvault/dashboard', async (req, res) => {
-    if (!isContractorOnly(req, res)) return;
-    
+  // Get contractor's lead vault dashboard stats (contractor-only via requireContractor middleware)
+  app.get('/api/leadvault/dashboard', authenticate, requireContractor, async (req: AuthenticatedRequest, res) => {
     try {
-      const contractorId = req.session?.user?.id || 'demo';
+      const contractorId = req.user?.id || 'demo';
       
       const stats = await db.execute(sql`
         SELECT 
@@ -3284,11 +3268,9 @@ Include 3-4 phases, 3-5 tasks per phase, 2-3 SOPs, 3 risks, and 4 KPIs. Be speci
   });
 
   // Search for leads (AI-powered lead discovery)
-  app.post('/api/leadvault/search', express.json(), async (req, res) => {
-    if (!isContractorOnly(req, res)) return;
-    
+  app.post('/api/leadvault/search', authenticate, requireContractor, express.json(), async (req: AuthenticatedRequest, res) => {
     try {
-      const contractorId = req.session?.user?.id || 'demo';
+      const contractorId = req.user?.id || 'demo';
       const { location, radius = 25, tradeType, category, signals } = req.body;
 
       // Search in contractor_vault for matching leads
@@ -3354,11 +3336,9 @@ Include 3-4 phases, 3-5 tasks per phase, 2-3 SOPs, 3 risks, and 4 KPIs. Be speci
   });
 
   // Save lead to contractor's vault
-  app.post('/api/leadvault/leads', express.json(), async (req, res) => {
-    if (!isContractorOnly(req, res)) return;
-    
+  app.post('/api/leadvault/leads', authenticate, requireContractor, express.json(), async (req: AuthenticatedRequest, res) => {
     try {
-      const contractorId = req.session?.user?.id || 'demo';
+      const contractorId = req.user?.id || 'demo';
       const lead = req.body;
       
       const result = await db.execute(sql`
@@ -3390,11 +3370,9 @@ Include 3-4 phases, 3-5 tasks per phase, 2-3 SOPs, 3 risks, and 4 KPIs. Be speci
   });
 
   // Get contractor's saved leads with filters
-  app.get('/api/leadvault/leads', async (req, res) => {
-    if (!isContractorOnly(req, res)) return;
-    
+  app.get('/api/leadvault/leads', authenticate, requireContractor, async (req: AuthenticatedRequest, res) => {
     try {
-      const contractorId = req.session?.user?.id || 'demo';
+      const contractorId = req.user?.id || 'demo';
       const { status, scoreLabel, tradeType } = req.query;
       
       let query = sql`SELECT * FROM lead_vault_leads WHERE contractor_id = ${contractorId}`;
@@ -3414,13 +3392,11 @@ Include 3-4 phases, 3-5 tasks per phase, 2-3 SOPs, 3 risks, and 4 KPIs. Be speci
   });
 
   // Update lead status (pipeline movement)
-  app.patch('/api/leadvault/leads/:id', express.json(), async (req, res) => {
-    if (!isContractorOnly(req, res)) return;
-    
+  app.patch('/api/leadvault/leads/:id', authenticate, requireContractor, express.json(), async (req: AuthenticatedRequest, res) => {
     try {
       const { id } = req.params;
       const { status, notes } = req.body;
-      const contractorId = req.session?.user?.id || 'demo';
+      const contractorId = req.user?.id || 'demo';
       
       const result = await db.execute(sql`
         UPDATE lead_vault_leads SET
@@ -3447,13 +3423,11 @@ Include 3-4 phases, 3-5 tasks per phase, 2-3 SOPs, 3 risks, and 4 KPIs. Be speci
   });
 
   // Generate AI outreach pack for a lead
-  app.post('/api/leadvault/leads/:id/outreach', express.json(), async (req, res) => {
-    if (!isContractorOnly(req, res)) return;
-    
+  app.post('/api/leadvault/leads/:id/outreach', authenticate, requireContractor, express.json(), async (req: AuthenticatedRequest, res) => {
     try {
       const { id } = req.params;
       const { tradeType } = req.body;
-      const contractorId = req.session?.user?.id || 'demo';
+      const contractorId = req.user?.id || 'demo';
       
       // Get the lead
       const leadResult = await db.execute(sql`
@@ -3543,9 +3517,7 @@ Best regards,
   });
 
   // Log lead activity
-  app.post('/api/leadvault/leads/:id/activity', express.json(), async (req, res) => {
-    if (!isContractorOnly(req, res)) return;
-    
+  app.post('/api/leadvault/leads/:id/activity', authenticate, requireContractor, express.json(), async (req: AuthenticatedRequest, res) => {
     try {
       const { id } = req.params;
       const { actionType, actionDetail } = req.body;
@@ -3563,11 +3535,9 @@ Best regards,
   });
 
   // Get pipeline view (leads by status)
-  app.get('/api/leadvault/pipeline', async (req, res) => {
-    if (!isContractorOnly(req, res)) return;
-    
+  app.get('/api/leadvault/pipeline', authenticate, requireContractor, async (req: AuthenticatedRequest, res) => {
     try {
-      const contractorId = req.session?.user?.id || 'demo';
+      const contractorId = req.user?.id || 'demo';
       
       const pipeline = await db.execute(sql`
         SELECT 
