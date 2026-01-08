@@ -6993,5 +6993,143 @@ export const insertSignatureAuditLogSchema = createInsertSchema(signatureAuditLo
 export type SignatureAuditLog = typeof signatureAuditLogs.$inferSelect;
 export type InsertSignatureAuditLog = z.infer<typeof insertSignatureAuditLogSchema>;
 
+// ===== AFFILIATE PARTNER MANAGEMENT =====
+
+export const affiliatePartners = pgTable("affiliate_partners", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  name: varchar("name", { length: 255 }).notNull(),
+  category: varchar("category", { length: 100 }).notNull(), // 'auto_parts', 'flooring', 'roofing', 'tools', 'general'
+  websiteUrl: text("website_url"),
+  logoUrl: text("logo_url"),
+  
+  affiliateId: varchar("affiliate_id", { length: 255 }), // Partner's affiliate ID/tag
+  affiliateProgram: varchar("affiliate_program", { length: 100 }), // 'direct', 'cj', 'rakuten', 'impact', 'shareasale'
+  commissionType: varchar("commission_type", { length: 50 }).notNull(), // 'percentage', 'flat_rate', 'tiered'
+  commissionRate: numeric("commission_rate", { precision: 10, scale: 4 }), // e.g., 0.05 = 5%
+  flatRateCents: integer("flat_rate_cents"), // For flat rate commissions
+  
+  cookieDuration: integer("cookie_duration_days").default(30), // How long cookies last
+  paymentTerms: varchar("payment_terms", { length: 100 }), // 'net_30', 'net_60', 'monthly'
+  minimumPayout: integer("minimum_payout_cents").default(5000), // $50 minimum
+  
+  contactName: varchar("contact_name", { length: 255 }),
+  contactEmail: varchar("contact_email", { length: 255 }),
+  contactPhone: varchar("contact_phone", { length: 50 }),
+  
+  status: varchar("status", { length: 50 }).default("active"), // 'active', 'pending', 'inactive', 'terminated'
+  contractStartDate: timestamp("contract_start_date"),
+  contractEndDate: timestamp("contract_end_date"),
+  notes: text("notes"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertAffiliatePartnerSchema = createInsertSchema(affiliatePartners).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type AffiliatePartner = typeof affiliatePartners.$inferSelect;
+export type InsertAffiliatePartner = z.infer<typeof insertAffiliatePartnerSchema>;
+
+// Track individual clicks on affiliate links
+export const affiliateClicks = pgTable("affiliate_clicks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  partnerId: varchar("partner_id", { length: 255 }).notNull(),
+  productType: varchar("product_type", { length: 100 }), // 'auto_part', 'flooring_material', 'roofing_material'
+  productName: varchar("product_name", { length: 500 }),
+  productSku: varchar("product_sku", { length: 100 }),
+  
+  referralUrl: text("referral_url").notNull(),
+  landingPage: text("landing_page"),
+  
+  userId: varchar("user_id", { length: 255 }), // If user is logged in
+  sessionId: varchar("session_id", { length: 255 }),
+  ipAddress: varchar("ip_address", { length: 45 }),
+  userAgent: text("user_agent"),
+  
+  source: varchar("source", { length: 100 }), // 'workhub_analysis', 'quote_builder', 'estimate'
+  analysisId: varchar("analysis_id", { length: 255 }), // Link to the WorkHub analysis that generated the link
+  
+  clickedAt: timestamp("clicked_at").defaultNow(),
+});
+
+export const insertAffiliateClickSchema = createInsertSchema(affiliateClicks).omit({
+  id: true,
+  clickedAt: true,
+});
+
+export type AffiliateClick = typeof affiliateClicks.$inferSelect;
+export type InsertAffiliateClick = z.infer<typeof insertAffiliateClickSchema>;
+
+// Track earnings/conversions from affiliate links
+export const affiliateEarnings = pgTable("affiliate_earnings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  partnerId: varchar("partner_id", { length: 255 }).notNull(),
+  clickId: varchar("click_id", { length: 255 }), // Link to the click that generated this earning
+  
+  orderReference: varchar("order_reference", { length: 255 }), // Partner's order ID
+  orderAmountCents: integer("order_amount_cents").notNull(), // Total order value
+  commissionCents: integer("commission_cents").notNull(), // Our commission
+  
+  status: varchar("status", { length: 50 }).default("pending"), // 'pending', 'approved', 'paid', 'rejected', 'reversed'
+  
+  conversionDate: timestamp("conversion_date").notNull(),
+  approvalDate: timestamp("approval_date"),
+  paymentDate: timestamp("payment_date"),
+  paymentReference: varchar("payment_reference", { length: 255 }),
+  
+  productDetails: jsonb("product_details"), // { sku, name, quantity, price }
+  notes: text("notes"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertAffiliateEarningSchema = createInsertSchema(affiliateEarnings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type AffiliateEarning = typeof affiliateEarnings.$inferSelect;
+export type InsertAffiliateEarning = z.infer<typeof insertAffiliateEarningSchema>;
+
+// Monthly summary reports for easy dashboard display
+export const affiliateMonthlySummary = pgTable("affiliate_monthly_summary", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  partnerId: varchar("partner_id", { length: 255 }).notNull(),
+  yearMonth: varchar("year_month", { length: 7 }).notNull(), // '2026-01' format
+  
+  totalClicks: integer("total_clicks").default(0),
+  totalConversions: integer("total_conversions").default(0),
+  conversionRate: numeric("conversion_rate", { precision: 5, scale: 4 }), // 0.0523 = 5.23%
+  
+  totalOrderValueCents: integer("total_order_value_cents").default(0),
+  totalCommissionCents: integer("total_commission_cents").default(0),
+  paidCommissionCents: integer("paid_commission_cents").default(0),
+  pendingCommissionCents: integer("pending_commission_cents").default(0),
+  
+  topProducts: jsonb("top_products"), // Array of { name, clicks, conversions, revenue }
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertAffiliateMonthlySummarySchema = createInsertSchema(affiliateMonthlySummary).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type AffiliateMonthlySummary = typeof affiliateMonthlySummary.$inferSelect;
+export type InsertAffiliateMonthlySummary = z.infer<typeof insertAffiliateMonthlySummarySchema>;
+
 // Chat schema for AI integrations
 export * from "./models/chat";
