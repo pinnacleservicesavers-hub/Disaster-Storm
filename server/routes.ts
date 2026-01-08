@@ -18409,6 +18409,28 @@ What specific area or type of incident would you like me to focus on? I can prov
           roofingSquares: roofingPricingResult.roofingSquares,
           materialGrade: roofingPricingResult.materialGrade,
         };
+      } else if ((detectedTrade === 'auto' || detectedTrade === 'auto_repair' || detectedTrade === 'automotive') && autoRepairPricingResult) {
+        priceEstimate = {
+          min: Math.round(autoRepairPricingResult.grandTotalMin * regionInfo.multiplier),
+          max: Math.round(autoRepairPricingResult.grandTotalMax * regionInfo.multiplier),
+          currency: 'USD',
+          regionalAdjustment: regionInfo.tier,
+          location: location || 'National average',
+          partsCount: autoRepairPricingResult.partsNeeded.length,
+          laborHours: autoRepairPricingResult.partsNeeded.reduce((sum, p) => sum + p.laborHours, 0),
+          warnings: autoRepairPricingResult.warnings,
+        };
+      } else if ((detectedTrade === 'flooring' || detectedTrade === 'floor') && flooringPricingResult) {
+        priceEstimate = {
+          min: Math.round(flooringPricingResult.grandTotalMin * regionInfo.multiplier),
+          max: Math.round(flooringPricingResult.grandTotalMax * regionInfo.multiplier),
+          currency: 'USD',
+          regionalAdjustment: regionInfo.tier,
+          location: location || 'National average',
+          squareFootage: flooringPricingResult.squareFootage,
+          materialOptions: flooringPricingResult.materials.length,
+          warnings: flooringPricingResult.warnings,
+        };
       } else {
         priceEstimate = {
           min: Math.round(analysis.damageAssessment.estimatedCost.min * regionInfo.multiplier * hazardMultiplier),
