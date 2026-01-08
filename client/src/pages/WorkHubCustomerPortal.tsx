@@ -316,8 +316,10 @@ export default function WorkHubCustomerPortal() {
           min: data.analysis?.priceEstimate?.min || 500, 
           max: data.analysis?.priceEstimate?.max || 2000 
         },
-        complexity: data.analysis?.severity || 'Medium',
-        timeEstimate: data.analysis?.urgency || '1-3 days',
+        complexity: data.analysis?.complexity || data.analysis?.severity || 'minimal',
+        timeEstimate: data.analysis?.timeEstimate || data.analysis?.urgency || 'routine',
+        hazards: data.analysis?.hazards || {},
+        isHazardous: data.analysis?.isHazardous || false,
         aiConfidence: confidencePercent,
         contractors: data.contractors || [],
         tags: data.analysis?.tags || [],
@@ -1162,13 +1164,48 @@ export default function WorkHubCustomerPortal() {
                         <div className="flex gap-4">
                           <div>
                             <p className="text-sm text-slate-500">Complexity</p>
-                            <Badge variant="outline">{aiAnalysis.complexity}</Badge>
+                            <Badge 
+                              variant="outline" 
+                              className={aiAnalysis.complexity === 'high' ? 'border-red-500 text-red-600' : aiAnalysis.complexity === 'moderate' ? 'border-amber-500 text-amber-600' : ''}
+                            >
+                              {aiAnalysis.complexity}
+                            </Badge>
                           </div>
                           <div>
                             <p className="text-sm text-slate-500">Time Estimate</p>
                             <Badge variant="outline">{aiAnalysis.timeEstimate}</Badge>
                           </div>
                         </div>
+                        
+                        {/* Hazard Warnings */}
+                        {aiAnalysis.isHazardous && (
+                          <div className="mt-3 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg">
+                            <p className="font-semibold text-red-700 dark:text-red-400 flex items-center gap-2 mb-1">
+                              <AlertCircle className="w-4 h-4" />
+                              Hazard Detected
+                            </p>
+                            <ul className="text-sm text-red-600 dark:text-red-300 space-y-1">
+                              {aiAnalysis.hazards?.powerlines && (
+                                <li className="flex items-center gap-1">
+                                  <Zap className="w-3 h-3" />
+                                  Power lines involved - requires utility coordination
+                                </li>
+                              )}
+                              {aiAnalysis.hazards?.nearStructure && (
+                                <li className="flex items-center gap-1">
+                                  <Home className="w-3 h-3" />
+                                  Near structures - careful work required
+                                </li>
+                              )}
+                              {aiAnalysis.hazards?.accessDifficult && (
+                                <li className="flex items-center gap-1">
+                                  <MapPin className="w-3 h-3" />
+                                  Difficult access - may affect pricing
+                                </li>
+                              )}
+                            </ul>
+                          </div>
+                        )}
                       </div>
                     </div>
 

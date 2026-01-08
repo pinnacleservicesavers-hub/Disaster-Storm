@@ -16425,8 +16425,28 @@ What specific area or type of incident would you like me to focus on? I can prov
       const regionInfo = getRegionalMultiplier(location || '');
       console.log(`📍 Regional pricing: ${location || 'unknown'} -> ${regionInfo.tier} (${regionInfo.multiplier}x)`);
 
+      // Detect hazards from tags and description (powerlines, structures, etc.)
+      const descLower = (description || '').toLowerCase();
+      const hasHazards = {
+        powerlines: tags.some(t => t.includes('power') || t.includes('wire') || t.includes('electric') || t.includes('utility')) || 
+                    descLower.includes('power') || descLower.includes('powerline') || descLower.includes('wire') || descLower.includes('electric'),
+        nearStructure: tags.some(t => t.includes('house') || t.includes('building') || t.includes('roof')) ||
+                       descLower.includes('house') || descLower.includes('building') || descLower.includes('roof'),
+        accessDifficult: descLower.includes('slope') || descLower.includes('hill') || descLower.includes('fence') || descLower.includes('tight')
+      };
+      const isHazardous = hasHazards.powerlines || (hasHazards.nearStructure && hasHazards.accessDifficult);
+      console.log(`⚠️ Hazard detection: powerlines=${hasHazards.powerlines}, nearStructure=${hasHazards.nearStructure}, difficult=${hasHazards.accessDifficult}`);
+
       // Calculate pricing breakdown for each material option
-      const quantity = measurements.sqft || measurements.linearFt || measurements.count || 1;
+      // For tree jobs, use count (1 tree). For area jobs, use sqft. For linear jobs, use linearFt.
+      let quantity = 1;
+      if (detectedTrade === 'tree_removal' || detectedTrade === 'tree') {
+        quantity = measurements.count || 1;
+      } else if (detectedTrade === 'fencing') {
+        quantity = measurements.linearFt || 1;
+      } else {
+        quantity = measurements.sqft || measurements.linearFt || measurements.count || 1;
+      }
       const materialOptions = materials.map((mat, idx) => {
         const baseMaterialCost = mat.pricePerUnit * quantity;
         const baseLaborCost = laborRate ? laborRate.installation * quantity : Math.round(baseMaterialCost * 0.4);
@@ -16560,6 +16580,37 @@ What specific area or type of incident would you like me to focus on? I can prov
 
       const costBreakdown = generateContractorCostBreakdown();
 
+      // Determine complexity based on hazards and job characteristics
+      let complexity = 'minimal';
+      let timeEstimate = 'routine';
+      let hazardMultiplier = 1.0;
+      
+      if (hasHazards.powerlines) {
+        complexity = 'high';
+        timeEstimate = 'requires utility coordination';
+        hazardMultiplier = 1.5; // 50% increase for powerline work
+      } else if (hasHazards.nearStructure && hasHazards.accessDifficult) {
+        complexity = 'high';
+        timeEstimate = 'careful work required';
+        hazardMultiplier = 1.3;
+      } else if (hasHazards.nearStructure || hasHazards.accessDifficult) {
+        complexity = 'moderate';
+        timeEstimate = 'standard';
+        hazardMultiplier = 1.15;
+      } else if (detectedTrade === 'tree_removal' && measurements.heightFt && measurements.heightFt > 40) {
+        complexity = 'moderate';
+        timeEstimate = 'standard';
+        hazardMultiplier = 1.2;
+      }
+      
+      // Apply hazard multiplier to material options
+      const adjustedMaterialOptions = materialOptions.map(mat => ({
+        ...mat,
+        materialCost: Math.round(mat.materialCost * hazardMultiplier),
+        laborCost: Math.round(mat.laborCost * hazardMultiplier),
+        totalCost: Math.round(mat.totalCost * hazardMultiplier)
+      }));
+
       res.json({
         ok: true,
         analysis: {
@@ -16570,21 +16621,25 @@ What specific area or type of incident would you like me to focus on? I can prov
           details: analysis.professionalDescription.technicalDetails,
           recommendations: analysis.professionalDescription.recommendedActions,
           priceEstimate: {
-            min: Math.round(analysis.damageAssessment.estimatedCost.min * regionInfo.multiplier),
-            max: Math.round(analysis.damageAssessment.estimatedCost.max * regionInfo.multiplier),
+            min: Math.round(analysis.damageAssessment.estimatedCost.min * regionInfo.multiplier * hazardMultiplier),
+            max: Math.round(analysis.damageAssessment.estimatedCost.max * regionInfo.multiplier * hazardMultiplier),
             currency: 'USD',
             regionalAdjustment: regionInfo.tier,
             location: location || 'National average'
           },
           urgency: analysis.damageAssessment.repairPriority,
           severity: analysis.damageAssessment.severity,
+          complexity,
+          timeEstimate,
+          hazards: hasHazards,
+          isHazardous,
           safetyNotes: analysis.professionalDescription.safetyNotes,
           tags: analysis.autoTags,
           confidence: analysis.confidence,
           treeDetails: analysis.treeAnalysis
         },
         measurements,
-        materialOptions,
+        materialOptions: adjustedMaterialOptions,
         laborRate: laborRate ? {
           ratePerUnit: laborRate.installation,
           unit: laborRate.unit,
