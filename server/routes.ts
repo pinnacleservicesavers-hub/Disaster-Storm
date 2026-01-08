@@ -17119,7 +17119,7 @@ What specific area or type of incident would you like me to focus on? I can prov
   // Generate AI "after" image - shows what the completed work would look like using image editing
   app.post('/api/workhub/generate-after-image', express.json({ limit: '10mb' }), async (req, res) => {
     try {
-      const { imageBase64, jobType, issues } = req.body;
+      const { imageBase64, jobType, issues, materialPreference, description } = req.body;
       
       // Input validation
       if (!imageBase64) {
@@ -17167,7 +17167,27 @@ What specific area or type of incident would you like me to focus on? I can prov
             return 'Edit this photo to show the same exact scene with brand new, professionally finished concrete. Replace any cracked, damaged, or deteriorating concrete with smooth, level new concrete that has clean edges and a proper finish. The concrete should look freshly poured and sealed. Keep all surrounding elements exactly the same.';
           
           case 'flooring':
-            return 'Edit this photo to show the same exact room with brand new, professionally installed flooring. Replace any damaged, worn, or outdated flooring with fresh, beautiful new flooring materials that are perfectly aligned with clean seams. The floor should look pristine and professionally finished. Keep all furniture and room elements exactly the same.';
+          case 'hardwood':
+          case 'laminate':
+          case 'tile':
+          case 'vinyl':
+            // Enhanced flooring prompt with material detection from issues or preference
+            let flooringMaterial = 'beautiful new hardwood';
+            if (materialPreference) {
+              flooringMaterial = materialPreference;
+            } else if (detectedIssues?.find((i: string) => 
+              i.toLowerCase().includes('hardwood') || 
+              i.toLowerCase().includes('redwood') ||
+              i.toLowerCase().includes('dark') ||
+              i.toLowerCase().includes('oak')
+            )) {
+              flooringMaterial = 'beautiful dark redwood hardwood';
+            } else if (detectedIssues?.find((i: string) => i.toLowerCase().includes('tile'))) {
+              flooringMaterial = 'elegant tile';
+            } else if (detectedIssues?.find((i: string) => i.toLowerCase().includes('vinyl') || i.toLowerCase().includes('lvp'))) {
+              flooringMaterial = 'luxury vinyl plank';
+            }
+            return `Edit this photo to show the EXACT same room with brand new, professionally installed ${flooringMaterial} flooring. CRITICAL: Keep every single piece of furniture, desk, chair, shelf, box, and object in the EXACT same position. Keep walls, doors, windows, ceiling, and all room elements EXACTLY the same. Only transform the floor surface to show ${flooringMaterial} flooring with rich grain patterns, perfectly aligned planks, clean seams, and a professional satin finish. The flooring should look like it was just installed by professional contractors. Maintain the exact camera angle, lighting, and perspective.`;
           
           case 'hvac':
             return 'Edit this photo to show a new, modern, professionally installed HVAC unit in place of any old or damaged equipment. The new unit should look brand new, properly positioned, and cleanly installed with proper connections. Keep all surrounding elements exactly the same.';

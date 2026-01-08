@@ -840,20 +840,50 @@ export default function WorkHubCustomerPortal() {
       reader.onload = async () => {
         const base64 = (reader.result as string).split(',')[1];
         
+        // Determine material preference - prioritize explicit selection over text parsing
+        let materialPreference = '';
+        const jobType = request.category || aiAnalysis?.detectedCategory || '';
+        const isFlooringJob = ['flooring', 'hardwood', 'tile', 'vinyl', 'laminate'].includes(jobType.toLowerCase());
+        
+        // Priority 1: Use explicitly selected material if available
+        if (selectedMaterial?.name) {
+          materialPreference = selectedMaterial.name;
+        } else if (isFlooringJob) {
+          // Priority 2: Parse flooring-specific keywords from description for flooring jobs only
+          const desc = request.description?.toLowerCase() || '';
+          const flooringPatterns = [
+            { pattern: /dark\s*(redwood|mahogany|walnut|cherry|oak|hardwood)/, material: 'beautiful dark redwood hardwood' },
+            { pattern: /light\s*(oak|maple|birch|ash|hardwood)/, material: 'light natural oak hardwood' },
+            { pattern: /\bhardwood\b|\bwood\s*floor/, material: 'beautiful hardwood' },
+            { pattern: /\btile\b|\bceramic\b|\bporcelain\b/, material: 'elegant ceramic tile' },
+            { pattern: /\bvinyl\b|\blvp\b|\bluxury\s*vinyl/, material: 'luxury vinyl plank' },
+            { pattern: /\blaminate\b/, material: 'laminate wood' }
+          ];
+          
+          for (const { pattern, material } of flooringPatterns) {
+            if (pattern.test(desc)) {
+              materialPreference = material;
+              break;
+            }
+          }
+        }
+        
         const response = await fetch('/api/workhub/generate-after-image', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             imageBase64: base64,
             jobType: request.category || aiAnalysis?.detectedCategory || 'general',
-            issues: aiAnalysis?.identifiedIssues || []
+            issues: aiAnalysis?.identifiedIssues || [],
+            materialPreference,
+            description: request.description
           }),
         });
         
         if (response.ok) {
           const data = await response.json();
           setAfterPreviewUrl(data.afterImageUrl);
-          speakGuidance("I've generated a preview of how your project could look when completed.");
+          speakGuidance("I've generated a preview of how your project could look when completed. This shows you what the finished work might look like!");
         }
       };
       
@@ -2177,7 +2207,7 @@ export default function WorkHubCustomerPortal() {
                               <AlertCircle className="w-3 h-3" />
                               Before (Your Photo)
                             </p>
-                            <div className="aspect-video rounded-lg overflow-hidden border-2 border-red-200 shadow-md">
+                            <div className="aspect-video rounded-lg overflow-hidden border-2 border-red-200 shadow-md relative">
                               <img src={previewUrls[0]} alt="Before" className="w-full h-full object-cover" />
                             </div>
                           </div>
@@ -2186,7 +2216,7 @@ export default function WorkHubCustomerPortal() {
                               <CheckCircle className="w-3 h-3" />
                               After (AI Vision)
                             </p>
-                            <div className="aspect-video rounded-lg overflow-hidden border-2 border-green-400 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 shadow-md">
+                            <div className="aspect-video rounded-lg overflow-hidden border-2 border-green-400 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 shadow-md relative">
                               {isGeneratingPreview ? (
                                 <div className="w-full h-full flex items-center justify-center">
                                   <div className="text-center">
@@ -2198,6 +2228,28 @@ export default function WorkHubCustomerPortal() {
                               ) : afterPreviewUrl ? (
                                 <>
                                   <img src={afterPreviewUrl} alt="After Preview" className="w-full h-full object-cover" />
+                                  {/* Pricing overlay on the after image - only show if we have valid price data */}
+                                  {aiAnalysis?.estimatedPriceRange && 
+                                   typeof aiAnalysis.estimatedPriceRange.min === 'number' && 
+                                   typeof aiAnalysis.estimatedPriceRange.max === 'number' &&
+                                   aiAnalysis.estimatedPriceRange.min > 0 && (
+                                    <div className="absolute bottom-3 left-3 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm px-4 py-2 rounded-lg shadow-lg border border-green-200">
+                                      <p className="text-xs text-slate-500 font-medium">
+                                        {measurements?.squareFootage && measurements.squareFootage > 0 
+                                          ? `${Math.round(measurements.squareFootage)} Sq Ft ` 
+                                          : ''}
+                                        {(request.category || aiAnalysis?.detectedCategory || 'project')
+                                          .replace(/_/g, ' ')
+                                          .split(' ')
+                                          .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
+                                          .join(' ')}
+                                      </p>
+                                      <p className="text-xs text-slate-400">installation estimate:</p>
+                                      <p className="text-lg font-bold text-green-600">
+                                        ${aiAnalysis.estimatedPriceRange.min.toLocaleString()} – ${aiAnalysis.estimatedPriceRange.max.toLocaleString()}
+                                      </p>
+                                    </div>
+                                  )}
                                 </>
                               ) : (
                                 <div className="w-full h-full flex items-center justify-center p-4">
