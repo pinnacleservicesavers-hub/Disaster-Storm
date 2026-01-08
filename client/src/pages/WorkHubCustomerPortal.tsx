@@ -134,8 +134,86 @@ export default function WorkHubCustomerPortal() {
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [matchedContractors, setMatchedContractors] = useState<any[]>([]);
   const [isLoadingContractors, setIsLoadingContractors] = useState(false);
+  
+  // Upsell options for contractors - helps maximize job value
+  const [selectedUpsells, setSelectedUpsells] = useState<string[]>([]);
+  const [upsellTotal, setUpsellTotal] = useState(0);
 
   const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
+  
+  // Upsell options by job category - designed to help contractors maximize revenue
+  const UPSELL_OPTIONS: Record<string, { id: string; name: string; description: string; price: number; recommended?: boolean }[]> = {
+    tree: [
+      { id: 'stump_removal', name: 'Stump Grinding', description: 'Remove stump to below ground level', price: 250, recommended: true },
+      { id: 'root_removal', name: 'Root Removal', description: 'Remove visible surface roots', price: 150 },
+      { id: 'debris_hauling', name: 'Full Debris Hauling', description: 'Haul away all wood and debris', price: 200 },
+      { id: 'trimming_nearby', name: 'Trim Nearby Trees', description: 'Shape and trim adjacent trees', price: 175 },
+      { id: 'mulch_delivery', name: 'Mulch from Wood Chips', description: 'Convert debris to usable mulch', price: 75 },
+    ],
+    tree_removal: [
+      { id: 'stump_removal', name: 'Stump Grinding', description: 'Remove stump to below ground level', price: 250, recommended: true },
+      { id: 'root_removal', name: 'Root Removal', description: 'Remove visible surface roots', price: 150 },
+      { id: 'debris_hauling', name: 'Full Debris Hauling', description: 'Haul away all wood and debris', price: 200 },
+      { id: 'trimming_nearby', name: 'Trim Nearby Trees', description: 'Shape and trim adjacent trees', price: 175 },
+      { id: 'mulch_delivery', name: 'Mulch from Wood Chips', description: 'Convert debris to usable mulch', price: 75 },
+    ],
+    roofing: [
+      { id: 'gutter_cleaning', name: 'Gutter Cleaning', description: 'Clean and flush all gutters', price: 150, recommended: true },
+      { id: 'gutter_guards', name: 'Gutter Guards', description: 'Install leaf guards on gutters', price: 350 },
+      { id: 'attic_ventilation', name: 'Attic Ventilation Check', description: 'Inspect and improve attic airflow', price: 125 },
+      { id: 'skylight_seal', name: 'Skylight Resealing', description: 'Reseal skylights to prevent leaks', price: 200 },
+      { id: 'chimney_flashing', name: 'Chimney Flashing', description: 'Replace chimney flashing', price: 275 },
+    ],
+    painting: [
+      { id: 'trim_painting', name: 'Trim & Molding', description: 'Paint all trim, baseboards, crown molding', price: 350, recommended: true },
+      { id: 'ceiling_paint', name: 'Ceiling Painting', description: 'Fresh coat on all ceilings', price: 250 },
+      { id: 'drywall_repair', name: 'Drywall Repair', description: 'Patch holes and repair damage', price: 175 },
+      { id: 'power_wash', name: 'Exterior Power Wash', description: 'Deep clean before painting', price: 200 },
+      { id: 'caulking', name: 'Window/Door Caulking', description: 'Seal all gaps and cracks', price: 125 },
+    ],
+    flooring: [
+      { id: 'baseboard_install', name: 'New Baseboards', description: 'Install matching baseboards', price: 400, recommended: true },
+      { id: 'subfloor_repair', name: 'Subfloor Repair', description: 'Fix squeaks and damaged areas', price: 300 },
+      { id: 'furniture_moving', name: 'Furniture Moving', description: 'Move and replace all furniture', price: 150 },
+      { id: 'old_floor_removal', name: 'Old Floor Removal', description: 'Remove and dispose of old flooring', price: 350 },
+      { id: 'transitions', name: 'Transition Strips', description: 'Install professional transitions', price: 125 },
+    ],
+    hvac: [
+      { id: 'duct_cleaning', name: 'Duct Cleaning', description: 'Full HVAC duct cleaning', price: 350, recommended: true },
+      { id: 'smart_thermostat', name: 'Smart Thermostat', description: 'Install wifi-enabled thermostat', price: 250 },
+      { id: 'air_filter_sub', name: 'Filter Subscription', description: '1 year of filter deliveries', price: 75 },
+      { id: 'uv_light', name: 'UV Air Purifier', description: 'Install UV light for air quality', price: 400 },
+      { id: 'maintenance_plan', name: 'Annual Maintenance Plan', description: '2 tune-ups per year', price: 200 },
+    ],
+    plumbing: [
+      { id: 'water_heater_flush', name: 'Water Heater Flush', description: 'Drain and flush sediment', price: 125, recommended: true },
+      { id: 'drain_cleaning', name: 'Whole House Drain Clean', description: 'Snake all drains', price: 275 },
+      { id: 'pressure_regulator', name: 'Pressure Regulator', description: 'Install water pressure regulator', price: 200 },
+      { id: 'shut_off_valves', name: 'Replace Shut-offs', description: 'New fixture shut-off valves', price: 150 },
+      { id: 'expansion_tank', name: 'Expansion Tank', description: 'Install thermal expansion tank', price: 225 },
+    ],
+    electrical: [
+      { id: 'surge_protection', name: 'Whole House Surge', description: 'Install surge protection', price: 350, recommended: true },
+      { id: 'outlet_upgrade', name: 'USB Outlet Upgrade', description: 'Add USB outlets to 5 locations', price: 200 },
+      { id: 'dimmer_switches', name: 'Dimmer Switches', description: 'Install dimmers in 3 rooms', price: 175 },
+      { id: 'smoke_detectors', name: 'Smoke Detector Upgrade', description: 'New interconnected detectors', price: 250 },
+      { id: 'outdoor_lighting', name: 'Outdoor Lighting', description: 'Add security/landscape lights', price: 400 },
+    ],
+    fence: [
+      { id: 'gate_install', name: 'Gate Installation', description: 'Add matching gate', price: 400, recommended: true },
+      { id: 'post_caps', name: 'Decorative Post Caps', description: 'Add caps to all posts', price: 100 },
+      { id: 'staining', name: 'Fence Staining', description: 'Stain and seal fence', price: 300 },
+      { id: 'lattice_top', name: 'Lattice Topper', description: 'Add decorative lattice', price: 250 },
+      { id: 'pet_barrier', name: 'Pet Barrier', description: 'Add dig-proof barrier', price: 175 },
+    ],
+    concrete: [
+      { id: 'sealing', name: 'Concrete Sealing', description: 'Seal to prevent staining', price: 200, recommended: true },
+      { id: 'expansion_joints', name: 'Expansion Joints', description: 'Cut control joints', price: 150 },
+      { id: 'colored_finish', name: 'Colored Finish', description: 'Add integral color', price: 350 },
+      { id: 'non_slip', name: 'Non-Slip Finish', description: 'Add textured non-slip surface', price: 175 },
+      { id: 'drainage', name: 'Drainage Solution', description: 'Install drain or slope correction', price: 400 },
+    ],
+  };
 
   useEffect(() => {
     const fetchContractors = async () => {
@@ -817,7 +895,13 @@ export default function WorkHubCustomerPortal() {
           estimateDateTo: estimateDateTo || null,
           estimateTimePreference: estimateTimePreference || 'any',
           desiredQuoteCount: desiredQuoteCount || 1,
-          jobCompletionDate: jobCompletionDate || null
+          jobCompletionDate: jobCompletionDate || null,
+          // Upsell add-ons selected by customer
+          selectedUpsells: selectedUpsells.length > 0 ? selectedUpsells.map(id => {
+            const upsell = UPSELL_OPTIONS[request.category]?.find(u => u.id === id);
+            return upsell ? { id: upsell.id, name: upsell.name, price: upsell.price } : null;
+          }).filter(Boolean) : [],
+          upsellTotal: upsellTotal
         }),
       });
       
@@ -849,7 +933,13 @@ export default function WorkHubCustomerPortal() {
                 customerBudgetMin: customerBudgetMin ? parseInt(customerBudgetMin) : null,
                 customerBudgetMax: customerBudgetMax ? parseInt(customerBudgetMax) : null,
                 urgency: request.preferences.urgency,
-                preferredTimeframe: preferredTimeframe || null
+                preferredTimeframe: preferredTimeframe || null,
+                // Upsell opportunities for contractors
+                selectedUpsells: selectedUpsells.length > 0 ? selectedUpsells.map(id => {
+                  const upsell = UPSELL_OPTIONS[request.category]?.find(u => u.id === id);
+                  return upsell ? { id: upsell.id, name: upsell.name, price: upsell.price } : null;
+                }).filter(Boolean) : [],
+                upsellTotal: upsellTotal
               }),
             });
             console.log('Lead distributed to subscribed contractors');
@@ -1351,6 +1441,95 @@ export default function WorkHubCustomerPortal() {
                               <AlertCircle className="w-3 h-3" />
                               Price based on AI estimates. Final quote provided after inspection.
                             </p>
+                          </div>
+                        )}
+                        
+                        {/* Upsell Section - Helps contractors maximize job value */}
+                        {UPSELL_OPTIONS[request.category] && UPSELL_OPTIONS[request.category].length > 0 && (
+                          <div className="mt-4 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 p-4 rounded-lg border border-amber-200 dark:border-amber-800">
+                            <h5 className="font-semibold text-amber-700 dark:text-amber-400 mb-2 flex items-center gap-2">
+                              <Star className="w-4 h-4" />
+                              Would You Like to Add Any of These Services?
+                            </h5>
+                            <p className="text-sm text-slate-600 dark:text-slate-400 mb-3">
+                              Many homeowners choose these popular add-ons to complete their project
+                            </p>
+                            
+                            <div className="space-y-2">
+                              {UPSELL_OPTIONS[request.category].map((upsell) => (
+                                <motion.div
+                                  key={upsell.id}
+                                  whileHover={{ scale: 1.01 }}
+                                  className={`p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                                    selectedUpsells.includes(upsell.id)
+                                      ? 'border-amber-500 bg-amber-100 dark:bg-amber-900/30'
+                                      : 'border-slate-200 hover:border-amber-300 bg-white dark:bg-slate-800'
+                                  }`}
+                                  onClick={() => {
+                                    const isSelected = selectedUpsells.includes(upsell.id);
+                                    const newUpsells = isSelected
+                                      ? selectedUpsells.filter(id => id !== upsell.id)
+                                      : [...selectedUpsells, upsell.id];
+                                    setSelectedUpsells(newUpsells);
+                                    
+                                    const newTotal = newUpsells.reduce((sum, id) => {
+                                      const opt = UPSELL_OPTIONS[request.category]?.find(u => u.id === id);
+                                      return sum + (opt?.price || 0);
+                                    }, 0);
+                                    setUpsellTotal(newTotal);
+                                  }}
+                                  data-testid={`upsell-option-${upsell.id}`}
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                      <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center ${
+                                        selectedUpsells.includes(upsell.id)
+                                          ? 'bg-amber-500 border-amber-500'
+                                          : 'border-slate-300'
+                                      }`}>
+                                        {selectedUpsells.includes(upsell.id) && (
+                                          <CheckCircle className="w-4 h-4 text-white" />
+                                        )}
+                                      </div>
+                                      <div>
+                                        <p className="font-medium text-slate-900 dark:text-white flex items-center gap-2">
+                                          {upsell.name}
+                                          {upsell.recommended && (
+                                            <Badge className="bg-amber-500 text-xs">Popular</Badge>
+                                          )}
+                                        </p>
+                                        <p className="text-xs text-slate-500">{upsell.description}</p>
+                                      </div>
+                                    </div>
+                                    <div className="text-right">
+                                      <p className="font-bold text-amber-600">+${upsell.price}</p>
+                                    </div>
+                                  </div>
+                                </motion.div>
+                              ))}
+                            </div>
+                            
+                            {/* Upsell Total */}
+                            {selectedUpsells.length > 0 && (
+                              <div className="mt-3 pt-3 border-t border-amber-200 dark:border-amber-700">
+                                <div className="flex justify-between items-center">
+                                  <span className="font-semibold text-amber-800 dark:text-amber-300">
+                                    Add-on Services ({selectedUpsells.length} selected)
+                                  </span>
+                                  <span className="font-bold text-lg text-amber-700 dark:text-amber-400">
+                                    +${upsellTotal.toLocaleString()}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between items-center mt-2 pt-2 border-t border-amber-200 dark:border-amber-700">
+                                  <span className="font-bold text-amber-800 dark:text-amber-300">
+                                    New Estimated Total
+                                  </span>
+                                  <span className="font-bold text-xl text-green-600">
+                                    ${((pricingBreakdown?.totalCost || 0) / 100 + upsellTotal).toLocaleString('en-US', { minimumFractionDigits: 0 })}
+                                  </span>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
