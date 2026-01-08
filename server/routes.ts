@@ -2864,6 +2864,301 @@ Include 3-4 phases, 3-5 tasks per phase, 2-3 SOPs, 3 risks, and 4 KPIs. Be speci
 
   console.log('💰 Affiliate Partnership routes registered - Partner CRUD, earnings tracking, click analytics');
 
+  // ---- Contractors Vault Routes ----
+  // Initialize contractor vault table if not exists
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS contractor_vault (
+      id SERIAL PRIMARY KEY,
+      business_name VARCHAR(255) NOT NULL,
+      market VARCHAR(255),
+      address TEXT,
+      city VARCHAR(100),
+      state VARCHAR(50),
+      zip_code VARCHAR(20),
+      phone VARCHAR(50),
+      email VARCHAR(255),
+      website VARCHAR(500),
+      source VARCHAR(100),
+      listing_url TEXT,
+      category VARCHAR(100) DEFAULT 'tree_service',
+      specialty TEXT,
+      license_number VARCHAR(100),
+      insurance_verified BOOLEAN DEFAULT FALSE,
+      rating DECIMAL(2,1),
+      review_count INTEGER DEFAULT 0,
+      notes TEXT,
+      status VARCHAR(50) DEFAULT 'active',
+      imported_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE(business_name, phone)
+    )
+  `);
+
+  // Get all contractors from vault with filters
+  app.get('/api/admin/contractor-vault', async (req, res) => {
+    try {
+      const { market, category, status, search, limit = '100', offset = '0' } = req.query;
+      
+      let query = sql`SELECT * FROM contractor_vault WHERE 1=1`;
+      
+      if (market) {
+        query = sql`${query} AND market = ${market}`;
+      }
+      if (category) {
+        query = sql`${query} AND category = ${category}`;
+      }
+      if (status) {
+        query = sql`${query} AND status = ${status}`;
+      }
+      if (search) {
+        const searchTerm = `%${search}%`;
+        query = sql`${query} AND (business_name ILIKE ${searchTerm} OR address ILIKE ${searchTerm})`;
+      }
+      
+      query = sql`${query} ORDER BY business_name LIMIT ${parseInt(limit as string)} OFFSET ${parseInt(offset as string)}`;
+      
+      const result = await db.execute(query);
+      
+      // Get total count
+      const countResult = await db.execute(sql`SELECT COUNT(*) as total FROM contractor_vault`);
+      
+      res.json({ 
+        ok: true, 
+        contractors: result.rows,
+        total: parseInt(countResult.rows[0]?.total || '0')
+      });
+    } catch (error) {
+      console.error('Error fetching contractor vault:', error);
+      res.status(500).json({ error: 'Failed to fetch contractors' });
+    }
+  });
+
+  // Get vault statistics
+  app.get('/api/admin/contractor-vault/stats', async (req, res) => {
+    try {
+      const stats = await db.execute(sql`
+        SELECT 
+          COUNT(*) as total_contractors,
+          COUNT(DISTINCT market) as total_markets,
+          COUNT(DISTINCT category) as total_categories,
+          COUNT(CASE WHEN status = 'active' THEN 1 END) as active_contractors,
+          COUNT(CASE WHEN insurance_verified = true THEN 1 END) as verified_contractors
+        FROM contractor_vault
+      `);
+      
+      const byMarket = await db.execute(sql`
+        SELECT market, COUNT(*) as count 
+        FROM contractor_vault 
+        GROUP BY market 
+        ORDER BY count DESC 
+        LIMIT 10
+      `);
+      
+      const byCategory = await db.execute(sql`
+        SELECT category, COUNT(*) as count 
+        FROM contractor_vault 
+        GROUP BY category 
+        ORDER BY count DESC
+      `);
+      
+      res.json({ 
+        ok: true, 
+        stats: stats.rows[0],
+        byMarket: byMarket.rows,
+        byCategory: byCategory.rows
+      });
+    } catch (error) {
+      console.error('Error fetching vault stats:', error);
+      res.status(500).json({ error: 'Failed to fetch stats' });
+    }
+  });
+
+  // Get unique markets for filters
+  app.get('/api/admin/contractor-vault/markets', async (req, res) => {
+    try {
+      const result = await db.execute(sql`
+        SELECT DISTINCT market FROM contractor_vault WHERE market IS NOT NULL ORDER BY market
+      `);
+      res.json({ ok: true, markets: result.rows.map((r: any) => r.market) });
+    } catch (error) {
+      console.error('Error fetching markets:', error);
+      res.status(500).json({ error: 'Failed to fetch markets' });
+    }
+  });
+
+  // Create/update single contractor
+  app.post('/api/admin/contractor-vault', express.json(), async (req, res) => {
+    try {
+      const { businessName, market, address, city, state, zipCode, phone, email, website, source, listingUrl, category, specialty, licenseNumber, insuranceVerified, rating, reviewCount, notes, status } = req.body;
+      
+      const result = await db.execute(sql`
+        INSERT INTO contractor_vault (business_name, market, address, city, state, zip_code, phone, email, website, source, listing_url, category, specialty, license_number, insurance_verified, rating, review_count, notes, status)
+        VALUES (${businessName}, ${market}, ${address}, ${city}, ${state}, ${zipCode}, ${phone}, ${email}, ${website}, ${source}, ${listingUrl}, ${category || 'general'}, ${specialty}, ${licenseNumber}, ${insuranceVerified || false}, ${rating}, ${reviewCount || 0}, ${notes}, ${status || 'active'})
+        ON CONFLICT (business_name, phone) DO UPDATE SET
+          market = EXCLUDED.market,
+          address = EXCLUDED.address,
+          city = EXCLUDED.city,
+          state = EXCLUDED.state,
+          zip_code = EXCLUDED.zip_code,
+          email = EXCLUDED.email,
+          website = EXCLUDED.website,
+          source = EXCLUDED.source,
+          listing_url = EXCLUDED.listing_url,
+          category = EXCLUDED.category,
+          specialty = EXCLUDED.specialty,
+          license_number = EXCLUDED.license_number,
+          insurance_verified = EXCLUDED.insurance_verified,
+          rating = EXCLUDED.rating,
+          review_count = EXCLUDED.review_count,
+          notes = EXCLUDED.notes,
+          status = EXCLUDED.status,
+          updated_at = NOW()
+        RETURNING *
+      `);
+      res.json({ ok: true, contractor: result.rows[0] });
+    } catch (error) {
+      console.error('Error saving contractor:', error);
+      res.status(500).json({ error: 'Failed to save contractor' });
+    }
+  });
+
+  // Bulk import contractors from CSV data
+  app.post('/api/admin/contractor-vault/import', express.json(), async (req, res) => {
+    try {
+      const { contractors, category = 'tree_service' } = req.body;
+      
+      if (!contractors || !Array.isArray(contractors)) {
+        return res.status(400).json({ error: 'Invalid contractors data' });
+      }
+      
+      let imported = 0;
+      let skipped = 0;
+      
+      for (const c of contractors) {
+        try {
+          // Parse address to extract city/state/zip if possible
+          let city = '';
+          let state = '';
+          let zipCode = '';
+          
+          if (c.address) {
+            const addressMatch = c.address.match(/([^,]+),\s*([A-Z]{2})\s*(\d{5})?/i);
+            if (addressMatch) {
+              city = addressMatch[1].trim();
+              state = addressMatch[2].toUpperCase();
+              zipCode = addressMatch[3] || '';
+            }
+          }
+          
+          await db.execute(sql`
+            INSERT INTO contractor_vault (business_name, market, address, city, state, zip_code, phone, source, listing_url, category)
+            VALUES (${c.businessName || c['Business Name']}, ${c.market || c.Market}, ${c.address || c.Address}, ${city}, ${state}, ${zipCode}, ${c.phone || c.Phone}, ${c.source || c.Source || 'CSV Import'}, ${c.listingUrl || c['Listing URL']}, ${category})
+            ON CONFLICT (business_name, phone) DO NOTHING
+          `);
+          imported++;
+        } catch (err) {
+          skipped++;
+        }
+      }
+      
+      res.json({ ok: true, imported, skipped, total: contractors.length });
+    } catch (error) {
+      console.error('Error importing contractors:', error);
+      res.status(500).json({ error: 'Failed to import contractors' });
+    }
+  });
+
+  // Update contractor
+  app.patch('/api/admin/contractor-vault/:id', express.json(), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+      
+      const result = await db.execute(sql`
+        UPDATE contractor_vault SET
+          business_name = COALESCE(${updates.businessName}, business_name),
+          market = COALESCE(${updates.market}, market),
+          address = COALESCE(${updates.address}, address),
+          city = COALESCE(${updates.city}, city),
+          state = COALESCE(${updates.state}, state),
+          zip_code = COALESCE(${updates.zipCode}, zip_code),
+          phone = COALESCE(${updates.phone}, phone),
+          email = COALESCE(${updates.email}, email),
+          website = COALESCE(${updates.website}, website),
+          category = COALESCE(${updates.category}, category),
+          specialty = COALESCE(${updates.specialty}, specialty),
+          license_number = COALESCE(${updates.licenseNumber}, license_number),
+          insurance_verified = COALESCE(${updates.insuranceVerified}, insurance_verified),
+          rating = COALESCE(${updates.rating}, rating),
+          review_count = COALESCE(${updates.reviewCount}, review_count),
+          notes = COALESCE(${updates.notes}, notes),
+          status = COALESCE(${updates.status}, status),
+          updated_at = NOW()
+        WHERE id = ${id}
+        RETURNING *
+      `);
+      
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'Contractor not found' });
+      }
+      res.json({ ok: true, contractor: result.rows[0] });
+    } catch (error) {
+      console.error('Error updating contractor:', error);
+      res.status(500).json({ error: 'Failed to update contractor' });
+    }
+  });
+
+  // Delete contractor
+  app.delete('/api/admin/contractor-vault/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      await db.execute(sql`DELETE FROM contractor_vault WHERE id = ${id}`);
+      res.json({ ok: true, message: 'Contractor deleted' });
+    } catch (error) {
+      console.error('Error deleting contractor:', error);
+      res.status(500).json({ error: 'Failed to delete contractor' });
+    }
+  });
+
+  // Bulk delete contractors
+  app.post('/api/admin/contractor-vault/bulk-delete', express.json(), async (req, res) => {
+    try {
+      const { ids } = req.body;
+      if (!ids || !Array.isArray(ids)) {
+        return res.status(400).json({ error: 'Invalid ids array' });
+      }
+      
+      for (const id of ids) {
+        await db.execute(sql`DELETE FROM contractor_vault WHERE id = ${id}`);
+      }
+      
+      res.json({ ok: true, deleted: ids.length });
+    } catch (error) {
+      console.error('Error bulk deleting:', error);
+      res.status(500).json({ error: 'Failed to delete contractors' });
+    }
+  });
+
+  // Export contractors as CSV format
+  app.get('/api/admin/contractor-vault/export', async (req, res) => {
+    try {
+      const { market, category } = req.query;
+      
+      let query = sql`SELECT * FROM contractor_vault WHERE 1=1`;
+      if (market) query = sql`${query} AND market = ${market}`;
+      if (category) query = sql`${query} AND category = ${category}`;
+      query = sql`${query} ORDER BY market, business_name`;
+      
+      const result = await db.execute(query);
+      res.json({ ok: true, contractors: result.rows });
+    } catch (error) {
+      console.error('Error exporting:', error);
+      res.status(500).json({ error: 'Failed to export' });
+    }
+  });
+
+  console.log('🏗️ Contractors Vault routes registered - CSV import, CRUD, search, export');
+
   // ---- Health Routes ----
   app.use(healthRoutes);
   console.log('🏥 Health routes registered - /api/health/auth for JWKS diagnostics');
