@@ -16207,6 +16207,292 @@ What specific area or type of incident would you like me to focus on? I can prov
     plumbing: { installation: 8000, unit: 'each', hoursPerUnit: 2 },
   };
 
+  // ============================================================
+  // PROFESSIONAL TREE PRICING ENGINE
+  // Based on real contractor pricing - matches industry standards
+  // ============================================================
+  
+  interface TreePricingInput {
+    heightFt: number;
+    trunkDiameterInches: number;
+    hazards: {
+      powerlines: boolean;
+      nearStructure: boolean;
+      leaningTowardTarget: boolean;
+      limitedFallZone: boolean;
+      decayOrDamage: boolean;
+      multiTrunk: boolean;
+    };
+    access: {
+      canDropTree: boolean;
+      bucketTruckAccess: boolean;
+      craneRequired: boolean;
+      backyardOnly: boolean;
+      slopeOrHill: boolean;
+    };
+    additionalServices: {
+      stumpGrinding: boolean;
+      woodHaulOff: boolean;
+      emergencyService: boolean;
+    };
+  }
+
+  interface TreePricingOutput {
+    totalMin: number;
+    totalMax: number;
+    breakdown: {
+      baseRemoval: { min: number; max: number; description: string };
+      hazardPremium: { min: number; max: number; factors: string[] };
+      equipmentCost: { min: number; max: number; equipment: string };
+      stumpGrinding?: { min: number; max: number };
+      haulOff?: { min: number; max: number };
+      utilityCoordination?: { min: number; max: number };
+    };
+    crewInfo: {
+      crewSize: number;
+      estimatedHours: number;
+      laborRate: number;
+    };
+    riskLevel: 'low' | 'medium' | 'high' | 'extreme';
+    warnings: string[];
+  }
+
+  function calculateTreeRemovalPrice(input: TreePricingInput): TreePricingOutput {
+    const warnings: string[] = [];
+    const hazardFactors: string[] = [];
+    
+    // BASE PRICING BY TREE SIZE (in cents)
+    // Based on trunk diameter and height - industry standard 2024-2025
+    let baseMin = 0;
+    let baseMax = 0;
+    let sizeCategory = '';
+    
+    if (input.trunkDiameterInches <= 12 && input.heightFt <= 35) {
+      // Small tree
+      baseMin = 30000; baseMax = 50000; // $300-$500
+      sizeCategory = 'Small (<12" trunk, <35ft)';
+    } else if (input.trunkDiameterInches <= 20 && input.heightFt <= 55) {
+      // Medium tree
+      baseMin = 60000; baseMax = 120000; // $600-$1,200
+      sizeCategory = 'Medium (12-20" trunk, 35-55ft)';
+    } else if (input.trunkDiameterInches <= 30 && input.heightFt <= 75) {
+      // Large tree
+      baseMin = 150000; baseMax = 350000; // $1,500-$3,500
+      sizeCategory = 'Large (20-30" trunk, 55-75ft)';
+    } else if (input.trunkDiameterInches <= 40 && input.heightFt <= 95) {
+      // Extra-Large tree
+      baseMin = 300000; baseMax = 600000; // $3,000-$6,000
+      sizeCategory = 'Extra-Large (30-40" trunk, 75-95ft)';
+    } else {
+      // Giant tree
+      baseMin = 500000; baseMax = 1000000; // $5,000-$10,000+
+      sizeCategory = 'Giant (>40" trunk or >95ft)';
+    }
+    
+    // HAZARD MULTIPLIERS
+    let hazardMultiplier = 1.0;
+    
+    if (input.hazards.powerlines) {
+      hazardMultiplier += 1.0; // +100% for powerlines (biggest price driver)
+      hazardFactors.push('Powerlines in canopy (+100%)');
+      warnings.push('Power lines detected - may require utility coordination');
+    }
+    
+    if (input.hazards.nearStructure) {
+      hazardMultiplier += 0.5; // +50% for near structure
+      hazardFactors.push('Near structure (+50%)');
+    }
+    
+    if (input.hazards.leaningTowardTarget) {
+      hazardMultiplier += 0.4; // +40% for dangerous lean
+      hazardFactors.push('Leaning toward target (+40%)');
+      warnings.push('Tree is leaning - requires controlled sectional removal');
+    }
+    
+    if (input.hazards.limitedFallZone) {
+      hazardMultiplier += 0.5; // +50% for limited fall zone
+      hazardFactors.push('Limited fall zone (+50%)');
+    }
+    
+    if (input.hazards.decayOrDamage) {
+      hazardMultiplier += 0.3; // +30% for decay/damage
+      hazardFactors.push('Decay or storm damage (+30%)');
+      warnings.push('Decayed or damaged wood - unpredictable structure');
+    }
+    
+    if (input.hazards.multiTrunk) {
+      hazardMultiplier += 0.25; // +25% for multi-trunk
+      hazardFactors.push('Multi-trunk tree (+25%)');
+    }
+    
+    // ACCESS ADJUSTMENTS
+    let accessMultiplier = 1.0;
+    let equipmentType = 'Climbing only';
+    let equipmentMin = 0;
+    let equipmentMax = 0;
+    
+    if (!input.access.canDropTree) {
+      accessMultiplier += 0.3; // +30% for sectional removal
+      hazardFactors.push('Sectional removal required (+30%)');
+    }
+    
+    if (input.access.backyardOnly) {
+      accessMultiplier += 0.2; // +20% for difficult access
+      hazardFactors.push('Backyard access only (+20%)');
+    }
+    
+    if (input.access.slopeOrHill) {
+      accessMultiplier += 0.15; // +15% for slope
+      hazardFactors.push('Slope or hill (+15%)');
+    }
+    
+    // EQUIPMENT COSTS
+    if (input.access.craneRequired) {
+      equipmentType = 'Crane required';
+      equipmentMin = 150000; equipmentMax = 350000; // $1,500-$3,500 crane rental
+      warnings.push('Crane mobilization required - adds significant cost');
+    } else if (input.access.bucketTruckAccess) {
+      equipmentType = 'Bucket truck';
+      equipmentMin = 40000; equipmentMax = 60000; // $400-$600 bucket truck
+    }
+    
+    // UTILITY COORDINATION (if powerlines involved)
+    let utilityMin = 0;
+    let utilityMax = 0;
+    if (input.hazards.powerlines) {
+      utilityMin = 50000; utilityMax = 150000; // $500-$1,500
+    }
+    
+    // ADDITIONAL SERVICES
+    let stumpMin = 0, stumpMax = 0;
+    if (input.additionalServices.stumpGrinding) {
+      // Stump grinding based on trunk diameter
+      const stumpBase = Math.max(25000, input.trunkDiameterInches * 1000); // $2.50-$10/inch, min $250
+      stumpMin = stumpBase;
+      stumpMax = Math.round(stumpBase * 1.5);
+    }
+    
+    let haulMin = 0, haulMax = 0;
+    if (input.additionalServices.woodHaulOff) {
+      // Hauling based on tree size
+      haulMin = 15000; haulMax = 40000; // $150-$400
+    }
+    
+    // EMERGENCY PREMIUM
+    if (input.additionalServices.emergencyService) {
+      hazardMultiplier += 0.5; // +50% for emergency/after-hours
+      hazardFactors.push('Emergency service (+50%)');
+    }
+    
+    // CALCULATE TOTALS
+    const hazardPremiumMin = Math.round(baseMin * (hazardMultiplier - 1));
+    const hazardPremiumMax = Math.round(baseMax * (hazardMultiplier - 1));
+    
+    const adjustedBaseMin = Math.round(baseMin * accessMultiplier);
+    const adjustedBaseMax = Math.round(baseMax * accessMultiplier);
+    
+    const totalMin = adjustedBaseMin + hazardPremiumMin + equipmentMin + utilityMin + stumpMin + haulMin;
+    const totalMax = adjustedBaseMax + hazardPremiumMax + equipmentMax + utilityMax + stumpMax + haulMax;
+    
+    // CREW ESTIMATION
+    let crewSize = 3;
+    let estimatedHours = 4;
+    
+    if (input.trunkDiameterInches > 30 || input.heightFt > 75) {
+      crewSize = 5;
+      estimatedHours = 8;
+    } else if (input.trunkDiameterInches > 20 || input.heightFt > 55) {
+      crewSize = 4;
+      estimatedHours = 6;
+    }
+    
+    if (input.hazards.powerlines || input.access.craneRequired) {
+      estimatedHours += 2;
+    }
+    
+    // RISK LEVEL
+    let riskLevel: 'low' | 'medium' | 'high' | 'extreme' = 'low';
+    if (hazardMultiplier >= 2.5) riskLevel = 'extreme';
+    else if (hazardMultiplier >= 1.8) riskLevel = 'high';
+    else if (hazardMultiplier >= 1.3) riskLevel = 'medium';
+    
+    return {
+      totalMin,
+      totalMax,
+      breakdown: {
+        baseRemoval: { min: adjustedBaseMin, max: adjustedBaseMax, description: sizeCategory },
+        hazardPremium: { min: hazardPremiumMin, max: hazardPremiumMax, factors: hazardFactors },
+        equipmentCost: { min: equipmentMin, max: equipmentMax, equipment: equipmentType },
+        ...(stumpMin > 0 && { stumpGrinding: { min: stumpMin, max: stumpMax } }),
+        ...(haulMin > 0 && { haulOff: { min: haulMin, max: haulMax } }),
+        ...(utilityMin > 0 && { utilityCoordination: { min: utilityMin, max: utilityMax } }),
+      },
+      crewInfo: {
+        crewSize,
+        estimatedHours,
+        laborRate: 5500, // $55/hr average per crew member
+      },
+      riskLevel,
+      warnings,
+    };
+  }
+
+  // Detect hazards from AI analysis text
+  function detectTreeHazards(analysisText: string, tags: string[]): TreePricingInput['hazards'] & TreePricingInput['access'] {
+    const text = analysisText.toLowerCase();
+    const tagText = tags.join(' ').toLowerCase();
+    const combined = text + ' ' + tagText;
+    
+    return {
+      // Hazards
+      powerlines: /power\s*line|electric\s*line|utility\s*line|wire|cable|overhead\s*line|transmission|distribution/i.test(combined),
+      nearStructure: /near\s*(house|home|building|structure|roof)|close\s*to\s*(house|home|building)|over\s*(house|home|roof)|toward\s*(house|home|building)|lean.*toward/i.test(combined),
+      leaningTowardTarget: /lean|tilt|angle|hang.*over|overhang/i.test(combined),
+      limitedFallZone: /limited\s*(space|access|zone)|tight\s*space|confined|narrow|can('t|not)\s*drop|no\s*room/i.test(combined),
+      decayOrDamage: /decay|rot|dead|damage|hollow|crack|split|storm\s*damage|disease/i.test(combined),
+      multiTrunk: /multi.?trunk|multiple\s*trunk|fork|split\s*trunk/i.test(combined),
+      // Access
+      canDropTree: !/can('t|not)\s*(drop|fell)|no\s*drop|limited\s*fall|sectional/i.test(combined),
+      bucketTruckAccess: !/backyard\s*only|no\s*vehicle|inaccessible/i.test(combined),
+      craneRequired: /crane|heavy\s*equipment|massive|giant|huge|extremely\s*large/i.test(combined),
+      backyardOnly: /backyard|back\s*yard|rear\s*yard|behind\s*house/i.test(combined),
+      slopeOrHill: /slope|hill|incline|uneven|steep/i.test(combined),
+    };
+  }
+
+  // Estimate tree dimensions from analysis
+  function estimateTreeDimensions(analysisText: string, tags: string[]): { heightFt: number; trunkDiameterInches: number } {
+    const text = analysisText.toLowerCase();
+    
+    // Try to extract height from text
+    let heightFt = 50; // Default medium tree
+    const heightMatch = text.match(/(\d+)\s*(?:feet|ft|foot)\s*(?:tall|high|height)?/i);
+    if (heightMatch) {
+      heightFt = parseInt(heightMatch[1]);
+    } else if (/small|young|sapling/i.test(text)) {
+      heightFt = 25;
+    } else if (/large|big|tall|mature|old|established/i.test(text)) {
+      heightFt = 70;
+    } else if (/massive|huge|giant|enormous|very\s*large/i.test(text)) {
+      heightFt = 90;
+    }
+    
+    // Try to extract trunk diameter
+    let trunkDiameterInches = 18; // Default medium tree
+    const diameterMatch = text.match(/(\d+)\s*(?:inch|in|")\s*(?:diameter|trunk|dbh)?/i);
+    if (diameterMatch) {
+      trunkDiameterInches = parseInt(diameterMatch[1]);
+    } else if (/small|young|sapling/i.test(text)) {
+      trunkDiameterInches = 8;
+    } else if (/large|big|mature|old|established|thick/i.test(text)) {
+      trunkDiameterInches = 28;
+    } else if (/massive|huge|giant|enormous|very\s*large/i.test(text)) {
+      trunkDiameterInches = 40;
+    }
+    
+    return { heightFt, trunkDiameterInches };
+  }
+
   // WorkHub AI Job Analysis - Analyzes photos/videos and provides pricing with dimensions
   app.post('/api/workhub/analyze', express.json({ limit: '50mb' }), async (req, res) => {
     try {
@@ -16639,13 +16925,139 @@ What specific area or type of incident would you like me to focus on? I can prov
         hazardMultiplier = 1.2;
       }
       
-      // Apply hazard multiplier to material options
-      const adjustedMaterialOptions = materialOptions.map(mat => ({
-        ...mat,
-        materialCost: Math.round(mat.materialCost * hazardMultiplier),
-        laborCost: Math.round(mat.laborCost * hazardMultiplier),
-        totalCost: Math.round(mat.totalCost * hazardMultiplier)
-      }));
+      // ============================================================
+      // PROFESSIONAL TREE PRICING - Use advanced pricing engine for tree jobs
+      // ============================================================
+      let treePricingResult: TreePricingOutput | null = null;
+      let adjustedMaterialOptions = materialOptions;
+      
+      if (detectedTrade === 'tree_removal' || detectedTrade === 'tree') {
+        // Detect hazards from AI analysis
+        const analysisText = analysis.professionalDescription.summary + ' ' + 
+                            analysis.professionalDescription.technicalDetails + ' ' +
+                            (analysis.professionalDescription.safetyNotes || '');
+        const detectedHazards = detectTreeHazards(analysisText, analysis.autoTags);
+        const dimensions = estimateTreeDimensions(analysisText, analysis.autoTags);
+        
+        // Override with measurements if available
+        const treeHeight = measurements.heightFt || dimensions.heightFt;
+        const trunkDiameter = measurements.trunkDiameterInches || dimensions.trunkDiameterInches;
+        
+        // Build tree pricing input
+        const treePricingInput: TreePricingInput = {
+          heightFt: treeHeight,
+          trunkDiameterInches: trunkDiameter,
+          hazards: {
+            powerlines: hasHazards.powerlines || detectedHazards.powerlines,
+            nearStructure: hasHazards.nearStructure || detectedHazards.nearStructure,
+            leaningTowardTarget: detectedHazards.leaningTowardTarget,
+            limitedFallZone: detectedHazards.limitedFallZone || !detectedHazards.canDropTree,
+            decayOrDamage: detectedHazards.decayOrDamage,
+            multiTrunk: detectedHazards.multiTrunk,
+          },
+          access: {
+            canDropTree: detectedHazards.canDropTree,
+            bucketTruckAccess: detectedHazards.bucketTruckAccess,
+            craneRequired: detectedHazards.craneRequired,
+            backyardOnly: detectedHazards.backyardOnly || hasHazards.accessDifficult,
+            slopeOrHill: detectedHazards.slopeOrHill,
+          },
+          additionalServices: {
+            stumpGrinding: true, // Include by default for complete estimate
+            woodHaulOff: true,
+            emergencyService: false,
+          },
+        };
+        
+        // Calculate professional tree pricing
+        treePricingResult = calculateTreeRemovalPrice(treePricingInput);
+        
+        // Apply regional multiplier
+        const regionalMin = Math.round(treePricingResult.totalMin * regionInfo.multiplier);
+        const regionalMax = Math.round(treePricingResult.totalMax * regionInfo.multiplier);
+        
+        // Update material options with professional pricing
+        adjustedMaterialOptions = [
+          {
+            id: 'mat-tree_removal-0',
+            name: `Standard Removal (${treePricingResult.breakdown.baseRemoval.description})`,
+            grade: 'standard',
+            pricePerUnit: regionalMin,
+            unit: 'each',
+            description: 'Tree removal with debris cleanup and stump grinding',
+            materialCost: Math.round(regionalMin * 0.3),
+            laborCost: Math.round(regionalMin * 0.5),
+            totalCost: regionalMin,
+            estimatedHours: treePricingResult.crewInfo.estimatedHours,
+            isRecommended: false,
+          },
+          {
+            id: 'mat-tree_removal-1',
+            name: `Full Service Removal (${treePricingResult.riskLevel.toUpperCase()} RISK)`,
+            grade: 'premium',
+            pricePerUnit: Math.round((regionalMin + regionalMax) / 2),
+            unit: 'each',
+            description: `Includes all hazard handling, ${treePricingResult.breakdown.equipmentCost.equipment}, utility coordination if needed`,
+            materialCost: Math.round((regionalMin + regionalMax) / 2 * 0.3),
+            laborCost: Math.round((regionalMin + regionalMax) / 2 * 0.5),
+            totalCost: Math.round((regionalMin + regionalMax) / 2),
+            estimatedHours: treePricingResult.crewInfo.estimatedHours,
+            isRecommended: true,
+          },
+          {
+            id: 'mat-tree_removal-2',
+            name: 'Premium/Complex Removal',
+            grade: 'luxury',
+            pricePerUnit: regionalMax,
+            unit: 'each',
+            description: 'Maximum complexity handling, crane if needed, full utility coordination',
+            materialCost: Math.round(regionalMax * 0.3),
+            laborCost: Math.round(regionalMax * 0.5),
+            totalCost: regionalMax,
+            estimatedHours: treePricingResult.crewInfo.estimatedHours + 2,
+            isRecommended: false,
+          },
+        ];
+        
+        // Update complexity and time based on professional analysis
+        complexity = treePricingResult.riskLevel;
+        if (treePricingResult.riskLevel === 'extreme') {
+          timeEstimate = 'Full day - utility coordination required';
+        } else if (treePricingResult.riskLevel === 'high') {
+          timeEstimate = `${treePricingResult.crewInfo.estimatedHours}+ hours - careful sectional removal`;
+        } else {
+          timeEstimate = `${treePricingResult.crewInfo.estimatedHours} hours`;
+        }
+        
+        console.log(`🌳 Tree Pricing Engine: $${(regionalMin/100).toFixed(0)} - $${(regionalMax/100).toFixed(0)} (${treePricingResult.riskLevel} risk)`);
+      } else {
+        // Apply hazard multiplier to material options for non-tree jobs
+        adjustedMaterialOptions = materialOptions.map(mat => ({
+          ...mat,
+          materialCost: Math.round(mat.materialCost * hazardMultiplier),
+          laborCost: Math.round(mat.laborCost * hazardMultiplier),
+          totalCost: Math.round(mat.totalCost * hazardMultiplier)
+        }));
+      }
+
+      // Calculate final price estimate
+      const priceEstimate = (detectedTrade === 'tree_removal' || detectedTrade === 'tree') && treePricingResult 
+        ? {
+            min: Math.round(treePricingResult.totalMin * regionInfo.multiplier),
+            max: Math.round(treePricingResult.totalMax * regionInfo.multiplier),
+            currency: 'USD',
+            regionalAdjustment: regionInfo.tier,
+            location: location || 'National average',
+            breakdown: treePricingResult.breakdown,
+            warnings: treePricingResult.warnings,
+          }
+        : {
+            min: Math.round(analysis.damageAssessment.estimatedCost.min * regionInfo.multiplier * hazardMultiplier),
+            max: Math.round(analysis.damageAssessment.estimatedCost.max * regionInfo.multiplier * hazardMultiplier),
+            currency: 'USD',
+            regionalAdjustment: regionInfo.tier,
+            location: location || 'National average'
+          };
 
       res.json({
         ok: true,
@@ -16656,13 +17068,7 @@ What specific area or type of incident would you like me to focus on? I can prov
           summary: analysis.professionalDescription.summary,
           details: analysis.professionalDescription.technicalDetails,
           recommendations: analysis.professionalDescription.recommendedActions,
-          priceEstimate: {
-            min: Math.round(analysis.damageAssessment.estimatedCost.min * regionInfo.multiplier * hazardMultiplier),
-            max: Math.round(analysis.damageAssessment.estimatedCost.max * regionInfo.multiplier * hazardMultiplier),
-            currency: 'USD',
-            regionalAdjustment: regionInfo.tier,
-            location: location || 'National average'
-          },
+          priceEstimate,
           urgency: analysis.damageAssessment.repairPriority,
           severity: analysis.damageAssessment.severity,
           complexity,
@@ -16672,7 +17078,14 @@ What specific area or type of incident would you like me to focus on? I can prov
           safetyNotes: analysis.professionalDescription.safetyNotes,
           tags: analysis.autoTags,
           confidence: analysis.confidence,
-          treeDetails: analysis.treeAnalysis
+          treeDetails: analysis.treeAnalysis,
+          // Professional tree pricing details
+          treePricing: treePricingResult ? {
+            riskLevel: treePricingResult.riskLevel,
+            crewInfo: treePricingResult.crewInfo,
+            breakdown: treePricingResult.breakdown,
+            warnings: treePricingResult.warnings,
+          } : null,
         },
         measurements,
         materialOptions: adjustedMaterialOptions,
