@@ -16493,6 +16493,366 @@ What specific area or type of incident would you like me to focus on? I can prov
     return { heightFt, trunkDiameterInches };
   }
 
+  // ============ ROOFING PRICING ENGINE ============
+  // Professional roofing estimates based on square footage, materials, complexity, and conditions
+  
+  interface RoofingPricingInput {
+    roofSquareFootage: number; // Total roof square footage
+    stories: number; // Number of stories (1, 2, 3+)
+    roofPitch: 'low' | 'medium' | 'steep' | 'very_steep'; // Roof pitch/slope
+    material: 'asphalt_3tab' | 'asphalt_architectural' | 'metal' | 'tile_clay' | 'tile_concrete' | 'slate' | 'wood_shake';
+    tearOffLayers: number; // Number of existing layers to remove (0 = new construction)
+    complexity: {
+      valleys: boolean;
+      skylights: boolean;
+      dormers: boolean;
+      chimneys: boolean;
+      multiLevel: boolean;
+      hipRoof: boolean;
+    };
+    conditions: {
+      deckDamage: boolean; // Wood deck damage requiring repair
+      ventilationUpgrade: boolean;
+      gutterWork: boolean;
+      fasciaSoffitRepair: boolean;
+    };
+    permitRequired: boolean;
+  }
+
+  interface RoofingPricingOutput {
+    totalMin: number;
+    totalMax: number;
+    breakdown: {
+      materials: { min: number; max: number; description: string; perSqFt: { min: number; max: number } };
+      labor: { min: number; max: number; description: string; perSqFt: { min: number; max: number } };
+      tearOff: { min: number; max: number };
+      complexity: { min: number; max: number; factors: string[] };
+      additionalWork: { min: number; max: number; items: string[] };
+      permit: { min: number; max: number };
+    };
+    crewInfo: {
+      crewSize: number;
+      estimatedDays: number;
+      laborRate: number;
+    };
+    roofingSquares: number; // 1 square = 100 sq ft
+    materialGrade: string;
+    warnings: string[];
+  }
+
+  function calculateRoofingPrice(input: RoofingPricingInput): RoofingPricingOutput {
+    const warnings: string[] = [];
+    const complexityFactors: string[] = [];
+    const additionalItems: string[] = [];
+    
+    // Convert sq ft to roofing "squares" (1 square = 100 sq ft)
+    const roofingSquares = Math.ceil(input.roofSquareFootage / 100);
+    
+    // MATERIAL COSTS PER SQUARE (in cents) - 2024-2025 industry standards
+    let materialMinPerSq = 0;
+    let materialMaxPerSq = 0;
+    let materialGrade = '';
+    
+    switch (input.material) {
+      case 'asphalt_3tab':
+        materialMinPerSq = 15000; materialMaxPerSq = 22000; // $150-$220/square
+        materialGrade = '3-Tab Asphalt Shingles (Economy)';
+        break;
+      case 'asphalt_architectural':
+        materialMinPerSq = 25000; materialMaxPerSq = 40000; // $250-$400/square
+        materialGrade = 'Architectural Asphalt Shingles (Standard)';
+        break;
+      case 'metal':
+        materialMinPerSq = 45000; materialMaxPerSq = 85000; // $450-$850/square
+        materialGrade = 'Standing Seam Metal Roofing (Premium)';
+        break;
+      case 'tile_clay':
+        materialMinPerSq = 80000; materialMaxPerSq = 150000; // $800-$1,500/square
+        materialGrade = 'Clay Tile Roofing (Luxury)';
+        warnings.push('Clay tile requires reinforced roof structure');
+        break;
+      case 'tile_concrete':
+        materialMinPerSq = 50000; materialMaxPerSq = 90000; // $500-$900/square
+        materialGrade = 'Concrete Tile Roofing (Premium)';
+        break;
+      case 'slate':
+        materialMinPerSq = 100000; materialMaxPerSq = 200000; // $1,000-$2,000/square
+        materialGrade = 'Natural Slate Roofing (Luxury)';
+        warnings.push('Slate requires specialized installation crew');
+        break;
+      case 'wood_shake':
+        materialMinPerSq = 60000; materialMaxPerSq = 100000; // $600-$1,000/square
+        materialGrade = 'Wood Shake/Shingle (Premium)';
+        warnings.push('Wood shake may have fire code restrictions in your area');
+        break;
+      default:
+        materialMinPerSq = 25000; materialMaxPerSq = 40000;
+        materialGrade = 'Architectural Asphalt Shingles';
+    }
+    
+    // LABOR COSTS PER SQUARE (in cents)
+    let laborMinPerSq = 15000; // $150/square base
+    let laborMaxPerSq = 30000; // $300/square base
+    
+    // PITCH MULTIPLIERS for labor
+    let pitchMultiplier = 1.0;
+    let pitchDescription = '';
+    switch (input.roofPitch) {
+      case 'low':
+        pitchMultiplier = 1.0;
+        pitchDescription = 'Low pitch (walkable)';
+        break;
+      case 'medium':
+        pitchMultiplier = 1.15;
+        pitchDescription = 'Medium pitch (4/12 - 7/12)';
+        break;
+      case 'steep':
+        pitchMultiplier = 1.35;
+        pitchDescription = 'Steep pitch (8/12 - 10/12)';
+        complexityFactors.push('Steep pitch (+35% labor)');
+        break;
+      case 'very_steep':
+        pitchMultiplier = 1.6;
+        pitchDescription = 'Very steep pitch (>10/12)';
+        complexityFactors.push('Very steep pitch (+60% labor)');
+        warnings.push('Very steep roof requires specialized safety equipment');
+        break;
+    }
+    
+    // STORY HEIGHT MULTIPLIERS
+    let storyMultiplier = 1.0;
+    if (input.stories === 2) {
+      storyMultiplier = 1.15;
+      complexityFactors.push('2-story home (+15% labor)');
+    } else if (input.stories >= 3) {
+      storyMultiplier = 1.35;
+      complexityFactors.push('3+ story home (+35% labor)');
+      warnings.push('Multi-story homes require additional safety measures');
+    }
+    
+    // Apply multipliers to labor
+    laborMinPerSq = Math.round(laborMinPerSq * pitchMultiplier * storyMultiplier);
+    laborMaxPerSq = Math.round(laborMaxPerSq * pitchMultiplier * storyMultiplier);
+    
+    // TEAR-OFF COSTS (in cents per square)
+    let tearOffMin = 0;
+    let tearOffMax = 0;
+    if (input.tearOffLayers > 0) {
+      const tearOffPerLayer = 10000; // $100/square per layer
+      tearOffMin = Math.round(roofingSquares * tearOffPerLayer * input.tearOffLayers * 0.8);
+      tearOffMax = Math.round(roofingSquares * tearOffPerLayer * input.tearOffLayers * 1.2);
+      complexityFactors.push(`Tear-off ${input.tearOffLayers} layer(s) of existing roofing`);
+    }
+    
+    // COMPLEXITY COSTS (percentage increases)
+    let complexityMultiplier = 1.0;
+    
+    if (input.complexity.valleys) {
+      complexityMultiplier += 0.05;
+      complexityFactors.push('Roof valleys (+5%)');
+    }
+    if (input.complexity.skylights) {
+      complexityMultiplier += 0.08;
+      complexityFactors.push('Skylights (+8%)');
+    }
+    if (input.complexity.dormers) {
+      complexityMultiplier += 0.1;
+      complexityFactors.push('Dormers (+10%)');
+    }
+    if (input.complexity.chimneys) {
+      complexityMultiplier += 0.05;
+      complexityFactors.push('Chimney flashing (+5%)');
+    }
+    if (input.complexity.multiLevel) {
+      complexityMultiplier += 0.12;
+      complexityFactors.push('Multi-level roof (+12%)');
+    }
+    if (input.complexity.hipRoof) {
+      complexityMultiplier += 0.08;
+      complexityFactors.push('Hip roof design (+8%)');
+    }
+    
+    // ADDITIONAL WORK COSTS (flat fees in cents)
+    let additionalMin = 0;
+    let additionalMax = 0;
+    
+    if (input.conditions.deckDamage) {
+      additionalMin += 50000; additionalMax += 150000; // $500-$1,500
+      additionalItems.push('Deck/sheathing repair ($500-$1,500)');
+      warnings.push('Wood deck damage detected - extent to be confirmed on-site');
+    }
+    if (input.conditions.ventilationUpgrade) {
+      additionalMin += 30000; additionalMax += 80000; // $300-$800
+      additionalItems.push('Ventilation upgrade ($300-$800)');
+    }
+    if (input.conditions.gutterWork) {
+      additionalMin += 40000; additionalMax += 120000; // $400-$1,200
+      additionalItems.push('Gutter replacement/repair ($400-$1,200)');
+    }
+    if (input.conditions.fasciaSoffitRepair) {
+      additionalMin += 50000; additionalMax += 200000; // $500-$2,000
+      additionalItems.push('Fascia/soffit repair ($500-$2,000)');
+    }
+    
+    // PERMIT COSTS
+    let permitMin = 0;
+    let permitMax = 0;
+    if (input.permitRequired) {
+      permitMin = 20000; permitMax = 50000; // $200-$500
+    }
+    
+    // CALCULATE TOTALS
+    const baseMaterialMin = roofingSquares * materialMinPerSq;
+    const baseMaterialMax = roofingSquares * materialMaxPerSq;
+    
+    const baseLaborMin = roofingSquares * laborMinPerSq;
+    const baseLaborMax = roofingSquares * laborMaxPerSq;
+    
+    const complexityPremiumMin = Math.round((baseMaterialMin + baseLaborMin) * (complexityMultiplier - 1));
+    const complexityPremiumMax = Math.round((baseMaterialMax + baseLaborMax) * (complexityMultiplier - 1));
+    
+    const totalMin = baseMaterialMin + baseLaborMin + tearOffMin + complexityPremiumMin + additionalMin + permitMin;
+    const totalMax = baseMaterialMax + baseLaborMax + tearOffMax + complexityPremiumMax + additionalMax + permitMax;
+    
+    // CREW ESTIMATION
+    let crewSize = 4;
+    let estimatedDays = Math.ceil(roofingSquares / 10); // ~10 squares per day for average crew
+    
+    if (roofingSquares > 30) {
+      crewSize = 6;
+    } else if (roofingSquares < 15) {
+      crewSize = 3;
+    }
+    
+    if (pitchMultiplier > 1.3) {
+      estimatedDays = Math.ceil(estimatedDays * 1.5);
+    }
+    
+    if (input.tearOffLayers > 0) {
+      estimatedDays += 1;
+    }
+    
+    return {
+      totalMin,
+      totalMax,
+      breakdown: {
+        materials: { 
+          min: baseMaterialMin, 
+          max: baseMaterialMax, 
+          description: materialGrade,
+          perSqFt: { min: Math.round(materialMinPerSq / 100), max: Math.round(materialMaxPerSq / 100) }
+        },
+        labor: { 
+          min: baseLaborMin, 
+          max: baseLaborMax, 
+          description: `Installation (${pitchDescription})`,
+          perSqFt: { min: Math.round(laborMinPerSq / 100), max: Math.round(laborMaxPerSq / 100) }
+        },
+        tearOff: { min: tearOffMin, max: tearOffMax },
+        complexity: { min: complexityPremiumMin, max: complexityPremiumMax, factors: complexityFactors },
+        additionalWork: { min: additionalMin, max: additionalMax, items: additionalItems },
+        permit: { min: permitMin, max: permitMax },
+      },
+      crewInfo: {
+        crewSize,
+        estimatedDays,
+        laborRate: 5500, // $55/hr average
+      },
+      roofingSquares,
+      materialGrade,
+      warnings,
+    };
+  }
+
+  // Detect roofing factors from AI analysis text
+  function detectRoofingFactors(analysisText: string, description: string): Partial<RoofingPricingInput> {
+    const text = (analysisText + ' ' + description).toLowerCase();
+    
+    // Detect roof pitch
+    let roofPitch: RoofingPricingInput['roofPitch'] = 'medium';
+    if (/flat|low\s*pitch|low\s*slope|minimal\s*slope/i.test(text)) {
+      roofPitch = 'low';
+    } else if (/steep|high\s*pitch|high\s*slope/i.test(text)) {
+      roofPitch = 'steep';
+    } else if (/very\s*steep|extreme|mansard/i.test(text)) {
+      roofPitch = 'very_steep';
+    }
+    
+    // Detect material preference
+    let material: RoofingPricingInput['material'] = 'asphalt_architectural';
+    if (/metal\s*roof|standing\s*seam|metal\s*panel/i.test(text)) {
+      material = 'metal';
+    } else if (/clay\s*tile|spanish\s*tile|terracotta/i.test(text)) {
+      material = 'tile_clay';
+    } else if (/concrete\s*tile/i.test(text)) {
+      material = 'tile_concrete';
+    } else if (/slate/i.test(text)) {
+      material = 'slate';
+    } else if (/wood\s*shake|cedar\s*shake|wood\s*shingle/i.test(text)) {
+      material = 'wood_shake';
+    } else if (/3.?tab|three.?tab|basic\s*shingle/i.test(text)) {
+      material = 'asphalt_3tab';
+    }
+    
+    // Detect stories
+    let stories = 1;
+    if (/two.?story|2.?story|second\s*floor/i.test(text)) {
+      stories = 2;
+    } else if (/three.?story|3.?story|multi.?story/i.test(text)) {
+      stories = 3;
+    }
+    
+    // Detect complexity features
+    const complexity = {
+      valleys: /valley|intersection/i.test(text),
+      skylights: /skylight/i.test(text),
+      dormers: /dormer/i.test(text),
+      chimneys: /chimney|fireplace/i.test(text),
+      multiLevel: /multi.?level|split.?level|different\s*height/i.test(text),
+      hipRoof: /hip\s*roof|hipped/i.test(text),
+    };
+    
+    // Detect conditions
+    const conditions = {
+      deckDamage: /deck\s*damage|sheathing\s*damage|rotted|rot|water\s*damage|soft\s*spot/i.test(text),
+      ventilationUpgrade: /ventilation|vent|ridge\s*vent/i.test(text),
+      gutterWork: /gutter|downspout/i.test(text),
+      fasciaSoffitRepair: /fascia|soffit|eave/i.test(text),
+    };
+    
+    // Detect tear-off layers
+    let tearOffLayers = 1; // Default assumption
+    if (/new\s*construction|new\s*build/i.test(text)) {
+      tearOffLayers = 0;
+    } else if (/multiple\s*layer|two\s*layer|2\s*layer/i.test(text)) {
+      tearOffLayers = 2;
+    }
+    
+    // Try to extract square footage
+    let roofSquareFootage = 2000; // Default for average home
+    const sqftMatch = text.match(/(\d{1,2},?\d{3})\s*(?:sq\.?\s*ft|square\s*feet|sqft)/i);
+    if (sqftMatch) {
+      roofSquareFootage = parseInt(sqftMatch[1].replace(',', ''));
+    } else if (/small\s*home|cottage|bungalow/i.test(text)) {
+      roofSquareFootage = 1200;
+    } else if (/large\s*home|big\s*house/i.test(text)) {
+      roofSquareFootage = 3500;
+    } else if (/very\s*large|mansion|estate/i.test(text)) {
+      roofSquareFootage = 5000;
+    }
+    
+    return {
+      roofSquareFootage,
+      stories,
+      roofPitch,
+      material,
+      tearOffLayers,
+      complexity,
+      conditions,
+      permitRequired: true, // Always require permit for roofing
+    };
+  }
+
   // WorkHub AI Job Analysis - Analyzes photos/videos and provides pricing with dimensions
   app.post('/api/workhub/analyze', express.json({ limit: '50mb' }), async (req, res) => {
     try {
@@ -16926,9 +17286,10 @@ What specific area or type of incident would you like me to focus on? I can prov
       }
       
       // ============================================================
-      // PROFESSIONAL TREE PRICING - Use advanced pricing engine for tree jobs
+      // PROFESSIONAL PRICING ENGINES - Use advanced pricing for specific trades
       // ============================================================
       let treePricingResult: TreePricingOutput | null = null;
+      let roofingPricingResult: RoofingPricingOutput | null = null;
       let adjustedMaterialOptions = materialOptions;
       
       if (detectedTrade === 'tree_removal' || detectedTrade === 'tree') {
@@ -17030,8 +17391,98 @@ What specific area or type of incident would you like me to focus on? I can prov
         }
         
         console.log(`🌳 Tree Pricing Engine: $${(regionalMin/100).toFixed(0)} - $${(regionalMax/100).toFixed(0)} (${treePricingResult.riskLevel} risk)`);
+      } else if (detectedTrade === 'roofing' || detectedTrade === 'roof') {
+        // ============================================================
+        // PROFESSIONAL ROOFING PRICING
+        // ============================================================
+        const analysisText = analysis.professionalDescription.summary + ' ' + 
+                            analysis.professionalDescription.technicalDetails + ' ' +
+                            (analysis.professionalDescription.safetyNotes || '');
+        
+        // Detect roofing factors from AI analysis and user description
+        const roofingFactors = detectRoofingFactors(analysisText, description || '');
+        
+        // Build roofing pricing input
+        const roofingInput: RoofingPricingInput = {
+          roofSquareFootage: roofingFactors.roofSquareFootage || 2000,
+          stories: roofingFactors.stories || 1,
+          roofPitch: roofingFactors.roofPitch || 'medium',
+          material: roofingFactors.material || 'asphalt_architectural',
+          tearOffLayers: roofingFactors.tearOffLayers ?? 1,
+          complexity: roofingFactors.complexity || {
+            valleys: false,
+            skylights: false,
+            dormers: false,
+            chimneys: false,
+            multiLevel: false,
+            hipRoof: false,
+          },
+          conditions: roofingFactors.conditions || {
+            deckDamage: false,
+            ventilationUpgrade: false,
+            gutterWork: false,
+            fasciaSoffitRepair: false,
+          },
+          permitRequired: true,
+        };
+        
+        // Calculate professional roofing pricing
+        roofingPricingResult = calculateRoofingPrice(roofingInput);
+        
+        // Apply regional multiplier
+        const roofRegionalMin = Math.round(roofingPricingResult.totalMin * regionInfo.multiplier);
+        const roofRegionalMax = Math.round(roofingPricingResult.totalMax * regionInfo.multiplier);
+        
+        // Update material options with professional roofing pricing
+        adjustedMaterialOptions = [
+          {
+            id: 'mat-roofing-economy',
+            name: '3-Tab Asphalt Shingles (Economy)',
+            grade: 'economy',
+            pricePerUnit: Math.round(roofRegionalMin * 0.6),
+            unit: 'per roof',
+            description: `Basic 3-tab shingles, ${roofingPricingResult.roofingSquares} squares (${roofingInput.roofSquareFootage} sq ft)`,
+            materialCost: Math.round(roofRegionalMin * 0.3),
+            laborCost: Math.round(roofRegionalMin * 0.3),
+            totalCost: Math.round(roofRegionalMin * 0.6),
+            estimatedHours: roofingPricingResult.crewInfo.estimatedDays * 8,
+            isRecommended: false,
+          },
+          {
+            id: 'mat-roofing-standard',
+            name: `${roofingPricingResult.materialGrade}`,
+            grade: 'standard',
+            pricePerUnit: roofRegionalMin,
+            unit: 'per roof',
+            description: `${roofingPricingResult.roofingSquares} squares (${roofingInput.roofSquareFootage} sq ft) - ${roofingInput.stories}-story home`,
+            materialCost: Math.round(roofRegionalMin * 0.5),
+            laborCost: Math.round(roofRegionalMin * 0.4),
+            totalCost: roofRegionalMin,
+            estimatedHours: roofingPricingResult.crewInfo.estimatedDays * 8,
+            isRecommended: true,
+          },
+          {
+            id: 'mat-roofing-premium',
+            name: 'Premium/Metal Roofing',
+            grade: 'premium',
+            pricePerUnit: roofRegionalMax,
+            unit: 'per roof',
+            description: `Standing seam metal or premium materials, ${roofingPricingResult.roofingSquares} squares`,
+            materialCost: Math.round(roofRegionalMax * 0.55),
+            laborCost: Math.round(roofRegionalMax * 0.35),
+            totalCost: roofRegionalMax,
+            estimatedHours: roofingPricingResult.crewInfo.estimatedDays * 10,
+            isRecommended: false,
+          },
+        ];
+        
+        // Update complexity and time based on roofing analysis
+        complexity = roofingPricingResult.breakdown.complexity.factors.length > 2 ? 'complex' : 'standard';
+        timeEstimate = `${roofingPricingResult.crewInfo.estimatedDays} days`;
+        
+        console.log(`🏠 Roofing Pricing Engine: $${(roofRegionalMin/100).toFixed(0)} - $${(roofRegionalMax/100).toFixed(0)} (${roofingPricingResult.roofingSquares} squares)`);
       } else {
-        // Apply hazard multiplier to material options for non-tree jobs
+        // Apply hazard multiplier to material options for other jobs
         adjustedMaterialOptions = materialOptions.map(mat => ({
           ...mat,
           materialCost: Math.round(mat.materialCost * hazardMultiplier),
@@ -17040,24 +17491,40 @@ What specific area or type of incident would you like me to focus on? I can prov
         }));
       }
 
-      // Calculate final price estimate
-      const priceEstimate = (detectedTrade === 'tree_removal' || detectedTrade === 'tree') && treePricingResult 
-        ? {
-            min: Math.round(treePricingResult.totalMin * regionInfo.multiplier),
-            max: Math.round(treePricingResult.totalMax * regionInfo.multiplier),
-            currency: 'USD',
-            regionalAdjustment: regionInfo.tier,
-            location: location || 'National average',
-            breakdown: treePricingResult.breakdown,
-            warnings: treePricingResult.warnings,
-          }
-        : {
-            min: Math.round(analysis.damageAssessment.estimatedCost.min * regionInfo.multiplier * hazardMultiplier),
-            max: Math.round(analysis.damageAssessment.estimatedCost.max * regionInfo.multiplier * hazardMultiplier),
-            currency: 'USD',
-            regionalAdjustment: regionInfo.tier,
-            location: location || 'National average'
-          };
+      // Calculate final price estimate based on detected trade
+      let priceEstimate: any;
+      
+      if ((detectedTrade === 'tree_removal' || detectedTrade === 'tree') && treePricingResult) {
+        priceEstimate = {
+          min: Math.round(treePricingResult.totalMin * regionInfo.multiplier),
+          max: Math.round(treePricingResult.totalMax * regionInfo.multiplier),
+          currency: 'USD',
+          regionalAdjustment: regionInfo.tier,
+          location: location || 'National average',
+          breakdown: treePricingResult.breakdown,
+          warnings: treePricingResult.warnings,
+        };
+      } else if ((detectedTrade === 'roofing' || detectedTrade === 'roof') && roofingPricingResult) {
+        priceEstimate = {
+          min: Math.round(roofingPricingResult.totalMin * regionInfo.multiplier),
+          max: Math.round(roofingPricingResult.totalMax * regionInfo.multiplier),
+          currency: 'USD',
+          regionalAdjustment: regionInfo.tier,
+          location: location || 'National average',
+          breakdown: roofingPricingResult.breakdown,
+          warnings: roofingPricingResult.warnings,
+          roofingSquares: roofingPricingResult.roofingSquares,
+          materialGrade: roofingPricingResult.materialGrade,
+        };
+      } else {
+        priceEstimate = {
+          min: Math.round(analysis.damageAssessment.estimatedCost.min * regionInfo.multiplier * hazardMultiplier),
+          max: Math.round(analysis.damageAssessment.estimatedCost.max * regionInfo.multiplier * hazardMultiplier),
+          currency: 'USD',
+          regionalAdjustment: regionInfo.tier,
+          location: location || 'National average'
+        };
+      }
 
       res.json({
         ok: true,
@@ -17085,6 +17552,14 @@ What specific area or type of incident would you like me to focus on? I can prov
             crewInfo: treePricingResult.crewInfo,
             breakdown: treePricingResult.breakdown,
             warnings: treePricingResult.warnings,
+          } : null,
+          // Professional roofing pricing details
+          roofingPricing: roofingPricingResult ? {
+            roofingSquares: roofingPricingResult.roofingSquares,
+            materialGrade: roofingPricingResult.materialGrade,
+            crewInfo: roofingPricingResult.crewInfo,
+            breakdown: roofingPricingResult.breakdown,
+            warnings: roofingPricingResult.warnings,
           } : null,
         },
         measurements,

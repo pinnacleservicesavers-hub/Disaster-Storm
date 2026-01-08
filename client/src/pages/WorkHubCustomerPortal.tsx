@@ -136,6 +136,20 @@ export default function WorkHubCustomerPortal() {
     };
     warnings: string[];
   } | null>(null);
+  const [roofingPricing, setRoofingPricing] = useState<{
+    roofingSquares: number;
+    materialGrade: string;
+    crewInfo: { crewSize: number; estimatedDays: number; laborRate: number };
+    breakdown: {
+      materials: { min: number; max: number; description: string; perSqFt: { min: number; max: number } };
+      labor: { min: number; max: number; description: string; perSqFt: { min: number; max: number } };
+      tearOff: { min: number; max: number };
+      complexity: { min: number; max: number; factors: string[] };
+      additionalWork: { min: number; max: number; items: string[] };
+      permit: { min: number; max: number };
+    };
+    warnings: string[];
+  } | null>(null);
   const [request, setRequest] = useState<ProjectRequest>({
     category: '',
     description: '',
@@ -441,6 +455,11 @@ export default function WorkHubCustomerPortal() {
       // Capture professional tree pricing breakdown
       if (data.analysis?.treePricing) {
         setTreePricing(data.analysis.treePricing);
+      }
+      
+      // Capture professional roofing pricing breakdown
+      if (data.analysis?.roofingPricing) {
+        setRoofingPricing(data.analysis.roofingPricing);
       }
       
       // Extract job details based on work type
@@ -1512,6 +1531,136 @@ export default function WorkHubCustomerPortal() {
                         <p className="text-xs text-slate-400 mt-3 flex items-center gap-1">
                           <AlertCircle className="w-3 h-3" />
                           This is a professional-grade estimate. Actual price confirmed after on-site inspection.
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Professional Roofing Pricing Breakdown */}
+                    {roofingPricing && (aiAnalysis?.detectedCategory === 'roofing' || aiAnalysis?.detectedCategory === 'roof') && (
+                      <div className="mt-4 pt-4 border-t border-blue-200 dark:border-blue-800">
+                        <h4 className="font-semibold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
+                          <Home className="w-5 h-5 text-blue-600" />
+                          Professional Roofing Estimate
+                        </h4>
+                        
+                        {/* Roofing Summary Badge */}
+                        <div className="mb-4 flex flex-wrap gap-2">
+                          <Badge className="text-sm px-3 py-1 bg-blue-600 text-white" data-testid="roofing-squares">
+                            {roofingPricing.roofingSquares} Roofing Squares
+                          </Badge>
+                          <Badge variant="outline" className="text-sm px-3 py-1">
+                            {roofingPricing.materialGrade}
+                          </Badge>
+                        </div>
+
+                        {/* Warnings */}
+                        {roofingPricing.warnings && roofingPricing.warnings.length > 0 && (
+                          <div className="mb-4 bg-amber-50 dark:bg-amber-900/20 p-3 rounded-lg border border-amber-200 dark:border-amber-800">
+                            <p className="font-semibold text-amber-700 dark:text-amber-400 text-sm mb-2 flex items-center gap-2">
+                              <AlertCircle className="w-4 h-4" />
+                              Important Considerations
+                            </p>
+                            <ul className="space-y-1">
+                              {roofingPricing.warnings.map((warning, idx) => (
+                                <li key={idx} className="text-sm text-amber-600 dark:text-amber-300 flex items-start gap-2">
+                                  <span className="text-amber-400 mt-0.5">•</span>
+                                  {warning}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {/* Complexity Factors */}
+                        {roofingPricing.breakdown.complexity.factors.length > 0 && (
+                          <div className="mb-4">
+                            <p className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Complexity Factors Affecting Price:</p>
+                            <div className="flex flex-wrap gap-2">
+                              {roofingPricing.breakdown.complexity.factors.map((factor, idx) => (
+                                <Badge key={idx} variant="outline" className="text-xs bg-blue-50 dark:bg-blue-900/20 border-blue-300">
+                                  {factor}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Detailed Cost Breakdown - Values are in cents */}
+                        <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-lg border border-slate-200 dark:border-slate-700">
+                          <h5 className="font-semibold text-slate-800 dark:text-slate-200 mb-3">Detailed Price Breakdown</h5>
+                          <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-slate-600 dark:text-slate-400">{roofingPricing.breakdown.materials.description}</span>
+                              <span className="font-medium">${Math.round(roofingPricing.breakdown.materials.min / 100).toLocaleString()} - ${Math.round(roofingPricing.breakdown.materials.max / 100).toLocaleString()}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-slate-600 dark:text-slate-400">{roofingPricing.breakdown.labor.description}</span>
+                              <span className="font-medium">${Math.round(roofingPricing.breakdown.labor.min / 100).toLocaleString()} - ${Math.round(roofingPricing.breakdown.labor.max / 100).toLocaleString()}</span>
+                            </div>
+                            {roofingPricing.breakdown.tearOff.min > 0 && (
+                              <div className="flex justify-between text-orange-600 dark:text-orange-400">
+                                <span>Tear-Off Existing Roof</span>
+                                <span className="font-medium">+ ${Math.round(roofingPricing.breakdown.tearOff.min / 100).toLocaleString()} - ${Math.round(roofingPricing.breakdown.tearOff.max / 100).toLocaleString()}</span>
+                              </div>
+                            )}
+                            {roofingPricing.breakdown.complexity.min > 0 && (
+                              <div className="flex justify-between text-amber-600 dark:text-amber-400">
+                                <span>Complexity Premium</span>
+                                <span className="font-medium">+ ${Math.round(roofingPricing.breakdown.complexity.min / 100).toLocaleString()} - ${Math.round(roofingPricing.breakdown.complexity.max / 100).toLocaleString()}</span>
+                              </div>
+                            )}
+                            {roofingPricing.breakdown.additionalWork.min > 0 && (
+                              <div className="flex justify-between">
+                                <span className="text-slate-600 dark:text-slate-400">Additional Work</span>
+                                <span className="font-medium">+ ${Math.round(roofingPricing.breakdown.additionalWork.min / 100).toLocaleString()} - ${Math.round(roofingPricing.breakdown.additionalWork.max / 100).toLocaleString()}</span>
+                              </div>
+                            )}
+                            {roofingPricing.breakdown.permit.min > 0 && (
+                              <div className="flex justify-between">
+                                <span className="text-slate-600 dark:text-slate-400">Permit Fees</span>
+                                <span className="font-medium">+ ${Math.round(roofingPricing.breakdown.permit.min / 100).toLocaleString()} - ${Math.round(roofingPricing.breakdown.permit.max / 100).toLocaleString()}</span>
+                              </div>
+                            )}
+                          </div>
+                          
+                          {/* Additional Work Items */}
+                          {roofingPricing.breakdown.additionalWork.items.length > 0 && (
+                            <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-600">
+                              <p className="text-xs font-medium text-slate-500 mb-2">Additional Work Includes:</p>
+                              <ul className="space-y-1">
+                                {roofingPricing.breakdown.additionalWork.items.map((item, idx) => (
+                                  <li key={idx} className="text-xs text-slate-500 flex items-start gap-2">
+                                    <CheckCircle className="w-3 h-3 text-green-500 mt-0.5" />
+                                    {item}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Crew Information */}
+                        <div className="mt-4 grid grid-cols-3 gap-3">
+                          <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg text-center">
+                            <Users className="w-5 h-5 mx-auto text-blue-600 mb-1" />
+                            <p className="text-xl font-bold text-blue-700 dark:text-blue-400">{roofingPricing.crewInfo.crewSize}</p>
+                            <p className="text-xs text-slate-500">Crew Members</p>
+                          </div>
+                          <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg text-center">
+                            <Calendar className="w-5 h-5 mx-auto text-blue-600 mb-1" />
+                            <p className="text-xl font-bold text-blue-700 dark:text-blue-400">{roofingPricing.crewInfo.estimatedDays}</p>
+                            <p className="text-xs text-slate-500">Days</p>
+                          </div>
+                          <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg text-center">
+                            <DollarSign className="w-5 h-5 mx-auto text-blue-600 mb-1" />
+                            <p className="text-xl font-bold text-blue-700 dark:text-blue-400">${Math.round(roofingPricing.crewInfo.laborRate / 100)}</p>
+                            <p className="text-xs text-slate-500">/hr avg labor</p>
+                          </div>
+                        </div>
+
+                        <p className="text-xs text-slate-400 mt-3 flex items-center gap-1">
+                          <AlertCircle className="w-3 h-3" />
+                          Roofing prices based on {roofingPricing.roofingSquares * 100} sq ft. 1 roofing square = 100 sq ft.
                         </p>
                       </div>
                     )}
