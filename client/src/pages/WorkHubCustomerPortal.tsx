@@ -5,7 +5,7 @@ import {
   Camera, Video, Upload, MapPin, Sparkles, CheckCircle,
   ArrowRight, ArrowLeft, Image, Loader2, Volume2, VolumeX,
   DollarSign, Clock, Star, User, Phone, Mail, Calendar,
-  MessageSquare, Shield, Zap, ChevronRight, Building2,
+  MessageSquare, MessageCircle, Shield, Zap, ChevronRight, Building2,
   TreePine, Home, Wind, Droplets, Plug, Paintbrush, Car,
   Hammer, Wrench, Settings, ThumbsUp, AlertCircle, Users
 } from 'lucide-react';
@@ -1152,10 +1152,12 @@ export default function WorkHubCustomerPortal() {
                           <p className="text-2xl font-bold text-green-700">
                             ${aiAnalysis.estimatedPriceRange.min.toLocaleString()} - ${aiAnalysis.estimatedPriceRange.max.toLocaleString()}
                           </p>
-                          <p className="text-xs text-amber-600 flex items-center gap-1 mt-1">
-                            <AlertCircle className="w-3 h-3" />
-                            Final price subject to on-site inspection
-                          </p>
+                          <div className="mt-2 p-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-md">
+                            <p className="text-xs text-amber-700 dark:text-amber-300 flex items-start gap-1">
+                              <AlertCircle className="w-3 h-3 mt-0.5 shrink-0" />
+                              <span>This is an AI estimate based on your photos. A contractor will visit in person to give you the final quote. Prices may vary based on site conditions.</span>
+                            </p>
+                          </div>
                         </div>
                         <div className="flex gap-4">
                           <div>
@@ -1364,6 +1366,54 @@ export default function WorkHubCustomerPortal() {
                                 </Badge>
                               </div>
                               <p className="text-sm text-slate-600 dark:text-slate-400">{jobDetails.complexityReason}</p>
+                            </div>
+                            
+                            {/* Equipment/Crew for tree jobs */}
+                            {jobDetails.equipmentNeeded && jobDetails.equipmentNeeded.length > 0 && (
+                              <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-emerald-100">
+                                <p className="text-xs text-slate-500 uppercase tracking-wide mb-2">Equipment Required</p>
+                                <div className="flex flex-wrap gap-2">
+                                  {jobDetails.equipmentNeeded.map((equip, idx) => (
+                                    <Badge key={idx} variant="outline" className="text-emerald-700 border-emerald-300">
+                                      {equip}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            
+                            {jobDetails.crewSize && (
+                              <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-emerald-100">
+                                <p className="text-xs text-slate-500 uppercase tracking-wide mb-2">Crew Size</p>
+                                <p className="text-lg font-bold text-emerald-700 dark:text-emerald-400">{jobDetails.crewSize} Workers</p>
+                                {jobDetails.estimatedHours && (
+                                  <p className="text-sm text-slate-500 mt-1">Estimated duration: {jobDetails.estimatedHours} hours</p>
+                                )}
+                              </div>
+                            )}
+                            
+                            {/* Questions prompt */}
+                            <div className="bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 p-4 rounded-xl border border-purple-200 dark:border-purple-700">
+                              <div className="flex items-start gap-3">
+                                <MessageCircle className="w-5 h-5 text-purple-600 mt-0.5" />
+                                <div>
+                                  <p className="font-semibold text-purple-800 dark:text-purple-300">Questions about this estimate?</p>
+                                  <p className="text-sm text-purple-600 dark:text-purple-400 mt-1">
+                                    Click the chat button in the bottom right to ask Evelyn about pricing, materials, what's included, or anything else!
+                                  </p>
+                                  <div className="flex flex-wrap gap-2 mt-3">
+                                    <Badge variant="outline" className="text-xs cursor-pointer hover:bg-purple-100 dark:hover:bg-purple-800">
+                                      "Why does it cost this much?"
+                                    </Badge>
+                                    <Badge variant="outline" className="text-xs cursor-pointer hover:bg-purple-100 dark:hover:bg-purple-800">
+                                      "What materials do you recommend?"
+                                    </Badge>
+                                    <Badge variant="outline" className="text-xs cursor-pointer hover:bg-purple-100 dark:hover:bg-purple-800">
+                                      "Can I get it cheaper?"
+                                    </Badge>
+                                  </div>
+                                </div>
+                              </div>
                             </div>
                           </CardContent>
                         </Card>
@@ -2260,7 +2310,7 @@ ROOFING QUOTE FACTORS TO EXPLAIN:
 5. Ventilation - ridge vents, soffit vents for attic airflow
 6. Flashing - around chimneys, vents, skylights
 ` : ''}
-${request.category === 'tree' || request.category === 'tree_removal' && aiAnalysis ? `
+${(request.category === 'tree' || request.category === 'tree_removal') && aiAnalysis ? `
 TREE-SPECIFIC DETAILS:
 - Tree dimensions: ${jobDetails?.primaryValue || 'Based on photos'} height, ${jobDetails?.secondaryValue || 'TBD'} width
 - Equipment needed: ${jobDetails?.equipmentNeeded?.join(', ') || 'TBD based on size'}
@@ -2274,6 +2324,71 @@ TREE QUOTE FACTORS TO EXPLAIN:
 4. Stump removal - usually separate cost, $100-400 per stump
 5. Debris hauling - wood chips vs log sections vs full removal
 6. Crane rental - required for very large trees, adds $500-1500
+` : ''}
+${request.category === 'hvac' && aiAnalysis ? `
+HVAC-SPECIFIC DETAILS:
+- System type: ${jobDetails?.itemType || 'TBD'}
+- Units: ${jobDetails?.primaryValue || 'TBD'}
+
+HVAC QUOTE FACTORS TO EXPLAIN:
+1. System size (tonnage) - larger homes need bigger systems ($3,000-10,000+)
+2. Efficiency rating (SEER) - higher efficiency costs more upfront but saves on bills
+3. Ductwork condition - repairs or replacement adds $1,000-5,000
+4. Refrigerant type - R-410A systems are standard, older R-22 requires special handling
+5. Permits and inspections - required in most areas, adds $100-300
+6. Thermostat upgrade - smart thermostats add $150-400
+` : ''}
+${request.category === 'electrical' && aiAnalysis ? `
+ELECTRICAL-SPECIFIC DETAILS:
+- Work type: ${jobDetails?.itemType || 'TBD'}
+- Scope: ${jobDetails?.primaryValue || 'TBD'}
+
+ELECTRICAL QUOTE FACTORS TO EXPLAIN:
+1. Panel upgrade - 100A to 200A costs $1,500-3,000
+2. Wiring condition - older homes may need rewiring ($8,000-15,000)
+3. Permits required - electrical work always needs permits ($50-200)
+4. Number of circuits - each new circuit costs $150-300
+5. Outlet/switch count - basic outlets $75-200 each installed
+6. GFCI/AFCI requirements - code requires in bathrooms, kitchens, bedrooms
+` : ''}
+${request.category === 'plumbing' && aiAnalysis ? `
+PLUMBING-SPECIFIC DETAILS:
+- Work type: ${jobDetails?.itemType || 'TBD'}
+- Fixtures: ${jobDetails?.primaryValue || 'TBD'}
+
+PLUMBING QUOTE FACTORS TO EXPLAIN:
+1. Pipe material - PEX ($4-6/ft) vs copper ($8-12/ft)
+2. Water heater type - tank ($800-1,500) vs tankless ($1,500-3,000)
+3. Drain cleaning - snaking ($150-300) vs hydro jetting ($300-600)
+4. Fixture quality - basic vs designer affects price significantly
+5. Access difficulty - opening walls/floors adds labor costs
+6. Permits - required for most plumbing work ($50-150)
+` : ''}
+${request.category === 'painting' && aiAnalysis ? `
+PAINTING-SPECIFIC DETAILS:
+- Area: ${jobDetails?.primaryValue || 'TBD'}
+- Rooms: ${jobDetails?.secondaryValue || 'TBD'}
+
+PAINTING QUOTE FACTORS TO EXPLAIN:
+1. Paint quality - basic ($25-35/gal) vs premium ($50-80/gal)
+2. Number of coats - typically 2 coats needed, dark colors may need 3
+3. Prep work - patching, sanding, priming adds 30-50% to labor
+4. Ceiling height - above 10ft requires ladders/scaffolding
+5. Trim and doors - painting trim adds $2-4 per linear foot
+6. Interior vs exterior - exterior costs more due to prep and durability needs
+` : ''}
+${request.category === 'concrete' && aiAnalysis ? `
+CONCRETE-SPECIFIC DETAILS:
+- Area: ${jobDetails?.primaryValue || 'TBD'}
+- Thickness: ${jobDetails?.secondaryValue || 'TBD'}
+
+CONCRETE QUOTE FACTORS TO EXPLAIN:
+1. Thickness - standard 4" vs reinforced 6" for driveways
+2. Finish type - broom finish ($) vs stamped/decorative ($$-$$$)
+3. Demolition - removing old concrete adds $2-5 per sqft
+4. Rebar/wire mesh - reinforcement adds $0.50-1.50 per sqft
+5. Drainage/grading - proper slope prevents water issues
+6. Curing time - 7 days before use, 28 days for full strength
 ` : ''}
 
 WHAT YOU CAN HELP WITH:
