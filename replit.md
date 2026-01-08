@@ -49,7 +49,7 @@ The platform features an enterprise-grade design system with AI-selected backgro
   - **Voice API**: `/api/voice-guide/*` endpoints serving intro scripts, capture prompts, and scope question scripts
 
 ### WorkHub Marketplace (NEW - December 2024)
-**Domain**: strategicservicesavers.com
+**Domain**: strategicservicesavers.org
 **Purpose**: Everyday contractor/customer marketplace for non-emergency work, accessible nationwide. Separate from Disaster Direct (emergency storm work).
 
 #### 12 AI-Powered Modules with Creative Names:
