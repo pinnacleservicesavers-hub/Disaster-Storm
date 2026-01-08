@@ -17074,6 +17074,297 @@ Photos attached via email. Reply to claim this job!`;
     }
   });
 
+  // Enhanced contractor matching endpoint with scheduling
+  app.post('/api/workhub/match-contractors', express.json({ limit: '50mb' }), async (req, res) => {
+    try {
+      const { 
+        workType, customerName, email, phone, address, city, state, zip,
+        description, photoUrls, aiAnalysis, estimatedPrice, budgetConfirmed,
+        budgetReason, customerBudget, urgency, jobDetails,
+        estimateDateFrom, estimateDateTo, estimateTimePreference, 
+        desiredQuoteCount, jobCompletionDate
+      } = req.body;
+
+      if (!workType || !customerName || !email) {
+        return res.status(400).json({ error: 'Work type, customer name, and email are required' });
+      }
+
+      console.log('🎯 Enhanced contractor matching request:', { workType, desiredQuoteCount, estimateDateFrom, estimateDateTo });
+
+      // Match contractors based on trade, budget, and availability
+      let matchedContractors = WORKHUB_CONTRACTORS
+        .filter(c => c.trades.includes(workType) || c.trades.some(t => t.toLowerCase().includes(workType.toLowerCase())) || workType.toLowerCase() === 'general')
+        .filter(c => {
+          // Filter by budget if customer provided one
+          if (customerBudget && customerBudget.max && c.minimumJobSize) {
+            return customerBudget.max >= c.minimumJobSize;
+          }
+          return true;
+        })
+        .sort((a, b) => {
+          // Sort by availability first, then rating
+          if (a.availabilityStatus === 'ready' && b.availabilityStatus !== 'ready') return -1;
+          if (b.availabilityStatus === 'ready' && a.availabilityStatus !== 'ready') return 1;
+          return b.rating - a.rating;
+        })
+        .slice(0, desiredQuoteCount || 3);
+
+      // If not enough matches, expand search
+      if (matchedContractors.length < (desiredQuoteCount || 1)) {
+        const additionalContractors = WORKHUB_CONTRACTORS
+          .filter(c => !matchedContractors.find(mc => mc.id === c.id))
+          .sort((a, b) => b.rating - a.rating)
+          .slice(0, (desiredQuoteCount || 3) - matchedContractors.length);
+        matchedContractors = [...matchedContractors, ...additionalContractors];
+      }
+
+      // Save submission with scheduling details
+      const [submission] = await db.insert(customerSubmissions).values({
+        workType,
+        customerName,
+        email,
+        phone,
+        address,
+        city,
+        state,
+        zip,
+        description,
+        photoUrls,
+        aiAnalysis,
+        estimatedPrice,
+        budgetConfirmed,
+        budgetReason,
+        matchedContractors: matchedContractors.map(c => ({ id: c.id, name: c.name, rating: c.rating })),
+        urgency,
+        preferredTimeframe: JSON.stringify({
+          estimateDateFrom,
+          estimateDateTo,
+          estimateTimePreference,
+          desiredQuoteCount,
+          jobCompletionDate
+        }),
+        treeDetails: jobDetails,
+        status: 'pending'
+      }).returning();
+
+      console.log('📋 Customer submission with scheduling saved:', submission.id);
+
+      // Send notifications to matched contractors
+      try {
+        const { sendSms } = await import('./services/twilio.js');
+        const { sendClaimPacket } = await import('./services/sendgrid.js');
+        
+        // Contractor contact info - in production this would come from database based on matchedContractors
+        const CONTRACTOR_CONTACTS = [
+          { name: 'John Culpepper', phone: '+17066044820', email: 'john@disasterdirect.com' },
+          { name: 'Shannon Wise', phone: '+17068408949', email: 'shannon@disasterdirect.com' }
+        ];
+
+        // Format dates for display
+        const formatDate = (dateStr: string) => {
+          if (!dateStr) return 'Not specified';
+          return new Date(dateStr).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+        };
+
+        const timePreferenceLabels: Record<string, string> = {
+          'morning': 'Morning (8am-12pm)',
+          'afternoon': 'Afternoon (12pm-5pm)',
+          'evening': 'Evening (5pm-8pm)',
+          'any': 'Any Time (Flexible)'
+        };
+
+        const priceRange = estimatedPrice 
+          ? `$${estimatedPrice.min?.toLocaleString()} - $${estimatedPrice.max?.toLocaleString()}`
+          : 'Quote pending';
+        
+        const customerBudgetInfo = customerBudget 
+          ? `\n💵 Customer Budget: $${customerBudget.min?.toLocaleString()} - $${customerBudget.max?.toLocaleString()}`
+          : '';
+
+        const smsMessage = `🏠 NEW SCHEDULED LEAD #${submission.id}
+📋 ${workType.toUpperCase()}
+💰 AI Quote: ${priceRange}${customerBudgetInfo}
+
+📅 ESTIMATE VISIT:
+   ${formatDate(estimateDateFrom)} - ${formatDate(estimateDateTo)}
+   ${timePreferenceLabels[estimateTimePreference] || estimateTimePreference}
+
+🎯 Job Complete By: ${formatDate(jobCompletionDate)}
+
+👤 ${customerName}
+📍 ${address || 'No address'}${city ? `, ${city}` : ''}${state ? `, ${state}` : ''} ${zip || ''}
+📞 ${phone || 'No phone'}
+
+Customer is on schedule - NO spam calls needed!`;
+
+        const emailHtml = `
+          <div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto;">
+            <div style="background: linear-gradient(135deg, #16a34a, #22c55e); color: white; padding: 20px; border-radius: 8px 8px 0 0;">
+              <h1 style="margin: 0;">📅 Scheduled Lead #${submission.id}</h1>
+              <p style="margin: 10px 0 0 0; opacity: 0.9;">Customer has scheduled an estimate appointment - you're on their calendar!</p>
+            </div>
+            
+            <div style="background: #fff; padding: 20px; border: 1px solid #ddd; border-top: none;">
+              <div style="background: #ecfdf5; border: 2px solid #16a34a; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
+                <h3 style="color: #16a34a; margin: 0 0 10px 0;">📆 Appointment Details</h3>
+                <table style="width: 100%;">
+                  <tr>
+                    <td style="padding: 5px 0;"><strong>Estimate Visit:</strong></td>
+                    <td>${formatDate(estimateDateFrom)} - ${formatDate(estimateDateTo)}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 5px 0;"><strong>Preferred Time:</strong></td>
+                    <td>${timePreferenceLabels[estimateTimePreference] || estimateTimePreference}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 5px 0;"><strong>Complete By:</strong></td>
+                    <td style="font-weight: bold; color: #d97706;">${formatDate(jobCompletionDate)}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 5px 0;"><strong>Estimates Requested:</strong></td>
+                    <td>${desiredQuoteCount || 1} contractor${(desiredQuoteCount || 1) > 1 ? 's' : ''}</td>
+                  </tr>
+                </table>
+              </div>
+              
+              <h2 style="color: #7c3aed; margin-top: 0;">Job Details</h2>
+              <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                  <td style="padding: 8px; border-bottom: 1px solid #eee; width: 30%;"><strong>Work Type</strong></td>
+                  <td style="padding: 8px; border-bottom: 1px solid #eee;">${workType}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>AI Quote</strong></td>
+                  <td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold; color: #16a34a;">${priceRange}</td>
+                </tr>
+                ${customerBudget ? `<tr>
+                  <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Customer Budget</strong></td>
+                  <td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold; color: #d97706;">$${customerBudget.min?.toLocaleString()} - $${customerBudget.max?.toLocaleString()}</td>
+                </tr>` : ''}
+                <tr>
+                  <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Description</strong></td>
+                  <td style="padding: 8px; border-bottom: 1px solid #eee;">${description || 'See photos'}</td>
+                </tr>
+              </table>
+              
+              <h2 style="color: #7c3aed; margin-top: 30px;">Customer Contact</h2>
+              <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                  <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Name</strong></td>
+                  <td style="padding: 8px; border-bottom: 1px solid #eee;">${customerName}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Phone</strong></td>
+                  <td style="padding: 8px; border-bottom: 1px solid #eee;"><a href="tel:${phone}">${phone || 'Not provided'}</a></td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Email</strong></td>
+                  <td style="padding: 8px; border-bottom: 1px solid #eee;"><a href="mailto:${email}">${email}</a></td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Address</strong></td>
+                  <td style="padding: 8px; border-bottom: 1px solid #eee;">${address || 'Not provided'}${city ? `, ${city}` : ''}${state ? `, ${state}` : ''} ${zip || ''}</td>
+                </tr>
+              </table>
+
+              ${photoUrls && photoUrls.length > 0 ? `
+              <div style="margin-top: 20px;">
+                <h3 style="color: #333;">Customer Photos (${photoUrls.length})</h3>
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px;">
+                  ${photoUrls.map((url: string, i: number) => `<img src="${url}" alt="Photo ${i + 1}" style="max-width: 100%; border-radius: 8px; border: 1px solid #ddd;" />`).join('')}
+                </div>
+              </div>
+              ` : ''}
+              
+              <div style="margin-top: 30px; padding: 15px; background: #eff6ff; border-radius: 8px; border-left: 4px solid #3b82f6;">
+                <strong style="color: #1d4ed8;">📞 No cold calling needed!</strong>
+                <p style="margin: 5px 0 0 0; color: #1e40af;">Customer is expecting your call to confirm the estimate appointment. They won't be getting calls from other contractors.</p>
+              </div>
+            </div>
+            
+            <div style="background: #f5f5f5; padding: 15px; border-radius: 0 0 8px 8px; text-align: center; font-size: 12px; color: #666;">
+              <p style="margin: 0;">WorkHub by Strategic Services Savers | <a href="https://strategicservicesavers.org">strategicservicesavers.org</a></p>
+            </div>
+          </div>
+        `;
+
+        const notificationResults: string[] = [];
+        let successCount = 0;
+        
+        // Send to matched contractors (limit to desiredQuoteCount)
+        const contractorsToNotify = CONTRACTOR_CONTACTS.slice(0, desiredQuoteCount || 3);
+        
+        for (const contractor of contractorsToNotify) {
+          try {
+            await sendSms({ to: contractor.phone, message: smsMessage });
+            notificationResults.push(`✅ SMS sent to ${contractor.name}`);
+            console.log(`📱 Scheduled lead SMS sent to ${contractor.name}`);
+            successCount++;
+          } catch (smsError) {
+            console.error(`❌ SMS to ${contractor.name} failed:`, smsError);
+            notificationResults.push(`❌ SMS to ${contractor.name} failed`);
+          }
+          
+          try {
+            await sendClaimPacket({
+              toEmail: contractor.email,
+              toName: contractor.name,
+              subject: `📅 Scheduled Lead #${submission.id} - ${workType} - ${customerName}`,
+              html: emailHtml
+            });
+            notificationResults.push(`✅ Email sent to ${contractor.name}`);
+            console.log(`📧 Scheduled lead email sent to ${contractor.name}`);
+            successCount++;
+          } catch (emailError) {
+            console.error(`❌ Email to ${contractor.name} failed:`, emailError);
+            notificationResults.push(`❌ Email to ${contractor.name} failed`);
+          }
+        }
+        
+        if (successCount > 0) {
+          await db.update(customerSubmissions)
+            .set({ 
+              contractorNotified: true, 
+              contractorNotifiedAt: new Date() 
+            })
+            .where(eq(customerSubmissions.id, submission.id));
+          console.log(`📬 Scheduled contractor notifications (${successCount} succeeded):`, notificationResults.join(', '));
+        }
+        
+      } catch (notifyError) {
+        console.error('⚠️ Contractor notification error:', notifyError);
+      }
+
+      res.json({
+        ok: true,
+        submission,
+        matchedContractors: matchedContractors.map(c => ({
+          id: c.id,
+          name: c.name,
+          rating: c.rating,
+          availabilityStatus: c.availabilityStatus
+        })),
+        scheduling: {
+          estimateDateFrom,
+          estimateDateTo,
+          estimateTimePreference,
+          desiredQuoteCount,
+          jobCompletionDate
+        },
+        message: `Perfect! ${desiredQuoteCount || 1} contractor${(desiredQuoteCount || 1) > 1 ? 's' : ''} will come to give you an estimate between ${new Date(estimateDateFrom).toLocaleDateString()} and ${new Date(estimateDateTo).toLocaleDateString()}.`
+      });
+
+    } catch (error) {
+      console.error('Enhanced contractor matching error:', error);
+      res.status(500).json({ 
+        error: 'Failed to match contractors',
+        message: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  console.log('🎯 Enhanced contractor matching endpoint registered');
+
   // Get all customer submissions (admin endpoint)
   app.get('/api/workhub/admin/submissions', async (req, res) => {
     try {

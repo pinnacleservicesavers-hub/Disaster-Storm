@@ -140,6 +140,13 @@ export default function WorkHubCustomerPortal() {
     return () => clearTimeout(debounceTimer);
   }, [request.location.state, request.category]);
 
+  // Auto-submit when scheduling is confirmed and we have contact info
+  useEffect(() => {
+    if (schedulingConfirmed && request.contact.name && request.contact.email && !isSubmitting && !submissionComplete) {
+      submitCustomerRequest();
+    }
+  }, [schedulingConfirmed]);
+
   const speakGuidance = async (text: string) => {
     try {
       // Stop any currently playing audio
@@ -644,7 +651,12 @@ export default function WorkHubCustomerPortal() {
     
     setIsSubmitting(true);
     try {
-      const response = await fetch('/api/workhub/submissions', {
+      // Use enhanced contractor matching endpoint if scheduling is confirmed
+      const apiEndpoint = schedulingConfirmed 
+        ? '/api/workhub/match-contractors' 
+        : '/api/workhub/submissions';
+
+      const response = await fetch(apiEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -674,7 +686,12 @@ export default function WorkHubCustomerPortal() {
           urgency: request.preferences.urgency,
           preferredTimeframe: preferredTimeframe || null,
           preferredDate: preferredDate || null,
-          jobDetails: jobDetails || null
+          jobDetails: jobDetails || null,
+          estimateDateFrom: estimateDateFrom || null,
+          estimateDateTo: estimateDateTo || null,
+          estimateTimePreference: estimateTimePreference || 'any',
+          desiredQuoteCount: desiredQuoteCount || 1,
+          jobCompletionDate: jobCompletionDate || null
         }),
       });
       
@@ -1428,6 +1445,32 @@ export default function WorkHubCustomerPortal() {
                             </div>
                           </CardContent>
                         </Card>
+                      </motion.div>
+                    )}
+
+                    {/* Step 2: Quote Count - Shows after date range selected with "Continue" button */}
+                    {estimateDateFrom && !estimateDateTo && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="mt-4"
+                      >
+                        <div className="flex justify-end">
+                          <Button
+                            onClick={() => {
+                              if (!estimateDateTo) {
+                                setEstimateDateTo(estimateDateFrom);
+                              }
+                              speakGuidance("Great! Now how many estimates would you like?");
+                            }}
+                            disabled={!estimateDateFrom}
+                            className="bg-gradient-to-r from-purple-600 to-indigo-600"
+                            data-testid="button-continue-dates"
+                          >
+                            Continue
+                            <ArrowRight className="w-4 h-4 ml-2" />
+                          </Button>
+                        </div>
                       </motion.div>
                     )}
 
