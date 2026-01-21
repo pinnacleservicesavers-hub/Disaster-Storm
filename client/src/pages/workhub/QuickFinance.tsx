@@ -32,7 +32,7 @@ export default function QuickFinance() {
   useEffect(() => {
     if (voices.length > 0) {
       setTimeout(() => {
-        speakGuidance("Welcome to QuickFinance! I'm Evelyn. This module helps you close more deals by offering customers flexible payment options. You can offer Pay-in-4, monthly financing, and connect with third-party lenders - all at the estimate stage.");
+        speakGuidance("Welcome to QuickFinance! I'm Rachel. This module helps you close more deals by offering customers flexible payment options. You can offer Pay-in-4, monthly financing, and connect with third-party lenders - all at the estimate stage.");
       }, 500);
     }
   }, [voices]);
@@ -82,7 +82,7 @@ export default function QuickFinance() {
             <Button
               variant="ghost"
               size="lg"
-              onClick={() => isVoiceActive ? window.speechSynthesis.cancel() : speakGuidance("I'm Evelyn. QuickFinance lets you offer payment plans right at the estimate stage. Pay-in-4, monthly financing, and partner lenders help you close more deals.")}
+              onClick={() => isVoiceActive ? window.speechSynthesis.cancel() : speakGuidance("I'm Rachel. QuickFinance lets you offer payment plans right at the estimate stage. Pay-in-4, monthly financing, and partner lenders help you close more deals.")}
               className="text-white hover:bg-white/10"
             >
               {isVoiceActive ? <Volume2 className="w-6 h-6 animate-pulse" /> : <VolumeX className="w-6 h-6" />}

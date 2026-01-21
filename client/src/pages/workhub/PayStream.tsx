@@ -29,7 +29,7 @@ export default function PayStream() {
   useEffect(() => {
     if (voices.length > 0) {
       setTimeout(() => {
-        speakGuidance("Welcome to PayStream! I'm Evelyn. This is your payment command center. You've earned $24,850 this month with $5,200 pending. I'll help you send invoices, track payments, and get paid faster with one-click customer checkout.");
+        speakGuidance("Welcome to PayStream! I'm Rachel. This is your payment command center. You've earned $24,850 this month with $5,200 pending. I'll help you send invoices, track payments, and get paid faster with one-click customer checkout.");
       }, 500);
     }
   }, [voices]);
@@ -74,7 +74,7 @@ export default function PayStream() {
             <Button
               variant="ghost"
               size="lg"
-              onClick={() => isVoiceActive ? window.speechSynthesis.cancel() : speakGuidance("I'm Evelyn. PayStream handles all your invoicing and payments. Send invoices, track payments, and offer financing options - all in one place.")}
+              onClick={() => isVoiceActive ? window.speechSynthesis.cancel() : speakGuidance("I'm Rachel. PayStream handles all your invoicing and payments. Send invoices, track payments, and offer financing options - all in one place.")}
               className="text-white hover:bg-white/10"
             >
               {isVoiceActive ? <Volume2 className="w-6 h-6 animate-pulse" /> : <VolumeX className="w-6 h-6" />}

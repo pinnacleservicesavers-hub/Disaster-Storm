@@ -1,8 +1,8 @@
 /**
- * Voice Guide Configuration for Evelyn - Disaster Direct AI Assistant
+ * Voice Guide Configuration for Rachel - Strategic Services Savers AI Assistant
  * 
  * Centralized voice scripts for each module and trade-specific guidance.
- * Evelyn provides accurate, professional contractor guidance using
+ * Rachel provides accurate, professional contractor guidance using
  * industry-neutral language (no Xactimate/Verisk branding).
  */
 
@@ -48,7 +48,7 @@ export const moduleVoiceGuides: Record<string, VoiceGuideScript> = {
   dashboard: {
     moduleId: 'dashboard',
     moduleName: 'Dashboard',
-    intro: "Welcome to Disaster Direct. I'm Evelyn, your AI assistant. This dashboard gives you a real-time overview of active storms, open jobs, and pending claims across your service area. Let me know if you'd like me to explain any metrics or help you prioritize your day.",
+    intro: "Welcome to Strategic Services Savers. I'm Rachel, your AI assistant. This dashboard gives you a real-time overview of active storms, open jobs, and pending claims across your service area. Let me know if you'd like me to explain any metrics or help you prioritize your day.",
     keyFeatures: [
       'Active storm tracking with AI predictions',
       'Job pipeline overview and revenue metrics',
@@ -586,7 +586,7 @@ export const tradeVoiceGuides: Record<string, TradeGuideScript> = {
 // ===== GENERAL VOICE SCRIPTS =====
 
 export const generalVoiceScripts = {
-  welcome: "Welcome to Disaster Direct. I'm Evelyn, your AI assistant for storm operations and claims management. How can I help you today?",
+  welcome: "Welcome to Strategic Services Savers. I'm Rachel, your AI assistant for storm operations and claims management. How can I help you today?",
   
   measurementDisclaimer: "All measurements are AI-generated estimates using computer vision analysis. These outputs require verification by a qualified estimator before use in insurance claims. Confidence scores indicate AI certainty based on image quality and reference object visibility.",
   

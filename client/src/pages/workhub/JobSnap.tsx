@@ -117,7 +117,7 @@ export default function JobSnap() {
   useEffect(() => {
     if (voices.length > 0) {
       setTimeout(() => {
-        speakGuidance("Welcome to JobSnap! I'm Evelyn... your job documentation assistant. Capture photos and videos of every project... organized by before, during, and after phases. Your media is timestamped and geotagged for complete job records that protect you and impress your customers.");
+        speakGuidance("Welcome to JobSnap! I'm Rachel... your job documentation assistant. Capture photos and videos of every project... organized by before, during, and after phases. Your media is timestamped and geotagged for complete job records that protect you and impress your customers.");
       }, 500);
     }
   }, [voices]);

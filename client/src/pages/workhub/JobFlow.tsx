@@ -36,7 +36,7 @@ export default function JobFlow() {
   useEffect(() => {
     if (voices.length > 0) {
       setTimeout(() => {
-        speakGuidance("Welcome to JobFlow! I'm Evelyn, your project command center assistant. You have 1 job in progress at 60% complete, 1 scheduled to start soon, and 1 recently completed. I'll help you track milestones and keep customers updated on progress.");
+        speakGuidance("Welcome to JobFlow! I'm Rachel, your project command center assistant. You have 1 job in progress at 60% complete, 1 scheduled to start soon, and 1 recently completed. I'll help you track milestones and keep customers updated on progress.");
       }, 500);
     }
   }, [voices]);
@@ -91,7 +91,7 @@ export default function JobFlow() {
             <Button
               variant="ghost"
               size="lg"
-              onClick={() => isVoiceActive ? window.speechSynthesis.cancel() : speakGuidance("I'm Evelyn. JobFlow helps you track every job from estimate to completion with real-time progress updates for both you and your customers.")}
+              onClick={() => isVoiceActive ? window.speechSynthesis.cancel() : speakGuidance("I'm Rachel. JobFlow helps you track every job from estimate to completion with real-time progress updates for both you and your customers.")}
               className="text-white hover:bg-white/10"
             >
               {isVoiceActive ? <Volume2 className="w-6 h-6 animate-pulse" /> : <VolumeX className="w-6 h-6" />}

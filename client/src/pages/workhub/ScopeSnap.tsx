@@ -37,7 +37,7 @@ export default function ScopeSnap() {
   useEffect(() => {
     if (voices.length > 0) {
       setTimeout(() => {
-        speakGuidance("Welcome to ScopeSnap! I'm Evelyn, and I'll help you analyze your project photos. Upload images or videos, and our AI will instantly identify the type of work needed, detect issues, and match you with the right trade professionals.");
+        speakGuidance("Welcome to ScopeSnap! I'm Rachel, and I'll help you analyze your project photos. Upload images or videos, and our AI will instantly identify the type of work needed, detect issues, and match you with the right trade professionals.");
       }, 500);
     }
   }, [voices]);
@@ -157,7 +157,7 @@ export default function ScopeSnap() {
             <Button
               variant="ghost"
               size="lg"
-              onClick={() => isVoiceActive ? window.speechSynthesis.cancel() : speakGuidance("I'm Evelyn, your AI assistant for ScopeSnap. Upload photos or videos of any project, and I'll analyze them to identify the work needed, detect issues, and recommend the right contractors.")}
+              onClick={() => isVoiceActive ? window.speechSynthesis.cancel() : speakGuidance("I'm Rachel, your AI assistant for ScopeSnap. Upload photos or videos of any project, and I'll analyze them to identify the work needed, detect issues, and recommend the right contractors.")}
               className="text-white hover:bg-white/10"
               data-testid="button-voice-toggle"
             >

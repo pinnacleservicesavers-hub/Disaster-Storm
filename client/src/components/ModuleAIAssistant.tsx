@@ -97,7 +97,7 @@ export default function ModuleAIAssistant({ moduleName, moduleContext, externalT
     }
   };
 
-  // Use ElevenLabs via backend API for natural voice (Evelyn)
+  // Use ElevenLabs via backend API for natural voice (Rachel)
   const speakResponse = async (text: string) => {
     if (!audioEnabled) return;
     
@@ -250,7 +250,7 @@ export default function ModuleAIAssistant({ moduleName, moduleContext, externalT
             onClick={toggleAudio}
             className="h-8 px-3 hover:bg-white/10 flex items-center gap-1.5"
             data-testid="button-toggle-audio"
-            title={audioEnabled ? "Evelyn will speak responses (click to disable)" : "Enable Evelyn voice responses"}
+            title={audioEnabled ? "Rachel will speak responses (click to disable)" : "Enable Rachel voice responses"}
           >
             {audioEnabled ? 
               <Volume2 className="h-4 w-4 text-cyan-400" /> : 
@@ -303,7 +303,7 @@ export default function ModuleAIAssistant({ moduleName, moduleContext, externalT
         {messages.length === 0 && (
           <div className="text-center text-cyan-300/50 py-8">
             <MessageSquare className="h-12 w-12 mx-auto mb-3 opacity-30" />
-            <p className="text-sm font-medium">Hi! I'm Evelyn, your AI assistant for {moduleName}</p>
+            <p className="text-sm font-medium">Hi! I'm Rachel, your AI assistant for {moduleName}</p>
             <p className="text-xs mt-2">Type or speak your questions - I'll respond with voice by default!</p>
             {audioEnabled ? (
               <p className="text-xs mt-1 text-cyan-400">🎤 Voice responses enabled</p>

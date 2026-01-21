@@ -254,7 +254,7 @@ export function SMTPSettings() {
       </div>
       <ModuleAIAssistant 
         moduleName="SMTP Settings"
-        moduleContext="Email server configuration for system notifications. Evelyn can help you configure SMTP settings, test email connections, troubleshoot delivery issues, and explain port and security options for different email providers like Gmail and Outlook."
+        moduleContext="Email server configuration for system notifications. Rachel can help you configure SMTP settings, test email connections, troubleshoot delivery issues, and explain port and security options for different email providers like Gmail and Outlook."
       />
     </div>
   );

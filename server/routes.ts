@@ -15980,9 +15980,9 @@ What specific area or type of incident would you like me to focus on? I can prov
     });
   });
 
-  // ===== TEXT-TO-SPEECH ENDPOINT (ElevenLabs Evelyn Voice) =====
+  // ===== TEXT-TO-SPEECH ENDPOINT (ElevenLabs Rachel Voice) =====
   
-  // TTS endpoint using ElevenLabs for natural Evelyn voice
+  // TTS endpoint using ElevenLabs for natural Rachel voice
   app.post('/api/tts', express.json(), async (req, res) => {
     try {
       const { text } = req.body;
@@ -16037,8 +16037,8 @@ What specific area or type of incident would you like me to focus on? I can prov
         });
       }
       
-      // Use ElevenLabs with Evelyn voice (Rachel voice ID: 21m00Tcm4TlvDq8ikWAM)
-      // Evelyn is our branded name for this natural female voice
+      // Use ElevenLabs with Rachel voice (voice ID: 21m00Tcm4TlvDq8ikWAM)
+      // Rachel is our natural female AI assistant voice
       const voiceId = '21m00Tcm4TlvDq8ikWAM';
       
       const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
@@ -16052,9 +16052,9 @@ What specific area or type of incident would you like me to focus on? I can prov
           text: truncatedText,
           model_id: 'eleven_turbo_v2_5',
           voice_settings: {
-            stability: 0.35,
-            similarity_boost: 0.85,
-            style: 0.45,
+            stability: 0.28,
+            similarity_boost: 0.78,
+            style: 0.60,
             use_speaker_boost: true
           }
         })
@@ -16074,11 +16074,11 @@ What specific area or type of incident would you like me to focus on? I can prov
       
       // Return audio as base64 for easy frontend consumption
       const audioBase64 = audioBuffer.toString('base64');
-      console.log('🎤 ElevenLabs TTS generated successfully with Evelyn voice');
+      console.log('🎤 ElevenLabs TTS generated successfully with Rachel voice');
       res.json({ 
         audioBase64,
         format: 'mp3',
-        voice: 'Evelyn',
+        voice: 'Rachel',
         provider: 'elevenlabs'
       });
       

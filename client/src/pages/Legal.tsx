@@ -142,7 +142,7 @@ export default function Legal() {
       setIsVoiceGuideActive(true);
       window.speechSynthesis.cancel();
       
-      const voiceContent = `Welcome to Legal Compliance! I'm Evelyn, and I'll help you manage your contracts, liens, and legal requirements.
+      const voiceContent = `Welcome to Legal Compliance! I'm Rachel, and I'll help you manage your contracts, liens, and legal requirements.
 
       This dashboard shows your legal metrics at a glance: active contracts, pending liens, compliance rate, and critical alerts that need attention.
 

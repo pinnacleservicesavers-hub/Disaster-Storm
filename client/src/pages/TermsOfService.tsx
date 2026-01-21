@@ -29,7 +29,7 @@ export default function TermsOfService() {
             <CardContent className="text-slate-300 space-y-4">
               <p>
                 By accessing or using Strategic Services Savers ("the Platform"), including our websites, 
-                mobile applications, and AI assistant Evelyn, you agree to be bound by these Terms of Service.
+                mobile applications, and AI assistant Rachel, you agree to be bound by these Terms of Service.
               </p>
               <p>
                 If you do not agree to these terms, please do not use our services.
@@ -46,7 +46,7 @@ export default function TermsOfService() {
               <ul className="list-disc list-inside space-y-2 ml-4">
                 <li>Contractor-customer matching services</li>
                 <li>Storm damage assessment and claims guidance</li>
-                <li>AI-powered assistance via Evelyn</li>
+                <li>AI-powered assistance via Rachel</li>
                 <li>Weather monitoring and alerts</li>
                 <li>Lead generation and management tools</li>
                 <li>Payment processing services</li>
@@ -107,7 +107,7 @@ export default function TermsOfService() {
                 <li>Any indirect, incidental, special, consequential, or punitive damages</li>
                 <li>Loss of profits, revenue, data, or business opportunities</li>
                 <li>Damages arising from reliance on weather predictions or storm forecasts</li>
-                <li>Decisions made based on AI recommendations from Evelyn</li>
+                <li>Decisions made based on AI recommendations from Rachel</li>
                 <li>Actions or inactions of contractors connected through our platform</li>
                 <li>Insurance claim denials or reduced settlements</li>
               </ul>

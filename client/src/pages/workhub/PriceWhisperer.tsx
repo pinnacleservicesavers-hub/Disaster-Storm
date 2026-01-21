@@ -38,7 +38,7 @@ export default function PriceWhisperer() {
   useEffect(() => {
     if (voices.length > 0) {
       setTimeout(() => {
-        speakGuidance("Welcome to PriceWhisperer! I'm Evelyn, and I'll help you understand fair market pricing for any job. This tool provides AI-powered estimates with market comparisons, so both customers and contractors can be confident in pricing.");
+        speakGuidance("Welcome to PriceWhisperer! I'm Rachel, and I'll help you understand fair market pricing for any job. This tool provides AI-powered estimates with market comparisons, so both customers and contractors can be confident in pricing.");
       }, 500);
     }
   }, [voices]);
@@ -103,7 +103,7 @@ export default function PriceWhisperer() {
             <Button
               variant="ghost"
               size="lg"
-              onClick={() => isVoiceActive ? window.speechSynthesis.cancel() : speakGuidance("I'm Evelyn, your pricing assistant. PriceWhisperer uses AI to analyze market data and provide fair, competitive pricing ranges for any job type in your area.")}
+              onClick={() => isVoiceActive ? window.speechSynthesis.cancel() : speakGuidance("I'm Rachel, your pricing assistant. PriceWhisperer uses AI to analyze market data and provide fair, competitive pricing ranges for any job type in your area.")}
               className="text-white hover:bg-white/10"
             >
               {isVoiceActive ? <Volume2 className="w-6 h-6 animate-pulse" /> : <VolumeX className="w-6 h-6" />}

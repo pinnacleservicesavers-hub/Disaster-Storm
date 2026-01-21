@@ -436,7 +436,7 @@ export function AdminDashboard() {
         
         <ModuleAIAssistant 
           moduleName="Admin Dashboard"
-          moduleContext="System administration for MRMS processing, hazard alignment, and contractor alerts. Evelyn can help with processing operations, monitoring system health, and managing automated alerts."
+          moduleContext="System administration for MRMS processing, hazard alignment, and contractor alerts. Rachel can help with processing operations, monitoring system health, and managing automated alerts."
         />
       </div>
     </div>

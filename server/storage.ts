@@ -964,7 +964,7 @@ export class MemStorage implements IStorage {
     const defaultVoiceProfiles = [
       {
         id: 'voice-rachel-default',
-        name: 'Evelyn - Professional Female Voice',
+        name: 'Rachel - Professional Female Voice',
         provider: 'elevenlabs',
         providerVoiceId: '21m00Tcm4TlvDq8ikWAM', // Rachel - most natural ElevenLabs voice
         isDefault: true,
@@ -1037,7 +1037,7 @@ export class MemStorage implements IStorage {
       this.voiceProfiles.set(profile.id, profile as VoiceProfile);
     });
     
-    console.log('🎤 Seeded default FEMALE voice profiles: Evelyn (default), Lily, Nova (fallback)');
+    console.log('🎤 Seeded default FEMALE voice profiles: Rachel (default), Lily, Nova (fallback)');
 
     // Initialize with some basic insurance companies
     const companies = [

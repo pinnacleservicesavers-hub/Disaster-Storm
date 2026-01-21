@@ -83,12 +83,12 @@ export default function Disclaimers() {
               <div className="bg-purple-950/50 p-4 rounded-lg border border-purple-800">
                 <p className="font-bold text-purple-200 mb-2">⚖️ THIS IS NOT LEGAL ADVICE</p>
                 <p>
-                  Information provided by this platform, including our AI assistant Evelyn, 
+                  Information provided by this platform, including our AI assistant Rachel, 
                   is for <strong>educational purposes only</strong> and does not constitute legal advice.
                 </p>
               </div>
               <ul className="list-disc list-inside space-y-2 ml-4">
-                <li>Evelyn provides general information, not legal counsel</li>
+                <li>Rachel provides general information, not legal counsel</li>
                 <li>Laws vary significantly by state, county, and municipality</li>
                 <li>Regulations change over time; information may become outdated</li>
                 <li>Always consult a licensed attorney for legal matters</li>
@@ -135,12 +135,12 @@ export default function Disclaimers() {
               <div className="bg-cyan-950/50 p-4 rounded-lg border border-cyan-800">
                 <p className="font-bold text-cyan-200 mb-2">🤖 AI-POWERED ASSISTANCE</p>
                 <p>
-                  You are interacting with <strong>Evelyn</strong>, an AI assistant. 
-                  Evelyn uses artificial intelligence to analyze data and provide recommendations.
+                  You are interacting with <strong>Rachel</strong>, an AI assistant. 
+                  Rachel uses artificial intelligence to analyze data and provide recommendations.
                 </p>
               </div>
               <ul className="list-disc list-inside space-y-2 ml-4">
-                <li>Evelyn is an AI, not a human representative</li>
+                <li>Rachel is an AI, not a human representative</li>
                 <li>AI responses are generated based on training data and may contain errors</li>
                 <li>AI cannot replace professional judgment (legal, medical, financial)</li>
                 <li>Calls may be recorded for quality assurance and training</li>
@@ -159,7 +159,7 @@ export default function Disclaimers() {
                 By providing your phone number and using our services, you consent to receive:
               </p>
               <ul className="list-disc list-inside space-y-2 ml-4">
-                <li>Automated calls and text messages from Evelyn (AI assistant)</li>
+                <li>Automated calls and text messages from Rachel (AI assistant)</li>
                 <li>Service notifications and updates</li>
                 <li>Storm alerts and contractor communications</li>
               </ul>

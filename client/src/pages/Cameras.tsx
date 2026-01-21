@@ -1077,7 +1077,7 @@ export function TrafficCameras() {
         
         <ModuleAIAssistant 
           moduleName="Traffic Cameras & Damage Detection"
-          moduleContext="Real-time traffic cameras with AI damage detection. Help contractors monitor road conditions, find damage opportunities, and track camera alerts. Evelyn can explain camera feeds, damage reports, and contractor opportunities."
+          moduleContext="Real-time traffic cameras with AI damage detection. Help contractors monitor road conditions, find damage opportunities, and track camera alerts. Rachel can explain camera feeds, damage reports, and contractor opportunities."
         />
       </div>
     </div>

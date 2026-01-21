@@ -417,7 +417,7 @@ export default function ServiceRequest() {
       </main>
       <ModuleAIAssistant 
         moduleName="Service Request"
-        moduleContext="Submit service requests for storm damage repairs. Evelyn can help you select the right service type, assess urgency levels, estimate scope and budget, and connect you with qualified contractors for your specific needs."
+        moduleContext="Submit service requests for storm damage repairs. Rachel can help you select the right service type, assess urgency levels, estimate scope and budget, and connect you with qualified contractors for your specific needs."
       />
     </div>
   );

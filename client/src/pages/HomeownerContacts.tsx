@@ -316,7 +316,7 @@ export default function HomeownerContacts() {
       )}
       <ModuleAIAssistant 
         moduleName="Homeowner Contacts"
-        moduleContext="Comprehensive homeowner directory for contractors. Evelyn can help you search for leads, filter by damage type and location, explain insurance claim information, and guide you through contacting potential clients."
+        moduleContext="Comprehensive homeowner directory for contractors. Rachel can help you search for leads, filter by damage type and location, explain insurance claim information, and guide you through contacting potential clients."
       />
     </div>
   );

@@ -372,7 +372,7 @@ export default function MyRequests() {
       </main>
       <ModuleAIAssistant 
         moduleName="My Requests"
-        moduleContext="View your damage reports and service requests. Evelyn can help you track your submissions, understand request statuses, explain next steps in the assessment process, and guide you through requesting additional help."
+        moduleContext="View your damage reports and service requests. Rachel can help you track your submissions, understand request statuses, explain next steps in the assessment process, and guide you through requesting additional help."
       />
     </div>
   );

@@ -145,7 +145,7 @@ export default function PricingTiers() {
       speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(
         "Hey there! ... Welcome to WorkHub Pricing. ... " +
-        "I'm Evelyn, and I'm here to help you find the right plan for your business. ... " +
+        "I'm Rachel, and I'm here to help you find the right plan for your business. ... " +
         "So, we've got four options, ... starting completely free, ... " +
         "and going up to Enterprise for larger teams. ... " +
         "Most contractors love our Pro plan ... because it gives you unlimited leads, ... " +

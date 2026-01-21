@@ -616,7 +616,7 @@ export default function FunnelBuilder() {
       </div>
       <ModuleAIAssistant 
         moduleName="Funnel Builder"
-        moduleContext="Multi-step conversion funnel builder. Evelyn can help you design landing pages, create form sequences, set up calendar booking steps, configure auto-advance timing, customize themes and colors, and analyze funnel performance with conversion rates and drop-off metrics."
+        moduleContext="Multi-step conversion funnel builder. Rachel can help you design landing pages, create form sequences, set up calendar booking steps, configure auto-advance timing, customize themes and colors, and analyze funnel performance with conversion rates and drop-off metrics."
       />
     </div>
   );

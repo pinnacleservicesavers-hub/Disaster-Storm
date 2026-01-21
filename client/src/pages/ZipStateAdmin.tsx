@@ -350,7 +350,7 @@ export function ZipStateAdmin() {
       </div>
       <ModuleAIAssistant 
         moduleName="ZIP State Admin"
-        moduleContext="ZIP code prefix to state mapping management. Evelyn can explain the longest-prefix algorithm, help you upload JSON or CSV mappings, troubleshoot bulk fill operations, and understand how automated state detection works."
+        moduleContext="ZIP code prefix to state mapping management. Rachel can explain the longest-prefix algorithm, help you upload JSON or CSV mappings, troubleshoot bulk fill operations, and understand how automated state detection works."
       />
     </div>
   );

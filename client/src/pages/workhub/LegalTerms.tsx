@@ -369,7 +369,7 @@ export default function LegalTerms() {
       const utterance = new SpeechSynthesisUtterance(
         "Hey, ... so I know legal stuff isn't exactly exciting, ... " +
         "but it's really important. ... " +
-        "I'm Evelyn, ... and I'll walk you through this. ... " +
+        "I'm Rachel, ... and I'll walk you through this. ... " +
         "We've got our Terms of Service, ... the Contractor Agreement, ... " +
         "and our Privacy Policy all right here. ... " +
         "The sections highlighted in red? ... Those are the really important ones. ... " +

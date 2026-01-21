@@ -55,7 +55,7 @@ export default function PrivacyPolicy() {
                 <li>To provide and improve our contractor matching and storm response services</li>
                 <li>To process claims and connect you with qualified contractors</li>
                 <li>To send important service notifications and updates</li>
-                <li>To communicate via our AI assistant, Evelyn</li>
+                <li>To communicate via our AI assistant, Rachel</li>
                 <li>To process payments and manage subscriptions</li>
                 <li>To comply with legal obligations</li>
                 <li>To analyze and improve our platform's performance</li>
@@ -90,7 +90,7 @@ export default function PrivacyPolicy() {
               <ul className="list-disc list-inside space-y-2 ml-4">
                 <li><strong>Stripe:</strong> Payment processing</li>
                 <li><strong>Twilio:</strong> SMS and voice communications</li>
-                <li><strong>ElevenLabs:</strong> AI voice synthesis for Evelyn</li>
+                <li><strong>ElevenLabs:</strong> AI voice synthesis for Rachel</li>
                 <li><strong>SendGrid:</strong> Email delivery</li>
                 <li><strong>Google Maps:</strong> Location and mapping services</li>
                 <li><strong>NOAA/NWS:</strong> Weather data (public data, no personal info shared)</li>

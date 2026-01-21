@@ -228,7 +228,7 @@ export default function StormPredictions() {
     return narration;
   };
 
-  // Play voice narration using Evelyn AI
+  // Play voice narration using Rachel AI
   const playVoiceNarration = async (type: 'education' | 'transparency' = 'education') => {
     if (isPlayingVoice) {
       // Stop playback
@@ -244,14 +244,14 @@ export default function StormPredictions() {
     try {
       const narrationText = type === 'transparency' ? generateTransparencyNarration() : generateEducationNarration();
       
-      // Use Evelyn's energetic female voice (ElevenLabs)
+      // Use Rachel's natural female voice (ElevenLabs)
       const response = await fetch('/api/voice-ai/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           text: narrationText,
           provider: 'elevenlabs',
-          voiceId: '21m00Tcm4TlvDq8ikWAM' // Evelyn - energetic female voice
+          voiceId: '21m00Tcm4TlvDq8ikWAM' // Rachel - natural female voice
         })
       });
 
@@ -295,7 +295,7 @@ export default function StormPredictions() {
       setIsPlayingVoice(true);
       
       toast({
-        title: "🎧 Evelyn is Reading",
+        title: "🎧 Rachel is Reading",
         description: type === 'transparency' 
           ? "Playing: AI Transparency Dashboard" 
           : `Playing: ${stormEducation[selectedEducationTopic].title}`,
@@ -305,7 +305,7 @@ export default function StormPredictions() {
       console.error('Voice narration error:', error);
       toast({
         title: "Voice Unavailable",
-        description: "Evelyn couldn't read this lesson. Please try again.",
+        description: "Rachel couldn't read this lesson. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -1095,7 +1095,7 @@ export default function StormPredictions() {
                       </div>
                     </div>
                     
-                    {/* Evelyn Voice Button */}
+                    {/* Rachel Voice Button */}
                     <button
                       onClick={() => playVoiceNarration('education')}
                       disabled={isLoadingVoice}
@@ -1109,7 +1109,7 @@ export default function StormPredictions() {
                       {isLoadingVoice ? (
                         <>
                           <Loader2 className="w-6 h-6 animate-spin" />
-                          <span>Loading Evelyn...</span>
+                          <span>Loading Rachel...</span>
                         </>
                       ) : isPlayingVoice ? (
                         <>
@@ -1121,7 +1121,7 @@ export default function StormPredictions() {
                           <Volume2 className="w-6 h-6" />
                           <div className="text-left">
                             <div className="text-sm">🎧 Listen to Lesson</div>
-                            <div className="text-xs opacity-80">Evelyn will read this for you</div>
+                            <div className="text-xs opacity-80">Rachel will read this for you</div>
                           </div>
                         </>
                       )}
@@ -1132,7 +1132,7 @@ export default function StormPredictions() {
                   <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-3 flex items-center gap-3">
                     <Volume2 className="w-5 h-5 text-purple-400 flex-shrink-0" />
                     <p className="text-sm text-purple-200/80">
-                      <strong>Accessibility:</strong> Click the button above to have Evelyn read this entire lesson aloud. 
+                      <strong>Accessibility:</strong> Click the button above to have Rachel read this entire lesson aloud. 
                       Perfect for learning while working or for those who prefer listening.
                     </p>
                   </div>
@@ -1207,7 +1207,7 @@ export default function StormPredictions() {
                     </div>
                   </div>
                   
-                  {/* Evelyn Voice Button for Transparency */}
+                  {/* Rachel Voice Button for Transparency */}
                   <button
                     onClick={() => playVoiceNarration('transparency')}
                     disabled={isLoadingVoice}
@@ -1221,7 +1221,7 @@ export default function StormPredictions() {
                     {isLoadingVoice ? (
                       <>
                         <Loader2 className="w-6 h-6 animate-spin" />
-                        <span>Loading Evelyn...</span>
+                        <span>Loading Rachel...</span>
                       </>
                     ) : isPlayingVoice ? (
                       <>
@@ -1233,7 +1233,7 @@ export default function StormPredictions() {
                         <Volume2 className="w-6 h-6" />
                         <div className="text-left">
                           <div className="text-sm">🎧 Listen to This</div>
-                          <div className="text-xs opacity-80">Evelyn explains our AI</div>
+                          <div className="text-xs opacity-80">Rachel explains our AI</div>
                         </div>
                       </>
                     )}
@@ -1249,7 +1249,7 @@ export default function StormPredictions() {
                 <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3 flex items-center gap-3">
                   <Volume2 className="w-5 h-5 text-green-400 flex-shrink-0" />
                   <p className="text-sm text-green-200/80">
-                    <strong>Accessibility:</strong> Click the button above to have Evelyn explain all 8 data sources, model accuracy, and our prediction methodology.
+                    <strong>Accessibility:</strong> Click the button above to have Rachel explain all 8 data sources, model accuracy, and our prediction methodology.
                   </p>
                 </div>
               </div>

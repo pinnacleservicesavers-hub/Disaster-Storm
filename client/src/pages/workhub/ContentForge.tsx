@@ -29,7 +29,7 @@ export default function ContentForge() {
   useEffect(() => {
     if (voices.length > 0) {
       setTimeout(() => {
-        speakGuidance("Welcome to ContentForge! I'm Evelyn. This is your marketing engine. I automatically turn your job photos into social media posts, website galleries, and ads. Your before-and-after photos become powerful marketing content - no design skills needed.");
+        speakGuidance("Welcome to ContentForge! I'm Rachel. This is your marketing engine. I automatically turn your job photos into social media posts, website galleries, and ads. Your before-and-after photos become powerful marketing content - no design skills needed.");
       }, 500);
     }
   }, [voices]);
@@ -74,7 +74,7 @@ export default function ContentForge() {
             <Button
               variant="ghost"
               size="lg"
-              onClick={() => isVoiceActive ? window.speechSynthesis.cancel() : speakGuidance("I'm Evelyn. ContentForge automatically creates marketing content from your job photos. Social posts, galleries, and ads - all generated automatically.")}
+              onClick={() => isVoiceActive ? window.speechSynthesis.cancel() : speakGuidance("I'm Rachel. ContentForge automatically creates marketing content from your job photos. Social posts, galleries, and ads - all generated automatically.")}
               className="text-white hover:bg-white/10"
             >
               {isVoiceActive ? <Volume2 className="w-6 h-6 animate-pulse" /> : <VolumeX className="w-6 h-6" />}

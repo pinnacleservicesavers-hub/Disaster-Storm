@@ -174,7 +174,7 @@ export default function LandingPage() {
                   <h3 className="text-emerald-300 font-semibold mb-2">Contractor Benefits:</h3>
                   <p className="text-slate-300 text-sm">
                     Qualified leads, AI-powered tools, easy payments, reputation management, 
-                    and Evelyn voice guide to help you every step of the way.
+                    and Rachel voice guide to help you every step of the way.
                   </p>
                 </div>
 
@@ -210,7 +210,7 @@ export default function LandingPage() {
               />
               <BenefitCard 
                 icon={Phone} 
-                title="Evelyn Voice Guide" 
+                title="Rachel Voice Guide" 
                 description="Natural voice guidance helps you through every step"
               />
             </div>

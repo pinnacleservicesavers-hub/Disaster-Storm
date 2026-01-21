@@ -35,7 +35,7 @@ export default function CalendarSync() {
   useEffect(() => {
     if (voices.length > 0) {
       setTimeout(() => {
-        speakGuidance("Welcome to CalendarSync! I'm Evelyn. I manage your scheduling so you never miss a lead. You have 3 upcoming appointments. Your next one is today at 2 PM with John Martinez for a tree removal estimate. I'll send you a reminder 30 minutes before.");
+        speakGuidance("Welcome to CalendarSync! I'm Rachel. I manage your scheduling so you never miss a lead. You have 3 upcoming appointments. Your next one is today at 2 PM with John Martinez for a tree removal estimate. I'll send you a reminder 30 minutes before.");
       }, 500);
     }
   }, [voices]);
@@ -80,7 +80,7 @@ export default function CalendarSync() {
             <Button
               variant="ghost"
               size="lg"
-              onClick={() => isVoiceActive ? window.speechSynthesis.cancel() : speakGuidance("I'm Evelyn. CalendarSync automatically manages your appointments with AI coordination. I send reminders, prevent scheduling conflicts, and even let customers book directly.")}
+              onClick={() => isVoiceActive ? window.speechSynthesis.cancel() : speakGuidance("I'm Rachel. CalendarSync automatically manages your appointments with AI coordination. I send reminders, prevent scheduling conflicts, and even let customers book directly.")}
               className="text-white hover:bg-white/10"
             >
               {isVoiceActive ? <Volume2 className="w-6 h-6 animate-pulse" /> : <VolumeX className="w-6 h-6" />}

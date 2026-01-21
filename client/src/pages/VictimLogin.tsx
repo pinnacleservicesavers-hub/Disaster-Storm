@@ -172,7 +172,7 @@ export default function VictimLogin() {
       </Card>
       <ModuleAIAssistant 
         moduleName="Victim Login"
-        moduleContext="Storm victim portal login page. Evelyn can help you troubleshoot login issues, explain account security, guide password recovery, and answer questions about accessing damage reporting and contractor assistance features."
+        moduleContext="Storm victim portal login page. Rachel can help you troubleshoot login issues, explain account security, guide password recovery, and answer questions about accessing damage reporting and contractor assistance features."
       />
     </div>
   );

@@ -150,7 +150,7 @@ For emergency tree removal, Strategic Land Management LLC specializes in storm c
 You can ask our AI assistant about any of these resources, and it will guide you to the help you need. Remember, help is out there, and we're here to connect you with it. Take a deep breath - we'll get through this together.`;
       
       try {
-        // Call server API to generate Evelyn's energetic female voice (ElevenLabs)
+        // Call server API to generate Rachel's energetic female voice (ElevenLabs)
         const response = await fetch('/api/voice-ai/generate', {
           method: 'POST',
           headers: {
@@ -159,7 +159,7 @@ You can ask our AI assistant about any of these resources, and it will guide you
           body: JSON.stringify({ 
             text: voiceContent,
             provider: 'elevenlabs',
-            voiceId: '21m00Tcm4TlvDq8ikWAM' // Evelyn - energetic female voice
+            voiceId: '21m00Tcm4TlvDq8ikWAM' // Rachel - energetic female voice
           }),
         });
 

@@ -145,7 +145,7 @@ export default function StormShare() {
       const voiceContent = `Welcome to StormShare Community Platform! This collaborative network connects storm victims, contractors, and businesses for mutual assistance during weather emergencies. The community feed displays help requests, resource sharing, and recovery updates from your local area. You can post assistance needs, offer services, or share resources with verified community members. The help request system categorizes needs by urgency - normal, urgent, high priority, or emergency - with contact information and location details. Group messaging enables neighborhood coordination and resource sharing. Contractor matching connects verified professionals with people needing services. The platform includes reputation systems, insurance verification, and secure payment processing. Local business directories provide essential services during recovery. All interactions are monitored for safety and authenticity.`;
       
       try {
-        // Call server API to generate Evelyn's energetic female voice (ElevenLabs)
+        // Call server API to generate Rachel's energetic female voice (ElevenLabs)
         const response = await fetch('/api/voice-ai/generate', {
           method: 'POST',
           headers: {
@@ -153,7 +153,7 @@ export default function StormShare() {
           },
           body: JSON.stringify({ 
             text: voiceContent,
-            voiceId: '21m00Tcm4TlvDq8ikWAM', // Evelyn - energetic female voice
+            voiceId: '21m00Tcm4TlvDq8ikWAM', // Rachel - energetic female voice
             provider: 'elevenlabs'
           }),
         });

@@ -594,7 +594,7 @@ export default function AILeadManagement() {
         </Dialog>
       </div>
 
-      {/* AI Assistant with Evelyn voice */}
+      {/* AI Assistant with Rachel voice */}
       <ModuleAIAssistant 
         moduleName="AI Lead Management" 
         moduleContext="AI-powered lead management system with multi-service tracking, contractor routing, and automated outreach for storm damage restoration"

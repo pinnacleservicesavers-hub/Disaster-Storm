@@ -375,7 +375,7 @@ Current Notes: ${newClaim.notes || 'None yet'}
   // Audio reference for ElevenLabs playback
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  // Voice Guide Function - Uses ElevenLabs Evelyn voice
+  // Voice Guide Function - Uses ElevenLabs Rachel voice
   const startVoiceGuide = async () => {
     if (isVoiceGuideActive) {
       // Stop current playback
@@ -389,7 +389,7 @@ Current Notes: ${newClaim.notes || 'None yet'}
 
     setIsVoiceGuideActive(true);
     
-    const voiceContent = `Welcome to Claims Central. I'm Evelyn, your claims management assistant.
+    const voiceContent = `Welcome to Claims Central. I'm Rachel, your claims management assistant.
 
 You're viewing ${claims.length} insurance claims with ${openClaims} currently open and ${pendingClaims} pending review.
 
@@ -402,14 +402,14 @@ Priority levels are color-coded: red for urgent, orange for high priority, blue 
 Need help with a specific claim? Just ask me anything about claim processing, adjuster assignments, or payment status.`;
 
     try {
-      // Call ElevenLabs Evelyn voice API - energetic female voice
+      // Call ElevenLabs Rachel voice API - energetic female voice
       const response = await fetch('/api/voice-ai/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           text: voiceContent,
           provider: 'elevenlabs',
-          voiceId: '21m00Tcm4TlvDq8ikWAM' // Evelyn - energetic female voice
+          voiceId: '21m00Tcm4TlvDq8ikWAM' // Rachel - energetic female voice
         })
       });
 

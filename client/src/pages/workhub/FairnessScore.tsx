@@ -30,7 +30,7 @@ export default function FairnessScore() {
   useEffect(() => {
     if (voices.length > 0) {
       setTimeout(() => {
-        speakGuidance("Welcome to FairnessScore! I'm Evelyn. This is your trust transparency dashboard. Your overall FairnessScore is 94, which means customers see you as reliable, fairly priced, and high quality. You've earned the 'Fair Pricing' and 'Reliable' badges.");
+        speakGuidance("Welcome to FairnessScore! I'm Rachel. This is your trust transparency dashboard. Your overall FairnessScore is 94, which means customers see you as reliable, fairly priced, and high quality. You've earned the 'Fair Pricing' and 'Reliable' badges.");
       }, 500);
     }
   }, [voices]);
@@ -82,7 +82,7 @@ export default function FairnessScore() {
             <Button
               variant="ghost"
               size="lg"
-              onClick={() => isVoiceActive ? window.speechSynthesis.cancel() : speakGuidance("I'm Evelyn. FairnessScore shows customers how trustworthy you are based on pricing accuracy, reliability, and satisfaction scores.")}
+              onClick={() => isVoiceActive ? window.speechSynthesis.cancel() : speakGuidance("I'm Rachel. FairnessScore shows customers how trustworthy you are based on pricing accuracy, reliability, and satisfaction scores.")}
               className="text-white hover:bg-white/10"
             >
               {isVoiceActive ? <Volume2 className="w-6 h-6 animate-pulse" /> : <VolumeX className="w-6 h-6" />}

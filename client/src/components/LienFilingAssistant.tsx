@@ -900,7 +900,7 @@ export default function LienFilingAssistant({ isOpen, onClose, prefillData, cust
               <Button 
                 variant="ghost" 
                 size="sm" 
-                onClick={() => isVoiceActive ? stopVoice() : speakGuidance('I\'m Evelyn, your AI lien filing assistant. I\'ll help you complete all the required information and ensure compliance with state-specific lien laws. Let\'s get your lien filed correctly!')}
+                onClick={() => isVoiceActive ? stopVoice() : speakGuidance('I\'m Rachel, your AI lien filing assistant. I\'ll help you complete all the required information and ensure compliance with state-specific lien laws. Let\'s get your lien filed correctly!')}
                 className="text-white hover:bg-blue-500"
               >
                 {isVoiceActive ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}

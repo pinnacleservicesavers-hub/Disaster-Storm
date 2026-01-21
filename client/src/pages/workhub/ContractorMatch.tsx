@@ -90,7 +90,7 @@ export default function ContractorMatch() {
   useEffect(() => {
     if (voices.length > 0) {
       setTimeout(() => {
-        speakGuidance("Welcome to ContractorMatch! I'm Evelyn. I've found 3 verified contractors near you that match your project needs. Each contractor is verified with licensing, insurance, and customer reviews. Let me know if you'd like more details about any of them.");
+        speakGuidance("Welcome to ContractorMatch! I'm Rachel. I've found 3 verified contractors near you that match your project needs. Each contractor is verified with licensing, insurance, and customer reviews. Let me know if you'd like more details about any of them.");
       }, 500);
     }
   }, [voices]);
@@ -140,7 +140,7 @@ export default function ContractorMatch() {
             <Button
               variant="ghost"
               size="lg"
-              onClick={() => isVoiceActive ? window.speechSynthesis.cancel() : speakGuidance("I'm Evelyn. ContractorMatch uses AI to find the perfect contractor for your project based on trade expertise, location, ratings, and availability.")}
+              onClick={() => isVoiceActive ? window.speechSynthesis.cancel() : speakGuidance("I'm Rachel. ContractorMatch uses AI to find the perfect contractor for your project based on trade expertise, location, ratings, and availability.")}
               className="text-white hover:bg-white/10"
             >
               {isVoiceActive ? <Volume2 className="w-6 h-6 animate-pulse" /> : <VolumeX className="w-6 h-6" />}

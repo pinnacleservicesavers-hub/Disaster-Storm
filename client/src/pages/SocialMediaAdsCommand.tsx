@@ -1137,7 +1137,7 @@ export default function SocialMediaAdsCommand() {
       </AnimatePresence>
       <ModuleAIAssistant 
         moduleName="Social Media Ads Command"
-        moduleContext="Geo-fencing and multi-platform advertising command center. Evelyn can explain geo-capture technology, help you draw digital fences around storm areas, set up weather-triggered campaigns, generate AI-powered ad copy, and manage campaigns across Facebook, Instagram, Google, and YouTube."
+        moduleContext="Geo-fencing and multi-platform advertising command center. Rachel can explain geo-capture technology, help you draw digital fences around storm areas, set up weather-triggered campaigns, generate AI-powered ad copy, and manage campaigns across Facebook, Instagram, Google, and YouTube."
       />
     </div>
   );

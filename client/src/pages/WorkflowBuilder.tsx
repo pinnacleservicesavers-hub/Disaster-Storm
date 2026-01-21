@@ -809,7 +809,7 @@ export default function WorkflowBuilder() {
       </div>
       <ModuleAIAssistant 
         moduleName="Workflow Builder"
-        moduleContext="Automated marketing workflow creation tool. Evelyn can guide you through building email sequences, SMS campaigns, conditional logic, timing delays, tag-based triggers, and analyzing workflow performance and enrollment metrics."
+        moduleContext="Automated marketing workflow creation tool. Rachel can guide you through building email sequences, SMS campaigns, conditional logic, timing delays, tag-based triggers, and analyzing workflow performance and enrollment metrics."
       />
     </div>
   );

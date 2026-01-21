@@ -783,7 +783,7 @@ export default function CalendarBooking() {
       </Card>
       <ModuleAIAssistant 
         moduleName="Calendar Booking"
-        moduleContext="Appointment scheduling and calendar management system. Evelyn can help you configure booking types, set business hours, manage time zones, integrate with Google Calendar and Zoom, and understand booking analytics and customer management features."
+        moduleContext="Appointment scheduling and calendar management system. Rachel can help you configure booking types, set business hours, manage time zones, integrate with Google Calendar and Zoom, and understand booking analytics and customer management features."
       />
     </div>
   );

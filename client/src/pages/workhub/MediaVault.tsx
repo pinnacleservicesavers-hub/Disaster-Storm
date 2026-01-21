@@ -34,7 +34,7 @@ export default function MediaVault() {
   useEffect(() => {
     if (voices.length > 0) {
       setTimeout(() => {
-        speakGuidance("Welcome to MediaVault! I'm Evelyn. This is where all your job photos and videos are protected forever. I organize them into Before, During, and After categories automatically. This protects you from disputes and creates amazing marketing content from your best work.");
+        speakGuidance("Welcome to MediaVault! I'm Rachel. This is where all your job photos and videos are protected forever. I organize them into Before, During, and After categories automatically. This protects you from disputes and creates amazing marketing content from your best work.");
       }, 500);
     }
   }, [voices]);
@@ -79,7 +79,7 @@ export default function MediaVault() {
             <Button
               variant="ghost"
               size="lg"
-              onClick={() => isVoiceActive ? window.speechSynthesis.cancel() : speakGuidance("I'm Evelyn. MediaVault securely stores all your before, during, and after photos. This protects you from disputes and turns your best work into marketing content.")}
+              onClick={() => isVoiceActive ? window.speechSynthesis.cancel() : speakGuidance("I'm Rachel. MediaVault securely stores all your before, during, and after photos. This protects you from disputes and turns your best work into marketing content.")}
               className="text-white hover:bg-white/10"
             >
               {isVoiceActive ? <Volume2 className="w-6 h-6 animate-pulse" /> : <VolumeX className="w-6 h-6" />}

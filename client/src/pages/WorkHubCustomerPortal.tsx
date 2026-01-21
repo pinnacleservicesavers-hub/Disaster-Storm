@@ -2221,7 +2221,7 @@ export default function WorkHubCustomerPortal() {
                                 <div>
                                   <p className="font-semibold text-purple-800 dark:text-purple-300">Questions about this estimate?</p>
                                   <p className="text-sm text-purple-600 dark:text-purple-400 mt-1">
-                                    Click the chat button in the bottom right to ask Evelyn about pricing, materials, what's included, or anything else!
+                                    Click the chat button in the bottom right to ask Rachel about pricing, materials, what's included, or anything else!
                                   </p>
                                   <div className="flex flex-wrap gap-2 mt-3">
                                     <Badge variant="outline" className="text-xs cursor-pointer hover:bg-purple-100 dark:hover:bg-purple-800">
@@ -3025,7 +3025,7 @@ export default function WorkHubCustomerPortal() {
               onClick={() => {
                 isVoiceActive 
                   ? stopVoice() 
-                  : speakGuidance("I'm Evelyn, your AI assistant. I'll guide you through submitting your project request. Let's get started!");
+                  : speakGuidance("I'm Rachel, your AI assistant. I'll guide you through submitting your project request. Let's get started!");
               }}
             >
               {isVoiceActive ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
@@ -3086,7 +3086,7 @@ export default function WorkHubCustomerPortal() {
 
       <ModuleAIAssistant 
         moduleName="Home Project Helper"
-        moduleContext={`You are Evelyn, a friendly AI assistant helping homeowners with their home improvement projects. Speak conversationally and be helpful.
+        moduleContext={`You are Rachel, a friendly AI assistant helping homeowners with their home improvement projects. Speak conversationally and be helpful.
 
 CURRENT PROJECT STATUS:
 - Category: ${request.category ? SERVICE_CATEGORIES.find(c => c.id === request.category)?.name || request.category : 'Not selected yet'}

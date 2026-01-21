@@ -171,7 +171,7 @@ export default function ModuleGallery({
             StormOps Modules
           </h2>
 
-          {/* Voice Guide - Evelyn's Female Voice */}
+          {/* Voice Guide - Rachel's Female Voice */}
           <div className="flex justify-center mb-8">
             <VoiceGuide currentPortal="modules" />
           </div>
@@ -265,7 +265,7 @@ export default function ModuleGallery({
       </div>
       <ModuleAIAssistant 
         moduleName="Module Gallery"
-        moduleContext="Comprehensive module catalog for Disaster Direct platform. Evelyn can explain each module's capabilities, help you navigate features, understand HIGH priority vs other modules, and guide you through launching, previewing, or accessing documentation for any module."
+        moduleContext="Comprehensive module catalog for Disaster Direct platform. Rachel can explain each module's capabilities, help you navigate features, understand HIGH priority vs other modules, and guide you through launching, previewing, or accessing documentation for any module."
       />
     </div>
   );
