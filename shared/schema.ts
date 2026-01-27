@@ -7618,3 +7618,258 @@ export const insertBidIntelTipSchema = createInsertSchema(bidIntelTips).omit({
 
 export type BidIntelTip = typeof bidIntelTips.$inferSelect;
 export type InsertBidIntelTip = z.infer<typeof insertBidIntelTipSchema>;
+
+// ============================================================================
+// TrueCost™ Profit Sheet - Private Job Costing Calculator
+// ============================================================================
+
+// TrueCost Sheets - Main profit calculation record per bid
+export const trueCostSheets = pgTable("truecost_sheets", {
+  id: serial("id").primaryKey(),
+  bidId: integer("bid_id").references(() => bidSubmissions.id),
+  contractorId: varchar("contractor_id", { length: 255 }).notNull(),
+  
+  // Project Info (required for UI)
+  projectName: varchar("project_name", { length: 255 }).notNull(),
+  projectDescription: text("project_description"),
+  
+  // Version Control
+  versionNumber: integer("version_number").default(1),
+  status: varchar("status", { length: 20 }).default("draft"), // draft, in_progress, complete, locked
+  
+  // Bid Revenue & Assumptions
+  bidAmount: numeric("bid_amount", { precision: 14, scale: 2 }),
+  bidRevenue: numeric("bid_revenue", { precision: 14, scale: 2 }),
+  targetMarginPercent: numeric("target_margin_percent", { precision: 5, scale: 2 }).default("15"),
+  plannedDays: integer("planned_days"),
+  estimatedDuration: varchar("estimated_duration", { length: 50 }),
+  hoursPerDay: numeric("hours_per_day", { precision: 4, scale: 2 }).default("8"),
+  overtimeRule: varchar("overtime_rule", { length: 30 }).default("none"), // none, daily_8, weekly_40, custom
+  contingencyPercent: numeric("contingency_percent", { precision: 5, scale: 2 }).default("10"),
+  bondsPercent: numeric("bonds_percent", { precision: 5, scale: 2 }).default("0"),
+  permitsCost: numeric("permits_cost", { precision: 10, scale: 2 }).default("0"),
+  
+  // Payment Terms
+  paymentTerms: varchar("payment_terms", { length: 50 }), // net_30, net_45, net_60
+  retainagePercent: numeric("retainage_percent", { precision: 5, scale: 2 }),
+  taxPercent: numeric("tax_percent", { precision: 5, scale: 2 }),
+  
+  // Calculated Totals (cached for performance)
+  laborTotal: numeric("labor_total", { precision: 14, scale: 2 }),
+  equipmentTotal: numeric("equipment_total", { precision: 14, scale: 2 }),
+  materialsTotal: numeric("materials_total", { precision: 14, scale: 2 }),
+  overheadTotal: numeric("overhead_total", { precision: 14, scale: 2 }),
+  directLaborCost: numeric("direct_labor_cost", { precision: 14, scale: 2 }),
+  equipmentCost: numeric("equipment_cost", { precision: 14, scale: 2 }),
+  materialsCost: numeric("materials_cost", { precision: 14, scale: 2 }),
+  overheadCost: numeric("overhead_cost", { precision: 14, scale: 2 }),
+  contingencyCost: numeric("contingency_cost", { precision: 14, scale: 2 }),
+  totalJobCost: numeric("total_job_cost", { precision: 14, scale: 2 }),
+  grossProfit: numeric("gross_profit", { precision: 14, scale: 2 }),
+  netProfit: numeric("net_profit", { precision: 14, scale: 2 }),
+  netMarginPercent: numeric("net_margin_percent", { precision: 5, scale: 2 }),
+  breakEvenBid: numeric("break_even_bid", { precision: 14, scale: 2 }),
+  profitPerDay: numeric("profit_per_day", { precision: 14, scale: 2 }),
+  cashNeededUpfront: numeric("cash_needed_upfront", { precision: 14, scale: 2 }),
+  
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertTrueCostSheetSchema = createInsertSchema(trueCostSheets).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type TrueCostSheet = typeof trueCostSheets.$inferSelect;
+export type InsertTrueCostSheet = z.infer<typeof insertTrueCostSheetSchema>;
+
+// TrueCost Labor Items
+export const trueCostLaborItems = pgTable("truecost_labor_items", {
+  id: serial("id").primaryKey(),
+  sheetId: integer("sheet_id").references(() => trueCostSheets.id).notNull(),
+  
+  role: varchar("role", { length: 100 }).notNull(), // Foreman, Operator, Climber, Groundman
+  quantity: integer("quantity").default(1),
+  baseRate: numeric("base_rate", { precision: 8, scale: 2 }), // $/hr
+  burdenPercent: numeric("burden_percent", { precision: 5, scale: 2 }).default("20"), // payroll taxes, WC, benefits
+  regHours: numeric("reg_hours", { precision: 8, scale: 2 }),
+  otHours: numeric("ot_hours", { precision: 8, scale: 2 }).default("0"),
+  otMultiplier: numeric("ot_multiplier", { precision: 3, scale: 2 }).default("1.5"),
+  perDiemPerDay: numeric("per_diem_per_day", { precision: 8, scale: 2 }).default("0"),
+  lodgingPerNight: numeric("lodging_per_night", { precision: 8, scale: 2 }).default("0"),
+  travelAllowance: numeric("travel_allowance", { precision: 8, scale: 2 }).default("0"),
+  
+  // Calculated
+  totalCost: numeric("total_cost", { precision: 14, scale: 2 }),
+  
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertTrueCostLaborItemSchema = createInsertSchema(trueCostLaborItems).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type TrueCostLaborItem = typeof trueCostLaborItems.$inferSelect;
+export type InsertTrueCostLaborItem = z.infer<typeof insertTrueCostLaborItemSchema>;
+
+// TrueCost Equipment Items
+export const trueCostEquipmentItems = pgTable("truecost_equipment_items", {
+  id: serial("id").primaryKey(),
+  sheetId: integer("sheet_id").references(() => trueCostSheets.id).notNull(),
+  
+  equipmentName: varchar("equipment_name", { length: 255 }).notNull(),
+  ownership: varchar("ownership", { length: 20 }).default("owned"), // owned, leased, rented
+  rateType: varchar("rate_type", { length: 20 }).default("daily"), // hourly, daily, weekly, per_job
+  rate: numeric("rate", { precision: 10, scale: 2 }),
+  hoursPerDay: numeric("hours_per_day", { precision: 4, scale: 2 }),
+  daysUsed: numeric("days_used", { precision: 6, scale: 2 }),
+  fuelCost: numeric("fuel_cost", { precision: 10, scale: 2 }).default("0"),
+  maintenanceReservePerHr: numeric("maintenance_reserve_per_hr", { precision: 8, scale: 2 }).default("0"),
+  insuranceAllocPerDay: numeric("insurance_alloc_per_day", { precision: 8, scale: 2 }).default("0"),
+  mobilizationOneTime: numeric("mobilization_one_time", { precision: 10, scale: 2 }).default("0"),
+  
+  // Calculated
+  totalCost: numeric("total_cost", { precision: 14, scale: 2 }),
+  
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertTrueCostEquipmentItemSchema = createInsertSchema(trueCostEquipmentItems).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type TrueCostEquipmentItem = typeof trueCostEquipmentItems.$inferSelect;
+export type InsertTrueCostEquipmentItem = z.infer<typeof insertTrueCostEquipmentItemSchema>;
+
+// TrueCost Material Items (includes subs, disposal, permits)
+export const trueCostMaterialItems = pgTable("truecost_material_items", {
+  id: serial("id").primaryKey(),
+  sheetId: integer("sheet_id").references(() => trueCostSheets.id).notNull(),
+  
+  itemType: varchar("item_type", { length: 30 }).default("material"), // material, dump_fee, permit_fee, subcontractor, rental, other
+  description: varchar("description", { length: 255 }).notNull(),
+  unitCost: numeric("unit_cost", { precision: 10, scale: 2 }),
+  quantity: numeric("quantity", { precision: 10, scale: 2 }).default("1"),
+  taxShipping: numeric("tax_shipping", { precision: 10, scale: 2 }).default("0"),
+  wasteFactorPercent: numeric("waste_factor_percent", { precision: 5, scale: 2 }).default("0"),
+  
+  // Calculated
+  totalCost: numeric("total_cost", { precision: 14, scale: 2 }),
+  
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertTrueCostMaterialItemSchema = createInsertSchema(trueCostMaterialItems).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type TrueCostMaterialItem = typeof trueCostMaterialItems.$inferSelect;
+export type InsertTrueCostMaterialItem = z.infer<typeof insertTrueCostMaterialItemSchema>;
+
+// TrueCost Overhead Items
+export const trueCostOverheadItems = pgTable("truecost_overhead_items", {
+  id: serial("id").primaryKey(),
+  sheetId: integer("sheet_id").references(() => trueCostSheets.id).notNull(),
+  
+  name: varchar("name", { length: 255 }).notNull(), // GL Allocation, Bond Fee, Auto Insurance, etc.
+  costType: varchar("cost_type", { length: 30 }).default("fixed"), // fixed, percent_of_revenue, per_day
+  amount: numeric("amount", { precision: 14, scale: 2 }),
+  
+  // Calculated
+  totalCost: numeric("total_cost", { precision: 14, scale: 2 }),
+  
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertTrueCostOverheadItemSchema = createInsertSchema(trueCostOverheadItems).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type TrueCostOverheadItem = typeof trueCostOverheadItems.$inferSelect;
+export type InsertTrueCostOverheadItem = z.infer<typeof insertTrueCostOverheadItemSchema>;
+
+// Storm Crew Templates (reusable labor/equipment combos)
+export const stormCrewTemplates = pgTable("storm_crew_templates", {
+  id: serial("id").primaryKey(),
+  contractorId: varchar("contractor_id", { length: 255 }),
+  
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  category: varchar("category", { length: 50 }), // skid_steer, bucket_truck, debris_grapple, traffic_control
+  
+  // Template Data (JSON arrays of line items)
+  laborItems: jsonb("labor_items"), // [{ role, qty, baseRate, burdenPercent }]
+  equipmentItems: jsonb("equipment_items"), // [{ equipmentName, ownership, rateType, rate }]
+  
+  isSystem: boolean("is_system").default(false), // built-in templates
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertStormCrewTemplateSchema = createInsertSchema(stormCrewTemplates).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type StormCrewTemplate = typeof stormCrewTemplates.$inferSelect;
+export type InsertStormCrewTemplate = z.infer<typeof insertStormCrewTemplateSchema>;
+
+// Bid Readiness Profile - Contractor's bid strength scoring
+export const bidReadinessProfiles = pgTable("bid_readiness_profiles", {
+  id: serial("id").primaryKey(),
+  contractorId: varchar("contractor_id", { length: 255 }).notNull(),
+  
+  // Compliance Scores (0-100)
+  complianceCompletenessScore: integer("compliance_completeness_score").default(0),
+  submissionTimelinessScore: integer("submission_timeliness_score").default(0),
+  certificationStrengthScore: integer("certification_strength_score").default(0),
+  geographicCoverageScore: integer("geographic_coverage_score").default(0),
+  pastPerformanceScore: integer("past_performance_score").default(0),
+  documentReadinessScore: integer("document_readiness_score").default(0),
+  
+  // Overall Score
+  overallReadinessScore: integer("overall_readiness_score").default(0),
+  
+  // Document Status
+  hasValidCOI: boolean("has_valid_coi").default(false),
+  coiExpirationDate: timestamp("coi_expiration_date"),
+  hasValidW9: boolean("has_valid_w9").default(false),
+  hasValidLicenses: boolean("has_valid_licenses").default(false),
+  hasBondingCapacity: boolean("has_bonding_capacity").default(false),
+  bondingLimit: numeric("bonding_limit", { precision: 14, scale: 2 }),
+  
+  // Metrics
+  totalBidsSubmitted: integer("total_bids_submitted").default(0),
+  bidsWon: integer("bids_won").default(0),
+  bidsLost: integer("bids_lost").default(0),
+  winRate: numeric("win_rate", { precision: 5, scale: 2 }),
+  avgBidAmount: numeric("avg_bid_amount", { precision: 14, scale: 2 }),
+  avgWinAmount: numeric("avg_win_amount", { precision: 14, scale: 2 }),
+  
+  // Learning Insights (AI-generated)
+  strengthCategories: text("strength_categories").array(), // NAICS codes where they win most
+  weaknessCategories: text("weakness_categories").array(),
+  pricingTendency: varchar("pricing_tendency", { length: 50 }), // aggressive, conservative, market_average
+  preferredContractSize: varchar("preferred_contract_size", { length: 50 }), // small, medium, large
+  
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertBidReadinessProfileSchema = createInsertSchema(bidReadinessProfiles).omit({
+  id: true,
+  updatedAt: true,
+});
+
+export type BidReadinessProfile = typeof bidReadinessProfiles.$inferSelect;
+export type InsertBidReadinessProfile = z.infer<typeof insertBidReadinessProfileSchema>;

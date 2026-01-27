@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { TrueCostProfitSheet } from "@/components/TrueCostProfitSheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -354,6 +355,10 @@ export default function AIBidIntelPro() {
               <Users className="w-4 h-4 mr-2" />
               Contacts
             </TabsTrigger>
+            <TabsTrigger value="truecost" className="data-[state=active]:bg-emerald-500/20 data-[state=active]:text-emerald-400">
+              <BarChart3 className="w-4 h-4 mr-2" />
+              TrueCost™
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="agent" className="space-y-4">
@@ -690,6 +695,10 @@ export default function AIBidIntelPro() {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="truecost" className="space-y-4">
+            <TrueCostProfitSheet />
           </TabsContent>
         </Tabs>
 

@@ -93,12 +93,17 @@ export function requireAuth(req: AuthRequest, res: Response, next: NextFunction)
   // Check session for authenticated user
   const session = (req as any).session;
   
-  if (!session || !session.userId) {
+  // Support both session.user object (from login) and session.userId (legacy)
+  const user = session?.user;
+  const userId = user?.id || session?.userId;
+  const userRole = user?.role || session?.userRole;
+  
+  if (!userId) {
     return res.status(401).json({ error: 'Authentication required' });
   }
   
-  req.userId = session.userId;
-  req.userRole = session.userRole;
+  req.userId = userId;
+  req.userRole = userRole;
   next();
 }
 
@@ -145,10 +150,11 @@ export function requireAdmin(req: AuthRequest, res: Response, next: NextFunction
 }
 
 /**
- * Middleware: Require contractor or admin role (new JWT-aware system)
+ * Middleware: Require contractor or admin role (session or JWT-aware)
  */
 export function requireContractor(req: AuthRequest, res: Response, next: NextFunction) {
-  const role = req.auth?.role;
+  // Support both session-based role (from requireAuth) and JWT-based role
+  const role = req.userRole || req.auth?.role;
   if (role !== 'contractor' && role !== 'admin') {
     return res.status(403).json({ error: 'Contractor access required' });
   }

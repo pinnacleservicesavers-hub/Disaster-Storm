@@ -781,6 +781,36 @@ export interface IStorage {
   saveBidIntelChat(chat: any): Promise<any>;
   getBidIntelChatHistory(contractorId: string, opportunityId?: number, limit?: number): Promise<any[]>;
   getBidIntelDashboardStats(contractorId: string): Promise<any>;
+  
+  // TrueCost Profit Sheet
+  getTrueCostSheets(contractorId: string): Promise<any[]>;
+  getTrueCostSheet(id: number): Promise<any | undefined>;
+  createTrueCostSheet(data: any): Promise<any>;
+  updateTrueCostSheet(id: number, data: any): Promise<any>;
+  
+  getTrueCostLaborItems(sheetId: number): Promise<any[]>;
+  createTrueCostLaborItem(data: any): Promise<any>;
+  updateTrueCostLaborItem(id: number, data: any): Promise<any>;
+  deleteTrueCostLaborItem(id: number): Promise<void>;
+  
+  getTrueCostEquipmentItems(sheetId: number): Promise<any[]>;
+  createTrueCostEquipmentItem(data: any): Promise<any>;
+  updateTrueCostEquipmentItem(id: number, data: any): Promise<any>;
+  deleteTrueCostEquipmentItem(id: number): Promise<void>;
+  
+  getTrueCostMaterialItems(sheetId: number): Promise<any[]>;
+  createTrueCostMaterialItem(data: any): Promise<any>;
+  updateTrueCostMaterialItem(id: number, data: any): Promise<any>;
+  deleteTrueCostMaterialItem(id: number): Promise<void>;
+  
+  getTrueCostOverheadItems(sheetId: number): Promise<any[]>;
+  createTrueCostOverheadItem(data: any): Promise<any>;
+  updateTrueCostOverheadItem(id: number, data: any): Promise<any>;
+  deleteTrueCostOverheadItem(id: number): Promise<void>;
+  
+  getStormCrewTemplates(contractorId: string): Promise<any[]>;
+  getStormCrewTemplate(id: number): Promise<any | undefined>;
+  createStormCrewTemplate(data: any): Promise<any>;
 }
 
 export class MemStorage implements IStorage {
@@ -894,9 +924,21 @@ export class MemStorage implements IStorage {
   private bidContacts: Map<number, any> = new Map();
   private bidQuestions: Map<number, any> = new Map();
   private bidIntelChats: Map<number, any> = new Map();
+  private trueCostSheets: Map<number, any> = new Map();
+  private trueCostLaborItems: Map<number, any> = new Map();
+  private trueCostEquipmentItems: Map<number, any> = new Map();
+  private trueCostMaterialItems: Map<number, any> = new Map();
+  private trueCostOverheadItems: Map<number, any> = new Map();
+  private stormCrewTemplates: Map<number, any> = new Map();
   private bidOpportunityIdCounter = 1;
   private bidSubmissionIdCounter = 1;
   private bidContactIdCounter = 1;
+  private trueCostSheetIdCounter = 1;
+  private trueCostLaborItemIdCounter = 1;
+  private trueCostEquipmentItemIdCounter = 1;
+  private trueCostMaterialItemIdCounter = 1;
+  private trueCostOverheadItemIdCounter = 1;
+  private stormCrewTemplateIdCounter = 1;
   private bidQuestionIdCounter = 1;
   private bidIntelChatIdCounter = 1;
   private smtpSettings: { host: string; port: number; user: string; password: string; use_tls: boolean } = {
@@ -5244,6 +5286,144 @@ export class MemStorage implements IStorage {
       activeOpportunities: opportunities.filter(o => o.status === 'discovered' || o.status === 'qualified').length,
       recentSubmissions: submissions.slice(-5).reverse()
     };
+  }
+
+  // ============================================================================
+  // TrueCost Profit Sheet Implementation
+  // ============================================================================
+
+  async getTrueCostSheets(contractorId: string): Promise<any[]> {
+    return Array.from(this.trueCostSheets.values())
+      .filter(s => s.contractorId === contractorId)
+      .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+  }
+
+  async getTrueCostSheet(id: number): Promise<any | undefined> {
+    return this.trueCostSheets.get(id);
+  }
+
+  async createTrueCostSheet(data: any): Promise<any> {
+    const id = this.trueCostSheetIdCounter++;
+    const sheet = { ...data, id, createdAt: new Date(), updatedAt: new Date() };
+    this.trueCostSheets.set(id, sheet);
+    return sheet;
+  }
+
+  async updateTrueCostSheet(id: number, data: any): Promise<any> {
+    const existing = this.trueCostSheets.get(id);
+    if (!existing) throw new Error("Sheet not found");
+    const updated = { ...existing, ...data, updatedAt: new Date() };
+    this.trueCostSheets.set(id, updated);
+    return updated;
+  }
+
+  async getTrueCostLaborItems(sheetId: number): Promise<any[]> {
+    return Array.from(this.trueCostLaborItems.values()).filter(i => i.sheetId === sheetId);
+  }
+
+  async createTrueCostLaborItem(data: any): Promise<any> {
+    const id = this.trueCostLaborItemIdCounter++;
+    const item = { ...data, id, createdAt: new Date() };
+    this.trueCostLaborItems.set(id, item);
+    return item;
+  }
+
+  async updateTrueCostLaborItem(id: number, data: any): Promise<any> {
+    const existing = this.trueCostLaborItems.get(id);
+    if (!existing) throw new Error("Item not found");
+    const updated = { ...existing, ...data };
+    this.trueCostLaborItems.set(id, updated);
+    return updated;
+  }
+
+  async deleteTrueCostLaborItem(id: number): Promise<void> {
+    this.trueCostLaborItems.delete(id);
+  }
+
+  async getTrueCostEquipmentItems(sheetId: number): Promise<any[]> {
+    return Array.from(this.trueCostEquipmentItems.values()).filter(i => i.sheetId === sheetId);
+  }
+
+  async createTrueCostEquipmentItem(data: any): Promise<any> {
+    const id = this.trueCostEquipmentItemIdCounter++;
+    const item = { ...data, id, createdAt: new Date() };
+    this.trueCostEquipmentItems.set(id, item);
+    return item;
+  }
+
+  async updateTrueCostEquipmentItem(id: number, data: any): Promise<any> {
+    const existing = this.trueCostEquipmentItems.get(id);
+    if (!existing) throw new Error("Item not found");
+    const updated = { ...existing, ...data };
+    this.trueCostEquipmentItems.set(id, updated);
+    return updated;
+  }
+
+  async deleteTrueCostEquipmentItem(id: number): Promise<void> {
+    this.trueCostEquipmentItems.delete(id);
+  }
+
+  async getTrueCostMaterialItems(sheetId: number): Promise<any[]> {
+    return Array.from(this.trueCostMaterialItems.values()).filter(i => i.sheetId === sheetId);
+  }
+
+  async createTrueCostMaterialItem(data: any): Promise<any> {
+    const id = this.trueCostMaterialItemIdCounter++;
+    const item = { ...data, id, createdAt: new Date() };
+    this.trueCostMaterialItems.set(id, item);
+    return item;
+  }
+
+  async updateTrueCostMaterialItem(id: number, data: any): Promise<any> {
+    const existing = this.trueCostMaterialItems.get(id);
+    if (!existing) throw new Error("Item not found");
+    const updated = { ...existing, ...data };
+    this.trueCostMaterialItems.set(id, updated);
+    return updated;
+  }
+
+  async deleteTrueCostMaterialItem(id: number): Promise<void> {
+    this.trueCostMaterialItems.delete(id);
+  }
+
+  async getTrueCostOverheadItems(sheetId: number): Promise<any[]> {
+    return Array.from(this.trueCostOverheadItems.values()).filter(i => i.sheetId === sheetId);
+  }
+
+  async createTrueCostOverheadItem(data: any): Promise<any> {
+    const id = this.trueCostOverheadItemIdCounter++;
+    const item = { ...data, id, createdAt: new Date() };
+    this.trueCostOverheadItems.set(id, item);
+    return item;
+  }
+
+  async updateTrueCostOverheadItem(id: number, data: any): Promise<any> {
+    const existing = this.trueCostOverheadItems.get(id);
+    if (!existing) throw new Error("Item not found");
+    const updated = { ...existing, ...data };
+    this.trueCostOverheadItems.set(id, updated);
+    return updated;
+  }
+
+  async deleteTrueCostOverheadItem(id: number): Promise<void> {
+    this.trueCostOverheadItems.delete(id);
+  }
+
+  async getStormCrewTemplates(contractorId: string): Promise<any[]> {
+    return Array.from(this.stormCrewTemplates.values())
+      .filter(t => t.contractorId === contractorId || t.isSystem)
+      .sort((a, b) => (b.isSystem ? 1 : 0) - (a.isSystem ? 1 : 0));
+  }
+
+  async getStormCrewTemplate(id: number): Promise<any | undefined> {
+    return this.stormCrewTemplates.get(id);
+  }
+
+  async createStormCrewTemplate(data: any): Promise<any> {
+    const id = this.stormCrewTemplateIdCounter++;
+    const template = { ...data, id, createdAt: new Date() };
+    this.stormCrewTemplates.set(id, template);
+    return template;
   }
 }
 

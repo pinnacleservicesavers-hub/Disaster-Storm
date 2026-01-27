@@ -1,0 +1,625 @@
+A) TrueCost™ Screen Copy (Labels + Tooltips)
+1) Bid Page Button
+
+Button: TrueCost™ Profit Sheet (Private)
+Subtext: “Calculate true job cost + profit. Private to your company.”
+
+Badge: 🔒 Private
+
+2) Header (Top of TrueCost™ page)
+
+Title: TrueCost™ Profit Sheet (Private)
+Helper text: “This is your internal job costing worksheet. It is not shared with agencies, customers, or other contractors.”
+
+Top inputs (always visible)
+
+Bid Revenue
+
+Label: Bid Amount (Revenue)
+
+Placeholder: $0.00
+
+Tooltip: “The total amount you plan to submit for this bid (including mobilization if included).”
+
+Job Duration
+
+Label: Planned Days
+
+Placeholder: 0
+
+Tooltip: “How many working days you expect to complete the job.”
+
+Work Hours
+
+Label: Hours per Day
+
+Placeholder: 8
+
+Tooltip: “Average hours per day your crew will work.”
+
+Overtime Rule
+
+Label: Overtime
+
+Options:
+
+None
+
+OT after 8 hrs/day
+
+OT after 40 hrs/week
+
+Custom
+
+Tooltip: “Choose your overtime rule for cost accuracy.”
+
+Add Contingency
+
+Label: Contingency %
+
+Placeholder: 0%
+
+Tooltip: “Optional cushion for unknowns (weather delays, access issues, extra disposal, etc.).”
+
+3) Tabs
+
+Tabs:
+
+Labor
+
+Equipment
+
+Materials & Subs
+
+Overhead & Insurance
+
+Summary
+
+4) Labor Tab Copy
+
+Section title: Labor Costs
+
+Button: + Add Worker / Role
+Tooltip: “Add labor roles and hours to calculate true labor cost.”
+
+Labor row fields
+
+Role
+
+Placeholder: “Foreman / Operator / Groundman…”
+
+Tooltip: “Choose the labor classification for this role.”
+
+Qty
+
+Tooltip: “How many workers in this role.”
+
+Base Pay ($/hr)
+
+Tooltip: “Hourly pay rate for this role.”
+
+Burden %
+
+Tooltip: “Payroll taxes, workers comp, benefits, etc. Example: 20%.”
+
+Reg Hours
+
+Tooltip: “Total regular hours for this role across the job.”
+
+OT Hours
+
+Tooltip: “Total overtime hours for this role across the job.”
+
+OT Multiplier
+
+Default: 1.5
+
+Tooltip: “Typical overtime multiplier. Change if needed.”
+
+Per Diem ($/day)
+
+Tooltip: “Per-person daily per diem (if out of town).”
+
+Lodging ($/night)
+
+Tooltip: “Per-person lodging cost per night (if applicable).”
+
+Footer note (important):
+“Labor burden is often missed. If you don’t know your burden, set a default (ex: 18–28%) and adjust later.”
+
+5) Equipment Tab Copy
+
+Section title: Equipment Costs
+
+Button: + Add Equipment
+Tooltip: “Add owned, leased, or rented equipment used on this job.”
+
+Equipment row fields
+
+Equipment
+
+Placeholder: “Skid Steer / Bucket Truck / Chipper…”
+
+Ownership
+
+Options: Owned Leased Rented
+
+Tooltip: “Owned equipment still has true costs (fuel, maintenance, depreciation).”
+
+Rate Type
+
+Options: Hourly Daily Weekly Per Job
+
+Rate
+
+Tooltip: “Enter your equipment cost rate (not what you charge).”
+
+Usage
+
+Fields: Hours/Day + Days Used
+
+Tooltip: “How long you’ll run this equipment on the job.”
+
+Fuel ($/day or total)
+
+Tooltip: “Estimate fuel cost for this equipment.”
+
+Maintenance Reserve ($/hr)
+
+Tooltip: “Optional. Helps capture wear/tear, repairs, oil, tires, etc.”
+
+Insurance Allocation ($/day)
+
+Tooltip: “Optional share of equipment insurance cost.”
+
+Mobilization (one-time)
+
+Tooltip: “One-time cost to deliver equipment to the job.”
+
+6) Materials & Subs Tab Copy
+
+Section title: Materials, Disposal & Subcontractors
+
+Button: + Add Line Item
+
+Fields:
+
+Type
+
+Options: Material Dump/Tipping Permits/Fees Subcontractor Rental (Non-equipment) Other
+
+Description
+
+Unit Cost
+
+Qty
+
+Tax/Shipping
+
+Waste Factor %
+
+Tooltip: “Optional. Adds extra for waste/overage.”
+
+Notes
+
+7) Overhead & Insurance Tab Copy
+
+Section title: Overhead & Insurance (Job-Level)
+
+These can be:
+
+Fixed $ amount
+
+% of bid revenue
+
+$ per day
+
+Line items:
+
+General Liability Allocation
+
+Auto Insurance Allocation
+
+Workers Comp Allocation (if not included in burden)
+
+Bond Cost (if required)
+
+Office Overhead
+
+Admin/PM Time
+
+Travel
+
+Lodging Total
+
+Payment Processing / Factoring Fee
+
+Miscellaneous
+
+Tooltip (big):
+“Overhead & insurance here should represent the real cost of doing the job, not what you charge.”
+
+8) Summary Tab Copy (This is the “wow” page)
+Outputs (large cards)
+
+Bid Revenue
+
+Total Direct Costs
+
+Overhead & Insurance
+
+Contingency
+
+Total Job Cost
+
+Net Profit
+
+Net Margin %
+
+Break-Even Bid
+
+Cash Needed Up Front
+
+Warnings / Guardrails
+
+“⚠️ You are below break-even.”
+
+“⚠️ No fuel cost added — confirm fuel estimate.”
+
+“⚠️ Labor burden is 0% — add burden to avoid underpricing.”
+
+“⚠️ Equipment owned cost is missing maintenance/depreciation — confirm.”
+
+Buttons
+
+Save Draft
+
+Lock This Version
+
+Duplicate as New Scenario
+
+Lock tooltip: “Locked versions can’t be edited. Great for keeping a record of what you based your bid on.”
+
+B) Storm-Work Crew Templates (Ready-to-Use Defaults)
+
+These templates can be “Add from Template” in Labor + Equipment.
+
+Template 1 — Skid Steer Crew (Storm ROW / Debris)
+
+Labor
+
+1 Foreman
+
+1 Equipment Operator
+
+1 Trimmer A (or Groundman)
+
+Optional: 1 Flagger (if traffic control required)
+
+Equipment
+
+1 Skid Steer (owned/leased/rented)
+
+1 Trailer
+
+1 One-ton 4x4 pickup
+
+Chainsaws/hand tools (optional “small tools” line item)
+
+Fuel estimate
+
+Template 2 — Bucket Truck Crew (75ft Utility/ROW)
+
+Labor
+
+1 Foreman
+
+1 Trimmer A / Climber (depending scope)
+
+1 Equipment Operator / Driver
+
+Equipment
+
+1 75-ft bucket truck
+
+1 one-ton 4x4 pickup
+
+Cones/signage (materials/overhead)
+
+Fuel estimate
+
+Template 3 — Debris/Grapple Truck Crew
+
+Labor
+
+1 Foreman
+
+1 Equipment Operator/Driver
+
+2 Groundmen
+
+Equipment
+
+Grapple truck
+
+Loader or skid steer (optional)
+
+Dump fees / disposal
+
+Template 4 — Traffic Control Add-On
+
+Labor
+
+1 Flagger (per shift)
+
+Optional: 1 Supervisor if required
+
+Materials
+
+Cones
+
+Signs
+
+Arrow board rental (if needed)
+
+C) Data Model: Database Schema (Clean + Scalable)
+1) Tables
+bid_truecost_sheets
+
+id (uuid)
+
+bid_id (uuid) // link to procurement opportunity/bid record
+
+contractor_id (uuid)
+
+version_number (int)
+
+status (enum: draft, locked)
+
+bid_revenue (decimal)
+
+planned_days (int)
+
+hours_per_day (decimal)
+
+overtime_rule (enum: none, daily_8, weekly_40, custom)
+
+contingency_percent (decimal)
+
+notes (text)
+
+created_at, updated_at
+
+bid_truecost_labor_items
+
+id (uuid)
+
+sheet_id (uuid)
+
+role (text)
+
+qty (int)
+
+base_rate (decimal) // $/hr
+
+burden_percent (decimal)
+
+reg_hours (decimal)
+
+ot_hours (decimal)
+
+ot_multiplier (decimal default 1.5)
+
+per_diem_per_day (decimal)
+
+lodging_per_night (decimal)
+
+travel_allowance (decimal)
+
+notes (text)
+
+bid_truecost_equipment_items
+
+id (uuid)
+
+sheet_id (uuid)
+
+equipment_name (text)
+
+ownership (enum: owned, leased, rented)
+
+rate_type (enum: hourly, daily, weekly, per_job)
+
+rate (decimal)
+
+hours_per_day (decimal)
+
+days_used (decimal)
+
+fuel_cost (decimal)
+
+maintenance_reserve_per_hr (decimal)
+
+insurance_alloc_per_day (decimal)
+
+mobilization_one_time (decimal)
+
+notes (text)
+
+bid_truecost_material_items
+
+id (uuid)
+
+sheet_id (uuid)
+
+item_type (enum: material, dump_fee, permit_fee, subcontractor, other)
+
+description (text)
+
+unit_cost (decimal)
+
+quantity (decimal)
+
+tax_shipping (decimal)
+
+waste_factor_percent (decimal)
+
+notes (text)
+
+bid_truecost_overhead_items
+
+id (uuid)
+
+sheet_id (uuid)
+
+name (text) // GL Allocation, Bond Fee, Office Overhead
+
+cost_type (enum: fixed, percent_of_revenue, per_day)
+
+amount (decimal)
+
+notes (text)
+
+bid_truecost_totals
+
+(optional materialized totals for speed; otherwise compute on read)
+
+sheet_id (uuid)
+
+direct_labor_cost (decimal)
+
+equipment_cost (decimal)
+
+materials_cost (decimal)
+
+overhead_cost (decimal)
+
+contingency_cost (decimal)
+
+total_job_cost (decimal)
+
+net_profit (decimal)
+
+net_margin_percent (decimal)
+
+break_even_bid (decimal)
+
+upfront_cash_needed (decimal)
+
+updated_at
+
+D) API Endpoints (REST Example)
+Sheets
+
+POST /bids/{bidId}/truecost/sheets
+
+create new sheet (version 1)
+
+GET /bids/{bidId}/truecost/sheets
+
+list versions
+
+GET /truecost/sheets/{sheetId}
+
+get full sheet + items + computed totals
+
+PATCH /truecost/sheets/{sheetId}
+
+update top assumptions
+
+POST /truecost/sheets/{sheetId}/lock
+
+locks version (no edits)
+
+POST /truecost/sheets/{sheetId}/duplicate
+
+creates new version from existing
+
+Labor items
+
+POST /truecost/sheets/{sheetId}/labor
+
+PATCH /truecost/labor/{itemId}
+
+DELETE /truecost/labor/{itemId}
+
+Equipment items
+
+POST /truecost/sheets/{sheetId}/equipment
+
+PATCH /truecost/equipment/{itemId}
+
+DELETE /truecost/equipment/{itemId}
+
+Materials items
+
+POST /truecost/sheets/{sheetId}/materials
+
+PATCH /truecost/materials/{itemId}
+
+DELETE /truecost/materials/{itemId}
+
+Overhead items
+
+POST /truecost/sheets/{sheetId}/overhead
+
+PATCH /truecost/overhead/{itemId}
+
+DELETE /truecost/overhead/{itemId}
+
+Totals
+
+POST /truecost/sheets/{sheetId}/recalculate
+
+forces totals recompute (or automatic on each save)
+
+E) Default Calculations (What to compute on the backend)
+Labor cost per labor item
+
+wage = qty * (reg_hours * base_rate + ot_hours * base_rate * ot_multiplier)
+burden = wage * (burden_percent/100)
+per_diem = qty * per_diem_per_day * planned_days (or exact days)
+lodging = qty * lodging_per_night * (planned_days-1 or planned_days)
+labor_item_total = wage + burden + per_diem + lodging + travel_allowance
+
+Equipment item total
+
+If hourly: rate * hours_per_day * days_used
+If daily: rate * days_used
+If weekly: rate * ceil(days_used/7)
+Plus:
+fuel_cost + (maintenance_reserve_per_hr * hours_per_day * days_used) + (insurance_alloc_per_day * days_used) + mobilization_one_time
+
+Materials
+
+base = unit_cost * quantity
+waste = base * (waste_factor_percent/100)
+materials_item_total = base + waste + tax_shipping
+
+Overhead
+
+If fixed: amount
+If percent_of_revenue: bid_revenue * (amount/100)
+If per_day: amount * planned_days
+
+Totals
+
+direct_costs = labor + equipment + materials
+contingency = direct_costs * (contingency_percent/100)
+total_job_cost = direct_costs + overhead + contingency
+net_profit = bid_revenue - total_job_cost
+net_margin_percent = net_profit / bid_revenue * 100
+
+Next (so you can build faster)
+
+Tell me what stack you’re using in Replit (Node/Express, Next.js, FastAPI, etc.) and I’ll generate:
+
+the exact table migrations (SQL)
+
+the backend endpoints code skeleton
+
+the totals calculation function
+
+and the UI wireframe component layout (mobile-first)
+
+No waiting — we can blueprint it end-to-end.

@@ -84,6 +84,7 @@ import quoteRoutes from "./routes/quotes";
 import pipelineRoutes from "./routes/pipeline";
 import treeAlertRoutes from "./routes/treeAlertRoutes";
 import bidIntelProRoutes from "./routes/bidIntelPro";
+import trueCostSheetRoutes from "./routes/trueCostSheet";
 import { signatureAuditService } from "./services/signatureAuditService";
 import { mountLocations } from "./routes/locations";
 import { mountAlerts } from "./routes/alerts";
@@ -2567,6 +2568,10 @@ Include 3-4 phases, 3-5 tasks per phase, 2-3 SOPs, 3 risks, and 4 KPIs. Be speci
   // ---- AI BidIntel Pro™ Routes ----
   app.use('/api/bidintel', bidIntelProRoutes);
   console.log('⚔️ AI BidIntel Pro™ routes registered - Procurement intelligence & bid optimization');
+  
+  // ---- TrueCost™ Profit Sheet Routes ----
+  app.use('/api/truecost', trueCostSheetRoutes);
+  console.log('💰 TrueCost™ Profit Sheet routes registered - Private job costing calculator');
 
   // ---- Admin OIDC Routes ----
   app.use(adminOidcRoutes);
