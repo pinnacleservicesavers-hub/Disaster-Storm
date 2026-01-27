@@ -1,0 +1,385 @@
+Bid Cost Sheet (Private)
+
+I like “TrueCost™ Profit Sheet” because it sounds premium and it’s clear this is internal/private.
+
+✅ Store it inside each bid as:
+Bid → “TrueCost™ Profit Sheet (Private)”
+
+1) Step-by-step: How the Contractor Uses It (Super Clear)
+Step 1 — Open a bid
+
+Contractor selects an opportunity in the procurement dashboard.
+
+Step 2 — Click “TrueCost™ Profit Sheet (Private)”
+
+This opens a private job costing screen.
+
+Step 3 — Enter Bid Amount & Terms (top section)
+
+Bid amount (what they are submitting)
+
+Payment terms (Net 30/45/60 if known)
+
+Mobilization/demob (if included)
+
+Retainage % (if any)
+
+Tax (if applicable)
+
+Step 4 — Build the Job Plan (labor + equipment + materials)
+
+Contractor adds line items in 3 tabs:
+
+Labor
+
+Equipment
+
+Materials/Subs
+(+ optional: Overhead/Insurance/Fuel)
+
+Step 5 — Enter production assumptions
+
+Job duration (days)
+
+Work hours/day
+
+Crew count
+
+Expected overtime rules (if any)
+
+Step 6 — Profit output appears instantly
+
+The app shows:
+
+Total cost to perform the job
+
+Gross profit ($)
+
+Gross margin (%)
+
+Net profit ($) after overhead/insurance
+
+Break-even bid price
+
+Profit per day
+
+Profit per crew hour
+
+Cash needed up front
+
+Step 7 — Save it under the bid
+
+It’s saved under that bid’s record and is private to the contractor.
+
+2) What the Contractor Needs to Input (Simple but Complete)
+A) Labor tab (line items)
+
+Each labor row:
+
+Role (Foreman, Operator, Climber, Groundman, etc.)
+
+Qty (number of workers)
+
+Pay type: hourly or daily
+
+Base rate ($/hr)
+
+Burden % (payroll taxes, WC, benefits) OR fixed burden $/hr
+
+Hours regular
+
+Hours overtime
+
+OT multiplier (1.5 default)
+
+Per diem (if any)
+
+Lodging (if charged per person/day)
+
+Notes
+
+✅ App auto-calculates:
+Labor Cost = (Reg hours × rate + OT hours × rate × multiplier) × qty + per diem + lodging + burden
+
+Burden (important)
+
+Contractors forget this. Include a default toggle:
+
+Burden Mode
+
+% of wage (recommended)
+
+$/hr add-on
+
+Example default burden:
+
+Small contractor: 18–28% typical (varies widely)
+
+B) Equipment tab (line items)
+
+Each equipment row:
+
+Equipment name (Skid Steer, Bucket Truck, Chipper, Mini, Grapple)
+
+Owned / Leased / Rented
+
+Rate type:
+
+hourly
+
+daily
+
+weekly
+
+per job
+
+Rate amount
+
+Hours/day and days used (if hourly/daily)
+
+Fuel estimate (gal/day or $/day)
+
+Maintenance reserve (optional $/hr)
+
+Operator included? (checkbox)
+
+Mobilization cost (one-time)
+
+Notes
+
+✅ App calculates:
+Equipment Cost = base rate cost + fuel + maintenance reserve + mobilization
+
+Owned equipment
+
+Even if owned, include “true cost” fields:
+
+depreciation reserve ($/hr or $/day)
+
+repairs reserve
+
+insurance allocation
+
+This is what makes it “TrueCost.”
+
+C) Materials & Subs tab
+
+Each line item:
+
+Material type (seed, straw, gravel, lumber, wire, signs, etc.)
+
+Unit cost
+
+Quantity
+
+Vendor tax/shipping
+
+Waste factor % (optional)
+
+Subcontractor cost (if any)
+
+Dump fees / tipping fees
+
+Permits / fees
+
+✅ App calculates:
+Materials Cost = sum(unit × qty) + shipping + tax + waste + dump + permits
+
+D) Overhead & insurance tab (job-level)
+
+Job-level cost buckets:
+
+General Liability allocation ($/day or % of bid)
+
+Auto insurance allocation
+
+Workers comp (if not in burden)
+
+Bond cost % (if required)
+
+Office overhead % (optional)
+
+Admin hours cost (optional)
+
+Travel (mileage, flights)
+
+Hotel/airbnb total
+
+Misc contingency % (recommended toggle)
+
+✅ This is where the “true profit” becomes real.
+
+3) Profit Math Logic (What the App Should Compute)
+Core outputs
+
+Let:
+
+BidRevenue = Bid amount
+DirectLabor = sum labor costs
+EquipmentCost = sum equipment costs
+MaterialsCost = sum materials/sub costs
+JobOverhead = job-level overhead & insurance allocation
+Contingency = optional % × (DirectLabor + EquipmentCost + MaterialsCost)
+PaymentFees = optional (card fees, factoring, etc.)
+
+Total Cost
+
+TotalJobCost = DirectLabor + EquipmentCost + MaterialsCost + JobOverhead + Contingency + PaymentFees
+
+Profit & Margin
+
+GrossProfit = BidRevenue - (DirectLabor + EquipmentCost + MaterialsCost)
+NetProfit = BidRevenue - TotalJobCost
+NetMargin% = NetProfit / BidRevenue
+
+Break-even bid
+
+BreakEvenBid = TotalJobCost / (1 - desiredMargin%) (optional tool)
+
+Cash needed upfront (killer feature)
+
+Contractors care about cash flow. Add:
+
+% materials due upfront
+
+payroll cycle weekly
+
+fuel weekly
+
+rental deposits
+
+Compute:
+UpfrontCashNeeded = material deposits + first payroll + fuel + rentals + lodging
+
+That’s extremely valuable in storm work.
+
+4) UI Layout That Contractors Will Actually Use
+Page layout
+
+Top bar
+
+Bid Amount: $_____
+
+Estimated Net Profit: $_____
+
+Net Margin: __%
+
+Tabs
+
+Labor
+
+Equipment
+
+Materials/Subs
+
+Overhead/Insurance
+
+Summary (profit dashboard)
+
+Summary page should show:
+
+Revenue
+
+Total Direct Costs
+
+Total Overhead/Insurance
+
+Contingency
+
+Net Profit
+
+Net Margin
+
+Break-even price
+
+Profit per day
+
+Cash needed upfront
+
+Field-friendly features
+
+“Add from saved crew template”
+
+“Add from saved equipment list”
+
+“Quick add line item”
+
+“Voice note” for assumptions
+
+“Lock this estimate version” (version control)
+
+5) How to Store It Under Each Bid (Data Organization)
+
+Inside each bid record, store:
+
+A) BidCostingProfile (private)
+
+bid_id
+
+contractor_id
+
+version_number
+
+status: draft / locked / revised
+
+created_at, updated_at
+
+assumptions_json (days, hours/day, OT rules, etc.)
+
+totals_json (direct costs, overhead, net profit)
+
+B) Line items tables
+
+bid_labor_items
+
+bid_equipment_items
+
+bid_material_items
+
+bid_overhead_items
+
+Naming inside UI
+
+Bid → Private Tools → TrueCost™ Profit Sheet
+
+Add a lock icon and label it:
+
+“Private — not shared with agencies or customers.”
+
+6) Extra Features That Make This “Best In Class”
+
+These are the wow factors:
+
+✅ Templates
+
+Save crew templates (e.g., “Skid Steer Crew”, “Bucket Truck Crew”)
+
+Save equipment packages (“Storm Bucket Crew Package”)
+
+✅ Scenario compare (3 versions)
+
+Aggressive (to win)
+
+Target (balanced)
+
+Conservative (higher margin)
+
+✅ Profit guardrails
+
+Warnings:
+
+“You are below break-even”
+
+“Labor burden not included”
+
+“No fuel allocated”
+
+“Equipment depreciation set to $0—confirm owned cost”
+
+✅ Bid-to-profit connector
+
+On the bid screen show:
+
+“This bid is profitable ✅ / risky ⚠️ / loss ❌”
+
+“Recommended minimum bid: $____”
