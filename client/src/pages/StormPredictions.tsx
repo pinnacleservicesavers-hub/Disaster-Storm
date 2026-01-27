@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { motion } from 'framer-motion';
-import { Link } from 'wouter';
+import { Link } from 'react-router-dom';
 import { StateCitySelector, useStateCitySelector } from '@/components/StateCitySelector';
 import { 
   Target, 
@@ -116,7 +116,7 @@ export default function StormPredictions() {
     >
       {/* Controls */}
       <div className="mb-6 flex items-center justify-between gap-4">
-        <Link href="/">
+        <Link to="/">
           <Button variant="outline" className="flex items-center gap-2 hover:bg-purple-50 text-white border-white/20" data-testid="button-back-to-dashboard">
             <ArrowLeft className="w-4 h-4" />
             Back to Dashboard

@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Users, Plus, Search, Settings, Shield, AlertTriangle, CheckCircle, TrendingUp, Star, MapPin, Calendar, Clock, Zap, Award, Target, ChevronRight, Briefcase, UserPlus, Phone, Mail, MessageSquare, Filter, Volume2, VolumeX, X, ArrowLeft } from 'lucide-react';
-import { Link } from 'wouter';
+import { Link } from 'react-router-dom';
 import { DashboardSection } from '@/components/DashboardSection';
 import { FadeIn, PulseAlert, StaggerContainer, StaggerItem, HoverLift, CountUp, ScaleIn, SlideIn } from '@/components/ui/animations';
 import { getAuthHeaders } from '@/lib/queryClient';
@@ -307,7 +307,7 @@ export default function ContractorManagement() {
     <div className="min-h-screen bg-gradient-to-br from-[hsl(217,91%,15%)] via-[hsl(217,91%,25%)] to-[hsl(215,25%,25%)] dark:from-[hsl(217,91%,10%)] dark:via-[hsl(217,91%,20%)] dark:to-[hsl(215,25%,20%)]">
       <div className="container mx-auto px-4 py-6 space-y-6">
         <div className="flex items-center gap-4">
-          <Link href="/">
+          <Link to="/">
             <motion.button
               whileHover={{ scale: 1.05, x: -2 }}
               whileTap={{ scale: 0.95 }}

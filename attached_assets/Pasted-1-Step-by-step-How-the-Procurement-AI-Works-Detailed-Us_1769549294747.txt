@@ -1,0 +1,509 @@
+1) Step-by-step: How the Procurement AI Works (Detailed User + System Flow)
+Phase A — Contractor Onboarding & Data Capture
+
+Contractor creates account
+
+Role: Contractor (or Admin for company)
+
+Verifies email + phone (OTP recommended)
+
+Company profile setup
+
+Legal business name (as registered)
+
+DBA (if any)
+
+Entity type (LLC / S-Corp / etc.)
+
+Address + service areas
+
+Primary contact & authorized signer
+
+Payment method (for subscription)
+
+Compliance & identifiers upload
+The app requests and stores (securely):
+
+EIN
+
+UEI (SAM)
+
+CAGE Code (if applicable)
+
+DUNS (legacy only if a portal still asks)
+
+NAICS codes + keywords describing services
+
+PSC codes (optional but powerful)
+
+State contractor license numbers (if required)
+
+IFTA / DOT / MC numbers (if relevant)
+
+Insurance: COI, GL, Auto, WC, Umbrella (as needed)
+
+Bonding letter (if applicable)
+
+W9 (either upload or auto-generate + e-sign)
+
+Certifications (SDVOSB/WOSB/HUBZone/DBE/etc.)
+
+Past performance references, resumes, equipment list
+
+Procurement site selection
+The contractor chooses which portals to activate:
+
+SAM.gov / state portals / BidNet / utilities / municipalities
+
+They set:
+
+Region(s) to monitor
+
+Minimum/maximum contract size
+
+Bid types (services, construction, ROW, debris, etc.)
+
+Set-aside categories (if certified)
+
+Portal credentials + authorization
+
+Contractor either:
+
+(A) connects accounts via secure integration (OAuth if available), OR
+
+(B) provides credentials in a secure vault (only if allowed), OR
+
+(C) uses assisted/manual mode where AI prepares everything but contractor uploads/submits
+
+Important: contractor confirms “AI can prepare bids and drafts, contractor approves final submission.”
+
+Phase B — Opportunity Monitoring & Qualification
+
+AI begins continuous monitoring
+
+Scheduled scans (every X minutes/hour) per portal
+
+Pulls new opportunities + updates existing ones
+
+Tracks amendments and addenda
+
+AI qualifies each opportunity
+The AI checks:
+
+NAICS/keyword match
+
+Location match
+
+Deadline feasibility
+
+Required licensing / bonding / insurance
+
+Disqualifiers (mandatory site visit, experience thresholds, etc.)
+
+Risk score + complexity score
+
+Opportunity is categorized
+
+✅ “Auto-Eligible” (safe to proceed)
+
+⚠️ “Needs Review” (missing requirement or uncertainty)
+
+❌ “Not Eligible” (disqualifier detected)
+
+Contractor gets notified
+
+Email + SMS for important opportunities
+
+App dashboard shows:
+
+due date
+
+pre-bid details
+
+required attachments checklist
+
+risk flags
+
+Phase C — Bid Planning & Pre-bid Management
+
+Pre-bid meeting/site visit detection
+
+AI extracts:
+
+date/time
+
+location
+
+meeting format
+
+attendance requirement
+
+AI auto-creates calendar event and reminders
+
+AI prepares contractor’s pre-bid pack
+
+Address + arrival instructions
+
+PPE checklist
+
+documents to bring
+
+a “smart questions” list tailored to the scope
+
+a draft RFI email template if needed
+
+AI can send clarification questions
+
+Contractor approves (or enables auto-send)
+
+AI emails municipality/agency contact with precise questions
+
+AI logs responses and attaches them to bid file
+
+Phase D — Pricing & Strategy Engine
+
+AI builds a pricing model
+
+Pulls similar awarded bids (when available)
+
+Uses internal data: contractor’s past bids + wins/losses
+
+Uses regional cost multipliers (labor, fuel, mobilization)
+
+Creates “recommended bid range” with:
+
+conservative
+
+target
+
+aggressive (to win)
+
+Contractor inputs their number
+
+After site visit, contractor can type:
+
+what they think it should be
+
+notes about access, hazards, equipment needs
+
+AI compares and explains
+If contractor is too low:
+
+identifies missing cost elements (labor hours, equipment, dump fees, traffic control, etc.)
+
+warns about risk of losing money or nonperformance
+
+If contractor is too high:
+
+shows where the price deviates from historical award ranges
+
+suggests optimization (scope language, alternates, value engineering)
+
+Phase E — Proposal Assembly + Form Completion
+
+AI assembles the full bid packet
+Includes:
+
+coversheet
+
+executive summary
+
+technical approach
+
+staffing plan
+
+equipment list
+
+schedule
+
+safety plan
+
+compliance certifications
+
+past performance
+
+pricing sheet + line items
+
+all mandatory forms
+
+Auto-fill forms
+The AI uses the contractor onboarding profile to fill:
+
+W9
+
+vendor forms
+
+certifications
+
+insurance details
+
+NAICS/PSC
+
+control numbers
+
+UEI/CAGE/EIN
+
+signature blocks (contractor provides authorized signer)
+
+Version control
+Every update creates:
+
+a timestamped version
+
+diff log of what changed
+
+a “final submission copy” lock
+
+Phase F — Approval + Submission
+
+Approval request
+
+AI sends SMS: “Bid ready for review”
+
+AI emails the PDF pack + summary checklist
+
+Contractor reviews in-app
+
+Contractor chooses
+
+Approve & Submit
+
+Request edits
+
+Hold / skip bid
+
+Submission
+Depending on portal rules:
+
+Electronic submission: AI submits via integration or guided steps
+
+Sealed bid: AI provides:
+
+print instructions
+
+mailing label
+
+delivery checklist
+
+calendar reminders
+
+Submission confirmation
+
+AI stores:
+
+confirmation number
+
+screenshot or receipt pdf
+
+submission timestamp
+
+copy of submitted files
+
+Phase G — Post-Submission Tracking + Learning
+
+Bid tracking
+
+AI monitors:
+
+amendments
+
+award notices
+
+bid tab releases
+
+clarification requests
+
+Contractor marks results
+
+Won / lost / no award / cancelled
+
+If won: AI triggers onboarding steps (COI, contract docs, kickoff)
+
+If lost: AI runs loss analysis
+
+Learning loop
+
+AI compares:
+
+award price vs your price
+
+missing documents
+
+evaluation factors
+
+Adjusts future strategy recommendations
+
+Improves win odds over time
+
+2) AI Agent Workflow Logic (Developer Draft)
+State machine
+
+Each opportunity has a state:
+
+DISCOVERED
+
+QUALIFYING
+
+NEEDS_REVIEW (missing info/disqualifier risk)
+
+ELIGIBLE
+
+PREBID_SCHEDULED
+
+INFO_REQUESTED (RFI sent)
+
+PRICING_MODEL_READY
+
+PROPOSAL_DRAFTING
+
+READY_FOR_REVIEW
+
+CHANGES_REQUESTED
+
+APPROVED_TO_SUBMIT
+
+SUBMITTED
+
+AWAITING_AWARD
+
+WON / LOST / CANCELLED
+
+Event-driven triggers
+
+on_new_opportunity_found(opportunity)
+
+create record → QUALIFYING
+
+run eligibility scoring
+
+if eligible → ELIGIBLE + notify
+
+on_deadline_within_threshold(opportunity, hours)
+
+increase urgency score
+
+notify contractor with countdown
+
+auto-prioritize in queue
+
+on_prebid_detected(opportunity)
+
+create calendar event
+
+compose prep checklist
+
+schedule reminders
+
+on_docs_uploaded(company)
+
+re-run eligibility for pending bids
+
+update proposal templates
+
+on_contractor_feedback_pricing(opportunity)
+
+run variance analysis
+
+update recommended bid range
+
+update pricing narrative
+
+on_contractor_approve(opportunity)
+
+run compliance check
+
+validate required forms present
+
+submit OR provide sealed instructions
+
+Guardrails
+
+Before SUBMITTED:
+
+Confirm:
+
+all mandatory attachments exist
+
+correct portal format naming rules
+
+valid signatures
+
+insurance meets minimums
+
+If any fail:
+
+block submission
+
+notify contractor with exact fix list
+
+Concurrency
+
+The agent can draft many bids in parallel.
+
+Only “submission” requires explicit approval.
+
+A “Pending Approval Queue” holds multiple bids.
+
+3) Legal Disclaimers (Automated Bidding + No Guarantee)
+
+Use these in:
+
+onboarding checkbox
+
+terms page
+
+procurement module footer
+
+“Approve & Submit” screen
+
+A) Not Legal Advice / Not Professional Advice
+
+Disclaimer — Not Legal, Financial, or Procurement Advice
+The Procurement AI tools in this application provide automated assistance, drafting, and guidance for convenience only. The information generated by the AI agent is not legal advice, financial advice, accounting advice, or a substitute for professional procurement consulting. You are solely responsible for reviewing all solicitations, requirements, forms, pricing, and submissions, and for consulting qualified professionals where necessary.
+
+B) No Guarantee of Award
+
+Disclaimer — No Guarantee of Winning Bids
+Use of this application does not guarantee that any bid will be accepted or that any contract will be awarded. Procurement decisions are made by third parties (agencies, municipalities, utilities, and other buyers) based on evaluation criteria outside our control. While the platform may improve organization, responsiveness, and proposal quality—and may increase the likelihood of submitting compliant, competitive bids—results will vary and awards are never guaranteed.
+
+C) Contractor Responsible for Final Submission
+
+Disclaimer — Contractor Review & Approval Required
+All bid packages, pricing recommendations, forms, and submission drafts generated by the AI agent must be reviewed and approved by the contractor before submission. The contractor is solely responsible for the accuracy, completeness, legality, and compliance of the bid, including all statements, certifications, pricing, and attachments.
+
+D) Data Accuracy + Third-Party Reliance
+
+Disclaimer — Third-Party Data & Portal Accuracy
+The platform may use third-party data sources and procurement portals. We do not control and cannot guarantee the accuracy, availability, completeness, or timeliness of any third-party information, portal listings, deadlines, addenda, or award results. Users are responsible for independently verifying all critical details directly within the source solicitation and procurement portal.
+
+E) Deadlines, Addenda, and Changes
+
+Disclaimer — Deadlines and Addenda
+Procurement solicitations may change at any time due to addenda, corrections, or portal updates. The contractor is responsible for monitoring deadlines and acknowledging addenda, even when the platform provides reminders. Failure to meet deadlines or respond to addenda may result in disqualification.
+
+F) Pricing Disclaimer
+
+Disclaimer — Pricing Recommendations
+Any pricing ranges, bid recommendations, or “suggested bid amounts” are estimates generated using available information, historical patterns (when available), and contractor-provided inputs. These recommendations may be incomplete or inaccurate due to missing site conditions, scope changes, unknown risks, or unavailable award data. Contractors must validate all pricing and ensure profitability and feasibility.
+
+G) Submission Method Disclaimer (Electronic vs Sealed)
+
+Disclaimer — Submission Requirements
+Some solicitations require sealed submissions, notarizations, physical delivery, bonds, or original signatures. The platform may provide instructions and reminders, but the contractor remains fully responsible for meeting the required submission method, format, and delivery requirements.
+
+H) AI Limitations Disclaimer
+
+Disclaimer — AI Output Limitations
+AI-generated content may contain errors, omissions, or misinterpretations. The platform does not warrant that AI outputs will be accurate or suitable for any specific procurement process. Users must verify all content prior to use or submission.
+
+I) Consent to Messaging
+
+Disclaimer — Notifications & Messaging Consent
+By enabling notifications, you consent to receive operational SMS, email, and in-app messages related to procurement opportunities, deadlines, and bid workflow. Message frequency may vary. Carrier fees may apply. You may opt out of non-essential messages at any time.
+
+4) “Win Odds Go Up” Disclaimer (Safe + Accurate)
+
+Here’s the best way to say it legally:
+
+Performance Statement
+This platform is designed to help contractors submit more complete, organized, and timely bids by automating reminders, drafting, form completion, and proposal assembly. Many users may experience improved efficiency and more consistent submissions. However, procurement outcomes depend on factors outside our control, and we do not guarantee awards or specific results.

@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Activity, Flower2, Shield, ArrowRight, AlertTriangle } from 'lucide-react';
-import { Link } from 'wouter';
+import { Link } from 'react-router-dom';
 import PortalVoiceGuide, { PORTAL_SECTIONS } from '@/components/PortalVoiceGuide';
 
 interface EnvironmentalSummaryProps {
@@ -86,7 +86,7 @@ export function EnvironmentalSummary({ lat = 25.7617, lng = -80.1918, place, sho
             <Activity className="h-5 w-5" />
             Environmental Conditions
           </div>
-          <Link href="/environmental-intelligence">
+          <Link to="/environmental-intelligence">
             <Button variant="outline" size="sm" data-testid="button-view-full-environmental">
               View Full Report
               <ArrowRight className="h-4 w-4 ml-2" />

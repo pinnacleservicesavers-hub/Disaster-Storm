@@ -20,7 +20,7 @@ import {
   Eye,
   DollarSign
 } from 'lucide-react';
-import { Link } from 'wouter';
+import { Link } from 'react-router-dom';
 import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 
 export function AdminDashboard() {
@@ -185,7 +185,7 @@ export function AdminDashboard() {
 
         {/* Quick Navigation */}
         <div className="mb-8">
-          <Link href="/admin/affiliates">
+          <Link to="/admin/affiliates">
             <Card className="bg-gradient-to-r from-green-900/50 to-emerald-900/50 border-green-700/50 hover:border-green-500/50 transition-all cursor-pointer" data-testid="link-affiliate-management">
               <CardContent className="p-4 flex items-center justify-between">
                 <div className="flex items-center gap-4">

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
-import { Link } from 'wouter';
+import { Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -121,7 +121,7 @@ export default function ServiceRequest() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center space-x-4">
-              <Link href="/victim/dashboard">
+              <Link to="/victim/dashboard">
                 <Button variant="ghost" size="sm" data-testid="button-back">
                   <ArrowLeft className="w-4 h-4 mr-2" />
                   Back to Dashboard
@@ -404,7 +404,7 @@ export default function ServiceRequest() {
                     {createServiceRequestMutation.isPending ? "Submitting..." : "Submit Service Request"}
                   </Button>
                   
-                  <Link href="/victim/dashboard">
+                  <Link to="/victim/dashboard">
                     <Button type="button" variant="outline" data-testid="button-cancel">
                       Cancel
                     </Button>

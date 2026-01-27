@@ -1,6 +1,6 @@
 import { BankingSettings as BankingSettingsComponent } from '@/components/BankingSettings';
 import { ArrowLeft, Building2 } from 'lucide-react';
-import { Link } from 'wouter';
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 
@@ -14,7 +14,7 @@ export default function BankingSettingsPage() {
         <div className="max-w-6xl mx-auto px-4 py-8">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <Link href="/contractors">
+              <Link to="/contractors">
                 <Button variant="ghost" size="sm" className="text-white hover:bg-white/20" data-testid="link-back-contractors">
                   <ArrowLeft className="w-4 h-4 mr-2" />
                   Back to Portal

@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { motion } from 'framer-motion';
-import { Link } from 'wouter';
+import { Link } from 'react-router-dom';
 import { 
   Cloud, 
   Target, 
@@ -312,7 +312,7 @@ export default function StormOpsDashboard() {
                               animate={{ opacity: 1, y: 0 }}
                               transition={{ duration: 0.3, delay: moduleIndex * 0.1 }}
                             >
-                              <Link href={module.href}>
+                              <Link to={module.href}>
                                 <Card className="h-full hover:shadow-lg transition-all duration-300 cursor-pointer group">
                                   <CardHeader className="pb-3">
                                     <div className="flex items-center justify-between">

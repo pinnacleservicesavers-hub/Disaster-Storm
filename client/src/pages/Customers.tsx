@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useQuery } from '@tanstack/react-query';
 import { User, Plus, Search, Settings, Phone, Mail, MessageSquare, Clock, Star, TrendingUp, Activity, Volume2, VolumeX, ArrowLeft } from 'lucide-react';
-import { Link } from 'wouter';
+import { Link } from 'react-router-dom';
 import { DashboardSection } from '@/components/DashboardSection';
 import { FadeIn, SlideIn, StaggerContainer, StaggerItem, HoverLift } from '@/components/ui/animations';
 import { StateCitySelector, useStateCitySelector } from '@/components/StateCitySelector';
@@ -204,7 +204,7 @@ export default function Customers() {
     <div className="min-h-screen bg-gradient-to-br from-[hsl(217,91%,15%)] via-[hsl(217,91%,25%)] to-[hsl(215,25%,25%)] dark:from-[hsl(217,91%,10%)] dark:via-[hsl(217,91%,20%)] dark:to-[hsl(215,25%,20%)]">
       <div className="container mx-auto px-4 py-6 space-y-6">
         <div className="flex items-center gap-4">
-          <Link href="/">
+          <Link to="/">
             <motion.button
               whileHover={{ scale: 1.05, x: -2 }}
               whileTap={{ scale: 0.95 }}

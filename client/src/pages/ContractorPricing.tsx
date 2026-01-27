@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useLocation } from 'wouter';
+import { useNavigate } from 'react-router-dom';
 import { Check, X, Zap, Crown, Building2, Rocket, Star, Shield, Clock, Award, ArrowLeft, Volume2, VolumeX, Briefcase, TrendingUp, Layers } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -242,7 +242,7 @@ function getBestFemaleVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoic
 }
 
 export default function ContractorPricing() {
-  const [, setLocation] = useLocation();
+  const navigate = useNavigate();
   const { toast } = useToast();
   const [isAnnual, setIsAnnual] = useState(true);
   const [loading, setLoading] = useState<string | null>(null);
@@ -310,7 +310,7 @@ export default function ContractorPricing() {
         title: 'Subscription Request Received!',
         description: `${tier.name} selected - QuickBooks ACH bank transfer setup coming soon. 1% fee capped at $10!`,
       });
-      setLocation('/dashboard');
+      navigate('/dashboard');
     } catch (error) {
       console.error('Subscription error:', error);
       toast({
@@ -331,7 +331,7 @@ export default function ContractorPricing() {
         <div className="flex items-center justify-between mb-8">
           <Button
             variant="ghost"
-            onClick={() => setLocation('/')}
+            onClick={() => navigate('/')}
             className="text-white hover:bg-white/10"
             data-testid="button-back"
           >

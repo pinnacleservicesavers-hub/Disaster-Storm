@@ -946,7 +946,7 @@ export default function StormOpsProHub() {
                 
                 return (
                   <StaggerItem key={portal.id}>
-                    <Link href={portal.link} data-testid={`portal-${portal.id}`}>
+                    <Link to={portal.link} data-testid={`portal-${portal.id}`}>
                       <CardTilt>
                         {isHighPriority ? (
                           <PulseAlert intensity="subtle">

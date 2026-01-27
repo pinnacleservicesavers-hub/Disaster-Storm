@@ -22,7 +22,7 @@ import {
   Volume2,
   VolumeX
 } from 'lucide-react';
-import { Link } from 'wouter';
+import { Link } from 'react-router-dom';
 import { FadeIn, SlideIn, StaggerContainer, StaggerItem } from '@/components/ui/animations';
 import HurricaneStateCity, { HurricaneDropdownValue } from '@/components/HurricaneStateCity';
 import ModuleAIAssistant from '@/components/ModuleAIAssistant';
@@ -30,7 +30,7 @@ import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 // Back button component
 function BackButton() {
   return (
-    <Link href="/">
+    <Link to="/">
       <motion.button
         whileHover={{ scale: 1.05, x: -2 }}
         whileTap={{ scale: 0.95 }}

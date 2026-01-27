@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link } from 'wouter';
+import { Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -175,7 +175,7 @@ export default function MyRequests() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center space-x-4">
-              <Link href="/victim/dashboard">
+              <Link to="/victim/dashboard">
                 <Button variant="ghost" size="sm" data-testid="button-back">
                   <ArrowLeft className="w-4 h-4 mr-2" />
                   Back to Dashboard
@@ -188,13 +188,13 @@ export default function MyRequests() {
             </div>
             
             <div className="flex gap-2">
-              <Link href="/victim/report-damage">
+              <Link to="/victim/report-damage">
                 <Button size="sm" data-testid="button-new-damage-report">
                   <Camera className="w-4 h-4 mr-2" />
                   Report Damage
                 </Button>
               </Link>
-              <Link href="/victim/request-help">
+              <Link to="/victim/request-help">
                 <Button variant="outline" size="sm" data-testid="button-new-service-request">
                   <Wrench className="w-4 h-4 mr-2" />
                   Request Help
@@ -283,7 +283,7 @@ export default function MyRequests() {
                   <p className="text-gray-600 mb-6">
                     Start by reporting any storm damage to your property
                   </p>
-                  <Link href="/victim/report-damage">
+                  <Link to="/victim/report-damage">
                     <Button data-testid="button-create-first-damage-report">
                       <Camera className="w-4 h-4 mr-2" />
                       Report Damage
@@ -358,7 +358,7 @@ export default function MyRequests() {
                   <p className="text-gray-600 mb-6">
                     Request help from qualified contractors for repairs and restoration
                   </p>
-                  <Link href="/victim/request-help">
+                  <Link to="/victim/request-help">
                     <Button data-testid="button-create-first-service-request">
                       <Wrench className="w-4 h-4 mr-2" />
                       Request Help

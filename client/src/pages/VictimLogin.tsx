@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useMutation } from '@tanstack/react-query';
-import { Link } from 'wouter';
+import { Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -153,7 +153,7 @@ export default function VictimLogin() {
           <div className="mt-6 text-center space-y-4">
             <div className="text-sm text-gray-600">
               Don't have an account?{' '}
-              <Link href="/victim/register">
+              <Link to="/victim/register">
                 <Button variant="link" className="p-0 h-auto font-semibold text-blue-600" data-testid="link-register">
                   Register Here
                 </Button>

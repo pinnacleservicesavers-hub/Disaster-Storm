@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Link, useLocation } from 'wouter';
+import { Link, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -101,11 +101,11 @@ export default function VictimDashboard() {
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [, setLocation] = useLocation();
+  const navigate = useNavigate();
 
   // Navigate to new request form
   const handleNewRequest = () => {
-    setLocation('/victim/request-help');
+    navigate('/victim/request-help');
   };
 
   // Initialize voice loading with enhanced cleanup

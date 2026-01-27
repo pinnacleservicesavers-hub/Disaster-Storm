@@ -26,7 +26,7 @@ import {
   AlertCircle,
   ArrowLeft
 } from 'lucide-react';
-import { Link } from 'wouter';
+import { Link } from 'react-router-dom';
 
 interface AffiliatePartner {
   id: string;
@@ -213,7 +213,7 @@ export function AffiliateManagement() {
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white">
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         <div className="mb-6">
-          <Link href="/admin" className="inline-flex items-center gap-2 text-slate-400 hover:text-white transition-colors mb-4">
+          <Link to="/admin" className="inline-flex items-center gap-2 text-slate-400 hover:text-white transition-colors mb-4">
             <ArrowLeft className="w-4 h-4" />
             Back to Admin Dashboard
           </Link>

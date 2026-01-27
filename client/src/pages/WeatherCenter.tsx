@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useQueries } from '@tanstack/react-query';
 import { MapContainer, TileLayer, GeoJSON, useMap } from 'react-leaflet';
-import { Link } from 'wouter';
+import { Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -489,7 +489,7 @@ export default function WeatherCenter() {
       <div className="container mx-auto p-6 space-y-8 relative z-10">
         {/* Back Button */}
         <FadeIn>
-          <Link href="/">
+          <Link to="/">
             <Button variant="outline" className="flex items-center gap-2 hover:bg-blue-50" data-testid="button-back-to-dashboard">
               <ArrowLeft className="w-4 h-4" />
               Back to Dashboard

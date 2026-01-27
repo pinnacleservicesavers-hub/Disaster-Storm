@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Link } from 'wouter';
+import { Link } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FadeIn, ScaleIn, SlideIn } from '@/components/ui/animations';
@@ -32,7 +32,7 @@ export default function EyesInSky() {
       </div>
       <div className="relative max-w-7xl mx-auto px-8 py-16">
         <div className="flex items-center gap-4 mb-6">
-          <Link href="/">
+          <Link to="/">
             <motion.button
               whileHover={{ scale: 1.05, x: -2 }}
               whileTap={{ scale: 0.95 }}
@@ -293,7 +293,7 @@ export default function EyesInSky() {
                 Real-time storm chasing coverage and professional weather monitoring from across the United States
               </p>
               <div className="flex justify-center gap-4">
-                <Link href="/eyes-globe">
+                <Link to="/eyes-globe">
                   <Button
                     variant="default"
                     size="sm"

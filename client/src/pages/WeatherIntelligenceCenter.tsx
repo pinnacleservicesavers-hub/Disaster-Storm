@@ -9,7 +9,7 @@ import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Link } from 'wouter';
+import { Link } from 'react-router-dom';
 import { 
   CloudRain, 
   Zap, 
@@ -370,7 +370,7 @@ export default function WeatherIntelligenceCenter() {
         {/* Back Button */}
         <FadeIn>
           <div className="mb-6">
-            <Link href="/">
+            <Link to="/">
               <motion.button
                 whileHover={{ scale: 1.05, x: -2 }}
                 whileTap={{ scale: 0.95 }}

@@ -1,0 +1,193 @@
+Perfect. That actually simplifies your risk model a LOT.
+
+If you’re charging monthly subscription only (no percentage of awards, no commission, no success fee) then:
+
+You are clearly a software provider
+
+You are not acting as a broker
+
+You are not sharing in contract proceeds
+
+Your liability exposure drops significantly
+
+You avoid “contingency procurement agent” gray areas
+
+Let’s adjust your legal structure properly.
+
+🔄 UPDATED SUBSCRIPTION MODEL LANGUAGE
+
+(Flat Monthly Fee – No Commission, No Percentage)
+
+You can replace any old performance-based language with the following:
+
+💳 SUBSCRIPTION & BILLING TERMS
+
+(Flat Fee Model – No Revenue Share)
+
+1. Subscription Structure
+
+Access to the Procurement AI module is provided solely on a flat monthly subscription basis.
+
+The Company does not:
+
+Charge a percentage of awarded contracts
+
+Charge commission on bids
+
+Charge success fees
+
+Participate in contract proceeds
+
+Share in revenue from awarded contracts
+
+The subscription fee is for access to the software platform and AI tools only.
+
+2. No Contingency or Brokerage Relationship
+
+The Platform operates strictly as a Software-as-a-Service (SaaS) provider.
+
+Nothing in this Agreement shall be interpreted as:
+
+A brokerage agreement
+
+A contingency fee arrangement
+
+A procurement agent agreement
+
+A partnership or joint venture
+
+A profit-sharing relationship
+
+The Contractor retains 100% of all awarded contract revenue.
+
+3. Payment Terms
+
+Subscription fees are billed monthly in advance.
+
+Fees are due regardless of:
+
+Number of bids submitted
+
+Contracts awarded
+
+Revenue generated
+
+Use frequency
+
+Failure to pay results in suspension of access.
+
+4. No Refund Policy
+
+Subscription fees are non-refundable.
+
+Results (including bid awards or losses) do not affect subscription obligations.
+
+🛡 Updated Liability Framing (Important)
+
+Since you're flat-fee only, strengthen this section:
+
+Platform Status Clarification
+
+The Company provides automated procurement support tools only.
+
+The Company:
+
+Does not negotiate contracts.
+
+Does not sign contracts.
+
+Does not represent the Contractor before agencies.
+
+Does not guarantee qualification or compliance.
+
+Does not act as legal counsel.
+
+The Contractor is the sole party entering into any procurement relationship.
+
+🔒 Add This Strong Protection Clause
+Independent Business Relationship
+
+Contractor acknowledges that:
+
+The Platform is an independent technology provider.
+
+The Contractor is an independent business entity.
+
+No agency, partnership, fiduciary, or employment relationship is created.
+
+The Platform has no authority to bind the Contractor to any contract.
+
+📈 Adjusted Marketing Disclaimer
+
+Instead of saying “increase win odds,” say this:
+
+The Platform is designed to help contractors submit more complete, organized, and timely bids. While improved organization and compliance may enhance competitiveness, contract awards are determined solely by awarding entities and are never guaranteed.
+
+That wording protects you.
+
+🚫 Remove Anything That Sounds Like:
+
+“We win bids for you”
+
+“Guaranteed to increase revenue”
+
+“We’ll secure contracts for you”
+
+“We bid on your behalf without review”
+
+Instead use:
+
+“AI-assisted bid preparation”
+
+“Compliance-focused drafting”
+
+“Opportunity monitoring”
+
+“Submission support tools”
+
+🧾 Optional: Cleaner In-App Approval Language
+
+Since you're SaaS-only, use this:
+
+Final Bid Authorization
+
+☐ I confirm this bid has been reviewed in full.
+☐ I understand this platform is a software tool and does not guarantee award.
+☐ I accept full responsibility for the content and submission of this bid.
+☐ I authorize submission as presented.
+
+[ APPROVE & SUBMIT ]
+
+⚖ Why Monthly Only Is Smart
+
+Flat fee model:
+
+Easier accounting
+
+Cleaner tax structure
+
+No contingent fee licensing concerns
+
+Avoids procurement broker regulatory issues
+
+Lower lawsuit exposure
+
+Predictable recurring revenue
+
+Cleaner investor pitch
+
+You made the right call.
+
+If you want next, I can:
+
+Structure your pricing tiers (Starter / Pro / Enterprise)
+
+Build a monetization growth ladder
+
+Draft a compliant marketing statement page
+
+Create a legally safe website footer disclaimer
+
+Design the subscription agreement acceptance flow
+
+You’re building this the smart way now.

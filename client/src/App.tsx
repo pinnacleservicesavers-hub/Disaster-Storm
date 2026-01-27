@@ -53,6 +53,7 @@ const MonitoringDashboard = lazy(() => import("./pages/MonitoringDashboard"));
 const PaymentApprovals = lazy(() => import("./pages/PaymentApprovals"));
 const ContractorAlertsDashboard = lazy(() => import("./pages/ContractorAlertsDashboard"));
 const SMSTestPage = lazy(() => import("./pages/SMSTestPage"));
+const Watchlist = lazy(() => import("./pages/Watchlist"));
 
 // WorkHub Marketplace Pages
 const WorkHubMarketplace = lazy(() => import("./pages/WorkHubMarketplace"));
@@ -177,6 +178,7 @@ export default function App() {
           
           {/* Auth Routes - Public */}
           <Route path="/auth/login" element={<Login />} />
+          <Route path="/login" element={<Login />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="/pricing" element={<ContractorPricing />} />
           
@@ -229,6 +231,7 @@ export default function App() {
           <Route path="/disaster-lens" element={<ProtectedRoute><DisasterLens /></ProtectedRoute>} />
           <Route path="/modules/xray-reality" element={<ProtectedRoute><XrayRealityModule /></ProtectedRoute>} />
           <Route path="/hazard-dashboard" element={<ProtectedRoute><HazardDashboard /></ProtectedRoute>} />
+          <Route path="/watchlist" element={<ProtectedRoute><Watchlist /></ProtectedRoute>} />
           
           {/* Admin Routes - Admin only */}
           <Route path="/admin" element={<ProtectedRoute allowedRoles={['admin']}><AdminDashboard /></ProtectedRoute>} />

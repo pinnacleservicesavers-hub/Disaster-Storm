@@ -129,7 +129,7 @@ export default function EyesInTheSkyGlobe() {
             The 3D Globe view requires a Google Maps API key to load the photorealistic tiles. 
             Please configure the VITE_GOOGLE_MAPS_KEY environment variable.
           </p>
-          <Link href="/">
+          <Link to="/">
             <Button variant="outline" data-testid="button-return-home">
               Return to Dashboard
             </Button>

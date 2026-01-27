@@ -53,7 +53,7 @@ import { DashboardSection } from '@/components/DashboardSection';
 import { FadeIn, PulseAlert, StaggerContainer, StaggerItem, HoverLift } from '@/components/ui/animations';
 import { getPrimaryServicePhoto, getServicePhoto } from '@/utils/photoManager';
 import { z } from 'zod';
-import { Link, useLocation } from 'wouter';
+import { Link, useNavigate } from 'react-router-dom';
 import type { 
   StormShareGroup, 
   HelpRequest,
@@ -92,7 +92,7 @@ type MessageForm = z.infer<typeof messageSchema>;
 // Back button component for returning to dashboard
 function BackButton() {
   return (
-    <Link href="/">
+    <Link to="/">
       <motion.button
         whileHover={{ scale: 1.05, x: -2 }}
         whileTap={{ scale: 0.95 }}
@@ -124,7 +124,7 @@ export default function StormShare() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [, setLocation] = useLocation();
+  const navigate = useNavigate();
 
   const startVoiceGuide = async () => {
     // Prevent multiple clicks while processing
@@ -206,7 +206,7 @@ export default function StormShare() {
 
   // Navigate to victim dashboard for help request
   const handleRequestHelp = () => {
-    setLocation('/victim/dashboard');
+    navigate('/victim/dashboard');
   };
 
   // Switch to chat tab

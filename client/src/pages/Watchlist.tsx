@@ -184,7 +184,7 @@ export default function Watchlist() {
     <div className="container mx-auto px-4 py-8 space-y-6" data-testid="watchlist-page">
       {/* Back Button */}
       <div>
-        <Link href="/">
+        <Link to="/">
           <motion.button
             whileHover={{ scale: 1.05, x: -2 }}
             whileTap={{ scale: 0.95 }}

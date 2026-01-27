@@ -1,0 +1,371 @@
+Alright. I’m going to structure this professionally and clearly so you can actually use it in production.
+
+⚠️ Important: This is strong commercial-grade language, but you must have an attorney review before publishing.
+
+I will break this into:
+
+Master Terms of Service
+
+Procurement-Specific Privacy Policy
+
+Non-Circumvention Clause
+
+Subscription & Payment Enforcement Clause
+
+Risk Disclosure Page (Onboarding Acceptance Screen)
+
+📜 MASTER TERMS OF SERVICE
+
+(For Your Platform – Including Procurement AI Module)
+
+Effective Date: [Insert Date]
+Company Name: [Your Legal Entity Name]
+Address: [Your Business Address]
+
+1. Acceptance of Terms
+
+By accessing or using the Platform, including the Procurement AI module, you (“User” or “Contractor”) agree to be bound by these Terms of Service (“Agreement”).
+
+If you do not agree, you may not use the Platform.
+
+2. Description of Services
+
+The Platform provides:
+
+Disaster intelligence tools
+
+Contractor management tools
+
+Procurement monitoring
+
+AI-assisted bid drafting
+
+Compliance management
+
+Pricing analytics
+
+Proposal generation
+
+Calendar and deadline reminders
+
+Insurance request automation
+
+Submission support
+
+The Platform is a technology service provider only. It is not a law firm, brokerage, licensed procurement agent, or government representative.
+
+3. Eligibility
+
+You represent that:
+
+You are at least 18 years old.
+
+You are authorized to bind your company.
+
+All information provided is accurate and current.
+
+You will comply with all applicable procurement laws.
+
+4. User Responsibilities
+
+You are solely responsible for:
+
+Reviewing all bids before submission.
+
+Verifying deadlines and addenda.
+
+Ensuring compliance with all solicitation requirements.
+
+Maintaining valid licenses, insurance, certifications.
+
+Ensuring all representations are truthful.
+
+The Platform does not assume responsibility for missed deadlines, disqualification, or non-award.
+
+5. No Guarantee of Results
+
+The Platform does not guarantee:
+
+Winning bids
+
+Contract awards
+
+Revenue generation
+
+Increased profits
+
+Qualification for opportunities
+
+Procurement decisions are made solely by third parties.
+
+6. AI Disclaimer
+
+AI-generated content may contain inaccuracies. You must independently verify:
+
+Pricing
+
+Scope
+
+Forms
+
+Compliance certifications
+
+Submission requirements
+
+All outputs are advisory tools only.
+
+7. Indemnification
+
+You agree to indemnify, defend, and hold harmless the Company, its owners, officers, employees, contractors, and affiliates from any claims, damages, losses, liabilities, costs, or expenses (including attorneys’ fees) arising out of:
+
+Your bid submissions
+
+Your procurement activities
+
+Inaccurate or false information you provide
+
+Violations of law
+
+Disputes with awarding agencies
+
+8. Limitation of Liability
+
+To the maximum extent permitted by law:
+
+The Company’s total liability shall not exceed the total subscription fees paid in the preceding twelve (12) months.
+
+The Company shall not be liable for:
+
+Lost profits
+
+Lost contracts
+
+Business interruption
+
+Indirect damages
+
+Consequential damages
+
+Special or punitive damages
+
+Even if advised of such possibility.
+
+9. Third-Party Services
+
+The Platform may integrate with:
+
+Government portals
+
+Procurement platforms
+
+Data providers
+
+Payment processors
+
+Insurance systems
+
+We do not control or guarantee:
+
+Accuracy of third-party data
+
+Portal uptime
+
+Award decisions
+
+Data completeness
+
+10. Account Security
+
+You are responsible for safeguarding your credentials.
+You agree to notify us immediately of unauthorized use.
+
+11. Termination
+
+We may suspend or terminate your access if:
+
+You violate these Terms.
+
+You provide false information.
+
+You misuse procurement systems.
+
+You fail to pay subscription fees.
+
+12. Governing Law
+
+This Agreement shall be governed by the laws of the State of [Your State], without regard to conflict of law principles.
+
+🔐 PROCUREMENT-SPECIFIC PRIVACY POLICY
+1. Information Collected
+
+We collect:
+
+Business identifiers (EIN, UEI, CAGE, NAICS, etc.)
+
+Licensing information
+
+Insurance documents
+
+Bonding letters
+
+Portal credentials (if voluntarily stored)
+
+Bid documents
+
+Submission history
+
+Communication logs
+
+We do NOT collect personal financial banking credentials unless explicitly required for subscription billing.
+
+2. Use of Procurement Data
+
+Procurement-related data is used solely to:
+
+Prepare bid documents
+
+Monitor procurement portals
+
+Generate pricing analysis
+
+Track compliance
+
+Improve AI modeling
+
+We do not sell procurement data.
+
+3. Data Security
+
+We use:
+
+Encryption in transit (TLS 1.2+)
+
+Encryption at rest (AES-256 or equivalent)
+
+Secure credential vault systems
+
+Access control restrictions
+
+Audit logging
+
+4. Data Sharing
+
+We may share data with:
+
+Portal systems (for submission)
+
+Insurance carriers (for COI requests)
+
+Government agencies (as part of bid submission)
+
+Payment processors
+
+We do not share procurement data for marketing purposes.
+
+5. Data Retention
+
+Bid records may be stored for:
+
+Compliance tracking
+
+Audit history
+
+Performance analytics
+
+Users may request deletion, subject to legal retention requirements.
+
+🚫 NON-CIRCUMVENTION CLAUSE
+
+User agrees that:
+
+If the Platform introduces, assists with, identifies, prepares, or drafts any procurement opportunity or contract opportunity, the User shall not intentionally circumvent the Platform for the purpose of avoiding subscription or service fees.
+
+User shall not:
+
+Reverse engineer AI workflows.
+
+Use prepared documents outside the Platform without maintaining an active subscription.
+
+Transfer generated proposals to third parties for resale.
+
+This clause survives termination for twelve (12) months.
+
+💳 SUBSCRIPTION & PAYMENT ENFORCEMENT CLAUSE
+1. Subscription Fees
+
+Access to Procurement Services requires an active paid subscription.
+
+2. Payment Terms
+
+Fees are billed monthly or annually in advance.
+
+All payments are non-refundable unless otherwise stated.
+
+Failure to pay results in immediate suspension.
+
+3. Automatic Renewal
+
+Subscriptions automatically renew unless canceled prior to renewal date.
+
+4. Collections
+
+If payment is not received:
+
+Access will be suspended.
+
+Account may be sent to collections.
+
+User agrees to pay all reasonable collection costs and attorneys’ fees.
+
+5. No Performance-Based Refunds
+
+Winning or losing bids does not entitle User to refunds.
+
+⚠️ RISK DISCLOSURE PAGE (Onboarding Acceptance Screen)
+
+Display before activation of Procurement Module:
+
+PROCUREMENT RISK DISCLOSURE
+
+Before activating the Procurement AI module, please read carefully:
+
+Procurement is competitive and inherently uncertain.
+
+You acknowledge that:
+
+No technology can guarantee contract awards.
+
+Agencies may change deadlines or requirements without notice.
+
+Addenda may alter scope or pricing expectations.
+
+Competitor pricing is unknown and unpredictable.
+
+Failure to verify submission requirements may result in disqualification.
+
+AI-generated pricing is an estimate, not a guarantee of profitability.
+
+You remain solely responsible for all representations made in submitted bids.
+
+By continuing, you confirm:
+
+☐ I understand the risks of public and private procurement.
+☐ I understand there is no guarantee of winning bids.
+☐ I understand I am responsible for reviewing and approving all submissions.
+☐ I agree to the Procurement Terms of Service.
+
+[ ACTIVATE PROCUREMENT AI ]
+
+If you want next, I can draft:
+
+A full Investor-Grade Legal Risk Framework
+
+Enterprise version of these terms
+
+Arbitration clause + class action waiver
+
+IP ownership protection clause
+
+Contractor performance analytics disclaimer
+
+You’re building something powerful. Let’s keep it protected properly.

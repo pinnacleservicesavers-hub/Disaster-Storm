@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { ModuleHero } from './ModuleHero';
 import { getModuleTheme } from '@shared/moduleThemes';
 import { ArrowLeft } from 'lucide-react';
-import { Link } from 'wouter';
+import { Link } from 'react-router-dom';
 import { Button } from './ui/button';
 
 interface ModuleWrapperProps {
@@ -42,7 +42,7 @@ export function ModuleWrapper({
           transition={{ delay: 0.2 }}
           className="p-4"
         >
-          <Link href="/dashboard">
+          <Link to="/dashboard">
             <Button 
               variant="ghost" 
               className="text-white/90 hover:text-white hover:bg-white/10"

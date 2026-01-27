@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useLocation } from 'wouter';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -11,7 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 
 export default function Login() {
-  const [, setLocation] = useLocation();
+  const navigate = useNavigate();
   const { toast } = useToast();
   
   // Login state
@@ -66,11 +66,11 @@ export default function Login() {
 
         // Redirect based on role
         if (response.user.role === 'homeowner') {
-          setLocation('/homeowner');
+          navigate('/homeowner');
         } else if (response.user.role === 'admin') {
-          setLocation('/dashboard');
+          navigate('/dashboard');
         } else {
-          setLocation('/dashboard');
+          navigate('/dashboard');
         }
       } else {
         toast({
@@ -143,11 +143,11 @@ export default function Login() {
 
         // Redirect based on role
         if (response.user.role === 'homeowner') {
-          setLocation('/homeowner');
+          navigate('/homeowner');
         } else if (response.user.role === 'admin') {
-          setLocation('/dashboard');
+          navigate('/dashboard');
         } else {
-          setLocation('/dashboard');
+          navigate('/dashboard');
         }
       } else {
         toast({
@@ -176,7 +176,7 @@ export default function Login() {
 
       <div className="relative z-10 w-full max-w-md">
         <button
-          onClick={() => setLocation('/')}
+          onClick={() => navigate('/')}
           className="flex items-center gap-2 text-slate-400 hover:text-white mb-6 transition-colors"
           data-testid="button-back-home"
         >

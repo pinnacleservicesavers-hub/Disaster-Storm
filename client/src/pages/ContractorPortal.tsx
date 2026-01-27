@@ -49,7 +49,7 @@ import {
   ArrowLeft,
   Search
 } from 'lucide-react';
-import { Link } from 'wouter';
+import { Link } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
@@ -628,7 +628,7 @@ export default function ContractorPortal() {
         <div className="container mx-auto px-4 py-8">
           {/* Header */}
           <div className="flex items-center gap-4 mb-8">
-            <Link href="/">
+            <Link to="/">
               <Button variant="outline" className="flex items-center gap-2">
                 <ArrowLeft className="w-4 h-4" />
                 Back to Hub
@@ -815,7 +815,7 @@ export default function ContractorPortal() {
       >
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center gap-4 mb-4">
-            <Link href="/">
+            <Link to="/">
               <motion.button
                 whileHover={{ scale: 1.05, x: -2 }}
                 whileTap={{ scale: 0.95 }}
@@ -1927,7 +1927,7 @@ export default function ContractorPortal() {
                   </div>
                 </div>
 
-                <Link href="/victim/login">
+                <Link to="/victim/login">
                   <Button variant="outline" className="w-full" data-testid="button-victim-portal-access">
                     <Heart className="w-4 h-4 mr-2" />
                     Access Victim Portal

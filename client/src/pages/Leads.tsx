@@ -18,7 +18,7 @@ import {
   Briefcase, Award, Timer, Globe, Navigation, Volume2, VolumeX,
   List, Download, UserX, ArrowLeft
 } from 'lucide-react';
-import { Link } from 'wouter';
+import { Link } from 'react-router-dom';
 import { FadeIn, PulseAlert, StaggerContainer, StaggerItem, HoverLift, CountUp, ScaleIn, SlideIn } from '@/components/ui/animations';
 import { apiRequest } from '@/lib/queryClient';
 import { StateCitySelector, useStateCitySelector } from '@/components/StateCitySelector';
@@ -602,7 +602,7 @@ export default function Leads() {
 
           <div className="relative">
             <div className="flex items-center gap-4 mb-4">
-              <Link href="/">
+              <Link to="/">
                 <motion.button
                   whileHover={{ scale: 1.05, x: -2 }}
                   whileTap={{ scale: 0.95 }}

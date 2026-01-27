@@ -333,7 +333,7 @@ export default function DisasterEssentialsMarketplace() {
           transition={{ duration: 0.5 }}
           className="mb-6 flex items-center gap-4"
         >
-          <Link href="/">
+          <Link to="/">
             <Button 
               variant="outline" 
               className="flex items-center space-x-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"

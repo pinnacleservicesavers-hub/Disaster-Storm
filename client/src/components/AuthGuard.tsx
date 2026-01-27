@@ -1,5 +1,5 @@
 import { ReactNode, useEffect, useState } from 'react';
-import { useLocation } from 'wouter';
+import { useLocation } from 'react-router-dom';
 
 export type UserRole = 'contractor' | 'admin' | 'homeowner' | 'crew_member';
 
