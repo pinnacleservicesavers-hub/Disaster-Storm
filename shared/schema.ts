@@ -7285,3 +7285,336 @@ export type InsertLeadVaultFollowupSettings = z.infer<typeof insertLeadVaultFoll
 
 // Chat schema for AI integrations
 export * from "./models/chat";
+
+// =============================================
+// AI BIDINTEL PRO™ - PROCUREMENT INTELLIGENCE
+// =============================================
+
+// Contractor Procurement Profile - Setup info for bidding (UEI, CAGE, NAICS, etc.)
+export const contractorProcurementProfiles = pgTable("contractor_procurement_profiles", {
+  id: serial("id").primaryKey(),
+  contractorId: varchar("contractor_id", { length: 255 }).notNull().unique(),
+  
+  // Business Identifiers
+  legalBusinessName: varchar("legal_business_name", { length: 255 }),
+  dba: varchar("dba", { length: 255 }),
+  entityType: varchar("entity_type", { length: 50 }), // LLC, S-Corp, C-Corp, Sole Prop
+  ein: varchar("ein", { length: 20 }),
+  uei: varchar("uei", { length: 20 }), // Unique Entity Identifier (SAM.gov)
+  cageCode: varchar("cage_code", { length: 10 }),
+  dunsNumber: varchar("duns_number", { length: 20 }), // Legacy
+  
+  // Classification Codes
+  naicsCodes: text("naics_codes").array(), // Industry classification
+  pscCodes: text("psc_codes").array(), // Product Service Codes
+  sicCodes: text("sic_codes").array(), // Standard Industry Classification
+  
+  // Licensing & Compliance
+  stateLicenseNumbers: jsonb("state_license_numbers"), // { state: licenseNumber }
+  dotNumber: varchar("dot_number", { length: 20 }),
+  mcNumber: varchar("mc_number", { length: 20 }),
+  iftaRegistration: varchar("ifta_registration", { length: 50 }),
+  
+  // Insurance & Bonding
+  glInsuranceLimit: numeric("gl_insurance_limit", { precision: 12, scale: 2 }),
+  autoInsuranceLimit: numeric("auto_insurance_limit", { precision: 12, scale: 2 }),
+  wcInsuranceLimit: numeric("wc_insurance_limit", { precision: 12, scale: 2 }),
+  umbrellaLimit: numeric("umbrella_limit", { precision: 12, scale: 2 }),
+  bondingCapacity: numeric("bonding_capacity", { precision: 12, scale: 2 }),
+  coiEmail: varchar("coi_email", { length: 255 }), // Insurance agent email for COI requests
+  
+  // Certifications (Small Business Set-Asides)
+  certifications: text("certifications").array(), // SDVOSB, WOSB, HUBZone, 8(a), DBE, MBE, etc.
+  
+  // Procurement Preferences
+  activePortals: text("active_portals").array(), // SAM.gov, BidNet, State portals, etc.
+  serviceRegions: text("service_regions").array(), // States/regions to monitor
+  minContractSize: numeric("min_contract_size", { precision: 12, scale: 2 }),
+  maxContractSize: numeric("max_contract_size", { precision: 12, scale: 2 }),
+  preferredBidTypes: text("preferred_bid_types").array(), // Construction, Services, ROW, Debris, etc.
+  
+  // E-Verify & Compliance Status
+  eVerifyRegistered: boolean("e_verify_registered").default(false),
+  samRegistered: boolean("sam_registered").default(false),
+  samExpirationDate: timestamp("sam_expiration_date"),
+  
+  setupCompleted: boolean("setup_completed").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertContractorProcurementProfileSchema = createInsertSchema(contractorProcurementProfiles).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type ContractorProcurementProfile = typeof contractorProcurementProfiles.$inferSelect;
+export type InsertContractorProcurementProfile = z.infer<typeof insertContractorProcurementProfileSchema>;
+
+// Bid Opportunities - Procurement opportunities from various sources
+export const bidOpportunities = pgTable("bid_opportunities", {
+  id: serial("id").primaryKey(),
+  externalId: varchar("external_id", { length: 255 }), // ID from source portal
+  
+  // Opportunity Details
+  title: varchar("title", { length: 500 }).notNull(),
+  description: text("description"),
+  agency: varchar("agency", { length: 255 }).notNull(), // Issuing agency/municipality
+  agencyType: varchar("agency_type", { length: 50 }), // Federal, State, Municipal, Private
+  portal: varchar("portal", { length: 100 }), // SAM.gov, BidNet, State Portal, etc.
+  solicitationNumber: varchar("solicitation_number", { length: 100 }),
+  
+  // Classification
+  naicsCode: varchar("naics_code", { length: 10 }),
+  pscCode: varchar("psc_code", { length: 10 }),
+  setAsides: text("set_asides").array(), // SDVOSB, WOSB, etc.
+  bidType: varchar("bid_type", { length: 50 }), // Construction, Services, Goods, etc.
+  
+  // Financials
+  estimatedValue: numeric("estimated_value", { precision: 14, scale: 2 }),
+  contractType: varchar("contract_type", { length: 50 }), // Fixed Price, T&M, IDIQ, etc.
+  
+  // Location
+  performanceLocation: varchar("performance_location", { length: 255 }),
+  state: varchar("state", { length: 50 }),
+  city: varchar("city", { length: 100 }),
+  
+  // Dates
+  postedDate: timestamp("posted_date"),
+  dueDate: timestamp("due_date"),
+  preBidDate: timestamp("pre_bid_date"),
+  preBidLocation: text("pre_bid_location"),
+  preBidRequired: boolean("pre_bid_required").default(false),
+  siteVisitDate: timestamp("site_visit_date"),
+  siteVisitRequired: boolean("site_visit_required").default(false),
+  
+  // Requirements
+  bondRequired: boolean("bond_required").default(false),
+  bondAmount: numeric("bond_amount", { precision: 12, scale: 2 }),
+  insuranceMinimums: jsonb("insurance_minimums"), // { gl: amount, auto: amount, wc: amount }
+  experienceRequired: text("experience_required"),
+  
+  // Documents & Links
+  solicitationUrl: text("solicitation_url"),
+  documents: jsonb("documents"), // [{ name, url, type }]
+  
+  // AI Analysis
+  aiQualificationScore: integer("ai_qualification_score"), // 0-100 match score
+  aiRiskFlags: text("ai_risk_flags").array(),
+  aiRecommendedBidRange: jsonb("ai_recommended_bid_range"), // { min, target, aggressive }
+  aiAnalysis: text("ai_analysis"),
+  
+  // Status
+  status: varchar("status", { length: 30 }).default("discovered"), // discovered, qualified, not_eligible, tracking, expired
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertBidOpportunitySchema = createInsertSchema(bidOpportunities).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type BidOpportunity = typeof bidOpportunities.$inferSelect;
+export type InsertBidOpportunity = z.infer<typeof insertBidOpportunitySchema>;
+
+// Bid Submissions - Contractor's submitted bids with status tracking
+export const bidSubmissions = pgTable("bid_submissions", {
+  id: serial("id").primaryKey(),
+  contractorId: varchar("contractor_id", { length: 255 }).notNull(),
+  opportunityId: integer("opportunity_id").references(() => bidOpportunities.id),
+  
+  // Bid Details
+  bidAmount: numeric("bid_amount", { precision: 14, scale: 2 }),
+  bidDescription: text("bid_description"),
+  marginPercentage: numeric("margin_percentage", { precision: 5, scale: 2 }),
+  
+  // Pricing Analysis
+  aiSuggestedPrice: numeric("ai_suggested_price", { precision: 14, scale: 2 }),
+  contractorAdjustments: text("contractor_adjustments"),
+  pricingNotes: text("pricing_notes"),
+  
+  // Documents
+  proposalDocuments: jsonb("proposal_documents"), // [{ name, url, type, uploadedAt }]
+  requiredFormsCompleted: jsonb("required_forms_completed"), // { formName: completed }
+  coverLetter: text("cover_letter"),
+  technicalApproach: text("technical_approach"),
+  
+  // Pre-bid Activities
+  preBidAttended: boolean("pre_bid_attended").default(false),
+  preBidNotes: text("pre_bid_notes"),
+  siteVisitCompleted: boolean("site_visit_completed").default(false),
+  siteVisitNotes: text("site_visit_notes"),
+  siteVisitPhotos: text("site_visit_photos").array(),
+  
+  // Status Tracking
+  status: varchar("status", { length: 30 }).default("draft"),
+  // draft, pending_review, approved, submitted, awaiting_award, won, lost, cancelled, no_award
+  
+  // Submission Details
+  submissionMethod: varchar("submission_method", { length: 30 }), // electronic, sealed_mail, hand_delivery
+  submittedAt: timestamp("submitted_at"),
+  confirmationNumber: varchar("confirmation_number", { length: 100 }),
+  submissionReceipt: text("submission_receipt"), // URL to receipt/screenshot
+  
+  // Result
+  awardedTo: varchar("awarded_to", { length: 255 }),
+  awardAmount: numeric("award_amount", { precision: 14, scale: 2 }),
+  resultNotes: text("result_notes"),
+  lossAnalysis: text("loss_analysis"), // AI analysis of why we lost
+  
+  // Notifications
+  emailConfirmationSent: boolean("email_confirmation_sent").default(false),
+  smsConfirmationSent: boolean("sms_confirmation_sent").default(false),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertBidSubmissionSchema = createInsertSchema(bidSubmissions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type BidSubmission = typeof bidSubmissions.$inferSelect;
+export type InsertBidSubmission = z.infer<typeof insertBidSubmissionSchema>;
+
+// Bid Contacts - Agency contacts for each opportunity
+export const bidContacts = pgTable("bid_contacts", {
+  id: serial("id").primaryKey(),
+  opportunityId: integer("opportunity_id").references(() => bidOpportunities.id),
+  contractorId: varchar("contractor_id", { length: 255 }),
+  
+  // Contact Info
+  name: varchar("name", { length: 255 }).notNull(),
+  title: varchar("title", { length: 255 }),
+  department: varchar("department", { length: 255 }),
+  agency: varchar("agency", { length: 255 }),
+  email: varchar("email", { length: 255 }),
+  phone: varchar("phone", { length: 50 }),
+  role: varchar("role", { length: 50 }), // procurement_officer, technical_contact, contracting_officer
+  
+  // Notes
+  notes: text("notes"),
+  lastContactDate: timestamp("last_contact_date"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertBidContactSchema = createInsertSchema(bidContacts).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type BidContact = typeof bidContacts.$inferSelect;
+export type InsertBidContact = z.infer<typeof insertBidContactSchema>;
+
+// Bid Questions (RFIs) - Questions submitted to agencies
+export const bidQuestions = pgTable("bid_questions", {
+  id: serial("id").primaryKey(),
+  opportunityId: integer("opportunity_id").references(() => bidOpportunities.id),
+  contractorId: varchar("contractor_id", { length: 255 }).notNull(),
+  submissionId: integer("submission_id").references(() => bidSubmissions.id),
+  
+  // Question Details
+  question: text("question").notNull(),
+  category: varchar("category", { length: 50 }), // scope, pricing, timeline, compliance, technical
+  priority: varchar("priority", { length: 20 }).default("normal"), // urgent, high, normal, low
+  
+  // AI Assistance
+  aiDraftedQuestion: text("ai_drafted_question"),
+  aiRationale: text("ai_rationale"), // Why AI suggested asking this
+  
+  // Submission
+  recipientEmail: varchar("recipient_email", { length: 255 }),
+  recipientName: varchar("recipient_name", { length: 255 }),
+  sentAt: timestamp("sent_at"),
+  sentBy: varchar("sent_by", { length: 20 }), // ai_agent, contractor
+  emailSubject: varchar("email_subject", { length: 255 }),
+  emailBody: text("email_body"),
+  
+  // Response
+  responseReceived: boolean("response_received").default(false),
+  responseText: text("response_text"),
+  responseDate: timestamp("response_date"),
+  responseAttachments: text("response_attachments").array(),
+  
+  // Status
+  status: varchar("status", { length: 20 }).default("draft"), // draft, pending_approval, sent, answered, closed
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertBidQuestionSchema = createInsertSchema(bidQuestions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type BidQuestion = typeof bidQuestions.$inferSelect;
+export type InsertBidQuestion = z.infer<typeof insertBidQuestionSchema>;
+
+// Bid Intelligence Chat - AI agent conversation history
+export const bidIntelChats = pgTable("bid_intel_chats", {
+  id: serial("id").primaryKey(),
+  contractorId: varchar("contractor_id", { length: 255 }).notNull(),
+  opportunityId: integer("opportunity_id").references(() => bidOpportunities.id),
+  submissionId: integer("submission_id").references(() => bidSubmissions.id),
+  
+  // Conversation
+  role: varchar("role", { length: 20 }).notNull(), // user, assistant
+  message: text("message").notNull(),
+  audioUrl: text("audio_url"), // TTS audio for assistant responses
+  
+  // Context
+  category: varchar("category", { length: 50 }), // bid_tips, pricing, compliance, strategy, general
+  relatedTip: text("related_tip"), // Insider tip provided
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertBidIntelChatSchema = createInsertSchema(bidIntelChats).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type BidIntelChat = typeof bidIntelChats.$inferSelect;
+export type InsertBidIntelChat = z.infer<typeof insertBidIntelChatSchema>;
+
+// Bid Intel Tips - Insider knowledge database
+export const bidIntelTips = pgTable("bid_intel_tips", {
+  id: serial("id").primaryKey(),
+  
+  // Categorization
+  category: varchar("category", { length: 50 }).notNull(), // pricing, compliance, strategy, submission, pre_bid, negotiation
+  subcategory: varchar("subcategory", { length: 100 }),
+  agencyType: varchar("agency_type", { length: 50 }), // federal, state, municipal, private, utility
+  bidType: varchar("bid_type", { length: 50 }), // construction, services, debris, tree_work, etc.
+  
+  // Content
+  title: varchar("title", { length: 255 }).notNull(),
+  tip: text("tip").notNull(),
+  explanation: text("explanation"),
+  example: text("example"),
+  
+  // Metadata
+  impactLevel: varchar("impact_level", { length: 20 }), // high, medium, low
+  difficulty: varchar("difficulty", { length: 20 }), // easy, moderate, advanced
+  keywords: text("keywords").array(),
+  
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertBidIntelTipSchema = createInsertSchema(bidIntelTips).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type BidIntelTip = typeof bidIntelTips.$inferSelect;
+export type InsertBidIntelTip = z.infer<typeof insertBidIntelTipSchema>;

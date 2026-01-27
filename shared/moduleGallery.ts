@@ -1,7 +1,7 @@
 import { 
   Cloud, Zap, Camera, Eye, Plane, Cpu, FileText, Scale, 
   Users, Building, Target, TrendingUp, Video, Package,
-  ShoppingCart, UserCheck, Briefcase, Navigation, Globe
+  ShoppingCart, UserCheck, Briefcase, Navigation, Globe, Swords
 } from 'lucide-react';
 
 export interface ModuleData {
@@ -221,5 +221,17 @@ export const MODULES: ModuleData[] = [
     priority: 'HIGH',
     status: 'LIVE',
     category: 'intelligence'
+  },
+  {
+    id: 'bidintel-pro',
+    num: '#18',
+    name: 'AI BidIntel Pro™',
+    description: 'Advanced procurement intelligence with AI agent for bid optimization, submission automation, insider tips, and contractor guidance',
+    path: '/bidintel-pro',
+    icon: Swords,
+    gradient: 'from-amber-400 via-orange-500 to-orange-600',
+    priority: 'HIGH',
+    status: 'LIVE',
+    category: 'sales'
   }
 ];

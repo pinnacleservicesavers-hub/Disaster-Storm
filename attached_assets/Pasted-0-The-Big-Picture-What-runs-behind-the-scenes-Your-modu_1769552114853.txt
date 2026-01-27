@@ -1,0 +1,516 @@
+0) The Big Picture: What runs behind the scenes
+
+Your module works because you build 4 engines that cooperate:
+
+Data Ingestion Engine (pulls opportunities + docs)
+
+Qualification & Scoring Engine (decides “should we bid?”)
+
+Proposal Factory (auto builds the bid packet + forms)
+
+Lifecycle & Learning Engine (tracking, win/loss analysis, improvement)
+
+Everything happens through a queue/worker system so it runs 24/7 without the contractor doing anything until review time.
+
+1) Step-by-step: Contractor setup → “Procurement OS” activation
+Step 1. Create contractor profile (the “single source of truth”)
+
+The contractor fills out onboarding once. The app stores it as structured data:
+
+Company legal name, DBA, address, signatory name/title
+
+EIN, UEI, CAGE (if any), DUNS (legacy), DOT/IFTA (if relevant)
+
+NAICS + PSC codes
+
+Certifications (SDVOSB, HUBZone, DBE, etc.) + expiration dates
+
+Insurance: COI docs + agent email + policy limits + expiration
+
+Capabilities: services offered, equipment list, crew size, coverage radius
+
+Past performance references (projects, values, customers)
+
+System actions:
+
+Validate formats (EIN length, UEI format, etc.)
+
+Normalize addresses (geocode)
+
+Create “document vault” folders (W9, COI, licenses, safety plan, etc.)
+
+Create “template library” for proposals (coversheet, narrative blocks)
+
+✅ Outcome: you now have a profile that can auto-fill almost everything.
+
+Step 2. Choose procurement sources
+
+Contractor selects portals to monitor:
+
+SAM.gov, BidNet, state portals, municipalities, utilities, DOT portals, etc.
+
+For each portal the contractor chooses:
+
+states/counties/cities
+
+contract size range
+
+categories/keywords
+
+set-aside filters
+
+notification preference (SMS/email)
+
+System actions:
+
+Store portal configs in DB
+
+Spin up scheduled jobs for each portal (polling)
+
+✅ Outcome: the app knows where to look and what to look for.
+
+Step 3. Credential and access mode selection (3 modes)
+
+Your app supports 3 modes for safety and coverage:
+
+Mode A — Integrated (OAuth/API)
+
+Best if portal supports integration.
+
+Mode B — Assisted / “Human-in-the-loop”
+
+AI drafts everything, contractor uploads/submits.
+
+Mode C — Credential Vault (only if allowed)
+
+Contractor stores credentials encrypted to allow automation.
+
+System actions:
+
+If Mode C: encrypt and store in vault (never plaintext)
+
+If MFA required: app supports “approval prompts” during submission
+
+✅ Outcome: you can serve every portal even when they don’t have APIs.
+
+2) Step-by-step: Opportunity discovery & ingestion (24/7)
+Step 4. Scheduled portal scans run all day
+
+Every X minutes/hours, workers run:
+
+scan_portal(portal_id, contractor_id)
+
+System actions inside scan:
+
+Pull new postings (API if possible; otherwise scraper/RSS/email ingest/manual import)
+
+Deduplicate using:
+
+solicitation ID
+
+title + agency + due date hash
+
+Store opportunity record:
+
+title, buyer, due date, location, set-aside, NAICS, contact email, attachments links
+
+✅ Outcome: new opportunities automatically appear in the contractor dashboard.
+
+Step 5. Document download & parsing (Proposal Factory begins early)
+
+For each new opportunity, a worker runs:
+
+ingest_solicitation_docs(opportunity_id)
+
+System actions:
+
+Download attachments (PDF/DOCX/Excel)
+
+Convert to text (PDF parser / docx parser)
+
+Extract key sections:
+
+submission instructions
+
+required forms list
+
+evaluation criteria
+
+scope
+
+insurance requirements
+
+bonding requirements
+
+pre-bid meeting details
+
+Save:
+
+raw files in object storage
+
+extracted structured fields in DB
+
+a “requirements checklist” object
+
+✅ Outcome: the app understands the bid without the contractor reading 80 pages.
+
+3) Step-by-step: “Should I bid?” scoring engine (your standout feature)
+Step 6. Eligibility gates (hard disqualifiers)
+
+Worker runs:
+
+qualify_opportunity(opportunity_id, contractor_profile_id)
+
+Hard checks (binary):
+
+Required license present?
+
+Bonding required but contractor has none?
+
+Mandatory pre-bid attendance possible before deadline?
+
+Vendor registration possible before submission?
+
+Geographic constraints (service area)?
+
+If any fail → mark as:
+
+❌ NOT ELIGIBLE
+…and show exactly why.
+
+✅ Outcome: prevents wasted time and disqualifications.
+
+Step 7. Fit score + risk score + effort score (the “Decision Engine”)
+
+If eligible, compute a multi-factor score:
+
+Fit Score (0–100)
+
+NAICS match strength
+
+Service keywords match
+
+geography match
+
+contract size vs contractor preference
+
+set-aside match
+
+Risk Score
+
+ambiguous scope?
+
+heavy compliance burden?
+
+short deadline?
+
+unusual insurance limits?
+
+performance bond?
+
+Effort Score
+
+number of forms
+
+number of attachments
+
+technical writing load
+
+site visit requirement
+
+System actions:
+
+Store these scores + explanation
+
+Show dashboard “Bid Recommendation”:
+
+✅ recommended
+
+⚠️ review
+
+🧊 low priority
+
+✅ Outcome: contractor sees what matters in 10 seconds.
+
+4) Step-by-step: Pre-bid, calendar, and RFI automation
+Step 8. Pre-bid detection & scheduling
+
+If docs mention a pre-bid meeting, worker runs:
+
+create_prebid_event(opportunity_id)
+
+System actions:
+
+create calendar event in-app
+
+generate SMS/email reminders
+
+generate:
+
+address + GPS link
+
+PPE and documents checklist
+
+smart questions list
+
+create “attendance required” flag
+
+✅ Outcome: contractors stop missing pre-bids (huge advantage).
+
+Step 9. RFI question drafting + sending workflow
+
+If requirements are unclear, AI generates RFIs:
+
+draft_rfi(opportunity_id)
+
+System actions:
+
+AI produces list of clarifying questions
+
+Contractor clicks approve or edits
+
+System sends email to agency contact
+
+logs all outbound + inbound responses
+
+updates the bid checklist based on replies
+
+✅ Outcome: you look like a sophisticated bidder.
+
+5) Step-by-step: Pricing intelligence & bid range recommendation
+Step 10. Pull comps & build cost model
+
+Worker runs:
+
+build_pricing_model(opportunity_id, contractor_id)
+
+Inputs:
+
+contractor’s internal rate sheet (optional)
+
+equipment costs (optional)
+
+regional indices (labor/fuel)
+
+previous similar bids (if available)
+
+any public awards / bid tabs (if available)
+
+Outputs:
+
+recommended bid range:
+
+aggressive / target / conservative
+
+risk-adjusted markup suggestions
+
+mobilization/traffic control allowances if typical for category
+
+✅ Outcome: contractor gets “pricing guidance” without you promising winning.
+
+Step 11. Contractor field feedback loop (after site visit)
+
+Contractor enters:
+
+what they think price should be
+
+notes on access/hazards/dump fees
+
+Worker runs:
+
+analyze_contractor_price_variance(opportunity_id)
+
+System actions:
+
+compare contractor number to model range
+
+explain too high/low with reasons
+
+suggest adjustments
+
+show profitability warnings
+
+✅ Outcome: you’re coaching without being liable for decisions.
+
+6) Step-by-step: Proposal Factory (auto-creation of winning-looking bids)
+Step 12. Build the “Bid Packet” structure
+
+Worker runs:
+
+generate_bid_packet(opportunity_id)
+
+It assembles:
+
+Coversheet (agency, solicitation, contractor identity)
+
+Executive summary tailored to evaluation criteria
+
+Technical approach / method statement
+
+Safety and compliance section
+
+Staffing plan + resumes (if needed)
+
+Equipment plan
+
+Past performance section
+
+Schedule
+
+Pricing sheets
+
+Attachments index
+
+✅ Outcome: consistent professional proposals.
+
+Step 13. Auto-fill forms using contractor profile
+
+Worker runs:
+
+autofill_required_forms(opportunity_id, contractor_profile_id)
+
+System actions:
+
+Detect form type (W9, certifications, representations)
+
+Map profile fields into forms
+
+Generate PDFs
+
+Flag anything missing (e.g., signature, date, initial blocks)
+
+✅ Outcome: form completion becomes push-button.
+
+Step 14. Compliance validation (disqualification prevention)
+
+Worker runs:
+
+validate_submission(opportunity_id)
+
+Checks:
+
+required forms all present?
+
+addenda acknowledged?
+
+correct file naming rules?
+
+correct signatures?
+
+insurance meets minimums?
+
+sealed vs electronic?
+
+If something fails:
+
+block “Approve & Submit”
+
+show exact fix list
+
+✅ Outcome: “Disqualification Risk Detected” is a killer differentiator.
+
+7) Step-by-step: Contractor approval & submission flow
+Step 15. “Ready for Review” notification
+
+When packet is complete:
+
+SMS: “Bid ready for review”
+
+Email: “Your bid packet is ready” + attached PDF pack
+
+In-app: preview & checklist
+
+Step 16. Approval gate (legal protection)
+
+Contractor must check:
+
+I reviewed
+
+I accept responsibility
+
+I authorize submission
+
+Only then can they:
+
+Approve & Submit
+
+Or request changes
+
+Step 17. Submission process
+
+If electronic mode:
+
+upload docs
+
+fill portal fields
+
+submit
+
+store receipt/confirmation
+
+If sealed mode:
+
+create print-ready pack
+
+label + delivery instructions
+
+calendar reminders
+
+“proof of delivery” upload slot
+
+✅ Outcome: submissions become repeatable like a system.
+
+8) Step-by-step: Tracking, learning, and “getting better every time”
+Step 18. Track status automatically
+
+Workers monitor:
+
+updates/addenda
+
+awards announcements
+
+bid tab postings
+
+Contractor can mark:
+
+Won/Lost
+
+Step 19. Loss analysis
+
+If lost, AI asks for:
+
+winner price (if known)
+
+feedback from agency (if available)
+
+scoring notes
+
+Then it updates:
+
+pricing calibration
+
+narrative improvements
+
+disqualification prevention rules
+
+✅ Outcome: the tool becomes smarter for that contractor.
+
+9) The features that make it “better than anything”
+
+Here’s exactly what separates you:
+
+Bid Decision Scoring (Fit/Risk/Effort)
+
+Disqualification detection before submission
+
+Pre-bid + RFI automation (most systems ignore this)
+
+Proposal Factory (not just alerts)
+
+Win/Loss learning loop personalized per contractor
+
+Field-first UX (approve from phone, voice notes)
+
+Compliance vault + expiration tracking tied directly to bids
+
+That combo is rare.

@@ -1,0 +1,438 @@
+Below is a very detailed, step-by-step “how the app actually does this” blueprint — from data ingestion → AI reasoning → user experience → submission → learning. I’m going to describe it like a real build spec so you can hand it to a developer team.
+
+0) Big Picture: What the App Needs to Run
+
+To “do all this,” your app must have 6 working systems:
+
+Identity & Company Profile System (who the contractor is + what they can do)
+
+Portal/Opportunity Ingestion System (how you find bids)
+
+Eligibility + Risk Engine (should we bid? can we bid?)
+
+Proposal & Forms Engine (generate everything consistently)
+
+Submission + Calendar + Messaging System (keep them on track)
+
+Win/Loss Learning System (improves over time)
+
+Everything you want is just these systems working together.
+
+1) Contractor Onboarding: How the App Gets the “Truth” It Needs
+Step 1.1 — Create company profile
+
+The app requires the contractor to enter:
+
+legal name, DBA, address, service regions
+
+phone/email
+
+authorized signer
+
+industries/services offered
+
+crew capacity (optional but powerful)
+
+equipment list (bucket trucks, skid steers, trailers, etc.)
+
+Backend:
+
+Save to companies, users, company_profiles
+
+Create a company_readiness_score record (starts low)
+
+Step 1.2 — Upload compliance documents + identifiers
+
+User uploads/enters:
+
+EIN, UEI, CAGE, NAICS, PSC, licenses
+
+insurance COI + policy limits
+
+W9
+
+certifications (SDVOSB, HUBZone, DBE, etc.)
+
+past performance references
+
+Backend:
+
+Store files in S3/R2
+
+Save metadata in compliance_docs
+
+Run doc_parser_job to extract info (expiration dates, policy limits)
+
+Run readiness_score_job to update readiness %
+
+Step 1.3 — Build the “Bid Profile”
+
+The app converts onboarding data into structured capabilities:
+
+NAICS/PSC map
+
+keywords of services (“storm debris”, “tree removal”, “ROW clearing”)
+
+geographic radius
+
+minimum contract size
+
+set-aside eligibility
+
+Backend:
+
+Create capability_vector (embedding) for matching
+
+Create service_categories + coverage_regions
+
+This is what lets the AI “know” what to bid.
+
+2) Opportunity Ingestion: How the App “Gets All the Procurements Sites”
+
+There are 3 ways your app can ingest opportunities. You’ll likely need all 3.
+
+Option A — Official APIs (best)
+
+Some portals offer APIs or feeds.
+
+Step 2.1A
+
+Connect to API
+
+Pull opportunities on a schedule
+
+Store raw listings
+
+Backend:
+
+portal_connectors service
+
+ingest_job(portal_id) writes to opportunities_raw
+
+Option B — RSS / email subscriptions (very common)
+
+Many portals don’t give APIs but give:
+
+RSS feeds
+
+email notices
+
+Step 2.1B
+
+Create portal email inbox (or user forwards bid notices)
+
+Parse emails → extract bid details
+
+Convert to structured opportunity
+
+Backend:
+
+email_ingest_worker
+
+NLP extraction → opportunities
+
+Option C — Web scraping / assisted manual import (fallback)
+
+Some portals require login + don’t allow automated pulling.
+
+Step 2.1C
+
+Assisted mode: user uploads solicitation PDF or link
+
+The AI parses the solicitation and creates a bid workspace
+
+Backend:
+
+solicitation_parse_job(file/link) produces opportunity_record
+
+3) Qualification + Scoring: How It Decides “Should We Bid?”
+Step 3.1 — Match opportunities to contractor
+
+For every new opportunity:
+
+Match by NAICS/PSC overlap
+
+Match by keyword similarity
+
+Match by region distance
+
+Match by contract size range
+
+Backend scoring example:
+
+match_score = 0.35*(naics_overlap) + 0.25*(keyword_similarity) + 0.20*(geo_score) + 0.20*(size_fit)
+
+Store this as:
+
+opportunity_matches(company_id, opportunity_id, match_score)
+
+Step 3.2 — Disqualification risk scan
+
+The AI scans solicitation requirements:
+
+mandatory pre-bid?
+
+bonding required?
+
+license required?
+
+minimum past performance?
+
+special certifications?
+
+specific insurance limits?
+
+Backend:
+
+Use LLM extraction to produce a “Requirements JSON”
+
+requirements_json = { deadlines, mandatory_forms, insurance_minimums, bond_required, prebid_required, submission_method, evaluation_criteria }
+
+Step 3.3 — “Should I Bid?” output (what the user sees)
+
+The dashboard shows:
+
+Fit score (0–100)
+
+Risk score (low/med/high)
+
+Time feasibility (can we realistically do it?)
+
+Missing items checklist
+
+Example:
+
+✅ Fit: 84/100
+
+⚠ Missing: COI Umbrella $2M
+
+⏱ Deadline: 3 days (tight)
+
+📌 Pre-bid: required tomorrow @ 10AM
+
+That’s how it stands out.
+
+4) Bid Workspace Creation: How It Builds the “Bid Folder” Automatically
+Step 4.1 — Auto-create a bid workspace
+
+When contractor clicks “Start Bid”:
+
+app creates a “bid project”
+
+downloads solicitation docs
+
+builds checklist
+
+Backend:
+
+bid_projects
+
+bid_tasks
+
+bid_documents_required
+
+Step 4.2 — Build a compliance checklist
+
+AI compares:
+
+solicitation requirements
+vs
+
+contractor onboarding documents
+
+Then generates:
+
+✅ satisfied items
+
+⚠ missing items
+
+❌ blockers
+
+This is what prevents disqualification.
+
+5) Pre-Bid + Calendar + Texting: How the App Actually Does It
+Step 5.1 — Detect pre-bid/site visits automatically
+
+AI reads docs and extracts:
+
+date/time/location/contact
+
+attendance requirement
+
+Backend:
+
+calendar_event_create job
+
+notifications_schedule job
+
+Step 5.2 — Generate “what to bring” list
+
+Based on scope + rules:
+
+PPE
+
+licenses
+
+sign-in requirements
+
+site plan notes
+
+Step 5.3 — Generate smart questions
+
+AI creates:
+
+10–15 tailored questions
+
+RFI email draft
+
+a “don’t forget to ask about…” list
+
+Optional: one-click send to agency.
+
+6) Pricing Engine: How It Predicts “What the Bid Should Go For”
+Step 6.1 — Pull comps / historical patterns
+
+Depending on source availability:
+
+portal award history
+
+public bid tabs
+
+your own contractor’s past bids
+
+regional labor & equipment rate tables
+
+Backend:
+
+pricing_inputs table
+
+comps_lookup function
+
+Step 6.2 — Create recommended range
+
+AI calculates:
+
+low / target / high
+
+adds risk multipliers:
+
+mobilization
+
+overtime
+
+disposal
+
+traffic control
+
+unknown conditions
+
+Outputs:
+
+“Recommended Bid Range: $185k–$235k”
+
+“Target: $212k”
+
+“Key risk: access constraints + bonded requirement”
+
+Step 6.3 — Contractor input feedback loop
+
+Contractor enters their number.
+AI compares and explains “why high/low.”
+
+7) Proposal + Forms: How AI Completes Everything
+Step 7.1 — Generate proposal book
+
+AI generates:
+
+cover sheet
+
+executive summary
+
+approach
+
+schedule
+
+safety plan
+
+equipment list
+
+staffing plan
+
+past performance
+
+pricing
+
+Step 7.2 — Auto-fill forms
+
+AI uses onboarding profile to fill:
+
+W9
+
+certifications
+
+vendor registration
+
+insurance info
+
+NAICS/PSC
+
+UEI/CAGE/EIN
+
+signatures (placeholders if needed)
+
+Backend:
+
+template engine (Docx/PDF)
+
+field mapping (JSON schema)
+
+version control
+
+8) Approval Gate: How You Protect Yourself + Make It Scalable
+Step 8.1 — “Ready for review”
+
+AI sends:
+
+SMS: “Bid ready”
+
+Email: “Bid packet attached”
+
+In-app: checklist + preview
+
+Step 8.2 — contractor must approve
+
+They check:
+
+“I reviewed and authorize submission”
+Then click:
+
+Approve & Submit
+
+This is key legally and operationally.
+
+9) Submission: How It Submits Electronically or Handles Sealed Bids
+Step 9.1 — Electronic
+
+If portal supports integration:
+
+submit bid docs
+
+capture confirmation
+
+store receipt
+
+If not:
+
+guided steps checklist
+
+upload instructions
+
+Step 9.2 — Sealed bid
+
+AI creates:
+
+print pack checklist
+
+labeling instructions
+
+calendar reminders

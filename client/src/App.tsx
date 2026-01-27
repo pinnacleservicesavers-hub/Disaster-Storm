@@ -54,6 +54,7 @@ const PaymentApprovals = lazy(() => import("./pages/PaymentApprovals"));
 const ContractorAlertsDashboard = lazy(() => import("./pages/ContractorAlertsDashboard"));
 const SMSTestPage = lazy(() => import("./pages/SMSTestPage"));
 const Watchlist = lazy(() => import("./pages/Watchlist"));
+const AIBidIntelPro = lazy(() => import("./pages/AIBidIntelPro"));
 
 // WorkHub Marketplace Pages
 const WorkHubMarketplace = lazy(() => import("./pages/WorkHubMarketplace"));
@@ -127,6 +128,7 @@ const galleryRoutes = {
   "legal":              { launch: "/legal" },
   "disaster-lens":      { launch: "/disaster-lens" },
   "xray":               { launch: "/modules/xray-reality" },
+  "bidintel-pro":       { launch: "/bidintel-pro" },
 };
 
 // Route guard component for protected routes
@@ -232,6 +234,7 @@ export default function App() {
           <Route path="/modules/xray-reality" element={<ProtectedRoute><XrayRealityModule /></ProtectedRoute>} />
           <Route path="/hazard-dashboard" element={<ProtectedRoute><HazardDashboard /></ProtectedRoute>} />
           <Route path="/watchlist" element={<ProtectedRoute><Watchlist /></ProtectedRoute>} />
+          <Route path="/bidintel-pro" element={<ProtectedRoute><AIBidIntelPro /></ProtectedRoute>} />
           
           {/* Admin Routes - Admin only */}
           <Route path="/admin" element={<ProtectedRoute allowedRoles={['admin']}><AdminDashboard /></ProtectedRoute>} />

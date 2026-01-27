@@ -762,6 +762,25 @@ export interface IStorage {
   getSignatureAuditLog(signatureId: string): Promise<any | undefined>;
   updateSignatureAuditLog(signatureId: string, updates: any): Promise<any>;
   listSignatureAuditLogs(filters: { signerEmail?: string; documentType?: string; limit?: number }): Promise<any[]>;
+
+  // AI BidIntel Pro™ - Procurement Intelligence
+  getProcurementProfile(contractorId: string): Promise<any | undefined>;
+  upsertProcurementProfile(profile: any): Promise<any>;
+  getBidOpportunities(status?: string, limit?: number): Promise<any[]>;
+  getBidOpportunity(id: number): Promise<any | undefined>;
+  createBidOpportunity(opportunity: any): Promise<any>;
+  updateBidOpportunity(id: number, updates: any): Promise<any>;
+  getBidSubmissions(contractorId: string, status?: string): Promise<any[]>;
+  getBidSubmission(id: number): Promise<any | undefined>;
+  createBidSubmission(submission: any): Promise<any>;
+  updateBidSubmission(id: number, updates: any): Promise<any>;
+  getBidContacts(opportunityId: number): Promise<any[]>;
+  createBidContact(contact: any): Promise<any>;
+  getBidQuestions(contractorId: string): Promise<any[]>;
+  createBidQuestion(question: any): Promise<any>;
+  saveBidIntelChat(chat: any): Promise<any>;
+  getBidIntelChatHistory(contractorId: string, opportunityId?: number, limit?: number): Promise<any[]>;
+  getBidIntelDashboardStats(contractorId: string): Promise<any>;
 }
 
 export class MemStorage implements IStorage {
@@ -867,6 +886,19 @@ export class MemStorage implements IStorage {
   
   // Signature Audit Log Storage - Legal Compliance
   private signatureAuditLogs: Map<string, any> = new Map();
+
+  // AI BidIntel Pro™ Storage
+  private procurementProfiles: Map<string, any> = new Map();
+  private bidOpportunities: Map<number, any> = new Map();
+  private bidSubmissions: Map<number, any> = new Map();
+  private bidContacts: Map<number, any> = new Map();
+  private bidQuestions: Map<number, any> = new Map();
+  private bidIntelChats: Map<number, any> = new Map();
+  private bidOpportunityIdCounter = 1;
+  private bidSubmissionIdCounter = 1;
+  private bidContactIdCounter = 1;
+  private bidQuestionIdCounter = 1;
+  private bidIntelChatIdCounter = 1;
   private smtpSettings: { host: string; port: number; user: string; password: string; use_tls: boolean } = {
     host: '',
     port: 587,
@@ -5038,6 +5070,180 @@ export class MemStorage implements IStorage {
     }
     
     return logs;
+  }
+
+  // ===== AI BIDINTEL PRO™ - PROCUREMENT INTELLIGENCE =====
+
+  async getProcurementProfile(contractorId: string): Promise<any | undefined> {
+    return this.procurementProfiles.get(contractorId);
+  }
+
+  async upsertProcurementProfile(profile: any): Promise<any> {
+    const existing = this.procurementProfiles.get(profile.contractorId);
+    const updated = {
+      ...existing,
+      ...profile,
+      updatedAt: new Date(),
+      createdAt: existing?.createdAt || new Date()
+    };
+    this.procurementProfiles.set(profile.contractorId, updated);
+    return updated;
+  }
+
+  async getBidOpportunities(status?: string, limit: number = 50): Promise<any[]> {
+    let opportunities = Array.from(this.bidOpportunities.values());
+    if (status) {
+      opportunities = opportunities.filter(o => o.status === status);
+    }
+    return opportunities
+      .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+      .slice(0, limit);
+  }
+
+  async getBidOpportunity(id: number): Promise<any | undefined> {
+    return this.bidOpportunities.get(id);
+  }
+
+  async createBidOpportunity(opportunity: any): Promise<any> {
+    const id = this.bidOpportunityIdCounter++;
+    const newOpportunity = {
+      ...opportunity,
+      id,
+      status: opportunity.status || 'discovered',
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.bidOpportunities.set(id, newOpportunity);
+    return newOpportunity;
+  }
+
+  async updateBidOpportunity(id: number, updates: any): Promise<any> {
+    const existing = this.bidOpportunities.get(id);
+    if (!existing) throw new Error('Opportunity not found');
+    const updated = { ...existing, ...updates, updatedAt: new Date() };
+    this.bidOpportunities.set(id, updated);
+    return updated;
+  }
+
+  async getBidSubmissions(contractorId: string, status?: string): Promise<any[]> {
+    let submissions = Array.from(this.bidSubmissions.values())
+      .filter(s => s.contractorId === contractorId);
+    if (status) {
+      submissions = submissions.filter(s => s.status === status);
+    }
+    return submissions.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+  }
+
+  async getBidSubmission(id: number): Promise<any | undefined> {
+    return this.bidSubmissions.get(id);
+  }
+
+  async createBidSubmission(submission: any): Promise<any> {
+    const id = this.bidSubmissionIdCounter++;
+    const newSubmission = {
+      ...submission,
+      id,
+      status: submission.status || 'draft',
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.bidSubmissions.set(id, newSubmission);
+    return newSubmission;
+  }
+
+  async updateBidSubmission(id: number, updates: any): Promise<any> {
+    const existing = this.bidSubmissions.get(id);
+    if (!existing) throw new Error('Submission not found');
+    const updated = { ...existing, ...updates, updatedAt: new Date() };
+    this.bidSubmissions.set(id, updated);
+    return updated;
+  }
+
+  async getBidContacts(opportunityId: number): Promise<any[]> {
+    return Array.from(this.bidContacts.values())
+      .filter(c => c.opportunityId === opportunityId);
+  }
+
+  async createBidContact(contact: any): Promise<any> {
+    const id = this.bidContactIdCounter++;
+    const newContact = {
+      ...contact,
+      id,
+      createdAt: new Date()
+    };
+    this.bidContacts.set(id, newContact);
+    return newContact;
+  }
+
+  async getBidQuestions(contractorId: string): Promise<any[]> {
+    return Array.from(this.bidQuestions.values())
+      .filter(q => q.contractorId === contractorId)
+      .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+  }
+
+  async createBidQuestion(question: any): Promise<any> {
+    const id = this.bidQuestionIdCounter++;
+    const newQuestion = {
+      ...question,
+      id,
+      status: question.status || 'draft',
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.bidQuestions.set(id, newQuestion);
+    return newQuestion;
+  }
+
+  async saveBidIntelChat(chat: any): Promise<any> {
+    const id = this.bidIntelChatIdCounter++;
+    const newChat = {
+      ...chat,
+      id,
+      createdAt: new Date()
+    };
+    this.bidIntelChats.set(id, newChat);
+    return newChat;
+  }
+
+  async getBidIntelChatHistory(contractorId: string, opportunityId?: number, limit: number = 50): Promise<any[]> {
+    let chats = Array.from(this.bidIntelChats.values())
+      .filter(c => c.contractorId === contractorId);
+    if (opportunityId) {
+      chats = chats.filter(c => c.opportunityId === opportunityId);
+    }
+    return chats
+      .sort((a, b) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime())
+      .slice(-limit);
+  }
+
+  async getBidIntelDashboardStats(contractorId: string): Promise<any> {
+    const submissions = Array.from(this.bidSubmissions.values())
+      .filter(s => s.contractorId === contractorId);
+    
+    const opportunities = Array.from(this.bidOpportunities.values());
+    
+    const totalSubmitted = submissions.filter(s => s.status === 'submitted' || s.status === 'awaiting_award').length;
+    const totalWon = submissions.filter(s => s.status === 'won').length;
+    const totalLost = submissions.filter(s => s.status === 'lost').length;
+    const pending = submissions.filter(s => s.status === 'draft' || s.status === 'pending_review').length;
+    
+    const totalBidAmount = submissions.reduce((sum, s) => sum + parseFloat(s.bidAmount || '0'), 0);
+    const wonAmount = submissions.filter(s => s.status === 'won').reduce((sum, s) => sum + parseFloat(s.awardAmount || s.bidAmount || '0'), 0);
+    
+    const winRate = totalSubmitted > 0 ? ((totalWon / (totalWon + totalLost)) * 100).toFixed(1) : '0';
+    
+    return {
+      totalSubmissions: submissions.length,
+      totalSubmitted,
+      totalWon,
+      totalLost,
+      pending,
+      winRate: `${winRate}%`,
+      totalBidAmount,
+      wonAmount,
+      activeOpportunities: opportunities.filter(o => o.status === 'discovered' || o.status === 'qualified').length,
+      recentSubmissions: submissions.slice(-5).reverse()
+    };
   }
 }
 
