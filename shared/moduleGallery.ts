@@ -1,7 +1,7 @@
 import { 
   Cloud, Zap, Camera, Eye, Plane, Cpu, FileText, Scale, 
   Users, Building, Target, TrendingUp, Video, Package,
-  ShoppingCart, UserCheck, Briefcase, Navigation, Globe, Swords
+  ShoppingCart, UserCheck, Briefcase, Navigation, Globe, Swords, Trees
 } from 'lucide-react';
 
 export interface ModuleData {
@@ -233,5 +233,17 @@ export const MODULES: ModuleData[] = [
     priority: 'HIGH',
     status: 'LIVE',
     category: 'sales'
+  },
+  {
+    id: 'tree-tracker',
+    num: '#19',
+    name: 'Tree Incident Tracker',
+    description: 'Street-level tree-on-structure incident tracking with real-time alerts, CMA generation, crew routing, and bulk import from CSV/KML',
+    path: '/tree-tracker',
+    icon: Trees,
+    gradient: 'from-emerald-400 via-green-500 to-green-600',
+    priority: 'HIGH',
+    status: 'LIVE',
+    category: 'operations'
   }
 ];
