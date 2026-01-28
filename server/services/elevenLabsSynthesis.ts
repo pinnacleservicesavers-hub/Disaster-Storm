@@ -2,8 +2,9 @@ import { promises as fs } from 'fs';
 import path from 'path';
 
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
-// Lily - Natural, warm female voice (premium quality)
-const ELEVENLABS_VOICE_ID = process.env.ELEVENLABS_VOICE_ID || 'pNInz6obpgDQGcFmaJgB';
+// Rachel - Natural, warm female voice (premium ElevenLabs voice)
+// Voice ID: 21m00Tcm4TlvDq8ikWAM is the official Rachel voice
+const ELEVENLABS_VOICE_ID = process.env.ELEVENLABS_VOICE_ID || '21m00Tcm4TlvDq8ikWAM';
 const BASE_URL = 'https://api.elevenlabs.io/v1';
 
 export async function synthesizeLine(text: string): Promise<string> {
@@ -19,10 +20,12 @@ export async function synthesizeLine(text: string): Promise<string> {
     },
     body: JSON.stringify({
       text,
-      model_id: 'eleven_multilingual_v2',
+      model_id: 'eleven_turbo_v2_5',
       voice_settings: {
-        stability: 0.5,
-        similarity_boost: 0.8,
+        stability: 0.72,
+        similarity_boost: 0.78,
+        style: 0.35,
+        use_speaker_boost: true,
       },
     }),
   });
