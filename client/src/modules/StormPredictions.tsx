@@ -136,6 +136,45 @@ const stormEducation = {
     whyItMatters: "Ice storms cause MORE roof damage than snow. Understanding precipitation type forecasts lets you prioritize ice damage zones.",
     proTip: "Ice accumulation >0.25\" on power lines = widespread tree/structure damage. These are your highest-margin emergency jobs."
   },
+  iceStorms: {
+    title: "Ice Storm Safety & Tree Failures",
+    icon: "🧊",
+    keyFactors: [
+      { name: "Ice Accumulation", threshold: "≥0.5 inch = severe", impact: "Adds hundreds of pounds of weight to branches and power lines, causing widespread failures", icon: Droplets },
+      { name: "Freezing Rain Duration", threshold: ">4 hours", impact: "Prolonged icing events coat every surface - leaves, twigs, limbs, trunks - multiplying total stress", icon: ThermometerSun },
+      { name: "Wind + Ice Combination", threshold: "Winds >15 mph with icing", impact: "Ice becomes exponentially more dangerous with any wind - torque stress causes sudden failures", icon: Wind },
+      { name: "Temperature Stability", threshold: "Hovering at 28-32°F", impact: "Trees become rigid and lose flexibility, making them more likely to snap rather than bend", icon: Gauge },
+      { name: "Tree Structure Weakness", threshold: "V-crotches, decay, hollow trunks", impact: "Pre-existing defects fail catastrophically under ice load - 'widowmakers' form under tension", icon: AlertTriangle }
+    ],
+    whyItMatters: "Ice storms are among the most dangerous events for tree workers. Trees don't literally 'explode' - they fail due to mechanical stress and stored energy release. When ice-loaded limbs snap, stored tension causes violent splitting, sudden limb ejection, and shattered branch scatter. Frozen wood behaves unpredictably and can shatter instead of cut cleanly.",
+    proTip: "Never attempt removal while ice is still accumulating or limbs are under load. Wait for ice to melt/shed naturally, confirm power is disconnected, and have a certified arborist assess the site. Ice-damaged trees require trained professionals with proper rigging, aerial lifts, and structural assessment skills."
+  },
+  iceStormSafety: {
+    title: "Ice Storm Tree Removal Safety",
+    icon: "⚠️",
+    keyFactors: [
+      { name: "Active Icing Conditions", threshold: "STOP - Do not work", impact: "When ice is still falling, limbs are still under load, and conditions are actively dangerous", icon: AlertTriangle },
+      { name: "Power Line Involvement", threshold: "STOP - Call utility first", impact: "Never approach trees on power lines - assume ALL lines are live until utility confirms disconnected", icon: Zap },
+      { name: "Tensioned Limbs", threshold: "Assess before cutting", impact: "Cutting a limb under tension can cause violent snapback - identify compression vs tension zones", icon: Target },
+      { name: "Frozen Wood Behavior", threshold: "Unpredictable shattering", impact: "Frozen wood may shatter instead of cut cleanly - increases kickback and projectile risk", icon: Activity },
+      { name: "Secondary Collapse Risk", threshold: "Assess entire structure", impact: "Removing one limb may trigger cascading failures in adjacent damaged sections", icon: Layers }
+    ],
+    whyItMatters: "Ice-damaged tree removal is HIGH-RISK work. Required equipment includes: certified arborist or trained storm crew, proper PPE (helmets, eye protection, cut-resistant gear), aerial lift or crane when needed, rigging systems, hardwood-rated chainsaws, traffic control if roadside, and utility coordination. The structure beneath must also be assessed before work begins.",
+    proTip: "Homeowners should NEVER attempt DIY removal of ice-damaged trees. Cutting a tensioned limb causes violent snapback. Ice-damaged trees may fail without warning hours or days later. Document damage with photos and contact licensed professionals. Insurance typically requires professional mitigation for claims."
+  },
+  iceStormTreeFailure: {
+    title: "Why Trees Fail in Ice Storms",
+    icon: "🌳",
+    keyFactors: [
+      { name: "Rapid Weight Overload", threshold: "0.5+ inches of ice", impact: "Ice coats every surface uniformly - a single large tree can accumulate thousands of pounds of ice weight", icon: Activity },
+      { name: "Internal Moisture Expansion", threshold: "Saturated wood + freeze", impact: "Water in wood cells expands when freezing, creating internal micro-fractures and weakness", icon: Droplets },
+      { name: "Brittle Frozen Wood", threshold: "Below 32°F for 6+ hours", impact: "Cold wood loses flexibility and becomes rigid - snaps instead of bends under stress", icon: ThermometerSun },
+      { name: "Weak Branch Unions", threshold: "V-shaped crotches", impact: "Included bark and narrow angles concentrate stress at attachment points - primary failure zones", icon: Layers },
+      { name: "Stored Energy Release", threshold: "When limbs finally break", impact: "Sudden stress release when one limb fails can trigger 'explosive' trunk splitting and limb ejection", icon: Zap }
+    ],
+    whyItMatters: "Understanding tree failure mechanics helps you work safely. Root plate failure (uprooting) occurs when saturated soil can't anchor the loaded tree. Trunk shear happens when the wood fails mid-stem. Limb drop is the most common - individual branches break off. Whole tree failure is catastrophic and often delayed by hours after the storm passes.",
+    proTip: "Monitor for 'delayed failures' - ice-loaded trees may appear stable but fail hours or days later as ice shifts or melts unevenly. Keep crews clear of impact zones even after active icing ends. Prioritize immediate-risk trees (over structures, roads, utilities) and mark hazard zones for later assessment."
+  },
   wildfires: {
     title: "Wildfire Spread Prediction",
     icon: "🔥",
@@ -219,7 +258,7 @@ export default function StormPredictions() {
     
     narration += `Now let me explain our model performance. For track forecasts, we achieve 94% accuracy at 24 hours. For intensity forecasts, we're at 82% accuracy. For damage estimates, we're at 87% accuracy. And for pre-position timing recommendations, we achieve 91% accuracy. `;
     
-    narration += `We monitor 6 distinct hazard types: Tropical Storms, Hurricanes, Tornadoes, Winter Storms, Wildfires, and Earthquakes. Tropical storms are particularly important because they can rapidly intensify into hurricanes, and they cause 40% of tropical system fatalities due to inland flooding even without reaching hurricane strength. `;
+    narration += `We monitor 9 distinct hazard types: Tropical Storms, Hurricanes, Tornadoes, Winter Storms, Ice Storms with tree failure safety, Ice Storm Tree Removal Safety, Tree Failure Mechanics, Wildfires, and Earthquakes. Ice storms are particularly dangerous because they cause trees to fail catastrophically under the weight of ice accumulation. Our ice storm modules cover why trees explode, when it's safe to work, and required safety equipment. `;
     
     narration += `Our prediction methodology follows 5 steps. First, we ingest real-time data from all 8 feeds every 2 to 15 minutes. Second, we compare current conditions to over 100 years of historical storm data. Third, we blend multiple weather models including GFS, ECMWF, and HRRR. Fourth, we apply our damage probability model trained on over 2 million historical events. Finally, we calculate contractor opportunity scores based on revenue potential, timing, and competition. `;
     
@@ -1075,7 +1114,7 @@ export default function StormPredictions() {
                   <div className="space-y-2">
                     <div className="flex justify-between text-xs">
                       <span className="text-purple-300/70">Topics Explored</span>
-                      <span className="text-purple-300 font-bold">5/5</span>
+                      <span className="text-purple-300 font-bold">9/9</span>
                     </div>
                     <Progress value={100} className="h-2" />
                   </div>
