@@ -15816,8 +15816,9 @@ What specific area or type of incident would you like me to focus on? I can prov
                   text,
                   voiceId,
                   settings: {
-                    stability: 0.5,
-                    similarityBoost: 0.8,
+                    stability: 0.70,
+                    similarityBoost: 0.76,
+                    style: 0.35,
                     useSpeakerBoost: true
                   }
                 }),
@@ -16062,9 +16063,9 @@ What specific area or type of incident would you like me to focus on? I can prov
           text: truncatedText,
           model_id: 'eleven_turbo_v2_5',
           voice_settings: {
-            stability: 0.28,
-            similarity_boost: 0.78,
-            style: 0.60,
+            stability: 0.71,
+            similarity_boost: 0.76,
+            style: 0.32,
             use_speaker_boost: true
           }
         })

@@ -1033,28 +1033,28 @@ export class MemStorage implements IStorage {
     // Debug: log all users in storage
     console.log('🔍 Users in storage after seeding:', Array.from(this.users.keys()));
 
-    // Initialize default FEMALE VOICE PROFILES with ULTRA-NATURAL settings
-    // Key insight: Lower stability + Higher style = More natural human-like speech
+    // Initialize default FEMALE VOICE PROFILES with HUMAN-LIKE settings
+    // Key insight: Balanced stability (0.68-0.72) + moderate style (0.30-0.38) = natural human speech
     const defaultVoiceProfiles = [
       {
         id: 'voice-rachel-default',
         name: 'Rachel - Professional Female Voice',
         provider: 'elevenlabs',
-        providerVoiceId: '21m00Tcm4TlvDq8ikWAM', // Rachel - most natural ElevenLabs voice
+        providerVoiceId: '21m00Tcm4TlvDq8ikWAM', // Rachel - warm, natural ElevenLabs voice
         isDefault: true,
         isActive: true,
         settings: {
-          stability: 0.28,        // LOW = natural variation like real humans
-          similarityBoost: 0.78,  // Good clarity while allowing natural variation
-          style: 0.60,            // HIGH = natural emotional inflection & prosody
+          stability: 0.70,        // Balanced = consistent but not robotic
+          similarityBoost: 0.76,  // Good clarity and voice character
+          style: 0.35,            // Moderate = subtle natural inflection
           useSpeakerBoost: true   // Enhanced clarity
         },
         metadata: {
-          description: 'Ultra-natural professional female voice with emotional depth',
+          description: 'Natural professional female voice - warm and conversational',
           language: 'en-US',
           gender: 'female',
-          model: 'eleven_multilingual_v2', // Best model for natural speech
-          voiceCharacteristics: ['professional', 'clear', 'natural', 'warm', 'emotional']
+          model: 'eleven_turbo_v2_5', // Latest model for natural speech
+          voiceCharacteristics: ['professional', 'clear', 'natural', 'warm', 'human']
         },
         createdBy: 'system',
         createdAt: new Date(),
@@ -1068,16 +1068,16 @@ export class MemStorage implements IStorage {
         isDefault: false,
         isActive: true,
         settings: {
-          stability: 0.30,        // LOW for natural variation
-          similarityBoost: 0.80,  // Maintain voice character
-          style: 0.55,            // HIGH for natural inflection
+          stability: 0.68,        // Balanced for natural speech
+          similarityBoost: 0.75,  // Maintain voice character
+          style: 0.32,            // Subtle natural inflection
           useSpeakerBoost: true
         },
         metadata: {
           description: 'Natural, warm female voice with conversational tone',
           language: 'en-US',
           gender: 'female',
-          model: 'eleven_multilingual_v2',
+          model: 'eleven_turbo_v2_5',
           voiceCharacteristics: ['natural', 'warm', 'friendly', 'conversational']
         },
         createdBy: 'system',
