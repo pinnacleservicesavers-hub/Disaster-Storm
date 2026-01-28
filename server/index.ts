@@ -185,9 +185,13 @@ app.get("/api/ai/tools", (req, res) => {
 import { attachAssistantWSS } from "./ws/assistant.js";
 attachAssistantWSS(server);
 
-// Setup Vite for serving the React app
+// Setup Vite for serving the React app (dev) or static files (prod)
 if (process.env.NODE_ENV === "development") {
   await setupVite(app, server);
+} else {
+  // Production: serve static files from dist/public
+  const { serveStatic } = await import("./vite.js");
+  serveStatic(app);
 }
 
 server.listen(port, () => {
