@@ -1,0 +1,385 @@
+[
+  {
+    "state_name": "Alabama",
+    "state_abbrev": "AL",
+    "sources": [
+      { "url": "https://algotraffic.com/", "tag": "traveler_or_traffic" },
+      { "url": "https://www.dot.state.al.us/tpmpweb/trafficoperations/traffic_camera.html", "tag": "camera" }
+    ]
+  },
+  {
+    "state_name": "Alaska",
+    "state_abbrev": "AK",
+    "sources": [
+      { "url": "https://511.alaska.gov/", "tag": "traveler_or_traffic" },
+      { "url": "https://www.dot.alaska.gov/stwdplng/transdata/trafficcams/", "tag": "camera" }
+    ]
+  },
+  {
+    "state_name": "Arizona",
+    "state_abbrev": "AZ",
+    "sources": [
+      { "url": "https://az511.gov/", "tag": "traveler_or_traffic" },
+      { "url": "https://www.az511.gov/map", "tag": "camera" }
+    ]
+  },
+  {
+    "state_name": "Arkansas",
+    "state_abbrev": "AR",
+    "sources": [
+      { "url": "https://idrivearkansas.com/", "tag": "traveler_or_traffic" }
+    ]
+  },
+  {
+    "state_name": "California",
+    "state_abbrev": "CA",
+    "sources": [
+      { "url": "https://quickmap.dot.ca.gov/", "tag": "traveler_or_traffic" },
+      { "url": "https://cwwp2.dot.ca.gov/vm/cameras.htm", "tag": "camera" }
+    ]
+  },
+  {
+    "state_name": "Colorado",
+    "state_abbrev": "CO",
+    "sources": [
+      { "url": "https://www.cotrip.org/", "tag": "traveler_or_traffic" },
+      { "url": "https://www.cotrip.org/roadConditions.htm", "tag": "camera" }
+    ]
+  },
+  {
+    "state_name": "Connecticut",
+    "state_abbrev": "CT",
+    "sources": [
+      { "url": "https://www.ct.gov/dot/tmc", "tag": "traveler_or_traffic" }
+    ]
+  },
+  {
+    "state_name": "Delaware",
+    "state_abbrev": "DE",
+    "sources": [
+      { "url": "https://www.deldot.gov/", "tag": "traveler_or_traffic" }
+    ]
+  },
+  {
+    "state_name": "Florida",
+    "state_abbrev": "FL",
+    "sources": [
+      { "url": "https://fl511.com/", "tag": "traveler_or_traffic" },
+      { "url": "https://fl511.com/cameras", "tag": "camera" },
+      { "url": "https://www.fdot.gov/traffic/cctv/index.shtm", "tag": "camera" },
+      { "url": "https://www.sunguide.com/", "tag": "traveler_or_traffic" }
+    ]
+  },
+  {
+    "state_name": "Georgia",
+    "state_abbrev": "GA",
+    "sources": [
+      { "url": "https://511ga.org/", "tag": "traveler_or_traffic" },
+      { "url": "https://navigator-ga.com/", "tag": "camera" },
+      { "url": "https://www.dot.ga.gov/GDOT/IS/RTIS", "tag": "traveler_or_traffic" }
+    ]
+  },
+  {
+    "state_name": "Hawaii",
+    "state_abbrev": "HI",
+    "sources": [
+      { "url": "https://goakamai.org/", "tag": "traveler_or_traffic" }
+    ]
+  },
+  {
+    "state_name": "Idaho",
+    "state_abbrev": "ID",
+    "sources": [
+      { "url": "https://511.idaho.gov/", "tag": "traveler_or_traffic" }
+    ]
+  },
+  {
+    "state_name": "Illinois",
+    "state_abbrev": "IL",
+    "sources": [
+      { "url": "https://www.gettingaroundillinois.com/", "tag": "traveler_or_traffic" }
+    ]
+  },
+  {
+    "state_name": "Indiana",
+    "state_abbrev": "IN",
+    "sources": [
+      { "url": "https://511in.org/", "tag": "traveler_or_traffic" }
+    ]
+  },
+  {
+    "state_name": "Iowa",
+    "state_abbrev": "IA",
+    "sources": [
+      { "url": "https://www.511ia.org/", "tag": "traveler_or_traffic" }
+    ]
+  },
+  {
+    "state_name": "Kansas",
+    "state_abbrev": "KS",
+    "sources": [
+      { "url": "https://www.kandrive.org/", "tag": "traveler_or_traffic" }
+    ]
+  },
+  {
+    "state_name": "Kentucky",
+    "state_abbrev": "KY",
+    "sources": [
+      { "url": "https://goky.ky.gov/", "tag": "traveler_or_traffic" }
+    ]
+  },
+  {
+    "state_name": "Louisiana",
+    "state_abbrev": "LA",
+    "sources": [
+      { "url": "https://www.511la.org/", "tag": "traveler_or_traffic" },
+      { "url": "https://www.dotd.la.gov/", "tag": "traveler_or_traffic" }
+    ]
+  },
+  {
+    "state_name": "Maine",
+    "state_abbrev": "ME",
+    "sources": [
+      { "url": "https://newengland511.org/", "tag": "traveler_or_traffic" }
+    ]
+  },
+  {
+    "state_name": "Maryland",
+    "state_abbrev": "MD",
+    "sources": [
+      { "url": "https://chart.maryland.gov/", "tag": "traveler_or_traffic" },
+      { "url": "https://md511.maryland.gov/", "tag": "camera" }
+    ]
+  },
+  {
+    "state_name": "Massachusetts",
+    "state_abbrev": "MA",
+    "sources": [
+      { "url": "https://mass511.com/", "tag": "traveler_or_traffic" }
+    ]
+  },
+  {
+    "state_name": "Michigan",
+    "state_abbrev": "MI",
+    "sources": [
+      { "url": "https://mdotjboss.state.mi.us/MiDrive/", "tag": "traveler_or_traffic" }
+    ]
+  },
+  {
+    "state_name": "Minnesota",
+    "state_abbrev": "MN",
+    "sources": [
+      { "url": "https://www.511mn.org/", "tag": "traveler_or_traffic" }
+    ]
+  },
+  {
+    "state_name": "Mississippi",
+    "state_abbrev": "MS",
+    "sources": [
+      { "url": "https://mdottraffic.com/", "tag": "traveler_or_traffic" }
+    ]
+  },
+  {
+    "state_name": "Missouri",
+    "state_abbrev": "MO",
+    "sources": [
+      { "url": "https://www.modot.org/", "tag": "traveler_or_traffic" }
+    ]
+  },
+  {
+    "state_name": "Montana",
+    "state_abbrev": "MT",
+    "sources": [
+      { "url": "https://www.511mt.net/", "tag": "traveler_or_traffic" }
+    ]
+  },
+  {
+    "state_name": "Nebraska",
+    "state_abbrev": "NE",
+    "sources": [
+      { "url": "https://www.511.nebraska.gov/", "tag": "traveler_or_traffic" }
+    ]
+  },
+  {
+    "state_name": "Nevada",
+    "state_abbrev": "NV",
+    "sources": [
+      { "url": "https://www.nvroads.com/", "tag": "traveler_or_traffic" }
+    ]
+  },
+  {
+    "state_name": "New Hampshire",
+    "state_abbrev": "NH",
+    "sources": [
+      { "url": "https://newengland511.org/", "tag": "traveler_or_traffic" }
+    ]
+  },
+  {
+    "state_name": "New Jersey",
+    "state_abbrev": "NJ",
+    "sources": [
+      { "url": "https://511nj.org/", "tag": "traveler_or_traffic" }
+    ]
+  },
+  {
+    "state_name": "New Mexico",
+    "state_abbrev": "NM",
+    "sources": [
+      { "url": "https://nmroads.com/", "tag": "traveler_or_traffic" }
+    ]
+  },
+  {
+    "state_name": "New York",
+    "state_abbrev": "NY",
+    "sources": [
+      { "url": "https://www.511ny.org/", "tag": "traveler_or_traffic" }
+    ]
+  },
+  {
+    "state_name": "North Carolina",
+    "state_abbrev": "NC",
+    "sources": [
+      { "url": "https://www.drivenc.gov/", "tag": "traveler_or_traffic" },
+      { "url": "https://tims.ncdot.gov/tims/", "tag": "camera" }
+    ]
+  },
+  {
+    "state_name": "North Dakota",
+    "state_abbrev": "ND",
+    "sources": [
+      { "url": "https://www.dot.nd.gov/travel-info/", "tag": "traveler_or_traffic" }
+    ]
+  },
+  {
+    "state_name": "Ohio",
+    "state_abbrev": "OH",
+    "sources": [
+      { "url": "https://www.ohgo.com/", "tag": "traveler_or_traffic" }
+    ]
+  },
+  {
+    "state_name": "Oklahoma",
+    "state_abbrev": "OK",
+    "sources": [
+      { "url": "https://www.ok.gov/odot/", "tag": "traveler_or_traffic" }
+    ]
+  },
+  {
+    "state_name": "Oregon",
+    "state_abbrev": "OR",
+    "sources": [
+      { "url": "https://www.tripcheck.com/", "tag": "traveler_or_traffic" }
+    ]
+  },
+  {
+    "state_name": "Pennsylvania",
+    "state_abbrev": "PA",
+    "sources": [
+      { "url": "https://www.511pa.com/", "tag": "traveler_or_traffic" }
+    ]
+  },
+  {
+    "state_name": "Rhode Island",
+    "state_abbrev": "RI",
+    "sources": [
+      { "url": "http://www.dot.ri.gov/", "tag": "traveler_or_traffic" }
+    ]
+  },
+  {
+    "state_name": "South Carolina",
+    "state_abbrev": "SC",
+    "sources": [
+      { "url": "https://www.511sc.org/", "tag": "traveler_or_traffic" }
+    ]
+  },
+  {
+    "state_name": "South Dakota",
+    "state_abbrev": "SD",
+    "sources": [
+      { "url": "https://www.safetravelusa.com/sd/", "tag": "traveler_or_traffic" }
+    ]
+  },
+  {
+    "state_name": "Tennessee",
+    "state_abbrev": "TN",
+    "sources": [
+      { "url": "https://smartway.tn.gov/", "tag": "traveler_or_traffic" },
+      { "url": "https://smartway.tn.gov/traffic", "tag": "camera" },
+      { "url": "https://publicmaps.franklintn.gov/trafficcameras/", "tag": "camera" },
+      { "url": "https://www.knoxvilletn.gov/government/city_departments_offices/engineering/traffic_engineering/traffic_cameras", "tag": "camera" }
+    ]
+  },
+  {
+    "state_name": "Texas",
+    "state_abbrev": "TX",
+    "sources": [
+      { "url": "https://drivetexas.org/", "tag": "traveler_or_traffic" },
+      { "url": "https://its.txdot.gov/", "tag": "camera" },
+      { "url": "https://traffic.houstontranstar.org/", "tag": "camera" },
+      { "url": "https://www.dfwtraffic.dot.state.tx.us/", "tag": "camera" }
+    ]
+  },
+  {
+    "state_name": "Utah",
+    "state_abbrev": "UT",
+    "sources": [
+      { "url": "https://www.udottraffic.utah.gov/", "tag": "traveler_or_traffic" }
+    ]
+  },
+  {
+    "state_name": "Vermont",
+    "state_abbrev": "VT",
+    "sources": [
+      { "url": "https://newengland511.org/", "tag": "traveler_or_traffic" }
+    ]
+  },
+  {
+    "state_name": "Virginia",
+    "state_abbrev": "VA",
+    "sources": [
+      { "url": "https://www.511virginia.org/", "tag": "traveler_or_traffic" }
+    ]
+  },
+  {
+    "state_name": "Washington",
+    "state_abbrev": "WA",
+    "sources": [
+      { "url": "https://www.wsdot.com/traffic/", "tag": "traveler_or_traffic" }
+    ]
+  },
+  {
+    "state_name": "West Virginia",
+    "state_abbrev": "WV",
+    "sources": [
+      { "url": "https://wv511.org/", "tag": "traveler_or_traffic" }
+    ]
+  },
+  {
+    "state_name": "Wisconsin",
+    "state_abbrev": "WI",
+    "sources": [
+      { "url": "https://511wi.gov/", "tag": "traveler_or_traffic" }
+    ]
+  },
+  {
+    "state_name": "Wyoming",
+    "state_abbrev": "WY",
+    "sources": [
+      { "url": "https://www.wyoroad.info/", "tag": "traveler_or_traffic" }
+    ]
+  },
+  {
+    "state_name": "District of Columbia",
+    "state_abbrev": "DC",
+    "sources": [
+      { "url": "https://ddot.dc.gov/", "tag": "traveler_or_traffic" }
+    ]
+  },
+  {
+    "state_name": "Puerto Rico",
+    "state_abbrev": "PR",
+    "sources": [
+      { "url": "https://dtop.pr.gov/", "tag": "traveler_or_traffic" }
+    ]
+  }
+]

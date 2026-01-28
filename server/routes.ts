@@ -5895,6 +5895,58 @@ Return this exact JSON structure:
     }
   });
 
+  // ---- Twilio Incoming SMS Webhook (/sms) ----
+  // This endpoint receives incoming SMS messages from Twilio
+  // Configure in Twilio Console: Phone Numbers → Your Number → Messaging → Webhook URL
+  // URL: https://strategicservicesavers.replit.app/sms (HTTP POST)
+  app.post("/sms", async (req, res) => {
+    try {
+      console.log("=== Incoming SMS received ===");
+      console.log("Timestamp:", new Date().toISOString());
+      console.log("Request body:", JSON.stringify(req.body, null, 2));
+      
+      const {
+        From: fromNumber,
+        To: toNumber,
+        Body: messageBody,
+        MessageSid: messageSid,
+        AccountSid: accountSid,
+        NumMedia: numMedia,
+        MediaUrl0: mediaUrl0,
+        MediaContentType0: mediaContentType0
+      } = req.body || {};
+
+      console.log("From:", fromNumber);
+      console.log("To:", toNumber);
+      console.log("Message:", messageBody);
+      console.log("MessageSid:", messageSid);
+      
+      if (numMedia && parseInt(numMedia) > 0) {
+        console.log("Media attached:", numMedia, "files");
+        console.log("Media URL:", mediaUrl0);
+        console.log("Media Type:", mediaContentType0);
+      }
+
+      // TODO: Add your incoming SMS handling logic here
+      // Examples:
+      // - Store message in database
+      // - Forward to AI assistant for auto-response
+      // - Trigger workflow based on keywords
+      // - Match to existing lead/customer
+
+      // Return TwiML response (empty response = no auto-reply)
+      res.set("Content-Type", "text/xml");
+      res.send(`<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Message>Thank you for contacting Strategic Services Savers. We received your message and will respond shortly.</Message>
+</Response>`);
+    } catch (error) {
+      console.error("SMS webhook error:", error);
+      res.set("Content-Type", "text/xml");
+      res.send(`<?xml version="1.0" encoding="UTF-8"?><Response></Response>`);
+    }
+  });
+
   app.post("/api/call", async (req, res) => {
     try {
       const { to, twiml } = req.body || {};

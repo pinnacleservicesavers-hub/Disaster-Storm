@@ -27,6 +27,7 @@ app.set("trust proxy", 1);
 
 app.use(cors());
 app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true })); // For Twilio webhook form-encoded data
 
 // Session middleware - must be before routes that use sessions
 app.use(session({
