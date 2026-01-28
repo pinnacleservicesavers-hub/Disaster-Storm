@@ -1,0 +1,161 @@
+Cool — here’s the CSV + JSON generator you can drop into Replit and run. It will:
+
+✅ Pull FHWA master index (all states + DC + Puerto Rico)
+✅ Visit each FHWA state page
+✅ Extract the useful outbound links (511 / cameras / traveler info / incidents / GIS)
+✅ Save two files:
+
+fhwa_sources.json
+
+fhwa_sources.csv
+
+FHWA master index source: https://highways.dot.gov/traffic-info
+
+Example state page source (TN): https://highways.dot.gov/ops/traffic-info/tennessee-traffic-information
+
+// Save as: fhwa_scrape_to_json_csv.mjs
+// Run: node fhwa_scrape_to_json_csv.mjs
+// Output: fhwa_sources.json, fhwa_sources.csv
+
+import { writeFileSync } from "node:fs";
+
+const ROOT = "https://highways.dot.gov/traffic-info";
+
+function uniq(arr) {
+  return [...new Set(arr)];
+}
+
+function extractLinks(html, baseUrl) {
+  const out = [];
+  const re = /href="([^"]+)"/g;
+  let m;
+  while ((m = re.exec(html)) !== null) {
+    let u = (m[1] || "").trim();
+    if (!u) continue;
+
+    // normalize relative links
+    if (u.startsWith("/")) u = new URL(u, baseUrl).toString();
+
+    // keep only http(s)
+    if (u.startsWith("http")) out.push(u);
+  }
+  return uniq(out);
+}
+
+function looksUseful(url) {
+  // keep ONLY the kind of links your app can use for traffic/cameras/incidents
+  return /511|traffic|camera|cctv|traveler|incident|closure|crash|accident|road|highway|dot|smartway|gis|arcgis/i.test(
+    url
+  );
+}
+
+function tagUrl(url) {
+  if (/arcgis|gis/i.test(url)) return "gis";
+  if (/camera|cctv/i.test(url)) return "camera";
+  if (/incident|crash|accident|closure/i.test(url)) return "incident_or_closure";
+  if (/511|traveler|traffic|smartway/i.test(url)) return "traveler_or_traffic";
+  return "other";
+}
+
+function stateNameFromFhwaUrl(statePageUrl) {
+  // Most FHWA state pages look like: .../<state>-traffic-information
+  // We'll convert that into "State Traffic Information" and then clean it.
+  try {
+    const last = new URL(statePageUrl).pathname.split("/").filter(Boolean).pop() || "";
+    const cleaned = last
+      .replace(/-traffic-information$/i, "")
+      .replace(/[-_]/g, " ")
+      .trim()
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+    return cleaned || "Unknown";
+  } catch {
+    return "Unknown";
+  }
+}
+
+function csvEscape(val) {
+  const s = String(val ?? "");
+  if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
+}
+
+async function fetchHtml(url) {
+  const res = await fetch(url, { redirect: "follow" });
+  return await res.text();
+}
+
+async function main() {
+  // 1) Load FHWA master index (all states/territories)
+  const rootHtml = await fetchHtml(ROOT);
+  const rootLinks = extractLinks(rootHtml, ROOT);
+
+  // FHWA state pages are typically under /ops/traffic-info/
+  const fhwaStatePages = rootLinks.filter((u) =>
+    /highways\.dot\.gov\/ops\/traffic-info\//i.test(u)
+  );
+
+  const results = [];
+  const csvRows = [];
+
+  // CSV header
+  csvRows.push(["state_name", "fhwa_state_page", "tag", "url", "scraped_utc"].join(","));
+
+  for (const statePage of fhwaStatePages) {
+    const html = await fetchHtml(statePage);
+
+    const scrapedUtc = new Date().toISOString();
+    const stateName = stateNameFromFhwaUrl(statePage);
+
+    const links = extractLinks(html, statePage)
+      .filter(looksUseful)
+      .map((url) => ({ url, tag: tagUrl(url) }));
+
+    // Build JSON record
+    results.push({
+      state_name: stateName,
+      fhwa_state_page: statePage,
+      sources: links,
+      last_scraped_utc: scrapedUtc,
+    });
+
+    // Build CSV rows
+    for (const src of links) {
+      csvRows.push(
+        [
+          csvEscape(stateName),
+          csvEscape(statePage),
+          csvEscape(src.tag),
+          csvEscape(src.url),
+          csvEscape(scrapedUtc),
+        ].join(",")
+      );
+    }
+  }
+
+  writeFileSync("fhwa_sources.json", JSON.stringify(results, null, 2));
+  writeFileSync("fhwa_sources.csv", csvRows.join("\n"));
+
+  console.log(`Done ✅`);
+  console.log(`- fhwa_sources.json (${results.length} FHWA state/territory pages)`);
+  console.log(`- fhwa_sources.csv (${csvRows.length - 1} source rows)`);
+}
+
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
+
+How to use in Replit (fast)
+
+Create a file named fhwa_scrape_to_json_csv.mjs
+
+Paste the code
+
+Run:
+node fhwa_scrape_to_json_csv.mjs
+
+Download/use:
+
+fhwa_sources.json
+
+fhwa_sources.csv

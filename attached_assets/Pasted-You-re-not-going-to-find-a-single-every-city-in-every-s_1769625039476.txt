@@ -1,0 +1,128 @@
+You’re not going to find a single “every city in every state” master list that’s complete (cities run their own GIS/traffic sites), but you can get “every state” from FHWA and then auto-extract the city camera links that FHWA lists on each state page.
+
+1) Your Franklin, TN camera link + the “machine-readable” camera source
+
+Franklin camera viewer (what you already have): https://publicmaps.franklintn.gov/trafficcameras/
+
+Franklin ArcGIS REST service (best for pulling camera points into your app):
+https://publicmaps.franklintn.gov/arcgis/rest/services/Maps/TrafficCameras/MapServer
+
+Layers (to discover fields / IDs):
+https://publicmaps.franklintn.gov/arcgis/rest/services/Maps/TrafficCameras/MapServer/layers
+
+2) The “every state” master hub (official)
+
+FHWA National Traffic & Road Closure Info has links for every state + DC + Puerto Rico, updated Jan 23, 2026:
+https://highways.dot.gov/traffic-info
+
+When you click a state, you get a page that usually includes that state’s official 511/ITS site (and often extra city camera links). Example: Tennessee’s page includes TDOT SmartWay and also city links like Franklin/Knoxville/Murfreesboro, etc.
+
+3) Copy/paste list: FHWA “state pages” you can load + scrape in Replit
+
+These are stable entry points (they redirect to the current FHWA ops pages):
+
+https://highways.dot.gov/traffic-info/alabama
+https://highways.dot.gov/traffic-info/alaska
+https://highways.dot.gov/traffic-info/arizona
+https://highways.dot.gov/traffic-info/arkansas
+https://highways.dot.gov/traffic-info/california
+https://highways.dot.gov/traffic-info/colorado
+https://highways.dot.gov/traffic-info/connecticut
+https://highways.dot.gov/traffic-info/delaware
+https://highways.dot.gov/traffic-info/district-columbia
+https://highways.dot.gov/traffic-info/florida
+https://highways.dot.gov/traffic-info/georgia
+https://highways.dot.gov/traffic-info/hawaii
+https://highways.dot.gov/traffic-info/idaho
+https://highways.dot.gov/traffic-info/illinois
+https://highways.dot.gov/traffic-info/indiana
+https://highways.dot.gov/traffic-info/iowa
+https://highways.dot.gov/traffic-info/kansas
+https://highways.dot.gov/traffic-info/kentucky
+https://highways.dot.gov/traffic-info/louisiana
+https://highways.dot.gov/traffic-info/maine
+https://highways.dot.gov/traffic-info/maryland
+https://highways.dot.gov/traffic-info/massachusetts
+https://highways.dot.gov/traffic-info/michigan
+https://highways.dot.gov/traffic-info/minnesota
+https://highways.dot.gov/traffic-info/mississippi
+https://highways.dot.gov/traffic-info/missouri
+https://highways.dot.gov/traffic-info/montana
+https://highways.dot.gov/traffic-info/nebraska
+https://highways.dot.gov/traffic-info/nevada
+https://highways.dot.gov/traffic-info/new-hampshire
+https://highways.dot.gov/traffic-info/new-jersey
+https://highways.dot.gov/traffic-info/new-mexico
+https://highways.dot.gov/traffic-info/new-york
+https://highways.dot.gov/traffic-info/north-carolina
+https://highways.dot.gov/traffic-info/north-dakota
+https://highways.dot.gov/traffic-info/ohio
+https://highways.dot.gov/traffic-info/oklahoma
+https://highways.dot.gov/traffic-info/oregon
+https://highways.dot.gov/traffic-info/pennsylvania
+https://highways.dot.gov/traffic-info/puerto-rico
+https://highways.dot.gov/traffic-info/rhode-island
+https://highways.dot.gov/traffic-info/south-carolina
+https://highways.dot.gov/traffic-info/south-dakota
+https://highways.dot.gov/traffic-info/tennessee
+https://highways.dot.gov/traffic-info/texas
+https://highways.dot.gov/traffic-info/utah
+https://highways.dot.gov/traffic-info/vermont
+https://highways.dot.gov/traffic-info/virginia
+https://highways.dot.gov/traffic-info/washington
+https://highways.dot.gov/traffic-info/west-virginia
+https://highways.dot.gov/traffic-info/wisconsin
+https://highways.dot.gov/traffic-info/wyoming
+
+
+Source for the state list: FHWA national page
+
+4) Quick Replit script to auto-extract the camera/511 links from each FHWA state page
+
+Use this to build your “every state + every listed city link” dataset automatically:
+
+// node >= 18 (has fetch). Save as scrape-fhwa-traffic-links.mjs and run: node scrape-fhwa-traffic-links.mjs
+import { writeFileSync } from "node:fs";
+
+const states = [
+  "alabama","alaska","arizona","arkansas","california","colorado","connecticut","delaware","district-columbia",
+  "florida","georgia","hawaii","idaho","illinois","indiana","iowa","kansas","kentucky","louisiana","maine",
+  "maryland","massachusetts","michigan","minnesota","mississippi","missouri","montana","nebraska","nevada",
+  "new-hampshire","new-jersey","new-mexico","new-york","north-carolina","north-dakota","ohio","oklahoma",
+  "oregon","pennsylvania","puerto-rico","rhode-island","south-carolina","south-dakota","tennessee","texas",
+  "utah","vermont","virginia","washington","west-virginia","wisconsin","wyoming"
+];
+
+const base = "https://highways.dot.gov/traffic-info/";
+
+function extractLinks(html) {
+  // super simple link grab; good enough for FHWA pages
+  const links = [];
+  const re = /href="([^"]+)"/g;
+  let m;
+  while ((m = re.exec(html)) !== null) {
+    let url = m[1];
+    if (url.startsWith("/")) url = "https://highways.dot.gov" + url;
+    if (url.startsWith("http")) links.push(url);
+  }
+  // de-dupe
+  return [...new Set(links)];
+}
+
+const out = [];
+for (const s of states) {
+  const url = base + s;
+  const res = await fetch(url, { redirect: "follow" });
+  const html = await res.text();
+  const links = extractLinks(html);
+
+  // keep only “useful” outbound links (511/traffic/cameras/DOT/city)
+  const filtered = links.filter(u =>
+    /511|traffic|camera|cctv|dot\.|smartway|traveler|roads|highway|arcgis|gis/i.test(u)
+  );
+
+  out.push({ state: s, fhwa: url, links: filtered });
+}
+
+writeFileSync("fhwa_state_links.json", JSON.stringify(out, null, 2));
+console.log("Wrote fhwa_state_links.json");

@@ -27,6 +27,66 @@ import { FadeIn, SlideIn, StaggerContainer, StaggerItem } from '@/components/ui/
 import HurricaneStateCity, { HurricaneDropdownValue } from '@/components/HurricaneStateCity';
 import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 
+// State name to abbreviation mapping for traffic camera filtering
+const STATE_ABBREVIATIONS: Record<string, string> = {
+  'Alabama': 'AL',
+  'Alaska': 'AK',
+  'Arizona': 'AZ',
+  'Arkansas': 'AR',
+  'California': 'CA',
+  'Colorado': 'CO',
+  'Connecticut': 'CT',
+  'Delaware': 'DE',
+  'Florida': 'FL',
+  'Georgia': 'GA',
+  'Hawaii': 'HI',
+  'Idaho': 'ID',
+  'Illinois': 'IL',
+  'Indiana': 'IN',
+  'Iowa': 'IA',
+  'Kansas': 'KS',
+  'Kentucky': 'KY',
+  'Louisiana': 'LA',
+  'Maine': 'ME',
+  'Maryland': 'MD',
+  'Massachusetts': 'MA',
+  'Michigan': 'MI',
+  'Minnesota': 'MN',
+  'Mississippi': 'MS',
+  'Missouri': 'MO',
+  'Montana': 'MT',
+  'Nebraska': 'NE',
+  'Nevada': 'NV',
+  'New Hampshire': 'NH',
+  'New Jersey': 'NJ',
+  'New Mexico': 'NM',
+  'New York': 'NY',
+  'North Carolina': 'NC',
+  'North Dakota': 'ND',
+  'Ohio': 'OH',
+  'Oklahoma': 'OK',
+  'Oregon': 'OR',
+  'Pennsylvania': 'PA',
+  'Rhode Island': 'RI',
+  'South Carolina': 'SC',
+  'South Dakota': 'SD',
+  'Tennessee': 'TN',
+  'Texas': 'TX',
+  'Utah': 'UT',
+  'Vermont': 'VT',
+  'Virginia': 'VA',
+  'Washington': 'WA',
+  'West Virginia': 'WV',
+  'Wisconsin': 'WI',
+  'Wyoming': 'WY'
+};
+
+// Get abbreviation from full state name
+function getStateAbbreviation(stateName: string | null): string | null {
+  if (!stateName) return null;
+  return STATE_ABBREVIATIONS[stateName] || stateName;
+}
+
 // Back button component
 function BackButton() {
   return (
@@ -110,9 +170,18 @@ export default function TrafficCamWatcher() {
   const aiAbortControllerRef = useRef<AbortController | null>(null);
   const aiSessionTokenRef = useRef<number>(0);
 
-  // Fetch traffic cameras from API
+  // Fetch traffic cameras from API with state filter for better performance
+  const stateCode = getStateAbbreviation(locationFilter.state);
   const { data: camerasResponse, isLoading: camerasLoading } = useQuery<TrafficCamerasResponse>({
-    queryKey: ['/api/traffic-cameras'],
+    queryKey: ['/api/traffic-cameras', stateCode],
+    queryFn: async () => {
+      const url = stateCode 
+        ? `/api/traffic-cameras?state=${stateCode}` 
+        : '/api/traffic-cameras';
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Failed to fetch cameras');
+      return response.json();
+    },
     refetchInterval: 30000, // Refresh every 30 seconds
   });
 
@@ -133,10 +202,19 @@ export default function TrafficCamWatcher() {
     city: cam.city
   })) || [];
   
-  // Filter cameras based on location filter
+  // Filter cameras based on location filter (convert full state name to abbreviation)
   const cameras = allCameras.filter(cam => {
-    const stateMatch = !locationFilter.state || cam.state === locationFilter.state;
-    const cityMatch = !locationFilter.city || cam.city === locationFilter.city;
+    const stateAbbr = getStateAbbreviation(locationFilter.state);
+    const stateMatch = !locationFilter.state || 
+      cam.state === stateAbbr || 
+      cam.state === locationFilter.state ||
+      cam.state.toUpperCase() === stateAbbr?.toUpperCase();
+    
+    // City matching: check if camera city contains the selected city name (case-insensitive)
+    const cityMatch = !locationFilter.city || 
+      cam.city.toLowerCase().includes(locationFilter.city.toLowerCase()) ||
+      locationFilter.city.toLowerCase().includes(cam.city.toLowerCase());
+    
     return stateMatch && cityMatch;
   });
   

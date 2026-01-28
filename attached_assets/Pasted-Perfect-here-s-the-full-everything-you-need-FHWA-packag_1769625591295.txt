@@ -1,0 +1,208 @@
+Perfect — here’s the full “everything you need” FHWA package to build your nationwide camera/traffic source library (every state + DC + Puerto Rico), and then expand it into city/metro camera sources the right way.
+
+1) The two FHWA “root sources” you should use
+A) FHWA master index (all states + DC + Puerto Rico)
+
+This page is your guaranteed “every state” starting point:
+https://highways.dot.gov/traffic-info
+
+What you’ll scrape from it:
+
+every state/territory FHWA traffic info page link
+
+B) FHWA state pages (where the real links live)
+
+Each state page includes the official state traveler/traffic system and often city camera links (like Tennessee listing Franklin, Knoxville, Murfreesboro, etc.).
+Example: Tennessee FHWA page
+https://highways.dot.gov/ops/traffic-info/tennessee-traffic-information
+
+✅ This is where you collect the outbound URLs you’ll use in your app.
+
+2) “Everything to extract” from FHWA pages
+
+From the FHWA master index (/traffic-info) extract:
+
+state_name
+
+fhwa_state_page_url
+
+From each FHWA state page extract:
+
+every outbound link (<a href="...">) that matches keywords like:
+
+511, traffic, camera, cctv, traveler, incident, closure, road, dot, smartway, gis, arcgis
+
+This captures:
+
+State DOT 511/traveler info portals
+
+State DOT traffic maps
+
+City camera pages that FHWA explicitly lists
+
+Crash/incident report portals (often police/metro)
+
+Example: Tennessee FHWA page includes city/metro camera links and “City of Franklin Road Projects.”
+
+3) Your Replit dataset format (use this exactly)
+
+Save this as fhwa_sources.json:
+
+[
+  {
+    "state_name": "Tennessee",
+    "fhwa_state_page": "https://highways.dot.gov/ops/traffic-info/tennessee-traffic-information",
+    "sources": [
+      {
+        "url": "https://publicmaps.franklintn.gov/trafficcameras/",
+        "tag": "camera_or_traffic"
+      }
+    ],
+    "last_scraped_utc": "2026-01-28T00:00:00Z"
+  }
+]
+
+
+Then your app can:
+
+loop states
+
+loop sources
+
+call each source with your agent
+
+4) One script that builds the FULL FHWA all-states JSON (drop into Replit)
+
+Node 18+ (Replit usually is).
+Creates: fhwa_sources.json
+
+// Save as: fhwa_scrape.mjs
+// Run: node fhwa_scrape.mjs
+
+import { writeFileSync } from "node:fs";
+
+const ROOT = "https://highways.dot.gov/traffic-info";
+
+function uniq(arr) { return [...new Set(arr)]; }
+
+function extractLinks(html, baseUrl) {
+  const out = [];
+  const re = /href="([^"]+)"/g;
+  let m;
+  while ((m = re.exec(html)) !== null) {
+    let u = m[1].trim();
+    if (!u) continue;
+    if (u.startsWith("/")) u = new URL(u, baseUrl).toString();
+    if (u.startsWith("http")) out.push(u);
+  }
+  return uniq(out);
+}
+
+function looksUseful(url) {
+  return /511|traffic|camera|cctv|traveler|incident|closure|road|highway|dot|smartway|gis|arcgis/i.test(url);
+}
+
+function tagUrl(url) {
+  if (/camera|cctv/i.test(url)) return "camera";
+  if (/511|traveler|traffic/i.test(url)) return "traveler_or_traffic";
+  if (/incident|crash|accident|closure/i.test(url)) return "incident_or_closure";
+  if (/gis|arcgis/i.test(url)) return "gis";
+  return "other";
+}
+
+async function fetchHtml(url) {
+  const res = await fetch(url, { redirect: "follow" });
+  return await res.text();
+}
+
+async function main() {
+  // 1) Get FHWA master list
+  const rootHtml = await fetchHtml(ROOT);
+  const rootLinks = extractLinks(rootHtml, ROOT);
+
+  // FHWA state pages are usually /ops/traffic-info/<state>-traffic-information
+  const fhwaStatePages = rootLinks.filter(u => /highways\.dot\.gov\/ops\/traffic-info\//i.test(u));
+
+  const results = [];
+
+  for (const statePage of fhwaStatePages) {
+    const html = await fetchHtml(statePage);
+    const links = extractLinks(html, statePage)
+      .filter(looksUseful)
+      .map(u => ({ url: u, tag: tagUrl(u) }));
+
+    results.push({
+      state_name: statePage.split("/").pop()?.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase()) || "Unknown",
+      fhwa_state_page: statePage,
+      sources: links,
+      last_scraped_utc: new Date().toISOString()
+    });
+  }
+
+  writeFileSync("fhwa_sources.json", JSON.stringify(results, null, 2));
+  console.log(`Wrote fhwa_sources.json (${results.length} FHWA state/territory pages)`);
+}
+
+main().catch(err => {
+  console.error(err);
+  process.exit(1);
+});
+
+5) The 2-pass crawler plan (FHWA → State DOT → Metro/City Cameras)
+
+FHWA gets you “every state” and some cities. To go broader:
+
+Pass 1 — FHWA
+
+scrape the FHWA master index
+
+scrape every FHWA state page (Tennessee example)
+
+store all outbound “useful” links (511/cameras/etc.)
+
+Pass 2 — State DOT directory (backup + expansion)
+
+FHWA also maintains an official list of State Transportation Web Sites.
+https://www.fhwa.dot.gov/about/webstate.cfm
+
+Use it to:
+
+find each State DOT homepage
+
+from each DOT homepage (or their 511 portal), discover:
+
+“Traffic Cameras” pages
+
+“Traveler Information” pages
+
+“ITS / CCTV” pages
+
+GIS endpoints (ArcGIS)
+
+Pass 3 (optional, but powerful) — “API discovery”
+
+Many camera systems are:
+
+ArcGIS FeatureServer / MapServer
+
+XML/JSON camera feeds
+
+511 APIs (some states provide them, some don’t)
+
+Your agent should try, in this order:
+
+look for ArcGIS REST links (/arcgis/rest/services/...)
+
+look for FeatureServer / MapServer
+
+look for “cameras” endpoints that return JSON/XML
+
+if none, fall back to the public viewer page
+
+6) For Franklin specifically (best source to use)
+
+Viewer: https://publicmaps.franklintn.gov/trafficcameras/
+
+If your agent needs actual camera “objects,” your best move is to pull from the site’s ArcGIS REST services when available (many city GIS portals expose them).
+
+(If you want, paste what your Franklin ArcGIS REST URL shows in your browser and I’ll tell you the exact /query?... URL to pull every camera point in JSON.)

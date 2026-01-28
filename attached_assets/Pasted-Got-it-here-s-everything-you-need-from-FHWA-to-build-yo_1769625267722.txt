@@ -1,0 +1,190 @@
+Got it — here’s everything you need from FHWA to build your “every state → official traffic/cameras/511 links (and the city links FHWA lists)” dataset, plus exactly what to extract and how to store it for Replit.
+
+What FHWA gives you (and why it’s the best “every state” source)
+A) The master list (all states + DC + Puerto Rico)
+
+FHWA’s National Traffic and Road Closure Information page is the official index and it’s updated Jan 23, 2026.
+This is your “root” page for every state.
+
+B) A state-by-state detail page
+
+Each state has a page that lists the official state DOT traffic system (usually the 511 site) and often includes extra links like:
+
+state traffic cameras
+
+city/metro camera pages
+
+road projects pages
+
+incident/accident report links
+
+Example: the Tennessee FHWA page includes Murfreesboro Traffic Cameras, Knoxville Area Traffic Cameras, and City of Franklin Road Projects, etc.
+
+The exact link patterns you should scrape
+1) Master index (scrape state URLs from here)
+
+Index page:
+https://highways.dot.gov/traffic-info
+
+From this page, scrape all the state links it lists.
+
+2) State pages (scrape all outbound “useful” links)
+
+State pages commonly live under:
+
+https://highways.dot.gov/ops/traffic-info/<state>-traffic-information (example: Tennessee)
+
+On each state page, scrape every <a href> and keep links that match keywords like:
+
+511, traffic, cameras, camera, cctv, traveler, dot, road, highway, incident, closure
+
+That will reliably capture:
+
+the state’s 511/traveler info portal
+
+any city camera pages FHWA explicitly lists
+
+What to store in your Replit dataset (recommended schema)
+
+Save a JSON file like:
+
+[
+  {
+    "state_name": "Tennessee",
+    "state_slug": "tennessee",
+    "fhwa_state_page": "https://highways.dot.gov/ops/traffic-info/tennessee-traffic-information",
+    "sources": [
+      {
+        "type": "state_511_or_traveler",
+        "name": "TDOT SmartWay",
+        "url": "https://...."
+      },
+      {
+        "type": "city_cameras",
+        "name": "Franklin Traffic Cameras",
+        "url": "https://publicmaps.franklintn.gov/trafficcameras/"
+      }
+    ],
+    "last_scraped_utc": "2026-01-28T19:01:00Z"
+  }
+]
+
+
+This structure is perfect for your AI agent because you can:
+
+loop states
+
+loop sources
+
+assign priorities (state 511 > city cameras > projects page)
+
+Franklin, TN (what you should use in your app)
+
+You already have the viewer, but for an app you want the data/service:
+
+Viewer: https://publicmaps.franklintn.gov/trafficcameras/
+
+ArcGIS REST MapServer (discover layers + fields):
+https://publicmaps.franklintn.gov/arcgis/rest/services/Maps/TrafficCameras/MapServer
+
+That ArcGIS endpoint is what lets you pull camera features programmatically instead of screen-scraping.
+
+Copy/paste script (Node) that generates the full “FHWA all-states” JSON for Replit
+
+This script:
+
+Pulls the FHWA master list
+
+Visits each state page
+
+Extracts and filters the useful links
+
+Writes fhwa_traffic_sources.json
+
+// node >= 18 (fetch built-in)
+// Run: node fhwa_scrape.mjs
+
+import { writeFileSync } from "node:fs";
+
+const ROOT = "https://highways.dot.gov/traffic-info"; // master list :contentReference[oaicite:6]{index=6}
+
+function uniq(arr) {
+  return [...new Set(arr)];
+}
+
+function extractHrefs(html, baseUrl) {
+  const out = [];
+  const re = /href="([^"]+)"/g;
+  let m;
+  while ((m = re.exec(html)) !== null) {
+    let u = m[1].trim();
+    if (!u) continue;
+    if (u.startsWith("/")) u = new URL(u, baseUrl).toString();
+    if (u.startsWith("http")) out.push(u);
+  }
+  return uniq(out);
+}
+
+function looksUseful(u) {
+  return /511|traffic|camera|cctv|traveler|incident|closure|road|highway|dot|smartway|gis|arcgis/i.test(u);
+}
+
+function normalizeStateNameFromUrl(u) {
+  // last path segment often contains the name; fallback to URL
+  try {
+    const url = new URL(u);
+    const seg = url.pathname.split("/").filter(Boolean).pop() || "";
+    return seg.replace(/[-_]/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+  } catch {
+    return u;
+  }
+}
+
+async function main() {
+  // 1) Load master list
+  const rootRes = await fetch(ROOT, { redirect: "follow" });
+  const rootHtml = await rootRes.text();
+  const rootLinks = extractHrefs(rootHtml, ROOT);
+
+  // FHWA state detail pages are typically under /ops/traffic-info/...
+  const statePages = rootLinks.filter(u => /highways\.dot\.gov\/ops\/traffic-info\//i.test(u));
+
+  const results = [];
+
+  for (const statePage of statePages) {
+    const res = await fetch(statePage, { redirect: "follow" });
+    const html = await res.text();
+
+    const links = extractHrefs(html, statePage).filter(looksUseful);
+
+    results.push({
+      state_name: normalizeStateNameFromUrl(statePage),
+      fhwa_state_page: statePage,
+      sources: links.map(url => ({ url })),
+      last_scraped_utc: new Date().toISOString()
+    });
+  }
+
+  writeFileSync("fhwa_traffic_sources.json", JSON.stringify(results, null, 2));
+  console.log(`Wrote fhwa_traffic_sources.json with ${results.length} states/territories`);
+}
+
+main().catch(err => {
+  console.error(err);
+  process.exit(1);
+});
+
+
+Why this works:
+
+FHWA’s index is the authoritative “every state” starting point.
+
+The state pages contain the city/metro links FHWA chooses to list (like Franklin).
+
+What this does NOT include (so you’re not surprised)
+
+It won’t magically find every city in America (FHWA only lists some city resources on each state page).
+
+To go beyond FHWA, you’d add a second pass that discovers state DOT camera APIs and then enumerates metro camera feeds from those systems.
+
+If you want, I can also give you the 2-pass crawler plan (FHWA → state DOT → city camera feeds) in a way that’s safe and won’t get your Replit blocked.

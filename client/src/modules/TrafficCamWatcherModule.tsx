@@ -8,7 +8,6 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import VoiceGuide from '@/components/VoiceGuide';
-import { StateCitySelector, useStateCitySelector } from '@/components/StateCitySelector';
 import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 import { 
   Camera, AlertTriangle, DollarSign, MapPin, Clock, RefreshCw, 
@@ -61,14 +60,46 @@ interface ContractorOpportunity {
 
 const STATES = ['FL', 'GA', 'TX', 'CA', 'NC', 'SC', 'AL', 'LA', 'MS'];
 
+// State abbreviation to full name mapping
+const STATE_NAMES: Record<string, string> = {
+  'FL': 'Florida',
+  'GA': 'Georgia',
+  'TX': 'Texas',
+  'CA': 'California',
+  'NC': 'North Carolina',
+  'SC': 'South Carolina',
+  'AL': 'Alabama',
+  'LA': 'Louisiana',
+  'MS': 'Mississippi'
+};
+
+// Cities by state for the city selector
+const STATE_CITIES: Record<string, string[]> = {
+  'FL': ['All Cities', 'Miami', 'Orlando', 'Tampa', 'Jacksonville', 'Fort Lauderdale', 'Key West', 'Naples', 'Pensacola', 'Fort Myers', 'Sarasota'],
+  'GA': ['All Cities', 'Atlanta', 'Savannah', 'Augusta', 'Macon', 'Columbus', 'Athens', 'Brunswick'],
+  'TX': ['All Cities', 'Houston', 'Dallas', 'San Antonio', 'Austin', 'Fort Worth', 'El Paso', 'Arlington', 'Corpus Christi'],
+  'CA': ['All Cities', 'Los Angeles', 'San Francisco', 'San Diego', 'Sacramento', 'San Jose', 'Fresno', 'Oakland'],
+  'NC': ['All Cities', 'Charlotte', 'Raleigh', 'Greensboro', 'Durham', 'Winston-Salem', 'Wilmington', 'Fayetteville'],
+  'SC': ['All Cities', 'Charleston', 'Columbia', 'Myrtle Beach', 'Greenville', 'Hilton Head', 'Rock Hill'],
+  'AL': ['All Cities', 'Birmingham', 'Montgomery', 'Mobile', 'Huntsville', 'Tuscaloosa'],
+  'LA': ['All Cities', 'New Orleans', 'Baton Rouge', 'Shreveport', 'Lafayette', 'Lake Charles'],
+  'MS': ['All Cities', 'Jackson', 'Gulfport', 'Biloxi', 'Southaven', 'Hattiesburg']
+};
+
 export default function TrafficCamWatcherModule() {
   const { toast } = useToast();
-  const { selectedState, setSelectedState, selectedCity, setSelectedCity, availableCities } = useStateCitySelector('Florida', 'Miami');
   
   const [activeTab, setActiveTab] = useState('cameras');
   const [stateFilter, setStateFilter] = useState('FL');
+  const [cityFilter, setCityFilter] = useState('All Cities');
   const [selectedCamera, setSelectedCamera] = useState<TrafficCamera | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
+
+  // Reset city filter when state changes
+  const handleStateChange = (newState: string) => {
+    setStateFilter(newState);
+    setCityFilter('All Cities');
+  };
 
   // Fetch traffic cameras
   const { data: camerasData, isLoading: camerasLoading, refetch: refetchCameras } = useQuery<any>({
@@ -88,9 +119,18 @@ export default function TrafficCamWatcherModule() {
     refetchInterval: autoRefresh ? 30000 : false,
   });
 
-  const cameras = camerasData?.cameras || [];
+  const allCameras = camerasData?.cameras || [];
   const incidents = incidentsData?.incidents || [];
   const opportunities = opportunitiesData?.opportunities || [];
+
+  // Filter cameras by city (case-insensitive partial match)
+  const cameras = cityFilter === 'All Cities' 
+    ? allCameras 
+    : allCameras.filter((cam: TrafficCamera) => {
+        const camCity = (cam.city || '').toLowerCase();
+        const filterCity = cityFilter.toLowerCase();
+        return camCity.includes(filterCity) || filterCity.includes(camCity);
+      });
 
   // Calculate stats
   const totalCameras = cameras.length;
@@ -195,25 +235,66 @@ export default function TrafficCamWatcherModule() {
             <VoiceGuide currentPortal="traffic-cam" />
           </div>
 
-          {/* State Filter */}
-          <div className="flex items-center gap-4 mb-6">
-            <span className="text-emerald-300/70">Filter by State:</span>
-            <div className="flex gap-2 flex-wrap">
-              {STATES.map(state => (
-                <button
-                  key={state}
-                  onClick={() => setStateFilter(state)}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                    stateFilter === state 
-                      ? 'bg-emerald-600 text-white' 
-                      : 'bg-slate-800/60 text-emerald-300/70 hover:bg-slate-700/60'
-                  }`}
-                  data-testid={`state-filter-${state}`}
-                >
-                  {state}
-                </button>
-              ))}
+          {/* State and City Filter */}
+          <div className="flex flex-col gap-4 mb-6">
+            <div className="flex items-center gap-4">
+              <span className="text-emerald-300/70">Filter by State:</span>
+              <div className="flex gap-2 flex-wrap">
+                {STATES.map(state => (
+                  <button
+                    key={state}
+                    onClick={() => handleStateChange(state)}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                      stateFilter === state 
+                        ? 'bg-emerald-600 text-white' 
+                        : 'bg-slate-800/60 text-emerald-300/70 hover:bg-slate-700/60'
+                    }`}
+                    data-testid={`state-filter-${state}`}
+                  >
+                    {state}
+                  </button>
+                ))}
+              </div>
             </div>
+            
+            {/* City Filter Dropdown */}
+            <div className="flex items-center gap-4">
+              <span className="text-emerald-300/70">Filter by City:</span>
+              <Select value={cityFilter} onValueChange={setCityFilter}>
+                <SelectTrigger className="w-48 bg-slate-800/60 border-emerald-500/30 text-emerald-300" data-testid="city-filter-select">
+                  <SelectValue placeholder="Select city" />
+                </SelectTrigger>
+                <SelectContent className="bg-slate-900 border-emerald-500/30">
+                  {(STATE_CITIES[stateFilter] || ['All Cities']).map(city => (
+                    <SelectItem key={city} value={city} className="text-emerald-300 hover:bg-emerald-600/20">
+                      {city}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              
+              {cityFilter !== 'All Cities' && (
+                <button 
+                  onClick={() => setCityFilter('All Cities')}
+                  className="px-3 py-1 text-sm text-emerald-300/70 hover:text-emerald-300 hover:bg-emerald-500/20 rounded-lg transition-colors"
+                  data-testid="clear-city-filter"
+                >
+                  Clear City Filter
+                </button>
+              )}
+            </div>
+            
+            {/* Location Indicator */}
+            {(stateFilter || cityFilter !== 'All Cities') && (
+              <div className="flex items-center gap-2 text-sm text-emerald-300/70">
+                <MapPin className="w-4 h-4" />
+                <span>Monitoring: </span>
+                <Badge className="bg-emerald-600/30 text-emerald-300 border-emerald-500/30">
+                  {STATE_NAMES[stateFilter] || stateFilter}
+                  {cityFilter !== 'All Cities' && ` • ${cityFilter}`}
+                </Badge>
+              </div>
+            )}
           </div>
         </div>
 
