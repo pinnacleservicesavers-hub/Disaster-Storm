@@ -1,0 +1,103 @@
+AI Agent Requirement: Nationwide “Trees on Structure” Incident Discovery
+
+The AI Agent must continuously identify and surface tree-related impact incidents across the United States in near real time, with the goal of finding trees on structures and critical assets that indicate immediate demand for emergency services.
+
+1) Incident Types the Agent Must Detect
+
+The system must detect, categorize, and prioritize incidents including (but not limited to):
+
+Trees down / road blocked
+
+Trees on homes / roofs
+
+Trees on garages, barns, sheds, outbuildings
+
+Trees on commercial buildings (retail, offices, warehouses, etc.)
+
+Trees on fences / gates
+
+Trees in pools
+
+Trees on playgrounds / parks
+
+Trees on vehicles (cars, trucks, buses)
+
+Trees on rail assets (trains, rail lines, crossings)
+
+Trees impacting infrastructure and facilities (e.g., car washes, gas stations)
+
+Each alert should be tagged with:
+
+Incident category
+
+Severity (blocked roadway, structural damage likely, power line involvement suspected, etc.)
+
+Approximate location (city/county + confidence score)
+
+Source type (social, public alert, camera, etc.)
+
+Timestamp and recency ranking
+
+2) Sources the Agent Must Monitor (Always-On)
+
+The AI Agent should “hunt nonstop” using publicly available, compliant data sources that can notify us of storm damage and tree impacts, including:
+
+A) Social & Public Web Signals
+
+Public posts across major social platforms (where access is permitted)
+
+Community bulletin sources and public posting boards
+
+Local news and public incident updates
+
+B) Broadcast & Public Safety Awareness (Where Legally Accessible)
+
+Public radio/traffic bulletins and emergency advisories
+
+Fire department public updates and municipal alert pages
+
+Public emergency notification systems (city/county alerts)
+
+C) Cameras & Geospatial Signals
+
+Public traffic cameras (where accessible)
+
+Satellite and storm-damage imagery sources (where available)
+
+Public weather hazard feeds and storm/outage indicators
+
+D) Free/Public Notification Services
+
+The agent must incorporate any free, publicly available alert services that provide event notifications related to:
+
+Road closures / obstructions
+
+Storm damage reports
+
+Public safety alerts
+
+Utility outage indicators (where publicly provided)
+
+3) Public-Safety Codes and Event Classification
+
+Where public incident feeds include standardized codes (e.g., dispatch categories), the AI Agent must:
+
+Recognize and classify “tree” events and related hazard calls
+
+Map codes into plain-language incident types
+
+Rank urgency based on code severity and context (e.g., structure impact vs. roadway debris)
+
+4) Output Expectations (What We See in the App)
+
+The AI Agent must deliver a live “Incident Feed” dashboard that includes:
+
+A prioritized list of active tree-impact incidents
+
+Map view with clustering + severity filters
+
+One-click “create job lead” and “dispatch workflow”
+
+Deduplication (avoid repeat alerts for the same incident)
+
+Confidence scoring and source verification indicators

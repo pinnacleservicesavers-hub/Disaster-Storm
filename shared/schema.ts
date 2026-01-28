@@ -7873,3 +7873,221 @@ export const insertBidReadinessProfileSchema = createInsertSchema(bidReadinessPr
 
 export type BidReadinessProfile = typeof bidReadinessProfiles.$inferSelect;
 export type InsertBidReadinessProfile = z.infer<typeof insertBidReadinessProfileSchema>;
+
+// ===== STREET-LEVEL TREE INCIDENT TRACKING =====
+
+// Tree Incidents - Street-level tree-on-structure tracking
+export const treeIncidents = pgTable("tree_incidents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  uniqueId: varchar("unique_id", { length: 50 }).notNull(), // e.g., BATES-001, FRANK-042
+  
+  // Location Details
+  state: varchar("state", { length: 50 }).notNull(),
+  county: varchar("county", { length: 100 }).notNull(),
+  city: varchar("city", { length: 100 }).notNull(),
+  parcelId: varchar("parcel_id", { length: 100 }),
+  address: varchar("address", { length: 255 }).notNull(),
+  latitude: numeric("latitude", { precision: 10, scale: 7 }).notNull(),
+  longitude: numeric("longitude", { precision: 10, scale: 7 }).notNull(),
+  nearestIntersection: varchar("nearest_intersection", { length: 255 }),
+  
+  // Impact Classification
+  impactType: varchar("impact_type", { length: 50 }).notNull(), // on_roof, contacting_building, on_driveway, in_parking_lot, leaning_over_roof, debris_field, on_vehicle, on_fence, in_pool, on_powerlines, road_blocked
+  priority: varchar("priority", { length: 20 }).notNull().default("medium"), // immediate, high, medium, low
+  severity: varchar("severity", { length: 20 }).default("moderate"), // critical, severe, moderate, minor
+  
+  // Tree Characteristics
+  estimatedDbhInches: integer("estimated_dbh_inches"), // Diameter at breast height
+  estimatedHeightFt: integer("estimated_height_ft"),
+  treeSpecies: varchar("tree_species", { length: 100 }),
+  failureMode: varchar("failure_mode", { length: 50 }), // trunk_failure, limb_failure, root_plate, crown_drop, unknown
+  
+  // Source & Verification
+  sourceImagery: varchar("source_imagery", { length: 50 }), // aerial, traffic_cam, streetview, drone, satellite, social_media, public_report
+  imageTimestamp: timestamp("image_timestamp"),
+  confidenceScore: integer("confidence_score"), // 0-100
+  verificationStatus: varchar("verification_status", { length: 30 }).default("pending"), // pending, verified, disputed, false_positive
+  
+  // Action & Work Scope
+  suggestedAction: varchar("suggested_action", { length: 100 }), // emergency_remove, tarp_and_schedule, monitor, refer_utility, coordinate_crane
+  xactimateLineItems: text("xactimate_line_items"), // Semicolon-separated codes
+  estimatedCostMin: numeric("estimated_cost_min", { precision: 10, scale: 2 }),
+  estimatedCostMax: numeric("estimated_cost_max", { precision: 10, scale: 2 }),
+  
+  // Safety Flags
+  utilityContactFlag: boolean("utility_contact_flag").default(false),
+  structurePenetration: boolean("structure_penetration").default(false),
+  occupiedStructure: boolean("occupied_structure").default(true),
+  publicSafetyHazard: boolean("public_safety_hazard").default(false),
+  
+  // Assignment & CMA
+  cmaGeneratedFlag: boolean("cma_generated_flag").default(false),
+  cmaId: varchar("cma_id", { length: 100 }),
+  assignedContractorId: varchar("assigned_contractor_id", { length: 255 }),
+  assignedCrewId: varchar("assigned_crew_id", { length: 100 }),
+  routeSequence: integer("route_sequence"), // Order in crew's daily route
+  
+  // Status Tracking
+  status: varchar("status", { length: 30 }).default("new"), // new, dispatched, in_progress, completed, cancelled, deferred
+  statusUpdatedAt: timestamp("status_updated_at"),
+  
+  // Media
+  photoThumbUrl: varchar("photo_thumb_url", { length: 500 }),
+  photoUrls: text("photo_urls").array(), // Full-size images
+  
+  // Metadata
+  notes: text("notes"),
+  weatherConditions: varchar("weather_conditions", { length: 255 }),
+  weatherAdvisories: text("weather_advisories"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertTreeIncidentSchema = createInsertSchema(treeIncidents).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type TreeIncident = typeof treeIncidents.$inferSelect;
+export type InsertTreeIncident = z.infer<typeof insertTreeIncidentSchema>;
+
+// Customer Mitigation Authorization (CMA) - Legal compliance tracking
+export const customerMitigationAuths = pgTable("customer_mitigation_auths", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  incidentId: varchar("incident_id").references(() => treeIncidents.id),
+  
+  // Customer Info
+  customerName: varchar("customer_name", { length: 255 }),
+  customerPhone: varchar("customer_phone", { length: 50 }),
+  customerEmail: varchar("customer_email", { length: 255 }),
+  propertyAddress: varchar("property_address", { length: 255 }).notNull(),
+  
+  // Contractor Info
+  contractorId: varchar("contractor_id", { length: 255 }),
+  contractorName: varchar("contractor_name", { length: 255 }),
+  contractorPhone: varchar("contractor_phone", { length: 50 }),
+  contractorEmail: varchar("contractor_email", { length: 255 }),
+  contractorRepName: varchar("contractor_rep_name", { length: 255 }),
+  
+  // Authorized Scope (checkboxes from the form)
+  authEmergencyTarp: boolean("auth_emergency_tarp").default(false),
+  authBoardUp: boolean("auth_board_up").default(false),
+  authTreeRemoval: boolean("auth_tree_removal").default(false),
+  authDebrisRemoval: boolean("auth_debris_removal").default(false),
+  authWaterExtraction: boolean("auth_water_extraction").default(false),
+  authDronePhotos: boolean("auth_drone_photos").default(false),
+  customScope: text("custom_scope"),
+  
+  // Pricing & Estimate
+  estimatedLineItems: jsonb("estimated_line_items"), // [{code, description, quantity, unitPrice, total}]
+  estimatedTotal: numeric("estimated_total", { precision: 12, scale: 2 }),
+  
+  // Insurance
+  insurerName: varchar("insurer_name", { length: 255 }),
+  policyNumber: varchar("policy_number", { length: 100 }),
+  claimNumber: varchar("claim_number", { length: 100 }),
+  
+  // Signatures
+  customerSignature: text("customer_signature"), // Base64 or URL
+  customerSignedAt: timestamp("customer_signed_at"),
+  contractorSignature: text("contractor_signature"),
+  contractorSignedAt: timestamp("contractor_signed_at"),
+  
+  // Status
+  status: varchar("status", { length: 30 }).default("draft"), // draft, sent, signed, executed, cancelled
+  pdfUrl: varchar("pdf_url", { length: 500 }),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertCustomerMitigationAuthSchema = createInsertSchema(customerMitigationAuths).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type CustomerMitigationAuth = typeof customerMitigationAuths.$inferSelect;
+export type InsertCustomerMitigationAuth = z.infer<typeof insertCustomerMitigationAuthSchema>;
+
+// In-App Notifications - Real-time alert system
+export const appNotifications = pgTable("app_notifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  userId: varchar("user_id", { length: 255 }), // null for broadcast notifications
+  notificationType: varchar("notification_type", { length: 50 }).notNull(), // tree_incident, weather_alert, lead_match, system, cma_signed
+  priority: varchar("priority", { length: 20 }).default("normal"), // urgent, high, normal, low
+  
+  title: varchar("title", { length: 255 }).notNull(),
+  message: text("message").notNull(),
+  
+  // Related Entity
+  relatedType: varchar("related_type", { length: 50 }), // tree_incident, lead, claim, job
+  relatedId: varchar("related_id", { length: 255 }),
+  
+  // Action
+  actionUrl: varchar("action_url", { length: 500 }),
+  actionLabel: varchar("action_label", { length: 100 }),
+  
+  // Location Context
+  state: varchar("state", { length: 50 }),
+  county: varchar("county", { length: 100 }),
+  city: varchar("city", { length: 100 }),
+  latitude: numeric("latitude", { precision: 10, scale: 7 }),
+  longitude: numeric("longitude", { precision: 10, scale: 7 }),
+  
+  // Status
+  isRead: boolean("is_read").default(false),
+  isDismissed: boolean("is_dismissed").default(false),
+  readAt: timestamp("read_at"),
+  
+  // Metadata
+  metadata: jsonb("metadata"), // Extra data like estimated cost, confidence, etc.
+  expiresAt: timestamp("expires_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertAppNotificationSchema = createInsertSchema(appNotifications).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type AppNotification = typeof appNotifications.$inferSelect;
+export type InsertAppNotification = z.infer<typeof insertAppNotificationSchema>;
+
+// Crew Routing - Daily route optimization
+export const crewRoutes = pgTable("crew_routes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  contractorId: varchar("contractor_id", { length: 255 }).notNull(),
+  crewId: varchar("crew_id", { length: 100 }).notNull(),
+  crewName: varchar("crew_name", { length: 255 }),
+  
+  routeDate: timestamp("route_date").notNull(),
+  depotAddress: varchar("depot_address", { length: 255 }),
+  depotLatitude: numeric("depot_latitude", { precision: 10, scale: 7 }),
+  depotLongitude: numeric("depot_longitude", { precision: 10, scale: 7 }),
+  
+  // Stops - ordered list of incident IDs
+  stops: text("stops").array(), // Array of incident IDs in visit order
+  estimatedStops: integer("estimated_stops"),
+  completedStops: integer("completed_stops").default(0),
+  
+  // Time Tracking
+  shiftStartTime: timestamp("shift_start_time"),
+  shiftEndTime: timestamp("shift_end_time"),
+  estimatedDurationMinutes: integer("estimated_duration_minutes"),
+  actualDurationMinutes: integer("actual_duration_minutes"),
+  
+  // Route File
+  kmlFileUrl: varchar("kml_file_url", { length: 500 }),
+  
+  status: varchar("status", { length: 30 }).default("planned"), // planned, active, completed, cancelled
+  notes: text("notes"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
