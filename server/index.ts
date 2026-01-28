@@ -57,6 +57,39 @@ app.get("/health", (req, res) => {
   res.json({ ok: true, timestamp: new Date().toISOString() });
 });
 
+// Twilio Incoming SMS Webhook - registered EARLY to avoid catch-all middleware
+app.post("/sms", (req, res) => {
+  console.log("=== Incoming SMS received ===");
+  console.log("Timestamp:", new Date().toISOString());
+  console.log("Request body:", JSON.stringify(req.body, null, 2));
+  
+  const {
+    From: fromNumber,
+    To: toNumber,
+    Body: messageBody,
+    MessageSid: messageSid,
+    NumMedia: numMedia,
+    MediaUrl0: mediaUrl0,
+  } = req.body || {};
+
+  console.log("From:", fromNumber);
+  console.log("To:", toNumber);
+  console.log("Message:", messageBody);
+  console.log("MessageSid:", messageSid);
+  
+  if (numMedia && parseInt(numMedia) > 0) {
+    console.log("Media attached:", numMedia, "files");
+    console.log("Media URL:", mediaUrl0);
+  }
+
+  // Return TwiML response
+  res.set("Content-Type", "text/xml");
+  res.send(`<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Message>Thank you for contacting Strategic Services Savers. We received your message and will respond shortly.</Message>
+</Response>`);
+});
+
 app.use("/api/annotate", annotate);
 app.use("/api/measure", measure);
 app.use("/api/video", video);
