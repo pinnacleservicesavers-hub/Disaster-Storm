@@ -36,6 +36,7 @@ The platform features an enterprise-grade design system with AI-selected backgro
 - **Quote/Estimate Builder**: Professional quote generation, line item management, smart templates, PDF export, email delivery, and version control.
 - **Kanban Pipeline Dashboard**: Visual pipeline boards for Leads, Quotes, Jobs with drag & drop, real-time metrics, and multi-view support.
 - **AI Lead Management System**: AI-powered lead pipeline with multi-service tracking, automated outreach, smart contractor routing, and lead re-engagement.
+- **Tree Incident Tracker**: Street-level tree-on-structure incident tracking with real-time in-app alerts, CMA (Customer Mitigation Authorization) generation, crew routing, and bulk import from CSV/KML. Features priority-based sorting (immediate/high/medium/low), notification bell with polling, and incident detail views at /tree-tracker and /tree-tracker/:id.
 - **Universal Measurement Data Model**: Comprehensive measurement system supporting all contractor trades with a Measurement Core, Trade Modules, Scope Class System, Provenance Tracking, and Price Books.
 - **Rachel Voice Guide System**: Centralized voice scripts for each module and trade-specific contractor guidance.
 - **AI Before/After Visualization**: Generates visualizations of completed work using OpenAI image editing with material detection and trade-specific prompts.
