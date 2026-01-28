@@ -363,9 +363,81 @@ export default function StormPredictions() {
 
   // Fetch LIVE prediction intelligence data from all hazard sources
   const { data: intelligenceData, isLoading: isLoadingIntelligence, refetch: refetchIntelligence } = useQuery<any>({
-    queryKey: ['/api/hazards/predictions/intelligence'],
+    queryKey: ['/api/hazards/predictions/intelligence', selectedState, selectedCity],
     refetchInterval: 60000, // Refresh every minute for live data
   });
+  
+  // Filter data based on selected state/city
+  const filterDataByLocation = (data: any) => {
+    if (!data || selectedState === 'All States') return data;
+    
+    const stateAbbreviation = getStateAbbreviation(selectedState);
+    
+    // Filter impact zones by state
+    const filteredImpactZones = (data.impactZones || []).filter((zone: any) => {
+      const zoneState = zone.location?.state || '';
+      const zoneDesc = zone.location?.description || '';
+      return zoneState === stateAbbreviation || 
+             zoneDesc.toLowerCase().includes(selectedState.toLowerCase()) ||
+             zoneDesc.includes(stateAbbreviation);
+    });
+    
+    // Filter opportunities by state
+    const filteredOpportunities = (data.opportunities || []).filter((opp: any) => {
+      const oppState = opp.location?.state || '';
+      const oppDesc = opp.location?.description || '';
+      return oppState === stateAbbreviation || 
+             oppDesc.toLowerCase().includes(selectedState.toLowerCase()) ||
+             oppDesc.includes(stateAbbreviation);
+    });
+    
+    // Get state-specific opportunity data
+    const stateData = (data.stateOpportunities || []).find((s: any) => 
+      s.state === stateAbbreviation
+    );
+    
+    // Filter active storms that might affect this state
+    const filteredStorms = (data.activeStorms || []).filter((storm: any) => {
+      const stormState = storm.location?.state || '';
+      const stormDesc = storm.location?.description || '';
+      return stormState === stateAbbreviation || 
+             stormDesc.toLowerCase().includes(selectedState.toLowerCase());
+    });
+    
+    return {
+      ...data,
+      impactZones: filteredImpactZones,
+      opportunities: filteredOpportunities,
+      activeStorms: filteredStorms,
+      selectedStateData: stateData,
+      summary: {
+        ...data.summary,
+        impactZones: filteredImpactZones.length,
+        opportunities: filteredOpportunities.length,
+        activeStorms: filteredStorms.length,
+        totalEstimatedRevenue: stateData?.estimatedRevenue || filteredOpportunities.reduce((sum: number, o: any) => sum + (o.estimatedRevenue || 0), 0),
+        totalEstimatedJobs: stateData?.estimatedJobs || filteredOpportunities.reduce((sum: number, o: any) => sum + (o.estimatedJobs || 0), 0)
+      }
+    };
+  };
+  
+  // Helper to get state abbreviation from full name
+  const getStateAbbreviation = (stateName: string): string => {
+    const stateMap: Record<string, string> = {
+      'Alabama': 'AL', 'Alaska': 'AK', 'Arizona': 'AZ', 'Arkansas': 'AR', 'California': 'CA',
+      'Colorado': 'CO', 'Connecticut': 'CT', 'Delaware': 'DE', 'Florida': 'FL', 'Georgia': 'GA',
+      'Hawaii': 'HI', 'Idaho': 'ID', 'Illinois': 'IL', 'Indiana': 'IN', 'Iowa': 'IA',
+      'Kansas': 'KS', 'Kentucky': 'KY', 'Louisiana': 'LA', 'Maine': 'ME', 'Maryland': 'MD',
+      'Massachusetts': 'MA', 'Michigan': 'MI', 'Minnesota': 'MN', 'Mississippi': 'MS', 'Missouri': 'MO',
+      'Montana': 'MT', 'Nebraska': 'NE', 'Nevada': 'NV', 'New Hampshire': 'NH', 'New Jersey': 'NJ',
+      'New Mexico': 'NM', 'New York': 'NY', 'North Carolina': 'NC', 'North Dakota': 'ND', 'Ohio': 'OH',
+      'Oklahoma': 'OK', 'Oregon': 'OR', 'Pennsylvania': 'PA', 'Rhode Island': 'RI', 'South Carolina': 'SC',
+      'South Dakota': 'SD', 'Tennessee': 'TN', 'Texas': 'TX', 'Utah': 'UT', 'Vermont': 'VT',
+      'Virginia': 'VA', 'Washington': 'WA', 'West Virginia': 'WV', 'Wisconsin': 'WI', 'Wyoming': 'WY',
+      'District of Columbia': 'DC', 'Puerto Rico': 'PR', 'Guam': 'GU', 'Virgin Islands': 'VI'
+    };
+    return stateMap[stateName] || stateName;
+  };
 
   // Expanded dropdown state for each metric
   const [expandedMetric, setExpandedMetric] = useState<'storms' | 'zones' | 'opportunities' | null>(null);
@@ -386,8 +458,8 @@ export default function StormPredictions() {
     refetchInterval: 120000,
   });
 
-  // Use intelligence data as primary, fallback to legacy dashboard
-  const liveData = intelligenceData;
+  // Use intelligence data as primary, apply location filtering
+  const liveData = filterDataByLocation(intelligenceData);
   const summary = liveData?.summary || {};
   const activeStorms = liveData?.activeStorms || [];
   const impactZones = liveData?.impactZones || [];
@@ -785,22 +857,142 @@ export default function StormPredictions() {
                   </div>
                 )}
 
-                {/* State-Level Opportunities Summary */}
-                {stateOpportunities.length > 0 && !expandedMetric && (
+                {/* Location-Specific Details OR Top States Summary */}
+                {!expandedMetric && (
                   <div className="mb-8 bg-slate-900/60 border border-cyan-500/30 rounded-xl p-6">
-                    <h3 className="text-xl font-bold text-cyan-300 mb-4 flex items-center gap-2">
-                      <MapPin className="w-5 h-5" />
-                      Top States by Opportunity
-                    </h3>
-                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                      {stateOpportunities.slice(0, 12).map((state: any, idx: number) => (
-                        <div key={state.state} className="bg-slate-800/60 border border-cyan-500/20 rounded-lg p-3 text-center hover:border-cyan-400/50 transition-all">
-                          <div className="text-2xl font-bold text-cyan-300">{state.state}</div>
-                          <div className="text-xs text-cyan-300/60">{state.hazardCount} hazards</div>
-                          <div className="text-sm font-bold text-green-400 mt-1">{formatCurrency(state.estimatedRevenue)}</div>
+                    {selectedState !== 'All States' ? (
+                      <>
+                        {/* Selected Location Detail View */}
+                        <div className="flex items-center justify-between mb-6">
+                          <h3 className="text-xl font-bold text-cyan-300 flex items-center gap-2">
+                            <MapPin className="w-5 h-5" />
+                            {selectedState}{selectedCity ? `, ${selectedCity}` : ''} - Storm Intelligence
+                          </h3>
+                          <button
+                            onClick={() => setSelectedState('All States')}
+                            className="px-3 py-1.5 bg-slate-700/60 border border-cyan-500/30 rounded-lg text-cyan-300 text-sm hover:bg-slate-600/60 transition-all"
+                          >
+                            View All States
+                          </button>
                         </div>
-                      ))}
-                    </div>
+                        
+                        {/* State Summary Stats */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                          <div className="bg-gradient-to-br from-purple-900/40 to-purple-800/20 border border-purple-500/30 rounded-lg p-4">
+                            <div className="text-sm text-purple-300/70">Active Hazards</div>
+                            <div className="text-3xl font-bold text-purple-300">{summary.impactZones || 0}</div>
+                          </div>
+                          <div className="bg-gradient-to-br from-orange-900/40 to-orange-800/20 border border-orange-500/30 rounded-lg p-4">
+                            <div className="text-sm text-orange-300/70">Impact Zones</div>
+                            <div className="text-3xl font-bold text-orange-300">{impactZones.length}</div>
+                          </div>
+                          <div className="bg-gradient-to-br from-cyan-900/40 to-cyan-800/20 border border-cyan-500/30 rounded-lg p-4">
+                            <div className="text-sm text-cyan-300/70">Opportunities</div>
+                            <div className="text-3xl font-bold text-cyan-300">{liveOpportunities.length}</div>
+                          </div>
+                          <div className="bg-gradient-to-br from-green-900/40 to-green-800/20 border border-green-500/30 rounded-lg p-4">
+                            <div className="text-sm text-green-300/70">Est. Revenue</div>
+                            <div className="text-2xl font-bold text-green-300">{formatCurrency(summary.totalEstimatedRevenue || 0)}</div>
+                          </div>
+                        </div>
+                        
+                        {/* Active Hazards for this location */}
+                        {impactZones.length > 0 ? (
+                          <div className="space-y-3">
+                            <h4 className="text-lg font-semibold text-cyan-300 mb-3">Active Hazards in {selectedState}</h4>
+                            {impactZones.slice(0, 8).map((zone: any, idx: number) => (
+                              <div key={zone.id || idx} className="bg-slate-800/60 border border-cyan-500/20 rounded-lg p-4 hover:border-cyan-400/40 transition-all">
+                                <div className="flex justify-between items-start">
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase ${
+                                        zone.severity === 'Extreme' ? 'bg-red-600/30 text-red-300 border border-red-500/50' :
+                                        zone.severity === 'Severe' ? 'bg-orange-600/30 text-orange-300 border border-orange-500/50' :
+                                        'bg-yellow-600/30 text-yellow-300 border border-yellow-500/50'
+                                      }`}>
+                                        {zone.severity}
+                                      </span>
+                                      <span className="text-sm text-cyan-300 font-semibold">{zone.alertType}</span>
+                                    </div>
+                                    <div className="text-sm text-cyan-300/70 mb-2 line-clamp-2">
+                                      {zone.headline || zone.location?.description}
+                                    </div>
+                                    <div className="flex gap-4 text-xs text-cyan-300/60">
+                                      <span>📍 {zone.location?.counties?.slice(0, 3).join(', ') || zone.location?.description?.substring(0, 50)}</span>
+                                      <span>⏰ {zone.urgency}</span>
+                                    </div>
+                                  </div>
+                                  <div className="text-right ml-4">
+                                    <div className="text-lg font-bold text-green-400">{formatCurrency(zone.estimatedRevenue || 0)}</div>
+                                    <div className="text-xs text-green-300/60">{zone.estimatedJobs || 0} jobs</div>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                            {impactZones.length > 8 && (
+                              <div className="text-center text-cyan-300/60 text-sm">
+                                +{impactZones.length - 8} more hazards in this area
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="text-center py-8">
+                            <div className="text-6xl mb-4">✅</div>
+                            <div className="text-xl font-semibold text-green-400 mb-2">No Active Hazards</div>
+                            <div className="text-cyan-300/70">
+                              Good news! No severe weather warnings are currently active for {selectedState}.
+                            </div>
+                            <div className="text-sm text-cyan-300/50 mt-2">
+                              Select a different location or check back later for updated forecasts.
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        {/* Original Top States View */}
+                        <h3 className="text-xl font-bold text-cyan-300 mb-4 flex items-center gap-2">
+                          <MapPin className="w-5 h-5" />
+                          Top States by Opportunity
+                        </h3>
+                        {stateOpportunities.length > 0 ? (
+                          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                            {stateOpportunities.slice(0, 12).map((state: any, idx: number) => (
+                              <button 
+                                key={state.state} 
+                                onClick={() => {
+                                  // Convert state abbreviation to full name for selector
+                                  const stateFullNames: Record<string, string> = {
+                                    'AL': 'Alabama', 'AK': 'Alaska', 'AZ': 'Arizona', 'AR': 'Arkansas', 'CA': 'California',
+                                    'CO': 'Colorado', 'CT': 'Connecticut', 'DE': 'Delaware', 'FL': 'Florida', 'GA': 'Georgia',
+                                    'HI': 'Hawaii', 'ID': 'Idaho', 'IL': 'Illinois', 'IN': 'Indiana', 'IA': 'Iowa',
+                                    'KS': 'Kansas', 'KY': 'Kentucky', 'LA': 'Louisiana', 'ME': 'Maine', 'MD': 'Maryland',
+                                    'MA': 'Massachusetts', 'MI': 'Michigan', 'MN': 'Minnesota', 'MS': 'Mississippi', 'MO': 'Missouri',
+                                    'MT': 'Montana', 'NE': 'Nebraska', 'NV': 'Nevada', 'NH': 'New Hampshire', 'NJ': 'New Jersey',
+                                    'NM': 'New Mexico', 'NY': 'New York', 'NC': 'North Carolina', 'ND': 'North Dakota', 'OH': 'Ohio',
+                                    'OK': 'Oklahoma', 'OR': 'Oregon', 'PA': 'Pennsylvania', 'RI': 'Rhode Island', 'SC': 'South Carolina',
+                                    'SD': 'South Dakota', 'TN': 'Tennessee', 'TX': 'Texas', 'UT': 'Utah', 'VT': 'Vermont',
+                                    'VA': 'Virginia', 'WA': 'Washington', 'WV': 'West Virginia', 'WI': 'Wisconsin', 'WY': 'Wyoming',
+                                    'DC': 'District of Columbia', 'PR': 'Puerto Rico'
+                                  };
+                                  const fullName = stateFullNames[state.state] || state.state;
+                                  setSelectedState(fullName);
+                                }}
+                                className="bg-slate-800/60 border border-cyan-500/20 rounded-lg p-3 text-center hover:border-cyan-400/50 hover:bg-slate-700/60 transition-all cursor-pointer"
+                              >
+                                <div className="text-2xl font-bold text-cyan-300">{state.state}</div>
+                                <div className="text-xs text-cyan-300/60">{state.hazardCount} hazards</div>
+                                <div className="text-sm font-bold text-green-400 mt-1">{formatCurrency(state.estimatedRevenue)}</div>
+                              </button>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-center py-6 text-cyan-300/60">
+                            No active hazards detected nationwide. Check back later for updated forecasts.
+                          </div>
+                        )}
+                      </>
+                    )}
                   </div>
                 )}
 
