@@ -55,6 +55,7 @@ const ContractorAlertsDashboard = lazy(() => import("./pages/ContractorAlertsDas
 const SMSTestPage = lazy(() => import("./pages/SMSTestPage"));
 const Watchlist = lazy(() => import("./pages/Watchlist"));
 const AIBidIntelPro = lazy(() => import("./pages/AIBidIntelPro"));
+const TreeIncidentTracker = lazy(() => import("./pages/TreeIncidentTracker"));
 
 // WorkHub Marketplace Pages
 const WorkHubMarketplace = lazy(() => import("./pages/WorkHubMarketplace"));
@@ -235,6 +236,8 @@ export default function App() {
           <Route path="/hazard-dashboard" element={<ProtectedRoute><HazardDashboard /></ProtectedRoute>} />
           <Route path="/watchlist" element={<ProtectedRoute><Watchlist /></ProtectedRoute>} />
           <Route path="/bidintel-pro" element={<ProtectedRoute><AIBidIntelPro /></ProtectedRoute>} />
+          <Route path="/tree-tracker" element={<ProtectedRoute><TreeIncidentTracker /></ProtectedRoute>} />
+          <Route path="/tree-tracker/:id" element={<ProtectedRoute><TreeIncidentTracker /></ProtectedRoute>} />
           
           {/* Admin Routes - Admin only */}
           <Route path="/admin" element={<ProtectedRoute allowedRoles={['admin']}><AdminDashboard /></ProtectedRoute>} />

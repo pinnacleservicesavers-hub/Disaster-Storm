@@ -1,0 +1,182 @@
+Ice Storm Education & Safety Module Requirement
+
+The app must include a built-in Ice Storm Education & Safety Module that clearly explains the dangers of ice storms, why trees fail during icing events, and when it is safe to remove storm-damaged trees.
+
+This section is designed to educate homeowners, contractors, and field crews.
+
+1️⃣ Why Ice Storms Are So Dangerous
+
+The app must explain:
+
+Ice accumulation adds extreme weight to trees.
+
+Just ½ inch of ice can add hundreds of pounds of extra load to branches.
+
+Ice coats every surface evenly — leaves, twigs, limbs, and trunks — multiplying total stress.
+
+Combined with wind, ice becomes exponentially more dangerous.
+
+Frozen trees become rigid and lose flexibility, making them more likely to snap.
+
+Ice storms often bring power line hazards, hidden structural damage, and delayed failures (trees that fall hours or days later).
+
+The module should explain this in simple, easy-to-understand language for the public and in more technical language for contractors.
+
+2️⃣ Why Trees “Explode” or Snap During Ice Storms
+
+The app must explain the science behind tree failures:
+
+Causes of Tree Explosions or Splitting:
+
+Rapid weight overload from ice accumulation
+
+Internal moisture expansion when freezing
+
+Brittle wood under freezing temperatures
+
+Wind torque stress
+
+Weak branch unions (V-shaped crotches)
+
+Existing decay or hollow trunks
+
+Sudden stress release when limbs break
+
+When limbs snap under heavy ice, stored tension can cause:
+
+Violent splitting
+
+Sudden limb ejection
+
+“Exploding” trunk failures
+
+Shattered branch scatter
+
+The app should clarify that trees do not literally explode from ice — they fail due to mechanical stress and stored energy release.
+
+3️⃣ Why Trees Fall on Structures During Ice Events
+
+The module must explain contributing factors:
+
+Excess canopy weight
+
+Saturated soil causing root plate failure
+
+Shallow root systems
+
+Wind direction combined with ice load
+
+Structural imbalance in the canopy
+
+Pre-existing root damage or decay
+
+Include explanation of:
+
+Root ball lift
+
+Uprooting vs. trunk shear
+
+Limb drop vs. whole tree failure
+
+4️⃣ When Is It Safe to Remove Ice-Damaged Trees?
+
+The app must clearly explain:
+
+It is NOT safe to remove trees when:
+
+Ice is still actively falling
+
+Limbs are still under load
+
+Power lines are involved
+
+The structure is unstable
+
+Wind conditions are ongoing
+
+Secondary collapse risk exists
+
+It may be safer when:
+
+Ice has melted or shed naturally
+
+Power has been confirmed disconnected
+
+The tree has stabilized
+
+A qualified professional has assessed the site
+
+The app must strongly emphasize:
+⚠️ Ice-damaged trees are high-risk removals and require trained professionals.
+
+5️⃣ What Is Required to Remove Ice-Damaged Trees on Structures
+
+The app must educate on proper requirements:
+
+Required:
+
+Certified arborist or trained storm crew
+
+Proper PPE (helmets, eye protection, cut-resistant gear)
+
+Aerial lift or crane when needed
+
+Rigging systems
+
+Chainsaws rated for hardwood cutting
+
+Traffic control if roadside
+
+Utility coordination if lines are involved
+
+Structural assessment of damaged building
+
+High-Risk Conditions Include:
+
+Tensioned limbs (“widowmakers”)
+
+Compressed limbs pinned under load
+
+Split trunks under pressure
+
+Trees entangled in power lines
+
+Frozen wood that may shatter unpredictably
+
+6️⃣ Risk Warnings for Homeowners
+
+The app must educate homeowners that:
+
+Cutting a limb under tension can cause violent snapback.
+
+Ice-damaged trees may fail without warning.
+
+Climbing iced trees is extremely dangerous.
+
+Insurance often requires professional mitigation.
+
+Encourage:
+
+Stay clear of impacted areas.
+
+Do not attempt DIY removal.
+
+Document damage with photos.
+
+Contact licensed professionals.
+
+7️⃣ Visual & Educational Features
+
+The app should include:
+
+Diagrams showing tension vs. compression zones
+
+Illustrations of root failure vs trunk failure
+
+Ice load weight charts
+
+Before/after examples
+
+Safety checklists
+
+Storm risk level indicators

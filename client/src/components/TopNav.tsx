@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { LogOut, LogIn } from 'lucide-react';
 import { auth, type Role } from '@/lib/auth';
 import Breadcrumbs from '@/components/Breadcrumbs';
+import { NotificationBell } from '@/components/NotificationBell';
 
 export default function TopNav() {
   const [role, setRole] = useState<Role>('contractor');
@@ -108,8 +109,9 @@ export default function TopNav() {
               )}
             </nav>
 
-            {/* Right Side - Auth Controls */}
+            {/* Right Side - Notifications + Auth Controls */}
             <div className="flex items-center gap-3">
+              <NotificationBell />
               {!hasToken ? (
                 <button
                   className="flex items-center gap-1.5 px-4 py-1.5 rounded-md bg-white/10 hover:bg-white/20 transition-colors text-sm font-medium"

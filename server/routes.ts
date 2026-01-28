@@ -83,6 +83,7 @@ import healthRoutes from "./routes/health";
 import quoteRoutes from "./routes/quotes";
 import pipelineRoutes from "./routes/pipeline";
 import treeAlertRoutes from "./routes/treeAlertRoutes";
+import treeIncidentRoutes from "./routes/treeIncidentRoutes";
 import bidIntelProRoutes from "./routes/bidIntelPro";
 import trueCostSheetRoutes from "./routes/trueCostSheet";
 import { signatureAuditService } from "./services/signatureAuditService";
@@ -2564,6 +2565,10 @@ Include 3-4 phases, 3-5 tasks per phase, 2-3 SOPs, 3 risks, and 4 KPIs. Be speci
   // ---- Tree Alert Routes (Fallen tree detection SMS alerts) ----
   app.use('/api', treeAlertRoutes);
   console.log('🌳 Tree Alert routes registered - SMS alerts for fallen tree detection');
+
+  // ---- Street-Level Tree Incident Tracker ----
+  app.use('/api', treeIncidentRoutes);
+  console.log('🌲 Tree Incident Tracker routes registered - Street-level incident tracking with in-app alerts');
 
   // ---- AI BidIntel Pro™ Routes ----
   app.use('/api/bidintel', bidIntelProRoutes);
