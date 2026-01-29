@@ -216,6 +216,311 @@ const SAMPLE_EQUIPMENT = [
   },
 ];
 
+// ===== ADVERTISING DATA =====
+const SPONSORED_LISTINGS = [
+  {
+    id: "sp1",
+    type: "crew",
+    sponsorName: "John Deere",
+    sponsorLogoUrl: "https://logo.clearbit.com/deere.com",
+    headline: "Top-Rated Storm Response Crew",
+    crewName: "Deere Certified Emergency Response",
+    category: "Tree & Vegetation",
+    crewSize: 8,
+    dailyRate: 6500,
+    city: "Atlanta",
+    state: "Georgia",
+    aiScore: 98,
+    verificationLevel: "elite",
+    badge: "Sponsored by John Deere",
+  },
+];
+
+const BANNER_ADS = [
+  {
+    id: "b1",
+    advertiser: "Husqvarna",
+    logoUrl: "https://logo.clearbit.com/husqvarna.com",
+    headline: "Need a New Chainsaw?",
+    description: "Exclusive 15% discount for CrewLink members on all professional chainsaws.",
+    ctaText: "Shop Now",
+    ctaUrl: "https://www.husqvarna.com/us/chainsaws/",
+    backgroundColor: "from-orange-600 to-orange-800",
+    targetCategories: ["tree"],
+  },
+  {
+    id: "b2",
+    advertiser: "Stihl",
+    logoUrl: "https://logo.clearbit.com/stihl.com",
+    headline: "Built for Professionals",
+    description: "Professional-grade equipment trusted by 500,000+ contractors worldwide.",
+    ctaText: "Find a Dealer",
+    ctaUrl: "https://www.stihlusa.com/",
+    backgroundColor: "from-orange-500 to-red-600",
+    targetCategories: ["tree", "construction"],
+  },
+  {
+    id: "b3",
+    advertiser: "Caterpillar",
+    logoUrl: "https://logo.clearbit.com/caterpillar.com",
+    headline: "Heavy Equipment Financing",
+    description: "0% APR for 48 months on select equipment. Apply in 5 minutes.",
+    ctaText: "Get Pre-Approved",
+    ctaUrl: "https://www.cat.com/",
+    backgroundColor: "from-yellow-500 to-yellow-700",
+    targetCategories: ["construction", "equipment"],
+  },
+];
+
+const AFFILIATE_PRODUCTS = [
+  {
+    id: "af1",
+    partnerName: "Amazon",
+    productName: "Husqvarna 450 Rancher",
+    description: "20\" Gas Chainsaw - Best Seller",
+    price: 499.99,
+    imageUrl: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=200",
+    affiliateUrl: "https://amazon.com",
+    category: "tree",
+  },
+  {
+    id: "af2",
+    partnerName: "Home Depot",
+    productName: "Milwaukee M18 Drill Set",
+    description: "18V Cordless Power Tool Combo Kit",
+    price: 299.00,
+    imageUrl: "https://images.unsplash.com/photo-1504148455328-c376907d081c?w=200",
+    affiliateUrl: "https://homedepot.com",
+    category: "construction",
+  },
+  {
+    id: "af3",
+    partnerName: "Boot Barn",
+    productName: "Red Wing Work Boots",
+    description: "Steel Toe, Waterproof, OSHA Compliant",
+    price: 189.00,
+    imageUrl: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=200",
+    affiliateUrl: "https://bootbarn.com",
+    category: "all",
+  },
+];
+
+const PARTNER_OFFERS = [
+  {
+    id: "po1",
+    partnerName: "Beacon Funding",
+    type: "Equipment Financing",
+    logoUrl: "https://logo.clearbit.com/beaconfunding.com",
+    title: "Equipment Financing Made Easy",
+    description: "Get approved in 24 hours with rates as low as 5.99% APR.",
+    benefits: ["No down payment required", "Same-day approval", "Flexible terms up to 72 months"],
+    ctaText: "Apply Now",
+    applicationUrl: "#",
+  },
+  {
+    id: "po2",
+    partnerName: "Next Insurance",
+    type: "Business Insurance",
+    logoUrl: "https://logo.clearbit.com/nextinsurance.com",
+    title: "Contractor Insurance in 10 Minutes",
+    description: "General liability, workers comp, and commercial auto coverage.",
+    benefits: ["Instant certificates", "No broker fees", "Cancel anytime"],
+    ctaText: "Get a Quote",
+    applicationUrl: "#",
+  },
+  {
+    id: "po3",
+    partnerName: "WEX Fleet",
+    type: "Fuel Card",
+    logoUrl: "https://logo.clearbit.com/wexinc.com",
+    title: "Save 5¢/gallon on Every Fill-up",
+    description: "Fleet fuel card accepted at 95% of US gas stations.",
+    benefits: ["No annual fee", "Detailed reporting", "Fraud protection"],
+    ctaText: "Order Cards",
+    applicationUrl: "#",
+  },
+];
+
+// ===== ADVERTISING COMPONENTS =====
+
+function SponsoredBanner({ ad, onClose }: { ad: typeof BANNER_ADS[0]; onClose?: () => void }) {
+  return (
+    <div className={`relative rounded-xl bg-gradient-to-r ${ad.backgroundColor} text-white p-4 mb-6 shadow-lg`}>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          {ad.logoUrl && (
+            <img 
+              src={ad.logoUrl} 
+              alt={ad.advertiser} 
+              className="h-10 w-10 rounded-lg bg-white p-1"
+              onError={(e) => { e.currentTarget.style.display = 'none'; }}
+            />
+          )}
+          <div>
+            <p className="text-xs text-white/70 mb-1">Sponsored by {ad.advertiser}</p>
+            <h3 className="text-lg font-bold">{ad.headline}</h3>
+            <p className="text-sm text-white/90">{ad.description}</p>
+          </div>
+        </div>
+        <Button 
+          className="bg-white text-gray-900 hover:bg-gray-100 font-semibold"
+          onClick={() => window.open(ad.ctaUrl, '_blank')}
+        >
+          {ad.ctaText}
+        </Button>
+      </div>
+      <Badge className="absolute top-2 right-2 bg-white/20 text-white text-xs">Ad</Badge>
+    </div>
+  );
+}
+
+function SponsoredCrewCard({ listing }: { listing: typeof SPONSORED_LISTINGS[0] }) {
+  return (
+    <Card className="hover:shadow-xl transition-all duration-300 border-2 border-yellow-400 bg-gradient-to-br from-yellow-50 to-orange-50 dark:from-yellow-950/30 dark:to-orange-950/30 relative">
+      <Badge className="absolute top-2 right-2 bg-yellow-500 text-white gap-1">
+        <Star className="h-3 w-3" />
+        {listing.badge}
+      </Badge>
+      <CardHeader className="pb-3">
+        <div className="flex items-center gap-3">
+          {listing.sponsorLogoUrl && (
+            <img 
+              src={listing.sponsorLogoUrl} 
+              alt={listing.sponsorName} 
+              className="h-12 w-12 rounded-lg bg-white p-1 border shadow-sm"
+              onError={(e) => { e.currentTarget.style.display = 'none'; }}
+            />
+          )}
+          <div>
+            <CardTitle className="text-lg">{listing.crewName}</CardTitle>
+            <CardDescription className="flex items-center gap-1">
+              <MapPin className="h-3 w-3" />
+              {listing.city}, {listing.state}
+            </CardDescription>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="flex items-center justify-between">
+          <Badge variant="outline" className="bg-white">{listing.category}</Badge>
+          <AIScoreBadge score={listing.aiScore} />
+        </div>
+        <div className="flex items-center gap-4 text-sm">
+          <span className="flex items-center gap-1">
+            <Users className="h-4 w-4 text-blue-500" />
+            {listing.crewSize} members
+          </span>
+          <span className="flex items-center gap-1 font-semibold text-green-600">
+            <DollarSign className="h-4 w-4" />
+            ${listing.dailyRate.toLocaleString()}/day
+          </span>
+        </div>
+        <p className="text-sm text-muted-foreground">{listing.headline}</p>
+      </CardContent>
+      <CardFooter>
+        <Button className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600">
+          Contact Crew
+        </Button>
+      </CardFooter>
+    </Card>
+  );
+}
+
+function AffiliateProductsSection({ category }: { category: string }) {
+  const products = AFFILIATE_PRODUCTS.filter(p => p.category === "all" || p.category === category);
+  
+  if (products.length === 0) return null;
+  
+  return (
+    <div className="mb-6">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
+          <Briefcase className="h-4 w-4" />
+          Recommended Gear for Your Trade
+        </h3>
+        <Badge variant="outline" className="text-xs">Affiliate</Badge>
+      </div>
+      <div className="flex gap-3 overflow-x-auto pb-2">
+        {products.map(product => (
+          <Card key={product.id} className="min-w-[200px] flex-shrink-0 hover:shadow-md transition-shadow cursor-pointer" 
+                onClick={() => window.open(product.affiliateUrl, '_blank')}>
+            <CardContent className="p-3">
+              <div className="h-20 bg-gray-100 dark:bg-gray-800 rounded-lg mb-2 flex items-center justify-center overflow-hidden">
+                <img 
+                  src={product.imageUrl} 
+                  alt={product.productName}
+                  className="h-full w-full object-cover"
+                  onError={(e) => { e.currentTarget.src = 'https://via.placeholder.com/200?text=Product'; }}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">{product.partnerName}</p>
+              <p className="font-semibold text-sm truncate">{product.productName}</p>
+              <p className="text-xs text-muted-foreground truncate">{product.description}</p>
+              <p className="text-green-600 font-bold mt-1">${product.price.toFixed(2)}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function PartnerOffersSection() {
+  return (
+    <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl p-6 text-white">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-xl font-bold flex items-center gap-2">
+          <Award className="h-6 w-6 text-yellow-400" />
+          Exclusive Partner Offers
+        </h3>
+        <Badge className="bg-yellow-500/20 text-yellow-300 border-yellow-500/30">CrewLink Members Only</Badge>
+      </div>
+      <div className="grid md:grid-cols-3 gap-4">
+        {PARTNER_OFFERS.map(offer => (
+          <Card key={offer.id} className="bg-white/10 border-white/20 text-white">
+            <CardHeader className="pb-2">
+              <div className="flex items-center gap-3">
+                {offer.logoUrl && (
+                  <img 
+                    src={offer.logoUrl} 
+                    alt={offer.partnerName}
+                    className="h-10 w-10 rounded-lg bg-white p-1"
+                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                  />
+                )}
+                <div>
+                  <p className="text-xs text-white/70">{offer.type}</p>
+                  <CardTitle className="text-base">{offer.partnerName}</CardTitle>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <p className="font-semibold mb-2">{offer.title}</p>
+              <p className="text-sm text-white/80 mb-3">{offer.description}</p>
+              <ul className="space-y-1 mb-3">
+                {offer.benefits.map((benefit, i) => (
+                  <li key={i} className="text-xs text-white/70 flex items-center gap-1">
+                    <CheckCircle2 className="h-3 w-3 text-green-400" />
+                    {benefit}
+                  </li>
+                ))}
+              </ul>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="w-full border-white/30 text-white hover:bg-white/10"
+                onClick={() => window.open(offer.applicationUrl, '_blank')}
+              >
+                {offer.ctaText}
+              </Button>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function VerificationBadge({ level }: { level: string }) {
   const config = {
     elite: { color: "bg-green-500", text: "Elite Verified", icon: Shield },
@@ -752,7 +1057,17 @@ export default function CrewLinkExchange() {
             </TabsTrigger>
           </TabsList>
 
+          {/* Banner Ad - Category Targeted */}
+          {BANNER_ADS.filter(ad => 
+            selectedCategory === "all" || ad.targetCategories.includes(selectedCategory)
+          ).slice(0, 1).map(ad => (
+            <SponsoredBanner key={ad.id} ad={ad} />
+          ))}
+
           <TabsContent value="workers">
+            {/* Affiliate Products */}
+            <AffiliateProductsSection category={selectedCategory} />
+            
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredWorkers.map(worker => (
                 <WorkerCard key={worker.id} worker={worker} />
@@ -768,6 +1083,10 @@ export default function CrewLinkExchange() {
 
           <TabsContent value="crews">
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {/* Sponsored Crew Listings First */}
+              {SPONSORED_LISTINGS.filter(s => s.type === "crew").map(listing => (
+                <SponsoredCrewCard key={listing.id} listing={listing} />
+              ))}
               {filteredCrews.map(crew => (
                 <CrewCard key={crew.id} crew={crew} />
               ))}
@@ -794,6 +1113,11 @@ export default function CrewLinkExchange() {
             )}
           </TabsContent>
         </Tabs>
+
+        {/* Partner Offers Section */}
+        <div className="mt-12">
+          <PartnerOffersSection />
+        </div>
 
         <div className="mt-12 bg-gradient-to-r from-slate-900 to-slate-800 rounded-xl p-8 text-white">
           <div className="grid md:grid-cols-3 gap-8">
