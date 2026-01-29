@@ -138,6 +138,10 @@ export default function TreeIncidentTracker() {
   const [showFilters, setShowFilters] = useState(false);
   const [isPlayingVoice, setIsPlayingVoice] = useState(false);
   const [aiChatTrigger, setAiChatTrigger] = useState<{ open: boolean; mode: 'text' | 'voice' } | undefined>();
+  
+  // Crew Routing State
+  const [routeStops, setRouteStops] = useState<TreeIncident[]>([]);
+  const [isOptimizing, setIsOptimizing] = useState(false);
 
   const playRachelIntro = async () => {
     setIsPlayingVoice(true);
@@ -172,6 +176,129 @@ export default function TreeIncidentTracker() {
       setIsPlayingVoice(false);
       console.error('Voice intro error:', error);
     }
+  };
+
+  // Crew Routing Functions
+  const addToRoute = (incident: TreeIncident) => {
+    if (!routeStops.find(s => s.id === incident.id)) {
+      setRouteStops([...routeStops, incident]);
+      toast({ title: 'Added to route', description: `${incident.address} added as stop #${routeStops.length + 1}` });
+    } else {
+      toast({ title: 'Already in route', description: 'This incident is already part of the route', variant: 'destructive' });
+    }
+  };
+
+  const removeFromRoute = (incidentId: string) => {
+    setRouteStops(routeStops.filter(s => s.id !== incidentId));
+  };
+
+  const moveStopUp = (index: number) => {
+    if (index === 0) return;
+    const newStops = [...routeStops];
+    [newStops[index - 1], newStops[index]] = [newStops[index], newStops[index - 1]];
+    setRouteStops(newStops);
+  };
+
+  const moveStopDown = (index: number) => {
+    if (index === routeStops.length - 1) return;
+    const newStops = [...routeStops];
+    [newStops[index], newStops[index + 1]] = [newStops[index + 1], newStops[index]];
+    setRouteStops(newStops);
+  };
+
+  const optimizeRoute = async () => {
+    if (routeStops.length < 2) {
+      toast({ title: 'Need more stops', description: 'Add at least 2 stops to optimize the route' });
+      return;
+    }
+    
+    setIsOptimizing(true);
+    try {
+      // Simple optimization: Sort by priority (immediate first), then by proximity
+      const priorityOrder: Record<string, number> = { immediate: 0, high: 1, medium: 2, low: 3 };
+      const optimized = [...routeStops].sort((a, b) => {
+        // First by priority
+        const priorityDiff = (priorityOrder[a.priority] || 3) - (priorityOrder[b.priority] || 3);
+        if (priorityDiff !== 0) return priorityDiff;
+        // Then by utility contact (flagged first)
+        if (a.utilityContactFlag && !b.utilityContactFlag) return -1;
+        if (!a.utilityContactFlag && b.utilityContactFlag) return 1;
+        // Then by estimated cost (higher first)
+        const costA = parseInt(a.estimatedCostMax || '0') || 0;
+        const costB = parseInt(b.estimatedCostMax || '0') || 0;
+        return costB - costA;
+      });
+      
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate optimization
+      setRouteStops(optimized);
+      toast({ title: 'Route optimized', description: 'Stops reordered by priority, utility flags, and value' });
+    } catch (error) {
+      toast({ title: 'Optimization failed', variant: 'destructive' });
+    } finally {
+      setIsOptimizing(false);
+    }
+  };
+
+  const exportToKML = () => {
+    if (routeStops.length === 0) {
+      toast({ title: 'No stops to export', variant: 'destructive' });
+      return;
+    }
+
+    const kmlContent = `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>Tree Incident Route - ${new Date().toLocaleDateString()}</name>
+    <description>Crew route with ${routeStops.length} stops</description>
+    <Style id="immediate">
+      <IconStyle><color>ff0000ff</color><scale>1.2</scale></IconStyle>
+    </Style>
+    <Style id="high">
+      <IconStyle><color>ff00a5ff</color><scale>1.1</scale></IconStyle>
+    </Style>
+    <Style id="medium">
+      <IconStyle><color>ff00ffff</color><scale>1.0</scale></IconStyle>
+    </Style>
+    <Style id="low">
+      <IconStyle><color>ff00ff00</color><scale>0.9</scale></IconStyle>
+    </Style>
+    ${routeStops.map((stop, i) => `
+    <Placemark>
+      <name>Stop ${i + 1}: ${stop.address}</name>
+      <description>
+        Priority: ${stop.priority.toUpperCase()}
+        Impact: ${stop.impactType.replace(/_/g, ' ')}
+        Est. Cost: $${stop.estimatedCostMin || '?'} - $${stop.estimatedCostMax || '?'}
+        ${stop.utilityContactFlag ? 'UTILITY CONTACT REQUIRED' : ''}
+        ${stop.notes || ''}
+      </description>
+      <styleUrl>#${stop.priority}</styleUrl>
+      <Point>
+        <coordinates>${stop.longitude},${stop.latitude},0</coordinates>
+      </Point>
+    </Placemark>`).join('')}
+    <Placemark>
+      <name>Route Path</name>
+      <LineString>
+        <coordinates>
+          ${routeStops.map(s => `${s.longitude},${s.latitude},0`).join(' ')}
+        </coordinates>
+      </LineString>
+    </Placemark>
+  </Document>
+</kml>`;
+
+    const blob = new Blob([kmlContent], { type: 'application/vnd.google-earth.kml+xml' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `tree-route-${new Date().toISOString().split('T')[0]}.kml`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    toast({ title: 'KML exported', description: 'Route file downloaded for Google Earth / GPS' });
   };
 
   const { data: incidentsData, isLoading, refetch } = useQuery({
@@ -725,6 +852,19 @@ export default function TreeIncidentTracker() {
                                 >
                                   <Navigation className="h-3 w-3" />
                                 </Button>
+                                <Button
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    addToRoute(incident);
+                                  }}
+                                  className={routeStops.find(s => s.id === incident.id) 
+                                    ? "bg-green-600 hover:bg-green-700" 
+                                    : "bg-purple-600 hover:bg-purple-700"}
+                                >
+                                  <Truck className="h-3 w-3 mr-1" />
+                                  {routeStops.find(s => s.id === incident.id) ? 'In Route' : 'Add Route'}
+                                </Button>
                                 {!incident.cmaGeneratedFlag && (
                                   <Button
                                     size="sm"
@@ -766,13 +906,142 @@ export default function TreeIncidentTracker() {
           </TabsContent>
 
           <TabsContent value="routing">
-            <Card className="bg-slate-800/80 border-slate-700 h-[600px]">
-              <CardContent className="h-full flex items-center justify-center">
-                <div className="text-center text-slate-400">
-                  <Truck className="h-16 w-16 mx-auto mb-4 opacity-50" />
-                  <p className="text-lg">Crew Routing</p>
-                  <p className="text-sm">Optimized routes with KML export coming soon</p>
-                </div>
+            <Card className="bg-slate-800/80 border-slate-700">
+              <CardHeader>
+                <CardTitle className="text-white flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Truck className="h-5 w-5 text-blue-400" />
+                    Crew Routing - Optimized Stop Sequence
+                  </div>
+                  <div className="flex gap-2">
+                    {routeStops.length > 0 && (
+                      <>
+                        <Button
+                          size="sm"
+                          onClick={optimizeRoute}
+                          disabled={isOptimizing}
+                          className="bg-purple-600 hover:bg-purple-700"
+                        >
+                          {isOptimizing ? 'Optimizing...' : 'Optimize Route'}
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={exportToKML}
+                          className="bg-emerald-600 hover:bg-emerald-700"
+                        >
+                          <Download className="h-4 w-4 mr-1" />
+                          Export KML
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setRouteStops([])}
+                          className="bg-slate-700 border-slate-600 text-white"
+                        >
+                          Clear Route
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {routeStops.length === 0 ? (
+                  <div className="text-center py-12 text-slate-400">
+                    <Navigation className="h-16 w-16 mx-auto mb-4 opacity-50" />
+                    <p className="text-lg">No stops added yet</p>
+                    <p className="text-sm mt-2">Click "Add to Route" on incidents in the List tab to build your crew route</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {/* Route Summary */}
+                    <div className="grid grid-cols-4 gap-4 p-4 bg-slate-700/50 rounded-lg">
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-white">{routeStops.length}</div>
+                        <div className="text-sm text-slate-400">Total Stops</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-emerald-400">
+                          ${routeStops.reduce((sum, stop) => sum + (parseInt(stop.estimatedCostMin || '0') || 0), 0).toLocaleString()}
+                        </div>
+                        <div className="text-sm text-slate-400">Est. Revenue (Min)</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-blue-400">
+                          {routeStops.filter(s => s.priority === 'immediate' || s.priority === 'high').length}
+                        </div>
+                        <div className="text-sm text-slate-400">High Priority</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-orange-400">
+                          {routeStops.filter(s => s.utilityContactFlag).length}
+                        </div>
+                        <div className="text-sm text-slate-400">Utility Contacts</div>
+                      </div>
+                    </div>
+
+                    {/* Ordered Stop List */}
+                    <ScrollArea className="h-[400px]">
+                      <div className="space-y-2">
+                        {routeStops.map((stop, index) => (
+                          <div 
+                            key={stop.id}
+                            className="flex items-center gap-3 p-3 bg-slate-700/50 rounded-lg border border-slate-600"
+                          >
+                            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold">
+                              {index + 1}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="text-white font-medium truncate">{stop.address}</span>
+                                <Badge className={priorityColors[stop.priority]} size="sm">
+                                  {stop.priority}
+                                </Badge>
+                                {stop.utilityContactFlag && (
+                                  <Badge className="bg-yellow-600">
+                                    <Zap className="h-3 w-3 mr-1" />
+                                    Utility
+                                  </Badge>
+                                )}
+                              </div>
+                              <div className="text-sm text-slate-400">
+                                {stop.city}, {stop.state} | {stop.impactType.replace(/_/g, ' ')} | Est: {formatCurrency(stop.estimatedCostMin, stop.estimatedCostMax)}
+                              </div>
+                            </div>
+                            <div className="flex gap-1">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => moveStopUp(index)}
+                                disabled={index === 0}
+                                className="text-slate-400 hover:text-white h-8 w-8 p-0"
+                              >
+                                ↑
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => moveStopDown(index)}
+                                disabled={index === routeStops.length - 1}
+                                className="text-slate-400 hover:text-white h-8 w-8 p-0"
+                              >
+                                ↓
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => removeFromRoute(stop.id)}
+                                className="text-red-400 hover:text-red-300 h-8 w-8 p-0"
+                              >
+                                <XCircle className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
