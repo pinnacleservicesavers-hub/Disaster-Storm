@@ -88,6 +88,9 @@ const WorkHubContractorOnboarding = lazy(() => import("./pages/WorkHubContractor
 // Emergency Contractor Readiness Platform
 const EmergencyContractorReadiness = lazy(() => import("./pages/EmergencyContractorReadiness"));
 
+// CrewLink Exchange - National Workforce & Equipment Marketplace
+const CrewLinkExchange = lazy(() => import("./pages/CrewLinkExchange"));
+
 // Contractor Pricing Page
 const ContractorPricing = lazy(() => import("./pages/ContractorPricing"));
 
@@ -267,6 +270,9 @@ export default function App() {
           <Route path="/signout" element={<SignOut />} />
           
           {/* WorkHub Marketplace Routes */}
+          {/* CrewLink Exchange - Public Marketplace */}
+          <Route path="/crewlink" element={<CrewLinkExchange />} />
+          
           <Route path="/workhub" element={<ProtectedRoute><WorkHubMarketplace /></ProtectedRoute>} />
           {/* Customer portal is public - no login required for customers to submit requests */}
           <Route path="/workhub/customer" element={<WorkHubCustomerPortal />} />

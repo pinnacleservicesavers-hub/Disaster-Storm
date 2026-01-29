@@ -8091,3 +8091,406 @@ export const crewRoutes = pgTable("crew_routes", {
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
+
+// ==========================================
+// CREWLINK EXCHANGE™ - National Workforce & Equipment Marketplace
+// "Where Skills Meet Opportunity — and Equipment Never Holds You Back"
+// ==========================================
+
+// Skill categories for CrewLink
+export const CREWLINK_CATEGORIES = [
+  "Construction", "Tree & Vegetation", "Roofing", "Painting", "Electrical",
+  "Plumbing", "HVAC", "CDL / Transportation", "Housekeeping", "Administrative",
+  "Bookkeeping", "IT / Tech", "Mechanical", "Welding", "Disaster Cleanup",
+  "Warehouse", "General Labor", "Equipment Operator", "Healthcare", "Hospitality",
+  "Logistics", "Landscaping", "Flooring", "Carpet Installation", "Grooming",
+  "Hair Styling", "Pet Services", "Childcare", "Elder Care", "Personal Shopping",
+  "Car Detailing", "Web Design", "Social Media", "Food Service", "Security",
+  "Other"
+] as const;
+
+// Individual Worker Listings
+export const crewlinkWorkers = pgTable("crewlink_workers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id", { length: 255 }),
+  
+  // Profile Info
+  firstName: varchar("first_name", { length: 100 }).notNull(),
+  lastName: varchar("last_name", { length: 100 }).notNull(),
+  email: varchar("email", { length: 255 }).notNull(),
+  phone: varchar("phone", { length: 20 }),
+  profilePhoto: varchar("profile_photo", { length: 500 }),
+  bio: text("bio"),
+  
+  // Skills & Trade
+  category: varchar("category", { length: 100 }).notNull(),
+  subcategory: varchar("subcategory", { length: 100 }),
+  skills: text("skills").array(),
+  
+  // Rates
+  rateType: varchar("rate_type", { length: 20 }).default("daily"), // hourly, daily, project
+  hourlyRate: numeric("hourly_rate", { precision: 10, scale: 2 }),
+  dailyRate: numeric("daily_rate", { precision: 10, scale: 2 }),
+  
+  // Experience & Certifications
+  yearsExperience: integer("years_experience").default(0),
+  certifications: text("certifications").array(),
+  toolsOwned: text("tools_owned").array(),
+  
+  // Location & Availability
+  state: varchar("state", { length: 50 }).notNull(),
+  city: varchar("city", { length: 100 }).notNull(),
+  zipCode: varchar("zip_code", { length: 10 }),
+  travelRadius: integer("travel_radius").default(50), // miles
+  willingToTravel: boolean("willing_to_travel").default(false),
+  stormReady: boolean("storm_ready").default(false),
+  availableImmediately: boolean("available_immediately").default(false),
+  
+  // Documents
+  driversLicense: varchar("drivers_license_url", { length: 500 }),
+  w9Document: varchar("w9_document_url", { length: 500 }),
+  insuranceDocument: varchar("insurance_document_url", { length: 500 }),
+  resumeDocument: varchar("resume_document_url", { length: 500 }),
+  certificationDocs: jsonb("certification_docs").$type<{name: string, url: string}[]>(),
+  
+  // Business Info (optional)
+  hasBusinessLicense: boolean("has_business_license").default(false),
+  businessLicenseUrl: varchar("business_license_url", { length: 500 }),
+  ein: varchar("ein", { length: 20 }),
+  hasInsurance: boolean("has_insurance").default(false),
+  insuranceLimits: varchar("insurance_limits", { length: 100 }),
+  
+  // AI Score & Verification
+  aiScore: numeric("ai_score", { precision: 5, scale: 2 }).default("0"),
+  verificationLevel: varchar("verification_level", { length: 20 }).default("unverified"), // unverified, basic, verified, elite
+  responseTime: integer("response_time_hours").default(24),
+  completedJobs: integer("completed_jobs").default(0),
+  cancelledJobs: integer("cancelled_jobs").default(0),
+  disputeCount: integer("dispute_count").default(0),
+  
+  // Subscription
+  subscriptionTier: varchar("subscription_tier", { length: 20 }).default("free"), // free, basic, premium
+  subscriptionExpiry: timestamp("subscription_expiry"),
+  featuredListing: boolean("featured_listing").default(false),
+  
+  // Status
+  isActive: boolean("is_active").default(true),
+  isPublic: boolean("is_public").default(true),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertCrewlinkWorkerSchema = createInsertSchema(crewlinkWorkers).omit({
+  id: true,
+  aiScore: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type CrewlinkWorker = typeof crewlinkWorkers.$inferSelect;
+export type InsertCrewlinkWorker = z.infer<typeof insertCrewlinkWorkerSchema>;
+
+// Crew Listings (Full Teams)
+export const crewlinkCrews = pgTable("crewlink_crews", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  ownerId: varchar("owner_id", { length: 255 }),
+  
+  // Crew Info
+  crewName: varchar("crew_name", { length: 200 }).notNull(),
+  companyName: varchar("company_name", { length: 200 }),
+  description: text("description"),
+  crewPhoto: varchar("crew_photo", { length: 500 }),
+  
+  // Crew Size & Skills
+  crewSize: integer("crew_size").notNull(),
+  category: varchar("category", { length: 100 }).notNull(),
+  skillsIncluded: text("skills_included").array(),
+  certificationsWithinCrew: text("certifications_within_crew").array(),
+  
+  // Rates
+  dailyCrewRate: numeric("daily_crew_rate", { precision: 10, scale: 2 }).notNull(),
+  mobilizationFee: numeric("mobilization_fee", { precision: 10, scale: 2 }),
+  
+  // Equipment Included
+  equipmentIncluded: text("equipment_included").array(),
+  hasOwnTransportation: boolean("has_own_transportation").default(false),
+  
+  // Location & Availability
+  state: varchar("state", { length: 50 }).notNull(),
+  city: varchar("city", { length: 100 }).notNull(),
+  travelRadius: integer("travel_radius").default(100),
+  nationwideAvailable: boolean("nationwide_available").default(false),
+  stormReady: boolean("storm_ready").default(false),
+  
+  // Insurance & Compliance
+  coiDocument: varchar("coi_document_url", { length: 500 }),
+  businessLicense: varchar("business_license_url", { length: 500 }),
+  ein: varchar("ein", { length: 20 }),
+  w9Document: varchar("w9_document_url", { length: 500 }),
+  safetyProgram: varchar("safety_program_url", { length: 500 }),
+  oshaLogs: varchar("osha_logs_url", { length: 500 }),
+  insuranceLimits: varchar("insurance_limits", { length: 100 }),
+  
+  // AI Score & Verification
+  aiScore: numeric("ai_score", { precision: 5, scale: 2 }).default("0"),
+  verificationLevel: varchar("verification_level", { length: 20 }).default("unverified"),
+  completedJobs: integer("completed_jobs").default(0),
+  responseTime: integer("response_time_hours").default(24),
+  
+  // Subscription
+  subscriptionTier: varchar("subscription_tier", { length: 20 }).default("free"),
+  subscriptionExpiry: timestamp("subscription_expiry"),
+  featuredListing: boolean("featured_listing").default(false),
+  
+  isActive: boolean("is_active").default(true),
+  isPublic: boolean("is_public").default(true),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertCrewlinkCrewSchema = createInsertSchema(crewlinkCrews).omit({
+  id: true,
+  aiScore: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type CrewlinkCrew = typeof crewlinkCrews.$inferSelect;
+export type InsertCrewlinkCrew = z.infer<typeof insertCrewlinkCrewSchema>;
+
+// Equipment Listings
+export const crewlinkEquipment = pgTable("crewlink_equipment", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  ownerId: varchar("owner_id", { length: 255 }),
+  
+  // Equipment Info
+  equipmentType: varchar("equipment_type", { length: 100 }).notNull(),
+  make: varchar("make", { length: 100 }),
+  model: varchar("model", { length: 100 }),
+  year: integer("year"),
+  description: text("description"),
+  specifications: text("specifications"),
+  photos: text("photos").array(),
+  
+  // Rates
+  dailyRate: numeric("daily_rate", { precision: 10, scale: 2 }).notNull(),
+  weeklyRate: numeric("weekly_rate", { precision: 10, scale: 2 }),
+  monthlyRate: numeric("monthly_rate", { precision: 10, scale: 2 }),
+  
+  // Options
+  operatorIncluded: boolean("operator_included").default(false),
+  operatorDailyRate: numeric("operator_daily_rate", { precision: 10, scale: 2 }),
+  deliveryAvailable: boolean("delivery_available").default(false),
+  deliveryFee: numeric("delivery_fee", { precision: 10, scale: 2 }),
+  damageDeposit: numeric("damage_deposit", { precision: 10, scale: 2 }),
+  fuelPolicy: varchar("fuel_policy", { length: 100 }), // "renter pays", "included", "return full"
+  
+  // Requirements
+  operatorRequirements: text("operator_requirements").array(), // CDL, 3 years exp, etc.
+  insuranceRequired: boolean("insurance_required").default(true),
+  minimumInsuranceLimits: varchar("minimum_insurance_limits", { length: 100 }),
+  
+  // Location
+  state: varchar("state", { length: 50 }).notNull(),
+  city: varchar("city", { length: 100 }).notNull(),
+  pickupAddress: varchar("pickup_address", { length: 255 }),
+  deliveryRadius: integer("delivery_radius").default(50),
+  
+  // AI Score & Status
+  aiScore: numeric("ai_score", { precision: 5, scale: 2 }).default("0"),
+  verificationLevel: varchar("verification_level", { length: 20 }).default("unverified"),
+  totalRentals: integer("total_rentals").default(0),
+  
+  // Subscription
+  subscriptionTier: varchar("subscription_tier", { length: 20 }).default("free"),
+  subscriptionExpiry: timestamp("subscription_expiry"),
+  featuredListing: boolean("featured_listing").default(false),
+  
+  isActive: boolean("is_active").default(true),
+  isPublic: boolean("is_public").default(true),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertCrewlinkEquipmentSchema = createInsertSchema(crewlinkEquipment).omit({
+  id: true,
+  aiScore: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type CrewlinkEquipment = typeof crewlinkEquipment.$inferSelect;
+export type InsertCrewlinkEquipment = z.infer<typeof insertCrewlinkEquipmentSchema>;
+
+// Bookings/Reservations
+export const crewlinkBookings = pgTable("crewlink_bookings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Booking Type
+  listingType: varchar("listing_type", { length: 20 }).notNull(), // worker, crew, equipment
+  listingId: varchar("listing_id", { length: 255 }).notNull(),
+  
+  // Parties
+  clientId: varchar("client_id", { length: 255 }).notNull(),
+  clientName: varchar("client_name", { length: 200 }),
+  clientEmail: varchar("client_email", { length: 255 }),
+  clientPhone: varchar("client_phone", { length: 20 }),
+  providerId: varchar("provider_id", { length: 255 }).notNull(),
+  
+  // Dates
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date").notNull(),
+  totalDays: integer("total_days"),
+  
+  // Pricing
+  dailyRate: numeric("daily_rate", { precision: 10, scale: 2 }),
+  totalAmount: numeric("total_amount", { precision: 10, scale: 2 }),
+  platformFee: numeric("platform_fee", { precision: 10, scale: 2 }),
+  providerPayout: numeric("provider_payout", { precision: 10, scale: 2 }),
+  
+  // Location
+  jobLocation: varchar("job_location", { length: 255 }),
+  jobCity: varchar("job_city", { length: 100 }),
+  jobState: varchar("job_state", { length: 50 }),
+  
+  // Status
+  status: varchar("status", { length: 30 }).default("pending"), // pending, confirmed, in_progress, completed, cancelled, declined
+  declineReason: text("decline_reason"),
+  
+  // Payment
+  paymentStatus: varchar("payment_status", { length: 30 }).default("unpaid"), // unpaid, partial, paid, refunded
+  escrowHeld: boolean("escrow_held").default(false),
+  
+  notes: text("notes"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertCrewlinkBookingSchema = createInsertSchema(crewlinkBookings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type CrewlinkBooking = typeof crewlinkBookings.$inferSelect;
+export type InsertCrewlinkBooking = z.infer<typeof insertCrewlinkBookingSchema>;
+
+// Reviews (Work-Related Only)
+export const crewlinkReviews = pgTable("crewlink_reviews", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  bookingId: varchar("booking_id", { length: 255 }),
+  
+  // Who is being reviewed
+  revieweeType: varchar("reviewee_type", { length: 20 }).notNull(), // worker, crew, equipment, client
+  revieweeId: varchar("reviewee_id", { length: 255 }).notNull(),
+  
+  // Reviewer
+  reviewerId: varchar("reviewer_id", { length: 255 }).notNull(),
+  reviewerName: varchar("reviewer_name", { length: 200 }),
+  
+  // Rating
+  overallRating: integer("overall_rating").notNull(), // 1-5 stars
+  qualityRating: integer("quality_rating"), // Work quality
+  reliabilityRating: integer("reliability_rating"), // Showed up on time
+  communicationRating: integer("communication_rating"),
+  valueRating: integer("value_rating"), // Worth the rate
+  
+  // Review Content
+  title: varchar("title", { length: 200 }),
+  reviewText: text("review_text"),
+  workPerformed: varchar("work_performed", { length: 200 }),
+  
+  // Verification
+  isVerifiedBooking: boolean("is_verified_booking").default(false),
+  isPublic: boolean("is_public").default(true),
+  
+  // Moderation
+  flagged: boolean("flagged").default(false),
+  flagReason: text("flag_reason"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertCrewlinkReviewSchema = createInsertSchema(crewlinkReviews).omit({
+  id: true,
+  createdAt: true,
+});
+export type CrewlinkReview = typeof crewlinkReviews.$inferSelect;
+export type InsertCrewlinkReview = z.infer<typeof insertCrewlinkReviewSchema>;
+
+// Availability Calendar
+export const crewlinkAvailability = pgTable("crewlink_availability", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  listingType: varchar("listing_type", { length: 20 }).notNull(),
+  listingId: varchar("listing_id", { length: 255 }).notNull(),
+  
+  date: timestamp("date").notNull(),
+  isAvailable: boolean("is_available").default(true),
+  bookingId: varchar("booking_id", { length: 255 }),
+  
+  notes: text("notes"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type CrewlinkAvailability = typeof crewlinkAvailability.$inferSelect;
+
+// Earnings & Revenue Tracking
+export const crewlinkEarnings = pgTable("crewlink_earnings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  providerId: varchar("provider_id", { length: 255 }).notNull(),
+  listingType: varchar("listing_type", { length: 20 }).notNull(),
+  listingId: varchar("listing_id", { length: 255 }).notNull(),
+  bookingId: varchar("booking_id", { length: 255 }),
+  
+  // Amounts
+  grossAmount: numeric("gross_amount", { precision: 10, scale: 2 }).notNull(),
+  platformFee: numeric("platform_fee", { precision: 10, scale: 2 }),
+  netAmount: numeric("net_amount", { precision: 10, scale: 2 }).notNull(),
+  
+  // Type
+  transactionType: varchar("transaction_type", { length: 30 }).notNull(), // earning, declined_loss, cancellation_loss
+  description: text("description"),
+  
+  // Period
+  earnedDate: timestamp("earned_date").notNull(),
+  paidOut: boolean("paid_out").default(false),
+  paidOutDate: timestamp("paid_out_date"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type CrewlinkEarning = typeof crewlinkEarnings.$inferSelect;
+
+// AI Agent Outreach Log
+export const crewlinkOutreach = pgTable("crewlink_outreach", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Match Info
+  matchType: varchar("match_type", { length: 20 }).notNull(), // job_match, equipment_match
+  providerId: varchar("provider_id", { length: 255 }),
+  clientId: varchar("client_id", { length: 255 }),
+  listingId: varchar("listing_id", { length: 255 }),
+  
+  // Communication
+  channel: varchar("channel", { length: 20 }).notNull(), // sms, email, phone
+  recipientPhone: varchar("recipient_phone", { length: 20 }),
+  recipientEmail: varchar("recipient_email", { length: 255 }),
+  message: text("message"),
+  
+  // Status
+  status: varchar("status", { length: 20 }).default("sent"), // sent, delivered, responded, failed
+  response: text("response"),
+  respondedAt: timestamp("responded_at"),
+  
+  // AI Details
+  aiMatchScore: numeric("ai_match_score", { precision: 5, scale: 2 }),
+  aiReasoning: text("ai_reasoning"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type CrewlinkOutreach = typeof crewlinkOutreach.$inferSelect;
