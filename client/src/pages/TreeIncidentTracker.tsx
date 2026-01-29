@@ -149,9 +149,35 @@ export default function TreeIncidentTracker() {
     }
   });
 
-  const { data: statsData } = useQuery({
+  const { data: statsData } = useQuery<{ success: boolean; stats: { total: number; immediate: number; high: number; medium: number; low: number; utilityContacts: number; newStatus: number; inProgress: number; completed: number } }>({
     queryKey: ['/api/tree-incidents/stats/summary'],
   });
+
+  const { data: stateStatsData } = useQuery<{ success: boolean; stateStats: Array<{ state: string; count: number; immediate: number; high: number; newCount: number }> }>({
+    queryKey: ['/api/tree-incidents/stats/by-state'],
+  });
+
+  const [selectedStateForCities, setSelectedStateForCities] = useState<string | null>(null);
+  const [showStateBreakdown, setShowStateBreakdown] = useState(false);
+  
+  const { data: cityStatsData } = useQuery<{ success: boolean; cityStats: Array<{ city: string; count: number; immediate: number; high: number; newCount: number }> }>({
+    queryKey: ['/api/tree-incidents/stats/by-city', selectedStateForCities],
+    queryFn: async () => {
+      if (!selectedStateForCities) return { success: true, cityStats: [] };
+      const response = await fetch(`/api/tree-incidents/stats/by-city/${selectedStateForCities}`);
+      return response.json();
+    },
+    enabled: !!selectedStateForCities
+  });
+
+  const handleStateClick = (state: string) => {
+    setSelectedStateForCities(state);
+    setFilters({ ...filters, state, city: '' });
+  };
+
+  const handleCityClick = (city: string) => {
+    setFilters({ ...filters, city });
+  };
 
   const updateIncidentMutation = useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<TreeIncident> }) => {
@@ -234,39 +260,204 @@ export default function TreeIncidentTracker() {
           </div>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-          <Card className="bg-slate-800/80 border-slate-700">
-            <CardContent className="p-4 text-center">
-              <div className="text-3xl font-bold text-white">{stats?.total || 0}</div>
-              <div className="text-sm text-slate-400">Total Incidents</div>
+        {/* Large Clickable Total Counter */}
+        <Card 
+          className="bg-gradient-to-r from-emerald-900/80 to-slate-800/80 border-emerald-600 cursor-pointer hover:border-emerald-400 transition-all"
+          onClick={() => setShowStateBreakdown(!showStateBreakdown)}
+        >
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-6">
+                <div className="bg-emerald-500/20 p-4 rounded-xl">
+                  <TreePine className="h-12 w-12 text-emerald-400" />
+                </div>
+                <div>
+                  <div className="text-6xl font-bold text-white">{stats?.total || 0}</div>
+                  <div className="text-lg text-emerald-300">Trees Currently Listed</div>
+                  <div className="text-sm text-slate-400 mt-1">Click to view breakdown by state and city</div>
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="text-center px-4 py-2 bg-red-900/50 rounded-lg">
+                    <div className="text-2xl font-bold text-red-400">{stats?.immediate || 0}</div>
+                    <div className="text-xs text-red-300">Immediate</div>
+                  </div>
+                  <div className="text-center px-4 py-2 bg-orange-900/50 rounded-lg">
+                    <div className="text-2xl font-bold text-orange-400">{stats?.high || 0}</div>
+                    <div className="text-xs text-orange-300">High</div>
+                  </div>
+                  <div className="text-center px-4 py-2 bg-yellow-900/50 rounded-lg">
+                    <div className="text-2xl font-bold text-yellow-400">{stats?.medium || 0}</div>
+                    <div className="text-xs text-yellow-300">Medium</div>
+                  </div>
+                  <div className="text-center px-4 py-2 bg-green-900/50 rounded-lg">
+                    <div className="text-2xl font-bold text-green-400">{stats?.completed || 0}</div>
+                    <div className="text-xs text-green-300">Completed</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* State/City Breakdown Panel */}
+        {showStateBreakdown && (
+          <Card className="bg-slate-800/90 border-slate-700">
+            <CardHeader>
+              <CardTitle className="text-white flex items-center gap-2">
+                <MapPin className="h-5 w-5 text-emerald-400" />
+                Incidents by Location
+                {selectedStateForCities && (
+                  <Badge className="bg-emerald-600 ml-2">
+                    {US_STATES.find(s => s.code === selectedStateForCities)?.name || selectedStateForCities}
+                  </Badge>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid md:grid-cols-2 gap-6">
+                {/* States List */}
+                <div>
+                  <h4 className="text-sm font-semibold text-slate-400 mb-3">States with Incidents</h4>
+                  <ScrollArea className="h-[300px]">
+                    <div className="space-y-2">
+                      {stateStatsData?.stateStats?.length ? (
+                        stateStatsData.stateStats.map((stateStat) => (
+                          <div
+                            key={stateStat.state}
+                            className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all ${
+                              selectedStateForCities === stateStat.state 
+                                ? 'bg-emerald-600/30 border border-emerald-500' 
+                                : 'bg-slate-700/50 hover:bg-slate-700 border border-transparent'
+                            }`}
+                            onClick={() => handleStateClick(stateStat.state)}
+                          >
+                            <div className="flex items-center gap-3">
+                              <span className="text-lg font-semibold text-white">{stateStat.state}</span>
+                              <span className="text-slate-400">
+                                {US_STATES.find(s => s.code === stateStat.state)?.name}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {Number(stateStat.immediate) > 0 && (
+                                <Badge className="bg-red-500 text-xs">{stateStat.immediate} urgent</Badge>
+                              )}
+                              <Badge className="bg-emerald-600 text-lg px-3">{stateStat.count}</Badge>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-center py-8 text-slate-400">
+                          No incidents recorded yet. AI monitoring is active and scanning for tree damage.
+                        </div>
+                      )}
+                    </div>
+                  </ScrollArea>
+                </div>
+
+                {/* Cities List (when state is selected) */}
+                <div>
+                  <h4 className="text-sm font-semibold text-slate-400 mb-3">
+                    {selectedStateForCities 
+                      ? `Cities in ${US_STATES.find(s => s.code === selectedStateForCities)?.name || selectedStateForCities}` 
+                      : 'Select a state to view cities'}
+                  </h4>
+                  <ScrollArea className="h-[300px]">
+                    <div className="space-y-2">
+                      {selectedStateForCities && cityStatsData?.cityStats?.length ? (
+                        cityStatsData.cityStats.map((cityStat) => (
+                          <div
+                            key={cityStat.city}
+                            className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all ${
+                              filters.city === cityStat.city 
+                                ? 'bg-blue-600/30 border border-blue-500' 
+                                : 'bg-slate-700/50 hover:bg-slate-700 border border-transparent'
+                            }`}
+                            onClick={() => handleCityClick(cityStat.city)}
+                          >
+                            <div className="flex items-center gap-3">
+                              <Building className="h-4 w-4 text-slate-400" />
+                              <span className="text-white">{cityStat.city || 'Unknown City'}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {Number(cityStat.immediate) > 0 && (
+                                <Badge className="bg-red-500 text-xs">{cityStat.immediate} urgent</Badge>
+                              )}
+                              <Badge className="bg-blue-600">{cityStat.count}</Badge>
+                            </div>
+                          </div>
+                        ))
+                      ) : selectedStateForCities ? (
+                        <div className="text-center py-8 text-slate-400">
+                          No cities with incidents in this state
+                        </div>
+                      ) : (
+                        <div className="text-center py-8 text-slate-400">
+                          <MapPin className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                          Click on a state to see city breakdown
+                        </div>
+                      )}
+                    </div>
+                  </ScrollArea>
+                </div>
+              </div>
+              
+              <div className="flex justify-end mt-4 gap-2">
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    setSelectedStateForCities(null);
+                    setFilters({ ...filters, state: 'all', city: '' });
+                  }}
+                  className="bg-slate-700 border-slate-600 text-white"
+                >
+                  Clear Selection
+                </Button>
+                <Button 
+                  onClick={() => setShowStateBreakdown(false)}
+                  className="bg-emerald-600 hover:bg-emerald-700"
+                >
+                  View Incidents
+                </Button>
+              </div>
             </CardContent>
           </Card>
-          <Card className="bg-red-900/50 border-red-700">
+        )}
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+          <Card className="bg-slate-800/80 border-slate-700 cursor-pointer hover:border-blue-500" onClick={() => setFilters({ ...filters, status: 'all' })}>
+            <CardContent className="p-4 text-center">
+              <div className="text-3xl font-bold text-white">{stats?.newStatus || 0}</div>
+              <div className="text-sm text-slate-400">New</div>
+            </CardContent>
+          </Card>
+          <Card className="bg-red-900/50 border-red-700 cursor-pointer hover:border-red-400" onClick={() => setFilters({ ...filters, priority: 'immediate' })}>
             <CardContent className="p-4 text-center">
               <div className="text-3xl font-bold text-red-400">{stats?.immediate || 0}</div>
               <div className="text-sm text-red-300">Immediate</div>
             </CardContent>
           </Card>
-          <Card className="bg-orange-900/50 border-orange-700">
+          <Card className="bg-orange-900/50 border-orange-700 cursor-pointer hover:border-orange-400" onClick={() => setFilters({ ...filters, priority: 'high' })}>
             <CardContent className="p-4 text-center">
               <div className="text-3xl font-bold text-orange-400">{stats?.high || 0}</div>
               <div className="text-sm text-orange-300">High Priority</div>
             </CardContent>
           </Card>
-          <Card className="bg-yellow-900/50 border-yellow-700">
+          <Card className="bg-yellow-900/50 border-yellow-700 cursor-pointer hover:border-yellow-400" onClick={() => setFilters({ ...filters, priority: 'medium' })}>
             <CardContent className="p-4 text-center">
               <div className="text-3xl font-bold text-yellow-400">{stats?.medium || 0}</div>
               <div className="text-sm text-yellow-300">Medium</div>
             </CardContent>
           </Card>
-          <Card className="bg-amber-900/50 border-amber-700">
+          <Card className="bg-amber-900/50 border-amber-700 cursor-pointer hover:border-amber-400" onClick={() => setFilters({ ...filters, utilityContact: 'true' })}>
             <CardContent className="p-4 text-center">
               <div className="text-3xl font-bold text-amber-400">{stats?.utilityContacts || 0}</div>
               <div className="text-sm text-amber-300">Utility Involved</div>
             </CardContent>
           </Card>
-          <Card className="bg-green-900/50 border-green-700">
+          <Card className="bg-green-900/50 border-green-700 cursor-pointer hover:border-green-400" onClick={() => setFilters({ ...filters, status: 'completed' })}>
             <CardContent className="p-4 text-center">
               <div className="text-3xl font-bold text-green-400">{stats?.completed || 0}</div>
               <div className="text-sm text-green-300">Completed</div>

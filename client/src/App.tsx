@@ -59,6 +59,7 @@ const TreeIncidentTracker = lazy(() => import("./pages/TreeIncidentTracker"));
 
 // Contractor Hub - Unified Dashboard
 const ContractorHub = lazy(() => import("./pages/ContractorHub"));
+const ContractorNotifications = lazy(() => import("./pages/ContractorNotifications"));
 
 // WorkHub Marketplace Pages
 const WorkHubMarketplace = lazy(() => import("./pages/WorkHubMarketplace"));
@@ -275,6 +276,7 @@ export default function App() {
           {/* WorkHub Marketplace Routes */}
           {/* Contractor Hub - Unified Dashboard */}
           <Route path="/hub" element={<ProtectedRoute><ContractorHub /></ProtectedRoute>} />
+          <Route path="/notifications" element={<ProtectedRoute><ContractorNotifications /></ProtectedRoute>} />
           
           {/* CrewLink Exchange - Public Marketplace */}
           <Route path="/crewlink" element={<CrewLinkExchange />} />

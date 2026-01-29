@@ -4433,6 +4433,30 @@ export const contractorProfiles = pgTable("contractor_profiles", {
   bankingUpdatedAt: timestamp("banking_updated_at")
 });
 
+// Contractor Alert Preferences - Notification settings for incident alerts
+export const contractorAlertPreferences = pgTable("contractor_alert_preferences", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  contractorId: varchar("contractor_id").references(() => users.id).notNull(),
+  phone: text("phone"),
+  email: text("email"),
+  states: text("states").array(),
+  cities: text("cities").array(),
+  tradeTypes: text("trade_types").array(),
+  notifyBySms: boolean("notify_by_sms").default(true),
+  notifyByEmail: boolean("notify_by_email").default(true),
+  notifyByPhone: boolean("notify_by_phone").default(false),
+  notifyByPush: boolean("notify_by_push").default(true),
+  alertPriorities: text("alert_priorities").array().default(sql`ARRAY['immediate', 'high']`),
+  modules: text("modules").array().default(sql`ARRAY['tree_incidents']`),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull()
+});
+
+export const insertContractorAlertPreferencesSchema = createInsertSchema(contractorAlertPreferences).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertContractorAlertPreferences = z.infer<typeof insertContractorAlertPreferencesSchema>;
+export type ContractorAlertPreferences = typeof contractorAlertPreferences.$inferSelect;
+
 // Properties - Homeowner property management
 export const properties = pgTable("properties", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -7939,6 +7963,16 @@ export const treeIncidents = pgTable("tree_incidents", {
   notes: text("notes"),
   weatherConditions: varchar("weather_conditions", { length: 255 }),
   weatherAdvisories: text("weather_advisories"),
+  
+  // AI Detection Source
+  source: varchar("source", { length: 100 }), // traffic_cameras, nws_alerts, social_media, news_feeds, 911_scanners, dot_reports, utility_reports, satellite_imagery, manual
+  sourceUrl: varchar("source_url", { length: 500 }),
+  probableCause: text("probable_cause"), // AI analysis of why tree fell
+  windSpeed: integer("wind_speed"), // mph
+  gustSpeed: integer("gust_speed"), // mph
+  iceAccumulation: numeric("ice_accumulation", { precision: 4, scale: 2 }), // inches
+  rainfallAccumulation: numeric("rainfall_accumulation", { precision: 4, scale: 2 }), // inches
+  stormName: varchar("storm_name", { length: 100 }),
   
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

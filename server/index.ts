@@ -208,6 +208,14 @@ server.listen(port, () => {
   // Start LeadVault Campaign Scheduler (8 AM daily + storm triggers)
   campaignScheduler.start();
   
+  // Start 24/7 Tree Incident Monitoring Service
+  import('./services/TreeIncidentMonitorService.js').then(({ treeIncidentMonitorService }) => {
+    treeIncidentMonitorService.start();
+    console.log('🌳 Tree Incident Monitor started - 24/7 multi-source scanning active');
+  }).catch(err => {
+    console.error('Failed to start tree incident monitor:', err);
+  });
+  
   setInterval(async () => {
     try {
       const response = await fetch(`${baseUrl}/api/claims-agent/run`);

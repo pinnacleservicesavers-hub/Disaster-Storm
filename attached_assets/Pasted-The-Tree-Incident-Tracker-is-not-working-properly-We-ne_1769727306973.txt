@@ -1,0 +1,98 @@
+The Tree Incident Tracker is not working properly.
+
+We need the AI agent inside this app to be operating continuously — 24/7 — actively hunting and detecting tree-related incidents in real time.
+
+The system must constantly scan and aggregate data from:
+
+Social media platforms
+
+Local and national news sources
+
+Radio dispatch feeds
+
+Public 911 and emergency scanner reports
+
+Traffic cameras
+
+Satellite imagery (all available public sources)
+
+DOT and utility incident reports
+
+Weather-triggered risk zones
+
+Any additional public or open-source intelligence channels that may indicate tree damage
+
+The AI must proactively detect:
+
+Trees down on structures
+
+Trees on roadways
+
+Trees on vehicles
+
+Trees on utility lines
+
+Storm-related tree damage
+
+High-risk wind or ice zones before structural failure occurs
+
+In addition, the system must:
+
+1. Narrow Location Data as Precisely as Possible
+
+Pinpoint incidents down to street level when available
+
+Extract cross streets, mile markers, neighborhoods, or landmarks
+
+Provide GPS coordinates when possible
+
+Continuously refine location accuracy as new data becomes available
+
+2. Analyze WHY the Tree is Down
+The AI should not only detect the incident but also determine probable cause by correlating:
+
+Current and recent weather conditions
+
+Wind speed and gust data
+
+Rainfall accumulation
+
+Ice accumulation
+
+Soil saturation levels
+
+Lightning strikes
+
+Hurricane or tropical system proximity
+
+Tornado warnings
+
+Dead or diseased tree indicators
+
+Construction or vehicle impact possibilities
+
+If wind-related, the system should report:
+
+Sustained wind speed
+
+Gust speeds
+
+Duration of event
+
+If storm-related:
+
+Name of storm (if applicable)
+
+Category (if hurricane)
+
+Timeline of impact
+
+If isolated:
+
+Indicate whether likely decay, root failure, or localized microburst
+
+This system must run continuously, not periodically. It cannot rely on manual triggers or delayed updates. It must actively search, validate, cross-reference, score confidence levels, and provide real-time alerts with both precise location data and probable cause analysis.
+
+The AI should also explore less conventional data channels and think beyond obvious sources to identify tree-related damage events before competitors or municipalities react.
+
+Please diagnose why the tracker is not functioning and implement a persistent, always-on monitoring and correlation architecture immediately.

@@ -1,6 +1,6 @@
 import express from 'express';
 import { db } from '../db.js';
-import { treeIncidents, appNotifications, customerMitigationAuths, crewRoutes } from '../../shared/schema.js';
+import { treeIncidents, appNotifications, customerMitigationAuths, crewRoutes, contractorAlertPreferences } from '../../shared/schema.js';
 import { eq, desc, and, or, ilike, gte, lte, sql } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 
@@ -208,6 +208,51 @@ router.get('/tree-incidents/stats/summary', async (req, res) => {
   }
 });
 
+// Get stats by state (for clickable state breakdown)
+router.get('/tree-incidents/stats/by-state', async (req, res) => {
+  try {
+    const stateStats = await db.select({
+      state: treeIncidents.state,
+      count: sql<number>`count(*)`,
+      immediate: sql<number>`sum(case when priority = 'immediate' then 1 else 0 end)`,
+      high: sql<number>`sum(case when priority = 'high' then 1 else 0 end)`,
+      newCount: sql<number>`sum(case when status = 'new' then 1 else 0 end)`
+    })
+    .from(treeIncidents)
+    .groupBy(treeIncidents.state)
+    .orderBy(sql`count(*) desc`);
+
+    res.json({ success: true, stateStats });
+  } catch (error) {
+    console.error('Error fetching state stats:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch state stats' });
+  }
+});
+
+// Get stats by city for a specific state
+router.get('/tree-incidents/stats/by-city/:state', async (req, res) => {
+  try {
+    const { state } = req.params;
+    
+    const cityStats = await db.select({
+      city: treeIncidents.city,
+      count: sql<number>`count(*)`,
+      immediate: sql<number>`sum(case when priority = 'immediate' then 1 else 0 end)`,
+      high: sql<number>`sum(case when priority = 'high' then 1 else 0 end)`,
+      newCount: sql<number>`sum(case when status = 'new' then 1 else 0 end)`
+    })
+    .from(treeIncidents)
+    .where(eq(treeIncidents.state, state))
+    .groupBy(treeIncidents.city)
+    .orderBy(sql`count(*) desc`);
+
+    res.json({ success: true, cityStats, state });
+  } catch (error) {
+    console.error('Error fetching city stats:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch city stats' });
+  }
+});
+
 // ===== IN-APP NOTIFICATIONS =====
 
 // Get notifications for current user
@@ -361,6 +406,85 @@ router.patch('/cma/:id', async (req, res) => {
   } catch (error) {
     console.error('Error updating CMA:', error);
     res.status(500).json({ success: false, error: 'Failed to update CMA' });
+  }
+});
+
+// ===== CONTRACTOR ALERT PREFERENCES =====
+
+// Get contractor alert preferences
+router.get('/contractor-alert-preferences/:contractorId', async (req, res) => {
+  try {
+    const { contractorId } = req.params;
+    
+    const prefs = await db.select()
+      .from(contractorAlertPreferences)
+      .where(eq(contractorAlertPreferences.contractorId, contractorId))
+      .limit(1);
+
+    if (prefs.length === 0) {
+      return res.json({ success: true, preferences: null });
+    }
+
+    res.json({ success: true, preferences: prefs[0] });
+  } catch (error) {
+    console.error('Error fetching alert preferences:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch preferences' });
+  }
+});
+
+// Create or update contractor alert preferences
+router.post('/contractor-alert-preferences', async (req, res) => {
+  try {
+    const data = req.body;
+    
+    const existing = await db.select()
+      .from(contractorAlertPreferences)
+      .where(eq(contractorAlertPreferences.contractorId, data.contractorId))
+      .limit(1);
+
+    if (existing.length > 0) {
+      const [updated] = await db.update(contractorAlertPreferences)
+        .set({ ...data, updatedAt: new Date() })
+        .where(eq(contractorAlertPreferences.contractorId, data.contractorId))
+        .returning();
+      
+      return res.json({ success: true, preferences: updated });
+    }
+
+    const [created] = await db.insert(contractorAlertPreferences).values({
+      id: randomUUID(),
+      ...data,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }).returning();
+
+    res.status(201).json({ success: true, preferences: created });
+  } catch (error) {
+    console.error('Error saving alert preferences:', error);
+    res.status(500).json({ success: false, error: 'Failed to save preferences' });
+  }
+});
+
+// Get all contractors subscribed to alerts for a specific state
+router.get('/contractor-alerts/by-state/:state', async (req, res) => {
+  try {
+    const { state } = req.params;
+    
+    const contractors = await db.select()
+      .from(contractorAlertPreferences)
+      .where(and(
+        eq(contractorAlertPreferences.isActive, true),
+        or(
+          sql`${contractorAlertPreferences.states} @> ARRAY[${state}]::text[]`,
+          sql`${contractorAlertPreferences.states} IS NULL`,
+          sql`array_length(${contractorAlertPreferences.states}, 1) = 0`
+        )
+      ));
+
+    res.json({ success: true, contractors, count: contractors.length });
+  } catch (error) {
+    console.error('Error fetching contractors by state:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch contractors' });
   }
 });
 
