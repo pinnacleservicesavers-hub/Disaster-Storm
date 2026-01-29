@@ -103,12 +103,33 @@ export default function TreeIncidentTracker() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [filters, setFilters] = useState({
-    state: '',
-    priority: '',
-    status: '',
-    impactType: '',
-    utilityContact: ''
+    state: 'all',
+    city: '',
+    priority: 'all',
+    status: 'all',
+    impactType: 'all',
+    utilityContact: 'all'
   });
+  
+  const US_STATES = [
+    { code: 'AL', name: 'Alabama' }, { code: 'AK', name: 'Alaska' }, { code: 'AZ', name: 'Arizona' },
+    { code: 'AR', name: 'Arkansas' }, { code: 'CA', name: 'California' }, { code: 'CO', name: 'Colorado' },
+    { code: 'CT', name: 'Connecticut' }, { code: 'DE', name: 'Delaware' }, { code: 'FL', name: 'Florida' },
+    { code: 'GA', name: 'Georgia' }, { code: 'HI', name: 'Hawaii' }, { code: 'ID', name: 'Idaho' },
+    { code: 'IL', name: 'Illinois' }, { code: 'IN', name: 'Indiana' }, { code: 'IA', name: 'Iowa' },
+    { code: 'KS', name: 'Kansas' }, { code: 'KY', name: 'Kentucky' }, { code: 'LA', name: 'Louisiana' },
+    { code: 'ME', name: 'Maine' }, { code: 'MD', name: 'Maryland' }, { code: 'MA', name: 'Massachusetts' },
+    { code: 'MI', name: 'Michigan' }, { code: 'MN', name: 'Minnesota' }, { code: 'MS', name: 'Mississippi' },
+    { code: 'MO', name: 'Missouri' }, { code: 'MT', name: 'Montana' }, { code: 'NE', name: 'Nebraska' },
+    { code: 'NV', name: 'Nevada' }, { code: 'NH', name: 'New Hampshire' }, { code: 'NJ', name: 'New Jersey' },
+    { code: 'NM', name: 'New Mexico' }, { code: 'NY', name: 'New York' }, { code: 'NC', name: 'North Carolina' },
+    { code: 'ND', name: 'North Dakota' }, { code: 'OH', name: 'Ohio' }, { code: 'OK', name: 'Oklahoma' },
+    { code: 'OR', name: 'Oregon' }, { code: 'PA', name: 'Pennsylvania' }, { code: 'RI', name: 'Rhode Island' },
+    { code: 'SC', name: 'South Carolina' }, { code: 'SD', name: 'South Dakota' }, { code: 'TN', name: 'Tennessee' },
+    { code: 'TX', name: 'Texas' }, { code: 'UT', name: 'Utah' }, { code: 'VT', name: 'Vermont' },
+    { code: 'VA', name: 'Virginia' }, { code: 'WA', name: 'Washington' }, { code: 'WV', name: 'West Virginia' },
+    { code: 'WI', name: 'Wisconsin' }, { code: 'WY', name: 'Wyoming' }
+  ];
   const [selectedIncident, setSelectedIncident] = useState<TreeIncident | null>(null);
   const [showFilters, setShowFilters] = useState(false);
 
@@ -116,11 +137,12 @@ export default function TreeIncidentTracker() {
     queryKey: ['/api/tree-incidents', filters],
     queryFn: async () => {
       const params = new URLSearchParams();
-      if (filters.state) params.append('state', filters.state);
-      if (filters.priority) params.append('priority', filters.priority);
-      if (filters.status) params.append('status', filters.status);
-      if (filters.impactType) params.append('impactType', filters.impactType);
-      if (filters.utilityContact) params.append('utilityContact', filters.utilityContact);
+      if (filters.state && filters.state !== 'all') params.append('state', filters.state);
+      if (filters.city) params.append('city', filters.city);
+      if (filters.priority && filters.priority !== 'all') params.append('priority', filters.priority);
+      if (filters.status && filters.status !== 'all') params.append('status', filters.status);
+      if (filters.impactType && filters.impactType !== 'all') params.append('impactType', filters.impactType);
+      if (filters.utilityContact && filters.utilityContact !== 'all') params.append('utilityContact', filters.utilityContact);
       
       const response = await fetch(`/api/tree-incidents?${params.toString()}`);
       return response.json();
@@ -256,13 +278,29 @@ export default function TreeIncidentTracker() {
         {showFilters && (
           <Card className="bg-slate-800/90 border-slate-700">
             <CardContent className="p-4">
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
                 <div>
                   <label className="text-sm text-slate-400 mb-1 block">State</label>
+                  <Select value={filters.state} onValueChange={(v) => setFilters({ ...filters, state: v })}>
+                    <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
+                      <SelectValue placeholder="All States" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-[300px]">
+                      <SelectItem value="all">All States</SelectItem>
+                      {US_STATES.map((state) => (
+                        <SelectItem key={state.code} value={state.code}>
+                          {state.code} - {state.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm text-slate-400 mb-1 block">City</label>
                   <Input
-                    placeholder="e.g., TN, MS"
-                    value={filters.state}
-                    onChange={(e) => setFilters({ ...filters, state: e.target.value })}
+                    placeholder="Enter city name"
+                    value={filters.city}
+                    onChange={(e) => setFilters({ ...filters, city: e.target.value })}
                     className="bg-slate-700 border-slate-600 text-white"
                   />
                 </div>
@@ -273,7 +311,7 @@ export default function TreeIncidentTracker() {
                       <SelectValue placeholder="All Priorities" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">All</SelectItem>
+                      <SelectItem value="all">All Priorities</SelectItem>
                       <SelectItem value="immediate">Immediate</SelectItem>
                       <SelectItem value="high">High</SelectItem>
                       <SelectItem value="medium">Medium</SelectItem>
@@ -288,7 +326,7 @@ export default function TreeIncidentTracker() {
                       <SelectValue placeholder="All Statuses" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">All</SelectItem>
+                      <SelectItem value="all">All Statuses</SelectItem>
                       <SelectItem value="new">New</SelectItem>
                       <SelectItem value="dispatched">Dispatched</SelectItem>
                       <SelectItem value="in_progress">In Progress</SelectItem>
@@ -303,12 +341,15 @@ export default function TreeIncidentTracker() {
                       <SelectValue placeholder="All Types" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">All</SelectItem>
+                      <SelectItem value="all">All Types</SelectItem>
                       <SelectItem value="on_roof">On Roof</SelectItem>
                       <SelectItem value="contacting_building">Contacting Building</SelectItem>
                       <SelectItem value="on_powerlines">On Power Lines</SelectItem>
                       <SelectItem value="road_blocked">Road Blocked</SelectItem>
                       <SelectItem value="on_vehicle">On Vehicle</SelectItem>
+                      <SelectItem value="on_fence">On Fence</SelectItem>
+                      <SelectItem value="in_pool">In Pool</SelectItem>
+                      <SelectItem value="debris_field">Debris Field</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -319,7 +360,7 @@ export default function TreeIncidentTracker() {
                       <SelectValue placeholder="Any" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Any</SelectItem>
+                      <SelectItem value="all">Any</SelectItem>
                       <SelectItem value="true">Utility Involved</SelectItem>
                     </SelectContent>
                   </Select>
@@ -328,7 +369,7 @@ export default function TreeIncidentTracker() {
               <div className="flex justify-end mt-4">
                 <Button 
                   variant="ghost" 
-                  onClick={() => setFilters({ state: '', priority: '', status: '', impactType: '', utilityContact: '' })}
+                  onClick={() => setFilters({ state: 'all', city: '', priority: 'all', status: 'all', impactType: 'all', utilityContact: 'all' })}
                   className="text-slate-400 hover:text-white"
                 >
                   Clear Filters
