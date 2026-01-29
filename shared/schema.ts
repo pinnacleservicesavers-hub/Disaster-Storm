@@ -8494,3 +8494,325 @@ export const crewlinkOutreach = pgTable("crewlink_outreach", {
 });
 
 export type CrewlinkOutreach = typeof crewlinkOutreach.$inferSelect;
+
+// ===== CREWLINK ADVERTISING NETWORK =====
+
+// Advertisers - Companies that want to reach contractors
+export const crewlinkAdvertisers = pgTable("crewlink_advertisers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Company Info
+  companyName: varchar("company_name", { length: 255 }).notNull(),
+  industry: varchar("industry", { length: 100 }).notNull(), // equipment, tools, insurance, software, workwear, etc.
+  website: varchar("website", { length: 500 }),
+  logoUrl: text("logo_url"),
+  
+  // Contact
+  contactName: varchar("contact_name", { length: 255 }),
+  contactEmail: varchar("contact_email", { length: 255 }).notNull(),
+  contactPhone: varchar("contact_phone", { length: 20 }),
+  
+  // Billing
+  billingAddress: text("billing_address"),
+  stripeCustomerId: varchar("stripe_customer_id", { length: 255 }),
+  
+  // Status
+  status: varchar("status", { length: 20 }).default("pending"), // pending, active, suspended
+  tier: varchar("tier", { length: 20 }).default("standard"), // standard, premium, enterprise
+  
+  // Stats
+  totalSpend: numeric("total_spend", { precision: 12, scale: 2 }).default("0"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertCrewlinkAdvertiserSchema = createInsertSchema(crewlinkAdvertisers).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type CrewlinkAdvertiser = typeof crewlinkAdvertisers.$inferSelect;
+export type InsertCrewlinkAdvertiser = z.infer<typeof insertCrewlinkAdvertiserSchema>;
+
+// Ad Campaigns - Advertising campaign settings
+export const crewlinkAdCampaigns = pgTable("crewlink_ad_campaigns", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  advertiserId: varchar("advertiser_id", { length: 255 }).notNull(),
+  
+  // Campaign Details
+  name: varchar("name", { length: 255 }).notNull(),
+  campaignType: varchar("campaign_type", { length: 30 }).notNull(), // sponsored_listing, banner, category_sponsor, storm_surge
+  
+  // Budget
+  budgetTotal: numeric("budget_total", { precision: 10, scale: 2 }),
+  budgetDaily: numeric("budget_daily", { precision: 10, scale: 2 }),
+  budgetSpent: numeric("budget_spent", { precision: 10, scale: 2 }).default("0"),
+  
+  // Bidding
+  bidType: varchar("bid_type", { length: 20 }).default("cpm"), // cpm, cpc, flat_rate
+  bidAmount: numeric("bid_amount", { precision: 10, scale: 4 }),
+  
+  // Targeting
+  targetCategories: text("target_categories").array(), // tree-services, roofing, etc.
+  targetStates: text("target_states").array(),
+  targetListingTypes: text("target_listing_types").array(), // workers, crews, equipment
+  targetStormMode: boolean("target_storm_mode").default(false),
+  
+  // Schedule
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date"),
+  
+  // Creative
+  headline: varchar("headline", { length: 200 }),
+  description: text("description"),
+  imageUrl: text("image_url"),
+  ctaText: varchar("cta_text", { length: 50 }),
+  ctaUrl: text("cta_url"),
+  
+  // Status
+  status: varchar("status", { length: 20 }).default("draft"), // draft, pending_review, active, paused, completed
+  
+  // Performance
+  impressions: integer("impressions").default(0),
+  clicks: integer("clicks").default(0),
+  conversions: integer("conversions").default(0),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertCrewlinkAdCampaignSchema = createInsertSchema(crewlinkAdCampaigns).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type CrewlinkAdCampaign = typeof crewlinkAdCampaigns.$inferSelect;
+export type InsertCrewlinkAdCampaign = z.infer<typeof insertCrewlinkAdCampaignSchema>;
+
+// Ad Placements - Where ads appear
+export const crewlinkAdPlacements = pgTable("crewlink_ad_placements", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Placement Details
+  name: varchar("name", { length: 100 }).notNull(),
+  placementType: varchar("placement_type", { length: 30 }).notNull(), // top_search, sidebar_banner, category_header, dashboard_banner, equipment_page, storm_mode
+  
+  // Location
+  pageLocation: varchar("page_location", { length: 100 }), // crewlink_main, category_page, search_results, equipment_details
+  position: integer("position").default(1),
+  
+  // Dimensions
+  width: integer("width"),
+  height: integer("height"),
+  
+  // Pricing
+  basePriceMonthly: numeric("base_price_monthly", { precision: 10, scale: 2 }),
+  stormSurgeMultiplier: numeric("storm_surge_multiplier", { precision: 4, scale: 2 }).default("1.5"),
+  
+  // Status
+  isActive: boolean("is_active").default(true),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type CrewlinkAdPlacement = typeof crewlinkAdPlacements.$inferSelect;
+
+// Ad Impressions - Track ad views
+export const crewlinkAdImpressions = pgTable("crewlink_ad_impressions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  campaignId: varchar("campaign_id", { length: 255 }).notNull(),
+  placementId: varchar("placement_id", { length: 255 }),
+  
+  // Viewer Info
+  viewerSessionId: varchar("viewer_session_id", { length: 255 }),
+  viewerUserId: varchar("viewer_user_id", { length: 255 }),
+  viewerState: varchar("viewer_state", { length: 50 }),
+  viewerCity: varchar("viewer_city", { length: 100 }),
+  
+  // Context
+  pageUrl: text("page_url"),
+  searchQuery: varchar("search_query", { length: 255 }),
+  categoryViewed: varchar("category_viewed", { length: 100 }),
+  isStormMode: boolean("is_storm_mode").default(false),
+  
+  // Cost
+  costCharged: numeric("cost_charged", { precision: 10, scale: 4 }),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type CrewlinkAdImpression = typeof crewlinkAdImpressions.$inferSelect;
+
+// Ad Clicks - Track ad clicks
+export const crewlinkAdClicks = pgTable("crewlink_ad_clicks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  campaignId: varchar("campaign_id", { length: 255 }).notNull(),
+  impressionId: varchar("impression_id", { length: 255 }),
+  
+  // Clicker Info
+  clickerSessionId: varchar("clicker_session_id", { length: 255 }),
+  clickerUserId: varchar("clicker_user_id", { length: 255 }),
+  
+  // Destination
+  destinationUrl: text("destination_url"),
+  
+  // Cost
+  costCharged: numeric("cost_charged", { precision: 10, scale: 4 }),
+  
+  // Conversion Tracking
+  converted: boolean("converted").default(false),
+  conversionValue: numeric("conversion_value", { precision: 10, scale: 2 }),
+  conversionType: varchar("conversion_type", { length: 50 }),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type CrewlinkAdClick = typeof crewlinkAdClicks.$inferSelect;
+
+// Affiliate Links - Track affiliate revenue
+export const crewlinkAffiliateLinks = pgTable("crewlink_affiliate_links", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Partner Info
+  partnerName: varchar("partner_name", { length: 255 }).notNull(), // Husqvarna, Stihl, Amazon, etc.
+  category: varchar("category", { length: 100 }).notNull(), // equipment, tools, safety, workwear, insurance
+  
+  // Link Details
+  productName: varchar("product_name", { length: 255 }),
+  productDescription: text("product_description"),
+  originalUrl: text("original_url").notNull(),
+  affiliateUrl: text("affiliate_url").notNull(),
+  affiliateCode: varchar("affiliate_code", { length: 100 }),
+  
+  // Visuals
+  productImageUrl: text("product_image_url"),
+  
+  // Commission
+  commissionRate: numeric("commission_rate", { precision: 5, scale: 2 }), // percentage
+  commissionFlat: numeric("commission_flat", { precision: 10, scale: 2 }), // flat amount per sale
+  
+  // Targeting
+  displayOnCategories: text("display_on_categories").array(),
+  displayOnListingTypes: text("display_on_listing_types").array(),
+  
+  // Stats
+  clicks: integer("clicks").default(0),
+  conversions: integer("conversions").default(0),
+  revenue: numeric("revenue", { precision: 12, scale: 2 }).default("0"),
+  
+  // Status
+  isActive: boolean("is_active").default(true),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertCrewlinkAffiliateLinkSchema = createInsertSchema(crewlinkAffiliateLinks).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type CrewlinkAffiliateLink = typeof crewlinkAffiliateLinks.$inferSelect;
+export type InsertCrewlinkAffiliateLink = z.infer<typeof insertCrewlinkAffiliateLinkSchema>;
+
+// Affiliate Clicks - Track affiliate link clicks
+export const crewlinkAffiliateClicks = pgTable("crewlink_affiliate_clicks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  affiliateLinkId: varchar("affiliate_link_id", { length: 255 }).notNull(),
+  
+  // Clicker Info
+  sessionId: varchar("session_id", { length: 255 }),
+  userId: varchar("user_id", { length: 255 }),
+  
+  // Context
+  sourcePageUrl: text("source_page_url"),
+  
+  // Conversion
+  converted: boolean("converted").default(false),
+  conversionValue: numeric("conversion_value", { precision: 10, scale: 2 }),
+  commissionEarned: numeric("commission_earned", { precision: 10, scale: 2 }),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type CrewlinkAffiliateClick = typeof crewlinkAffiliateClicks.$inferSelect;
+
+// Partner Offers - Financing, Insurance, Fuel Cards
+export const crewlinkPartnerOffers = pgTable("crewlink_partner_offers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Partner Info
+  partnerName: varchar("partner_name", { length: 255 }).notNull(),
+  partnerLogoUrl: text("partner_logo_url"),
+  
+  // Offer Details
+  offerType: varchar("offer_type", { length: 50 }).notNull(), // equipment_financing, insurance, fuel_card, payroll, workers_comp
+  title: varchar("title", { length: 255 }).notNull(),
+  description: text("description"),
+  
+  // Benefits
+  benefits: text("benefits").array(),
+  discountText: varchar("discount_text", { length: 200 }),
+  
+  // Application
+  applicationUrl: text("application_url"),
+  ctaText: varchar("cta_text", { length: 50 }),
+  
+  // Revenue
+  referralFee: numeric("referral_fee", { precision: 10, scale: 2 }),
+  revSharePercentage: numeric("rev_share_percentage", { precision: 5, scale: 2 }),
+  
+  // Targeting
+  targetCategories: text("target_categories").array(),
+  targetListingTypes: text("target_listing_types").array(),
+  minListingAge: integer("min_listing_age"), // days since listing created
+  
+  // Stats
+  impressions: integer("impressions").default(0),
+  clicks: integer("clicks").default(0),
+  applications: integer("applications").default(0),
+  approvals: integer("approvals").default(0),
+  
+  // Status
+  isActive: boolean("is_active").default(true),
+  priority: integer("priority").default(0),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertCrewlinkPartnerOfferSchema = createInsertSchema(crewlinkPartnerOffers).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type CrewlinkPartnerOffer = typeof crewlinkPartnerOffers.$inferSelect;
+export type InsertCrewlinkPartnerOffer = z.infer<typeof insertCrewlinkPartnerOfferSchema>;
+
+// Storm Mode Advertising - Surge pricing during disasters
+export const crewlinkStormAds = pgTable("crewlink_storm_ads", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  campaignId: varchar("campaign_id", { length: 255 }).notNull(),
+  
+  // Disaster Info
+  disasterType: varchar("disaster_type", { length: 50 }).notNull(), // hurricane, tornado, ice_storm, wildfire, flood
+  femaDeclarationId: varchar("fema_declaration_id", { length: 100 }),
+  affectedStates: text("affected_states").array(),
+  affectedCounties: text("affected_counties").array(),
+  
+  // Surge Pricing
+  surgeMultiplier: numeric("surge_multiplier", { precision: 4, scale: 2 }).default("2.0"),
+  priorityLevel: integer("priority_level").default(1), // 1 = highest
+  
+  // Schedule
+  stormStartDate: timestamp("storm_start_date"),
+  stormEndDate: timestamp("storm_end_date"),
+  
+  // Status
+  status: varchar("status", { length: 20 }).default("active"), // active, paused, ended
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type CrewlinkStormAd = typeof crewlinkStormAds.$inferSelect;
