@@ -84,6 +84,7 @@ import quoteRoutes from "./routes/quotes";
 import pipelineRoutes from "./routes/pipeline";
 import treeAlertRoutes from "./routes/treeAlertRoutes";
 import treeIncidentRoutes from "./routes/treeIncidentRoutes";
+import twilioVoiceRoutes from "./routes/twilioVoiceRoutes";
 import bidIntelProRoutes from "./routes/bidIntelPro";
 import trueCostSheetRoutes from "./routes/trueCostSheet";
 import { signatureAuditService } from "./services/signatureAuditService";
@@ -2569,6 +2570,10 @@ Include 3-4 phases, 3-5 tasks per phase, 2-3 SOPs, 3 risks, and 4 KPIs. Be speci
   // ---- Street-Level Tree Incident Tracker ----
   app.use('/api', treeIncidentRoutes);
   console.log('🌲 Tree Incident Tracker routes registered - Street-level incident tracking with in-app alerts');
+
+  // ---- Twilio Voice Webhook Routes ----
+  app.use('/api/twilio', twilioVoiceRoutes);
+  console.log('📞 Twilio Voice routes registered - Incoming call handling with Rachel AI');
 
   // ---- AI BidIntel Pro™ Routes ----
   app.use('/api/bidintel', bidIntelProRoutes);
