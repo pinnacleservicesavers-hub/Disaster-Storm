@@ -11,6 +11,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
+import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 import { 
   TreePine, 
   MapPin, 
@@ -33,7 +34,10 @@ import {
   Waves,
   Fence,
   Route,
-  Phone
+  Phone,
+  MessageSquare,
+  Mic,
+  Volume2
 } from 'lucide-react';
 
 interface TreeIncident {
@@ -132,6 +136,43 @@ export default function TreeIncidentTracker() {
   ];
   const [selectedIncident, setSelectedIncident] = useState<TreeIncident | null>(null);
   const [showFilters, setShowFilters] = useState(false);
+  const [isPlayingVoice, setIsPlayingVoice] = useState(false);
+  const [aiChatTrigger, setAiChatTrigger] = useState<{ open: boolean; mode: 'text' | 'voice' } | undefined>();
+
+  const playRachelIntro = async () => {
+    setIsPlayingVoice(true);
+    try {
+      const introText = `Welcome to the Tree Incident Tracker. I'm Rachel, your 24/7 AI assistant dedicated to finding and monitoring fallen tree incidents across the nation. Right now, I'm actively scanning 8 different data sources including National Weather Service alerts, traffic cameras, 911 dispatches, and satellite imagery to detect tree emergencies in real time. Whether it's a storm that just passed through or an ice event bringing down branches, I'll find it and alert you immediately. Use the filters above to focus on specific states or cities, and click on any incident for full details including estimated costs and Customer Mitigation Authorization generation. Let me know if you have any questions - I'm here to help you claim more tree jobs and respond faster than your competition.`;
+      
+      const response = await fetch('/api/elevenlabs/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: introText,
+          voiceId: 'rachel',
+          stability: 0.70,
+          style: 0.35
+        })
+      });
+      
+      if (response.ok) {
+        const blob = await response.blob();
+        const audioUrl = URL.createObjectURL(blob);
+        const audio = new Audio(audioUrl);
+        audio.onended = () => {
+          setIsPlayingVoice(false);
+          URL.revokeObjectURL(audioUrl);
+        };
+        audio.play();
+      } else {
+        setIsPlayingVoice(false);
+        toast({ title: 'Voice unavailable', description: 'Using text mode instead.' });
+      }
+    } catch (error) {
+      setIsPlayingVoice(false);
+      console.error('Voice intro error:', error);
+    }
+  };
 
   const { data: incidentsData, isLoading, refetch } = useQuery({
     queryKey: ['/api/tree-incidents', filters],
@@ -242,6 +283,28 @@ export default function TreeIncidentTracker() {
             </p>
           </div>
           <div className="flex gap-3">
+            <Button 
+              onClick={playRachelIntro}
+              disabled={isPlayingVoice}
+              className="bg-purple-600 hover:bg-purple-700"
+            >
+              <Volume2 className={`h-4 w-4 mr-2 ${isPlayingVoice ? 'animate-pulse' : ''}`} />
+              {isPlayingVoice ? 'Speaking...' : 'Rachel Voice Guide'}
+            </Button>
+            <Button 
+              onClick={() => setAiChatTrigger({ open: true, mode: 'text' })}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              <MessageSquare className="h-4 w-4 mr-2" />
+              Ask Rachel
+            </Button>
+            <Button 
+              onClick={() => setAiChatTrigger({ open: true, mode: 'voice' })}
+              className="bg-pink-600 hover:bg-pink-700"
+            >
+              <Mic className="h-4 w-4 mr-2" />
+              Voice Chat
+            </Button>
             <Button 
               variant="outline" 
               onClick={() => setShowFilters(!showFilters)}
@@ -859,6 +922,45 @@ export default function TreeIncidentTracker() {
           </DialogContent>
         </Dialog>
       </div>
+
+      {/* Rachel AI Voice Assistant - 24/7 Tree Hunting */}
+      <ModuleAIAssistant 
+        moduleName="Tree Incident Tracker"
+        externalTrigger={aiChatTrigger}
+        onTriggerHandled={() => setAiChatTrigger(undefined)}
+        moduleContext={`You are Rachel, the AI voice assistant for the Tree Incident Tracker module. Your personality is warm, professional, and helpful with a focus on tree emergency response. You speak with a natural, calm female voice.
+
+Your primary mission is 24/7 tree incident hunting and monitoring. You are constantly scanning 8 data sources for fallen trees, storm damage, and tree emergencies:
+1. National Weather Service alerts for high winds, tornadoes, and ice storms
+2. DOT traffic cameras for road obstructions
+3. 911 dispatch feeds for tree-related calls
+4. Social media monitoring for real-time reports
+5. News feeds for storm damage coverage
+6. Utility company reports for power line hazards
+7. DOT traffic reports for road closures
+8. Satellite imagery for large-scale damage detection
+
+Current Statistics:
+- Total incidents tracked: ${statsData?.stats?.total || 0}
+- Immediate priority: ${statsData?.stats?.immediate || 0}
+- High priority: ${statsData?.stats?.high || 0}
+- Medium priority: ${statsData?.stats?.medium || 0}
+- Low priority: ${statsData?.stats?.low || 0}
+- Utility contacts flagged: ${statsData?.stats?.utilityContacts || 0}
+- New status: ${statsData?.stats?.newStatus || 0}
+- In progress: ${statsData?.stats?.inProgress || 0}
+
+You can help users with:
+- Finding tree incidents in specific states or cities
+- Understanding priority levels (immediate, high, medium, low)
+- Explaining the CMA (Customer Mitigation Authorization) process
+- Providing cost estimates for tree removal
+- Answering questions about tree hazards and safety
+- Explaining how to set up contractor alert preferences
+- Describing the notification system for new incidents
+
+Always be proactive about mentioning active high-priority incidents and encourage contractors to claim jobs quickly. When speaking, use natural language and be conversational. Mention that you're continuously monitoring for new tree incidents 24/7.`}
+      />
     </div>
   );
 }
