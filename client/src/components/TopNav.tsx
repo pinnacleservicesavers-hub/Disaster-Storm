@@ -76,6 +76,13 @@ export default function TopNav() {
               ) : (
                 <>
                   <Link 
+                    to="/hub" 
+                    className="px-3 py-1.5 rounded-md bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 transition-colors font-medium"
+                    data-testid="nav-hub"
+                  >
+                    My Hub
+                  </Link>
+                  <Link 
                     to="/dashboard" 
                     className="px-3 py-1.5 rounded-md bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 transition-colors font-medium"
                     data-testid="nav-disaster-direct"

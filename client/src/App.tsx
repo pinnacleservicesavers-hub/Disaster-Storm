@@ -57,6 +57,9 @@ const Watchlist = lazy(() => import("./pages/Watchlist"));
 const AIBidIntelPro = lazy(() => import("./pages/AIBidIntelPro"));
 const TreeIncidentTracker = lazy(() => import("./pages/TreeIncidentTracker"));
 
+// Contractor Hub - Unified Dashboard
+const ContractorHub = lazy(() => import("./pages/ContractorHub"));
+
 // WorkHub Marketplace Pages
 const WorkHubMarketplace = lazy(() => import("./pages/WorkHubMarketplace"));
 const WorkHubCustomerPortal = lazy(() => import("./pages/WorkHubCustomerPortal"));
@@ -270,6 +273,9 @@ export default function App() {
           <Route path="/signout" element={<SignOut />} />
           
           {/* WorkHub Marketplace Routes */}
+          {/* Contractor Hub - Unified Dashboard */}
+          <Route path="/hub" element={<ProtectedRoute><ContractorHub /></ProtectedRoute>} />
+          
           {/* CrewLink Exchange - Public Marketplace */}
           <Route path="/crewlink" element={<CrewLinkExchange />} />
           
