@@ -90,6 +90,13 @@ export default function TopNav() {
                     WorkHub
                   </Link>
                   <Link 
+                    to="/crewlink" 
+                    className="px-3 py-1.5 rounded-md bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 transition-colors font-medium"
+                    data-testid="nav-crewlink"
+                  >
+                    CrewLink
+                  </Link>
+                  <Link 
                     to="/contractor/jobs" 
                     className="px-3 py-1.5 rounded-md hover:bg-white/10 transition-colors"
                     data-testid="nav-contractor"

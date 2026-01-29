@@ -654,12 +654,12 @@ export default function CrewLinkExchange() {
             </SelectContent>
           </Select>
 
-          <Select value={selectedState} onValueChange={(v) => { setSelectedState(v); setSelectedCity(""); }}>
+          <Select value={selectedState || "_all"} onValueChange={(v) => { setSelectedState(v === "_all" ? "" : v); setSelectedCity(""); }}>
             <SelectTrigger>
               <SelectValue placeholder="Select State" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All States</SelectItem>
+              <SelectItem value="_all">All States</SelectItem>
               <SelectItem value="Georgia">Georgia</SelectItem>
               <SelectItem value="Florida">Florida</SelectItem>
               <SelectItem value="Texas">Texas</SelectItem>
@@ -668,12 +668,12 @@ export default function CrewLinkExchange() {
             </SelectContent>
           </Select>
 
-          <Select value={selectedCity} onValueChange={setSelectedCity}>
+          <Select value={selectedCity || "_all"} onValueChange={(v) => setSelectedCity(v === "_all" ? "" : v)}>
             <SelectTrigger>
               <SelectValue placeholder="Select City" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Cities</SelectItem>
+              <SelectItem value="_all">All Cities</SelectItem>
               {selectedState === "Georgia" && (
                 <>
                   <SelectItem value="Atlanta">Atlanta</SelectItem>
