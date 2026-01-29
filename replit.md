@@ -41,6 +41,16 @@ The platform features an enterprise-grade design system with AI-selected backgro
 - **Rachel Voice Guide System**: Centralized voice scripts for each module and trade-specific contractor guidance.
 - **AI Before/After Visualization**: Generates visualizations of completed work using OpenAI image editing with material detection and trade-specific prompts.
 - **WorkHub Marketplace**: A separate domain for everyday contractor/customer interactions featuring 12 AI-powered modules including ScopeSnap (AI Vision Analysis), PriceWhisperer (Smart Estimate Engine), ContractorMatch (AI Matching), CalendarSync (AI Scheduling), JobFlow (Project Command Center), MediaVault (Protected Documentation), CloseBot (AI Sales Agent), PayStream (Seamless Payments), ReviewRocket (Reputation Automation), FairnessScore (Trust Transparency), QuickFinance (Instant Financing), and ContentForge (Marketing Engine).
+- **CrewLink Exchange™**: National workforce and equipment marketplace connecting skilled workers, professional crews, and equipment owners with opportunities. Features include:
+  - **Public Marketplace** (/crewlink): Free browsing for all users with state/city filtering and 36+ trade categories
+  - **Worker Listings**: Individual worker profiles with skills, certifications, hourly/daily rates, AI scoring (experience, certs, performance)
+  - **Crew Listings**: Professional crew profiles with team size, equipment, insurance, travel radius, storm/specialty availability
+  - **Equipment Rentals**: Equipment listings with daily/weekly/monthly rates, operator requirements, delivery options
+  - **AI Scoring System**: AIScoreBadge displays 0-100 score based on experience, certifications, and performance history
+  - **Verification Levels**: unverified, basic, verified, elite - with VerificationBadge component
+  - **Pricing Tiers**: Workers $19-29/mo, Crews $49-99/mo, Equipment $29-79/mo, Transaction fee 3-7%
+  - **Legal Positioning**: Marketplace connects parties only (not an employer), contractors are independent entities
+  - **Rachel Voice Guide**: ElevenLabs TTS introduction with stability 0.70, style 0.35
 - **Multi-Trade Pricing Engines**: Professional-grade pricing engines for contractor trades providing ChatGPT-competitive accuracy:
   - **Tree Removal Pricing Engine**: Size-based pricing (small/medium/large/giant), hazard detection (power lines, structures, slope), equipment costs (bucket truck/crane), crew estimation, stump grinding, debris haul-off.
   - **Roofing Pricing Engine**: Square-footage based pricing (1 roofing square = 100 sq ft), 7 material options (3-tab asphalt $150-220/sq, architectural shingles $250-400/sq, metal $450-850/sq, clay tile $800-1500/sq, concrete tile $500-900/sq, slate $1000-2000/sq, wood shake $600-1000/sq), pitch multipliers (low 1.0x, medium 1.15x, steep 1.35x, very steep 1.6x), story height multipliers, complexity factors (valleys, skylights, dormers, chimneys, multi-level, hip roof), tear-off costs, additional work (deck repair, ventilation, gutters, fascia/soffit), permit costs, and crew/day estimation.
