@@ -241,7 +241,7 @@ class TreeIncidentMonitorService {
         .where(and(
           eq(treeIncidents.state, incident.state),
           eq(treeIncidents.address, incident.address),
-          eq(treeIncidents.source, incident.source)
+          eq(treeIncidents.sourceImagery, incident.source)
         ))
         .limit(1);
 
@@ -267,9 +267,8 @@ class TreeIncidentMonitorService {
         confidenceScore: incident.confidenceScore,
         failureMode: incident.failureMode,
         weatherConditions: incident.weatherConditions,
-        source: incident.source,
-        sourceUrl: incident.sourceUrl,
-        probableCause: incident.probableCause,
+        sourceImagery: incident.source,
+        notes: incident.sourceUrl ? `Source: ${incident.sourceUrl}` : undefined,
         status: 'new',
         createdAt: new Date(),
         updatedAt: new Date()
