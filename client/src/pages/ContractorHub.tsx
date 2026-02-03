@@ -362,6 +362,32 @@ const MODULES: ModuleInfo[] = [
     color: "from-purple-600 to-violet-700",
     isNew: true
   },
+  {
+    id: "fema-audit",
+    name: "FEMA Audit Export",
+    tagline: "Compliance & AI Monitors",
+    description: "Enterprise-grade FEMA compliance, AI field verification to enhance monitor efficiency, and one-click audit defense packets.",
+    icon: Shield,
+    category: "disaster",
+    features: [
+      "AI digital monitors",
+      "Geofenced work zones",
+      "Load ticket chain of custody",
+      "Rate validation engine",
+      "Fraud detection AI",
+      "One-click FEMA exports"
+    ],
+    benefits: [
+      "Reduce monitor overhead 50%+",
+      "Prevent FEMA clawbacks",
+      "Audit-ready documentation"
+    ],
+    pricing: { monthly: 299, yearly: 2870 },
+    route: "/fema-audit",
+    color: "from-amber-600 to-orange-700",
+    isNew: true,
+    isPremium: true
+  },
   // Marketplace
   {
     id: "crewlink",

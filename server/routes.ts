@@ -87,6 +87,7 @@ import treeIncidentRoutes from "./routes/treeIncidentRoutes";
 import twilioVoiceRoutes from "./routes/twilioVoiceRoutes";
 import bidIntelProRoutes from "./routes/bidIntelPro";
 import trueCostSheetRoutes from "./routes/trueCostSheet";
+import femaAuditRoutes from "./routes/femaAuditRoutes";
 import { signatureAuditService } from "./services/signatureAuditService";
 import { mountLocations } from "./routes/locations";
 import { mountAlerts } from "./routes/alerts";
@@ -2582,6 +2583,10 @@ Include 3-4 phases, 3-5 tasks per phase, 2-3 SOPs, 3 risks, and 4 KPIs. Be speci
   // ---- TrueCost™ Profit Sheet Routes ----
   app.use('/api/truecost', trueCostSheetRoutes);
   console.log('💰 TrueCost™ Profit Sheet routes registered - Private job costing calculator');
+
+  // ---- FEMA Audit Export Module Routes ----
+  app.use('/api/fema-audit', femaAuditRoutes);
+  console.log('📋 FEMA Audit Export Module routes registered - Compliance, AI Monitors, Fraud Detection');
 
   // ---- Admin OIDC Routes ----
   app.use(adminOidcRoutes);

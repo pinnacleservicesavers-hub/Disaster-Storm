@@ -56,6 +56,19 @@ The platform features an enterprise-grade design system with AI-selected backgro
   - **Roofing Pricing Engine**: Square-footage based pricing (1 roofing square = 100 sq ft), 7 material options (3-tab asphalt $150-220/sq, architectural shingles $250-400/sq, metal $450-850/sq, clay tile $800-1500/sq, concrete tile $500-900/sq, slate $1000-2000/sq, wood shake $600-1000/sq), pitch multipliers (low 1.0x, medium 1.15x, steep 1.35x, very steep 1.6x), story height multipliers, complexity factors (valleys, skylights, dormers, chimneys, multi-level, hip roof), tear-off costs, additional work (deck repair, ventilation, gutters, fascia/soffit), permit costs, and crew/day estimation.
   - **Auto Repair Pricing Engine**: VIN decoder using NHTSA API, 20+ common parts database (fan motor, alternator, starter, brakes, water pump, etc.), symptom-to-parts matching, multi-retailer price comparison (AutoZone, O'Reilly, Advance Auto, RockAuto, NAPA), vehicle-specific price adjustments (luxury brand multipliers), labor hour estimates, affiliate link integration for commission revenue.
   - **Flooring Pricing Engine**: Square footage based pricing, 11 material options (solid hardwood, engineered hardwood, laminate, LVP, tile, carpet), retailer price comparison (Home Depot, Lowe's, Floor & Decor, LL Flooring), installation costs, condition-based adjustments (subfloor damage, removal, moisture), waste percentage calculation, affiliate link integration.
+- **FEMA Audit Export Module** ($299/mo): Enterprise-grade FEMA compliance system designed to enhance monitor efficiency (not replace). Features include:
+  - **AI Digital Field Verification**: Photo validation, GPS tracking, timestamp verification
+  - **Geofenced Work Zones**: Span-based logging with pole/circuit tracking
+  - **Load Ticket Chain of Custody**: GPS-tracked debris transport with pickup/dropoff verification
+  - **Rate Validation Engine**: Compare actual rates vs contract rates, flag overages
+  - **Fraud Detection AI**: Duplicate crew detection, worker conflict detection, rate variance analysis
+  - **T&M 70-Hour Cap Monitoring**: Track Time & Materials against contract limits
+  - **Immutable Audit Logs**: Hash-chained audit events with server-side timestamps
+  - **One-Click Export**: Generate FEMA-compliant audit packets (XLSX, PDF)
+  - **Database Tables**: 13 tables (fema_disasters, fema_contracts, fema_project_worksheets, fema_geo_zones, fema_work_logs, fema_load_tickets, fema_equipment_logs, fema_audit_logs, fema_ai_findings, fema_audit_risk_scores, fema_exports, fema_monitor_sessions, fema_expenses, fema_revenue_snapshots)
+  - **API Routes**: /api/fema-audit/* with parameterized SQL queries for security
+  - **Dashboard**: Risk score visualization, tabbed interface (Dashboard, Work Logs, Load Tickets, AI Findings, Exports)
+  - **Strategic Positioning**: "Digital support tool to enhance monitor efficiency" rather than monitor replacement
 
 ### Strategic Business Direction
 - **Xactimate-Ready Estimating Strategy**: The platform collects measurements, photos, and scope documentation to produce pre-estimate worksheets. It focuses on feeding complete scope information to human estimators for input into Xactimate, not replacing it. Key deliverables include normalized scope bundles, photo logs, measurement tables, and AI-generated line-item suggestions.

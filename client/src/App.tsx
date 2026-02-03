@@ -56,6 +56,7 @@ const SMSTestPage = lazy(() => import("./pages/SMSTestPage"));
 const Watchlist = lazy(() => import("./pages/Watchlist"));
 const AIBidIntelPro = lazy(() => import("./pages/AIBidIntelPro"));
 const TreeIncidentTracker = lazy(() => import("./pages/TreeIncidentTracker"));
+const FemaAuditDashboard = lazy(() => import("./pages/FemaAuditDashboard"));
 
 // Contractor Hub - Unified Dashboard
 const ContractorHub = lazy(() => import("./pages/ContractorHub"));
@@ -245,6 +246,7 @@ export default function App() {
           <Route path="/bidintel-pro" element={<ProtectedRoute><AIBidIntelPro /></ProtectedRoute>} />
           <Route path="/tree-tracker" element={<ProtectedRoute><TreeIncidentTracker /></ProtectedRoute>} />
           <Route path="/tree-tracker/:id" element={<ProtectedRoute><TreeIncidentTracker /></ProtectedRoute>} />
+          <Route path="/fema-audit" element={<ProtectedRoute><FemaAuditDashboard /></ProtectedRoute>} />
           
           {/* Admin Routes - Admin only */}
           <Route path="/admin" element={<ProtectedRoute allowedRoles={['admin']}><AdminDashboard /></ProtectedRoute>} />
