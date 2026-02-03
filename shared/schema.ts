@@ -8850,3 +8850,711 @@ export const crewlinkStormAds = pgTable("crewlink_storm_ads", {
 });
 
 export type CrewlinkStormAd = typeof crewlinkStormAds.$inferSelect;
+
+// ===== FEMA AUDIT EXPORT MODULE =====
+// Enterprise-grade FEMA compliance, AI monitoring, and audit defense infrastructure
+
+// FEMA Disaster Declarations
+export const femaDisasters = pgTable("fema_disasters", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // FEMA Info
+  femaNumber: varchar("fema_number", { length: 50 }).notNull(), // e.g., DR-4784-FL
+  incidentType: varchar("incident_type", { length: 100 }).notNull(), // Hurricane, Tornado, Ice Storm, etc.
+  declarationTitle: varchar("declaration_title", { length: 500 }).notNull(),
+  declarationDate: timestamp("declaration_date").notNull(),
+  incidentBeginDate: timestamp("incident_begin_date"),
+  incidentEndDate: timestamp("incident_end_date"),
+  
+  // Location
+  state: varchar("state", { length: 2 }).notNull(),
+  declaredCounties: text("declared_counties").array(),
+  
+  // Categories authorized
+  categoriesAuthorized: text("categories_authorized").array(), // ['A', 'B', 'C', 'D', 'E', 'F', 'G']
+  
+  // Status
+  status: varchar("status", { length: 30 }).default("active"), // active, closed
+  closeoutDate: timestamp("closeout_date"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertFemaDisasterSchema = createInsertSchema(femaDisasters).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type FemaDisaster = typeof femaDisasters.$inferSelect;
+export type InsertFemaDisaster = z.infer<typeof insertFemaDisasterSchema>;
+
+// Prime Contractor Contracts
+export const femaContracts = pgTable("fema_contracts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Contract Info
+  contractNumber: varchar("contract_number", { length: 100 }).notNull(),
+  contractTitle: varchar("contract_title", { length: 500 }),
+  primeContractorId: varchar("prime_contractor_id", { length: 255 }),
+  primeContractorName: varchar("prime_contractor_name", { length: 255 }).notNull(),
+  
+  // Disaster Link
+  femaDisasterId: varchar("fema_disaster_id", { length: 255 }),
+  incidentNumber: varchar("incident_number", { length: 100 }),
+  
+  // Contract Terms
+  contractValue: numeric("contract_value", { precision: 14, scale: 2 }),
+  contractType: varchar("contract_type", { length: 50 }), // time_materials, unit_price, lump_sum
+  tmCap: integer("tm_cap").default(70), // Time & Materials hour cap per FEMA
+  
+  // Rate Sheet (JSON)
+  laborRates: jsonb("labor_rates"), // { "foreman": 65.00, "operator": 55.00, ... }
+  equipmentRates: jsonb("equipment_rates"), // { "bucket_truck": 150.00/hr, ... }
+  perDiemRules: jsonb("per_diem_rules"),
+  overtimeRules: jsonb("overtime_rules"),
+  
+  // Dates
+  startDate: timestamp("start_date"),
+  endDate: timestamp("end_date"),
+  
+  // Compliance Requirements
+  insuranceRequired: boolean("insurance_required").default(true),
+  bondingRequired: boolean("bonding_required").default(false),
+  gpsTrackingRequired: boolean("gps_tracking_required").default(true),
+  
+  // Status
+  status: varchar("status", { length: 30 }).default("active"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertFemaContractSchema = createInsertSchema(femaContracts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type FemaContract = typeof femaContracts.$inferSelect;
+export type InsertFemaContract = z.infer<typeof insertFemaContractSchema>;
+
+// Project Worksheets (PW)
+export const femaProjectWorksheets = pgTable("fema_project_worksheets", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // PW Info
+  pwNumber: varchar("pw_number", { length: 50 }).notNull(),
+  femaDisasterId: varchar("fema_disaster_id", { length: 255 }),
+  contractId: varchar("contract_id", { length: 255 }),
+  
+  // Work Category
+  category: varchar("category", { length: 5 }).notNull(), // A, B, C, D, E, F, G
+  categoryName: varchar("category_name", { length: 100 }), // Debris Removal, Emergency Protective Measures, etc.
+  
+  // Scope
+  scopeOfWork: text("scope_of_work"),
+  damageDescription: text("damage_description"),
+  
+  // Location
+  county: varchar("county", { length: 100 }),
+  siteAddress: text("site_address"),
+  latitude: numeric("latitude", { precision: 10, scale: 7 }),
+  longitude: numeric("longitude", { precision: 10, scale: 7 }),
+  
+  // Cost
+  estimatedCost: numeric("estimated_cost", { precision: 12, scale: 2 }),
+  approvedAmount: numeric("approved_amount", { precision: 12, scale: 2 }),
+  actualCost: numeric("actual_cost", { precision: 12, scale: 2 }),
+  
+  // Status
+  status: varchar("status", { length: 30 }).default("draft"), // draft, submitted, under_review, approved, obligated, closed
+  submittedDate: timestamp("submitted_date"),
+  approvedDate: timestamp("approved_date"),
+  obligatedDate: timestamp("obligated_date"),
+  
+  // Documentation
+  documentationComplete: boolean("documentation_complete").default(false),
+  photoCount: integer("photo_count").default(0),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertFemaPWSchema = createInsertSchema(femaProjectWorksheets).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type FemaProjectWorksheet = typeof femaProjectWorksheets.$inferSelect;
+export type InsertFemaProjectWorksheet = z.infer<typeof insertFemaPWSchema>;
+
+// Geofenced Work Zones (for AI Monitor)
+export const femaGeoZones = pgTable("fema_geo_zones", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Zone Info
+  zoneName: varchar("zone_name", { length: 255 }).notNull(),
+  zoneType: varchar("zone_type", { length: 50 }).notNull(), // circuit, span, row, debris_site, disposal_site
+  
+  // Contract Link
+  contractId: varchar("contract_id", { length: 255 }),
+  pwId: varchar("pw_id", { length: 255 }),
+  
+  // GIS Data
+  circuitId: varchar("circuit_id", { length: 100 }),
+  spanId: varchar("span_id", { length: 100 }),
+  poleNumbers: text("pole_numbers").array(),
+  mileMarkers: text("mile_markers").array(),
+  
+  // Geofence Polygon (GeoJSON)
+  geofencePolygon: jsonb("geofence_polygon"), // GeoJSON polygon
+  centerLatitude: numeric("center_latitude", { precision: 10, scale: 7 }),
+  centerLongitude: numeric("center_longitude", { precision: 10, scale: 7 }),
+  radiusMeters: integer("radius_meters"),
+  
+  // Assignment
+  assignedCrewId: varchar("assigned_crew_id", { length: 255 }),
+  assignedDate: timestamp("assigned_date"),
+  completedDate: timestamp("completed_date"),
+  
+  // Status
+  status: varchar("status", { length: 30 }).default("pending"), // pending, in_progress, completed, verified
+  verifiedBy: varchar("verified_by", { length: 255 }),
+  verifiedAt: timestamp("verified_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertFemaGeoZoneSchema = createInsertSchema(femaGeoZones).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type FemaGeoZone = typeof femaGeoZones.$inferSelect;
+export type InsertFemaGeoZone = z.infer<typeof insertFemaGeoZoneSchema>;
+
+// Span-Based Work Logs (AI Monitor replacement for human monitors)
+export const femaWorkLogs = pgTable("fema_work_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Links
+  contractId: varchar("contract_id", { length: 255 }),
+  pwId: varchar("pw_id", { length: 255 }),
+  geoZoneId: varchar("geo_zone_id", { length: 255 }),
+  crewId: varchar("crew_id", { length: 255 }),
+  
+  // FEMA Cost Code
+  femaCostCode: varchar("fema_cost_code", { length: 50 }),
+  workCategory: varchar("work_category", { length: 5 }), // A, B, etc.
+  
+  // Span/Location Info
+  spanId: varchar("span_id", { length: 100 }),
+  poleStart: varchar("pole_start", { length: 50 }),
+  poleEnd: varchar("pole_end", { length: 50 }),
+  circuitId: varchar("circuit_id", { length: 100 }),
+  
+  // GPS (Server-synced, immutable)
+  latitude: numeric("latitude", { precision: 10, scale: 7 }),
+  longitude: numeric("longitude", { precision: 10, scale: 7 }),
+  gpsAccuracyMeters: integer("gps_accuracy_meters"),
+  insideGeofence: boolean("inside_geofence").default(true),
+  
+  // Work Details
+  workType: varchar("work_type", { length: 50 }).notNull(), // trim, remove, clear, debris_removal, stump_grind
+  treeSpecies: varchar("tree_species", { length: 100 }),
+  hazardClass: varchar("hazard_class", { length: 50 }), // linger_hanger, dead_standing, damaged, leaning
+  estimatedDbh: integer("estimated_dbh"), // Diameter at breast height (inches)
+  estimatedHeight: integer("estimated_height"), // Height in feet
+  debrisType: varchar("debris_type", { length: 50 }), // vegetative, c_and_d, mixed, hazardous
+  cubicYards: numeric("cubic_yards", { precision: 8, scale: 2 }),
+  
+  // Timestamps (Server Time - NOT device time)
+  serverTimestamp: timestamp("server_timestamp").defaultNow(),
+  workStartTime: timestamp("work_start_time"),
+  workEndTime: timestamp("work_end_time"),
+  totalMinutes: integer("total_minutes"),
+  
+  // Photos (Before/After required)
+  beforePhotoUrl: text("before_photo_url"),
+  beforePhotoTimestamp: timestamp("before_photo_timestamp"),
+  beforePhotoGps: jsonb("before_photo_gps"),
+  afterPhotoUrl: text("after_photo_url"),
+  afterPhotoTimestamp: timestamp("after_photo_timestamp"),
+  afterPhotoGps: jsonb("after_photo_gps"),
+  additionalPhotos: text("additional_photos").array(),
+  
+  // Equipment Used
+  equipmentIds: text("equipment_ids").array(),
+  equipmentHours: numeric("equipment_hours", { precision: 6, scale: 2 }),
+  
+  // Workers Present
+  workerIds: text("worker_ids").array(),
+  foremanId: varchar("foreman_id", { length: 255 }),
+  operatorName: varchar("operator_name", { length: 255 }),
+  
+  // AI Photo Validation
+  aiValidated: boolean("ai_validated").default(false),
+  aiValidationScore: integer("ai_validation_score"), // 0-100
+  aiValidationNotes: text("ai_validation_notes"),
+  photoMatchScore: integer("photo_match_score"), // Before/after consistency
+  
+  // Monitor Verification
+  monitorId: varchar("monitor_id", { length: 255 }),
+  monitorVerified: boolean("monitor_verified").default(false),
+  monitorSignaturePin: varchar("monitor_signature_pin", { length: 20 }),
+  monitorVerifiedAt: timestamp("monitor_verified_at"),
+  
+  // Completion
+  status: varchar("status", { length: 30 }).default("pending"), // pending, completed, verified, flagged, rejected
+  completedAt: timestamp("completed_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertFemaWorkLogSchema = createInsertSchema(femaWorkLogs).omit({
+  id: true,
+  serverTimestamp: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type FemaWorkLog = typeof femaWorkLogs.$inferSelect;
+export type InsertFemaWorkLog = z.infer<typeof insertFemaWorkLogSchema>;
+
+// Load Ticket Chain of Custody
+export const femaLoadTickets = pgTable("fema_load_tickets", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Ticket Info
+  ticketNumber: varchar("ticket_number", { length: 50 }).notNull(),
+  contractId: varchar("contract_id", { length: 255 }),
+  pwId: varchar("pw_id", { length: 255 }),
+  
+  // Debris Info
+  debrisType: varchar("debris_type", { length: 50 }).notNull(), // vegetative, c_and_d, mixed, hazardous, white_goods, e_waste
+  estimatedCubicYards: numeric("estimated_cubic_yards", { precision: 8, scale: 2 }).notNull(),
+  actualCubicYards: numeric("actual_cubic_yards", { precision: 8, scale: 2 }),
+  
+  // Pickup Location
+  pickupAddress: text("pickup_address"),
+  pickupLatitude: numeric("pickup_latitude", { precision: 10, scale: 7 }),
+  pickupLongitude: numeric("pickup_longitude", { precision: 10, scale: 7 }),
+  pickupTimestamp: timestamp("pickup_timestamp").notNull(),
+  pickupPhotoUrl: text("pickup_photo_url"),
+  pickupPhotoGps: jsonb("pickup_photo_gps"),
+  
+  // Truck/Transport
+  truckId: varchar("truck_id", { length: 100 }),
+  truckLicensePlate: varchar("truck_license_plate", { length: 20 }),
+  driverName: varchar("driver_name", { length: 255 }),
+  driverId: varchar("driver_id", { length: 255 }),
+  loadedTruckPhotoUrl: text("loaded_truck_photo_url"),
+  
+  // Route Tracking (GPS breadcrumbs)
+  routeGpsLog: jsonb("route_gps_log"), // Array of {lat, lng, timestamp}
+  travelDistanceMiles: numeric("travel_distance_miles", { precision: 8, scale: 2 }),
+  travelTimeMinutes: integer("travel_time_minutes"),
+  
+  // Disposal Site
+  disposalSiteName: varchar("disposal_site_name", { length: 255 }),
+  disposalSiteId: varchar("disposal_site_id", { length: 100 }),
+  disposalLatitude: numeric("disposal_latitude", { precision: 10, scale: 7 }),
+  disposalLongitude: numeric("disposal_longitude", { precision: 10, scale: 7 }),
+  disposalTimestamp: timestamp("disposal_timestamp"),
+  disposalPhotoUrl: text("disposal_photo_url"),
+  
+  // Monitor Verification at Disposal
+  disposalMonitorId: varchar("disposal_monitor_id", { length: 255 }),
+  disposalMonitorName: varchar("disposal_monitor_name", { length: 255 }),
+  disposalMonitorSignature: text("disposal_monitor_signature"), // Base64 or hash
+  disposalVerified: boolean("disposal_verified").default(false),
+  disposalVerifiedAt: timestamp("disposal_verified_at"),
+  
+  // Environmental Compliance
+  hazardousMaterialsFlag: boolean("hazardous_materials_flag").default(false),
+  whiteGoodsSeparated: boolean("white_goods_separated").default(false),
+  eWasteSeparated: boolean("e_waste_separated").default(false),
+  soilDisturbancePhoto: text("soil_disturbance_photo"),
+  
+  // Chain of Custody Hash (immutable)
+  chainOfCustodyHash: varchar("chain_of_custody_hash", { length: 64 }),
+  
+  // Status
+  status: varchar("status", { length: 30 }).default("in_transit"), // created, in_transit, delivered, verified, flagged
+  flagReason: text("flag_reason"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertFemaLoadTicketSchema = createInsertSchema(femaLoadTickets).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type FemaLoadTicket = typeof femaLoadTickets.$inferSelect;
+export type InsertFemaLoadTicket = z.infer<typeof insertFemaLoadTicketSchema>;
+
+// Equipment Telematics Logs
+export const femaEquipmentLogs = pgTable("fema_equipment_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Equipment Info
+  equipmentId: varchar("equipment_id", { length: 255 }).notNull(),
+  equipmentType: varchar("equipment_type", { length: 100 }),
+  vin: varchar("vin", { length: 50 }),
+  serialNumber: varchar("serial_number", { length: 100 }),
+  rateClass: varchar("rate_class", { length: 50 }),
+  hourlyRate: numeric("hourly_rate", { precision: 8, scale: 2 }),
+  
+  // Contract Link
+  contractId: varchar("contract_id", { length: 255 }),
+  crewId: varchar("crew_id", { length: 255 }),
+  
+  // Date
+  logDate: timestamp("log_date").notNull(),
+  
+  // Telematics Data
+  engineStartTime: timestamp("engine_start_time"),
+  engineStopTime: timestamp("engine_stop_time"),
+  engineHours: numeric("engine_hours", { precision: 8, scale: 2 }),
+  ptoHours: numeric("pto_hours", { precision: 8, scale: 2 }), // Power take-off (chipper, lift, etc.)
+  idleHours: numeric("idle_hours", { precision: 8, scale: 2 }),
+  activeHours: numeric("active_hours", { precision: 8, scale: 2 }),
+  
+  // GPS
+  gpsLatitude: numeric("gps_latitude", { precision: 10, scale: 7 }),
+  gpsLongitude: numeric("gps_longitude", { precision: 10, scale: 7 }),
+  gpsTrail: jsonb("gps_trail"), // Array of {lat, lng, timestamp}
+  totalMilesTraveled: numeric("total_miles_traveled", { precision: 8, scale: 2 }),
+  
+  // Bucket/Lift Specific
+  liftCycles: integer("lift_cycles"),
+  maxElevationFeet: integer("max_elevation_feet"),
+  
+  // Billing
+  billedHours: numeric("billed_hours", { precision: 8, scale: 2 }),
+  billedAmount: numeric("billed_amount", { precision: 10, scale: 2 }),
+  
+  // Validation
+  matchesTimesheet: boolean("matches_timesheet"),
+  discrepancyFlag: boolean("discrepancy_flag").default(false),
+  discrepancyNotes: text("discrepancy_notes"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertFemaEquipmentLogSchema = createInsertSchema(femaEquipmentLogs).omit({
+  id: true,
+  createdAt: true,
+});
+export type FemaEquipmentLog = typeof femaEquipmentLogs.$inferSelect;
+export type InsertFemaEquipmentLog = z.infer<typeof insertFemaEquipmentLogSchema>;
+
+// Immutable Audit Log (Tamper-Evident Trail)
+export const femaAuditLogs = pgTable("fema_audit_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Event Info
+  eventType: varchar("event_type", { length: 100 }).notNull(), // create, update, delete, verify, export, flag
+  entityType: varchar("entity_type", { length: 100 }).notNull(), // work_log, load_ticket, contract, pw, etc.
+  entityId: varchar("entity_id", { length: 255 }).notNull(),
+  
+  // Contract Context
+  contractId: varchar("contract_id", { length: 255 }),
+  femaDisasterId: varchar("fema_disaster_id", { length: 255 }),
+  
+  // User
+  userId: varchar("user_id", { length: 255 }).notNull(),
+  userName: varchar("user_name", { length: 255 }),
+  userRole: varchar("user_role", { length: 50 }), // prime, sub, fema, monitor, admin
+  
+  // Change Details
+  previousData: jsonb("previous_data"),
+  newData: jsonb("new_data"),
+  changeDescription: text("change_description"),
+  
+  // Device/Location
+  deviceId: varchar("device_id", { length: 255 }),
+  ipAddress: varchar("ip_address", { length: 50 }),
+  gpsLatitude: numeric("gps_latitude", { precision: 10, scale: 7 }),
+  gpsLongitude: numeric("gps_longitude", { precision: 10, scale: 7 }),
+  
+  // Tamper Evidence
+  previousLogHash: varchar("previous_log_hash", { length: 64 }),
+  currentLogHash: varchar("current_log_hash", { length: 64 }),
+  serverTimestamp: timestamp("server_timestamp").defaultNow(),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type FemaAuditLog = typeof femaAuditLogs.$inferSelect;
+
+// AI Fraud Detection Findings
+export const femaAiFindings = pgTable("fema_ai_findings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Contract Context
+  contractId: varchar("contract_id", { length: 255 }),
+  femaDisasterId: varchar("fema_disaster_id", { length: 255 }),
+  
+  // Finding Type
+  findingType: varchar("finding_type", { length: 100 }).notNull(),
+  // Types: duplicate_crew, duplicate_equipment, gps_anomaly, impossible_travel, 
+  // duplicate_photo, rate_violation, tm_cap_exceeded, duplicate_load_ticket,
+  // overlapping_hours, production_anomaly, photo_metadata_mismatch
+  
+  // Severity
+  severity: varchar("severity", { length: 20 }).notNull(), // low, medium, high, critical
+  confidenceScore: integer("confidence_score"), // 0-100
+  
+  // Related Entities
+  relatedEntities: jsonb("related_entities"), // Array of {entityType, entityId}
+  
+  // Description
+  summary: text("summary").notNull(),
+  detailedExplanation: text("detailed_explanation"),
+  evidenceUrls: text("evidence_urls").array(),
+  
+  // AI Analysis
+  aiModel: varchar("ai_model", { length: 100 }),
+  aiAnalysisData: jsonb("ai_analysis_data"),
+  
+  // Resolution
+  status: varchar("status", { length: 30 }).default("open"), // open, investigating, resolved, dismissed
+  resolvedBy: varchar("resolved_by", { length: 255 }),
+  resolvedAt: timestamp("resolved_at"),
+  resolutionNotes: text("resolution_notes"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertFemaAiFindingSchema = createInsertSchema(femaAiFindings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type FemaAiFinding = typeof femaAiFindings.$inferSelect;
+export type InsertFemaAiFinding = z.infer<typeof insertFemaAiFindingSchema>;
+
+// Audit Risk Scores (Predictive)
+export const femaAuditRiskScores = pgTable("fema_audit_risk_scores", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Scope
+  contractId: varchar("contract_id", { length: 255 }),
+  pwId: varchar("pw_id", { length: 255 }),
+  calculatedDate: timestamp("calculated_date").defaultNow(),
+  
+  // Overall Risk
+  overallRiskScore: integer("overall_risk_score").notNull(), // 0-100
+  riskLevel: varchar("risk_level", { length: 20 }).notNull(), // low, moderate, high
+  
+  // Component Scores
+  documentationScore: integer("documentation_score"), // Completeness
+  rateComplianceScore: integer("rate_compliance_score"), // Rate validation
+  gpsComplianceScore: integer("gps_compliance_score"), // GPS accuracy
+  tmComplianceScore: integer("tm_compliance_score"), // T&M cap compliance
+  photoScore: integer("photo_score"), // Photo documentation
+  environmentalScore: integer("environmental_score"), // Environmental compliance
+  fraudIndicatorScore: integer("fraud_indicator_score"), // AI fraud detection
+  
+  // Issues Found
+  criticalIssues: integer("critical_issues").default(0),
+  highIssues: integer("high_issues").default(0),
+  mediumIssues: integer("medium_issues").default(0),
+  lowIssues: integer("low_issues").default(0),
+  
+  // Recommendations
+  recommendations: jsonb("recommendations"), // Array of suggested fixes
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type FemaAuditRiskScore = typeof femaAuditRiskScores.$inferSelect;
+
+// Export Jobs
+export const femaExports = pgTable("fema_exports", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Scope
+  contractId: varchar("contract_id", { length: 255 }),
+  femaDisasterId: varchar("fema_disaster_id", { length: 255 }),
+  pwId: varchar("pw_id", { length: 255 }),
+  
+  // Export Type
+  exportType: varchar("export_type", { length: 50 }).notNull(), // full_audit_packet, labor_summary, equipment_summary, debris_summary, risk_report
+  exportFormat: varchar("export_format", { length: 20 }).notNull(), // pdf, excel, fema_format, zip
+  
+  // Filters Applied
+  dateRangeStart: timestamp("date_range_start"),
+  dateRangeEnd: timestamp("date_range_end"),
+  categoryFilter: text("category_filter").array(),
+  
+  // Generated By
+  requestedBy: varchar("requested_by", { length: 255 }),
+  requestedAt: timestamp("requested_at").defaultNow(),
+  
+  // Status
+  status: varchar("status", { length: 30 }).default("pending"), // pending, generating, completed, failed
+  progress: integer("progress").default(0), // 0-100
+  
+  // Output
+  fileUrl: text("file_url"),
+  fileSizeBytes: integer("file_size_bytes"),
+  recordCount: integer("record_count"),
+  
+  // Includes
+  includesLaborSummary: boolean("includes_labor_summary").default(true),
+  includesEquipmentSummary: boolean("includes_equipment_summary").default(true),
+  includesDebrisTotals: boolean("includes_debris_totals").default(true),
+  includesLoadTickets: boolean("includes_load_tickets").default(true),
+  includesPhotoIndex: boolean("includes_photo_index").default(true),
+  includesRateValidation: boolean("includes_rate_validation").default(true),
+  includesTmCompliance: boolean("includes_tm_compliance").default(true),
+  includesMonitorSignatures: boolean("includes_monitor_signatures").default(true),
+  includesGeoMap: boolean("includes_geo_map").default(false),
+  includesRiskScore: boolean("includes_risk_score").default(true),
+  
+  completedAt: timestamp("completed_at"),
+  errorMessage: text("error_message"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertFemaExportSchema = createInsertSchema(femaExports).omit({
+  id: true,
+  createdAt: true,
+});
+export type FemaExport = typeof femaExports.$inferSelect;
+export type InsertFemaExport = z.infer<typeof insertFemaExportSchema>;
+
+// Monitor Verification Sessions (Digital Monitor Mode)
+export const femaMonitorSessions = pgTable("fema_monitor_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Monitor Info
+  monitorId: varchar("monitor_id", { length: 255 }).notNull(),
+  monitorName: varchar("monitor_name", { length: 255 }),
+  monitorType: varchar("monitor_type", { length: 50 }), // fema, county, prime, utility
+  monitorAgency: varchar("monitor_agency", { length: 255 }),
+  
+  // Session
+  contractId: varchar("contract_id", { length: 255 }),
+  sessionDate: timestamp("session_date").notNull(),
+  loginTime: timestamp("login_time"),
+  logoutTime: timestamp("logout_time"),
+  
+  // Location
+  gpsLatitude: numeric("gps_latitude", { precision: 10, scale: 7 }),
+  gpsLongitude: numeric("gps_longitude", { precision: 10, scale: 7 }),
+  
+  // Verifications Performed
+  workLogsVerified: integer("work_logs_verified").default(0),
+  loadTicketsVerified: integer("load_tickets_verified").default(0),
+  cubicYardsConfirmed: numeric("cubic_yards_confirmed", { precision: 10, scale: 2 }),
+  
+  // Digital Signature
+  signaturePin: varchar("signature_pin", { length: 20 }),
+  signatureHash: varchar("signature_hash", { length: 64 }),
+  
+  // Notes
+  sessionNotes: text("session_notes"),
+  issuesFlagged: integer("issues_flagged").default(0),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type FemaMonitorSession = typeof femaMonitorSessions.$inferSelect;
+
+// Expense Receipts (Smart Capture)
+export const femaExpenses = pgTable("fema_expenses", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Contract/Worker
+  contractId: varchar("contract_id", { length: 255 }),
+  crewId: varchar("crew_id", { length: 255 }),
+  workerId: varchar("worker_id", { length: 255 }),
+  
+  // Expense Info
+  category: varchar("category", { length: 50 }).notNull(), // fuel, lodging, meals, repairs, parts, tolls, mobilization
+  vendor: varchar("vendor", { length: 255 }),
+  amount: numeric("amount", { precision: 10, scale: 2 }).notNull(),
+  currency: varchar("currency", { length: 3 }).default("USD"),
+  
+  // Date
+  expenseDate: timestamp("expense_date").notNull(),
+  
+  // Receipt
+  receiptPhotoUrl: text("receipt_photo_url"),
+  
+  // OCR Data
+  ocrExtractedData: jsonb("ocr_extracted_data"),
+  ocrConfidence: integer("ocr_confidence"), // 0-100
+  
+  // Status
+  status: varchar("status", { length: 30 }).default("pending"), // pending, approved, rejected
+  approvedBy: varchar("approved_by", { length: 255 }),
+  approvedAt: timestamp("approved_at"),
+  
+  notes: text("notes"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertFemaExpenseSchema = createInsertSchema(femaExpenses).omit({
+  id: true,
+  createdAt: true,
+});
+export type FemaExpense = typeof femaExpenses.$inferSelect;
+export type InsertFemaExpense = z.infer<typeof insertFemaExpenseSchema>;
+
+// Revenue Dashboard (Subcontractor Visibility)
+export const femaRevenueSnapshots = pgTable("fema_revenue_snapshots", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Contractor
+  contractorId: varchar("contractor_id", { length: 255 }).notNull(),
+  contractId: varchar("contract_id", { length: 255 }),
+  
+  // Period
+  snapshotDate: timestamp("snapshot_date").defaultNow(),
+  periodStart: timestamp("period_start"),
+  periodEnd: timestamp("period_end"),
+  
+  // Labor
+  totalLaborHours: numeric("total_labor_hours", { precision: 10, scale: 2 }),
+  totalLaborAmount: numeric("total_labor_amount", { precision: 12, scale: 2 }),
+  
+  // Equipment
+  totalEquipmentHours: numeric("total_equipment_hours", { precision: 10, scale: 2 }),
+  totalEquipmentAmount: numeric("total_equipment_amount", { precision: 12, scale: 2 }),
+  
+  // Per Diem
+  totalPerDiemDays: integer("total_per_diem_days"),
+  totalPerDiemAmount: numeric("total_per_diem_amount", { precision: 10, scale: 2 }),
+  
+  // Expenses
+  totalExpenses: numeric("total_expenses", { precision: 10, scale: 2 }),
+  
+  // Load Tickets
+  totalLoadTickets: integer("total_load_tickets"),
+  totalCubicYards: numeric("total_cubic_yards", { precision: 12, scale: 2 }),
+  
+  // Totals
+  grossBillable: numeric("gross_billable", { precision: 14, scale: 2 }),
+  lessDeductions: numeric("less_deductions", { precision: 12, scale: 2 }),
+  netPayable: numeric("net_payable", { precision: 14, scale: 2 }),
+  
+  // Approval Status
+  approvalStatus: varchar("approval_status", { length: 30 }).default("pending"), // pending, submitted, approved, paid
+  submittedAt: timestamp("submitted_at"),
+  approvedAt: timestamp("approved_at"),
+  paidAt: timestamp("paid_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type FemaRevenueSnapshot = typeof femaRevenueSnapshots.$inferSelect;
