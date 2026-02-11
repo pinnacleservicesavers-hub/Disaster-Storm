@@ -347,14 +347,32 @@ export const MODULE_THEMES: Record<string, ModuleTheme> = {
     backgroundType: 'hybrid',
     backgroundImage: 'residential-homes-neighborhood-aerial',
     gradientOverlay: 'linear-gradient(135deg, rgba(21, 94, 117, 0.88) 0%, rgba(14, 116, 144, 0.85) 100%)',
-    primaryColor: '#0e7490', // Cyan
-    accentColor: '#06b6d4', // Lighter cyan
+    primaryColor: '#0e7490',
+    accentColor: '#06b6d4',
     textColor: '#ecfeff',
     dallePrompt: 'Beautiful aerial view of suburban neighborhood with well-maintained homes, residential property management aesthetic, cyan and blue tones suggesting trust and community, professional real estate photography, 8K quality',
     glassEffect: true,
     cardOpacity: 0.17,
     iconTheme: 'light',
     headingWeight: 'semibold',
+    heroAnimation: 'fade'
+  },
+
+  'fema-audit': {
+    id: 'fema-audit',
+    title: 'FEMA Audit Export Module',
+    description: 'Enterprise compliance & AI digital field verification',
+    backgroundType: 'hybrid',
+    backgroundImage: 'government-compliance-audit-documents',
+    gradientOverlay: 'linear-gradient(135deg, rgba(15, 23, 42, 0.92) 0%, rgba(30, 58, 138, 0.85) 100%)',
+    primaryColor: '#3b82f6',
+    accentColor: '#ef4444',
+    textColor: '#eff6ff',
+    dallePrompt: 'Professional FEMA disaster response command center with digital compliance dashboards, audit document stacks, GPS tracking screens, government building in background, enterprise blue and navy color scheme with red accent alerts, photorealistic 8K',
+    glassEffect: true,
+    cardOpacity: 0.18,
+    iconTheme: 'light',
+    headingWeight: 'bold',
     heroAnimation: 'fade'
   }
 };

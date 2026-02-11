@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import ModuleWrapper from "@/components/ModuleWrapper";
-import ModuleHero from "@/components/ModuleHero";
+import { ModuleWrapper } from "@/components/ModuleWrapper";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -176,16 +175,7 @@ export default function FemaAuditDashboard() {
   const stats = dashboard?.dashboard;
 
   return (
-    <ModuleWrapper>
-      <ModuleHero
-        title="FEMA Audit Export Module"
-        subtitle="Enterprise Compliance & AI Digital Field Verification"
-        description="Complete audit defense infrastructure with AI monitors, fraud detection, and one-click FEMA-compliant export packages. Reduce monitor overhead while enhancing documentation quality."
-        icon={Shield}
-        backgroundImage="https://images.unsplash.com/photo-1450101499163-c8848c66ca85?w=1920"
-        theme="enterprise"
-      />
-
+    <ModuleWrapper moduleId="fema-audit">
       <div className="container mx-auto px-4 py-8 space-y-6">
         <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
           <div className="flex-1 max-w-md">

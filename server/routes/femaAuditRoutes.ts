@@ -99,7 +99,7 @@ router.post('/contracts', async (req: Request, res: Response) => {
       ) RETURNING *
     `);
     
-    await logAuditEvent('create', 'contract', result.rows[0].id, null, result.rows[0], req);
+    await logAuditEvent('create', 'contract', (result.rows[0] as any).id, null, result.rows[0], req);
     res.json({ success: true, contract: result.rows[0] });
   } catch (error) {
     console.error('Error creating contract:', error);
@@ -161,7 +161,7 @@ router.post('/project-worksheets', async (req: Request, res: Response) => {
       ) RETURNING *
     `);
     
-    await logAuditEvent('create', 'project_worksheet', result.rows[0].id, null, result.rows[0], req);
+    await logAuditEvent('create', 'project_worksheet', (result.rows[0] as any).id, null, result.rows[0], req);
     res.json({ success: true, projectWorksheet: result.rows[0] });
   } catch (error) {
     console.error('Error creating project worksheet:', error);

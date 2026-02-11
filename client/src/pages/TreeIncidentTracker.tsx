@@ -37,7 +37,12 @@ import {
   Phone,
   MessageSquare,
   Mic,
-  Volume2
+  Volume2,
+  CloudLightning,
+  Camera,
+  Users,
+  HardHat,
+  Radio
 } from 'lucide-react';
 
 interface TreeIncident {
@@ -70,6 +75,11 @@ interface TreeIncident {
   status: string;
   notes?: string;
   weatherConditions?: string;
+  source?: string;
+  sourceUrl?: string;
+  probableCause?: string;
+  windSpeed?: number;
+  gustSpeed?: number;
   createdAt: string;
 }
 
@@ -87,6 +97,21 @@ const statusColors: Record<string, string> = {
   completed: 'bg-green-500',
   cancelled: 'bg-gray-500',
   deferred: 'bg-orange-400'
+};
+
+const sourceConfig: Record<string, { label: string; icon: any; color: string; description: string }> = {
+  nws_alerts: { label: 'NWS Alerts', icon: CloudLightning, color: 'bg-blue-600 text-white', description: 'National Weather Service storm alerts' },
+  traffic_cameras: { label: 'Traffic Cam', icon: Camera, color: 'bg-violet-600 text-white', description: 'Live traffic camera detection' },
+  social_media: { label: 'Social Media', icon: MessageSquare, color: 'bg-pink-600 text-white', description: 'Social media reports & posts' },
+  news_feeds: { label: 'News Feed', icon: FileText, color: 'bg-cyan-600 text-white', description: 'Local news reports' },
+  '911_scanners': { label: '911 Scanner', icon: Phone, color: 'bg-red-600 text-white', description: '911 dispatch & emergency calls' },
+  dot_reports: { label: 'DOT Report', icon: Route, color: 'bg-orange-600 text-white', description: 'Dept of Transportation road reports' },
+  utility_reports: { label: 'Utility Outage', icon: Zap, color: 'bg-yellow-600 text-black', description: 'Power company outage feeds' },
+  satellite_imagery: { label: 'Satellite', icon: Navigation, color: 'bg-emerald-600 text-white', description: 'Satellite imagery analysis' },
+  manual_entry: { label: 'Manual Entry', icon: Users, color: 'bg-slate-600 text-white', description: 'Crew report or customer call-in' },
+  crew_report: { label: 'Crew Report', icon: HardHat, color: 'bg-amber-600 text-white', description: 'Field crew observation' },
+  customer_call: { label: 'Customer Call', icon: Phone, color: 'bg-teal-600 text-white', description: 'Customer reported incident' },
+  utility_dispatch: { label: 'Utility Dispatch', icon: Zap, color: 'bg-indigo-600 text-white', description: 'Utility company dispatch' },
 };
 
 const impactTypeIcons: Record<string, any> = {
@@ -838,7 +863,7 @@ export default function TreeIncidentTracker() {
                                 {getImpactIcon(incident.impactType)}
                               </div>
                               <div>
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 flex-wrap">
                                   <span className="font-semibold text-white">{incident.uniqueId}</span>
                                   <Badge className={priorityColors[incident.priority] || 'bg-gray-500'}>
                                     {incident.priority.toUpperCase()}
@@ -846,6 +871,16 @@ export default function TreeIncidentTracker() {
                                   <Badge className={`${statusColors[incident.status]} text-white`}>
                                     {incident.status.replace('_', ' ')}
                                   </Badge>
+                                  {incident.source && (() => {
+                                    const src = sourceConfig[incident.source] || { label: incident.source.replace(/_/g, ' '), icon: Radio, color: 'bg-slate-500 text-white', description: 'Unknown source' };
+                                    const SourceIcon = src.icon;
+                                    return (
+                                      <Badge className={`${src.color} flex items-center gap-1`} title={src.description}>
+                                        <SourceIcon className="h-3 w-3" />
+                                        {src.label}
+                                      </Badge>
+                                    );
+                                  })()}
                                   {incident.utilityContactFlag && (
                                     <Badge className="bg-amber-600 text-white">
                                       <Zap className="h-3 w-3 mr-1" />
@@ -1111,6 +1146,28 @@ export default function TreeIncidentTracker() {
                       </p>
                     </div>
                   </div>
+
+                  {selectedIncident.source && (() => {
+                    const src = sourceConfig[selectedIncident.source] || { label: selectedIncident.source.replace(/_/g, ' '), icon: Radio, color: 'bg-slate-500 text-white', description: 'Unknown source' };
+                    const SourceIcon = src.icon;
+                    return (
+                      <div className="bg-slate-700/60 border border-slate-600 rounded-lg p-3">
+                        <label className="text-xs text-slate-400 uppercase tracking-wider">Reported From</label>
+                        <div className="flex items-center gap-3 mt-1">
+                          <div className={`p-2 rounded-lg ${src.color}`}>
+                            <SourceIcon className="h-5 w-5" />
+                          </div>
+                          <div>
+                            <p className="text-white font-semibold">{src.label}</p>
+                            <p className="text-slate-400 text-sm">{src.description}</p>
+                          </div>
+                        </div>
+                        {selectedIncident.sourceUrl && (
+                          <a href={selectedIncident.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-blue-400 text-xs hover:underline mt-1 inline-block">View original source</a>
+                        )}
+                      </div>
+                    );
+                  })()}
 
                   <Separator className="bg-slate-600" />
 
