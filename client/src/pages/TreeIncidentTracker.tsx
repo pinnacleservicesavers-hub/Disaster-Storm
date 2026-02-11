@@ -393,6 +393,17 @@ export default function TreeIncidentTracker() {
     enabled: !!selectedStateForCities
   });
 
+  const filterStateForCities = filters.state !== 'all' ? filters.state : null;
+  const { data: filterCityData } = useQuery<{ success: boolean; cityStats: Array<{ city: string; count: number; immediate: number; high: number; newCount: number }> }>({
+    queryKey: ['/api/tree-incidents/stats/by-city', filterStateForCities, 'filter'],
+    queryFn: async () => {
+      if (!filterStateForCities) return { success: true, cityStats: [] };
+      const response = await fetch(`/api/tree-incidents/stats/by-city/${filterStateForCities}`);
+      return response.json();
+    },
+    enabled: !!filterStateForCities
+  });
+
   const handleStateClick = (state: string) => {
     setSelectedStateForCities(state);
     setFilters({ ...filters, state, city: '' });
@@ -718,7 +729,7 @@ export default function TreeIncidentTracker() {
               <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
                 <div>
                   <label className="text-sm text-slate-400 mb-1 block">State</label>
-                  <Select value={filters.state} onValueChange={(v) => setFilters({ ...filters, state: v })}>
+                  <Select value={filters.state} onValueChange={(v) => setFilters({ ...filters, state: v, city: '' })}>
                     <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
                       <SelectValue placeholder="All States" />
                     </SelectTrigger>
@@ -734,12 +745,32 @@ export default function TreeIncidentTracker() {
                 </div>
                 <div>
                   <label className="text-sm text-slate-400 mb-1 block">City</label>
-                  <Input
-                    placeholder="Enter city name"
-                    value={filters.city}
-                    onChange={(e) => setFilters({ ...filters, city: e.target.value })}
-                    className="bg-slate-700 border-slate-600 text-white"
-                  />
+                  {filters.state !== 'all' && filterCityData?.cityStats?.length ? (
+                    <Select 
+                      value={filters.city || 'all_cities'} 
+                      onValueChange={(v) => setFilters({ ...filters, city: v === 'all_cities' ? '' : v })}
+                    >
+                      <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
+                        <SelectValue placeholder="All Cities" />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-[300px]">
+                        <SelectItem value="all_cities">All Cities</SelectItem>
+                        {filterCityData.cityStats.map((cityStat) => (
+                          <SelectItem key={cityStat.city || 'unknown'} value={cityStat.city || 'unknown'}>
+                            {cityStat.city || 'Unknown'} ({cityStat.count})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Input
+                      placeholder={filters.state === 'all' ? 'Select a state first' : 'No cities found'}
+                      value={filters.city}
+                      onChange={(e) => setFilters({ ...filters, city: e.target.value })}
+                      className="bg-slate-700 border-slate-600 text-white"
+                      disabled={filters.state === 'all'}
+                    />
+                  )}
                 </div>
                 <div>
                   <label className="text-sm text-slate-400 mb-1 block">Priority</label>
@@ -875,7 +906,7 @@ export default function TreeIncidentTracker() {
                                     const src = sourceConfig[incident.source] || { label: incident.source.replace(/_/g, ' '), icon: Radio, color: 'bg-slate-500 text-white', description: 'Unknown source' };
                                     const SourceIcon = src.icon;
                                     return (
-                                      <Badge className={`${src.color} flex items-center gap-1`} title={src.description}>
+                                      <Badge className={`${src.color} flex items-center gap-1`}>
                                         <SourceIcon className="h-3 w-3" />
                                         {src.label}
                                       </Badge>
@@ -1060,7 +1091,7 @@ export default function TreeIncidentTracker() {
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2">
                                 <span className="text-white font-medium truncate">{stop.address}</span>
-                                <Badge className={priorityColors[stop.priority]} size="sm">
+                                <Badge className={`${priorityColors[stop.priority]} text-xs`}>
                                   {stop.priority}
                                 </Badge>
                                 {stop.utilityContactFlag && (
