@@ -143,38 +143,56 @@ export default function TreeIncidentTracker() {
   const [routeStops, setRouteStops] = useState<TreeIncident[]>([]);
   const [isOptimizing, setIsOptimizing] = useState(false);
 
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
   const playRachelIntro = async () => {
     setIsPlayingVoice(true);
     try {
       const introText = `Welcome to the Tree Incident Tracker. I'm Rachel, your 24/7 AI assistant dedicated to finding and monitoring fallen tree incidents across the nation. Right now, I'm actively scanning 8 different data sources including National Weather Service alerts, traffic cameras, 911 dispatches, and satellite imagery to detect tree emergencies in real time. Whether it's a storm that just passed through or an ice event bringing down branches, I'll find it and alert you immediately. Use the filters above to focus on specific states or cities, and click on any incident for full details including estimated costs and Customer Mitigation Authorization generation. Let me know if you have any questions - I'm here to help you claim more tree jobs and respond faster than your competition.`;
       
-      const response = await fetch('/api/elevenlabs/tts', {
+      const response = await fetch('/api/tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          text: introText,
-          voiceId: 'rachel',
-          stability: 0.70,
-          style: 0.35
-        })
+        body: JSON.stringify({ text: introText })
       });
       
       if (response.ok) {
-        const blob = await response.blob();
-        const audioUrl = URL.createObjectURL(blob);
-        const audio = new Audio(audioUrl);
-        audio.onended = () => {
+        const data = await response.json();
+        if (data.audioBase64) {
+          const byteCharacters = atob(data.audioBase64);
+          const byteNumbers = new Array(byteCharacters.length);
+          for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+          }
+          const byteArray = new Uint8Array(byteNumbers);
+          const blob = new Blob([byteArray], { type: 'audio/mpeg' });
+          const audioUrl = URL.createObjectURL(blob);
+          const audio = new Audio(audioUrl);
+          audio.onended = () => {
+            setIsPlayingVoice(false);
+            URL.revokeObjectURL(audioUrl);
+          };
+          audio.onerror = () => {
+            setIsPlayingVoice(false);
+            URL.revokeObjectURL(audioUrl);
+            toast({ title: 'Voice unavailable', description: 'Audio playback failed. Try text mode instead.' });
+          };
+          audio.play().catch(() => {
+            setIsPlayingVoice(false);
+            toast({ title: 'Voice unavailable', description: 'Could not play audio. Try text mode instead.' });
+          });
+        } else {
           setIsPlayingVoice(false);
-          URL.revokeObjectURL(audioUrl);
-        };
-        audio.play();
+          toast({ title: 'Voice unavailable', description: 'No audio data received. Using text mode instead.' });
+        }
       } else {
         setIsPlayingVoice(false);
-        toast({ title: 'Voice unavailable', description: 'Using text mode instead.' });
+        toast({ title: 'Voice unavailable', description: 'Voice service not available right now. Try text mode instead.' });
       }
     } catch (error) {
       setIsPlayingVoice(false);
       console.error('Voice intro error:', error);
+      toast({ title: 'Voice unavailable', description: 'Could not connect to voice service. Try text mode instead.' });
     }
   };
 
@@ -317,6 +335,18 @@ export default function TreeIncidentTracker() {
     }
   });
 
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await refetch();
+      toast({ title: 'Refreshed', description: 'Incident data updated successfully.' });
+    } catch (error) {
+      toast({ title: 'Refresh failed', description: 'Could not refresh data. Please try again.', variant: 'destructive' });
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   const { data: statsData } = useQuery<{ success: boolean; stats: { total: number; immediate: number; high: number; medium: number; low: number; utilityContacts: number; newStatus: number; inProgress: number; completed: number } }>({
     queryKey: ['/api/tree-incidents/stats/summary'],
   });
@@ -441,11 +471,12 @@ export default function TreeIncidentTracker() {
               Filters
             </Button>
             <Button 
-              onClick={() => refetch()}
+              onClick={handleRefresh}
+              disabled={isRefreshing}
               className="bg-emerald-600 hover:bg-emerald-700"
             >
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Refresh
+              <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+              {isRefreshing ? 'Refreshing...' : 'Refresh'}
             </Button>
           </div>
         </div>
