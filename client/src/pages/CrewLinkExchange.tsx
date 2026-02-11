@@ -774,26 +774,29 @@ function VoiceGuideButton() {
   const playVoiceGuide = async () => {
     setIsPlaying(true);
     try {
-      const response = await fetch("/api/tts/speak", {
+      const response = await fetch("/api/tts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          text: "Welcome to CrewLink Exchange, the national marketplace connecting skilled workers, professional crews, and equipment owners with opportunities nationwide. Browse for free, list your skills or equipment, and let our AI match you with the perfect opportunities. Whether you're a contractor looking for a storm-ready crew, a skilled worker seeking daily-rate jobs, or an equipment owner wanting to monetize idle assets, CrewLink Exchange removes the friction between talent and opportunity.",
-          voice: "Rachel",
-          stability: 0.70,
-          style: 0.35
+          text: "Welcome to CrewLink Exchange, the national marketplace connecting skilled workers, professional crews, and equipment owners with opportunities nationwide. Browse for free, list your skills or equipment, and let our AI match you with the perfect opportunities. Whether you're a contractor looking for a storm-ready crew, a skilled worker seeking daily-rate jobs, or an equipment owner wanting to monetize idle assets, CrewLink Exchange removes the friction between talent and opportunity."
         })
       });
       if (response.ok) {
-        const audioBlob = await response.blob();
-        const audio = new Audio(URL.createObjectURL(audioBlob));
-        audio.onended = () => setIsPlaying(false);
-        audio.play();
+        const data = await response.json();
+        if (data.audioBase64) {
+          const audio = new Audio(`data:audio/mpeg;base64,${data.audioBase64}`);
+          audio.onended = () => setIsPlaying(false);
+          audio.onerror = () => setIsPlaying(false);
+          audio.play().catch(() => setIsPlaying(false));
+        } else {
+          setIsPlaying(false);
+        }
+      } else {
+        setIsPlaying(false);
       }
     } catch (err) {
       console.error("Voice guide error:", err);
-    } finally {
-      setTimeout(() => setIsPlaying(false), 2000);
+      setIsPlaying(false);
     }
   };
   
