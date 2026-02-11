@@ -19405,6 +19405,161 @@ What specific area or type of incident would you like me to focus on? I can prov
     }
   });
 
+  // ============ AUTO REPAIR AI DIAGNOSTIC ============
+  // AI-powered vehicle diagnostic with video/photo analysis
+  app.post('/api/workhub/auto-repair-diagnose', express.json({ limit: '50mb' }), async (req, res) => {
+    try {
+      const { vehicle, symptoms, frames } = req.body;
+
+      if (!symptoms && (!frames || frames.length === 0)) {
+        return res.status(400).json({ error: 'Please describe the issue or upload a video/photo' });
+      }
+
+      const vehicleDesc = vehicle ? 
+        `${vehicle.year || ''} ${vehicle.make || ''} ${vehicle.model || ''} ${vehicle.type || ''}`.trim() +
+        (vehicle.mileage ? ` with ${vehicle.mileage.toLocaleString()} miles` : '') +
+        (vehicle.vin ? ` (VIN: ${vehicle.vin})` : '') : 'Unknown vehicle';
+
+      console.log(`🔧 Auto Repair AI Diagnostic requested for: ${vehicleDesc}`);
+
+      const openaiApiKey = process.env.OPENAI_API_KEY;
+      if (!openaiApiKey) {
+        return res.status(500).json({ error: 'AI service not configured' });
+      }
+
+      const messages: any[] = [
+        {
+          role: 'system',
+          content: `You are an expert ASE-certified master mechanic and automotive diagnostic specialist. A customer is bringing you their vehicle with an issue. Analyze their description and any photos/video frames they provide.
+
+You must respond with a JSON object (no markdown, no code fences) with this exact structure:
+{
+  "vehicleSummary": "Brief summary of the vehicle and reported issue",
+  "overallAssessment": "2-3 sentence overall assessment of the situation",
+  "safetyWarning": "Safety warning if applicable, or empty string",
+  "possibleCauses": [
+    {
+      "label": "Short label like 'Torque Converter Issue'",
+      "description": "Detailed explanation of what this issue is",
+      "likelihood": "high|medium|low",
+      "severity": "critical|significant|moderate|minor",
+      "estimatedCostMin": 100,
+      "estimatedCostMax": 500,
+      "repairDetails": "What the repair involves, parts needed, labor time"
+    }
+  ],
+  "immediateActions": ["Action 1", "Action 2"],
+  "warrantyNote": "Warranty information if the vehicle is likely still covered, or empty string",
+  "questionsToAsk": ["Question 1 to help narrow down the issue", "Question 2"]
+}
+
+Important guidelines:
+- Provide 3-6 possible causes ranked by likelihood
+- Cost estimates should reflect real shop rates in the southeastern US
+- Include both dealer and independent shop pricing perspective
+- If the vehicle is newer (2020+), mention warranty coverage possibilities
+- Be thorough but clear - the customer is not a mechanic
+- If photos/frames are provided, describe what you observe
+- Always include safety warnings for potentially dangerous issues
+- Include practical "what to do right now" advice`
+        }
+      ];
+
+      const userContent: any[] = [];
+
+      if (frames && frames.length > 0) {
+        userContent.push({
+          type: 'text',
+          text: `Vehicle: ${vehicleDesc}\n\nCustomer's description: ${symptoms || 'No description provided - please analyze the images/video frames'}\n\nI'm providing ${frames.length} image(s)/video frame(s) of the vehicle issue. Please analyze what you see along with the description.`
+        });
+        for (const frame of frames.slice(0, 6)) {
+          userContent.push({
+            type: 'image_url',
+            image_url: {
+              url: `data:image/jpeg;base64,${frame}`,
+              detail: 'high'
+            }
+          });
+        }
+      } else {
+        userContent.push({
+          type: 'text',
+          text: `Vehicle: ${vehicleDesc}\n\nCustomer's description: ${symptoms}\n\nPlease provide a comprehensive diagnostic based on these symptoms.`
+        });
+      }
+
+      messages.push({ role: 'user', content: userContent });
+
+      const openai = new OpenAI({ apiKey: openaiApiKey });
+      const response = await openai.chat.completions.create({
+        model: 'gpt-4o',
+        messages,
+        max_tokens: 4000,
+        temperature: 0.3,
+      });
+
+      const responseText = response.choices[0]?.message?.content || '';
+      
+      let diagnostic;
+      try {
+        const cleaned = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+        diagnostic = JSON.parse(cleaned);
+      } catch (parseError) {
+        console.error('Failed to parse AI diagnostic response:', parseError);
+        diagnostic = {
+          vehicleSummary: vehicleDesc,
+          overallAssessment: responseText.slice(0, 500),
+          safetyWarning: '',
+          possibleCauses: [{
+            label: 'Diagnostic Available',
+            description: responseText.slice(0, 800),
+            likelihood: 'medium' as const,
+            severity: 'moderate' as const,
+            estimatedCostMin: 100,
+            estimatedCostMax: 1000,
+            repairDetails: 'Please visit a mechanic for a hands-on inspection'
+          }],
+          immediateActions: ['Visit a certified mechanic for an in-person diagnostic'],
+          warrantyNote: '',
+          questionsToAsk: []
+        };
+      }
+
+      // Also run through existing pricing engine if we have enough info
+      if (vehicle && vehicle.make && vehicle.year && symptoms) {
+        try {
+          const vehicleInfo: VehicleInfo = {
+            year: vehicle.year,
+            make: vehicle.make,
+            model: vehicle.model || 'Unknown',
+            vin: vehicle.vin,
+          };
+          const pricingEstimate = calculateAutoRepairPrice(vehicleInfo, symptoms);
+          if (pricingEstimate && pricingEstimate.partsNeeded.length > 0) {
+            diagnostic.pricingEngineEstimate = {
+              partsNeeded: pricingEstimate.partsNeeded,
+              grandTotalMin: pricingEstimate.grandTotalMin,
+              grandTotalMax: pricingEstimate.grandTotalMax,
+              diagnosticFee: pricingEstimate.diagnosticFee,
+            };
+          }
+        } catch (e) {
+          // pricing engine is supplementary, don't fail
+        }
+      }
+
+      console.log(`🔧 Auto Repair AI Diagnostic complete: ${diagnostic.possibleCauses?.length || 0} possible causes identified`);
+
+      res.json({
+        ok: true,
+        diagnostic,
+      });
+    } catch (error) {
+      console.error('Auto repair diagnostic error:', error);
+      res.status(500).json({ error: 'Diagnostic analysis failed. Please try again.' });
+    }
+  });
+
   // ============ FLOORING PRICING ENGINE ============
   // Square footage based pricing with Home Depot/Lowes affiliate integration
   

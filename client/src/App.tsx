@@ -78,6 +78,7 @@ const WorkHubReviewRocket = lazy(() => import("./pages/workhub/ReviewRocket"));
 const WorkHubFairnessScore = lazy(() => import("./pages/workhub/FairnessScore"));
 const WorkHubQuickFinance = lazy(() => import("./pages/workhub/QuickFinance"));
 const WorkHubContentForge = lazy(() => import("./pages/workhub/ContentForge"));
+const WorkHubAutoRepairDiag = lazy(() => import("./pages/workhub/AutoRepairDiag"));
 const WorkHubPricingTiers = lazy(() => import("./pages/workhub/PricingTiers"));
 const WorkHubPitchDeck = lazy(() => import("./pages/workhub/PitchDeck"));
 const WorkHubAIAgentScripts = lazy(() => import("./pages/workhub/AIAgentScripts"));
@@ -299,6 +300,7 @@ export default function App() {
           <Route path="/workhub/fairnessscore" element={<ProtectedRoute><WorkHubFairnessScore /></ProtectedRoute>} />
           <Route path="/workhub/quickfinance" element={<ProtectedRoute><WorkHubQuickFinance /></ProtectedRoute>} />
           <Route path="/workhub/contentforge" element={<ProtectedRoute><WorkHubContentForge /></ProtectedRoute>} />
+          <Route path="/workhub/auto-repair" element={<WorkHubAutoRepairDiag />} />
           <Route path="/workhub/pricing" element={<ProtectedRoute><WorkHubPricingTiers /></ProtectedRoute>} />
           <Route path="/workhub/pitch" element={<ProtectedRoute><WorkHubPitchDeck /></ProtectedRoute>} />
           <Route path="/workhub/scripts" element={<ProtectedRoute><WorkHubAIAgentScripts /></ProtectedRoute>} />

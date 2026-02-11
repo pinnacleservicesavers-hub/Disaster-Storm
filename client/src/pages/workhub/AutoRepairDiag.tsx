@@ -1,0 +1,658 @@
+import { useState, useRef, useCallback } from 'react';
+import { Link } from 'react-router-dom';
+import {
+  Car, Upload, Video, Camera, Wrench, AlertTriangle, ChevronRight,
+  Loader2, DollarSign, CheckCircle, Info, X, Shield, Gauge,
+  FileVideo, Image as ImageIcon, Truck, Settings
+} from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import TopNav from '@/components/TopNav';
+import { apiRequest } from '@/lib/queryClient';
+
+interface DiagnosticResult {
+  vehicleSummary: string;
+  possibleCauses: Array<{
+    label: string;
+    description: string;
+    likelihood: 'high' | 'medium' | 'low';
+    severity: 'critical' | 'significant' | 'moderate' | 'minor';
+    estimatedCostMin: number;
+    estimatedCostMax: number;
+    repairDetails: string;
+  }>;
+  immediateActions: string[];
+  warrantyNote: string;
+  safetyWarning: string;
+  overallAssessment: string;
+  questionsToAsk: string[];
+}
+
+const VEHICLE_TYPES = [
+  { value: 'car', label: 'Car' },
+  { value: 'truck', label: 'Truck' },
+  { value: 'suv', label: 'SUV' },
+  { value: 'van', label: 'Van' },
+  { value: 'minivan', label: 'Minivan' },
+];
+
+const COMMON_MAKES = [
+  'Ford', 'Chevrolet', 'Toyota', 'Honda', 'Ram', 'GMC', 'Jeep', 'Nissan',
+  'Hyundai', 'Kia', 'Subaru', 'Dodge', 'BMW', 'Mercedes-Benz', 'Audi',
+  'Lexus', 'Mazda', 'Volkswagen', 'Buick', 'Cadillac', 'Chrysler',
+  'Acura', 'Infiniti', 'Lincoln', 'Volvo', 'Tesla', 'Other'
+];
+
+const CURRENT_YEAR = new Date().getFullYear();
+const YEARS = Array.from({ length: 35 }, (_, i) => CURRENT_YEAR - i);
+
+export default function AutoRepairDiag() {
+  const [vehicleType, setVehicleType] = useState('');
+  const [make, setMake] = useState('');
+  const [model, setModel] = useState('');
+  const [year, setYear] = useState('');
+  const [mileage, setMileage] = useState('');
+  const [vin, setVin] = useState('');
+  const [symptoms, setSymptoms] = useState('');
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+  const [previewUrls, setPreviewUrls] = useState<string[]>([]);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisStep, setAnalysisStep] = useState('');
+  const [diagnosticResult, setDiagnosticResult] = useState<DiagnosticResult | null>(null);
+  const [vinLookupLoading, setVinLookupLoading] = useState(false);
+  const [vinError, setVinError] = useState('');
+  const [diagError, setDiagError] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    const validFiles = files.filter(f => 
+      f.type.startsWith('video/') || f.type.startsWith('image/')
+    );
+    if (validFiles.length === 0) return;
+    setUploadedFiles(prev => [...prev, ...validFiles]);
+    const newUrls = validFiles.map(file => URL.createObjectURL(file));
+    setPreviewUrls(prev => [...prev, ...newUrls]);
+  };
+
+  const removeFile = (index: number) => {
+    URL.revokeObjectURL(previewUrls[index]);
+    setUploadedFiles(prev => prev.filter((_, i) => i !== index));
+    setPreviewUrls(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const extractVideoFrames = useCallback(async (file: File): Promise<string[]> => {
+    return new Promise((resolve) => {
+      const video = document.createElement('video');
+      video.preload = 'auto';
+      video.muted = true;
+      const url = URL.createObjectURL(file);
+      video.src = url;
+
+      video.onloadedmetadata = () => {
+        const duration = video.duration;
+        const frameCount = Math.min(4, Math.ceil(duration / 3));
+        const frames: string[] = [];
+        let currentFrame = 0;
+
+        const captureFrame = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.min(video.videoWidth, 1024);
+          canvas.height = Math.min(video.videoHeight, 768);
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+            frames.push(dataUrl.split(',')[1]);
+          }
+          currentFrame++;
+          if (currentFrame < frameCount) {
+            video.currentTime = (currentFrame / frameCount) * duration;
+          } else {
+            URL.revokeObjectURL(url);
+            resolve(frames);
+          }
+        };
+
+        video.onseeked = captureFrame;
+        video.currentTime = 0.5;
+      };
+
+      video.onerror = () => {
+        URL.revokeObjectURL(url);
+        resolve([]);
+      };
+    });
+  }, []);
+
+  const handleVinLookup = async () => {
+    if (!vin || vin.length !== 17) {
+      setVinError('VIN must be exactly 17 characters');
+      return;
+    }
+    setVinLookupLoading(true);
+    setVinError('');
+    try {
+      const response = await fetch(`https://vpic.nhtsa.dot.gov/api/vehicles/decodevinvalues/${vin}?format=json`);
+      const data = await response.json();
+      if (data.Results && data.Results[0]) {
+        const result = data.Results[0];
+        if (result.Make) setMake(result.Make);
+        if (result.Model) setModel(result.Model);
+        if (result.ModelYear) setYear(result.ModelYear);
+      }
+    } catch {
+      setVinError('Could not decode VIN. Please enter vehicle info manually.');
+    } finally {
+      setVinLookupLoading(false);
+    }
+  };
+
+  const handleDiagnose = async () => {
+    if (!symptoms && uploadedFiles.length === 0) return;
+
+    setIsAnalyzing(true);
+    setDiagnosticResult(null);
+    setDiagError('');
+
+    try {
+      setAnalysisStep('Preparing media for analysis...');
+      const frames: string[] = [];
+
+      for (const file of uploadedFiles) {
+        if (file.type.startsWith('video/')) {
+          setAnalysisStep('Extracting video frames...');
+          const videoFrames = await extractVideoFrames(file);
+          frames.push(...videoFrames);
+        } else if (file.type.startsWith('image/')) {
+          setAnalysisStep('Processing images...');
+          const base64 = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+              const result = reader.result as string;
+              resolve(result.split(',')[1]);
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          });
+          frames.push(base64);
+        }
+      }
+
+      setAnalysisStep('AI agent analyzing your vehicle...');
+
+      const data = await apiRequest('/api/workhub/auto-repair-diagnose', 'POST', {
+        vehicle: {
+          type: vehicleType,
+          make,
+          model,
+          year: year ? parseInt(year) : undefined,
+          mileage: mileage ? parseInt(mileage.replace(/,/g, '')) : undefined,
+          vin: vin || undefined,
+        },
+        symptoms,
+        frames: frames.slice(0, 6),
+      });
+
+      if (data.ok) {
+        setDiagnosticResult(data.diagnostic);
+      } else {
+        throw new Error(data.error || 'Diagnosis failed');
+      }
+    } catch (error: any) {
+      console.error('Diagnosis error:', error);
+      setDiagError(error?.message || 'Something went wrong. Please try again.');
+    } finally {
+      setIsAnalyzing(false);
+      setAnalysisStep('');
+    }
+  };
+
+  const getSeverityColor = (severity: string) => {
+    switch (severity) {
+      case 'critical': return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300';
+      case 'significant': return 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300';
+      case 'moderate': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300';
+      default: return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300';
+    }
+  };
+
+  const getLikelihoodColor = (likelihood: string) => {
+    switch (likelihood) {
+      case 'high': return 'bg-red-500';
+      case 'medium': return 'bg-yellow-500';
+      default: return 'bg-blue-500';
+    }
+  };
+
+  const canSubmit = (make || vin) && (symptoms || uploadedFiles.length > 0);
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white dark:from-slate-950 dark:to-slate-900">
+      <TopNav />
+
+      <div className="bg-gradient-to-r from-blue-700 to-indigo-700 text-white py-12 px-4">
+        <div className="max-w-6xl mx-auto">
+          <div className="flex items-center gap-2 text-blue-200 text-sm mb-2">
+            <Link to="/workhub" className="hover:text-white">WorkHub</Link>
+            <ChevronRight className="w-4 h-4" />
+            <span>Auto Repair AI Diagnostic</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-4xl font-bold mb-2 flex items-center gap-3">
+                <Car className="w-10 h-10" />
+                Auto Repair AI Diagnostic
+              </h1>
+              <p className="text-blue-100 text-lg max-w-2xl">
+                Upload a video or photos of your vehicle issue. Our AI agent will analyze what it sees, 
+                diagnose possible problems, and give you estimated repair costs.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-6xl mx-auto px-4 py-8 space-y-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="space-y-6">
+            <Card className="border-2 border-blue-200 dark:border-blue-800">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Truck className="w-5 h-5 text-blue-600" />
+                  Vehicle Information
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label>VIN Number (optional - auto-fills vehicle details)</Label>
+                  <div className="flex gap-2 mt-1">
+                    <Input
+                      placeholder="Enter 17-character VIN"
+                      value={vin}
+                      onChange={(e) => { setVin(e.target.value.toUpperCase()); setVinError(''); }}
+                      maxLength={17}
+                      className="font-mono uppercase"
+                    />
+                    <Button
+                      variant="outline"
+                      onClick={handleVinLookup}
+                      disabled={vinLookupLoading || vin.length !== 17}
+                      className="shrink-0"
+                    >
+                      {vinLookupLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Decode'}
+                    </Button>
+                  </div>
+                  {vinError && <p className="text-sm text-red-500 mt-1">{vinError}</p>}
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label>Vehicle Type</Label>
+                    <Select value={vehicleType} onValueChange={setVehicleType}>
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="Select type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {VEHICLE_TYPES.map(t => (
+                          <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Year</Label>
+                    <Select value={year} onValueChange={setYear}>
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="Select year" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {YEARS.map(y => (
+                          <SelectItem key={y} value={y.toString()}>{y}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label>Make</Label>
+                    <Select value={make} onValueChange={setMake}>
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="Select make" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {COMMON_MAKES.map(m => (
+                          <SelectItem key={m} value={m}>{m}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Model</Label>
+                    <Input
+                      placeholder="e.g. Bronco, Camry, F-150"
+                      value={model}
+                      onChange={(e) => setModel(e.target.value)}
+                      className="mt-1"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <Label>Mileage</Label>
+                  <Input
+                    placeholder="e.g. 45,000"
+                    value={mileage}
+                    onChange={(e) => setMileage(e.target.value)}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-2 border-orange-200 dark:border-orange-800">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <AlertTriangle className="w-5 h-5 text-orange-600" />
+                  What's Going On?
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Textarea
+                  placeholder="Describe what's happening with your vehicle. For example:&#10;&#10;- Ticking sound when I accelerate&#10;- Jerking when going downhill&#10;- Check engine light is on&#10;- Brakes feel spongy&#10;- Car pulls to the left&#10;- Strange smell from under the hood&#10;&#10;The more detail you give, the better the diagnosis!"
+                  value={symptoms}
+                  onChange={(e) => setSymptoms(e.target.value)}
+                  className="min-h-[180px]"
+                />
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="space-y-6">
+            <Card className="border-2 border-purple-200 dark:border-purple-800">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Video className="w-5 h-5 text-purple-600" />
+                  Upload Video or Photos
+                </CardTitle>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Upload a video of the issue or photos. Our AI will analyze what it sees to help diagnose the problem.
+                </p>
+              </CardHeader>
+              <CardContent>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="video/*,image/*"
+                  multiple
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
+                <Button
+                  variant="outline"
+                  className="w-full h-32 border-dashed border-2 flex flex-col gap-2 hover:bg-purple-50 dark:hover:bg-purple-950/20"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Upload className="w-8 h-8 text-purple-500" />
+                  <span className="font-semibold text-purple-700 dark:text-purple-300">
+                    Click to upload video or photos
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    Supports MP4, MOV, AVI, JPG, PNG
+                  </span>
+                </Button>
+
+                {uploadedFiles.length > 0 && (
+                  <div className="mt-4 space-y-3">
+                    {uploadedFiles.map((file, idx) => (
+                      <div key={idx} className="relative rounded-lg overflow-hidden border bg-slate-50 dark:bg-slate-800">
+                        {file.type.startsWith('video/') ? (
+                          <div className="flex items-center gap-3 p-3">
+                            <FileVideo className="w-8 h-8 text-purple-500 shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">{file.name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {(file.size / 1024 / 1024).toFixed(1)} MB
+                              </p>
+                            </div>
+                            <video
+                              src={previewUrls[idx]}
+                              className="w-24 h-16 object-cover rounded"
+                              muted
+                            />
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeFile(idx)}
+                              className="shrink-0"
+                            >
+                              <X className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-3 p-3">
+                            <ImageIcon className="w-8 h-8 text-blue-500 shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">{file.name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {(file.size / 1024 / 1024).toFixed(1)} MB
+                              </p>
+                            </div>
+                            <img
+                              src={previewUrls[idx]}
+                              className="w-24 h-16 object-cover rounded"
+                              alt="preview"
+                            />
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeFile(idx)}
+                              className="shrink-0"
+                            >
+                              <X className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <Info className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
+                    <div className="text-xs text-blue-700 dark:text-blue-300 space-y-1">
+                      <p className="font-semibold">Tips for best results:</p>
+                      <ul className="list-disc pl-4 space-y-0.5">
+                        <li>Record with the hood open if the issue is under the hood</li>
+                        <li>Capture the sound clearly - describe it in the text box too</li>
+                        <li>Show any warning lights on the dashboard</li>
+                        <li>Film any visible leaks, damage, or wear</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Button
+              size="lg"
+              className="w-full h-14 text-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+              onClick={handleDiagnose}
+              disabled={!canSubmit || isAnalyzing}
+            >
+              {isAnalyzing ? (
+                <div className="flex items-center gap-3">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span>{analysisStep || 'Analyzing...'}</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-3">
+                  <Wrench className="w-5 h-5" />
+                  <span>Get AI Diagnosis</span>
+                </div>
+              )}
+            </Button>
+            {!canSubmit && (
+              <p className="text-sm text-center text-muted-foreground">
+                Please enter your vehicle make (or VIN) and describe the issue or upload a video/photo
+              </p>
+            )}
+            {diagError && (
+              <Card className="border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-950/20">
+                <CardContent className="pt-4">
+                  <div className="flex items-center gap-2 text-red-700 dark:text-red-300">
+                    <AlertTriangle className="w-4 h-4" />
+                    <span className="text-sm">{diagError}</span>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </div>
+
+        {diagnosticResult && (
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
+            <div className="flex items-center gap-3">
+              <Settings className="w-6 h-6 text-blue-600 animate-spin" style={{ animationDuration: '3s' }} />
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">AI Diagnostic Report</h2>
+            </div>
+
+            {diagnosticResult.vehicleSummary && (
+              <Card className="border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/20">
+                <CardContent className="pt-4">
+                  <div className="flex items-start gap-3">
+                    <Car className="w-5 h-5 text-blue-600 mt-1 shrink-0" />
+                    <p className="text-blue-900 dark:text-blue-100">{diagnosticResult.vehicleSummary}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            <Card className="border-gray-200 dark:border-gray-700">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Gauge className="w-5 h-5 text-orange-500" />
+                  Overall Assessment
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-700 dark:text-gray-300">{diagnosticResult.overallAssessment}</p>
+              </CardContent>
+            </Card>
+
+            {diagnosticResult.safetyWarning && (
+              <Card className="border-red-300 dark:border-red-800 bg-red-50/50 dark:bg-red-950/20">
+                <CardContent className="pt-4">
+                  <div className="flex items-start gap-3">
+                    <Shield className="w-5 h-5 text-red-600 mt-1 shrink-0" />
+                    <div>
+                      <p className="font-semibold text-red-800 dark:text-red-300">Safety Warning</p>
+                      <p className="text-red-700 dark:text-red-400 mt-1">{diagnosticResult.safetyWarning}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">Possible Causes & Repair Estimates</h3>
+
+            <div className="space-y-4">
+              {diagnosticResult.possibleCauses.map((cause, idx) => (
+                <Card key={idx} className="border-gray-200 dark:border-gray-700">
+                  <CardContent className="pt-4">
+                    <div className="flex items-start justify-between gap-4 mb-3">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-3 h-3 rounded-full ${getLikelihoodColor(cause.likelihood)}`} />
+                        <h4 className="font-bold text-lg">{cause.label}</h4>
+                      </div>
+                      <div className="flex gap-2 shrink-0">
+                        <Badge className={getSeverityColor(cause.severity)}>
+                          {cause.severity}
+                        </Badge>
+                        <Badge variant="outline" className="capitalize">
+                          {cause.likelihood} likelihood
+                        </Badge>
+                      </div>
+                    </div>
+                    <p className="text-gray-600 dark:text-gray-400 mb-3">{cause.description}</p>
+                    <div className="flex items-center gap-2 mb-2">
+                      <DollarSign className="w-4 h-4 text-green-600" />
+                      <span className="font-semibold text-green-700 dark:text-green-400">
+                        ${cause.estimatedCostMin.toLocaleString()} - ${cause.estimatedCostMax.toLocaleString()}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">{cause.repairDetails}</p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            {diagnosticResult.immediateActions.length > 0 && (
+              <Card className="border-yellow-200 dark:border-yellow-800">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <CheckCircle className="w-5 h-5 text-yellow-600" />
+                    What To Do Right Now
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ul className="space-y-2">
+                    {diagnosticResult.immediateActions.map((action, idx) => (
+                      <li key={idx} className="flex items-start gap-2">
+                        <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 shrink-0" />
+                        <span>{action}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
+              </Card>
+            )}
+
+            {diagnosticResult.questionsToAsk && diagnosticResult.questionsToAsk.length > 0 && (
+              <Card className="border-indigo-200 dark:border-indigo-800">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Info className="w-5 h-5 text-indigo-600" />
+                    Questions To Help Narrow It Down
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ul className="space-y-2">
+                    {diagnosticResult.questionsToAsk.map((q, idx) => (
+                      <li key={idx} className="flex items-start gap-2">
+                        <span className="font-bold text-indigo-600 shrink-0">{idx + 1}.</span>
+                        <span>{q}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
+              </Card>
+            )}
+
+            {diagnosticResult.warrantyNote && (
+              <Card className="border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-950/20">
+                <CardContent className="pt-4">
+                  <div className="flex items-start gap-3">
+                    <Shield className="w-5 h-5 text-green-600 mt-1 shrink-0" />
+                    <div>
+                      <p className="font-semibold text-green-800 dark:text-green-300">Warranty Note</p>
+                      <p className="text-green-700 dark:text-green-400 mt-1">{diagnosticResult.warrantyNote}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
