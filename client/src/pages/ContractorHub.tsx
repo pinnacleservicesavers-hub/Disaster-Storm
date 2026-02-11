@@ -4,13 +4,14 @@ import {
   Lock, Unlock, Star, Zap, Camera, Calculator, Users, Calendar, FileText, 
   CreditCard, MessageSquare, TrendingUp, Shield, CloudLightning, MapPin,
   Truck, HardHat, AlertTriangle, Radio, Trees, Building, DollarSign,
-  CheckCircle2, ArrowRight, Crown, Sparkles, Volume2, X, Play
+  CheckCircle2, ArrowRight, Crown, Sparkles, Volume2, X, Play, VolumeX
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useToast } from "@/hooks/use-toast";
 
 interface ModuleInfo {
   id: string;
@@ -30,6 +31,7 @@ interface ModuleInfo {
   isPopular?: boolean;
   isNew?: boolean;
   comingSoon?: boolean;
+  isPremium?: boolean;
 }
 
 const MODULES: ModuleInfo[] = [
@@ -632,10 +634,120 @@ function ModuleDetailsDialog({
 }
 
 export default function ContractorHub() {
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("all");
   const [selectedModule, setSelectedModule] = useState<ModuleInfo | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
-  
+  const [isPlayingVoice, setIsPlayingVoice] = useState(false);
+  const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
+
+  const stopVoice = () => {
+    if (currentAudio) {
+      currentAudio.pause();
+      currentAudio.currentTime = 0;
+      setCurrentAudio(null);
+    }
+    setIsPlayingVoice(false);
+  };
+
+  const playVoiceGuide = async () => {
+    if (isPlayingVoice) {
+      stopVoice();
+      return;
+    }
+
+    setIsPlayingVoice(true);
+    const voiceScript = `Welcome to your Contractor Hub — your complete command center for running and growing your contracting business. I'm Rachel, your AI guide, and I'll walk you through everything available to you here.
+
+This hub is organized into three categories: WorkHub tools for everyday business, Disaster Response modules for storm operations, and the CrewLink Marketplace for workforce and equipment.
+
+Let me start with your WorkHub tools. ScopeSnap is your AI Vision Analysis tool at $49 per month — just upload photos and get instant AI-powered damage assessments, measurements, and scope recommendations. It saves you 2 or more hours per inspection.
+
+PriceWhisperer, at $39 per month, is your Smart Estimate Engine — it generates accurate, industry-standard pricing estimates for tree removal, roofing, flooring, and auto repair. Never undercharge again.
+
+ContractorMatch at $79 per month uses AI to match you with qualified leads based on your skills, location, and availability — expect 3 times more qualified leads.
+
+CalendarSync at just $29 per month handles AI scheduling, route optimization, customer self-booking, and weather-aware scheduling — fit 2 more jobs per day.
+
+JobFlow at $59 per month is your Project Command Center — track every job from lead to payment with visual boards and team collaboration.
+
+MediaVault at $19 per month gives you unlimited cloud storage for photos, videos, and documents with GPS and timestamp verification for legal-grade proof.
+
+CloseBot at $99 per month is your AI Sales Agent — it follows up with leads and books appointments 24/7. Never miss a lead again.
+
+PayStream at $29 per month handles payments, invoices, and billing — get paid 3 times faster with credit card and ACH processing.
+
+ReviewRocket at $39 per month automates your reputation — request and manage customer reviews across all platforms to get 2 times more 5-star reviews.
+
+Now for Disaster Response modules. Storm Intelligence at $99 per month gives you real-time multi-hazard monitoring with NWS alerts, radar, lightning tracking, and storm prediction AI — be first on scene.
+
+Tree Incident Tracker at $49 per month maps street-level tree incidents with priority routing and crew assignment.
+
+Traffic Cameras at $29 per month lets you monitor live road conditions filtered by location for efficient route planning.
+
+Storm Science Academy at $19 per month provides education on storm types, safety protocols, and damage assessment training.
+
+ContractorLeadVault at $149 per month is your B2B lead finder — connect with property managers, HOAs, and commercial clients in disaster zones.
+
+And our premium module — FEMA Audit Export at $299 per month — gives you enterprise-grade FEMA compliance, AI digital field verification, fraud detection, geofenced work zones, and one-click audit-ready packets. This is essential for Prime Contractors working FEMA jobs.
+
+In the Marketplace, CrewLink Exchange is completely FREE to browse — find skilled workers, full crews, and rent equipment nationwide across 36 or more trade categories.
+
+For the best value, our Pro Bundle gives you access to ALL modules for just $299 per month — that's over $400 in savings. Click Get Pro Bundle to unlock everything.
+
+Let me know if you'd like details on any specific module — just click View Features on any card to learn more.`;
+
+    try {
+      const response = await fetch('/api/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: voiceScript })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.audioBase64) {
+          const byteCharacters = atob(data.audioBase64);
+          const byteNumbers = new Array(byteCharacters.length);
+          for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+          }
+          const byteArray = new Uint8Array(byteNumbers);
+          const blob = new Blob([byteArray], { type: 'audio/mpeg' });
+          const audioUrl = URL.createObjectURL(blob);
+          const audio = new Audio(audioUrl);
+          setCurrentAudio(audio);
+          audio.onended = () => {
+            setIsPlayingVoice(false);
+            setCurrentAudio(null);
+            URL.revokeObjectURL(audioUrl);
+          };
+          audio.onerror = () => {
+            setIsPlayingVoice(false);
+            setCurrentAudio(null);
+            URL.revokeObjectURL(audioUrl);
+            toast({ title: 'Voice unavailable', description: 'Audio playback failed.' });
+          };
+          audio.play().catch(() => {
+            setIsPlayingVoice(false);
+            setCurrentAudio(null);
+            toast({ title: 'Voice unavailable', description: 'Could not play audio.' });
+          });
+        } else {
+          setIsPlayingVoice(false);
+          toast({ title: 'Voice unavailable', description: 'No audio data received.' });
+        }
+      } else {
+        setIsPlayingVoice(false);
+        toast({ title: 'Voice unavailable', description: 'Voice service not available right now.' });
+      }
+    } catch (error) {
+      setIsPlayingVoice(false);
+      console.error('Voice guide error:', error);
+      toast({ title: 'Voice unavailable', description: 'Could not connect to voice service.' });
+    }
+  };
+
   const filteredModules = activeTab === "all" 
     ? MODULES 
     : MODULES.filter(m => m.category === activeTab);
@@ -667,7 +779,7 @@ export default function ContractorHub() {
               All your WorkHub tools, Disaster Response modules, and marketplace features in one place. 
               Subscribe to unlock powerful capabilities for your business.
             </p>
-            <div className="flex flex-wrap justify-center gap-4">
+            <div className="flex flex-wrap justify-center gap-4 mb-6">
               <div className="flex items-center gap-2 bg-white/10 rounded-lg px-4 py-2">
                 <Zap className="h-5 w-5 text-yellow-300" />
                 <span>{MODULES.length} Modules Available</span>
@@ -681,6 +793,26 @@ export default function ContractorHub() {
                 <span>24/7 AI Assistant</span>
               </div>
             </div>
+            <Button
+              onClick={playVoiceGuide}
+              size="lg"
+              className={`${isPlayingVoice 
+                ? 'bg-red-600 hover:bg-red-700 animate-pulse' 
+                : 'bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600'
+              } text-white shadow-lg px-8 py-3 text-lg`}
+            >
+              {isPlayingVoice ? (
+                <>
+                  <VolumeX className="h-5 w-5 mr-2" />
+                  Stop Rachel
+                </>
+              ) : (
+                <>
+                  <Volume2 className="h-5 w-5 mr-2" />
+                  Rachel Voice Guide — Hear What's Included
+                </>
+              )}
+            </Button>
           </div>
         </div>
       </div>
