@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { FileText, Plus, Search, Settings, DollarSign, Clock, CheckCircle, AlertTriangle, TrendingUp, Eye, Volume2, VolumeX, ArrowLeft, UserPlus, FileSearch, Mic, Sparkles, Wand2, Bot } from 'lucide-react';
+import { FileText, Plus, Search, Settings, DollarSign, Clock, CheckCircle, AlertTriangle, TrendingUp, Eye, Volume2, VolumeX, ArrowLeft, UserPlus, FileSearch, Mic, Sparkles, Wand2, Bot, Upload, FileUp, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import { DashboardSection } from '@/components/DashboardSection';
@@ -43,9 +43,12 @@ export default function Claims() {
   
   // Add New Claim Modal States
   const [isAddClaimModalOpen, setIsAddClaimModalOpen] = useState(false);
-  const [claimMode, setClaimMode] = useState<'select' | 'manual' | 'search'>('select');
+  const [claimMode, setClaimMode] = useState<'select' | 'manual' | 'search' | 'upload'>('select');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isParsingContract, setIsParsingContract] = useState(false);
+  const [uploadedFileName, setUploadedFileName] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const { toast } = useToast();
 
   // AI Writing Assistant States
@@ -60,9 +63,16 @@ export default function Claims() {
   const [newClaim, setNewClaim] = useState({
     claimNumber: '',
     insuranceCompany: '',
+    insuranceAddress: '',
+    insurancePhone: '',
     policyNumber: '',
     claimantName: '',
     propertyAddress: '',
+    claimantPhone: '',
+    claimantEmail: '',
+    agentName: '',
+    agentPhone: '',
+    agentEmail: '',
     damageType: '',
     incidentDate: '',
     estimatedAmount: '',
@@ -165,9 +175,16 @@ export default function Claims() {
     setNewClaim({
       claimNumber: '',
       insuranceCompany: '',
+      insuranceAddress: '',
+      insurancePhone: '',
       policyNumber: '',
       claimantName: '',
       propertyAddress: '',
+      claimantPhone: '',
+      claimantEmail: '',
+      agentName: '',
+      agentPhone: '',
+      agentEmail: '',
       damageType: '',
       incidentDate: '',
       estimatedAmount: '',
@@ -175,12 +192,85 @@ export default function Claims() {
       notes: ''
     });
     setClaimMode('select');
+    setUploadedFileName('');
     setSearchQuery('');
     setAiSuggestion('');
     setShowAiPanel(false);
     setIsListening(false);
     setIsEnhancing(false);
     setIsSuggesting(false);
+  };
+
+  // Contract Upload & AI Parsing
+  const handleContractUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const maxSize = 20 * 1024 * 1024;
+    if (file.size > maxSize) {
+      toast({ title: "File Too Large", description: "Please upload a file smaller than 20MB.", variant: "destructive" });
+      return;
+    }
+
+    setIsParsingContract(true);
+    setUploadedFileName(file.name);
+
+    try {
+      const formData = new FormData();
+      formData.append("contract", file);
+
+      const response = await fetch("/api/claims/parse-contract", {
+        method: "POST",
+        body: formData
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.extracted) {
+          const ext = data.extracted;
+          setNewClaim(prev => ({
+            ...prev,
+            claimNumber: ext.claimNumber || prev.claimNumber,
+            claimantName: ext.claimantName || prev.claimantName,
+            propertyAddress: ext.propertyAddress || prev.propertyAddress,
+            claimantPhone: ext.claimantPhone || prev.claimantPhone,
+            claimantEmail: ext.claimantEmail || prev.claimantEmail,
+            agentName: ext.agentName || prev.agentName,
+            agentPhone: ext.agentPhone || prev.agentPhone,
+            agentEmail: ext.agentEmail || prev.agentEmail,
+            insuranceCompany: ext.insuranceCompany || prev.insuranceCompany,
+            insuranceAddress: ext.insuranceAddress || prev.insuranceAddress,
+            insurancePhone: ext.insurancePhone || prev.insurancePhone,
+            policyNumber: ext.policyNumber || prev.policyNumber,
+            damageType: ext.damageType || prev.damageType,
+            incidentDate: ext.incidentDate || prev.incidentDate,
+            estimatedAmount: ext.estimatedAmount || prev.estimatedAmount,
+            state: ext.state || prev.state,
+            notes: ext.notes || prev.notes
+          }));
+
+          toast({
+            title: "Contract Parsed Successfully",
+            description: `Extracted ${data.fieldsFound} fields from "${file.name}". Review and edit the details below.`
+          });
+          setClaimMode('manual');
+        } else {
+          toast({ title: "Parsing Issue", description: "Could not extract data. Please enter details manually.", variant: "destructive" });
+          setClaimMode('manual');
+        }
+      } else {
+        const errData = await response.json().catch(() => ({}));
+        toast({ title: "Upload Failed", description: errData.error || "Could not process document. Please enter details manually.", variant: "destructive" });
+        setClaimMode('manual');
+      }
+    } catch (err) {
+      console.error("Contract upload error:", err);
+      toast({ title: "Upload Error", description: "Something went wrong. Please enter details manually.", variant: "destructive" });
+      setClaimMode('manual');
+    } finally {
+      setIsParsingContract(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
   };
 
   // Voice Input (Speech-to-Text)
@@ -504,7 +594,7 @@ Need help with a specific claim? Just ask me anything about claim processing, ad
           />
           
           {/* Modal Content */}
-          <div className="relative bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
+          <div className="relative bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
             <div className="mb-4">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100" data-testid="modal-title-add-claim">
                 Add New Claim
@@ -516,6 +606,39 @@ Need help with a specific claim? Just ask me anything about claim processing, ad
 
           {claimMode === 'select' && (
             <div className="grid grid-cols-1 gap-4 py-4">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf,.docx,.txt,.rtf"
+                onChange={handleContractUpload}
+                className="hidden"
+              />
+              <Button
+                onClick={() => fileInputRef.current?.click()}
+                className="h-24 flex-col space-y-2 border-2 border-dashed border-blue-300 dark:border-blue-600 bg-blue-50/50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/40"
+                variant="outline"
+                disabled={isParsingContract}
+                data-testid="button-upload-contract"
+              >
+                {isParsingContract ? (
+                  <>
+                    <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+                    <div className="text-center">
+                      <div className="font-semibold text-blue-700 dark:text-blue-300">AI Processing "{uploadedFileName}"...</div>
+                      <div className="text-sm text-blue-500">Extracting claim details from contract</div>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <FileUp className="h-8 w-8 text-blue-600 dark:text-blue-400" />
+                    <div className="text-center">
+                      <div className="font-semibold text-blue-700 dark:text-blue-300">Upload Contract</div>
+                      <div className="text-sm text-muted-foreground">AI will extract claim info automatically (PDF, DOCX, TXT)</div>
+                    </div>
+                  </>
+                )}
+              </Button>
+              
               <Button
                 onClick={() => setClaimMode('manual')}
                 className="h-20 flex-col space-y-2"
@@ -576,6 +699,16 @@ Need help with a specific claim? Just ask me anything about claim processing, ad
 
           {claimMode === 'manual' && (
             <form onSubmit={handleClaimSubmit} className="space-y-4 py-4">
+              {uploadedFileName && (
+                <div className="flex items-center gap-2 px-3 py-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg text-sm">
+                  <CheckCircle className="h-4 w-4 text-green-600" />
+                  <span className="text-green-700 dark:text-green-300">AI extracted from: <strong>{uploadedFileName}</strong> — Review and edit below</span>
+                </div>
+              )}
+
+              <div className="border-b pb-2 mb-2">
+                <h3 className="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">Claim Information</h3>
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="claim-number">Claim Number</Label>
@@ -589,27 +722,6 @@ Need help with a specific claim? Just ask me anything about claim processing, ad
                   />
                 </div>
                 <div>
-                  <Label htmlFor="insurance-company">Insurance Company</Label>
-                  <Select
-                    value={newClaim.insuranceCompany}
-                    onValueChange={(value) => setNewClaim({...newClaim, insuranceCompany: value})}
-                  >
-                    <SelectTrigger data-testid="select-insurance-company">
-                      <SelectValue placeholder="Select insurance company" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="State Farm">State Farm</SelectItem>
-                      <SelectItem value="Allstate">Allstate</SelectItem>
-                      <SelectItem value="GEICO">GEICO</SelectItem>
-                      <SelectItem value="Progressive">Progressive</SelectItem>
-                      <SelectItem value="USAA">USAA</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
                   <Label htmlFor="policy-number">Policy Number</Label>
                   <Input
                     id="policy-number"
@@ -619,31 +731,136 @@ Need help with a specific claim? Just ask me anything about claim processing, ad
                     data-testid="input-policy-number"
                   />
                 </div>
+              </div>
+
+              <div className="border-b pb-2 mb-2 mt-4">
+                <h3 className="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">Claimant / Property Owner</h3>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="claimant-name">Claimant Name</Label>
+                  <Label htmlFor="claimant-name">Name</Label>
                   <Input
                     id="claimant-name"
                     value={newClaim.claimantName}
                     onChange={(e) => setNewClaim({...newClaim, claimantName: e.target.value})}
-                    placeholder="Customer name"
+                    placeholder="Full name"
                     required
                     data-testid="input-claimant-name"
                   />
                 </div>
+                <div>
+                  <Label htmlFor="claimant-phone">Phone</Label>
+                  <Input
+                    id="claimant-phone"
+                    value={newClaim.claimantPhone}
+                    onChange={(e) => setNewClaim({...newClaim, claimantPhone: e.target.value})}
+                    placeholder="(555) 123-4567"
+                    data-testid="input-claimant-phone"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="claimant-email">Email</Label>
+                  <Input
+                    id="claimant-email"
+                    type="email"
+                    value={newClaim.claimantEmail}
+                    onChange={(e) => setNewClaim({...newClaim, claimantEmail: e.target.value})}
+                    placeholder="email@example.com"
+                    data-testid="input-claimant-email"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="property-address">Property Address</Label>
+                  <Input
+                    id="property-address"
+                    value={newClaim.propertyAddress}
+                    onChange={(e) => setNewClaim({...newClaim, propertyAddress: e.target.value})}
+                    placeholder="Full property address"
+                    required
+                    data-testid="input-property-address"
+                  />
+                </div>
               </div>
 
+              <div className="border-b pb-2 mb-2 mt-4">
+                <h3 className="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">Insurance Agent</h3>
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <Label htmlFor="agent-name">Agent Name</Label>
+                  <Input
+                    id="agent-name"
+                    value={newClaim.agentName}
+                    onChange={(e) => setNewClaim({...newClaim, agentName: e.target.value})}
+                    placeholder="Agent name"
+                    data-testid="input-agent-name"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="agent-phone">Agent Phone</Label>
+                  <Input
+                    id="agent-phone"
+                    value={newClaim.agentPhone}
+                    onChange={(e) => setNewClaim({...newClaim, agentPhone: e.target.value})}
+                    placeholder="(555) 123-4567"
+                    data-testid="input-agent-phone"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="agent-email">Agent Email</Label>
+                  <Input
+                    id="agent-email"
+                    type="email"
+                    value={newClaim.agentEmail}
+                    onChange={(e) => setNewClaim({...newClaim, agentEmail: e.target.value})}
+                    placeholder="agent@insurance.com"
+                    data-testid="input-agent-email"
+                  />
+                </div>
+              </div>
+
+              <div className="border-b pb-2 mb-2 mt-4">
+                <h3 className="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">Insurance Company</h3>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="insurance-company">Company Name</Label>
+                  <Input
+                    id="insurance-company"
+                    value={newClaim.insuranceCompany}
+                    onChange={(e) => setNewClaim({...newClaim, insuranceCompany: e.target.value})}
+                    placeholder="Insurance company name"
+                    required
+                    data-testid="input-insurance-company"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="insurance-phone">Company Phone</Label>
+                  <Input
+                    id="insurance-phone"
+                    value={newClaim.insurancePhone}
+                    onChange={(e) => setNewClaim({...newClaim, insurancePhone: e.target.value})}
+                    placeholder="(800) 555-1234"
+                    data-testid="input-insurance-phone"
+                  />
+                </div>
+              </div>
               <div>
-                <Label htmlFor="property-address">Property Address</Label>
+                <Label htmlFor="insurance-address">Company Address</Label>
                 <Input
-                  id="property-address"
-                  value={newClaim.propertyAddress}
-                  onChange={(e) => setNewClaim({...newClaim, propertyAddress: e.target.value})}
-                  placeholder="Full property address"
-                  required
-                  data-testid="input-property-address"
+                  id="insurance-address"
+                  value={newClaim.insuranceAddress}
+                  onChange={(e) => setNewClaim({...newClaim, insuranceAddress: e.target.value})}
+                  placeholder="Insurance company address"
+                  data-testid="input-insurance-address"
                 />
               </div>
 
+              <div className="border-b pb-2 mb-2 mt-4">
+                <h3 className="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">Damage Details</h3>
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="damage-type">Damage Type</Label>
@@ -705,6 +922,21 @@ Need help with a specific claim? Just ask me anything about claim processing, ad
                       <SelectItem value="GA">Georgia</SelectItem>
                       <SelectItem value="AL">Alabama</SelectItem>
                       <SelectItem value="NC">North Carolina</SelectItem>
+                      <SelectItem value="SC">South Carolina</SelectItem>
+                      <SelectItem value="LA">Louisiana</SelectItem>
+                      <SelectItem value="MS">Mississippi</SelectItem>
+                      <SelectItem value="CA">California</SelectItem>
+                      <SelectItem value="NY">New York</SelectItem>
+                      <SelectItem value="NJ">New Jersey</SelectItem>
+                      <SelectItem value="PA">Pennsylvania</SelectItem>
+                      <SelectItem value="OH">Ohio</SelectItem>
+                      <SelectItem value="IL">Illinois</SelectItem>
+                      <SelectItem value="MI">Michigan</SelectItem>
+                      <SelectItem value="VA">Virginia</SelectItem>
+                      <SelectItem value="TN">Tennessee</SelectItem>
+                      <SelectItem value="CO">Colorado</SelectItem>
+                      <SelectItem value="OK">Oklahoma</SelectItem>
+                      <SelectItem value="KS">Kansas</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

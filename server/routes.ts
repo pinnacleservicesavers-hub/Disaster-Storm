@@ -5025,6 +5025,115 @@ Return this exact JSON structure:
     res.json({ ok: true, file: { name: req.file.originalname, path: `/uploads/${req.file.filename}` } });
   });
 
+  // ---- AI Contract Parsing for Claims ----
+  const contractUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
+  app.post("/api/claims/parse-contract", contractUpload.single("contract"), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+
+      const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
+      if (!apiKey) {
+        return res.status(503).json({ error: "AI service not configured" });
+      }
+
+      const fileBuffer = req.file.buffer;
+      const fileName = req.file.originalname || "contract";
+      const mimeType = req.file.mimetype;
+      let textContent = "";
+
+      const isDocx = mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || fileName.endsWith(".docx");
+      const isDoc = mimeType === "application/msword" || fileName.endsWith(".doc");
+      const isPdf = mimeType === "application/pdf" || fileName.endsWith(".pdf");
+
+      if (isPdf) {
+        try {
+          const pdfParse = (await import("pdf-parse")).default;
+          const pdfData = await pdfParse(fileBuffer);
+          textContent = pdfData.text;
+        } catch (e) {
+          textContent = fileBuffer.toString("utf-8").replace(/[^\x20-\x7E\n\r\t]/g, " ");
+        }
+      } else if (isDocx) {
+        try {
+          const mammoth = await import("mammoth");
+          const result = await mammoth.extractRawText({ buffer: fileBuffer });
+          textContent = result.value;
+        } catch (e) {
+          return res.status(400).json({ error: "Could not parse DOCX file. Please try PDF or TXT format." });
+        }
+      } else if (isDoc) {
+        return res.status(400).json({ error: "Legacy .doc format is not supported. Please save as .docx, PDF, or TXT and try again." });
+      } else {
+        textContent = fileBuffer.toString("utf-8");
+      }
+
+      if (!textContent.trim()) {
+        return res.status(400).json({ error: "Could not extract text from document. Please try a different file format." });
+      }
+
+      const truncated = textContent.slice(0, 12000);
+
+      const openai = new OpenAI({
+        apiKey,
+        baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || undefined
+      });
+
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content: `You are a claims document parser. Extract the following fields from the uploaded insurance claim contract or document. Return ONLY a valid JSON object with these fields (use empty string if not found):
+{
+  "claimNumber": "",
+  "claimantName": "",
+  "propertyAddress": "",
+  "claimantPhone": "",
+  "claimantEmail": "",
+  "agentName": "",
+  "agentPhone": "",
+  "agentEmail": "",
+  "insuranceCompany": "",
+  "insuranceAddress": "",
+  "insurancePhone": "",
+  "policyNumber": "",
+  "damageType": "",
+  "incidentDate": "",
+  "estimatedAmount": "",
+  "state": "",
+  "notes": ""
+}
+For damageType, use one of: storm, water, wind, hail, tree, fire, or the closest match.
+For state, use the 2-letter abbreviation (e.g. FL, TX).
+For incidentDate, use YYYY-MM-DD format.
+For estimatedAmount, use just the number without currency symbols.`
+          },
+          {
+            role: "user",
+            content: `Parse this claim contract document and extract all relevant information:\n\n${truncated}`
+          }
+        ],
+        temperature: 0.1,
+        response_format: { type: "json_object" }
+      });
+
+      const parsed = JSON.parse(completion.choices[0]?.message?.content || "{}");
+      console.log("📄 AI parsed claim contract:", Object.keys(parsed).filter(k => parsed[k]).length, "fields extracted");
+
+      res.json({
+        success: true,
+        extracted: parsed,
+        fileName,
+        fieldsFound: Object.keys(parsed).filter(k => parsed[k]).length
+      });
+    } catch (error: any) {
+      console.error("Contract parse error:", error);
+      res.status(500).json({ error: "Failed to parse contract. Please try again or enter details manually." });
+    }
+  });
+
   // ---- contractor document management ----
   // Get upload URL for contractor documents
   app.post("/api/contractor-documents/upload-url", async (req, res) => {
