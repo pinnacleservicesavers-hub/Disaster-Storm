@@ -156,199 +156,308 @@ export default function Leads() {
     }
   };
 
-  // Enhanced mock lead data with more realistic properties
+  const allMockLeads: Lead[] = [
+    {
+      id: 'L001', type: 'hurricane_damage', address: '2847 Bayshore Drive, Tampa, FL 33602',
+      ownerName: 'Sarah Johnson', phone: '(813) 555-0123', email: 'sarah.johnson@email.com',
+      damageDescription: 'Extensive roof damage from Hurricane winds, missing shingles, water damage to attic',
+      coverageType: 'Homeowners - Full Coverage', estimatedValue: 45000, priority: 'urgent',
+      contractorsNeeded: ['Roofing', 'Water Damage', 'General Contractor'], aiConfidence: 94, images: 8,
+      timestamp: '2024-01-15 14:30:00', status: 'new',
+      notes: 'Property owner reports active leaks, needs immediate attention',
+      latitude: 27.9506, longitude: -82.4572, propertyValue: 485000,
+      insuranceCompany: 'State Farm', weatherConditions: 'Clear, winds 15mph', urgencyScore: 92
+    },
+    {
+      id: 'L002', type: 'tree_damage', address: '1456 Pine Ridge Circle, Orlando, FL 32801',
+      ownerName: 'Michael Chen', phone: '(407) 555-0456', email: 'mike.chen@email.com',
+      damageDescription: 'Large oak tree fell across property, damaged roof and blocked driveway',
+      coverageType: 'Homeowners - Standard', estimatedValue: 28500, priority: 'high',
+      contractorsNeeded: ['Tree Services', 'Roofing', 'Cleanup Crew'], aiConfidence: 89, images: 5,
+      timestamp: '2024-01-15 13:45:00', status: 'contacted', assignedTo: 'Rodriguez Tree Service',
+      lastContact: '2024-01-15 15:20:00', notes: 'Tree removal scheduled for tomorrow morning',
+      latitude: 28.5383, longitude: -81.3792, propertyValue: 320000,
+      insuranceCompany: 'Allstate', claimNumber: 'AS-2024-001847', weatherConditions: 'Partly cloudy', urgencyScore: 78
+    },
+    {
+      id: 'L003', type: 'flood_damage', address: '892 Coastal Highway, Jacksonville, FL 32205',
+      ownerName: 'Emma Rodriguez', phone: '(904) 555-0789', email: 'emma.rodriguez@email.com',
+      damageDescription: 'Storm surge flooding, 2 feet of water in first floor, damaged flooring and drywall',
+      coverageType: 'Flood Insurance + Homeowners', estimatedValue: 67000, priority: 'emergency',
+      contractorsNeeded: ['Water Damage', 'Flooring', 'Drywall', 'Mold Remediation'], aiConfidence: 97, images: 12,
+      timestamp: '2024-01-15 15:15:00', status: 'qualified', assignedTo: 'FloodPro Restoration',
+      lastContact: '2024-01-15 16:45:00', notes: 'Emergency extraction completed, dehumidifiers running',
+      latitude: 30.3322, longitude: -81.6557, propertyValue: 275000,
+      insuranceCompany: 'FEMA + USAA', claimNumber: 'FEMA-FL-2024-0892', weatherConditions: 'Heavy rain expected', urgencyScore: 95
+    },
+    {
+      id: 'L004', type: 'wind_damage', address: '3421 Sunset Boulevard, Miami, FL 33139',
+      ownerName: 'James Wilson', phone: '(305) 555-0321', email: 'james.wilson@email.com',
+      damageDescription: 'High winds damaged siding, windows broken, fence destroyed',
+      coverageType: 'Condo Association + Personal', estimatedValue: 32000, priority: 'medium',
+      contractorsNeeded: ['Siding', 'Windows', 'Fencing'], aiConfidence: 85, images: 6,
+      timestamp: '2024-01-15 12:20:00', status: 'assigned', assignedTo: 'Miami Storm Repairs',
+      lastContact: '2024-01-15 14:15:00', notes: 'Contractor scheduled site visit for Monday',
+      latitude: 25.7617, longitude: -80.1918, propertyValue: 425000,
+      insuranceCompany: 'Progressive', claimNumber: 'PG-2024-003421', weatherConditions: 'Sunny, 78°F', urgencyScore: 65
+    },
+    {
+      id: 'L005', type: 'hail_damage', address: '567 Country Club Drive, Fort Myers, FL 33919',
+      ownerName: 'Lisa Thompson', phone: '(239) 555-0654', email: 'lisa.t@email.com',
+      damageDescription: 'Golf ball sized hail damaged roof, gutters, and outdoor equipment',
+      coverageType: 'Homeowners - Premium', estimatedValue: 22000, priority: 'medium',
+      contractorsNeeded: ['Roofing', 'Gutters', 'HVAC'], aiConfidence: 91, images: 4,
+      timestamp: '2024-01-15 11:30:00', status: 'in_progress', assignedTo: 'Gulf Coast Roofing',
+      lastContact: '2024-01-15 16:00:00', notes: 'Insurance adjuster approved claim, work starting next week',
+      latitude: 26.6406, longitude: -81.8723, propertyValue: 380000,
+      insuranceCompany: 'Travelers', claimNumber: 'TR-2024-000567', weatherConditions: 'Clear skies', urgencyScore: 55
+    },
+    {
+      id: 'L006', type: 'storm_surge', address: '1234 Ocean View Lane, Key Largo, FL 33037',
+      ownerName: 'Roberto Martinez', phone: '(305) 555-0987', email: 'roberto.martinez@email.com',
+      damageDescription: 'Storm surge damaged foundation, flooding in crawl space, salt water corrosion',
+      coverageType: 'Flood Insurance', estimatedValue: 89000, priority: 'urgent',
+      contractorsNeeded: ['Foundation', 'Waterproofing', 'Structural'], aiConfidence: 93, images: 10,
+      timestamp: '2024-01-15 16:45:00', status: 'completed', assignedTo: 'Keys Foundation Experts',
+      lastContact: '2024-01-15 17:30:00', notes: 'Project completed successfully, final inspection passed',
+      latitude: 25.0865, longitude: -80.4473, propertyValue: 650000,
+      insuranceCompany: 'FEMA', claimNumber: 'FEMA-FL-2024-1234', weatherConditions: 'Tropical storm warning', urgencyScore: 88
+    },
+    {
+      id: 'L007', type: 'hurricane_damage', address: '4567 Magnolia Street, Naples, FL 34102',
+      ownerName: 'William Smith', phone: '(239) 555-0147', email: 'william.smith@email.com',
+      damageDescription: 'Hurricane winds caused significant roof damage, tree fell on garage, power lines down',
+      coverageType: 'Homeowners - Comprehensive', estimatedValue: 52000, priority: 'high',
+      contractorsNeeded: ['Roofing', 'Tree Services', 'Electrical', 'Structural'], aiConfidence: 96, images: 14,
+      timestamp: '2024-01-15 17:30:00', status: 'new',
+      notes: 'High priority - multiple damage types, safety hazards present',
+      latitude: 26.1420, longitude: -81.7948, propertyValue: 725000,
+      insuranceCompany: 'Citizens Property Insurance', weatherConditions: 'Storm conditions, high winds', urgencyScore: 87
+    },
+    {
+      id: 'L008', type: 'hurricane_damage', address: '1520 Lakeshore Drive, Lake Charles, LA 70601',
+      ownerName: 'Denise Thibodaux', phone: '(337) 555-0198', email: 'denise.t@email.com',
+      damageDescription: 'Hurricane Laura remnants caused major roof loss, siding torn off, carport collapsed',
+      coverageType: 'Homeowners - Full Coverage', estimatedValue: 78000, priority: 'emergency',
+      contractorsNeeded: ['Roofing', 'Siding', 'Structural', 'General Contractor'], aiConfidence: 96, images: 15,
+      timestamp: '2024-01-16 08:30:00', status: 'new',
+      notes: 'Entire rear section of roof missing, interior exposed to elements, emergency tarp needed',
+      latitude: 30.2132, longitude: -93.2083, propertyValue: 195000,
+      insuranceCompany: 'Louisiana Citizens', weatherConditions: 'Overcast, 62°F, rain expected', urgencyScore: 97
+    },
+    {
+      id: 'L009', type: 'flood_damage', address: '408 Ryan Street, Lake Charles, LA 70601',
+      ownerName: 'Marcus Broussard', phone: '(337) 555-0245', email: 'marcus.b@email.com',
+      damageDescription: 'Flash flooding from heavy rains, 18 inches of water in home, all flooring destroyed',
+      coverageType: 'Flood Insurance + Homeowners', estimatedValue: 54000, priority: 'urgent',
+      contractorsNeeded: ['Water Damage', 'Flooring', 'Drywall', 'Mold Remediation'], aiConfidence: 93, images: 9,
+      timestamp: '2024-01-16 09:15:00', status: 'contacted',
+      lastContact: '2024-01-16 10:00:00', notes: 'Homeowner evacuated, water extraction in progress',
+      latitude: 30.2266, longitude: -93.2174, propertyValue: 165000,
+      insuranceCompany: 'FEMA + State Farm', claimNumber: 'FEMA-LA-2024-0408', weatherConditions: 'Heavy rain continuing', urgencyScore: 91
+    },
+    {
+      id: 'L010', type: 'tree_damage', address: '2200 Common Street, Lake Charles, LA 70601',
+      ownerName: 'Patricia Fontenot', phone: '(337) 555-0312', email: 'pat.fontenot@email.com',
+      damageDescription: 'Large pine tree crashed through garage roof, vehicle trapped, power lines tangled',
+      coverageType: 'Homeowners - Standard', estimatedValue: 35000, priority: 'high',
+      contractorsNeeded: ['Tree Services', 'Roofing', 'Electrical', 'Auto Recovery'], aiConfidence: 91, images: 7,
+      timestamp: '2024-01-16 07:45:00', status: 'qualified', assignedTo: 'Bayou Tree Specialists',
+      lastContact: '2024-01-16 11:30:00', notes: 'Utility company notified, power lines need clearance before tree removal',
+      latitude: 30.2241, longitude: -93.2127, propertyValue: 210000,
+      insuranceCompany: 'Allstate', claimNumber: 'AS-2024-002200', weatherConditions: 'Wind gusts 35mph', urgencyScore: 84
+    },
+    {
+      id: 'L011', type: 'wind_damage', address: '3015 Country Club Road, Lake Charles, LA 70605',
+      ownerName: 'Thomas Guidry', phone: '(337) 555-0478', email: 'tom.guidry@email.com',
+      damageDescription: 'Wind damage to commercial building, partial roof separation, signage destroyed',
+      coverageType: 'Commercial Property', estimatedValue: 120000, priority: 'urgent',
+      contractorsNeeded: ['Commercial Roofing', 'Structural', 'Signage', 'General Contractor'], aiConfidence: 88, images: 11,
+      timestamp: '2024-01-16 10:00:00', status: 'assigned', assignedTo: 'Gulf South Construction',
+      lastContact: '2024-01-16 12:30:00', notes: 'Business closed until repairs complete, temporary roof covering installed',
+      latitude: 30.1735, longitude: -93.2392, propertyValue: 850000,
+      insuranceCompany: 'Hartford', claimNumber: 'HF-2024-003015', weatherConditions: 'Clearing, winds subsiding', urgencyScore: 86
+    },
+    {
+      id: 'L012', type: 'hurricane_damage', address: '780 Broad Street, New Orleans, LA 70119',
+      ownerName: 'Angela LeBlanc', phone: '(504) 555-0167', email: 'angela.lb@email.com',
+      damageDescription: 'Roof shingles stripped, water intrusion in 3 rooms, ceiling collapse in kitchen',
+      coverageType: 'Homeowners - Full Coverage', estimatedValue: 62000, priority: 'high',
+      contractorsNeeded: ['Roofing', 'Water Damage', 'Drywall', 'Painting'], aiConfidence: 94, images: 10,
+      timestamp: '2024-01-16 11:00:00', status: 'new',
+      notes: 'Tarping completed by neighbor, insurance adjuster visit scheduled',
+      latitude: 29.9711, longitude: -90.0942, propertyValue: 310000,
+      insuranceCompany: 'USAA', weatherConditions: 'Partly cloudy, humid', urgencyScore: 79
+    },
+    {
+      id: 'L013', type: 'flood_damage', address: '1445 Magazine Street, New Orleans, LA 70130',
+      ownerName: 'Charles Dupree', phone: '(504) 555-0289', email: 'c.dupree@email.com',
+      damageDescription: 'Street flooding entered first floor, hardwood floors buckled, appliances damaged',
+      coverageType: 'Flood Insurance + Homeowners', estimatedValue: 48000, priority: 'urgent',
+      contractorsNeeded: ['Water Damage', 'Flooring', 'Appliance', 'Mold Remediation'], aiConfidence: 90, images: 8,
+      timestamp: '2024-01-16 12:30:00', status: 'in_progress', assignedTo: 'NOLA Flood Recovery',
+      lastContact: '2024-01-16 14:00:00', notes: 'Dehumidification underway, mold testing scheduled',
+      latitude: 29.9391, longitude: -90.0812, propertyValue: 425000,
+      insuranceCompany: 'FEMA + Liberty Mutual', claimNumber: 'FEMA-LA-2024-1445', weatherConditions: 'Humid, 75°F', urgencyScore: 82
+    },
+    {
+      id: 'L014', type: 'wind_damage', address: '2890 Airline Highway, Baton Rouge, LA 70805',
+      ownerName: 'Derek Washington', phone: '(225) 555-0356', email: 'd.washington@email.com',
+      damageDescription: 'Strong winds ripped off metal roofing panels on warehouse, inventory exposed',
+      coverageType: 'Commercial Property', estimatedValue: 95000, priority: 'emergency',
+      contractorsNeeded: ['Commercial Roofing', 'Metal Work', 'General Contractor'], aiConfidence: 92, images: 13,
+      timestamp: '2024-01-16 06:00:00', status: 'new',
+      notes: 'Warehouse contents at risk, emergency covering needed immediately',
+      latitude: 30.4515, longitude: -91.1871, propertyValue: 1200000,
+      insuranceCompany: 'Zurich Commercial', weatherConditions: 'Wind advisory active', urgencyScore: 96
+    },
+    {
+      id: 'L015', type: 'tree_damage', address: '567 Johnston Street, Lafayette, LA 70501',
+      ownerName: 'Marie Comeaux', phone: '(337) 555-0534', email: 'marie.c@email.com',
+      damageDescription: 'Two large oaks uprooted in backyard, one leaning on neighbor fence, root damage to patio',
+      coverageType: 'Homeowners - Standard', estimatedValue: 18000, priority: 'medium',
+      contractorsNeeded: ['Tree Services', 'Fencing', 'Landscaping'], aiConfidence: 87, images: 6,
+      timestamp: '2024-01-16 13:15:00', status: 'contacted',
+      lastContact: '2024-01-16 14:30:00', notes: 'No structural damage to home, neighbor aware of fence situation',
+      latitude: 30.2241, longitude: -92.0198, propertyValue: 225000,
+      insuranceCompany: 'Progressive', weatherConditions: 'Clearing skies', urgencyScore: 52
+    },
+    {
+      id: 'L016', type: 'hurricane_damage', address: '1100 Broad Street, Shreveport, LA 71101',
+      ownerName: 'Kevin Boudreaux', phone: '(318) 555-0621', email: 'kevin.b@email.com',
+      damageDescription: 'Storm damage to older home, porch roof collapsed, siding damage, window leaks',
+      coverageType: 'Homeowners - Basic', estimatedValue: 41000, priority: 'high',
+      contractorsNeeded: ['Roofing', 'Siding', 'Windows', 'Porch Repair'], aiConfidence: 85, images: 9,
+      timestamp: '2024-01-16 14:00:00', status: 'new',
+      notes: 'Historic district - may need special permits for restoration',
+      latitude: 32.5252, longitude: -93.7502, propertyValue: 175000,
+      insuranceCompany: 'Nationwide', weatherConditions: 'Cool, 55°F, clear', urgencyScore: 73
+    },
+    {
+      id: 'L017', type: 'hurricane_damage', address: '450 Peachtree Street NE, Atlanta, GA 30308',
+      ownerName: 'Jennifer Hayes', phone: '(404) 555-0198', email: 'j.hayes@email.com',
+      damageDescription: 'Tropical storm remnants caused roof damage, fallen trees blocked driveway',
+      coverageType: 'Homeowners - Full Coverage', estimatedValue: 38000, priority: 'high',
+      contractorsNeeded: ['Roofing', 'Tree Services', 'Cleanup Crew'], aiConfidence: 88, images: 7,
+      timestamp: '2024-01-16 09:00:00', status: 'new',
+      notes: 'Multiple trees down in neighborhood, widespread damage reported',
+      latitude: 33.7700, longitude: -84.3855, propertyValue: 520000,
+      insuranceCompany: 'State Farm', weatherConditions: 'Overcast, 58°F', urgencyScore: 76
+    },
+    {
+      id: 'L018', type: 'tree_damage', address: '1200 Main Street, Columbia, SC 29201',
+      ownerName: 'David Richardson', phone: '(803) 555-0432', email: 'd.richardson@email.com',
+      damageDescription: 'Ice storm brought down multiple large branches, power lines tangled, roof punctured',
+      coverageType: 'Homeowners - Premium', estimatedValue: 29000, priority: 'urgent',
+      contractorsNeeded: ['Tree Services', 'Roofing', 'Electrical'], aiConfidence: 91, images: 8,
+      timestamp: '2024-01-16 07:30:00', status: 'contacted',
+      lastContact: '2024-01-16 09:00:00', notes: 'Power company dispatched, tree crew on standby',
+      latitude: 34.0007, longitude: -81.0348, propertyValue: 285000,
+      insuranceCompany: 'Erie Insurance', weatherConditions: 'Ice advisory, 32°F', urgencyScore: 85
+    },
+    {
+      id: 'L019', type: 'wind_damage', address: '789 Broadway, Nashville, TN 37203',
+      ownerName: 'Rachel Turner', phone: '(615) 555-0567', email: 'rachel.t@email.com',
+      damageDescription: 'Tornado-strength winds damaged commercial storefront, awning destroyed, glass shattered',
+      coverageType: 'Commercial Property', estimatedValue: 72000, priority: 'emergency',
+      contractorsNeeded: ['Commercial Glass', 'Structural', 'General Contractor'], aiConfidence: 95, images: 11,
+      timestamp: '2024-01-16 05:45:00', status: 'qualified',
+      assignedTo: 'Music City Restoration', lastContact: '2024-01-16 08:00:00',
+      notes: 'Business district, multiple storefronts affected, coordinating with city',
+      latitude: 36.1627, longitude: -86.7816, propertyValue: 950000,
+      insuranceCompany: 'Hartford', claimNumber: 'HF-2024-000789', weatherConditions: 'Severe storm warning', urgencyScore: 94
+    },
+    {
+      id: 'L020', type: 'hail_damage', address: '2345 Mockingbird Lane, Dallas, TX 75205',
+      ownerName: 'Brandon Clark', phone: '(214) 555-0789', email: 'b.clark@email.com',
+      damageDescription: 'Severe hailstorm damaged entire roof, 3 skylights broken, gutters crushed, vehicle dented',
+      coverageType: 'Homeowners - Comprehensive', estimatedValue: 55000, priority: 'high',
+      contractorsNeeded: ['Roofing', 'Skylights', 'Gutters', 'Auto Body'], aiConfidence: 93, images: 16,
+      timestamp: '2024-01-16 15:00:00', status: 'new',
+      notes: 'Neighborhood-wide hail event, multiple claims expected',
+      latitude: 32.8328, longitude: -96.7984, propertyValue: 680000,
+      insuranceCompany: 'GEICO', weatherConditions: 'Post-storm, clear', urgencyScore: 77
+    },
+    {
+      id: 'L021', type: 'flood_damage', address: '1500 Memorial Drive, Houston, TX 77007',
+      ownerName: 'Maria Santos', phone: '(713) 555-0345', email: 'm.santos@email.com',
+      damageDescription: 'Bayou overflow flooded ground floor, 3 feet of standing water, complete loss of furnishings',
+      coverageType: 'Flood Insurance + Homeowners', estimatedValue: 110000, priority: 'emergency',
+      contractorsNeeded: ['Water Damage', 'Flooring', 'Drywall', 'HVAC', 'Mold Remediation'], aiConfidence: 98, images: 20,
+      timestamp: '2024-01-16 04:00:00', status: 'in_progress', assignedTo: 'Texas Flood Masters',
+      lastContact: '2024-01-16 10:00:00', notes: 'Major flooding event, FEMA disaster declaration pending',
+      latitude: 29.7604, longitude: -95.3698, propertyValue: 450000,
+      insuranceCompany: 'FEMA + Travelers', claimNumber: 'FEMA-TX-2024-1500', weatherConditions: 'Flash flood warning', urgencyScore: 99
+    },
+    {
+      id: 'L022', type: 'hurricane_damage', address: '321 Meeting Street, Charleston, SC 29401',
+      ownerName: 'William Barrett', phone: '(843) 555-0234', email: 'w.barrett@email.com',
+      damageDescription: 'Hurricane winds caused porch collapse, shutter damage, flooding in basement',
+      coverageType: 'Homeowners - Historic Property', estimatedValue: 85000, priority: 'urgent',
+      contractorsNeeded: ['Historic Restoration', 'Roofing', 'Foundation', 'Water Damage'], aiConfidence: 90, images: 12,
+      timestamp: '2024-01-16 08:00:00', status: 'assigned', assignedTo: 'Lowcountry Restoration',
+      lastContact: '2024-01-16 11:00:00', notes: 'Historic district - preservation requirements apply',
+      latitude: 32.7765, longitude: -79.9311, propertyValue: 890000,
+      insuranceCompany: 'Chubb', claimNumber: 'CH-2024-000321', weatherConditions: 'Post-hurricane, clearing', urgencyScore: 83
+    },
+    {
+      id: 'L023', type: 'wind_damage', address: '1876 Dexter Avenue, Montgomery, AL 36104',
+      ownerName: 'Shirley Coleman', phone: '(334) 555-0456', email: 's.coleman@email.com',
+      damageDescription: 'Severe thunderstorm winds removed sections of roof, debris scattered across property',
+      coverageType: 'Homeowners - Standard', estimatedValue: 33000, priority: 'high',
+      contractorsNeeded: ['Roofing', 'Cleanup Crew', 'Fencing'], aiConfidence: 86, images: 8,
+      timestamp: '2024-01-16 11:30:00', status: 'new',
+      notes: 'Debris cleanup needed before roof assessment can begin',
+      latitude: 32.3792, longitude: -86.3077, propertyValue: 195000,
+      insuranceCompany: 'Alfa Insurance', weatherConditions: 'Severe weather watch', urgencyScore: 74
+    },
+    {
+      id: 'L024', type: 'tree_damage', address: '555 Hillsborough Street, Raleigh, NC 27603',
+      ownerName: 'Gregory Foster', phone: '(919) 555-0678', email: 'g.foster@email.com',
+      damageDescription: 'Pine tree fell on detached garage during ice storm, crushing structure and vehicle inside',
+      coverageType: 'Homeowners + Auto', estimatedValue: 47000, priority: 'high',
+      contractorsNeeded: ['Tree Services', 'Structural', 'Auto Recovery', 'Demolition'], aiConfidence: 92, images: 9,
+      timestamp: '2024-01-16 06:30:00', status: 'contacted',
+      lastContact: '2024-01-16 08:30:00', notes: 'Garage is total loss, planning demolition and rebuild',
+      latitude: 35.7796, longitude: -78.6382, propertyValue: 340000,
+      insuranceCompany: 'Nationwide', claimNumber: 'NW-2024-000555', weatherConditions: 'Ice storm, 28°F', urgencyScore: 80
+    }
+  ];
+
+  const getStateFromAddress = (address: string): string => {
+    const stateMap: Record<string, string> = {
+      ', FL ': 'Florida', ', LA ': 'Louisiana', ', GA ': 'Georgia', ', SC ': 'South Carolina',
+      ', NC ': 'North Carolina', ', TN ': 'Tennessee', ', AL ': 'Alabama', ', TX ': 'Texas',
+      ', MS ': 'Mississippi', ', AR ': 'Arkansas', ', OK ': 'Oklahoma',
+    };
+    for (const [abbr, name] of Object.entries(stateMap)) {
+      if (address.includes(abbr)) return name;
+    }
+    return '';
+  };
+
+  const getCityFromAddress = (address: string): string => {
+    const parts = address.split(',');
+    if (parts.length >= 2) {
+      return parts[parts.length - 2].trim();
+    }
+    return '';
+  };
+
   const { data: leads = [], isLoading } = useQuery<Lead[]>({
-    queryKey: ['leads', filterStatus, filterPriority, searchQuery],
+    queryKey: ['leads', filterStatus, filterPriority, searchQuery, selectedState, selectedCity],
     queryFn: async () => {
       await new Promise(resolve => setTimeout(resolve, 400));
-      
-      const allLeads: Lead[] = [
-        {
-          id: 'L001',
-          type: 'hurricane_damage',
-          address: '2847 Bayshore Drive, Tampa, FL 33602',
-          ownerName: 'Sarah Johnson',
-          phone: '(813) 555-0123',
-          email: 'sarah.johnson@email.com',
-          damageDescription: 'Extensive roof damage from Hurricane winds, missing shingles, water damage to attic',
-          coverageType: 'Homeowners - Full Coverage',
-          estimatedValue: 45000,
-          priority: 'urgent',
-          contractorsNeeded: ['Roofing', 'Water Damage', 'General Contractor'],
-          aiConfidence: 94,
-          images: 8,
-          timestamp: '2024-01-15 14:30:00',
-          status: 'new',
-          notes: 'Property owner reports active leaks, needs immediate attention',
-          latitude: 27.9506,
-          longitude: -82.4572,
-          propertyValue: 485000,
-          insuranceCompany: 'State Farm',
-          weatherConditions: 'Clear, winds 15mph',
-          urgencyScore: 92
-        },
-        {
-          id: 'L002',
-          type: 'tree_damage',
-          address: '1456 Pine Ridge Circle, Orlando, FL 32801',
-          ownerName: 'Michael Chen',
-          phone: '(407) 555-0456',
-          email: 'mike.chen@email.com',
-          damageDescription: 'Large oak tree fell across property, damaged roof and blocked driveway',
-          coverageType: 'Homeowners - Standard',
-          estimatedValue: 28500,
-          priority: 'high',
-          contractorsNeeded: ['Tree Services', 'Roofing', 'Cleanup Crew'],
-          aiConfidence: 89,
-          images: 5,
-          timestamp: '2024-01-15 13:45:00',
-          status: 'contacted',
-          assignedTo: 'Rodriguez Tree Service',
-          lastContact: '2024-01-15 15:20:00',
-          notes: 'Tree removal scheduled for tomorrow morning',
-          latitude: 28.5383,
-          longitude: -81.3792,
-          propertyValue: 320000,
-          insuranceCompany: 'Allstate',
-          claimNumber: 'AS-2024-001847',
-          weatherConditions: 'Partly cloudy',
-          urgencyScore: 78
-        },
-        {
-          id: 'L003',
-          type: 'flood_damage',
-          address: '892 Coastal Highway, Jacksonville, FL 32205',
-          ownerName: 'Emma Rodriguez',
-          phone: '(904) 555-0789',
-          email: 'emma.rodriguez@email.com',
-          damageDescription: 'Storm surge flooding, 2 feet of water in first floor, damaged flooring and drywall',
-          coverageType: 'Flood Insurance + Homeowners',
-          estimatedValue: 67000,
-          priority: 'emergency',
-          contractorsNeeded: ['Water Damage', 'Flooring', 'Drywall', 'Mold Remediation'],
-          aiConfidence: 97,
-          images: 12,
-          timestamp: '2024-01-15 15:15:00',
-          status: 'qualified',
-          assignedTo: 'FloodPro Restoration',
-          lastContact: '2024-01-15 16:45:00',
-          notes: 'Emergency extraction completed, dehumidifiers running',
-          latitude: 30.3322,
-          longitude: -81.6557,
-          propertyValue: 275000,
-          insuranceCompany: 'FEMA + USAA',
-          claimNumber: 'FEMA-FL-2024-0892',
-          weatherConditions: 'Heavy rain expected',
-          urgencyScore: 95
-        },
-        {
-          id: 'L004',
-          type: 'wind_damage',
-          address: '3421 Sunset Boulevard, Miami, FL 33139',
-          ownerName: 'James Wilson',
-          phone: '(305) 555-0321',
-          email: 'james.wilson@email.com',
-          damageDescription: 'High winds damaged siding, windows broken, fence destroyed',
-          coverageType: 'Condo Association + Personal',
-          estimatedValue: 32000,
-          priority: 'medium',
-          contractorsNeeded: ['Siding', 'Windows', 'Fencing'],
-          aiConfidence: 85,
-          images: 6,
-          timestamp: '2024-01-15 12:20:00',
-          status: 'assigned',
-          assignedTo: 'Miami Storm Repairs',
-          lastContact: '2024-01-15 14:15:00',
-          notes: 'Contractor scheduled site visit for Monday',
-          latitude: 25.7617,
-          longitude: -80.1918,
-          propertyValue: 425000,
-          insuranceCompany: 'Progressive',
-          claimNumber: 'PG-2024-003421',
-          weatherConditions: 'Sunny, 78°F',
-          urgencyScore: 65
-        },
-        {
-          id: 'L005',
-          type: 'hail_damage',
-          address: '567 Country Club Drive, Fort Myers, FL 33919',
-          ownerName: 'Lisa Thompson',
-          phone: '(239) 555-0654',
-          email: 'lisa.t@email.com',
-          damageDescription: 'Golf ball sized hail damaged roof, gutters, and outdoor equipment',
-          coverageType: 'Homeowners - Premium',
-          estimatedValue: 22000,
-          priority: 'medium',
-          contractorsNeeded: ['Roofing', 'Gutters', 'HVAC'],
-          aiConfidence: 91,
-          images: 4,
-          timestamp: '2024-01-15 11:30:00',
-          status: 'in_progress',
-          assignedTo: 'Gulf Coast Roofing',
-          lastContact: '2024-01-15 16:00:00',
-          notes: 'Insurance adjuster approved claim, work starting next week',
-          latitude: 26.6406,
-          longitude: -81.8723,
-          propertyValue: 380000,
-          insuranceCompany: 'Travelers',
-          claimNumber: 'TR-2024-000567',
-          weatherConditions: 'Clear skies',
-          urgencyScore: 55
-        },
-        {
-          id: 'L006',
-          type: 'storm_surge',
-          address: '1234 Ocean View Lane, Key Largo, FL 33037',
-          ownerName: 'Roberto Martinez',
-          phone: '(305) 555-0987',
-          email: 'roberto.martinez@email.com',
-          damageDescription: 'Storm surge damaged foundation, flooding in crawl space, salt water corrosion',
-          coverageType: 'Flood Insurance',
-          estimatedValue: 89000,
-          priority: 'urgent',
-          contractorsNeeded: ['Foundation', 'Waterproofing', 'Structural'],
-          aiConfidence: 93,
-          images: 10,
-          timestamp: '2024-01-15 16:45:00',
-          status: 'completed',
-          assignedTo: 'Keys Foundation Experts',
-          lastContact: '2024-01-15 17:30:00',
-          notes: 'Project completed successfully, final inspection passed',
-          latitude: 25.0865,
-          longitude: -80.4473,
-          propertyValue: 650000,
-          insuranceCompany: 'FEMA',
-          claimNumber: 'FEMA-FL-2024-1234',
-          weatherConditions: 'Tropical storm warning',
-          urgencyScore: 88
-        },
-        {
-          id: 'L007',
-          type: 'hurricane_damage',
-          address: '4567 Magnolia Street, Naples, FL 34102',
-          ownerName: 'William Smith',
-          phone: '(239) 555-0147',
-          email: 'william.smith@email.com',
-          damageDescription: 'Hurricane winds caused significant roof damage, tree fell on garage, power lines down',
-          coverageType: 'Homeowners - Comprehensive',
-          estimatedValue: 52000,
-          priority: 'high',
-          contractorsNeeded: ['Roofing', 'Tree Services', 'Electrical', 'Structural'],
-          aiConfidence: 96,
-          images: 14,
-          timestamp: '2024-01-15 17:30:00',
-          status: 'new',
-          notes: 'High priority - multiple damage types, safety hazards present',
-          latitude: 26.1420,
-          longitude: -81.7948,
-          propertyValue: 725000,
-          insuranceCompany: 'Citizens Property Insurance',
-          weatherConditions: 'Storm conditions, high winds',
-          urgencyScore: 87
-        }
-      ];
 
-      let filteredLeads = allLeads;
+      let filteredLeads = allMockLeads;
+
+      if (selectedState) {
+        filteredLeads = filteredLeads.filter(lead => getStateFromAddress(lead.address) === selectedState);
+      }
+
+      if (selectedCity) {
+        filteredLeads = filteredLeads.filter(lead => getCityFromAddress(lead.address).toLowerCase() === selectedCity.toLowerCase());
+      }
 
       if (searchQuery) {
         filteredLeads = filteredLeads.filter(lead => 
