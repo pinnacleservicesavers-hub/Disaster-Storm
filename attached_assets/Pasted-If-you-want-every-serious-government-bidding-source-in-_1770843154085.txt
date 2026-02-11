@@ -1,0 +1,151 @@
+If you want every serious government bidding source in the United States, here’s the structured breakdown.
+
+I’m organizing this by:
+
+🔵 Federal (Nationwide)
+
+🟢 State-Level
+
+🟡 Local (County / City / Utilities)
+
+🔴 Emergency / Disaster Contracting
+
+🟣 Special Certifications & Set-Asides
+
+🔵 FEDERAL GOVERNMENT BIDDING SITES
+1️⃣ SAM.gov
+
+Website: https://sam.gov
+
+✔ Primary federal contract site
+✔ All federal agencies post here
+✔ Replaced FedBizOpps
+✔ Required registration for federal work
+
+If you want FEMA, USDA, USACE, DOD, etc. — this is the starting point.
+
+2️⃣ U.S. Army Corps of Engineers (USACE)
+
+Website: https://www.usace.army.mil
+
+Major source for:
+• Debris removal
+• Emergency contracting
+• Flood control
+• Infrastructure
+
+3️⃣ FEMA
+
+Website: https://www.fema.gov
+
+Vendor portal: https://sam.gov
+
+FEMA does NOT bid separately — must be registered in SAM.
+
+4️⃣ General Services Administration (GSA)
+
+Website: https://www.gsa.gov
+
+GSA Schedules (MAS contracts)
+Federal supply schedules
+
+5️⃣ USDA Forest Service
+
+Website: https://www.fs.usda.gov
+
+Vegetation & forestry contracts
+
+6️⃣ Department of Transportation (DOT)
+
+Website: https://www.transportation.gov
+
+Highway ROW clearing contracts
+
+🟢 STATE PROCUREMENT SITES
+
+(Every State Has One)
+
+Format: “(State Name) Procurement” or “(State Name) Purchasing Division”
+
+Here are examples:
+
+State	Site
+Texas	https://www.txsmartbuy.com
+
+Florida	https://www.myfloridamarketplace.com
+
+Georgia	https://doas.ga.gov
+
+Louisiana	https://wwwprd.doa.louisiana.gov
+
+Alabama	https://purchasing.alabama.gov
+
+Search format:
+👉 “(State) Vendor Registration Portal”
+
+🟡 COUNTY & CITY BIDDING SITES
+
+Most cities use:
+
+• DemandStar
+• BidNet Direct
+• Bonfire
+• PlanetBids
+• IonWave
+• PublicPurchase
+
+These are aggregators.
+
+🔴 DISASTER & EMERGENCY CONTRACTING PLATFORMS
+7️⃣ U.S. Department of Homeland Security (DHS)
+
+Oversees FEMA and emergency procurement
+
+8️⃣ National Interagency Fire Center
+
+Website: https://www.nifc.gov
+
+Wildfire & forestry contracts
+
+9️⃣ Defense Logistics Agency (DLA)
+
+Emergency supply contracts
+
+🟣 SMALL BUSINESS / SET-ASIDE PORTALS
+🔹 U.S. Small Business Administration (SBA)
+
+Website: https://www.sba.gov
+
+For:
+• SDVOSB
+• HUBZone
+• 8(a)
+• WOSB
+
+🔹 Dynamic Small Business Search (DSBS)
+
+Website: https://dsbs.sba.gov
+
+Your profile must be optimized here.
+
+⚡ UTILITY & CO-OP BIDDING (IMPORTANT FOR YOU)
+
+These are NOT always on government sites.
+
+They are usually on:
+
+• Individual utility websites
+• EMC association sites
+• State emergency management portals
+• Direct MSA onboarding
+
+🧠 AGGREGATOR SITES (PAID BUT POWERFUL)
+
+Not government-owned but pull government bids:
+
+• BidNet Direct
+• GovWin
+• ConstructionWire
+• Dodge Construction
+• Onvia
+• iSqFt

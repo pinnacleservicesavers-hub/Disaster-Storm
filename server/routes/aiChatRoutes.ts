@@ -1,7 +1,6 @@
 import express from 'express';
 import type { Express, Request, Response } from 'express';
 import OpenAI from 'openai';
-import fetch from 'node-fetch';
 import { getWeatherForLocation, getSevereWeatherNearLocation, getTornadoAlerts, getWinterWeatherAlerts } from '../services/weatherTools.js';
 
 interface ChatMessage {
@@ -21,15 +20,18 @@ const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY || 'dummy-key-for-replit-ai'
 });
 
-async function searchDisasterNews(query: string): Promise<string> {
+const GROK_TIMEOUT_MS = 45000;
+
+async function grokWebSearch(prompt: string, maxTokens: number = 2000): Promise<string> {
+  const xaiKey = process.env.XAI_API_KEY;
+  if (!xaiKey) {
+    return JSON.stringify({ error: 'Web search not available - XAI_API_KEY not configured' });
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), GROK_TIMEOUT_MS);
+
   try {
-    const xaiKey = process.env.XAI_API_KEY;
-    if (!xaiKey) {
-      return JSON.stringify({ error: 'Search not available - XAI_API_KEY not configured' });
-    }
-
-    console.log(`🔍 Searching disaster news with Grok web_search: "${query}"`);
-
     const response = await fetch('https://api.x.ai/v1/responses', {
       method: 'POST',
       headers: {
@@ -39,22 +41,24 @@ async function searchDisasterNews(query: string): Promise<string> {
       body: JSON.stringify({
         model: 'grok-4-1-fast-non-reasoning',
         tools: [{ type: 'web_search' }],
-        input: `Search the web for current, specific factual details about this disaster/emergency situation. Include named storms, dates, areas affected, cause, current status, and restoration progress. Cite sources: ${query}`,
+        input: prompt,
         temperature: 0.3,
-        max_output_tokens: 2000
-      })
+        max_output_tokens: maxTokens
+      }),
+      signal: controller.signal as any
     });
+
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`🔍 Grok web search API error: ${response.status}`, errorText);
-      return JSON.stringify({ error: `Search API returned ${response.status}`, details: errorText.substring(0, 500) });
+      console.error(`Grok web search API error: ${response.status}`, errorText.substring(0, 300));
+      return JSON.stringify({ error: `Search API returned ${response.status}` });
     }
 
     const data = await response.json() as any;
     let textContent = '';
-    const outputItems = data.output || [];
-    for (const item of outputItems) {
+    for (const item of (data.output || [])) {
       if (item.type === 'message' && item.content) {
         for (const part of item.content) {
           if (part.type === 'output_text' && part.text) {
@@ -65,98 +69,40 @@ async function searchDisasterNews(query: string): Promise<string> {
     }
 
     if (textContent.trim()) {
-      console.log(`🔍 Grok web search returned ${textContent.length} chars`);
+      console.log(`Grok web search returned ${textContent.length} chars`);
       return textContent.trim();
     }
-    
-    return JSON.stringify({ error: 'No web search results found' });
-  } catch (error) {
-    console.error('🔍 Disaster news search error:', error);
-    return JSON.stringify({ error: 'Search failed', message: (error as Error).message });
+
+    return JSON.stringify({ error: 'No results from web search' });
+  } catch (error: any) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      console.error('Grok web search timed out');
+      return JSON.stringify({ error: 'Web search timed out after 45 seconds' });
+    }
+    console.error('Grok web search error:', error.message);
+    return JSON.stringify({ error: 'Web search failed', message: error.message });
   }
+}
+
+async function searchDisasterNews(query: string): Promise<string> {
+  console.log(`🔍 Searching disaster news: "${query}"`);
+  return grokWebSearch(
+    `Search the web for current, specific factual details about this disaster/emergency situation. Include named storms, dates, areas affected, cause, current status, and restoration progress. Cite sources: ${query}`,
+    2000
+  );
 }
 
 async function getUtilityOutageInfo(location: string): Promise<string> {
-  try {
-    const xaiKey = process.env.XAI_API_KEY;
-    if (!xaiKey) {
-      return JSON.stringify({ error: 'Outage lookup not available - XAI_API_KEY not configured' });
-    }
-
-    console.log(`⚡ Looking up utility outage info for: "${location}"`);
-
-    const response = await fetch('https://api.x.ai/v1/responses', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${xaiKey}`
-      },
-      body: JSON.stringify({
-        model: 'grok-4-1-fast-non-reasoning',
-        tools: [{ type: 'web_search' }],
-        input: `Search the web for current power outage information in ${location}. How many customers are affected, what caused the outages (name specific storms/events), what is the utility company doing, and what is the restoration status and timeline? Cite sources.`,
-        temperature: 0.3,
-        max_output_tokens: 1500
-      })
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`⚡ Grok outage search API error: ${response.status}`, errorText);
-      return JSON.stringify({ error: `Outage search API returned ${response.status}` });
-    }
-
-    const data = await response.json() as any;
-    let textContent = '';
-    const outputItems = data.output || [];
-    for (const item of outputItems) {
-      if (item.type === 'message' && item.content) {
-        for (const part of item.content) {
-          if (part.type === 'output_text' && part.text) {
-            textContent += part.text + '\n';
-          }
-        }
-      }
-    }
-
-    if (textContent && textContent.trim()) {
-      console.log(`⚡ Outage info returned ${textContent.length} chars`);
-      return textContent.trim();
-    }
-    
-    return JSON.stringify({ error: 'No outage information found' });
-  } catch (error) {
-    console.error('⚡ Outage lookup error:', error);
-    return JSON.stringify({ error: 'Outage lookup failed', message: (error as Error).message });
-  }
+  console.log(`⚡ Looking up utility outages for: "${location}"`);
+  return grokWebSearch(
+    `Search the web for current power outage information in ${location}. How many customers are affected, what caused the outages (name specific storms/events), what is the utility company doing, and what is the restoration status and timeline? Cite sources.`,
+    1500
+  );
 }
 
-export function registerAIChatRoutes(app: Express) {
-  app.post('/api/ai/chat', async (req: Request, res: Response) => {
-    try {
-      const { messages, moduleName, moduleContext, userRole }: ChatRequest = req.body;
-
-      if (!messages || !Array.isArray(messages) || messages.length === 0) {
-        return res.status(400).json({ error: 'Messages array is required' });
-      }
-      
-      console.log(`💬 AI Chat request for ${moduleName || 'general'}, messages count: ${messages.length}`);
-
-      const safeModuleName = moduleName || 'general';
-      const detectedRole = userRole || (
-        safeModuleName.toLowerCase().includes('homeowner') ? 'homeowner' :
-        safeModuleName.toLowerCase().includes('contractor') ? 'contractor' :
-        safeModuleName.toLowerCase().includes('admin') ? 'admin' :
-        'contractor'
-      );
-
-      const roleContext = detectedRole === 'homeowner' 
-        ? `You are speaking to a HOMEOWNER. Use simple, reassuring language. Help them understand what's happening and what they should do. Be empathetic - they may be in a crisis.`
-        : detectedRole === 'contractor'
-        ? `You are speaking to a CONTRACTOR or storm restoration professional. Use professional terminology. Provide detailed technical guidance.`
-        : `You are speaking to an ADMIN. Provide system-level insights and operational recommendations.`;
-
-      const systemPrompt = `You are Rachel, the disaster intelligence expert for Strategic Services Savers — a platform that is THE go-to source for real-time disaster and storm information. You are currently assisting in the "${safeModuleName}" module.
+function buildSystemPrompt(moduleName: string, roleContext: string, moduleContext?: string): string {
+  return `You are Rachel, the disaster intelligence expert for Strategic Services Savers — a platform that is THE go-to source for real-time disaster and storm information. You are currently assisting in the "${moduleName}" module.
 
 ${roleContext}
 
@@ -178,15 +124,15 @@ When someone asks "What happened in [location]?" or "Why is the power out?" or "
 
 EXAMPLE OF WHAT YOU MUST DO:
 User: "What is going on in Northeastern Louisiana? Someone said they've been without power for 15 days."
-CORRECT ANSWER: "Northeastern Louisiana was hit by Winter Storm Fern in late January 2025 — a historic ice storm that caused catastrophic damage across the region. Here's what happened and where things stand:
+CORRECT ANSWER: "Northeastern Louisiana was hit by Winter Storm Fern in late January — a historic ice storm that caused catastrophic damage across the region. Here's what happened and where things stand:
 
-**What Happened:** Winter Storm Fern brought severe freezing rain and ice accumulation across Northeast Louisiana, including Monroe, West Monroe, and Ouachita Parish. Ice buildup of over half an inch coated power lines, trees, and infrastructure, snapping utility poles, downing transmission lines, and destroying transformers.
+**What Happened:** Winter Storm Fern brought severe freezing rain and ice accumulation across Northeast Louisiana, including Monroe, West Monroe, and Ouachita Parish. Ice buildup coated power lines, trees, and infrastructure, snapping utility poles and destroying transformers.
 
-**Why Power Stayed Out So Long:** The ice damage was so extensive that Entergy Louisiana had to rebuild entire sections of the distribution grid — not just flip switches back on. Below-freezing temperatures prevented ice from melting, causing continued damage even as crews worked. Some customers also had damage to their own electrical equipment (meters, panels) that had to be repaired by licensed electricians before the utility could reconnect.
+**Why Power Stayed Out So Long:** The ice damage was so extensive that Entergy Louisiana had to rebuild entire sections of the distribution grid. Below-freezing temperatures prevented ice from melting, causing continued damage even as crews worked.
 
-**Current Status:** Most customers had power restored after 10-11 days, but some isolated areas waited longer due to localized infrastructure damage. Mutual-aid crews from multiple states were deployed. Entergy worked section by section for safety — sometimes restoring power temporarily, then shutting it down again to complete permanent repairs.
+**Current Status:** Most customers had power restored after 10-11 days, but some isolated areas waited longer. Mutual-aid crews from multiple states were deployed.
 
-**If You're Still Without Power:** Contact Entergy Louisiana directly. If your meter or panel was damaged, you'll need a licensed electrician to make repairs before the utility can reconnect. Check your parish emergency management office for shelter and supply locations."
+**If You're Still Without Power:** Contact Entergy Louisiana directly. If your meter or panel was damaged, you'll need a licensed electrician before the utility can reconnect."
 
 WHAT YOU MUST NEVER DO:
 - NEVER say "most likely caused by..." when you can determine the actual cause — USE YOUR SEARCH TOOLS
@@ -198,14 +144,15 @@ WHAT YOU MUST NEVER DO:
 
 RESPONSE FORMAT:
 - Write in clear, informative NARRATIVE paragraphs — like a knowledgeable expert briefing someone
-- Use bold headers to organize sections when the answer is detailed
+- Use bold headers (**Header**) to organize sections when the answer is detailed
 - Include specific names, dates, numbers, and facts
 - Be direct and authoritative — you ARE the expert
 - After giving the complete answer, STOP. Don't offer to create documents or ask unnecessary follow-up questions.
+- Keep responses focused and concise. Don't pad with unnecessary caveats.
 
 TOOLS AVAILABLE:
-- search_disaster_news: Search for specific disaster events, storms, emergencies, outage causes, and current status. USE THIS when users ask about what happened somewhere.
-- get_utility_outage_info: Get current power outage status, restoration progress, and utility response for a specific area. USE THIS for power outage questions.
+- search_disaster_news: Search for specific disaster events, storms, emergencies, outage causes, and current status using real-time web search. USE THIS when users ask about what happened somewhere.
+- get_utility_outage_info: Get current power outage status, restoration progress, and utility response for a specific area via real-time web search. USE THIS for power outage questions.
 - get_weather_for_location: Get current weather conditions and NWS alerts for any location.
 - get_severe_weather_alerts: Get active severe weather alerts near a location.
 - get_tornado_alerts: Get nationwide tornado warnings and watches.
@@ -217,6 +164,7 @@ TOOL USAGE RULES:
 - When someone asks about current weather, use the weather tools
 - COMBINE information from multiple tools to give a comprehensive answer
 - NEVER tell the user you couldn't find information without first trying ALL relevant tools
+- Use tools in ONE round — request all the tools you need at once, not one at a time
 
 NATURAL LANGUAGE LOCATION INTELLIGENCE:
 Accept ANY location format — cities, regions, states, landmarks, addresses. Never ask for ZIP codes. If someone says "Northeastern Louisiana," search for that exact phrase. If someone says "downtown Atlanta," geocode it automatically.
@@ -241,187 +189,233 @@ FORBIDDEN BEHAVIORS:
 - Fabricating specific casualty numbers, dollar amounts, or restoration percentages that weren't in your search results
 
 You are the disaster intelligence expert. Act like one. Be authoritative when you have facts. Be specific. Be direct.`;
+}
 
-      const apiMessages: ChatMessage[] = [
+function buildTools(): OpenAI.Chat.Completions.ChatCompletionTool[] {
+  return [
+    {
+      type: 'function' as const,
+      function: {
+        name: 'search_disaster_news',
+        description: 'Search real-time web sources for specific information about disaster events, storms, emergencies, power outages, and their causes. Use this whenever a user asks about what happened in a location, why power is out, what storm hit an area, or any disaster-related question.',
+        parameters: {
+          type: 'object',
+          properties: {
+            query: {
+              type: 'string',
+              description: 'Detailed search query about the disaster event (e.g., "Winter storm power outage Northeast Louisiana January 2025", "earthquake damage Southern California", "hurricane Florida current status")'
+            }
+          },
+          required: ['query']
+        }
+      }
+    },
+    {
+      type: 'function' as const,
+      function: {
+        name: 'get_utility_outage_info',
+        description: 'Get current power outage information for a specific area via real-time web search including number of customers affected, cause, utility company response, restoration timeline.',
+        parameters: {
+          type: 'object',
+          properties: {
+            location: {
+              type: 'string',
+              description: 'Location to check for outages (e.g., "Northeast Louisiana", "Monroe Louisiana", "Ouachita Parish")'
+            }
+          },
+          required: ['location']
+        }
+      }
+    },
+    {
+      type: 'function' as const,
+      function: {
+        name: 'get_weather_for_location',
+        description: 'Get current weather conditions, temperature, wind, and active NWS alerts for any location.',
+        parameters: {
+          type: 'object',
+          properties: {
+            location: {
+              type: 'string',
+              description: 'Location in natural language (e.g., "Birmingham, Alabama", "Miami", "Northeast Louisiana")'
+            }
+          },
+          required: ['location']
+        }
+      }
+    },
+    {
+      type: 'function' as const,
+      function: {
+        name: 'get_severe_weather_alerts',
+        description: 'Get active severe weather alerts near a specific location including tornado warnings, severe thunderstorms, flood warnings.',
+        parameters: {
+          type: 'object',
+          properties: {
+            location: {
+              type: 'string',
+              description: 'Location to check for alerts'
+            }
+          },
+          required: ['location']
+        }
+      }
+    },
+    {
+      type: 'function' as const,
+      function: {
+        name: 'get_tornado_alerts',
+        description: 'Get all active tornado warnings and watches across the United States.',
+        parameters: {
+          type: 'object',
+          properties: {}
+        }
+      }
+    },
+    {
+      type: 'function' as const,
+      function: {
+        name: 'get_winter_weather_alerts',
+        description: 'Get all active winter weather alerts nationwide.',
+        parameters: {
+          type: 'object',
+          properties: {}
+        }
+      }
+    }
+  ];
+}
+
+async function executeToolCall(functionName: string, functionArgs: any): Promise<string> {
+  switch (functionName) {
+    case 'search_disaster_news':
+      return searchDisasterNews(functionArgs.query);
+    case 'get_utility_outage_info':
+      return getUtilityOutageInfo(functionArgs.location);
+    case 'get_weather_for_location': {
+      const weatherData = await getWeatherForLocation(functionArgs.location);
+      if (weatherData) {
+        return JSON.stringify({
+          location: weatherData.location,
+          temperature: `${weatherData.temperature}°F`,
+          feelsLike: `${weatherData.feelsLike}°F`,
+          conditions: weatherData.conditions,
+          humidity: `${weatherData.humidity}%`,
+          wind: `${weatherData.windSpeed} mph ${weatherData.windDirection}`,
+          alerts: weatherData.alerts.map((a: any) => `${a.event} (${a.severity}): ${a.description}`)
+        }, null, 2);
+      }
+      return JSON.stringify({ error: `Could not fetch weather for ${functionArgs.location}` });
+    }
+    case 'get_severe_weather_alerts':
+      return getSevereWeatherNearLocation(functionArgs.location);
+    case 'get_tornado_alerts': {
+      const alerts = await getTornadoAlerts();
+      return JSON.stringify({
+        count: alerts.length,
+        alerts: alerts.slice(0, 10).map((a: any) => ({
+          event: a.properties.event,
+          severity: a.properties.severity,
+          areas: a.properties.areaDesc,
+          headline: a.properties.headline
+        }))
+      }, null, 2);
+    }
+    case 'get_winter_weather_alerts':
+      return getWinterWeatherAlerts();
+    default:
+      return JSON.stringify({ error: `Unknown tool: ${functionName}` });
+  }
+}
+
+export function registerAIChatRoutes(app: Express) {
+  app.post('/api/ai/chat', async (req: Request, res: Response) => {
+    const requestTimeout = setTimeout(() => {
+      if (!res.headersSent) {
+        console.error('💬 AI chat request timed out after 90 seconds');
+        res.status(504).json({ error: 'Request timed out. The AI is taking too long to respond. Please try again.' });
+      }
+    }, 90000);
+
+    try {
+      const { messages, moduleName, moduleContext, userRole }: ChatRequest = req.body;
+
+      if (!messages || !Array.isArray(messages) || messages.length === 0) {
+        clearTimeout(requestTimeout);
+        return res.status(400).json({ error: 'Messages array is required' });
+      }
+      
+      console.log(`💬 AI Chat request for ${moduleName || 'general'}, messages count: ${messages.length}`);
+
+      const safeModuleName = moduleName || 'general';
+      const detectedRole = userRole || (
+        safeModuleName.toLowerCase().includes('homeowner') ? 'homeowner' :
+        safeModuleName.toLowerCase().includes('contractor') ? 'contractor' :
+        safeModuleName.toLowerCase().includes('admin') ? 'admin' :
+        'contractor'
+      );
+
+      const roleContext = detectedRole === 'homeowner' 
+        ? `You are speaking to a HOMEOWNER. Use simple, reassuring language. Help them understand what's happening and what they should do. Be empathetic - they may be in a crisis.`
+        : detectedRole === 'contractor'
+        ? `You are speaking to a CONTRACTOR or storm restoration professional. Use professional terminology. Provide detailed technical guidance.`
+        : `You are speaking to an ADMIN. Provide system-level insights and operational recommendations.`;
+
+      const systemPrompt = buildSystemPrompt(safeModuleName, roleContext, moduleContext);
+      const tools = buildTools();
+
+      const apiMessages: any[] = [
         { role: 'system', content: systemPrompt },
         ...messages
       ];
 
-      const tools = [
-        {
-          type: 'function' as const,
-          function: {
-            name: 'search_disaster_news',
-            description: 'Search for specific information about disaster events, storms, emergencies, power outages, and their causes. Use this whenever a user asks about what happened in a location, why power is out, what storm hit an area, or any disaster-related question. This searches real-time news and information sources. Always search broadly first (e.g., "Northeastern Louisiana power outage winter storm 2025") before asking the user for more details.',
-            parameters: {
-              type: 'object',
-              properties: {
-                query: {
-                  type: 'string',
-                  description: 'Detailed search query about the disaster event (e.g., "Winter storm power outage Northeast Louisiana January 2025", "earthquake damage Southern California", "hurricane Florida current status")'
-                }
-              },
-              required: ['query']
-            }
-          }
-        },
-        {
-          type: 'function' as const,
-          function: {
-            name: 'get_utility_outage_info',
-            description: 'Get current power outage information for a specific area including number of customers affected, cause, utility company response, restoration timeline, and mutual aid deployment. Use this whenever users ask about power outages.',
-            parameters: {
-              type: 'object',
-              properties: {
-                location: {
-                  type: 'string',
-                  description: 'Location to check for outages (e.g., "Northeast Louisiana", "Monroe Louisiana", "Ouachita Parish")'
-                }
-              },
-              required: ['location']
-            }
-          }
-        },
-        {
-          type: 'function' as const,
-          function: {
-            name: 'get_weather_for_location',
-            description: 'Get current weather conditions, temperature, wind, and active NWS alerts for any location.',
-            parameters: {
-              type: 'object',
-              properties: {
-                location: {
-                  type: 'string',
-                  description: 'Location in natural language (e.g., "Birmingham, Alabama", "Miami", "Northeast Louisiana")'
-                }
-              },
-              required: ['location']
-            }
-          }
-        },
-        {
-          type: 'function' as const,
-          function: {
-            name: 'get_severe_weather_alerts',
-            description: 'Get active severe weather alerts near a specific location including tornado warnings, severe thunderstorms, flood warnings.',
-            parameters: {
-              type: 'object',
-              properties: {
-                location: {
-                  type: 'string',
-                  description: 'Location to check for alerts'
-                }
-              },
-              required: ['location']
-            }
-          }
-        },
-        {
-          type: 'function' as const,
-          function: {
-            name: 'get_tornado_alerts',
-            description: 'Get all active tornado warnings and watches across the United States.',
-            parameters: {
-              type: 'object',
-              properties: {}
-            }
-          }
-        },
-        {
-          type: 'function' as const,
-          function: {
-            name: 'get_winter_weather_alerts',
-            description: 'Get all active winter weather alerts nationwide.',
-            parameters: {
-              type: 'object',
-              properties: {}
-            }
-          }
-        }
-      ];
-
-      console.log('💬 Calling OpenAI API with enhanced disaster intelligence tools...');
+      console.log('💬 Calling AI with disaster intelligence tools...');
       let completion = await openai.chat.completions.create({
         model: 'gpt-4o-mini',
         messages: apiMessages,
         tools,
+        tool_choice: 'auto',
         max_completion_tokens: 4096,
       });
 
       let responseMessage = completion.choices[0]?.message;
-      let toolCallRound = 0;
-      const maxToolRounds = 1;
 
-      while (responseMessage?.tool_calls && responseMessage.tool_calls.length > 0 && toolCallRound < maxToolRounds) {
-        toolCallRound++;
-        console.log(`💬 Tool call round ${toolCallRound}: ${responseMessage.tool_calls.length} calls`);
+      if (responseMessage?.tool_calls && responseMessage.tool_calls.length > 0) {
+        console.log(`💬 Executing ${responseMessage.tool_calls.length} tool calls in parallel...`);
         
         apiMessages.push(responseMessage as any);
         
         const toolPromises = responseMessage.tool_calls.map(async (toolCall: any) => {
           const functionName = toolCall.function.name;
-          const functionArgs = JSON.parse(toolCall.function.arguments);
-          
-          console.log(`🔧 Executing tool: ${functionName}`, functionArgs);
-          
-          let functionResponse: string;
-          
+          let functionArgs: any;
           try {
-            if (functionName === 'search_disaster_news') {
-              functionResponse = await searchDisasterNews(functionArgs.query);
-            } else if (functionName === 'get_utility_outage_info') {
-              functionResponse = await getUtilityOutageInfo(functionArgs.location);
-            } else if (functionName === 'get_weather_for_location') {
-              const weatherData = await getWeatherForLocation(functionArgs.location);
-              if (weatherData) {
-                functionResponse = JSON.stringify({
-                  location: weatherData.location,
-                  temperature: `${weatherData.temperature}°F`,
-                  feelsLike: `${weatherData.feelsLike}°F`,
-                  conditions: weatherData.conditions,
-                  humidity: `${weatherData.humidity}%`,
-                  wind: `${weatherData.windSpeed} mph ${weatherData.windDirection}`,
-                  alerts: weatherData.alerts.map((a: any) => `${a.event} (${a.severity}): ${a.description}`)
-                }, null, 2);
-              } else {
-                functionResponse = JSON.stringify({ error: `Could not fetch weather for ${functionArgs.location}` });
-              }
-            } else if (functionName === 'get_severe_weather_alerts') {
-              functionResponse = await getSevereWeatherNearLocation(functionArgs.location);
-            } else if (functionName === 'get_tornado_alerts') {
-              const alerts = await getTornadoAlerts();
-              functionResponse = JSON.stringify({
-                count: alerts.length,
-                alerts: alerts.slice(0, 10).map((a: any) => ({
-                  event: a.properties.event,
-                  severity: a.properties.severity,
-                  areas: a.properties.areaDesc,
-                  headline: a.properties.headline
-                }))
-              }, null, 2);
-            } else if (functionName === 'get_winter_weather_alerts') {
-              functionResponse = await getWinterWeatherAlerts();
-            } else {
-              functionResponse = JSON.stringify({ error: 'Unknown function' });
-            }
-            
-            console.log(`🔧 Tool response (${functionName}): ${functionResponse.substring(0, 300)}...`);
+            functionArgs = JSON.parse(toolCall.function.arguments);
+          } catch {
+            functionArgs = {};
+          }
+          
+          console.log(`🔧 Tool: ${functionName}`, functionArgs);
+          
+          let result: string;
+          try {
+            result = await executeToolCall(functionName, functionArgs);
+            console.log(`🔧 ${functionName} returned ${result.length} chars`);
           } catch (error) {
-            console.error(`🔧 Tool execution error for ${functionName}:`, error);
-            functionResponse = JSON.stringify({ error: `Failed to execute ${functionName}` });
+            console.error(`🔧 ${functionName} failed:`, (error as Error).message);
+            result = JSON.stringify({ error: `${functionName} failed: ${(error as Error).message}` });
           }
           
           return {
-            role: 'tool' as any,
+            role: 'tool' as const,
             tool_call_id: toolCall.id,
-            content: functionResponse
+            content: result
           };
         });
         
         const toolResults = await Promise.all(toolPromises);
-        apiMessages.push(...toolResults as any[]);
+        apiMessages.push(...toolResults);
         
-        console.log(`💬 Getting response after tool round ${toolCallRound}...`);
+        console.log('💬 Getting final response with tool results...');
         completion = await openai.chat.completions.create({
           model: 'gpt-4o-mini',
           messages: apiMessages,
@@ -435,10 +429,10 @@ You are the disaster intelligence expert. Act like one. Be authoritative when yo
       const finishReason = completion.choices[0]?.finish_reason;
 
       if ((!assistantMessage || assistantMessage.trim().length === 0) && finishReason === 'tool_calls') {
-        console.log('💬 Tool rounds exhausted, forcing final answer without tools...');
+        console.log('💬 Tool round exhausted, forcing final answer without tools...');
         apiMessages.push({
-          role: 'user' as any,
-          content: 'The search tools were unable to return results. Please provide the best answer you can based on your own knowledge about this topic. Be direct and specific. If you are not certain about specific details, say so, but still give the most helpful answer possible.'
+          role: 'user',
+          content: 'The search tools did not return results this time. Please provide the best answer you can based on your own knowledge. Be direct and specific. If you are uncertain about details, say so, but still give the most helpful answer possible.'
         });
         
         completion = await openai.chat.completions.create({
@@ -455,22 +449,22 @@ You are the disaster intelligence expert. Act like one. Be authoritative when yo
         throw new Error(`No response from AI (finish_reason: ${finishReason})`);
       }
 
-      console.log(`💬 AI response length: ${assistantMessage.length} characters`);
-      res.json({ response: assistantMessage });
+      console.log(`💬 AI response: ${assistantMessage.length} chars`);
+      clearTimeout(requestTimeout);
+      if (!res.headersSent) {
+        res.json({ response: assistantMessage });
+      }
     } catch (error) {
-      console.error('💬 AI chat error:', error);
-      console.error('💬 Error details:', {
-        name: (error as any)?.name,
-        message: (error as any)?.message,
-        status: (error as any)?.status,
-        type: (error as any)?.type
-      });
-      res.status(500).json({ 
-        error: 'Failed to get AI response',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      });
+      clearTimeout(requestTimeout);
+      console.error('💬 AI chat error:', (error as any)?.message || error);
+      if (!res.headersSent) {
+        res.status(500).json({ 
+          error: 'Failed to get AI response',
+          details: error instanceof Error ? error.message : 'Unknown error'
+        });
+      }
     }
   });
 
-  console.log('💬 AI Chat routes registered - Enhanced disaster intelligence active');
+  console.log('💬 AI Chat routes registered - Enhanced disaster intelligence with Grok-4 web search');
 }

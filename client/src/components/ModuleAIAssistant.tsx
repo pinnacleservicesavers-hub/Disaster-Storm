@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect } from 'react';
-import { MessageSquare, Mic, Send, X, Volume2, VolumeX, Loader2 } from 'lucide-react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { MessageSquare, Mic, Send, X, Volume2, VolumeX, Loader2, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
@@ -16,12 +16,89 @@ interface ModuleAIAssistantProps {
   onTriggerHandled?: () => void;
 }
 
+function renderMarkdown(text: string) {
+  const lines = text.split('\n');
+  const elements: JSX.Element[] = [];
+  let key = 0;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    if (line.startsWith('### ')) {
+      elements.push(<h4 key={key++} className="font-bold text-cyan-200 mt-3 mb-1 text-sm">{processInline(line.slice(4))}</h4>);
+    } else if (line.startsWith('## ')) {
+      elements.push(<h3 key={key++} className="font-bold text-cyan-100 mt-3 mb-1">{processInline(line.slice(3))}</h3>);
+    } else if (line.startsWith('# ')) {
+      elements.push(<h2 key={key++} className="font-bold text-white mt-3 mb-1 text-base">{processInline(line.slice(2))}</h2>);
+    } else if (line.startsWith('- ') || line.startsWith('• ')) {
+      elements.push(
+        <div key={key++} className="flex gap-1.5 ml-2 my-0.5">
+          <span className="text-cyan-400 shrink-0">•</span>
+          <span>{processInline(line.slice(2))}</span>
+        </div>
+      );
+    } else if (/^\d+\.\s/.test(line)) {
+      const match = line.match(/^(\d+)\.\s(.*)$/);
+      if (match) {
+        elements.push(
+          <div key={key++} className="flex gap-1.5 ml-2 my-0.5">
+            <span className="text-cyan-400 shrink-0">{match[1]}.</span>
+            <span>{processInline(match[2])}</span>
+          </div>
+        );
+      }
+    } else if (line.trim() === '') {
+      elements.push(<div key={key++} className="h-2" />);
+    } else {
+      elements.push(<p key={key++} className="my-0.5">{processInline(line)}</p>);
+    }
+  }
+
+  return elements;
+}
+
+function processInline(text: string): (string | JSX.Element)[] {
+  const parts: (string | JSX.Element)[] = [];
+  let remaining = text;
+  let key = 0;
+
+  while (remaining.length > 0) {
+    const boldMatch = remaining.match(/\*\*(.+?)\*\*/);
+    if (boldMatch && boldMatch.index !== undefined) {
+      if (boldMatch.index > 0) {
+        parts.push(remaining.slice(0, boldMatch.index));
+      }
+      parts.push(<strong key={`b${key++}`} className="font-semibold text-white">{boldMatch[1]}</strong>);
+      remaining = remaining.slice(boldMatch.index + boldMatch[0].length);
+    } else {
+      const linkMatch = remaining.match(/\[([^\]]+)\]\(([^)]+)\)/);
+      if (linkMatch && linkMatch.index !== undefined) {
+        if (linkMatch.index > 0) {
+          parts.push(remaining.slice(0, linkMatch.index));
+        }
+        parts.push(
+          <a key={`l${key++}`} href={linkMatch[2]} target="_blank" rel="noopener noreferrer" className="text-cyan-400 underline hover:text-cyan-300">
+            {linkMatch[1]}
+          </a>
+        );
+        remaining = remaining.slice(linkMatch.index + linkMatch[0].length);
+      } else {
+        parts.push(remaining);
+        break;
+      }
+    }
+  }
+
+  return parts;
+}
+
 export default function ModuleAIAssistant({ moduleName, moduleContext, externalTrigger, onTriggerHandled }: ModuleAIAssistantProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [mode, setMode] = useState<'text' | 'voice'>('text');
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState('Thinking...');
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [audioEnabled, setAudioEnabled] = useState(true);
@@ -31,6 +108,7 @@ export default function ModuleAIAssistant({ moduleName, moduleContext, externalT
   const recognitionRef = useRef<any>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioUrlRef = useRef<string | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -97,25 +175,22 @@ export default function ModuleAIAssistant({ moduleName, moduleContext, externalT
     }
   };
 
-  // Use ElevenLabs via backend API for natural voice (Rachel)
   const speakResponse = async (text: string) => {
     if (!audioEnabled) return;
     
     try {
       setIsSpeaking(true);
       
-      // Stop any currently playing audio
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current = null;
       }
       
-      // Truncate text for reasonable audio length
-      const truncatedText = text.length > 800 
-        ? text.substring(0, 800) + '... For the complete response, please review the full text above.'
-        : text;
+      const cleanText = text.replace(/\*\*/g, '').replace(/#{1,3}\s/g, '').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
+      const truncatedText = cleanText.length > 800 
+        ? cleanText.substring(0, 800) + '... For the complete response, please review the full text above.'
+        : cleanText;
       
-      // Call backend ElevenLabs TTS API
       const response = await fetch('/api/tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -129,7 +204,6 @@ export default function ModuleAIAssistant({ moduleName, moduleContext, externalT
       const data = await response.json();
       
       if (data.audioBase64) {
-        // Play ElevenLabs audio
         const audioBlob = new Blob(
           [Uint8Array.from(atob(data.audioBase64), c => c.charCodeAt(0))],
           { type: 'audio/mpeg' }
@@ -151,26 +225,33 @@ export default function ModuleAIAssistant({ moduleName, moduleContext, externalT
         setIsSpeaking(false);
       }
     } catch (error) {
-      console.error('ElevenLabs voice error:', error);
+      console.error('Voice error:', error);
       setIsSpeaking(false);
-      
-      // Show toast only if it's an API error, not just missing config
-      toast({
-        title: "Voice Unavailable",
-        description: "Using text-only mode. Voice will be restored soon.",
-        variant: "default",
-      });
     }
   };
 
-  const handleSend = async (messageText?: string) => {
+  const handleSend = useCallback(async (messageText?: string) => {
     const textToSend = messageText || input.trim();
     if (!textToSend || isLoading) return;
+
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
 
     const userMessage: Message = { role: 'user', content: textToSend };
     setMessages(prev => [...prev, userMessage]);
     setInput('');
     setIsLoading(true);
+    setLoadingMessage('Searching intelligence sources...');
+
+    const loadingTimer = setTimeout(() => {
+      setLoadingMessage('Analyzing disaster data...');
+    }, 8000);
+    const loadingTimer2 = setTimeout(() => {
+      setLoadingMessage('Compiling report...');
+    }, 20000);
 
     try {
       const response = await fetch('/api/ai/chat', {
@@ -181,31 +262,52 @@ export default function ModuleAIAssistant({ moduleName, moduleContext, externalT
           moduleName,
           moduleContext,
         }),
+        signal: controller.signal,
       });
 
+      clearTimeout(loadingTimer);
+      clearTimeout(loadingTimer2);
+
       if (!response.ok) {
-        throw new Error('AI request failed');
+        const errorData = await response.json().catch(() => ({ error: 'Request failed' }));
+        throw new Error(errorData.details || errorData.error || `Request failed (${response.status})`);
       }
 
       const data = await response.json();
-      const assistantMessage: Message = { role: 'assistant', content: data.response };
       
+      if (!data.response || data.response.trim().length === 0) {
+        throw new Error('Empty response from AI');
+      }
+
+      const assistantMessage: Message = { role: 'assistant', content: data.response };
       setMessages(prev => [...prev, assistantMessage]);
       setIsLoading(false);
       
       if (audioEnabled) {
         speakResponse(data.response);
       }
-    } catch (error) {
+    } catch (error: any) {
+      clearTimeout(loadingTimer);
+      clearTimeout(loadingTimer2);
+
+      if (error.name === 'AbortError') {
+        setIsLoading(false);
+        return;
+      }
+
       console.error('AI chat error:', error);
       setIsLoading(false);
-      toast({
-        title: "AI Error",
-        description: "Failed to get response. Please try again.",
-        variant: "destructive",
-      });
+      
+      const errorMessage = error.message?.includes('timed out')
+        ? 'The search is taking longer than expected. Please try again — sometimes complex queries need a second attempt.'
+        : 'Failed to get a response. Please try again.';
+
+      setMessages(prev => [...prev, { 
+        role: 'assistant', 
+        content: `I encountered an issue: ${errorMessage}` 
+      }]);
     }
-  };
+  }, [input, isLoading, messages, moduleName, moduleContext, audioEnabled]);
 
   const toggleAudio = () => {
     setAudioEnabled(!audioEnabled);
@@ -217,6 +319,14 @@ export default function ModuleAIAssistant({ moduleName, moduleContext, externalT
         audioUrlRef.current = null;
       }
     }
+  };
+
+  const cancelRequest = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setIsLoading(false);
   };
 
   if (!isOpen) {
@@ -240,7 +350,7 @@ export default function ModuleAIAssistant({ moduleName, moduleContext, externalT
       <div className="bg-gradient-to-r from-cyan-900/80 to-blue-900/80 px-4 py-3 rounded-t-2xl border-b border-cyan-500/30 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <MessageSquare className="h-5 w-5 text-cyan-400" />
-          <h3 className="font-bold text-white">AI Assistant</h3>
+          <h3 className="font-bold text-white">Rachel AI</h3>
           <span className="text-xs text-cyan-300/70">• {moduleName}</span>
         </div>
         <div className="flex items-center gap-2">
@@ -303,12 +413,10 @@ export default function ModuleAIAssistant({ moduleName, moduleContext, externalT
         {messages.length === 0 && (
           <div className="text-center text-cyan-300/50 py-8">
             <MessageSquare className="h-12 w-12 mx-auto mb-3 opacity-30" />
-            <p className="text-sm font-medium">Hi! I'm Rachel, your AI assistant for {moduleName}</p>
-            <p className="text-xs mt-2">Type or speak your questions - I'll respond with voice by default!</p>
-            {audioEnabled ? (
-              <p className="text-xs mt-1 text-cyan-400">🎤 Voice responses enabled</p>
-            ) : (
-              <p className="text-xs mt-1 text-gray-400">Voice responses disabled (click volume icon to enable)</p>
+            <p className="text-sm font-medium">Hi! I'm Rachel, your disaster intelligence expert</p>
+            <p className="text-xs mt-2 text-cyan-300/40">Ask me about storms, power outages, weather alerts, or any emergency situation</p>
+            {audioEnabled && (
+              <p className="text-xs mt-1 text-cyan-400/60">Voice responses enabled</p>
             )}
           </div>
         )}
@@ -320,21 +428,34 @@ export default function ModuleAIAssistant({ moduleName, moduleContext, externalT
             data-testid={`message-${msg.role}-${idx}`}
           >
             <div
-              className={`max-w-[80%] rounded-xl px-4 py-2 ${
+              className={`max-w-[85%] rounded-xl px-4 py-2.5 ${
                 msg.role === 'user'
                   ? 'bg-cyan-600 text-white'
                   : 'bg-slate-800 text-cyan-100 border border-cyan-500/30'
               }`}
             >
-              <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+              {msg.role === 'assistant' ? (
+                <div className="text-sm leading-relaxed">{renderMarkdown(msg.content)}</div>
+              ) : (
+                <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+              )}
             </div>
           </div>
         ))}
         
         {isLoading && (
           <div className="flex justify-start">
-            <div className="bg-slate-800 border border-cyan-500/30 rounded-xl px-4 py-2">
-              <Loader2 className="h-4 w-4 animate-spin text-cyan-400" />
+            <div className="bg-slate-800 border border-cyan-500/30 rounded-xl px-4 py-3 flex items-center gap-3">
+              <Search className="h-4 w-4 text-cyan-400 animate-pulse" />
+              <div>
+                <p className="text-sm text-cyan-300">{loadingMessage}</p>
+                <button 
+                  onClick={cancelRequest}
+                  className="text-xs text-cyan-500/60 hover:text-cyan-400 mt-1"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -343,7 +464,7 @@ export default function ModuleAIAssistant({ moduleName, moduleContext, externalT
           <div className="flex justify-center">
             <div className="bg-cyan-600/20 border border-cyan-500/50 rounded-full px-4 py-2 flex items-center gap-2">
               <Volume2 className="h-4 w-4 text-cyan-400 animate-pulse" />
-              <span className="text-xs text-cyan-300">Speaking...</span>
+              <span className="text-xs text-cyan-300">Rachel is speaking...</span>
             </div>
           </div>
         )}
@@ -363,8 +484,8 @@ export default function ModuleAIAssistant({ moduleName, moduleContext, externalT
                   handleSend();
                 }
               }}
-              placeholder="Type your question..."
-              className="flex-1 min-h-[44px] max-h-32 bg-black/60 border-cyan-500/30 text-white placeholder:text-cyan-300/40 focus:border-cyan-400"
+              placeholder="Ask about storms, outages, weather..."
+              className="flex-1 min-h-[44px] max-h-32 bg-black/60 border-cyan-500/30 text-white placeholder:text-cyan-300/40 focus:border-cyan-400 resize-none"
               disabled={isLoading}
               data-testid="input-ai-message"
             />
