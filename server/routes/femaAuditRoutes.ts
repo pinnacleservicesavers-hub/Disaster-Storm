@@ -328,10 +328,10 @@ router.post('/work-logs', async (req: Request, res: Response) => {
     
     // Flag if outside geofence
     if (!insideGeofence) {
-      await createAiFinding(contractId, 'gps_anomaly', 'medium', `Work logged outside assigned geofence zone`, result.rows[0].id);
+      await createAiFinding(contractId, 'gps_anomaly', 'medium', `Work logged outside assigned geofence zone`, (result.rows[0] as any).id);
     }
     
-    await logAuditEvent('create', 'work_log', result.rows[0].id, null, result.rows[0], req);
+    await logAuditEvent('create', 'work_log', (result.rows[0] as any).id, null, result.rows[0], req);
     res.json({ success: true, workLog: result.rows[0], insideGeofence });
   } catch (error) {
     console.error('Error creating work log:', error);
@@ -464,10 +464,10 @@ router.post('/load-tickets', async (req: Request, res: Response) => {
       WHERE ticket_number = ${ticketNumber} AND contract_id = ${contractId}
     `);
     if (parseInt((duplicates.rows[0] as any).count) > 1) {
-      await createAiFinding(contractId, 'duplicate_load_ticket', 'high', `Duplicate ticket number detected: ${ticketNumber}`, result.rows[0].id);
+      await createAiFinding(contractId, 'duplicate_load_ticket', 'high', `Duplicate ticket number detected: ${ticketNumber}`, (result.rows[0] as any).id);
     }
     
-    await logAuditEvent('create', 'load_ticket', result.rows[0].id, null, result.rows[0], req);
+    await logAuditEvent('create', 'load_ticket', (result.rows[0] as any).id, null, result.rows[0], req);
     res.json({ success: true, loadTicket: result.rows[0] });
   } catch (error) {
     console.error('Error creating load ticket:', error);
