@@ -402,23 +402,17 @@ Priority levels are color-coded: red for urgent, orange for high priority, blue 
 Need help with a specific claim? Just ask me anything about claim processing, adjuster assignments, or payment status.`;
 
     try {
-      // Call ElevenLabs Rachel voice API - energetic female voice
-      const response = await fetch('/api/voice-ai/generate', {
+      const response = await fetch('/api/tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          text: voiceContent,
-          provider: 'elevenlabs',
-          voiceId: '21m00Tcm4TlvDq8ikWAM' // Rachel - energetic female voice
-        })
+        body: JSON.stringify({ text: voiceContent })
       });
 
       if (response.ok) {
         const data = await response.json();
         
-        if (data.audioUrl) {
-          // Play ElevenLabs audio
-          audioRef.current = new Audio(data.audioUrl);
+        if (data.audioBase64) {
+          audioRef.current = new Audio(`data:audio/mpeg;base64,${data.audioBase64}`);
           audioRef.current.onended = () => {
             setIsVoiceGuideActive(false);
             audioRef.current = null;
@@ -428,16 +422,14 @@ Need help with a specific claim? Just ask me anything about claim processing, ad
             fallbackToSpeechSynthesis(voiceContent);
           };
           await audioRef.current.play();
-        } else if (data.text) {
-          // Fallback to browser speech if no audio URL
+        } else {
           fallbackToSpeechSynthesis(voiceContent);
         }
       } else {
-        // API failed, use browser speech
         fallbackToSpeechSynthesis(voiceContent);
       }
     } catch (error) {
-      console.warn('ElevenLabs API error, using fallback:', error);
+      console.warn('TTS API error, using fallback:', error);
       fallbackToSpeechSynthesis(voiceContent);
     }
   };
@@ -457,13 +449,14 @@ Need help with a specific claim? Just ask me anything about claim processing, ad
     utterance.volume = 0.8;
     
     if (voices.length > 0) {
+      const femaleNames = ['samantha', 'karen', 'moira', 'fiona', 'victoria', 'zira', 'aria', 'jenny', 'susan', 'kate', 'female'];
       const femaleVoice = voices.find(voice => 
-        voice.lang.includes('en') && 
-        (voice.name.toLowerCase().includes('female') || 
-         voice.name.toLowerCase().includes('samantha') ||
-         voice.name.toLowerCase().includes('google uk'))
+        voice.lang.startsWith('en') && 
+        femaleNames.some(name => voice.name.toLowerCase().includes(name))
+      ) || voices.find(voice =>
+        voice.lang.startsWith('en') && voice.name.toLowerCase().includes('google') && voice.name.toLowerCase().includes('female')
       );
-      utterance.voice = femaleVoice || voices.find(voice => voice.lang.includes('en')) || voices[0];
+      utterance.voice = femaleVoice || voices.find(voice => voice.lang.startsWith('en')) || voices[0];
     }
     
     utterance.onend = () => setIsVoiceGuideActive(false);
