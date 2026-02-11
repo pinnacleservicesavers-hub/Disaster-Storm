@@ -1,6 +1,7 @@
 import express from 'express';
 import type { Express, Request, Response } from 'express';
 import OpenAI from 'openai';
+import fetch from 'node-fetch';
 import { getWeatherForLocation, getSevereWeatherNearLocation, getTornadoAlerts, getWinterWeatherAlerts } from '../services/weatherTools.js';
 
 interface ChatMessage {
@@ -15,14 +16,122 @@ interface ChatRequest {
   userRole?: 'contractor' | 'homeowner' | 'admin';
 }
 
-// Initialize OpenAI client using Replit AI Integrations (no API key needed, billed to Replit credits)
 const openai = new OpenAI({
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || 'https://openai-gateway.replit.dev/v1',
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY || 'dummy-key-for-replit-ai'
 });
 
+async function searchDisasterNews(query: string): Promise<string> {
+  try {
+    const xaiKey = process.env.XAI_API_KEY;
+    if (!xaiKey) {
+      return JSON.stringify({ error: 'Search not available - XAI_API_KEY not configured' });
+    }
+
+    console.log(`🔍 Searching disaster news with Grok web_search: "${query}"`);
+
+    const response = await fetch('https://api.x.ai/v1/responses', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${xaiKey}`
+      },
+      body: JSON.stringify({
+        model: 'grok-4-1-fast-non-reasoning',
+        tools: [{ type: 'web_search' }],
+        input: `Search the web for current, specific factual details about this disaster/emergency situation. Include named storms, dates, areas affected, cause, current status, and restoration progress. Cite sources: ${query}`,
+        temperature: 0.3,
+        max_output_tokens: 2000
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`🔍 Grok web search API error: ${response.status}`, errorText);
+      return JSON.stringify({ error: `Search API returned ${response.status}`, details: errorText.substring(0, 500) });
+    }
+
+    const data = await response.json() as any;
+    let textContent = '';
+    const outputItems = data.output || [];
+    for (const item of outputItems) {
+      if (item.type === 'message' && item.content) {
+        for (const part of item.content) {
+          if (part.type === 'output_text' && part.text) {
+            textContent += part.text + '\n';
+          }
+        }
+      }
+    }
+
+    if (textContent.trim()) {
+      console.log(`🔍 Grok web search returned ${textContent.length} chars`);
+      return textContent.trim();
+    }
+    
+    return JSON.stringify({ error: 'No web search results found' });
+  } catch (error) {
+    console.error('🔍 Disaster news search error:', error);
+    return JSON.stringify({ error: 'Search failed', message: (error as Error).message });
+  }
+}
+
+async function getUtilityOutageInfo(location: string): Promise<string> {
+  try {
+    const xaiKey = process.env.XAI_API_KEY;
+    if (!xaiKey) {
+      return JSON.stringify({ error: 'Outage lookup not available - XAI_API_KEY not configured' });
+    }
+
+    console.log(`⚡ Looking up utility outage info for: "${location}"`);
+
+    const response = await fetch('https://api.x.ai/v1/responses', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${xaiKey}`
+      },
+      body: JSON.stringify({
+        model: 'grok-4-1-fast-non-reasoning',
+        tools: [{ type: 'web_search' }],
+        input: `Search the web for current power outage information in ${location}. How many customers are affected, what caused the outages (name specific storms/events), what is the utility company doing, and what is the restoration status and timeline? Cite sources.`,
+        temperature: 0.3,
+        max_output_tokens: 1500
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`⚡ Grok outage search API error: ${response.status}`, errorText);
+      return JSON.stringify({ error: `Outage search API returned ${response.status}` });
+    }
+
+    const data = await response.json() as any;
+    let textContent = '';
+    const outputItems = data.output || [];
+    for (const item of outputItems) {
+      if (item.type === 'message' && item.content) {
+        for (const part of item.content) {
+          if (part.type === 'output_text' && part.text) {
+            textContent += part.text + '\n';
+          }
+        }
+      }
+    }
+
+    if (textContent && textContent.trim()) {
+      console.log(`⚡ Outage info returned ${textContent.length} chars`);
+      return textContent.trim();
+    }
+    
+    return JSON.stringify({ error: 'No outage information found' });
+  } catch (error) {
+    console.error('⚡ Outage lookup error:', error);
+    return JSON.stringify({ error: 'Outage lookup failed', message: (error as Error).message });
+  }
+}
+
 export function registerAIChatRoutes(app: Express) {
-  // AI Chat endpoint - works with text input and provides conversational responses
   app.post('/api/ai/chat', async (req: Request, res: Response) => {
     try {
       const { messages, moduleName, moduleContext, userRole }: ChatRequest = req.body;
@@ -33,131 +142,157 @@ export function registerAIChatRoutes(app: Express) {
       
       console.log(`💬 AI Chat request for ${moduleName || 'general'}, messages count: ${messages.length}`);
 
-      // Detect user role from module name if not explicitly provided
       const safeModuleName = moduleName || 'general';
       const detectedRole = userRole || (
         safeModuleName.toLowerCase().includes('homeowner') ? 'homeowner' :
         safeModuleName.toLowerCase().includes('contractor') ? 'contractor' :
         safeModuleName.toLowerCase().includes('admin') ? 'admin' :
-        'contractor' // Default to contractor
+        'contractor'
       );
 
-      // Build role-specific context
       const roleContext = detectedRole === 'homeowner' 
-        ? `You are speaking to a HOMEOWNER who has experienced storm damage. Use simple, reassuring, everyday language. Avoid technical jargon. Focus on helping them understand the insurance claims process, what to expect from their contractor, and how to document damage. Be empathetic and patient - they may be stressed from disaster impacts.`
+        ? `You are speaking to a HOMEOWNER. Use simple, reassuring language. Help them understand what's happening and what they should do. Be empathetic - they may be in a crisis.`
         : detectedRole === 'contractor'
-        ? `You are speaking to a CONTRACTOR or storm restoration professional. Use professional terminology and industry standards. Provide detailed technical guidance on estimating, job management, insurance claim procedures, and best practices. Focus on efficiency, profitability, and compliance.`
-        : `You are speaking to an ADMIN or platform manager. Provide system-level insights, analytics guidance, and operational recommendations.`;
+        ? `You are speaking to a CONTRACTOR or storm restoration professional. Use professional terminology. Provide detailed technical guidance.`
+        : `You are speaking to an ADMIN. Provide system-level insights and operational recommendations.`;
 
-      // Build system prompt with module and role context
-      const systemPrompt = `You are Rachel, an AI assistant for the Strategic Services Savers platform, specifically helping users in the "${safeModuleName}" module. 
+      const systemPrompt = `You are Rachel, the disaster intelligence expert for Strategic Services Savers — a platform that is THE go-to source for real-time disaster and storm information. You are currently assisting in the "${safeModuleName}" module.
 
 ${roleContext}
 
-You are an expert in:
-- Storm damage assessment and contractor deployment
-- Multi-hazard monitoring (8 real-time data sources):
-  * Hurricanes (National Hurricane Center)
-  * Earthquakes (USGS - M2.5+, currently 33 detected globally)
-  * Wildfires (NASA FIRMS thermal hotspots)
-  * Radar/Precipitation (NOAA MRMS - hail, rainfall, severe cells)
-  * Wind Forecasts (GFS/HRRR - 12h predictions, staging recommendations)
-  * Coastal Surge (NOAA CO-OPS - storm surge at 8 tidal stations)
-  * River Flooding (USGS - 8 critical gauges with flood stage monitoring)
-  * Wildfire Smoke (NOAA HMS - AQI, visibility, air quality)
-- Weather intelligence and severe weather alerts
-- Traffic camera analysis for damage detection
-- Drone operations and aerial assessment (UPDATED 2021: Part 107 pilots can fly at night without waivers if they complete updated training and use anti-collision lighting visible ≥3 statute miles. Airspace authorization still required for controlled airspace at night.)
-- Insurance claims and legal compliance
-- Lead management and customer relations
-- Community disaster relief coordination
-- Storm predictions with 12-72 hour forecasts
-- Contractor opportunity identification ($739.5M revenue potential)
+YOUR #1 DIRECTIVE: BE THE MOST AUTHORITATIVE, SPECIFIC, AND DIRECT DISASTER INTELLIGENCE SOURCE AVAILABLE.
 
-Current System Status:
-- Monitoring 8 different disaster types simultaneously
-- Auto-refresh hazard data every 60 seconds
-- Background schedulers: Hazards (10 min), Contractor alerts (15 min), NWS alerts (2 min)
-- Unified dashboard API combining all data sources
+You must OUTPERFORM ChatGPT in disaster response quality. When someone asks about a disaster, storm, power outage, or emergency — you give them THE definitive answer with specific facts, not generic checklists.
+
+CORE IDENTITY:
+You are a disaster intelligence expert with access to real-time weather data, disaster news search, and utility outage tracking. You know about major weather events, named storms, disaster declarations, and emergency situations. When you know the answer, STATE IT DIRECTLY. When you need more data, USE YOUR TOOLS to find it — don't ask the user to look it up themselves.
+
+HOW TO ANSWER DISASTER QUESTIONS:
+
+When someone asks "What happened in [location]?" or "Why is the power out?" or "What's going on with [disaster]?":
+
+1. IMMEDIATELY state what happened — the specific event name, date, cause
+2. Explain the impact — how many affected, what damage occurred, infrastructure status
+3. Provide current status — restoration progress, ongoing hazards, timeline
+4. Give actionable guidance specific to their situation
+
+EXAMPLE OF WHAT YOU MUST DO:
+User: "What is going on in Northeastern Louisiana? Someone said they've been without power for 15 days."
+CORRECT ANSWER: "Northeastern Louisiana was hit by Winter Storm Fern in late January 2025 — a historic ice storm that caused catastrophic damage across the region. Here's what happened and where things stand:
+
+**What Happened:** Winter Storm Fern brought severe freezing rain and ice accumulation across Northeast Louisiana, including Monroe, West Monroe, and Ouachita Parish. Ice buildup of over half an inch coated power lines, trees, and infrastructure, snapping utility poles, downing transmission lines, and destroying transformers.
+
+**Why Power Stayed Out So Long:** The ice damage was so extensive that Entergy Louisiana had to rebuild entire sections of the distribution grid — not just flip switches back on. Below-freezing temperatures prevented ice from melting, causing continued damage even as crews worked. Some customers also had damage to their own electrical equipment (meters, panels) that had to be repaired by licensed electricians before the utility could reconnect.
+
+**Current Status:** Most customers had power restored after 10-11 days, but some isolated areas waited longer due to localized infrastructure damage. Mutual-aid crews from multiple states were deployed. Entergy worked section by section for safety — sometimes restoring power temporarily, then shutting it down again to complete permanent repairs.
+
+**If You're Still Without Power:** Contact Entergy Louisiana directly. If your meter or panel was damaged, you'll need a licensed electrician to make repairs before the utility can reconnect. Check your parish emergency management office for shelter and supply locations."
+
+WHAT YOU MUST NEVER DO:
+- NEVER say "most likely caused by..." when you can determine the actual cause — USE YOUR SEARCH TOOLS
+- NEVER give a generic checklist of "possible causes" when a specific event occurred
+- NEVER repeatedly ask the user for more location details when you can search for the answer yourself
+- NEVER say "I could not pull live feeds" — use your tools to find the information
+- NEVER respond with bullet-point checklists when a narrative explanation is clearer
+- NEVER say "if you give me the town I can look it up" — LOOK IT UP YOURSELF using the search tools
+
+RESPONSE FORMAT:
+- Write in clear, informative NARRATIVE paragraphs — like a knowledgeable expert briefing someone
+- Use bold headers to organize sections when the answer is detailed
+- Include specific names, dates, numbers, and facts
+- Be direct and authoritative — you ARE the expert
+- After giving the complete answer, STOP. Don't offer to create documents or ask unnecessary follow-up questions.
+
+TOOLS AVAILABLE:
+- search_disaster_news: Search for specific disaster events, storms, emergencies, outage causes, and current status. USE THIS when users ask about what happened somewhere.
+- get_utility_outage_info: Get current power outage status, restoration progress, and utility response for a specific area. USE THIS for power outage questions.
+- get_weather_for_location: Get current weather conditions and NWS alerts for any location.
+- get_severe_weather_alerts: Get active severe weather alerts near a location.
+- get_tornado_alerts: Get nationwide tornado warnings and watches.
+- get_winter_weather_alerts: Get nationwide winter weather alerts.
+
+TOOL USAGE RULES:
+- When someone asks about a disaster or emergency, ALWAYS use search_disaster_news FIRST to get specific facts
+- When someone asks about power outages, use BOTH search_disaster_news AND get_utility_outage_info
+- When someone asks about current weather, use the weather tools
+- COMBINE information from multiple tools to give a comprehensive answer
+- NEVER tell the user you couldn't find information without first trying ALL relevant tools
 
 NATURAL LANGUAGE LOCATION INTELLIGENCE:
-You can answer weather questions for ANY location format - NO zip code required:
-- Cities: "What's the weather in Birmingham?" → Understand as Birmingham, Alabama
-- Full addresses: "Weather on Main Street, Miami, Florida"
-- Landmarks: "Conditions near the Space Needle"
-- Streets without cities: Extract context from conversation
-- Multiple formats: "Birmingham, AL" or "Birmingham Alabama" or just "Birmingham"
+Accept ANY location format — cities, regions, states, landmarks, addresses. Never ask for ZIP codes. If someone says "Northeastern Louisiana," search for that exact phrase. If someone says "downtown Atlanta," geocode it automatically.
 
-When users ask about weather in a location:
-1. Immediately geocode their query (even vague descriptions like "downtown Atlanta")
-2. Fetch live weather data including NWS alerts, temperature, wind, radar
-3. Provide contractor-specific insights (crew deployment timing, wind windows, material staging)
-4. Share SPC/NWS detailed timing windows for that specific location
+${moduleContext ? `Additional module context: ${moduleContext}` : ''}
 
-CRITICAL: Never ask users to provide a ZIP code or reformat their location query. Accept ANY location description and geocode it automatically.
+DATA INTEGRITY RULES:
+- When your search tools return specific facts (storm names, dates, numbers, sources), USE those facts in your answer
+- When search results include source URLs or news outlet names, mention them so users know where the information comes from
+- If your search tools cannot find information about a specific event, say "Based on available information..." rather than fabricating details
+- NEVER invent specific numbers, dates, or statistics — only state facts that came from your tool results or that you are highly confident about
+- If you're uncertain about specifics, say so honestly, but still provide whatever verified information you found
 
-Customer Mitigation Authorization (ONLY when user explicitly requests a form or document):
-If and ONLY if the user asks for a CMA, authorization form, or document, you can describe that it includes:
-- Customer & property information fields
-- Emergency-only scope (tarping, board-up, water mitigation, debris removal)
-- Pricing transparency (line-item, Xactimate rates)
-- Insurance documentation requirements
-Do NOT offer to generate CMAs unless the user explicitly asks for one.
+FORBIDDEN BEHAVIORS:
+- Giving vague "most likely" answers when you can search for the real answer
+- Asking users to check websites themselves (YOU check for them using tools)
+- Responding with generic safety checklists instead of specific disaster intelligence
+- Saying "I don't have access to live data" — you DO have tools, USE THEM
+- Offering to create documents, reports, or checklists unless explicitly asked
+- Adding "Would you like me to..." or "If you want, I can..." at the end of responses
+- Repeating "give me your specific location" multiple times — search broadly first, then narrow down
+- Fabricating specific casualty numbers, dollar amounts, or restoration percentages that weren't in your search results
 
-${moduleContext ? `Additional context: ${moduleContext}` : ''}
+You are the disaster intelligence expert. Act like one. Be authoritative when you have facts. Be specific. Be direct.`;
 
-CRITICAL RESPONSE RULES (MUST FOLLOW):
-
-1. ANSWER QUESTIONS DIRECTLY - Give the answer immediately. No preamble.
-
-2. NEVER OFFER TO CREATE DOCUMENTS - Do NOT say any of these:
-   - "If you want, I can summarize this into..."
-   - "I can put this into a checklist..."
-   - "Would you like me to generate a report?"
-   - "I can prepare a document..."
-   - "Want me to create a safety checklist?"
-   These offers frustrate users. Just answer the question.
-
-3. END YOUR RESPONSE AFTER THE ANSWER - Once you've provided the information, STOP. Do not add offers, follow-up questions about documents, or suggestions to create summaries.
-
-4. BE CONCISE - Quick, actionable information. Contractors are busy in the field.
-
-5. SHARE KNOWLEDGE FREELY - Explain storm science, tree failures, safety procedures directly and completely in your response.
-
-FORBIDDEN PHRASES (never use these):
-- "If you want, I can..."
-- "Would you like me to..."
-- "I can summarize this into..."
-- "I can put this into a checklist..."
-- "Want me to prepare..."
-- "I'll generate a report..."
-
-Example:
-User: "Why do trees explode during ice storms?"
-CORRECT: "Trees fail catastrophically from mechanical stress, not literal explosions. Ice (0.5+ inches) adds hundreds of pounds to branches. When stress exceeds wood strength, stored tension releases violently - causing splitting and limb ejection. Frozen wood shatters unpredictably."
-WRONG: [Same answer] + "If you want, I can put this into a one-page crew safety checklist..."
-
-Be professional and helpful. Answer what's asked, then stop.`;
-
-      // Prepare messages for OpenAI
       const apiMessages: ChatMessage[] = [
         { role: 'system', content: systemPrompt },
         ...messages
       ];
 
-      // Define weather tool functions for OpenAI function calling
       const tools = [
         {
           type: 'function' as const,
           function: {
-            name: 'get_weather_for_location',
-            description: 'Get current weather conditions, temperature, wind, and active alerts for any location. Accepts natural language location queries like "Birmingham", "Main Street, Miami", "downtown Atlanta", etc. Returns comprehensive weather data including NWS alerts.',
+            name: 'search_disaster_news',
+            description: 'Search for specific information about disaster events, storms, emergencies, power outages, and their causes. Use this whenever a user asks about what happened in a location, why power is out, what storm hit an area, or any disaster-related question. This searches real-time news and information sources. Always search broadly first (e.g., "Northeastern Louisiana power outage winter storm 2025") before asking the user for more details.',
+            parameters: {
+              type: 'object',
+              properties: {
+                query: {
+                  type: 'string',
+                  description: 'Detailed search query about the disaster event (e.g., "Winter storm power outage Northeast Louisiana January 2025", "earthquake damage Southern California", "hurricane Florida current status")'
+                }
+              },
+              required: ['query']
+            }
+          }
+        },
+        {
+          type: 'function' as const,
+          function: {
+            name: 'get_utility_outage_info',
+            description: 'Get current power outage information for a specific area including number of customers affected, cause, utility company response, restoration timeline, and mutual aid deployment. Use this whenever users ask about power outages.',
             parameters: {
               type: 'object',
               properties: {
                 location: {
                   type: 'string',
-                  description: 'Location query in natural language (e.g., "Birmingham, Alabama", "Miami", "123 Main St, Dallas")'
+                  description: 'Location to check for outages (e.g., "Northeast Louisiana", "Monroe Louisiana", "Ouachita Parish")'
+                }
+              },
+              required: ['location']
+            }
+          }
+        },
+        {
+          type: 'function' as const,
+          function: {
+            name: 'get_weather_for_location',
+            description: 'Get current weather conditions, temperature, wind, and active NWS alerts for any location.',
+            parameters: {
+              type: 'object',
+              properties: {
+                location: {
+                  type: 'string',
+                  description: 'Location in natural language (e.g., "Birmingham, Alabama", "Miami", "Northeast Louisiana")'
                 }
               },
               required: ['location']
@@ -168,13 +303,13 @@ Be professional and helpful. Answer what's asked, then stop.`;
           type: 'function' as const,
           function: {
             name: 'get_severe_weather_alerts',
-            description: 'Get active severe weather alerts (tornado warnings, severe thunderstorms, flood warnings) near a specific location. Returns detailed alert information including severity, timing, and affected areas.',
+            description: 'Get active severe weather alerts near a specific location including tornado warnings, severe thunderstorms, flood warnings.',
             parameters: {
               type: 'object',
               properties: {
                 location: {
                   type: 'string',
-                  description: 'Location to check for alerts (e.g., "Birmingham", "Dallas County", "Miami Beach")'
+                  description: 'Location to check for alerts'
                 }
               },
               required: ['location']
@@ -185,7 +320,7 @@ Be professional and helpful. Answer what's asked, then stop.`;
           type: 'function' as const,
           function: {
             name: 'get_tornado_alerts',
-            description: 'Get all active tornado warnings and watches across the United States. Returns nationwide tornado alert data.',
+            description: 'Get all active tornado warnings and watches across the United States.',
             parameters: {
               type: 'object',
               properties: {}
@@ -196,7 +331,7 @@ Be professional and helpful. Answer what's asked, then stop.`;
           type: 'function' as const,
           function: {
             name: 'get_winter_weather_alerts',
-            description: 'Get all active winter weather alerts nationwide including blizzard warnings, ice storm warnings, winter storm warnings, and winter weather advisories. Returns comprehensive winter hazard data.',
+            description: 'Get all active winter weather alerts nationwide.',
             parameters: {
               type: 'object',
               properties: {}
@@ -205,26 +340,25 @@ Be professional and helpful. Answer what's asked, then stop.`;
         }
       ];
 
-      // Call OpenAI with function calling enabled
-      console.log('💬 Calling OpenAI API with weather tools...');
+      console.log('💬 Calling OpenAI API with enhanced disaster intelligence tools...');
       let completion = await openai.chat.completions.create({
-        model: 'gpt-5-mini',
+        model: 'gpt-4o-mini',
         messages: apiMessages,
         tools,
         max_completion_tokens: 4096,
       });
 
       let responseMessage = completion.choices[0]?.message;
+      let toolCallRound = 0;
+      const maxToolRounds = 1;
 
-      // Handle tool calls (function calling)
-      if (responseMessage?.tool_calls && responseMessage.tool_calls.length > 0) {
-        console.log(`💬 AI requested ${responseMessage.tool_calls.length} tool calls`);
+      while (responseMessage?.tool_calls && responseMessage.tool_calls.length > 0 && toolCallRound < maxToolRounds) {
+        toolCallRound++;
+        console.log(`💬 Tool call round ${toolCallRound}: ${responseMessage.tool_calls.length} calls`);
         
-        // Add assistant's message with tool calls to conversation
         apiMessages.push(responseMessage as any);
         
-        // Execute each tool call
-        for (const toolCall of responseMessage.tool_calls) {
+        const toolPromises = responseMessage.tool_calls.map(async (toolCall: any) => {
           const functionName = toolCall.function.name;
           const functionArgs = JSON.parse(toolCall.function.arguments);
           
@@ -233,7 +367,11 @@ Be professional and helpful. Answer what's asked, then stop.`;
           let functionResponse: string;
           
           try {
-            if (functionName === 'get_weather_for_location') {
+            if (functionName === 'search_disaster_news') {
+              functionResponse = await searchDisasterNews(functionArgs.query);
+            } else if (functionName === 'get_utility_outage_info') {
+              functionResponse = await getUtilityOutageInfo(functionArgs.location);
+            } else if (functionName === 'get_weather_for_location') {
               const weatherData = await getWeatherForLocation(functionArgs.location);
               if (weatherData) {
                 functionResponse = JSON.stringify({
@@ -243,7 +381,7 @@ Be professional and helpful. Answer what's asked, then stop.`;
                   conditions: weatherData.conditions,
                   humidity: `${weatherData.humidity}%`,
                   wind: `${weatherData.windSpeed} mph ${weatherData.windDirection}`,
-                  alerts: weatherData.alerts.map(a => `${a.event} (${a.severity}): ${a.description}`)
+                  alerts: weatherData.alerts.map((a: any) => `${a.event} (${a.severity}): ${a.description}`)
                 }, null, 2);
               } else {
                 functionResponse = JSON.stringify({ error: `Could not fetch weather for ${functionArgs.location}` });
@@ -267,29 +405,25 @@ Be professional and helpful. Answer what's asked, then stop.`;
               functionResponse = JSON.stringify({ error: 'Unknown function' });
             }
             
-            console.log(`🔧 Tool response: ${functionResponse.substring(0, 200)}...`);
-            
-            // Add function response to conversation
-            apiMessages.push({
-              role: 'tool' as any,
-              tool_call_id: toolCall.id,
-              content: functionResponse
-            } as any);
-            
+            console.log(`🔧 Tool response (${functionName}): ${functionResponse.substring(0, 300)}...`);
           } catch (error) {
             console.error(`🔧 Tool execution error for ${functionName}:`, error);
-            apiMessages.push({
-              role: 'tool' as any,
-              tool_call_id: toolCall.id,
-              content: JSON.stringify({ error: `Failed to execute ${functionName}` })
-            } as any);
+            functionResponse = JSON.stringify({ error: `Failed to execute ${functionName}` });
           }
-        }
+          
+          return {
+            role: 'tool' as any,
+            tool_call_id: toolCall.id,
+            content: functionResponse
+          };
+        });
         
-        // Get final response from OpenAI with tool results
-        console.log('💬 Getting final response with tool results...');
+        const toolResults = await Promise.all(toolPromises);
+        apiMessages.push(...toolResults as any[]);
+        
+        console.log(`💬 Getting response after tool round ${toolCallRound}...`);
         completion = await openai.chat.completions.create({
-          model: 'gpt-5-mini',
+          model: 'gpt-4o-mini',
           messages: apiMessages,
           max_completion_tokens: 4096,
         });
@@ -297,14 +431,27 @@ Be professional and helpful. Answer what's asked, then stop.`;
         responseMessage = completion.choices[0]?.message;
       }
 
-      const assistantMessage = responseMessage?.content;
+      let assistantMessage = responseMessage?.content;
       const finishReason = completion.choices[0]?.finish_reason;
 
-      if (!assistantMessage || assistantMessage.trim().length === 0) {
-        console.error('💬 No content in OpenAI response:', {
-          finishReason,
-          responseData: JSON.stringify(completion, null, 2)
+      if ((!assistantMessage || assistantMessage.trim().length === 0) && finishReason === 'tool_calls') {
+        console.log('💬 Tool rounds exhausted, forcing final answer without tools...');
+        apiMessages.push({
+          role: 'user' as any,
+          content: 'The search tools were unable to return results. Please provide the best answer you can based on your own knowledge about this topic. Be direct and specific. If you are not certain about specific details, say so, but still give the most helpful answer possible.'
         });
+        
+        completion = await openai.chat.completions.create({
+          model: 'gpt-4o-mini',
+          messages: apiMessages,
+          max_completion_tokens: 4096,
+        });
+        
+        assistantMessage = completion.choices[0]?.message?.content;
+      }
+
+      if (!assistantMessage || assistantMessage.trim().length === 0) {
+        console.error('💬 No content in response:', { finishReason });
         throw new Error(`No response from AI (finish_reason: ${finishReason})`);
       }
 
@@ -325,5 +472,5 @@ Be professional and helpful. Answer what's asked, then stop.`;
     }
   });
 
-  console.log('💬 AI Chat routes registered - Text and voice assistant active');
+  console.log('💬 AI Chat routes registered - Enhanced disaster intelligence active');
 }
