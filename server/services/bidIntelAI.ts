@@ -47,6 +47,55 @@ USACE OUTREACH CENTER (NEW - CRITICAL KNOWLEDGE):
   - Being registered and known makes you "positioned" rather than "waiting and hoping"
   - Direct them to use the USACE Outreach tab for email generation, capability statements, and district priority mapping
 
+UTILITY CONTRACTOR READINESS CENTER (CRITICAL KNOWLEDGE):
+- The Utility Readiness tab helps contractors register as approved vendors with major utility companies
+- This is DIFFERENT from government bidding — utilities have their own vendor management systems
+- You can help contractors with these utility-specific tasks:
+  1. **Master Readiness Checklist**: Walk them through every registration, certification, and document they need. Direct them to the Utility Readiness tab's interactive checklist.
+  2. **Storm Priority Rankings**: Show them which registrations matter most for storm markets. The tab ranks utilities by storm spend.
+  3. **Draft Introduction Emails**: Generate professional intro emails to send to utility vendor management departments after registering. Use the Utility Readiness tab's email generator.
+  4. **Tracking Sheet**: Generate and export a CSV tracking sheet of every portal and registration they should be in.
+
+- KEY UTILITY REGISTRATION FACTS:
+  - Utilities hire CONTRACTORS, not brands. You register as a prequalified contractor.
+  - When you register, you enter their vendor database, sourcing system, emergency activation list, and storm response contractor pool.
+  - If a hurricane hits and they need vegetation clearing, debris hauling, ROW restoration — they search their APPROVED contractor list, not Google.
+  - Utilities use platforms like PowerAdvocate, Avetta, ISNetworld, and SAP Ariba for vendor management.
+  - Once registered, you get invited to bid, receive RFP notifications, and get sourcing event alerts.
+  - During storms, utilities do NOT onboard new contractors. They activate contractors already in system, already insured, already safety-vetted.
+  - Registering means you are pre-positioned BEFORE the disaster.
+  - Large primes ask utilities "Do you have approved local contractors?" — if you're registered, you get recommended.
+
+- TOP STORM MARKET UTILITIES (by annual storm spend):
+  1. Florida Power & Light (FPL) — $500M+ storm budget, ISNetworld/PowerAdvocate
+  2. Duke Energy — $400M+ (NC, SC, FL, IN, OH, KY), PowerAdvocate/Avetta
+  3. Southern Company / Georgia Power — $350M+ (GA, AL, MS), PowerAdvocate/ISNetworld
+  4. Entergy — $300M+ (TX, LA, MS, AR), SAP Ariba/ISNetworld
+  5. AEP — $250M+ (11 states), SAP Ariba/ISNetworld
+  6. CenterPoint Energy — $200M+ (TX), ISNetworld/SAP Ariba
+  7. Dominion Energy — $200M+ (VA, NC, SC), SAP Ariba/ISNetworld
+  8. PG&E — $2B+ wildfire mitigation (CA), ISNetworld/SAP Ariba
+  9. Southern California Edison — $1.5B+ wildfire mitigation, ISNetworld/PowerAdvocate
+
+- REQUIRED DOCUMENTS FOR UTILITY REGISTRATION:
+  - COI (Certificate of Insurance) with $5M+ umbrella coverage
+  - Safety manual / safety program
+  - W-9 and EIN
+  - OSHA compliance documentation (OSHA 10/30 certs)
+  - Drug-free workplace program
+  - EMR rating below 1.0
+  - Equipment list with specifications
+  - Workers' comp insurance (multi-state)
+  - ISNetworld compliance (most critical platform — $400-$1,200/year)
+
+- VENDOR PLATFORM PRIORITIES:
+  1. ISNetworld — Most utilities check this FIRST ($400-$1,200/yr, worth every penny)
+  2. PowerAdvocate — Where bid invitations come from (FREE for suppliers)
+  3. SAP Ariba — Required by Entergy, AEP, Dominion, CenterPoint (FREE)
+  4. Avetta — Used by Duke, Eversource, ConEd ($300-$900/yr)
+
+- Direct contractors to the Utility Readiness tab for the interactive checklist, utility portal browser, email generator, and tracking sheet export.
+
 INSIDER TIPS DATABASE:
 1. **Price Psychology**: Government evaluators have a "price reasonableness" range. Being 5-10% below the IGCE is ideal — too low triggers concerns about ability to perform.
 2. **Past Performance**: Always include 3-5 strong references. Call them beforehand to confirm they'll give positive feedback.
@@ -221,7 +270,7 @@ function findRelevantTips(question: string): typeof INSIDER_TIPS_DATABASE[0][] {
     strategy: ['win', 'strategy', 'compete', 'incumbent', 'advantage'],
     pre_bid: ['pre-bid', 'site visit', 'question', 'rfi', 'meeting'],
     submission: ['submit', 'deadline', 'portal', 'upload', 'sealed'],
-    certifications: ['certification', 'sdvosb', 'wosb', 'hubzone', '8a', 'dbe', 'small business', 'usace', 'army corps', 'district', 'capability statement'],
+    certifications: ['certification', 'sdvosb', 'wosb', 'hubzone', '8a', 'dbe', 'small business', 'usace', 'army corps', 'district', 'capability statement', 'utility', 'isnetworld', 'avetta', 'poweradvocate', 'ariba', 'storm activation', 'vendor registration', 'prequalif', 'readiness', 'coi', 'emr rating', 'safety manual', 'fpl', 'entergy', 'duke energy', 'southern company'],
     references: ['reference', 'past performance', 'cpars', 'experience'],
     technical: ['technical', 'proposal', 'approach', 'writing'],
     negotiation: ['negotiate', 'bafo', 'best and final', 'counter'],

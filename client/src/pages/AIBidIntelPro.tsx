@@ -56,7 +56,12 @@ import {
   Star,
   Flag,
   ArrowRight,
-  CircleDot
+  CircleDot,
+  ClipboardList,
+  Wrench,
+  DollarSign,
+  ListChecks,
+  Table2
 } from "lucide-react";
 
 interface ChatMessage {
@@ -245,6 +250,26 @@ export default function AIBidIntelPro() {
   const [capYears, setCapYears] = useState("");
   const [capBonding, setCapBonding] = useState("");
   const [capPastPerf, setCapPastPerf] = useState("");
+  const [utilityFilter, setUtilityFilter] = useState("all");
+  const [utilitySubTab, setUtilitySubTab] = useState<"checklist" | "portals" | "email" | "tracking">("checklist");
+  const [checkedItems, setCheckedItems] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorage.getItem('utilityReadinessChecked');
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch { return new Set(); }
+  });
+  const [utilEmailCompany, setUtilEmailCompany] = useState("");
+  const [utilEmailOwner, setUtilEmailOwner] = useState("");
+  const [utilEmailUtility, setUtilEmailUtility] = useState("");
+  const [utilEmailCerts, setUtilEmailCerts] = useState("");
+  const [utilEmailCaps, setUtilEmailCaps] = useState("");
+  const [utilEmailLocation, setUtilEmailLocation] = useState("");
+  const [utilEmailPhone, setUtilEmailPhone] = useState("");
+  const [utilEmailContact, setUtilEmailContact] = useState("");
+  const [utilEmailYears, setUtilEmailYears] = useState("");
+  const [utilEmailCrewSize, setUtilEmailCrewSize] = useState("");
+  const [generatedUtilEmail, setGeneratedUtilEmail] = useState<{ subject: string; body: string; tips: string[] } | null>(null);
+  const [expandedUtility, setExpandedUtility] = useState("");
   const audioRef = useRef<HTMLAudioElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
@@ -266,6 +291,18 @@ export default function AIBidIntelPro() {
 
   const { data: usaceData, isLoading: usaceLoading } = useQuery<{ districts: any[]; divisions: any[]; majorPrimes: string[] }>({
     queryKey: ["/api/bidintel/usace/districts"],
+  });
+
+  const { data: readinessData, isLoading: readinessLoading } = useQuery<{ checklist: any[]; stormPriorityRegistrations: any[]; totalItems: number; requiredItems: number }>({
+    queryKey: ["/api/bidintel/utility-readiness/checklist"],
+  });
+
+  const { data: utilityPortalsData, isLoading: portalsLoading } = useQuery<{ utilities: any[]; platforms: any[]; regions: string[] }>({
+    queryKey: ["/api/bidintel/utility-readiness/portals"],
+  });
+
+  const { data: trackingData, isLoading: trackingLoading } = useQuery<{ utilities: any[]; platforms: any[]; checklist: any[] }>({
+    queryKey: ["/api/bidintel/utility-readiness/tracking-sheet"],
   });
 
   const emailMutation = useMutation({
@@ -299,6 +336,23 @@ export default function AIBidIntelPro() {
     },
     onError: () => {
       toast({ title: "Error", description: "Failed to generate capability statement.", variant: "destructive" });
+    },
+  });
+
+  const utilEmailMutation = useMutation({
+    mutationFn: async (data: { companyInfo: any }) => {
+      const res = await apiRequest("/api/bidintel/utility-readiness/generate-intro-email", {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      setGeneratedUtilEmail(data);
+      toast({ title: "Email Generated", description: "Your utility introduction email is ready to review and send." });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to generate email. Please try again.", variant: "destructive" });
     },
   });
 
@@ -557,6 +611,10 @@ export default function AIBidIntelPro() {
               <Shield className="w-4 h-4 mr-2" />
               SAM.gov
             </TabsTrigger>
+            <TabsTrigger value="utility" className="data-[state=active]:bg-emerald-500/20 data-[state=active]:text-emerald-400">
+              <Wrench className="w-4 h-4 mr-2" />
+              Utility Readiness
+            </TabsTrigger>
             <TabsTrigger value="usace" className="data-[state=active]:bg-red-500/20 data-[state=active]:text-red-400">
               <Flag className="w-4 h-4 mr-2" />
               USACE Outreach
@@ -727,13 +785,15 @@ export default function AIBidIntelPro() {
                   <div className="space-y-3">
                     <h4 className="text-sm font-medium text-amber-400">Ask Rachel About</h4>
                     {[
-                      "How do I register on SAM.gov step by step?",
-                      "Walk me through completing an SF-1449",
+                      "How do I register as a utility contractor?",
+                      "What is ISNetworld and do I need it?",
+                      "Which utilities have the biggest storm budgets?",
                       "Which USACE districts are highest priority?",
-                      "How do I introduce my company to USACE?",
-                      "What NAICS codes should I use?",
-                      "How to structure T&M pricing?",
+                      "How do I get on storm activation lists?",
+                      "What documents do I need for utility registration?",
                       "What should a capability statement include?",
+                      "Walk me through the readiness checklist",
+                      "How do I register on SAM.gov step by step?",
                       "How do I get on USACE vendor lists?",
                     ].map((q, i) => (
                       <Button
@@ -1118,6 +1178,708 @@ export default function AIBidIntelPro() {
                 </p>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* UTILITY CONTRACTOR READINESS TAB */}
+          <TabsContent value="utility" className="space-y-6">
+            <div className="bg-gradient-to-r from-emerald-900/30 to-teal-900/30 border border-emerald-500/30 rounded-xl p-5">
+              <div className="flex items-start gap-4">
+                <div className="p-3 bg-emerald-500/20 rounded-xl">
+                  <Wrench className="w-8 h-8 text-emerald-400" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-white">Utility Contractor Readiness Center</h2>
+                  <p className="text-sm text-gray-300 mt-1">
+                    Utilities hire prequalified contractors — not brands. Register as an approved vendor, get into their procurement systems,
+                    and position yourself on their emergency activation lists BEFORE storms hit.
+                  </p>
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30">Storm Activation Lists</Badge>
+                    <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/30">Vendor Prequalification</Badge>
+                    <Badge className="bg-blue-500/20 text-blue-300 border-blue-500/30">ISNetworld / Avetta</Badge>
+                    <Badge className="bg-purple-500/20 text-purple-300 border-purple-500/30">PowerAdvocate / SAP Ariba</Badge>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-2 flex-wrap">
+              <Button
+                variant={utilitySubTab === "checklist" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setUtilitySubTab("checklist")}
+                className={utilitySubTab === "checklist" ? "bg-emerald-600 hover:bg-emerald-700" : "border-slate-600 text-gray-300 hover:bg-slate-700"}
+              >
+                <ClipboardList className="w-4 h-4 mr-2" />
+                Readiness Checklist
+              </Button>
+              <Button
+                variant={utilitySubTab === "portals" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setUtilitySubTab("portals")}
+                className={utilitySubTab === "portals" ? "bg-emerald-600 hover:bg-emerald-700" : "border-slate-600 text-gray-300 hover:bg-slate-700"}
+              >
+                <Zap className="w-4 h-4 mr-2" />
+                Utility Portals
+              </Button>
+              <Button
+                variant={utilitySubTab === "email" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setUtilitySubTab("email")}
+                className={utilitySubTab === "email" ? "bg-emerald-600 hover:bg-emerald-700" : "border-slate-600 text-gray-300 hover:bg-slate-700"}
+              >
+                <Mail className="w-4 h-4 mr-2" />
+                Introduction Email
+              </Button>
+              <Button
+                variant={utilitySubTab === "tracking" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setUtilitySubTab("tracking")}
+                className={utilitySubTab === "tracking" ? "bg-emerald-600 hover:bg-emerald-700" : "border-slate-600 text-gray-300 hover:bg-slate-700"}
+              >
+                <Table2 className="w-4 h-4 mr-2" />
+                Tracking Sheet
+              </Button>
+            </div>
+
+            {utilitySubTab === "checklist" && (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2 space-y-6">
+                  <Card className="bg-slate-800/50 border-slate-700">
+                    <CardHeader>
+                      <CardTitle className="text-white flex items-center gap-2">
+                        <ListChecks className="w-5 h-5 text-emerald-400" />
+                        Master Readiness Checklist
+                      </CardTitle>
+                      <CardDescription>
+                        Complete these items to become a prequalified, storm-ready utility contractor.
+                        {readinessData && (
+                          <span className="ml-2 text-emerald-400">
+                            {checkedItems.size} / {readinessData.totalItems} complete
+                          </span>
+                        )}
+                      </CardDescription>
+                      {readinessData && (
+                        <div className="w-full bg-slate-700 rounded-full h-2 mt-2">
+                          <div
+                            className="bg-emerald-500 h-2 rounded-full transition-all"
+                            style={{ width: `${(checkedItems.size / readinessData.totalItems) * 100}%` }}
+                          />
+                        </div>
+                      )}
+                    </CardHeader>
+                    <CardContent>
+                      {readinessLoading ? (
+                        <div className="flex items-center justify-center py-8">
+                          <Loader2 className="w-8 h-8 animate-spin text-emerald-400" />
+                        </div>
+                      ) : (
+                        <div className="space-y-6">
+                          {[...new Set(readinessData?.checklist?.map((i: any) => i.category) || [])].map((category: string) => (
+                            <div key={category}>
+                              <h3 className="text-sm font-semibold text-emerald-400 uppercase tracking-wider mb-3">{category}</h3>
+                              <div className="space-y-2">
+                                {readinessData?.checklist
+                                  ?.filter((i: any) => i.category === category)
+                                  .map((item: any) => (
+                                    <div
+                                      key={item.id}
+                                      className={`border rounded-lg p-3 transition-all cursor-pointer ${
+                                        checkedItems.has(item.id)
+                                          ? 'border-emerald-500/50 bg-emerald-900/20'
+                                          : 'border-slate-700 bg-slate-900/50 hover:border-slate-500'
+                                      }`}
+                                      onClick={() => {
+                                        const newChecked = new Set(checkedItems);
+                                        if (newChecked.has(item.id)) {
+                                          newChecked.delete(item.id);
+                                        } else {
+                                          newChecked.add(item.id);
+                                        }
+                                        setCheckedItems(newChecked);
+                                        try { localStorage.setItem('utilityReadinessChecked', JSON.stringify([...newChecked])); } catch {}
+                                      }}
+                                    >
+                                      <div className="flex items-start gap-3">
+                                        <div className={`w-5 h-5 rounded border-2 mt-0.5 flex items-center justify-center flex-shrink-0 ${
+                                          checkedItems.has(item.id)
+                                            ? 'bg-emerald-500 border-emerald-500'
+                                            : 'border-slate-500'
+                                        }`}>
+                                          {checkedItems.has(item.id) && <CheckCircle2 className="w-3 h-3 text-white" />}
+                                        </div>
+                                        <div className="flex-1">
+                                          <div className="flex items-center gap-2 flex-wrap">
+                                            <span className={`font-medium ${checkedItems.has(item.id) ? 'text-emerald-300 line-through' : 'text-white'}`}>
+                                              {item.item}
+                                            </span>
+                                            <Badge className={
+                                              item.priority === 'required' ? 'bg-red-500/20 text-red-400 border-red-500/30 text-xs' :
+                                              item.priority === 'highly_recommended' ? 'bg-amber-500/20 text-amber-400 border-amber-500/30 text-xs' :
+                                              'bg-blue-500/20 text-blue-400 border-blue-500/30 text-xs'
+                                            }>
+                                              {item.priority === 'required' ? 'REQUIRED' : item.priority === 'highly_recommended' ? 'HIGHLY REC.' : 'RECOMMENDED'}
+                                            </Badge>
+                                            {item.forStormWork && (
+                                              <Badge className="bg-orange-500/10 text-orange-300 border-orange-500/20 text-xs">Storm</Badge>
+                                            )}
+                                          </div>
+                                          <p className="text-xs text-gray-400 mt-1">{item.description}</p>
+                                          <p className="text-xs text-emerald-300/70 mt-1 italic">{item.tips}</p>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <div className="space-y-6">
+                  <Card className="bg-slate-800/50 border-slate-700">
+                    <CardHeader>
+                      <CardTitle className="text-white text-sm flex items-center gap-2">
+                        <Star className="w-4 h-4 text-amber-400" />
+                        Storm Market Priority Order
+                      </CardTitle>
+                      <CardDescription className="text-xs">Complete these registrations in this order for maximum storm market positioning</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      {readinessData?.stormPriorityRegistrations?.map((reg: any) => (
+                        <div key={reg.rank} className="flex items-start gap-3 border-b border-slate-700/50 pb-2 last:border-0">
+                          <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold ${
+                            reg.rank <= 3 ? 'bg-red-500/20 text-red-400' :
+                            reg.rank <= 6 ? 'bg-amber-500/20 text-amber-400' :
+                            'bg-blue-500/20 text-blue-400'
+                          }`}>
+                            {reg.rank}
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-white">{reg.item}</p>
+                            <p className="text-xs text-gray-400">{reg.reason}</p>
+                            <p className="text-xs text-emerald-400 mt-0.5">{reg.timeToComplete}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </CardContent>
+                  </Card>
+
+                  <Card className="bg-gradient-to-br from-emerald-900/20 to-teal-900/20 border-emerald-500/20">
+                    <CardHeader>
+                      <CardTitle className="text-sm text-white">Why Register as a Contractor?</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      {[
+                        "Utilities hire prequalified contractors — not brands",
+                        "You enter their vendor database & sourcing system",
+                        "You get on their emergency activation list",
+                        "You receive RFP notifications & bid invitations",
+                        "You are pre-positioned before disasters hit",
+                        "Your insurance & safety docs reduce their risk",
+                        "Primes can find you when they need local subs"
+                      ].map((reason, i) => (
+                        <div key={i} className="flex items-start gap-2">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0 mt-0.5" />
+                          <p className="text-xs text-gray-300">{reason}</p>
+                        </div>
+                      ))}
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            )}
+
+            {utilitySubTab === "portals" && (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2 space-y-6">
+                  <Card className="bg-slate-800/50 border-slate-700">
+                    <CardHeader>
+                      <div className="flex items-center justify-between flex-wrap gap-2">
+                        <CardTitle className="text-white flex items-center gap-2">
+                          <Zap className="w-5 h-5 text-amber-400" />
+                          Utility Companies — Storm Priority Ranked
+                        </CardTitle>
+                        <Select value={utilityFilter} onValueChange={setUtilityFilter}>
+                          <SelectTrigger className="w-[200px] bg-slate-900/50 border-slate-600 text-white">
+                            <SelectValue placeholder="Filter by region" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-slate-800 border-slate-600">
+                            <SelectItem value="all" className="text-white hover:bg-slate-700">All Regions</SelectItem>
+                            <SelectItem value="critical" className="text-white hover:bg-slate-700">Critical Priority Only</SelectItem>
+                            {utilityPortalsData?.regions?.map((r: string) => (
+                              <SelectItem key={r} value={r} className="text-white hover:bg-slate-700">{r}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <CardDescription>Register as an approved vendor with these utility companies to get on their storm activation lists</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      {portalsLoading ? (
+                        <div className="flex items-center justify-center py-8">
+                          <Loader2 className="w-8 h-8 animate-spin text-emerald-400" />
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          {(utilityPortalsData?.utilities || [])
+                            .filter((u: any) => {
+                              if (utilityFilter === "all") return true;
+                              if (utilityFilter === "critical") return u.stormPriority === "critical";
+                              return u.region === utilityFilter;
+                            })
+                            .map((utility: any, idx: number) => (
+                            <div
+                              key={utility.name}
+                              className={`border rounded-lg p-4 cursor-pointer transition-all ${
+                                expandedUtility === utility.name
+                                  ? 'border-emerald-400 bg-emerald-900/20'
+                                  : 'border-slate-700 bg-slate-900/50 hover:border-slate-500'
+                              }`}
+                              onClick={() => setExpandedUtility(utility.name === expandedUtility ? "" : utility.name)}
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                  <span className="text-lg font-bold text-gray-500 w-8">#{idx + 1}</span>
+                                  <div>
+                                    <h4 className="font-medium text-white">{utility.name}</h4>
+                                    <p className="text-xs text-gray-400">{utility.region} • {utility.states.join(', ')}</p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <Badge className={
+                                    utility.stormPriority === 'critical' ? 'bg-red-500/20 text-red-400 border-red-500/30' :
+                                    utility.stormPriority === 'high' ? 'bg-orange-500/20 text-orange-400 border-orange-500/30' :
+                                    'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
+                                  }>
+                                    {utility.stormPriority.toUpperCase()}
+                                  </Badge>
+                                  <div className="text-right">
+                                    <div className="text-sm font-bold text-white">{utility.stormPriorityScore}</div>
+                                    <div className="text-xs text-gray-500">score</div>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {expandedUtility === utility.name && (
+                                <div className="mt-4 pt-4 border-t border-slate-700 space-y-3">
+                                  <p className="text-sm text-gray-300">{utility.registrationNotes}</p>
+                                  <div className="grid grid-cols-2 gap-3 text-xs">
+                                    <div>
+                                      <span className="text-gray-500">Vendor Platform:</span>
+                                      <p className="text-white font-medium">{utility.vendorPlatform}</p>
+                                    </div>
+                                    <div>
+                                      <span className="text-gray-500">Annual Storm Spend:</span>
+                                      <p className="text-emerald-400 font-bold">{utility.annualStormSpend}</p>
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <p className="text-xs text-gray-500 mb-1">Contract Types:</p>
+                                    <div className="flex flex-wrap gap-1">
+                                      {utility.contractTypes.map((ct: string) => (
+                                        <Badge key={ct} variant="outline" className="text-xs border-slate-600 text-gray-300">{ct}</Badge>
+                                      ))}
+                                    </div>
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <Button
+                                      size="sm"
+                                      onClick={(e) => { e.stopPropagation(); window.open(utility.registrationUrl, '_blank'); }}
+                                      className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                                    >
+                                      <ExternalLink className="w-3 h-3 mr-1" />
+                                      Register Now
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setUtilEmailUtility(utility.name);
+                                        setUtilitySubTab("email");
+                                      }}
+                                      className="border-amber-500/30 text-amber-300 hover:bg-amber-500/10"
+                                    >
+                                      <Mail className="w-3 h-3 mr-1" />
+                                      Draft Intro Email
+                                    </Button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <div className="space-y-6">
+                  <Card className="bg-slate-800/50 border-slate-700">
+                    <CardHeader>
+                      <CardTitle className="text-sm text-white flex items-center gap-2">
+                        <Shield className="w-4 h-4 text-blue-400" />
+                        Vendor Management Platforms
+                      </CardTitle>
+                      <CardDescription className="text-xs">You MUST be registered on these platforms to work with utilities</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      {utilityPortalsData?.platforms?.map((platform: any) => (
+                        <div key={platform.name} className="border border-slate-700 rounded-lg p-3 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <h4 className="font-medium text-white text-sm">{platform.name}</h4>
+                            <Badge className={
+                              platform.priority === 'critical' ? 'bg-red-500/20 text-red-400 border-red-500/30 text-xs' :
+                              platform.priority === 'high' ? 'bg-orange-500/20 text-orange-400 border-orange-500/30 text-xs' :
+                              'bg-blue-500/20 text-blue-400 border-blue-500/30 text-xs'
+                            }>
+                              {platform.priority.toUpperCase()}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-gray-400">{platform.description}</p>
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-gray-500">Cost: <span className="text-amber-400">{platform.costToRegister}</span></span>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-6 text-xs text-blue-400 hover:text-blue-300"
+                              onClick={() => window.open(platform.url, '_blank')}
+                            >
+                              <ExternalLink className="w-3 h-3 mr-1" />
+                              Visit
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            )}
+
+            {utilitySubTab === "email" && (
+              <Card className="bg-slate-800/50 border-slate-700">
+                <CardHeader>
+                  <CardTitle className="text-white flex items-center gap-2">
+                    <Mail className="w-5 h-5 text-amber-400" />
+                    AI Contractor Introduction Email Generator
+                  </CardTitle>
+                  <CardDescription>Draft a professional introduction email to send to a utility's vendor management department after registering</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-gray-300">Target Utility *</Label>
+                      <Select value={utilEmailUtility} onValueChange={setUtilEmailUtility}>
+                        <SelectTrigger className="bg-slate-900/50 border-slate-600 text-white">
+                          <SelectValue placeholder="Select a utility..." />
+                        </SelectTrigger>
+                        <SelectContent className="bg-slate-800 border-slate-600 max-h-[300px]">
+                          {(utilityPortalsData?.utilities || []).map((u: any) => (
+                            <SelectItem key={u.name} value={u.name} className="text-white hover:bg-slate-700">
+                              {u.name} — {u.stormPriority.toUpperCase()}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-gray-300">Company Name *</Label>
+                      <Input value={utilEmailCompany} onChange={(e) => setUtilEmailCompany(e.target.value)} placeholder="Your Company LLC" className="bg-slate-900/50 border-slate-600 text-white" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-gray-300">Owner / Contact Name *</Label>
+                      <Input value={utilEmailOwner} onChange={(e) => setUtilEmailOwner(e.target.value)} placeholder="John Smith" className="bg-slate-900/50 border-slate-600 text-white" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-gray-300">Location</Label>
+                      <Input value={utilEmailLocation} onChange={(e) => setUtilEmailLocation(e.target.value)} placeholder="Tampa, FL" className="bg-slate-900/50 border-slate-600 text-white" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-gray-300">Certifications</Label>
+                      <Input value={utilEmailCerts} onChange={(e) => setUtilEmailCerts(e.target.value)} placeholder="ISNetworld, SDVOSB, SAM Active" className="bg-slate-900/50 border-slate-600 text-white" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-gray-300">Core Capabilities</Label>
+                      <Input value={utilEmailCaps} onChange={(e) => setUtilEmailCaps(e.target.value)} placeholder="Vegetation mgmt, storm debris, ROW clearing" className="bg-slate-900/50 border-slate-600 text-white" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-gray-300">Years Experience</Label>
+                      <Input value={utilEmailYears} onChange={(e) => setUtilEmailYears(e.target.value)} placeholder="15" className="bg-slate-900/50 border-slate-600 text-white" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-gray-300">Crew Size</Label>
+                      <Input value={utilEmailCrewSize} onChange={(e) => setUtilEmailCrewSize(e.target.value)} placeholder="25 field workers" className="bg-slate-900/50 border-slate-600 text-white" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-gray-300">Phone</Label>
+                      <Input value={utilEmailPhone} onChange={(e) => setUtilEmailPhone(e.target.value)} placeholder="(555) 123-4567" className="bg-slate-900/50 border-slate-600 text-white" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-gray-300">Email</Label>
+                      <Input value={utilEmailContact} onChange={(e) => setUtilEmailContact(e.target.value)} placeholder="info@company.com" className="bg-slate-900/50 border-slate-600 text-white" />
+                    </div>
+                  </div>
+
+                  <Button
+                    onClick={() => {
+                      if (!utilEmailUtility || !utilEmailCompany || !utilEmailOwner) {
+                        toast({ title: "Missing Info", description: "Target utility, company name, and owner name are required.", variant: "destructive" });
+                        return;
+                      }
+                      utilEmailMutation.mutate({
+                        companyInfo: {
+                          companyName: utilEmailCompany,
+                          ownerName: utilEmailOwner,
+                          utilityName: utilEmailUtility,
+                          certifications: utilEmailCerts ? utilEmailCerts.split(',').map(s => s.trim()) : [],
+                          capabilities: utilEmailCaps ? utilEmailCaps.split(',').map(s => s.trim()) : [],
+                          location: utilEmailLocation,
+                          phone: utilEmailPhone,
+                          email: utilEmailContact,
+                          yearsExperience: utilEmailYears,
+                          crewSize: utilEmailCrewSize,
+                        }
+                      });
+                    }}
+                    disabled={utilEmailMutation.isPending}
+                    className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white"
+                  >
+                    {utilEmailMutation.isPending ? (
+                      <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Generating...</>
+                    ) : (
+                      <><Mail className="w-4 h-4 mr-2" /> Generate Introduction Email</>
+                    )}
+                  </Button>
+
+                  {generatedUtilEmail && (
+                    <div className="space-y-4 mt-4">
+                      <div className="bg-white rounded-lg p-6 text-black">
+                        <div className="border-b border-gray-200 pb-3 mb-4">
+                          <p className="text-sm text-gray-500">Subject:</p>
+                          <p className="font-semibold">{generatedUtilEmail.subject}</p>
+                        </div>
+                        <div className="whitespace-pre-wrap text-sm leading-relaxed">{generatedUtilEmail.body}</div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            navigator.clipboard.writeText(`Subject: ${generatedUtilEmail.subject}\n\n${generatedUtilEmail.body}`);
+                            toast({ title: "Copied!", description: "Email copied to clipboard." });
+                          }}
+                          className="bg-emerald-600 hover:bg-emerald-700"
+                        >
+                          <Copy className="w-3 h-3 mr-2" />
+                          Copy Email
+                        </Button>
+                      </div>
+                      {generatedUtilEmail.tips.length > 0 && (
+                        <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-4">
+                          <h4 className="text-sm font-medium text-amber-400 mb-2">Follow-Up Tips</h4>
+                          <ul className="space-y-1">
+                            {generatedUtilEmail.tips.map((tip, i) => (
+                              <li key={i} className="text-xs text-gray-300 flex items-start gap-2">
+                                <ChevronRight className="w-3 h-3 text-amber-400 flex-shrink-0 mt-0.5" />
+                                {tip}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {utilitySubTab === "tracking" && (
+              <div className="space-y-6">
+                <Card className="bg-slate-800/50 border-slate-700">
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle className="text-white flex items-center gap-2">
+                          <Table2 className="w-5 h-5 text-emerald-400" />
+                          Registration Tracking Sheet
+                        </CardTitle>
+                        <CardDescription>Every portal and registration you should be tracking</CardDescription>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          if (!trackingData) return;
+                          let csv = "Category,Item,Priority,Status,Date,Notes\n";
+                          csv += "\nUTILITY COMPANIES\n";
+                          csv += "Name,States,Platform,Storm Priority,Status,Date Registered,Follow-Up Date,Notes\n";
+                          trackingData.utilities.forEach(u => {
+                            csv += `"${u.name}","${u.states}","${u.platform}","${u.stormPriority}","${u.status}","${u.dateRegistered}","${u.dateFollowUp}","${u.notes}"\n`;
+                          });
+                          csv += "\nVENDOR PLATFORMS\n";
+                          csv += "Name,Cost,Priority,Status,Date Registered,Notes\n";
+                          trackingData.platforms.forEach(p => {
+                            csv += `"${p.name}","${p.cost}","${p.priority}","${p.status}","${p.dateRegistered}","${p.notes}"\n`;
+                          });
+                          csv += "\nREADINESS CHECKLIST\n";
+                          csv += "Item,Category,Priority,Status,Date Completed,Notes\n";
+                          trackingData.checklist.forEach(c => {
+                            csv += `"${c.item}","${c.category}","${c.priority}","${c.status}","${c.dateCompleted}","${c.notes}"\n`;
+                          });
+                          const blob = new Blob([csv], { type: 'text/csv' });
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = 'utility_contractor_tracking_sheet.csv';
+                          a.click();
+                          URL.revokeObjectURL(url);
+                          toast({ title: "Downloaded!", description: "Tracking sheet exported as CSV." });
+                        }}
+                        className="border-emerald-500/50 text-emerald-400 hover:bg-emerald-500/20"
+                      >
+                        <Download className="w-4 h-4 mr-2" />
+                        Export CSV
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {trackingLoading ? (
+                      <div className="flex items-center justify-center py-8">
+                        <Loader2 className="w-8 h-8 animate-spin text-emerald-400" />
+                      </div>
+                    ) : (
+                      <div className="space-y-6">
+                        <div>
+                          <h3 className="text-sm font-semibold text-emerald-400 uppercase tracking-wider mb-3">Utility Company Registrations ({trackingData?.utilities?.length || 0})</h3>
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-xs">
+                              <thead>
+                                <tr className="border-b border-slate-700">
+                                  <th className="text-left py-2 px-2 text-gray-400">Utility</th>
+                                  <th className="text-left py-2 px-2 text-gray-400">States</th>
+                                  <th className="text-left py-2 px-2 text-gray-400">Platform</th>
+                                  <th className="text-left py-2 px-2 text-gray-400">Priority</th>
+                                  <th className="text-left py-2 px-2 text-gray-400">Action</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {trackingData?.utilities?.map((u: any) => (
+                                  <tr key={u.name} className="border-b border-slate-700/50 hover:bg-slate-700/30">
+                                    <td className="py-2 px-2 text-white font-medium">{u.name}</td>
+                                    <td className="py-2 px-2 text-gray-300">{u.states}</td>
+                                    <td className="py-2 px-2 text-gray-300">{u.platform}</td>
+                                    <td className="py-2 px-2">
+                                      <Badge className={
+                                        u.stormPriority === 'CRITICAL' ? 'bg-red-500/20 text-red-400 border-red-500/30 text-xs' :
+                                        u.stormPriority === 'HIGH' ? 'bg-orange-500/20 text-orange-400 border-orange-500/30 text-xs' :
+                                        'bg-yellow-500/20 text-yellow-400 border-yellow-500/30 text-xs'
+                                      }>
+                                        {u.stormPriority}
+                                      </Badge>
+                                    </td>
+                                    <td className="py-2 px-2">
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        className="h-6 text-xs text-blue-400 hover:text-blue-300"
+                                        onClick={() => window.open(u.registrationUrl, '_blank')}
+                                      >
+                                        <ExternalLink className="w-3 h-3 mr-1" />
+                                        Register
+                                      </Button>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+
+                        <div>
+                          <h3 className="text-sm font-semibold text-blue-400 uppercase tracking-wider mb-3">Vendor Platforms ({trackingData?.platforms?.length || 0})</h3>
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-xs">
+                              <thead>
+                                <tr className="border-b border-slate-700">
+                                  <th className="text-left py-2 px-2 text-gray-400">Platform</th>
+                                  <th className="text-left py-2 px-2 text-gray-400">Cost</th>
+                                  <th className="text-left py-2 px-2 text-gray-400">Priority</th>
+                                  <th className="text-left py-2 px-2 text-gray-400">Action</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {trackingData?.platforms?.map((p: any) => (
+                                  <tr key={p.name} className="border-b border-slate-700/50 hover:bg-slate-700/30">
+                                    <td className="py-2 px-2 text-white font-medium">{p.name}</td>
+                                    <td className="py-2 px-2 text-amber-400">{p.cost}</td>
+                                    <td className="py-2 px-2">
+                                      <Badge className={
+                                        p.priority === 'CRITICAL' ? 'bg-red-500/20 text-red-400 border-red-500/30 text-xs' :
+                                        p.priority === 'HIGH' ? 'bg-orange-500/20 text-orange-400 border-orange-500/30 text-xs' :
+                                        'bg-blue-500/20 text-blue-400 border-blue-500/30 text-xs'
+                                      }>
+                                        {p.priority}
+                                      </Badge>
+                                    </td>
+                                    <td className="py-2 px-2">
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        className="h-6 text-xs text-blue-400 hover:text-blue-300"
+                                        onClick={() => window.open(p.url, '_blank')}
+                                      >
+                                        <ExternalLink className="w-3 h-3 mr-1" />
+                                        Visit
+                                      </Button>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+
+                        <div>
+                          <h3 className="text-sm font-semibold text-amber-400 uppercase tracking-wider mb-3">Readiness Checklist ({trackingData?.checklist?.length || 0})</h3>
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-xs">
+                              <thead>
+                                <tr className="border-b border-slate-700">
+                                  <th className="text-left py-2 px-2 text-gray-400">Item</th>
+                                  <th className="text-left py-2 px-2 text-gray-400">Category</th>
+                                  <th className="text-left py-2 px-2 text-gray-400">Priority</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {trackingData?.checklist?.map((c: any) => (
+                                  <tr key={c.item} className="border-b border-slate-700/50 hover:bg-slate-700/30">
+                                    <td className="py-2 px-2 text-white">{c.item}</td>
+                                    <td className="py-2 px-2 text-gray-300">{c.category}</td>
+                                    <td className="py-2 px-2">
+                                      <Badge className={
+                                        c.priority === 'REQUIRED' ? 'bg-red-500/20 text-red-400 border-red-500/30 text-xs' :
+                                        c.priority === 'HIGHLY RECOMMENDED' ? 'bg-amber-500/20 text-amber-400 border-amber-500/30 text-xs' :
+                                        'bg-blue-500/20 text-blue-400 border-blue-500/30 text-xs'
+                                      }>
+                                        {c.priority}
+                                      </Badge>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            )}
           </TabsContent>
 
           {/* USACE OUTREACH TAB */}

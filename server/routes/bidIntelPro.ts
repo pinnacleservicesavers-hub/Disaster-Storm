@@ -4,6 +4,7 @@ import { storage } from "../storage";
 import { requireAuth, requireContractor } from "../middleware/auth";
 import { generateBidIntelResponse, generateRFIQuestion, analyzeBidOpportunity, INSIDER_TIPS_DATABASE } from "../services/bidIntelAI";
 import { USACE_DISTRICTS, USACE_DIVISIONS, MAJOR_PRIMES, getPriorityDistricts, generateIntroductionEmail, generateCapabilityStatement } from "../services/usaceOutreach";
+import { UTILITY_COMPANIES, VENDOR_PLATFORMS, READINESS_CHECKLIST, STORM_PRIORITY_REGISTRATIONS, generateUtilityIntroEmail, generateTrackingSheet } from "../services/utilityContractorReadiness";
 import { elevenLabsVoice } from "../services/elevenLabsVoice";
 import {
   insertBidOpportunitySchema,
@@ -483,6 +484,66 @@ router.post("/usace/generate-capability-statement", async (req: Request, res: Re
   } catch (error) {
     console.error("Error generating capability statement:", error);
     res.status(500).json({ error: "Failed to generate capability statement" });
+  }
+});
+
+// Utility Contractor Readiness endpoints
+router.get("/utility-readiness/checklist", async (req: Request, res: Response) => {
+  try {
+    res.json({
+      checklist: READINESS_CHECKLIST,
+      stormPriorityRegistrations: STORM_PRIORITY_REGISTRATIONS,
+      totalItems: READINESS_CHECKLIST.length,
+      requiredItems: READINESS_CHECKLIST.filter(i => i.priority === "required").length,
+    });
+  } catch (error) {
+    console.error("Error fetching readiness checklist:", error);
+    res.status(500).json({ error: "Failed to fetch checklist" });
+  }
+});
+
+router.get("/utility-readiness/portals", async (req: Request, res: Response) => {
+  try {
+    const { region, priorityOnly } = req.query;
+    let utilities = [...UTILITY_COMPANIES].sort((a, b) => b.stormPriorityScore - a.stormPriorityScore);
+    if (region && region !== "all") {
+      utilities = utilities.filter(u => u.region === region);
+    }
+    if (priorityOnly === "true") {
+      utilities = utilities.filter(u => u.stormPriority === "critical" || u.stormPriority === "high");
+    }
+    res.json({
+      utilities,
+      platforms: VENDOR_PLATFORMS,
+      regions: [...new Set(UTILITY_COMPANIES.map(u => u.region))].sort(),
+    });
+  } catch (error) {
+    console.error("Error fetching utility portals:", error);
+    res.status(500).json({ error: "Failed to fetch portals" });
+  }
+});
+
+router.post("/utility-readiness/generate-intro-email", async (req: Request, res: Response) => {
+  try {
+    const { companyInfo } = req.body;
+    if (!companyInfo?.companyName || !companyInfo?.ownerName || !companyInfo?.utilityName) {
+      return res.status(400).json({ error: "Company name, owner name, and target utility name are required" });
+    }
+    const result = await generateUtilityIntroEmail(companyInfo);
+    res.json(result);
+  } catch (error) {
+    console.error("Error generating utility intro email:", error);
+    res.status(500).json({ error: "Failed to generate email" });
+  }
+});
+
+router.get("/utility-readiness/tracking-sheet", async (req: Request, res: Response) => {
+  try {
+    const trackingSheet = generateTrackingSheet();
+    res.json(trackingSheet);
+  } catch (error) {
+    console.error("Error generating tracking sheet:", error);
+    res.status(500).json({ error: "Failed to generate tracking sheet" });
   }
 });
 
