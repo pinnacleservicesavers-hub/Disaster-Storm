@@ -173,8 +173,9 @@ export default function WorkHubCustomerPortal() {
     warnings: string[];
     affiliateDisclosure: string;
   } | null>(null);
-  const [vehicleInfo, setVehicleInfo] = useState<{ year: string; make: string; model: string; vin: string }>({ year: '', make: '', model: '', vin: '' });
+  const [vehicleInfo, setVehicleInfo] = useState<{ year: string; make: string; model: string; vin: string; mileage: string; repairType: string; vehicleType: string }>({ year: '', make: '', model: '', vin: '', mileage: '', repairType: '', vehicleType: '' });
   const [isDecodingVin, setIsDecodingVin] = useState(false);
+  const [autoDiagResult, setAutoDiagResult] = useState<any>(null);
   
   // Flooring pricing state
   const [flooringPricing, setFlooringPricing] = useState<{
@@ -205,6 +206,43 @@ export default function WorkHubCustomerPortal() {
     preferences: { urgency: 'normal', schedulingOption: 'customer', estimatePreference: 'multiple' }
   });
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
+
+  const extractVideoFramesForAuto = async (file: File): Promise<string[]> => {
+    return new Promise((resolve) => {
+      const video = document.createElement('video');
+      video.preload = 'auto';
+      video.muted = true;
+      const url = URL.createObjectURL(file);
+      video.src = url;
+      video.onloadedmetadata = () => {
+        const duration = video.duration;
+        const frameCount = Math.min(4, Math.ceil(duration / 3));
+        const frames: string[] = [];
+        let currentFrame = 0;
+        const captureFrame = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.min(video.videoWidth, 1024);
+          canvas.height = Math.min(video.videoHeight, 768);
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            frames.push(canvas.toDataURL('image/jpeg', 0.7).split(',')[1]);
+          }
+          currentFrame++;
+          if (currentFrame < frameCount) {
+            video.currentTime = (currentFrame / frameCount) * duration;
+          } else {
+            URL.revokeObjectURL(url);
+            resolve(frames);
+          }
+        };
+        video.onseeked = captureFrame;
+        video.currentTime = 0.5;
+      };
+      video.onerror = () => { URL.revokeObjectURL(url); resolve([]); };
+    });
+  };
+
   const [matchedContractors, setMatchedContractors] = useState<any[]>([]);
   const [isLoadingContractors, setIsLoadingContractors] = useState(false);
   
@@ -410,6 +448,106 @@ export default function WorkHubCustomerPortal() {
     setTreePricing(null); // Reset tree pricing to avoid showing stale data for non-tree jobs
     
     setIsAnalyzing(true);
+    setAutoDiagResult(null);
+    
+    // Auto Repair: use specialized AI diagnostic endpoint
+    if (request.category === 'auto') {
+      speakGuidance("Analyzing your vehicle photos and videos with our AI mechanic. I'm looking for visual symptoms and combining that with your description to diagnose the issue.");
+      try {
+        const frames: string[] = [];
+        for (const file of request.photos) {
+          if (file.type.startsWith('video/')) {
+            const videoFrames = await extractVideoFramesForAuto(file);
+            frames.push(...videoFrames);
+          } else {
+            const base64 = await new Promise<string>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () => resolve((reader.result as string).split(',')[1]);
+              reader.onerror = reject;
+              reader.readAsDataURL(file);
+            });
+            frames.push(base64);
+          }
+        }
+
+        const repairTypeLabels: Record<string, string> = {
+          mechanical: 'Mechanical repair', body: 'Body repair', paint: 'Paint work',
+          electrical: 'Electrical issue', tires_wheels: 'Tires & wheels',
+          diagnostic: 'Diagnostic check', maintenance: 'Maintenance', other: 'Other'
+        };
+        const repairDesc = repairTypeLabels[vehicleInfo.repairType] || '';
+        const fullSymptoms = `${repairDesc ? repairDesc + ': ' : ''}${request.description}`;
+
+        const diagResponse = await fetch('/api/workhub/auto-repair-diagnose', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            vehicle: {
+              type: vehicleInfo.vehicleType,
+              make: vehicleInfo.make,
+              model: vehicleInfo.model,
+              year: vehicleInfo.year ? parseInt(vehicleInfo.year) : undefined,
+              mileage: vehicleInfo.mileage ? parseInt(vehicleInfo.mileage.replace(/,/g, '')) : undefined,
+              vin: vehicleInfo.vin || undefined,
+            },
+            symptoms: fullSymptoms,
+            frames: frames.slice(0, 6),
+          }),
+        });
+
+        if (!diagResponse.ok) throw new Error('Diagnostic failed');
+        const diagData = await diagResponse.json();
+
+        if (diagData.ok && diagData.diagnostic) {
+          const diag = diagData.diagnostic;
+          setAutoDiagResult(diag);
+
+          const totalMin = diag.possibleCauses?.reduce((s: number, c: any) => s + (c.estimatedCostMin || 0), 0) || 500;
+          const totalMax = diag.possibleCauses?.reduce((s: number, c: any) => s + (c.estimatedCostMax || 0), 0) || 5000;
+          const avgMin = diag.possibleCauses?.length ? Math.round(totalMin / diag.possibleCauses.length) : 500;
+          const avgMax = diag.possibleCauses?.length ? Math.round(totalMax / diag.possibleCauses.length) : 5000;
+
+          const analysis = {
+            detectedCategory: 'auto',
+            identifiedIssues: diag.possibleCauses?.map((c: any) => `${c.label}: ${c.description}`) || ['Vehicle issue detected'],
+            recommendedTrades: ['Auto Mechanic', 'Auto Body Shop'],
+            estimatedPriceRange: { min: avgMin, max: avgMax },
+            complexity: diag.possibleCauses?.[0]?.severity || 'moderate',
+            timeEstimate: 'See diagnostic details',
+            aiConfidence: 85,
+            contractors: [],
+            tags: ['auto', 'mechanic', vehicleInfo.repairType || 'diagnostic'],
+            safetyNotes: diag.safetyWarning || ''
+          };
+          setAiAnalysis(analysis);
+
+          setJobDetails({
+            itemType: `Auto Repair - ${vehicleInfo.year} ${vehicleInfo.make} ${vehicleInfo.model}`,
+            primaryMeasurement: 'Diagnosis',
+            primaryValue: diag.overallAssessment || 'See AI diagnostic report',
+            complexity: diag.possibleCauses?.[0]?.severity || 'moderate',
+            complexityReason: diag.possibleCauses?.[0]?.label || 'Vehicle diagnostic',
+            workType: 'Auto Repair'
+          });
+
+          const topCause = diag.possibleCauses?.[0];
+          speakGuidance(
+            `I've completed the AI diagnostic on your ${vehicleInfo.year} ${vehicleInfo.make} ${vehicleInfo.model}. ` +
+            `${diag.overallAssessment || ''} ` +
+            (topCause ? `The most likely issue is ${topCause.label}, estimated at $${topCause.estimatedCostMin} to $${topCause.estimatedCostMax}. ` : '') +
+            (diag.safetyWarning ? `Important safety note: ${diag.safetyWarning} ` : '') +
+            `Scroll down to see the full diagnostic report with all possible causes and repair estimates.`
+          );
+        }
+      } catch (error) {
+        console.error('Auto repair diagnostic error:', error);
+        speakGuidance("I had trouble analyzing your vehicle. Let me try the standard analysis instead.");
+      } finally {
+        setIsAnalyzing(false);
+      }
+      return;
+    }
+    
     speakGuidance("Analyzing your photos with AI. I'm identifying the type of work needed and potential issues.");
     
     try {
@@ -1255,6 +1393,142 @@ export default function WorkHubCustomerPortal() {
                 </p>
               </CardContent>
             </Card>
+
+            {request.category === 'auto' && (
+              <Card className="border-2 border-blue-200 dark:border-blue-800">
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Car className="w-5 h-5 text-blue-600" />
+                    Vehicle Information
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <Label>VIN Number (optional - auto-fills vehicle details)</Label>
+                    <div className="flex gap-2 mt-1">
+                      <Input
+                        placeholder="Enter 17-character VIN"
+                        value={vehicleInfo.vin}
+                        onChange={(e) => setVehicleInfo(prev => ({ ...prev, vin: e.target.value.toUpperCase() }))}
+                        maxLength={17}
+                        className="font-mono uppercase"
+                      />
+                      <Button
+                        variant="outline"
+                        onClick={async () => {
+                          if (vehicleInfo.vin.length !== 17) return;
+                          setIsDecodingVin(true);
+                          try {
+                            const res = await fetch(`https://vpic.nhtsa.dot.gov/api/vehicles/decodevinvalues/${vehicleInfo.vin}?format=json`);
+                            const data = await res.json();
+                            if (data.Results?.[0]) {
+                              const r = data.Results[0];
+                              setVehicleInfo(prev => ({
+                                ...prev,
+                                make: r.Make || prev.make,
+                                model: r.Model || prev.model,
+                                year: r.ModelYear || prev.year,
+                              }));
+                            }
+                          } catch {}
+                          setIsDecodingVin(false);
+                        }}
+                        disabled={isDecodingVin || vehicleInfo.vin.length !== 17}
+                        className="shrink-0"
+                      >
+                        {isDecodingVin ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Decode'}
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label>Vehicle Type</Label>
+                      <Select value={vehicleInfo.vehicleType} onValueChange={(v) => setVehicleInfo(prev => ({ ...prev, vehicleType: v }))}>
+                        <SelectTrigger className="mt-1"><SelectValue placeholder="Select type" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="car">Car</SelectItem>
+                          <SelectItem value="truck">Truck</SelectItem>
+                          <SelectItem value="suv">SUV</SelectItem>
+                          <SelectItem value="van">Van</SelectItem>
+                          <SelectItem value="minivan">Minivan</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Year *</Label>
+                      <Select value={vehicleInfo.year} onValueChange={(v) => setVehicleInfo(prev => ({ ...prev, year: v }))}>
+                        <SelectTrigger className="mt-1"><SelectValue placeholder="Select year" /></SelectTrigger>
+                        <SelectContent>
+                          {Array.from({ length: 35 }, (_, i) => new Date().getFullYear() - i).map(y => (
+                            <SelectItem key={y} value={y.toString()}>{y}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label>Make *</Label>
+                      <Select value={vehicleInfo.make} onValueChange={(v) => setVehicleInfo(prev => ({ ...prev, make: v }))}>
+                        <SelectTrigger className="mt-1"><SelectValue placeholder="Select make" /></SelectTrigger>
+                        <SelectContent>
+                          {['Ford', 'Chevrolet', 'Toyota', 'Honda', 'Ram', 'GMC', 'Jeep', 'Nissan', 'Hyundai', 'Kia', 'Subaru', 'Dodge', 'BMW', 'Mercedes-Benz', 'Audi', 'Lexus', 'Mazda', 'Volkswagen', 'Buick', 'Cadillac', 'Chrysler', 'Acura', 'Infiniti', 'Lincoln', 'Volvo', 'Tesla', 'Other'].map(m => (
+                            <SelectItem key={m} value={m}>{m}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Model *</Label>
+                      <Input
+                        placeholder="e.g. Bronco, Camry, F-150"
+                        value={vehicleInfo.model}
+                        onChange={(e) => setVehicleInfo(prev => ({ ...prev, model: e.target.value }))}
+                        className="mt-1"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label>Mileage</Label>
+                    <Input
+                      placeholder="e.g. 45,000"
+                      value={vehicleInfo.mileage}
+                      onChange={(e) => setVehicleInfo(prev => ({ ...prev, mileage: e.target.value }))}
+                    />
+                  </div>
+
+                  <div>
+                    <Label>What type of repair do you need? *</Label>
+                    <Select value={vehicleInfo.repairType} onValueChange={(v) => setVehicleInfo(prev => ({ ...prev, repairType: v }))}>
+                      <SelectTrigger className="mt-1"><SelectValue placeholder="Select repair type" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="mechanical">Mechanical Repair (engine, transmission, brakes, etc.)</SelectItem>
+                        <SelectItem value="body">Body Repair (dents, collision damage, rust)</SelectItem>
+                        <SelectItem value="paint">Paint (full paint, touch-up, color change)</SelectItem>
+                        <SelectItem value="electrical">Electrical (lights, wiring, sensors, battery)</SelectItem>
+                        <SelectItem value="tires_wheels">Tires & Wheels (alignment, rotation, replacement)</SelectItem>
+                        <SelectItem value="diagnostic">Diagnostic Only (check engine light, strange noise)</SelectItem>
+                        <SelectItem value="maintenance">Maintenance (oil change, brakes, tune-up)</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label>Describe what's going on with your vehicle *</Label>
+                    <Textarea
+                      placeholder="Tell us what's happening. For example:&#10;&#10;- Ticking sound when I accelerate&#10;- Jerking when going downhill&#10;- Check engine light is on&#10;- Need paint on front bumper&#10;- Dent on driver side door&#10;&#10;The more detail, the better the diagnosis!"
+                      value={request.description}
+                      onChange={(e) => setRequest(prev => ({ ...prev, description: e.target.value }))}
+                      className="min-h-[120px] mt-1"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
           </div>
         );
@@ -2889,6 +3163,87 @@ export default function WorkHubCustomerPortal() {
                 </CardContent>
               </Card>
 
+              {request.category === 'auto' && vehicleInfo.make && (
+                <Card className="md:col-span-2 border-2 border-blue-200 dark:border-blue-800">
+                  <CardHeader>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <Car className="w-5 h-5 text-blue-600" />
+                      Vehicle Details
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="text-sm space-y-2">
+                    <div className="flex justify-between"><span className="text-slate-500">Vehicle</span><span className="font-medium">{vehicleInfo.year} {vehicleInfo.make} {vehicleInfo.model}</span></div>
+                    {vehicleInfo.vin && <div className="flex justify-between"><span className="text-slate-500">VIN</span><span className="font-mono text-xs">{vehicleInfo.vin}</span></div>}
+                    {vehicleInfo.mileage && <div className="flex justify-between"><span className="text-slate-500">Mileage</span><span>{vehicleInfo.mileage} miles</span></div>}
+                    {vehicleInfo.repairType && <div className="flex justify-between"><span className="text-slate-500">Repair Type</span><span className="capitalize">{vehicleInfo.repairType.replace(/_/g, ' ')}</span></div>}
+                  </CardContent>
+                </Card>
+              )}
+
+              {autoDiagResult && request.category === 'auto' && (
+                <Card className="md:col-span-2 border-2 border-green-200 dark:border-green-800">
+                  <CardHeader>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <CheckCircle className="w-5 h-5 text-green-600" />
+                      AI Diagnostic Report
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {autoDiagResult.vehicleSummary && (
+                      <p className="text-sm text-slate-600 dark:text-slate-400">{autoDiagResult.vehicleSummary}</p>
+                    )}
+                    {autoDiagResult.overallAssessment && (
+                      <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
+                        <p className="text-sm font-medium text-blue-800 dark:text-blue-200">{autoDiagResult.overallAssessment}</p>
+                      </div>
+                    )}
+                    {autoDiagResult.safetyWarning && (
+                      <div className="bg-red-50 dark:bg-red-900/20 p-3 rounded-lg flex items-start gap-2">
+                        <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+                        <p className="text-sm text-red-700 dark:text-red-300">{autoDiagResult.safetyWarning}</p>
+                      </div>
+                    )}
+                    {autoDiagResult.possibleCauses?.length > 0 && (
+                      <div className="space-y-3">
+                        <h4 className="font-semibold text-sm">Possible Causes</h4>
+                        {autoDiagResult.possibleCauses.map((cause: any, i: number) => (
+                          <div key={i} className="border rounded-lg p-3 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="font-medium text-sm">{cause.label}</span>
+                              <div className="flex items-center gap-2">
+                                {cause.likelihood && <Badge variant="outline" className="text-xs">{cause.likelihood}</Badge>}
+                                {cause.severity && <Badge variant={cause.severity === 'high' ? 'destructive' : 'secondary'} className="text-xs">{cause.severity}</Badge>}
+                              </div>
+                            </div>
+                            <p className="text-xs text-slate-600 dark:text-slate-400">{cause.description}</p>
+                            {(cause.estimatedCostMin || cause.estimatedCostMax) && (
+                              <p className="text-xs font-medium text-green-600">Est. ${cause.estimatedCostMin || '?'} - ${cause.estimatedCostMax || '?'}</p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {autoDiagResult.warrantyNote && (
+                      <div className="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-lg">
+                        <p className="text-xs text-yellow-800 dark:text-yellow-200"><strong>Warranty:</strong> {autoDiagResult.warrantyNote}</p>
+                      </div>
+                    )}
+                    {autoDiagResult.questionsToAsk?.length > 0 && (
+                      <div>
+                        <h4 className="font-semibold text-sm mb-2">Questions to Ask the Mechanic</h4>
+                        <ul className="space-y-1">
+                          {autoDiagResult.questionsToAsk.map((q: string, i: number) => (
+                            <li key={i} className="text-xs text-slate-600 dark:text-slate-400 flex items-start gap-2">
+                              <span className="text-purple-500 mt-0.5">•</span> {q}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
               <Card>
                 <CardHeader>
                   <CardTitle className="text-lg flex items-center gap-2">
@@ -3074,7 +3429,7 @@ export default function WorkHubCustomerPortal() {
           {step < 4 && (
             <Button
               onClick={() => setStep(prev => Math.min(4, prev + 1))}
-              disabled={(step === 1 && !request.category) || (step === 2 && (!request.contact.name || !request.contact.phone || !request.contact.email || !request.location.city || !request.location.state))}
+              disabled={(step === 1 && !request.category) || (step === 2 && (!request.contact.name || !request.contact.phone || !request.contact.email || !request.location.city || !request.location.state || (request.category === 'auto' && (!vehicleInfo.make || !vehicleInfo.year || !request.description))))}
               data-testid="button-next-step"
             >
               Next Step

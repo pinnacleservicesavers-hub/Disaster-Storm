@@ -1,0 +1,193 @@
+Perfect. Replit is actually a great place to build your MVP.
+
+I’m going to give you:
+
+1️⃣ Exact Replit architecture
+2️⃣ What to build first (MVP plan)
+3️⃣ What NOT to overbuild
+4️⃣ How to structure this so mechanics actually pay
+
+We are building this smart, not complicated.
+
+🚗 PHASE 1 — REALISTIC MVP (Build This First)
+
+Do NOT try to build full audio classification AI from scratch.
+
+For MVP, you will:
+
+✔ Upload video
+✔ Extract frames + audio
+✔ Send to OpenAI Vision + reasoning
+✔ Generate probable issue
+✔ Estimate cost range
+✔ Show 3 nearby mechanic members
+✔ Send lead notification
+
+That’s enough to sell.
+
+🏗 REPLIT TECH STRUCTURE
+
+Create a Python Replit project.
+
+Stack:
+
+FastAPI (backend)
+
+FFmpeg (video/audio extraction)
+
+OpenAI API
+
+PostgreSQL (Replit DB or Supabase)
+
+Google Maps API
+
+📂 PROJECT STRUCTURE
+/main.py
+/services/
+    video_processor.py
+    ai_analyzer.py
+    cost_estimator.py
+    mechanic_locator.py
+/models/
+    database.py
+/static/
+/templates/
+
+
+Keep it clean from the beginning.
+
+STEP 1 — Install Dependencies
+
+In Replit:
+
+pip install fastapi uvicorn openai ffmpeg-python psycopg2 requests python-multipart
+
+
+You’ll also need to install FFmpeg in your Replit environment.
+
+STEP 2 — Video Upload Endpoint
+
+In FastAPI:
+
+Create /upload
+
+Accept video file
+
+Save temporarily
+
+Call video_processor
+
+STEP 3 — Extract Audio + Frames
+
+In video_processor.py:
+
+Use FFmpeg:
+
+Extract audio:
+
+ffmpeg -i video.mp4 -vn output.wav
+
+
+Extract frames:
+
+ffmpeg -i video.mp4 -vf fps=1 frame_%04d.png
+
+
+Now you have:
+
+Audio file
+
+5–10 image frames
+
+That’s enough for AI reasoning.
+
+STEP 4 — AI ANALYSIS (Simplified for MVP)
+
+You do NOT need custom sound ML yet.
+
+Instead:
+
+Send:
+
+Audio file transcript or description prompt
+
+3–5 image frames
+
+To OpenAI Vision model with structured prompt:
+
+Prompt example:
+
+“Analyze engine noise and visible engine components in these frames. Identify abnormal sounds, vibration, smoke, fluid leaks, belt misalignment, or knocking. Provide top 3 likely mechanical issues with probability percentages.”
+
+Return JSON format only.
+
+STEP 5 — Cost Estimator Logic
+
+Create simple database table:
+
+Issue Name
+Min Labor Hours
+Max Labor Hours
+Parts Low
+Parts High
+
+
+Store common issues:
+
+Rod knock
+
+Timing chain
+
+Water pump
+
+Alternator
+
+Brake pads
+
+Wheel bearing
+
+Misfire
+
+Then:
+
+User enters ZIP code.
+
+Pull stored average labor rate by state or city.
+
+Calculate:
+
+Min Estimate
+Max Estimate
+Urgency level
+
+
+You don’t need perfect pricing.
+You need believable range.
+
+STEP 6 — Mechanic Member System
+
+Create table:
+
+Shop Name
+ZIP
+Email
+Phone
+Subscription Status
+Tier
+
+
+When user gets diagnosis:
+
+Query DB for 3 nearest active shops.
+
+Display:
+
+“Certified Shops Near You”
+
+Send lead via:
+
+Email
+
+SMS (Twilio later)
+
+Dashboard notification
