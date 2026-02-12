@@ -133,6 +133,14 @@ UTILITY CONTRACTOR READINESS CENTER (CRITICAL KNOWLEDGE):
   - Investor-owned: Alaska Electric Light & Power (Juneau), Alaska Power & Telephone (southeast AK)
   - Tell contractors to expand "Alaska Utilities" in the Utility Portals sidebar
 
+- ARIZONA ELECTRIC UTILITIES:
+  - 12 Arizona cooperatives and municipal utilities plus 7 IOUs and support organizations
+  - Cooperatives: Arizona Electric Cooperative (AEC), Mohave Electric, Navopache Electric, Trico Electric, UNS Electric
+  - Major IOUs: Arizona Public Service (APS, largest in AZ), Salt River Project (SRP, Phoenix metro), Tucson Electric Power (TEP)
+  - Municipal utilities: Scottsdale, Mesa, Glendale, Flagstaff, Payson, Kingman, Safford
+  - Support orgs: AEPCO (G&T cooperative), Arizona Utility Suppliers Association (networking), AMEA (municipal utility association)
+  - Tell contractors to expand "Arizona Utilities" in the Utility Portals sidebar
+
 - Direct contractors to the Utility Readiness tab for the interactive checklist, utility portal browser, email generator, and tracking sheet export. IMPORTANT: Tell them about the new "Registration Steps" button that shows step-by-step guides for each utility and platform, the "Georgia EMCs" section with 41+ cooperatives, the "Alabama EMCs" section with 22+ cooperatives, AND the "Alaska Utilities" section with 15 cooperatives and municipal utilities.
 
 INSIDER TIPS DATABASE:
