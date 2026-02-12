@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { getAuthHeaders } from "@/lib/queryClient";
+import { useMutation } from '@tanstack/react-query';
+import { getAuthHeaders, apiRequest } from "@/lib/queryClient";
 import AssistantDock from '../components/AssistantDock';
 import { StateCitySelector, useStateCitySelector } from '@/components/StateCitySelector';
 import { Volume2, VolumeX, Play, Pause, RotateCcw, X, Plus } from 'lucide-react';
@@ -1190,20 +1191,16 @@ export default function App() {
   const [showProjectModal, setShowProjectModal] = useState(false);
   const [loadingProjects, setLoadingProjects] = useState(false);
   
-  // Voice Guide State
-  const [isVoiceGuideActive, setIsVoiceGuideActive] = useState(false);
+  const [isVoiceEnabled, setIsVoiceEnabled] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const hasPlayedWelcome = useRef(false);
+  const voiceEnabledRef = useRef(true);
   const [currentVoiceScript, setCurrentVoiceScript] = useState<string | null>(null);
-  const [speechSynthesis, setSpeechSynthesis] = useState<SpeechSynthesis | null>(null);
-  const [currentUtterance, setCurrentUtterance] = useState<SpeechSynthesisUtterance | null>(null);
   
   useEffect(()=>{
     const saved = localStorage.getItem('DL_scalePxPerInch');
     if (saved) setScalePxPerInchState(Number(saved));
-    
-    // Initialize Speech Synthesis
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      setSpeechSynthesis(window.speechSynthesis);
-    }
     
     // Load projects on mount
     loadProjects();
@@ -1313,77 +1310,65 @@ export default function App() {
     }
   };
 
-  // Voice Guide Functions
+  const voiceMutation = useMutation({
+    mutationFn: async (message: string) => {
+      const res = await apiRequest("POST", "/api/closebot/chat", {
+        message,
+        history: [],
+        context: { leadName: "contractor", companyName: "your company", trade: "disaster_documentation" },
+        enableVoice: true
+      });
+      return res;
+    },
+    onSuccess: (data: any) => {
+      if (data.audioUrl && audioRef.current) {
+        audioRef.current.src = data.audioUrl;
+        audioRef.current.play();
+        setIsPlaying(true);
+        audioRef.current.onended = () => setIsPlaying(false);
+      }
+    },
+  });
+
+  useEffect(() => {
+    if (!hasPlayedWelcome.current && voiceEnabledRef.current) {
+      hasPlayedWelcome.current = true;
+      voiceMutation.mutate("Welcome to Disaster Lens. I'm Rachel, your documentation assistant. I'll help you capture, annotate, and report disaster damage efficiently.");
+    }
+  }, []);
+
+  const toggleVoice = () => {
+    const newState = !isVoiceEnabled;
+    setIsVoiceEnabled(newState);
+    voiceEnabledRef.current = newState;
+    if (!newState && audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      setIsPlaying(false);
+    }
+  };
+
+  const playRachelVoice = (prompt: string) => {
+    if (voiceEnabledRef.current) {
+      voiceMutation.mutate(prompt);
+    }
+  };
+
   const startVoiceGuide = (scriptKey: keyof typeof VOICE_GUIDE_SCRIPTS) => {
-    if (!speechSynthesis) {
-      alert('Voice guidance is not supported in your browser');
-      return;
-    }
-
-    // Stop any current speech
-    stopVoiceGuide();
-
     const script = VOICE_GUIDE_SCRIPTS[scriptKey];
-    const utterance = new SpeechSynthesisUtterance(script.content);
-    
-    // Configure voice settings
-    utterance.rate = 0.8; // Slightly slower for clarity
-    utterance.pitch = 1.0;
-    utterance.volume = 1.0;
-    
-    // Set voice to a clear English voice if available
-    const voices = speechSynthesis.getVoices();
-    const englishVoice = voices.find(voice => 
-      voice.lang.startsWith('en-') && 
-      (voice.name.includes('Google') || voice.name.includes('Microsoft') || voice.name.includes('Alex'))
-    );
-    if (englishVoice) {
-      utterance.voice = englishVoice;
-    }
-
-    utterance.onstart = () => {
-      setIsVoiceGuideActive(true);
-      setCurrentVoiceScript(scriptKey);
-    };
-
-    utterance.onend = () => {
-      setIsVoiceGuideActive(false);
-      setCurrentVoiceScript(null);
-      setCurrentUtterance(null);
-    };
-
-    utterance.onerror = () => {
-      setIsVoiceGuideActive(false);
-      setCurrentVoiceScript(null);
-      setCurrentUtterance(null);
-    };
-
-    setCurrentUtterance(utterance);
-    speechSynthesis.speak(utterance);
+    setCurrentVoiceScript(scriptKey);
+    playRachelVoice(script.content.substring(0, 200));
   };
 
   const stopVoiceGuide = () => {
-    if (speechSynthesis) {
-      speechSynthesis.cancel();
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      setIsPlaying(false);
     }
-    setIsVoiceGuideActive(false);
     setCurrentVoiceScript(null);
-    setCurrentUtterance(null);
   };
 
-  const pauseVoiceGuide = () => {
-    if (speechSynthesis && isVoiceGuideActive) {
-      speechSynthesis.pause();
-    }
-  };
-
-  const resumeVoiceGuide = () => {
-    if (speechSynthesis && currentUtterance) {
-      speechSynthesis.resume();
-    }
-  };
-
-  // Auto-start voice guide for current tab
   const startTabVoiceGuide = () => {
     const scriptMap: Record<string, keyof typeof VOICE_GUIDE_SCRIPTS> = {
       'Capture': 'capture',
@@ -1401,6 +1386,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[hsl(217,91%,15%)] via-[hsl(217,91%,25%)] to-[hsl(215,25%,25%)] dark:from-[hsl(217,91%,10%)] dark:via-[hsl(217,91%,20%)] dark:to-[hsl(215,25%,20%)] text-white">
+      <audio ref={audioRef} className="hidden" />
       <header className="bg-white border-b">
         <div className="max-w-6xl mx-auto px-4 py-6">
           <div className="flex items-center justify-between">
@@ -1424,10 +1410,10 @@ export default function App() {
               {/* Voice Guide Controls */}
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-2 px-3 py-2 bg-[hsl(217,71%,53%)]/10 border border-[hsl(217,71%,53%)]/30 rounded-lg">
-                  <Volume2 className="w-4 h-4 text-[hsl(217,71%,53%)]" />
-                  <span className="text-sm font-medium text-[hsl(217,71%,43%)]">Voice Guide</span>
+                  {isPlaying ? <Volume2 className="w-4 h-4 text-[hsl(217,71%,53%)] animate-pulse" /> : isVoiceEnabled ? <Volume2 className="w-4 h-4 text-[hsl(217,71%,53%)]" /> : <VolumeX className="w-4 h-4 text-gray-400" />}
+                  <span className="text-sm font-medium text-[hsl(217,71%,43%)]">{isPlaying ? 'Playing' : isVoiceEnabled ? 'Voice Guide' : 'Voice Off'}</span>
                   
-                  {!isVoiceGuideActive ? (
+                  {!isPlaying ? (
                     <div className="flex gap-1">
                       <button
                         onClick={() => startVoiceGuide('overview')}
@@ -1445,16 +1431,16 @@ export default function App() {
                       >
                         {tab}
                       </button>
+                      <button
+                        onClick={toggleVoice}
+                        className="px-2 py-1 text-xs bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
+                        data-testid="button-voice-toggle"
+                      >
+                        {isVoiceEnabled ? <Volume2 className="w-3 h-3" /> : <VolumeX className="w-3 h-3" />}
+                      </button>
                     </div>
                   ) : (
                     <div className="flex gap-1">
-                      <button
-                        onClick={speechSynthesis?.paused ? resumeVoiceGuide : pauseVoiceGuide}
-                        className="px-2 py-1 text-xs bg-yellow-600 text-white rounded hover:bg-yellow-700 transition-colors"
-                        data-testid="button-voice-pause-resume"
-                      >
-                        {speechSynthesis?.paused ? <Play className="w-3 h-3" /> : <Pause className="w-3 h-3" />}
-                      </button>
                       <button
                         onClick={stopVoiceGuide}
                         className="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
@@ -1479,7 +1465,7 @@ export default function App() {
           </div>
           
           {/* Voice Guide Status */}
-          {isVoiceGuideActive && currentVoiceScript && (
+          {isPlaying && currentVoiceScript && (
             <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
               <div className="flex items-center gap-2">
                 <Volume2 className="w-4 h-4 text-blue-600 animate-pulse" />

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -74,69 +74,61 @@ export function TrafficCameras() {
   const [showLiveOnly, setShowLiveOnly] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [selectedOpportunity, setSelectedOpportunity] = useState<string | null>(null);
-  const [isVoiceGuideActive, setIsVoiceGuideActive] = useState(false);
-  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [isVoiceEnabled, setIsVoiceEnabled] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const hasPlayedWelcome = useRef(false);
+  const voiceEnabledRef = useRef(true);
   
-  // For now, using a hardcoded contractor ID since there's no authentication system
   const contractorId = 'contractor-demo-001';
   const queryClient = useQueryClient();
 
-  // Initialize voice loading with enhanced cleanup
+  const voiceMutation = useMutation({
+    mutationFn: async (message: string) => {
+      const res = await apiRequest("POST", "/api/closebot/chat", {
+        message,
+        history: [],
+        context: { leadName: "contractor", companyName: "your company", trade: "traffic_monitoring" },
+        enableVoice: true
+      });
+      return res;
+    },
+    onSuccess: (data: any) => {
+      if (data.audioUrl && audioRef.current) {
+        audioRef.current.src = data.audioUrl;
+        audioRef.current.play();
+        setIsPlaying(true);
+        audioRef.current.onended = () => setIsPlaying(false);
+      }
+    },
+  });
+
   useEffect(() => {
-    const loadVoices = () => {
-      if ('speechSynthesis' in window) {
-        setVoices(window.speechSynthesis.getVoices());
-      }
-    };
-    
-    loadVoices();
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.onvoiceschanged = loadVoices;
+    if (!hasPlayedWelcome.current && voiceEnabledRef.current) {
+      hasPlayedWelcome.current = true;
+      voiceMutation.mutate("Welcome to Traffic Cam Watcher. I'm Rachel, your monitoring assistant for live camera feeds and contractor opportunities.");
     }
-    
-    return () => {
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-        window.speechSynthesis.onvoiceschanged = null;
-      }
-    };
   }, []);
 
-  const startVoiceGuide = () => {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
-      console.warn('Speech synthesis not supported in this browser');
-      return;
+  const toggleVoice = () => {
+    const newState = !isVoiceEnabled;
+    setIsVoiceEnabled(newState);
+    voiceEnabledRef.current = newState;
+    if (!newState && audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      setIsPlaying(false);
     }
+  };
 
-    if (!isVoiceGuideActive) {
-      setIsVoiceGuideActive(true);
-      window.speechSynthesis.cancel();
-      
-      const voiceContent = `Welcome to Traffic Cam Watcher! This monitoring system provides access to live traffic camera feeds across multiple states to identify contractor opportunities from weather-related incidents. The main dashboard displays camera directory by state showing total cameras, active incidents, and potential contractor opportunities. You can filter by state and county to focus on specific regions. The incident detection system uses AI to automatically identify weather damage, road closures, and infrastructure issues that create contracting opportunities. Each opportunity shows estimated value, severity level, and location details. The watchlist feature lets you monitor specific states for new incidents. Camera feeds update in real-time, and you can switch between map view and list view for easier navigation.`;
-      
-      const utterance = new SpeechSynthesisUtterance(voiceContent);
-      utterance.rate = 0.9;
-      utterance.pitch = 1.0;
-      utterance.volume = 0.8;
-      
-      if (voices.length > 0) {
-        utterance.voice = voices.find(voice => voice.lang.includes('en')) || voices[0];
-      }
-      
-      utterance.onend = () => {
-        setIsVoiceGuideActive(false);
-      };
-      
-      utterance.onerror = (event) => {
-        console.error('Speech synthesis error:', event);
-        setIsVoiceGuideActive(false);
-      };
-      
-      window.speechSynthesis.speak(utterance);
-    } else {
-      window.speechSynthesis.cancel();
-      setIsVoiceGuideActive(false);
+  const playRachelVoice = (prompt: string) => {
+    if (voiceEnabledRef.current) {
+      voiceMutation.mutate(prompt);
     }
+  };
+
+  const startVoiceGuide = () => {
+    toggleVoice();
   };
 
   // Fetch directory
@@ -396,6 +388,7 @@ export function TrafficCameras() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-indigo-900 p-6 relative overflow-hidden">
+      <audio ref={audioRef} className="hidden" />
       {/* Dynamic background elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <motion.div
@@ -572,17 +565,22 @@ export function TrafficCameras() {
                   className="flex items-center gap-2 transition-all duration-200"
                   data-testid="button-voice-guide"
                   aria-label="Voice guide for Traffic Cam Watcher"
-                  aria-pressed={isVoiceGuideActive}
+                  aria-pressed={isPlaying}
                 >
-                  {isVoiceGuideActive ? (
+                  {isPlaying ? (
                     <>
-                      <VolumeX className="h-4 w-4" />
-                      Stop Guide
+                      <Volume2 className="h-4 w-4 animate-pulse" />
+                      Playing
                     </>
-                  ) : (
+                  ) : isVoiceEnabled ? (
                     <>
                       <Volume2 className="h-4 w-4" />
                       Voice Guide
+                    </>
+                  ) : (
+                    <>
+                      <VolumeX className="h-4 w-4" />
+                      Voice Off
                     </>
                   )}
                 </Button>

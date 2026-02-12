@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { 
@@ -10,6 +10,8 @@ import {
   Grid3X3, Building2, Truck, Settings, ChevronRight,
   Globe, Lock, Verified, MessageSquare, Search
 } from 'lucide-react';
+import { useMutation } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -193,57 +195,59 @@ const SERVICE_CATEGORIES = [
 export default function WorkHubMarketplace() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
-  const [isVoiceActive, setIsVoiceActive] = useState(false);
+  const [isVoiceEnabled, setIsVoiceEnabled] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const hasPlayedWelcome = useRef(false);
+  const voiceEnabledRef = useRef(true);
+
+  const voiceMutation = useMutation({
+    mutationFn: async (message: string) => {
+      const res = await apiRequest("POST", "/api/closebot/chat", {
+        message,
+        history: [],
+        context: { leadName: "contractor", companyName: "your company", trade: "marketplace" },
+        enableVoice: true
+      });
+      return res;
+    },
+    onSuccess: (data: any) => {
+      if (data.audioUrl && audioRef.current) {
+        audioRef.current.src = data.audioUrl;
+        audioRef.current.play();
+        setIsPlaying(true);
+        audioRef.current.onended = () => setIsPlaying(false);
+      }
+    },
+  });
 
   useEffect(() => {
-    const loadVoices = () => {
-      const availableVoices = window.speechSynthesis.getVoices();
-      if (availableVoices.length > 0) {
-        setVoices(availableVoices);
-      }
-    };
-    
-    loadVoices();
-    window.speechSynthesis.onvoiceschanged = loadVoices;
-    
-    return () => {
-      window.speechSynthesis.cancel();
-    };
+    if (!hasPlayedWelcome.current && voiceEnabledRef.current) {
+      hasPlayedWelcome.current = true;
+      voiceMutation.mutate("Hey there! Welcome to WorkHub! I'm Rachel, and I'm so excited to show you around. We connect customers with amazing, verified contractors for pretty much anything you need done around your home or business.");
+    }
   }, []);
 
-  const getBestFemaleVoice = (voiceList: SpeechSynthesisVoice[]) => {
-    const preferredVoices = ['Samantha', 'Zira', 'Jenny', 'Google US English Female', 'Microsoft Zira'];
-    for (const preferred of preferredVoices) {
-      const found = voiceList.find(v => v.name.includes(preferred));
-      if (found) return found;
+  const toggleVoice = () => {
+    const newState = !isVoiceEnabled;
+    setIsVoiceEnabled(newState);
+    voiceEnabledRef.current = newState;
+    if (!newState && audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      setIsPlaying(false);
     }
-    return voiceList.find(v => v.lang.startsWith('en')) || voiceList[0];
   };
 
-  const speakWelcome = () => {
-    if (voices.length === 0) return;
-    
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(
-      "Hey there! ... Welcome to WorkHub! ... " +
-      "I'm Rachel, ... and I'm so excited to show you around. ... " +
-      "So here's the deal, ... we connect customers with amazing, verified contractors, ... " +
-      "for pretty much anything you need done around your home or business. ... " +
-      "Roofing, ... tree removal, ... plumbing, ... you name it. ... " +
-      "And the cool part? ... Just snap a photo, ... and our AI figures out what you need. ... " +
-      "Go ahead and explore, ... I'm here if you need me!"
-    );
-    utterance.voice = getBestFemaleVoice(voices);
-    utterance.pitch = 1.0;
-    utterance.rate = 0.88;
-    utterance.onstart = () => setIsVoiceActive(true);
-    utterance.onend = () => setIsVoiceActive(false);
-    window.speechSynthesis.speak(utterance);
+  const playRachelVoice = (prompt: string) => {
+    if (voiceEnabledRef.current) {
+      voiceMutation.mutate(prompt);
+    }
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white dark:from-slate-950 dark:to-slate-900">
+      <audio ref={audioRef} className="hidden" />
       
       {/* Hero Section */}
       <section className="relative overflow-hidden">
@@ -312,10 +316,10 @@ export default function WorkHubMarketplace() {
                 size="lg" 
                 variant="ghost" 
                 className="text-white hover:bg-white/10 h-14 px-6"
-                onClick={speakWelcome}
+                onClick={toggleVoice}
                 data-testid="button-voice-intro"
               >
-                {isVoiceActive ? <Volume2 className="w-5 h-5 animate-pulse" /> : <Play className="w-5 h-5" />}
+                {isPlaying ? <Volume2 className="w-5 h-5 animate-pulse" /> : isVoiceEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
                 <span className="ml-2">Hear Rachel Explain</span>
               </Button>
             </motion.div>

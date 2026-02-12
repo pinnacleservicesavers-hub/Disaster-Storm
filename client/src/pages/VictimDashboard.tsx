@@ -74,8 +74,11 @@ export default function VictimDashboard() {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [emergencyMode, setEmergencyMode] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(true);
-  const [isVoiceGuideActive, setIsVoiceGuideActive] = useState(false);
-  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [isVoiceEnabled, setIsVoiceEnabled] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const hasPlayedWelcome = useRef(false);
+  const voiceEnabledRef = useRef(true);
   const [isClaimModalOpen, setIsClaimModalOpen] = useState(false);
   const [isContractorModalOpen, setIsContractorModalOpen] = useState(false);
   const [isShelterModalOpen, setIsShelterModalOpen] = useState(false);
@@ -108,91 +111,52 @@ export default function VictimDashboard() {
     navigate('/victim/request-help');
   };
 
-  // Initialize voice loading with enhanced cleanup
+  const voiceMutation = useMutation({
+    mutationFn: async (message: string) => {
+      const res = await apiRequest("POST", "/api/closebot/chat", {
+        message,
+        history: [],
+        context: { leadName: "contractor", companyName: "your company", trade: "disaster_response" },
+        enableVoice: true
+      });
+      return res;
+    },
+    onSuccess: (data: any) => {
+      if (data.audioUrl && audioRef.current) {
+        audioRef.current.src = data.audioUrl;
+        audioRef.current.play();
+        setIsPlaying(true);
+        audioRef.current.onended = () => setIsPlaying(false);
+      }
+    },
+  });
+
   useEffect(() => {
-    const loadVoices = () => {
-      if ('speechSynthesis' in window) {
-        setVoices(window.speechSynthesis.getVoices());
-      }
-    };
-    
-    loadVoices();
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.onvoiceschanged = loadVoices;
+    if (!hasPlayedWelcome.current && voiceEnabledRef.current) {
+      hasPlayedWelcome.current = true;
+      voiceMutation.mutate("Welcome to the Storm Victim Portal. I'm Rachel, and I'm here to help you through this difficult time. You are not alone.");
     }
-    
-    return () => {
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-        window.speechSynthesis.onvoiceschanged = null;
-      }
-    };
   }, []);
 
-  const startVoiceGuide = async () => {
-    if (!isVoiceGuideActive) {
-      setIsVoiceGuideActive(true);
-      
-      const voiceContent = `Welcome to the Storm Victim Portal. We're here to help you through this difficult time. You are not alone. 
-
-First, know that help is available. We have many qualified contractors ready to assist you, and you have the power to choose who works on your property. You can browse our contractor directory, review their qualifications, and select the professionals you trust most.
-
-With your consent, our system can share your information with contractors so they can reach out to help you quickly. You remain in control - you decide who gets your information and when.
-
-Our AI assistant is available 24/7 to answer any questions you have. Ask about contractors, what repairs you need, insurance claims, or anything else. The AI can respond by text or voice, providing helpful information exactly when you need it.
-
-Important resources available to you: FEMA disaster assistance is available by calling 1-800-621-3362. FEMA can help homeowners, renters, and business owners with temporary housing, home repairs, and other disaster-related expenses. 
-
-We also have information about emergency shelters, SBA disaster loans for businesses and homeowners, and contractors who work with little to no out-of-pocket costs - they bill your insurance company directly.
-
-For emergency tree removal, Strategic Land Management LLC specializes in storm cleanup and works directly with insurance companies.
-
-You can ask our AI assistant about any of these resources, and it will guide you to the help you need. Remember, help is out there, and we're here to connect you with it. Take a deep breath - we'll get through this together.`;
-      
-      try {
-        // Call server API to generate Rachel's energetic female voice (ElevenLabs)
-        const response = await fetch('/api/voice-ai/generate', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ 
-            text: voiceContent,
-            provider: 'elevenlabs',
-            voiceId: '21m00Tcm4TlvDq8ikWAM' // Rachel - energetic female voice
-          }),
-        });
-
-        if (!response.ok) {
-          throw new Error('Voice generation failed');
-        }
-
-        const data = await response.json();
-        
-        if (data.audioBase64) {
-          // Create and play audio
-          const audio = new Audio(`data:audio/mpeg;base64,${data.audioBase64}`);
-          
-          audio.onended = () => {
-            setIsVoiceGuideActive(false);
-          };
-          
-          audio.onerror = () => {
-            console.error('Audio playback error');
-            setIsVoiceGuideActive(false);
-          };
-          
-          await audio.play();
-        } else {
-          setIsVoiceGuideActive(false);
-        }
-      } catch (error) {
-        console.error('Voice guide error:', error);
-        setIsVoiceGuideActive(false);
-      }
-    } else {
-      setIsVoiceGuideActive(false);
+  const toggleVoice = () => {
+    const newState = !isVoiceEnabled;
+    setIsVoiceEnabled(newState);
+    voiceEnabledRef.current = newState;
+    if (!newState && audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      setIsPlaying(false);
     }
+  };
+
+  const playRachelVoice = (prompt: string) => {
+    if (voiceEnabledRef.current) {
+      voiceMutation.mutate(prompt);
+    }
+  };
+
+  const startVoiceGuide = () => {
+    toggleVoice();
   };
 
   // Enhanced mock emergency steps
@@ -829,6 +793,7 @@ You can ask our AI assistant about any of these resources, and it will guide you
 
   return (
     <div className="space-y-6" data-testid="victim-dashboard">
+      <audio ref={audioRef} className="hidden" />
       {/* Enhanced Header Section */}
       <FadeIn>
         <div className="relative overflow-hidden bg-gradient-to-r from-[hsl(217,91%,25%)] via-[hsl(217,71%,35%)] to-[hsl(217,91%,35%)] dark:from-[hsl(217,91%,20%)] dark:via-[hsl(217,71%,30%)] dark:to-[hsl(217,91%,30%)] rounded-xl border border-slate-200 dark:border-slate-700 p-6">
@@ -931,17 +896,22 @@ You can ask our AI assistant about any of these resources, and it will guide you
                   className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white border-white/20"
                   data-testid="button-voice-guide"
                   aria-label="Voice guide for Victim Portal"
-                  aria-pressed={isVoiceGuideActive}
+                  aria-pressed={isPlaying}
                 >
-                  {isVoiceGuideActive ? (
+                  {isPlaying ? (
                     <>
-                      <VolumeX className="h-4 w-4" />
-                      Stop Guide
+                      <Volume2 className="h-4 w-4 animate-pulse" />
+                      Playing
                     </>
-                  ) : (
+                  ) : isVoiceEnabled ? (
                     <>
                       <Volume2 className="h-4 w-4" />
                       Voice Guide
+                    </>
+                  ) : (
+                    <>
+                      <VolumeX className="h-4 w-4" />
+                      Voice Off
                     </>
                   )}
                 </Button>

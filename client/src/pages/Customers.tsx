@@ -1,14 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { User, Plus, Search, Settings, Phone, Mail, MessageSquare, Clock, Star, TrendingUp, Activity, Volume2, VolumeX, ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { DashboardSection } from '@/components/DashboardSection';
 import { FadeIn, SlideIn, StaggerContainer, StaggerItem, HoverLift } from '@/components/ui/animations';
 import { StateCitySelector, useStateCitySelector } from '@/components/StateCitySelector';
+import { apiRequest } from '@/lib/queryClient';
 import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 
 interface Customer {
@@ -36,8 +37,11 @@ interface Communication {
 export default function Customers() {
   const { selectedState, setSelectedState, selectedCity, setSelectedCity, availableCities } = useStateCitySelector('Florida', 'Miami');
   const [selectedFilter, setSelectedFilter] = useState('all');
-  const [isVoiceGuideActive, setIsVoiceGuideActive] = useState(false);
-  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [isVoiceEnabled, setIsVoiceEnabled] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const hasPlayedWelcome = useRef(false);
+  const voiceEnabledRef = useRef(true);
 
   // Mock customer data with cohort metrics
   const { data: customers = [], isLoading } = useQuery({
@@ -75,19 +79,49 @@ export default function Customers() {
     refetchInterval: 30000,
   });
 
-  // Initialize voice loading
+  const voiceMutation = useMutation({
+    mutationFn: async (message: string) => {
+      const res = await apiRequest("POST", "/api/closebot/chat", {
+        message,
+        history: [],
+        context: { leadName: "contractor", companyName: "your company", trade: "customer_management" },
+        enableVoice: true
+      });
+      return res;
+    },
+    onSuccess: (data: any) => {
+      if (data.audioUrl && audioRef.current) {
+        audioRef.current.src = data.audioUrl;
+        audioRef.current.play();
+        setIsPlaying(true);
+        audioRef.current.onended = () => setIsPlaying(false);
+      }
+    },
+  });
+
   useEffect(() => {
-    const loadVoices = () => {
-      setVoices(window.speechSynthesis.getVoices());
-    };
-    
-    loadVoices();
-    window.speechSynthesis.onvoiceschanged = loadVoices;
-    
-    return () => {
-      window.speechSynthesis.onvoiceschanged = null;
-    };
+    if (!hasPlayedWelcome.current && voiceEnabledRef.current) {
+      hasPlayedWelcome.current = true;
+      voiceMutation.mutate("Welcome to the Customer Hub. This is your comprehensive customer relationship management dashboard for disaster recovery operations.");
+    }
   }, []);
+
+  const toggleVoice = () => {
+    const newState = !isVoiceEnabled;
+    setIsVoiceEnabled(newState);
+    voiceEnabledRef.current = newState;
+    if (!newState && audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      setIsPlaying(false);
+    }
+  };
+
+  const playRachelVoice = (prompt: string) => {
+    if (voiceEnabledRef.current) {
+      voiceMutation.mutate(prompt);
+    }
+  };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -116,81 +150,8 @@ export default function Customers() {
     }
   };
 
-  // Voice Guide Function
   const startVoiceGuide = () => {
-    // Feature detection
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
-      console.warn('Speech synthesis not supported in this browser');
-      return;
-    }
-
-    if (!isVoiceGuideActive) {
-      setIsVoiceGuideActive(true);
-      
-      // Cancel any ongoing speech
-      window.speechSynthesis.cancel();
-      
-      const voiceContent = `Welcome to the Customer Hub Voice Navigation Guide. This is your comprehensive customer relationship management dashboard for disaster recovery operations.
-
-      At the top of the page, you'll see key performance indicators:
-      - Total Customers showing 15,847 active customers with 342 new this month
-      - Active Projects displaying currently ongoing customer projects
-      - Satisfaction Rate showing the average customer rating out of 5 stars
-      - Monthly Revenue from active customer relationships
-
-      The main action buttons include:
-      - Add Customer with a plus icon to register new customers affected by disasters
-      - Search Customers with a search icon to quickly find specific customer records
-      - Analytics with a trending up icon to view customer relationship insights
-
-      The customer list displays critical information for each customer:
-      - Customer name and contact information including phone and email
-      - Project location and current status - Active, Completed, or Pending
-      - Project value showing the financial scope of each customer's needs
-      - Last contact timestamp to track communication frequency
-      - Satisfaction ratings to monitor service quality
-      - Project type indicating the specific disaster recovery service needed
-
-      The Recent Communications section shows:
-      - Communication type icons - phone for calls, mail for emails, message for SMS
-      - Subject lines and timestamps for all customer interactions
-      - Delivery status indicators showing sent, delivered, or read status
-      - Color coding - green for read messages, blue for delivered, gray for sent
-
-      This Customer Hub helps emergency response teams maintain strong relationships with disaster victims, track service delivery, and ensure no customer communication is missed during critical recovery periods. The voice guide provides accessibility support for users with visual impairments or when hands-free operation is needed during emergency response situations.`;
-      
-      const utterance = new SpeechSynthesisUtterance(voiceContent);
-      utterance.rate = 0.9;
-      utterance.pitch = 1.0;
-      utterance.volume = 0.8;
-      
-      if (voices.length > 0) {
-        // Prefer natural female voices for warm, empathetic delivery
-        const femaleVoice = voices.find(voice => 
-          voice.lang.includes('en') && 
-          (voice.name.toLowerCase().includes('female') || 
-           voice.name.toLowerCase().includes('zira') ||
-           voice.name.toLowerCase().includes('samantha') ||
-           voice.name.toLowerCase().includes('google uk') ||
-           voice.name.toLowerCase().includes('fiona'))
-        );
-        utterance.voice = femaleVoice || voices.find(voice => voice.lang.includes('en')) || voices[0];
-      }
-      
-      utterance.onend = () => {
-        setIsVoiceGuideActive(false);
-      };
-      
-      utterance.onerror = (event) => {
-        console.error('Speech synthesis error:', event);
-        setIsVoiceGuideActive(false);
-      };
-      
-      window.speechSynthesis.speak(utterance);
-    } else {
-      window.speechSynthesis.cancel();
-      setIsVoiceGuideActive(false);
-    }
+    toggleVoice();
   };
 
   // Calculate cohort metrics
@@ -202,6 +163,7 @@ export default function Customers() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[hsl(217,91%,15%)] via-[hsl(217,91%,25%)] to-[hsl(215,25%,25%)] dark:from-[hsl(217,91%,10%)] dark:via-[hsl(217,91%,20%)] dark:to-[hsl(215,25%,20%)]">
+      <audio ref={audioRef} className="hidden" />
       <div className="container mx-auto px-4 py-6 space-y-6">
         <div className="flex items-center gap-4">
           <Link to="/">
@@ -241,13 +203,13 @@ export default function Customers() {
         { icon: Search, label: 'Search Customers', variant: 'outline', testId: 'button-search-customers' },
         { icon: TrendingUp, label: 'Analytics', variant: 'outline', testId: 'button-customer-analytics' },
         { 
-          icon: isVoiceGuideActive ? VolumeX : Volume2, 
-          label: isVoiceGuideActive ? 'Stop Guide' : 'Voice Guide', 
+          icon: isPlaying ? Volume2 : isVoiceEnabled ? Volume2 : VolumeX, 
+          label: isPlaying ? 'Playing' : isVoiceEnabled ? 'Voice Guide' : 'Voice Off', 
           variant: 'outline', 
           testId: 'button-voice-guide',
           onClick: startVoiceGuide,
           'aria-label': 'Voice guide for Customer Hub',
-          'aria-pressed': isVoiceGuideActive
+          'aria-pressed': isPlaying
         }
       ]}
       testId="customers-section"

@@ -182,47 +182,73 @@ export function RealTimeDamageAlert({ className = '', onIncident, onContractorAl
     }
   });
 
-  // Advanced text-to-speech for incidents
-  const speakIncidentAlert = (incident: DamageIncident) => {
-    if ('speechSynthesis' in window) {
-      const utterance = new SpeechSynthesisUtterance(
-        `DAMAGE ALERT: ${incident.damage.object} has hit ${incident.damage.target} at ${incident.location.address}. ` +
-        `Homeowner: ${incident.homeowner.name}, Phone: ${incident.homeowner.phone}. ` +
-        `Estimated repair cost: $${incident.damage.estimatedCost.min.toLocaleString()} to $${incident.damage.estimatedCost.max.toLocaleString()}. ` +
-        `Service needed: ${incident.contractorInfo.serviceNeeded.join(', ')}. ` +
-        `Revenue projection: $${incident.contractorInfo.revenueProjection.toLocaleString()}.`
-      );
-      
-      utterance.rate = 1.1;
-      utterance.pitch = 1.0;
-      utterance.volume = 1.0;
-      
-      // Use more urgent voice settings for severe damage
-      if (incident.damage.severity === 'severe' || incident.damage.severity === 'catastrophic') {
-        utterance.rate = 1.2;
-        utterance.pitch = 1.1;
+  const speakIncidentAlert = async (incident: DamageIncident) => {
+    const message = `DAMAGE ALERT: ${incident.damage.object} has hit ${incident.damage.target} at ${incident.location.address}. ` +
+      `Homeowner: ${incident.homeowner.name}, Phone: ${incident.homeowner.phone}. ` +
+      `Estimated repair cost: $${incident.damage.estimatedCost.min.toLocaleString()} to $${incident.damage.estimatedCost.max.toLocaleString()}. ` +
+      `Service needed: ${incident.contractorInfo.serviceNeeded.join(', ')}. ` +
+      `Revenue projection: $${incident.contractorInfo.revenueProjection.toLocaleString()}.`;
+    
+    try {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
       }
       
-      window.speechSynthesis.speak(utterance);
+      const response = await fetch('/api/closebot/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message,
+          history: [],
+          context: { leadName: "user", companyName: "the company", trade: "general" },
+          enableVoice: true
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (data.audioUrl) {
+        audioRef.current = new Audio(data.audioUrl);
+        await audioRef.current.play();
+      }
+    } catch (error) {
+      console.error('Incident alert voice error:', error);
     }
   };
 
-  // Advanced contractor positioning alerts
-  const speakContractorAlert = (alert: ContractorAlert) => {
-    if ('speechSynthesis' in window) {
-      const urgencyPrefix = alert.priority === 'emergency' ? 'EMERGENCY ALERT: ' : 
-                            alert.priority === 'critical' ? 'CRITICAL ALERT: ' : 
-                            'CONTRACTOR ALERT: ';
+  const speakContractorAlert = async (alert: ContractorAlert) => {
+    const urgencyPrefix = alert.priority === 'emergency' ? 'EMERGENCY ALERT: ' : 
+                          alert.priority === 'critical' ? 'CRITICAL ALERT: ' : 
+                          'CONTRACTOR ALERT: ';
+    
+    const message = `${urgencyPrefix}${alert.message}. Location: ${alert.location.address}. ${alert.actionRequired}`;
+    
+    try {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
       
-      const utterance = new SpeechSynthesisUtterance(
-        `${urgencyPrefix}${alert.message}. Location: ${alert.location.address}. ${alert.actionRequired}`
-      );
+      const response = await fetch('/api/closebot/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message,
+          history: [],
+          context: { leadName: "user", companyName: "the company", trade: "general" },
+          enableVoice: true
+        })
+      });
       
-      utterance.rate = alert.priority === 'emergency' ? 1.3 : 1.1;
-      utterance.pitch = alert.priority === 'emergency' ? 1.2 : 1.0;
-      utterance.volume = 1.0;
+      const data = await response.json();
       
-      window.speechSynthesis.speak(utterance);
+      if (data.audioUrl) {
+        audioRef.current = new Audio(data.audioUrl);
+        await audioRef.current.play();
+      }
+    } catch (error) {
+      console.error('Contractor alert voice error:', error);
     }
   };
 

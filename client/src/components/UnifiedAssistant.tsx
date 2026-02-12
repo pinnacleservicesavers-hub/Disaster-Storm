@@ -166,7 +166,7 @@ export function UnifiedAssistant({
       if (voiceResponse.audioBase64) {
         await playAudio(voiceResponse.audioBase64);
       } else {
-        await playBrowserTTS(voiceResponse.text);
+        await speakWithElevenLabs(voiceResponse.text);
       }
       
       setIsExpanded(true);
@@ -209,7 +209,7 @@ export function UnifiedAssistant({
       if (voiceResponse.audioBase64) {
         await playAudio(voiceResponse.audioBase64);
       } else {
-        await playBrowserTTS(voiceResponse.text);
+        await speakWithElevenLabs(voiceResponse.text);
       }
       
       setIsExpanded(true);
@@ -267,46 +267,38 @@ export function UnifiedAssistant({
     }
   };
 
-  const playBrowserTTS = async (text: string) => {
+  const speakWithElevenLabs = async (text: string) => {
     try {
-      if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
-        console.warn('Speech synthesis not supported');
-        return;
-      }
-
-      window.speechSynthesis.cancel();
-      
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 0.9;
-      utterance.pitch = 1.0;
-      utterance.volume = 0.8;
-      
-      const voices = window.speechSynthesis.getVoices();
-      const femaleVoice = voices.find(voice => {
-        const name = voice.name.toLowerCase();
-        return (name.includes('female') || name.includes('woman') ||
-               name.includes('zira') || name.includes('hazel') ||
-               name.includes('samantha') || name.includes('karen') ||
-               name.includes('victoria') || name.includes('susan') ||
-               name.includes('mary') || name.includes('anna') ||
-               name.includes('emma') || name.includes('alice')) && 
-               voice.lang.includes('en');
-      }) || voices.find(voice => voice.lang.includes('en')) || voices[0];
-      
-      if (femaleVoice) {
-        utterance.voice = femaleVoice;
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
       }
       
-      utterance.onstart = () => setIsPlaying(true);
-      utterance.onend = () => setIsPlaying(false);
-      utterance.onerror = () => {
-        setIsPlaying(false);
-        setError('Failed to play speech');
-      };
+      const response = await fetch('/api/closebot/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: text,
+          history: [],
+          context: { leadName: "user", companyName: "the company", trade: "general" },
+          enableVoice: true
+        })
+      });
       
-      window.speechSynthesis.speak(utterance);
+      const data = await response.json();
+      
+      if (data.audioUrl) {
+        audioRef.current = new Audio(data.audioUrl);
+        audioRef.current.onplay = () => setIsPlaying(true);
+        audioRef.current.onended = () => setIsPlaying(false);
+        audioRef.current.onerror = () => {
+          setIsPlaying(false);
+          setError('Failed to play speech');
+        };
+        await audioRef.current.play();
+      }
     } catch (error) {
-      console.error('Error with browser TTS:', error);
+      console.error('Error with ElevenLabs TTS:', error);
       setError('Failed to play speech');
     }
   };
@@ -315,10 +307,6 @@ export function UnifiedAssistant({
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
-    }
-    
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
     }
     
     if (recognitionRef.current && isListening) {
@@ -336,7 +324,7 @@ export function UnifiedAssistant({
     if (currentResponse?.audioBase64) {
       playAudio(currentResponse.audioBase64);
     } else if (currentResponse?.text) {
-      playBrowserTTS(currentResponse.text);
+      speakWithElevenLabs(currentResponse.text);
     }
   };
 

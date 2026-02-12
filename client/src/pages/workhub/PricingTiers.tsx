@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Check, X, Zap, Crown, Building2, Rocket, ArrowRight, Volume2, VolumeX } from 'lucide-react';
+import { Check, X, Zap, Crown, Building2, Rocket, ArrowRight, Volume2, VolumeX, Heart } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { useMutation } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
 
 const pricingTiers = [
   {
@@ -117,70 +119,64 @@ const pricingTiers = [
   }
 ];
 
-function getBestFemaleVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | null {
-  const preferredVoices = ['Samantha', 'Zira', 'Jenny', 'Google US English Female', 'Microsoft Zira', 'Karen', 'Moira', 'Tessa', 'Fiona'];
-  for (const name of preferredVoices) {
-    const voice = voices.find(v => v.name.includes(name));
-    if (voice) return voice;
-  }
-  const femaleVoice = voices.find(v => 
-    v.name.toLowerCase().includes('female') || 
-    v.lang.startsWith('en') && !v.name.toLowerCase().includes('male')
-  );
-  return femaleVoice || voices.find(v => v.lang.startsWith('en')) || voices[0];
-}
-
 export default function PricingTiers() {
   const [isAnnual, setIsAnnual] = useState(false);
-  const [voiceEnabled, setVoiceEnabled] = useState(true);
-  const [hasSpoken, setHasSpoken] = useState(false);
+  const [isVoiceEnabled, setIsVoiceEnabled] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const hasPlayedWelcome = useRef(false);
+  const voiceEnabledRef = useRef(true);
+
+  const stopAudio = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+    setIsPlaying(false);
+  };
+
+  const voiceMutation = useMutation({
+    mutationFn: async (message: string) => {
+      const res = await apiRequest("POST", "/api/closebot/chat", {
+        message,
+        history: [],
+        context: { leadName: "contractor", companyName: "your company", trade: "pricing" },
+        enableVoice: true,
+      });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      if (!voiceEnabledRef.current) return;
+      if (data.audioUrl && audioRef.current) {
+        setIsPlaying(true);
+        audioRef.current.src = data.audioUrl;
+        audioRef.current.onended = () => setIsPlaying(false);
+        audioRef.current.play().catch(() => setIsPlaying(false));
+      }
+    },
+  });
 
   useEffect(() => {
-    if (!voiceEnabled || hasSpoken) return;
-    
-    const speak = () => {
-      const voices = speechSynthesis.getVoices();
-      if (voices.length === 0) return;
-      
-      speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(
-        "Hey there! ... Welcome to WorkHub Pricing. ... " +
-        "I'm Rachel, and I'm here to help you find the right plan for your business. ... " +
-        "So, we've got four options, ... starting completely free, ... " +
-        "and going up to Enterprise for larger teams. ... " +
-        "Most contractors love our Pro plan ... because it gives you unlimited leads, ... " +
-        "and that AI sales assistant that actually books jobs for you. ... " +
-        "Take your time browsing, ... and feel free to ask me anything!"
-      );
-      
-      const voice = getBestFemaleVoice(voices);
-      if (voice) utterance.voice = voice;
-      utterance.pitch = 1.0;
-      utterance.rate = 0.9;
-      
-      speechSynthesis.speak(utterance);
-      setHasSpoken(true);
-    };
-
-    if (speechSynthesis.getVoices().length > 0) {
-      speak();
-    } else {
-      speechSynthesis.onvoiceschanged = speak;
+    if (!hasPlayedWelcome.current) {
+      hasPlayedWelcome.current = true;
+      voiceMutation.mutate("Give a brief, warm 1-sentence welcome to WorkHub Pricing. You're Rachel, helping them find the right plan — from free to enterprise. Most contractors love the Pro plan. Keep it super short and natural.");
     }
-
-    return () => speechSynthesis.cancel();
-  }, [voiceEnabled, hasSpoken]);
+  }, []);
 
   const toggleVoice = () => {
-    if (voiceEnabled) {
-      speechSynthesis.cancel();
+    const newEnabled = !isVoiceEnabled;
+    setIsVoiceEnabled(newEnabled);
+    voiceEnabledRef.current = newEnabled;
+    if (!newEnabled) {
+      stopAudio();
+    } else {
+      voiceMutation.mutate("Say a quick, natural 1-sentence overview of the pricing plans — four options from free to enterprise, with Pro being the most popular for unlimited leads and AI sales. Keep it warm and conversational.");
     }
-    setVoiceEnabled(!voiceEnabled);
-    setHasSpoken(false);
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+      <audio ref={audioRef} className="hidden" />
       <div className="max-w-7xl mx-auto px-4 py-16">
         <div className="flex justify-between items-start mb-8">
           <Link to="/workhub" className="text-purple-300 hover:text-white transition-colors">
@@ -193,7 +189,7 @@ export default function PricingTiers() {
             className="text-white/70 hover:text-white"
             data-testid="button-toggle-voice"
           >
-            {voiceEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
+            {isPlaying ? <Volume2 className="w-5 h-5 animate-pulse" /> : isVoiceEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
           </Button>
         </div>
 

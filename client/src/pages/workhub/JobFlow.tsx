@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Briefcase, ChevronRight, Volume2, VolumeX, CheckCircle,
-  Clock, Camera, DollarSign, Users, ArrowRight, Play, Pause
+  Clock, Camera, DollarSign, Users, ArrowRight, Play, Pause, Heart
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,8 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import TopNav from '@/components/TopNav';
 import ModuleAIAssistant from '@/components/ModuleAIAssistant';
+import { useMutation } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
 
 const MOCK_JOBS = [
   { id: 1, customer: 'Robert Williams', service: 'Tree Removal', value: 2100, progress: 60, status: 'in_progress', startDate: 'Dec 15', dueDate: 'Dec 18', milestones: ['Site Prep', 'Cutting', 'Cleanup'] },
@@ -18,48 +20,57 @@ const MOCK_JOBS = [
 ];
 
 export default function JobFlow() {
-  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
-  const [isVoiceActive, setIsVoiceActive] = useState(false);
+  const [isVoiceEnabled, setIsVoiceEnabled] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const hasPlayedWelcome = useRef(false);
+  const voiceEnabledRef = useRef(true);
 
-  useEffect(() => {
-    const loadVoices = () => {
-      const availableVoices = window.speechSynthesis.getVoices();
-      if (availableVoices.length > 0) {
-        setVoices(availableVoices);
-      }
-    };
-    loadVoices();
-    window.speechSynthesis.onvoiceschanged = loadVoices;
-    return () => { window.speechSynthesis.cancel(); };
-  }, []);
-
-  useEffect(() => {
-    if (voices.length > 0) {
-      setTimeout(() => {
-        speakGuidance("Welcome to JobFlow! I'm Rachel, your project command center assistant. You have 1 job in progress at 60% complete, 1 scheduled to start soon, and 1 recently completed. I'll help you track milestones and keep customers updated on progress.");
-      }, 500);
+  const stopAudio = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
     }
-  }, [voices]);
-
-  const getBestFemaleVoice = (voiceList: SpeechSynthesisVoice[]) => {
-    const preferredVoices = ['Samantha', 'Zira', 'Jenny', 'Google US English Female', 'Microsoft Zira'];
-    for (const preferred of preferredVoices) {
-      const found = voiceList.find(v => v.name.includes(preferred));
-      if (found) return found;
-    }
-    return voiceList.find(v => v.lang.startsWith('en')) || voiceList[0];
+    setIsPlaying(false);
   };
 
-  const speakGuidance = (text: string) => {
-    if (voices.length === 0) return;
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.voice = getBestFemaleVoice(voices);
-    utterance.pitch = 1.0;
-    utterance.rate = 0.88;
-    utterance.onstart = () => setIsVoiceActive(true);
-    utterance.onend = () => setIsVoiceActive(false);
-    window.speechSynthesis.speak(utterance);
+  const voiceMutation = useMutation({
+    mutationFn: async (message: string) => {
+      const res = await apiRequest("POST", "/api/closebot/chat", {
+        message,
+        history: [],
+        context: { leadName: "contractor", companyName: "your company", trade: "project_management" },
+        enableVoice: true,
+      });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      if (!voiceEnabledRef.current) return;
+      if (data.audioUrl && audioRef.current) {
+        setIsPlaying(true);
+        audioRef.current.src = data.audioUrl;
+        audioRef.current.onended = () => setIsPlaying(false);
+        audioRef.current.play().catch(() => setIsPlaying(false));
+      }
+    },
+  });
+
+  useEffect(() => {
+    if (!hasPlayedWelcome.current) {
+      hasPlayedWelcome.current = true;
+      voiceMutation.mutate("Give a brief, warm 1-sentence welcome to JobFlow. You're Rachel, their project command center assistant. They have 1 job in progress, 1 scheduled, and 1 completed. Keep it super short and natural.");
+    }
+  }, []);
+
+  const toggleVoice = () => {
+    const newEnabled = !isVoiceEnabled;
+    setIsVoiceEnabled(newEnabled);
+    voiceEnabledRef.current = newEnabled;
+    if (!newEnabled) {
+      stopAudio();
+    } else {
+      voiceMutation.mutate("Say a quick, natural 1-sentence overview of JobFlow — tracking every job from estimate to completion with real-time progress updates. Keep it warm and conversational.");
+    }
   };
 
   const getStatusBadge = (status: string) => {
@@ -75,6 +86,7 @@ export default function JobFlow() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-indigo-50 to-white dark:from-slate-950 dark:to-slate-900">
       <TopNav />
+      <audio ref={audioRef} className="hidden" />
 
       <div className="bg-gradient-to-r from-indigo-600 to-blue-600 text-white py-12 px-4">
         <div className="max-w-6xl mx-auto">
@@ -91,10 +103,10 @@ export default function JobFlow() {
             <Button
               variant="ghost"
               size="lg"
-              onClick={() => isVoiceActive ? window.speechSynthesis.cancel() : speakGuidance("I'm Rachel. JobFlow helps you track every job from estimate to completion with real-time progress updates for both you and your customers.")}
+              onClick={toggleVoice}
               className="text-white hover:bg-white/10"
             >
-              {isVoiceActive ? <Volume2 className="w-6 h-6 animate-pulse" /> : <VolumeX className="w-6 h-6" />}
+              {isPlaying ? <Volume2 className="w-6 h-6 animate-pulse" /> : isVoiceEnabled ? <Volume2 className="w-6 h-6" /> : <VolumeX className="w-6 h-6" />}
             </Button>
           </div>
         </div>

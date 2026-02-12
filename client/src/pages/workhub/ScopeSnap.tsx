@@ -1,66 +1,82 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import {
   Camera, Video, Upload, Sparkles, CheckCircle, AlertCircle,
   ChevronRight, Volume2, VolumeX, Loader2, Zap, Eye, Layers,
-  Image, FileImage, X, Plus, ArrowRight
+  Image, FileImage, X, Plus, ArrowRight, Heart
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import ModuleAIAssistant from '@/components/ModuleAIAssistant';
+import { useMutation } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 
 export default function ScopeSnap() {
-  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
-  const [isVoiceActive, setIsVoiceActive] = useState(false);
+  const [isVoiceEnabled, setIsVoiceEnabled] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const hasPlayedWelcome = useRef(false);
+  const voiceEnabledRef = useRef(true);
+
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResults, setAnalysisResults] = useState<any>(null);
 
-  useEffect(() => {
-    const loadVoices = () => {
-      const availableVoices = window.speechSynthesis.getVoices();
-      if (availableVoices.length > 0) {
-        setVoices(availableVoices);
-      }
-    };
-    loadVoices();
-    window.speechSynthesis.onvoiceschanged = loadVoices;
-    
-    return () => { window.speechSynthesis.cancel(); };
-  }, []);
-
-  useEffect(() => {
-    if (voices.length > 0) {
-      setTimeout(() => {
-        speakGuidance("Welcome to ScopeSnap! I'm Rachel, and I'll help you analyze your project photos. Upload images or videos, and our AI will instantly identify the type of work needed, detect issues, and match you with the right trade professionals.");
-      }, 500);
+  const stopAudio = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
     }
-  }, [voices]);
-
-  const getBestFemaleVoice = (voiceList: SpeechSynthesisVoice[]) => {
-    const preferredVoices = ['Samantha', 'Zira', 'Jenny', 'Google US English Female', 'Microsoft Zira'];
-    for (const preferred of preferredVoices) {
-      const found = voiceList.find(v => v.name.includes(preferred));
-      if (found) return found;
-    }
-    return voiceList.find(v => v.lang.startsWith('en')) || voiceList[0];
+    setIsPlaying(false);
   };
 
-  const speakGuidance = (text: string) => {
-    if (voices.length === 0) return;
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.voice = getBestFemaleVoice(voices);
-    utterance.pitch = 1.0;
-    utterance.rate = 0.88;
-    utterance.onstart = () => setIsVoiceActive(true);
-    utterance.onend = () => setIsVoiceActive(false);
-    window.speechSynthesis.speak(utterance);
+  const voiceMutation = useMutation({
+    mutationFn: async (message: string) => {
+      const res = await apiRequest("POST", "/api/closebot/chat", {
+        message,
+        history: [],
+        context: { leadName: "contractor", companyName: "your company", trade: "photo_analysis" },
+        enableVoice: true,
+      });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      if (!voiceEnabledRef.current) return;
+      if (data.audioUrl && audioRef.current) {
+        setIsPlaying(true);
+        audioRef.current.src = data.audioUrl;
+        audioRef.current.onended = () => setIsPlaying(false);
+        audioRef.current.play().catch(() => setIsPlaying(false));
+      }
+    },
+  });
+
+  const playRachelVoice = (prompt: string) => {
+    if (!voiceEnabledRef.current) return;
+    stopAudio();
+    voiceMutation.mutate(prompt);
+  };
+
+  useEffect(() => {
+    if (!hasPlayedWelcome.current) {
+      hasPlayedWelcome.current = true;
+      voiceMutation.mutate("Give a brief, warm 1-sentence welcome to ScopeSnap. You're Rachel, helping them analyze project photos with AI vision. Mention they can upload images and get instant analysis. Keep it super short and natural.");
+    }
+  }, []);
+
+  const toggleVoice = () => {
+    const newEnabled = !isVoiceEnabled;
+    setIsVoiceEnabled(newEnabled);
+    voiceEnabledRef.current = newEnabled;
+    if (!newEnabled) {
+      stopAudio();
+    } else {
+      voiceMutation.mutate("Say a quick, natural 1-sentence overview of ScopeSnap — AI photo analysis that identifies work needed, detects issues, and matches trades. Keep it warm and conversational.");
+    }
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -68,17 +84,17 @@ export default function ScopeSnap() {
     setUploadedFiles(prev => [...prev, ...files]);
     const newUrls = files.map(file => URL.createObjectURL(file));
     setPreviewUrls(prev => [...prev, ...newUrls]);
-    speakGuidance(`${files.length} files uploaded. Click "Analyze with AI" when you're ready for me to scan your project.`);
+    playRachelVoice(`Say a quick 1-sentence note that ${files.length} files were uploaded and they can click Analyze with AI when ready. Keep it natural.`);
   };
 
   const handleAnalyze = async () => {
     if (uploadedFiles.length === 0) {
-      speakGuidance("Please upload at least one photo or video first.");
+      playRachelVoice("Say a quick 1-sentence reminder to upload at least one photo first. Keep it friendly.");
       return;
     }
     
     setIsAnalyzing(true);
-    speakGuidance("Analyzing your photos now. I'm using advanced AI vision to identify the work needed, detect potential issues, and determine which trade professionals you'll need.");
+    playRachelVoice("Say a quick 1-sentence note that you're analyzing their photos now using AI vision. Keep it natural and encouraging.");
     
     try {
       const file = uploadedFiles[0];
@@ -122,13 +138,13 @@ export default function ScopeSnap() {
         };
         
         setAnalysisResults(results);
-        speakGuidance(`Analysis complete! I've identified this as a ${results.detectedCategory} project. The estimated cost is $${results.estimatedScope.min} to $${results.estimatedScope.max}. I found ${data.contractors?.length || 0} contractors who can help.`);
+        playRachelVoice(`Say a brief 1-sentence summary: analysis complete, identified as ${results.detectedCategory}, estimated $${results.estimatedScope.min}-$${results.estimatedScope.max}, found ${data.contractors?.length || 0} contractors. Keep it natural.`);
       } else {
         throw new Error(data.error || 'Analysis failed');
       }
     } catch (error) {
       console.error('Analysis error:', error);
-      speakGuidance("Sorry, there was an error analyzing your photo. Please try again.");
+      playRachelVoice("Say a quick 1-sentence apology that there was an error analyzing the photo and to try again. Keep it warm.");
     } finally {
       setIsAnalyzing(false);
     }
@@ -141,7 +157,7 @@ export default function ScopeSnap() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-violet-50 to-white dark:from-slate-950 dark:to-slate-900">
-      {/* Header */}
+      <audio ref={audioRef} className="hidden" />
       <div className="bg-gradient-to-r from-violet-600 to-purple-600 text-white py-12 px-4">
         <div className="max-w-6xl mx-auto">
           <div className="flex items-center gap-2 text-violet-200 text-sm mb-2">
@@ -157,11 +173,11 @@ export default function ScopeSnap() {
             <Button
               variant="ghost"
               size="lg"
-              onClick={() => isVoiceActive ? window.speechSynthesis.cancel() : speakGuidance("I'm Rachel, your AI assistant for ScopeSnap. Upload photos or videos of any project, and I'll analyze them to identify the work needed, detect issues, and recommend the right contractors.")}
+              onClick={toggleVoice}
               className="text-white hover:bg-white/10"
               data-testid="button-voice-toggle"
             >
-              {isVoiceActive ? <Volume2 className="w-6 h-6 animate-pulse" /> : <VolumeX className="w-6 h-6" />}
+              {isPlaying ? <Volume2 className="w-6 h-6 animate-pulse" /> : isVoiceEnabled ? <Volume2 className="w-6 h-6" /> : <VolumeX className="w-6 h-6" />}
             </Button>
           </div>
         </div>
@@ -169,7 +185,6 @@ export default function ScopeSnap() {
 
       <div className="max-w-6xl mx-auto px-4 py-8">
         <div className="grid lg:grid-cols-2 gap-8">
-          {/* Upload Section */}
           <div className="space-y-6">
             <Card className="border-2 border-dashed border-violet-300 bg-violet-50/50 dark:bg-violet-900/10">
               <CardContent className="py-12">
@@ -262,7 +277,6 @@ export default function ScopeSnap() {
             )}
           </div>
 
-          {/* Analysis Results */}
           <div className="space-y-6">
             {isAnalyzing && (
               <Card className="border-violet-200 bg-violet-50/50">

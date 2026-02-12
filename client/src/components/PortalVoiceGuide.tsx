@@ -322,64 +322,54 @@ export default function PortalVoiceGuide({
     };
   }, []);
 
-  // Get the best available female voice from browser
-  const getPreferredFemaleVoice = useCallback(() => {
-    const voices = window.speechSynthesis.getVoices();
-    const preferredVoices = [
-      'Samantha', 'Karen', 'Moira', 'Fiona', 'Victoria',
-      'Google US English Female', 'Google UK English Female',
-      'Microsoft Zira', 'Microsoft Aria', 'Microsoft Jenny',
-    ];
-    
-    for (const preferred of preferredVoices) {
-      const voice = voices.find(v => v.name.toLowerCase().includes(preferred.toLowerCase()));
-      if (voice) return voice;
-    }
-    
-    const englishFemale = voices.find(v => 
-      v.lang.startsWith('en') && 
-      ['samantha', 'zira', 'aria', 'jenny', 'karen', 'moira', 'fiona', 'victoria', 'susan', 'kate'].some(
-        name => v.name.toLowerCase().includes(name)
-      )
-    );
-    return englishFemale || voices.find(v => v.lang.startsWith('en')) || voices[0];
-  }, []);
-
-  // Voice synthesis using browser's natural female voice
   const speak = useCallback(async (text: string, onComplete?: () => void) => {
     try {
-      window.speechSynthesis.cancel();
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
       setIsPlaying(true);
       
-      const utterance = new SpeechSynthesisUtterance(text);
-      const voice = getPreferredFemaleVoice();
-      if (voice) utterance.voice = voice;
+      const response = await fetch('/api/closebot/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: text,
+          history: [],
+          context: { leadName: "user", companyName: "the company", trade: "general" },
+          enableVoice: true
+        })
+      });
       
-      utterance.rate = 1.05;
-      utterance.pitch = 1.1;
-      utterance.volume = 1.0;
+      const data = await response.json();
       
-      utterance.onend = () => {
+      if (data.audioUrl) {
+        audioRef.current = new Audio(data.audioUrl);
+        audioRef.current.onended = () => {
+          setIsPlaying(false);
+          onComplete?.();
+        };
+        audioRef.current.onerror = () => {
+          setIsPlaying(false);
+          onComplete?.();
+        };
+        await audioRef.current.play();
+      } else {
         setIsPlaying(false);
         onComplete?.();
-      };
-      
-      utterance.onerror = () => {
-        setIsPlaying(false);
-        onComplete?.();
-      };
-      
-      window.speechSynthesis.speak(utterance);
+      }
     } catch (error) {
       console.error('Voice error:', error);
       setIsPlaying(false);
       onComplete?.();
     }
-  }, [getPreferredFemaleVoice]);
+  }, []);
 
-  // Stop speaking
   const stopSpeaking = useCallback(() => {
-    window.speechSynthesis.cancel();
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
     setIsPlaying(false);
   }, []);
 

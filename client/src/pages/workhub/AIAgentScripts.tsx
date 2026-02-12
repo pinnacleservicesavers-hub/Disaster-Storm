@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   Phone, MessageSquare, Mail, Clock, CheckCircle, AlertCircle,
@@ -10,6 +10,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
+import { useMutation } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
 
 const agentScripts = {
   closebot: {
@@ -436,83 +438,98 @@ Warm regards,
   }
 };
 
-function getBestFemaleVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | null {
-  const preferredVoices = ['Samantha', 'Zira', 'Jenny', 'Google US English Female', 'Microsoft Zira'];
-  for (const name of preferredVoices) {
-    const voice = voices.find(v => v.name.includes(name));
-    if (voice) return voice;
-  }
-  return voices.find(v => v.lang.startsWith('en')) || voices[0];
-}
-
 export default function AIAgentScripts() {
-  const [voiceEnabled, setVoiceEnabled] = useState(true);
-  const [hasSpoken, setHasSpoken] = useState(false);
+  const [isVoiceEnabled, setIsVoiceEnabled] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const hasPlayedWelcome = useRef(false);
+  const voiceEnabledRef = useRef(true);
   const [playingScript, setPlayingScript] = useState<string | null>(null);
+  const scriptAudioRef = useRef<HTMLAudioElement>(null);
   const { toast } = useToast();
 
-  useEffect(() => {
-    if (!voiceEnabled || hasSpoken) return;
-    
-    const speak = () => {
-      const voices = speechSynthesis.getVoices();
-      if (voices.length === 0) return;
-      
-      speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(
-        "Hey! ... So glad you're here. ... " +
-        "This is where you can see all the scripts I use when I'm making calls for you. ... " +
-        "I've been doing this for a while now, ... " +
-        "and honestly? ... These scripts really work. ... " +
-        "They sound natural, ... they handle objections smoothly, ... " +
-        "and they get people to book appointments. ... " +
-        "Click play on any script if you wanna hear how it sounds!"
-      );
-      
-      const voice = getBestFemaleVoice(voices);
-      if (voice) utterance.voice = voice;
-      utterance.pitch = 1.0;
-      utterance.rate = 0.9;
-      
-      speechSynthesis.speak(utterance);
-      setHasSpoken(true);
-    };
-
-    if (speechSynthesis.getVoices().length > 0) {
-      speak();
-    } else {
-      speechSynthesis.onvoiceschanged = speak;
+  const stopAudio = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
     }
+    setIsPlaying(false);
+  };
 
-    return () => speechSynthesis.cancel();
-  }, [voiceEnabled, hasSpoken]);
+  const voiceMutation = useMutation({
+    mutationFn: async (message: string) => {
+      const res = await apiRequest("POST", "/api/closebot/chat", {
+        message,
+        history: [],
+        context: { leadName: "contractor", companyName: "your company", trade: "sales_scripts" },
+        enableVoice: true,
+      });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      if (!voiceEnabledRef.current) return;
+      if (data.audioUrl && audioRef.current) {
+        setIsPlaying(true);
+        audioRef.current.src = data.audioUrl;
+        audioRef.current.onended = () => setIsPlaying(false);
+        audioRef.current.play().catch(() => setIsPlaying(false));
+      }
+    },
+  });
+
+  const scriptVoiceMutation = useMutation({
+    mutationFn: async (message: string) => {
+      const res = await apiRequest("POST", "/api/closebot/chat", {
+        message,
+        history: [],
+        context: { leadName: "contractor", companyName: "your company", trade: "script_playback" },
+        enableVoice: true,
+      });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      if (data.audioUrl && audioRef.current) {
+        audioRef.current.src = data.audioUrl;
+        audioRef.current.onended = () => setPlayingScript(null);
+        audioRef.current.play().catch(() => setPlayingScript(null));
+      } else {
+        setPlayingScript(null);
+      }
+    },
+    onError: () => {
+      setPlayingScript(null);
+    },
+  });
+
+  useEffect(() => {
+    if (!hasPlayedWelcome.current) {
+      hasPlayedWelcome.current = true;
+      voiceMutation.mutate("Give a brief, warm 1-sentence welcome to AI Agent Scripts. You're Rachel, showing them the proven conversation scripts you use when making calls. Click play on any script to hear how it sounds. Keep it super short and natural.");
+    }
+  }, []);
 
   const toggleVoice = () => {
-    if (voiceEnabled) speechSynthesis.cancel();
-    setVoiceEnabled(!voiceEnabled);
-    setHasSpoken(false);
+    const newEnabled = !isVoiceEnabled;
+    setIsVoiceEnabled(newEnabled);
+    voiceEnabledRef.current = newEnabled;
+    if (!newEnabled) {
+      stopAudio();
+    } else {
+      voiceMutation.mutate("Say a quick, natural 1-sentence overview of the AI Agent Scripts — proven sales scripts that convert leads into customers with psychology techniques. Keep it warm and conversational.");
+    }
   };
 
   const playScript = (scriptId: string, text: string) => {
     if (playingScript === scriptId) {
-      speechSynthesis.cancel();
+      stopAudio();
       setPlayingScript(null);
       return;
     }
 
-    speechSynthesis.cancel();
-    const voices = speechSynthesis.getVoices();
+    stopAudio();
     const cleanText = text.replace(/\{[^}]+\}/g, 'customer name').replace(/\[.*?\]/g, '');
-    
-    const utterance = new SpeechSynthesisUtterance(cleanText);
-    const voice = getBestFemaleVoice(voices);
-    if (voice) utterance.voice = voice;
-    utterance.pitch = 1.0;
-    utterance.rate = 0.88;
-    
-    utterance.onend = () => setPlayingScript(null);
-    speechSynthesis.speak(utterance);
     setPlayingScript(scriptId);
+    scriptVoiceMutation.mutate(`Read this sales script naturally and warmly as Rachel: ${cleanText.substring(0, 500)}`);
   };
 
   const copyScript = (text: string) => {
@@ -525,6 +542,7 @@ export default function AIAgentScripts() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-emerald-900 to-slate-900">
+      <audio ref={audioRef} className="hidden" />
       <div className="max-w-6xl mx-auto px-4 py-12">
         <div className="flex justify-between items-start mb-8">
           <Link to="/workhub" className="text-emerald-300 hover:text-white transition-colors">
@@ -537,13 +555,13 @@ export default function AIAgentScripts() {
             className="text-white/70 hover:text-white"
             data-testid="button-toggle-voice"
           >
-            {voiceEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
+            {isPlaying ? <Volume2 className="w-5 h-5 animate-pulse" /> : isVoiceEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
           </Button>
         </div>
 
         <div className="text-center mb-12">
           <Badge className="mb-4 bg-emerald-500/20 text-emerald-200 border-emerald-400/30">
-            <Bot className="w-4 h-4 mr-1" />
+            <Heart className="w-4 h-4 mr-1" />
             AI Agent Library
           </Badge>
           <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">

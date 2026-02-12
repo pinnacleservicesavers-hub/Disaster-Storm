@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import {
   Users, Star, MapPin, ChevronRight, Volume2, VolumeX,
   Shield, Clock, CheckCircle, Award, Phone, MessageSquare,
-  Calendar, Briefcase, ThumbsUp, Filter, Search, ArrowRight
+  Calendar, Briefcase, ThumbsUp, Filter, Search, ArrowRight, Heart
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
 import TopNav from '@/components/TopNav';
 import ModuleAIAssistant from '@/components/ModuleAIAssistant';
+import { useMutation } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
 
 const MOCK_CONTRACTORS = [
   {
@@ -70,60 +72,76 @@ const MOCK_CONTRACTORS = [
 ];
 
 export default function ContractorMatch() {
-  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
-  const [isVoiceActive, setIsVoiceActive] = useState(false);
+  const [isVoiceEnabled, setIsVoiceEnabled] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const hasPlayedWelcome = useRef(false);
+  const voiceEnabledRef = useRef(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedContractor, setSelectedContractor] = useState<number | null>(null);
 
-  useEffect(() => {
-    const loadVoices = () => {
-      const availableVoices = window.speechSynthesis.getVoices();
-      if (availableVoices.length > 0) {
-        setVoices(availableVoices);
-      }
-    };
-    loadVoices();
-    window.speechSynthesis.onvoiceschanged = loadVoices;
-    return () => { window.speechSynthesis.cancel(); };
-  }, []);
-
-  useEffect(() => {
-    if (voices.length > 0) {
-      setTimeout(() => {
-        speakGuidance("Welcome to ContractorMatch! I'm Rachel. I've found 3 verified contractors near you that match your project needs. Each contractor is verified with licensing, insurance, and customer reviews. Let me know if you'd like more details about any of them.");
-      }, 500);
+  const stopAudio = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
     }
-  }, [voices]);
-
-  const getBestFemaleVoice = (voiceList: SpeechSynthesisVoice[]) => {
-    const preferredVoices = ['Samantha', 'Zira', 'Jenny', 'Google US English Female', 'Microsoft Zira'];
-    for (const preferred of preferredVoices) {
-      const found = voiceList.find(v => v.name.includes(preferred));
-      if (found) return found;
-    }
-    return voiceList.find(v => v.lang.startsWith('en')) || voiceList[0];
+    setIsPlaying(false);
   };
 
-  const speakGuidance = (text: string) => {
-    if (voices.length === 0) return;
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.voice = getBestFemaleVoice(voices);
-    utterance.pitch = 1.0;
-    utterance.rate = 0.88;
-    utterance.onstart = () => setIsVoiceActive(true);
-    utterance.onend = () => setIsVoiceActive(false);
-    window.speechSynthesis.speak(utterance);
+  const voiceMutation = useMutation({
+    mutationFn: async (message: string) => {
+      const res = await apiRequest("POST", "/api/closebot/chat", {
+        message,
+        history: [],
+        context: { leadName: "contractor", companyName: "your company", trade: "contractor_matching" },
+        enableVoice: true,
+      });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      if (!voiceEnabledRef.current) return;
+      if (data.audioUrl && audioRef.current) {
+        setIsPlaying(true);
+        audioRef.current.src = data.audioUrl;
+        audioRef.current.onended = () => setIsPlaying(false);
+        audioRef.current.play().catch(() => setIsPlaying(false));
+      }
+    },
+  });
+
+  const playRachelVoice = (prompt: string) => {
+    if (!voiceEnabledRef.current) return;
+    stopAudio();
+    voiceMutation.mutate(prompt);
+  };
+
+  useEffect(() => {
+    if (!hasPlayedWelcome.current) {
+      hasPlayedWelcome.current = true;
+      voiceMutation.mutate("Give a brief, warm 1-sentence welcome to ContractorMatch. You're Rachel, helping them find verified contractors matched to their project needs. Keep it super short and natural.");
+    }
+  }, []);
+
+  const toggleVoice = () => {
+    const newEnabled = !isVoiceEnabled;
+    setIsVoiceEnabled(newEnabled);
+    voiceEnabledRef.current = newEnabled;
+    if (!newEnabled) {
+      stopAudio();
+    } else {
+      voiceMutation.mutate("Say a quick, natural 1-sentence overview of ContractorMatch — AI-powered matching with verified, licensed, and insured contractors. Keep it warm and conversational.");
+    }
   };
 
   const handleContractorSelect = (contractor: typeof MOCK_CONTRACTORS[0]) => {
     setSelectedContractor(contractor.id);
-    speakGuidance(`${contractor.name} has a ${contractor.rating} star rating with ${contractor.reviews} reviews. They've completed ${contractor.completedJobs} jobs and typically respond within ${contractor.responseTime}. Their AI match score for your project is ${contractor.matchScore}%.`);
+    playRachelVoice(`Say a brief 1-sentence comment about ${contractor.name} having a ${contractor.rating} star rating with ${contractor.reviews} reviews and a ${contractor.matchScore}% match score. Keep it natural and warm.`);
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white dark:from-slate-950 dark:to-slate-900">
       <TopNav />
+      <audio ref={audioRef} className="hidden" />
 
       <div className="bg-gradient-to-r from-blue-600 to-cyan-600 text-white py-12 px-4">
         <div className="max-w-6xl mx-auto">
@@ -140,17 +158,16 @@ export default function ContractorMatch() {
             <Button
               variant="ghost"
               size="lg"
-              onClick={() => isVoiceActive ? window.speechSynthesis.cancel() : speakGuidance("I'm Rachel. ContractorMatch uses AI to find the perfect contractor for your project based on trade expertise, location, ratings, and availability.")}
+              onClick={toggleVoice}
               className="text-white hover:bg-white/10"
             >
-              {isVoiceActive ? <Volume2 className="w-6 h-6 animate-pulse" /> : <VolumeX className="w-6 h-6" />}
+              {isPlaying ? <Volume2 className="w-6 h-6 animate-pulse" /> : isVoiceEnabled ? <Volume2 className="w-6 h-6" /> : <VolumeX className="w-6 h-6" />}
             </Button>
           </div>
         </div>
       </div>
 
       <div className="max-w-6xl mx-auto px-4 py-8">
-        {/* Search and Filter Bar */}
         <div className="flex items-center gap-4 mb-6">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
@@ -168,7 +185,6 @@ export default function ContractorMatch() {
           </Button>
         </div>
 
-        {/* Match Results */}
         <div className="grid gap-4">
           {MOCK_CONTRACTORS.map((contractor, idx) => (
             <motion.div

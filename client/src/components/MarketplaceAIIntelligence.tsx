@@ -116,6 +116,7 @@ export function MarketplaceAIIntelligence({
 
   const recognitionRef = useRef<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Initialize advanced speech recognition
   useEffect(() => {
@@ -214,81 +215,40 @@ export function MarketplaceAIIntelligence({
     }
   });
 
-  // Enhanced human-like text-to-speech
-  const speakWithHumanVoice = (text: string) => {
-    if ('speechSynthesis' in window && voiceEnabled) {
-      window.speechSynthesis.cancel();
+  const speakWithHumanVoice = async (text: string) => {
+    if (!voiceEnabled) return;
+    
+    try {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
       setIsSpeaking(true);
       
-      // Clean and optimize text for natural speech
-      const cleanText = text
-        .replace(/\*\*(.*?)\*\*/g, '$1')
-        .replace(/\*(.*?)\*/g, '$1')
-        .replace(/```[\s\S]*?```/g, '')
-        .replace(/#{1,6}\s/g, '')
-        .replace(/\$(\d+(?:\.\d{2})?)/g, '$1 dollars') // Format prices naturally
-        .replace(/(\d+)%/g, '$1 percent') // Format percentages
-        .replace(/\d{3}-\d{3}-\d{4}/g, (phone) => {
-          // Format phone numbers for natural speech
-          const digits = phone.replace(/-/g, '');
-          return `${digits.slice(0,3)}-${digits.slice(3,6)}-${digits.slice(6)}`;
+      const response = await fetch('/api/closebot/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: text,
+          history: [],
+          context: { leadName: "user", companyName: "the company", trade: "general" },
+          enableVoice: true
         })
-        .replace(/\n+/g, '. ') 
-        .replace(/\s+/g, ' ')
-        .trim();
+      });
       
-      const utterance = new SpeechSynthesisUtterance(cleanText);
+      const data = await response.json();
       
-      // Enhanced settings for more human-like speech
-      utterance.rate = 0.9; // Slightly slower for clarity and natural flow
-      utterance.pitch = 0.95; // Slightly lower pitch for authority
-      utterance.volume = 1.0;
-      
-      // Try to get the most natural voice available
-      const voices = speechSynthesis.getVoices();
-      
-      // Priority list of natural-sounding voices
-      const preferredVoices = [
-        'Samantha', 'Alex', 'Victoria', 'Daniel', // macOS voices
-        'Microsoft Zira Desktop', 'Microsoft David Desktop', // Windows voices
-        'Google US English Female', 'Google US English Male', // Chrome voices
-        'English United States'
-      ];
-      
-      let selectedVoice = null;
-      
-      // Try to find preferred voices
-      for (const voiceName of preferredVoices) {
-        selectedVoice = voices.find(voice => 
-          voice.name.includes(voiceName) && voice.lang.startsWith('en')
-        );
-        if (selectedVoice) break;
+      if (data.audioUrl) {
+        audioRef.current = new Audio(data.audioUrl);
+        audioRef.current.onended = () => setIsSpeaking(false);
+        audioRef.current.onerror = () => setIsSpeaking(false);
+        await audioRef.current.play();
+      } else {
+        setIsSpeaking(false);
       }
-      
-      // Fallback: find any good English voice
-      if (!selectedVoice) {
-        selectedVoice = voices.find(voice => 
-          voice.lang.startsWith('en') && 
-          (voice.name.includes('Enhanced') || 
-           voice.name.includes('Premium') ||
-           voice.name.includes('Natural') ||
-           voice.localService)
-        );
-      }
-      
-      // Last fallback: any English voice
-      if (!selectedVoice) {
-        selectedVoice = voices.find(voice => voice.lang.startsWith('en'));
-      }
-      
-      if (selectedVoice) {
-        utterance.voice = selectedVoice;
-      }
-      
-      utterance.onend = () => setIsSpeaking(false);
-      utterance.onerror = () => setIsSpeaking(false);
-      
-      window.speechSynthesis.speak(utterance);
+    } catch (error) {
+      console.error('Voice error:', error);
+      setIsSpeaking(false);
     }
   };
 

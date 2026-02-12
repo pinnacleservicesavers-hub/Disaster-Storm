@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   FileText, Shield, Scale, AlertTriangle, CheckCircle, 
-  Volume2, VolumeX, ChevronDown, ChevronUp, Download
+  Volume2, VolumeX, ChevronDown, ChevronUp, Download, Heart
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,8 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { useMutation } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
 
 const legalDocuments = {
   termsOfService: {
@@ -345,63 +347,63 @@ Additional rights under the California Consumer Privacy Act apply.
   }
 };
 
-function getBestFemaleVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | null {
-  const preferredVoices = ['Samantha', 'Zira', 'Jenny', 'Google US English Female'];
-  for (const name of preferredVoices) {
-    const voice = voices.find(v => v.name.includes(name));
-    if (voice) return voice;
-  }
-  return voices.find(v => v.lang.startsWith('en')) || voices[0];
-}
-
 export default function LegalTerms() {
-  const [voiceEnabled, setVoiceEnabled] = useState(true);
-  const [hasSpoken, setHasSpoken] = useState(false);
+  const [isVoiceEnabled, setIsVoiceEnabled] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const hasPlayedWelcome = useRef(false);
+  const voiceEnabledRef = useRef(true);
+
+  const stopAudio = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+    setIsPlaying(false);
+  };
+
+  const voiceMutation = useMutation({
+    mutationFn: async (message: string) => {
+      const res = await apiRequest("POST", "/api/closebot/chat", {
+        message,
+        history: [],
+        context: { leadName: "contractor", companyName: "your company", trade: "legal_terms" },
+        enableVoice: true,
+      });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      if (!voiceEnabledRef.current) return;
+      if (data.audioUrl && audioRef.current) {
+        setIsPlaying(true);
+        audioRef.current.src = data.audioUrl;
+        audioRef.current.onended = () => setIsPlaying(false);
+        audioRef.current.play().catch(() => setIsPlaying(false));
+      }
+    },
+  });
 
   useEffect(() => {
-    if (!voiceEnabled || hasSpoken) return;
-    
-    const speak = () => {
-      const voices = speechSynthesis.getVoices();
-      if (voices.length === 0) return;
-      
-      speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(
-        "Hey, ... so I know legal stuff isn't exactly exciting, ... " +
-        "but it's really important. ... " +
-        "I'm Rachel, ... and I'll walk you through this. ... " +
-        "We've got our Terms of Service, ... the Contractor Agreement, ... " +
-        "and our Privacy Policy all right here. ... " +
-        "The sections highlighted in red? ... Those are the really important ones. ... " +
-        "Take your time, ... and let me know if you have any questions."
-      );
-      
-      const voice = getBestFemaleVoice(voices);
-      if (voice) utterance.voice = voice;
-      utterance.pitch = 1.0;
-      utterance.rate = 0.88;
-      
-      speechSynthesis.speak(utterance);
-      setHasSpoken(true);
-    };
-
-    if (speechSynthesis.getVoices().length > 0) {
-      speak();
-    } else {
-      speechSynthesis.onvoiceschanged = speak;
+    if (!hasPlayedWelcome.current) {
+      hasPlayedWelcome.current = true;
+      voiceMutation.mutate("Give a brief, warm 1-sentence welcome to the Legal Terms page. You're Rachel, walking them through the Terms of Service, Contractor Agreement, and Privacy Policy. Keep it super short and natural.");
     }
-
-    return () => speechSynthesis.cancel();
-  }, [voiceEnabled, hasSpoken]);
+  }, []);
 
   const toggleVoice = () => {
-    if (voiceEnabled) speechSynthesis.cancel();
-    setVoiceEnabled(!voiceEnabled);
-    setHasSpoken(false);
+    const newEnabled = !isVoiceEnabled;
+    setIsVoiceEnabled(newEnabled);
+    voiceEnabledRef.current = newEnabled;
+    if (!newEnabled) {
+      stopAudio();
+    } else {
+      voiceMutation.mutate("Say a quick, natural 1-sentence overview of the legal documents — Terms of Service, Contractor Agreement, and Privacy Policy all in one place. Keep it warm and conversational.");
+    }
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+      <audio ref={audioRef} className="hidden" />
       <div className="max-w-5xl mx-auto px-4 py-12">
         <div className="flex justify-between items-start mb-8">
           <Link to="/workhub" className="text-blue-300 hover:text-white transition-colors">
@@ -414,7 +416,7 @@ export default function LegalTerms() {
             className="text-white/70 hover:text-white"
             data-testid="button-toggle-voice"
           >
-            {voiceEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
+            {isPlaying ? <Volume2 className="w-5 h-5 animate-pulse" /> : isVoiceEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
           </Button>
         </div>
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -79,7 +79,7 @@ export function DamageDetectionDashboard() {
   const [selectedProfitabilityThreshold, setSelectedProfitabilityThreshold] = useState(4);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [isVoiceGuideActive, setIsVoiceGuideActive] = useState(false);
-  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Fetch damage alerts
   const { data: alertsData, isLoading: alertsLoading, refetch: refetchAlerts } = useQuery<{
@@ -101,60 +101,57 @@ export function DamageDetectionDashboard() {
     refetchInterval: autoRefresh ? 60000 : false, // Refresh every minute
   });
 
-  // Initialize voice loading
   useEffect(() => {
-    const loadVoices = () => {
-      if ('speechSynthesis' in window) {
-        setVoices(window.speechSynthesis.getVoices());
-      }
-    };
-    
-    loadVoices();
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.onvoiceschanged = loadVoices;
-    }
-    
     return () => {
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-        window.speechSynthesis.onvoiceschanged = null;
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
       }
     };
   }, []);
 
-  const startVoiceGuide = () => {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
-      console.warn('Speech synthesis not supported in this browser');
-      return;
-    }
-
+  const startVoiceGuide = async () => {
     if (!isVoiceGuideActive) {
       setIsVoiceGuideActive(true);
-      window.speechSynthesis.cancel();
       
       const voiceContent = `Welcome to AI Damage Detection Dashboard! This intelligent system analyzes images and data streams to automatically identify weather damage and generate contractor leads. The main dashboard displays real-time damage alerts with severity scores from minor to critical, confidence levels, and profitability assessments. Each alert includes estimated repair costs, property addresses, required contractor types, and insurance likelihood scores. The lead generation statistics show conversion rates, average response times, and revenue potential. You can filter alerts by severity thresholds, location, and damage types. The system integrates with contractor notification systems to automatically dispatch qualified professionals to high-value opportunities. Emergency response alerts get priority routing for immediate safety concerns.`;
       
-      const utterance = new SpeechSynthesisUtterance(voiceContent);
-      utterance.rate = 0.9;
-      utterance.pitch = 1.0;
-      utterance.volume = 0.8;
-      
-      if (voices.length > 0) {
-        utterance.voice = voices.find(voice => voice.lang.includes('en')) || voices[0];
+      try {
+        if (audioRef.current) {
+          audioRef.current.pause();
+          audioRef.current = null;
+        }
+        
+        const response = await fetch('/api/closebot/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: voiceContent,
+            history: [],
+            context: { leadName: "user", companyName: "the company", trade: "general" },
+            enableVoice: true
+          })
+        });
+        
+        const data = await response.json();
+        
+        if (data.audioUrl) {
+          audioRef.current = new Audio(data.audioUrl);
+          audioRef.current.onended = () => setIsVoiceGuideActive(false);
+          audioRef.current.onerror = () => setIsVoiceGuideActive(false);
+          await audioRef.current.play();
+        } else {
+          setIsVoiceGuideActive(false);
+        }
+      } catch (error) {
+        console.error('Voice guide error:', error);
+        setIsVoiceGuideActive(false);
       }
-      
-      utterance.onend = () => {
-        setIsVoiceGuideActive(false);
-      };
-      
-      utterance.onerror = (event) => {
-        console.error('Speech synthesis error:', event);
-        setIsVoiceGuideActive(false);
-      };
-      
-      window.speechSynthesis.speak(utterance);
     } else {
-      window.speechSynthesis.cancel();
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
       setIsVoiceGuideActive(false);
     }
   };

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import {
@@ -9,6 +9,8 @@ import {
   Volume2, VolumeX, Filter, MoreVertical, Eye, Send,
   ThumbsUp, AlertCircle, Zap, Award, Shield, Hammer, Lock, Heart
 } from 'lucide-react';
+import { useMutation } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -118,49 +120,59 @@ const MOCK_CONTRACTOR_STATUS = {
 export default function WorkHubContractorDashboard() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [searchQuery, setSearchQuery] = useState('');
-  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
-  const [isVoiceActive, setIsVoiceActive] = useState(false);
+  const [isVoiceEnabled, setIsVoiceEnabled] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const hasPlayedWelcome = useRef(false);
+  const voiceEnabledRef = useRef(true);
   const [selectedLead, setSelectedLead] = useState<typeof MOCK_LEADS[0] | null>(null);
   const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
   
   // Check if contractor has access to contact info
   const hasContactAccess = MOCK_CONTRACTOR_STATUS.isSubscribed || MOCK_CONTRACTOR_STATUS.isVerifiedNonprofit;
 
-  useEffect(() => {
-    const loadVoices = () => {
-      const availableVoices = window.speechSynthesis.getVoices();
-      if (availableVoices.length > 0) {
-        setVoices(availableVoices);
+  const voiceMutation = useMutation({
+    mutationFn: async (message: string) => {
+      const res = await apiRequest("POST", "/api/closebot/chat", {
+        message,
+        history: [],
+        context: { leadName: "contractor", companyName: "your company", trade: "contractor_dashboard" },
+        enableVoice: true
+      });
+      return res;
+    },
+    onSuccess: (data: any) => {
+      if (data.audioUrl && audioRef.current) {
+        audioRef.current.src = data.audioUrl;
+        audioRef.current.play();
+        setIsPlaying(true);
+        audioRef.current.onended = () => setIsPlaying(false);
       }
-    };
-    loadVoices();
-    window.speechSynthesis.onvoiceschanged = loadVoices;
-    return () => { window.speechSynthesis.cancel(); };
+    },
+  });
+
+  useEffect(() => {
+    if (!hasPlayedWelcome.current && voiceEnabledRef.current) {
+      hasPlayedWelcome.current = true;
+      voiceMutation.mutate("Welcome to your WorkHub dashboard. You have 12 new leads waiting for your attention. Your top priority lead is a roofing inspection marked as urgent.");
+    }
   }, []);
 
-  const getBestFemaleVoice = (voiceList: SpeechSynthesisVoice[]) => {
-    const preferredVoices = ['Samantha', 'Zira', 'Jenny', 'Google US English Female', 'Microsoft Zira'];
-    for (const preferred of preferredVoices) {
-      const found = voiceList.find(v => v.name.includes(preferred));
-      if (found) return found;
+  const toggleVoice = () => {
+    const newState = !isVoiceEnabled;
+    setIsVoiceEnabled(newState);
+    voiceEnabledRef.current = newState;
+    if (!newState && audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      setIsPlaying(false);
     }
-    return voiceList.find(v => v.lang.startsWith('en')) || voiceList[0];
   };
 
-  const speakGuidance = (text: string) => {
-    if (voices.length === 0) return;
-    window.speechSynthesis.cancel();
-    const naturalText = text
-      .replace(/\. /g, '... ')
-      .replace(/! /g, '!... ')
-      .replace(/, /g, ',, ');
-    const utterance = new SpeechSynthesisUtterance(naturalText);
-    utterance.voice = getBestFemaleVoice(voices);
-    utterance.pitch = 1.0;
-    utterance.rate = 0.88;
-    utterance.onstart = () => setIsVoiceActive(true);
-    utterance.onend = () => setIsVoiceActive(false);
-    window.speechSynthesis.speak(utterance);
+  const playRachelVoice = (prompt: string) => {
+    if (voiceEnabledRef.current) {
+      voiceMutation.mutate(prompt);
+    }
   };
 
   const getStatusBadge = (status: string) => {
@@ -189,6 +201,7 @@ export default function WorkHubContractorDashboard() {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
+      <audio ref={audioRef} className="hidden" />
       {/* Header */}
       <div className="bg-gradient-to-r from-slate-800 to-slate-900 text-white">
         <div className="max-w-7xl mx-auto px-4 py-6">
@@ -206,14 +219,10 @@ export default function WorkHubContractorDashboard() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => {
-                  isVoiceActive 
-                    ? window.speechSynthesis.cancel() 
-                    : speakGuidance("Welcome to your WorkHub dashboard. You have 12 new leads waiting for your attention. Your top priority lead is a roofing inspection marked as urgent.");
-                }}
+                onClick={toggleVoice}
                 className="text-white hover:bg-white/10"
               >
-                {isVoiceActive ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+                {isPlaying ? <Volume2 className="w-5 h-5 animate-pulse" /> : isVoiceEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
               </Button>
               <Button variant="ghost" size="sm" className="text-white hover:bg-white/10 relative">
                 <Bell className="w-5 h-5" />

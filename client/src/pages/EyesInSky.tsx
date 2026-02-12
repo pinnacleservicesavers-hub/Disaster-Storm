@@ -6,8 +6,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FadeIn, ScaleIn, SlideIn } from '@/components/ui/animations';
 import { Video, ExternalLink, AlertCircle, DollarSign, Play, Users, Signal, Zap, Heart, Filter, Search, Clock, Volume2, VolumeX, Globe, ArrowLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { StateCitySelector, useStateCitySelector } from '@/components/StateCitySelector';
+import { useMutation } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
 import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 
 export default function EyesInSky() {
@@ -17,8 +19,11 @@ export default function EyesInSky() {
   const [viewMode, setViewMode] = useState('grid');
   const [favorites, setFavorites] = useState<string[]>([]);
   const [liveStatus, setLiveStatus] = useState<{[key: string]: 'live' | 'offline' | 'scheduled'}>({});
-  const [isVoiceGuideActive, setIsVoiceGuideActive] = useState(false);
-  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [isVoiceEnabled, setIsVoiceEnabled] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const hasPlayedWelcome = useRef(false);
+  const voiceEnabledRef = useRef(true);
 
   // Wrap entire component in neon black background
   const WrapperDiv = ({ children }: { children: React.ReactNode }) => (
@@ -71,70 +76,47 @@ export default function EyesInSky() {
     </div>
   );
 
-  // Initialize voice loading with enhanced cleanup
+  const voiceMutation = useMutation({
+    mutationFn: async (message: string) => {
+      const res = await apiRequest("POST", "/api/closebot/chat", {
+        message,
+        history: [],
+        context: { leadName: "contractor", companyName: "your company", trade: "aerial_surveillance" },
+        enableVoice: true
+      });
+      return res;
+    },
+    onSuccess: (data: any) => {
+      if (data.audioUrl && audioRef.current) {
+        audioRef.current.src = data.audioUrl;
+        audioRef.current.play();
+        setIsPlaying(true);
+        audioRef.current.onended = () => setIsPlaying(false);
+      }
+    },
+  });
+
   useEffect(() => {
-    const loadVoices = () => {
-      if ('speechSynthesis' in window) {
-        setVoices(window.speechSynthesis.getVoices());
-      }
-    };
-    
-    loadVoices();
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.onvoiceschanged = loadVoices;
+    if (!hasPlayedWelcome.current && voiceEnabledRef.current) {
+      hasPlayedWelcome.current = true;
+      voiceMutation.mutate("Welcome to Eyes in the Sky! This aerial surveillance platform aggregates live storm chasing streams, weather reconnaissance feeds, and satellite imagery for comprehensive sky-level monitoring.");
     }
-    
-    return () => {
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-        window.speechSynthesis.onvoiceschanged = null;
-      }
-    };
   }, []);
 
-  const startVoiceGuide = () => {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
-      console.warn('Speech synthesis not supported in this browser');
-      return;
+  const toggleVoice = () => {
+    const newState = !isVoiceEnabled;
+    setIsVoiceEnabled(newState);
+    voiceEnabledRef.current = newState;
+    if (!newState && audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      setIsPlaying(false);
     }
+  };
 
-    if (!isVoiceGuideActive) {
-      setIsVoiceGuideActive(true);
-      window.speechSynthesis.cancel();
-      
-      const voiceContent = `Welcome to Eyes in the Sky! This aerial surveillance platform aggregates live storm chasing streams, weather reconnaissance feeds, and satellite imagery for comprehensive sky-level monitoring. The dashboard displays categorized streaming sources including professional storm chasers, meteorologist channels, and weather intelligence feeds. You can filter by category such as live chasing, YouTube channels, or weather intelligence. Each feed shows live status indicators - live, offline, or scheduled. The favorites system lets you bookmark frequently used streams. Search functionality helps you quickly find specific weather events or regions. All feeds are external links that open professional storm tracking and meteorological analysis streams. This gives you real-time aerial perspective on developing weather situations across the country.`;
-      
-      const utterance = new SpeechSynthesisUtterance(voiceContent);
-      utterance.rate = 0.9;
-      utterance.pitch = 1.0;
-      utterance.volume = 0.8;
-      
-      if (voices.length > 0) {
-        // Prefer natural female voices
-        const femaleVoice = voices.find(voice => 
-          voice.lang.includes('en') && 
-          (voice.name.toLowerCase().includes('female') || 
-           voice.name.toLowerCase().includes('zira') ||
-           voice.name.toLowerCase().includes('samantha') ||
-           voice.name.toLowerCase().includes('google uk') ||
-           voice.name.toLowerCase().includes('fiona'))
-        );
-        utterance.voice = femaleVoice || voices.find(voice => voice.lang.includes('en')) || voices[0];
-      }
-      
-      utterance.onend = () => {
-        setIsVoiceGuideActive(false);
-      };
-      
-      utterance.onerror = (event) => {
-        console.error('Speech synthesis error:', event);
-        setIsVoiceGuideActive(false);
-      };
-      
-      window.speechSynthesis.speak(utterance);
-    } else {
-      window.speechSynthesis.cancel();
-      setIsVoiceGuideActive(false);
+  const playRachelVoice = (prompt: string) => {
+    if (voiceEnabledRef.current) {
+      voiceMutation.mutate(prompt);
     }
   };
 
@@ -246,6 +228,7 @@ export default function EyesInSky() {
 
   return (
     <div className="min-h-screen bg-black text-white">
+      <audio ref={audioRef} className="hidden" />
       {/* Animated Background Effects */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <motion.div
@@ -307,21 +290,25 @@ export default function EyesInSky() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={startVoiceGuide}
+                  onClick={toggleVoice}
                   className="flex items-center gap-2 bg-white/80 hover:bg-white border-blue-200 hover:border-blue-300 text-blue-700 hover:text-blue-800 backdrop-blur-sm transition-all duration-300 shadow-lg hover:shadow-xl"
                   data-testid="button-voice-guide"
                   aria-label="Voice guide for Eyes in the Sky"
-                  aria-pressed={isVoiceGuideActive}
                 >
-                  {isVoiceGuideActive ? (
+                  {isPlaying ? (
                     <>
-                      <VolumeX className="h-4 w-4" />
-                      Stop Guide
+                      <Volume2 className="h-4 w-4 animate-pulse" />
+                      Playing
                     </>
-                  ) : (
+                  ) : isVoiceEnabled ? (
                     <>
                       <Volume2 className="h-4 w-4" />
                       Voice Guide
+                    </>
+                  ) : (
+                    <>
+                      <VolumeX className="h-4 w-4" />
+                      Voice Off
                     </>
                   )}
                 </Button>

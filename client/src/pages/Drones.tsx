@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -73,75 +73,55 @@ export default function Drones() {
   const [missionPlannerOpen, setMissionPlannerOpen] = useState(false);
   const [weatherOverlay, setWeatherOverlay] = useState(false);
   const [emergencyMode, setEmergencyMode] = useState(false);
-  const [isVoiceGuideActive, setIsVoiceGuideActive] = useState(false);
-  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [isVoiceEnabled, setIsVoiceEnabled] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const hasPlayedWelcome = useRef(false);
+  const voiceEnabledRef = useRef(true);
 
   const queryClient = useQueryClient();
 
-  // Initialize voice loading with enhanced cleanup
+  const voiceMutation = useMutation({
+    mutationFn: async (message: string) => {
+      const res = await apiRequest("POST", "/api/closebot/chat", {
+        message,
+        history: [],
+        context: { leadName: "contractor", companyName: "your company", trade: "drone_operations" },
+        enableVoice: true
+      });
+      return res;
+    },
+    onSuccess: (data: any) => {
+      if (data.audioUrl && audioRef.current) {
+        audioRef.current.src = data.audioUrl;
+        audioRef.current.play();
+        setIsPlaying(true);
+        audioRef.current.onended = () => setIsPlaying(false);
+      }
+    },
+  });
+
   useEffect(() => {
-    const loadVoices = () => {
-      if ('speechSynthesis' in window) {
-        setVoices(window.speechSynthesis.getVoices());
-      }
-    };
-    
-    loadVoices();
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.onvoiceschanged = loadVoices;
+    if (!hasPlayedWelcome.current && voiceEnabledRef.current) {
+      hasPlayedWelcome.current = true;
+      voiceMutation.mutate("Welcome to Drone Operations Command Center! This comprehensive flight management system controls your drone fleet for weather reconnaissance and damage assessment missions.");
     }
-    
-    return () => {
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-        window.speechSynthesis.onvoiceschanged = null;
-      }
-    };
   }, []);
 
-  const startVoiceGuide = () => {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
-      console.warn('Speech synthesis not supported in this browser');
-      return;
+  const toggleVoice = () => {
+    const newState = !isVoiceEnabled;
+    setIsVoiceEnabled(newState);
+    voiceEnabledRef.current = newState;
+    if (!newState && audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      setIsPlaying(false);
     }
+  };
 
-    if (!isVoiceGuideActive) {
-      setIsVoiceGuideActive(true);
-      window.speechSynthesis.cancel();
-      
-      const voiceContent = `Welcome to Drone Operations Command Center! This comprehensive flight management system controls your drone fleet for weather reconnaissance and damage assessment missions. The live flight dashboard shows all active drones with real-time telemetry including altitude, speed, battery level, and GPS coordinates. Flight status indicators show active, returning, emergency, ready, and maintenance states. Each drone displays mission progress, video feed status, and pilot assignments. The control interface includes flight time tracking, temperature monitoring, wind speed readings, and signal strength indicators. Mission planning features let you create inspection, search and rescue, survey, or patrol missions with waypoint mapping. Emergency alerts highlight any drones requiring immediate attention. Auto-mode indicators show which drones are operating autonomously versus manual control.`;
-      
-      const utterance = new SpeechSynthesisUtterance(voiceContent);
-      utterance.rate = 0.9;
-      utterance.pitch = 1.0;
-      utterance.volume = 0.8;
-      
-      if (voices.length > 0) {
-        // Prefer natural female voices
-        const femaleVoice = voices.find(voice => 
-          voice.lang.includes('en') && 
-          (voice.name.toLowerCase().includes('female') || 
-           voice.name.toLowerCase().includes('zira') ||
-           voice.name.toLowerCase().includes('samantha') ||
-           voice.name.toLowerCase().includes('google uk') ||
-           voice.name.toLowerCase().includes('fiona'))
-        );
-        utterance.voice = femaleVoice || voices.find(voice => voice.lang.includes('en')) || voices[0];
-      }
-      
-      utterance.onend = () => {
-        setIsVoiceGuideActive(false);
-      };
-      
-      utterance.onerror = (event) => {
-        console.error('Speech synthesis error:', event);
-        setIsVoiceGuideActive(false);
-      };
-      
-      window.speechSynthesis.speak(utterance);
-    } else {
-      window.speechSynthesis.cancel();
-      setIsVoiceGuideActive(false);
+  const playRachelVoice = (prompt: string) => {
+    if (voiceEnabledRef.current) {
+      voiceMutation.mutate(prompt);
     }
   };
 
@@ -394,6 +374,7 @@ export default function Drones() {
 
   return (
     <div className="space-y-6" data-testid="drones-page">
+      <audio ref={audioRef} className="hidden" />
       <ModuleAIAssistant 
         moduleName="Drone Operations"
         moduleContext="Live drone fleet management, aerial assessment missions, real-time video feeds, battery monitoring, mission planning. Help users monitor flight status, plan inspection routes, and coordinate emergency search & rescue operations."
@@ -501,21 +482,25 @@ export default function Drones() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={startVoiceGuide}
+                  onClick={toggleVoice}
                   className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white border-white/20"
                   data-testid="button-voice-guide"
                   aria-label="Voice guide for Drone Operations"
-                  aria-pressed={isVoiceGuideActive}
                 >
-                  {isVoiceGuideActive ? (
+                  {isPlaying ? (
                     <>
-                      <VolumeX className="h-4 w-4" />
-                      Stop Guide
+                      <Volume2 className="h-4 w-4 animate-pulse" />
+                      Playing
                     </>
-                  ) : (
+                  ) : isVoiceEnabled ? (
                     <>
                       <Volume2 className="h-4 w-4" />
                       Voice Guide
+                    </>
+                  ) : (
+                    <>
+                      <VolumeX className="h-4 w-4" />
+                      Voice Off
                     </>
                   )}
                 </Button>

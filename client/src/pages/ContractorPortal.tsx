@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -285,8 +285,11 @@ export default function ContractorPortal() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
-  const [isVoiceGuideActive, setIsVoiceGuideActive] = useState(false);
-  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [isVoiceEnabled, setIsVoiceEnabled] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const hasPlayedWelcome = useRef(false);
+  const voiceEnabledRef = useRef(true);
   const [currentLocation, setCurrentLocation] = useState<GeolocationPosition | null>(null);
   const { toast } = useToast();
   
@@ -389,26 +392,50 @@ export default function ContractorPortal() {
     setActiveTab('customers');
   };
   
-  // Initialize voice loading with enhanced cleanup
+  const voiceMutation = useMutation({
+    mutationFn: async (message: string) => {
+      const res = await apiRequest("POST", "/api/closebot/chat", {
+        message,
+        history: [],
+        context: { leadName: "contractor", companyName: "your company", trade: "contractor_portal" },
+        enableVoice: true
+      });
+      return res;
+    },
+    onSuccess: (data: any) => {
+      if (data.audioUrl && audioRef.current) {
+        audioRef.current.src = data.audioUrl;
+        audioRef.current.play();
+        setIsPlaying(true);
+        audioRef.current.onended = () => setIsPlaying(false);
+      }
+    },
+  });
+
   useEffect(() => {
-    const loadVoices = () => {
-      if ('speechSynthesis' in window) {
-        setVoices(window.speechSynthesis.getVoices());
-      }
-    };
-    
-    loadVoices();
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.onvoiceschanged = loadVoices;
+    if (!hasPlayedWelcome.current && voiceEnabledRef.current) {
+      hasPlayedWelcome.current = true;
+      voiceMutation.mutate("Welcome to your Contractor Portal! I'm Rachel, your AI assistant, and I'll guide you through managing your storm damage business.");
     }
-    
-    return () => {
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-        window.speechSynthesis.onvoiceschanged = null;
-      }
-    };
   }, []);
+
+  const toggleVoice = () => {
+    const newState = !isVoiceEnabled;
+    setIsVoiceEnabled(newState);
+    voiceEnabledRef.current = newState;
+    if (!newState && audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      setIsPlaying(false);
+    }
+  };
+
+  const playRachelVoice = (prompt: string) => {
+    if (voiceEnabledRef.current) {
+      voiceMutation.mutate(prompt);
+    }
+  };
+
 
   // Initialize location tracking
   useEffect(() => {
@@ -501,124 +528,8 @@ export default function ContractorPortal() {
     }] : [])
   ];
 
-  // Get best natural female voice using the loaded voices state
-  const getBestFemaleVoice = (availableVoices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | null => {
-    if (!availableVoices || availableVoices.length === 0) {
-      return null;
-    }
-    
-    // Priority order for natural female voices
-    const preferredVoices = [
-      'Samantha', // Mac/iOS - very natural
-      'Karen', // Mac/iOS Australian
-      'Moira', // Mac/iOS Irish
-      'Fiona', // Mac/iOS Scottish
-      'Victoria', // Mac/iOS
-      'Microsoft Zira', // Windows
-      'Microsoft Aria', // Windows 11
-      'Microsoft Jenny', // Windows 11 Neural
-      'Google US English Female', // Chrome
-      'Google UK English Female', // Chrome UK
-      'Joanna', // Amazon Polly
-      'Salli', // Amazon Polly
-      'Kimberly', // Amazon Polly
-    ];
-    
-    // Try to find preferred voices first
-    for (const preferred of preferredVoices) {
-      const voice = availableVoices.find(v => 
-        v.name.toLowerCase().includes(preferred.toLowerCase())
-      );
-      if (voice) return voice;
-    }
-    
-    // Fallback: find any female English voice
-    const femaleVoice = availableVoices.find(v => 
-      v.lang.startsWith('en') && 
-      (v.name.toLowerCase().includes('female') || 
-       v.name.toLowerCase().includes('woman') ||
-       v.name.toLowerCase().includes('zira') ||
-       v.name.toLowerCase().includes('hazel') ||
-       v.name.toLowerCase().includes('susan'))
-    );
-    if (femaleVoice) return femaleVoice;
-    
-    // Last fallback: any English voice
-    return availableVoices.find(v => v.lang.startsWith('en')) || availableVoices[0] || null;
-  };
-
-  // Speak with natural female voice
-  const speakWithFemaleVoice = (text: string) => {
-    window.speechSynthesis.cancel();
-    
-    const utterance = new SpeechSynthesisUtterance(text);
-    
-    // Use the voices state that's already loaded
-    const femaleVoice = getBestFemaleVoice(voices);
-    if (femaleVoice) {
-      utterance.voice = femaleVoice;
-      console.log('Using voice:', femaleVoice.name);
-    } else {
-      console.warn('No female voice found, using default');
-    }
-    
-    // Natural, friendly speaking style - upbeat female tone
-    utterance.rate = 1.05;
-    utterance.pitch = 1.1;
-    utterance.volume = 0.9;
-    
-    utterance.onend = () => {
-      setIsVoiceGuideActive(false);
-    };
-    
-    utterance.onerror = (event) => {
-      console.error('Speech synthesis error:', event);
-      setIsVoiceGuideActive(false);
-    };
-    
-    window.speechSynthesis.speak(utterance);
-  };
-
-  // Voice Guide Function with natural female voice
   const startVoiceGuide = () => {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
-      toast({ variant: 'destructive', title: 'Voice not supported', description: 'Your browser does not support speech synthesis.' });
-      return;
-    }
-
-    if (!isVoiceGuideActive) {
-      // Check if voices are loaded
-      if (voices.length === 0) {
-        // Try to load voices and retry
-        const loadedVoices = window.speechSynthesis.getVoices();
-        if (loadedVoices.length === 0) {
-          toast({ title: 'Loading voice...', description: 'Please wait a moment and try again.' });
-          return;
-        }
-        setVoices(loadedVoices);
-      }
-      
-      setIsVoiceGuideActive(true);
-      
-      const voiceContent = `Welcome to your Contractor Portal! I'm Rachel, your AI assistant, and I'll guide you through managing your storm damage business.
-
-      Let me walk you through the main sections. The Dashboard shows your active projects, monthly revenue, new leads, and critical alerts at a glance. You can see everything you need to run your business efficiently.
-
-      In the Leads section, you'll find new storm damage opportunities in your area. Each lead shows the damage type, location, and estimated value so you can prioritize your time.
-
-      The Photos tab helps you document your work. Upload before, during, and after photos to build strong documentation for insurance claims and customer records.
-
-      For billing, the Invoices section lets you create professional invoices, track payment status, and manage your revenue. Everything integrates with your project photos automatically.
-
-      The Customers tab keeps all your client relationships organized with contact info, project history, and communication logs.
-
-      I'm here to help you succeed. Just ask if you need assistance with estimates, scheduling, or any part of your business!`;
-      
-      speakWithFemaleVoice(voiceContent);
-    } else {
-      window.speechSynthesis.cancel();
-      setIsVoiceGuideActive(false);
-    }
+    toggleVoice();
   };
 
   // Login/Register Screen
@@ -806,6 +717,7 @@ export default function ContractorPortal() {
         ? 'fixed inset-0 z-50 bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100' 
         : 'bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100'
     } relative overflow-hidden`}>
+      <audio ref={audioRef} className="hidden" />
       {/* Enhanced Header */}
       <motion.div 
         className="bg-white/80 backdrop-blur-sm border-b border-blue-200/50 shadow-lg relative z-20"
@@ -894,21 +806,25 @@ export default function ContractorPortal() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={startVoiceGuide}
+                  onClick={toggleVoice}
                   className="flex items-center gap-2"
                   data-testid="button-voice-guide"
                   aria-label="Voice guide for Contractor Portal"
-                  aria-pressed={isVoiceGuideActive}
                 >
-                  {isVoiceGuideActive ? (
+                  {isPlaying ? (
                     <>
-                      <VolumeX className="h-4 w-4" />
-                      Stop Guide
+                      <Volume2 className="h-4 w-4 animate-pulse" />
+                      Playing
                     </>
-                  ) : (
+                  ) : isVoiceEnabled ? (
                     <>
                       <Volume2 className="h-4 w-4" />
                       Voice Guide
+                    </>
+                  ) : (
+                    <>
+                      <VolumeX className="h-4 w-4" />
+                      Voice Off
                     </>
                   )}
                 </Button>

@@ -77,7 +77,7 @@ export default function LienFilingAssistant({ isOpen, onClose, prefillData, cust
   const [step, setStep] = useState(0);
   const [isValidating, setIsValidating] = useState(false);
   const [isVoiceActive, setIsVoiceActive] = useState(false);
-  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const [complianceChecks, setComplianceChecks] = useState<ComplianceCheck[]>([]);
   const [formProgress, setFormProgress] = useState(0);
   const [disclaimerAccepted, setDisclaimerAccepted] = useState(false);
@@ -110,16 +110,12 @@ export default function LienFilingAssistant({ isOpen, onClose, prefillData, cust
   const selectedStateLaw = getLienLaw(formData.propertyState);
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      const loadVoices = () => {
-        const availableVoices = window.speechSynthesis.getVoices();
-        if (availableVoices.length > 0) {
-          setVoices(availableVoices);
-        }
-      };
-      loadVoices();
-      window.speechSynthesis.onvoiceschanged = loadVoices;
-    }
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -131,33 +127,46 @@ export default function LienFilingAssistant({ isOpen, onClose, prefillData, cust
     setFormProgress(Math.round((filledFields / totalFields) * 100));
   }, [formData]);
 
-  const getBestFemaleVoice = (): SpeechSynthesisVoice | null => {
-    if (!voices || voices.length === 0) return null;
-    const preferredVoices = ['Samantha', 'Karen', 'Microsoft Zira', 'Microsoft Jenny', 'Google US English Female'];
-    for (const preferred of preferredVoices) {
-      const voice = voices.find(v => v.name.toLowerCase().includes(preferred.toLowerCase()));
-      if (voice) return voice;
+  const speakGuidance = async (text: string) => {
+    try {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+      setIsVoiceActive(true);
+      
+      const response = await fetch('/api/closebot/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: text,
+          history: [],
+          context: { leadName: "user", companyName: "the company", trade: "general" },
+          enableVoice: true
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (data.audioUrl) {
+        audioRef.current = new Audio(data.audioUrl);
+        audioRef.current.onended = () => setIsVoiceActive(false);
+        audioRef.current.onerror = () => setIsVoiceActive(false);
+        await audioRef.current.play();
+      } else {
+        setIsVoiceActive(false);
+      }
+    } catch (error) {
+      console.error('Voice error:', error);
+      setIsVoiceActive(false);
     }
-    return voices.find(v => v.lang.startsWith('en')) || voices[0] || null;
-  };
-
-  const speakGuidance = (text: string) => {
-    if (!('speechSynthesis' in window) || voices.length === 0) return;
-    
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    const femaleVoice = getBestFemaleVoice();
-    if (femaleVoice) utterance.voice = femaleVoice;
-    utterance.rate = 1.05;
-    utterance.pitch = 1.1;
-    utterance.volume = 0.9;
-    utterance.onend = () => setIsVoiceActive(false);
-    setIsVoiceActive(true);
-    window.speechSynthesis.speak(utterance);
   };
 
   const stopVoice = () => {
-    window.speechSynthesis.cancel();
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
     setIsVoiceActive(false);
   };
 

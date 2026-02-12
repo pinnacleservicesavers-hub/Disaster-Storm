@@ -1,4 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useMutation } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import {
@@ -62,6 +64,11 @@ export default function WorkHubCustomerPortal() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState<any>(null);
   const [isVoiceActive, setIsVoiceActive] = useState(false);
+  const [isVoiceEnabled, setIsVoiceEnabled] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const hasPlayedWelcome = useRef(false);
+  const voiceEnabledRef = useRef(true);
   const [budgetConfirmed, setBudgetConfirmed] = useState<boolean | null>(null);
   const [budgetReason, setBudgetReason] = useState('');
   const [customerBudgetMin, setCustomerBudgetMin] = useState<string>('');
@@ -252,7 +259,6 @@ export default function WorkHubCustomerPortal() {
   const [selectedUpsells, setSelectedUpsells] = useState<string[]>([]);
   const [upsellTotal, setUpsellTotal] = useState(0);
 
-  const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
   
   // Upsell options by job category - designed to help contractors maximize revenue
   const UPSELL_OPTIONS: Record<string, { id: string; name: string; description: string; price: number; recommended?: boolean }[]> = {
@@ -366,62 +372,65 @@ export default function WorkHubCustomerPortal() {
     }
   }, [schedulingConfirmed]);
 
-  const speakGuidance = async (text: string) => {
-    try {
-      // Stop any currently playing audio
-      if (currentAudio) {
-        currentAudio.pause();
-        currentAudio.src = '';
-        setCurrentAudio(null);
-      }
-      
-      setIsVoiceActive(true);
-      
-      // Use ElevenLabs natural voice via backend API
-      const response = await fetch('/api/tts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text })
+  const voiceMutation = useMutation({
+    mutationFn: async (message: string) => {
+      const res = await apiRequest("POST", "/api/closebot/chat", {
+        message,
+        history: [],
+        context: { leadName: "contractor", companyName: "your company", trade: "customer_portal" },
+        enableVoice: true
       });
-      
-      if (!response.ok) {
-        console.error('TTS request failed');
-        setIsVoiceActive(false);
-        return;
-      }
-      
-      const data = await response.json();
-      
-      if (data.audioBase64) {
-        const audio = new Audio(`data:audio/mp3;base64,${data.audioBase64}`);
-        setCurrentAudio(audio);
-        
-        audio.onended = () => {
+      return res;
+    },
+    onSuccess: (data: any) => {
+      if (data.audioUrl && audioRef.current) {
+        audioRef.current.src = data.audioUrl;
+        audioRef.current.play();
+        setIsPlaying(true);
+        setIsVoiceActive(true);
+        audioRef.current.onended = () => {
+          setIsPlaying(false);
           setIsVoiceActive(false);
-          setCurrentAudio(null);
         };
-        
-        audio.onerror = () => {
-          setIsVoiceActive(false);
-          setCurrentAudio(null);
-        };
-        
-        await audio.play();
-      } else {
-        setIsVoiceActive(false);
       }
-    } catch (error) {
-      console.error('Voice guidance error:', error);
+    },
+  });
+
+  useEffect(() => {
+    if (!hasPlayedWelcome.current && voiceEnabledRef.current) {
+      hasPlayedWelcome.current = true;
+      voiceMutation.mutate("Welcome! I'm Rachel, your project assistant. Let me help you get started with your home improvement project.");
+    }
+  }, []);
+
+  const toggleVoice = () => {
+    const newState = !isVoiceEnabled;
+    setIsVoiceEnabled(newState);
+    voiceEnabledRef.current = newState;
+    if (!newState && audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      setIsPlaying(false);
       setIsVoiceActive(false);
     }
   };
+
+  const playRachelVoice = (prompt: string) => {
+    if (voiceEnabledRef.current) {
+      voiceMutation.mutate(prompt);
+    }
+  };
+
+  const speakGuidance = (text: string) => {
+    playRachelVoice(text);
+  };
   
   const stopVoice = () => {
-    if (currentAudio) {
-      currentAudio.pause();
-      currentAudio.src = '';
-      setCurrentAudio(null);
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
     }
+    setIsPlaying(false);
     setIsVoiceActive(false);
   };
 
@@ -3484,6 +3493,7 @@ export default function WorkHubCustomerPortal() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-purple-50 to-white dark:from-slate-950 dark:to-slate-900">
+      <audio ref={audioRef} className="hidden" />
       <TopNav />
 
       {/* Hero Header */}
@@ -3515,7 +3525,7 @@ export default function WorkHubCustomerPortal() {
                   : speakGuidance("I'm Rachel, your AI assistant. I'll guide you through submitting your project request. Let's get started!");
               }}
             >
-              {isVoiceActive ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+              {isPlaying ? <Volume2 className="w-5 h-5 animate-pulse" /> : isVoiceEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
             </Button>
           </div>
           <Progress value={progressPercentage} className="h-2" />

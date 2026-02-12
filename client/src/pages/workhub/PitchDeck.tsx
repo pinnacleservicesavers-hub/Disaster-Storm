@@ -1,13 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   Rocket, Target, TrendingUp, Users, DollarSign, Shield, 
   Zap, Brain, Phone, Star, BarChart3, Globe, Volume2, VolumeX,
-  CheckCircle, ArrowRight, Building2
+  CheckCircle, ArrowRight, Building2, Heart
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { useMutation } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
 
 const pitchSections = [
   {
@@ -167,65 +169,64 @@ const valueProps = [
   }
 ];
 
-function getBestFemaleVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | null {
-  const preferredVoices = ['Samantha', 'Zira', 'Jenny', 'Google US English Female', 'Microsoft Zira', 'Karen'];
-  for (const name of preferredVoices) {
-    const voice = voices.find(v => v.name.includes(name));
-    if (voice) return voice;
-  }
-  return voices.find(v => v.lang.startsWith('en')) || voices[0];
-}
-
 export default function PitchDeck() {
   const [currentSlide, setCurrentSlide] = useState(0);
-  const [voiceEnabled, setVoiceEnabled] = useState(true);
-  const [hasSpoken, setHasSpoken] = useState(false);
+  const [isVoiceEnabled, setIsVoiceEnabled] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const hasPlayedWelcome = useRef(false);
+  const voiceEnabledRef = useRef(true);
+
+  const stopAudio = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+    setIsPlaying(false);
+  };
+
+  const voiceMutation = useMutation({
+    mutationFn: async (message: string) => {
+      const res = await apiRequest("POST", "/api/closebot/chat", {
+        message,
+        history: [],
+        context: { leadName: "contractor", companyName: "your company", trade: "investor_pitch" },
+        enableVoice: true,
+      });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      if (!voiceEnabledRef.current) return;
+      if (data.audioUrl && audioRef.current) {
+        setIsPlaying(true);
+        audioRef.current.src = data.audioUrl;
+        audioRef.current.onended = () => setIsPlaying(false);
+        audioRef.current.play().catch(() => setIsPlaying(false));
+      }
+    },
+  });
 
   useEffect(() => {
-    if (!voiceEnabled || hasSpoken) return;
-    
-    const speak = () => {
-      const voices = speechSynthesis.getVoices();
-      if (voices.length === 0) return;
-      
-      speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(
-        "Hi there! ... Thanks for checking out WorkHub. ... " +
-        "I'm Rachel, ... and I'd love to tell you a bit about what we're building here. ... " +
-        "You know how contractors lose almost half their leads? ... " +
-        "Just because they're too busy working to follow up? ... " +
-        "Well, ... that's exactly the problem we're solving. ... " +
-        "We've built AI that handles the sales calls, ... " +
-        "the scheduling, ... the quotes, ... all of it. ... " +
-        "Go ahead and scroll through, ... I think you'll really like what you see."
-      );
-      
-      const voice = getBestFemaleVoice(voices);
-      if (voice) utterance.voice = voice;
-      utterance.pitch = 1.0;
-      utterance.rate = 0.88;
-      
-      speechSynthesis.speak(utterance);
-      setHasSpoken(true);
-    };
-
-    if (speechSynthesis.getVoices().length > 0) {
-      speak();
-    } else {
-      speechSynthesis.onvoiceschanged = speak;
+    if (!hasPlayedWelcome.current) {
+      hasPlayedWelcome.current = true;
+      voiceMutation.mutate("Give a brief, warm 1-sentence welcome to the WorkHub Pitch Deck. You're Rachel, introducing the investor presentation about how WorkHub helps contractors close more deals with AI. Keep it super short and natural.");
     }
-
-    return () => speechSynthesis.cancel();
-  }, [voiceEnabled, hasSpoken]);
+  }, []);
 
   const toggleVoice = () => {
-    if (voiceEnabled) speechSynthesis.cancel();
-    setVoiceEnabled(!voiceEnabled);
-    setHasSpoken(false);
+    const newEnabled = !isVoiceEnabled;
+    setIsVoiceEnabled(newEnabled);
+    voiceEnabledRef.current = newEnabled;
+    if (!newEnabled) {
+      stopAudio();
+    } else {
+      voiceMutation.mutate("Say a quick, natural 1-sentence overview of the WorkHub pitch — AI that closes deals for contractors while they work. Keep it warm and conversational.");
+    }
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-indigo-900 to-slate-900">
+      <audio ref={audioRef} className="hidden" />
       <div className="max-w-6xl mx-auto px-4 py-12">
         <div className="flex justify-between items-start mb-8">
           <Link to="/workhub" className="text-indigo-300 hover:text-white transition-colors">
@@ -238,7 +239,7 @@ export default function PitchDeck() {
             className="text-white/70 hover:text-white"
             data-testid="button-toggle-voice"
           >
-            {voiceEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
+            {isPlaying ? <Volume2 className="w-5 h-5 animate-pulse" /> : isVoiceEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
           </Button>
         </div>
 

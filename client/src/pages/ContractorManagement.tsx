@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,7 +9,7 @@ import { Users, Plus, Search, Settings, Shield, AlertTriangle, CheckCircle, Tren
 import { Link } from 'react-router-dom';
 import { DashboardSection } from '@/components/DashboardSection';
 import { FadeIn, PulseAlert, StaggerContainer, StaggerItem, HoverLift, CountUp, ScaleIn, SlideIn } from '@/components/ui/animations';
-import { getAuthHeaders } from '@/lib/queryClient';
+import { getAuthHeaders, apiRequest } from '@/lib/queryClient';
 import { StateCitySelector, useStateCitySelector } from '@/components/StateCitySelector';
 import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 
@@ -52,8 +52,11 @@ export default function ContractorManagement() {
   const [selectedView, setSelectedView] = useState('overview');
   const [draggedJob, setDraggedJob] = useState<Job | null>(null);
   const [showScheduler, setShowScheduler] = useState(false);
-  const [isVoiceGuideActive, setIsVoiceGuideActive] = useState(false);
-  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [isVoiceEnabled, setIsVoiceEnabled] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const hasPlayedWelcome = useRef(false);
+  const voiceEnabledRef = useRef(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [newContractor, setNewContractor] = useState({
     name: '',
@@ -153,19 +156,49 @@ export default function ContractorManagement() {
     refetchInterval: 60000,
   });
 
-  // Initialize voice loading
+  const voiceMutation = useMutation({
+    mutationFn: async (message: string) => {
+      const res = await apiRequest("POST", "/api/closebot/chat", {
+        message,
+        history: [],
+        context: { leadName: "contractor", companyName: "your company", trade: "contractor_management" },
+        enableVoice: true
+      });
+      return res;
+    },
+    onSuccess: (data: any) => {
+      if (data.audioUrl && audioRef.current) {
+        audioRef.current.src = data.audioUrl;
+        audioRef.current.play();
+        setIsPlaying(true);
+        audioRef.current.onended = () => setIsPlaying(false);
+      }
+    },
+  });
+
   useEffect(() => {
-    const loadVoices = () => {
-      setVoices(window.speechSynthesis.getVoices());
-    };
-    
-    loadVoices();
-    window.speechSynthesis.onvoiceschanged = loadVoices;
-    
-    return () => {
-      window.speechSynthesis.onvoiceschanged = null;
-    };
+    if (!hasPlayedWelcome.current && voiceEnabledRef.current) {
+      hasPlayedWelcome.current = true;
+      voiceMutation.mutate("Welcome to the Contractor Command Center. This is your comprehensive contractor management system for coordinating disaster recovery operations.");
+    }
   }, []);
+
+  const toggleVoice = () => {
+    const newState = !isVoiceEnabled;
+    setIsVoiceEnabled(newState);
+    voiceEnabledRef.current = newState;
+    if (!newState && audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      setIsPlaying(false);
+    }
+  };
+
+  const playRachelVoice = (prompt: string) => {
+    if (voiceEnabledRef.current) {
+      voiceMutation.mutate(prompt);
+    }
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -185,82 +218,8 @@ export default function ContractorManagement() {
     }
   };
 
-  // Voice Guide Function
   const startVoiceGuide = () => {
-    // Feature detection
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
-      console.warn('Speech synthesis not supported in this browser');
-      return;
-    }
-
-    if (!isVoiceGuideActive) {
-      setIsVoiceGuideActive(true);
-      
-      // Cancel any ongoing speech
-      window.speechSynthesis.cancel();
-      
-      const voiceContent = `Welcome to the Contractor Command Voice Navigation Guide. This is your comprehensive contractor management system for coordinating disaster recovery operations.
-
-      The dashboard shows key contractor metrics:
-      - Available Contractors displaying ready teams with green status indicators
-      - Busy Contractors showing teams currently on active jobs with yellow status
-      - Offline Contractors indicating unavailable teams with gray status
-      - Average Rating showing overall contractor performance scores
-
-      Main action buttons include:
-      - Add Contractor with a plus icon to onboard new disaster recovery specialists
-      - Search Contractors with a search icon to quickly locate specific contractor profiles
-      - Analytics with a trending up icon to view performance and utilization insights
-
-      The contractor grid displays detailed information:
-      - Contractor company names and specialties like Tree Removal, Roofing, Water Damage, Debris Removal, or Electrical work
-      - Real-time status indicators with colored dots - green for available, yellow for busy, gray for offline
-      - Star ratings showing customer satisfaction scores out of 5 stars
-      - Completed jobs count indicating experience level
-      - Response time averages showing how quickly contractors respond to assignments
-      - Last active timestamps to track contractor engagement
-      - Hourly rates for budget planning and cost estimation
-      - Skill tags showing specific capabilities like Emergency Response, Storm Cleanup, or Insurance Claims
-      - Certification badges such as ISA Certified, OSHA 30, GAF Master Elite, or HAAG Certified
-
-      The job assignment section includes:
-      - Pending jobs list with drag-and-drop functionality for easy assignment
-      - Priority levels with color coding - red for urgent, orange for high, blue for medium, green for low
-      - Estimated duration and job values for resource planning
-      - Required skills matching for optimal contractor selection
-      - Customer information and project locations
-
-      Advanced features include:
-      - Drag and drop job assignment where you can drag jobs from the pending list to available contractors
-      - Real-time availability tracking that updates contractor status every 30 seconds
-      - Smart matching that suggests contractors based on skills, location, and availability
-      - Performance tracking with completion rates and customer feedback scores
-
-      This Contractor Command system ensures efficient coordination of disaster recovery teams, optimizes job assignments based on skills and availability, and maintains quality control through performance monitoring. The voice guide supports accessibility and hands-free operation during emergency coordination situations.`;
-      
-      const utterance = new SpeechSynthesisUtterance(voiceContent);
-      utterance.rate = 0.9;
-      utterance.pitch = 1.0;
-      utterance.volume = 0.8;
-      
-      if (voices.length > 0) {
-        utterance.voice = voices.find(voice => voice.lang.includes('en')) || voices[0];
-      }
-      
-      utterance.onend = () => {
-        setIsVoiceGuideActive(false);
-      };
-      
-      utterance.onerror = (event) => {
-        console.error('Speech synthesis error:', event);
-        setIsVoiceGuideActive(false);
-      };
-      
-      window.speechSynthesis.speak(utterance);
-    } else {
-      window.speechSynthesis.cancel();
-      setIsVoiceGuideActive(false);
-    }
+    toggleVoice();
   };
 
   const availableCount = contractors.filter(c => c.status === 'available').length;
@@ -305,6 +264,7 @@ export default function ContractorManagement() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[hsl(217,91%,15%)] via-[hsl(217,91%,25%)] to-[hsl(215,25%,25%)] dark:from-[hsl(217,91%,10%)] dark:via-[hsl(217,91%,20%)] dark:to-[hsl(215,25%,20%)]">
+      <audio ref={audioRef} className="hidden" />
       <div className="container mx-auto px-4 py-6 space-y-6">
         <div className="flex items-center gap-4">
           <Link to="/">
@@ -345,13 +305,13 @@ export default function ContractorManagement() {
         { icon: Briefcase, label: 'Jobs', variant: 'outline', testId: 'button-view-jobs', onClick: () => setSelectedView('assignment') },
         { icon: TrendingUp, label: 'Analytics', variant: 'outline', testId: 'button-contractor-analytics', onClick: () => setSelectedView('analytics') },
         { 
-          icon: isVoiceGuideActive ? VolumeX : Volume2, 
-          label: isVoiceGuideActive ? 'Stop Guide' : 'Voice Guide', 
+          icon: isPlaying ? Volume2 : isVoiceEnabled ? Volume2 : VolumeX, 
+          label: isPlaying ? 'Playing' : isVoiceEnabled ? 'Voice Guide' : 'Voice Off', 
           variant: 'outline', 
           testId: 'button-voice-guide',
           onClick: startVoiceGuide,
           'aria-label': 'Voice guide for Contractor Command',
-          'aria-pressed': isVoiceGuideActive
+          'aria-pressed': isPlaying
         }
       ]}
       testId="contractor-management"

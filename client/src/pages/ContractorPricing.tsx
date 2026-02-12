@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useMutation } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { Check, X, Zap, Crown, Building2, Rocket, Star, Shield, Clock, Award, ArrowLeft, Volume2, VolumeX, Briefcase, TrendingUp, Layers } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -228,69 +229,60 @@ const contractorTiers = [
   }
 ];
 
-function getBestFemaleVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | null {
-  const preferredVoices = ['Samantha', 'Zira', 'Jenny', 'Google US English Female', 'Microsoft Zira', 'Karen', 'Moira', 'Tessa', 'Fiona'];
-  for (const name of preferredVoices) {
-    const voice = voices.find(v => v.name.includes(name));
-    if (voice) return voice;
-  }
-  const femaleVoice = voices.find(v => 
-    v.name.toLowerCase().includes('female') || 
-    v.lang.startsWith('en') && !v.name.toLowerCase().includes('male')
-  );
-  return femaleVoice || voices.find(v => v.lang.startsWith('en')) || voices[0];
-}
 
 export default function ContractorPricing() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isAnnual, setIsAnnual] = useState(true);
   const [loading, setLoading] = useState<string | null>(null);
-  const [voiceEnabled, setVoiceEnabled] = useState(true);
-  const [hasSpoken, setHasSpoken] = useState(false);
+  const [isVoiceEnabled, setIsVoiceEnabled] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const hasPlayedWelcome = useRef(false);
+  const voiceEnabledRef = useRef(true);
+
+  const voiceMutation = useMutation({
+    mutationFn: async (message: string) => {
+      const res = await apiRequest("POST", "/api/closebot/chat", {
+        message,
+        history: [],
+        context: { leadName: "contractor", companyName: "your company", trade: "contractor_pricing" },
+        enableVoice: true
+      });
+      return res;
+    },
+    onSuccess: (data: any) => {
+      if (data.audioUrl && audioRef.current) {
+        audioRef.current.src = data.audioUrl;
+        audioRef.current.play();
+        setIsPlaying(true);
+        audioRef.current.onended = () => setIsPlaying(false);
+      }
+    },
+  });
 
   useEffect(() => {
-    if (!voiceEnabled || hasSpoken) return;
-    
-    const speak = () => {
-      const voices = speechSynthesis.getVoices();
-      if (voices.length === 0) return;
-      
-      speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(
-        "Welcome to Strategic Services Savers Contractor Pricing! ... " +
-        "I'm Rachel, your AI assistant. ... " +
-        "We have two powerful tracks for contractors. ... " +
-        "WorkBuddy is for everyday jobs, like roofing, painting, HVAC, and general contracting. ... " +
-        "Disaster Direct is for storm response specialists who need real-time weather intel and damage detection. ... " +
-        "Or save big with our Ultimate bundle that includes everything! ... " +
-        "Choose annual billing and save up to two months free. ... " +
-        "Use the tabs below to compare plans."
-      );
-      
-      const voice = getBestFemaleVoice(voices);
-      if (voice) utterance.voice = voice;
-      utterance.pitch = 1.1;
-      utterance.rate = 1.05;
-      
-      speechSynthesis.speak(utterance);
-      setHasSpoken(true);
-    };
-
-    if (speechSynthesis.getVoices().length > 0) {
-      speak();
-    } else {
-      speechSynthesis.onvoiceschanged = speak;
+    if (!hasPlayedWelcome.current && voiceEnabledRef.current) {
+      hasPlayedWelcome.current = true;
+      voiceMutation.mutate("Welcome to Strategic Services Savers Contractor Pricing! I'm Rachel. We have two powerful tracks: WorkBuddy for everyday jobs, and Disaster Direct for storm response specialists.");
     }
-
-    return () => speechSynthesis.cancel();
-  }, [voiceEnabled, hasSpoken]);
+  }, []);
 
   const toggleVoice = () => {
-    if (voiceEnabled) {
-      speechSynthesis.cancel();
+    const newState = !isVoiceEnabled;
+    setIsVoiceEnabled(newState);
+    voiceEnabledRef.current = newState;
+    if (!newState && audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      setIsPlaying(false);
     }
-    setVoiceEnabled(!voiceEnabled);
+  };
+
+  const playRachelVoice = (prompt: string) => {
+    if (voiceEnabledRef.current) {
+      voiceMutation.mutate(prompt);
+    }
   };
 
   const handleSubscribe = async (tier: typeof contractorTiers[0]) => {
@@ -325,6 +317,7 @@ export default function ContractorPricing() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+      <audio ref={audioRef} className="hidden" />
       <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wMyI+PGNpcmNsZSBjeD0iMzAiIGN5PSIzMCIgcj0iMiIvPjwvZz48L2c+PC9zdmc+')] opacity-50" />
       
       <div className="relative z-10 container mx-auto px-4 py-12">
@@ -346,7 +339,7 @@ export default function ContractorPricing() {
             className="text-white hover:bg-white/10"
             data-testid="button-toggle-voice"
           >
-            {voiceEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
+            {isPlaying ? <Volume2 className="w-5 h-5 animate-pulse" /> : isVoiceEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
           </Button>
         </div>
 

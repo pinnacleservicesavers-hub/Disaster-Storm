@@ -177,6 +177,7 @@ export function UltimateAIIntelligenceSystem({
   
   const recognitionRef = useRef<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Ultimate Data Sources - All legitimate weather/disaster sources
   const [dataSources] = useState<DataSource[]>([
@@ -382,20 +383,38 @@ export function UltimateAIIntelligenceSystem({
     }
   };
 
-  const speakUltimateText = (text: string) => {
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
+  const speakUltimateText = async (text: string) => {
+    try {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
       setIsSpeaking(true);
       
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 0.9;
-      utterance.pitch = 1.0;
-      utterance.volume = 1.0;
+      const response = await fetch('/api/closebot/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: text,
+          history: [],
+          context: { leadName: "user", companyName: "the company", trade: "general" },
+          enableVoice: true
+        })
+      });
       
-      utterance.onend = () => setIsSpeaking(false);
-      utterance.onerror = () => setIsSpeaking(false);
+      const data = await response.json();
       
-      window.speechSynthesis.speak(utterance);
+      if (data.audioUrl) {
+        audioRef.current = new Audio(data.audioUrl);
+        audioRef.current.onended = () => setIsSpeaking(false);
+        audioRef.current.onerror = () => setIsSpeaking(false);
+        await audioRef.current.play();
+      } else {
+        setIsSpeaking(false);
+      }
+    } catch (error) {
+      console.error('Voice error:', error);
+      setIsSpeaking(false);
     }
   };
 

@@ -4,7 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
 import { Scale, Plus, Search, Settings, AlertTriangle, Calendar, Clock, FileText, CheckCircle, Volume2, VolumeX, ArrowLeft, Upload, X, ExternalLink, Building, Gavel } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { DashboardSection } from '@/components/DashboardSection';
@@ -30,8 +31,11 @@ interface LegalItem {
 export default function Legal() {
   const { selectedState, setSelectedState, selectedCity, setSelectedCity, availableCities } = useStateCitySelector('Florida', 'Miami');
   const [selectedFilter, setSelectedFilter] = useState('all');
-  const [isVoiceGuideActive, setIsVoiceGuideActive] = useState(false);
-  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [isVoiceEnabled, setIsVoiceEnabled] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const audioRef2 = useRef<HTMLAudioElement>(null);
+  const hasPlayedWelcome = useRef(false);
+  const voiceEnabledRef = useRef(true);
   const [showNewDocModal, setShowNewDocModal] = useState(false);
   const [docType, setDocType] = useState<'contract' | 'lien' | 'license' | 'compliance'>('lien');
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
@@ -63,18 +67,31 @@ export default function Legal() {
     refetchInterval: 60000,
   });
 
-  // Initialize voice loading
+  const voiceMutation = useMutation({
+    mutationFn: async (message: string) => {
+      const res = await apiRequest("POST", "/api/closebot/chat", {
+        message,
+        history: [],
+        context: { leadName: "contractor", companyName: "your company", trade: "legal_compliance" },
+        enableVoice: true
+      });
+      return res;
+    },
+    onSuccess: (data: any) => {
+      if (data.audioUrl && audioRef2.current) {
+        audioRef2.current.src = data.audioUrl;
+        audioRef2.current.play();
+        setIsPlaying(true);
+        audioRef2.current.onended = () => setIsPlaying(false);
+      }
+    },
+  });
+
   useEffect(() => {
-    const loadVoices = () => {
-      setVoices(window.speechSynthesis.getVoices());
-    };
-    
-    loadVoices();
-    window.speechSynthesis.onvoiceschanged = loadVoices;
-    
-    return () => {
-      window.speechSynthesis.onvoiceschanged = null;
-    };
+    if (!hasPlayedWelcome.current && voiceEnabledRef.current) {
+      hasPlayedWelcome.current = true;
+      voiceMutation.mutate("Welcome to Legal Compliance! I'll help you manage your contracts, liens, and legal requirements.");
+    }
   }, []);
 
   const getTypeIcon = (type: string) => {
@@ -97,79 +114,25 @@ export default function Legal() {
     }
   };
 
-  // Get best natural female voice
-  const getBestFemaleVoice = (): SpeechSynthesisVoice | null => {
-    if (!voices || voices.length === 0) return null;
-    
-    const preferredVoices = [
-      'Samantha', 'Karen', 'Moira', 'Fiona', 'Victoria',
-      'Microsoft Zira', 'Microsoft Aria', 'Microsoft Jenny',
-      'Google US English Female', 'Google UK English Female',
-      'Joanna', 'Salli', 'Kimberly'
-    ];
-    
-    for (const preferred of preferredVoices) {
-      const voice = voices.find(v => v.name.toLowerCase().includes(preferred.toLowerCase()));
-      if (voice) return voice;
+  const toggleVoice = () => {
+    const newState = !isVoiceEnabled;
+    setIsVoiceEnabled(newState);
+    voiceEnabledRef.current = newState;
+    if (!newState && audioRef2.current) {
+      audioRef2.current.pause();
+      audioRef2.current.currentTime = 0;
+      setIsPlaying(false);
     }
-    
-    const femaleVoice = voices.find(v => 
-      v.lang.startsWith('en') && 
-      (v.name.toLowerCase().includes('female') || v.name.toLowerCase().includes('zira'))
-    );
-    if (femaleVoice) return femaleVoice;
-    
-    return voices.find(v => v.lang.startsWith('en')) || voices[0] || null;
   };
 
-  // Voice Guide Function with natural female voice
+  const playRachelVoice = (prompt: string) => {
+    if (voiceEnabledRef.current) {
+      voiceMutation.mutate(prompt);
+    }
+  };
+
   const startVoiceGuide = () => {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
-      toast({ variant: 'destructive', title: 'Voice not supported' });
-      return;
-    }
-
-    if (!isVoiceGuideActive) {
-      if (voices.length === 0) {
-        const loadedVoices = window.speechSynthesis.getVoices();
-        if (loadedVoices.length === 0) {
-          toast({ title: 'Loading voice...', description: 'Please try again in a moment.' });
-          return;
-        }
-        setVoices(loadedVoices);
-      }
-      
-      setIsVoiceGuideActive(true);
-      window.speechSynthesis.cancel();
-      
-      const voiceContent = `Welcome to Legal Compliance! I'm Rachel, and I'll help you manage your contracts, liens, and legal requirements.
-
-      This dashboard shows your legal metrics at a glance: active contracts, pending liens, compliance rate, and critical alerts that need attention.
-
-      To add a new document, click the New Document button. You can create contracts, file liens, manage licenses, or track compliance items. You can also upload supporting files directly.
-
-      For lien filing, I can help you connect with LienItNow.com, a professional service that handles mechanics liens across all 50 states. Just click the File Lien with LienItNow button when you're ready.
-
-      Each legal item shows its deadline, days remaining, and priority level. Critical items with red borders need immediate attention to avoid missing deadlines.
-
-      I'm here to help you stay compliant and protect your business interests!`;
-      
-      const utterance = new SpeechSynthesisUtterance(voiceContent);
-      const femaleVoice = getBestFemaleVoice();
-      if (femaleVoice) utterance.voice = femaleVoice;
-      
-      utterance.rate = 1.05;
-      utterance.pitch = 1.1;
-      utterance.volume = 0.9;
-      
-      utterance.onend = () => setIsVoiceGuideActive(false);
-      utterance.onerror = () => setIsVoiceGuideActive(false);
-      
-      window.speechSynthesis.speak(utterance);
-    } else {
-      window.speechSynthesis.cancel();
-      setIsVoiceGuideActive(false);
-    }
+    toggleVoice();
   };
 
   // Handle file upload
@@ -230,6 +193,7 @@ export default function Legal() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
+      <audio ref={audioRef2} className="hidden" />
       <div className="container mx-auto px-4 py-6 space-y-6">
         <div className="flex items-center gap-4">
           <Link to="/">
@@ -270,13 +234,13 @@ export default function Legal() {
         { icon: ExternalLink, label: 'LienItNow Direct', variant: 'outline', testId: 'button-lienitnow', onClick: openLienItNow },
         { icon: Search, label: 'Search Legal', variant: 'outline', testId: 'button-search-legal' },
         { 
-          icon: isVoiceGuideActive ? VolumeX : Volume2, 
-          label: isVoiceGuideActive ? 'Stop Guide' : 'Voice Guide', 
+          icon: isPlaying ? Volume2 : isVoiceEnabled ? Volume2 : VolumeX, 
+          label: isPlaying ? 'Playing' : isVoiceEnabled ? 'Voice Guide' : 'Voice Off', 
           variant: 'outline', 
           testId: 'button-voice-guide',
           onClick: startVoiceGuide,
           'aria-label': 'Voice guide for Legal Command',
-          'aria-pressed': isVoiceGuideActive
+          'aria-pressed': isPlaying
         }
       ]}
       testId="legal-section"

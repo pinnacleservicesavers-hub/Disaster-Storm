@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState, useEffect, useRef } from 'react';
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
 import { MapContainer, TileLayer, GeoJSON, useMap } from 'react-leaflet';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -249,35 +250,61 @@ export default function WeatherIntelligenceCenter() {
   const [selectedState, setSelectedState] = useState<string>('');
   const [forecastHours, setForecastHours] = useState<number>(48);
   const [autoRefresh, setAutoRefresh] = useState(true);
-  const [isVoiceGuideActive, setIsVoiceGuideActive] = useState(false);
+  const [isVoiceEnabled, setIsVoiceEnabled] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const hasPlayedWelcome = useRef(false);
+  const voiceEnabledRef = useRef(true);
   const [currentLocation, setCurrentLocation] = useState<{latitude: number; longitude: number} | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [currentSection, setCurrentSection] = useState<string>('overview');
-  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const queryClient = useQueryClient();
   
   const { alertsEnabled, extremeAlertCount, severeAlertCount } = useAlertNotifications();
 
-  // Initialize voice synthesis
+  const voiceMutation = useMutation({
+    mutationFn: async (message: string) => {
+      const res = await apiRequest("POST", "/api/closebot/chat", {
+        message,
+        history: [],
+        context: { leadName: "contractor", companyName: "your company", trade: "weather_intelligence" },
+        enableVoice: true
+      });
+      return res;
+    },
+    onSuccess: (data: any) => {
+      if (data.audioUrl && audioRef.current) {
+        audioRef.current.src = data.audioUrl;
+        audioRef.current.play();
+        setIsPlaying(true);
+        audioRef.current.onended = () => setIsPlaying(false);
+      }
+    },
+  });
+
   useEffect(() => {
-    const loadVoices = () => {
-      if ('speechSynthesis' in window) {
-        setVoices(window.speechSynthesis.getVoices());
-      }
-    };
-
-    loadVoices();
-    
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.onvoiceschanged = loadVoices;
+    if (!hasPlayedWelcome.current && voiceEnabledRef.current) {
+      hasPlayedWelcome.current = true;
+      voiceMutation.mutate("Welcome to Weather Intelligence Center. I'm Rachel, your weather analytics assistant.");
     }
-
-    return () => {
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.onvoiceschanged = null;
-      }
-    };
   }, []);
+
+  const toggleVoice = () => {
+    const newState = !isVoiceEnabled;
+    setIsVoiceEnabled(newState);
+    voiceEnabledRef.current = newState;
+    if (!newState && audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      setIsPlaying(false);
+    }
+  };
+
+  const playRachelVoice = (prompt: string) => {
+    if (voiceEnabledRef.current) {
+      voiceMutation.mutate(prompt);
+    }
+  };
 
   // Handle section changes for voice guide
   const handleSectionChange = (sectionId: string) => {
@@ -362,6 +389,7 @@ export default function WeatherIntelligenceCenter() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 dark:from-slate-900 dark:via-blue-900 dark:to-cyan-900">
+      <audio ref={audioRef} className="hidden" />
       <ModuleAIAssistant 
         moduleName="Weather Intelligence Center"
         moduleContext="Multi-source weather intelligence combining NOAA, NWS, GOES satellites, NDBC buoys, Ambee environmental data. Includes Windy.com interactive maps with animated wind patterns, webcams, Radar+. Help users analyze deep weather insights, environmental conditions (air quality, pollen, soil moisture), and predictive analytics for contractor deployment."

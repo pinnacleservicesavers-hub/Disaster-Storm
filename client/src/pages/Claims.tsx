@@ -38,8 +38,10 @@ interface Claim {
 export default function Claims() {
   const { selectedState, setSelectedState, selectedCity, setSelectedCity, availableCities } = useStateCitySelector('Florida', 'Miami');
   const [selectedStatus, setSelectedStatus] = useState('all');
-  const [isVoiceGuideActive, setIsVoiceGuideActive] = useState(false);
-  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [isVoiceEnabled, setIsVoiceEnabled] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const hasPlayedWelcome = useRef(false);
+  const voiceEnabledRef = useRef(true);
   
   // Add New Claim Modal States
   const [isAddClaimModalOpen, setIsAddClaimModalOpen] = useState(false);
@@ -414,19 +416,6 @@ Current Notes: ${newClaim.notes || 'None yet'}
     }
   };
 
-  // Initialize voice loading
-  useEffect(() => {
-    const loadVoices = () => {
-      setVoices(window.speechSynthesis.getVoices());
-    };
-    
-    loadVoices();
-    window.speechSynthesis.onvoiceschanged = loadVoices;
-    
-    return () => {
-      window.speechSynthesis.onvoiceschanged = null;
-    };
-  }, []);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -462,101 +451,59 @@ Current Notes: ${newClaim.notes || 'None yet'}
   const totalValue = claims.reduce((sum, c) => sum + c.value, 0);
   const avgProcessingTime = 4.2;
 
-  // Audio reference for ElevenLabs playback
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
 
-  // Voice Guide Function - Uses ElevenLabs Rachel voice
-  const startVoiceGuide = async () => {
-    if (isVoiceGuideActive) {
-      // Stop current playback
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
-      setIsVoiceGuideActive(false);
-      return;
-    }
-
-    setIsVoiceGuideActive(true);
-    
-    const voiceContent = `Welcome to Claims Central. I'm Rachel, your claims management assistant.
-
-You're viewing ${claims.length} insurance claims with ${openClaims} currently open and ${pendingClaims} pending review.
-
-The total claim value this quarter is ${(totalValue / 1000000).toFixed(1)} million dollars with a 94% approval rate.
-
-Your claims pipeline shows four stages: Submitted, Under Review, Approved, and Paid Out. Each claim displays the claim number, customer name, damage type, current status, and assigned adjuster.
-
-Priority levels are color-coded: red for urgent, orange for high priority, blue for medium, and green for low priority.
-
-Need help with a specific claim? Just ask me anything about claim processing, adjuster assignments, or payment status.`;
-
-    try {
-      const response = await fetch('/api/tts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: voiceContent })
+  const voiceMutation = useMutation({
+    mutationFn: async (message: string) => {
+      const res = await apiRequest("POST", "/api/closebot/chat", {
+        message,
+        history: [],
+        context: { leadName: "contractor", companyName: "your company", trade: "claims_management" },
+        enableVoice: true
       });
-
-      if (response.ok) {
-        const data = await response.json();
-        
-        if (data.audioBase64) {
-          audioRef.current = new Audio(`data:audio/mpeg;base64,${data.audioBase64}`);
-          audioRef.current.onended = () => {
-            setIsVoiceGuideActive(false);
-            audioRef.current = null;
-          };
-          audioRef.current.onerror = () => {
-            console.warn('Audio playback failed, falling back to browser speech');
-            fallbackToSpeechSynthesis(voiceContent);
-          };
-          await audioRef.current.play();
-        } else {
-          fallbackToSpeechSynthesis(voiceContent);
-        }
-      } else {
-        fallbackToSpeechSynthesis(voiceContent);
+      return res;
+    },
+    onSuccess: (data: any) => {
+      if (data.audioUrl && audioRef.current) {
+        audioRef.current.src = data.audioUrl;
+        audioRef.current.play();
+        setIsPlaying(true);
+        audioRef.current.onended = () => setIsPlaying(false);
       }
-    } catch (error) {
-      console.warn('TTS API error, using fallback:', error);
-      fallbackToSpeechSynthesis(voiceContent);
+    },
+  });
+
+  useEffect(() => {
+    if (!hasPlayedWelcome.current && voiceEnabledRef.current) {
+      hasPlayedWelcome.current = true;
+      voiceMutation.mutate("Welcome to Claims Central. I'm Rachel, your claims management assistant. I'll help you manage insurance claims processing efficiently.");
+    }
+  }, []);
+
+  const toggleVoice = () => {
+    const newState = !isVoiceEnabled;
+    setIsVoiceEnabled(newState);
+    voiceEnabledRef.current = newState;
+    if (!newState && audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      setIsPlaying(false);
     }
   };
 
-  // Fallback function for browser speech synthesis
-  const fallbackToSpeechSynthesis = (text: string) => {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
-      setIsVoiceGuideActive(false);
-      return;
+  const playRachelVoice = (prompt: string) => {
+    if (voiceEnabledRef.current) {
+      voiceMutation.mutate(prompt);
     }
+  };
 
-    window.speechSynthesis.cancel();
-    
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 0.9;
-    utterance.pitch = 1.0;
-    utterance.volume = 0.8;
-    
-    if (voices.length > 0) {
-      const femaleNames = ['samantha', 'karen', 'moira', 'fiona', 'victoria', 'zira', 'aria', 'jenny', 'susan', 'kate', 'female'];
-      const femaleVoice = voices.find(voice => 
-        voice.lang.startsWith('en') && 
-        femaleNames.some(name => voice.name.toLowerCase().includes(name))
-      ) || voices.find(voice =>
-        voice.lang.startsWith('en') && voice.name.toLowerCase().includes('google') && voice.name.toLowerCase().includes('female')
-      );
-      utterance.voice = femaleVoice || voices.find(voice => voice.lang.startsWith('en')) || voices[0];
-    }
-    
-    utterance.onend = () => setIsVoiceGuideActive(false);
-    utterance.onerror = () => setIsVoiceGuideActive(false);
-    
-    window.speechSynthesis.speak(utterance);
+  const startVoiceGuide = () => {
+    toggleVoice();
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[hsl(217,91%,15%)] via-[hsl(217,91%,25%)] to-[hsl(215,25%,25%)] dark:from-[hsl(217,91%,10%)] dark:via-[hsl(217,91%,20%)] dark:to-[hsl(215,25%,20%)]">
+      <audio ref={audioRef} className="hidden" />
       <div className="container mx-auto px-4 py-6 space-y-6">
         <div className="flex items-center gap-4">
           <Link to="/">
@@ -1094,13 +1041,13 @@ Need help with a specific claim? Just ask me anything about claim processing, ad
         { icon: Search, label: 'Search Claims', variant: 'outline', testId: 'button-search-claims' },
         { icon: TrendingUp, label: 'Analytics', variant: 'outline', testId: 'button-claims-analytics' },
         { 
-          icon: isVoiceGuideActive ? VolumeX : Volume2, 
-          label: isVoiceGuideActive ? 'Stop Guide' : 'Voice Guide', 
+          icon: isPlaying ? Volume2 : isVoiceEnabled ? Volume2 : VolumeX, 
+          label: isPlaying ? 'Playing' : isVoiceEnabled ? 'Voice Guide' : 'Voice Off', 
           variant: 'outline', 
           testId: 'button-voice-guide',
           onClick: startVoiceGuide,
           'aria-label': 'Voice guide for Claims Central',
-          'aria-pressed': isVoiceGuideActive
+          'aria-pressed': isPlaying
         }
       ]}
       testId="claims-section"

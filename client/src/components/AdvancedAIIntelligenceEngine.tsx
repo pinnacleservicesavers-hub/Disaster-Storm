@@ -127,8 +127,7 @@ export function AdvancedAIIntelligenceEngine({
   const [analysisDepth, setAnalysisDepth] = useState<'simple' | 'advanced' | 'expert'>('expert');
   const [aiPersonality, setAiPersonality] = useState<'professional' | 'friendly' | 'analytical'>('analytical');
   const [realTimeMode, setRealTimeMode] = useState(true);
-  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
-  const [selectedVoice, setSelectedVoice] = useState<string>('');
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const [processingIntensity, setProcessingIntensity] = useState(85);
   
   const recognitionRef = useRef<any>(null);
@@ -151,28 +150,13 @@ export function AdvancedAIIntelligenceEngine({
     refetchInterval: realTimeMode ? 300000 : false, // 5 minutes
   });
 
-  // Initialize advanced speech synthesis
   useEffect(() => {
-    const loadVoices = () => {
-      const availableVoices = window.speechSynthesis.getVoices();
-      setVoices(availableVoices);
-      
-      // Prefer more advanced voices
-      const expertVoice = availableVoices.find(voice => 
-        voice.name.toLowerCase().includes('neural') || 
-        voice.name.toLowerCase().includes('enhanced') ||
-        voice.name.toLowerCase().includes('premium')
-      );
-      
-      if (expertVoice) {
-        setSelectedVoice(expertVoice.name);
-      } else if (availableVoices.length > 0) {
-        setSelectedVoice(availableVoices[0].name);
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
       }
     };
-
-    loadVoices();
-    window.speechSynthesis.onvoiceschanged = loadVoices;
   }, []);
 
   // Advanced speech recognition with neural processing
@@ -326,25 +310,38 @@ export function AdvancedAIIntelligenceEngine({
     }
   };
 
-  const speakAdvancedText = (text: string) => {
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
+  const speakAdvancedText = async (text: string) => {
+    try {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
       setIsSpeaking(true);
       
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = aiPersonality === 'analytical' ? 0.85 : 0.95;
-      utterance.pitch = aiPersonality === 'friendly' ? 1.1 : 1.0;
-      utterance.volume = 0.9;
+      const response = await fetch('/api/closebot/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: text,
+          history: [],
+          context: { leadName: "user", companyName: "the company", trade: "general" },
+          enableVoice: true
+        })
+      });
       
-      if (selectedVoice) {
-        const voice = voices.find(v => v.name === selectedVoice);
-        if (voice) utterance.voice = voice;
+      const data = await response.json();
+      
+      if (data.audioUrl) {
+        audioRef.current = new Audio(data.audioUrl);
+        audioRef.current.onended = () => setIsSpeaking(false);
+        audioRef.current.onerror = () => setIsSpeaking(false);
+        await audioRef.current.play();
+      } else {
+        setIsSpeaking(false);
       }
-      
-      utterance.onend = () => setIsSpeaking(false);
-      utterance.onerror = () => setIsSpeaking(false);
-      
-      window.speechSynthesis.speak(utterance);
+    } catch (error) {
+      console.error('Voice error:', error);
+      setIsSpeaking(false);
     }
   };
 
@@ -525,7 +522,7 @@ export function AdvancedAIIntelligenceEngine({
                 </SelectContent>
               </Select>
               {isSpeaking && (
-                <Button variant="outline" size="sm" onClick={() => window.speechSynthesis.cancel()}>
+                <Button variant="outline" size="sm" onClick={() => { if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; } setIsSpeaking(false); }}>
                   <VolumeX className="h-4 w-4" />
                 </Button>
               )}

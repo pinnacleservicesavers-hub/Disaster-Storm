@@ -262,66 +262,45 @@ export function ComprehensiveIntelligenceSystem({ className = '', onIncidentAler
     }
   }, []);
 
-  // Get the best available female voice from browser
-  const getPreferredFemaleVoice = () => {
-    const voices = window.speechSynthesis.getVoices();
-    const preferredVoices = [
-      'Samantha', 'Karen', 'Moira', 'Fiona', 'Victoria',
-      'Google US English Female', 'Google UK English Female',
-      'Microsoft Zira', 'Microsoft Aria', 'Microsoft Jenny',
-    ];
-    
-    for (const preferred of preferredVoices) {
-      const voice = voices.find(v => v.name.toLowerCase().includes(preferred.toLowerCase()));
-      if (voice) return voice;
-    }
-    
-    const englishFemale = voices.find(v => 
-      v.lang.startsWith('en') && 
-      ['samantha', 'zira', 'aria', 'jenny', 'karen', 'moira', 'fiona', 'victoria', 'susan', 'kate'].some(
-        name => v.name.toLowerCase().includes(name)
-      )
-    );
-    return englishFemale || voices.find(v => v.lang.startsWith('en')) || voices[0];
-  };
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  // Natural female voice using browser speech synthesis
   const speakResponse = async (text: string) => {
     if (!voiceEnabled) return;
     
     try {
-      window.speechSynthesis.cancel();
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
       setIsSpeaking(true);
       
-      // Clean up text for more natural speech
-      const cleanText = text
-        .replace(/\*\*(.*?)\*\*/g, '$1')
-        .replace(/\*(.*?)\*/g, '$1')
-        .replace(/```[\s\S]*?```/g, '')
-        .replace(/#{1,6}\s/g, '')
-        .replace(/\n+/g, '. ')
-        .replace(/\s+/g, ' ')
-        .trim();
+      const response = await fetch('/api/closebot/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: text,
+          history: [],
+          context: { leadName: "user", companyName: "the company", trade: "general" },
+          enableVoice: true
+        })
+      });
       
-      const utterance = new SpeechSynthesisUtterance(cleanText);
-      const voice = getPreferredFemaleVoice();
-      if (voice) utterance.voice = voice;
+      const data = await response.json();
       
-      utterance.rate = 1.05;
-      utterance.pitch = 1.1;
-      utterance.volume = 1.0;
-      
-      utterance.onend = () => setIsSpeaking(false);
-      utterance.onerror = () => setIsSpeaking(false);
-      
-      window.speechSynthesis.speak(utterance);
+      if (data.audioUrl) {
+        audioRef.current = new Audio(data.audioUrl);
+        audioRef.current.onended = () => setIsSpeaking(false);
+        audioRef.current.onerror = () => setIsSpeaking(false);
+        await audioRef.current.play();
+      } else {
+        setIsSpeaking(false);
+      }
     } catch (error) {
       console.error('Voice error:', error);
       setIsSpeaking(false);
     }
   };
 
-  // Speak critical incident alerts
   const speakIncidentAlert = async (incident: LiveIncident) => {
     if (!voiceEnabled) return;
     
@@ -332,16 +311,28 @@ export function ComprehensiveIntelligenceSystem({ className = '', onIncidentAler
     }`;
     
     try {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(alertText);
-      const voice = getPreferredFemaleVoice();
-      if (voice) utterance.voice = voice;
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
       
-      utterance.rate = 1.05;
-      utterance.pitch = 1.1;
-      utterance.volume = 1.0;
+      const response = await fetch('/api/closebot/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: alertText,
+          history: [],
+          context: { leadName: "user", companyName: "the company", trade: "general" },
+          enableVoice: true
+        })
+      });
       
-      window.speechSynthesis.speak(utterance);
+      const data = await response.json();
+      
+      if (data.audioUrl) {
+        audioRef.current = new Audio(data.audioUrl);
+        await audioRef.current.play();
+      }
     } catch (error) {
       console.error('Alert voice error:', error);
     }

@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useMutation } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import {
@@ -138,7 +140,11 @@ export default function WorkHubContractorOnboarding() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [newZipCode, setNewZipCode] = useState('');
-  const [isVoiceActive, setIsVoiceActive] = useState(false);
+  const [isVoiceEnabled, setIsVoiceEnabled] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const hasPlayedWelcome = useRef(false);
+  const voiceEnabledRef = useRef(true);
   
   const [formData, setFormData] = useState<FormData>({
     businessName: '',
@@ -311,12 +317,52 @@ export default function WorkHubContractorOnboarding() {
     }
   };
 
+  const voiceMutation = useMutation({
+    mutationFn: async (message: string) => {
+      const res = await apiRequest("POST", "/api/closebot/chat", {
+        message,
+        history: [],
+        context: { leadName: "contractor", companyName: "your company", trade: "contractor_onboarding" },
+        enableVoice: true
+      });
+      return res;
+    },
+    onSuccess: (data: any) => {
+      if (data.audioUrl && audioRef.current) {
+        audioRef.current.src = data.audioUrl;
+        audioRef.current.play();
+        setIsPlaying(true);
+        audioRef.current.onended = () => setIsPlaying(false);
+      }
+    },
+  });
+
+  useEffect(() => {
+    if (!hasPlayedWelcome.current && voiceEnabledRef.current) {
+      hasPlayedWelcome.current = true;
+      voiceMutation.mutate("Welcome to Strategic Service Savers contractor onboarding. I'm Rachel, and I'll guide you through your registration.");
+    }
+  }, []);
+
+  const toggleVoice = () => {
+    const newState = !isVoiceEnabled;
+    setIsVoiceEnabled(newState);
+    voiceEnabledRef.current = newState;
+    if (!newState && audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      setIsPlaying(false);
+    }
+  };
+
+  const playRachelVoice = (prompt: string) => {
+    if (voiceEnabledRef.current) {
+      voiceMutation.mutate(prompt);
+    }
+  };
+
   const speakText = (text: string) => {
-    if (!isVoiceActive) return;
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 1.05;
-    utterance.pitch = 1.1;
-    window.speechSynthesis.speak(utterance);
+    playRachelVoice(text);
   };
 
   const progress = (currentStep / 6) * 100;
@@ -326,6 +372,7 @@ export default function WorkHubContractorOnboarding() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900">
+      <audio ref={audioRef} className="hidden" />
       <div className="max-w-4xl mx-auto px-4 py-8">
         <div className="text-center mb-8" data-testid="onboarding-header">
           <Link to="/workhub" data-testid="link-back-workhub" className="inline-flex items-center gap-2 text-white/70 hover:text-white mb-4">
@@ -1003,10 +1050,10 @@ export default function WorkHubContractorOnboarding() {
             data-testid="button-voice-toggle"
             variant="outline"
             size="icon"
-            onClick={() => setIsVoiceActive(!isVoiceActive)}
+            onClick={toggleVoice}
             className="w-12 h-12 rounded-full bg-white/10 border-white/20 text-white hover:bg-white/20"
           >
-            {isVoiceActive ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
+            {isPlaying ? <Volume2 className="w-5 h-5 animate-pulse" /> : isVoiceEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
           </Button>
         </div>
       </div>

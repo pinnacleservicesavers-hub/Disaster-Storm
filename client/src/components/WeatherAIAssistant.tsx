@@ -65,39 +65,16 @@ export function WeatherAIAssistant({ currentLocation, weatherData, className = '
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [interactionMode, setInteractionMode] = useState<'text' | 'voice'>('text');
-  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
-  const [selectedVoice, setSelectedVoice] = useState<string>('');
-  
   const recognitionRef = useRef<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  // Initialize speech synthesis voices
   useEffect(() => {
-    const loadVoices = () => {
-      const availableVoices = window.speechSynthesis.getVoices();
-      setVoices(availableVoices);
-      
-      // Select a female voice by default for weather AI
-      const femaleVoice = availableVoices.find(voice => 
-        voice.name.toLowerCase().includes('female') || 
-        voice.name.toLowerCase().includes('samantha') ||
-        voice.name.toLowerCase().includes('karen') ||
-        voice.name.toLowerCase().includes('susan')
-      );
-      
-      if (femaleVoice) {
-        setSelectedVoice(femaleVoice.name);
-      } else if (availableVoices.length > 0) {
-        setSelectedVoice(availableVoices[0].name);
-      }
-    };
-
-    loadVoices();
-    window.speechSynthesis.onvoiceschanged = loadVoices;
-
     return () => {
-      window.speechSynthesis.onvoiceschanged = null;
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
     };
   }, []);
 
@@ -220,46 +197,35 @@ export function WeatherAIAssistant({ currentLocation, weatherData, className = '
     }
   };
 
-  // Get the best available female voice from browser
-  const getPreferredFemaleVoice = () => {
-    const voices = window.speechSynthesis.getVoices();
-    const preferredVoices = [
-      'Samantha', 'Karen', 'Moira', 'Fiona', 'Victoria',
-      'Google US English Female', 'Google UK English Female',
-      'Microsoft Zira', 'Microsoft Aria', 'Microsoft Jenny',
-    ];
-    
-    for (const preferred of preferredVoices) {
-      const voice = voices.find(v => v.name.toLowerCase().includes(preferred.toLowerCase()));
-      if (voice) return voice;
-    }
-    
-    const englishFemale = voices.find(v => 
-      v.lang.startsWith('en') && 
-      ['samantha', 'zira', 'aria', 'jenny', 'karen', 'moira', 'fiona', 'victoria', 'susan', 'kate'].some(
-        name => v.name.toLowerCase().includes(name)
-      )
-    );
-    return englishFemale || voices.find(v => v.lang.startsWith('en')) || voices[0];
-  };
-
   const speakText = async (text: string) => {
     try {
-      window.speechSynthesis.cancel();
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
       setIsSpeaking(true);
       
-      const utterance = new SpeechSynthesisUtterance(text);
-      const voice = getPreferredFemaleVoice();
-      if (voice) utterance.voice = voice;
+      const response = await fetch('/api/closebot/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: text,
+          history: [],
+          context: { leadName: "user", companyName: "the company", trade: "general" },
+          enableVoice: true
+        })
+      });
       
-      utterance.rate = 1.05;
-      utterance.pitch = 1.1;
-      utterance.volume = 1.0;
+      const data = await response.json();
       
-      utterance.onend = () => setIsSpeaking(false);
-      utterance.onerror = () => setIsSpeaking(false);
-      
-      window.speechSynthesis.speak(utterance);
+      if (data.audioUrl) {
+        audioRef.current = new Audio(data.audioUrl);
+        audioRef.current.onended = () => setIsSpeaking(false);
+        audioRef.current.onerror = () => setIsSpeaking(false);
+        await audioRef.current.play();
+      } else {
+        setIsSpeaking(false);
+      }
     } catch (error) {
       console.error('Voice error:', error);
       setIsSpeaking(false);
@@ -267,7 +233,10 @@ export function WeatherAIAssistant({ currentLocation, weatherData, className = '
   };
 
   const stopSpeaking = () => {
-    window.speechSynthesis.cancel();
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
     setIsSpeaking(false);
   };
 

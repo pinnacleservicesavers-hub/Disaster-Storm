@@ -1,4 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useMutation } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -132,26 +134,62 @@ export default function GOES17Portal() {
     }
   });
 
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const hasPlayedWelcome = useRef(false);
+  const voiceEnabledRef = useRef(true);
+
+  const voiceMutation = useMutation({
+    mutationFn: async (message: string) => {
+      const res = await apiRequest("POST", "/api/closebot/chat", {
+        message,
+        history: [],
+        context: { leadName: "contractor", companyName: "your company", trade: "satellite_weather" },
+        enableVoice: true
+      });
+      return res;
+    },
+    onSuccess: (data: any) => {
+      if (data.audioUrl && audioRef.current) {
+        audioRef.current.src = data.audioUrl;
+        audioRef.current.play();
+        setIsPlaying(true);
+        audioRef.current.onended = () => setIsPlaying(false);
+      }
+    },
+  });
+
+  useEffect(() => {
+    if (!hasPlayedWelcome.current && voiceEnabledRef.current) {
+      hasPlayedWelcome.current = true;
+      voiceMutation.mutate("Welcome to GOES-17 Satellite Portal. I'm Rachel, providing real-time western US weather intelligence.");
+    }
+  }, []);
+
+  const toggleVoice = () => {
+    const newState = !voiceEnabled;
+    setVoiceEnabled(newState);
+    voiceEnabledRef.current = newState;
+    if (!newState && audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      setIsPlaying(false);
+    }
+  };
+
+  const playRachelVoice = (prompt: string) => {
+    if (voiceEnabledRef.current) {
+      voiceMutation.mutate(prompt);
+    }
+  };
+
   const speakGOES17Info = () => {
-    if (!voiceEnabled || typeof window === 'undefined' || !('speechSynthesis' in window)) return;
-    
-    const text = `GOES-17 Satellite Portal provides real-time weather intelligence from the GOES-17 satellite positioned over the Western United States. 
-    Current data shows ${goes17Data?.lightning.strikes.length || 0} lightning strikes detected, atmospheric temperature at 30,000 feet is ${goes17Data?.atmospheric.temperature[2]?.temperature || -44} degrees Celsius, 
-    and wind speeds of ${goes17Data?.atmospheric.windSpeed || 45} miles per hour. The satellite provides 15-minute updates with professional-grade meteorological data 
-    including lightning detection, atmospheric imaging, and storm tracking for the western regions.`;
-    
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 0.9;
-    utterance.pitch = 1.1;
-    window.speechSynthesis.speak(utterance);
-    setIsPlaying(true);
-    
-    utterance.onend = () => setIsPlaying(false);
+    playRachelVoice("GOES-17 satellite data is being monitored. Lightning detection, atmospheric imaging, and storm tracking for western regions are active.");
   };
 
   const stopSpeaking = () => {
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
       setIsPlaying(false);
     }
   };
@@ -177,6 +215,7 @@ export default function GOES17Portal() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+      <audio ref={audioRef} className="hidden" />
       {/* Header */}
       <FadeIn>
         <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700 sticky top-0 z-50">

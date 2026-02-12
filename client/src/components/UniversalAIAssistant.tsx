@@ -102,37 +102,16 @@ export function UniversalAIAssistant({
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [interactionMode, setInteractionMode] = useState<'text' | 'voice'>('text');
   const [timeframe, setTimeframe] = useState<string>('24hour');
-  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
-  const [selectedVoice, setSelectedVoice] = useState<string>('');
-  
   const recognitionRef = useRef<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  // Initialize speech synthesis
   useEffect(() => {
-    const loadVoices = () => {
-      const availableVoices = window.speechSynthesis.getVoices();
-      setVoices(availableVoices);
-      
-      const femaleVoice = availableVoices.find(voice => 
-        voice.name.toLowerCase().includes('female') || 
-        voice.name.toLowerCase().includes('samantha') ||
-        voice.name.toLowerCase().includes('karen') ||
-        voice.name.toLowerCase().includes('susan')
-      );
-      
-      if (femaleVoice) {
-        setSelectedVoice(femaleVoice.name);
-      } else if (availableVoices.length > 0) {
-        setSelectedVoice(availableVoices[0].name);
-      }
-    };
-
-    loadVoices();
-    window.speechSynthesis.onvoiceschanged = loadVoices;
-
     return () => {
-      window.speechSynthesis.onvoiceschanged = null;
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
     };
   }, []);
 
@@ -268,30 +247,46 @@ export function UniversalAIAssistant({
     }
   };
 
-  const speakText = (text: string) => {
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
+  const speakText = async (text: string) => {
+    try {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
       setIsSpeaking(true);
       
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 0.9;
-      utterance.pitch = 1.0;
-      utterance.volume = 0.8;
+      const response = await fetch('/api/closebot/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: text,
+          history: [],
+          context: { leadName: "user", companyName: "the company", trade: "general" },
+          enableVoice: true
+        })
+      });
       
-      if (selectedVoice) {
-        const voice = voices.find(v => v.name === selectedVoice);
-        if (voice) utterance.voice = voice;
+      const data = await response.json();
+      
+      if (data.audioUrl) {
+        audioRef.current = new Audio(data.audioUrl);
+        audioRef.current.onended = () => setIsSpeaking(false);
+        audioRef.current.onerror = () => setIsSpeaking(false);
+        await audioRef.current.play();
+      } else {
+        setIsSpeaking(false);
       }
-      
-      utterance.onend = () => setIsSpeaking(false);
-      utterance.onerror = () => setIsSpeaking(false);
-      
-      window.speechSynthesis.speak(utterance);
+    } catch (error) {
+      console.error('Voice error:', error);
+      setIsSpeaking(false);
     }
   };
 
   const stopSpeaking = () => {
-    window.speechSynthesis.cancel();
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
     setIsSpeaking(false);
   };
 

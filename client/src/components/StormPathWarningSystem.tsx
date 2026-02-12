@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -93,6 +93,7 @@ export function StormPathWarningSystem({ className = '', contractorLocation }: S
   const [contractorPositions, setContractorPositions] = useState<ContractorPosition[]>([]);
   const [voiceAlertsEnabled, setVoiceAlertsEnabled] = useState(true);
   const [trackingActive, setTrackingActive] = useState(true);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   
   // Real-time storm path data
   const { data: stormPathData } = useQuery({
@@ -106,8 +107,8 @@ export function StormPathWarningSystem({ className = '', contractorLocation }: S
     refetchInterval: trackingActive ? 120000 : false, // 2 minute updates
   });
 
-  const speakStormWarning = (storm: StormPathData, urgency: 'high' | 'critical' | 'emergency') => {
-    if (!voiceAlertsEnabled || !('speechSynthesis' in window)) return;
+  const speakStormWarning = async (storm: StormPathData, urgency: 'high' | 'critical' | 'emergency') => {
+    if (!voiceAlertsEnabled) return;
     
     const nextLocation = storm.predictedPath[0];
     const message = urgency === 'emergency' ? 
@@ -116,24 +117,65 @@ export function StormPathWarningSystem({ className = '', contractorLocation }: S
       `CRITICAL ALERT: ${storm.name} will reach ${nextLocation?.location.address} in ${nextLocation?.arrivalTime}. Prepare for evacuation.` :
       `Storm warning: ${storm.name} heading toward ${nextLocation?.location.address}. Monitor conditions.`;
     
-    const utterance = new SpeechSynthesisUtterance(message);
-    utterance.rate = urgency === 'emergency' ? 1.3 : urgency === 'critical' ? 1.2 : 1.0;
-    utterance.pitch = urgency === 'emergency' ? 1.2 : 1.0;
-    utterance.volume = 1.0;
-    
-    window.speechSynthesis.speak(utterance);
+    try {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+      
+      const response = await fetch('/api/closebot/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message,
+          history: [],
+          context: { leadName: "user", companyName: "the company", trade: "general" },
+          enableVoice: true
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (data.audioUrl) {
+        audioRef.current = new Audio(data.audioUrl);
+        await audioRef.current.play();
+      }
+    } catch (error) {
+      console.error('Storm warning voice error:', error);
+    }
   };
 
-  const speakPositioningGuidance = (guidance: string, isOpportunity: boolean = false) => {
-    if (!voiceAlertsEnabled || !('speechSynthesis' in window)) return;
+  const speakPositioningGuidance = async (guidance: string, isOpportunity: boolean = false) => {
+    if (!voiceAlertsEnabled) return;
     
     const prefix = isOpportunity ? 'OPPORTUNITY ALERT: ' : 'POSITIONING GUIDANCE: ';
-    const utterance = new SpeechSynthesisUtterance(prefix + guidance);
-    utterance.rate = 1.1;
-    utterance.pitch = isOpportunity ? 1.1 : 1.0;
-    utterance.volume = 1.0;
     
-    window.speechSynthesis.speak(utterance);
+    try {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+      
+      const response = await fetch('/api/closebot/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: prefix + guidance,
+          history: [],
+          context: { leadName: "user", companyName: "the company", trade: "general" },
+          enableVoice: true
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (data.audioUrl) {
+        audioRef.current = new Audio(data.audioUrl);
+        await audioRef.current.play();
+      }
+    } catch (error) {
+      console.error('Positioning guidance voice error:', error);
+    }
   };
 
   useEffect(() => {

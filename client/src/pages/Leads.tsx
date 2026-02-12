@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -84,75 +84,55 @@ export default function Leads() {
   const [assignmentModal, setAssignmentModal] = useState(false);
   const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
   const [bulkAssignContractor, setBulkAssignContractor] = useState('');
-  const [isVoiceGuideActive, setIsVoiceGuideActive] = useState(false);
-  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [isVoiceEnabled, setIsVoiceEnabled] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const hasPlayedWelcome = useRef(false);
+  const voiceEnabledRef = useRef(true);
 
   const queryClient = useQueryClient();
 
-  // Initialize voice loading with enhanced cleanup
+  const voiceMutation = useMutation({
+    mutationFn: async (message: string) => {
+      const res = await apiRequest("POST", "/api/closebot/chat", {
+        message,
+        history: [],
+        context: { leadName: "contractor", companyName: "your company", trade: "lead_management" },
+        enableVoice: true
+      });
+      return res;
+    },
+    onSuccess: (data: any) => {
+      if (data.audioUrl && audioRef.current) {
+        audioRef.current.src = data.audioUrl;
+        audioRef.current.play();
+        setIsPlaying(true);
+        audioRef.current.onended = () => setIsPlaying(false);
+      }
+    },
+  });
+
   useEffect(() => {
-    const loadVoices = () => {
-      if ('speechSynthesis' in window) {
-        setVoices(window.speechSynthesis.getVoices());
-      }
-    };
-    
-    loadVoices();
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.onvoiceschanged = loadVoices;
+    if (!hasPlayedWelcome.current && voiceEnabledRef.current) {
+      hasPlayedWelcome.current = true;
+      voiceMutation.mutate("Welcome to Lead Management System! This comprehensive CRM platform manages all contractor leads from initial contact through project completion.");
     }
-    
-    return () => {
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-        window.speechSynthesis.onvoiceschanged = null;
-      }
-    };
   }, []);
 
-  const startVoiceGuide = () => {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
-      console.warn('Speech synthesis not supported in this browser');
-      return;
+  const toggleVoice = () => {
+    const newState = !isVoiceEnabled;
+    setIsVoiceEnabled(newState);
+    voiceEnabledRef.current = newState;
+    if (!newState && audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      setIsPlaying(false);
     }
+  };
 
-    if (!isVoiceGuideActive) {
-      setIsVoiceGuideActive(true);
-      window.speechSynthesis.cancel();
-      
-      const voiceContent = `Welcome to Lead Management System! This comprehensive CRM platform manages all contractor leads from initial contact through project completion. The lead board displays active prospects organized by status - new, contacted, qualified, assigned, in progress, and completed. Each lead shows customer information, damage details, estimated project value, and urgency levels. The assignment system matches leads with qualified contractors based on specialty, location, and availability. Contact management features include phone numbers, email addresses, and communication history. Progress tracking shows response times, follow-up schedules, and conversion metrics. You can filter leads by priority, contractor type needed, project value, and geographic area. Analytics provide insights into lead sources, conversion rates, and revenue forecasting.`;
-      
-      const utterance = new SpeechSynthesisUtterance(voiceContent);
-      utterance.rate = 0.9;
-      utterance.pitch = 1.0;
-      utterance.volume = 0.8;
-      
-      if (voices.length > 0) {
-        // Prefer natural female voices
-        const femaleVoice = voices.find(voice => 
-          voice.lang.includes('en') && 
-          (voice.name.toLowerCase().includes('female') || 
-           voice.name.toLowerCase().includes('zira') ||
-           voice.name.toLowerCase().includes('samantha') ||
-           voice.name.toLowerCase().includes('google uk') ||
-           voice.name.toLowerCase().includes('fiona'))
-        );
-        utterance.voice = femaleVoice || voices.find(voice => voice.lang.includes('en')) || voices[0];
-      }
-      
-      utterance.onend = () => {
-        setIsVoiceGuideActive(false);
-      };
-      
-      utterance.onerror = (event) => {
-        console.error('Speech synthesis error:', event);
-        setIsVoiceGuideActive(false);
-      };
-      
-      window.speechSynthesis.speak(utterance);
-    } else {
-      window.speechSynthesis.cancel();
-      setIsVoiceGuideActive(false);
+  const playRachelVoice = (prompt: string) => {
+    if (voiceEnabledRef.current) {
+      voiceMutation.mutate(prompt);
     }
   };
 
@@ -679,6 +659,7 @@ export default function Leads() {
 
   return (
     <div className="space-y-6" data-testid="leads-page">
+      <audio ref={audioRef} className="hidden" />
       {/* Enhanced Header Section */}
       <FadeIn>
         <div className="relative overflow-hidden bg-gradient-to-r from-indigo-900 via-purple-900 to-blue-900 dark:from-indigo-800 dark:via-purple-800 dark:to-blue-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6">
@@ -790,21 +771,25 @@ export default function Leads() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={startVoiceGuide}
+                  onClick={toggleVoice}
                   className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white border-white/20"
                   data-testid="button-voice-guide"
                   aria-label="Voice guide for Lead Management"
-                  aria-pressed={isVoiceGuideActive}
                 >
-                  {isVoiceGuideActive ? (
+                  {isPlaying ? (
                     <>
-                      <VolumeX className="h-4 w-4" />
-                      Stop Guide
+                      <Volume2 className="h-4 w-4 animate-pulse" />
+                      Playing
                     </>
-                  ) : (
+                  ) : isVoiceEnabled ? (
                     <>
                       <Volume2 className="h-4 w-4" />
                       Voice Guide
+                    </>
+                  ) : (
+                    <>
+                      <VolumeX className="h-4 w-4" />
+                      Voice Off
                     </>
                   )}
                 </Button>
