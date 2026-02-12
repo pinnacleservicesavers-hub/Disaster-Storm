@@ -118,7 +118,15 @@ UTILITY CONTRACTOR READINESS CENTER (CRITICAL KNOWLEDGE):
   - Tell contractors to expand the "Georgia EMCs" section in the Utility Portals sidebar to browse all 41 cooperatives with direct website links
   - Georgia Power / Southern Company is listed separately as a major utility — EMCs are independent cooperatives
 
-- Direct contractors to the Utility Readiness tab for the interactive checklist, utility portal browser, email generator, and tracking sheet export. IMPORTANT: Tell them about the new "Registration Steps" button that shows step-by-step guides for each utility and platform, AND the new "Georgia EMCs" expandable section with 41+ local electric cooperatives.
+- ALABAMA ELECTRIC COOPERATIVES:
+  - 22 Alabama EMCs now included — local electric cooperatives across rural and urban Alabama
+  - Part of the Alabama Rural Electric Association of Cooperatives (AREA) network
+  - Key cooperatives: Central Alabama Electric Cooperative (CAEC, largest), Baldwin EMC (Gulf Coast hurricane exposure), Wiregrass Electric (tornado corridor)
+  - Support organizations: PowerSouth Energy Cooperative (G&T for many AL EMCs), Alabama Power (major IOU), Alabama Rural Electric Association (AREA, statewide network)
+  - Tell contractors to expand the "Alabama EMCs" section in the Utility Portals sidebar to browse all 22 cooperatives with direct website links
+  - Baldwin EMC is especially important for contractors seeking Gulf Coast hurricane storm work
+
+- Direct contractors to the Utility Readiness tab for the interactive checklist, utility portal browser, email generator, and tracking sheet export. IMPORTANT: Tell them about the new "Registration Steps" button that shows step-by-step guides for each utility and platform, the "Georgia EMCs" section with 41+ cooperatives, AND the "Alabama EMCs" section with 22+ cooperatives.
 
 INSIDER TIPS DATABASE:
 1. **Price Psychology**: Government evaluators have a "price reasonableness" range. Being 5-10% below the IGCE is ideal — too low triggers concerns about ability to perform.
