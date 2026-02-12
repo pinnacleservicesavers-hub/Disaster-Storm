@@ -278,10 +278,32 @@ export default function AIBidIntelPro() {
   const [showAlabamaEMCs, setShowAlabamaEMCs] = useState(false);
   const [showAlaskaEMCs, setShowAlaskaEMCs] = useState(false);
   const [showArizonaEMCs, setShowArizonaEMCs] = useState(false);
+  const [showArkansasEMCs, setShowArkansasEMCs] = useState(false);
+  const [showCaliforniaEMCs, setShowCaliforniaEMCs] = useState(false);
+  const [showColoradoEMCs, setShowColoradoEMCs] = useState(false);
+  const [showConnecticutEMCs, setShowConnecticutEMCs] = useState(false);
+  const [showDelawareEMCs, setShowDelawareEMCs] = useState(false);
+  const [showFloridaEMCs, setShowFloridaEMCs] = useState(false);
+  const [showHawaiiEMCs, setShowHawaiiEMCs] = useState(false);
+  const [showIdahoEMCs, setShowIdahoEMCs] = useState(false);
+  const [showIllinoisEMCs, setShowIllinoisEMCs] = useState(false);
+  const [showForestryAgencies, setShowForestryAgencies] = useState(false);
+  const [showStormPrimes, setShowStormPrimes] = useState(false);
   const [emcSearchTerm, setEmcSearchTerm] = useState("");
   const [alEmcSearchTerm, setAlEmcSearchTerm] = useState("");
   const [akEmcSearchTerm, setAkEmcSearchTerm] = useState("");
   const [azEmcSearchTerm, setAzEmcSearchTerm] = useState("");
+  const [arEmcSearchTerm, setArEmcSearchTerm] = useState("");
+  const [caEmcSearchTerm, setCaEmcSearchTerm] = useState("");
+  const [coEmcSearchTerm, setCoEmcSearchTerm] = useState("");
+  const [ctEmcSearchTerm, setCtEmcSearchTerm] = useState("");
+  const [deEmcSearchTerm, setDeEmcSearchTerm] = useState("");
+  const [flEmcSearchTerm, setFlEmcSearchTerm] = useState("");
+  const [hiEmcSearchTerm, setHiEmcSearchTerm] = useState("");
+  const [idEmcSearchTerm, setIdEmcSearchTerm] = useState("");
+  const [ilEmcSearchTerm, setIlEmcSearchTerm] = useState("");
+  const [forestrySearchTerm, setForestrySearchTerm] = useState("");
+  const [stormPrimeSearchTerm, setStormPrimeSearchTerm] = useState("");
   const audioRef = useRef<HTMLAudioElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
@@ -2056,6 +2078,759 @@ export default function AIBidIntelPro() {
                           )}
                         </>
                       )}
+
+                      {utilityPortalsData?.arkansasEMCs?.length > 0 && (
+                        <>
+                          <Separator className="my-3 bg-slate-600" />
+                          <div>
+                            <Button
+                              variant="ghost"
+                              className="w-full justify-between text-sm font-semibold text-purple-400 hover:text-purple-300 p-0 h-auto"
+                              onClick={() => setShowArkansasEMCs(!showArkansasEMCs)}
+                            >
+                              <span className="flex items-center gap-1">
+                                <Zap className="w-4 h-4" />
+                                Arkansas Utilities ({utilityPortalsData.arkansasEMCs.filter((e: any) => e.type === "emc").length} Cooperatives & Municipals)
+                              </span>
+                              {showArkansasEMCs ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                            </Button>
+                            <p className="text-[10px] text-gray-500 mt-0.5">Arkansas cooperatives, IOUs & municipal utilities — storm, vegetation, ROW</p>
+                          </div>
+                          {showArkansasEMCs && (
+                            <div className="space-y-2 mt-2">
+                              <Input
+                                placeholder="Search Arkansas utilities..."
+                                value={arEmcSearchTerm}
+                                onChange={(e) => setArEmcSearchTerm(e.target.value)}
+                                className="bg-slate-900/50 border-slate-600 text-white text-xs h-7"
+                              />
+                              <div className="max-h-[400px] overflow-y-auto space-y-1.5 pr-1">
+                                {utilityPortalsData.arkansasEMCs
+                                  .filter((emc: any) => emc.type === "emc")
+                                  .filter((emc: any) => !arEmcSearchTerm || emc.name.toLowerCase().includes(arEmcSearchTerm.toLowerCase()) || emc.description.toLowerCase().includes(arEmcSearchTerm.toLowerCase()))
+                                  .map((emc: any) => (
+                                    <div key={emc.name} className="border border-slate-700 rounded p-2 hover:border-purple-500/30 transition-colors">
+                                      <div className="flex items-center justify-between gap-1">
+                                        <h5 className="text-xs font-medium text-white leading-tight">{emc.name}</h5>
+                                        {emc.website && (
+                                          <Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(emc.website, '_blank')}>
+                                            <ExternalLink className="w-2.5 h-2.5" />
+                                          </Button>
+                                        )}
+                                      </div>
+                                      <p className="text-[10px] text-gray-500 mt-0.5">{emc.description}</p>
+                                      <div className="flex flex-wrap gap-1 mt-1">
+                                        {emc.serviceTypes.slice(0, 3).map((s: string) => (
+                                          <Badge key={s} className="bg-purple-500/10 text-purple-400 border-purple-500/20 text-[8px] py-0 px-1">{s}</Badge>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  ))}
+                              </div>
+                              <Separator className="my-2 bg-slate-700" />
+                              <h5 className="text-xs font-semibold text-amber-400 flex items-center gap-1">
+                                <Building2 className="w-3 h-3" />
+                                Arkansas IOUs & Utility Organizations
+                              </h5>
+                              {utilityPortalsData.arkansasEMCs
+                                .filter((emc: any) => emc.type === "support_org")
+                                .map((org: any) => (
+                                  <div key={org.name} className="border border-slate-700 rounded p-2">
+                                    <div className="flex items-center justify-between gap-1">
+                                      <h5 className="text-xs font-medium text-amber-300 leading-tight">{org.name}</h5>
+                                      {org.website && (
+                                        <Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(org.website, '_blank')}>
+                                          <ExternalLink className="w-2.5 h-2.5" />
+                                        </Button>
+                                      )}
+                                    </div>
+                                    <p className="text-[10px] text-gray-500 mt-0.5">{org.description}</p>
+                                  </div>
+                                ))}
+                            </div>
+                          )}
+                        </>
+                      )}
+
+                      {utilityPortalsData?.californiaEMCs?.length > 0 && (
+                        <>
+                          <Separator className="my-3 bg-slate-600" />
+                          <div>
+                            <Button
+                              variant="ghost"
+                              className="w-full justify-between text-sm font-semibold text-yellow-400 hover:text-yellow-300 p-0 h-auto"
+                              onClick={() => setShowCaliforniaEMCs(!showCaliforniaEMCs)}
+                            >
+                              <span className="flex items-center gap-1">
+                                <Zap className="w-4 h-4" />
+                                California Utilities ({utilityPortalsData.californiaEMCs.filter((e: any) => e.type === "emc").length} Cooperatives & Municipals)
+                              </span>
+                              {showCaliforniaEMCs ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                            </Button>
+                            <p className="text-[10px] text-gray-500 mt-0.5">California IOUs, municipal utilities & cooperatives — wildfire, vegetation, storm</p>
+                          </div>
+                          {showCaliforniaEMCs && (
+                            <div className="space-y-2 mt-2">
+                              <Input
+                                placeholder="Search California utilities..."
+                                value={caEmcSearchTerm}
+                                onChange={(e) => setCaEmcSearchTerm(e.target.value)}
+                                className="bg-slate-900/50 border-slate-600 text-white text-xs h-7"
+                              />
+                              <div className="max-h-[400px] overflow-y-auto space-y-1.5 pr-1">
+                                {utilityPortalsData.californiaEMCs
+                                  .filter((emc: any) => emc.type === "emc")
+                                  .filter((emc: any) => !caEmcSearchTerm || emc.name.toLowerCase().includes(caEmcSearchTerm.toLowerCase()) || emc.description.toLowerCase().includes(caEmcSearchTerm.toLowerCase()))
+                                  .map((emc: any) => (
+                                    <div key={emc.name} className="border border-slate-700 rounded p-2 hover:border-yellow-500/30 transition-colors">
+                                      <div className="flex items-center justify-between gap-1">
+                                        <h5 className="text-xs font-medium text-white leading-tight">{emc.name}</h5>
+                                        {emc.website && (
+                                          <Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(emc.website, '_blank')}>
+                                            <ExternalLink className="w-2.5 h-2.5" />
+                                          </Button>
+                                        )}
+                                      </div>
+                                      <p className="text-[10px] text-gray-500 mt-0.5">{emc.description}</p>
+                                      <div className="flex flex-wrap gap-1 mt-1">
+                                        {emc.serviceTypes.slice(0, 3).map((s: string) => (
+                                          <Badge key={s} className="bg-yellow-500/10 text-yellow-400 border-yellow-500/20 text-[8px] py-0 px-1">{s}</Badge>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  ))}
+                              </div>
+                              <Separator className="my-2 bg-slate-700" />
+                              <h5 className="text-xs font-semibold text-amber-400 flex items-center gap-1">
+                                <Building2 className="w-3 h-3" />
+                                California IOUs & Utility Organizations
+                              </h5>
+                              {utilityPortalsData.californiaEMCs
+                                .filter((emc: any) => emc.type === "support_org")
+                                .map((org: any) => (
+                                  <div key={org.name} className="border border-slate-700 rounded p-2">
+                                    <div className="flex items-center justify-between gap-1">
+                                      <h5 className="text-xs font-medium text-amber-300 leading-tight">{org.name}</h5>
+                                      {org.website && (
+                                        <Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(org.website, '_blank')}>
+                                          <ExternalLink className="w-2.5 h-2.5" />
+                                        </Button>
+                                      )}
+                                    </div>
+                                    <p className="text-[10px] text-gray-500 mt-0.5">{org.description}</p>
+                                  </div>
+                                ))}
+                            </div>
+                          )}
+                        </>
+                      )}
+
+                      {utilityPortalsData?.coloradoEMCs?.length > 0 && (
+                        <>
+                          <Separator className="my-3 bg-slate-600" />
+                          <div>
+                            <Button
+                              variant="ghost"
+                              className="w-full justify-between text-sm font-semibold text-blue-400 hover:text-blue-300 p-0 h-auto"
+                              onClick={() => setShowColoradoEMCs(!showColoradoEMCs)}
+                            >
+                              <span className="flex items-center gap-1">
+                                <Zap className="w-4 h-4" />
+                                Colorado Utilities ({utilityPortalsData.coloradoEMCs.filter((e: any) => e.type === "emc").length} Cooperatives & Municipals)
+                              </span>
+                              {showColoradoEMCs ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                            </Button>
+                            <p className="text-[10px] text-gray-500 mt-0.5">Colorado cooperatives, IOUs & municipal utilities — wildfire, storm, vegetation</p>
+                          </div>
+                          {showColoradoEMCs && (
+                            <div className="space-y-2 mt-2">
+                              <Input
+                                placeholder="Search Colorado utilities..."
+                                value={coEmcSearchTerm}
+                                onChange={(e) => setCoEmcSearchTerm(e.target.value)}
+                                className="bg-slate-900/50 border-slate-600 text-white text-xs h-7"
+                              />
+                              <div className="max-h-[400px] overflow-y-auto space-y-1.5 pr-1">
+                                {utilityPortalsData.coloradoEMCs
+                                  .filter((emc: any) => emc.type === "emc")
+                                  .filter((emc: any) => !coEmcSearchTerm || emc.name.toLowerCase().includes(coEmcSearchTerm.toLowerCase()) || emc.description.toLowerCase().includes(coEmcSearchTerm.toLowerCase()))
+                                  .map((emc: any) => (
+                                    <div key={emc.name} className="border border-slate-700 rounded p-2 hover:border-blue-500/30 transition-colors">
+                                      <div className="flex items-center justify-between gap-1">
+                                        <h5 className="text-xs font-medium text-white leading-tight">{emc.name}</h5>
+                                        {emc.website && (
+                                          <Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(emc.website, '_blank')}>
+                                            <ExternalLink className="w-2.5 h-2.5" />
+                                          </Button>
+                                        )}
+                                      </div>
+                                      <p className="text-[10px] text-gray-500 mt-0.5">{emc.description}</p>
+                                      <div className="flex flex-wrap gap-1 mt-1">
+                                        {emc.serviceTypes.slice(0, 3).map((s: string) => (
+                                          <Badge key={s} className="bg-blue-500/10 text-blue-400 border-blue-500/20 text-[8px] py-0 px-1">{s}</Badge>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  ))}
+                              </div>
+                              <Separator className="my-2 bg-slate-700" />
+                              <h5 className="text-xs font-semibold text-amber-400 flex items-center gap-1">
+                                <Building2 className="w-3 h-3" />
+                                Colorado IOUs & Utility Organizations
+                              </h5>
+                              {utilityPortalsData.coloradoEMCs
+                                .filter((emc: any) => emc.type === "support_org")
+                                .map((org: any) => (
+                                  <div key={org.name} className="border border-slate-700 rounded p-2">
+                                    <div className="flex items-center justify-between gap-1">
+                                      <h5 className="text-xs font-medium text-amber-300 leading-tight">{org.name}</h5>
+                                      {org.website && (
+                                        <Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(org.website, '_blank')}>
+                                          <ExternalLink className="w-2.5 h-2.5" />
+                                        </Button>
+                                      )}
+                                    </div>
+                                    <p className="text-[10px] text-gray-500 mt-0.5">{org.description}</p>
+                                  </div>
+                                ))}
+                            </div>
+                          )}
+                        </>
+                      )}
+
+                      {utilityPortalsData?.connecticutEMCs?.length > 0 && (
+                        <>
+                          <Separator className="my-3 bg-slate-600" />
+                          <div>
+                            <Button
+                              variant="ghost"
+                              className="w-full justify-between text-sm font-semibold text-indigo-400 hover:text-indigo-300 p-0 h-auto"
+                              onClick={() => setShowConnecticutEMCs(!showConnecticutEMCs)}
+                            >
+                              <span className="flex items-center gap-1">
+                                <Zap className="w-4 h-4" />
+                                Connecticut Utilities ({utilityPortalsData.connecticutEMCs.filter((e: any) => e.type === "emc").length} Cooperatives & Municipals)
+                              </span>
+                              {showConnecticutEMCs ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                            </Button>
+                            <p className="text-[10px] text-gray-500 mt-0.5">Connecticut IOUs & municipal utilities — storm, vegetation, distribution</p>
+                          </div>
+                          {showConnecticutEMCs && (
+                            <div className="space-y-2 mt-2">
+                              <Input
+                                placeholder="Search Connecticut utilities..."
+                                value={ctEmcSearchTerm}
+                                onChange={(e) => setCtEmcSearchTerm(e.target.value)}
+                                className="bg-slate-900/50 border-slate-600 text-white text-xs h-7"
+                              />
+                              <div className="max-h-[400px] overflow-y-auto space-y-1.5 pr-1">
+                                {utilityPortalsData.connecticutEMCs
+                                  .filter((emc: any) => emc.type === "emc")
+                                  .filter((emc: any) => !ctEmcSearchTerm || emc.name.toLowerCase().includes(ctEmcSearchTerm.toLowerCase()) || emc.description.toLowerCase().includes(ctEmcSearchTerm.toLowerCase()))
+                                  .map((emc: any) => (
+                                    <div key={emc.name} className="border border-slate-700 rounded p-2 hover:border-indigo-500/30 transition-colors">
+                                      <div className="flex items-center justify-between gap-1">
+                                        <h5 className="text-xs font-medium text-white leading-tight">{emc.name}</h5>
+                                        {emc.website && (
+                                          <Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(emc.website, '_blank')}>
+                                            <ExternalLink className="w-2.5 h-2.5" />
+                                          </Button>
+                                        )}
+                                      </div>
+                                      <p className="text-[10px] text-gray-500 mt-0.5">{emc.description}</p>
+                                      <div className="flex flex-wrap gap-1 mt-1">
+                                        {emc.serviceTypes.slice(0, 3).map((s: string) => (
+                                          <Badge key={s} className="bg-indigo-500/10 text-indigo-400 border-indigo-500/20 text-[8px] py-0 px-1">{s}</Badge>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  ))}
+                              </div>
+                              <Separator className="my-2 bg-slate-700" />
+                              <h5 className="text-xs font-semibold text-amber-400 flex items-center gap-1">
+                                <Building2 className="w-3 h-3" />
+                                Connecticut IOUs & Utility Organizations
+                              </h5>
+                              {utilityPortalsData.connecticutEMCs
+                                .filter((emc: any) => emc.type === "support_org")
+                                .map((org: any) => (
+                                  <div key={org.name} className="border border-slate-700 rounded p-2">
+                                    <div className="flex items-center justify-between gap-1">
+                                      <h5 className="text-xs font-medium text-amber-300 leading-tight">{org.name}</h5>
+                                      {org.website && (
+                                        <Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(org.website, '_blank')}>
+                                          <ExternalLink className="w-2.5 h-2.5" />
+                                        </Button>
+                                      )}
+                                    </div>
+                                    <p className="text-[10px] text-gray-500 mt-0.5">{org.description}</p>
+                                  </div>
+                                ))}
+                            </div>
+                          )}
+                        </>
+                      )}
+
+                      {utilityPortalsData?.delawareEMCs?.length > 0 && (
+                        <>
+                          <Separator className="my-3 bg-slate-600" />
+                          <div>
+                            <Button
+                              variant="ghost"
+                              className="w-full justify-between text-sm font-semibold text-teal-400 hover:text-teal-300 p-0 h-auto"
+                              onClick={() => setShowDelawareEMCs(!showDelawareEMCs)}
+                            >
+                              <span className="flex items-center gap-1">
+                                <Zap className="w-4 h-4" />
+                                Delaware Utilities ({utilityPortalsData.delawareEMCs.filter((e: any) => e.type === "emc").length} Cooperatives & Municipals)
+                              </span>
+                              {showDelawareEMCs ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                            </Button>
+                            <p className="text-[10px] text-gray-500 mt-0.5">Delaware cooperative, IOUs & municipal utilities — storm, vegetation</p>
+                          </div>
+                          {showDelawareEMCs && (
+                            <div className="space-y-2 mt-2">
+                              <Input
+                                placeholder="Search Delaware utilities..."
+                                value={deEmcSearchTerm}
+                                onChange={(e) => setDeEmcSearchTerm(e.target.value)}
+                                className="bg-slate-900/50 border-slate-600 text-white text-xs h-7"
+                              />
+                              <div className="max-h-[400px] overflow-y-auto space-y-1.5 pr-1">
+                                {utilityPortalsData.delawareEMCs
+                                  .filter((emc: any) => emc.type === "emc")
+                                  .filter((emc: any) => !deEmcSearchTerm || emc.name.toLowerCase().includes(deEmcSearchTerm.toLowerCase()) || emc.description.toLowerCase().includes(deEmcSearchTerm.toLowerCase()))
+                                  .map((emc: any) => (
+                                    <div key={emc.name} className="border border-slate-700 rounded p-2 hover:border-teal-500/30 transition-colors">
+                                      <div className="flex items-center justify-between gap-1">
+                                        <h5 className="text-xs font-medium text-white leading-tight">{emc.name}</h5>
+                                        {emc.website && (
+                                          <Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(emc.website, '_blank')}>
+                                            <ExternalLink className="w-2.5 h-2.5" />
+                                          </Button>
+                                        )}
+                                      </div>
+                                      <p className="text-[10px] text-gray-500 mt-0.5">{emc.description}</p>
+                                      <div className="flex flex-wrap gap-1 mt-1">
+                                        {emc.serviceTypes.slice(0, 3).map((s: string) => (
+                                          <Badge key={s} className="bg-teal-500/10 text-teal-400 border-teal-500/20 text-[8px] py-0 px-1">{s}</Badge>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  ))}
+                              </div>
+                              <Separator className="my-2 bg-slate-700" />
+                              <h5 className="text-xs font-semibold text-amber-400 flex items-center gap-1">
+                                <Building2 className="w-3 h-3" />
+                                Delaware IOUs & Utility Organizations
+                              </h5>
+                              {utilityPortalsData.delawareEMCs
+                                .filter((emc: any) => emc.type === "support_org")
+                                .map((org: any) => (
+                                  <div key={org.name} className="border border-slate-700 rounded p-2">
+                                    <div className="flex items-center justify-between gap-1">
+                                      <h5 className="text-xs font-medium text-amber-300 leading-tight">{org.name}</h5>
+                                      {org.website && (
+                                        <Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(org.website, '_blank')}>
+                                          <ExternalLink className="w-2.5 h-2.5" />
+                                        </Button>
+                                      )}
+                                    </div>
+                                    <p className="text-[10px] text-gray-500 mt-0.5">{org.description}</p>
+                                  </div>
+                                ))}
+                            </div>
+                          )}
+                        </>
+                      )}
+
+                      {utilityPortalsData?.floridaEMCs?.length > 0 && (
+                        <>
+                          <Separator className="my-3 bg-slate-600" />
+                          <div>
+                            <Button
+                              variant="ghost"
+                              className="w-full justify-between text-sm font-semibold text-orange-400 hover:text-orange-300 p-0 h-auto"
+                              onClick={() => setShowFloridaEMCs(!showFloridaEMCs)}
+                            >
+                              <span className="flex items-center gap-1">
+                                <Zap className="w-4 h-4" />
+                                Florida Utilities ({utilityPortalsData.floridaEMCs.filter((e: any) => e.type === "emc").length} Cooperatives & Municipals)
+                              </span>
+                              {showFloridaEMCs ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                            </Button>
+                            <p className="text-[10px] text-gray-500 mt-0.5">Florida IOUs, cooperatives & municipal utilities — hurricane, vegetation, storm</p>
+                          </div>
+                          {showFloridaEMCs && (
+                            <div className="space-y-2 mt-2">
+                              <Input
+                                placeholder="Search Florida utilities..."
+                                value={flEmcSearchTerm}
+                                onChange={(e) => setFlEmcSearchTerm(e.target.value)}
+                                className="bg-slate-900/50 border-slate-600 text-white text-xs h-7"
+                              />
+                              <div className="max-h-[400px] overflow-y-auto space-y-1.5 pr-1">
+                                {utilityPortalsData.floridaEMCs
+                                  .filter((emc: any) => emc.type === "emc")
+                                  .filter((emc: any) => !flEmcSearchTerm || emc.name.toLowerCase().includes(flEmcSearchTerm.toLowerCase()) || emc.description.toLowerCase().includes(flEmcSearchTerm.toLowerCase()))
+                                  .map((emc: any) => (
+                                    <div key={emc.name} className="border border-slate-700 rounded p-2 hover:border-orange-500/30 transition-colors">
+                                      <div className="flex items-center justify-between gap-1">
+                                        <h5 className="text-xs font-medium text-white leading-tight">{emc.name}</h5>
+                                        {emc.website && (
+                                          <Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(emc.website, '_blank')}>
+                                            <ExternalLink className="w-2.5 h-2.5" />
+                                          </Button>
+                                        )}
+                                      </div>
+                                      <p className="text-[10px] text-gray-500 mt-0.5">{emc.description}</p>
+                                      <div className="flex flex-wrap gap-1 mt-1">
+                                        {emc.serviceTypes.slice(0, 3).map((s: string) => (
+                                          <Badge key={s} className="bg-orange-500/10 text-orange-400 border-orange-500/20 text-[8px] py-0 px-1">{s}</Badge>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  ))}
+                              </div>
+                              <Separator className="my-2 bg-slate-700" />
+                              <h5 className="text-xs font-semibold text-amber-400 flex items-center gap-1">
+                                <Building2 className="w-3 h-3" />
+                                Florida IOUs & Utility Organizations
+                              </h5>
+                              {utilityPortalsData.floridaEMCs
+                                .filter((emc: any) => emc.type === "support_org")
+                                .map((org: any) => (
+                                  <div key={org.name} className="border border-slate-700 rounded p-2">
+                                    <div className="flex items-center justify-between gap-1">
+                                      <h5 className="text-xs font-medium text-amber-300 leading-tight">{org.name}</h5>
+                                      {org.website && (
+                                        <Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(org.website, '_blank')}>
+                                          <ExternalLink className="w-2.5 h-2.5" />
+                                        </Button>
+                                      )}
+                                    </div>
+                                    <p className="text-[10px] text-gray-500 mt-0.5">{org.description}</p>
+                                  </div>
+                                ))}
+                            </div>
+                          )}
+                        </>
+                      )}
+
+                      {utilityPortalsData?.hawaiiEMCs?.length > 0 && (
+                        <>
+                          <Separator className="my-3 bg-slate-600" />
+                          <div>
+                            <Button
+                              variant="ghost"
+                              className="w-full justify-between text-sm font-semibold text-sky-400 hover:text-sky-300 p-0 h-auto"
+                              onClick={() => setShowHawaiiEMCs(!showHawaiiEMCs)}
+                            >
+                              <span className="flex items-center gap-1">
+                                <Zap className="w-4 h-4" />
+                                Hawaii Utilities ({utilityPortalsData.hawaiiEMCs.filter((e: any) => e.type === "emc").length} Cooperatives & Municipals)
+                              </span>
+                              {showHawaiiEMCs ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                            </Button>
+                            <p className="text-[10px] text-gray-500 mt-0.5">Hawaii electric utilities — vegetation, storm, island infrastructure</p>
+                          </div>
+                          {showHawaiiEMCs && (
+                            <div className="space-y-2 mt-2">
+                              <Input
+                                placeholder="Search Hawaii utilities..."
+                                value={hiEmcSearchTerm}
+                                onChange={(e) => setHiEmcSearchTerm(e.target.value)}
+                                className="bg-slate-900/50 border-slate-600 text-white text-xs h-7"
+                              />
+                              <div className="max-h-[400px] overflow-y-auto space-y-1.5 pr-1">
+                                {utilityPortalsData.hawaiiEMCs
+                                  .filter((emc: any) => emc.type === "emc")
+                                  .filter((emc: any) => !hiEmcSearchTerm || emc.name.toLowerCase().includes(hiEmcSearchTerm.toLowerCase()) || emc.description.toLowerCase().includes(hiEmcSearchTerm.toLowerCase()))
+                                  .map((emc: any) => (
+                                    <div key={emc.name} className="border border-slate-700 rounded p-2 hover:border-sky-500/30 transition-colors">
+                                      <div className="flex items-center justify-between gap-1">
+                                        <h5 className="text-xs font-medium text-white leading-tight">{emc.name}</h5>
+                                        {emc.website && (
+                                          <Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(emc.website, '_blank')}>
+                                            <ExternalLink className="w-2.5 h-2.5" />
+                                          </Button>
+                                        )}
+                                      </div>
+                                      <p className="text-[10px] text-gray-500 mt-0.5">{emc.description}</p>
+                                      <div className="flex flex-wrap gap-1 mt-1">
+                                        {emc.serviceTypes.slice(0, 3).map((s: string) => (
+                                          <Badge key={s} className="bg-sky-500/10 text-sky-400 border-sky-500/20 text-[8px] py-0 px-1">{s}</Badge>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  ))}
+                              </div>
+                              <Separator className="my-2 bg-slate-700" />
+                              <h5 className="text-xs font-semibold text-amber-400 flex items-center gap-1">
+                                <Building2 className="w-3 h-3" />
+                                Hawaii IOUs & Utility Organizations
+                              </h5>
+                              {utilityPortalsData.hawaiiEMCs
+                                .filter((emc: any) => emc.type === "support_org")
+                                .map((org: any) => (
+                                  <div key={org.name} className="border border-slate-700 rounded p-2">
+                                    <div className="flex items-center justify-between gap-1">
+                                      <h5 className="text-xs font-medium text-amber-300 leading-tight">{org.name}</h5>
+                                      {org.website && (
+                                        <Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(org.website, '_blank')}>
+                                          <ExternalLink className="w-2.5 h-2.5" />
+                                        </Button>
+                                      )}
+                                    </div>
+                                    <p className="text-[10px] text-gray-500 mt-0.5">{org.description}</p>
+                                  </div>
+                                ))}
+                            </div>
+                          )}
+                        </>
+                      )}
+
+                      {utilityPortalsData?.idahoEMCs?.length > 0 && (
+                        <>
+                          <Separator className="my-3 bg-slate-600" />
+                          <div>
+                            <Button
+                              variant="ghost"
+                              className="w-full justify-between text-sm font-semibold text-lime-400 hover:text-lime-300 p-0 h-auto"
+                              onClick={() => setShowIdahoEMCs(!showIdahoEMCs)}
+                            >
+                              <span className="flex items-center gap-1">
+                                <Zap className="w-4 h-4" />
+                                Idaho Utilities ({utilityPortalsData.idahoEMCs.filter((e: any) => e.type === "emc").length} Cooperatives & Municipals)
+                              </span>
+                              {showIdahoEMCs ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                            </Button>
+                            <p className="text-[10px] text-gray-500 mt-0.5">Idaho cooperatives & IOUs — wildfire, vegetation, storm, ROW</p>
+                          </div>
+                          {showIdahoEMCs && (
+                            <div className="space-y-2 mt-2">
+                              <Input
+                                placeholder="Search Idaho utilities..."
+                                value={idEmcSearchTerm}
+                                onChange={(e) => setIdEmcSearchTerm(e.target.value)}
+                                className="bg-slate-900/50 border-slate-600 text-white text-xs h-7"
+                              />
+                              <div className="max-h-[400px] overflow-y-auto space-y-1.5 pr-1">
+                                {utilityPortalsData.idahoEMCs
+                                  .filter((emc: any) => emc.type === "emc")
+                                  .filter((emc: any) => !idEmcSearchTerm || emc.name.toLowerCase().includes(idEmcSearchTerm.toLowerCase()) || emc.description.toLowerCase().includes(idEmcSearchTerm.toLowerCase()))
+                                  .map((emc: any) => (
+                                    <div key={emc.name} className="border border-slate-700 rounded p-2 hover:border-lime-500/30 transition-colors">
+                                      <div className="flex items-center justify-between gap-1">
+                                        <h5 className="text-xs font-medium text-white leading-tight">{emc.name}</h5>
+                                        {emc.website && (
+                                          <Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(emc.website, '_blank')}>
+                                            <ExternalLink className="w-2.5 h-2.5" />
+                                          </Button>
+                                        )}
+                                      </div>
+                                      <p className="text-[10px] text-gray-500 mt-0.5">{emc.description}</p>
+                                      <div className="flex flex-wrap gap-1 mt-1">
+                                        {emc.serviceTypes.slice(0, 3).map((s: string) => (
+                                          <Badge key={s} className="bg-lime-500/10 text-lime-400 border-lime-500/20 text-[8px] py-0 px-1">{s}</Badge>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  ))}
+                              </div>
+                              <Separator className="my-2 bg-slate-700" />
+                              <h5 className="text-xs font-semibold text-amber-400 flex items-center gap-1">
+                                <Building2 className="w-3 h-3" />
+                                Idaho IOUs & Utility Organizations
+                              </h5>
+                              {utilityPortalsData.idahoEMCs
+                                .filter((emc: any) => emc.type === "support_org")
+                                .map((org: any) => (
+                                  <div key={org.name} className="border border-slate-700 rounded p-2">
+                                    <div className="flex items-center justify-between gap-1">
+                                      <h5 className="text-xs font-medium text-amber-300 leading-tight">{org.name}</h5>
+                                      {org.website && (
+                                        <Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(org.website, '_blank')}>
+                                          <ExternalLink className="w-2.5 h-2.5" />
+                                        </Button>
+                                      )}
+                                    </div>
+                                    <p className="text-[10px] text-gray-500 mt-0.5">{org.description}</p>
+                                  </div>
+                                ))}
+                            </div>
+                          )}
+                        </>
+                      )}
+
+                      {utilityPortalsData?.illinoisEMCs?.length > 0 && (
+                        <>
+                          <Separator className="my-3 bg-slate-600" />
+                          <div>
+                            <Button
+                              variant="ghost"
+                              className="w-full justify-between text-sm font-semibold text-rose-400 hover:text-rose-300 p-0 h-auto"
+                              onClick={() => setShowIllinoisEMCs(!showIllinoisEMCs)}
+                            >
+                              <span className="flex items-center gap-1">
+                                <Zap className="w-4 h-4" />
+                                Illinois Utilities ({utilityPortalsData.illinoisEMCs.filter((e: any) => e.type === "emc").length} Cooperatives & Municipals)
+                              </span>
+                              {showIllinoisEMCs ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                            </Button>
+                            <p className="text-[10px] text-gray-500 mt-0.5">Illinois IOUs, cooperatives & municipal utilities — storm, vegetation</p>
+                          </div>
+                          {showIllinoisEMCs && (
+                            <div className="space-y-2 mt-2">
+                              <Input
+                                placeholder="Search Illinois utilities..."
+                                value={ilEmcSearchTerm}
+                                onChange={(e) => setIlEmcSearchTerm(e.target.value)}
+                                className="bg-slate-900/50 border-slate-600 text-white text-xs h-7"
+                              />
+                              <div className="max-h-[400px] overflow-y-auto space-y-1.5 pr-1">
+                                {utilityPortalsData.illinoisEMCs
+                                  .filter((emc: any) => emc.type === "emc")
+                                  .filter((emc: any) => !ilEmcSearchTerm || emc.name.toLowerCase().includes(ilEmcSearchTerm.toLowerCase()) || emc.description.toLowerCase().includes(ilEmcSearchTerm.toLowerCase()))
+                                  .map((emc: any) => (
+                                    <div key={emc.name} className="border border-slate-700 rounded p-2 hover:border-rose-500/30 transition-colors">
+                                      <div className="flex items-center justify-between gap-1">
+                                        <h5 className="text-xs font-medium text-white leading-tight">{emc.name}</h5>
+                                        {emc.website && (
+                                          <Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(emc.website, '_blank')}>
+                                            <ExternalLink className="w-2.5 h-2.5" />
+                                          </Button>
+                                        )}
+                                      </div>
+                                      <p className="text-[10px] text-gray-500 mt-0.5">{emc.description}</p>
+                                      <div className="flex flex-wrap gap-1 mt-1">
+                                        {emc.serviceTypes.slice(0, 3).map((s: string) => (
+                                          <Badge key={s} className="bg-rose-500/10 text-rose-400 border-rose-500/20 text-[8px] py-0 px-1">{s}</Badge>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  ))}
+                              </div>
+                              <Separator className="my-2 bg-slate-700" />
+                              <h5 className="text-xs font-semibold text-amber-400 flex items-center gap-1">
+                                <Building2 className="w-3 h-3" />
+                                Illinois IOUs & Utility Organizations
+                              </h5>
+                              {utilityPortalsData.illinoisEMCs
+                                .filter((emc: any) => emc.type === "support_org")
+                                .map((org: any) => (
+                                  <div key={org.name} className="border border-slate-700 rounded p-2">
+                                    <div className="flex items-center justify-between gap-1">
+                                      <h5 className="text-xs font-medium text-amber-300 leading-tight">{org.name}</h5>
+                                      {org.website && (
+                                        <Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(org.website, '_blank')}>
+                                          <ExternalLink className="w-2.5 h-2.5" />
+                                        </Button>
+                                      )}
+                                    </div>
+                                    <p className="text-[10px] text-gray-500 mt-0.5">{org.description}</p>
+                                  </div>
+                                ))}
+                            </div>
+                          )}
+                        </>
+                      )}
+
+                      {utilityPortalsData?.forestryAgencies?.length > 0 && (
+                        <>
+                          <Separator className="my-3 bg-slate-600" />
+                          <div>
+                            <Button variant="ghost" className="w-full justify-between text-sm font-semibold text-emerald-400 hover:text-emerald-300 p-0 h-auto" onClick={() => setShowForestryAgencies(!showForestryAgencies)}>
+                              <span className="flex items-center gap-1">
+                                <Zap className="w-4 h-4" />
+                                Forestry Agencies & Vegetation Gatekeepers ({utilityPortalsData.forestryAgencies.length})
+                              </span>
+                              {showForestryAgencies ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                            </Button>
+                            <p className="text-[10px] text-gray-500 mt-0.5">State forestry commissions, utility vegetation managers & consulting foresters — the gatekeepers to utility work</p>
+                          </div>
+                          {showForestryAgencies && (
+                            <div className="space-y-2 mt-2">
+                              <Input placeholder="Search forestry agencies..." value={forestrySearchTerm} onChange={(e) => setForestrySearchTerm(e.target.value)} className="bg-slate-900/50 border-slate-600 text-white text-xs h-7" />
+                              <div className="max-h-[400px] overflow-y-auto space-y-1.5 pr-1">
+                                {utilityPortalsData.forestryAgencies
+                                  .filter((a: any) => !forestrySearchTerm || a.name.toLowerCase().includes(forestrySearchTerm.toLowerCase()) || a.state.toLowerCase().includes(forestrySearchTerm.toLowerCase()) || a.description.toLowerCase().includes(forestrySearchTerm.toLowerCase()))
+                                  .map((agency: any) => (
+                                    <div key={agency.name} className="border border-slate-700 rounded p-2 hover:border-emerald-500/30 transition-colors">
+                                      <div className="flex items-center justify-between gap-1">
+                                        <h5 className="text-xs font-medium text-white leading-tight">{agency.name}</h5>
+                                        <div className="flex items-center gap-1">
+                                          <Badge className={`text-[8px] py-0 px-1 ${agency.type === 'federal' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : agency.type === 'state' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : agency.type === 'utility_veg' ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' : 'bg-purple-500/10 text-purple-400 border-purple-500/20'}`}>
+                                            {agency.type === 'federal' ? 'Federal' : agency.type === 'state' ? 'State' : agency.type === 'utility_veg' ? 'Utility Veg' : 'Consulting'}
+                                          </Badge>
+                                          <Badge className="bg-slate-500/10 text-slate-400 border-slate-500/20 text-[8px] py-0 px-1">{agency.state}</Badge>
+                                          {agency.website && (
+                                            <Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(agency.website, '_blank')}>
+                                              <ExternalLink className="w-2.5 h-2.5" />
+                                            </Button>
+                                          )}
+                                        </div>
+                                      </div>
+                                      {agency.contact && <p className="text-[10px] text-emerald-300 mt-0.5">{agency.contact}{agency.title ? ` — ${agency.title}` : ''}</p>}
+                                      {agency.phone && <p className="text-[10px] text-gray-400 mt-0.5">Phone: {agency.phone}</p>}
+                                      {agency.email && <p className="text-[10px] text-gray-400">Email: {agency.email}</p>}
+                                      <p className="text-[10px] text-gray-500 mt-0.5">{agency.description}</p>
+                                    </div>
+                                  ))}
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      )}
+
+                      {utilityPortalsData?.stormPrimes?.length > 0 && (
+                        <>
+                          <Separator className="my-3 bg-slate-600" />
+                          <div>
+                            <Button variant="ghost" className="w-full justify-between text-sm font-semibold text-amber-400 hover:text-amber-300 p-0 h-auto" onClick={() => setShowStormPrimes(!showStormPrimes)}>
+                              <span className="flex items-center gap-1">
+                                <Zap className="w-4 h-4" />
+                                Storm Primes & National Contractors ({utilityPortalsData.stormPrimes.length})
+                              </span>
+                              {showStormPrimes ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                            </Button>
+                            <p className="text-[10px] text-gray-500 mt-0.5">National storm primes, utility vegetation contractors, co-op/municipal associations & procurement portals</p>
+                          </div>
+                          {showStormPrimes && (
+                            <div className="space-y-2 mt-2">
+                              <Input placeholder="Search storm primes..." value={stormPrimeSearchTerm} onChange={(e) => setStormPrimeSearchTerm(e.target.value)} className="bg-slate-900/50 border-slate-600 text-white text-xs h-7" />
+                              <div className="max-h-[400px] overflow-y-auto space-y-1.5 pr-1">
+                                {utilityPortalsData.stormPrimes
+                                  .filter((p: any) => !stormPrimeSearchTerm || p.name.toLowerCase().includes(stormPrimeSearchTerm.toLowerCase()) || p.description.toLowerCase().includes(stormPrimeSearchTerm.toLowerCase()))
+                                  .map((prime: any) => (
+                                    <div key={prime.name} className="border border-slate-700 rounded p-2 hover:border-amber-500/30 transition-colors">
+                                      <div className="flex items-center justify-between gap-1">
+                                        <h5 className="text-xs font-medium text-white leading-tight">{prime.name}</h5>
+                                        <div className="flex items-center gap-1">
+                                          <Badge className={`text-[8px] py-0 px-1 ${prime.type === 'national_prime' ? 'bg-red-500/10 text-red-400 border-red-500/20' : prime.type === 'utility_prime' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' : prime.type === 'national_association' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 'bg-green-500/10 text-green-400 border-green-500/20'}`}>
+                                            {prime.type === 'national_prime' ? 'Storm Prime' : prime.type === 'utility_prime' ? 'Utility Prime' : prime.type === 'national_association' ? 'Association' : 'Portal'}
+                                          </Badge>
+                                          {prime.website && (
+                                            <Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(prime.website, '_blank')}>
+                                              <ExternalLink className="w-2.5 h-2.5" />
+                                            </Button>
+                                          )}
+                                        </div>
+                                      </div>
+                                      <p className="text-[10px] text-gray-500 mt-0.5">{prime.description}</p>
+                                      <div className="flex flex-wrap gap-1 mt-1">
+                                        {prime.specialties.slice(0, 4).map((s: string) => (
+                                          <Badge key={s} className="bg-amber-500/10 text-amber-400 border-amber-500/20 text-[8px] py-0 px-1">{s}</Badge>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  ))}
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      )}
+
                     </CardContent>
                   </Card>
                 </div>

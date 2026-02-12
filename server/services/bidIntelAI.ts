@@ -141,7 +141,100 @@ UTILITY CONTRACTOR READINESS CENTER (CRITICAL KNOWLEDGE):
   - Support orgs: AEPCO (G&T cooperative), Arizona Utility Suppliers Association (networking), AMEA (municipal utility association)
   - Tell contractors to expand "Arizona Utilities" in the Utility Portals sidebar
 
-- Direct contractors to the Utility Readiness tab for the interactive checklist, utility portal browser, email generator, and tracking sheet export. IMPORTANT: Tell them about the new "Registration Steps" button that shows step-by-step guides for each utility and platform, the "Georgia EMCs" section with 41+ cooperatives, the "Alabama EMCs" section with 22+ cooperatives, AND the "Alaska Utilities" section with 15 cooperatives and municipal utilities.
+- ARKANSAS ELECTRIC UTILITIES:
+  - 21 Arkansas cooperatives and municipal utilities plus 4 IOUs and support organizations (25 total)
+  - Major cooperatives: Carroll Electric (largest in NW AR), First Electric (largest in central AR), Craighead Electric, North Arkansas Electric
+  - Municipal utilities: Fayetteville, Fort Smith, Conway, Benton, Russellville, Pine Bluff, North Little Rock, Springdale
+  - Major IOUs: Entergy Arkansas (largest IOU, big storm response program), SWEPCO (AEP subsidiary), CenterPoint Energy Arkansas
+  - G&T: Arkansas Electric Cooperative Corporation (AECC) — supplies power to most distribution co-ops
+  - Tell contractors to expand "Arkansas Utilities" in the sidebar
+
+- CALIFORNIA ELECTRIC UTILITIES:
+  - 12 California cooperatives and municipal utilities plus 5 IOUs (17 total)
+  - Major IOUs: PG&E (largest, wildfire risk), Southern California Edison (SCE), San Diego Gas & Electric (SDG&E)
+  - Key municipals: LADWP (largest municipal utility in US), SMUD (Sacramento), Burbank, Anaheim, Pasadena, Riverside, Glendale, Bakersfield
+  - Cooperatives: Plumas-Sierra Rural Electric, Modesto Irrigation District, Turlock Irrigation District
+  - Critical context: Wildfire season drives massive vegetation management contracts
+  - Tell contractors to expand "California Utilities" in the sidebar
+
+- COLORADO ELECTRIC UTILITIES:
+  - 15 Colorado cooperatives and municipal utilities plus 4 IOUs (19 total)
+  - Major IOUs: Xcel Energy (largest, Denver metro), Black Hills Energy, Colorado Springs Utilities
+  - Cooperatives: IREA (largest co-op), United Power, MVEA, LPEA, DMEA, YVEA
+  - Municipal utilities: Boulder, Fort Collins, Glenwood Springs, Estes Park
+  - Federal: Western Area Power Administration (WAPA) for transmission
+  - Context: Mountain terrain, wildfire risk, winter storms
+  - Tell contractors to expand "Colorado Utilities" in the sidebar
+
+- CONNECTICUT ELECTRIC UTILITIES:
+  - 7 Connecticut municipal utilities plus 3 IOUs/support orgs (10 total)
+  - Major IOUs: Eversource Energy (covers most of CT), United Illuminating (southern CT)
+  - Municipal cooperative: CMEEC — wholesale power for all municipal utilities
+  - Municipal utilities: Groton, Bozrah, Jewett City, Norwich, South Norwalk, Wallingford, East Norwalk
+  - Context: Nor'easters, hurricane exposure, dense vegetation
+  - Tell contractors to expand "Connecticut Utilities" in the sidebar
+
+- DELAWARE ELECTRIC UTILITIES:
+  - 10 Delaware cooperatives and municipal utilities plus 3 support orgs (13 total)
+  - Delaware Electric Cooperative — main rural co-op (Kent & Sussex Counties)
+  - Delmarva Power (Exelon) — largest IOU in Delaware
+  - DEMEC — joint action agency for 9 municipal utilities
+  - Municipal utilities: Dover, Newark, Milford, Seaford, Lewes, New Castle, Smyrna, Middletown, Clayton
+  - State procurement: mymarketplace.delaware.gov
+  - Tell contractors to expand "Delaware Utilities" in the sidebar
+
+- FLORIDA ELECTRIC UTILITIES:
+  - 8 Florida cooperatives and municipal utilities plus 5 IOUs (13 total)
+  - Major IOUs: FPL (largest in FL, massive hurricane response), Duke Energy Florida, Tampa Electric (TECO), FPU
+  - Cooperatives with bid portals: Clay Electric, SECO Energy, Seminole Electric
+  - Municipal utilities: KUA (Kissimmee), GRU (Gainesville), JEA (Jacksonville — one of largest), Homestead, Tallahassee
+  - State portal: MyFloridaMarketPlace for vendor registration
+  - Critical context: Hurricane season drives enormous storm restoration contracts
+  - Tell contractors to expand "Florida Utilities" in the sidebar
+
+- HAWAII ELECTRIC UTILITIES:
+  - 2 Hawaii utilities plus 1 regulatory body (3 total)
+  - Hawaiian Electric (HECO) — main utility on O'ahu, Maui, Hawai'i Island
+  - Kauai Island Utility Cooperative (KIUC) — only electric cooperative in Hawaii
+  - Unique challenges: island logistics, tropical storms, vegetation management in tropical climate
+  - Tell contractors to expand "Hawaii Utilities" in the sidebar
+
+- IDAHO ELECTRIC UTILITIES:
+  - 9 Idaho cooperatives plus 2 IOUs (11 total)
+  - Major IOUs: Idaho Power (largest, southern ID), Rocky Mountain Power/PacifiCorp (eastern ID)
+  - Cooperatives: Clearwater Power, Fall River, Idaho County L&P, Kootenai, Lost River, Northern Lights, Raft River, Salmon River, United Electric
+  - Context: Wildfire risk, mountain terrain, winter storms, remote areas
+  - Tell contractors to expand "Idaho Utilities" in the sidebar
+
+- ILLINOIS ELECTRIC UTILITIES:
+  - 11 Illinois cooperatives plus 5 IOUs/support orgs (16 total)
+  - Major IOUs: ComEd (largest, northern IL/Chicago), Ameren Illinois (central/southern IL), MidAmerican Energy (western IL)
+  - Cooperatives: Monroe County, SouthEastern IL, Norris, Shelby, Southern IL, Southwestern, Spoon River, Tri-County, Wayne-White, Western IL
+  - Municipal: CWLP (Springfield)
+  - RECC directory lists all Illinois cooperatives
+  - Context: Tornado corridor, ice storms, severe thunderstorms
+  - Tell contractors to expand "Illinois Utilities" in the sidebar
+
+- FORESTRY AGENCIES & VEGETATION GATEKEEPERS (National):
+  - 16 forestry agencies including federal, state, utility vegetation managers, and consulting foresters
+  - Federal: U.S. Forest Service (USFS), NRCS
+  - State agencies with contacts: Alabama, Georgia, Florida, South Carolina, North Carolina, Tennessee forestry commissions
+  - Utility vegetation managers with contacts: Alabama Power, Georgia Power, FPL, Duke Energy (Carolinas & Progress), TVA
+  - KEY INSIGHT: Forestry managers and consulting arborists are GATEKEEPERS to utility work — they control contractor approvals, manage bid scopes, evaluate performance, and influence renewals
+  - Strategy: Build relationships with forestry managers → get insider knowledge on bids, emergency mobilizations, and problem circuits
+  - Tell contractors to expand "Forestry Agencies & Vegetation Gatekeepers" in the sidebar
+
+- STORM PRIMES & NATIONAL CONTRACTORS:
+  - 16 national storm primes, utility vegetation contractors, associations, and procurement portals
+  - National storm primes: AshBritt, DRC Emergency Services, Tetra Tech, AECOM, ICF
+  - Utility primes: Quanta Services (largest utility contractor), MasTec, Asplundh (largest veg management), Wright Tree Service, Davey Tree
+  - National associations: NRECA (900+ co-ops), APPA (2,000+ municipal utilities), FRE (insurance/risk)
+  - Procurement portals: SAM.gov, BidNet Direct, Bonfire
+  - KEY INSIGHT: Storm activation flow is: Storm forecast → Utilities call pre-approved primes → Primes call pre-qualified subs → Crews deploy 24-72 hours
+  - If not pre-qualified with primes, contractors do NOT get the call during storms
+  - Tell contractors to expand "Storm Primes & National Contractors" in the sidebar
+
+- Direct contractors to the Utility Readiness tab for the interactive checklist, utility portal browser, email generator, and tracking sheet export. The platform now covers 13 states (GA, AL, AK, AZ, AR, CA, CO, CT, DE, FL, HI, ID, IL) with 200+ utilities, plus national forestry agencies and storm prime contractors.
 
 INSIDER TIPS DATABASE:
 1. **Price Psychology**: Government evaluators have a "price reasonableness" range. Being 5-10% below the IGCE is ideal — too low triggers concerns about ability to perform.
