@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import {
@@ -13,60 +13,76 @@ import { Progress } from '@/components/ui/progress';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useMutation } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
 import TopNav from '@/components/TopNav';
 import ModuleAIAssistant from '@/components/ModuleAIAssistant';
 
 export default function PriceWhisperer() {
-  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
-  const [isVoiceActive, setIsVoiceActive] = useState(false);
+  const [isVoiceEnabled, setIsVoiceEnabled] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(false);
   const [jobType, setJobType] = useState('');
   const [location, setLocation] = useState('');
   const [showAnalysis, setShowAnalysis] = useState(false);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const hasPlayedWelcome = useRef(false);
+  const voiceEnabledRef = useRef(true);
 
-  useEffect(() => {
-    const loadVoices = () => {
-      const availableVoices = window.speechSynthesis.getVoices();
-      if (availableVoices.length > 0) {
-        setVoices(availableVoices);
-      }
-    };
-    loadVoices();
-    window.speechSynthesis.onvoiceschanged = loadVoices;
-    return () => { window.speechSynthesis.cancel(); };
-  }, []);
-
-  useEffect(() => {
-    if (voices.length > 0) {
-      setTimeout(() => {
-        speakGuidance("Welcome to PriceWhisperer! I'm Rachel, and I'll help you understand fair market pricing for any job. This tool provides AI-powered estimates with market comparisons, so both customers and contractors can be confident in pricing.");
-      }, 500);
+  const stopAudio = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
     }
-  }, [voices]);
-
-  const getBestFemaleVoice = (voiceList: SpeechSynthesisVoice[]) => {
-    const preferredVoices = ['Samantha', 'Zira', 'Jenny', 'Google US English Female', 'Microsoft Zira'];
-    for (const preferred of preferredVoices) {
-      const found = voiceList.find(v => v.name.includes(preferred));
-      if (found) return found;
-    }
-    return voiceList.find(v => v.lang.startsWith('en')) || voiceList[0];
+    setIsPlaying(false);
   };
 
-  const speakGuidance = (text: string) => {
-    if (voices.length === 0) return;
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.voice = getBestFemaleVoice(voices);
-    utterance.pitch = 1.0;
-    utterance.rate = 0.88;
-    utterance.onstart = () => setIsVoiceActive(true);
-    utterance.onend = () => setIsVoiceActive(false);
-    window.speechSynthesis.speak(utterance);
+  const playRachelVoice = (prompt: string) => {
+    if (!voiceEnabledRef.current) return;
+    voiceMutation.mutate(prompt);
+  };
+
+  const voiceMutation = useMutation({
+    mutationFn: async (message: string) => {
+      const res = await apiRequest("POST", "/api/closebot/chat", {
+        message,
+        history: [],
+        context: { leadName: "contractor", companyName: "your company", trade: "pricing" },
+        enableVoice: true,
+      });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      if (!voiceEnabledRef.current) return;
+      if (data.audioUrl && audioRef.current) {
+        setIsPlaying(true);
+        audioRef.current.src = data.audioUrl;
+        audioRef.current.onended = () => setIsPlaying(false);
+        audioRef.current.play().catch(() => setIsPlaying(false));
+      }
+    },
+  });
+
+  useEffect(() => {
+    if (!hasPlayedWelcome.current) {
+      hasPlayedWelcome.current = true;
+      playRachelVoice("Give a brief, warm 1-sentence welcome to PriceWhisperer. You're Rachel, helping them understand fair market pricing for any job with AI-powered estimates. Keep it super short and natural.");
+    }
+  }, []);
+
+  const toggleVoice = () => {
+    const newEnabled = !isVoiceEnabled;
+    setIsVoiceEnabled(newEnabled);
+    voiceEnabledRef.current = newEnabled;
+    if (!newEnabled) {
+      stopAudio();
+    } else {
+      playRachelVoice("Say a quick, natural 1-sentence overview of PriceWhisperer — AI-powered market analysis providing fair, competitive pricing ranges for any job type. Keep it warm and conversational.");
+    }
   };
 
   const handleAnalyze = () => {
     setShowAnalysis(true);
-    speakGuidance("I've analyzed the market data for tree removal in your area. The industry-standard pricing range is $1,200 to $3,500 for this type of job. Based on complexity and local rates, I'd suggest targeting around $2,100 for a competitive yet profitable bid.");
+    playRachelVoice("Say briefly: I've analyzed the market data. The industry-standard pricing range is $1,200 to $3,500 for this type of job. I'd suggest targeting around $2,100 for a competitive yet profitable bid. Keep it to 2 short sentences max.");
   };
 
   const pricingData = {
@@ -87,6 +103,7 @@ export default function PriceWhisperer() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-emerald-50 to-white dark:from-slate-950 dark:to-slate-900">
       <TopNav />
+      <audio ref={audioRef} className="hidden" />
 
       <div className="bg-gradient-to-r from-emerald-600 to-green-600 text-white py-12 px-4">
         <div className="max-w-6xl mx-auto">
@@ -103,10 +120,10 @@ export default function PriceWhisperer() {
             <Button
               variant="ghost"
               size="lg"
-              onClick={() => isVoiceActive ? window.speechSynthesis.cancel() : speakGuidance("I'm Rachel, your pricing assistant. PriceWhisperer uses AI to analyze market data and provide fair, competitive pricing ranges for any job type in your area.")}
+              onClick={toggleVoice}
               className="text-white hover:bg-white/10"
             >
-              {isVoiceActive ? <Volume2 className="w-6 h-6 animate-pulse" /> : <VolumeX className="w-6 h-6" />}
+              {isVoiceEnabled ? <Volume2 className={`w-6 h-6 ${isPlaying ? 'animate-pulse' : ''}`} /> : <VolumeX className="w-6 h-6" />}
             </Button>
           </div>
         </div>
@@ -114,7 +131,6 @@ export default function PriceWhisperer() {
 
       <div className="max-w-6xl mx-auto px-4 py-8">
         <div className="grid lg:grid-cols-3 gap-8">
-          {/* Input Section */}
           <div className="space-y-6">
             <Card>
               <CardHeader>
@@ -177,7 +193,6 @@ export default function PriceWhisperer() {
             </Card>
           </div>
 
-          {/* Results Section */}
           <div className="lg:col-span-2 space-y-6">
             {showAnalysis ? (
               <motion.div
