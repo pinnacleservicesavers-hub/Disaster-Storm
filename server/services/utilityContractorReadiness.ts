@@ -37,6 +37,14 @@ export interface GovernmentPortal {
   registrationSteps?: RegistrationStep[];
 }
 
+export interface GeorgiaEMC {
+  name: string;
+  website: string;
+  type: "emc" | "support_org";
+  description: string;
+  serviceTypes: string[];
+}
+
 export interface VendorPlatform {
   name: string;
   url: string;
@@ -397,6 +405,54 @@ export const GOVERNMENT_PORTALS: GovernmentPortal[] = [
       { step: 4, title: "Register as Local Vendor", description: "Complete each utility's individual vendor registration process. Many municipal utilities maintain their own approved contractor lists.", estimatedTime: "Varies by utility" }
     ]
   }
+];
+
+export const GEORGIA_EMCS: GeorgiaEMC[] = [
+  { name: "Altamaha EMC", website: "https://altamahaemc.com", type: "emc", description: "Serves southeast Georgia communities", serviceTypes: ["Vegetation/ROW clearing", "Storm debris removal", "Emergency restoration", "Equipment rentals"] },
+  { name: "Amicalola EMC", website: "https://amicalolaemc.com", type: "emc", description: "Serves north Georgia mountain communities", serviceTypes: ["Vegetation/ROW clearing", "Storm debris removal", "Emergency restoration", "Trucking/hauling"] },
+  { name: "Blue Ridge Mountain EMC", website: "https://brmemc.com", type: "emc", description: "Serves Blue Ridge mountain area of north Georgia", serviceTypes: ["Vegetation/ROW clearing", "Storm debris removal", "Emergency restoration", "Line clearing"] },
+  { name: "Canoochee EMC", website: "https://canoocheeemc.com", type: "emc", description: "Serves southeast Georgia area", serviceTypes: ["Vegetation/ROW clearing", "Storm debris removal", "Emergency restoration", "Equipment rentals"] },
+  { name: "Carroll EMC", website: "https://cemc.com", type: "emc", description: "Serves west-central Georgia", serviceTypes: ["Vegetation/ROW clearing", "Storm debris removal", "Emergency restoration", "Distribution maintenance"] },
+  { name: "Central Georgia EMC", website: "https://cgemc.com", type: "emc", description: "Serves central Georgia communities", serviceTypes: ["Vegetation/ROW clearing", "Storm debris removal", "Emergency restoration", "Line clearing"] },
+  { name: "Coastal Electric Cooperative", website: "https://coastalemc.com", type: "emc", description: "Serves Georgia's coastal communities", serviceTypes: ["Vegetation/ROW clearing", "Storm debris removal", "Hurricane restoration", "Emergency response"] },
+  { name: "Cobb EMC", website: "https://cobbemc.com", type: "emc", description: "Serves Cobb County and northwest metro Atlanta — one of the largest EMCs in Georgia", serviceTypes: ["Vegetation/ROW clearing", "Storm debris removal", "Emergency restoration", "Distribution maintenance"] },
+  { name: "Colquitt EMC", website: "https://colquittemc.com", type: "emc", description: "Serves southwest Georgia", serviceTypes: ["Vegetation/ROW clearing", "Storm debris removal", "Emergency restoration", "Equipment rentals"] },
+  { name: "Coweta-Fayette EMC", website: "https://utility.org", type: "emc", description: "Serves Coweta and Fayette counties south of Atlanta", serviceTypes: ["Vegetation/ROW clearing", "Storm debris removal", "Emergency restoration", "Distribution maintenance"] },
+  { name: "Diverse Power Inc.", website: "https://diversepower.com", type: "emc", description: "Serves west Georgia and east Alabama border area", serviceTypes: ["Vegetation/ROW clearing", "Storm debris removal", "Emergency restoration", "Equipment rentals"] },
+  { name: "Excelsior EMC", website: "https://excelsioremc.com", type: "emc", description: "Serves south-central Georgia", serviceTypes: ["Vegetation/ROW clearing", "Storm debris removal", "Emergency restoration", "Line clearing"] },
+  { name: "Flint Energies", website: "https://flintenergies.com", type: "emc", description: "Serves middle Georgia area", serviceTypes: ["Vegetation/ROW clearing", "Storm debris removal", "Emergency restoration", "Distribution maintenance"] },
+  { name: "Grady EMC", website: "https://gradyemc.com", type: "emc", description: "Serves southwest Georgia near the Florida border", serviceTypes: ["Vegetation/ROW clearing", "Storm debris removal", "Emergency restoration", "Equipment rentals"] },
+  { name: "GreyStone Power Corporation", website: "https://greystonepower.com", type: "emc", description: "Serves west metro Atlanta — one of the largest EMCs in Georgia", serviceTypes: ["Vegetation/ROW clearing", "Storm debris removal", "Emergency restoration", "Distribution maintenance"] },
+  { name: "Habersham EMC", website: "https://habershamemc.com", type: "emc", description: "Serves northeast Georgia mountain area", serviceTypes: ["Vegetation/ROW clearing", "Storm debris removal", "Emergency restoration", "Line clearing"] },
+  { name: "Hart EMC", website: "https://hartemc.com", type: "emc", description: "Serves northeast Georgia near Lake Hartwell", serviceTypes: ["Vegetation/ROW clearing", "Storm debris removal", "Emergency restoration", "Equipment rentals"] },
+  { name: "Irwin EMC", website: "https://irwinemc.com", type: "emc", description: "Serves south-central Georgia", serviceTypes: ["Vegetation/ROW clearing", "Storm debris removal", "Emergency restoration", "Equipment rentals"] },
+  { name: "Jackson EMC", website: "https://jacksonemc.com", type: "emc", description: "Serves northeast metro Atlanta and north Georgia — largest EMC in Georgia", serviceTypes: ["Vegetation/ROW clearing", "Storm debris removal", "Emergency restoration", "Distribution maintenance", "Trucking/hauling"] },
+  { name: "Jefferson Energy Cooperative", website: "https://jec.coop", type: "emc", description: "Serves Jefferson and surrounding counties in middle Georgia", serviceTypes: ["Vegetation/ROW clearing", "Storm debris removal", "Emergency restoration", "Equipment rentals"] },
+  { name: "Little Ocmulgee EMC", website: "https://littleocmulgeeemc.com", type: "emc", description: "Serves southeast Georgia", serviceTypes: ["Vegetation/ROW clearing", "Storm debris removal", "Emergency restoration", "Line clearing"] },
+  { name: "Middle Georgia EMC", website: "https://mgemc.com", type: "emc", description: "Serves middle Georgia communities", serviceTypes: ["Vegetation/ROW clearing", "Storm debris removal", "Emergency restoration", "Distribution maintenance"] },
+  { name: "Mitchell EMC", website: "https://mitchellemc.com", type: "emc", description: "Serves southwest Georgia", serviceTypes: ["Vegetation/ROW clearing", "Storm debris removal", "Emergency restoration", "Equipment rentals"] },
+  { name: "North Georgia EMC", website: "https://ngemc.com", type: "emc", description: "Serves north Georgia mountain communities", serviceTypes: ["Vegetation/ROW clearing", "Storm debris removal", "Emergency restoration", "Line clearing"] },
+  { name: "Ocmulgee EMC", website: "https://ocmulgeeemc.com", type: "emc", description: "Serves east-central Georgia", serviceTypes: ["Vegetation/ROW clearing", "Storm debris removal", "Emergency restoration", "Equipment rentals"] },
+  { name: "Oconee EMC", website: "https://oconeeemc.com", type: "emc", description: "Serves Oconee area of middle Georgia", serviceTypes: ["Vegetation/ROW clearing", "Storm debris removal", "Emergency restoration", "Line clearing"] },
+  { name: "Okefenoke REMC", website: "https://oremc.com", type: "emc", description: "Serves southeast Georgia near the Okefenokee Swamp", serviceTypes: ["Vegetation/ROW clearing", "Storm debris removal", "Emergency restoration", "Equipment rentals"] },
+  { name: "Planters EMC", website: "https://plantersemc.com", type: "emc", description: "Serves southeast Georgia", serviceTypes: ["Vegetation/ROW clearing", "Storm debris removal", "Emergency restoration", "Line clearing"] },
+  { name: "Rayle EMC", website: "", type: "emc", description: "Serves northeast Georgia — check local site for vendor information", serviceTypes: ["Vegetation/ROW clearing", "Storm debris removal", "Emergency restoration"] },
+  { name: "Satilla REMC", website: "", type: "emc", description: "Serves southeast Georgia — check local site for vendor information", serviceTypes: ["Vegetation/ROW clearing", "Storm debris removal", "Emergency restoration"] },
+  { name: "Sawnee EMC", website: "https://sawnee.coop", type: "emc", description: "Serves north metro Atlanta and north Georgia — large membership cooperative", serviceTypes: ["Vegetation/ROW clearing", "Storm debris removal", "Emergency restoration", "Distribution maintenance"] },
+  { name: "Slash Pine EMC", website: "", type: "emc", description: "Serves southeast Georgia — check local site for vendor information", serviceTypes: ["Vegetation/ROW clearing", "Storm debris removal", "Emergency restoration"] },
+  { name: "Snapping Shoals EMC", website: "", type: "emc", description: "Serves east metro Atlanta area — check local site for vendor information", serviceTypes: ["Vegetation/ROW clearing", "Storm debris removal", "Emergency restoration"] },
+  { name: "Southern Rivers Energy", website: "https://southernriversenergy.com", type: "emc", description: "Serves west-central Georgia", serviceTypes: ["Vegetation/ROW clearing", "Storm debris removal", "Emergency restoration", "Equipment rentals"] },
+  { name: "Sumter EMC", website: "", type: "emc", description: "Serves southwest Georgia — check local site for vendor information", serviceTypes: ["Vegetation/ROW clearing", "Storm debris removal", "Emergency restoration"] },
+  { name: "Three Notch EMC", website: "", type: "emc", description: "Serves south-central Georgia — check local site for vendor information", serviceTypes: ["Vegetation/ROW clearing", "Storm debris removal", "Emergency restoration"] },
+  { name: "Tri-County EMC", website: "https://tri-countyemc.com", type: "emc", description: "Serves southeast Georgia", serviceTypes: ["Vegetation/ROW clearing", "Storm debris removal", "Emergency restoration", "Line clearing"] },
+  { name: "Tri-State EMC", website: "", type: "emc", description: "Serves northwest Georgia — check local site for vendor information", serviceTypes: ["Vegetation/ROW clearing", "Storm debris removal", "Emergency restoration"] },
+  { name: "Upson EMC", website: "https://upsonemc.com", type: "emc", description: "Serves west-central Georgia", serviceTypes: ["Vegetation/ROW clearing", "Storm debris removal", "Emergency restoration", "Equipment rentals"] },
+  { name: "Walton EMC", website: "https://waltonemc.com", type: "emc", description: "Serves east metro Atlanta and northeast Georgia — large membership cooperative", serviceTypes: ["Vegetation/ROW clearing", "Storm debris removal", "Emergency restoration", "Distribution maintenance"] },
+  { name: "Washington EMC", website: "https://washingtonemc.com", type: "emc", description: "Serves east-central Georgia", serviceTypes: ["Vegetation/ROW clearing", "Storm debris removal", "Emergency restoration", "Equipment rentals"] },
+  { name: "Oglethorpe Power Corporation", website: "https://opc.com", type: "support_org", description: "Generation supplier for many Georgia EMCs — generation and transmission cooperative. Registering here can open access to multiple EMC service territories.", serviceTypes: ["Generation support", "Transmission construction", "Vegetation management", "ROW clearing"] },
+  { name: "Georgia Transmission Corporation", website: "", type: "support_org", description: "Transmission network supporting Georgia EMCs. Manages high-voltage transmission infrastructure across the state.", serviceTypes: ["Transmission construction", "ROW clearing", "Vegetation management", "Emergency restoration"] },
+  { name: "Georgia System Operations Corporation", website: "", type: "support_org", description: "System operations and support organization for Georgia EMCs. Coordinates system reliability and emergency response.", serviceTypes: ["System operations support", "Emergency coordination", "Technical services"] },
+  { name: "Green Power EMC", website: "", type: "support_org", description: "Renewables partner for Georgia EMCs. Manages renewable energy generation for the cooperative network.", serviceTypes: ["Renewable energy construction", "Solar installation", "Vegetation management"] }
 ];
 
 export const VENDOR_PLATFORMS: VendorPlatform[] = [

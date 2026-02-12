@@ -109,7 +109,16 @@ UTILITY CONTRACTOR READINESS CENTER (CRITICAL KNOWLEDGE):
   - **American Public Power Association (APPA)** — Nationwide, represents community-owned municipal and cooperative utilities. Smaller utilities with less competition for contractor spots. Access via supplier guide.
   - **State of Georgia — Team Georgia Marketplace** — State vendor registration for local, county, and state government contracts. Good for ROW, emergency services, vegetation clearing.
 
-- Direct contractors to the Utility Readiness tab for the interactive checklist, utility portal browser, email generator, and tracking sheet export. IMPORTANT: Tell them about the new "Registration Steps" button that shows step-by-step guides for each utility and platform.
+- GEORGIA ELECTRIC MEMBERSHIP CORPORATIONS (EMCs):
+  - The platform now includes 41+ Georgia EMCs — local electric cooperatives that hire contractors for vegetation/ROW clearing, storm debris removal, emergency restoration, equipment rentals, and trucking/hauling.
+  - These are LOCAL utilities with direct contractor/vendor portals. Less competition than major IOUs!
+  - Key large EMCs: Jackson EMC (largest in GA), Cobb EMC, GreyStone Power, Sawnee EMC, Walton EMC
+  - Support organizations: Oglethorpe Power Corporation (generation for many EMCs), Georgia Transmission Corporation, Georgia System Operations Corporation, Green Power EMC (renewables)
+  - Registering with Oglethorpe Power can open access to multiple EMC service territories
+  - Tell contractors to expand the "Georgia EMCs" section in the Utility Portals sidebar to browse all 41 cooperatives with direct website links
+  - Georgia Power / Southern Company is listed separately as a major utility — EMCs are independent cooperatives
+
+- Direct contractors to the Utility Readiness tab for the interactive checklist, utility portal browser, email generator, and tracking sheet export. IMPORTANT: Tell them about the new "Registration Steps" button that shows step-by-step guides for each utility and platform, AND the new "Georgia EMCs" expandable section with 41+ local electric cooperatives.
 
 INSIDER TIPS DATABASE:
 1. **Price Psychology**: Government evaluators have a "price reasonableness" range. Being 5-10% below the IGCE is ideal — too low triggers concerns about ability to perform.
