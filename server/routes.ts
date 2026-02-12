@@ -23286,6 +23286,78 @@ Customer is on schedule - NO spam calls needed!`;
 
   console.log('🚨 Emergency Contractor Readiness Platform (ECRP) routes registered');
 
+  // ===== CLOSEBOT AI SALES AGENT =====
+  const { generateCloseBotResponse, generateDemoCall, generateObjectionResponse, generateSalesScript } = await import('./services/closeBotAI');
+
+  app.get('/api/closebot/audio/:filename', (req, res) => {
+    const filePath = path.join('/tmp', req.params.filename);
+    res.sendFile(filePath, (err) => {
+      if (err) res.status(404).json({ error: 'Audio not found' });
+    });
+  });
+
+  app.post('/api/closebot/chat', async (req: any, res) => {
+    try {
+      const { message, history, context, enableVoice } = req.body;
+      if (!message) return res.status(400).json({ error: 'Message required' });
+      const result = await generateCloseBotResponse(message, history || [], context, enableVoice);
+      res.json(result);
+    } catch (error: any) {
+      console.error('CloseBot chat error:', error);
+      res.status(500).json({ error: 'Failed to generate response' });
+    }
+  });
+
+  app.post('/api/closebot/demo-call', async (req: any, res) => {
+    try {
+      const { scenario, companyName, customerName, trade, estimateAmount, enableVoice } = req.body;
+      const result = await generateDemoCall(
+        scenario || 'Standard follow-up on estimate',
+        companyName || 'Oak City Home Services',
+        customerName || 'Sarah',
+        trade || 'home repair',
+        estimateAmount || '$2,500',
+        enableVoice
+      );
+      res.json(result);
+    } catch (error: any) {
+      console.error('CloseBot demo error:', error);
+      res.status(500).json({ error: 'Failed to generate demo call' });
+    }
+  });
+
+  app.post('/api/closebot/objection', async (req: any, res) => {
+    try {
+      const { objection, trade, estimateAmount, enableVoice } = req.body;
+      if (!objection) return res.status(400).json({ error: 'Objection text required' });
+      const result = await generateObjectionResponse(objection, trade || 'general', estimateAmount || '$2,000', enableVoice);
+      res.json(result);
+    } catch (error: any) {
+      console.error('CloseBot objection error:', error);
+      res.status(500).json({ error: 'Failed to generate response' });
+    }
+  });
+
+  app.post('/api/closebot/generate-script', async (req: any, res) => {
+    try {
+      const { companyName, trade, customerName, estimateAmount, estimateDetails, tone } = req.body;
+      const script = await generateSalesScript(
+        companyName || 'My Company',
+        trade || 'general',
+        customerName || 'Customer',
+        estimateAmount || '$2,000',
+        estimateDetails || 'Standard service estimate',
+        tone || 'warm'
+      );
+      res.json({ script });
+    } catch (error: any) {
+      console.error('CloseBot script error:', error);
+      res.status(500).json({ error: 'Failed to generate script' });
+    }
+  });
+
+  console.log('🎙️ CloseBot AI Sales Agent routes registered');
+
   const httpServer = createServer(app);
   return httpServer;
 }
