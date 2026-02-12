@@ -270,6 +270,8 @@ export default function AIBidIntelPro() {
   const [utilEmailCrewSize, setUtilEmailCrewSize] = useState("");
   const [generatedUtilEmail, setGeneratedUtilEmail] = useState<{ subject: string; body: string; tips: string[] } | null>(null);
   const [expandedUtility, setExpandedUtility] = useState("");
+  const [showRegSteps, setShowRegSteps] = useState<string>("");
+  const [showPlatformSteps, setShowPlatformSteps] = useState<string>("");
   const audioRef = useRef<HTMLAudioElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
@@ -1485,7 +1487,7 @@ export default function AIBidIntelPro() {
                                       ))}
                                     </div>
                                   </div>
-                                  <div className="flex gap-2">
+                                  <div className="flex flex-wrap gap-2">
                                     <Button
                                       size="sm"
                                       onClick={(e) => { e.stopPropagation(); window.open(utility.registrationUrl, '_blank'); }}
@@ -1507,7 +1509,58 @@ export default function AIBidIntelPro() {
                                       <Mail className="w-3 h-3 mr-1" />
                                       Draft Intro Email
                                     </Button>
+                                    {utility.registrationSteps?.length > 0 && (
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setShowRegSteps(showRegSteps === utility.name ? "" : utility.name);
+                                        }}
+                                        className="border-blue-500/30 text-blue-300 hover:bg-blue-500/10"
+                                      >
+                                        <ListChecks className="w-3 h-3 mr-1" />
+                                        {showRegSteps === utility.name ? "Hide Steps" : "Registration Steps"}
+                                      </Button>
+                                    )}
                                   </div>
+
+                                  {showRegSteps === utility.name && utility.registrationSteps?.length > 0 && (
+                                    <div className="mt-3 pt-3 border-t border-slate-600 space-y-2">
+                                      <h5 className="text-sm font-semibold text-blue-400 flex items-center gap-1">
+                                        <ClipboardList className="w-4 h-4" />
+                                        Step-by-Step Registration Guide
+                                      </h5>
+                                      {utility.registrationSteps.map((step: any) => (
+                                        <div key={step.step} className="flex gap-3 p-2 rounded bg-slate-800/70 border border-slate-700">
+                                          <div className="flex-shrink-0 w-7 h-7 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center text-xs font-bold border border-blue-500/30">
+                                            {step.step}
+                                          </div>
+                                          <div className="flex-1 min-w-0">
+                                            <h6 className="text-sm font-medium text-white">{step.title}</h6>
+                                            <p className="text-xs text-gray-400 mt-0.5">{step.description}</p>
+                                            {step.estimatedTime && (
+                                              <span className="inline-flex items-center gap-1 text-xs text-gray-500 mt-1">
+                                                <Clock className="w-3 h-3" /> {step.estimatedTime}
+                                              </span>
+                                            )}
+                                            {step.documentsNeeded?.length > 0 && (
+                                              <div className="mt-1">
+                                                <span className="text-xs text-gray-500">Documents needed: </span>
+                                                <span className="text-xs text-amber-400">{step.documentsNeeded.join(", ")}</span>
+                                              </div>
+                                            )}
+                                            {step.tips && (
+                                              <div className="mt-1 text-xs text-emerald-400 flex items-start gap-1">
+                                                <Lightbulb className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                                                {step.tips}
+                                              </div>
+                                            )}
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
                                 </div>
                               )}
                             </div>
@@ -1543,18 +1596,124 @@ export default function AIBidIntelPro() {
                           <p className="text-xs text-gray-400">{platform.description}</p>
                           <div className="flex items-center justify-between text-xs">
                             <span className="text-gray-500">Cost: <span className="text-amber-400">{platform.costToRegister}</span></span>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-6 text-xs text-blue-400 hover:text-blue-300"
-                              onClick={() => window.open(platform.url, '_blank')}
-                            >
-                              <ExternalLink className="w-3 h-3 mr-1" />
-                              Visit
-                            </Button>
+                            <div className="flex gap-1">
+                              {platform.registrationSteps?.length > 0 && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-6 text-xs text-emerald-400 hover:text-emerald-300"
+                                  onClick={() => setShowPlatformSteps(showPlatformSteps === platform.name ? "" : platform.name)}
+                                >
+                                  <ListChecks className="w-3 h-3 mr-1" />
+                                  Steps
+                                </Button>
+                              )}
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-6 text-xs text-blue-400 hover:text-blue-300"
+                                onClick={() => window.open(platform.url, '_blank')}
+                              >
+                                <ExternalLink className="w-3 h-3 mr-1" />
+                                Visit
+                              </Button>
+                            </div>
                           </div>
+                          {showPlatformSteps === platform.name && platform.registrationSteps?.length > 0 && (
+                            <div className="mt-2 pt-2 border-t border-slate-600 space-y-1.5">
+                              <h5 className="text-xs font-semibold text-blue-400">Registration Steps:</h5>
+                              {platform.registrationSteps.map((step: any) => (
+                                <div key={step.step} className="flex gap-2 p-1.5 rounded bg-slate-800/70 border border-slate-700">
+                                  <div className="flex-shrink-0 w-5 h-5 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center text-[10px] font-bold border border-blue-500/30">
+                                    {step.step}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <h6 className="text-xs font-medium text-white">{step.title}</h6>
+                                    <p className="text-[10px] text-gray-400 mt-0.5">{step.description}</p>
+                                    {step.estimatedTime && (
+                                      <span className="text-[10px] text-gray-500"><Clock className="w-2.5 h-2.5 inline mr-0.5" />{step.estimatedTime}</span>
+                                    )}
+                                    {step.documentsNeeded?.length > 0 && (
+                                      <div className="text-[10px] text-amber-400 mt-0.5">{step.documentsNeeded.join(" • ")}</div>
+                                    )}
+                                    {step.tips && (
+                                      <div className="text-[10px] text-emerald-400 mt-0.5"><Lightbulb className="w-2.5 h-2.5 inline mr-0.5" />{step.tips}</div>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       ))}
+
+                      {utilityPortalsData?.governmentPortals?.length > 0 && (
+                        <>
+                          <Separator className="my-3 bg-slate-600" />
+                          <h4 className="text-sm font-semibold text-amber-400 flex items-center gap-1 mb-2">
+                            <Landmark className="w-4 h-4" />
+                            Government & Municipal Portals
+                          </h4>
+                          {utilityPortalsData.governmentPortals.map((portal: any) => (
+                            <div key={portal.name} className="border border-slate-700 rounded-lg p-3 space-y-2">
+                              <div className="flex items-center justify-between gap-1">
+                                <h4 className="font-medium text-white text-sm leading-tight">{portal.name}</h4>
+                                <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 text-[10px] flex-shrink-0">
+                                  {portal.type.toUpperCase()}
+                                </Badge>
+                              </div>
+                              <p className="text-xs text-gray-400">{portal.description}</p>
+                              <div className="flex items-center gap-1">
+                                {portal.registrationSteps?.length > 0 && (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-6 text-xs text-emerald-400 hover:text-emerald-300"
+                                    onClick={() => setShowPlatformSteps(showPlatformSteps === portal.name ? "" : portal.name)}
+                                  >
+                                    <ListChecks className="w-3 h-3 mr-1" />
+                                    Steps
+                                  </Button>
+                                )}
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-6 text-xs text-blue-400 hover:text-blue-300"
+                                  onClick={() => window.open(portal.url, '_blank')}
+                                >
+                                  <ExternalLink className="w-3 h-3 mr-1" />
+                                  Visit
+                                </Button>
+                              </div>
+                              {showPlatformSteps === portal.name && portal.registrationSteps?.length > 0 && (
+                                <div className="mt-2 pt-2 border-t border-slate-600 space-y-1.5">
+                                  <h5 className="text-xs font-semibold text-blue-400">Registration Steps:</h5>
+                                  {portal.registrationSteps.map((step: any) => (
+                                    <div key={step.step} className="flex gap-2 p-1.5 rounded bg-slate-800/70 border border-slate-700">
+                                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center text-[10px] font-bold border border-amber-500/30">
+                                        {step.step}
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                        <h6 className="text-xs font-medium text-white">{step.title}</h6>
+                                        <p className="text-[10px] text-gray-400 mt-0.5">{step.description}</p>
+                                        {step.estimatedTime && (
+                                          <span className="text-[10px] text-gray-500"><Clock className="w-2.5 h-2.5 inline mr-0.5" />{step.estimatedTime}</span>
+                                        )}
+                                        {step.documentsNeeded?.length > 0 && (
+                                          <div className="text-[10px] text-amber-400 mt-0.5">{step.documentsNeeded.join(" • ")}</div>
+                                        )}
+                                        {step.tips && (
+                                          <div className="text-[10px] text-emerald-400 mt-0.5"><Lightbulb className="w-2.5 h-2.5 inline mr-0.5" />{step.tips}</div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </>
+                      )}
                     </CardContent>
                   </Card>
                 </div>

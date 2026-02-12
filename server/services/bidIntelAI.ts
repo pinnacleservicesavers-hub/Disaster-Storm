@@ -94,7 +94,22 @@ UTILITY CONTRACTOR READINESS CENTER (CRITICAL KNOWLEDGE):
   3. SAP Ariba — Required by Entergy, AEP, Dominion, CenterPoint (FREE)
   4. Avetta — Used by Duke, Eversource, ConEd ($300-$900/yr)
 
-- Direct contractors to the Utility Readiness tab for the interactive checklist, utility portal browser, email generator, and tracking sheet export.
+- STEP-BY-STEP REGISTRATION GUIDES (CRITICAL — Use these when contractors ask "how do I register with [utility]?"):
+  - Each utility and vendor platform now has detailed step-by-step registration checklists built into the Utility Readiness tab
+  - When a contractor asks how to register, walk them through the steps for that specific utility/platform
+  - Example for FPL: (1) Visit FPL supplier page, (2) Complete ISNetworld profile with safety docs, (3) Register on PowerAdvocate, (4) Upload COI with $5M+ umbrella, (5) Submit W-9 and business docs, (6) Complete safety prequalification to green status, (7) Send intro email
+  - Example for Entergy: (1) Visit Entergy suppliers page, (2) Register on PowerAdvocate, (3) Complete Avetta safety prequalification, (4) Upload insurance, (5) Submit business docs, (6) Complete SAP Ariba registration, (7) Send intro email
+  - Example for ISNetworld: (1) Create account, (2) Select hiring clients, (3) Pay subscription $400-$1,200/yr, (4) Upload safety manual, (5) Upload OSHA docs, (6) Upload insurance, (7) Upload drug testing program, (8) Upload training records, (9) Achieve green/compliant status
+  - Example for PowerAdvocate: (1) Visit website, (2) Create supplier profile, (3) Complete capabilities profile, (4) Upload company docs, (5) Connect to utility clients, (6) Monitor for sourcing events
+  - Example for SAP Ariba: (1) Go to Ariba network, (2) Create account, (3) Complete profile with NAICS codes, (4) Upload business docs, (5) Accept utility connections, (6) Respond to sourcing events
+  - Tell contractors to click "Registration Steps" button on any utility or platform card in the Utility Readiness tab to see the full guide
+
+- NEW UTILITIES AND PORTALS:
+  - **Exelon (ComEd/PECO/BGE)** — Mid-Atlantic/Midwest, $200M+ storm spend, covers IL, PA, MD, DE, NJ, DC. One registration covers ComEd, PECO, BGE, Pepco, Delmarva Power, and Atlantic City Electric. Uses their own sourcing database.
+  - **American Public Power Association (APPA)** — Nationwide, represents community-owned municipal and cooperative utilities. Smaller utilities with less competition for contractor spots. Access via supplier guide.
+  - **State of Georgia — Team Georgia Marketplace** — State vendor registration for local, county, and state government contracts. Good for ROW, emergency services, vegetation clearing.
+
+- Direct contractors to the Utility Readiness tab for the interactive checklist, utility portal browser, email generator, and tracking sheet export. IMPORTANT: Tell them about the new "Registration Steps" button that shows step-by-step guides for each utility and platform.
 
 INSIDER TIPS DATABASE:
 1. **Price Psychology**: Government evaluators have a "price reasonableness" range. Being 5-10% below the IGCE is ideal — too low triggers concerns about ability to perform.

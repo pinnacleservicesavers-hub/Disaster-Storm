@@ -5,6 +5,15 @@ const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY || 'dummy-key-for-replit-ai'
 });
 
+export interface RegistrationStep {
+  step: number;
+  title: string;
+  description: string;
+  documentsNeeded?: string[];
+  estimatedTime?: string;
+  tips?: string;
+}
+
 export interface UtilityCompany {
   name: string;
   states: string[];
@@ -16,6 +25,16 @@ export interface UtilityCompany {
   contractTypes: string[];
   registrationNotes: string;
   annualStormSpend: string;
+  registrationSteps?: RegistrationStep[];
+}
+
+export interface GovernmentPortal {
+  name: string;
+  url: string;
+  type: "state" | "municipal" | "association";
+  description: string;
+  region: string;
+  registrationSteps?: RegistrationStep[];
 }
 
 export interface VendorPlatform {
@@ -26,6 +45,7 @@ export interface VendorPlatform {
   costToRegister: string;
   priority: "critical" | "high" | "medium";
   features: string[];
+  registrationSteps?: RegistrationStep[];
 }
 
 export interface ReadinessChecklistItem {
@@ -48,20 +68,38 @@ export const UTILITY_COMPANIES: UtilityCompany[] = [
     stormPriority: "critical",
     stormPriorityScore: 99,
     contractTypes: ["Vegetation management", "Storm debris removal", "Line clearing", "ROW restoration", "Emergency power restoration"],
-    registrationNotes: "Largest utility in FL. Massive storm activation needs. Must be ISNetworld compliant. They activate hundreds of contractors per hurricane season.",
-    annualStormSpend: "$500M+"
+    registrationNotes: "Largest utility in FL. Part of NextEra Energy — huge storm response market. Massive storm activation needs. Must be ISNetworld compliant. They activate hundreds of contractors per hurricane season.",
+    annualStormSpend: "$500M+",
+    registrationSteps: [
+      { step: 1, title: "Visit FPL Supplier Page", description: "Go to FPL's existing & new suppliers page and review their vendor requirements.", documentsNeeded: [], estimatedTime: "15 minutes", tips: "FPL is part of NextEra Energy — registering here also positions you for NextEra opportunities." },
+      { step: 2, title: "Complete ISNetworld Profile", description: "FPL requires ISNetworld compliance for all field contractors. Create or update your ISNetworld profile with all safety documentation.", documentsNeeded: ["OSHA 300 logs", "Safety manual", "Drug testing program", "EMR rating documentation"], estimatedTime: "2-3 hours" },
+      { step: 3, title: "Register on PowerAdvocate", description: "Create a supplier profile on PowerAdvocate (Wood Mackenzie) to receive bid invitations and sourcing events from FPL.", documentsNeeded: ["W-9", "Company capabilities overview", "Equipment list"], estimatedTime: "1-2 hours" },
+      { step: 4, title: "Upload Insurance Documents", description: "Upload your Certificate of Insurance (COI) with FPL named as Additional Insured. Minimum $5M umbrella required.", documentsNeeded: ["COI with $1M+ GL", "Auto liability $1M", "Workers' comp", "Umbrella $5M+"], estimatedTime: "30 minutes" },
+      { step: 5, title: "Submit W-9 and Business Documents", description: "Provide your W-9, EIN, state contractor license, and any SBA/DBE certifications.", documentsNeeded: ["W-9", "EIN letter", "FL contractor license", "SBA certifications"], estimatedTime: "30 minutes" },
+      { step: 6, title: "Complete Safety Prequalification", description: "Ensure ISNetworld status shows green/compliant. Upload all training records, OSHA certifications, and drug testing program documentation.", documentsNeeded: ["OSHA 10/30 certs for all workers", "CPR/First Aid certs", "Tailgate safety meeting logs"], estimatedTime: "1-2 weeks for full compliance" },
+      { step: 7, title: "Send Introduction Email", description: "Use the AI email generator in this module to draft a professional introduction to FPL's vendor management team. Reference your ISNetworld compliance and storm response capabilities.", estimatedTime: "15 minutes", tips: "Mention your ISNetworld ID number and that your profile is compliant/green." }
+    ]
   },
   {
     name: "Entergy (TX, LA, MS, AR)",
     states: ["TX", "LA", "MS", "AR"],
     region: "Gulf Coast",
     registrationUrl: "https://www.entergy.com/suppliers/",
-    vendorPlatform: "SAP Ariba / ISNetworld",
+    vendorPlatform: "PowerAdvocate / Avetta / SAP Ariba",
     stormPriority: "critical",
     stormPriorityScore: 97,
     contractTypes: ["Storm restoration", "Vegetation management", "Debris removal", "Transmission line repair", "Distribution maintenance"],
-    registrationNotes: "Covers 4 Gulf states. Hurricane corridor. Registers contractors through SAP Ariba. ISNetworld safety compliance required for field work.",
-    annualStormSpend: "$300M+"
+    registrationNotes: "Covers Entergy Louisiana, Entergy Arkansas, Entergy Mississippi, Entergy New Orleans, and Entergy Texas. Runs a centralized supplier database through PowerAdvocate. Also uses Avetta for safety prequalification. Hurricane corridor — great for storm restoration work.",
+    annualStormSpend: "$300M+",
+    registrationSteps: [
+      { step: 1, title: "Visit Entergy Suppliers Page", description: "Go to Entergy's centralized supplier portal and review their vendor registration requirements and procurement process.", estimatedTime: "15 minutes", tips: "Entergy covers 5 operating companies — one registration covers all of them." },
+      { step: 2, title: "Register on PowerAdvocate", description: "Entergy uses PowerAdvocate as their centralized supplier database. Create your company profile, upload capabilities, insurance, and W-9.", documentsNeeded: ["W-9", "Insurance certificates", "Company capabilities statement", "Equipment list"], estimatedTime: "1-2 hours" },
+      { step: 3, title: "Complete Avetta Safety Prequalification", description: "Entergy uses Avetta for safety prequalification. Register on Avetta and upload all safety documentation, training records, and compliance proof.", documentsNeeded: ["Safety manual", "OSHA logs", "Drug testing program", "EMR documentation", "Training certificates"], estimatedTime: "2-4 hours" },
+      { step: 4, title: "Upload Insurance Documents", description: "Provide COI with Entergy named as Additional Insured. Ensure umbrella coverage meets their minimum requirements.", documentsNeeded: ["COI with GL coverage", "Auto liability", "Workers' comp", "Umbrella/excess coverage"], estimatedTime: "30 minutes" },
+      { step: 5, title: "Submit Business & Tax Documents", description: "Upload W-9, EIN letter, state contractor licenses for TX, LA, MS, and AR as applicable.", documentsNeeded: ["W-9", "EIN", "State licenses", "SBA certifications"], estimatedTime: "30 minutes" },
+      { step: 6, title: "Complete SAP Ariba Registration", description: "Some Entergy procurement events are managed through SAP Ariba. Register as a supplier on Ariba to receive sourcing event invitations.", estimatedTime: "1 hour" },
+      { step: 7, title: "Send Introduction Email", description: "Use the AI email generator to send a professional introduction to Entergy's procurement team. Highlight your Gulf Coast storm response capabilities.", estimatedTime: "15 minutes", tips: "Mention you're registered on PowerAdvocate and Avetta-compliant." }
+    ]
   },
   {
     name: "Duke Energy",
@@ -72,8 +110,16 @@ export const UTILITY_COMPANIES: UtilityCompany[] = [
     stormPriority: "critical",
     stormPriorityScore: 96,
     contractTypes: ["Storm restoration", "Vegetation management", "Line construction", "Debris management", "Emergency response"],
-    registrationNotes: "Multi-state operations. Uses PowerAdvocate for vendor management. Avetta for safety prequalification. Major storm player in Carolinas and Florida.",
-    annualStormSpend: "$400M+"
+    registrationNotes: "Multi-state operations across 6 states. Uses PowerAdvocate for vendor management and sourcing events. Avetta for contractor safety compliance. Also operates a supplier management program. Major storm player in Carolinas and Florida.",
+    annualStormSpend: "$400M+",
+    registrationSteps: [
+      { step: 1, title: "Visit Duke Energy Partner Page", description: "Go to Duke Energy's 'Partner With Us' suppliers page. Review their supplier registration resources and requirements.", estimatedTime: "15 minutes" },
+      { step: 2, title: "Register on PowerAdvocate", description: "Duke Energy uses PowerAdvocate for vendor qualification and competitive bidding. Create your supplier profile with complete capabilities.", documentsNeeded: ["W-9", "Company overview", "Capabilities statement", "Equipment inventory"], estimatedTime: "1-2 hours", tips: "Complete every field — Duke's procurement team searches by capability, location, and certifications." },
+      { step: 3, title: "Complete Avetta Prequalification", description: "Duke uses Avetta for contractor compliance and safety management. Register and upload all safety documentation.", documentsNeeded: ["Safety manual", "OSHA 300 logs", "EMR rating", "Drug testing program", "Training records"], estimatedTime: "2-4 hours" },
+      { step: 4, title: "Upload Insurance & Bonding", description: "Submit COI with Duke Energy named as Additional Insured. Meet their minimum coverage requirements.", documentsNeeded: ["COI", "Workers' comp", "Auto liability", "Umbrella $5M+", "Bonding capacity proof"], estimatedTime: "30 minutes" },
+      { step: 5, title: "Submit State Licenses", description: "Provide contractor licenses for NC, SC, FL, IN, OH, KY — whichever states you plan to work in.", documentsNeeded: ["State contractor licenses", "Business registrations"], estimatedTime: "30 minutes" },
+      { step: 6, title: "Send Introduction Email", description: "Draft a professional introduction highlighting your multi-state capabilities and Avetta compliance status.", estimatedTime: "15 minutes", tips: "Duke operates in 6 states — emphasize your ability to mobilize across their footprint." }
+    ]
   },
   {
     name: "Georgia Power / Southern Company",
@@ -84,8 +130,16 @@ export const UTILITY_COMPANIES: UtilityCompany[] = [
     stormPriority: "critical",
     stormPriorityScore: 95,
     contractTypes: ["Storm restoration", "Vegetation management", "Transmission construction", "Distribution maintenance", "ROW clearing"],
-    registrationNotes: "Parent company Southern Company manages procurement for Georgia Power, Alabama Power, Mississippi Power. Register through Southern Company supplier portal.",
-    annualStormSpend: "$350M+"
+    registrationNotes: "Parent company Southern Company manages procurement for Georgia Power (GA's biggest utility), Alabama Power, Mississippi Power, and Southern Company Gas. Register through Southern Company's supplier portal. Critical for right-of-way, storm cleanup, vegetation clearing, and emergency services.",
+    annualStormSpend: "$350M+",
+    registrationSteps: [
+      { step: 1, title: "Visit Southern Company Supplier Page", description: "Go to Southern Company's supplier information page. This is the centralized portal covering Georgia Power, Alabama Power, Mississippi Power, and Southern Company Gas.", estimatedTime: "15 minutes", tips: "One registration covers all Southern Company subsidiaries." },
+      { step: 2, title: "Complete Marketplace Profile", description: "Create your supplier marketplace profile through Southern Company's portal. Include all company details, capabilities, and service areas.", documentsNeeded: ["W-9", "Company overview", "Service area map", "Equipment list"], estimatedTime: "1-2 hours" },
+      { step: 3, title: "Register on PowerAdvocate", description: "Southern Company uses PowerAdvocate for sourcing events and vendor qualification. Set up your profile.", documentsNeeded: ["Capabilities statement", "Past performance references", "Certifications"], estimatedTime: "1-2 hours" },
+      { step: 4, title: "Complete ISNetworld Compliance", description: "ISNetworld compliance required for field work with Southern Company utilities. Ensure green/compliant status.", documentsNeeded: ["Safety manual", "OSHA documentation", "Drug testing program", "EMR rating", "Training records"], estimatedTime: "2-4 weeks for full compliance" },
+      { step: 5, title: "Upload Insurance Documents", description: "Provide COI naming Southern Company as Additional Insured with appropriate coverage limits.", documentsNeeded: ["COI", "Workers' comp (multi-state)", "Auto liability", "Umbrella coverage"], estimatedTime: "30 minutes" },
+      { step: 6, title: "Send Introduction Email", description: "Draft a professional email to Southern Company's procurement team highlighting your storm response capabilities across the Southeast.", estimatedTime: "15 minutes", tips: "Mention your ISNetworld compliance status and which Southern Company subsidiaries' service areas you cover." }
+    ]
   },
   {
     name: "Dominion Energy",
@@ -260,12 +314,40 @@ export const UTILITY_COMPANIES: UtilityCompany[] = [
     states: ["OH", "PA", "WV", "MD", "NJ"],
     region: "Mid-Atlantic",
     registrationUrl: "https://www.firstenergycorp.com/supplier.html",
-    vendorPlatform: "SAP Ariba / ISNetworld",
+    vendorPlatform: "PowerAdvocate / ISNetworld",
     stormPriority: "medium",
     stormPriorityScore: 76,
     contractTypes: ["Storm restoration", "Vegetation management", "Transmission construction", "Distribution maintenance"],
-    registrationNotes: "Five-state footprint. Nor'easters and severe weather. SAP Ariba for procurement, ISNetworld for safety.",
-    annualStormSpend: "$130M+"
+    registrationNotes: "Uses the PowerAdvocate system for managing vendor records. Five-state footprint serving OH, PA, WV, MD, NJ. Nor'easters and severe weather drive contractor needs.",
+    annualStormSpend: "$130M+",
+    registrationSteps: [
+      { step: 1, title: "Visit FirstEnergy Supplier Page", description: "Go to FirstEnergy's supplier registration page and review their vendor requirements.", estimatedTime: "15 minutes" },
+      { step: 2, title: "Register on PowerAdvocate", description: "FirstEnergy uses the PowerAdvocate system for managing vendor records. Create your supplier profile.", documentsNeeded: ["W-9", "Company capabilities", "Insurance certificates"], estimatedTime: "1-2 hours" },
+      { step: 3, title: "Complete ISNetworld Compliance", description: "Upload safety records, OSHA compliance, and training documentation to ISNetworld.", documentsNeeded: ["Safety manual", "OSHA logs", "EMR rating", "Drug testing program"], estimatedTime: "2-4 hours" },
+      { step: 4, title: "Upload Insurance Documents", description: "Submit COI with FirstEnergy as Additional Insured. Include all required coverage.", documentsNeeded: ["COI", "Workers' comp", "Auto liability", "Umbrella coverage"], estimatedTime: "30 minutes" },
+      { step: 5, title: "Submit State Licenses", description: "Provide contractor licenses for OH, PA, WV, MD, NJ as applicable.", documentsNeeded: ["State contractor licenses"], estimatedTime: "30 minutes" },
+      { step: 6, title: "Send Introduction Email", description: "Draft a professional introduction to FirstEnergy's vendor management team.", estimatedTime: "15 minutes" }
+    ]
+  },
+  {
+    name: "Exelon (ComEd / PECO / BGE)",
+    states: ["IL", "PA", "MD", "DE", "NJ", "DC"],
+    region: "Mid-Atlantic / Midwest",
+    registrationUrl: "https://www.exeloncorp.com/suppliers",
+    vendorPlatform: "Exelon Sourcing Database",
+    stormPriority: "high",
+    stormPriorityScore: 80,
+    contractTypes: ["Storm restoration", "Vegetation management", "Distribution maintenance", "Underground construction", "Emergency response"],
+    registrationNotes: "Exelon allows suppliers to create a sourcing database profile to be considered for bid events. Includes utilities ComEd (IL), PECO (PA), BGE (MD), Pepco (DC/MD), Delmarva Power (DE/MD), and Atlantic City Electric (NJ). Useful for federal/utility projects across the Mid-Atlantic and Midwest regions.",
+    annualStormSpend: "$200M+",
+    registrationSteps: [
+      { step: 1, title: "Visit Exelon Supplier Page", description: "Go to Exelon Corp's supplier page and review their vendor registration process. Exelon manages procurement centrally for all its utility subsidiaries.", estimatedTime: "15 minutes", tips: "One registration covers ComEd, PECO, BGE, Pepco, Delmarva Power, and Atlantic City Electric." },
+      { step: 2, title: "Create Sourcing Database Profile", description: "Register in Exelon's supplier sourcing database. Complete your company profile with capabilities, certifications, and service areas.", documentsNeeded: ["W-9", "Company overview", "Capabilities statement", "Equipment list", "Past performance references"], estimatedTime: "1-2 hours" },
+      { step: 3, title: "Upload Insurance & Compliance", description: "Submit all insurance documentation and safety compliance records as required by Exelon's vendor requirements.", documentsNeeded: ["COI", "Workers' comp", "Auto liability", "Umbrella coverage", "Safety manual"], estimatedTime: "1 hour" },
+      { step: 4, title: "Submit Business Documents", description: "Provide W-9, EIN, state licenses for IL, PA, MD, DE, NJ, DC as applicable. Include any diversity or SBA certifications.", documentsNeeded: ["W-9", "EIN", "State licenses", "SBA/DBE certifications"], estimatedTime: "30 minutes" },
+      { step: 5, title: "Monitor for Bid Events", description: "Once registered, Exelon's procurement team will consider your profile for relevant bid events and sourcing opportunities. Monitor your email for invitations.", estimatedTime: "Ongoing" },
+      { step: 6, title: "Send Introduction Email", description: "Use the AI email generator to draft a professional introduction highlighting your multi-state storm response capabilities.", estimatedTime: "15 minutes", tips: "Mention which Exelon utilities' service territories you cover." }
+    ]
   },
   {
     name: "WEC Energy Group",
@@ -277,7 +359,43 @@ export const UTILITY_COMPANIES: UtilityCompany[] = [
     stormPriorityScore: 68,
     contractTypes: ["Storm restoration", "Vegetation management", "Gas distribution", "Renewable construction"],
     registrationNotes: "Wisconsin-based. Winter storms and severe weather events.",
-    annualStormSpend: "$50M+"
+    annualStormSpend: "$50M+",
+    registrationSteps: [
+      { step: 1, title: "Visit WEC Energy Supplier Page", description: "Go to WEC Energy Group's suppliers page and review their vendor registration requirements.", estimatedTime: "15 minutes" },
+      { step: 2, title: "Register on SAP Ariba", description: "WEC uses SAP Ariba for supplier registration and procurement events. Create your profile.", documentsNeeded: ["W-9", "Company capabilities", "Insurance certificates"], estimatedTime: "1 hour" },
+      { step: 3, title: "Upload Safety & Insurance", description: "Submit safety documentation and insurance certificates meeting WEC requirements.", documentsNeeded: ["Safety manual", "COI", "Workers' comp", "EMR rating"], estimatedTime: "1 hour" },
+      { step: 4, title: "Send Introduction Email", description: "Draft a professional introduction to WEC's procurement team.", estimatedTime: "15 minutes" }
+    ]
+  }
+];
+
+export const GOVERNMENT_PORTALS: GovernmentPortal[] = [
+  {
+    name: "State of Georgia — Team Georgia Marketplace",
+    url: "https://doas.ga.gov/state-purchasing",
+    type: "state",
+    description: "Register to be a state vendor for local, county, and state government contracts in Georgia. Get notifications of procurement opportunities for ROW, emergency services, vegetation clearing, and maintenance.",
+    region: "Southeast",
+    registrationSteps: [
+      { step: 1, title: "Visit Team Georgia Marketplace", description: "Go to the Georgia DOAS State Purchasing website and access the Team Georgia Marketplace vendor registration portal.", estimatedTime: "15 minutes" },
+      { step: 2, title: "Create Vendor Account", description: "Register your company in the system with your EIN, business address, and contact information.", documentsNeeded: ["EIN", "Business registration", "Contact information"], estimatedTime: "30 minutes" },
+      { step: 3, title: "Select Commodity Codes", description: "Choose the NIGP commodity codes that match your services (landscaping, tree removal, debris clearing, emergency services, etc.).", estimatedTime: "30 minutes", tips: "Select all applicable codes — this determines which bid notifications you receive." },
+      { step: 4, title: "Upload Required Documents", description: "Submit business license, insurance, and any state-required vendor certifications.", documentsNeeded: ["GA business license", "COI", "W-9"], estimatedTime: "30 minutes" },
+      { step: 5, title: "Monitor Bid Notifications", description: "Once registered, you'll receive automatic email notifications for matching procurement opportunities from state, county, and local agencies.", estimatedTime: "Ongoing" }
+    ]
+  },
+  {
+    name: "American Public Power Association (APPA)",
+    url: "https://www.publicpower.org/supplier-guide",
+    type: "association",
+    description: "APPA represents community-owned utilities including municipal and cooperative power providers. Their supplier guide helps you find local utilities in towns and small cities to register with. Many municipal utilities hire contractors for storm-related services.",
+    region: "Nationwide",
+    registrationSteps: [
+      { step: 1, title: "Visit APPA Supplier Guide", description: "Access the American Public Power Association's online supplier guide to find community-owned utilities looking for contractors.", estimatedTime: "15 minutes" },
+      { step: 2, title: "Search for Municipal Utilities", description: "Use the supplier guide to identify municipal and cooperative utilities in your service area that need storm response and maintenance contractors.", estimatedTime: "1 hour", tips: "Many smaller municipal utilities have less competition for contractor spots than major IOUs." },
+      { step: 3, title: "Contact Individual Utilities", description: "Reach out directly to each municipal utility's procurement or operations department. Smaller utilities often have simpler registration processes.", documentsNeeded: ["Capability statement", "COI", "W-9", "References"], estimatedTime: "Varies" },
+      { step: 4, title: "Register as Local Vendor", description: "Complete each utility's individual vendor registration process. Many municipal utilities maintain their own approved contractor lists.", estimatedTime: "Varies by utility" }
+    ]
   }
 ];
 
@@ -289,43 +407,70 @@ export const VENDOR_PLATFORMS: VendorPlatform[] = [
     usedBy: ["FPL", "Entergy", "Southern Company", "CenterPoint", "PG&E", "SCE", "Oncor", "AEP", "Ameren", "FirstEnergy"],
     costToRegister: "$400-$1,200/year",
     priority: "critical",
-    features: ["Safety records tracking", "Insurance verification", "OSHA compliance", "Drug testing tracking", "Training records", "EMR tracking"]
+    features: ["Safety records tracking", "Insurance verification", "OSHA compliance", "Drug testing tracking", "Training records", "EMR tracking"],
+    registrationSteps: [
+      { step: 1, title: "Create ISNetworld Account", description: "Go to isnetworld.com and click 'Contractor Sign Up'. Enter your company name, EIN, and primary contact information.", estimatedTime: "15 minutes" },
+      { step: 2, title: "Select Hiring Clients", description: "Search for and select the utilities you want to work with (FPL, Entergy, etc.). Each client may have different requirements.", estimatedTime: "15 minutes", tips: "Add ALL utilities you want to work with — each one may unlock additional compliance requirements." },
+      { step: 3, title: "Pay Annual Subscription", description: "Complete payment ($400-$1,200/year depending on company size and number of hiring clients).", estimatedTime: "10 minutes" },
+      { step: 4, title: "Upload Safety Manual", description: "Upload your complete written safety manual/program. ISNetworld will review it against their grading criteria.", documentsNeeded: ["Written safety manual", "Job hazard analysis templates", "Emergency procedures"], estimatedTime: "30 minutes" },
+      { step: 5, title: "Upload OSHA Documentation", description: "Submit OSHA 300/300A logs for the past 3 years, EMR documentation, and OSHA citation history.", documentsNeeded: ["OSHA 300 logs (3 years)", "OSHA 300A summaries", "EMR rating letter", "OSHA citation history"], estimatedTime: "1 hour" },
+      { step: 6, title: "Upload Insurance Certificates", description: "Submit your COI, workers' comp, auto liability, and umbrella policies. Each hiring client may require specific coverage limits.", documentsNeeded: ["COI", "Workers' comp certificate", "Auto liability", "Umbrella/excess policy"], estimatedTime: "30 minutes" },
+      { step: 7, title: "Upload Drug Testing Program", description: "Provide your written drug & alcohol policy and proof of testing program (pre-employment, random, post-accident).", documentsNeeded: ["Drug & alcohol policy", "MRO agreement", "Testing program documentation"], estimatedTime: "30 minutes" },
+      { step: 8, title: "Upload Training Records", description: "Submit OSHA 10/30 certifications, CPR/First Aid, and any trade-specific training certificates for all field workers.", documentsNeeded: ["OSHA 10/30 cards", "CPR/First Aid certs", "Trade-specific certifications"], estimatedTime: "1-2 hours" },
+      { step: 9, title: "Achieve Green/Compliant Status", description: "ISNetworld grades each section. Work toward green/compliant status on all requirements. Address any deficiencies identified during review.", estimatedTime: "2-4 weeks for full compliance", tips: "Utilities check ISNetworld status before activating storm contractors. Green status is your ticket to work." }
+    ]
   },
   {
     name: "PowerAdvocate (Wood Mackenzie)",
     url: "https://www.poweradvocate.com",
     description: "Utility industry-specific sourcing and procurement platform. Used by utilities for competitive bidding, vendor qualification, and contract management. Essential for T&D contractor work.",
-    usedBy: ["Duke Energy", "FPL", "Southern Company", "Eversource", "SCE", "NextEra"],
+    usedBy: ["Duke Energy", "FPL", "Southern Company", "Eversource", "SCE", "NextEra", "Entergy", "FirstEnergy"],
     costToRegister: "Free for suppliers",
     priority: "critical",
-    features: ["RFP response platform", "Bid management", "Vendor qualification", "Contract management", "Performance tracking"]
+    features: ["RFP response platform", "Bid management", "Vendor qualification", "Contract management", "Performance tracking"],
+    registrationSteps: [
+      { step: 1, title: "Visit PowerAdvocate Website", description: "Go to poweradvocate.com and look for the supplier/vendor registration option.", estimatedTime: "10 minutes" },
+      { step: 2, title: "Create Supplier Profile", description: "Register your company with full details: legal name, EIN, DUNS number, address, and primary contact.", estimatedTime: "30 minutes" },
+      { step: 3, title: "Complete Capabilities Profile", description: "Fill out your service capabilities, geographic coverage, equipment inventory, certifications, and past performance. Be thorough — utilities search by these fields.", documentsNeeded: ["Capabilities statement", "Equipment list", "Certifications", "Past performance references"], estimatedTime: "1-2 hours", tips: "Complete every field. Utilities search by capability, location, and certifications. This is where bid invitations come from." },
+      { step: 4, title: "Upload Company Documents", description: "Upload W-9, insurance certificates, safety documentation, and any SBA/DBE certifications.", documentsNeeded: ["W-9", "COI", "Safety manual", "SBA certifications"], estimatedTime: "30 minutes" },
+      { step: 5, title: "Connect to Utility Clients", description: "Accept connection requests from utilities you've registered with, or request connections to utilities you want to work with.", estimatedTime: "15 minutes" },
+      { step: 6, title: "Monitor for Sourcing Events", description: "Once your profile is complete, you'll receive notifications for relevant RFPs, sourcing events, and bid invitations from connected utilities.", estimatedTime: "Ongoing" }
+    ]
   },
   {
     name: "Avetta",
     url: "https://www.avetta.com",
-    description: "Supply chain risk management and contractor prequalification platform. Tracks safety, insurance, compliance, and financial health. Used alongside or instead of ISNetworld.",
-    usedBy: ["Duke Energy", "Eversource", "ConEd"],
+    description: "Supply chain risk management and contractor prequalification platform. Tracks safety, insurance, compliance, and financial health. Used alongside or instead of ISNetworld. Browz (now merged with Avetta) — some utilities still reference Browz.",
+    usedBy: ["Duke Energy", "Eversource", "ConEd", "Entergy"],
     costToRegister: "$300-$900/year",
     priority: "high",
-    features: ["Prequalification management", "Insurance tracking", "Safety audits", "Compliance monitoring", "Financial screening"]
+    features: ["Prequalification management", "Insurance tracking", "Safety audits", "Compliance monitoring", "Financial screening"],
+    registrationSteps: [
+      { step: 1, title: "Create Avetta Account", description: "Go to avetta.com and register as a new supplier/contractor. Enter company details and select your hiring clients.", estimatedTime: "15 minutes" },
+      { step: 2, title: "Pay Annual Subscription", description: "Complete payment ($300-$900/year depending on company size). Note: Browz has merged into Avetta.", estimatedTime: "10 minutes" },
+      { step: 3, title: "Complete Company Profile", description: "Fill out your company profile with services, capabilities, geographic coverage, and trade classifications.", estimatedTime: "30 minutes" },
+      { step: 4, title: "Upload Safety Documentation", description: "Submit your safety manual, OSHA logs, EMR documentation, and drug testing program.", documentsNeeded: ["Safety manual", "OSHA 300 logs", "EMR letter", "Drug & alcohol policy"], estimatedTime: "1 hour" },
+      { step: 5, title: "Upload Insurance Certificates", description: "Provide all insurance documentation. Avetta tracks insurance expiration dates and sends renewal reminders.", documentsNeeded: ["COI", "Workers' comp", "Auto liability", "Umbrella/excess"], estimatedTime: "30 minutes" },
+      { step: 6, title: "Complete Financial Screening", description: "Avetta may request basic financial information or Dun & Bradstreet reports for financial health verification.", estimatedTime: "30 minutes" },
+      { step: 7, title: "Achieve Compliant Status", description: "Work through any deficiency items flagged by Avetta until your profile shows fully compliant.", estimatedTime: "1-2 weeks", tips: "Similar process to ISNetworld. Some utilities use Avetta instead of or in addition to ISN." }
+    ]
   },
   {
     name: "SAP Ariba",
     url: "https://www.ariba.com",
-    description: "Enterprise procurement platform used by large utilities for supplier registration, sourcing events, and purchase orders. Registration is free but the process can be complex.",
+    description: "Enterprise procurement platform used by large utilities for supplier registration, sourcing events, and purchase orders. Registration is free but the process can be complex. Each utility has its own Ariba network — you may need to register separately for each one.",
     usedBy: ["Entergy", "Dominion", "AEP", "CenterPoint", "Xcel Energy", "Ameren", "PPL", "FirstEnergy", "WEC"],
     costToRegister: "Free for suppliers",
     priority: "critical",
-    features: ["Supplier registration", "Sourcing events", "RFP/RFQ response", "Purchase orders", "Invoice management", "Contract management"]
-  },
-  {
-    name: "Browz (now Avetta)",
-    url: "https://www.avetta.com",
-    description: "Merged with Avetta. Some utilities still reference Browz for contractor prequalification and compliance management.",
-    usedBy: ["Various utilities transitioning"],
-    costToRegister: "$300-$900/year",
-    priority: "medium",
-    features: ["Prequalification", "Safety compliance", "Insurance verification"]
+    features: ["Supplier registration", "Sourcing events", "RFP/RFQ response", "Purchase orders", "Invoice management", "Contract management"],
+    registrationSteps: [
+      { step: 1, title: "Go to SAP Ariba Network", description: "Visit ariba.com and click on 'Suppliers' to start the registration process. SAP Ariba is free for supplier registration.", estimatedTime: "10 minutes" },
+      { step: 2, title: "Create Ariba Network Account", description: "Register with your company email, legal name, EIN/DUNS number, and primary contact information.", estimatedTime: "20 minutes" },
+      { step: 3, title: "Complete Company Profile", description: "Fill out your detailed company profile including services, NAICS/UNSPSC codes, geographic coverage, and certifications.", documentsNeeded: ["Company capabilities overview", "NAICS codes list", "Certifications"], estimatedTime: "1 hour", tips: "Each utility has its own Ariba network — follow each utility's specific Ariba invitation link when available." },
+      { step: 4, title: "Upload Business Documents", description: "Submit W-9, insurance certificates, state licenses, and SBA certifications.", documentsNeeded: ["W-9", "COI", "State licenses", "SBA certifications"], estimatedTime: "30 minutes" },
+      { step: 5, title: "Accept Utility Connection Requests", description: "When a utility sends you a sourcing event or invitation, accept it through Ariba. You can also search for utilities to request connections.", estimatedTime: "15 minutes" },
+      { step: 6, title: "Respond to Sourcing Events", description: "Once connected, you'll receive RFP/RFQ notifications. Submit proposals and bid responses through the Ariba platform.", estimatedTime: "Ongoing" }
+    ]
   }
 ];
 
