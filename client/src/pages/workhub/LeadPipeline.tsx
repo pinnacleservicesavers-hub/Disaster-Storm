@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
+import { useMutation } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
 import { 
   Phone, Mail, MapPin, Calendar, TrendingUp, Users, CheckCircle2, 
   Clock, AlertTriangle, Building2, Wrench, Home, Trees, Paintbrush,
@@ -78,56 +80,62 @@ export default function LeadPipeline() {
     serviceType: '',
   });
 
-  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
-  const [isVoiceActive, setIsVoiceActive] = useState(false);
+  const [isVoiceEnabled, setIsVoiceEnabled] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const hasPlayedWelcome = useRef(false);
+  const voiceEnabledRef = useRef(true);
 
-  useEffect(() => {
-    const loadVoices = () => {
-      const availableVoices = window.speechSynthesis.getVoices();
-      if (availableVoices.length > 0) {
-        setVoices(availableVoices);
-      }
-    };
-    loadVoices();
-    window.speechSynthesis.onvoiceschanged = loadVoices;
-    return () => { window.speechSynthesis.cancel(); };
-  }, []);
-
-  useEffect(() => {
-    if (voices.length > 0) {
-      setTimeout(() => {
-        speakGuidance("Welcome to Lead Pipeline! I'm Rachel... your AI assistant for managing customer leads. Here you can track every opportunity... from first contact to job completion. Let me help you stay organized and never miss a follow-up.");
-      }, 500);
+  const stopAudio = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
     }
-  }, [voices]);
-
-  const getBestFemaleVoice = (voiceList: SpeechSynthesisVoice[]) => {
-    const preferredVoices = ['Samantha', 'Zira', 'Jenny', 'Google US English Female', 'Microsoft Zira'];
-    for (const preferred of preferredVoices) {
-      const found = voiceList.find(v => v.name.includes(preferred));
-      if (found) return found;
-    }
-    return voiceList.find(v => v.lang.startsWith('en')) || voiceList[0];
+    setIsPlaying(false);
   };
 
+  const voiceMutation = useMutation({
+    mutationFn: async (message: string) => {
+      const res = await apiRequest("POST", "/api/closebot/chat", {
+        message,
+        history: [],
+        context: { leadName: "contractor", companyName: "your company", trade: "lead management" },
+        enableVoice: true,
+      });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      if (!voiceEnabledRef.current) return;
+      if (data.audioUrl && audioRef.current) {
+        setIsPlaying(true);
+        audioRef.current.src = data.audioUrl;
+        audioRef.current.onended = () => setIsPlaying(false);
+        audioRef.current.play().catch(() => setIsPlaying(false));
+      }
+    },
+  });
+
+  useEffect(() => {
+    if (!hasPlayedWelcome.current) {
+      hasPlayedWelcome.current = true;
+      voiceMutation.mutate("Give a brief, warm 1-sentence welcome to the Lead Pipeline. You're Rachel, helping them manage customer leads from first contact to job completion. Keep it super short and natural.");
+    }
+  }, []);
+
   const speakGuidance = (text: string) => {
-    if (voices.length === 0) return;
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.voice = getBestFemaleVoice(voices);
-    utterance.pitch = 1.0;
-    utterance.rate = 0.88;
-    utterance.onstart = () => setIsVoiceActive(true);
-    utterance.onend = () => setIsVoiceActive(false);
-    window.speechSynthesis.speak(utterance);
+    if (!voiceEnabledRef.current) return;
+    stopAudio();
+    voiceMutation.mutate(text);
   };
 
   const toggleVoice = () => {
-    if (isVoiceActive) {
-      window.speechSynthesis.cancel();
-      setIsVoiceActive(false);
+    const newEnabled = !isVoiceEnabled;
+    setIsVoiceEnabled(newEnabled);
+    voiceEnabledRef.current = newEnabled;
+    if (!newEnabled) {
+      stopAudio();
     } else {
-      speakGuidance("Lead Pipeline helps you manage your customer opportunities. You can add new leads... track their status... schedule follow-ups... and convert them into paying jobs. Each lead shows the customer details... service type... and estimated value.");
+      voiceMutation.mutate("Say a quick, natural 1-sentence overview of what Lead Pipeline does — tracking leads, scheduling follow-ups, and converting them into paying jobs. Keep it warm and conversational.");
     }
   };
 
@@ -213,7 +221,8 @@ export default function LeadPipeline() {
   const handleViewDetails = (lead: WorkHubLead) => {
     setSelectedLead(lead);
     setIsDetailOpen(true);
-    speakGuidance(`Viewing lead for ${lead.name}... They're interested in ${SERVICE_CATEGORIES.find(s => s.id === lead.serviceType)?.label || lead.serviceType}. Estimated value is $${lead.estimatedValue?.toLocaleString() || 'unknown'}.`);
+    const serviceName = SERVICE_CATEGORIES.find(s => s.id === lead.serviceType)?.label || lead.serviceType;
+    speakGuidance(`Give a brief, natural 1-sentence comment about viewing ${lead.name}'s lead. They want ${serviceName}, estimated at $${lead.estimatedValue?.toLocaleString() || 'unknown'}. Sound warm and helpful, like a real person.`);
   };
 
   const getServiceIcon = (serviceType: string) => {
@@ -229,6 +238,7 @@ export default function LeadPipeline() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-900 via-teal-900 to-slate-900">
       <TopNav />
+      <audio ref={audioRef} className="hidden" />
       
       <div className="max-w-7xl mx-auto px-4 py-8 space-y-6">
         <div className="flex justify-between items-start">
@@ -249,10 +259,10 @@ export default function LeadPipeline() {
               variant="outline"
               size="icon"
               onClick={toggleVoice}
-              className={`${isVoiceActive ? 'bg-emerald-500 text-white' : 'border-emerald-500 text-emerald-400'} hover:bg-emerald-600`}
+              className={`${isVoiceEnabled ? 'bg-emerald-500 text-white' : 'border-emerald-500 text-emerald-400'} hover:bg-emerald-600`}
               data-testid="button-toggle-voice"
             >
-              {isVoiceActive ? <Volume2 className="h-5 w-5" /> : <VolumeX className="h-5 w-5" />}
+              {isVoiceEnabled ? <Volume2 className={`h-5 w-5 ${isPlaying ? 'animate-pulse' : ''}`} /> : <VolumeX className="h-5 w-5" />}
             </Button>
             <Button 
               onClick={() => setIsCreateOpen(true)}
