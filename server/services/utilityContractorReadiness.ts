@@ -454,8 +454,6 @@ export const GEORGIA_EMCS: StateEMC[] = [
   { name: "Georgia Transmission Corporation", website: "", type: "support_org", state: "GA", description: "Transmission network supporting Georgia EMCs. Manages high-voltage transmission infrastructure across the state.", serviceTypes: ["Transmission construction", "ROW clearing", "Vegetation management", "Emergency restoration"] },
   { name: "Georgia System Operations Corporation", website: "", type: "support_org", state: "GA", description: "System operations and support organization for Georgia EMCs. Coordinates system reliability and emergency response.", serviceTypes: ["System operations support", "Emergency coordination", "Technical services"] },
   { name: "Green Power EMC", website: "", type: "support_org", state: "GA", description: "Renewables partner for Georgia EMCs. Manages renewable energy generation for the cooperative network.", serviceTypes: ["Renewable energy construction", "Solar installation", "Vegetation management"] },
-  { name: "Georgia DOT (GDOT) – Vendor Portal", website: "https://www.dot.ga.gov/GDOTVendors", type: "support_org", state: "GA", description: "Georgia Department of Transportation vendor portal — create account, register your business, access procurement opportunities for road/bridge construction, hauling, debris removal, ROW clearing", serviceTypes: ["Storm restoration", "Debris removal", "ROW clearing", "Construction", "Hauling/trucking"] },
-  { name: "U.S. DOT / FMCSA – Registration Portal", website: "https://www.fmcsa.dot.gov/registration", type: "support_org", state: "GA", description: "Federal Motor Carrier Safety Administration registration — required for USDOT Number, MC Number, operating authority for commercial transportation, trucking, carriers, brokers", serviceTypes: ["Commercial transportation", "Trucking/hauling", "Debris transport", "Equipment transport"] },
 ];
 
 export const ALABAMA_EMCS: StateEMC[] = [
@@ -763,6 +761,14 @@ export interface StormPrime {
   type: "national_prime" | "utility_prime" | "national_association" | "procurement_portal";
   description: string;
   specialties: string[];
+}
+
+export interface DOTVendorPortal {
+  state: string;
+  stateCode: string;
+  name: string;
+  website: string;
+  description: string;
 }
 
 export const KENTUCKY_EMCS: StateEMC[] = [
@@ -1074,6 +1080,60 @@ export const TEXAS_EMCS: StateEMC[] = [
   { name: "CoServ Electric", website: "https://www.coserv.com/About/Doing-Business-with-CoServ", type: "emc", state: "TX", description: "Serves North Texas including fast-growing suburban areas — severe thunderstorms, tornadoes, ice storms. Doing Business with CoServ page", serviceTypes: ["Vegetation/ROW clearing", "Storm debris removal", "Emergency restoration", "Distribution maintenance"] },
   { name: "Texas Electric Cooperatives (TEC)", website: "https://www.texas-ec.org/about/procurement", type: "support_org", state: "TX", description: "Statewide association providing services and joint procurement for member co-ops — centralized procurement portal for all Texas co-ops", serviceTypes: ["Storm restoration", "Vegetation management", "Distribution maintenance", "Transmission construction", "Emergency response"] },
   { name: "ERCOT (Electric Reliability Council of Texas)", website: "https://www.ercot.com", type: "support_org", state: "TX", description: "Independent grid operator managing 90% of Texas electric load — grid reliability, market operations, transmission planning", serviceTypes: ["Storm restoration", "Vegetation management", "Distribution maintenance", "Transmission construction", "Emergency response"] },
+];
+
+export const DOT_VENDOR_PORTALS: DOTVendorPortal[] = [
+  { state: "Alabama", stateCode: "AL", name: "Alabama DOT (ALDOT)", website: "https://www.dot.state.al.us/business/", description: "Alabama DOT vendor registration — construction, hauling, debris removal, ROW clearing, bridge work" },
+  { state: "Alaska", stateCode: "AK", name: "Alaska DOT", website: "https://dot.alaska.gov/doing-business.shtml", description: "Alaska DOT business portal — construction, maintenance, equipment, remote terrain projects" },
+  { state: "Arizona", stateCode: "AZ", name: "Arizona DOT", website: "https://azdot.gov/business", description: "Arizona DOT business portal — construction, maintenance, hauling, desert terrain projects" },
+  { state: "Arkansas", stateCode: "AR", name: "Arkansas DOT", website: "https://www.ardot.gov/business/", description: "Arkansas DOT business portal — construction, maintenance, storm debris, bridge work" },
+  { state: "California", stateCode: "CA", name: "California DOT (Caltrans)", website: "https://dot.ca.gov/programs/procurement-and-contracts", description: "Caltrans procurement & contracts — largest state DOT, construction, maintenance, wildfire response" },
+  { state: "Colorado", stateCode: "CO", name: "Colorado DOT", website: "https://www.codot.gov/business", description: "Colorado DOT business portal — construction, snow removal, mountain terrain, maintenance" },
+  { state: "Connecticut", stateCode: "CT", name: "Connecticut DOT", website: "https://portal.ct.gov/DOT/Business/Business", description: "Connecticut DOT business portal — construction, maintenance, storm response, bridge work" },
+  { state: "Delaware", stateCode: "DE", name: "Delaware DOT", website: "https://deldot.gov/business/", description: "Delaware DOT business portal — construction, maintenance, coastal storm response" },
+  { state: "Florida", stateCode: "FL", name: "Florida DOT", website: "https://fdotwp1.dot.state.fl.us/ContractProposalProcessing/", description: "Florida DOT contract proposals — hurricane response, construction, maintenance, debris removal" },
+  { state: "Georgia", stateCode: "GA", name: "Georgia DOT (GDOT)", website: "https://www.dot.ga.gov/GDOTVendors", description: "GDOT vendor portal — create account, register business, procurement for construction, hauling, debris removal, ROW clearing" },
+  { state: "Hawaii", stateCode: "HI", name: "Hawaii DOT", website: "https://hidot.hawaii.gov/administration/procurement/", description: "Hawaii DOT procurement — construction, maintenance, island infrastructure projects" },
+  { state: "Idaho", stateCode: "ID", name: "Idaho Transportation Department", website: "https://itd.idaho.gov/business/", description: "Idaho DOT business portal — construction, maintenance, snow removal, mountain terrain" },
+  { state: "Illinois", stateCode: "IL", name: "Illinois DOT", website: "https://idot.illinois.gov/doing-business/index", description: "Illinois DOT business portal — construction, maintenance, storm response, bridge work" },
+  { state: "Indiana", stateCode: "IN", name: "Indiana DOT", website: "https://www.in.gov/indot/business/", description: "Indiana DOT business portal — construction, maintenance, storm debris, winter operations" },
+  { state: "Iowa", stateCode: "IA", name: "Iowa DOT", website: "https://iowadot.gov/business", description: "Iowa DOT business portal — construction, maintenance, storm response, winter operations" },
+  { state: "Kansas", stateCode: "KS", name: "Kansas DOT", website: "https://www.ksdot.gov/business.asp", description: "Kansas DOT business portal — construction, maintenance, tornado response, bridge work" },
+  { state: "Kentucky", stateCode: "KY", name: "Kentucky Transportation Cabinet", website: "https://transportation.ky.gov/Procurement/", description: "Kentucky Transportation procurement — construction, maintenance, storm response, bridge work" },
+  { state: "Louisiana", stateCode: "LA", name: "Louisiana DOTD", website: "https://www.dotd.la.gov/Business/", description: "Louisiana DOTD business portal — hurricane response, construction, debris removal, bridge work" },
+  { state: "Maine", stateCode: "ME", name: "Maine DOT", website: "https://www.maine.gov/mdot/business/", description: "Maine DOT business portal — construction, maintenance, winter operations, bridge work" },
+  { state: "Maryland", stateCode: "MD", name: "Maryland DOT", website: "https://www.mdot.maryland.gov/tso/pages/index.aspx?pageid=33", description: "Maryland DOT business portal — construction, maintenance, storm response, bridge work" },
+  { state: "Massachusetts", stateCode: "MA", name: "Massachusetts DOT", website: "https://www.mass.gov/massdot-contracts", description: "MassDOT contracts — construction, maintenance, winter operations, bridge work" },
+  { state: "Michigan", stateCode: "MI", name: "Michigan DOT", website: "https://www.michigan.gov/mdot/business", description: "Michigan DOT business portal — construction, maintenance, winter operations, bridge work" },
+  { state: "Minnesota", stateCode: "MN", name: "Minnesota DOT", website: "https://www.dot.state.mn.us/const/tools/vendors.html", description: "Minnesota DOT vendor tools — construction, maintenance, winter operations, bridge work" },
+  { state: "Mississippi", stateCode: "MS", name: "Mississippi DOT", website: "https://mdot.ms.gov/portal/business", description: "Mississippi DOT business portal — hurricane response, construction, debris removal" },
+  { state: "Missouri", stateCode: "MO", name: "Missouri DOT", website: "https://www.modot.org/business", description: "Missouri DOT business portal — construction, maintenance, tornado response, bridge work" },
+  { state: "Montana", stateCode: "MT", name: "Montana DOT", website: "https://www.mdt.mt.gov/business/", description: "Montana DOT business portal — construction, maintenance, winter operations, mountain terrain" },
+  { state: "Nebraska", stateCode: "NE", name: "Nebraska DOT", website: "https://dot.nebraska.gov/business-center/", description: "Nebraska DOT business center — construction, maintenance, tornado response, winter operations" },
+  { state: "Nevada", stateCode: "NV", name: "Nevada DOT", website: "https://www.dot.nv.gov/about-us/procurement", description: "Nevada DOT procurement — construction, maintenance, desert terrain, flash flood response" },
+  { state: "New Hampshire", stateCode: "NH", name: "New Hampshire DOT", website: "https://www.nh.gov/dot/org/administration/finance/procurement.htm", description: "New Hampshire DOT procurement — construction, maintenance, winter operations, bridge work" },
+  { state: "New Jersey", stateCode: "NJ", name: "New Jersey DOT", website: "https://www.state.nj.us/transportation/business/", description: "New Jersey DOT business portal — construction, maintenance, storm response, bridge work" },
+  { state: "New Mexico", stateCode: "NM", name: "New Mexico DOT", website: "https://www.dot.nm.gov/business/", description: "New Mexico DOT business portal — construction, maintenance, desert terrain, wildfire response" },
+  { state: "New York", stateCode: "NY", name: "New York State DOT", website: "https://www.dot.ny.gov/business", description: "NYSDOT business portal — construction, maintenance, winter operations, bridge work" },
+  { state: "North Carolina", stateCode: "NC", name: "North Carolina DOT", website: "https://connect.ncdot.gov/business", description: "NCDOT business portal — hurricane response, construction, debris removal, bridge work" },
+  { state: "North Dakota", stateCode: "ND", name: "North Dakota DOT", website: "https://www.dot.nd.gov/business/", description: "North Dakota DOT business portal — construction, maintenance, winter operations, bridge work" },
+  { state: "Ohio", stateCode: "OH", name: "Ohio DOT", website: "https://www.transportation.ohio.gov/business", description: "Ohio DOT business portal — construction, maintenance, storm response, bridge work" },
+  { state: "Oklahoma", stateCode: "OK", name: "Oklahoma DOT", website: "https://oklahoma.gov/odot/business-center.html", description: "Oklahoma DOT business center — tornado response, construction, debris removal, bridge work" },
+  { state: "Oregon", stateCode: "OR", name: "Oregon DOT", website: "https://www.oregon.gov/odot/business/pages/default.aspx", description: "Oregon DOT business portal — construction, maintenance, wildfire response, winter operations" },
+  { state: "Pennsylvania", stateCode: "PA", name: "Pennsylvania DOT", website: "https://www.penndot.pa.gov/Doing-Business/Pages/default.aspx", description: "PennDOT doing business — construction, maintenance, winter operations, bridge work" },
+  { state: "Rhode Island", stateCode: "RI", name: "Rhode Island DOT", website: "https://www.dot.ri.gov/business/", description: "Rhode Island DOT business portal — construction, maintenance, coastal storm response" },
+  { state: "South Carolina", stateCode: "SC", name: "South Carolina DOT", website: "https://www.scdot.org/business/business.aspx", description: "SCDOT business portal — hurricane response, construction, debris removal, bridge work" },
+  { state: "South Dakota", stateCode: "SD", name: "South Dakota DOT", website: "https://dot.sd.gov/business", description: "South Dakota DOT business portal — construction, maintenance, winter operations, bridge work" },
+  { state: "Tennessee", stateCode: "TN", name: "Tennessee DOT", website: "https://www.tn.gov/tdot/business.html", description: "Tennessee DOT business portal — construction, maintenance, storm response, bridge work" },
+  { state: "Texas", stateCode: "TX", name: "Texas DOT (TxDOT)", website: "https://www.txdot.gov/business.html", description: "TxDOT business portal — hurricane response, construction, debris removal, bridge work" },
+  { state: "Utah", stateCode: "UT", name: "Utah DOT", website: "https://udot.utah.gov/business/", description: "Utah DOT business portal — construction, maintenance, winter operations, mountain terrain" },
+  { state: "Vermont", stateCode: "VT", name: "Vermont Agency of Transportation", website: "https://vtrans.vermont.gov/contract-admin", description: "VTrans contract administration — construction, maintenance, winter operations, bridge work" },
+  { state: "Virginia", stateCode: "VA", name: "Virginia DOT", website: "https://www.virginiadot.org/business/", description: "VDOT business portal — hurricane response, construction, maintenance, bridge work" },
+  { state: "Washington", stateCode: "WA", name: "Washington State DOT", website: "https://wsdot.wa.gov/business-wsdot", description: "WSDOT business portal — construction, maintenance, wildfire response, winter operations" },
+  { state: "West Virginia", stateCode: "WV", name: "West Virginia DOT", website: "https://transportation.wv.gov/business/Pages/default.aspx", description: "West Virginia DOT business portal — construction, maintenance, flood response, bridge work" },
+  { state: "Wisconsin", stateCode: "WI", name: "Wisconsin DOT", website: "https://wisconsindot.gov/Pages/doing-bus/default.aspx", description: "Wisconsin DOT doing business — construction, maintenance, winter operations, bridge work" },
+  { state: "Wyoming", stateCode: "WY", name: "Wyoming DOT", website: "https://www.dot.state.wy.us/home/business_with_wydot.html", description: "Wyoming DOT business portal — construction, maintenance, winter operations, mountain terrain" },
+  { state: "Federal", stateCode: "US", name: "U.S. DOT / FMCSA – Registration Portal", website: "https://www.fmcsa.dot.gov/registration", description: "Federal Motor Carrier Safety Administration — required for USDOT Number, MC Number, operating authority for commercial transportation, trucking, carriers, brokers" },
 ];
 
 export const FORESTRY_AGENCIES: ForestryAgency[] = [

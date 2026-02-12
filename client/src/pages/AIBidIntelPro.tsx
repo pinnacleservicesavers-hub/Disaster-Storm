@@ -308,6 +308,7 @@ export default function AIBidIntelPro() {
   const [showNorthCarolinaEMCs, setShowNorthCarolinaEMCs] = useState(false);
   const [showNorthDakotaEMCs, setShowNorthDakotaEMCs] = useState(false);
   const [showTexasEMCs, setShowTexasEMCs] = useState(false);
+  const [showDotPortals, setShowDotPortals] = useState(false);
   const [showForestryAgencies, setShowForestryAgencies] = useState(false);
   const [showStormPrimes, setShowStormPrimes] = useState(false);
   const [emcSearchTerm, setEmcSearchTerm] = useState("");
@@ -344,6 +345,7 @@ export default function AIBidIntelPro() {
   const [ncEmcSearchTerm, setNcEmcSearchTerm] = useState("");
   const [ndEmcSearchTerm, setNdEmcSearchTerm] = useState("");
   const [txEmcSearchTerm, setTxEmcSearchTerm] = useState("");
+  const [dotSearchTerm, setDotSearchTerm] = useState("");
   const [forestrySearchTerm, setForestrySearchTerm] = useState("");
   const [stormPrimeSearchTerm, setStormPrimeSearchTerm] = useState("");
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -3802,6 +3804,58 @@ export default function AIBidIntelPro() {
                                   <p className="text-[10px] text-gray-500 mt-0.5">{org.description}</p>
                                 </div>
                               ))}
+                            </div>
+                          )}
+                        </>
+                      )}
+
+                      {utilityPortalsData?.dotVendorPortals?.length > 0 && (
+                        <>
+                          <Separator className="my-3 bg-yellow-600/50" />
+                          <div>
+                            <Button variant="ghost" className="w-full justify-between text-sm font-semibold text-yellow-400 hover:text-yellow-300 p-0 h-auto" onClick={() => setShowDotPortals(!showDotPortals)}>
+                              <span className="flex items-center gap-1">
+                                <MapPin className="w-4 h-4" />
+                                🚧 DOT Vendor Registration — All 50 States ({utilityPortalsData.dotVendorPortals.length} Portals)
+                              </span>
+                              {showDotPortals ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                            </Button>
+                            <p className="text-[10px] text-gray-500 mt-0.5">State Department of Transportation vendor portals — register for road construction, debris removal, hauling, ROW clearing, bridge work</p>
+                          </div>
+                          {showDotPortals && (
+                            <div className="space-y-2 mt-2">
+                              <Input placeholder="Search DOT portals by state name..." value={dotSearchTerm} onChange={(e) => setDotSearchTerm(e.target.value)} className="bg-slate-900/50 border-yellow-600/30 text-white text-xs h-7" />
+                              <div className="max-h-[500px] overflow-y-auto space-y-1.5 pr-1">
+                                {utilityPortalsData.dotVendorPortals
+                                  .filter((dot: any) => dot.stateCode === "US")
+                                  .filter((dot: any) => !dotSearchTerm || dot.state.toLowerCase().includes(dotSearchTerm.toLowerCase()) || dot.name.toLowerCase().includes(dotSearchTerm.toLowerCase()))
+                                  .map((dot: any) => (
+                                    <div key={dot.stateCode} className="border border-yellow-600/40 rounded p-2 bg-yellow-500/5">
+                                      <div className="flex items-center justify-between gap-1">
+                                        <h5 className="text-xs font-bold text-yellow-300 leading-tight">⭐ {dot.name}</h5>
+                                        <Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(dot.website, '_blank')}><ExternalLink className="w-2.5 h-2.5" /></Button>
+                                      </div>
+                                      <p className="text-[10px] text-gray-400 mt-0.5">{dot.description}</p>
+                                    </div>
+                                  ))}
+                                <Separator className="my-2 bg-slate-700" />
+                                <h5 className="text-xs font-semibold text-yellow-400 flex items-center gap-1"><MapPin className="w-3 h-3" />State DOT Portals (A-Z)</h5>
+                                {utilityPortalsData.dotVendorPortals
+                                  .filter((dot: any) => dot.stateCode !== "US")
+                                  .filter((dot: any) => !dotSearchTerm || dot.state.toLowerCase().includes(dotSearchTerm.toLowerCase()) || dot.name.toLowerCase().includes(dotSearchTerm.toLowerCase()))
+                                  .map((dot: any) => (
+                                    <div key={dot.stateCode} className="border border-slate-700 rounded p-2 hover:border-yellow-500/30 transition-colors">
+                                      <div className="flex items-center justify-between gap-1">
+                                        <h5 className="text-xs font-medium text-white leading-tight">
+                                          <span className="text-yellow-400 font-bold mr-1">{dot.stateCode}</span>
+                                          {dot.name}
+                                        </h5>
+                                        <Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(dot.website, '_blank')}><ExternalLink className="w-2.5 h-2.5" /></Button>
+                                      </div>
+                                      <p className="text-[10px] text-gray-500 mt-0.5">{dot.description}</p>
+                                    </div>
+                                  ))}
+                              </div>
                             </div>
                           )}
                         </>

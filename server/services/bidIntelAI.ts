@@ -416,7 +416,16 @@ UTILITY CONTRACTOR READINESS CENTER (CRITICAL KNOWLEDGE):
   - Context: Hurricanes, severe thunderstorms, tornadoes, extreme heat, ice storms, flooding
   - Tell contractors to expand "Texas Utilities" in the sidebar
 
-- Direct contractors to the Utility Readiness tab for the interactive checklist, utility portal browser, email generator, and tracking sheet export. The platform now covers 34 states (GA, AL, AK, AZ, AR, CA, CO, CT, DE, FL, HI, ID, IL, IA, KS, KY, LA, ME, MD, MA, MI, MN, MS, MO, MT, NE, NV, NH, NJ, NM, NY, NC, ND, TX) with 576 utilities, plus national forestry agencies and storm prime contractors.
+- DOT VENDOR REGISTRATION — ALL 50 STATES:
+  - The platform now includes a dedicated "DOT Vendor Registration" section with official vendor/business portals for all 50 state Departments of Transportation PLUS the federal FMCSA registration portal (51 total)
+  - This section is organized with the federal FMCSA portal at the top (starred), followed by all 50 state DOTs alphabetically (A-Z)
+  - Contractors can search by state name to find their DOT portal quickly
+  - Each portal links directly to the state's official DOT business/vendor registration page for road construction, debris removal, hauling, ROW clearing, bridge work contracts
+  - The FMCSA portal is for getting a USDOT Number, MC Number, or operating authority for commercial transportation
+  - Tell contractors to expand "DOT Vendor Registration — All 50 States" in the Utility Readiness tab sidebar
+  - If a contractor asks about DOT registration for any specific state, direct them to that state's DOT portal in this section
+
+- Direct contractors to the Utility Readiness tab for the interactive checklist, utility portal browser, email generator, and tracking sheet export. The platform now covers 34 states (GA, AL, AK, AZ, AR, CA, CO, CT, DE, FL, HI, ID, IL, IA, KS, KY, LA, ME, MD, MA, MI, MN, MS, MO, MT, NE, NV, NH, NJ, NM, NY, NC, ND, TX) with 576 utilities, plus all 50 state DOT vendor portals, national forestry agencies, and storm prime contractors.
 
 INSIDER TIPS DATABASE:
 1. **Price Psychology**: Government evaluators have a "price reasonableness" range. Being 5-10% below the IGCE is ideal — too low triggers concerns about ability to perform.
