@@ -3,6 +3,7 @@ import { z } from "zod";
 import { storage } from "../storage";
 import { requireAuth, requireContractor } from "../middleware/auth";
 import { generateBidIntelResponse, generateRFIQuestion, analyzeBidOpportunity, INSIDER_TIPS_DATABASE } from "../services/bidIntelAI";
+import { USACE_DISTRICTS, USACE_DIVISIONS, MAJOR_PRIMES, getPriorityDistricts, generateIntroductionEmail, generateCapabilityStatement } from "../services/usaceOutreach";
 import { elevenLabsVoice } from "../services/elevenLabsVoice";
 import {
   insertBidOpportunitySchema,
@@ -440,6 +441,48 @@ router.post("/voice/speak", requireAuth, requireContractor, async (req: Request,
   } catch (error) {
     console.error("Error generating speech:", error);
     res.status(500).json({ error: "Failed to generate speech" });
+  }
+});
+
+router.get("/usace/districts", async (req: Request, res: Response) => {
+  try {
+    const { division, priorityOnly } = req.query;
+    let districts = getPriorityDistricts(division as string | undefined);
+    if (priorityOnly === 'true') {
+      districts = districts.filter(d => d.priority === 'critical' || d.priority === 'high');
+    }
+    res.json({ districts, divisions: USACE_DIVISIONS, majorPrimes: MAJOR_PRIMES });
+  } catch (error) {
+    console.error("Error fetching USACE districts:", error);
+    res.status(500).json({ error: "Failed to fetch districts" });
+  }
+});
+
+router.post("/usace/generate-email", async (req: Request, res: Response) => {
+  try {
+    const { districtName, companyInfo } = req.body;
+    if (!districtName || !companyInfo?.companyName || !companyInfo?.ownerName) {
+      return res.status(400).json({ error: "District name, company name, and owner name are required" });
+    }
+    const result = await generateIntroductionEmail(districtName, companyInfo);
+    res.json(result);
+  } catch (error) {
+    console.error("Error generating introduction email:", error);
+    res.status(500).json({ error: "Failed to generate email" });
+  }
+});
+
+router.post("/usace/generate-capability-statement", async (req: Request, res: Response) => {
+  try {
+    const { companyInfo } = req.body;
+    if (!companyInfo?.companyName || !companyInfo?.ownerName) {
+      return res.status(400).json({ error: "Company name and owner name are required" });
+    }
+    const result = await generateCapabilityStatement(companyInfo);
+    res.json(result);
+  } catch (error) {
+    console.error("Error generating capability statement:", error);
+    res.status(500).json({ error: "Failed to generate capability statement" });
   }
 });
 

@@ -32,6 +32,21 @@ PLATFORM KNOWLEDGE:
 - The app tracks bid opportunities, submissions, win rates, and provides TrueCost profit analysis
 - You should reference these tools and guide contractors to use them
 
+USACE OUTREACH CENTER (NEW - CRITICAL KNOWLEDGE):
+- The USACE Outreach tab contains a complete database of all U.S. Army Corps of Engineers districts ranked by storm debris priority
+- You can help contractors with these USACE-specific tasks:
+  1. **Draft Introduction Emails**: Generate powerful intro emails to any USACE district's Small Business Office. Tell them to use the USACE Outreach tab's email generator.
+  2. **Create Federal Capability Statements**: Generate a professional one-page capability statement that follows GSA/DoD standards. Available in the USACE Outreach tab.
+  3. **Map Priority Districts**: The USACE tab shows all districts ranked by storm debris contract volume. Critical priority districts include Jacksonville (FL), Mobile (AL/MS), New Orleans (LA), Savannah (GA), and Galveston (TX).
+- KEY USACE FACTS TO SHARE:
+  - Each USACE district operates like its own contracting office — contractors must market directly to each one
+  - Storm work (debris removal, emergency power, vegetation) is activated at the district level
+  - IDIQ/ACI/MATOC contracts are awarded BEFORE storms — if you miss the window, you can only sub
+  - Every district has a Small Business Office that advocates for veteran-owned and small business participation
+  - Major primes like AshBritt, CrowderGulf, DRC Emergency Services, and Ceres often ask districts for qualified small business subs
+  - Being registered and known makes you "positioned" rather than "waiting and hoping"
+  - Direct them to use the USACE Outreach tab for email generation, capability statements, and district priority mapping
+
 INSIDER TIPS DATABASE:
 1. **Price Psychology**: Government evaluators have a "price reasonableness" range. Being 5-10% below the IGCE is ideal — too low triggers concerns about ability to perform.
 2. **Past Performance**: Always include 3-5 strong references. Call them beforehand to confirm they'll give positive feedback.
@@ -206,7 +221,7 @@ function findRelevantTips(question: string): typeof INSIDER_TIPS_DATABASE[0][] {
     strategy: ['win', 'strategy', 'compete', 'incumbent', 'advantage'],
     pre_bid: ['pre-bid', 'site visit', 'question', 'rfi', 'meeting'],
     submission: ['submit', 'deadline', 'portal', 'upload', 'sealed'],
-    certifications: ['certification', 'sdvosb', 'wosb', 'hubzone', '8a', 'dbe', 'small business'],
+    certifications: ['certification', 'sdvosb', 'wosb', 'hubzone', '8a', 'dbe', 'small business', 'usace', 'army corps', 'district', 'capability statement'],
     references: ['reference', 'past performance', 'cpars', 'experience'],
     technical: ['technical', 'proposal', 'approach', 'writing'],
     negotiation: ['negotiate', 'bafo', 'best and final', 'counter'],

@@ -50,7 +50,13 @@ import {
   MapPin,
   Landmark,
   Shield,
-  ChevronRight
+  ChevronRight,
+  Copy,
+  Download,
+  Star,
+  Flag,
+  ArrowRight,
+  CircleDot
 } from "lucide-react";
 
 interface ChatMessage {
@@ -224,6 +230,21 @@ export default function AIBidIntelPro() {
   const [isIntroPlaying, setIsIntroPlaying] = useState(false);
   const [selectedState, setSelectedState] = useState("");
   const [countySearch, setCountySearch] = useState("");
+  const [usaceFilter, setUsaceFilter] = useState<string>("all");
+  const [selectedDistrict, setSelectedDistrict] = useState<string>("");
+  const [emailCompanyName, setEmailCompanyName] = useState("");
+  const [emailOwnerName, setEmailOwnerName] = useState("");
+  const [emailCerts, setEmailCerts] = useState("");
+  const [emailCapabilities, setEmailCapabilities] = useState("");
+  const [emailLocation, setEmailLocation] = useState("");
+  const [emailPhone, setEmailPhone] = useState("");
+  const [emailContactEmail, setEmailContactEmail] = useState("");
+  const [generatedEmail, setGeneratedEmail] = useState<{ subject: string; body: string; tips: string[] } | null>(null);
+  const [generatedCapStatement, setGeneratedCapStatement] = useState<{ sections: Record<string, string>; tips: string[] } | null>(null);
+  const [capNaics, setCapNaics] = useState("");
+  const [capYears, setCapYears] = useState("");
+  const [capBonding, setCapBonding] = useState("");
+  const [capPastPerf, setCapPastPerf] = useState("");
   const audioRef = useRef<HTMLAudioElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
@@ -241,6 +262,44 @@ export default function AIBidIntelPro() {
 
   const { data: submissions } = useQuery<any[]>({
     queryKey: ["/api/bidintel/submissions"],
+  });
+
+  const { data: usaceData, isLoading: usaceLoading } = useQuery<{ districts: any[]; divisions: any[]; majorPrimes: string[] }>({
+    queryKey: ["/api/bidintel/usace/districts"],
+  });
+
+  const emailMutation = useMutation({
+    mutationFn: async (data: { districtName: string; companyInfo: any }) => {
+      const res = await apiRequest("/api/bidintel/usace/generate-email", {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      setGeneratedEmail(data);
+      toast({ title: "Email Generated", description: "Your introduction email is ready to review and send." });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to generate email. Please try again.", variant: "destructive" });
+    },
+  });
+
+  const capStatementMutation = useMutation({
+    mutationFn: async (data: { companyInfo: any }) => {
+      const res = await apiRequest("/api/bidintel/usace/generate-capability-statement", {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      setGeneratedCapStatement(data);
+      toast({ title: "Capability Statement Generated", description: "Your federal capability statement is ready." });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to generate capability statement.", variant: "destructive" });
+    },
   });
 
   const chatMutation = useMutation({
@@ -498,6 +557,10 @@ export default function AIBidIntelPro() {
               <Shield className="w-4 h-4 mr-2" />
               SAM.gov
             </TabsTrigger>
+            <TabsTrigger value="usace" className="data-[state=active]:bg-red-500/20 data-[state=active]:text-red-400">
+              <Flag className="w-4 h-4 mr-2" />
+              USACE Outreach
+            </TabsTrigger>
             <TabsTrigger value="tips" className="data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-400">
               <Lightbulb className="w-4 h-4 mr-2" />
               Tips
@@ -555,8 +618,9 @@ export default function AIBidIntelPro() {
                             "How do I register on SAM.gov?",
                             "How to find bids in my state?",
                             "What makes a winning proposal?",
-                            "Walk me through bid pricing",
-                            "What certifications should I get?"
+                            "Which USACE districts should I target for storm debris?",
+                            "Help me draft an intro email to a USACE district",
+                            "What should my capability statement include?"
                           ].map((q) => (
                             <Button
                               key={q}
@@ -665,11 +729,12 @@ export default function AIBidIntelPro() {
                     {[
                       "How do I register on SAM.gov step by step?",
                       "Walk me through completing an SF-1449",
-                      "How to find county bids in my area?",
+                      "Which USACE districts are highest priority?",
+                      "How do I introduce my company to USACE?",
                       "What NAICS codes should I use?",
                       "How to structure T&M pricing?",
-                      "What's the best strategy to beat the incumbent?",
-                      "How to write a technical approach section?",
+                      "What should a capability statement include?",
+                      "How do I get on USACE vendor lists?",
                     ].map((q, i) => (
                       <Button
                         key={i}
@@ -1053,6 +1118,541 @@ export default function AIBidIntelPro() {
                 </p>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* USACE OUTREACH TAB */}
+          <TabsContent value="usace" className="space-y-6">
+            <div className="bg-gradient-to-r from-red-900/30 to-orange-900/30 border border-red-500/30 rounded-xl p-5">
+              <div className="flex items-start gap-4">
+                <div className="p-3 bg-red-500/20 rounded-xl">
+                  <Flag className="w-8 h-8 text-red-400" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-white">USACE District Outreach Center</h2>
+                  <p className="text-sm text-gray-300 mt-1">
+                    U.S. Army Corps of Engineers districts manage storm debris, emergency contracting, and infrastructure work.
+                    Each district operates independently — if you don't market directly to them, you are invisible.
+                  </p>
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    <Badge className="bg-red-500/20 text-red-300 border-red-500/30">IDIQ / ACI / MATOC Contracts</Badge>
+                    <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/30">Storm Debris</Badge>
+                    <Badge className="bg-blue-500/20 text-blue-300 border-blue-500/30">Emergency Response</Badge>
+                    <Badge className="bg-green-500/20 text-green-300 border-green-500/30">Small Business Set-Asides</Badge>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2 space-y-6">
+                <Card className="bg-slate-800/50 border-slate-700">
+                  <CardHeader>
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <CardTitle className="text-white flex items-center gap-2">
+                        <MapPin className="w-5 h-5 text-red-400" />
+                        Priority District Map — Storm Debris
+                      </CardTitle>
+                      <Select value={usaceFilter} onValueChange={setUsaceFilter}>
+                        <SelectTrigger className="w-[200px] bg-slate-900/50 border-slate-600 text-white">
+                          <SelectValue placeholder="Filter by division" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-slate-800 border-slate-600">
+                          <SelectItem value="all" className="text-white hover:bg-slate-700">All Divisions</SelectItem>
+                          <SelectItem value="critical" className="text-white hover:bg-slate-700">Critical Priority Only</SelectItem>
+                          {usaceData?.divisions?.map((div: any) => (
+                            <SelectItem key={div.name} value={div.name} className="text-white hover:bg-slate-700">{div.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <CardDescription>Districts ranked by storm debris contract volume and emergency activation frequency</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {usaceLoading ? (
+                      <div className="flex items-center justify-center py-8">
+                        <Loader2 className="w-8 h-8 animate-spin text-red-400" />
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {(usaceData?.districts || [])
+                          .filter((d: any) => {
+                            if (usaceFilter === "all") return true;
+                            if (usaceFilter === "critical") return d.priority === "critical";
+                            return d.division === usaceFilter;
+                          })
+                          .map((district: any, idx: number) => (
+                          <div
+                            key={district.code}
+                            className={`border rounded-lg p-4 cursor-pointer transition-all ${
+                              selectedDistrict === district.name
+                                ? 'border-red-400 bg-red-900/20'
+                                : 'border-slate-700 bg-slate-900/50 hover:border-slate-500'
+                            }`}
+                            onClick={() => setSelectedDistrict(district.name === selectedDistrict ? "" : district.name)}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-lg font-bold text-gray-500 w-8">#{idx + 1}</span>
+                                  <div
+                                    className="w-3 h-3 rounded-full"
+                                    style={{ backgroundColor: district.divisionColor }}
+                                  />
+                                </div>
+                                <div>
+                                  <h4 className="font-medium text-white">{district.name}</h4>
+                                  <p className="text-xs text-gray-400">{district.division} • {district.states.join(', ')}</p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-3">
+                                <Badge className={
+                                  district.priority === 'critical' ? 'bg-red-500/20 text-red-400 border-red-500/30' :
+                                  district.priority === 'high' ? 'bg-orange-500/20 text-orange-400 border-orange-500/30' :
+                                  district.priority === 'medium' ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' :
+                                  'bg-gray-500/20 text-gray-400 border-gray-500/30'
+                                }>
+                                  {district.priority.toUpperCase()}
+                                </Badge>
+                                <div className="text-right">
+                                  <div className="text-sm font-bold text-white">{district.priorityScore}</div>
+                                  <div className="text-xs text-gray-500">score</div>
+                                </div>
+                              </div>
+                            </div>
+
+                            {selectedDistrict === district.name && (
+                              <div className="mt-4 pt-4 border-t border-slate-700 space-y-3">
+                                <p className="text-sm text-gray-300">{district.stormRelevance}</p>
+                                <div>
+                                  <p className="text-xs text-gray-500 mb-1">Key Work Types:</p>
+                                  <div className="flex flex-wrap gap-1">
+                                    {district.keyWorkTypes.map((wt: string) => (
+                                      <Badge key={wt} variant="outline" className="text-xs border-slate-600 text-gray-300">{wt}</Badge>
+                                    ))}
+                                  </div>
+                                </div>
+                                <div className="flex gap-2">
+                                  <Button
+                                    size="sm"
+                                    onClick={(e) => { e.stopPropagation(); window.open(district.url, '_blank'); }}
+                                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                                  >
+                                    <ExternalLink className="w-3 h-3 mr-1" />
+                                    Visit District
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedDistrict(district.name);
+                                      setActiveTab("usace");
+                                      const el = document.getElementById('usace-email-gen');
+                                      if (el) el.scrollIntoView({ behavior: 'smooth' });
+                                    }}
+                                    className="border-amber-500/30 text-amber-300 hover:bg-amber-500/10"
+                                  >
+                                    <Mail className="w-3 h-3 mr-1" />
+                                    Draft Intro Email
+                                  </Button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card id="usace-email-gen" className="bg-slate-800/50 border-slate-700">
+                  <CardHeader>
+                    <CardTitle className="text-white flex items-center gap-2">
+                      <Mail className="w-5 h-5 text-amber-400" />
+                      AI Introduction Email Generator
+                    </CardTitle>
+                    <CardDescription>Draft a powerful introduction email to send to any USACE district's Small Business Office</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label className="text-gray-300">Target District</Label>
+                        <Select value={selectedDistrict} onValueChange={setSelectedDistrict}>
+                          <SelectTrigger className="bg-slate-900/50 border-slate-600 text-white">
+                            <SelectValue placeholder="Select a district..." />
+                          </SelectTrigger>
+                          <SelectContent className="bg-slate-800 border-slate-600 max-h-[300px]">
+                            {(usaceData?.districts || []).map((d: any) => (
+                              <SelectItem key={d.code} value={d.name} className="text-white hover:bg-slate-700">
+                                {d.name} ({d.code}) — {d.priority.toUpperCase()}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-gray-300">Company Name *</Label>
+                        <Input value={emailCompanyName} onChange={(e) => setEmailCompanyName(e.target.value)} placeholder="Strategic Land Management LLC" className="bg-slate-900/50 border-slate-600 text-white" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-gray-300">Owner / Contact Name *</Label>
+                        <Input value={emailOwnerName} onChange={(e) => setEmailOwnerName(e.target.value)} placeholder="John Smith" className="bg-slate-900/50 border-slate-600 text-white" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-gray-300">Location</Label>
+                        <Input value={emailLocation} onChange={(e) => setEmailLocation(e.target.value)} placeholder="Dallas, TX" className="bg-slate-900/50 border-slate-600 text-white" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-gray-300">Certifications</Label>
+                        <Input value={emailCerts} onChange={(e) => setEmailCerts(e.target.value)} placeholder="SDVOSB, SAM Active, ISA Certified Arborist" className="bg-slate-900/50 border-slate-600 text-white" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-gray-300">Core Capabilities</Label>
+                        <Input value={emailCapabilities} onChange={(e) => setEmailCapabilities(e.target.value)} placeholder="Storm debris removal, vegetation mgmt, emergency response" className="bg-slate-900/50 border-slate-600 text-white" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-gray-300">Phone</Label>
+                        <Input value={emailPhone} onChange={(e) => setEmailPhone(e.target.value)} placeholder="(555) 123-4567" className="bg-slate-900/50 border-slate-600 text-white" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-gray-300">Email</Label>
+                        <Input value={emailContactEmail} onChange={(e) => setEmailContactEmail(e.target.value)} placeholder="info@company.com" className="bg-slate-900/50 border-slate-600 text-white" />
+                      </div>
+                    </div>
+
+                    <Button
+                      onClick={() => {
+                        if (!selectedDistrict || !emailCompanyName || !emailOwnerName) {
+                          toast({ title: "Missing Info", description: "Please select a district and enter your company name and contact name.", variant: "destructive" });
+                          return;
+                        }
+                        emailMutation.mutate({
+                          districtName: selectedDistrict,
+                          companyInfo: {
+                            companyName: emailCompanyName,
+                            ownerName: emailOwnerName,
+                            certifications: emailCerts ? emailCerts.split(',').map(s => s.trim()) : undefined,
+                            capabilities: emailCapabilities ? emailCapabilities.split(',').map(s => s.trim()) : undefined,
+                            location: emailLocation || undefined,
+                            phone: emailPhone || undefined,
+                            email: emailContactEmail || undefined,
+                          }
+                        });
+                      }}
+                      disabled={emailMutation.isPending}
+                      className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-black font-semibold py-3"
+                    >
+                      {emailMutation.isPending ? (
+                        <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Generating Email...</>
+                      ) : (
+                        <><Zap className="w-4 h-4 mr-2" /> Generate Introduction Email</>
+                      )}
+                    </Button>
+
+                    {generatedEmail && (
+                      <div className="mt-4 space-y-4">
+                        <div className="bg-slate-900/70 border border-amber-500/30 rounded-xl p-5">
+                          <div className="flex items-center justify-between mb-3">
+                            <h4 className="font-medium text-amber-400">Generated Email</h4>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                navigator.clipboard.writeText(`Subject: ${generatedEmail.subject}\n\n${generatedEmail.body}`);
+                                toast({ title: "Copied", description: "Email copied to clipboard" });
+                              }}
+                              className="border-amber-500/30 text-amber-300 hover:bg-amber-500/10"
+                            >
+                              <Copy className="w-3 h-3 mr-1" /> Copy
+                            </Button>
+                          </div>
+                          <div className="space-y-3">
+                            <div>
+                              <p className="text-xs text-gray-500">Subject:</p>
+                              <p className="text-white font-medium">{generatedEmail.subject}</p>
+                            </div>
+                            <Separator className="bg-slate-700" />
+                            <div>
+                              <p className="text-xs text-gray-500 mb-1">Body:</p>
+                              <div className="text-sm text-gray-200 whitespace-pre-wrap leading-relaxed">{generatedEmail.body}</div>
+                            </div>
+                          </div>
+                        </div>
+                        {generatedEmail.tips && generatedEmail.tips.length > 0 && (
+                          <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-4">
+                            <h5 className="text-sm font-medium text-blue-400 mb-2 flex items-center gap-2"><Lightbulb className="w-4 h-4" /> Strategic Tips</h5>
+                            <ul className="space-y-1">
+                              {generatedEmail.tips.map((tip, i) => (
+                                <li key={i} className="text-sm text-gray-300 flex items-start gap-2">
+                                  <CircleDot className="w-3 h-3 mt-1 text-blue-400 shrink-0" />
+                                  {tip}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-slate-800/50 border-slate-700">
+                  <CardHeader>
+                    <CardTitle className="text-white flex items-center gap-2">
+                      <FileText className="w-5 h-5 text-emerald-400" />
+                      Federal Capability Statement Generator
+                    </CardTitle>
+                    <CardDescription>Create a professional one-page capability statement to attach to every district introduction</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label className="text-gray-300">Company Name *</Label>
+                        <Input value={emailCompanyName} onChange={(e) => setEmailCompanyName(e.target.value)} placeholder="Strategic Land Management LLC" className="bg-slate-900/50 border-slate-600 text-white" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-gray-300">Owner Name *</Label>
+                        <Input value={emailOwnerName} onChange={(e) => setEmailOwnerName(e.target.value)} placeholder="John Smith" className="bg-slate-900/50 border-slate-600 text-white" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-gray-300">NAICS Codes</Label>
+                        <Input value={capNaics} onChange={(e) => setCapNaics(e.target.value)} placeholder="562119, 561730, 562910" className="bg-slate-900/50 border-slate-600 text-white" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-gray-300">Years in Business</Label>
+                        <Input value={capYears} onChange={(e) => setCapYears(e.target.value)} placeholder="15" className="bg-slate-900/50 border-slate-600 text-white" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-gray-300">Certifications</Label>
+                        <Input value={emailCerts} onChange={(e) => setEmailCerts(e.target.value)} placeholder="SDVOSB, SAM Active, ISA Certified" className="bg-slate-900/50 border-slate-600 text-white" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-gray-300">Bonding Capacity</Label>
+                        <Input value={capBonding} onChange={(e) => setCapBonding(e.target.value)} placeholder="$5M aggregate" className="bg-slate-900/50 border-slate-600 text-white" />
+                      </div>
+                      <div className="space-y-2 md:col-span-2">
+                        <Label className="text-gray-300">Core Capabilities</Label>
+                        <Input value={emailCapabilities} onChange={(e) => setEmailCapabilities(e.target.value)} placeholder="Storm debris removal, vegetation management, emergency response, ROW clearing" className="bg-slate-900/50 border-slate-600 text-white" />
+                      </div>
+                      <div className="space-y-2 md:col-span-2">
+                        <Label className="text-gray-300">Past Performance (separate with semicolons)</Label>
+                        <Input value={capPastPerf} onChange={(e) => setCapPastPerf(e.target.value)} placeholder="Hurricane Ida debris removal - USACE Mobile; Tornado cleanup - FEMA Region IV" className="bg-slate-900/50 border-slate-600 text-white" />
+                      </div>
+                    </div>
+
+                    <Button
+                      onClick={() => {
+                        if (!emailCompanyName || !emailOwnerName) {
+                          toast({ title: "Missing Info", description: "Please enter your company name and owner name.", variant: "destructive" });
+                          return;
+                        }
+                        capStatementMutation.mutate({
+                          companyInfo: {
+                            companyName: emailCompanyName,
+                            ownerName: emailOwnerName,
+                            certifications: emailCerts ? emailCerts.split(',').map(s => s.trim()) : undefined,
+                            capabilities: emailCapabilities ? emailCapabilities.split(',').map(s => s.trim()) : undefined,
+                            naicsCodes: capNaics ? capNaics.split(',').map(s => s.trim()) : undefined,
+                            yearsInBusiness: capYears ? parseInt(capYears) : undefined,
+                            bondingCapacity: capBonding || undefined,
+                            pastPerformance: capPastPerf ? capPastPerf.split(';').map(s => s.trim()) : undefined,
+                            location: emailLocation || undefined,
+                            phone: emailPhone || undefined,
+                            email: emailContactEmail || undefined,
+                          }
+                        });
+                      }}
+                      disabled={capStatementMutation.isPending}
+                      className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-black font-semibold py-3"
+                    >
+                      {capStatementMutation.isPending ? (
+                        <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Generating...</>
+                      ) : (
+                        <><FileText className="w-4 h-4 mr-2" /> Generate Capability Statement</>
+                      )}
+                    </Button>
+
+                    {generatedCapStatement && (
+                      <div className="mt-4 space-y-4">
+                        <div className="bg-white text-black rounded-xl p-6 border-2 border-slate-300">
+                          <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-xl font-bold text-slate-900">CAPABILITY STATEMENT</h3>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                const text = Object.entries(generatedCapStatement.sections)
+                                  .map(([key, val]) => `${key.replace(/([A-Z])/g, ' $1').toUpperCase()}\n${val}`)
+                                  .join('\n\n');
+                                navigator.clipboard.writeText(text);
+                                toast({ title: "Copied", description: "Capability statement copied to clipboard" });
+                              }}
+                              className="border-slate-400 text-slate-700"
+                            >
+                              <Copy className="w-3 h-3 mr-1" /> Copy All
+                            </Button>
+                          </div>
+
+                          <div className="border-b-2 border-red-600 mb-4" />
+
+                          <div className="space-y-4 text-sm">
+                            {generatedCapStatement.sections.companyOverview && (
+                              <div>
+                                <h4 className="font-bold text-red-700 border-b border-gray-300 pb-1 mb-2">COMPANY OVERVIEW</h4>
+                                <p className="text-gray-800">{generatedCapStatement.sections.companyOverview}</p>
+                              </div>
+                            )}
+
+                            {generatedCapStatement.sections.coreCompetencies && (
+                              <div>
+                                <h4 className="font-bold text-red-700 border-b border-gray-300 pb-1 mb-2">CORE COMPETENCIES</h4>
+                                <div className="text-gray-800 whitespace-pre-wrap">{generatedCapStatement.sections.coreCompetencies}</div>
+                              </div>
+                            )}
+
+                            {generatedCapStatement.sections.differentiators && (
+                              <div>
+                                <h4 className="font-bold text-red-700 border-b border-gray-300 pb-1 mb-2">DIFFERENTIATORS</h4>
+                                <div className="text-gray-800 whitespace-pre-wrap">{generatedCapStatement.sections.differentiators}</div>
+                              </div>
+                            )}
+
+                            {generatedCapStatement.sections.pastPerformance && (
+                              <div>
+                                <h4 className="font-bold text-red-700 border-b border-gray-300 pb-1 mb-2">PAST PERFORMANCE</h4>
+                                <div className="text-gray-800 whitespace-pre-wrap">{generatedCapStatement.sections.pastPerformance}</div>
+                              </div>
+                            )}
+
+                            {generatedCapStatement.sections.certifications && (
+                              <div>
+                                <h4 className="font-bold text-red-700 border-b border-gray-300 pb-1 mb-2">CERTIFICATIONS & REGISTRATIONS</h4>
+                                <div className="text-gray-800 whitespace-pre-wrap">{generatedCapStatement.sections.certifications}</div>
+                              </div>
+                            )}
+
+                            {generatedCapStatement.sections.contactBlock && (
+                              <div>
+                                <h4 className="font-bold text-red-700 border-b border-gray-300 pb-1 mb-2">CONTACT</h4>
+                                <div className="text-gray-800 whitespace-pre-wrap">{generatedCapStatement.sections.contactBlock}</div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {generatedCapStatement.tips && generatedCapStatement.tips.length > 0 && (
+                          <div className="bg-emerald-900/20 border border-emerald-500/30 rounded-lg p-4">
+                            <h5 className="text-sm font-medium text-emerald-400 mb-2 flex items-center gap-2"><Lightbulb className="w-4 h-4" /> Usage Tips</h5>
+                            <ul className="space-y-1">
+                              {generatedCapStatement.tips.map((tip, i) => (
+                                <li key={i} className="text-sm text-gray-300 flex items-start gap-2">
+                                  <CircleDot className="w-3 h-3 mt-1 text-emerald-400 shrink-0" />
+                                  {tip}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="space-y-6">
+                <Card className="bg-slate-800/50 border-slate-700">
+                  <CardHeader>
+                    <CardTitle className="text-white text-sm flex items-center gap-2">
+                      <Star className="w-4 h-4 text-amber-400" />
+                      Why Register With Districts?
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3 text-sm text-gray-300">
+                    <div className="flex items-start gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-green-400 shrink-0 mt-0.5" />
+                      <span>Makes you <strong className="text-white">visible</strong> to contracting officers</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-green-400 shrink-0 mt-0.5" />
+                      <span>Gets you on <strong className="text-white">vendor lists</strong> before storms hit</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-green-400 shrink-0 mt-0.5" />
+                      <span>Opens <strong className="text-white">subcontracting doors</strong> with major primes</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-green-400 shrink-0 mt-0.5" />
+                      <span>Positions you for <strong className="text-white">IDIQ/MATOC awards</strong> issued before disasters</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-green-400 shrink-0 mt-0.5" />
+                      <span>Small Business Specialists <strong className="text-white">advocate</strong> for you</span>
+                    </div>
+                    <div className="bg-amber-900/20 border border-amber-500/20 rounded p-3 mt-3">
+                      <p className="text-xs text-amber-200 italic">"When a hurricane hits, districts activate contractors already in their system. If you're not registered, you don't get called."</p>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-slate-800/50 border-slate-700">
+                  <CardHeader>
+                    <CardTitle className="text-white text-sm flex items-center gap-2">
+                      <Building2 className="w-4 h-4 text-blue-400" />
+                      Major Primes to Target
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-xs text-gray-400 mb-3">These primes regularly seek small business subcontractors through USACE districts:</p>
+                    <div className="space-y-2">
+                      {(usaceData?.majorPrimes || []).map((prime: string) => (
+                        <div key={prime} className="flex items-center gap-2 text-sm">
+                          <ArrowRight className="w-3 h-3 text-blue-400 shrink-0" />
+                          <span className="text-gray-200">{prime}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-slate-800/50 border-slate-700">
+                  <CardHeader>
+                    <CardTitle className="text-white text-sm flex items-center gap-2">
+                      <Globe className="w-4 h-4 text-green-400" />
+                      USACE Resources
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full justify-start border-slate-600 text-gray-300 hover:bg-slate-700 text-xs"
+                      onClick={() => window.open('https://www.usace.army.mil/Business-With-Us/', '_blank')}
+                    >
+                      <ExternalLink className="w-3 h-3 mr-2" />
+                      USACE "Doing Business With Us"
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full justify-start border-slate-600 text-gray-300 hover:bg-slate-700 text-xs"
+                      onClick={() => window.open('https://www.usace.army.mil/Business-With-Us/Small-Business/', '_blank')}
+                    >
+                      <ExternalLink className="w-3 h-3 mr-2" />
+                      Small Business Program Office
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full justify-start border-slate-600 text-gray-300 hover:bg-slate-700 text-xs"
+                      onClick={() => window.open('https://sam.gov/opportunities', '_blank')}
+                    >
+                      <ExternalLink className="w-3 h-3 mr-2" />
+                      SAM.gov — USACE Solicitations
+                    </Button>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
           </TabsContent>
 
           {/* INSIDER TIPS TAB */}
