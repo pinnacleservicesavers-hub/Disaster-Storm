@@ -128,5 +128,45 @@ export function registerAIAdsRoutes(app: Express) {
     }
   });
   
+  app.post('/api/ai-ads/freeform-create', async (req: Request, res: Response) => {
+    try {
+      const { prompt, adType, style, platform, includeImage } = req.body;
+      
+      if (!prompt) {
+        return res.status(400).json({ error: 'Prompt is required - tell us what ad you want to create' });
+      }
+      
+      const result = await aiAdsAssistant.createFreeformAd({
+        prompt,
+        adType: adType || 'image',
+        style,
+        platform,
+        includeImage: includeImage !== false
+      });
+      
+      res.json({ success: true, result });
+    } catch (error) {
+      console.error('Error creating freeform ad:', error);
+      res.status(500).json({ error: 'Failed to create ad', details: error instanceof Error ? error.message : 'Unknown error' });
+    }
+  });
+
+  app.post('/api/ai-ads/generate-image-only', async (req: Request, res: Response) => {
+    try {
+      const { prompt, style } = req.body;
+      
+      if (!prompt) {
+        return res.status(400).json({ error: 'Image prompt is required' });
+      }
+      
+      const imageUrl = await aiAdsAssistant.generateImageOnly(prompt, style);
+      
+      res.json({ success: true, imageUrl });
+    } catch (error) {
+      console.error('Error generating image:', error);
+      res.status(500).json({ error: 'Failed to generate image', details: error instanceof Error ? error.message : 'Unknown error' });
+    }
+  });
+
   console.log('🎨 AI Ads Assistant routes registered');
 }

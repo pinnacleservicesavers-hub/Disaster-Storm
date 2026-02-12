@@ -1,5 +1,30 @@
 import OpenAI from 'openai';
 
+export interface FreeformAdRequest {
+  prompt: string;
+  adType?: 'image' | 'video_concept' | 'full_campaign';
+  style?: string;
+  platform?: string;
+  includeImage?: boolean;
+}
+
+export interface FreeformAdResult {
+  adCopy: string;
+  headlines: string[];
+  callToAction: string;
+  imageUrl?: string;
+  videoScript?: string;
+  videoConcept?: {
+    scenes: Array<{ description: string; duration: string; voiceover: string; visualNotes: string }>;
+    music: string;
+    totalDuration: string;
+    style: string;
+  };
+  hashtags: string[];
+  platforms: string[];
+  targetAudience: string;
+}
+
 export interface AdCopyRequest {
   businessType: string;
   targetAudience?: string;
@@ -326,6 +351,142 @@ Return ONLY the headlines, numbered 1-${count}.`;
       .split(/\d+\.\s+/)
       .filter(h => h.trim().length > 5)
       .map(h => h.trim());
+  }
+
+  async createFreeformAd(request: FreeformAdRequest): Promise<FreeformAdResult> {
+    const isVideo = request.adType === 'video_concept';
+    const isCampaign = request.adType === 'full_campaign';
+    
+    const systemPrompt = `You are an elite creative director and advertising genius. You create ads that go viral, win awards, and drive massive results. You have no creative limits — you push boundaries and create content that captivates.
+
+Your specialty is creating advertising content for ANY industry — contractor services, tech, lifestyle, food, fitness, automotive, real estate, entertainment, and more. You match the tone and style to whatever the user describes.
+
+Rules:
+- Be bold, creative, and fearless
+- Match the exact vibe the user describes
+- Create content that stops the scroll
+- Think like the best agencies in the world
+- If they want edgy, go edgy. If they want heartfelt, pour emotion into it.
+- No generic corporate speak — every word should hit hard`;
+
+    const copyPrompt = `The user wants this ad created:
+
+"${request.prompt}"
+
+${request.style ? `Style preference: ${request.style}` : ''}
+${request.platform ? `Target platform: ${request.platform}` : ''}
+${isVideo ? 'This is a VIDEO AD concept.' : ''}
+${isCampaign ? 'This is a FULL CAMPAIGN with multiple pieces.' : ''}
+
+Generate a complete ad package as JSON with these fields:
+{
+  "adCopy": "The main ad copy text (compelling, scroll-stopping, 50-150 words)",
+  "headlines": ["5 killer headline variations"],
+  "callToAction": "The perfect CTA button text",
+  "hashtags": ["10 relevant trending hashtags"],
+  "platforms": ["Best platforms for this ad"],
+  "targetAudience": "Who this ad targets and why"${isVideo || isCampaign ? `,
+  "videoScript": "A 30-60 second video script with narration and visual directions",
+  "videoConcept": {
+    "scenes": [
+      {
+        "description": "What happens visually",
+        "duration": "How long this scene lasts",
+        "voiceover": "What the narrator says",
+        "visualNotes": "Camera angles, effects, transitions"
+      }
+    ],
+    "music": "Music style/mood recommendation",
+    "totalDuration": "Total video length",
+    "style": "Overall visual style"
+  }` : ''}
+}
+
+Make it exceptional. Make it unforgettable.`;
+
+    const response = await this.openai.chat.completions.create({
+      model: 'gpt-4',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: copyPrompt }
+      ],
+      temperature: 1.0,
+      max_tokens: 2000,
+      response_format: { type: 'json_object' }
+    });
+
+    const result = JSON.parse(response.choices[0].message.content || '{}');
+
+    if (request.includeImage !== false) {
+      try {
+        const imagePrompt = `Create a stunning, professional advertising visual for: ${request.prompt}. 
+Style: ${request.style || 'Modern, bold, eye-catching'}.
+Make it look like a premium agency-produced ad image. Ultra high quality, cinematic lighting, professional composition. No text or words in the image.`;
+        
+        const imgResponse = await this.openai.images.generate({
+          model: 'dall-e-3',
+          prompt: imagePrompt,
+          n: 1,
+          size: '1024x1024',
+          quality: 'hd'
+        });
+        
+        result.imageUrl = imgResponse.data[0]?.url || '';
+      } catch (imgErr) {
+        console.error('Image generation failed, trying Replit AI:', imgErr);
+        try {
+          const replitOpenai = new OpenAI({
+            apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+            baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+          });
+          const imgResponse = await replitOpenai.images.generate({
+            model: 'gpt-image-1',
+            prompt: `Stunning professional ad visual for: ${request.prompt}. ${request.style || 'Modern, bold, eye-catching'}. Ultra high quality, no text.`,
+            n: 1,
+            size: '1024x1024',
+          });
+          if (imgResponse.data[0]?.b64_json) {
+            result.imageUrl = `data:image/png;base64,${imgResponse.data[0].b64_json}`;
+          } else if (imgResponse.data[0]?.url) {
+            result.imageUrl = imgResponse.data[0].url;
+          }
+        } catch (replitErr) {
+          console.error('Replit AI image generation also failed:', replitErr);
+        }
+      }
+    }
+
+    return result;
+  }
+
+  async generateImageOnly(prompt: string, style?: string): Promise<string> {
+    try {
+      const imagePrompt = `${prompt}. Style: ${style || 'Professional, cinematic, high-end advertising'}. No text or watermarks. Ultra high quality.`;
+      const response = await this.openai.images.generate({
+        model: 'dall-e-3',
+        prompt: imagePrompt,
+        n: 1,
+        size: '1024x1024',
+        quality: 'hd'
+      });
+      return response.data[0]?.url || '';
+    } catch (err) {
+      console.error('DALL-E failed, trying Replit AI:', err);
+      const replitOpenai = new OpenAI({
+        apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+        baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+      });
+      const response = await replitOpenai.images.generate({
+        model: 'gpt-image-1',
+        prompt: `${prompt}. ${style || 'Professional, cinematic'}. No text. Ultra high quality.`,
+        n: 1,
+        size: '1024x1024',
+      });
+      if (response.data[0]?.b64_json) {
+        return `data:image/png;base64,${response.data[0].b64_json}`;
+      }
+      return response.data[0]?.url || '';
+    }
   }
 }
 
