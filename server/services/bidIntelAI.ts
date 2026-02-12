@@ -234,7 +234,27 @@ UTILITY CONTRACTOR READINESS CENTER (CRITICAL KNOWLEDGE):
   - If not pre-qualified with primes, contractors do NOT get the call during storms
   - Tell contractors to expand "Storm Primes & National Contractors" in the sidebar
 
-- Direct contractors to the Utility Readiness tab for the interactive checklist, utility portal browser, email generator, and tracking sheet export. The platform now covers 13 states (GA, AL, AK, AZ, AR, CA, CO, CT, DE, FL, HI, ID, IL) with 200+ utilities, plus national forestry agencies and storm prime contractors.
+- IOWA ELECTRIC UTILITIES:
+  - 28 Iowa cooperatives and municipal utilities plus 2 IOUs (30 total)
+  - Major IOUs: MidAmerican Energy (largest, covers much of Iowa), Alliant Energy/IPL
+  - G&T cooperatives: Corn Belt Power Cooperative, Northwest Iowa Power Cooperative (NIPCO)
+  - Key cooperatives: Iowa Lakes Electric, Maquoketa Valley, Hawkeye Electric, Access Energy, Southern Iowa Electric
+  - Municipal utilities: Ames, Cedar Falls, Dubuque, Iowa City
+  - Municipal cooperative: NIMEC (North Iowa Municipal Electric Cooperative)
+  - Context: Derecho storms, tornado corridor, severe thunderstorms, ice storms
+  - Tell contractors to expand "Iowa Utilities" in the sidebar
+
+- KANSAS ELECTRIC UTILITIES:
+  - 26 Kansas cooperatives and municipal utilities plus 3 IOUs/support orgs (29 total)
+  - Major IOU: Evergy (largest, covers Kansas City/Topeka/Wichita)
+  - G&T: Sunflower Electric Power Corporation (6 western KS co-ops)
+  - State association: Kansas Electric Cooperatives (KEC)
+  - Key cooperatives: Midwest Energy (largest co-op), Pioneer Electric, FreeState Electric, Victory Electric, Wheatland Electric
+  - Municipal: Kansas City BPU (one of largest KS municipals), Winfield Electric
+  - Context: Tornado Alley, severe storms, winter ice storms, high wind events
+  - Tell contractors to expand "Kansas Utilities" in the sidebar
+
+- Direct contractors to the Utility Readiness tab for the interactive checklist, utility portal browser, email generator, and tracking sheet export. The platform now covers 15 states (GA, AL, AK, AZ, AR, CA, CO, CT, DE, FL, HI, ID, IL, IA, KS) with 290+ utilities, plus national forestry agencies and storm prime contractors.
 
 INSIDER TIPS DATABASE:
 1. **Price Psychology**: Government evaluators have a "price reasonableness" range. Being 5-10% below the IGCE is ideal — too low triggers concerns about ability to perform.
