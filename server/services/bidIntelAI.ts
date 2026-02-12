@@ -372,7 +372,51 @@ UTILITY CONTRACTOR READINESS CENTER (CRITICAL KNOWLEDGE):
   - Context: Nor'easters, ice storms, heavy snow, high winds, coastal flooding, mountainous terrain (White Mountains)
   - Tell contractors to expand "New Hampshire Utilities" in the sidebar
 
-- Direct contractors to the Utility Readiness tab for the interactive checklist, utility portal browser, email generator, and tracking sheet export. The platform now covers 28 states (GA, AL, AK, AZ, AR, CA, CO, CT, DE, FL, HI, ID, IL, IA, KS, KY, LA, ME, MD, MA, MI, MN, MS, MO, MT, NE, NV, NH) with 529 utilities, plus national forestry agencies and storm prime contractors.
+- NEW JERSEY ELECTRIC UTILITIES:
+  - 4 total (3 IOUs + 1 regulatory body)
+  - Major IOUs: PSE&G (largest, 2.3M+ customers, PSEG supplier portal), Jersey Central Power & Light (FirstEnergy), Atlantic City Electric (Exelon)
+  - Context: Nor'easters, hurricanes, coastal flooding, severe thunderstorms
+  - Tell contractors to expand "New Jersey Utilities" in the sidebar
+
+- NEW MEXICO ELECTRIC UTILITIES:
+  - 4 total (3 IOUs + 1 cooperative network)
+  - Major IOUs: PNM (largest, Albuquerque/Santa Fe), El Paso Electric (southern NM), Southwestern Public Service (Xcel Energy, eastern NM)
+  - NM Electric Cooperatives statewide network
+  - Context: Desert heat, wildfires, monsoons, high winds, flash flooding
+  - Tell contractors to expand "New Mexico Utilities" in the sidebar
+
+- NEW YORK ELECTRIC UTILITIES:
+  - 6 total (5 utilities + 1 state organization)
+  - Major IOUs: Con Edison (NYC/Westchester), National Grid (upstate/Brooklyn/Queens), NYSEG & RG&E (Avangrid), PSEG Long Island
+  - NY Power Authority (NYPA) — largest state public power organization in US
+  - Context: Nor'easters, hurricanes, ice storms, lake effect storms, heat waves, coastal flooding
+  - Tell contractors to expand "New York Utilities" in the sidebar
+
+- NORTH CAROLINA ELECTRIC UTILITIES:
+  - 4 total (3 IOUs + 1 cooperative network)
+  - Major IOUs: Duke Energy Carolinas (western/central), Duke Energy Progress (eastern/Raleigh), Dominion Energy NC (northeast/Outer Banks)
+  - Electric Cooperatives of NC — 26 member co-ops with business opportunities portal
+  - Context: Hurricanes, severe thunderstorms, ice storms, tornadoes, coastal flooding
+  - Tell contractors to expand "North Carolina Utilities" in the sidebar
+
+- NORTH DAKOTA ELECTRIC UTILITIES:
+  - 5 total (4 utilities + 1 cooperative association)
+  - IOUs: Montana-Dakota Utilities (MDU, western ND), Otter Tail Power (eastern ND/Fargo), Xcel Energy (Fargo/Minot)
+  - Basin Electric Power Cooperative — major G&T serving 9 states from Bismarck
+  - ND Association of Rural Electric Cooperatives (NDAREC)
+  - Context: Extreme winter storms, blizzards, high winds, Tornado Alley, severe thunderstorms
+  - Tell contractors to expand "North Dakota Utilities" in the sidebar
+
+- TEXAS ELECTRIC UTILITIES:
+  - 9 total (4 IOUs + 3 cooperatives + 2 state organizations)
+  - Major IOUs: Oncor Electric Delivery (North/Central TX), CenterPoint Energy (Houston metro), AEP Texas (South/West TX), Texas-New Mexico Power (TNMP)
+  - Major Cooperatives: Pedernales Electric (largest in Central TX), Bluebonnet Electric (east of Austin), CoServ Electric (North TX suburbs)
+  - Texas Electric Cooperatives (TEC) — statewide procurement for all member co-ops
+  - ERCOT — independent grid operator managing 90% of Texas electric load
+  - Context: Hurricanes, severe thunderstorms, tornadoes, extreme heat, ice storms, flooding
+  - Tell contractors to expand "Texas Utilities" in the sidebar
+
+- Direct contractors to the Utility Readiness tab for the interactive checklist, utility portal browser, email generator, and tracking sheet export. The platform now covers 34 states (GA, AL, AK, AZ, AR, CA, CO, CT, DE, FL, HI, ID, IL, IA, KS, KY, LA, ME, MD, MA, MI, MN, MS, MO, MT, NE, NV, NH, NJ, NM, NY, NC, ND, TX) with 576 utilities, plus national forestry agencies and storm prime contractors.
 
 INSIDER TIPS DATABASE:
 1. **Price Psychology**: Government evaluators have a "price reasonableness" range. Being 5-10% below the IGCE is ideal — too low triggers concerns about ability to perform.
