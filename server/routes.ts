@@ -19560,6 +19560,283 @@ Important guidelines:
     }
   });
 
+  // ============ AUTO REPAIR V2 — Enhanced with Server-Side Video/Audio Processing ============
+  const autoRepairUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 50 * 1024 * 1024 }, // 50MB per file
+    fileFilter: (_req, file, cb) => {
+      const allowedVideo = ['video/mp4', 'video/quicktime', 'video/webm', 'video/x-msvideo'];
+      const allowedImage = ['image/jpeg', 'image/png', 'image/webp', 'image/heic'];
+      if (allowedVideo.includes(file.mimetype) || allowedImage.includes(file.mimetype)) {
+        cb(null, true);
+      } else {
+        cb(new Error('Only MP4/MOV/WebM video and JPG/PNG image files are accepted'));
+      }
+    }
+  });
+
+  // JSON-only route (no media) — forwards to v2 handler
+  app.post('/api/workhub/auto-repair-diagnose-v2-json', express.json({ limit: '1mb' }), async (req, res) => {
+    try {
+      const { vehicle, symptoms, location, repairType } = req.body;
+      if (!symptoms) {
+        return res.status(400).json({ error: 'Please describe the issue' });
+      }
+
+      // Forward to the shared handler without files
+      await handleAutoRepairV2(res, undefined, typeof vehicle === 'string' ? vehicle : JSON.stringify(vehicle || {}), symptoms, location, repairType);
+    } catch (error) {
+      console.error('Auto repair V2 JSON error:', error);
+      res.status(500).json({ error: 'Diagnostic analysis failed. Please try again.' });
+    }
+  });
+
+  app.post('/api/workhub/auto-repair-diagnose-v2', autoRepairUpload.array('media', 6), async (req, res) => {
+    try {
+      const files = req.files as Express.Multer.File[] | undefined;
+      const { vehicle: vehicleJson, symptoms, location, repairType } = req.body;
+      await handleAutoRepairV2(res, files, vehicleJson, symptoms, location, repairType);
+    } catch (error) {
+      console.error('Auto repair V2 diagnostic error:', error);
+      res.status(500).json({ error: 'Diagnostic analysis failed. Please try again.' });
+    }
+  });
+
+  async function handleAutoRepairV2(
+    res: any,
+    files: Express.Multer.File[] | undefined,
+    vehicleJson: string | undefined,
+    symptoms: string | undefined,
+    location: string | undefined,
+    repairType: string | undefined
+  ) {
+      let vehicle: any = {};
+      try { vehicle = vehicleJson ? JSON.parse(vehicleJson) : {}; } catch { vehicle = {}; }
+
+      if (!symptoms && (!files || files.length === 0)) {
+        return res.status(400).json({ error: 'Please describe the issue or upload a video/photo' });
+      }
+
+      const vehicleDesc = `${vehicle.year || ''} ${vehicle.make || ''} ${vehicle.model || ''} ${vehicle.type || ''}`.trim() +
+        (vehicle.mileage ? ` with ${vehicle.mileage.toLocaleString()} miles` : '') +
+        (vehicle.vin ? ` (VIN: ${vehicle.vin})` : '');
+
+      console.log(`🔧 Auto Repair V2 Diagnostic requested for: ${vehicleDesc}`);
+
+      const openaiApiKey = process.env.OPENAI_API_KEY;
+      if (!openaiApiKey) {
+        return res.status(500).json({ error: 'AI service not configured' });
+      }
+
+      // Process all uploaded files — extract frames + audio with FFmpeg
+      const allFrames: string[] = [];
+      let audioDescription = '';
+      let audioMetadata: any = null;
+      const processingNotes: string[] = [];
+
+      if (files && files.length > 0) {
+        const { processVideoBuffer } = await import('./services/videoAudioProcessor.js');
+
+        for (const file of files) {
+          if (file.mimetype.startsWith('video/')) {
+            console.log(`🎬 Processing video: ${file.originalname} (${(file.size / 1024 / 1024).toFixed(1)}MB)`);
+            try {
+              const processed = await processVideoBuffer(file.buffer, file.mimetype);
+              allFrames.push(...processed.frames);
+              if (processed.audioAnalysis.hasAudio) {
+                audioDescription = processed.audioAnalysis.audioDescription;
+                audioMetadata = processed.audioAnalysis;
+                processingNotes.push(`Audio extracted from ${file.originalname} (${processed.audioAnalysis.duration.toFixed(1)}s)`);
+              } else {
+                processingNotes.push(`No audio track in ${file.originalname}`);
+              }
+              processingNotes.push(`Extracted ${processed.frames.length} frames from ${file.originalname}`);
+              console.log(`✅ Extracted ${processed.frames.length} frames, audio: ${processed.audioAnalysis.hasAudio ? 'yes' : 'no'}`);
+            } catch (err) {
+              console.error('Video processing error:', err);
+              processingNotes.push(`Could not process video ${file.originalname} - using fallback`);
+            }
+          } else if (file.mimetype.startsWith('image/')) {
+            allFrames.push(file.buffer.toString('base64'));
+            processingNotes.push(`Image ${file.originalname} loaded`);
+          }
+        }
+      }
+
+      // Build the enhanced AI prompt with audio analysis context
+      const systemPrompt = `You are an expert ASE-certified master mechanic and automotive diagnostic specialist with 30+ years of experience. A customer is bringing you their vehicle with an issue. You have access to:
+1. Visual frames from their uploaded photos/video showing the vehicle/engine/issue
+2. Audio analysis data from the video showing noise characteristics
+3. Customer's description of the problem
+
+Analyze ALL available evidence and provide a comprehensive diagnosis.
+
+You must respond with a JSON object (no markdown, no code fences) with this exact structure:
+{
+  "vehicleSummary": "Brief summary of the vehicle and reported issue",
+  "overallAssessment": "2-3 sentence overall assessment of the situation",
+  "safetyWarning": "Safety warning if applicable, or empty string",
+  "audioFindings": "What you determined from the audio characteristics - describe what the noise pattern suggests. If no audio, say so.",
+  "visualFindings": "What you observed in the photos/video frames - visible damage, fluid leaks, wear patterns, smoke, etc.",
+  "possibleCauses": [
+    {
+      "label": "Short label like 'Rod Knock' or 'Torque Converter Issue'",
+      "description": "Detailed explanation of what this issue is and why it matches the evidence",
+      "likelihood": "high|medium|low",
+      "severity": "critical|significant|moderate|minor",
+      "estimatedCostMin": 100,
+      "estimatedCostMax": 500,
+      "repairDetails": "What the repair involves, parts needed, labor time estimate",
+      "canDIY": false,
+      "diyDifficulty": "easy|moderate|hard|professional_only"
+    }
+  ],
+  "immediateActions": ["Action 1", "Action 2"],
+  "warrantyNote": "Warranty information if the vehicle is likely still covered, or empty string",
+  "questionsToAsk": ["Question 1 to help narrow down the issue", "Question 2"],
+  "maintenanceTips": ["Preventive maintenance tip 1", "Tip 2"],
+  "urgencyLevel": "immediate|soon|scheduled|monitor"
+}
+
+Important guidelines:
+- Provide 3-6 possible causes ranked by likelihood
+- Cost estimates should reflect real shop rates (southeastern US average)
+- Include both dealer and independent shop pricing perspective  
+- If the vehicle is newer (2020+), mention warranty coverage possibilities
+- If audio data is provided, analyze the noise characteristics to inform your diagnosis
+- Correlate visual and audio evidence when both are available
+- Be thorough but clear - the customer is not a mechanic
+- Always include safety warnings for potentially dangerous issues
+- Include DIY feasibility for each cause
+- Prioritize causes by combining visual + audio + symptom evidence`;
+
+      const userContent: any[] = [];
+      let textPrompt = `Vehicle: ${vehicleDesc}\n\nCustomer's description: ${symptoms || 'No written description provided'}`;
+
+      if (audioDescription) {
+        textPrompt += `\n\n🔊 AUDIO ANALYSIS FROM VIDEO:\n${audioDescription}`;
+        if (audioMetadata?.noiseCharacteristics?.length > 0) {
+          textPrompt += `\nNoise characteristics detected: ${audioMetadata.noiseCharacteristics.join(', ')}`;
+        }
+      }
+
+      if (repairType) {
+        const repairLabels: Record<string, string> = {
+          mechanical: 'Mechanical Repair', body: 'Body/Collision Repair', paint: 'Paint Work',
+          electrical: 'Electrical Issue', tires_wheels: 'Tires & Wheels',
+          diagnostic: 'Diagnostic Check', maintenance: 'Maintenance', other: 'Other'
+        };
+        textPrompt += `\n\nRepair type requested: ${repairLabels[repairType] || repairType}`;
+      }
+
+      if (allFrames.length > 0) {
+        textPrompt += `\n\nI'm providing ${allFrames.length} image(s)/video frame(s). Please analyze what you see along with the description and audio data.`;
+        userContent.push({ type: 'text', text: textPrompt });
+        for (const frame of allFrames.slice(0, 8)) {
+          userContent.push({
+            type: 'image_url',
+            image_url: { url: `data:image/jpeg;base64,${frame}`, detail: 'high' }
+          });
+        }
+      } else {
+        textPrompt += '\n\nNo photos/video provided. Please provide a comprehensive diagnostic based on the symptoms alone.';
+        userContent.push({ type: 'text', text: textPrompt });
+      }
+
+      const openai = new OpenAI({ apiKey: openaiApiKey });
+      const response = await openai.chat.completions.create({
+        model: 'gpt-4o',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userContent }
+        ],
+        max_tokens: 5000,
+        temperature: 0.3,
+      });
+
+      const responseText = response.choices[0]?.message?.content || '';
+
+      let diagnostic: any;
+      try {
+        const cleaned = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+        diagnostic = JSON.parse(cleaned);
+      } catch (parseError) {
+        console.error('Failed to parse AI diagnostic V2 response:', parseError);
+        diagnostic = {
+          vehicleSummary: vehicleDesc,
+          overallAssessment: responseText.slice(0, 500),
+          safetyWarning: '',
+          audioFindings: audioDescription || 'No audio analyzed',
+          visualFindings: allFrames.length > 0 ? 'Frames were provided but could not be parsed into structured response' : 'No visual evidence',
+          possibleCauses: [{
+            label: 'Diagnostic Available',
+            description: responseText.slice(0, 800),
+            likelihood: 'medium' as const,
+            severity: 'moderate' as const,
+            estimatedCostMin: 100,
+            estimatedCostMax: 1000,
+            repairDetails: 'Please visit a mechanic for an in-person diagnostic',
+            canDIY: false,
+            diyDifficulty: 'professional_only'
+          }],
+          immediateActions: ['Visit a certified mechanic for an in-person diagnostic'],
+          warrantyNote: '',
+          questionsToAsk: [],
+          maintenanceTips: [],
+          urgencyLevel: 'scheduled'
+        };
+      }
+
+      // Enrich with pricing engine data
+      if (vehicle.make && vehicle.year && symptoms) {
+        try {
+          const vehicleInfo: VehicleInfo = {
+            year: typeof vehicle.year === 'number' ? vehicle.year : parseInt(vehicle.year),
+            make: vehicle.make,
+            model: vehicle.model || 'Unknown',
+            vin: vehicle.vin,
+          };
+          const pricingEstimate = calculateAutoRepairPrice(vehicleInfo, symptoms);
+          if (pricingEstimate && pricingEstimate.partsNeeded.length > 0) {
+            diagnostic.pricingEngineEstimate = {
+              partsNeeded: pricingEstimate.partsNeeded,
+              grandTotalMin: pricingEstimate.grandTotalMin,
+              grandTotalMax: pricingEstimate.grandTotalMax,
+              diagnosticFee: pricingEstimate.diagnosticFee,
+              recommendations: pricingEstimate.recommendations,
+            };
+          }
+        } catch (e) { /* pricing engine is supplementary */ }
+      }
+
+      // Find nearby mechanic shops if location provided
+      let nearbyShops: any = null;
+      if (location) {
+        try {
+          const { findNearbyMechanics } = await import('./services/mechanicLocator.js');
+          const result = await findNearbyMechanics(location, repairType, 5);
+          if (result.shops.length > 0) {
+            nearbyShops = result;
+          }
+        } catch (e) {
+          console.error('Mechanic locator error:', e);
+        }
+      }
+
+      // Attach audio metadata to response
+      diagnostic.audioMetadata = audioMetadata || null;
+      diagnostic.framesAnalyzed = allFrames.length;
+      diagnostic.processingNotes = processingNotes;
+
+      console.log(`🔧 Auto Repair V2 Diagnostic complete: ${diagnostic.possibleCauses?.length || 0} causes, audio: ${audioMetadata ? 'yes' : 'no'}, shops: ${nearbyShops?.shops?.length || 0}`);
+
+      res.json({
+        ok: true,
+        diagnostic,
+        nearbyShops,
+      });
+  }
+
   // ============ FLOORING PRICING ENGINE ============
   // Square footage based pricing with Home Depot/Lowes affiliate integration
   
