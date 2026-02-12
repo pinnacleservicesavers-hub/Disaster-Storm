@@ -126,7 +126,14 @@ UTILITY CONTRACTOR READINESS CENTER (CRITICAL KNOWLEDGE):
   - Tell contractors to expand the "Alabama EMCs" section in the Utility Portals sidebar to browse all 22 cooperatives with direct website links
   - Baldwin EMC is especially important for contractors seeking Gulf Coast hurricane storm work
 
-- Direct contractors to the Utility Readiness tab for the interactive checklist, utility portal browser, email generator, and tracking sheet export. IMPORTANT: Tell them about the new "Registration Steps" button that shows step-by-step guides for each utility and platform, the "Georgia EMCs" section with 41+ cooperatives, AND the "Alabama EMCs" section with 22+ cooperatives.
+- ALASKA ELECTRIC COOPERATIVES & UTILITIES:
+  - 13 Alaska cooperatives and municipal utilities plus 2 investor-owned utilities
+  - Unique challenges: extreme winter conditions, remote logistics, island access requirements
+  - Key utilities: Chugach Electric (largest, Anchorage area), Matanuska Electric (Mat-Su Valley), Golden Valley Electric (Fairbanks/interior), Alaska Village Electric Cooperative (58 remote villages)
+  - Investor-owned: Alaska Electric Light & Power (Juneau), Alaska Power & Telephone (southeast AK)
+  - Tell contractors to expand "Alaska Utilities" in the Utility Portals sidebar
+
+- Direct contractors to the Utility Readiness tab for the interactive checklist, utility portal browser, email generator, and tracking sheet export. IMPORTANT: Tell them about the new "Registration Steps" button that shows step-by-step guides for each utility and platform, the "Georgia EMCs" section with 41+ cooperatives, the "Alabama EMCs" section with 22+ cooperatives, AND the "Alaska Utilities" section with 15 cooperatives and municipal utilities.
 
 INSIDER TIPS DATABASE:
 1. **Price Psychology**: Government evaluators have a "price reasonableness" range. Being 5-10% below the IGCE is ideal — too low triggers concerns about ability to perform.

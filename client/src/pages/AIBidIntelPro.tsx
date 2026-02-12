@@ -276,8 +276,10 @@ export default function AIBidIntelPro() {
   const [showPlatformSteps, setShowPlatformSteps] = useState<string>("");
   const [showGeorgiaEMCs, setShowGeorgiaEMCs] = useState(false);
   const [showAlabamaEMCs, setShowAlabamaEMCs] = useState(false);
+  const [showAlaskaEMCs, setShowAlaskaEMCs] = useState(false);
   const [emcSearchTerm, setEmcSearchTerm] = useState("");
   const [alEmcSearchTerm, setAlEmcSearchTerm] = useState("");
+  const [akEmcSearchTerm, setAkEmcSearchTerm] = useState("");
   const audioRef = useRef<HTMLAudioElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
@@ -1863,6 +1865,89 @@ export default function AIBidIntelPro() {
                                 Alabama Utility & Cooperative Organizations
                               </h5>
                               {utilityPortalsData.alabamaEMCs
+                                .filter((emc: any) => emc.type === "support_org")
+                                .map((org: any) => (
+                                  <div key={org.name} className="border border-slate-700 rounded p-2">
+                                    <div className="flex items-center justify-between gap-1">
+                                      <h5 className="text-xs font-medium text-amber-300 leading-tight">{org.name}</h5>
+                                      {org.website && (
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1"
+                                          onClick={() => window.open(org.website, '_blank')}
+                                        >
+                                          <ExternalLink className="w-2.5 h-2.5" />
+                                        </Button>
+                                      )}
+                                    </div>
+                                    <p className="text-[10px] text-gray-500 mt-0.5">{org.description}</p>
+                                  </div>
+                                ))}
+                            </div>
+                          )}
+                        </>
+                      )}
+
+                      {utilityPortalsData?.alaskaEMCs?.length > 0 && (
+                        <>
+                          <Separator className="my-3 bg-slate-600" />
+                          <div>
+                            <Button
+                              variant="ghost"
+                              className="w-full justify-between text-sm font-semibold text-cyan-400 hover:text-cyan-300 p-0 h-auto"
+                              onClick={() => setShowAlaskaEMCs(!showAlaskaEMCs)}
+                            >
+                              <span className="flex items-center gap-1">
+                                <Zap className="w-4 h-4" />
+                                Alaska Utilities ({utilityPortalsData.alaskaEMCs.filter((e: any) => e.type === "emc").length} Cooperatives & Municipals)
+                              </span>
+                              {showAlaskaEMCs ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                            </Button>
+                            <p className="text-[10px] text-gray-500 mt-0.5">Alaska cooperatives & municipal utilities — storm, ROW, emergency restoration</p>
+                          </div>
+                          {showAlaskaEMCs && (
+                            <div className="space-y-2 mt-2">
+                              <Input
+                                placeholder="Search Alaska utilities..."
+                                value={akEmcSearchTerm}
+                                onChange={(e) => setAkEmcSearchTerm(e.target.value)}
+                                className="bg-slate-900/50 border-slate-600 text-white text-xs h-7"
+                              />
+                              <div className="max-h-[400px] overflow-y-auto space-y-1.5 pr-1">
+                                {utilityPortalsData.alaskaEMCs
+                                  .filter((emc: any) => emc.type === "emc")
+                                  .filter((emc: any) => !akEmcSearchTerm || emc.name.toLowerCase().includes(akEmcSearchTerm.toLowerCase()) || emc.description.toLowerCase().includes(akEmcSearchTerm.toLowerCase()))
+                                  .map((emc: any) => (
+                                    <div key={emc.name} className="border border-slate-700 rounded p-2 hover:border-cyan-500/30 transition-colors">
+                                      <div className="flex items-center justify-between gap-1">
+                                        <h5 className="text-xs font-medium text-white leading-tight">{emc.name}</h5>
+                                        {emc.website && (
+                                          <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1"
+                                            onClick={() => window.open(emc.website, '_blank')}
+                                          >
+                                            <ExternalLink className="w-2.5 h-2.5" />
+                                          </Button>
+                                        )}
+                                      </div>
+                                      <p className="text-[10px] text-gray-500 mt-0.5">{emc.description}</p>
+                                      <div className="flex flex-wrap gap-1 mt-1">
+                                        {emc.serviceTypes.slice(0, 3).map((s: string) => (
+                                          <Badge key={s} className="bg-cyan-500/10 text-cyan-400 border-cyan-500/20 text-[8px] py-0 px-1">{s}</Badge>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  ))}
+                              </div>
+                              <Separator className="my-2 bg-slate-700" />
+                              <h5 className="text-xs font-semibold text-amber-400 flex items-center gap-1">
+                                <Building2 className="w-3 h-3" />
+                                Alaska Investor-Owned Utilities
+                              </h5>
+                              {utilityPortalsData.alaskaEMCs
                                 .filter((emc: any) => emc.type === "support_org")
                                 .map((org: any) => (
                                   <div key={org.name} className="border border-slate-700 rounded p-2">
