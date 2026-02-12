@@ -1,7 +1,7 @@
 # Disaster Direct
 
 ## Overview
-Disaster Direct is a storm operations and claims management platform for contractors and property restoration professionals. It aims to streamline storm response, maximize insurance claim success, and provide robust documentation for damage assessment through real-time weather monitoring, AI assistance, and integrated claims management. The platform seeks to professionalize the storm response industry with an enterprise-grade interface, AI-curated visuals, and efficient operations. A new WorkHub Marketplace extends the platform for everyday, non-emergency contractor and customer interactions.
+Disaster Direct is a storm operations and claims management platform for contractors and property restoration professionals. It aims to streamline storm response, maximize insurance claim success, and provide robust documentation for damage assessment through real-time weather monitoring, AI assistance, and integrated claims management. The platform seeks to professionalize the storm response industry with an enterprise-grade interface, AI-curated visuals, and efficient operations. The WorkHub Marketplace extends the platform for everyday contractor and customer interactions.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
@@ -36,51 +36,17 @@ The platform features an enterprise-grade design system with AI-selected backgro
 - **Quote/Estimate Builder**: Professional quote generation, line item management, smart templates, PDF export, email delivery, and version control.
 - **Kanban Pipeline Dashboard**: Visual pipeline boards for Leads, Quotes, Jobs with drag & drop, real-time metrics, and multi-view support.
 - **AI Lead Management System**: AI-powered lead pipeline with multi-service tracking, automated outreach, smart contractor routing, and lead re-engagement.
-- **Tree Incident Tracker**: Street-level tree-on-structure incident tracking with real-time in-app alerts, CMA (Customer Mitigation Authorization) generation, crew routing, and bulk import from CSV/KML. Features priority-based sorting (immediate/high/medium/low), notification bell with polling, and incident detail views at /tree-tracker and /tree-tracker/:id.
+- **Tree Incident Tracker**: Street-level tree-on-structure incident tracking with real-time in-app alerts, CMA generation, crew routing, and bulk import. Features priority-based sorting and incident detail views.
 - **Universal Measurement Data Model**: Comprehensive measurement system supporting all contractor trades with a Measurement Core, Trade Modules, Scope Class System, Provenance Tracking, and Price Books.
 - **Rachel Voice Guide System**: Centralized voice scripts for each module and trade-specific contractor guidance.
 - **AI Before/After Visualization**: Generates visualizations of completed work using OpenAI image editing with material detection and trade-specific prompts.
 - **WorkHub Marketplace**: A separate domain for everyday contractor/customer interactions featuring 12 AI-powered modules including ScopeSnap (AI Vision Analysis), PriceWhisperer (Smart Estimate Engine), ContractorMatch (AI Matching), CalendarSync (AI Scheduling), JobFlow (Project Command Center), MediaVault (Protected Documentation), CloseBot (AI Sales Agent), PayStream (Seamless Payments), ReviewRocket (Reputation Automation), FairnessScore (Trust Transparency), QuickFinance (Instant Financing), and ContentForge (Marketing Engine).
-- **CrewLink Exchange™**: National workforce and equipment marketplace connecting skilled workers, professional crews, and equipment owners with opportunities. Features include:
-  - **Public Marketplace** (/crewlink): Free browsing for all users with state/city filtering and 36+ trade categories
-  - **Worker Listings**: Individual worker profiles with skills, certifications, hourly/daily rates, AI scoring (experience, certs, performance)
-  - **Crew Listings**: Professional crew profiles with team size, equipment, insurance, travel radius, storm/specialty availability
-  - **Equipment Rentals**: Equipment listings with daily/weekly/monthly rates, operator requirements, delivery options
-  - **AI Scoring System**: AIScoreBadge displays 0-100 score based on experience, certifications, and performance history
-  - **Verification Levels**: unverified, basic, verified, elite - with VerificationBadge component
-  - **Pricing Tiers**: Workers $19-29/mo, Crews $49-99/mo, Equipment $29-79/mo, Transaction fee 3-7%
-  - **Legal Positioning**: Marketplace connects parties only (not an employer), contractors are independent entities
-  - **Rachel Voice Guide**: ElevenLabs TTS introduction with stability 0.70, style 0.35
-- **Multi-Trade Pricing Engines**: Professional-grade pricing engines for contractor trades providing ChatGPT-competitive accuracy:
-  - **Tree Removal Pricing Engine**: Size-based pricing (small/medium/large/giant), hazard detection (power lines, structures, slope), equipment costs (bucket truck/crane), crew estimation, stump grinding, debris haul-off.
-  - **Roofing Pricing Engine**: Square-footage based pricing (1 roofing square = 100 sq ft), 7 material options (3-tab asphalt $150-220/sq, architectural shingles $250-400/sq, metal $450-850/sq, clay tile $800-1500/sq, concrete tile $500-900/sq, slate $1000-2000/sq, wood shake $600-1000/sq), pitch multipliers (low 1.0x, medium 1.15x, steep 1.35x, very steep 1.6x), story height multipliers, complexity factors (valleys, skylights, dormers, chimneys, multi-level, hip roof), tear-off costs, additional work (deck repair, ventilation, gutters, fascia/soffit), permit costs, and crew/day estimation.
-  - **Auto Repair Pricing Engine**: VIN decoder using NHTSA API, 20+ common parts database (fan motor, alternator, starter, brakes, water pump, etc.), symptom-to-parts matching, multi-retailer price comparison (AutoZone, O'Reilly, Advance Auto, RockAuto, NAPA), vehicle-specific price adjustments (luxury brand multipliers), labor hour estimates, affiliate link integration for commission revenue.
-  - **Flooring Pricing Engine**: Square footage based pricing, 11 material options (solid hardwood, engineered hardwood, laminate, LVP, tile, carpet), retailer price comparison (Home Depot, Lowe's, Floor & Decor, LL Flooring), installation costs, condition-based adjustments (subfloor damage, removal, moisture), waste percentage calculation, affiliate link integration.
-- **AI BidIntel Pro**: Advanced procurement intelligence module with Rachel AI agent for contractor bid guidance. Features include:
-  - **Rachel AI Agent**: GPT-4o-mini powered procurement expert with ElevenLabs voice, bidding strategy guidance, form completion walkthroughs, and insider tips
-  - **USACE Outreach Center**: 29 USACE districts ranked by storm debris priority, AI introduction email generator, federal capability statement builder, district priority mapping
-  - **Utility Contractor Readiness Center**: Master readiness checklist (24 items across 7 categories), 20 utility companies with storm priority scoring, 5 vendor management platforms (ISNetworld, PowerAdvocate, Avetta, SAP Ariba, Browz), AI-powered utility introduction email generator, tracking sheet with CSV export
-  - **Procurement Portal Finder**: All 50 state procurement sites, 8 federal portals, 8 bid aggregators, county-level lookup
-  - **Bid Tracking**: Opportunity management, submission tracking, win rate analytics, TrueCost profit analysis
-  - **API Routes**: /api/bidintel/* including /usace/* and /utility-readiness/* endpoints
-  - **Key Files**: server/services/bidIntelAI.ts, server/services/usaceOutreach.ts, server/services/utilityContractorReadiness.ts, server/routes/bidIntelPro.ts, client/src/pages/AIBidIntelPro.tsx
-- **FEMA Audit Export Module** ($299/mo): Enterprise-grade FEMA compliance system designed to enhance monitor efficiency (not replace). Features include:
-  - **AI Digital Field Verification**: Photo validation, GPS tracking, timestamp verification
-  - **Geofenced Work Zones**: Span-based logging with pole/circuit tracking
-  - **Load Ticket Chain of Custody**: GPS-tracked debris transport with pickup/dropoff verification
-  - **Rate Validation Engine**: Compare actual rates vs contract rates, flag overages
-  - **Fraud Detection AI**: Duplicate crew detection, worker conflict detection, rate variance analysis
-  - **T&M 70-Hour Cap Monitoring**: Track Time & Materials against contract limits
-  - **Immutable Audit Logs**: Hash-chained audit events with server-side timestamps
-  - **One-Click Export**: Generate FEMA-compliant audit packets (XLSX, PDF)
-  - **Database Tables**: 13 tables (fema_disasters, fema_contracts, fema_project_worksheets, fema_geo_zones, fema_work_logs, fema_load_tickets, fema_equipment_logs, fema_audit_logs, fema_ai_findings, fema_audit_risk_scores, fema_exports, fema_monitor_sessions, fema_expenses, fema_revenue_snapshots)
-  - **API Routes**: /api/fema-audit/* with parameterized SQL queries for security
-  - **Dashboard**: Risk score visualization, tabbed interface (Dashboard, Work Logs, Load Tickets, AI Findings, Exports)
-  - **Strategic Positioning**: "Digital support tool to enhance monitor efficiency" rather than monitor replacement
-
-### Strategic Business Direction
-- **Xactimate-Ready Estimating Strategy**: The platform collects measurements, photos, and scope documentation to produce pre-estimate worksheets. It focuses on feeding complete scope information to human estimators for input into Xactimate, not replacing it. Key deliverables include normalized scope bundles, photo logs, measurement tables, and AI-generated line-item suggestions.
-- **Industry Benchmark Pricing Language**: All UI, voice narration, reports, and marketing materials must use neutral terminology like "Industry-standard pricing ranges" or "Insurance-aligned benchmarks" to describe pricing, avoiding trademarked software names.
+- **CrewLink Exchange™**: National workforce and equipment marketplace connecting skilled workers, professional crews, and equipment owners with opportunities. Features public marketplace, worker listings, crew listings, equipment rentals, AI scoring, and verification levels.
+- **Multi-Trade Pricing Engines**: Professional-grade pricing engines for contractor trades providing ChatGPT-competitive accuracy, including Tree Removal, Roofing, Auto Repair, and Flooring.
+- **AI BidIntel Pro**: Advanced procurement intelligence module with Rachel AI agent for contractor bid guidance. Features include USACE Outreach Center, Utility Contractor Readiness Center, Procurement Portal Finder, DOT Vendor Registration, Portal Assistant, and Bid Tracking.
+- **FEMA Audit Export Module**: Enterprise-grade FEMA compliance system for enhancing monitor efficiency. Features include AI digital field verification, geofenced work zones, load ticket chain of custody, rate validation engine, fraud detection AI, T&M 70-hour cap monitoring, immutable audit logs, and one-click export for FEMA-compliant audit packets.
+- **Xactimate-Ready Estimating Strategy**: The platform collects measurements, photos, and scope documentation to produce pre-estimate worksheets, focusing on feeding complete scope information to human estimators for input into Xactimate.
+- **Industry Benchmark Pricing Language**: Uses neutral terminology like "Industry-standard pricing ranges" or "Insurance-aligned benchmarks" for pricing.
 
 ## External Dependencies
 

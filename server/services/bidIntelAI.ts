@@ -549,6 +549,67 @@ export interface BidIntelResponse {
   audioUrl?: string;
 }
 
+export async function generatePortalAssistResponse(
+  contractorId: string,
+  userMessage: string,
+  portalContext: {
+    portalName: string;
+    portalUrl: string;
+    portalType: string;
+    portalDescription?: string;
+  }
+): Promise<BidIntelResponse> {
+  const portalPrompt = `${BID_INTEL_SYSTEM_PROMPT}
+
+PORTAL ASSISTANT MODE — ACTIVE:
+You are currently helping the contractor navigate and complete registration/application on a specific portal. The contractor has this portal open and is asking you questions about it.
+
+CURRENTLY VIEWING:
+- Portal Name: ${portalContext.portalName}
+- Portal URL: ${portalContext.portalUrl}
+- Portal Type: ${portalContext.portalType}
+- Description: ${portalContext.portalDescription || 'Government/utility vendor portal'}
+
+YOUR ROLE IN PORTAL ASSISTANT MODE:
+1. **Walk them through the registration process step by step** — Tell them exactly what fields to fill in, what documents they need, what to click
+2. **Explain what each form field means** — If they ask about a specific field (like UEI, CAGE code, NAICS, bonding, insurance), explain it clearly and tell them what to enter
+3. **Help with documents they need** — Tell them exactly which documents to have ready (W-9, insurance certificates, bond letters, capability statements, licenses, etc.)
+4. **Provide insider tips for this specific portal** — Common mistakes, what reviewers look for, how to stand out
+5. **If they're stuck on a specific step**, give them the exact action to take
+6. **For DOT portals**: Guide them through state DOT vendor registration (prequalification requirements, insurance minimums, equipment lists, DBE certification, bonding requirements)
+7. **For utility portals**: Guide through ISNetworld/Avetta/PowerAdvocate setup, safety documentation, EMR ratings, crew certifications
+8. **For procurement portals**: Guide through SAM.gov, state procurement registration, vendor ID setup
+9. **For USACE portals**: Guide through SAM.gov registration requirements, NAICS codes for Army Corps work, capability statement formatting
+
+Be EXTREMELY specific and actionable. Don't say "fill in the required fields" — tell them EXACTLY what to put in each field based on their contractor type.`;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        { role: "system", content: portalPrompt },
+        { role: "user", content: userMessage }
+      ],
+      max_tokens: 1500,
+      temperature: 0.7,
+    });
+
+    const message = response.choices[0]?.message?.content || "I'm here to help you navigate this portal. Could you tell me what step you're on or what you need help with?";
+
+    return {
+      message,
+      tips: findRelevantTips(userMessage),
+      category: "portal_assist",
+    };
+  } catch (error) {
+    console.error("Portal assist AI error:", error);
+    return {
+      message: `I'm having trouble connecting right now, but here's what I'd recommend for ${portalContext.portalName}: Start by gathering your W-9, insurance certificates, and any state-specific licenses before beginning the registration. Most portals require a DUNS/UEI number — if you don't have one, get it at SAM.gov first. Can I help with something specific once I'm back online?`,
+      category: "portal_assist"
+    };
+  }
+}
+
 export async function generateBidIntelResponse(
   contractorId: string,
   userMessage: string,

@@ -2,7 +2,7 @@ import { Router, Request, Response } from "express";
 import { z } from "zod";
 import { storage } from "../storage";
 import { requireAuth, requireContractor } from "../middleware/auth";
-import { generateBidIntelResponse, generateRFIQuestion, analyzeBidOpportunity, INSIDER_TIPS_DATABASE } from "../services/bidIntelAI";
+import { generateBidIntelResponse, generatePortalAssistResponse, generateRFIQuestion, analyzeBidOpportunity, INSIDER_TIPS_DATABASE } from "../services/bidIntelAI";
 import { USACE_DISTRICTS, USACE_DIVISIONS, MAJOR_PRIMES, getPriorityDistricts, generateIntroductionEmail, generateCapabilityStatement } from "../services/usaceOutreach";
 import { UTILITY_COMPANIES, VENDOR_PLATFORMS, READINESS_CHECKLIST, STORM_PRIORITY_REGISTRATIONS, GOVERNMENT_PORTALS, GEORGIA_EMCS, ALABAMA_EMCS, ALASKA_EMCS, ARIZONA_EMCS, ARKANSAS_EMCS, CALIFORNIA_EMCS, COLORADO_EMCS, CONNECTICUT_EMCS, DELAWARE_EMCS, FLORIDA_EMCS, HAWAII_EMCS, IDAHO_EMCS, ILLINOIS_EMCS, IOWA_EMCS, KANSAS_EMCS, KENTUCKY_EMCS, LOUISIANA_EMCS, MAINE_EMCS, MARYLAND_EMCS, MASSACHUSETTS_EMCS, MICHIGAN_EMCS, MINNESOTA_EMCS, MISSISSIPPI_EMCS, MISSOURI_EMCS, MONTANA_EMCS, NEBRASKA_EMCS, NEVADA_EMCS, NEW_HAMPSHIRE_EMCS, NEW_JERSEY_EMCS, NEW_MEXICO_EMCS, NEW_YORK_EMCS, NORTH_CAROLINA_EMCS, NORTH_DAKOTA_EMCS, TEXAS_EMCS, DOT_VENDOR_PORTALS, FORESTRY_AGENCIES, STORM_PRIMES, generateUtilityIntroEmail, generateTrackingSheet } from "../services/utilityContractorReadiness";
 import { elevenLabsVoice } from "../services/elevenLabsVoice";
@@ -343,6 +343,45 @@ router.post("/chat", requireAuth, requireContractor, async (req: Request, res: R
   } catch (error) {
     console.error("Error in AI chat:", error);
     res.status(500).json({ error: "Failed to process chat message" });
+  }
+});
+
+// Portal Assistant chat - contextual AI help for specific portals
+router.post("/portal-assist", requireAuth, requireContractor, async (req: Request, res: Response) => {
+  try {
+    const contractorId = (req as any).user?.id;
+    const { message, portalContext, generateAudio } = req.body;
+
+    if (!portalContext?.portalName || !portalContext?.portalUrl) {
+      return res.status(400).json({ error: "Portal context required" });
+    }
+
+    const response = await generatePortalAssistResponse(contractorId, message, {
+      portalName: portalContext.portalName,
+      portalUrl: portalContext.portalUrl,
+      portalType: portalContext.portalType || "vendor_portal",
+      portalDescription: portalContext.portalDescription,
+    });
+
+    let audioUrl: string | undefined;
+    if (generateAudio) {
+      try {
+        const audioBuffer = await elevenLabsVoice.generateSpeech({
+          text: response.message.substring(0, 500),
+          voiceId: "21m00Tcm4TlvDq8ikWAM",
+          modelId: "eleven_multilingual_v2"
+        });
+        const base64Audio = audioBuffer.toString('base64');
+        audioUrl = `data:audio/mpeg;base64,${base64Audio}`;
+      } catch (audioError) {
+        console.warn("Could not generate portal assist audio:", audioError);
+      }
+    }
+
+    res.json({ ...response, audioUrl });
+  } catch (error) {
+    console.error("Error in portal assist chat:", error);
+    res.status(500).json({ error: "Failed to process portal assist message" });
   }
 });
 

@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { TrueCostProfitSheet } from "@/components/TrueCostProfitSheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -63,7 +64,10 @@ import {
   Wrench,
   DollarSign,
   ListChecks,
-  Table2
+  Table2,
+  PanelRightOpen,
+  X,
+  Navigation
 } from "lucide-react";
 
 interface ChatMessage {
@@ -348,8 +352,18 @@ export default function AIBidIntelPro() {
   const [dotSearchTerm, setDotSearchTerm] = useState("");
   const [forestrySearchTerm, setForestrySearchTerm] = useState("");
   const [stormPrimeSearchTerm, setStormPrimeSearchTerm] = useState("");
+  const [portalAssistantOpen, setPortalAssistantOpen] = useState(false);
+  const [portalAssistantUrl, setPortalAssistantUrl] = useState("");
+  const [portalAssistantName, setPortalAssistantName] = useState("");
+  const [portalAssistantType, setPortalAssistantType] = useState("");
+  const [portalAssistantDesc, setPortalAssistantDesc] = useState("");
+  const [portalChatHistory, setPortalChatHistory] = useState<ChatMessage[]>([]);
+  const [portalChatInput, setPortalChatInput] = useState("");
+  const [iframeLoadFailed, setIframeLoadFailed] = useState(false);
+  const [iframeLoading, setIframeLoading] = useState(true);
   const audioRef = useRef<HTMLAudioElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const portalChatEndRef = useRef<HTMLDivElement>(null);
 
   const { data: stats, isLoading: statsLoading } = useQuery<DashboardStats>({
     queryKey: ["/api/bidintel/dashboard/stats"],
@@ -483,6 +497,93 @@ export default function AIBidIntelPro() {
       }]);
     },
   });
+
+  const portalChatMutation = useMutation({
+    mutationFn: async (data: { message: string; portalContext: any; generateAudio: boolean }) => {
+      const res = await apiRequest("/api/bidintel/portal-assist", {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      const newMessage: ChatMessage = {
+        role: "assistant",
+        message: data.message,
+        audioUrl: data.audioUrl,
+      };
+      setPortalChatHistory((prev) => [...prev, newMessage]);
+      if (enableVoice && data.audioUrl) {
+        playAudio(data.audioUrl);
+      }
+    },
+    onError: (error: any) => {
+      const isAuthError = error?.message?.includes("401") || error?.message?.includes("Authentication");
+      if (isAuthError) {
+        setPortalChatHistory((prev) => [...prev, {
+          role: "assistant",
+          message: "You need to be logged in to use the Portal Assistant. Please sign in and try again.",
+        }]);
+      } else {
+        toast({ title: "Error", description: "Failed to get portal assistant response. Please try again.", variant: "destructive" });
+      }
+    },
+  });
+
+  const openPortalAssistant = (url: string, name: string, type: string, description?: string) => {
+    setPortalAssistantUrl(url);
+    setPortalAssistantName(name);
+    setPortalAssistantType(type);
+    setPortalAssistantDesc(description || "");
+    setPortalChatHistory([{
+      role: "assistant",
+      message: `I'm Rachel, your Portal Assistant. You're viewing **${name}**.\n\nI can help you with:\n- **Step-by-step registration guidance** — I'll walk you through every field\n- **Document preparation** — What to have ready before you start\n- **Form completion tips** — What to enter in each section\n- **Insider advice** — Common mistakes to avoid\n\nThe portal is loading on the left. Ask me anything about the registration process, and I'll guide you through it!`,
+    }]);
+    setPortalChatInput("");
+    setIframeLoadFailed(false);
+    setIframeLoading(true);
+    setPortalAssistantOpen(true);
+  };
+
+  const handlePortalChatSend = () => {
+    if (!portalChatInput.trim()) return;
+    const userMessage: ChatMessage = { role: "user", message: portalChatInput };
+    setPortalChatHistory((prev) => [...prev, userMessage]);
+    portalChatMutation.mutate({
+      message: portalChatInput,
+      portalContext: {
+        portalName: portalAssistantName,
+        portalUrl: portalAssistantUrl,
+        portalType: portalAssistantType,
+        portalDescription: portalAssistantDesc,
+      },
+      generateAudio: enableVoice,
+    });
+    setPortalChatInput("");
+  };
+
+  const handlePortalChatKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handlePortalChatSend();
+    }
+  };
+
+  useEffect(() => {
+    portalChatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [portalChatHistory]);
+
+  useEffect(() => {
+    if (portalAssistantOpen && iframeLoading && !iframeLoadFailed) {
+      const timeout = setTimeout(() => {
+        if (iframeLoading) {
+          setIframeLoadFailed(true);
+          setIframeLoading(false);
+        }
+      }, 10000);
+      return () => clearTimeout(timeout);
+    }
+  }, [portalAssistantOpen, iframeLoading, iframeLoadFailed]);
 
   const playAudio = (audioUrl: string) => {
     if (audioRef.current) {
@@ -955,7 +1056,7 @@ export default function AIBidIntelPro() {
                         <p className="text-xs text-gray-400 mt-1">{selectedStatePortal.url}</p>
                       </div>
                       <Button
-                        onClick={() => window.open(selectedStatePortal.url, '_blank')}
+                        onClick={() => openPortalAssistant(selectedStatePortal.url, selectedStatePortal.name, "state_procurement")}
                         className="bg-amber-500 hover:bg-amber-600 text-black font-semibold"
                       >
                         <ExternalLink className="w-4 h-4 mr-2" />
@@ -966,7 +1067,7 @@ export default function AIBidIntelPro() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => window.open(`https://www.bidnetdirect.com/search?q=${encodeURIComponent(selectedState)}&type=bids`, '_blank')}
+                        onClick={() => openPortalAssistant(`https://www.bidnetdirect.com/search?q=${encodeURIComponent(selectedState)}&type=bids`, `BidNet Direct - ${selectedState}`, "bid_aggregator", "State and local government bids")}
                         className="border-amber-500/30 text-amber-300 hover:bg-amber-500/10 text-xs"
                       >
                         <Globe className="w-3 h-3 mr-1" />
@@ -975,7 +1076,7 @@ export default function AIBidIntelPro() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => window.open(`https://sam.gov/search/?index=opp&q=${encodeURIComponent(selectedState)}&sort=-relevance&page=1`, '_blank')}
+                        onClick={() => openPortalAssistant(`https://sam.gov/search/?index=opp&q=${encodeURIComponent(selectedState)}&sort=-relevance&page=1`, `SAM.gov - ${selectedState}`, "federal", "Federal contract opportunities")}
                         className="border-blue-500/30 text-blue-300 hover:bg-blue-500/10 text-xs"
                       >
                         <Shield className="w-3 h-3 mr-1" />
@@ -992,7 +1093,7 @@ export default function AIBidIntelPro() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => window.open(`https://network.demandstar.com/`, '_blank')}
+                        onClick={() => openPortalAssistant("https://network.demandstar.com/", "DemandStar - County Bids", "bid_aggregator", "Connects government agencies with vendors for county & local bids")}
                         className="justify-start border-slate-600 text-gray-300 hover:bg-slate-700 text-xs"
                       >
                         <ExternalLink className="w-3 h-3 mr-2" />
@@ -1001,7 +1102,7 @@ export default function AIBidIntelPro() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => window.open(`https://www.bidnetdirect.com/search?q=${encodeURIComponent(countySearch)}&type=bids`, '_blank')}
+                        onClick={() => openPortalAssistant(`https://www.bidnetdirect.com/search?q=${encodeURIComponent(countySearch)}&type=bids`, "BidNet Direct", "bid_aggregator", "State & local government bids including county-level RFPs")}
                         className="justify-start border-slate-600 text-gray-300 hover:bg-slate-700 text-xs"
                       >
                         <ExternalLink className="w-3 h-3 mr-2" />
@@ -1010,7 +1111,7 @@ export default function AIBidIntelPro() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => window.open(`https://www.findrfp.com/`, '_blank')}
+                        onClick={() => openPortalAssistant("https://www.findrfp.com/", "FindRFP", "bid_aggregator", "Central database for state, county, city, municipal, utilities, schools, hospitals")}
                         className="justify-start border-slate-600 text-gray-300 hover:bg-slate-700 text-xs"
                       >
                         <ExternalLink className="w-3 h-3 mr-2" />
@@ -1019,7 +1120,7 @@ export default function AIBidIntelPro() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => window.open(`https://www.publicpurchase.com/`, '_blank')}
+                        onClick={() => openPortalAssistant("https://www.publicpurchase.com/", "PublicPurchase", "bid_aggregator", "Free bid notification system for local governments and counties")}
                         className="justify-start border-slate-600 text-gray-300 hover:bg-slate-700 text-xs"
                       >
                         <ExternalLink className="w-3 h-3 mr-2" />
@@ -1028,7 +1129,7 @@ export default function AIBidIntelPro() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => window.open(`https://www.bidprime.com/`, '_blank')}
+                        onClick={() => openPortalAssistant("https://www.bidprime.com/", "BidPrime", "bid_aggregator", "Searches over 110,000 government agencies for bid opportunities")}
                         className="justify-start border-slate-600 text-gray-300 hover:bg-slate-700 text-xs"
                       >
                         <ExternalLink className="w-3 h-3 mr-2" />
@@ -1037,7 +1138,7 @@ export default function AIBidIntelPro() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => window.open(`https://supplier.eunasolutions.com/`, '_blank')}
+                        onClick={() => openPortalAssistant("https://supplier.eunasolutions.com/", "Euna Supplier Network (Bonfire)", "bid_aggregator", "Widely used by counties for RFP posting and vendor responses")}
                         className="justify-start border-slate-600 text-gray-300 hover:bg-slate-700 text-xs"
                       >
                         <ExternalLink className="w-3 h-3 mr-2" />
@@ -1072,7 +1173,7 @@ export default function AIBidIntelPro() {
                     <div
                       key={idx}
                       className="bg-slate-900/50 border border-slate-700 rounded-lg p-3 hover:border-blue-500/50 transition-colors cursor-pointer"
-                      onClick={() => window.open(portal.url, '_blank')}
+                      onClick={() => openPortalAssistant(portal.url, portal.name, "federal", portal.desc)}
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
@@ -1102,7 +1203,7 @@ export default function AIBidIntelPro() {
                     <div
                       key={idx}
                       className="bg-slate-900/50 border border-slate-700 rounded-lg p-3 hover:border-green-500/50 transition-colors cursor-pointer"
-                      onClick={() => window.open(portal.url, '_blank')}
+                      onClick={() => openPortalAssistant(portal.url, portal.name, "bid_aggregator", portal.desc)}
                     >
                       <h4 className="font-medium text-white text-sm">{portal.name}</h4>
                       <p className="text-xs text-gray-400 mt-1">{portal.desc}</p>
@@ -1130,7 +1231,7 @@ export default function AIBidIntelPro() {
                         key={state}
                         variant="outline"
                         size="sm"
-                        onClick={() => window.open(portal.url, '_blank')}
+                        onClick={() => openPortalAssistant(portal.url, portal.name, "state_procurement")}
                         className="justify-start border-slate-700 text-gray-300 hover:bg-amber-500/10 hover:border-amber-500/30 hover:text-amber-300 text-xs h-auto py-2"
                       >
                         <span className="font-bold text-amber-400 mr-1.5">{portal.abbr}</span>
@@ -1205,7 +1306,7 @@ export default function AIBidIntelPro() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
                   <Button
                     variant="outline"
-                    onClick={() => window.open('https://sam.gov/opportunities', '_blank')}
+                    onClick={() => openPortalAssistant("https://sam.gov/opportunities", "SAM.gov - Contract Opportunities", "federal", "Search active federal bids and RFPs")}
                     className="border-blue-500/30 text-blue-300 hover:bg-blue-500/10 h-auto py-3"
                   >
                     <div className="text-left">
@@ -1218,7 +1319,7 @@ export default function AIBidIntelPro() {
                   </Button>
                   <Button
                     variant="outline"
-                    onClick={() => window.open('https://sam.gov/content/entity-registration', '_blank')}
+                    onClick={() => openPortalAssistant("https://sam.gov/content/entity-registration", "SAM.gov - Entity Registration", "federal", "Register your business for federal work")}
                     className="border-green-500/30 text-green-300 hover:bg-green-500/10 h-auto py-3"
                   >
                     <div className="text-left">
@@ -1231,7 +1332,7 @@ export default function AIBidIntelPro() {
                   </Button>
                   <Button
                     variant="outline"
-                    onClick={() => window.open('https://sam.gov/content/assistance-listings', '_blank')}
+                    onClick={() => openPortalAssistant("https://sam.gov/content/assistance-listings", "SAM.gov - Assistance Listings", "federal", "Federal grants and financial assistance")}
                     className="border-amber-500/30 text-amber-300 hover:bg-amber-500/10 h-auto py-3"
                   >
                     <div className="text-left">
@@ -1566,7 +1667,7 @@ export default function AIBidIntelPro() {
                                   <div className="flex flex-wrap gap-2">
                                     <Button
                                       size="sm"
-                                      onClick={(e) => { e.stopPropagation(); window.open(utility.registrationUrl, '_blank'); }}
+                                      onClick={(e) => { e.stopPropagation(); openPortalAssistant(utility.registrationUrl, utility.name, "utility", utility.vendorPlatform); }}
                                       className="bg-emerald-600 hover:bg-emerald-700 text-white"
                                     >
                                       <ExternalLink className="w-3 h-3 mr-1" />
@@ -1688,7 +1789,7 @@ export default function AIBidIntelPro() {
                                 size="sm"
                                 variant="ghost"
                                 className="h-6 text-xs text-blue-400 hover:text-blue-300"
-                                onClick={() => window.open(platform.url, '_blank')}
+                                onClick={() => openPortalAssistant(platform.url, platform.name, "vendor_platform", platform.description)}
                               >
                                 <ExternalLink className="w-3 h-3 mr-1" />
                                 Visit
@@ -1755,7 +1856,7 @@ export default function AIBidIntelPro() {
                                   size="sm"
                                   variant="ghost"
                                   className="h-6 text-xs text-blue-400 hover:text-blue-300"
-                                  onClick={() => window.open(portal.url, '_blank')}
+                                  onClick={() => openPortalAssistant(portal.url, portal.name, "state_procurement", portal.description)}
                                 >
                                   <ExternalLink className="w-3 h-3 mr-1" />
                                   Visit
@@ -1829,7 +1930,7 @@ export default function AIBidIntelPro() {
                                             size="sm"
                                             variant="ghost"
                                             className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1"
-                                            onClick={() => window.open(emc.website, '_blank')}
+                                            onClick={() => openPortalAssistant(emc.website, emc.name, "utility", emc.description)}
                                           >
                                             <ExternalLink className="w-2.5 h-2.5" />
                                           </Button>
@@ -1860,7 +1961,7 @@ export default function AIBidIntelPro() {
                                           size="sm"
                                           variant="ghost"
                                           className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1"
-                                          onClick={() => window.open(org.website, '_blank')}
+                                          onClick={() => openPortalAssistant(org.website, org.name, "utility", org.description)}
                                         >
                                           <ExternalLink className="w-2.5 h-2.5" />
                                         </Button>
@@ -1912,7 +2013,7 @@ export default function AIBidIntelPro() {
                                             size="sm"
                                             variant="ghost"
                                             className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1"
-                                            onClick={() => window.open(emc.website, '_blank')}
+                                            onClick={() => openPortalAssistant(emc.website, emc.name, "utility", emc.description)}
                                           >
                                             <ExternalLink className="w-2.5 h-2.5" />
                                           </Button>
@@ -1943,7 +2044,7 @@ export default function AIBidIntelPro() {
                                           size="sm"
                                           variant="ghost"
                                           className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1"
-                                          onClick={() => window.open(org.website, '_blank')}
+                                          onClick={() => openPortalAssistant(org.website, org.name, "utility", org.description)}
                                         >
                                           <ExternalLink className="w-2.5 h-2.5" />
                                         </Button>
@@ -1995,7 +2096,7 @@ export default function AIBidIntelPro() {
                                             size="sm"
                                             variant="ghost"
                                             className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1"
-                                            onClick={() => window.open(emc.website, '_blank')}
+                                            onClick={() => openPortalAssistant(emc.website, emc.name, "utility", emc.description)}
                                           >
                                             <ExternalLink className="w-2.5 h-2.5" />
                                           </Button>
@@ -2026,7 +2127,7 @@ export default function AIBidIntelPro() {
                                           size="sm"
                                           variant="ghost"
                                           className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1"
-                                          onClick={() => window.open(org.website, '_blank')}
+                                          onClick={() => openPortalAssistant(org.website, org.name, "utility", org.description)}
                                         >
                                           <ExternalLink className="w-2.5 h-2.5" />
                                         </Button>
@@ -2078,7 +2179,7 @@ export default function AIBidIntelPro() {
                                             size="sm"
                                             variant="ghost"
                                             className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1"
-                                            onClick={() => window.open(emc.website, '_blank')}
+                                            onClick={() => openPortalAssistant(emc.website, emc.name, "utility", emc.description)}
                                           >
                                             <ExternalLink className="w-2.5 h-2.5" />
                                           </Button>
@@ -2109,7 +2210,7 @@ export default function AIBidIntelPro() {
                                           size="sm"
                                           variant="ghost"
                                           className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1"
-                                          onClick={() => window.open(org.website, '_blank')}
+                                          onClick={() => openPortalAssistant(org.website, org.name, "utility", org.description)}
                                         >
                                           <ExternalLink className="w-2.5 h-2.5" />
                                         </Button>
@@ -2157,7 +2258,7 @@ export default function AIBidIntelPro() {
                                       <div className="flex items-center justify-between gap-1">
                                         <h5 className="text-xs font-medium text-white leading-tight">{emc.name}</h5>
                                         {emc.website && (
-                                          <Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(emc.website, '_blank')}>
+                                          <Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => openPortalAssistant(emc.website, emc.name, "utility", emc.description)}>
                                             <ExternalLink className="w-2.5 h-2.5" />
                                           </Button>
                                         )}
@@ -2183,7 +2284,7 @@ export default function AIBidIntelPro() {
                                     <div className="flex items-center justify-between gap-1">
                                       <h5 className="text-xs font-medium text-amber-300 leading-tight">{org.name}</h5>
                                       {org.website && (
-                                        <Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(org.website, '_blank')}>
+                                        <Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => openPortalAssistant(org.website, org.name, "utility", org.description)}>
                                           <ExternalLink className="w-2.5 h-2.5" />
                                         </Button>
                                       )}
@@ -2230,7 +2331,7 @@ export default function AIBidIntelPro() {
                                       <div className="flex items-center justify-between gap-1">
                                         <h5 className="text-xs font-medium text-white leading-tight">{emc.name}</h5>
                                         {emc.website && (
-                                          <Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(emc.website, '_blank')}>
+                                          <Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => openPortalAssistant(emc.website, emc.name, "utility", emc.description)}>
                                             <ExternalLink className="w-2.5 h-2.5" />
                                           </Button>
                                         )}
@@ -2256,7 +2357,7 @@ export default function AIBidIntelPro() {
                                     <div className="flex items-center justify-between gap-1">
                                       <h5 className="text-xs font-medium text-amber-300 leading-tight">{org.name}</h5>
                                       {org.website && (
-                                        <Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(org.website, '_blank')}>
+                                        <Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => openPortalAssistant(org.website, org.name, "utility", org.description)}>
                                           <ExternalLink className="w-2.5 h-2.5" />
                                         </Button>
                                       )}
@@ -2303,7 +2404,7 @@ export default function AIBidIntelPro() {
                                       <div className="flex items-center justify-between gap-1">
                                         <h5 className="text-xs font-medium text-white leading-tight">{emc.name}</h5>
                                         {emc.website && (
-                                          <Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(emc.website, '_blank')}>
+                                          <Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => openPortalAssistant(emc.website, emc.name, "utility", emc.description)}>
                                             <ExternalLink className="w-2.5 h-2.5" />
                                           </Button>
                                         )}
@@ -2329,7 +2430,7 @@ export default function AIBidIntelPro() {
                                     <div className="flex items-center justify-between gap-1">
                                       <h5 className="text-xs font-medium text-amber-300 leading-tight">{org.name}</h5>
                                       {org.website && (
-                                        <Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(org.website, '_blank')}>
+                                        <Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => openPortalAssistant(org.website, org.name, "utility", org.description)}>
                                           <ExternalLink className="w-2.5 h-2.5" />
                                         </Button>
                                       )}
@@ -2376,7 +2477,7 @@ export default function AIBidIntelPro() {
                                       <div className="flex items-center justify-between gap-1">
                                         <h5 className="text-xs font-medium text-white leading-tight">{emc.name}</h5>
                                         {emc.website && (
-                                          <Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(emc.website, '_blank')}>
+                                          <Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => openPortalAssistant(emc.website, emc.name, "utility", emc.description)}>
                                             <ExternalLink className="w-2.5 h-2.5" />
                                           </Button>
                                         )}
@@ -2402,7 +2503,7 @@ export default function AIBidIntelPro() {
                                     <div className="flex items-center justify-between gap-1">
                                       <h5 className="text-xs font-medium text-amber-300 leading-tight">{org.name}</h5>
                                       {org.website && (
-                                        <Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(org.website, '_blank')}>
+                                        <Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => openPortalAssistant(org.website, org.name, "utility", org.description)}>
                                           <ExternalLink className="w-2.5 h-2.5" />
                                         </Button>
                                       )}
@@ -2449,7 +2550,7 @@ export default function AIBidIntelPro() {
                                       <div className="flex items-center justify-between gap-1">
                                         <h5 className="text-xs font-medium text-white leading-tight">{emc.name}</h5>
                                         {emc.website && (
-                                          <Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(emc.website, '_blank')}>
+                                          <Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => openPortalAssistant(emc.website, emc.name, "utility", emc.description)}>
                                             <ExternalLink className="w-2.5 h-2.5" />
                                           </Button>
                                         )}
@@ -2475,7 +2576,7 @@ export default function AIBidIntelPro() {
                                     <div className="flex items-center justify-between gap-1">
                                       <h5 className="text-xs font-medium text-amber-300 leading-tight">{org.name}</h5>
                                       {org.website && (
-                                        <Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(org.website, '_blank')}>
+                                        <Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => openPortalAssistant(org.website, org.name, "utility", org.description)}>
                                           <ExternalLink className="w-2.5 h-2.5" />
                                         </Button>
                                       )}
@@ -2522,7 +2623,7 @@ export default function AIBidIntelPro() {
                                       <div className="flex items-center justify-between gap-1">
                                         <h5 className="text-xs font-medium text-white leading-tight">{emc.name}</h5>
                                         {emc.website && (
-                                          <Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(emc.website, '_blank')}>
+                                          <Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => openPortalAssistant(emc.website, emc.name, "utility", emc.description)}>
                                             <ExternalLink className="w-2.5 h-2.5" />
                                           </Button>
                                         )}
@@ -2548,7 +2649,7 @@ export default function AIBidIntelPro() {
                                     <div className="flex items-center justify-between gap-1">
                                       <h5 className="text-xs font-medium text-amber-300 leading-tight">{org.name}</h5>
                                       {org.website && (
-                                        <Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(org.website, '_blank')}>
+                                        <Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => openPortalAssistant(org.website, org.name, "utility", org.description)}>
                                           <ExternalLink className="w-2.5 h-2.5" />
                                         </Button>
                                       )}
@@ -2595,7 +2696,7 @@ export default function AIBidIntelPro() {
                                       <div className="flex items-center justify-between gap-1">
                                         <h5 className="text-xs font-medium text-white leading-tight">{emc.name}</h5>
                                         {emc.website && (
-                                          <Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(emc.website, '_blank')}>
+                                          <Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => openPortalAssistant(emc.website, emc.name, "utility", emc.description)}>
                                             <ExternalLink className="w-2.5 h-2.5" />
                                           </Button>
                                         )}
@@ -2621,7 +2722,7 @@ export default function AIBidIntelPro() {
                                     <div className="flex items-center justify-between gap-1">
                                       <h5 className="text-xs font-medium text-amber-300 leading-tight">{org.name}</h5>
                                       {org.website && (
-                                        <Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(org.website, '_blank')}>
+                                        <Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => openPortalAssistant(org.website, org.name, "utility", org.description)}>
                                           <ExternalLink className="w-2.5 h-2.5" />
                                         </Button>
                                       )}
@@ -2668,7 +2769,7 @@ export default function AIBidIntelPro() {
                                       <div className="flex items-center justify-between gap-1">
                                         <h5 className="text-xs font-medium text-white leading-tight">{emc.name}</h5>
                                         {emc.website && (
-                                          <Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(emc.website, '_blank')}>
+                                          <Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => openPortalAssistant(emc.website, emc.name, "utility", emc.description)}>
                                             <ExternalLink className="w-2.5 h-2.5" />
                                           </Button>
                                         )}
@@ -2694,7 +2795,7 @@ export default function AIBidIntelPro() {
                                     <div className="flex items-center justify-between gap-1">
                                       <h5 className="text-xs font-medium text-amber-300 leading-tight">{org.name}</h5>
                                       {org.website && (
-                                        <Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(org.website, '_blank')}>
+                                        <Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => openPortalAssistant(org.website, org.name, "utility", org.description)}>
                                           <ExternalLink className="w-2.5 h-2.5" />
                                         </Button>
                                       )}
@@ -2741,7 +2842,7 @@ export default function AIBidIntelPro() {
                                       <div className="flex items-center justify-between gap-1">
                                         <h5 className="text-xs font-medium text-white leading-tight">{emc.name}</h5>
                                         {emc.website && (
-                                          <Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(emc.website, '_blank')}>
+                                          <Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => openPortalAssistant(emc.website, emc.name, "utility", emc.description)}>
                                             <ExternalLink className="w-2.5 h-2.5" />
                                           </Button>
                                         )}
@@ -2767,7 +2868,7 @@ export default function AIBidIntelPro() {
                                     <div className="flex items-center justify-between gap-1">
                                       <h5 className="text-xs font-medium text-amber-300 leading-tight">{org.name}</h5>
                                       {org.website && (
-                                        <Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(org.website, '_blank')}>
+                                        <Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => openPortalAssistant(org.website, org.name, "utility", org.description)}>
                                           <ExternalLink className="w-2.5 h-2.5" />
                                         </Button>
                                       )}
@@ -2804,7 +2905,7 @@ export default function AIBidIntelPro() {
                                     <div key={emc.name} className="border border-slate-700 rounded p-2 hover:border-violet-500/30 transition-colors">
                                       <div className="flex items-center justify-between gap-1">
                                         <h5 className="text-xs font-medium text-white leading-tight">{emc.name}</h5>
-                                        {emc.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(emc.website, '_blank')}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
+                                        {emc.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => openPortalAssistant(emc.website, emc.name, "utility", emc.description)}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
                                       </div>
                                       <p className="text-[10px] text-gray-500 mt-0.5">{emc.description}</p>
                                       <div className="flex flex-wrap gap-1 mt-1">
@@ -2819,7 +2920,7 @@ export default function AIBidIntelPro() {
                                 <div key={org.name} className="border border-slate-700 rounded p-2">
                                   <div className="flex items-center justify-between gap-1">
                                     <h5 className="text-xs font-medium text-amber-300 leading-tight">{org.name}</h5>
-                                    {org.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(org.website, '_blank')}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
+                                    {org.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => openPortalAssistant(org.website, org.name, "utility", org.description)}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
                                   </div>
                                   <p className="text-[10px] text-gray-500 mt-0.5">{org.description}</p>
                                 </div>
@@ -2853,7 +2954,7 @@ export default function AIBidIntelPro() {
                                     <div key={emc.name} className="border border-slate-700 rounded p-2 hover:border-amber-500/30 transition-colors">
                                       <div className="flex items-center justify-between gap-1">
                                         <h5 className="text-xs font-medium text-white leading-tight">{emc.name}</h5>
-                                        {emc.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(emc.website, '_blank')}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
+                                        {emc.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => openPortalAssistant(emc.website, emc.name, "utility", emc.description)}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
                                       </div>
                                       <p className="text-[10px] text-gray-500 mt-0.5">{emc.description}</p>
                                       <div className="flex flex-wrap gap-1 mt-1">
@@ -2868,7 +2969,7 @@ export default function AIBidIntelPro() {
                                 <div key={org.name} className="border border-slate-700 rounded p-2">
                                   <div className="flex items-center justify-between gap-1">
                                     <h5 className="text-xs font-medium text-amber-300 leading-tight">{org.name}</h5>
-                                    {org.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(org.website, '_blank')}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
+                                    {org.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => openPortalAssistant(org.website, org.name, "utility", org.description)}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
                                   </div>
                                   <p className="text-[10px] text-gray-500 mt-0.5">{org.description}</p>
                                 </div>
@@ -2902,7 +3003,7 @@ export default function AIBidIntelPro() {
                                     <div key={emc.name} className="border border-slate-700 rounded p-2 hover:border-blue-500/30 transition-colors">
                                       <div className="flex items-center justify-between gap-1">
                                         <h5 className="text-xs font-medium text-white leading-tight">{emc.name}</h5>
-                                        {emc.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(emc.website, '_blank')}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
+                                        {emc.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => openPortalAssistant(emc.website, emc.name, "utility", emc.description)}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
                                       </div>
                                       <p className="text-[10px] text-gray-500 mt-0.5">{emc.description}</p>
                                       <div className="flex flex-wrap gap-1 mt-1">
@@ -2917,7 +3018,7 @@ export default function AIBidIntelPro() {
                                 <div key={org.name} className="border border-slate-700 rounded p-2">
                                   <div className="flex items-center justify-between gap-1">
                                     <h5 className="text-xs font-medium text-amber-300 leading-tight">{org.name}</h5>
-                                    {org.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(org.website, '_blank')}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
+                                    {org.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => openPortalAssistant(org.website, org.name, "utility", org.description)}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
                                   </div>
                                   <p className="text-[10px] text-gray-500 mt-0.5">{org.description}</p>
                                 </div>
@@ -2951,7 +3052,7 @@ export default function AIBidIntelPro() {
                                     <div key={emc.name} className="border border-slate-700 rounded p-2 hover:border-orange-500/30 transition-colors">
                                       <div className="flex items-center justify-between gap-1">
                                         <h5 className="text-xs font-medium text-white leading-tight">{emc.name}</h5>
-                                        {emc.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(emc.website, '_blank')}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
+                                        {emc.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => openPortalAssistant(emc.website, emc.name, "utility", emc.description)}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
                                       </div>
                                       <p className="text-[10px] text-gray-500 mt-0.5">{emc.description}</p>
                                       <div className="flex flex-wrap gap-1 mt-1">
@@ -2966,7 +3067,7 @@ export default function AIBidIntelPro() {
                                 <div key={org.name} className="border border-slate-700 rounded p-2">
                                   <div className="flex items-center justify-between gap-1">
                                     <h5 className="text-xs font-medium text-amber-300 leading-tight">{org.name}</h5>
-                                    {org.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(org.website, '_blank')}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
+                                    {org.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => openPortalAssistant(org.website, org.name, "utility", org.description)}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
                                   </div>
                                   <p className="text-[10px] text-gray-500 mt-0.5">{org.description}</p>
                                 </div>
@@ -3000,7 +3101,7 @@ export default function AIBidIntelPro() {
                                     <div key={emc.name} className="border border-slate-700 rounded p-2 hover:border-teal-500/30 transition-colors">
                                       <div className="flex items-center justify-between gap-1">
                                         <h5 className="text-xs font-medium text-white leading-tight">{emc.name}</h5>
-                                        {emc.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(emc.website, '_blank')}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
+                                        {emc.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => openPortalAssistant(emc.website, emc.name, "utility", emc.description)}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
                                       </div>
                                       <p className="text-[10px] text-gray-500 mt-0.5">{emc.description}</p>
                                       <div className="flex flex-wrap gap-1 mt-1">
@@ -3015,7 +3116,7 @@ export default function AIBidIntelPro() {
                                 <div key={org.name} className="border border-slate-700 rounded p-2">
                                   <div className="flex items-center justify-between gap-1">
                                     <h5 className="text-xs font-medium text-amber-300 leading-tight">{org.name}</h5>
-                                    {org.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(org.website, '_blank')}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
+                                    {org.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => openPortalAssistant(org.website, org.name, "utility", org.description)}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
                                   </div>
                                   <p className="text-[10px] text-gray-500 mt-0.5">{org.description}</p>
                                 </div>
@@ -3049,7 +3150,7 @@ export default function AIBidIntelPro() {
                                     <div key={emc.name} className="border border-slate-700 rounded p-2 hover:border-red-500/30 transition-colors">
                                       <div className="flex items-center justify-between gap-1">
                                         <h5 className="text-xs font-medium text-white leading-tight">{emc.name}</h5>
-                                        {emc.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(emc.website, '_blank')}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
+                                        {emc.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => openPortalAssistant(emc.website, emc.name, "utility", emc.description)}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
                                       </div>
                                       <p className="text-[10px] text-gray-500 mt-0.5">{emc.description}</p>
                                       <div className="flex flex-wrap gap-1 mt-1">
@@ -3064,7 +3165,7 @@ export default function AIBidIntelPro() {
                                 <div key={org.name} className="border border-slate-700 rounded p-2">
                                   <div className="flex items-center justify-between gap-1">
                                     <h5 className="text-xs font-medium text-amber-300 leading-tight">{org.name}</h5>
-                                    {org.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(org.website, '_blank')}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
+                                    {org.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => openPortalAssistant(org.website, org.name, "utility", org.description)}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
                                   </div>
                                   <p className="text-[10px] text-gray-500 mt-0.5">{org.description}</p>
                                 </div>
@@ -3098,7 +3199,7 @@ export default function AIBidIntelPro() {
                                     <div key={emc.name} className="border border-slate-700 rounded p-2 hover:border-indigo-500/30 transition-colors">
                                       <div className="flex items-center justify-between gap-1">
                                         <h5 className="text-xs font-medium text-white leading-tight">{emc.name}</h5>
-                                        {emc.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(emc.website, '_blank')}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
+                                        {emc.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => openPortalAssistant(emc.website, emc.name, "utility", emc.description)}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
                                       </div>
                                       <p className="text-[10px] text-gray-500 mt-0.5">{emc.description}</p>
                                       <div className="flex flex-wrap gap-1 mt-1">
@@ -3113,7 +3214,7 @@ export default function AIBidIntelPro() {
                                 <div key={org.name} className="border border-slate-700 rounded p-2">
                                   <div className="flex items-center justify-between gap-1">
                                     <h5 className="text-xs font-medium text-amber-300 leading-tight">{org.name}</h5>
-                                    {org.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(org.website, '_blank')}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
+                                    {org.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => openPortalAssistant(org.website, org.name, "utility", org.description)}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
                                   </div>
                                   <p className="text-[10px] text-gray-500 mt-0.5">{org.description}</p>
                                 </div>
@@ -3147,7 +3248,7 @@ export default function AIBidIntelPro() {
                                     <div key={emc.name} className="border border-slate-700 rounded p-2 hover:border-emerald-500/30 transition-colors">
                                       <div className="flex items-center justify-between gap-1">
                                         <h5 className="text-xs font-medium text-white leading-tight">{emc.name}</h5>
-                                        {emc.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(emc.website, '_blank')}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
+                                        {emc.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => openPortalAssistant(emc.website, emc.name, "utility", emc.description)}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
                                       </div>
                                       <p className="text-[10px] text-gray-500 mt-0.5">{emc.description}</p>
                                       <div className="flex flex-wrap gap-1 mt-1">
@@ -3162,7 +3263,7 @@ export default function AIBidIntelPro() {
                                 <div key={org.name} className="border border-slate-700 rounded p-2">
                                   <div className="flex items-center justify-between gap-1">
                                     <h5 className="text-xs font-medium text-amber-300 leading-tight">{org.name}</h5>
-                                    {org.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(org.website, '_blank')}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
+                                    {org.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => openPortalAssistant(org.website, org.name, "utility", org.description)}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
                                   </div>
                                   <p className="text-[10px] text-gray-500 mt-0.5">{org.description}</p>
                                 </div>
@@ -3196,7 +3297,7 @@ export default function AIBidIntelPro() {
                                     <div key={emc.name} className="border border-slate-700 rounded p-2 hover:border-sky-500/30 transition-colors">
                                       <div className="flex items-center justify-between gap-1">
                                         <h5 className="text-xs font-medium text-white leading-tight">{emc.name}</h5>
-                                        {emc.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(emc.website, '_blank')}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
+                                        {emc.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => openPortalAssistant(emc.website, emc.name, "utility", emc.description)}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
                                       </div>
                                       <p className="text-[10px] text-gray-500 mt-0.5">{emc.description}</p>
                                       <div className="flex flex-wrap gap-1 mt-1">
@@ -3211,7 +3312,7 @@ export default function AIBidIntelPro() {
                                 <div key={org.name} className="border border-slate-700 rounded p-2">
                                   <div className="flex items-center justify-between gap-1">
                                     <h5 className="text-xs font-medium text-amber-300 leading-tight">{org.name}</h5>
-                                    {org.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(org.website, '_blank')}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
+                                    {org.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => openPortalAssistant(org.website, org.name, "utility", org.description)}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
                                   </div>
                                   <p className="text-[10px] text-gray-500 mt-0.5">{org.description}</p>
                                 </div>
@@ -3245,7 +3346,7 @@ export default function AIBidIntelPro() {
                                     <div key={emc.name} className="border border-slate-700 rounded p-2 hover:border-purple-500/30 transition-colors">
                                       <div className="flex items-center justify-between gap-1">
                                         <h5 className="text-xs font-medium text-white leading-tight">{emc.name}</h5>
-                                        {emc.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(emc.website, '_blank')}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
+                                        {emc.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => openPortalAssistant(emc.website, emc.name, "utility", emc.description)}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
                                       </div>
                                       <p className="text-[10px] text-gray-500 mt-0.5">{emc.description}</p>
                                       <div className="flex flex-wrap gap-1 mt-1">
@@ -3260,7 +3361,7 @@ export default function AIBidIntelPro() {
                                 <div key={org.name} className="border border-slate-700 rounded p-2">
                                   <div className="flex items-center justify-between gap-1">
                                     <h5 className="text-xs font-medium text-amber-300 leading-tight">{org.name}</h5>
-                                    {org.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(org.website, '_blank')}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
+                                    {org.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => openPortalAssistant(org.website, org.name, "utility", org.description)}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
                                   </div>
                                   <p className="text-[10px] text-gray-500 mt-0.5">{org.description}</p>
                                 </div>
@@ -3294,7 +3395,7 @@ export default function AIBidIntelPro() {
                                     <div key={emc.name} className="border border-slate-700 rounded p-2 hover:border-yellow-500/30 transition-colors">
                                       <div className="flex items-center justify-between gap-1">
                                         <h5 className="text-xs font-medium text-white leading-tight">{emc.name}</h5>
-                                        {emc.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(emc.website, '_blank')}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
+                                        {emc.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => openPortalAssistant(emc.website, emc.name, "utility", emc.description)}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
                                       </div>
                                       <p className="text-[10px] text-gray-500 mt-0.5">{emc.description}</p>
                                       <div className="flex flex-wrap gap-1 mt-1">
@@ -3309,7 +3410,7 @@ export default function AIBidIntelPro() {
                                 <div key={org.name} className="border border-slate-700 rounded p-2">
                                   <div className="flex items-center justify-between gap-1">
                                     <h5 className="text-xs font-medium text-amber-300 leading-tight">{org.name}</h5>
-                                    {org.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(org.website, '_blank')}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
+                                    {org.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => openPortalAssistant(org.website, org.name, "utility", org.description)}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
                                   </div>
                                   <p className="text-[10px] text-gray-500 mt-0.5">{org.description}</p>
                                 </div>
@@ -3343,7 +3444,7 @@ export default function AIBidIntelPro() {
                                     <div key={emc.name} className="border border-slate-700 rounded p-2 hover:border-lime-500/30 transition-colors">
                                       <div className="flex items-center justify-between gap-1">
                                         <h5 className="text-xs font-medium text-white leading-tight">{emc.name}</h5>
-                                        {emc.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(emc.website, '_blank')}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
+                                        {emc.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => openPortalAssistant(emc.website, emc.name, "utility", emc.description)}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
                                       </div>
                                       <p className="text-[10px] text-gray-500 mt-0.5">{emc.description}</p>
                                       <div className="flex flex-wrap gap-1 mt-1">
@@ -3358,7 +3459,7 @@ export default function AIBidIntelPro() {
                                 <div key={org.name} className="border border-slate-700 rounded p-2">
                                   <div className="flex items-center justify-between gap-1">
                                     <h5 className="text-xs font-medium text-amber-300 leading-tight">{org.name}</h5>
-                                    {org.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(org.website, '_blank')}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
+                                    {org.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => openPortalAssistant(org.website, org.name, "utility", org.description)}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
                                   </div>
                                   <p className="text-[10px] text-gray-500 mt-0.5">{org.description}</p>
                                 </div>
@@ -3392,7 +3493,7 @@ export default function AIBidIntelPro() {
                                     <div key={emc.name} className="border border-slate-700 rounded p-2 hover:border-cyan-500/30 transition-colors">
                                       <div className="flex items-center justify-between gap-1">
                                         <h5 className="text-xs font-medium text-white leading-tight">{emc.name}</h5>
-                                        {emc.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(emc.website, '_blank')}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
+                                        {emc.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => openPortalAssistant(emc.website, emc.name, "utility", emc.description)}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
                                       </div>
                                       <p className="text-[10px] text-gray-500 mt-0.5">{emc.description}</p>
                                       <div className="flex flex-wrap gap-1 mt-1">
@@ -3407,7 +3508,7 @@ export default function AIBidIntelPro() {
                                 <div key={org.name} className="border border-slate-700 rounded p-2">
                                   <div className="flex items-center justify-between gap-1">
                                     <h5 className="text-xs font-medium text-amber-300 leading-tight">{org.name}</h5>
-                                    {org.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(org.website, '_blank')}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
+                                    {org.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => openPortalAssistant(org.website, org.name, "utility", org.description)}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
                                   </div>
                                   <p className="text-[10px] text-gray-500 mt-0.5">{org.description}</p>
                                 </div>
@@ -3441,7 +3542,7 @@ export default function AIBidIntelPro() {
                                     <div key={emc.name} className="border border-slate-700 rounded p-2 hover:border-rose-500/30 transition-colors">
                                       <div className="flex items-center justify-between gap-1">
                                         <h5 className="text-xs font-medium text-white leading-tight">{emc.name}</h5>
-                                        {emc.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(emc.website, '_blank')}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
+                                        {emc.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => openPortalAssistant(emc.website, emc.name, "utility", emc.description)}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
                                       </div>
                                       <p className="text-[10px] text-gray-500 mt-0.5">{emc.description}</p>
                                       <div className="flex flex-wrap gap-1 mt-1">
@@ -3456,7 +3557,7 @@ export default function AIBidIntelPro() {
                                 <div key={org.name} className="border border-slate-700 rounded p-2">
                                   <div className="flex items-center justify-between gap-1">
                                     <h5 className="text-xs font-medium text-amber-300 leading-tight">{org.name}</h5>
-                                    {org.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(org.website, '_blank')}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
+                                    {org.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => openPortalAssistant(org.website, org.name, "utility", org.description)}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
                                   </div>
                                   <p className="text-[10px] text-gray-500 mt-0.5">{org.description}</p>
                                 </div>
@@ -3490,7 +3591,7 @@ export default function AIBidIntelPro() {
                                     <div key={emc.name} className="border border-slate-700 rounded p-2 hover:border-teal-500/30 transition-colors">
                                       <div className="flex items-center justify-between gap-1">
                                         <h5 className="text-xs font-medium text-white leading-tight">{emc.name}</h5>
-                                        {emc.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(emc.website, '_blank')}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
+                                        {emc.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => openPortalAssistant(emc.website, emc.name, "utility", emc.description)}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
                                       </div>
                                       <p className="text-[10px] text-gray-500 mt-0.5">{emc.description}</p>
                                       <div className="flex flex-wrap gap-1 mt-1">
@@ -3505,7 +3606,7 @@ export default function AIBidIntelPro() {
                                 <div key={org.name} className="border border-slate-700 rounded p-2">
                                   <div className="flex items-center justify-between gap-1">
                                     <h5 className="text-xs font-medium text-amber-300 leading-tight">{org.name}</h5>
-                                    {org.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(org.website, '_blank')}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
+                                    {org.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => openPortalAssistant(org.website, org.name, "utility", org.description)}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
                                   </div>
                                   <p className="text-[10px] text-gray-500 mt-0.5">{org.description}</p>
                                 </div>
@@ -3539,7 +3640,7 @@ export default function AIBidIntelPro() {
                                     <div key={emc.name} className="border border-slate-700 rounded p-2 hover:border-blue-500/30 transition-colors">
                                       <div className="flex items-center justify-between gap-1">
                                         <h5 className="text-xs font-medium text-white leading-tight">{emc.name}</h5>
-                                        {emc.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(emc.website, '_blank')}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
+                                        {emc.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => openPortalAssistant(emc.website, emc.name, "utility", emc.description)}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
                                       </div>
                                       <p className="text-[10px] text-gray-500 mt-0.5">{emc.description}</p>
                                       <div className="flex flex-wrap gap-1 mt-1">
@@ -3554,7 +3655,7 @@ export default function AIBidIntelPro() {
                                 <div key={org.name} className="border border-slate-700 rounded p-2">
                                   <div className="flex items-center justify-between gap-1">
                                     <h5 className="text-xs font-medium text-amber-300 leading-tight">{org.name}</h5>
-                                    {org.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(org.website, '_blank')}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
+                                    {org.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => openPortalAssistant(org.website, org.name, "utility", org.description)}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
                                   </div>
                                   <p className="text-[10px] text-gray-500 mt-0.5">{org.description}</p>
                                 </div>
@@ -3588,7 +3689,7 @@ export default function AIBidIntelPro() {
                                     <div key={emc.name} className="border border-slate-700 rounded p-2 hover:border-orange-500/30 transition-colors">
                                       <div className="flex items-center justify-between gap-1">
                                         <h5 className="text-xs font-medium text-white leading-tight">{emc.name}</h5>
-                                        {emc.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(emc.website, '_blank')}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
+                                        {emc.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => openPortalAssistant(emc.website, emc.name, "utility", emc.description)}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
                                       </div>
                                       <p className="text-[10px] text-gray-500 mt-0.5">{emc.description}</p>
                                       <div className="flex flex-wrap gap-1 mt-1">
@@ -3603,7 +3704,7 @@ export default function AIBidIntelPro() {
                                 <div key={org.name} className="border border-slate-700 rounded p-2">
                                   <div className="flex items-center justify-between gap-1">
                                     <h5 className="text-xs font-medium text-amber-300 leading-tight">{org.name}</h5>
-                                    {org.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(org.website, '_blank')}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
+                                    {org.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => openPortalAssistant(org.website, org.name, "utility", org.description)}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
                                   </div>
                                   <p className="text-[10px] text-gray-500 mt-0.5">{org.description}</p>
                                 </div>
@@ -3637,7 +3738,7 @@ export default function AIBidIntelPro() {
                                     <div key={emc.name} className="border border-slate-700 rounded p-2 hover:border-violet-500/30 transition-colors">
                                       <div className="flex items-center justify-between gap-1">
                                         <h5 className="text-xs font-medium text-white leading-tight">{emc.name}</h5>
-                                        {emc.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(emc.website, '_blank')}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
+                                        {emc.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => openPortalAssistant(emc.website, emc.name, "utility", emc.description)}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
                                       </div>
                                       <p className="text-[10px] text-gray-500 mt-0.5">{emc.description}</p>
                                       <div className="flex flex-wrap gap-1 mt-1">
@@ -3652,7 +3753,7 @@ export default function AIBidIntelPro() {
                                 <div key={org.name} className="border border-slate-700 rounded p-2">
                                   <div className="flex items-center justify-between gap-1">
                                     <h5 className="text-xs font-medium text-amber-300 leading-tight">{org.name}</h5>
-                                    {org.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(org.website, '_blank')}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
+                                    {org.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => openPortalAssistant(org.website, org.name, "utility", org.description)}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
                                   </div>
                                   <p className="text-[10px] text-gray-500 mt-0.5">{org.description}</p>
                                 </div>
@@ -3686,7 +3787,7 @@ export default function AIBidIntelPro() {
                                     <div key={emc.name} className="border border-slate-700 rounded p-2 hover:border-sky-500/30 transition-colors">
                                       <div className="flex items-center justify-between gap-1">
                                         <h5 className="text-xs font-medium text-white leading-tight">{emc.name}</h5>
-                                        {emc.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(emc.website, '_blank')}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
+                                        {emc.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => openPortalAssistant(emc.website, emc.name, "utility", emc.description)}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
                                       </div>
                                       <p className="text-[10px] text-gray-500 mt-0.5">{emc.description}</p>
                                       <div className="flex flex-wrap gap-1 mt-1">
@@ -3701,7 +3802,7 @@ export default function AIBidIntelPro() {
                                 <div key={org.name} className="border border-slate-700 rounded p-2">
                                   <div className="flex items-center justify-between gap-1">
                                     <h5 className="text-xs font-medium text-amber-300 leading-tight">{org.name}</h5>
-                                    {org.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(org.website, '_blank')}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
+                                    {org.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => openPortalAssistant(org.website, org.name, "utility", org.description)}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
                                   </div>
                                   <p className="text-[10px] text-gray-500 mt-0.5">{org.description}</p>
                                 </div>
@@ -3735,7 +3836,7 @@ export default function AIBidIntelPro() {
                                     <div key={emc.name} className="border border-slate-700 rounded p-2 hover:border-amber-500/30 transition-colors">
                                       <div className="flex items-center justify-between gap-1">
                                         <h5 className="text-xs font-medium text-white leading-tight">{emc.name}</h5>
-                                        {emc.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(emc.website, '_blank')}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
+                                        {emc.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => openPortalAssistant(emc.website, emc.name, "utility", emc.description)}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
                                       </div>
                                       <p className="text-[10px] text-gray-500 mt-0.5">{emc.description}</p>
                                       <div className="flex flex-wrap gap-1 mt-1">
@@ -3750,7 +3851,7 @@ export default function AIBidIntelPro() {
                                 <div key={org.name} className="border border-slate-700 rounded p-2">
                                   <div className="flex items-center justify-between gap-1">
                                     <h5 className="text-xs font-medium text-amber-300 leading-tight">{org.name}</h5>
-                                    {org.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(org.website, '_blank')}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
+                                    {org.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => openPortalAssistant(org.website, org.name, "utility", org.description)}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
                                   </div>
                                   <p className="text-[10px] text-gray-500 mt-0.5">{org.description}</p>
                                 </div>
@@ -3784,7 +3885,7 @@ export default function AIBidIntelPro() {
                                     <div key={emc.name} className="border border-slate-700 rounded p-2 hover:border-red-500/30 transition-colors">
                                       <div className="flex items-center justify-between gap-1">
                                         <h5 className="text-xs font-medium text-white leading-tight">{emc.name}</h5>
-                                        {emc.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(emc.website, '_blank')}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
+                                        {emc.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => openPortalAssistant(emc.website, emc.name, "utility", emc.description)}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
                                       </div>
                                       <p className="text-[10px] text-gray-500 mt-0.5">{emc.description}</p>
                                       <div className="flex flex-wrap gap-1 mt-1">
@@ -3799,7 +3900,7 @@ export default function AIBidIntelPro() {
                                 <div key={org.name} className="border border-slate-700 rounded p-2">
                                   <div className="flex items-center justify-between gap-1">
                                     <h5 className="text-xs font-medium text-amber-300 leading-tight">{org.name}</h5>
-                                    {org.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(org.website, '_blank')}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
+                                    {org.website && (<Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => openPortalAssistant(org.website, org.name, "utility", org.description)}><ExternalLink className="w-2.5 h-2.5" /></Button>)}
                                   </div>
                                   <p className="text-[10px] text-gray-500 mt-0.5">{org.description}</p>
                                 </div>
@@ -3833,7 +3934,7 @@ export default function AIBidIntelPro() {
                                     <div key={dot.stateCode} className="border border-yellow-600/40 rounded p-2 bg-yellow-500/5">
                                       <div className="flex items-center justify-between gap-1">
                                         <h5 className="text-xs font-bold text-yellow-300 leading-tight">⭐ {dot.name}</h5>
-                                        <Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(dot.website, '_blank')}><ExternalLink className="w-2.5 h-2.5" /></Button>
+                                        <Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => openPortalAssistant(dot.website, dot.name, "dot_vendor", dot.description)}><ExternalLink className="w-2.5 h-2.5" /></Button>
                                       </div>
                                       <p className="text-[10px] text-gray-400 mt-0.5">{dot.description}</p>
                                     </div>
@@ -3850,7 +3951,7 @@ export default function AIBidIntelPro() {
                                           <span className="text-yellow-400 font-bold mr-1">{dot.stateCode}</span>
                                           {dot.name}
                                         </h5>
-                                        <Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(dot.website, '_blank')}><ExternalLink className="w-2.5 h-2.5" /></Button>
+                                        <Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => openPortalAssistant(dot.website, dot.name, "dot_vendor", dot.description)}><ExternalLink className="w-2.5 h-2.5" /></Button>
                                       </div>
                                       <p className="text-[10px] text-gray-500 mt-0.5">{dot.description}</p>
                                     </div>
@@ -3890,7 +3991,7 @@ export default function AIBidIntelPro() {
                                           </Badge>
                                           <Badge className="bg-slate-500/10 text-slate-400 border-slate-500/20 text-[8px] py-0 px-1">{agency.state}</Badge>
                                           {agency.website && (
-                                            <Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(agency.website, '_blank')}>
+                                            <Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => openPortalAssistant(agency.website, agency.name, "forestry", agency.description)}>
                                               <ExternalLink className="w-2.5 h-2.5" />
                                             </Button>
                                           )}
@@ -3936,7 +4037,7 @@ export default function AIBidIntelPro() {
                                             {prime.type === 'national_prime' ? 'Storm Prime' : prime.type === 'utility_prime' ? 'Utility Prime' : prime.type === 'national_association' ? 'Association' : 'Portal'}
                                           </Badge>
                                           {prime.website && (
-                                            <Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => window.open(prime.website, '_blank')}>
+                                            <Button size="sm" variant="ghost" className="h-5 text-[10px] text-blue-400 hover:text-blue-300 px-1" onClick={() => openPortalAssistant(prime.website, prime.name, "storm_prime", prime.description)}>
                                               <ExternalLink className="w-2.5 h-2.5" />
                                             </Button>
                                           )}
@@ -4187,7 +4288,7 @@ export default function AIBidIntelPro() {
                                         size="sm"
                                         variant="ghost"
                                         className="h-6 text-xs text-blue-400 hover:text-blue-300"
-                                        onClick={() => window.open(u.registrationUrl, '_blank')}
+                                        onClick={() => openPortalAssistant(u.registrationUrl, u.name, "utility")}
                                       >
                                         <ExternalLink className="w-3 h-3 mr-1" />
                                         Register
@@ -4231,7 +4332,7 @@ export default function AIBidIntelPro() {
                                         size="sm"
                                         variant="ghost"
                                         className="h-6 text-xs text-blue-400 hover:text-blue-300"
-                                        onClick={() => window.open(p.url, '_blank')}
+                                        onClick={() => openPortalAssistant(p.url, p.name, "vendor_platform")}
                                       >
                                         <ExternalLink className="w-3 h-3 mr-1" />
                                         Visit
@@ -4397,7 +4498,7 @@ export default function AIBidIntelPro() {
                                 <div className="flex gap-2">
                                   <Button
                                     size="sm"
-                                    onClick={(e) => { e.stopPropagation(); window.open(district.url, '_blank'); }}
+                                    onClick={(e) => { e.stopPropagation(); openPortalAssistant(district.url, district.name, "federal", district.stormRelevance); }}
                                     className="bg-blue-600 hover:bg-blue-700 text-white"
                                   >
                                     <ExternalLink className="w-3 h-3 mr-1" />
@@ -4789,7 +4890,7 @@ export default function AIBidIntelPro() {
                       variant="outline"
                       size="sm"
                       className="w-full justify-start border-slate-600 text-gray-300 hover:bg-slate-700 text-xs"
-                      onClick={() => window.open('https://www.usace.army.mil/Business-With-Us/', '_blank')}
+                      onClick={() => openPortalAssistant("https://www.usace.army.mil/Business-With-Us/", "USACE - Doing Business With Us", "federal", "U.S. Army Corps of Engineers business portal")}
                     >
                       <ExternalLink className="w-3 h-3 mr-2" />
                       USACE "Doing Business With Us"
@@ -4798,7 +4899,7 @@ export default function AIBidIntelPro() {
                       variant="outline"
                       size="sm"
                       className="w-full justify-start border-slate-600 text-gray-300 hover:bg-slate-700 text-xs"
-                      onClick={() => window.open('https://www.usace.army.mil/Business-With-Us/Small-Business/', '_blank')}
+                      onClick={() => openPortalAssistant("https://www.usace.army.mil/Business-With-Us/Small-Business/", "USACE - Small Business Program", "federal", "Small Business Program Office for USACE contracting")}
                     >
                       <ExternalLink className="w-3 h-3 mr-2" />
                       Small Business Program Office
@@ -4807,7 +4908,7 @@ export default function AIBidIntelPro() {
                       variant="outline"
                       size="sm"
                       className="w-full justify-start border-slate-600 text-gray-300 hover:bg-slate-700 text-xs"
-                      onClick={() => window.open('https://sam.gov/opportunities', '_blank')}
+                      onClick={() => openPortalAssistant("https://sam.gov/opportunities", "SAM.gov — USACE Solicitations", "federal", "Search USACE contract solicitations on SAM.gov")}
                     >
                       <ExternalLink className="w-3 h-3 mr-2" />
                       SAM.gov — USACE Solicitations
@@ -5021,6 +5122,158 @@ export default function AIBidIntelPro() {
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={portalAssistantOpen} onOpenChange={setPortalAssistantOpen}>
+        <DialogContent className="max-w-[95vw] w-[95vw] h-[90vh] max-h-[90vh] bg-slate-900 border-slate-700 p-0 gap-0">
+          <DialogHeader className="px-4 py-3 border-b border-slate-700 bg-gradient-to-r from-amber-900/30 to-slate-800">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-1.5 bg-amber-500/20 rounded-lg">
+                  <Navigation className="w-5 h-5 text-amber-400" />
+                </div>
+                <div>
+                  <DialogTitle className="text-white text-sm font-bold">{portalAssistantName}</DialogTitle>
+                  <p className="text-[11px] text-gray-400 mt-0.5">{portalAssistantUrl}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button size="sm" variant="outline" className="h-7 text-xs border-blue-500/50 text-blue-400 hover:bg-blue-500/20" onClick={() => window.open(portalAssistantUrl, '_blank')}>
+                  <ExternalLink className="w-3 h-3 mr-1" />
+                  Open in New Tab
+                </Button>
+              </div>
+            </div>
+          </DialogHeader>
+          
+          <div className="flex flex-1 overflow-hidden" style={{ height: 'calc(90vh - 60px)' }}>
+            <div className="flex-1 flex flex-col border-r border-slate-700 bg-slate-950">
+              {iframeLoading && !iframeLoadFailed && (
+                <div className="absolute inset-0 flex items-center justify-center bg-slate-950 z-10">
+                  <div className="text-center">
+                    <Loader2 className="w-8 h-8 text-amber-400 animate-spin mx-auto mb-3" />
+                    <p className="text-sm text-gray-400">Loading portal...</p>
+                  </div>
+                </div>
+              )}
+              
+              {iframeLoadFailed ? (
+                <div className="flex-1 flex items-center justify-center p-8">
+                  <div className="text-center max-w-md">
+                    <div className="p-4 bg-amber-500/10 rounded-xl mb-4 inline-block">
+                      <Globe className="w-12 h-12 text-amber-400" />
+                    </div>
+                    <h3 className="text-lg font-bold text-white mb-2">Open Portal in New Tab</h3>
+                    <p className="text-sm text-gray-400 mb-4">
+                      This portal has security restrictions that prevent in-app viewing.
+                      Click below to open it in a new browser tab.
+                    </p>
+                    <p className="text-sm text-amber-400 mb-4">
+                      Rachel AI is still right here to help! Open the portal in a new tab and ask Rachel 
+                      questions about the registration process, what documents you need, or how to fill out specific fields.
+                    </p>
+                    <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => window.open(portalAssistantUrl, '_blank')}>
+                      <ExternalLink className="w-4 h-4 mr-2" />
+                      Open Portal in New Tab
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <iframe
+                  src={portalAssistantUrl}
+                  className="w-full h-full border-0"
+                  title={portalAssistantName}
+                  sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-top-navigation"
+                  onLoad={() => setIframeLoading(false)}
+                  onError={() => {
+                    setIframeLoadFailed(true);
+                    setIframeLoading(false);
+                  }}
+                />
+              )}
+            </div>
+            
+            <div className="w-[400px] flex flex-col bg-slate-900">
+              <div className="px-3 py-2 border-b border-slate-700 bg-gradient-to-r from-amber-900/20 to-slate-900">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 bg-gradient-to-br from-amber-500 to-orange-600 rounded-full flex items-center justify-center">
+                    <MessageSquare className="w-3.5 h-3.5 text-white" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-white">Rachel — Portal Assistant</h4>
+                    <p className="text-[10px] text-amber-400">I'll help you complete this registration</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto p-3 space-y-3">
+                {portalChatHistory.map((msg, i) => (
+                  <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                    <div className={`max-w-[90%] rounded-lg px-3 py-2 text-xs leading-relaxed ${
+                      msg.role === "user"
+                        ? "bg-amber-600/30 text-white border border-amber-500/30"
+                        : "bg-slate-800 text-gray-200 border border-slate-700"
+                    }`}>
+                      {msg.role === "assistant" ? renderMarkdown(msg.message) : msg.message}
+                    </div>
+                  </div>
+                ))}
+                {portalChatMutation.isPending && (
+                  <div className="flex justify-start">
+                    <div className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-gray-400 flex items-center gap-2">
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                      Rachel is thinking...
+                    </div>
+                  </div>
+                )}
+                <div ref={portalChatEndRef} />
+              </div>
+              
+              <div className="px-3 py-2 border-t border-slate-700 bg-slate-900/50">
+                <div className="flex flex-wrap gap-1 mb-2">
+                  {[
+                    "How do I register here?",
+                    "What documents do I need?",
+                    "Walk me through the form",
+                    "What certifications are required?",
+                  ].map((q) => (
+                    <Button key={q} size="sm" variant="ghost" className="h-6 text-[10px] text-amber-400 hover:bg-amber-500/10 px-2 border border-amber-500/20"
+                      onClick={() => {
+                        setPortalChatInput(q);
+                        const userMessage: ChatMessage = { role: "user", message: q };
+                        setPortalChatHistory((prev) => [...prev, userMessage]);
+                        portalChatMutation.mutate({
+                          message: q,
+                          portalContext: {
+                            portalName: portalAssistantName,
+                            portalUrl: portalAssistantUrl,
+                            portalType: portalAssistantType,
+                            portalDescription: portalAssistantDesc,
+                          },
+                          generateAudio: enableVoice,
+                        });
+                        setPortalChatInput("");
+                      }}>
+                      {q}
+                    </Button>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <Input
+                    value={portalChatInput}
+                    onChange={(e) => setPortalChatInput(e.target.value)}
+                    onKeyDown={handlePortalChatKeyPress}
+                    placeholder="Ask Rachel about this portal..."
+                    className="bg-slate-800 border-slate-600 text-white text-xs h-8"
+                  />
+                  <Button size="sm" className="h-8 bg-amber-600 hover:bg-amber-700 px-3" onClick={handlePortalChatSend} disabled={portalChatMutation.isPending || !portalChatInput.trim()}>
+                    <Send className="w-3 h-3" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <ModuleAIAssistant 
         moduleName="AI BidIntel Pro" 
