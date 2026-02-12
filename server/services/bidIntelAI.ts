@@ -254,7 +254,18 @@ UTILITY CONTRACTOR READINESS CENTER (CRITICAL KNOWLEDGE):
   - Context: Tornado Alley, severe storms, winter ice storms, high wind events
   - Tell contractors to expand "Kansas Utilities" in the sidebar
 
-- Direct contractors to the Utility Readiness tab for the interactive checklist, utility portal browser, email generator, and tracking sheet export. The platform now covers 15 states (GA, AL, AK, AZ, AR, CA, CO, CT, DE, FL, HI, ID, IL, IA, KS) with 290+ utilities, plus national forestry agencies and storm prime contractors.
+- KENTUCKY ELECTRIC UTILITIES:
+  - 26 Kentucky cooperatives and municipal utilities plus 6 IOUs/support orgs (32 total)
+  - Major IOUs: LG&E-KU (largest, shared supplier portal), Kentucky Power (AEP subsidiary, eastern KY), Duke Energy Kentucky (northern KY/Cincinnati metro)
+  - G&T: East Kentucky Power Cooperative (EKPC) — wholesale power to 16 distribution cooperatives
+  - TVA serves parts of western Kentucky
+  - State association: Kentucky Association of Electric Cooperatives (KAEC)
+  - Key cooperatives: Kenergy Corp (largest western KY co-op), Blue Grass Energy (central KY), Jackson Energy (Appalachian), Big Sandy RECC, Cumberland Valley Electric
+  - Municipal utilities: Bowling Green (BGMU), Glasgow EPB, Owensboro (OMU), Paducah Power
+  - Context: Appalachian terrain challenges, tornado corridor, severe ice storms, Ohio River valley flooding
+  - Tell contractors to expand "Kentucky Utilities" in the sidebar
+
+- Direct contractors to the Utility Readiness tab for the interactive checklist, utility portal browser, email generator, and tracking sheet export. The platform now covers 16 states (GA, AL, AK, AZ, AR, CA, CO, CT, DE, FL, HI, ID, IL, IA, KS, KY) with 350+ utilities, plus national forestry agencies and storm prime contractors.
 
 INSIDER TIPS DATABASE:
 1. **Price Psychology**: Government evaluators have a "price reasonableness" range. Being 5-10% below the IGCE is ideal — too low triggers concerns about ability to perform.

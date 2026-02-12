@@ -4,7 +4,7 @@ import { storage } from "../storage";
 import { requireAuth, requireContractor } from "../middleware/auth";
 import { generateBidIntelResponse, generateRFIQuestion, analyzeBidOpportunity, INSIDER_TIPS_DATABASE } from "../services/bidIntelAI";
 import { USACE_DISTRICTS, USACE_DIVISIONS, MAJOR_PRIMES, getPriorityDistricts, generateIntroductionEmail, generateCapabilityStatement } from "../services/usaceOutreach";
-import { UTILITY_COMPANIES, VENDOR_PLATFORMS, READINESS_CHECKLIST, STORM_PRIORITY_REGISTRATIONS, GOVERNMENT_PORTALS, GEORGIA_EMCS, ALABAMA_EMCS, ALASKA_EMCS, ARIZONA_EMCS, ARKANSAS_EMCS, CALIFORNIA_EMCS, COLORADO_EMCS, CONNECTICUT_EMCS, DELAWARE_EMCS, FLORIDA_EMCS, HAWAII_EMCS, IDAHO_EMCS, ILLINOIS_EMCS, IOWA_EMCS, KANSAS_EMCS, FORESTRY_AGENCIES, STORM_PRIMES, generateUtilityIntroEmail, generateTrackingSheet } from "../services/utilityContractorReadiness";
+import { UTILITY_COMPANIES, VENDOR_PLATFORMS, READINESS_CHECKLIST, STORM_PRIORITY_REGISTRATIONS, GOVERNMENT_PORTALS, GEORGIA_EMCS, ALABAMA_EMCS, ALASKA_EMCS, ARIZONA_EMCS, ARKANSAS_EMCS, CALIFORNIA_EMCS, COLORADO_EMCS, CONNECTICUT_EMCS, DELAWARE_EMCS, FLORIDA_EMCS, HAWAII_EMCS, IDAHO_EMCS, ILLINOIS_EMCS, IOWA_EMCS, KANSAS_EMCS, KENTUCKY_EMCS, FORESTRY_AGENCIES, STORM_PRIMES, generateUtilityIntroEmail, generateTrackingSheet } from "../services/utilityContractorReadiness";
 import { elevenLabsVoice } from "../services/elevenLabsVoice";
 import {
   insertBidOpportunitySchema,
@@ -531,6 +531,7 @@ router.get("/utility-readiness/portals", async (req: Request, res: Response) => 
       illinoisEMCs: ILLINOIS_EMCS,
       iowaEMCs: IOWA_EMCS,
       kansasEMCs: KANSAS_EMCS,
+      kentuckyEMCs: KENTUCKY_EMCS,
       forestryAgencies: FORESTRY_AGENCIES,
       stormPrimes: STORM_PRIMES,
       regions: [...new Set(UTILITY_COMPANIES.map(u => u.region))].sort(),
