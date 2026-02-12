@@ -19837,6 +19837,247 @@ Important guidelines:
       });
   }
 
+  // ============ DIY MATERIALS & AFFILIATE LINKS ============
+  app.get('/api/workhub/diy-materials/:trade', async (req, res) => {
+    try {
+      const { getDIYMaterials } = await import('./services/workhubMaterials.js');
+      const trade = req.params.trade;
+      const issue = req.query.issue as string | undefined;
+      const result = getDIYMaterials(trade, issue);
+      res.json({ ok: true, ...result });
+    } catch (error) {
+      console.error('DIY materials error:', error);
+      res.status(500).json({ error: 'Failed to get materials list' });
+    }
+  });
+
+  // ============ UNIFIED ANALYZE V2 — All Trades with Video/Photo Processing ============
+  const analyzeV2Upload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 50 * 1024 * 1024 },
+    fileFilter: (_req, file, cb) => {
+      const allowedVideo = ['video/mp4', 'video/quicktime', 'video/webm', 'video/x-msvideo'];
+      const allowedImage = ['image/jpeg', 'image/png', 'image/webp', 'image/heic'];
+      if (allowedVideo.includes(file.mimetype) || allowedImage.includes(file.mimetype)) {
+        cb(null, true);
+      } else {
+        cb(new Error('Only MP4/MOV/WebM video and JPG/PNG image files are accepted'));
+      }
+    }
+  });
+
+  app.post('/api/workhub/analyze-v2', analyzeV2Upload.array('media', 6), async (req, res) => {
+    try {
+      const files = req.files as Express.Multer.File[] | undefined;
+      const { category, description, location } = req.body;
+
+      if (!description && (!files || files.length === 0)) {
+        return res.status(400).json({ error: 'Please describe the issue or upload a photo/video' });
+      }
+
+      const openaiApiKey = process.env.OPENAI_API_KEY;
+      if (!openaiApiKey) {
+        return res.status(500).json({ error: 'AI service not configured' });
+      }
+
+      console.log(`🔍 Unified V2 Analysis: category=${category || 'auto-detect'}, files=${files?.length || 0}`);
+
+      const allFrames: string[] = [];
+      let audioDescription = '';
+      const processingNotes: string[] = [];
+
+      if (files && files.length > 0) {
+        const { processVideoBuffer } = await import('./services/videoAudioProcessor.js');
+
+        for (const file of files) {
+          if (file.mimetype.startsWith('video/')) {
+            try {
+              const processed = await processVideoBuffer(file.buffer, file.mimetype);
+              allFrames.push(...processed.frames);
+              if (processed.audioAnalysis.hasAudio) {
+                audioDescription = processed.audioAnalysis.audioDescription;
+                processingNotes.push(`Audio extracted from ${file.originalname}`);
+              }
+              processingNotes.push(`Extracted ${processed.frames.length} frames from ${file.originalname}`);
+            } catch (err) {
+              console.error('Video processing error:', err);
+              processingNotes.push(`Could not process video ${file.originalname}`);
+            }
+          } else if (file.mimetype.startsWith('image/')) {
+            allFrames.push(file.buffer.toString('base64'));
+            processingNotes.push(`Image ${file.originalname} loaded`);
+          }
+        }
+      }
+
+      const tradeLabels: Record<string, string> = {
+        tree: 'Tree Services', roofing: 'Roofing', hvac: 'HVAC', plumbing: 'Plumbing',
+        electrical: 'Electrical', painting: 'Painting', auto: 'Auto Repair',
+        general: 'General Contractor', flooring: 'Flooring', fence: 'Fencing',
+        concrete: 'Concrete', other: 'Custom Project'
+      };
+      const tradeName = tradeLabels[category] || category || 'home service';
+
+      const messages: any[] = [
+        {
+          role: 'system',
+          content: `You are an expert project estimator for ${tradeName} work. Analyze the customer's photos/videos and description to assess:
+1. What specific work is needed
+2. Scope and complexity of the project
+3. Estimated price range (low and high) based on typical rates in the customer's area
+4. Urgency level
+5. Safety concerns
+6. Whether this is DIY-feasible
+
+${audioDescription ? `AUDIO ANALYSIS from video: ${audioDescription}` : ''}
+
+Respond in this exact JSON format:
+{
+  "summary": "Brief 1-2 sentence summary of what you see",
+  "detailedFindings": "Detailed description of all issues found, materials involved, scope",
+  "identifiedIssues": ["issue 1", "issue 2"],
+  "estimatedPriceRange": { "min": number, "max": number },
+  "urgencyLevel": "low" | "moderate" | "high" | "critical",
+  "complexity": "simple" | "moderate" | "complex" | "expert",
+  "estimatedTimeframe": "how long the work typically takes",
+  "diyFeasible": true/false,
+  "diyDifficulty": "easy" | "moderate" | "hard" | "professional_only",
+  "materialsNeeded": ["material 1", "material 2"],
+  "safetyWarning": "any safety concerns",
+  "recommendedTrades": ["trade type 1"],
+  "aiConfidence": number 0-100
+}`
+        }
+      ];
+
+      const userContent: any[] = [];
+      if (description) {
+        userContent.push({ type: 'text', text: `Customer description: ${description}\nCategory: ${tradeName}\n${location ? `Location: ${location}` : ''}` });
+      }
+      for (const frame of allFrames.slice(0, 6)) {
+        userContent.push({
+          type: 'image_url',
+          image_url: { url: `data:image/jpeg;base64,${frame}`, detail: 'high' }
+        });
+      }
+      if (userContent.length === 0) {
+        userContent.push({ type: 'text', text: `Analyze this ${tradeName} project request.` });
+      }
+      messages.push({ role: 'user', content: userContent });
+
+      const { default: OpenAI } = await import('openai');
+      const openai = new OpenAI({ apiKey: openaiApiKey });
+
+      const completion = await openai.chat.completions.create({
+        model: 'gpt-4o',
+        messages,
+        max_tokens: 3000,
+        temperature: 0.3,
+        response_format: { type: 'json_object' }
+      });
+
+      const responseText = completion.choices[0]?.message?.content || '{}';
+      let analysis: any = {};
+      try { analysis = JSON.parse(responseText); } catch { analysis = { summary: responseText }; }
+
+      const { getDIYMaterials, ESTIMATE_DISCLAIMER } = await import('./services/workhubMaterials.js');
+      const diyMaterials = getDIYMaterials(category || 'other');
+
+      console.log(`✅ V2 Analysis complete: ${analysis.identifiedIssues?.length || 0} issues, price: $${analysis.estimatedPriceRange?.min}-$${analysis.estimatedPriceRange?.max}`);
+
+      res.json({
+        ok: true,
+        analysis: {
+          ...analysis,
+          framesAnalyzed: allFrames.length,
+          processingNotes,
+          disclaimer: ESTIMATE_DISCLAIMER,
+        },
+        diyMaterials,
+      });
+    } catch (error) {
+      console.error('Unified V2 analysis error:', error);
+      res.status(500).json({ error: 'Analysis failed. Please try again.' });
+    }
+  });
+
+  // JSON-only version (no media uploads)
+  app.post('/api/workhub/analyze-v2-json', express.json({ limit: '1mb' }), async (req, res) => {
+    try {
+      const { category, description, location } = req.body;
+      if (!description) {
+        return res.status(400).json({ error: 'Please describe the issue' });
+      }
+
+      const openaiApiKey = process.env.OPENAI_API_KEY;
+      if (!openaiApiKey) {
+        return res.status(500).json({ error: 'AI service not configured' });
+      }
+
+      const tradeLabels: Record<string, string> = {
+        tree: 'Tree Services', roofing: 'Roofing', hvac: 'HVAC', plumbing: 'Plumbing',
+        electrical: 'Electrical', painting: 'Painting', auto: 'Auto Repair',
+        general: 'General Contractor', flooring: 'Flooring', fence: 'Fencing',
+        concrete: 'Concrete', other: 'Custom Project'
+      };
+      const tradeName = tradeLabels[category] || category || 'home service';
+
+      const { default: OpenAI } = await import('openai');
+      const openai = new OpenAI({ apiKey: openaiApiKey });
+
+      const completion = await openai.chat.completions.create({
+        model: 'gpt-4o',
+        messages: [
+          {
+            role: 'system',
+            content: `You are an expert project estimator for ${tradeName} work. Based on the customer's description, provide a thorough analysis.
+Respond in this exact JSON format:
+{
+  "summary": "Brief 1-2 sentence summary",
+  "detailedFindings": "Detailed analysis",
+  "identifiedIssues": ["issue 1", "issue 2"],
+  "estimatedPriceRange": { "min": number, "max": number },
+  "urgencyLevel": "low" | "moderate" | "high" | "critical",
+  "complexity": "simple" | "moderate" | "complex" | "expert",
+  "estimatedTimeframe": "duration estimate",
+  "diyFeasible": true/false,
+  "diyDifficulty": "easy" | "moderate" | "hard" | "professional_only",
+  "materialsNeeded": ["material 1", "material 2"],
+  "safetyWarning": "safety concerns",
+  "recommendedTrades": ["trade type"],
+  "aiConfidence": number 0-100
+}`
+          },
+          { role: 'user', content: `Category: ${tradeName}\nDescription: ${description}\n${location ? `Location: ${location}` : ''}` }
+        ],
+        max_tokens: 2000,
+        temperature: 0.3,
+        response_format: { type: 'json_object' }
+      });
+
+      const responseText = completion.choices[0]?.message?.content || '{}';
+      let analysis: any = {};
+      try { analysis = JSON.parse(responseText); } catch { analysis = { summary: responseText }; }
+
+      const { getDIYMaterials, ESTIMATE_DISCLAIMER } = await import('./services/workhubMaterials.js');
+      const diyMaterials = getDIYMaterials(category || 'other');
+
+      res.json({
+        ok: true,
+        analysis: {
+          ...analysis,
+          framesAnalyzed: 0,
+          processingNotes: ['Text-only analysis (no media uploaded)'],
+          disclaimer: ESTIMATE_DISCLAIMER,
+        },
+        diyMaterials,
+      });
+    } catch (error) {
+      console.error('V2 JSON analysis error:', error);
+      res.status(500).json({ error: 'Analysis failed. Please try again.' });
+    }
+  });
+
   // ============ FLOORING PRICING ENGINE ============
   // Square footage based pricing with Home Depot/Lowes affiliate integration
   

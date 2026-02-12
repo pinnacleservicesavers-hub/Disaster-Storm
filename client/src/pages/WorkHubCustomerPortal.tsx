@@ -67,6 +67,8 @@ export default function WorkHubCustomerPortal() {
   const [customerBudgetMin, setCustomerBudgetMin] = useState<string>('');
   const [customerBudgetMax, setCustomerBudgetMax] = useState<string>('');
   const [preferredDate, setPreferredDate] = useState<string>('');
+  const [wantDIY, setWantDIY] = useState<boolean | null>(null);
+  const [diyMaterials, setDiyMaterials] = useState<any>(null);
   const [showContractors, setShowContractors] = useState(false);
   const [preferredTimeframe, setPreferredTimeframe] = useState<string | null>(null);
   const [estimateDateFrom, setEstimateDateFrom] = useState<string>('');
@@ -445,7 +447,9 @@ export default function WorkHubCustomerPortal() {
     setMaterialOptions([]);
     setSelectedMaterial(null);
     setPricingBreakdown(null);
-    setTreePricing(null); // Reset tree pricing to avoid showing stale data for non-tree jobs
+    setTreePricing(null);
+    setWantDIY(null);
+    setDiyMaterials(null);
     
     setIsAnalyzing(true);
     setAutoDiagResult(null);
@@ -548,83 +552,69 @@ export default function WorkHubCustomerPortal() {
       return;
     }
     
-    speakGuidance("Analyzing your photos with AI. I'm identifying the type of work needed and potential issues.");
+    speakGuidance("Analyzing your photos and videos with AI. I'm identifying the type of work needed and estimating costs.");
     
     try {
-      // Convert first photo to base64 for AI analysis
-      const file = request.photos[0];
-      const reader = new FileReader();
-      const base64Promise = new Promise<string>((resolve, reject) => {
-        reader.onload = () => {
-          const result = reader.result as string;
-          // Remove the data:image/...;base64, prefix
-          const base64 = result.split(',')[1];
-          resolve(base64);
-        };
-        reader.onerror = reject;
-      });
-      reader.readAsDataURL(file);
-      const imageBase64 = await base64Promise;
+      const locationStr = request.location.city && request.location.state 
+        ? `${request.location.city}, ${request.location.state}` 
+        : '';
 
-      // Call the real AI analysis API
-      const response = await fetch('/api/workhub/analyze', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          imageBase64: imageBase64,
-          description: request.description || '',
-          jobType: request.category || '',
-          location: request.location.city && request.location.state 
-            ? `${request.location.city}, ${request.location.state}` 
-            : ''
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Analysis failed');
+      const formData = new FormData();
+      formData.append('category', request.category || '');
+      formData.append('description', request.description || '');
+      formData.append('location', locationStr);
+      for (const file of request.photos) {
+        formData.append('media', file);
       }
 
+      const response = await fetch('/api/workhub/analyze-v2', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) throw new Error('Analysis failed');
       const data = await response.json();
       
-      // Transform API response to match the expected format
-      // details is a string, convert to array for display
-      const issuesList: string[] = [];
-      if (data.analysis?.summary) issuesList.push(data.analysis.summary);
-      if (data.analysis?.details) issuesList.push(data.analysis.details);
-      if (issuesList.length === 0) issuesList.push('Work identified from photo analysis');
-      
-      // Confidence is 0-1 from backend, convert to percentage
-      const confidencePercent = Math.round((data.analysis?.confidence || 0.85) * 100);
-      
+      if (!data.ok) throw new Error(data.error || 'Analysis failed');
+
+      const a = data.analysis || {};
+      const issuesList: string[] = a.identifiedIssues || [];
+      if (issuesList.length === 0 && a.summary) issuesList.push(a.summary);
+      if (issuesList.length === 0) issuesList.push('Work identified from analysis');
+
       const analysis = {
-        detectedCategory: data.analysis?.detectedJobType || request.category || 'general',
+        detectedCategory: request.category || 'general',
         identifiedIssues: issuesList,
-        recommendedTrades: data.analysis?.recommendations || [],
+        recommendedTrades: a.recommendedTrades || [],
         estimatedPriceRange: { 
-          min: data.analysis?.priceEstimate?.min || 3500, 
-          max: data.analysis?.priceEstimate?.max || 5800 
+          min: a.estimatedPriceRange?.min || 500, 
+          max: a.estimatedPriceRange?.max || 5000 
         },
-        complexity: data.analysis?.complexity || data.analysis?.severity || 'minimal',
-        timeEstimate: data.analysis?.timeEstimate || data.analysis?.urgency || 'routine',
-        hazards: data.analysis?.hazards || {},
-        isHazardous: data.analysis?.isHazardous || false,
-        aiConfidence: confidencePercent,
-        contractors: data.contractors || [],
-        tags: data.analysis?.tags || [],
-        safetyNotes: data.analysis?.safetyNotes || ''
+        complexity: a.complexity || 'moderate',
+        timeEstimate: a.estimatedTimeframe || 'See details',
+        aiConfidence: a.aiConfidence || 80,
+        contractors: [],
+        tags: [],
+        safetyNotes: a.safetyWarning || '',
+        detailedFindings: a.detailedFindings || a.summary || '',
+        diyFeasible: a.diyFeasible || false,
+        diyDifficulty: a.diyDifficulty || 'moderate',
+        urgencyLevel: a.urgencyLevel || 'moderate',
+        materialsNeeded: a.materialsNeeded || [],
+        disclaimer: a.disclaimer || '',
+        framesAnalyzed: a.framesAnalyzed || 0,
+        processingNotes: a.processingNotes || [],
       };
       
       setAiAnalysis(analysis);
-      
-      // Capture measurements and material options from the enhanced API
-      if (data.measurements) {
-        setMeasurements(data.measurements);
+
+      if (data.diyMaterials) {
+        setDiyMaterials(data.diyMaterials);
       }
-      if (data.materialOptions && data.materialOptions.length > 0) {
+
+      if (data.measurements) setMeasurements(data.measurements);
+      if (data.materialOptions?.length > 0) {
         setMaterialOptions(data.materialOptions);
-        // Auto-select the recommended material
         const recommended = data.materialOptions.find((m: any) => m.isRecommended);
         if (recommended) {
           setSelectedMaterial(recommended);
@@ -635,26 +625,10 @@ export default function WorkHubCustomerPortal() {
           });
         }
       }
-      
-      // Capture professional tree pricing breakdown
-      if (data.analysis?.treePricing) {
-        setTreePricing(data.analysis.treePricing);
-      }
-      
-      // Capture professional roofing pricing breakdown
-      if (data.analysis?.roofingPricing) {
-        setRoofingPricing(data.analysis.roofingPricing);
-      }
-      
-      // Capture auto repair pricing breakdown
-      if (data.analysis?.autoRepairPricing) {
-        setAutoRepairPricing(data.analysis.autoRepairPricing);
-      }
-      
-      // Capture flooring pricing breakdown
-      if (data.analysis?.flooringPricing) {
-        setFlooringPricing(data.analysis.flooringPricing);
-      }
+      if (data.analysis?.treePricing) setTreePricing(data.analysis.treePricing);
+      if (data.analysis?.roofingPricing) setRoofingPricing(data.analysis.roofingPricing);
+      if (data.analysis?.autoRepairPricing) setAutoRepairPricing(data.analysis.autoRepairPricing);
+      if (data.analysis?.flooringPricing) setFlooringPricing(data.analysis.flooringPricing);
       
       // Extract job details based on work type
       const detectedCategory = analysis.detectedCategory || request.category || 'general';
@@ -2543,7 +2517,7 @@ export default function WorkHubCustomerPortal() {
                               <p className="text-xs text-amber-700 dark:text-amber-300 flex items-start gap-2">
                                 <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
                                 <span>
-                                  <strong>This is a ballpark estimate.</strong> Prices are subject to change once a contractor inspects the job in person. The final quote may be lower or higher depending on actual conditions.
+                                  <strong>This is an AI-generated preliminary estimate only.</strong> A licensed professional must inspect the project to determine final scope and pricing. Estimates may vary based on site conditions, local labor rates, permits, and material availability.
                                 </span>
                               </p>
                             </div>
@@ -2630,7 +2604,7 @@ export default function WorkHubCustomerPortal() {
                               <Button
                                 onClick={() => {
                                   setBudgetReason(`Budget: $${customerBudgetMin} - $${customerBudgetMax}`);
-                                  speakGuidance("Great! Now when would you like this work completed?");
+                                  speakGuidance("Got it. Would you like to try to do this project on your own? We can show you the materials you need and where to buy them at the best prices.");
                                 }}
                                 disabled={!customerBudgetMin || !customerBudgetMax}
                                 className="bg-gradient-to-r from-amber-600 to-orange-600"
@@ -2645,8 +2619,166 @@ export default function WorkHubCustomerPortal() {
                       </div>
                     )}
                     
-                    {/* Step 1: Estimate Date Range - Shows after budget confirmed */}
-                    {((budgetConfirmed === true) || (budgetConfirmed === false && budgetReason)) && !estimateDateFrom && (
+                    {/* DIY Option — Shows after budget declined and budget range entered */}
+                    {budgetConfirmed === false && budgetReason && wantDIY === null && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="mt-6 pt-4 border-t border-blue-200 dark:border-blue-800"
+                      >
+                        <Card className="border-2 border-blue-300 bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20">
+                          <CardContent className="pt-6 space-y-4">
+                            <h4 className="font-semibold text-lg text-blue-700 dark:text-blue-400 flex items-center gap-2">
+                              <Wrench className="w-5 h-5" />
+                              Would you like to try to do this on your own?
+                            </h4>
+                            <p className="text-sm text-slate-600 dark:text-slate-400">
+                              We can show you the materials and tools you need, plus the best places to buy them at affordable prices.
+                            </p>
+                            <div className="flex justify-center gap-4 pt-2">
+                              <Button
+                                onClick={() => {
+                                  setWantDIY(true);
+                                  const tradeKey = request.category === 'tree_removal' ? 'tree' : request.category === 'fencing' ? 'fence' : request.category || 'other';
+                                  if (!diyMaterials) {
+                                    fetch(`/api/workhub/diy-materials/${tradeKey}`)
+                                      .then(r => r.json())
+                                      .then(data => { if (data.ok) setDiyMaterials(data); })
+                                      .catch(() => {});
+                                  }
+                                  speakGuidance("Great choice! Here are the materials you'll need and where to get the best prices. If you purchase through our links, you'll support our platform at no extra cost to you.");
+                                }}
+                                className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 px-8 py-3 text-lg"
+                                data-testid="button-diy-yes"
+                              >
+                                <Wrench className="w-5 h-5 mr-2" />
+                                Yes, show me how
+                              </Button>
+                              <Button
+                                variant="outline"
+                                onClick={() => {
+                                  setWantDIY(false);
+                                  speakGuidance("No problem! Let's find you a contractor. When would you like them to come give you an estimate?");
+                                }}
+                                className="px-8 py-3 text-lg"
+                                data-testid="button-diy-no"
+                              >
+                                No, find me a contractor
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </motion.div>
+                    )}
+
+                    {/* DIY Materials List with Affiliate Links */}
+                    {wantDIY === true && diyMaterials && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="mt-6 pt-4 border-t border-green-200 dark:border-green-800"
+                      >
+                        <Card className="border-2 border-green-300 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20">
+                          <CardHeader className="pb-3">
+                            <CardTitle className="flex items-center gap-2 text-green-700 dark:text-green-400">
+                              <Wrench className="w-5 h-5" />
+                              DIY Materials List — {diyMaterials.tradeName}
+                            </CardTitle>
+                            <div className="flex items-center gap-2 mt-1">
+                              <Badge variant={
+                                diyMaterials.diyDifficulty === 'easy' ? 'default' :
+                                diyMaterials.diyDifficulty === 'moderate' ? 'secondary' :
+                                diyMaterials.diyDifficulty === 'hard' ? 'destructive' : 'destructive'
+                              }>
+                                DIY Difficulty: {diyMaterials.diyDifficulty === 'professional_only' ? 'Professional Only' : diyMaterials.diyDifficulty?.charAt(0).toUpperCase() + diyMaterials.diyDifficulty?.slice(1)}
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-slate-600 dark:text-slate-400 mt-2">
+                              {diyMaterials.diyNotes}
+                            </p>
+                          </CardHeader>
+                          <CardContent className="space-y-4">
+                            {diyMaterials.safetyWarnings?.length > 0 && (
+                              <div className="bg-red-50 dark:bg-red-900/20 p-3 rounded-lg border border-red-200 dark:border-red-800">
+                                <h5 className="font-semibold text-red-700 dark:text-red-400 flex items-center gap-2 mb-2">
+                                  <AlertTriangle className="w-4 h-4" />
+                                  Safety Warnings
+                                </h5>
+                                <ul className="text-sm text-red-600 dark:text-red-300 space-y-1">
+                                  {diyMaterials.safetyWarnings.map((w: string, i: number) => (
+                                    <li key={i} className="flex items-start gap-2">
+                                      <span className="text-red-500 mt-0.5">&#8226;</span> {w}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+
+                            <div className="bg-gradient-to-r from-green-100 to-emerald-100 dark:from-green-900/30 dark:to-emerald-900/30 p-4 rounded-xl text-center mb-2">
+                              <p className="text-sm text-slate-600 dark:text-slate-400">Estimated Material Cost</p>
+                              <p className="text-2xl font-bold text-green-700 dark:text-green-400">
+                                ${diyMaterials.totalMaterialCostMin?.toLocaleString()} – ${diyMaterials.totalMaterialCostMax?.toLocaleString()}
+                              </p>
+                            </div>
+
+                            <div className="space-y-3">
+                              {diyMaterials.materials?.map((mat: any, idx: number) => (
+                                <div key={idx} className="bg-white dark:bg-slate-800 rounded-lg p-3 border border-slate-200 dark:border-slate-700">
+                                  <div className="flex justify-between items-start mb-2">
+                                    <div>
+                                      <h5 className="font-medium text-slate-900 dark:text-white">{mat.name}</h5>
+                                      <p className="text-xs text-slate-500">Qty: {mat.typicalQty} {mat.unit}</p>
+                                    </div>
+                                    <span className="text-sm font-semibold text-green-700 dark:text-green-400">
+                                      ${mat.priceRange.min} – ${mat.priceRange.max}
+                                    </span>
+                                  </div>
+                                  <div className="flex flex-wrap gap-2">
+                                    {mat.retailers?.map((r: any, ri: number) => (
+                                      <a
+                                        key={ri}
+                                        href={r.searchUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1 px-3 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs font-medium rounded-full border border-blue-200 dark:border-blue-700 hover:bg-blue-100 dark:hover:bg-blue-800/40 transition-colors"
+                                        data-testid={`affiliate-${r.name.toLowerCase().replace(/[^a-z]/g, '-')}`}
+                                      >
+                                        <Zap className="w-3 h-3" />
+                                        {r.name}
+                                      </a>
+                                    ))}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+
+                            <div className="bg-amber-50 dark:bg-amber-900/20 p-3 rounded-lg border border-amber-200 dark:border-amber-700 text-xs text-amber-700 dark:text-amber-300">
+                              <p className="flex items-start gap-2">
+                                <Shield className="w-4 h-4 mt-0.5 shrink-0" />
+                                <span>{diyMaterials.affiliateDisclosure}</span>
+                              </p>
+                            </div>
+
+                            <div className="flex justify-center pt-2">
+                              <Button
+                                variant="outline"
+                                onClick={() => {
+                                  setWantDIY(false);
+                                  speakGuidance("Changed your mind? No problem! Let's find you a qualified contractor instead.");
+                                }}
+                                data-testid="button-diy-find-contractor-instead"
+                              >
+                                Actually, find me a contractor instead
+                                <ArrowRight className="w-4 h-4 ml-2" />
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </motion.div>
+                    )}
+
+                    {/* Step 1: Estimate Date Range - Shows after budget confirmed OR after DIY declined */}
+                    {((budgetConfirmed === true) || (budgetConfirmed === false && budgetReason && wantDIY === false)) && !estimateDateFrom && (
                       <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
