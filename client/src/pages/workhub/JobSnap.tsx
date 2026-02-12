@@ -9,11 +9,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
+import { useMutation } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
 import {
   Camera, Video, Upload, Image, FileImage, Clock, MapPin, Calendar,
   CheckCircle, AlertCircle, Plus, ArrowLeft, Volume2, VolumeX,
   Folder, Tag, Share2, Download, Trash2, Eye, Play, Pause, X,
-  Layers, FileText, Shield, Sparkles, Loader2
+  Layers, FileText, Shield, Sparkles, Loader2, Heart
 } from 'lucide-react';
 import TopNav from '@/components/TopNav';
 import ModuleAIAssistant from '@/components/ModuleAIAssistant';
@@ -49,8 +51,8 @@ interface MediaItem {
 export default function JobSnap() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('capture');
-  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
-  const [isVoiceActive, setIsVoiceActive] = useState(false);
+  const [isVoiceEnabled, setIsVoiceEnabled] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(false);
   const [selectedProject, setSelectedProject] = useState<JobProject | null>(null);
   const [isProjectDialogOpen, setIsProjectDialogOpen] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
@@ -61,6 +63,9 @@ export default function JobSnap() {
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const hasPlayedWelcome = useRef(false);
+  const voiceEnabledRef = useRef(true);
 
   const sampleProjects: JobProject[] = [
     {
@@ -102,53 +107,55 @@ export default function JobSnap() {
     { id: 'm4', projectId: 'proj-001', type: 'photo', url: 'https://picsum.photos/seed/job4/800/600', thumbnail: 'https://picsum.photos/seed/job4/200/150', phase: 'after', createdAt: new Date().toISOString(), tags: ['completed', 'final'] },
   ];
 
-  useEffect(() => {
-    const loadVoices = () => {
-      const availableVoices = window.speechSynthesis.getVoices();
-      if (availableVoices.length > 0) {
-        setVoices(availableVoices);
+  const stopAudio = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+    setIsPlaying(false);
+  };
+
+  const playRachelVoice = (prompt: string) => {
+    if (!voiceEnabledRef.current) return;
+    voiceMutation.mutate(prompt);
+  };
+
+  const voiceMutation = useMutation({
+    mutationFn: async (message: string) => {
+      const res = await apiRequest("POST", "/api/closebot/chat", {
+        message,
+        history: [],
+        context: { leadName: "contractor", companyName: "your company", trade: "documentation" },
+        enableVoice: true,
+      });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      if (!voiceEnabledRef.current) return;
+      if (data.audioUrl && audioRef.current) {
+        setIsPlaying(true);
+        audioRef.current.src = data.audioUrl;
+        audioRef.current.onended = () => setIsPlaying(false);
+        audioRef.current.play().catch(() => setIsPlaying(false));
       }
-    };
-    loadVoices();
-    window.speechSynthesis.onvoiceschanged = loadVoices;
-    return () => { window.speechSynthesis.cancel(); };
+    },
+  });
+
+  useEffect(() => {
+    if (!hasPlayedWelcome.current) {
+      hasPlayedWelcome.current = true;
+      playRachelVoice("Give a brief, warm 1-sentence welcome to JobSnap. You're Rachel, their job documentation assistant. Mention capturing photos and videos organized by before, during, and after phases. Keep it super short and natural.");
+    }
   }, []);
 
-  useEffect(() => {
-    if (voices.length > 0) {
-      setTimeout(() => {
-        speakGuidance("Welcome to JobSnap! I'm Rachel... your job documentation assistant. Capture photos and videos of every project... organized by before, during, and after phases. Your media is timestamped and geotagged for complete job records that protect you and impress your customers.");
-      }, 500);
-    }
-  }, [voices]);
-
-  const getBestFemaleVoice = (voiceList: SpeechSynthesisVoice[]) => {
-    const preferredVoices = ['Samantha', 'Zira', 'Jenny', 'Google US English Female', 'Microsoft Zira'];
-    for (const preferred of preferredVoices) {
-      const found = voiceList.find(v => v.name.includes(preferred));
-      if (found) return found;
-    }
-    return voiceList.find(v => v.lang.startsWith('en')) || voiceList[0];
-  };
-
-  const speakGuidance = (text: string) => {
-    if (voices.length === 0) return;
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.voice = getBestFemaleVoice(voices);
-    utterance.pitch = 1.0;
-    utterance.rate = 0.88;
-    utterance.onstart = () => setIsVoiceActive(true);
-    utterance.onend = () => setIsVoiceActive(false);
-    window.speechSynthesis.speak(utterance);
-  };
-
   const toggleVoice = () => {
-    if (isVoiceActive) {
-      window.speechSynthesis.cancel();
-      setIsVoiceActive(false);
+    const newEnabled = !isVoiceEnabled;
+    setIsVoiceEnabled(newEnabled);
+    voiceEnabledRef.current = newEnabled;
+    if (!newEnabled) {
+      stopAudio();
     } else {
-      speakGuidance("JobSnap helps you document every job professionally. Select or create a project... choose the work phase... then capture photos or videos. Everything is automatically organized with timestamps and location data. This creates a complete record for disputes... customer satisfaction... and your portfolio.");
+      playRachelVoice("Say a quick, natural 1-sentence overview of JobSnap — documenting every job with professional photos, organized by work phase, with timestamps and location data. Keep it warm and conversational.");
     }
   };
 
@@ -169,7 +176,7 @@ export default function JobSnap() {
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         setIsCapturing(true);
-        speakGuidance(`Camera ready for ${capturePhase} photos. Frame your shot and tap capture.`);
+        playRachelVoice(`Say briefly: Camera's ready for ${capturePhase} photos. Frame your shot and tap capture. Keep it to one short sentence.`);
       }
     } catch (error) {
       console.error('Error accessing camera:', error);
@@ -208,7 +215,6 @@ export default function JobSnap() {
         setUploadedFiles(prev => [...prev, file]);
         const url = URL.createObjectURL(blob);
         setPreviewUrls(prev => [...prev, url]);
-        speakGuidance('Photo captured! Keep shooting or upload when ready.');
         toast({
           title: 'Photo captured',
           description: `Saved as ${capturePhase} phase photo`,
@@ -222,13 +228,13 @@ export default function JobSnap() {
     setUploadedFiles(prev => [...prev, ...files]);
     const newUrls = files.map(file => URL.createObjectURL(file));
     setPreviewUrls(prev => [...prev, ...newUrls]);
-    speakGuidance(`${files.length} files added. Ready to upload to your project.`);
+    playRachelVoice(`Say briefly: ${files.length} files added and ready to upload. Keep it to one short sentence.`);
   };
 
   const handleUploadToProject = () => {
     if (!selectedProject || uploadedFiles.length === 0) return;
     
-    speakGuidance(`Uploading ${uploadedFiles.length} files to ${selectedProject.name}... with ${capturePhase} phase tags.`);
+    playRachelVoice(`Say briefly: Uploading ${uploadedFiles.length} files to ${selectedProject.name} with ${capturePhase} phase tags. Keep it to one short sentence.`);
     
     setTimeout(() => {
       toast({
@@ -257,6 +263,7 @@ export default function JobSnap() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-indigo-900 to-slate-900">
       <TopNav />
+      <audio ref={audioRef} className="hidden" />
       
       <div className="max-w-7xl mx-auto px-4 py-8 space-y-6">
         <div className="flex justify-between items-start">
@@ -277,10 +284,10 @@ export default function JobSnap() {
               variant="outline"
               size="icon"
               onClick={toggleVoice}
-              className={`${isVoiceActive ? 'bg-purple-500 text-white' : 'border-purple-500 text-purple-400'} hover:bg-purple-600`}
+              className={`${isPlaying ? 'bg-purple-500 text-white' : 'border-purple-500 text-purple-400'} hover:bg-purple-600`}
               data-testid="button-toggle-voice"
             >
-              {isVoiceActive ? <Volume2 className="h-5 w-5" /> : <VolumeX className="h-5 w-5" />}
+              {isVoiceEnabled ? <Volume2 className={`h-5 w-5 ${isPlaying ? 'animate-pulse' : ''}`} /> : <VolumeX className="h-5 w-5" />}
             </Button>
             <Button 
               onClick={() => setIsProjectDialogOpen(true)}
@@ -423,7 +430,6 @@ export default function JobSnap() {
                           size="sm"
                           onClick={() => {
                             setCapturePhase(phase);
-                            speakGuidance(`Now capturing ${phase} photos.`);
                           }}
                           className={capturePhase === phase 
                             ? `${getPhaseColor(phase)} text-white` 
@@ -603,7 +609,7 @@ export default function JobSnap() {
                       }`}
                       onClick={() => {
                         setSelectedProject(project);
-                        speakGuidance(`Selected ${project.name}. You can now capture photos for this job.`);
+                        playRachelVoice(`Say briefly: Selected ${project.name}. Ready to capture photos for this job. Keep it to one short sentence.`);
                       }}
                       data-testid={`card-project-${project.id}`}
                     >
@@ -784,7 +790,7 @@ export default function JobSnap() {
                 };
                 setSelectedProject(newProject);
                 setIsProjectDialogOpen(false);
-                speakGuidance(`Project created! Now capturing for ${newProject.name}.`);
+                playRachelVoice(`Say briefly: Project created! Now capturing for ${newProject.name}. Keep it to one short sentence.`);
                 toast({
                   title: 'Project created',
                   description: `${newProject.name} is ready for documentation`,
