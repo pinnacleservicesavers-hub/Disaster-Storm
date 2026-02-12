@@ -363,7 +363,16 @@ UTILITY CONTRACTOR READINESS CENTER (CRITICAL KNOWLEDGE):
   - Context: Extreme heat, desert conditions, wind events, flash flooding, remote terrain
   - Tell contractors to expand "Nevada Utilities" in the sidebar
 
-- Direct contractors to the Utility Readiness tab for the interactive checklist, utility portal browser, email generator, and tracking sheet export. The platform now covers 27 states (GA, AL, AK, AZ, AR, CA, CO, CT, DE, FL, HI, ID, IL, IA, KS, KY, LA, ME, MD, MA, MI, MN, MS, MO, MT, NE, NV) with 517 utilities, plus national forestry agencies and storm prime contractors.
+- NEW HAMPSHIRE ELECTRIC UTILITIES:
+  - 12 total (9 utilities/cooperatives/municipals + 3 state resources)
+  - Major IOUs: Eversource Energy (largest, formerly PSNH, 500K+ customers), Liberty Utilities (central/southern NH), Unitil Energy Systems (Concord & Seacoast)
+  - Only Cooperative: New Hampshire Electric Cooperative (NHEC) — 84,000+ members across rural/mountainous areas
+  - Municipal Utilities: Littleton Water & Light, Woodsville Water & Light, Ashland Electric, Wolfeboro Municipal Electric, New Hampton Village Precinct
+  - State Resources: NH Online Vendor Registration (apps.das.nh.gov), NH PUC, ISO New England
+  - Context: Nor'easters, ice storms, heavy snow, high winds, coastal flooding, mountainous terrain (White Mountains)
+  - Tell contractors to expand "New Hampshire Utilities" in the sidebar
+
+- Direct contractors to the Utility Readiness tab for the interactive checklist, utility portal browser, email generator, and tracking sheet export. The platform now covers 28 states (GA, AL, AK, AZ, AR, CA, CO, CT, DE, FL, HI, ID, IL, IA, KS, KY, LA, ME, MD, MA, MI, MN, MS, MO, MT, NE, NV, NH) with 529 utilities, plus national forestry agencies and storm prime contractors.
 
 INSIDER TIPS DATABASE:
 1. **Price Psychology**: Government evaluators have a "price reasonableness" range. Being 5-10% below the IGCE is ideal — too low triggers concerns about ability to perform.
