@@ -265,7 +265,105 @@ UTILITY CONTRACTOR READINESS CENTER (CRITICAL KNOWLEDGE):
   - Context: Appalachian terrain challenges, tornado corridor, severe ice storms, Ohio River valley flooding
   - Tell contractors to expand "Kentucky Utilities" in the sidebar
 
-- Direct contractors to the Utility Readiness tab for the interactive checklist, utility portal browser, email generator, and tracking sheet export. The platform now covers 16 states (GA, AL, AK, AZ, AR, CA, CO, CT, DE, FL, HI, ID, IL, IA, KS, KY) with 350+ utilities, plus national forestry agencies and storm prime contractors.
+- LOUISIANA ELECTRIC UTILITIES:
+  - 22 total (18 cooperatives/municipals + 4 IOUs/support)
+  - Major IOUs: Entergy Louisiana (largest, supplier portal), Cleco Power (central/SW LA), SWEPCO/AEP (NW LA)
+  - State association: Association of Louisiana Electric Cooperatives (ALEC)
+  - Key cooperatives: DEMCO (largest, Baton Rouge area), SLEMCO (Acadiana/Lafayette), South Louisiana Electric (SLECA)
+  - Municipals: Lafayette Utilities System, Entergy New Orleans, Ruston Utilities
+  - Context: Hurricane corridor, severe storms, Gulf Coast flooding, coastal vulnerabilities
+  - Tell contractors to expand "Louisiana Utilities" in the sidebar
+
+- MAINE ELECTRIC UTILITIES:
+  - 10 total (8 cooperatives/municipals + 2 IOUs)
+  - Major IOUs: Central Maine Power (CMP, largest), Versant Power (northern/eastern ME)
+  - Cooperatives: Eastern Maine Electric, Fox Islands Electric (island service)
+  - Municipals: Kennebunk Light & Power, City of Presque Isle, Madison Electric Works
+  - Context: Nor'easters, ice storms, coastal wind, rural/forested terrain
+  - Tell contractors to expand "Maine Utilities" in the sidebar
+
+- MARYLAND ELECTRIC UTILITIES:
+  - 12 total (8 cooperatives/municipals + 4 IOUs/support)
+  - Major IOUs: BGE (Exelon, Baltimore metro), Pepco (DC suburbs), Delmarva Power (Eastern Shore)
+  - Cooperatives: SMECO (largest MD co-op), Choptank Electric (Eastern Shore), A&N Electric
+  - State procurement: Maryland eProcurement System (MEPS)
+  - Context: Hurricanes, severe storms, Chesapeake Bay nor'easters, ice storms
+  - Tell contractors to expand "Maryland Utilities" in the sidebar
+
+- MASSACHUSETTS ELECTRIC UTILITIES:
+  - 14 total (10 municipals + 4 IOUs/support)
+  - Major IOUs: Eversource Energy (largest), National Grid, Unitil
+  - No traditional rural EMCs — mostly municipal utilities
+  - Key municipals: Holyoke Gas & Electric (HG&E), Reading Municipal Light, Braintree Electric, Chicopee Electric
+  - State procurement: COMMBUYS statewide vendor registration
+  - Context: Nor'easters, coastal storms, ice storms, dense urban/suburban territory
+  - Tell contractors to expand "Massachusetts Utilities" in the sidebar
+
+- MICHIGAN ELECTRIC UTILITIES:
+  - 17 total (12 cooperatives/municipals + 5 IOUs/support)
+  - Major IOUs: DTE Energy (largest), Consumers Energy, UPPCO (Upper Peninsula), Indiana Michigan Power (AEP)
+  - G&T: Wolverine Power Cooperative (G&T for MI co-ops)
+  - Key cooperatives: Great Lakes Energy (largest MI co-op), HomeWorks Tri-County, Cherryland Electric, Cloverland (UP)
+  - Municipals: Lansing BWL, Holland Board of Public Works, Traverse City Light & Power
+  - Context: Great Lakes storms, heavy ice/snow, severe thunderstorms, Upper Peninsula winter
+  - Tell contractors to expand "Michigan Utilities" in the sidebar
+
+- MINNESOTA ELECTRIC UTILITIES:
+  - 18 total (13 cooperatives/municipals + 5 IOUs/support)
+  - Major IOUs: Xcel Energy (largest), Minnesota Power (ALLETE, northern MN), Otter Tail Power (western MN)
+  - G&T: Great River Energy — wholesale power to 28 MN distribution cooperatives
+  - State association: Minnesota Rural Electric Association (MREA)
+  - Key cooperatives: Connexus Energy (largest, north metro), Dakota Electric (south metro), Wright-Hennepin, Stearns Electric
+  - Municipals: Austin Utilities, Rochester Public Utilities, Moorhead Public Service
+  - Context: Blizzards, ice storms, severe thunderstorms/tornadoes, extreme cold
+  - Tell contractors to expand "Minnesota Utilities" in the sidebar
+
+- MISSISSIPPI ELECTRIC UTILITIES:
+  - 15 total (12 cooperatives/municipals + 3 IOUs/support)
+  - Major IOUs: Entergy Mississippi (largest, 459K customers), Mississippi Power (Southern Company, SE MS)
+  - G&T: Cooperative Energy (formerly SMEPA) — powers many local distribution co-ops
+  - State association: Electric Cooperatives of Mississippi (ECM)
+  - Key cooperatives: Coast Electric (Gulf Coast), Singing River Electric, Dixie Electric, Magnolia Electric
+  - Context: Hurricanes, tornadoes, severe storms, Gulf Coast flooding
+  - Tell contractors to expand "Mississippi Utilities" in the sidebar
+
+- MISSOURI ELECTRIC UTILITIES:
+  - 18 total (14 cooperatives/municipals + 4 IOUs/support)
+  - Major IOUs: Ameren Missouri (largest, St. Louis area), Evergy/KCP&L (Kansas City), Empire District/Liberty (SW MO)
+  - G&T: Sho-Me Power Electric Cooperative (serving southern MO co-ops)
+  - State association: Association of Missouri Electric Cooperatives (AMEC)
+  - Key cooperatives: Co-Mo Electric, Boone Electric (Columbia), Cuivre River, White River Valley (Branson)
+  - Municipals: Springfield City Utilities, Columbia Water & Light, Independence Power & Light
+  - Context: Tornado Alley, severe storms, ice storms, Mississippi/Missouri River flooding
+  - Tell contractors to expand "Missouri Utilities" in the sidebar
+
+- MONTANA ELECTRIC UTILITIES:
+  - 14 total (11 cooperatives/municipals + 3 IOUs/support)
+  - Major IOUs: NorthWestern Energy (largest), Montana-Dakota Utilities (MDU, eastern MT)
+  - State association: Montana Electric Cooperatives' Association (MECA)
+  - Key cooperatives: Flathead Electric (largest, Kalispell), Ravalli Electric, Missoula Electric, Glacier Electric
+  - Municipal: Butte Municipal Electric Utility
+  - Context: Extreme winter storms, wildfires, mountain terrain, high winds, remote/rural areas
+  - Tell contractors to expand "Montana Utilities" in the sidebar
+
+- NEBRASKA ELECTRIC UTILITIES:
+  - 15 total (10 public power districts + 5 support orgs) — NOTE: Nebraska is 100% public power, NO IOUs!
+  - Major utilities: NPPD (largest public power), OPPD (Omaha), Lincoln Electric System
+  - Joint action: Municipal Energy Agency of Nebraska (MEAN) — 70+ municipalities
+  - State association: Nebraska Rural Electric Association (NREA)
+  - Key PPDs: Dawson, Norris, Cornhusker, Southern, Elkhorn, Wheat Belt (Panhandle)
+  - Context: Tornado Alley, severe thunderstorms, winter blizzards, Great Plains wind events
+  - Tell contractors to expand "Nebraska Utilities" in the sidebar
+
+- NEVADA ELECTRIC UTILITIES:
+  - 8 total (7 cooperatives/municipals + 1 IOU)
+  - Major IOU: NV Energy (serves 90% of state, Berkshire Hathaway subsidiary)
+  - Cooperatives: Valley Electric Association (largest, Pahrump/Nye County), Wells Rural Electric, Mt. Wheeler Power
+  - Municipals: Boulder City Utilities, Overton Power District
+  - Context: Extreme heat, desert conditions, wind events, flash flooding, remote terrain
+  - Tell contractors to expand "Nevada Utilities" in the sidebar
+
+- Direct contractors to the Utility Readiness tab for the interactive checklist, utility portal browser, email generator, and tracking sheet export. The platform now covers 27 states (GA, AL, AK, AZ, AR, CA, CO, CT, DE, FL, HI, ID, IL, IA, KS, KY, LA, ME, MD, MA, MI, MN, MS, MO, MT, NE, NV) with 517 utilities, plus national forestry agencies and storm prime contractors.
 
 INSIDER TIPS DATABASE:
 1. **Price Psychology**: Government evaluators have a "price reasonableness" range. Being 5-10% below the IGCE is ideal — too low triggers concerns about ability to perform.
