@@ -4,7 +4,7 @@ import { storage } from "../storage";
 import { requireAuth, requireContractor } from "../middleware/auth";
 import { generateBidIntelResponse, generateRFIQuestion, analyzeBidOpportunity, INSIDER_TIPS_DATABASE } from "../services/bidIntelAI";
 import { USACE_DISTRICTS, USACE_DIVISIONS, MAJOR_PRIMES, getPriorityDistricts, generateIntroductionEmail, generateCapabilityStatement } from "../services/usaceOutreach";
-import { UTILITY_COMPANIES, VENDOR_PLATFORMS, READINESS_CHECKLIST, STORM_PRIORITY_REGISTRATIONS, GOVERNMENT_PORTALS, GEORGIA_EMCS, ALABAMA_EMCS, ALASKA_EMCS, ARIZONA_EMCS, generateUtilityIntroEmail, generateTrackingSheet } from "../services/utilityContractorReadiness";
+import { UTILITY_COMPANIES, VENDOR_PLATFORMS, READINESS_CHECKLIST, STORM_PRIORITY_REGISTRATIONS, GOVERNMENT_PORTALS, GEORGIA_EMCS, ALABAMA_EMCS, ALASKA_EMCS, ARIZONA_EMCS, ARKANSAS_EMCS, generateUtilityIntroEmail, generateTrackingSheet } from "../services/utilityContractorReadiness";
 import { elevenLabsVoice } from "../services/elevenLabsVoice";
 import {
   insertBidOpportunitySchema,
@@ -520,6 +520,7 @@ router.get("/utility-readiness/portals", async (req: Request, res: Response) => 
       alabamaEMCs: ALABAMA_EMCS,
       alaskaEMCs: ALASKA_EMCS,
       arizonaEMCs: ARIZONA_EMCS,
+      arkansasEMCs: ARKANSAS_EMCS,
       regions: [...new Set(UTILITY_COMPANIES.map(u => u.region))].sort(),
     });
   } catch (error) {
