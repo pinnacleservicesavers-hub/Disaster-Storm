@@ -65,13 +65,13 @@ export default function ContentForge() {
 
   const voiceMutation = useMutation({
     mutationFn: async (message: string) => {
-      const res = await apiRequest("POST", "/api/closebot/chat", {
+      const res = await apiRequest("/api/closebot/chat", "POST", {
         message,
         history: [],
         context: { leadName: "contractor", companyName: "your company", trade: "marketing_content" },
         enableVoice: true,
       });
-      return res.json();
+      return res;
     },
     onSuccess: (data) => {
       if (!voiceEnabledRef.current) return;
@@ -108,14 +108,14 @@ export default function ContentForge() {
 
   const createAdMutation = useMutation({
     mutationFn: async (params: { prompt: string; adType: string; style: string; platform: string }) => {
-      const res = await apiRequest("POST", "/api/ai-ads/freeform-create", {
+      const res = await apiRequest("/api/ai-ads/freeform-create", "POST", {
         prompt: params.prompt,
         adType: params.adType,
         style: params.style || undefined,
         platform: params.platform || undefined,
         includeImage: true
       });
-      return res.json();
+      return res;
     },
     onSuccess: (data) => {
       if (data.success && data.result) {
@@ -132,11 +132,11 @@ export default function ContentForge() {
 
   const generateImageMutation = useMutation({
     mutationFn: async (params: { prompt: string; style?: string }) => {
-      const res = await apiRequest("POST", "/api/ai-ads/generate-image-only", {
+      const res = await apiRequest("/api/ai-ads/generate-image-only", "POST", {
         prompt: params.prompt,
         style: params.style
       });
-      return res.json();
+      return res;
     },
     onSuccess: (data) => {
       if (data.success && data.imageUrl && adResult) {

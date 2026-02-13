@@ -72,13 +72,13 @@ export default function MediaVault() {
 
   const voiceMutation = useMutation({
     mutationFn: async (message: string) => {
-      const res = await apiRequest("POST", "/api/closebot/chat", {
+      const res = await apiRequest("/api/closebot/chat", "POST", {
         message,
         history: [],
         context: { leadName: "contractor", companyName: "your company", trade: "media_documentation" },
         enableVoice: true,
       });
-      return res.json();
+      return res;
     },
     onSuccess: (data) => {
       if (!voiceEnabledRef.current) return;
@@ -111,14 +111,14 @@ export default function MediaVault() {
 
   const createMutation = useMutation({
     mutationFn: async (params: { prompt: string; adType: string; style: string; platform: string }) => {
-      const res = await apiRequest("POST", "/api/ai-ads/freeform-create", {
+      const res = await apiRequest("/api/ai-ads/freeform-create", "POST", {
         prompt: params.prompt,
         adType: params.adType,
         style: params.style || undefined,
         platform: params.platform || undefined,
         includeImage: true
       });
-      return res.json();
+      return res;
     },
     onSuccess: (data) => {
       if (data.success && data.result) {
@@ -135,8 +135,8 @@ export default function MediaVault() {
 
   const generateImageMutation = useMutation({
     mutationFn: async (params: { prompt: string; style?: string }) => {
-      const res = await apiRequest("POST", "/api/ai-ads/generate-image-only", { prompt: params.prompt, style: params.style });
-      return res.json();
+      const res = await apiRequest("/api/ai-ads/generate-image-only", "POST", { prompt: params.prompt, style: params.style });
+      return res;
     },
     onSuccess: (data) => {
       if (data.success && data.imageUrl && creativeResult) {
@@ -1025,8 +1025,8 @@ function SoundStudio({ playRachelVoice }: { playRachelVoice: (msg: string) => vo
 
   const soundMutation = useMutation({
     mutationFn: async (params: any) => {
-      const res = await apiRequest("POST", "/api/ai-ads/sound-design", params);
-      return res.json();
+      const res = await apiRequest("/api/ai-ads/sound-design", "POST", params);
+      return res;
     },
     onSuccess: (data) => {
       if (data.success && data.result) {
@@ -1042,8 +1042,8 @@ function SoundStudio({ playRachelVoice }: { playRachelVoice: (msg: string) => vo
 
   const voiceoverMutation = useMutation({
     mutationFn: async (params: { text: string; voiceStyle: string }) => {
-      const res = await apiRequest("POST", "/api/ai-ads/generate-voiceover", params);
-      return res.json();
+      const res = await apiRequest("/api/ai-ads/generate-voiceover", "POST", params);
+      return res;
     },
     onSuccess: (data) => {
       if (data.success && data.audioBase64) {

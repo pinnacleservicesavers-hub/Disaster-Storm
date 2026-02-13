@@ -100,8 +100,8 @@ export default function CloseBot() {
 
   const chatMutation = useMutation({
     mutationFn: async (data: { message: string; history: any[]; context?: any; enableVoice: boolean }) => {
-      const res = await apiRequest("POST", "/api/closebot/chat", data);
-      return res.json();
+      const res = await apiRequest("/api/closebot/chat", "POST", data);
+      return res;
     },
     onSuccess: (data) => {
       setChatHistory((prev) => [...prev, { role: "assistant", content: data.message }]);
@@ -114,8 +114,8 @@ export default function CloseBot() {
 
   const demoCallMutation = useMutation({
     mutationFn: async (data: any) => {
-      const res = await apiRequest("POST", "/api/closebot/demo-call", data);
-      return res.json();
+      const res = await apiRequest("/api/closebot/demo-call", "POST", data);
+      return res;
     },
     onSuccess: (data) => {
       setDemoScript(data.script);
@@ -136,8 +136,8 @@ export default function CloseBot() {
 
   const objectionMutation = useMutation({
     mutationFn: async (data: any) => {
-      const res = await apiRequest("POST", "/api/closebot/objection", data);
-      return res.json();
+      const res = await apiRequest("/api/closebot/objection", "POST", data);
+      return res;
     },
     onSuccess: (data) => {
       setObjectionResponse(data.response);
@@ -147,8 +147,8 @@ export default function CloseBot() {
 
   const scriptMutation = useMutation({
     mutationFn: async (data: any) => {
-      const res = await apiRequest("POST", "/api/closebot/generate-script", data);
-      return res.json();
+      const res = await apiRequest("/api/closebot/generate-script", "POST", data);
+      return res;
     },
     onSuccess: (data) => {
       setGeneratedScript(data.script);

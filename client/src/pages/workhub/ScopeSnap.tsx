@@ -78,13 +78,13 @@ export default function ScopeSnap() {
 
   const voiceMutation = useMutation({
     mutationFn: async (message: string) => {
-      const res = await apiRequest("POST", "/api/closebot/chat", {
+      const res = await apiRequest("/api/closebot/chat", "POST", {
         message,
         history: [],
         context: { leadName: "contractor", companyName: "your company", trade: "photo_analysis" },
         enableVoice: true,
       });
-      return res.json();
+      return res;
     },
     onSuccess: (data) => {
       if (!voiceEnabledRef.current) return;
