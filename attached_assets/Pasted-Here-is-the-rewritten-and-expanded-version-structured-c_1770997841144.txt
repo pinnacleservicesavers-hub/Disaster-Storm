@@ -1,0 +1,38 @@
+Here is the rewritten and expanded version, structured clearly and professionally for your developer/architect:
+
+I need the Replit architect to fully review and redesign the Work Hub layout.
+
+Right now, the Work Hub feels split and disconnected. There are sections at the front of the app, then another at the top, and then additional links at the bottom of the screen. This creates confusion and forces users to jump around to find what they need. I do not like this layout.
+
+I love the structure you created for Disaster Direct. It is clean, organized, and easy to follow. I would like the Work Hub redesigned to follow that same structure.
+
+Specifically:
+
+• The Work Hub should be built as a unified dashboard with clearly defined modules.
+• Each module must flow naturally into the next — users should not have to jump back and forth between unrelated sections to complete a task.
+• The workflow should feel smooth, logical, and guided from start to finish.
+
+AI Integration Requirements:
+
+• The AI agent must be operating 24/7 inside each module.
+• The AI should not only work within individual modules but also communicate across modules to create a connected system.
+• Each module should include a built-in AI assistant to guide users step-by-step.
+• There must be a voice guide option inside every module for users who prefer audio assistance.
+
+User Interface Requirements:
+
+• Every dropdown must dynamically update the screen to show exactly what pertains to that selection.
+• Users must be able to clearly see and access each dropdown menu without confusion.
+• Tabs, callouts, emails, and action buttons should be clearly labeled and intuitive.
+
+Testing Requirement:
+
+I want you to walk through the app in two different roles:
+
+Act as a customer needing services. Move through the app step-by-step as if you want each service completed. Ask yourself: Is this smooth? Is this simple? Would I trust this app? Would I use it?
+
+Act as a contractor using the platform. Make sure every module works perfectly from intake to job completion. Ensure no broken flow, no confusion, and no unnecessary steps.
+
+Every module must function seamlessly, with clear workflow, AI assistance, and a professional, simplified experience.
+
+The goal is to eliminate complexity and create a powerful but easy-to-use system.
