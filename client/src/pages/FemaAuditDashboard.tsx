@@ -189,11 +189,11 @@ function RateSheetTab({ laborRates, setLaborRates, equipmentRates, setEquipmentR
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 text-white">
                 <DollarSign className="h-5 w-5 text-green-500" />
                 Labor Rates (2026)
               </CardTitle>
-              <CardDescription>Job classification rates for Straight Time, Overtime, and Double Time</CardDescription>
+              <CardDescription className="text-slate-400">Job classification rates for Straight Time, Overtime, and Double Time</CardDescription>
             </div>
             <Button size="sm" onClick={() => setShowAddLabor(true)}>
               <Plus className="h-4 w-4 mr-1" /> Add Classification
@@ -201,20 +201,20 @@ function RateSheetTab({ laborRates, setLaborRates, equipmentRates, setEquipmentR
           </div>
         </CardHeader>
         <CardContent>
-          <div className="rounded-lg border overflow-hidden">
+          <div className="rounded-lg border border-slate-600 overflow-hidden">
             <Table>
               <TableHeader>
-                <TableRow className="bg-slate-800/50">
-                  <TableHead className="font-semibold">Classification</TableHead>
-                  <TableHead className="text-right font-semibold">ST Rate</TableHead>
-                  <TableHead className="text-right font-semibold">OT Rate</TableHead>
-                  <TableHead className="text-right font-semibold">DT Rate</TableHead>
-                  <TableHead className="w-24 text-center">Actions</TableHead>
+                <TableRow className="bg-slate-700/80 border-b border-slate-600">
+                  <TableHead className="font-semibold text-white">Classification</TableHead>
+                  <TableHead className="text-right font-semibold text-white">ST Rate</TableHead>
+                  <TableHead className="text-right font-semibold text-white">OT Rate</TableHead>
+                  <TableHead className="text-right font-semibold text-white">DT Rate</TableHead>
+                  <TableHead className="w-24 text-center text-white">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {laborRates.map((rate) => (
-                  <TableRow key={rate.id} className="hover:bg-slate-800/30">
+                  <TableRow key={rate.id} className="hover:bg-slate-700/40 border-b border-slate-700">
                     {editingLabor === rate.id ? (
                       <>
                         <TableCell>
@@ -245,10 +245,10 @@ function RateSheetTab({ laborRates, setLaborRates, equipmentRates, setEquipmentR
                       </>
                     ) : (
                       <>
-                        <TableCell className="font-medium">{rate.classification}</TableCell>
-                        <TableCell className="text-right font-mono">{formatCurrency(rate.stRate)}</TableCell>
-                        <TableCell className="text-right font-mono">{formatCurrency(rate.otRate)}</TableCell>
-                        <TableCell className="text-right font-mono">{formatCurrency(rate.dtRate)}</TableCell>
+                        <TableCell className="font-medium text-white">{rate.classification}</TableCell>
+                        <TableCell className="text-right font-mono text-emerald-300">{formatCurrency(rate.stRate)}</TableCell>
+                        <TableCell className="text-right font-mono text-amber-300">{formatCurrency(rate.otRate)}</TableCell>
+                        <TableCell className="text-right font-mono text-red-300">{formatCurrency(rate.dtRate)}</TableCell>
                         <TableCell className="text-center">
                           <div className="flex gap-1 justify-center">
                             <Button size="sm" variant="ghost" onClick={() => setEditingLabor(rate.id)}>
@@ -316,11 +316,11 @@ function RateSheetTab({ laborRates, setLaborRates, equipmentRates, setEquipmentR
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 text-white">
                 <Truck className="h-5 w-5 text-blue-500" />
                 Equipment Rates (Hourly)
               </CardTitle>
-              <CardDescription>Equipment billing rates per hour</CardDescription>
+              <CardDescription className="text-slate-400">Equipment billing rates per hour</CardDescription>
             </div>
             <Button size="sm" onClick={() => setShowAddEquip(true)}>
               <Plus className="h-4 w-4 mr-1" /> Add Equipment
@@ -328,19 +328,19 @@ function RateSheetTab({ laborRates, setLaborRates, equipmentRates, setEquipmentR
           </div>
         </CardHeader>
         <CardContent>
-          <div className="rounded-lg border overflow-hidden">
+          <div className="rounded-lg border border-slate-600 overflow-hidden">
             <Table>
               <TableHeader>
-                <TableRow className="bg-slate-800/50">
-                  <TableHead className="font-semibold">Equipment ID</TableHead>
-                  <TableHead className="font-semibold">Equipment Name</TableHead>
-                  <TableHead className="text-right font-semibold">Rate (HR)</TableHead>
-                  <TableHead className="w-24 text-center">Actions</TableHead>
+                <TableRow className="bg-slate-700/80 border-b border-slate-600">
+                  <TableHead className="font-semibold text-white">Equipment ID</TableHead>
+                  <TableHead className="font-semibold text-white">Equipment Name</TableHead>
+                  <TableHead className="text-right font-semibold text-white">Rate (HR)</TableHead>
+                  <TableHead className="w-24 text-center text-white">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {equipmentRates.map((equip) => (
-                  <TableRow key={equip.id} className="hover:bg-slate-800/30">
+                  <TableRow key={equip.id} className="hover:bg-slate-700/40 border-b border-slate-700">
                     {editingEquip === equip.id ? (
                       <>
                         <TableCell>
@@ -370,8 +370,8 @@ function RateSheetTab({ laborRates, setLaborRates, equipmentRates, setEquipmentR
                         <TableCell>
                           <Badge variant="outline" className="font-mono text-xs">{equip.equipmentId}</Badge>
                         </TableCell>
-                        <TableCell className="font-medium">{equip.equipmentName}</TableCell>
-                        <TableCell className="text-right font-mono">{formatCurrency(equip.hourlyRate)}</TableCell>
+                        <TableCell className="font-medium text-white">{equip.equipmentName}</TableCell>
+                        <TableCell className="text-right font-mono text-emerald-300">{formatCurrency(equip.hourlyRate)}</TableCell>
                         <TableCell className="text-center">
                           <div className="flex gap-1 justify-center">
                             <Button size="sm" variant="ghost" onClick={() => setEditingEquip(equip.id)}>
@@ -464,11 +464,11 @@ function RosterTab({ roster, setRoster, laborRates }: {
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 text-white">
                 <Users className="h-5 w-5 text-purple-500" />
                 Crew Roster
               </CardTitle>
-              <CardDescription>All personnel assigned to this contract with classifications and crew assignments</CardDescription>
+              <CardDescription className="text-slate-400">All personnel assigned to this contract with classifications and crew assignments</CardDescription>
             </div>
             <div className="flex gap-2">
               <Badge variant="outline" className="text-sm px-3 py-1">
@@ -485,32 +485,32 @@ function RosterTab({ roster, setRoster, laborRates }: {
             <div key={crewName} className="mb-6 last:mb-0">
               <div className="flex items-center gap-2 mb-3">
                 <Badge className="bg-indigo-600 text-sm px-3">{crewName}</Badge>
-                <span className="text-sm text-muted-foreground">{members.length} members</span>
+                <span className="text-sm text-slate-400">{members.length} members</span>
               </div>
-              <div className="rounded-lg border overflow-hidden">
+              <div className="rounded-lg border border-slate-600 overflow-hidden">
                 <Table>
                   <TableHeader>
-                    <TableRow className="bg-slate-800/50">
-                      <TableHead className="font-semibold">Full Legal Name</TableHead>
-                      <TableHead className="font-semibold">Position / Classification</TableHead>
-                      <TableHead className="font-semibold">Phone</TableHead>
-                      <TableHead className="font-semibold">Company</TableHead>
-                      <TableHead className="font-semibold">Equipment</TableHead>
-                      <TableHead className="font-semibold">Mobilized</TableHead>
-                      <TableHead className="w-16">Actions</TableHead>
+                    <TableRow className="bg-slate-700/80 border-b border-slate-600">
+                      <TableHead className="font-semibold text-white">Full Legal Name</TableHead>
+                      <TableHead className="font-semibold text-white">Position / Classification</TableHead>
+                      <TableHead className="font-semibold text-white">Phone</TableHead>
+                      <TableHead className="font-semibold text-white">Company</TableHead>
+                      <TableHead className="font-semibold text-white">Equipment</TableHead>
+                      <TableHead className="font-semibold text-white">Mobilized</TableHead>
+                      <TableHead className="w-16 text-white">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {members.map((member) => (
-                      <TableRow key={member.id} className="hover:bg-slate-800/30">
-                        <TableCell className="font-medium">{member.fullName}</TableCell>
+                      <TableRow key={member.id} className="hover:bg-slate-700/40 border-b border-slate-700">
+                        <TableCell className="font-medium text-white">{member.fullName}</TableCell>
                         <TableCell>
                           <Badge variant="secondary" className="text-xs">{member.classification}</Badge>
                         </TableCell>
-                        <TableCell className="text-sm">{member.phone}</TableCell>
-                        <TableCell className="text-sm">{member.company}</TableCell>
-                        <TableCell className="text-sm">{member.equipmentAssigned || '-'}</TableCell>
-                        <TableCell className="text-sm">{member.mobilizedDate || '-'}</TableCell>
+                        <TableCell className="text-sm text-slate-200">{member.phone}</TableCell>
+                        <TableCell className="text-sm text-slate-200">{member.company}</TableCell>
+                        <TableCell className="text-sm text-slate-200">{member.equipmentAssigned || '-'}</TableCell>
+                        <TableCell className="text-sm text-slate-200">{member.mobilizedDate || '-'}</TableCell>
                         <TableCell>
                           <Button size="sm" variant="ghost" onClick={() => removeMember(member.id)}>
                             <Trash2 className="h-3.5 w-3.5 text-red-400" />
@@ -524,7 +524,7 @@ function RosterTab({ roster, setRoster, laborRates }: {
             </div>
           ))}
           {roster.length === 0 && (
-            <div className="text-center py-12 text-muted-foreground">
+            <div className="text-center py-12 text-slate-400">
               <Users className="h-12 w-12 mx-auto mb-3 opacity-50" />
               <p className="text-lg font-medium mb-1">No Personnel Added</p>
               <p>Add crew members to start building your roster</p>
@@ -831,7 +831,7 @@ function TimesheetTab({ timesheets, setTimesheets, roster, laborRates }: {
       {showNewTimesheet && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Create New Timesheet</CardTitle>
+            <CardTitle className="text-lg text-white">Create New Timesheet</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
@@ -876,11 +876,11 @@ function TimesheetTab({ timesheets, setTimesheets, roster, laborRates }: {
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle className="flex items-center gap-2">
+                <CardTitle className="flex items-center gap-2 text-white">
                   <ClipboardList className="h-5 w-5 text-amber-500" />
                   {currentTimesheet.crewName} Timesheet
                 </CardTitle>
-                <CardDescription>
+                <CardDescription className="text-slate-400">
                   {currentTimesheet.stormEvent && `${currentTimesheet.stormEvent} | `}
                   {currentTimesheet.contractorCompany && `${currentTimesheet.contractorCompany} | `}
                   Week Ending: {currentTimesheet.weekEnding}
@@ -902,19 +902,19 @@ function TimesheetTab({ timesheets, setTimesheets, roster, laborRates }: {
             <div className="min-w-[1200px]">
               <Table>
                 <TableHeader>
-                  <TableRow className="bg-slate-800/50">
-                    <TableHead className="font-semibold min-w-[160px] sticky left-0 bg-slate-900 z-10">Name</TableHead>
-                    <TableHead className="font-semibold min-w-[140px]">Job Classification</TableHead>
+                  <TableRow className="bg-slate-700/80 border-b border-slate-600">
+                    <TableHead className="font-semibold min-w-[160px] sticky left-0 bg-slate-800 z-10 text-white">Name</TableHead>
+                    <TableHead className="font-semibold min-w-[140px] text-white">Job Classification</TableHead>
                     {weekDates.map((date, i) => (
-                      <TableHead key={date} className="text-center min-w-[100px]" colSpan={1}>
+                      <TableHead key={date} className="text-center min-w-[100px] text-white" colSpan={1}>
                         <div className="text-xs">{DAY_ABBREV[i]}</div>
-                        <div className="text-[10px] text-muted-foreground">{date.slice(5)}</div>
+                        <div className="text-[10px] text-slate-400">{date.slice(5)}</div>
                       </TableHead>
                     ))}
-                    <TableHead className="text-right font-semibold min-w-[60px]">ST Hrs</TableHead>
-                    <TableHead className="text-right font-semibold min-w-[60px]">OT Hrs</TableHead>
-                    <TableHead className="text-right font-semibold min-w-[60px]">DT Hrs</TableHead>
-                    <TableHead className="text-right font-semibold min-w-[100px]">Total Cost</TableHead>
+                    <TableHead className="text-right font-semibold min-w-[60px] text-white">ST Hrs</TableHead>
+                    <TableHead className="text-right font-semibold min-w-[60px] text-white">OT Hrs</TableHead>
+                    <TableHead className="text-right font-semibold min-w-[60px] text-white">DT Hrs</TableHead>
+                    <TableHead className="text-right font-semibold min-w-[100px] text-white">Total Cost</TableHead>
                     <TableHead className="w-10"></TableHead>
                   </TableRow>
                 </TableHeader>
@@ -1004,13 +1004,13 @@ function TimesheetTab({ timesheets, setTimesheets, roster, laborRates }: {
                             </TableCell>
                           );
                         })}
-                        <TableCell className="text-right font-mono text-sm">{totals.totalST.toFixed(1)}</TableCell>
-                        <TableCell className="text-right font-mono text-sm">{totals.totalOT.toFixed(1)}</TableCell>
-                        <TableCell className="text-right font-mono text-sm">{totals.totalDT.toFixed(1)}</TableCell>
+                        <TableCell className="text-right font-mono text-sm text-white">{totals.totalST.toFixed(1)}</TableCell>
+                        <TableCell className="text-right font-mono text-sm text-amber-300">{totals.totalOT.toFixed(1)}</TableCell>
+                        <TableCell className="text-right font-mono text-sm text-red-300">{totals.totalDT.toFixed(1)}</TableCell>
                         <TableCell className="text-right font-mono text-sm font-semibold text-green-400">
                           {formatCurrency(totals.totalCost)}
                           {rate && (
-                            <div className="text-[9px] text-muted-foreground">
+                            <div className="text-[9px] text-slate-500">
                               {formatCurrency(rate.otRate)}/hr OT
                             </div>
                           )}
@@ -1023,8 +1023,8 @@ function TimesheetTab({ timesheets, setTimesheets, roster, laborRates }: {
                       </TableRow>
                     );
                   })}
-                  <TableRow className="bg-slate-800/80 font-semibold border-t-2">
-                    <TableCell className="sticky left-0 bg-slate-800 z-10" colSpan={2}>
+                  <TableRow className="bg-slate-700/80 font-semibold border-t-2 border-slate-500">
+                    <TableCell className="sticky left-0 bg-slate-700 z-10 text-white" colSpan={2}>
                       <span className="flex items-center gap-2">
                         <Calculator className="h-4 w-4" /> TOTALS
                       </span>
@@ -1035,14 +1035,14 @@ function TimesheetTab({ timesheets, setTimesheets, roster, laborRates }: {
                         return sum + d.stHrs + d.otHrs + d.dtHrs;
                       }, 0);
                       return (
-                        <TableCell key={date} className="text-center text-xs font-mono">
+                        <TableCell key={date} className="text-center text-xs font-mono text-white">
                           {dayTotal > 0 ? dayTotal.toFixed(1) : '-'}
                         </TableCell>
                       );
                     })}
-                    <TableCell className="text-right font-mono">{grandTotals.totalST.toFixed(1)}</TableCell>
-                    <TableCell className="text-right font-mono">{grandTotals.totalOT.toFixed(1)}</TableCell>
-                    <TableCell className="text-right font-mono">{grandTotals.totalDT.toFixed(1)}</TableCell>
+                    <TableCell className="text-right font-mono text-white">{grandTotals.totalST.toFixed(1)}</TableCell>
+                    <TableCell className="text-right font-mono text-amber-300">{grandTotals.totalOT.toFixed(1)}</TableCell>
+                    <TableCell className="text-right font-mono text-red-300">{grandTotals.totalDT.toFixed(1)}</TableCell>
                     <TableCell className="text-right font-mono text-lg text-green-400">
                       {formatCurrency(grandTotals.totalCost)}
                     </TableCell>
@@ -1058,9 +1058,9 @@ function TimesheetTab({ timesheets, setTimesheets, roster, laborRates }: {
       {timesheets.length === 0 && !showNewTimesheet && (
         <Card className="border-dashed">
           <CardContent className="py-16 text-center">
-            <ClipboardList className="h-14 w-14 mx-auto text-muted-foreground mb-3" />
+            <ClipboardList className="h-14 w-14 mx-auto text-slate-500 mb-3" />
             <h3 className="text-lg font-semibold mb-1">No Timesheets Yet</h3>
-            <p className="text-muted-foreground mb-4">Create a weekly timesheet to start tracking crew hours and costs</p>
+            <p className="text-slate-400 mb-4">Create a weekly timesheet to start tracking crew hours and costs</p>
             <Button onClick={() => setShowNewTimesheet(true)}>
               <Plus className="h-4 w-4 mr-1" /> Create First Timesheet
             </Button>
@@ -1098,7 +1098,7 @@ function TimesheetTab({ timesheets, setTimesheets, roster, laborRates }: {
           </div>
           <div>
             <Label className="text-sm font-semibold">Override Explanation (Required)</Label>
-            <p className="text-xs text-muted-foreground mb-2">
+            <p className="text-xs text-slate-400 mb-2">
               Explain why this person is being added to multiple timesheets. This note is part of the audit record.
             </p>
             <Textarea
@@ -1235,16 +1235,16 @@ function InvoiceTab({ timesheets, laborRates, equipmentRates }: {
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle className="flex items-center gap-2">
+                <CardTitle className="flex items-center gap-2 text-white">
                   <Receipt className="h-5 w-5 text-emerald-500" />
                   Invoice - {selectedTs.crewName}
                 </CardTitle>
-                <CardDescription>
+                <CardDescription className="text-slate-400">
                   Week Ending: {selectedTs.weekEnding} | {selectedTs.stormEvent} | {selectedTs.contractorCompany}
                 </CardDescription>
               </div>
               <div className="text-right">
-                <p className="text-sm text-muted-foreground">Invoice Total</p>
+                <p className="text-sm text-slate-400">Invoice Total</p>
                 <p className="text-3xl font-bold text-green-400">{formatCurrency(laborTotal)}</p>
               </div>
             </div>
@@ -1255,31 +1255,31 @@ function InvoiceTab({ timesheets, laborRates, equipmentRates }: {
                 <h4 className="font-semibold mb-3 flex items-center gap-2">
                   <Users className="h-4 w-4" /> Labor Charges
                 </h4>
-                <div className="rounded-lg border overflow-hidden">
+                <div className="rounded-lg border border-slate-600 overflow-hidden">
                   <Table>
                     <TableHeader>
-                      <TableRow className="bg-slate-800/50">
-                        <TableHead className="font-semibold">Description</TableHead>
-                        <TableHead className="font-semibold">Classification</TableHead>
-                        <TableHead className="text-right font-semibold">Hours</TableHead>
-                        <TableHead className="text-right font-semibold">Rate</TableHead>
-                        <TableHead className="text-right font-semibold">Amount</TableHead>
+                      <TableRow className="bg-slate-700/80 border-b border-slate-600">
+                        <TableHead className="font-semibold text-white">Description</TableHead>
+                        <TableHead className="font-semibold text-white">Classification</TableHead>
+                        <TableHead className="text-right font-semibold text-white">Hours</TableHead>
+                        <TableHead className="text-right font-semibold text-white">Rate</TableHead>
+                        <TableHead className="text-right font-semibold text-white">Amount</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {invoiceItems.map((item, idx) => (
-                        <TableRow key={idx} className="hover:bg-slate-800/30">
-                          <TableCell className="font-medium">{item.description}</TableCell>
+                        <TableRow key={idx} className="hover:bg-slate-700/40 border-b border-slate-700">
+                          <TableCell className="font-medium text-white">{item.description}</TableCell>
                           <TableCell>
                             <Badge variant="secondary" className="text-xs">{item.classification}</Badge>
                           </TableCell>
-                          <TableCell className="text-right font-mono">{item.hours.toFixed(1)}</TableCell>
-                          <TableCell className="text-right font-mono">{formatCurrency(item.rate)}</TableCell>
-                          <TableCell className="text-right font-mono font-semibold">{formatCurrency(item.amount)}</TableCell>
+                          <TableCell className="text-right font-mono text-slate-200">{item.hours.toFixed(1)}</TableCell>
+                          <TableCell className="text-right font-mono text-emerald-300">{formatCurrency(item.rate)}</TableCell>
+                          <TableCell className="text-right font-mono font-semibold text-green-400">{formatCurrency(item.amount)}</TableCell>
                         </TableRow>
                       ))}
-                      <TableRow className="bg-slate-800/80 font-semibold border-t-2">
-                        <TableCell colSpan={4} className="text-right">Labor Subtotal:</TableCell>
+                      <TableRow className="bg-slate-700/80 font-semibold border-t-2 border-slate-500">
+                        <TableCell colSpan={4} className="text-right text-white">Labor Subtotal:</TableCell>
                         <TableCell className="text-right font-mono text-green-400 text-lg">
                           {formatCurrency(laborTotal)}
                         </TableCell>
@@ -1293,7 +1293,7 @@ function InvoiceTab({ timesheets, laborRates, equipmentRates }: {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-lg font-semibold">Invoice Grand Total</p>
-                    <p className="text-sm text-muted-foreground">All labor charges for the period</p>
+                    <p className="text-sm text-slate-400">All labor charges for the period</p>
                   </div>
                   <p className="text-3xl font-bold text-green-400">{formatCurrency(laborTotal)}</p>
                 </div>
@@ -1304,9 +1304,9 @@ function InvoiceTab({ timesheets, laborRates, equipmentRates }: {
       ) : (
         <Card className="border-dashed">
           <CardContent className="py-16 text-center">
-            <Receipt className="h-14 w-14 mx-auto text-muted-foreground mb-3" />
+            <Receipt className="h-14 w-14 mx-auto text-slate-500 mb-3" />
             <h3 className="text-lg font-semibold mb-1">Generate Invoice</h3>
-            <p className="text-muted-foreground">Select a timesheet above to automatically generate an invoice from the recorded hours and rates</p>
+            <p className="text-slate-400">Select a timesheet above to automatically generate an invoice from the recorded hours and rates</p>
           </CardContent>
         </Card>
       )}
@@ -1319,11 +1319,11 @@ function OverviewTab() {
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2 text-white">
             <Satellite className="h-5 w-5" />
             AI Monitor Features
           </CardTitle>
-          <CardDescription>Digital field verification replacing manual monitors</CardDescription>
+          <CardDescription className="text-slate-400">Digital field verification replacing manual monitors</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {[
@@ -1335,8 +1335,8 @@ function OverviewTab() {
             <div key={item.title} className="flex items-start gap-3">
               <CheckCircle2 className="h-5 w-5 text-green-500 mt-0.5" />
               <div>
-                <p className="font-medium">{item.title}</p>
-                <p className="text-sm text-muted-foreground">{item.desc}</p>
+                <p className="font-medium text-white">{item.title}</p>
+                <p className="text-sm text-slate-400">{item.desc}</p>
               </div>
             </div>
           ))}
@@ -1345,11 +1345,11 @@ function OverviewTab() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2 text-white">
             <Brain className="h-5 w-5" />
             Fraud Detection
           </CardTitle>
-          <CardDescription>AI-powered anomaly and conflict detection</CardDescription>
+          <CardDescription className="text-slate-400">AI-powered anomaly and conflict detection</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {[
@@ -1361,8 +1361,8 @@ function OverviewTab() {
             <div key={item.title} className="flex items-start gap-3">
               <Target className="h-5 w-5 text-blue-500 mt-0.5" />
               <div>
-                <p className="font-medium">{item.title}</p>
-                <p className="text-sm text-muted-foreground">{item.desc}</p>
+                <p className="font-medium text-white">{item.title}</p>
+                <p className="text-sm text-slate-400">{item.desc}</p>
               </div>
             </div>
           ))}
@@ -1371,11 +1371,11 @@ function OverviewTab() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2 text-white">
             <FileText className="h-5 w-5" />
             Compliance
           </CardTitle>
-          <CardDescription>One-click audit defense documentation</CardDescription>
+          <CardDescription className="text-slate-400">One-click audit defense documentation</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {[
@@ -1387,8 +1387,8 @@ function OverviewTab() {
             <div key={item.title} className="flex items-start gap-3">
               <Zap className="h-5 w-5 text-yellow-500 mt-0.5" />
               <div>
-                <p className="font-medium">{item.title}</p>
-                <p className="text-sm text-muted-foreground">{item.desc}</p>
+                <p className="font-medium text-white">{item.title}</p>
+                <p className="text-sm text-slate-400">{item.desc}</p>
               </div>
             </div>
           ))}
@@ -1424,11 +1424,11 @@ export default function FemaAuditDashboard() {
       <div className="container mx-auto px-4 py-8 space-y-6">
         <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">
+            <h1 className="text-2xl font-bold flex items-center gap-2 text-white">
               <Shield className="h-7 w-7 text-blue-500" />
               Compliance & Audit Center
             </h1>
-            <p className="text-muted-foreground">Rate sheets, rosters, timesheets, invoices, fraud detection & compliance</p>
+            <p className="text-slate-400">Rate sheets, rosters, timesheets, invoices, fraud detection & compliance</p>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" size="sm">
