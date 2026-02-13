@@ -168,5 +168,45 @@ export function registerAIAdsRoutes(app: Express) {
     }
   });
 
-  console.log('🎨 AI Ads Assistant routes registered');
+  app.post('/api/ai-ads/sound-design', async (req: Request, res: Response) => {
+    try {
+      const { prompt, type, voiceStyle, duration, industry } = req.body;
+      
+      if (!prompt) {
+        return res.status(400).json({ error: 'Describe what you want to create' });
+      }
+      
+      const result = await aiAdsAssistant.createSoundDesign({
+        prompt,
+        type: type || 'voice_ad',
+        voiceStyle,
+        duration,
+        industry
+      });
+      
+      res.json({ success: true, result });
+    } catch (error) {
+      console.error('Error creating sound design:', error);
+      res.status(500).json({ error: 'Failed to create sound design', details: error instanceof Error ? error.message : 'Unknown error' });
+    }
+  });
+
+  app.post('/api/ai-ads/generate-voiceover', async (req: Request, res: Response) => {
+    try {
+      const { text, voiceStyle } = req.body;
+      
+      if (!text) {
+        return res.status(400).json({ error: 'Text is required for voice generation' });
+      }
+      
+      const result = await aiAdsAssistant.generateVoiceOver(text, voiceStyle);
+      
+      res.json({ success: true, ...result });
+    } catch (error) {
+      console.error('Error generating voiceover:', error);
+      res.status(500).json({ error: 'Failed to generate voiceover', details: error instanceof Error ? error.message : 'Unknown error' });
+    }
+  });
+
+  console.log('🎨 AI Ads Assistant routes registered (all industries, sound studio enabled)');
 }

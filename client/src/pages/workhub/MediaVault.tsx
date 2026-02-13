@@ -5,7 +5,8 @@ import {
   Image, Upload, Folder, Lock, Share2, Download, Eye, Heart,
   Film, Wand2, Sparkles, Loader2, Copy, Check, FileText,
   Megaphone, PenTool, Palette, Send, RefreshCw, X, Maximize2,
-  Play, Layers, BookOpen, LayoutTemplate, ImagePlus
+  Play, Layers, BookOpen, LayoutTemplate, ImagePlus,
+  Mic, Radio, Music, Headphones, AudioWaveform
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -93,7 +94,7 @@ export default function MediaVault() {
   useEffect(() => {
     if (!hasPlayedWelcome.current) {
       hasPlayedWelcome.current = true;
-      voiceMutation.mutate("Give a brief, warm 1-sentence welcome to MediaVault Creative Studio. You're Rachel. This is where they store job photos AND create videos, flyers, ads, and brochures using AI — just describe what they want. Keep it super short and exciting.");
+      voiceMutation.mutate("Give a brief, warm 1-sentence welcome to MediaVault Creative Studio. You're Rachel. This is where they create videos, flyers, ads, brochures, radio ads, voiceovers, and sound design using AI for ANY industry — just describe it. Keep it super short and exciting.");
     }
   }, []);
 
@@ -280,7 +281,7 @@ export default function MediaVault() {
                 <Shield className="w-10 h-10" />
                 MediaVault Creative Studio
               </h1>
-              <p className="text-slate-300 text-lg">Store your work, then turn it into videos, ads, flyers & brochures with AI</p>
+              <p className="text-slate-300 text-lg">Store your work, then turn it into videos, ads, flyers, brochures & audio with AI — any industry, zero limits</p>
             </div>
             <Button variant="ghost" size="lg" onClick={toggleVoice} className="text-white hover:bg-white/10">
               {isPlaying ? <Volume2 className="w-6 h-6 animate-pulse" /> : isVoiceEnabled ? <Volume2 className="w-6 h-6" /> : <VolumeX className="w-6 h-6" />}
@@ -292,7 +293,7 @@ export default function MediaVault() {
       <div className="max-w-7xl mx-auto px-4 py-6">
         <AutonomousAgentBadge moduleName="MediaVault" />
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid grid-cols-5 w-full max-w-3xl mb-6">
+          <TabsList className="grid grid-cols-6 w-full max-w-4xl mb-6">
             <TabsTrigger value="vault" className="flex items-center gap-1.5">
               <Folder className="w-4 h-4" />
               Media Vault
@@ -308,6 +309,10 @@ export default function MediaVault() {
             <TabsTrigger value="brochures" className="flex items-center gap-1.5">
               <BookOpen className="w-4 h-4" />
               Brochures
+            </TabsTrigger>
+            <TabsTrigger value="sound" className="flex items-center gap-1.5">
+              <Mic className="w-4 h-4" />
+              Sound Studio
             </TabsTrigger>
             <TabsTrigger value="gallery" className="flex items-center gap-1.5">
               <Layers className="w-4 h-4" />
@@ -536,6 +541,10 @@ export default function MediaVault() {
             />
           </TabsContent>
 
+          <TabsContent value="sound">
+            <SoundStudio playRachelVoice={playRachelVoice} />
+          </TabsContent>
+
           <TabsContent value="gallery">
             {createdItems.length === 0 ? (
               <Card>
@@ -635,7 +644,7 @@ export default function MediaVault() {
 
       <ModuleAIAssistant
         moduleName="MediaVault Creative Studio"
-        moduleContext="MediaVault Creative Studio stores job photos and videos AND lets users create AI-powered content from them. Users can create videos, flyers, ads, brochures, and social media content by describing what they want. Help users create amazing marketing materials and manage their media."
+        moduleContext="MediaVault Creative Studio stores job photos and videos AND lets users create AI-powered content for ANY industry — zero creative limits. Users can create videos, flyers, ads, brochures, radio ads, voiceovers, sound design concepts, and brand audio identities by describing what they want. The Sound Studio tab lets users generate Hollywood-level audio experiences with voice style selection and ElevenLabs Rachel voiceover generation. Help users create amazing content for any business type."
       />
     </div>
   );
@@ -978,7 +987,7 @@ function AICreativeStudio({ title, subtitle, icon, defaultType, prompt, setPromp
               </div>
               <h3 className="text-2xl font-bold text-slate-800 dark:text-white mb-3">Tell Rachel what to create</h3>
               <p className="text-slate-600 dark:text-slate-400 max-w-md mx-auto mb-6">
-                Describe any video, flyer, ad, or brochure. Be as creative as you want — Rachel has no limits and will create exactly what you envision.
+                Describe any video, flyer, ad, or brochure for ANY industry. Rachel has zero creative limits — she'll create exactly what you envision.
               </p>
               <div className="grid grid-cols-3 gap-4 max-w-sm mx-auto">
                 <div className="text-center">
@@ -992,6 +1001,479 @@ function AICreativeStudio({ title, subtitle, icon, defaultType, prompt, setPromp
                 <div className="text-center">
                   <FileText className="w-8 h-8 text-indigo-500 mx-auto mb-1" />
                   <p className="text-xs text-slate-600 dark:text-slate-400">Documents</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function SoundStudio({ playRachelVoice }: { playRachelVoice: (msg: string) => void }) {
+  const { toast } = useToast();
+  const [soundPrompt, setSoundPrompt] = useState('');
+  const [soundType, setSoundType] = useState('radio_ad');
+  const [voiceStyle, setVoiceStyle] = useState('rachel');
+  const [duration, setDuration] = useState('30 seconds');
+  const [industry, setIndustry] = useState('');
+  const [soundResult, setSoundResult] = useState<any>(null);
+  const [voiceAudio, setVoiceAudio] = useState<string | null>(null);
+  const [isPlayingVoice, setIsPlayingVoice] = useState(false);
+  const voiceAudioRef = useRef<HTMLAudioElement>(null);
+
+  const soundMutation = useMutation({
+    mutationFn: async (params: any) => {
+      const res = await apiRequest("POST", "/api/ai-ads/sound-design", params);
+      return res.json();
+    },
+    onSuccess: (data) => {
+      if (data.success && data.result) {
+        setSoundResult(data.result);
+        playRachelVoice("Your sound design is ready! I created a complete audio concept with script, sound effects, music direction, and production notes. Check it out!");
+        toast({ title: "Sound Design Ready!", description: "Your AI audio concept is complete." });
+      }
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to create sound design", variant: "destructive" });
+    }
+  });
+
+  const voiceoverMutation = useMutation({
+    mutationFn: async (params: { text: string; voiceStyle: string }) => {
+      const res = await apiRequest("POST", "/api/ai-ads/generate-voiceover", params);
+      return res.json();
+    },
+    onSuccess: (data) => {
+      if (data.success && data.audioBase64) {
+        const audioSrc = `data:audio/mp3;base64,${data.audioBase64}`;
+        setVoiceAudio(audioSrc);
+        if (voiceAudioRef.current) {
+          voiceAudioRef.current.src = audioSrc;
+          voiceAudioRef.current.play().catch(() => {});
+          setIsPlayingVoice(true);
+          voiceAudioRef.current.onended = () => setIsPlayingVoice(false);
+        }
+        toast({ title: "Voiceover Generated!", description: `Voice: ${data.voice}` });
+      }
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to generate voiceover", variant: "destructive" });
+    }
+  });
+
+  const handleCreate = () => {
+    if (!soundPrompt.trim()) {
+      toast({ title: "Describe your audio", description: "Tell Rachel what sound experience to create", variant: "destructive" });
+      return;
+    }
+    soundMutation.mutate({ prompt: soundPrompt.trim(), type: soundType, voiceStyle, duration, industry: industry || undefined });
+  };
+
+  const handleGenerateVoiceover = (text: string) => {
+    voiceoverMutation.mutate({ text: text.slice(0, 4096), voiceStyle });
+  };
+
+  const downloadScript = () => {
+    if (!soundResult) return;
+    let content = `SOUND DESIGN: ${soundResult.title || 'Untitled'}\n${'='.repeat(50)}\n\n`;
+    if (soundResult.script) content += `SCRIPT\n${'-'.repeat(40)}\n${soundResult.script}\n\n`;
+    if (soundResult.voiceDirection) content += `VOICE DIRECTION\n${'-'.repeat(40)}\n${soundResult.voiceDirection}\n\n`;
+    if (soundResult.soundEffects?.length) content += `SOUND EFFECTS\n${'-'.repeat(40)}\n${soundResult.soundEffects.map((s: string, i: number) => `${i + 1}. ${s}`).join('\n')}\n\n`;
+    if (soundResult.musicDirection) content += `MUSIC DIRECTION\n${'-'.repeat(40)}\n${soundResult.musicDirection}\n\n`;
+    if (soundResult.emotionalArc) content += `EMOTIONAL ARC\n${'-'.repeat(40)}\n${soundResult.emotionalArc}\n\n`;
+    if (soundResult.productionNotes) content += `PRODUCTION NOTES\n${'-'.repeat(40)}\n${soundResult.productionNotes}\n\n`;
+    if (soundResult.audioLayers?.length) {
+      content += `AUDIO LAYERS\n${'-'.repeat(40)}\n`;
+      soundResult.audioLayers.forEach((l: any) => { content += `[${l.layer}] ${l.description}\n`; });
+    }
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `sound-design-${Date.now()}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast({ title: "Downloaded!", description: "Sound design script saved." });
+  };
+
+  const voiceStyles = [
+    { value: 'rachel', label: 'Rachel (Natural)', desc: 'Warm, professional, natural' },
+    { value: 'calm_authority', label: 'Calm Authority', desc: 'Insurance/corporate tone' },
+    { value: 'urgent_dispatcher', label: 'Urgent Dispatcher', desc: 'Emergency energy' },
+    { value: 'cinematic_trailer', label: 'Cinematic Trailer', desc: 'Movie trailer epic' },
+    { value: 'friendly_neighbor', label: 'Friendly Neighbor', desc: 'Approachable, warm' },
+    { value: 'corporate_executive', label: 'Corporate Executive', desc: 'Polished, authoritative' },
+    { value: 'high_energy_sales', label: 'High Energy Sales', desc: 'Aggressive, exciting' },
+    { value: 'luxury_brand', label: 'Luxury Brand', desc: 'Elegant, refined' },
+  ];
+
+  const soundTypes = [
+    { value: 'radio_ad', label: 'Radio Ad', icon: <Radio className="w-4 h-4" />, desc: 'Complete radio-ready ad with script, SFX & music' },
+    { value: 'voice_ad', label: 'Voice-Over Ad', icon: <Mic className="w-4 h-4" />, desc: 'Professional voiceover with sound direction' },
+    { value: 'voice_script', label: 'Voice Script', icon: <FileText className="w-4 h-4" />, desc: 'Script with tone, pause & emphasis markers' },
+    { value: 'sound_design', label: 'Sound Design', icon: <Headphones className="w-4 h-4" />, desc: 'Cinematic sound layering & emotional arc' },
+    { value: 'brand_audio', label: 'Brand Audio', icon: <Music className="w-4 h-4" />, desc: 'Audio logo, jingles & brand sound identity' },
+  ];
+
+  const examples = [
+    "Emergency tree removal ad. 30 seconds. Cinematic. Storm hits, tree crashes, silence, then hope. Urgent but reassuring.",
+    "Luxury home remodeling radio spot. 60 seconds. Elegant and aspirational. Sound of transformation.",
+    "Auto repair shop brand audio identity — tough, reliable, American muscle. Audio logo with engine rev morphing into brand name.",
+    "Restaurant grand opening radio ad. Fun, energetic, mouth-watering. Sizzling sounds, crowd excitement, inviting host voice.",
+    "Fitness gym high-energy 15-second social media ad. Pumping bass, workout sounds, motivational voice.",
+    "Tech startup product launch voice script. Clean, futuristic, innovative. Building anticipation to reveal.",
+    "Real estate agent personal brand audio — trustworthy, warm, successful. Audio logo and voicemail greeting.",
+    "Roofing company storm response ad. Thunder, rain on damaged roof, then confident voice offering help."
+  ];
+
+  return (
+    <div className="grid lg:grid-cols-5 gap-6">
+      <audio ref={voiceAudioRef} className="hidden" />
+      <div className="lg:col-span-2 space-y-4">
+        <Card className="border-2 border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/20">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Mic className="w-6 h-6 text-amber-600" />
+              <span className="text-amber-600">AI Sound Studio</span>
+            </CardTitle>
+            <p className="text-sm text-slate-500">Create professional voice-overs, radio ads, sound design & brand audio for ANY industry</p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Textarea
+              value={soundPrompt}
+              onChange={(e) => setSoundPrompt(e.target.value)}
+              placeholder="Describe your audio — any industry, any style, no limits. Example: '30-second emergency plumbing radio ad with urgency and trust'..."
+              className="min-h-[100px] resize-none text-base"
+            />
+
+            <div>
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 block">Type</label>
+              <div className="grid grid-cols-1 gap-1.5">
+                {soundTypes.map(st => (
+                  <button key={st.value} onClick={() => setSoundType(st.value)}
+                    className={`flex items-center gap-2 p-2 rounded-lg text-left text-sm transition-all ${soundType === st.value ? 'bg-amber-100 dark:bg-amber-900/30 border-amber-400 border-2 text-amber-800 dark:text-amber-200' : 'bg-slate-50 dark:bg-slate-800 border border-transparent hover:border-amber-200'}`}>
+                    {st.icon}
+                    <div>
+                      <div className="font-medium">{st.label}</div>
+                      <div className="text-xs text-slate-500">{st.desc}</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1 block">Voice Style</label>
+                <Select value={voiceStyle} onValueChange={setVoiceStyle}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {voiceStyles.map(vs => (
+                      <SelectItem key={vs.value} value={vs.value}>{vs.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1 block">Duration</label>
+                <Select value={duration} onValueChange={setDuration}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="15 seconds">15 seconds</SelectItem>
+                    <SelectItem value="30 seconds">30 seconds</SelectItem>
+                    <SelectItem value="60 seconds">60 seconds</SelectItem>
+                    <SelectItem value="90 seconds">90 seconds</SelectItem>
+                    <SelectItem value="2 minutes">2 minutes</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1 block">Industry (optional)</label>
+              <Select value={industry} onValueChange={setIndustry}>
+                <SelectTrigger><SelectValue placeholder="Any industry" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="any">Any Industry</SelectItem>
+                  <SelectItem value="contractors">Contractors & Home Services</SelectItem>
+                  <SelectItem value="restaurant">Restaurant & Food</SelectItem>
+                  <SelectItem value="automotive">Automotive</SelectItem>
+                  <SelectItem value="realestate">Real Estate</SelectItem>
+                  <SelectItem value="fitness">Fitness & Wellness</SelectItem>
+                  <SelectItem value="tech">Technology</SelectItem>
+                  <SelectItem value="healthcare">Healthcare</SelectItem>
+                  <SelectItem value="retail">Retail & E-commerce</SelectItem>
+                  <SelectItem value="legal">Legal & Professional</SelectItem>
+                  <SelectItem value="entertainment">Entertainment</SelectItem>
+                  <SelectItem value="education">Education</SelectItem>
+                  <SelectItem value="finance">Finance & Insurance</SelectItem>
+                  <SelectItem value="beauty">Beauty & Fashion</SelectItem>
+                  <SelectItem value="travel">Travel & Hospitality</SelectItem>
+                  <SelectItem value="nonprofit">Non-profit</SelectItem>
+                  <SelectItem value="manufacturing">Manufacturing</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <Button className="w-full bg-gradient-to-r from-amber-600 to-orange-600 text-white font-semibold py-6 text-base" onClick={handleCreate} disabled={soundMutation.isPending}>
+              {soundMutation.isPending ? <><Loader2 className="w-5 h-5 mr-2 animate-spin" />Rachel is composing...</> : <><Wand2 className="w-5 h-5 mr-2" />Create Sound Design</>}
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-slate-600 dark:text-slate-400">Try these ideas — any industry</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {examples.map((ex, i) => (
+                <button key={i} onClick={() => setSoundPrompt(ex)} className="w-full text-left text-sm p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800 hover:bg-amber-50 dark:hover:bg-amber-950/20 text-slate-700 dark:text-slate-300 transition-colors border border-transparent hover:border-amber-200 dark:hover:border-amber-800">
+                  <span className="text-amber-600 mr-1.5">→</span>{ex}
+                </button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20 border-amber-200 dark:border-amber-800">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2"><Volume2 className="w-4 h-4 text-amber-600" />Voice Styles Preview</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-2">
+              {voiceStyles.map(vs => (
+                <div key={vs.value} className={`p-2 rounded-lg text-xs cursor-pointer transition-all ${voiceStyle === vs.value ? 'bg-amber-200 dark:bg-amber-800 ring-2 ring-amber-400' : 'bg-white dark:bg-slate-800 hover:bg-amber-100 dark:hover:bg-amber-900/20'}`} onClick={() => setVoiceStyle(vs.value)}>
+                  <div className="font-semibold">{vs.label}</div>
+                  <div className="text-slate-500">{vs.desc}</div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="lg:col-span-3 space-y-4">
+        {soundMutation.isPending && !soundResult && (
+          <Card className="border-2 border-amber-200 dark:border-amber-800">
+            <CardContent className="py-16 text-center">
+              <div className="relative mx-auto w-20 h-20 mb-6">
+                <div className="absolute inset-0 rounded-full border-4 border-amber-200 dark:border-amber-800" />
+                <div className="absolute inset-0 rounded-full border-4 border-t-transparent border-amber-500 animate-spin" />
+                <Mic className="w-8 h-8 text-amber-600 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+              </div>
+              <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-2">Rachel is composing your audio...</h3>
+              <p className="text-slate-500">Creating script, sound design, voice direction & production notes. About 15-30 seconds.</p>
+            </CardContent>
+          </Card>
+        )}
+
+        {soundResult && (
+          <div className="space-y-4">
+            <Card className="border-2 border-amber-200 dark:border-amber-800 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2">
+                    <AudioWaveform className="w-5 h-5 text-amber-600" />
+                    {soundResult.title || 'Sound Design'}
+                  </CardTitle>
+                  <div className="flex gap-2">
+                    {soundResult.duration && <Badge variant="outline">{soundResult.duration}</Badge>}
+                    <Badge className="bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300">{soundTypes.find(s => s.value === soundType)?.label}</Badge>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="flex gap-2 mb-4">
+                  <Button size="sm" className="bg-amber-600 hover:bg-amber-700" onClick={downloadScript}>
+                    <Download className="w-4 h-4 mr-1.5" />Download Script
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => {
+                    navigator.clipboard.writeText(soundResult.script || '');
+                    toast({ title: "Script copied!" });
+                  }}>
+                    <Copy className="w-4 h-4 mr-1.5" />Copy Script
+                  </Button>
+                  {soundResult.script && (
+                    <Button size="sm" variant="outline" onClick={() => handleGenerateVoiceover(soundResult.script)} disabled={voiceoverMutation.isPending}>
+                      {voiceoverMutation.isPending ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Play className="w-4 h-4 mr-1.5" />}
+                      {voiceoverMutation.isPending ? 'Generating...' : 'Generate Voiceover'}
+                    </Button>
+                  )}
+                </div>
+
+                {voiceAudio && (
+                  <div className="p-3 rounded-lg bg-amber-100 dark:bg-amber-900/30 mb-4 flex items-center gap-3">
+                    <Button size="sm" variant="ghost" onClick={() => {
+                      if (voiceAudioRef.current) {
+                        if (isPlayingVoice) { voiceAudioRef.current.pause(); setIsPlayingVoice(false); }
+                        else { voiceAudioRef.current.play(); setIsPlayingVoice(true); voiceAudioRef.current.onended = () => setIsPlayingVoice(false); }
+                      }
+                    }}>
+                      {isPlayingVoice ? <VolumeX className="w-5 h-5" /> : <Play className="w-5 h-5" />}
+                    </Button>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">AI Voiceover Ready</p>
+                      <p className="text-xs text-slate-600 dark:text-slate-400">Voice: {voiceStyles.find(v => v.value === voiceStyle)?.label}</p>
+                    </div>
+                    <Button size="sm" variant="outline" onClick={() => {
+                      const a = document.createElement('a');
+                      a.href = voiceAudio;
+                      a.download = `voiceover-${Date.now()}.mp3`;
+                      a.click();
+                      toast({ title: "Voiceover downloaded!" });
+                    }}>
+                      <Download className="w-4 h-4 mr-1" />Download MP3
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {soundResult.script && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex items-center gap-2 text-base"><FileText className="w-5 h-5 text-amber-600" />Script</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="bg-slate-50 dark:bg-slate-800 rounded-lg p-4 font-mono text-sm whitespace-pre-wrap leading-relaxed">
+                    {soundResult.script}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {soundResult.voiceDirection && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex items-center gap-2 text-base"><Mic className="w-5 h-5 text-blue-600" />Voice Direction</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{soundResult.voiceDirection}</p>
+                </CardContent>
+              </Card>
+            )}
+
+            {soundResult.soundEffects?.length > 0 && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex items-center gap-2 text-base"><Headphones className="w-5 h-5 text-purple-600" />Sound Effects</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    {soundResult.soundEffects.map((sfx: string, i: number) => (
+                      <div key={i} className="flex items-start gap-2 p-2 rounded bg-slate-50 dark:bg-slate-800">
+                        <Badge variant="outline" className="text-xs mt-0.5">{i + 1}</Badge>
+                        <span className="text-sm text-slate-700 dark:text-slate-300">{sfx}</span>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {soundResult.musicDirection && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex items-center gap-2 text-base"><Music className="w-5 h-5 text-green-600" />Music Direction</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{soundResult.musicDirection}</p>
+                </CardContent>
+              </Card>
+            )}
+
+            {soundResult.emotionalArc && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex items-center gap-2 text-base"><Heart className="w-5 h-5 text-red-500" />Emotional Arc</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{soundResult.emotionalArc}</p>
+                </CardContent>
+              </Card>
+            )}
+
+            {soundResult.audioLayers?.length > 0 && (
+              <Card className="border-2 border-amber-200 dark:border-amber-800">
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex items-center gap-2 text-base"><Layers className="w-5 h-5 text-amber-600" />Audio Layers</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {soundResult.audioLayers.map((layer: any, i: number) => (
+                      <div key={i} className="p-3 rounded-lg bg-gradient-to-r from-slate-50 to-amber-50 dark:from-slate-800 dark:to-amber-950/20 border border-amber-100 dark:border-amber-900">
+                        <div className="font-semibold text-amber-700 dark:text-amber-300 text-sm mb-1">{layer.layer}</div>
+                        <p className="text-sm text-slate-600 dark:text-slate-400">{layer.description}</p>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {soundResult.productionNotes && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex items-center gap-2 text-base"><Wand2 className="w-5 h-5 text-indigo-600" />Production Notes</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{soundResult.productionNotes}</p>
+                </CardContent>
+              </Card>
+            )}
+
+            <Card className="bg-gradient-to-r from-slate-50 to-amber-50 dark:from-slate-800 dark:to-amber-950/20">
+              <CardContent className="pt-5 pb-4">
+                <div className="flex gap-2">
+                  <Button variant="outline" className="flex-1" onClick={() => { setSoundResult(null); setSoundPrompt(''); setVoiceAudio(null); }}>
+                    <RefreshCw className="w-4 h-4 mr-1.5" />Create Another
+                  </Button>
+                  <Button className="flex-1 bg-gradient-to-r from-amber-600 to-orange-600" onClick={() => {
+                    const all = `${soundResult.title}\n\n${soundResult.script}\n\nVoice: ${soundResult.voiceDirection}\n\nMusic: ${soundResult.musicDirection}`;
+                    navigator.clipboard.writeText(all);
+                    toast({ title: "Copied!" });
+                  }}>
+                    <Copy className="w-4 h-4 mr-1.5" />Copy All
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {!soundResult && !soundMutation.isPending && (
+          <Card className="bg-amber-50 dark:bg-amber-950/20 border-2 border-amber-200 dark:border-amber-800">
+            <CardContent className="py-16 text-center">
+              <div className="w-20 h-20 rounded-full bg-gradient-to-r from-amber-600 to-orange-600 mx-auto mb-6 flex items-center justify-center">
+                <Mic className="w-10 h-10 text-white" />
+              </div>
+              <h3 className="text-2xl font-bold text-slate-800 dark:text-white mb-3">AI Sound Studio</h3>
+              <p className="text-slate-600 dark:text-slate-400 max-w-lg mx-auto mb-6">
+                Create Hollywood-level audio experiences for ANY industry. Radio ads, voiceovers, sound design, brand audio identity — just describe it and Rachel builds the complete audio concept.
+              </p>
+              <div className="grid grid-cols-5 gap-3 max-w-md mx-auto">
+                <div className="text-center">
+                  <Radio className="w-7 h-7 text-amber-500 mx-auto mb-1" />
+                  <p className="text-xs text-slate-600 dark:text-slate-400">Radio Ads</p>
+                </div>
+                <div className="text-center">
+                  <Mic className="w-7 h-7 text-blue-500 mx-auto mb-1" />
+                  <p className="text-xs text-slate-600 dark:text-slate-400">Voiceover</p>
+                </div>
+                <div className="text-center">
+                  <Headphones className="w-7 h-7 text-purple-500 mx-auto mb-1" />
+                  <p className="text-xs text-slate-600 dark:text-slate-400">Sound FX</p>
+                </div>
+                <div className="text-center">
+                  <Music className="w-7 h-7 text-green-500 mx-auto mb-1" />
+                  <p className="text-xs text-slate-600 dark:text-slate-400">Brand Audio</p>
+                </div>
+                <div className="text-center">
+                  <FileText className="w-7 h-7 text-indigo-500 mx-auto mb-1" />
+                  <p className="text-xs text-slate-600 dark:text-slate-400">Scripts</p>
                 </div>
               </div>
             </CardContent>

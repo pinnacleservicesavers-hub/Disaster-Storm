@@ -73,14 +73,14 @@ export class AIAdsAssistantService {
    * Generate compelling ad copy that makes people stop and look
    */
   async generateAdCopy(request: AdCopyRequest): Promise<string[]> {
-    const prompt = `You are an expert advertising copywriter specializing in emergency services and disaster restoration.
+    const prompt = `You are an elite advertising copywriter who creates content for ANY industry worldwide.
 
 Create 3 compelling, attention-grabbing ad copy variations for:
 - Business Type: ${request.businessType}
-- Target Audience: ${request.targetAudience || 'homeowners affected by storm damage'}
-- Service: ${request.serviceType || 'emergency restoration'}
+- Target Audience: ${request.targetAudience || 'ideal customers'}
+- Service: ${request.serviceType || 'professional services'}
 - Location: ${request.location || 'local area'}
-${request.stormType ? `- Storm Type: ${request.stormType}` : ''}
+${request.stormType ? `- Context: ${request.stormType}` : ''}
 ${request.urgency ? `- Urgency Level: ${request.urgency}` : ''}
 
 Requirements:
@@ -98,7 +98,7 @@ Return ONLY the 3 ad copy variations, numbered 1-3, nothing else.`;
       messages: [
         {
           role: 'system',
-          content: 'You are an award-winning advertising copywriter who creates ads that stop people in their tracks and convert. You specialize in emergency services and understand the psychology of disaster victims.'
+          content: 'You are an award-winning advertising copywriter who creates ads for ANY industry or business type. You have zero creative limits. You create content that stops people in their tracks and converts — for contractors, restaurants, tech, fitness, real estate, automotive, entertainment, healthcare, retail, and every industry that exists.'
         },
         {
           role: 'user',
@@ -124,7 +124,7 @@ Return ONLY the 3 ad copy variations, numbered 1-3, nothing else.`;
    * Generate eye-catching ad visuals using DALL-E
    */
   async generateAdCreative(request: AdCreativeRequest): Promise<string> {
-    const visualPrompt = `Professional, high-quality advertising image for emergency restoration services:
+    const visualPrompt = `Professional, high-quality advertising image:
     
 ${request.adCopy}
 
@@ -134,10 +134,8 @@ Emotion: ${request.emotion || 'Hopeful, reliable, professional'}
 
 Requirements:
 - Photo-realistic quality
-- Professional service company aesthetic
-- Before/after imagery if relevant
+- Professional aesthetic matching the industry
 - Clean, uncluttered composition
-- Emergency services branding feel
 - Trust-building visuals
 - No text overlay needed`;
 
@@ -156,7 +154,7 @@ Requirements:
    * Get AI-powered advertising strategy recommendations
    */
   async getAdStrategy(request: AdStrategyRequest): Promise<any> {
-    const prompt = `As an expert digital advertising strategist for disaster restoration services, analyze this scenario and provide a comprehensive ad strategy:
+    const prompt = `As an expert digital advertising strategist for any industry, analyze this scenario and provide a comprehensive ad strategy:
 
 Budget: $${request.budget}
 Platforms: ${request.platforms.join(', ')}
@@ -179,7 +177,7 @@ Format as JSON with these keys: budgetAllocation, audienceSegments, timing, geoT
       messages: [
         {
           role: 'system',
-          content: 'You are an expert digital advertising strategist specializing in emergency services and disaster restoration. You understand storm patterns, demographics, and how to maximize ROI for time-sensitive campaigns.'
+          content: 'You are an expert digital advertising strategist for ANY industry or business type. You understand demographics, market dynamics, and how to maximize ROI for campaigns across every sector — from contractors and restaurants to tech startups, fitness, real estate, entertainment, and beyond.'
         },
         {
           role: 'user',
@@ -187,10 +185,11 @@ Format as JSON with these keys: budgetAllocation, audienceSegments, timing, geoT
         }
       ],
       temperature: 0.7,
-      response_format: { type: 'json_object' }
     });
 
-    return JSON.parse(response.choices[0].message.content || '{}');
+    const stratContent = response.choices[0].message.content || '{}';
+    const stratJson = stratContent.match(/\{[\s\S]*\}/);
+    return JSON.parse(stratJson ? stratJson[0] : '{}');
   }
 
   /**
@@ -228,10 +227,11 @@ Format as JSON with steps array, each containing: title, description, actionItem
         }
       ],
       temperature: 0.6,
-      response_format: { type: 'json_object' }
     });
 
-    return JSON.parse(response.choices[0].message.content || '{"steps":[]}');
+    const fbContent = response.choices[0].message.content || '{"steps":[]}';
+    const fbJson = fbContent.match(/\{[\s\S]*\}/);
+    return JSON.parse(fbJson ? fbJson[0] : '{"steps":[]}');
   }
 
   /**
@@ -272,26 +272,30 @@ Format as JSON with these keys: assessment, audienceOptimization, creativeOptimi
         }
       ],
       temperature: 0.7,
-      response_format: { type: 'json_object' }
     });
 
-    return JSON.parse(response.choices[0].message.content || '{}');
+    const optContent = response.choices[0].message.content || '{}';
+    const optJson = optContent.match(/\{[\s\S]*\}/);
+    return JSON.parse(optJson ? optJson[0] : '{}');
   }
 
   /**
    * Interactive AI chat for ad questions and guidance
    */
   async chatAssistant(message: string, context?: any): Promise<string> {
-    const systemPrompt = `You are an expert AI assistant for social media advertising, specializing in Facebook/Meta, Google, Instagram, and YouTube ads for emergency services and storm restoration businesses.
+    const systemPrompt = `You are an expert AI assistant for social media advertising across ALL industries and business types. You help with Facebook/Meta, Google, Instagram, YouTube, TikTok, LinkedIn, and every advertising platform.
 
 You help users:
-- Create compelling ad campaigns
-- Navigate Facebook Business Manager
+- Create compelling ad campaigns for ANY industry
+- Navigate advertising platforms
 - Optimize ad performance
 - Target the right audiences
 - Create attention-grabbing creatives
 - Manage budgets effectively
 - Set up tracking and analytics
+- Sound design and audio branding
+
+You have ZERO creative limits. Whatever industry, niche, or business type — you deliver world-class advertising guidance.
 
 Be conversational, helpful, and actionable. Provide specific steps when asked how to do something.`;
 
@@ -412,10 +416,11 @@ Make it exceptional. Make it unforgettable.`;
       ],
       temperature: 1.0,
       max_tokens: 2000,
-      response_format: { type: 'json_object' }
     });
 
-    const result = JSON.parse(response.choices[0].message.content || '{}');
+    const freeContent = response.choices[0].message.content || '{}';
+    const freeJson = freeContent.match(/\{[\s\S]*\}/);
+    const result = JSON.parse(freeJson ? freeJson[0] : '{}');
 
     if (request.includeImage !== false) {
       try {
@@ -487,6 +492,161 @@ Make it look like a premium agency-produced ad image. Ultra high quality, cinema
       }
       return response.data[0]?.url || '';
     }
+  }
+  async createSoundDesign(request: { prompt: string; type: string; voiceStyle?: string; duration?: string; industry?: string }): Promise<any> {
+    const typeInstructions: Record<string, string> = {
+      'voice_ad': `Create a complete voice-over ad with:
+- Full script with pause/tone/emphasis markers
+- Voice direction (tone, pacing, emotion shifts)
+- Sound effect cues with timestamps
+- Background music recommendations
+- Total duration and pacing breakdown`,
+      'radio_ad': `Create a complete radio-ready ad with:
+- Opening hook (2-3 seconds)
+- Full narrator script with dramatic pauses marked as [PAUSE]
+- Sound effects list with exact placement: [SFX: description]
+- Music bed description with mood changes
+- Volume/intensity markers: [SOFT], [BUILD], [PEAK], [DROP]
+- Closing with CTA and contact info placeholder
+- Total duration target: ${request.duration || '30 seconds'}`,
+      'sound_design': `Create a cinematic sound design concept with:
+- Layer-by-layer sound breakdown (ambient, effects, music, voice)
+- Emotional arc mapped to sound changes
+- Specific sound effects with descriptions
+- Music composition direction
+- Audio psychology notes (bass depth, tempo, reverb, silence)
+- 3D spatial audio suggestions`,
+      'brand_audio': `Create a complete brand audio identity with:
+- 3-second audio logo concept (signature sound description)
+- Jingle/tagline music direction
+- Hold music style
+- Notification sounds
+- Emotional tone profile
+- Sound palette (what instruments, textures, frequencies define the brand)`,
+      'voice_script': `Create a professional voice-infused script with:
+- Full script text with embedded markers:
+  [PAUSE 1s], [PAUSE 2s] for dramatic pauses
+  [TONE: urgent], [TONE: warm], [TONE: authoritative] for voice shifts
+  [VOLUME: whisper], [VOLUME: normal], [VOLUME: powerful] for intensity
+  [EMPHASIS] before key words
+  [MUSIC: build], [MUSIC: drop], [MUSIC: swell] for soundtrack cues
+  [SFX: description] for sound effects
+- Voice casting recommendation
+- Emotional journey map`
+    };
+
+    const systemPrompt = `You are a world-class sound designer, audio engineer, and voice director who creates Hollywood-level audio experiences for ANY industry. You have ZERO creative limits.
+
+You create cinematic sound experiences for:
+- Emergency services & disaster response
+- Construction & contractors
+- Restaurants & food service
+- Technology & SaaS
+- Fitness & wellness
+- Real estate & property
+- Automotive & transportation
+- Entertainment & media
+- Healthcare & medical
+- Retail & e-commerce
+- Legal & professional services
+- Education & training
+- Finance & insurance
+- Agriculture & farming
+- Manufacturing & industrial
+- Beauty & fashion
+- Travel & hospitality
+- Sports & recreation
+- Non-profit & community
+- ANY other industry that exists
+
+You understand audio psychology, emotional sound design, brand audio identity, and how to create content that dominates the senses. Every sound decision is intentional and powerful.`;
+
+    const userPrompt = `Create the following for this request:
+
+"${request.prompt}"
+
+Type: ${request.type}
+${request.voiceStyle ? `Voice Style: ${request.voiceStyle}` : ''}
+${request.duration ? `Target Duration: ${request.duration}` : ''}
+${request.industry ? `Industry: ${request.industry}` : ''}
+
+${typeInstructions[request.type] || typeInstructions['voice_ad']}
+
+Return as JSON with these fields:
+{
+  "title": "Creative title for this audio piece",
+  "script": "The full script/content with all markers and directions",
+  "voiceDirection": "Complete voice casting and direction notes",
+  "soundEffects": ["Array of specific sound effects with placement"],
+  "musicDirection": "Background music/score recommendation",
+  "emotionalArc": "Description of the emotional journey",
+  "duration": "Estimated total duration",
+  "productionNotes": "Technical production recommendations",
+  "audioLayers": [
+    {"layer": "Voice", "description": "Details"},
+    {"layer": "Music", "description": "Details"},
+    {"layer": "SFX", "description": "Details"},
+    {"layer": "Ambient", "description": "Details"}
+  ]
+}`;
+
+    const response = await this.openai.chat.completions.create({
+      model: 'gpt-4',
+      messages: [
+        { role: 'system', content: systemPrompt + '\n\nYou MUST respond with valid JSON only. No markdown, no code blocks, just raw JSON.' },
+        { role: 'user', content: userPrompt }
+      ],
+      temperature: 1.0,
+      max_tokens: 3000,
+    });
+    const soundContent = response.choices[0].message.content || '{}';
+    const soundJson = soundContent.match(/\{[\s\S]*\}/);
+    return JSON.parse(soundJson ? soundJson[0] : '{}');
+  }
+
+  async generateVoiceOver(text: string, voiceStyle?: string): Promise<{ audioBase64: string; format: string; voice: string }> {
+    const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
+    
+    const voiceMap: Record<string, { id: string; settings: any }> = {
+      'rachel': { id: '21m00Tcm4TlvDq8ikWAM', settings: { stability: 0.71, similarity_boost: 0.76, style: 0.32 } },
+      'calm_authority': { id: '21m00Tcm4TlvDq8ikWAM', settings: { stability: 0.85, similarity_boost: 0.80, style: 0.15 } },
+      'urgent_dispatcher': { id: '21m00Tcm4TlvDq8ikWAM', settings: { stability: 0.45, similarity_boost: 0.70, style: 0.65 } },
+      'cinematic_trailer': { id: '21m00Tcm4TlvDq8ikWAM', settings: { stability: 0.90, similarity_boost: 0.85, style: 0.50 } },
+      'friendly_neighbor': { id: '21m00Tcm4TlvDq8ikWAM', settings: { stability: 0.60, similarity_boost: 0.65, style: 0.45 } },
+      'corporate_executive': { id: '21m00Tcm4TlvDq8ikWAM', settings: { stability: 0.88, similarity_boost: 0.82, style: 0.20 } },
+      'high_energy_sales': { id: '21m00Tcm4TlvDq8ikWAM', settings: { stability: 0.35, similarity_boost: 0.75, style: 0.80 } },
+      'luxury_brand': { id: '21m00Tcm4TlvDq8ikWAM', settings: { stability: 0.92, similarity_boost: 0.88, style: 0.10 } },
+    };
+
+    const selectedVoice = voiceMap[voiceStyle || 'rachel'] || voiceMap['rachel'];
+    
+    if (!elevenLabsApiKey) {
+      const openAiKey = process.env.OPENAI_API_KEY;
+      if (!openAiKey) throw new Error('No voice service available');
+      
+      const response = await fetch('https://api.openai.com/v1/audio/speech', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${openAiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: 'tts-1-hd', voice: 'nova', input: text.slice(0, 4096), response_format: 'mp3', speed: 1.0 })
+      });
+      if (!response.ok) throw new Error('OpenAI TTS failed');
+      const buf = Buffer.from(await response.arrayBuffer());
+      return { audioBase64: buf.toString('base64'), format: 'mp3', voice: 'nova' };
+    }
+
+    const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${selectedVoice.id}`, {
+      method: 'POST',
+      headers: { 'Accept': 'audio/mpeg', 'xi-api-key': elevenLabsApiKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text: text.slice(0, 4096),
+        model_id: 'eleven_turbo_v2_5',
+        voice_settings: { ...selectedVoice.settings, use_speaker_boost: true }
+      })
+    });
+
+    if (!response.ok) throw new Error('ElevenLabs TTS failed');
+    const buf = Buffer.from(await response.arrayBuffer());
+    return { audioBase64: buf.toString('base64'), format: 'mp3', voice: voiceStyle || 'rachel' };
   }
 }
 
