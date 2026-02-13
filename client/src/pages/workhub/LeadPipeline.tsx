@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import TopNav from '@/components/TopNav';
 import ModuleAIAssistant from '@/components/ModuleAIAssistant';
+import { AutonomousAgentBadge } from '@/components/AutonomousAgentBadge';
 
 const SERVICE_CATEGORIES = [
   { id: 'tree', label: 'Tree Service', icon: Trees, color: 'bg-emerald-600' },
@@ -274,6 +275,8 @@ export default function LeadPipeline() {
             </Button>
           </div>
         </div>
+
+        <AutonomousAgentBadge moduleName="LeadPipeline" />
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card className="bg-white/10 backdrop-blur border-emerald-500/30">

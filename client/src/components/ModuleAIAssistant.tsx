@@ -187,37 +187,34 @@ export default function ModuleAIAssistant({ moduleName, moduleContext, externalT
       }
       
       const cleanText = text.replace(/\*\*/g, '').replace(/#{1,3}\s/g, '').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
-      const truncatedText = cleanText.length > 800 
-        ? cleanText.substring(0, 800) + '... For the complete response, please review the full text above.'
+      const truncatedText = cleanText.length > 500 
+        ? cleanText.substring(0, 500)
         : cleanText;
       
-      const response = await fetch('/api/tts', {
+      const response = await fetch('/api/closebot/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: truncatedText }),
+        body: JSON.stringify({
+          message: `Summarize this response naturally in 2-3 short sentences as Rachel. Be warm and conversational: ${truncatedText}`,
+          history: [],
+          context: { leadName: "user", companyName: "the company", trade: moduleName || "general" },
+          enableVoice: true,
+        }),
       });
       
       if (!response.ok) {
-        throw new Error('TTS request failed');
+        throw new Error('Voice request failed');
       }
       
       const data = await response.json();
       
-      if (data.audioBase64) {
-        const audioBlob = new Blob(
-          [Uint8Array.from(atob(data.audioBase64), c => c.charCodeAt(0))],
-          { type: 'audio/mpeg' }
-        );
-        const audioUrl = URL.createObjectURL(audioBlob);
-        
-        audioRef.current = new Audio(audioUrl);
+      if (data.audioUrl) {
+        audioRef.current = new Audio(data.audioUrl);
         audioRef.current.onended = () => {
           setIsSpeaking(false);
-          URL.revokeObjectURL(audioUrl);
         };
         audioRef.current.onerror = () => {
           setIsSpeaking(false);
-          console.error('Audio playback error');
         };
         
         await audioRef.current.play();
@@ -225,7 +222,7 @@ export default function ModuleAIAssistant({ moduleName, moduleContext, externalT
         setIsSpeaking(false);
       }
     } catch (error) {
-      console.error('Voice error:', error);
+      console.error('Rachel voice error:', error);
       setIsSpeaking(false);
     }
   };

@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import ModuleAIAssistant from '@/components/ModuleAIAssistant';
+import { AutonomousAgentDashboard } from '@/components/AutonomousAgentBadge';
 
 // Creative Module Definitions with unique names
 const WORKHUB_MODULES = [
@@ -422,6 +423,10 @@ export default function WorkHubMarketplace() {
           <p className="text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
             Every tool you need to run your contracting business, powered by AI
           </p>
+        </div>
+
+        <div className="mb-8">
+          <AutonomousAgentDashboard />
         </div>
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">

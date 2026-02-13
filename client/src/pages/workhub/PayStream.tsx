@@ -11,6 +11,7 @@ import { useMutation } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import TopNav from '@/components/TopNav';
 import ModuleAIAssistant from '@/components/ModuleAIAssistant';
+import { AutonomousAgentBadge } from '@/components/AutonomousAgentBadge';
 
 export default function PayStream() {
   const [isVoiceEnabled, setIsVoiceEnabled] = useState(true);
@@ -96,6 +97,7 @@ export default function PayStream() {
       </div>
 
       <div className="max-w-6xl mx-auto px-4 py-8">
+        <AutonomousAgentBadge moduleName="PayStream" />
         <div className="grid md:grid-cols-3 gap-6 mb-8">
           <Card className="bg-gradient-to-br from-green-50 to-emerald-50 border-green-200">
             <CardContent className="pt-6">

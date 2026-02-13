@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import ModuleAIAssistant from '@/components/ModuleAIAssistant';
+import { AutonomousAgentBadge } from '@/components/AutonomousAgentBadge';
 import { useMutation } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 
@@ -98,53 +99,76 @@ export default function ScopeSnap() {
     
     try {
       const file = uploadedFiles[0];
-      const reader = new FileReader();
+      
+      if (!file.type.startsWith('image/')) {
+        throw new Error('Please upload an image file (JPG, PNG, etc.) for analysis.');
+      }
       
       const imageBase64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
         reader.onload = () => {
           const result = reader.result as string;
           const base64 = result.split(',')[1];
+          if (!base64 || base64.length < 100) {
+            reject(new Error('Image file appears to be empty or corrupted'));
+            return;
+          }
           resolve(base64);
         };
-        reader.onerror = reject;
+        reader.onerror = () => reject(new Error('Failed to read the image file'));
         reader.readAsDataURL(file);
       });
 
-      const response = await apiRequest('POST', '/api/workhub/analyze', {
-        imageBase64,
-        jobType: 'general',
-        description: 'Customer uploaded photo for analysis'
+      const response = await fetch('/api/workhub/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          imageBase64,
+          jobType: 'general',
+          description: 'Customer uploaded photo for analysis'
+        })
       });
 
       const data = await response.json();
       
-      if (data.ok) {
+      if (!response.ok) {
+        throw new Error(data.error || data.details || `Server error (${response.status})`);
+      }
+      
+      if (data.ok && data.analysis) {
         const results = {
-          detectedCategory: data.analysis.detectedJobType.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()),
-          confidence: Math.round(data.analysis.confidence * 100),
-          identifiedIssues: data.analysis.recommendations.map((rec: string, idx: number) => ({
+          detectedCategory: (data.analysis.detectedJobType || 'general').replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()),
+          confidence: Math.round((data.analysis.confidence || 0.7) * 100),
+          identifiedIssues: (data.analysis.recommendations || []).map((rec: string, idx: number) => ({
             issue: rec,
             severity: idx === 0 ? 'high' : idx === 1 ? 'medium' : 'low',
             location: 'Property'
           })),
-          recommendedTrades: data.analysis.tags.slice(0, 3),
-          estimatedScope: { min: data.analysis.priceEstimate.min, max: data.analysis.priceEstimate.max },
-          complexity: data.analysis.severity,
+          recommendedTrades: (data.analysis.tags || []).slice(0, 3),
+          estimatedScope: { 
+            min: data.analysis.priceEstimate?.min || 500, 
+            max: data.analysis.priceEstimate?.max || 5000 
+          },
+          complexity: data.analysis.severity || 'moderate',
           timeEstimate: data.analysis.urgency === 'emergency' ? 'Immediate' : '1-3 days',
           specialRequirements: data.analysis.safetyNotes ? [data.analysis.safetyNotes] : [],
-          contractors: data.contractors,
-          summary: data.analysis.summary,
-          title: data.analysis.title
+          contractors: data.contractors || [],
+          summary: data.analysis.summary || 'Analysis complete',
+          title: data.analysis.title || 'Project Analysis'
         };
         
         setAnalysisResults(results);
-        playRachelVoice(`Say a brief 1-sentence summary: analysis complete, identified as ${results.detectedCategory}, estimated $${results.estimatedScope.min}-$${results.estimatedScope.max}, found ${data.contractors?.length || 0} contractors. Keep it natural.`);
+        playRachelVoice(`Say a brief 1-sentence summary: analysis complete, identified as ${results.detectedCategory}, estimated $${results.estimatedScope.min}-$${results.estimatedScope.max}, found ${results.contractors.length} contractors. Keep it natural.`);
       } else {
-        throw new Error(data.error || 'Analysis failed');
+        throw new Error(data.error || 'Analysis returned no results. Please try a clearer photo.');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Analysis error:', error);
-      playRachelVoice("Say a quick 1-sentence apology that there was an error analyzing the photo and to try again. Keep it warm.");
+      setAnalysisResults({
+        error: true,
+        errorMessage: error.message || 'Unable to analyze the photo. Please try again with a different image.'
+      });
+      playRachelVoice("Say a quick 1-sentence apology that there was an error analyzing the photo and to try again with a clearer image. Keep it warm.");
     } finally {
       setIsAnalyzing(false);
     }
@@ -184,6 +208,7 @@ export default function ScopeSnap() {
       </div>
 
       <div className="max-w-6xl mx-auto px-4 py-8">
+        <AutonomousAgentBadge moduleName="ScopeSnap" />
         <div className="grid lg:grid-cols-2 gap-8">
           <div className="space-y-6">
             <Card className="border-2 border-dashed border-violet-300 bg-violet-50/50 dark:bg-violet-900/10">
@@ -291,7 +316,23 @@ export default function ScopeSnap() {
               </Card>
             )}
 
-            {analysisResults && !isAnalyzing && (
+            {analysisResults?.error && !isAnalyzing && (
+              <Card className="border-2 border-red-300 bg-red-50 dark:bg-red-900/10">
+                <CardContent className="py-8 text-center">
+                  <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-3" />
+                  <h3 className="text-lg font-semibold text-red-700 mb-2">Analysis Error</h3>
+                  <p className="text-red-600 mb-4">{analysisResults.errorMessage}</p>
+                  <Button 
+                    onClick={() => { setAnalysisResults(null); handleAnalyze(); }}
+                    className="bg-red-600 hover:bg-red-700"
+                  >
+                    Try Again
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+
+            {analysisResults && !analysisResults.error && !isAnalyzing && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}

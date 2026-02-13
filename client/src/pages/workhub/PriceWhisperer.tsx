@@ -17,6 +17,7 @@ import { useMutation } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import TopNav from '@/components/TopNav';
 import ModuleAIAssistant from '@/components/ModuleAIAssistant';
+import { AutonomousAgentBadge } from '@/components/AutonomousAgentBadge';
 
 export default function PriceWhisperer() {
   const [isVoiceEnabled, setIsVoiceEnabled] = useState(true);
@@ -130,6 +131,7 @@ export default function PriceWhisperer() {
       </div>
 
       <div className="max-w-6xl mx-auto px-4 py-8">
+        <AutonomousAgentBadge moduleName="PriceWhisperer" />
         <div className="grid lg:grid-cols-3 gap-8">
           <div className="space-y-6">
             <Card>

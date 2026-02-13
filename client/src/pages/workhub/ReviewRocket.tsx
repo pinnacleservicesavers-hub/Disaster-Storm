@@ -12,6 +12,7 @@ import { useMutation } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import TopNav from '@/components/TopNav';
 import ModuleAIAssistant from '@/components/ModuleAIAssistant';
+import { AutonomousAgentBadge } from '@/components/AutonomousAgentBadge';
 
 export default function ReviewRocket() {
   const [isVoiceEnabled, setIsVoiceEnabled] = useState(true);
@@ -103,6 +104,7 @@ export default function ReviewRocket() {
       </div>
 
       <div className="max-w-6xl mx-auto px-4 py-8">
+        <AutonomousAgentBadge moduleName="ReviewRocket" />
         <div className="grid md:grid-cols-4 gap-4 mb-8">
           <Card className="bg-yellow-50 border-yellow-200">
             <CardContent className="pt-6 text-center">

@@ -23358,6 +23358,40 @@ Customer is on schedule - NO spam calls needed!`;
 
   console.log('🎙️ CloseBot AI Sales Agent routes registered');
 
+  // ===== Autonomous AI Agent System =====
+  const { autonomousAgentService } = await import('./services/autonomousAgentService.js');
+  
+  app.get('/api/ai-agents/status', async (_req, res) => {
+    try {
+      const summary = autonomousAgentService.getSystemSummary();
+      res.json({ success: true, ...summary });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  app.get('/api/ai-agents/module/:moduleName', async (req, res) => {
+    try {
+      const agents = autonomousAgentService.getAgentsByModule(req.params.moduleName);
+      res.json({ success: true, agents });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  app.get('/api/ai-agents/:agentId', async (req, res) => {
+    try {
+      const status = autonomousAgentService.getAgentStatus(req.params.agentId);
+      if (!status) return res.status(404).json({ success: false, error: 'Agent not found' });
+      res.json({ success: true, agent: status });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  autonomousAgentService.start();
+  console.log('🤖 Autonomous AI Agent System registered - 24/7 operations for all modules');
+
   const httpServer = createServer(app);
   return httpServer;
 }

@@ -11,6 +11,7 @@ import { useMutation } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import TopNav from '@/components/TopNav';
 import ModuleAIAssistant from '@/components/ModuleAIAssistant';
+import { AutonomousAgentBadge } from '@/components/AutonomousAgentBadge';
 
 const MOCK_APPOINTMENTS = [
   { id: 1, customer: 'John Martinez', service: 'Tree Removal Estimate', date: 'Today', time: '2:00 PM', status: 'confirmed', location: '123 Oak St, Austin, TX' },
@@ -102,6 +103,7 @@ export default function CalendarSync() {
       </div>
 
       <div className="max-w-6xl mx-auto px-4 py-8">
+        <AutonomousAgentBadge moduleName="CalendarSync" />
         <div className="grid lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
             <div className="flex items-center justify-between">

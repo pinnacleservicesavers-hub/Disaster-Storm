@@ -20,6 +20,7 @@ import { useMutation } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import TopNav from '@/components/TopNav';
 import ModuleAIAssistant from '@/components/ModuleAIAssistant';
+import { AutonomousAgentBadge } from '@/components/AutonomousAgentBadge';
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -277,6 +278,7 @@ export default function CloseBot() {
       </div>
 
       <div className="max-w-6xl mx-auto px-4 py-6">
+        <AutonomousAgentBadge moduleName="CloseBot" />
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid grid-cols-5 w-full max-w-2xl mb-6">
             <TabsTrigger value="dashboard" className="gap-1.5 text-xs">
