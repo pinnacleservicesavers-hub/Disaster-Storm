@@ -173,6 +173,95 @@ export default function MediaVault() {
     setPreviewUrls(prev => prev.filter((_, i) => i !== index));
   };
 
+  const downloadCreativeAsText = (item: CreativeResult, index: number) => {
+    let content = '';
+    if (item.headlines?.length) {
+      content += 'HEADLINES\n' + '='.repeat(40) + '\n';
+      item.headlines.forEach((h, i) => { content += `${i + 1}. ${h}\n`; });
+      content += '\n';
+    }
+    if (item.adCopy) {
+      content += 'AD COPY\n' + '='.repeat(40) + '\n' + item.adCopy + '\n\n';
+    }
+    if (item.callToAction) {
+      content += 'CALL TO ACTION\n' + '='.repeat(40) + '\n' + item.callToAction + '\n\n';
+    }
+    if (item.videoConcept) {
+      content += 'VIDEO STORYBOARD\n' + '='.repeat(40) + '\n';
+      content += `Style: ${item.videoConcept.style}\nDuration: ${item.videoConcept.totalDuration}\nMusic: ${item.videoConcept.music}\n\n`;
+      item.videoConcept.scenes?.forEach((scene, i) => {
+        content += `Scene ${i + 1} (${scene.duration}):\n`;
+        content += `  Visual: ${scene.description}\n`;
+        content += `  Voiceover: "${scene.voiceover}"\n`;
+        content += `  Notes: ${scene.visualNotes}\n\n`;
+      });
+    }
+    if (item.videoScript) {
+      content += 'FULL SCRIPT\n' + '='.repeat(40) + '\n' + item.videoScript + '\n\n';
+    }
+    if (item.hashtags?.length) {
+      content += 'HASHTAGS\n' + '='.repeat(40) + '\n' + item.hashtags.join(' ') + '\n\n';
+    }
+    if (item.platforms?.length) {
+      content += 'PLATFORMS\n' + '='.repeat(40) + '\n' + item.platforms.join(', ') + '\n\n';
+    }
+    if (item.targetAudience) {
+      content += 'TARGET AUDIENCE\n' + '='.repeat(40) + '\n' + item.targetAudience + '\n';
+    }
+
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `creative-${index + 1}-content.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast({ title: "Content downloaded!", description: "Your creative content has been saved." });
+  };
+
+  const downloadImageFromUrl = async (imageUrl: string, filename: string) => {
+    try {
+      const response = await fetch(imageUrl);
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast({ title: "Downloaded!", description: `${filename} saved.` });
+    } catch {
+      const a = document.createElement('a');
+      a.href = imageUrl;
+      a.download = filename;
+      a.target = '_blank';
+      a.click();
+      toast({ title: "Downloading...", description: "Opening download in new tab." });
+    }
+  };
+
+  const shareToSocial = (platform: string, item: CreativeResult) => {
+    const text = encodeURIComponent(`${item.headlines?.[0] || ''}\n\n${item.adCopy || ''}\n\n${item.callToAction || ''}\n\n${item.hashtags?.join(' ') || ''}`);
+    const url = encodeURIComponent(item.imageUrl || window.location.href);
+    let shareUrl = '';
+    switch (platform) {
+      case 'facebook':
+        shareUrl = `https://www.facebook.com/sharer/sharer.php?quote=${text}`;
+        break;
+      case 'twitter':
+        shareUrl = `https://twitter.com/intent/tweet?text=${text}`;
+        break;
+      case 'linkedin':
+        shareUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${url}`;
+        break;
+      case 'email':
+        shareUrl = `mailto:?subject=${encodeURIComponent(item.headlines?.[0] || 'Check this out')}&body=${text}`;
+        break;
+    }
+    if (shareUrl) window.open(shareUrl, '_blank', 'width=600,height=400');
+    toast({ title: `Sharing to ${platform}...` });
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-100 to-white dark:from-slate-950 dark:to-slate-900">
       <TopNav />
@@ -460,23 +549,75 @@ export default function MediaVault() {
                 </CardContent>
               </Card>
             ) : (
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {createdItems.map((item, index) => (
-                  <Card key={index} className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer" onClick={() => { setCreativeResult(item); setActiveTab(item.videoConcept ? 'video' : 'flyers'); }}>
-                    {item.imageUrl && <img src={item.imageUrl} alt={`Creative ${index + 1}`} className="w-full h-48 object-cover" />}
-                    <CardContent className="pt-4">
-                      <h3 className="font-bold text-base mb-1 line-clamp-1">{item.headlines?.[0] || 'AI Created Content'}</h3>
-                      <p className="text-sm text-slate-600 dark:text-slate-400 line-clamp-2 mb-2">{item.adCopy}</p>
-                      <div className="flex flex-wrap gap-1">
-                        {item.videoConcept && <Badge className="bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 text-xs">Video</Badge>}
-                        {item.imageUrl && <Badge className="bg-pink-100 dark:bg-pink-900 text-pink-700 dark:text-pink-300 text-xs">Image</Badge>}
-                        {item.platforms?.slice(0, 2).map((p, i) => (
-                          <Badge key={i} variant="outline" className="text-xs">{p}</Badge>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-slate-800 dark:text-white">{createdItems.length} Created Item{createdItems.length !== 1 ? 's' : ''}</h3>
+                  <Button variant="outline" size="sm" onClick={() => {
+                    createdItems.forEach((item, idx) => {
+                      if (item.imageUrl) {
+                        const a = document.createElement('a');
+                        a.href = item.imageUrl;
+                        a.download = `creative-${idx + 1}.png`;
+                        a.target = '_blank';
+                        a.click();
+                      }
+                    });
+                    toast({ title: "Downloading all images..." });
+                  }}>
+                    <Download className="w-4 h-4 mr-2" />Download All
+                  </Button>
+                </div>
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {createdItems.map((item, index) => (
+                    <Card key={index} className="overflow-hidden hover:shadow-lg transition-shadow">
+                      {item.imageUrl && (
+                        <div className="relative group cursor-pointer" onClick={() => { setCreativeResult(item); setActiveTab(item.videoConcept ? 'video' : 'flyers'); }}>
+                          <img src={item.imageUrl} alt={`Creative ${index + 1}`} className="w-full h-48 object-cover" />
+                        </div>
+                      )}
+                      <CardContent className="pt-4">
+                        <h3 className="font-bold text-base mb-1 line-clamp-1">{item.headlines?.[0] || 'AI Created Content'}</h3>
+                        <p className="text-sm text-slate-600 dark:text-slate-400 line-clamp-2 mb-3">{item.adCopy}</p>
+                        <div className="flex flex-wrap gap-1 mb-3">
+                          {item.videoConcept && <Badge className="bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 text-xs">Video</Badge>}
+                          {item.imageUrl && <Badge className="bg-pink-100 dark:bg-pink-900 text-pink-700 dark:text-pink-300 text-xs">Image</Badge>}
+                          {item.platforms?.slice(0, 2).map((p, i) => (
+                            <Badge key={i} variant="outline" className="text-xs">{p}</Badge>
+                          ))}
+                        </div>
+                        <div className="flex gap-2">
+                          {item.imageUrl && (
+                            <Button size="sm" variant="outline" className="flex-1" onClick={(e) => {
+                              e.stopPropagation();
+                              const a = document.createElement('a');
+                              a.href = item.imageUrl!;
+                              a.download = `creative-${index + 1}.png`;
+                              a.target = '_blank';
+                              a.click();
+                              toast({ title: "Downloading image..." });
+                            }}>
+                              <Download className="w-3 h-3 mr-1" />Image
+                            </Button>
+                          )}
+                          <Button size="sm" variant="outline" className="flex-1" onClick={(e) => {
+                            e.stopPropagation();
+                            downloadCreativeAsText(item, index);
+                          }}>
+                            <Download className="w-3 h-3 mr-1" />Content
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={(e) => {
+                            e.stopPropagation();
+                            const all = `${item.headlines?.join('\n')}\n\n${item.adCopy}\n\n${item.callToAction}\n\n${item.hashtags?.join(' ')}`;
+                            navigator.clipboard.writeText(all);
+                            toast({ title: "Copied!", description: "All content copied to clipboard" });
+                          }}>
+                            <Copy className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
               </div>
             )}
           </TabsContent>
@@ -755,17 +896,77 @@ function AICreativeStudio({ title, subtitle, icon, defaultType, prompt, setPromp
               </Card>
             )}
 
-            <div className="flex gap-3">
-              <Button variant="outline" onClick={() => { setResult(null); setPrompt(''); }} className="flex-1">
-                <RefreshCw className="w-4 h-4 mr-2" />Create Another
-              </Button>
-              <Button className={`flex-1 bg-gradient-to-r ${c.gradient}`} onClick={() => {
-                const all = `${result.headlines?.join('\n')}\n\n${result.adCopy}\n\n${result.callToAction}\n\n${result.hashtags?.join(' ')}`;
-                onCopy(all, 'All');
-              }}>
-                <Copy className="w-4 h-4 mr-2" />Copy Everything
-              </Button>
-            </div>
+            <Card className="bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 border-slate-200 dark:border-slate-700">
+              <CardContent className="pt-5 pb-4">
+                <h4 className="font-semibold text-sm mb-3 flex items-center gap-2">
+                  <Download className="w-4 h-4" />
+                  Download & Share
+                </h4>
+                <div className="grid grid-cols-2 gap-2 mb-3">
+                  {result.imageUrl && (
+                    <Button size="sm" className="bg-purple-600 hover:bg-purple-700" onClick={() => {
+                      const a = document.createElement('a');
+                      a.href = result.imageUrl!;
+                      a.download = `flyer-${Date.now()}.png`;
+                      a.target = '_blank';
+                      a.click();
+                    }}>
+                      <Download className="w-3.5 h-3.5 mr-1.5" />Download Flyer
+                    </Button>
+                  )}
+                  <Button size="sm" variant="outline" onClick={() => {
+                    let content = '';
+                    if (result.headlines?.length) content += result.headlines.join('\n') + '\n\n';
+                    if (result.adCopy) content += result.adCopy + '\n\n';
+                    if (result.callToAction) content += 'CTA: ' + result.callToAction + '\n\n';
+                    if (result.videoConcept) {
+                      content += 'VIDEO STORYBOARD\n';
+                      result.videoConcept.scenes?.forEach((s, i) => {
+                        content += `Scene ${i+1} (${s.duration}): ${s.description}\nVO: "${s.voiceover}"\n\n`;
+                      });
+                    }
+                    if (result.hashtags?.length) content += result.hashtags.join(' ') + '\n';
+                    const blob = new Blob([content], { type: 'text/plain' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `creative-content-${Date.now()}.txt`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  }}>
+                    <FileText className="w-3.5 h-3.5 mr-1.5" />Download Content
+                  </Button>
+                </div>
+                <div className="flex gap-2 mb-3">
+                  {['facebook', 'twitter', 'linkedin', 'email'].map(platform => (
+                    <Button key={platform} size="sm" variant="outline" className="flex-1 text-xs capitalize" onClick={() => {
+                      const text = encodeURIComponent(`${result.headlines?.[0] || ''}\n\n${result.adCopy || ''}\n\n${result.callToAction || ''}`);
+                      const shareUrl = encodeURIComponent(window.location.href);
+                      const urls: Record<string, string> = {
+                        facebook: `https://www.facebook.com/sharer/sharer.php?quote=${text}`,
+                        twitter: `https://twitter.com/intent/tweet?text=${text}`,
+                        linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${shareUrl}`,
+                        email: `mailto:?subject=${encodeURIComponent(result.headlines?.[0] || 'Check this out')}&body=${text}`,
+                      };
+                      window.open(urls[platform], '_blank', 'width=600,height=400');
+                    }}>
+                      <Send className="w-3 h-3 mr-1" />{platform}
+                    </Button>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => { setResult(null); setPrompt(''); }} className="flex-1">
+                    <RefreshCw className="w-3.5 h-3.5 mr-1.5" />Create Another
+                  </Button>
+                  <Button size="sm" className={`flex-1 bg-gradient-to-r ${c.gradient}`} onClick={() => {
+                    const all = `${result.headlines?.join('\n')}\n\n${result.adCopy}\n\n${result.callToAction}\n\n${result.hashtags?.join(' ')}`;
+                    onCopy(all, 'All');
+                  }}>
+                    <Copy className="w-3.5 h-3.5 mr-1.5" />Copy All
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         )}
 

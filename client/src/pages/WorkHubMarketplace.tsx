@@ -6,7 +6,7 @@ import {
   Bot, CreditCard, Star, TrendingUp, Wallet, Image,
   ArrowRight, Zap, Volume2, VolumeX, Award, Target,
   Search, Menu, X, ChevronRight, Activity, Upload,
-  BarChart3, Clock
+  BarChart3, Clock, FileCheck
 } from 'lucide-react';
 import { useMutation } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
@@ -32,6 +32,7 @@ const MODULES = [
   { id: 'mediavault', name: 'MediaVault', tagline: 'Creative Studio', path: '/workhub/mediavault', icon: Shield, group: 'grow', color: 'from-slate-600 to-gray-700', description: 'Before, during & after photos secured forever. AI video, flyers, brochures.', features: ['Photo Security', 'AI Video', 'Flyers & Ads', 'Brochures'] },
   { id: 'fairnessscore', name: 'FairnessScore', tagline: 'Trust Score', path: '/workhub/fairnessscore', icon: TrendingUp, group: 'trust', color: 'from-lime-500 to-green-600', description: 'AI-calculated contractor scores based on pricing accuracy, reliability & satisfaction.', features: ['Pricing Accuracy', 'On-Time Rating', 'Quality Score', 'Trust Badges'] },
   { id: 'jobsnap', name: 'JobSnap', tagline: 'Documentation', path: '/workhub/jobsnap', icon: Camera, group: 'trust', color: 'from-purple-500 to-indigo-600', description: 'Capture before, during & after photos. Timestamps, GPS, organized by project.', features: ['Before/During/After', 'GPS Tagging', 'Project Org', 'Reports'] },
+  { id: 'femaaudit', name: 'FEMA Audit', tagline: 'Compliance & Export', path: '/fema-audit', icon: FileCheck, group: 'trust', color: 'from-red-600 to-orange-600', description: 'Enterprise-grade FEMA compliance system. AI field verification, fraud detection, load ticket chain of custody, and one-click audit export.', features: ['AI Verification', 'Fraud Detection', 'Audit Export', 'Rate Validation'] },
 ];
 
 const RESOURCE_LINKS = [
@@ -64,6 +65,7 @@ const MODULE_NAME_MAP: Record<string, string> = {
   mediavault: 'MediaVault',
   fairnessscore: 'FairnessScore',
   jobsnap: 'JobSnap',
+  femaaudit: 'FEMAAudit',
 };
 
 const CONTRACTOR_STATS = [
@@ -117,7 +119,7 @@ const CUSTOMER_SIDEBAR_GROUPS = [
   { id: 'trust', label: 'Trust & Reviews', icon: Award },
 ];
 
-const CUSTOMER_MODULES = ['scopesnap', 'contractormatch', 'jobflow', 'calendarsync', 'pricewhisperer', 'paystream', 'quickfinance', 'fairnessscore', 'reviewrocket', 'mediavault', 'jobsnap'];
+const CUSTOMER_MODULES = ['scopesnap', 'contractormatch', 'jobflow', 'calendarsync', 'pricewhisperer', 'paystream', 'quickfinance', 'fairnessscore', 'reviewrocket', 'mediavault', 'jobsnap', 'femaaudit'];
 
 const CUSTOMER_GROUP_MAP: Record<string, string> = {
   scopesnap: 'get-started',
@@ -131,6 +133,7 @@ const CUSTOMER_GROUP_MAP: Record<string, string> = {
   reviewrocket: 'trust',
   mediavault: 'manage-work',
   jobsnap: 'manage-work',
+  femaaudit: 'trust',
 };
 
 export default function WorkHubMarketplace() {
