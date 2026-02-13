@@ -2584,9 +2584,9 @@ Include 3-4 phases, 3-5 tasks per phase, 2-3 SOPs, 3 risks, and 4 KPIs. Be speci
   app.use('/api/truecost', trueCostSheetRoutes);
   console.log('💰 TrueCost™ Profit Sheet routes registered - Private job costing calculator');
 
-  // ---- FEMA Audit Export Module Routes ----
+  // ---- AuditShield Grant & Contract Compliance AI Routes ----
   app.use('/api/fema-audit', femaAuditRoutes);
-  console.log('📋 FEMA Audit Export Module routes registered - Compliance, AI Monitors, Fraud Detection');
+  console.log('📋 AuditShield Grant & Contract Compliance AI routes registered - Multi-agency compliance, fraud detection');
 
   // ---- Admin OIDC Routes ----
   app.use(adminOidcRoutes);

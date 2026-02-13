@@ -1,0 +1,311 @@
+Here’s a comprehensive master list of music types and sound categories — organized so you can use this inside an app dropdown (like your background music selector).
+
+🎵 MUSIC GENRES
+🎼 Classical & Orchestral
+
+Classical
+
+Symphony
+
+Chamber
+
+Baroque
+
+Romantic
+
+Opera
+
+Cinematic
+
+Epic Orchestra
+
+String Quartet
+
+Piano Solo
+
+🎸 Rock
+
+Classic Rock
+
+Alternative Rock
+
+Indie Rock
+
+Hard Rock
+
+Soft Rock
+
+Punk Rock
+
+Grunge
+
+Progressive Rock
+
+Metal
+
+Heavy Metal
+
+🎧 Pop
+
+Mainstream Pop
+
+Dance Pop
+
+Synth Pop
+
+Teen Pop
+
+Electro Pop
+
+Acoustic Pop
+
+🎤 Hip-Hop & R&B
+
+Hip-Hop
+
+Rap
+
+Trap
+
+Boom Bap
+
+R&B
+
+Neo Soul
+
+Lo-Fi Hip-Hop
+
+🎶 Country
+
+Traditional Country
+
+Country Pop
+
+Bluegrass
+
+Americana
+
+Folk Country
+
+🎷 Jazz & Blues
+
+Jazz
+
+Smooth Jazz
+
+Swing
+
+Bebop
+
+Blues
+
+Soul
+
+Funk
+
+🌍 World Music
+
+Latin
+
+Reggaeton
+
+Salsa
+
+Afrobeat
+
+Caribbean
+
+Celtic
+
+Indian
+
+Middle Eastern
+
+K-Pop
+
+J-Pop
+
+🎛 Electronic
+
+EDM
+
+House
+
+Deep House
+
+Techno
+
+Trance
+
+Dubstep
+
+Drum & Bass
+
+Ambient
+
+Chillout
+
+Synthwave
+
+🎹 Instrumental
+
+Acoustic Guitar
+
+Piano
+
+Instrumental Beats
+
+Background Instrumental
+
+Meditation Instrumental
+
+🎼 MOOD-BASED CATEGORIES (Great for Apps)
+
+Inspiring
+
+Upbeat
+
+Corporate
+
+Motivational
+
+Emotional
+
+Dramatic
+
+Relaxing
+
+Calm
+
+Energetic
+
+Powerful
+
+Suspenseful
+
+Romantic
+
+Dark
+
+Uplifting
+
+Hopeful
+
+Serious
+
+Confident
+
+Peaceful
+
+Happy
+
+Cinematic
+
+🔊 SOUND EFFECT CATEGORIES
+🌿 Nature Sounds
+
+Rain
+
+Thunder
+
+Ocean Waves
+
+Wind
+
+Forest
+
+Birds
+
+Fire Crackling
+
+Waterfall
+
+🏙 City & Environment
+
+Traffic
+
+Office Ambience
+
+Crowd
+
+Construction
+
+Airport
+
+Cafe
+
+Street Noise
+
+🔔 UI / App Sounds
+
+Click
+
+Notification
+
+Alert
+
+Success
+
+Error
+
+Whoosh
+
+Transition
+
+Swipe
+
+🚨 Emergency / Disaster (For Your Storm App)
+
+Sirens
+
+Storm Winds
+
+Tornado
+
+Fire Alarm
+
+Earthquake Rumble
+
+Flood Water
+
+Chainsaw
+
+Heavy Equipment
+
+🧘 Wellness Sounds
+
+White Noise
+
+Brown Noise
+
+Pink Noise
+
+Binaural Beats
+
+Meditation Bells
+
+Tibetan Bowls
+
+🎬 BUSINESS / PRESENTATION BACKGROUND TYPES
+
+(Perfect for your compliance or storm platform)
+
+Corporate Inspiring
+
+Corporate Minimal
+
+Documentary
+
+Government Announcement Style
+
+News Theme
+
+Military / Patriotic
+
+Training Video
+
+Presentation Background
+
+Tech Innovation
+
+Modern Startup

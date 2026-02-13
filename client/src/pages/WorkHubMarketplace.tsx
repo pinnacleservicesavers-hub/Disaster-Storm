@@ -32,7 +32,7 @@ const MODULES = [
   { id: 'contentforge', name: 'ContentForge', tagline: 'Marketing Engine', path: '/workhub/contentforge', icon: Image, group: 'grow', color: 'from-pink-500 to-rose-600', description: 'Auto-generate social posts, galleries & ads from your job photos.' },
   { id: 'fairnessscore', name: 'FairnessScore', tagline: 'Trust Score', path: '/workhub/fairnessscore', icon: TrendingUp, group: 'trust', color: 'from-lime-500 to-green-600', description: 'AI-calculated contractor scores based on pricing, reliability & satisfaction.' },
   { id: 'jobsnap', name: 'JobSnap', tagline: 'Documentation', path: '/workhub/jobsnap', icon: Camera, group: 'trust', color: 'from-purple-500 to-indigo-600', description: 'Capture before, during & after photos. Timestamps, GPS, organized by project.' },
-  { id: 'femaaudit', name: 'FEMA Audit', tagline: 'Compliance & Export', path: '/fema-audit', icon: FileCheck, group: 'trust', color: 'from-red-600 to-orange-600', description: 'FEMA compliance, AI field verification, fraud detection & one-click audit export.' },
+  { id: 'femaaudit', name: 'AuditShield', tagline: 'Grant & Contract Compliance AI', path: '/fema-audit', icon: FileCheck, group: 'trust', color: 'from-red-600 to-orange-600', description: 'Multi-agency compliance (FEMA, USACE, HUD, DOT), AI fraud detection, photo documentation & one-click audit export.' },
 ];
 
 const GROUP_INFO: Record<string, { label: string; icon: any }> = {
@@ -89,7 +89,7 @@ export default function WorkHubMarketplace() {
 12. ContentForge - AI creates social media posts, ads, and marketing content from your job photos.
 13. FairnessScore - AI trust scores based on pricing accuracy, reliability, and customer satisfaction.
 14. JobSnap - Capture timestamped, GPS-tagged before, during, and after photos organized by project.
-15. FEMA Audit - Enterprise compliance with AI field verification, fraud detection, and one-click audit export.
+15. AuditShield - Multi-agency grant & contract compliance AI with fraud detection, photo documentation, and one-click audit export.
 
 End with something encouraging like "Click any module to get started. I'm here if you need help!"`;
 

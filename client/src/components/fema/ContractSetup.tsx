@@ -10,6 +10,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Shield, Building2, FileText, MapPin, Calendar, Save, CheckCircle2, AlertTriangle } from "lucide-react";
 
 export interface ContractInfo {
+  agencyType: string;
+  grantProgram: string;
   primeContractor: string;
   subContractor: string;
   contractNumber: string;
@@ -88,6 +90,18 @@ const US_STATES = [
   'NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT','VT','VA','WA','WV','WI','WY'
 ];
 
+const AGENCY_TYPES = [
+  'FEMA Public Assistance',
+  'USACE',
+  'HUD CDBG-DR',
+  'DOT/FHWA',
+  'State Emergency Management',
+  'County/Municipal',
+  'Private Contract',
+  'Insurance Claim',
+  'Other'
+];
+
 export default function ContractSetup({ contractInfo, setContractInfo }: {
   contractInfo: ContractInfo;
   setContractInfo: (info: ContractInfo) => void;
@@ -114,7 +128,7 @@ export default function ContractSetup({ contractInfo, setContractInfo }: {
             <Building2 className="h-5 w-5 text-blue-400" />
             Contract & Project Setup
           </h3>
-          <p className="text-sm text-slate-400">FEMA Public Assistance project identification required for all documentation</p>
+          <p className="text-sm text-slate-400">Grant & contract identification for federal, state, and private projects</p>
         </div>
         <div className="flex items-center gap-3">
           <div className="text-right">
@@ -132,7 +146,7 @@ export default function ContractSetup({ contractInfo, setContractInfo }: {
           <AlertTriangle className="h-5 w-5 text-amber-400 mt-0.5 flex-shrink-0" />
           <div>
             <p className="text-sm font-medium text-amber-300">Incomplete Contract Setup</p>
-            <p className="text-xs text-amber-400/80">All FEMA documentation requires a valid PW#, Incident#, and Disaster Declaration. Complete the required fields to ensure audit compliance.</p>
+            <p className="text-xs text-amber-400/80">All documentation requires valid project identifiers. Complete the required fields to ensure audit compliance.</p>
           </div>
         </div>
       )}
@@ -142,11 +156,27 @@ export default function ContractSetup({ contractInfo, setContractInfo }: {
           <CardHeader className="pb-3">
             <CardTitle className="text-white text-base flex items-center gap-2">
               <FileText className="h-4 w-4 text-blue-400" />
-              FEMA Project Information
+              Project Identification
             </CardTitle>
-            <CardDescription className="text-slate-400">Official FEMA disaster & project identifiers</CardDescription>
+            <CardDescription className="text-slate-400">Official project & grant identifiers</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs text-slate-300">Agency / Funding Source *</Label>
+                <Select value={contractInfo.agencyType} onValueChange={(v) => update('agencyType', v)}>
+                  <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Select agency" /></SelectTrigger>
+                  <SelectContent>
+                    {AGENCY_TYPES.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs text-slate-300">Grant Program</Label>
+                <Input value={contractInfo.grantProgram} onChange={(e) => update('grantProgram', e.target.value)}
+                  placeholder="e.g. PA, Hazard Mitigation" className="h-8 text-sm" />
+              </div>
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs text-slate-300">FEMA Disaster # *</Label>
@@ -306,7 +336,7 @@ export default function ContractSetup({ contractInfo, setContractInfo }: {
               <Shield className="h-4 w-4 text-purple-400" />
               Key Contacts
             </CardTitle>
-            <CardDescription className="text-slate-400">Project management & FEMA oversight contacts</CardDescription>
+            <CardDescription className="text-slate-400">Project management & agency oversight contacts</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
@@ -323,7 +353,7 @@ export default function ContractSetup({ contractInfo, setContractInfo }: {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label className="text-xs text-slate-300">FEMA Monitor</Label>
+                <Label className="text-xs text-slate-300">Agency Monitor</Label>
                 <Input value={contractInfo.femaMonitor} onChange={(e) => update('femaMonitor', e.target.value)}
                   placeholder="Name" className="h-8 text-sm" />
               </div>

@@ -366,9 +366,9 @@ const MODULES: ModuleInfo[] = [
   },
   {
     id: "fema-audit",
-    name: "FEMA Audit Export",
-    tagline: "Compliance & AI Monitors",
-    description: "Enterprise-grade FEMA compliance, AI field verification to enhance monitor efficiency, and one-click audit defense packets.",
+    name: "AuditShield",
+    tagline: "Grant & Contract Compliance AI",
+    description: "Multi-agency compliance (FEMA, USACE, HUD, DOT, State), AI fraud detection, photo documentation, and one-click audit defense packets.",
     icon: Shield,
     category: "disaster",
     features: [
@@ -689,7 +689,7 @@ Storm Science Academy at $19 per month provides education on storm types, safety
 
 ContractorLeadVault at $149 per month is your B2B lead finder — connect with property managers, HOAs, and commercial clients in disaster zones.
 
-And our premium module — FEMA Audit Export at $299 per month — gives you enterprise-grade FEMA compliance, AI digital field verification, fraud detection, geofenced work zones, and one-click audit-ready packets. This is essential for Prime Contractors working FEMA jobs.
+And our premium module — AuditShield at $299 per month — gives you multi-agency compliance (FEMA, USACE, HUD, DOT), AI fraud detection, photo documentation, geofenced work zones, and one-click audit-ready packets. Essential for any contractor working government or private contracts.
 
 In the Marketplace, CrewLink Exchange is completely FREE to browse — find skilled workers, full crews, and rent equipment nationwide across 36 or more trade categories.
 

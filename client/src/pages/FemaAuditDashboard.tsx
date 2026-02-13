@@ -31,6 +31,10 @@ import DailyActivityComponent, { type DailyActivity } from "@/components/fema/Da
 import GPSTrackingComponent from "@/components/fema/GPSTracking";
 import TruckCertComponent, { type TruckCert } from "@/components/fema/TruckCertification";
 import ComplianceDashboardComponent from "@/components/fema/ComplianceDashboard";
+import LeanerHangerTrackerComponent, { type LeanerHangerEntry } from "@/components/fema/LeanerHangerTracker";
+import AIVerificationEngineComponent from "@/components/fema/AIVerificationEngine";
+import SubcontractorRiskComponent, { type SubcontractorProfile } from "@/components/fema/SubcontractorRisk";
+import PhotoUploadComponent, { type UploadedPhoto } from "@/components/fema/PhotoUpload";
 
 interface LaborRate {
   id: string;
@@ -1426,6 +1430,7 @@ export default function FemaAuditDashboard() {
   ]);
   const [timesheets, setTimesheets] = useState<TimesheetWeek[]>([]);
   const [contractInfo, setContractInfo] = useState<ContractInfo>({
+    agencyType: '', grantProgram: '',
     primeContractor: '', subContractor: 'Strategic Land Management', contractNumber: '',
     taskOrder: '', femaDisasterNumber: '', femaRegion: '', projectWorksheetNumber: '',
     incidentNumber: '', incidentType: '', declarationDate: '', declarationTitle: '',
@@ -1440,6 +1445,9 @@ export default function FemaAuditDashboard() {
   const [monitorEntries, setMonitorEntries] = useState<MonitorLogEntry[]>([]);
   const [dailyActivities, setDailyActivities] = useState<DailyActivity[]>([]);
   const [truckCerts, setTruckCerts] = useState<TruckCert[]>([]);
+  const [leanerHangerEntries, setLeanerHangerEntries] = useState<LeanerHangerEntry[]>([]);
+  const [subcontractors, setSubcontractors] = useState<SubcontractorProfile[]>([]);
+  const [workPhotos, setWorkPhotos] = useState<UploadedPhoto[]>([]);
 
   const NAV_SECTIONS = [
     { id: 'contract', label: 'Contract Setup', icon: Building2, group: 'Setup' },
@@ -1449,10 +1457,14 @@ export default function FemaAuditDashboard() {
     { id: 'timesheet', label: 'Timesheet', icon: ClipboardList, group: 'Labor' },
     { id: 'activity', label: 'Daily Activity', icon: FileText, group: 'Field' },
     { id: 'equipment-log', label: 'Equipment Log', icon: Wrench, group: 'Field' },
+    { id: 'photos', label: 'Photos', icon: Camera, group: 'Field' },
     { id: 'load-tickets', label: 'Load Tickets', icon: Truck, group: 'Debris' },
     { id: 'truck-cert', label: 'Truck Cert', icon: Truck, group: 'Debris' },
+    { id: 'leaner-hanger', label: 'Leaner/Hanger', icon: Target, group: 'Debris' },
     { id: 'monitor', label: 'Monitor Log', icon: Eye, group: 'Oversight' },
+    { id: 'sub-risk', label: 'Sub Risk', icon: AlertTriangle, group: 'Oversight' },
     { id: 'gps', label: 'GPS Tracking', icon: Navigation, group: 'GPS' },
+    { id: 'ai-verify', label: 'AI Verify', icon: Brain, group: 'AI' },
     { id: 'invoice', label: 'Invoice', icon: Receipt, group: 'Billing' },
     { id: 'compliance', label: 'Compliance', icon: Shield, group: 'Audit' },
   ];
@@ -1466,9 +1478,9 @@ export default function FemaAuditDashboard() {
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2 text-white">
               <Shield className="h-7 w-7 text-blue-500" />
-              FEMA Compliance & Audit Center
+              AuditShield Grant & Contract Compliance AI
             </h1>
-            <p className="text-slate-400">Complete FEMA-ready documentation for Prime Contractors (AshBritt, Ceres, DRC, CrowderGulf, OSR)</p>
+            <p className="text-slate-400">Multi-agency compliance for FEMA, USACE, HUD, DOT, State & private contracts — AI-powered fraud detection & audit export</p>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" size="sm">
@@ -1549,6 +1561,33 @@ export default function FemaAuditDashboard() {
           )}
           {activeTab === 'invoice' && (
             <InvoiceTab timesheets={timesheets} laborRates={laborRates} equipmentRates={equipmentRates} />
+          )}
+          {activeTab === 'photos' && (
+            <PhotoUploadComponent photos={workPhotos} setPhotos={setWorkPhotos} category="Work Documentation" maxPhotos={50} />
+          )}
+          {activeTab === 'leaner-hanger' && (
+            <LeanerHangerTrackerComponent entries={leanerHangerEntries} setEntries={setLeanerHangerEntries}
+              contractPW={contractInfo.projectWorksheetNumber} />
+          )}
+          {activeTab === 'sub-risk' && (
+            <SubcontractorRiskComponent subs={subcontractors} setSubs={setSubcontractors} />
+          )}
+          {activeTab === 'ai-verify' && (
+            <AIVerificationEngineComponent
+              laborHours={timesheets.reduce((sum, ts) => sum + ts.entries.reduce((s, e) => s + Object.values(e.days).reduce((d, day) => d + day.stHrs + day.otHrs + day.dtHrs, 0), 0), 0)}
+              equipmentHours={equipmentLogEntries.reduce((s, e) => s + (e.hoursUsed || 0), 0)}
+              loadTicketCount={loadTickets.length}
+              totalCY={loadTickets.reduce((s, t) => s + t.cubicYards, 0)}
+              truckCount={truckCerts.length}
+              avgTruckCapacity={truckCerts.length > 0 ? truckCerts.reduce((s, t) => s + (t.capacityCY || 0), 0) / truckCerts.length : 30}
+              rosterCount={roster.length}
+              gpsActiveCount={6}
+              signInCount={signInRecords.length}
+              monitorVisitCount={monitorEntries.length}
+              photoCount={workPhotos.length + dailyActivities.reduce((s, a) => s + (a.photosBeforeCount || 0) + (a.photosAfterCount || 0), 0)}
+              impossibleTravelFlags={1}
+              duplicateFlags={0}
+            />
           )}
           {activeTab === 'compliance' && (
             <ComplianceDashboardComponent

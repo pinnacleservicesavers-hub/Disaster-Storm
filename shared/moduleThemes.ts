@@ -360,8 +360,8 @@ export const MODULE_THEMES: Record<string, ModuleTheme> = {
 
   'fema-audit': {
     id: 'fema-audit',
-    title: 'FEMA Audit Export Module',
-    description: 'Enterprise compliance & AI digital field verification',
+    title: 'AuditShield Grant & Contract Compliance AI',
+    description: 'Multi-agency compliance, AI fraud detection & audit export',
     backgroundType: 'hybrid',
     backgroundImage: 'government-compliance-audit-documents',
     gradientOverlay: 'linear-gradient(135deg, rgba(15, 23, 42, 0.92) 0%, rgba(30, 58, 138, 0.85) 100%)',

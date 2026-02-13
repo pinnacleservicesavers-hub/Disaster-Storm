@@ -1,0 +1,241 @@
+Here is a complete master list of motor and motorcycle sounds, organized by category so you can easily build a soundboard or app dropdown.
+
+🚗 CAR ENGINE SOUNDS
+🚘 Gasoline Engines
+
+Engine start (cold start)
+
+Engine start (warm start)
+
+Idle (smooth)
+
+Rough idle
+
+Revving
+
+Hard acceleration
+
+Downshift rev
+
+Engine stall
+
+Misfire
+
+Backfire pop
+
+Exhaust rumble
+
+🏁 Performance / Sports Cars
+
+High RPM rev
+
+Turbo spool
+
+Blow-off valve (psshh)
+
+Supercharger whine
+
+Launch control
+
+Paddle shift click
+
+Track pass-by
+
+🚙 Muscle Cars
+
+Deep V8 rumble
+
+Cam lope idle
+
+Throttle blip
+
+Burnout
+
+Drag strip launch
+
+🏍 MOTORCYCLE SOUNDS
+🛵 Street Bikes
+
+Engine start
+
+Idle
+
+Revving
+
+High RPM scream
+
+Gear shift
+
+Acceleration pass-by
+
+Deceleration crackle
+
+🏍 Cruiser / Harley Style
+
+Deep V-twin rumble
+
+Potato-potato idle
+
+Throttle blip
+
+Open pipe rev
+
+Highway cruise
+
+🏁 Sport Bikes
+
+High-pitched rev
+
+Quick shifter pop
+
+Track fly-by
+
+Hard braking
+
+🏍 Dirt Bikes / Motocross
+
+2-stroke buzz
+
+4-stroke thump
+
+Rev limiter
+
+Jump landing
+
+Off-road acceleration
+
+🚛 TRUCK SOUNDS
+🚚 Diesel Trucks
+
+Diesel cold start
+
+Glow plug start
+
+Turbo whistle
+
+Jake brake
+
+Heavy acceleration
+
+Engine knock
+
+Exhaust brake
+
+🛻 Pickup Trucks
+
+Engine start
+
+Idle rumble
+
+Tow acceleration
+
+Off-road crawl
+
+🏗 HEAVY EQUIPMENT
+
+Excavator start
+
+Skid steer idle
+
+Bucket scrape
+
+Crane lift
+
+Bulldozer track movement
+
+Chainsaw
+
+Wood chipper
+
+Hydraulic movement
+
+Forklift beep
+
+Backup alarm
+
+🏎 RACING VEHICLES
+
+Formula car rev
+
+NASCAR engine
+
+Pit stop impact gun
+
+Tire screech
+
+Burnout
+
+Dragster launch
+
+Dirt track slide
+
+⚡ ELECTRIC VEHICLES
+
+Electric motor hum
+
+EV acceleration whine
+
+Regenerative braking
+
+Silent start
+
+Futuristic EV drive
+
+🚁 OTHER MOTORIZED SOUNDS
+🛥 Boats
+
+Outboard motor
+
+Inboard engine
+
+Jet ski rev
+
+Propeller churn
+
+✈ Small Aircraft
+
+Propeller start
+
+Engine idle
+
+Takeoff throttle
+
+🚜 Farm Equipment
+
+Tractor start
+
+Combine harvester
+
+PTO engagement
+
+🚂 Trains
+
+Engine idle
+
+Horn blast
+
+Rail clatter
+
+🔧 ENGINE PROBLEM SOUNDS (Great for Diagnostic AI)
+
+Knocking
+
+Ticking
+
+Grinding
+
+Belt squeal
+
+Transmission slip
+
+Clutch grind
+
+Brake squeak
+
+CV joint click
+
+Wheel bearing hum
+
+Overheating boil
+
+Starter click (no start)
