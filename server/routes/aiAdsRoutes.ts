@@ -170,7 +170,7 @@ export function registerAIAdsRoutes(app: Express) {
 
   app.post('/api/ai-ads/sound-design', async (req: Request, res: Response) => {
     try {
-      const { prompt, type, voiceStyle, duration, industry } = req.body;
+      const { prompt, type, voiceStyle, duration, industry, backgroundMusic } = req.body;
       
       if (!prompt) {
         return res.status(400).json({ error: 'Describe what you want to create' });
@@ -181,7 +181,8 @@ export function registerAIAdsRoutes(app: Express) {
         type: type || 'voice_ad',
         voiceStyle,
         duration,
-        industry
+        industry,
+        backgroundMusic
       });
       
       res.json({ success: true, result });

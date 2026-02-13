@@ -6,7 +6,7 @@ import {
   Film, Wand2, Sparkles, Loader2, Copy, Check, FileText,
   Megaphone, PenTool, Palette, Send, RefreshCw, X, Maximize2,
   Play, Layers, BookOpen, LayoutTemplate, ImagePlus,
-  Mic, Radio, Music, Headphones, AudioWaveform
+  Mic, Radio, Music, Headphones, AudioWaveform, Aperture
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -61,6 +61,14 @@ export default function MediaVault() {
   const [imageFullscreen, setImageFullscreen] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
+  const [showCamera, setShowCamera] = useState(false);
+  const [cameraMode, setCameraMode] = useState<'photo' | 'video'>('photo');
+  const [isRecording, setIsRecording] = useState(false);
+  const cameraVideoRef = useRef<HTMLVideoElement>(null);
+  const cameraCanvasRef = useRef<HTMLCanvasElement>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const cameraStreamRef = useRef<MediaStream | null>(null);
+  const recordChunksRef = useRef<Blob[]>([]);
 
   const stopAudio = () => {
     if (audioRef.current) {
@@ -96,6 +104,14 @@ export default function MediaVault() {
       hasPlayedWelcome.current = true;
       voiceMutation.mutate("Give a brief, warm 1-sentence welcome to MediaVault Creative Studio. You're Rachel. This is where they create videos, flyers, ads, brochures, radio ads, voiceovers, and sound design using AI for ANY industry — just describe it. Keep it super short and exciting.");
     }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (cameraStreamRef.current) {
+        cameraStreamRef.current.getTracks().forEach(track => track.stop());
+      }
+    };
   }, []);
 
   const toggleVoice = () => {
@@ -172,6 +188,84 @@ export default function MediaVault() {
   const removeFile = (index: number) => {
     setUploadedFiles(prev => prev.filter((_, i) => i !== index));
     setPreviewUrls(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const openCamera = async (mode: 'photo' | 'video') => {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      toast({ title: "Camera not supported", description: "Your browser does not support camera access", variant: "destructive" });
+      return;
+    }
+    if (mode === 'video' && typeof MediaRecorder === 'undefined') {
+      toast({ title: "Video recording not supported", description: "Your browser does not support video recording", variant: "destructive" });
+      return;
+    }
+    setCameraMode(mode);
+    setShowCamera(true);
+    try {
+      const constraints = mode === 'video'
+        ? { video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: true }
+        : { video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } } };
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      cameraStreamRef.current = stream;
+      if (cameraVideoRef.current) {
+        cameraVideoRef.current.srcObject = stream;
+        cameraVideoRef.current.play();
+      }
+    } catch {
+      toast({ title: "Camera access denied", description: "Please allow camera access in your browser settings", variant: "destructive" });
+      setShowCamera(false);
+    }
+  };
+
+  const takePhoto = () => {
+    if (!cameraVideoRef.current || !cameraCanvasRef.current) return;
+    const video = cameraVideoRef.current;
+    const canvas = cameraCanvasRef.current;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.drawImage(video, 0, 0);
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      const file = new File([blob], `photo-${Date.now()}.jpg`, { type: 'image/jpeg' });
+      setUploadedFiles(prev => [...prev, file]);
+      setPreviewUrls(prev => [...prev, URL.createObjectURL(blob)]);
+      toast({ title: "Photo captured!", description: "Saved to your Media Vault" });
+    }, 'image/jpeg', 0.92);
+  };
+
+  const startVideoRecording = () => {
+    if (!cameraStreamRef.current) return;
+    recordChunksRef.current = [];
+    const recorder = new MediaRecorder(cameraStreamRef.current, { mimeType: 'video/webm' });
+    recorder.ondataavailable = (e) => { if (e.data.size > 0) recordChunksRef.current.push(e.data); };
+    recorder.onstop = () => {
+      const blob = new Blob(recordChunksRef.current, { type: 'video/webm' });
+      const file = new File([blob], `video-${Date.now()}.webm`, { type: 'video/webm' });
+      setUploadedFiles(prev => [...prev, file]);
+      setPreviewUrls(prev => [...prev, URL.createObjectURL(blob)]);
+      toast({ title: "Video recorded!", description: "Saved to your Media Vault" });
+    };
+    recorder.start();
+    mediaRecorderRef.current = recorder;
+    setIsRecording(true);
+  };
+
+  const stopVideoRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    }
+    setIsRecording(false);
+  };
+
+  const closeCamera = () => {
+    if (cameraStreamRef.current) {
+      cameraStreamRef.current.getTracks().forEach(track => track.stop());
+      cameraStreamRef.current = null;
+    }
+    if (isRecording) stopVideoRecording();
+    setShowCamera(false);
   };
 
   const downloadCreativeAsText = (item: CreativeResult, index: number) => {
@@ -346,17 +440,25 @@ export default function MediaVault() {
             </div>
 
             <Card className="border-dashed border-2 border-slate-300 dark:border-slate-600 mb-6">
-              <CardContent className="py-12">
+              <CardContent className="py-8">
                 <div className="text-center">
-                  <Upload className="w-16 h-16 text-slate-400 mx-auto mb-4" />
-                  <h3 className="text-xl font-semibold mb-2">Upload Media</h3>
-                  <p className="text-slate-500 mb-4">Drag & drop photos or videos, or click to browse</p>
+                  <Upload className="w-12 h-12 text-slate-400 mx-auto mb-3" />
+                  <h3 className="text-xl font-semibold mb-2">Upload or Capture Media</h3>
+                  <p className="text-slate-500 mb-4">Upload files, or take photos and videos right from your device</p>
                   <input type="file" id="vault-upload" multiple accept="image/*,video/*" onChange={handleFileUpload} className="hidden" />
-                  <label htmlFor="vault-upload">
-                    <Button asChild>
-                      <span><Upload className="w-4 h-4 mr-2" />Choose Files</span>
+                  <div className="flex gap-3 justify-center flex-wrap">
+                    <label htmlFor="vault-upload">
+                      <Button asChild>
+                        <span><Upload className="w-4 h-4 mr-2" />Choose Files</span>
+                      </Button>
+                    </label>
+                    <Button variant="outline" onClick={() => openCamera('photo')}>
+                      <Camera className="w-4 h-4 mr-2" />Take Photo
                     </Button>
-                  </label>
+                    <Button variant="outline" onClick={() => openCamera('video')}>
+                      <Video className="w-4 h-4 mr-2" />Record Video
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -642,9 +744,52 @@ export default function MediaVault() {
         </div>
       )}
 
+      <canvas ref={cameraCanvasRef} className="hidden" />
+
+      {showCamera && (
+        <div className="fixed inset-0 z-50 bg-black flex flex-col">
+          <div className="flex items-center justify-between p-4 bg-black/80">
+            <div className="flex gap-2">
+              <Button size="sm" variant={cameraMode === 'photo' ? 'default' : 'ghost'} className={cameraMode === 'photo' ? 'bg-indigo-600' : 'text-white'} onClick={() => setCameraMode('photo')}>
+                <Camera className="w-4 h-4 mr-1" />Photo
+              </Button>
+              <Button size="sm" variant={cameraMode === 'video' ? 'default' : 'ghost'} className={cameraMode === 'video' ? 'bg-red-600' : 'text-white'} onClick={() => setCameraMode('video')}>
+                <Video className="w-4 h-4 mr-1" />Video
+              </Button>
+            </div>
+            <Button size="sm" variant="ghost" className="text-white" onClick={closeCamera}>
+              <X className="w-5 h-5" />
+            </Button>
+          </div>
+          <div className="flex-1 flex items-center justify-center overflow-hidden">
+            <video ref={cameraVideoRef} autoPlay playsInline muted className="max-w-full max-h-full object-contain" />
+          </div>
+          <div className="flex items-center justify-center gap-4 p-6 bg-black/80">
+            {cameraMode === 'photo' ? (
+              <button onClick={takePhoto} className="w-16 h-16 rounded-full border-4 border-white bg-white/20 hover:bg-white/40 transition-colors flex items-center justify-center">
+                <Aperture className="w-8 h-8 text-white" />
+              </button>
+            ) : (
+              <button onClick={isRecording ? stopVideoRecording : startVideoRecording} className={`w-16 h-16 rounded-full border-4 border-white flex items-center justify-center transition-colors ${isRecording ? 'bg-red-600 animate-pulse' : 'bg-red-500/40 hover:bg-red-500/60'}`}>
+                {isRecording ? <div className="w-6 h-6 bg-white rounded-sm" /> : <div className="w-10 h-10 bg-red-500 rounded-full" />}
+              </button>
+            )}
+          </div>
+          {previewUrls.length > 0 && (
+            <div className="flex gap-2 p-3 bg-black/80 overflow-x-auto">
+              {previewUrls.slice(-5).map((url, i) => (
+                <div key={i} className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 border border-white/30">
+                  <img src={url} alt="" className="w-full h-full object-cover" />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       <ModuleAIAssistant
         moduleName="MediaVault Creative Studio"
-        moduleContext="MediaVault Creative Studio stores job photos and videos AND lets users create AI-powered content for ANY industry — zero creative limits. Users can create videos, flyers, ads, brochures, radio ads, voiceovers, sound design concepts, and brand audio identities by describing what they want. The Sound Studio tab lets users generate Hollywood-level audio experiences with voice style selection and ElevenLabs Rachel voiceover generation. Help users create amazing content for any business type."
+        moduleContext="MediaVault Creative Studio stores job photos and videos AND lets users create AI-powered content for ANY industry — zero creative limits. Users can upload files or capture photos and videos directly with their camera. The Sound Studio tab lets users generate Hollywood-level audio experiences with a comprehensive music and sound library. Help users create amazing content for any business type."
       />
     </div>
   );
@@ -1018,6 +1163,7 @@ function SoundStudio({ playRachelVoice }: { playRachelVoice: (msg: string) => vo
   const [voiceStyle, setVoiceStyle] = useState('rachel');
   const [duration, setDuration] = useState('30 seconds');
   const [industry, setIndustry] = useState('');
+  const [backgroundMusic, setBackgroundMusic] = useState('');
   const [soundResult, setSoundResult] = useState<any>(null);
   const [voiceAudio, setVoiceAudio] = useState<string | null>(null);
   const [isPlayingVoice, setIsPlayingVoice] = useState(false);
@@ -1068,7 +1214,7 @@ function SoundStudio({ playRachelVoice }: { playRachelVoice: (msg: string) => vo
       toast({ title: "Describe your audio", description: "Tell Rachel what sound experience to create", variant: "destructive" });
       return;
     }
-    soundMutation.mutate({ prompt: soundPrompt.trim(), type: soundType, voiceStyle, duration, industry: industry || undefined });
+    soundMutation.mutate({ prompt: soundPrompt.trim(), type: soundType, voiceStyle, duration, industry: industry || undefined, backgroundMusic: backgroundMusic || undefined });
   };
 
   const handleGenerateVoiceover = (text: string) => {
@@ -1189,6 +1335,283 @@ function SoundStudio({ playRachelVoice }: { playRachelVoice: (msg: string) => vo
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1 block">Background Music / Sound</label>
+              <Select value={backgroundMusic} onValueChange={setBackgroundMusic}>
+                <SelectTrigger><SelectValue placeholder="No background music" /></SelectTrigger>
+                <SelectContent className="max-h-[400px]">
+                  <SelectItem value="none" className="text-slate-400">No background music</SelectItem>
+
+                  <SelectItem value="_header_classical" disabled className="font-bold text-xs uppercase tracking-wider text-slate-500 bg-slate-50 dark:bg-slate-900">Classical & Orchestral</SelectItem>
+                  <SelectItem value="classical">Classical</SelectItem>
+                  <SelectItem value="symphony">Symphony</SelectItem>
+                  <SelectItem value="chamber">Chamber</SelectItem>
+                  <SelectItem value="baroque">Baroque</SelectItem>
+                  <SelectItem value="romantic">Romantic</SelectItem>
+                  <SelectItem value="opera">Opera</SelectItem>
+                  <SelectItem value="cinematic">Cinematic</SelectItem>
+                  <SelectItem value="epic-orchestra">Epic Orchestra</SelectItem>
+                  <SelectItem value="string-quartet">String Quartet</SelectItem>
+                  <SelectItem value="piano-solo">Piano Solo</SelectItem>
+
+                  <SelectItem value="_header_rock" disabled className="font-bold text-xs uppercase tracking-wider text-slate-500 bg-slate-50 dark:bg-slate-900">Rock</SelectItem>
+                  <SelectItem value="classic-rock">Classic Rock</SelectItem>
+                  <SelectItem value="alternative-rock">Alternative Rock</SelectItem>
+                  <SelectItem value="indie-rock">Indie Rock</SelectItem>
+                  <SelectItem value="hard-rock">Hard Rock</SelectItem>
+                  <SelectItem value="soft-rock">Soft Rock</SelectItem>
+                  <SelectItem value="punk-rock">Punk Rock</SelectItem>
+                  <SelectItem value="grunge">Grunge</SelectItem>
+                  <SelectItem value="progressive-rock">Progressive Rock</SelectItem>
+                  <SelectItem value="metal">Metal</SelectItem>
+                  <SelectItem value="heavy-metal">Heavy Metal</SelectItem>
+
+                  <SelectItem value="_header_pop" disabled className="font-bold text-xs uppercase tracking-wider text-slate-500 bg-slate-50 dark:bg-slate-900">Pop</SelectItem>
+                  <SelectItem value="mainstream-pop">Mainstream Pop</SelectItem>
+                  <SelectItem value="dance-pop">Dance Pop</SelectItem>
+                  <SelectItem value="synth-pop">Synth Pop</SelectItem>
+                  <SelectItem value="electro-pop">Electro Pop</SelectItem>
+                  <SelectItem value="acoustic-pop">Acoustic Pop</SelectItem>
+
+                  <SelectItem value="_header_hiphop" disabled className="font-bold text-xs uppercase tracking-wider text-slate-500 bg-slate-50 dark:bg-slate-900">Hip-Hop & R&B</SelectItem>
+                  <SelectItem value="hip-hop">Hip-Hop</SelectItem>
+                  <SelectItem value="rap">Rap</SelectItem>
+                  <SelectItem value="trap">Trap</SelectItem>
+                  <SelectItem value="boom-bap">Boom Bap</SelectItem>
+                  <SelectItem value="rnb">R&B</SelectItem>
+                  <SelectItem value="neo-soul">Neo Soul</SelectItem>
+                  <SelectItem value="lofi-hip-hop">Lo-Fi Hip-Hop</SelectItem>
+
+                  <SelectItem value="_header_country" disabled className="font-bold text-xs uppercase tracking-wider text-slate-500 bg-slate-50 dark:bg-slate-900">Country</SelectItem>
+                  <SelectItem value="traditional-country">Traditional Country</SelectItem>
+                  <SelectItem value="country-pop">Country Pop</SelectItem>
+                  <SelectItem value="bluegrass">Bluegrass</SelectItem>
+                  <SelectItem value="americana">Americana</SelectItem>
+                  <SelectItem value="folk-country">Folk Country</SelectItem>
+
+                  <SelectItem value="_header_jazz" disabled className="font-bold text-xs uppercase tracking-wider text-slate-500 bg-slate-50 dark:bg-slate-900">Jazz & Blues</SelectItem>
+                  <SelectItem value="jazz">Jazz</SelectItem>
+                  <SelectItem value="smooth-jazz">Smooth Jazz</SelectItem>
+                  <SelectItem value="swing">Swing</SelectItem>
+                  <SelectItem value="bebop">Bebop</SelectItem>
+                  <SelectItem value="blues">Blues</SelectItem>
+                  <SelectItem value="soul">Soul</SelectItem>
+                  <SelectItem value="funk">Funk</SelectItem>
+
+                  <SelectItem value="_header_world" disabled className="font-bold text-xs uppercase tracking-wider text-slate-500 bg-slate-50 dark:bg-slate-900">World Music</SelectItem>
+                  <SelectItem value="latin">Latin</SelectItem>
+                  <SelectItem value="reggaeton">Reggaeton</SelectItem>
+                  <SelectItem value="salsa">Salsa</SelectItem>
+                  <SelectItem value="afrobeat">Afrobeat</SelectItem>
+                  <SelectItem value="caribbean">Caribbean</SelectItem>
+                  <SelectItem value="celtic">Celtic</SelectItem>
+                  <SelectItem value="indian">Indian</SelectItem>
+                  <SelectItem value="middle-eastern">Middle Eastern</SelectItem>
+                  <SelectItem value="kpop">K-Pop</SelectItem>
+                  <SelectItem value="jpop">J-Pop</SelectItem>
+
+                  <SelectItem value="_header_electronic" disabled className="font-bold text-xs uppercase tracking-wider text-slate-500 bg-slate-50 dark:bg-slate-900">Electronic</SelectItem>
+                  <SelectItem value="edm">EDM</SelectItem>
+                  <SelectItem value="house">House</SelectItem>
+                  <SelectItem value="deep-house">Deep House</SelectItem>
+                  <SelectItem value="techno">Techno</SelectItem>
+                  <SelectItem value="trance">Trance</SelectItem>
+                  <SelectItem value="dubstep">Dubstep</SelectItem>
+                  <SelectItem value="drum-and-bass">Drum and Bass</SelectItem>
+                  <SelectItem value="ambient">Ambient</SelectItem>
+                  <SelectItem value="chillout">Chillout</SelectItem>
+                  <SelectItem value="synthwave">Synthwave</SelectItem>
+
+                  <SelectItem value="_header_instrumental" disabled className="font-bold text-xs uppercase tracking-wider text-slate-500 bg-slate-50 dark:bg-slate-900">Instrumental</SelectItem>
+                  <SelectItem value="acoustic-guitar">Acoustic Guitar</SelectItem>
+                  <SelectItem value="piano">Piano</SelectItem>
+                  <SelectItem value="instrumental-beats">Instrumental Beats</SelectItem>
+                  <SelectItem value="background-instrumental">Background Instrumental</SelectItem>
+                  <SelectItem value="meditation-instrumental">Meditation Instrumental</SelectItem>
+
+                  <SelectItem value="_header_mood" disabled className="font-bold text-xs uppercase tracking-wider text-slate-500 bg-slate-50 dark:bg-slate-900">Mood-Based</SelectItem>
+                  <SelectItem value="inspiring">Inspiring</SelectItem>
+                  <SelectItem value="upbeat">Upbeat</SelectItem>
+                  <SelectItem value="corporate">Corporate</SelectItem>
+                  <SelectItem value="motivational">Motivational</SelectItem>
+                  <SelectItem value="emotional">Emotional</SelectItem>
+                  <SelectItem value="dramatic">Dramatic</SelectItem>
+                  <SelectItem value="relaxing">Relaxing</SelectItem>
+                  <SelectItem value="calm">Calm</SelectItem>
+                  <SelectItem value="energetic">Energetic</SelectItem>
+                  <SelectItem value="powerful">Powerful</SelectItem>
+                  <SelectItem value="suspenseful">Suspenseful</SelectItem>
+                  <SelectItem value="romantic-mood">Romantic</SelectItem>
+                  <SelectItem value="dark">Dark</SelectItem>
+                  <SelectItem value="uplifting">Uplifting</SelectItem>
+                  <SelectItem value="hopeful">Hopeful</SelectItem>
+                  <SelectItem value="serious">Serious</SelectItem>
+                  <SelectItem value="confident">Confident</SelectItem>
+                  <SelectItem value="peaceful">Peaceful</SelectItem>
+                  <SelectItem value="happy">Happy</SelectItem>
+                  <SelectItem value="cinematic-mood">Cinematic Mood</SelectItem>
+
+                  <SelectItem value="_header_nature" disabled className="font-bold text-xs uppercase tracking-wider text-slate-500 bg-slate-50 dark:bg-slate-900">Sound Effects — Nature</SelectItem>
+                  <SelectItem value="rain">Rain</SelectItem>
+                  <SelectItem value="thunder">Thunder</SelectItem>
+                  <SelectItem value="ocean-waves">Ocean Waves</SelectItem>
+                  <SelectItem value="wind">Wind</SelectItem>
+                  <SelectItem value="forest">Forest</SelectItem>
+                  <SelectItem value="birds">Birds</SelectItem>
+                  <SelectItem value="fire-crackling">Fire Crackling</SelectItem>
+                  <SelectItem value="waterfall">Waterfall</SelectItem>
+
+                  <SelectItem value="_header_city" disabled className="font-bold text-xs uppercase tracking-wider text-slate-500 bg-slate-50 dark:bg-slate-900">Sound Effects — City</SelectItem>
+                  <SelectItem value="traffic">Traffic</SelectItem>
+                  <SelectItem value="office-ambience">Office Ambience</SelectItem>
+                  <SelectItem value="crowd">Crowd</SelectItem>
+                  <SelectItem value="construction">Construction</SelectItem>
+                  <SelectItem value="airport">Airport</SelectItem>
+                  <SelectItem value="cafe">Cafe</SelectItem>
+                  <SelectItem value="street-noise">Street Noise</SelectItem>
+
+                  <SelectItem value="_header_ui" disabled className="font-bold text-xs uppercase tracking-wider text-slate-500 bg-slate-50 dark:bg-slate-900">Sound Effects — UI/App</SelectItem>
+                  <SelectItem value="click">Click</SelectItem>
+                  <SelectItem value="notification">Notification</SelectItem>
+                  <SelectItem value="alert">Alert</SelectItem>
+                  <SelectItem value="success-sound">Success Sound</SelectItem>
+                  <SelectItem value="error-sound">Error Sound</SelectItem>
+                  <SelectItem value="whoosh">Whoosh</SelectItem>
+                  <SelectItem value="transition">Transition</SelectItem>
+                  <SelectItem value="swipe">Swipe</SelectItem>
+
+                  <SelectItem value="_header_emergency" disabled className="font-bold text-xs uppercase tracking-wider text-slate-500 bg-slate-50 dark:bg-slate-900">Sound Effects — Emergency/Disaster</SelectItem>
+                  <SelectItem value="sirens">Sirens</SelectItem>
+                  <SelectItem value="storm-winds">Storm Winds</SelectItem>
+                  <SelectItem value="tornado">Tornado</SelectItem>
+                  <SelectItem value="fire-alarm">Fire Alarm</SelectItem>
+                  <SelectItem value="earthquake-rumble">Earthquake Rumble</SelectItem>
+                  <SelectItem value="flood-water">Flood Water</SelectItem>
+                  <SelectItem value="chainsaw">Chainsaw</SelectItem>
+                  <SelectItem value="heavy-equipment">Heavy Equipment</SelectItem>
+
+                  <SelectItem value="_header_wellness" disabled className="font-bold text-xs uppercase tracking-wider text-slate-500 bg-slate-50 dark:bg-slate-900">Sound Effects — Wellness</SelectItem>
+                  <SelectItem value="white-noise">White Noise</SelectItem>
+                  <SelectItem value="brown-noise">Brown Noise</SelectItem>
+                  <SelectItem value="pink-noise">Pink Noise</SelectItem>
+                  <SelectItem value="binaural-beats">Binaural Beats</SelectItem>
+                  <SelectItem value="meditation-bells">Meditation Bells</SelectItem>
+                  <SelectItem value="tibetan-bowls">Tibetan Bowls</SelectItem>
+
+                  <SelectItem value="_header_business" disabled className="font-bold text-xs uppercase tracking-wider text-slate-500 bg-slate-50 dark:bg-slate-900">Business/Presentation</SelectItem>
+                  <SelectItem value="corporate-inspiring">Corporate Inspiring</SelectItem>
+                  <SelectItem value="corporate-minimal">Corporate Minimal</SelectItem>
+                  <SelectItem value="documentary">Documentary</SelectItem>
+                  <SelectItem value="government-announcement">Government Announcement</SelectItem>
+                  <SelectItem value="news-theme">News Theme</SelectItem>
+                  <SelectItem value="military-patriotic">Military Patriotic</SelectItem>
+                  <SelectItem value="training-video">Training Video</SelectItem>
+                  <SelectItem value="presentation-background">Presentation Background</SelectItem>
+                  <SelectItem value="tech-innovation">Tech Innovation</SelectItem>
+                  <SelectItem value="modern-startup">Modern Startup</SelectItem>
+
+                  <SelectItem value="_header_christmas" disabled className="font-bold text-xs uppercase tracking-wider text-slate-500 bg-slate-50 dark:bg-slate-900">Holiday — Christmas</SelectItem>
+                  <SelectItem value="sleigh-bells">Sleigh Bells</SelectItem>
+                  <SelectItem value="santa-ho-ho">Santa Ho Ho</SelectItem>
+                  <SelectItem value="reindeer-bells">Reindeer Bells</SelectItem>
+                  <SelectItem value="fireplace-crackling">Fireplace Crackling</SelectItem>
+                  <SelectItem value="choir-singing">Choir Singing</SelectItem>
+                  <SelectItem value="church-bells">Church Bells</SelectItem>
+                  <SelectItem value="carolers">Carolers</SelectItem>
+                  <SelectItem value="christmas-morning">Christmas Morning</SelectItem>
+                  <SelectItem value="jingle-instrumentals">Jingle Instrumentals</SelectItem>
+                  <SelectItem value="christmas-piano">Christmas Piano</SelectItem>
+                  <SelectItem value="orchestral-holiday">Orchestral Holiday</SelectItem>
+                  <SelectItem value="handbells">Handbells</SelectItem>
+
+                  <SelectItem value="_header_halloween" disabled className="font-bold text-xs uppercase tracking-wider text-slate-500 bg-slate-50 dark:bg-slate-900">Holiday — Halloween</SelectItem>
+                  <SelectItem value="ghost-moan">Ghost Moan</SelectItem>
+                  <SelectItem value="witch-cackle">Witch Cackle</SelectItem>
+                  <SelectItem value="creaking-door">Creaking Door</SelectItem>
+                  <SelectItem value="spooky-footsteps">Spooky Footsteps</SelectItem>
+                  <SelectItem value="evil-laugh">Evil Laugh</SelectItem>
+                  <SelectItem value="chains-rattling">Chains Rattling</SelectItem>
+                  <SelectItem value="monster-growl">Monster Growl</SelectItem>
+                  <SelectItem value="kids-trick-or-treating">Kids Trick or Treating</SelectItem>
+                  <SelectItem value="owl-hoot">Owl Hoot</SelectItem>
+
+                  <SelectItem value="_header_thanksgiving" disabled className="font-bold text-xs uppercase tracking-wider text-slate-500 bg-slate-50 dark:bg-slate-900">Holiday — Thanksgiving</SelectItem>
+                  <SelectItem value="turkey-gobble">Turkey Gobble</SelectItem>
+                  <SelectItem value="family-dinner">Family Dinner</SelectItem>
+                  <SelectItem value="clinking-silverware">Clinking Silverware</SelectItem>
+                  <SelectItem value="fall-leaves">Fall Leaves</SelectItem>
+                  <SelectItem value="parade-marching">Parade Marching</SelectItem>
+                  <SelectItem value="football-crowd">Football Crowd</SelectItem>
+
+                  <SelectItem value="_header_newyears" disabled className="font-bold text-xs uppercase tracking-wider text-slate-500 bg-slate-50 dark:bg-slate-900">Holiday — New Years</SelectItem>
+                  <SelectItem value="countdown">Countdown</SelectItem>
+                  <SelectItem value="fireworks">Fireworks</SelectItem>
+                  <SelectItem value="champagne-pop">Champagne Pop</SelectItem>
+                  <SelectItem value="party-crowd">Party Crowd</SelectItem>
+                  <SelectItem value="party-horns">Party Horns</SelectItem>
+                  <SelectItem value="confetti-cannon">Confetti Cannon</SelectItem>
+                  <SelectItem value="midnight-clock">Midnight Clock</SelectItem>
+
+                  <SelectItem value="_header_valentines" disabled className="font-bold text-xs uppercase tracking-wider text-slate-500 bg-slate-50 dark:bg-slate-900">Holiday — Valentines</SelectItem>
+                  <SelectItem value="heartbeat">Heartbeat</SelectItem>
+                  <SelectItem value="romantic-piano">Romantic Piano</SelectItem>
+                  <SelectItem value="love-chime">Love Chime</SelectItem>
+                  <SelectItem value="violin-romance">Violin Romance</SelectItem>
+
+                  <SelectItem value="_header_easter" disabled className="font-bold text-xs uppercase tracking-wider text-slate-500 bg-slate-50 dark:bg-slate-900">Holiday — Easter</SelectItem>
+                  <SelectItem value="easter-bells">Easter Bells</SelectItem>
+                  <SelectItem value="choir-hymn">Choir Hymn</SelectItem>
+                  <SelectItem value="birds-chirping">Birds Chirping</SelectItem>
+                  <SelectItem value="spring-breeze-easter">Spring Breeze</SelectItem>
+                  <SelectItem value="soft-harp">Soft Harp</SelectItem>
+
+                  <SelectItem value="_header_patriotic" disabled className="font-bold text-xs uppercase tracking-wider text-slate-500 bg-slate-50 dark:bg-slate-900">Holiday — Patriotic</SelectItem>
+                  <SelectItem value="patriotic-fireworks">Patriotic Fireworks</SelectItem>
+                  <SelectItem value="military-drum">Military Drum</SelectItem>
+                  <SelectItem value="trumpet-fanfare">Trumpet Fanfare</SelectItem>
+                  <SelectItem value="national-anthem">National Anthem</SelectItem>
+                  <SelectItem value="marching-band">Marching Band</SelectItem>
+                  <SelectItem value="jet-flyover">Jet Flyover</SelectItem>
+
+                  <SelectItem value="_header_birthday" disabled className="font-bold text-xs uppercase tracking-wider text-slate-500 bg-slate-50 dark:bg-slate-900">Holiday — Birthday</SelectItem>
+                  <SelectItem value="happy-birthday-song">Happy Birthday Song</SelectItem>
+                  <SelectItem value="party-horn">Party Horn</SelectItem>
+                  <SelectItem value="balloon-pop">Balloon Pop</SelectItem>
+                  <SelectItem value="applause">Applause</SelectItem>
+                  <SelectItem value="kids-cheering">Kids Cheering</SelectItem>
+
+                  <SelectItem value="_header_cultural" disabled className="font-bold text-xs uppercase tracking-wider text-slate-500 bg-slate-50 dark:bg-slate-900">Holiday — Cultural</SelectItem>
+                  <SelectItem value="firecrackers">Firecrackers</SelectItem>
+                  <SelectItem value="dragon-dance-drums">Dragon Dance Drums</SelectItem>
+                  <SelectItem value="gong">Gong</SelectItem>
+                  <SelectItem value="dreidel-spin">Dreidel Spin</SelectItem>
+                  <SelectItem value="temple-bells">Temple Bells</SelectItem>
+                  <SelectItem value="irish-fiddle">Irish Fiddle</SelectItem>
+                  <SelectItem value="bagpipes">Bagpipes</SelectItem>
+
+                  <SelectItem value="_header_winter" disabled className="font-bold text-xs uppercase tracking-wider text-slate-500 bg-slate-50 dark:bg-slate-900">Seasonal — Winter</SelectItem>
+                  <SelectItem value="snow-crunching">Snow Crunching</SelectItem>
+                  <SelectItem value="cold-wind">Cold Wind</SelectItem>
+                  <SelectItem value="ice-crackle">Ice Crackle</SelectItem>
+
+                  <SelectItem value="_header_spring" disabled className="font-bold text-xs uppercase tracking-wider text-slate-500 bg-slate-50 dark:bg-slate-900">Seasonal — Spring</SelectItem>
+                  <SelectItem value="spring-birds">Spring Birds</SelectItem>
+                  <SelectItem value="rain-shower">Rain Shower</SelectItem>
+                  <SelectItem value="spring-breeze">Spring Breeze</SelectItem>
+
+                  <SelectItem value="_header_summer" disabled className="font-bold text-xs uppercase tracking-wider text-slate-500 bg-slate-50 dark:bg-slate-900">Seasonal — Summer</SelectItem>
+                  <SelectItem value="bbq-sizzle">BBQ Sizzle</SelectItem>
+                  <SelectItem value="pool-splash">Pool Splash</SelectItem>
+                  <SelectItem value="beach-waves">Beach Waves</SelectItem>
+
+                  <SelectItem value="_header_fall" disabled className="font-bold text-xs uppercase tracking-wider text-slate-500 bg-slate-50 dark:bg-slate-900">Seasonal — Fall</SelectItem>
+                  <SelectItem value="leaves-crunch">Leaves Crunch</SelectItem>
+                  <SelectItem value="harvest-festival">Harvest Festival</SelectItem>
+                  <SelectItem value="corn-maze">Corn Maze</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div>

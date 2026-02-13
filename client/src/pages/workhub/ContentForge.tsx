@@ -5,7 +5,8 @@ import {
   Facebook, Globe, Sparkles, Download, Eye, Palette, Zap, Heart,
   Send, Video, Film, Copy, RefreshCw, Wand2, Loader2, Check,
   MessageSquare, Target, Hash, Play, X, Maximize2, ChevronDown,
-  Megaphone, PenTool, Camera, Layers, ArrowRight, Star
+  Megaphone, PenTool, Camera, Layers, ArrowRight, Star, Upload,
+  VideoIcon, Aperture, Trash2
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -54,6 +55,16 @@ export default function ContentForge() {
   const [generatedAds, setGeneratedAds] = useState<AdResult[]>([]);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [imageFullscreen, setImageFullscreen] = useState(false);
+  const [uploadedMedia, setUploadedMedia] = useState<Array<{ file: File; preview: string; type: 'photo' | 'video' }>>([]);
+  const [showCamera, setShowCamera] = useState(false);
+  const [cameraMode, setCameraMode] = useState<'photo' | 'video'>('photo');
+  const [isRecording, setIsRecording] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const stopAudio = () => {
     if (audioRef.current) {
@@ -150,12 +161,29 @@ export default function ContentForge() {
     }
   });
 
+  useEffect(() => {
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, []);
+
   const handleCreateAd = () => {
     if (!prompt.trim()) {
       toast({ title: "Describe your ad", description: "Tell me what kind of ad you want to create", variant: "destructive" });
       return;
     }
-    createAdMutation.mutate({ prompt: prompt.trim(), adType, style, platform });
+    let enhancedPrompt = prompt.trim();
+    if (uploadedMedia.length > 0) {
+      const photoCount = uploadedMedia.filter(m => m.type === 'photo').length;
+      const videoCount = uploadedMedia.filter(m => m.type === 'video').length;
+      const mediaDesc = [];
+      if (photoCount > 0) mediaDesc.push(`${photoCount} photo${photoCount > 1 ? 's' : ''}`);
+      if (videoCount > 0) mediaDesc.push(`${videoCount} video${videoCount > 1 ? 's' : ''}`);
+      enhancedPrompt += `\n\n[USER HAS PROVIDED THEIR OWN MEDIA: ${mediaDesc.join(' and ')}. Design the ad to incorporate and complement the user's real photos/videos. Reference their actual work, projects, or content in the ad copy. Make the ad feel authentic using their real visuals.]`;
+    }
+    createAdMutation.mutate({ prompt: enhancedPrompt, adType, style, platform });
   };
 
   const copyToClipboard = (text: string, field: string) => {
@@ -173,6 +201,100 @@ export default function ContentForge() {
     "Design an Instagram-ready auto body repair ad showing a dramatic before and after paint correction",
     "Make a TikTok-style ad for a pressure washing company — satisfying transformation content"
   ];
+
+  const handleMediaUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    const newMedia = files.map(file => ({
+      file,
+      preview: URL.createObjectURL(file),
+      type: (file.type.startsWith('video/') ? 'video' : 'photo') as 'photo' | 'video',
+    }));
+    setUploadedMedia(prev => [...prev, ...newMedia]);
+    toast({ title: `${files.length} file${files.length > 1 ? 's' : ''} added`, description: "Your media is ready to use in your ad" });
+  };
+
+  const removeMedia = (index: number) => {
+    setUploadedMedia(prev => {
+      URL.revokeObjectURL(prev[index].preview);
+      return prev.filter((_, i) => i !== index);
+    });
+  };
+
+  const startCamera = async (mode: 'photo' | 'video') => {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      toast({ title: "Camera not supported", description: "Your browser does not support camera access", variant: "destructive" });
+      return;
+    }
+    if (mode === 'video' && typeof MediaRecorder === 'undefined') {
+      toast({ title: "Video recording not supported", description: "Your browser does not support video recording", variant: "destructive" });
+      return;
+    }
+    setCameraMode(mode);
+    setShowCamera(true);
+    try {
+      const constraints = mode === 'video'
+        ? { video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: true }
+        : { video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } } };
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play();
+      }
+    } catch (err) {
+      toast({ title: "Camera access denied", description: "Please allow camera access in your browser settings", variant: "destructive" });
+      setShowCamera(false);
+    }
+  };
+
+  const capturePhoto = () => {
+    if (!videoRef.current || !canvasRef.current) return;
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.drawImage(video, 0, 0);
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      const file = new File([blob], `photo-${Date.now()}.jpg`, { type: 'image/jpeg' });
+      setUploadedMedia(prev => [...prev, { file, preview: URL.createObjectURL(blob), type: 'photo' }]);
+      toast({ title: "Photo captured!", description: "Added to your media for ad creation" });
+    }, 'image/jpeg', 0.92);
+  };
+
+  const startRecording = () => {
+    if (!streamRef.current) return;
+    chunksRef.current = [];
+    const recorder = new MediaRecorder(streamRef.current, { mimeType: 'video/webm' });
+    recorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+    recorder.onstop = () => {
+      const blob = new Blob(chunksRef.current, { type: 'video/webm' });
+      const file = new File([blob], `video-${Date.now()}.webm`, { type: 'video/webm' });
+      setUploadedMedia(prev => [...prev, { file, preview: URL.createObjectURL(blob), type: 'video' }]);
+      toast({ title: "Video recorded!", description: "Added to your media for ad creation" });
+    };
+    recorder.start();
+    mediaRecorderRef.current = recorder;
+    setIsRecording(true);
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    }
+    setIsRecording(false);
+  };
+
+  const closeCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    if (isRecording) stopRecording();
+    setShowCamera(false);
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-pink-50 to-white dark:from-slate-950 dark:to-slate-900">
@@ -302,6 +424,42 @@ export default function ContentForge() {
                           <SelectItem value="edgy">Edgy & Disruptive</SelectItem>
                         </SelectContent>
                       </Select>
+                    </div>
+
+                    <div>
+                      <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 block">Your Photos & Videos (optional)</label>
+                      <div className="flex gap-2 mb-2">
+                        <input ref={fileInputRef} type="file" multiple accept="image/*,video/*" onChange={handleMediaUpload} className="hidden" />
+                        <Button type="button" variant="outline" size="sm" className="flex-1" onClick={() => fileInputRef.current?.click()}>
+                          <Upload className="w-4 h-4 mr-1.5" />Upload Files
+                        </Button>
+                        <Button type="button" variant="outline" size="sm" className="flex-1" onClick={() => startCamera('photo')}>
+                          <Camera className="w-4 h-4 mr-1.5" />Take Photo
+                        </Button>
+                        <Button type="button" variant="outline" size="sm" className="flex-1" onClick={() => startCamera('video')}>
+                          <Video className="w-4 h-4 mr-1.5" />Record Video
+                        </Button>
+                      </div>
+                      {uploadedMedia.length > 0 && (
+                        <div className="grid grid-cols-4 gap-2 mb-2">
+                          {uploadedMedia.map((media, idx) => (
+                            <div key={idx} className="relative aspect-square rounded-lg overflow-hidden border group">
+                              {media.type === 'video' ? (
+                                <video src={media.preview} className="w-full h-full object-cover" />
+                              ) : (
+                                <img src={media.preview} alt={`Upload ${idx + 1}`} className="w-full h-full object-cover" />
+                              )}
+                              <button onClick={() => removeMedia(idx)} className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                <X className="w-3 h-3" />
+                              </button>
+                              <Badge className="absolute bottom-1 left-1 text-[10px] px-1 py-0 bg-black/60 text-white">
+                                {media.type === 'video' ? 'Video' : 'Photo'}
+                              </Badge>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <p className="text-xs text-slate-500">Upload your own photos or videos to incorporate into your ad design</p>
                     </div>
 
                     <Button
@@ -947,9 +1105,76 @@ export default function ContentForge() {
         </div>
       )}
 
+      <canvas ref={canvasRef} className="hidden" />
+
+      {showCamera && (
+        <div className="fixed inset-0 z-50 bg-black flex flex-col">
+          <div className="flex items-center justify-between p-4 bg-black/80">
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant={cameraMode === 'photo' ? 'default' : 'ghost'}
+                className={cameraMode === 'photo' ? 'bg-pink-600' : 'text-white'}
+                onClick={() => setCameraMode('photo')}
+              >
+                <Camera className="w-4 h-4 mr-1" />Photo
+              </Button>
+              <Button
+                size="sm"
+                variant={cameraMode === 'video' ? 'default' : 'ghost'}
+                className={cameraMode === 'video' ? 'bg-red-600' : 'text-white'}
+                onClick={() => setCameraMode('video')}
+              >
+                <Video className="w-4 h-4 mr-1" />Video
+              </Button>
+            </div>
+            <Button size="sm" variant="ghost" className="text-white" onClick={closeCamera}>
+              <X className="w-5 h-5" />
+            </Button>
+          </div>
+          <div className="flex-1 flex items-center justify-center overflow-hidden">
+            <video ref={videoRef} autoPlay playsInline muted className="max-w-full max-h-full object-contain" />
+          </div>
+          <div className="flex items-center justify-center gap-4 p-6 bg-black/80">
+            {cameraMode === 'photo' ? (
+              <button
+                onClick={capturePhoto}
+                className="w-16 h-16 rounded-full border-4 border-white bg-white/20 hover:bg-white/40 transition-colors flex items-center justify-center"
+              >
+                <Aperture className="w-8 h-8 text-white" />
+              </button>
+            ) : (
+              <button
+                onClick={isRecording ? stopRecording : startRecording}
+                className={`w-16 h-16 rounded-full border-4 border-white flex items-center justify-center transition-colors ${isRecording ? 'bg-red-600 animate-pulse' : 'bg-red-500/40 hover:bg-red-500/60'}`}
+              >
+                {isRecording ? (
+                  <div className="w-6 h-6 bg-white rounded-sm" />
+                ) : (
+                  <div className="w-10 h-10 bg-red-500 rounded-full" />
+                )}
+              </button>
+            )}
+          </div>
+          {uploadedMedia.length > 0 && (
+            <div className="flex gap-2 p-3 bg-black/80 overflow-x-auto">
+              {uploadedMedia.slice(-5).map((m, i) => (
+                <div key={i} className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 border border-white/30">
+                  {m.type === 'video' ? (
+                    <video src={m.preview} className="w-full h-full object-cover" />
+                  ) : (
+                    <img src={m.preview} alt="" className="w-full h-full object-cover" />
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       <ModuleAIAssistant
         moduleName="ContentForge AI Ad Studio"
-        moduleContext="ContentForge AI Ad Studio lets users describe any ad they want and AI creates it — images, copy, headlines, hashtags, video concepts, and full campaigns. Help users create amazing advertising content by describing what they want. They can create image ads, video concepts, or full multi-platform campaigns for any industry."
+        moduleContext="ContentForge AI Ad Studio lets users describe any ad they want and AI creates it — images, copy, headlines, hashtags, video concepts, and full campaigns. Users can upload their own photos and videos or take them with the camera to include in their ad. Help users create amazing advertising content by describing what they want. They can create image ads, video concepts, or full multi-platform campaigns for any industry."
       />
     </div>
   );

@@ -98,7 +98,7 @@ Return ONLY the 3 ad copy variations, numbered 1-3, nothing else.`;
       messages: [
         {
           role: 'system',
-          content: 'You are an award-winning advertising copywriter who creates ads for ANY industry or business type. You have zero creative limits. You create content that stops people in their tracks and converts — for contractors, restaurants, tech, fitness, real estate, automotive, entertainment, healthcare, retail, and every industry that exists.'
+          content: 'You are an award-winning advertising copywriter who creates ads for ANY industry or business type. You have zero creative limits. You create content that stops people in their tracks and converts — for contractors, restaurants, tech, fitness, real estate, automotive, entertainment, healthcare, retail, and every industry that exists. CRITICAL: Perfect spelling and grammar are NON-NEGOTIABLE. Triple-check every word before outputting. This content will be posted publicly. Zero typos allowed.'
         },
         {
           role: 'user',
@@ -339,7 +339,7 @@ Return ONLY the headlines, numbered 1-${count}.`;
       messages: [
         {
           role: 'system',
-          content: 'You are a master copywriter who creates headlines that stop people in their tracks.'
+          content: 'You are a master copywriter who creates headlines that stop people in their tracks. CRITICAL: Every headline must have PERFECT spelling and grammar — zero typos allowed. Triple-check every word before outputting. These headlines will be posted publicly.'
         },
         {
           role: 'user',
@@ -371,7 +371,14 @@ Rules:
 - Create content that stops the scroll
 - Think like the best agencies in the world
 - If they want edgy, go edgy. If they want heartfelt, pour emotion into it.
-- No generic corporate speak — every word should hit hard`;
+- No generic corporate speak — every word should hit hard
+
+CRITICAL QUALITY RULES — THESE ARE NON-NEGOTIABLE:
+- PERFECT SPELLING: Triple-check every single word. Zero typos allowed. This content will be posted publicly.
+- PERFECT GRAMMAR: Every sentence must be grammatically flawless. Use proper punctuation, capitalization, and sentence structure.
+- PROOFREAD EVERYTHING: Before outputting, mentally proofread all ad copy, headlines, CTAs, hashtags, video scripts, and voiceover text as if it were going live on TV or a billboard today.
+- PROFESSIONAL QUALITY: This content represents real businesses. One spelling error destroys credibility. Treat every word like it costs $1,000 to fix.
+- NO MADE-UP WORDS: Only use real, correctly-spelled English words. Double-check brand names, industry terms, and technical vocabulary.`;
 
     const copyPrompt = `The user wants this ad created:
 
@@ -493,7 +500,7 @@ Make it look like a premium agency-produced ad image. Ultra high quality, cinema
       return response.data[0]?.url || '';
     }
   }
-  async createSoundDesign(request: { prompt: string; type: string; voiceStyle?: string; duration?: string; industry?: string }): Promise<any> {
+  async createSoundDesign(request: { prompt: string; type: string; voiceStyle?: string; duration?: string; industry?: string; backgroundMusic?: string }): Promise<any> {
     const typeInstructions: Record<string, string> = {
       'voice_ad': `Create a complete voice-over ad with:
 - Full script with pause/tone/emphasis markers
@@ -559,7 +566,13 @@ You create cinematic sound experiences for:
 - Non-profit & community
 - ANY other industry that exists
 
-You understand audio psychology, emotional sound design, brand audio identity, and how to create content that dominates the senses. Every sound decision is intentional and powerful.`;
+You understand audio psychology, emotional sound design, brand audio identity, and how to create content that dominates the senses. Every sound decision is intentional and powerful.
+
+CRITICAL QUALITY RULES — THESE ARE NON-NEGOTIABLE:
+- PERFECT SPELLING: Triple-check every single word in scripts, directions, and production notes. Zero typos allowed.
+- PERFECT GRAMMAR: Every sentence must be grammatically flawless. This content will be recorded by professional voice actors and posted publicly.
+- PROOFREAD EVERYTHING: Before outputting, mentally proofread all scripts, voiceover text, voice directions, and production notes as if they were being recorded live today.
+- PROFESSIONAL QUALITY: One spelling error in a voiceover script means a bad recording. Treat every word like it costs $1,000 to fix.`;
 
     const userPrompt = `Create the following for this request:
 
@@ -569,6 +582,7 @@ Type: ${request.type}
 ${request.voiceStyle ? `Voice Style: ${request.voiceStyle}` : ''}
 ${request.duration ? `Target Duration: ${request.duration}` : ''}
 ${request.industry ? `Industry: ${request.industry}` : ''}
+${request.backgroundMusic ? `Background Music/Sound: ${request.backgroundMusic.replace(/-/g, ' ')} — incorporate this specific music style or sound into the design` : ''}
 
 ${typeInstructions[request.type] || typeInstructions['voice_ad']}
 
