@@ -17,7 +17,7 @@ import {
   XCircle, RefreshCw, Plus, ChevronRight, Target, Zap,
   Trash2, Edit, Save, Calculator, ClipboardList, Receipt,
   UserPlus, Settings, ChevronDown, ChevronUp, Printer,
-  Building2, Navigation
+  Building2, Navigation, Briefcase
 } from "lucide-react";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow
@@ -35,6 +35,7 @@ import LeanerHangerTrackerComponent, { type LeanerHangerEntry } from "@/componen
 import AIVerificationEngineComponent from "@/components/fema/AIVerificationEngine";
 import SubcontractorRiskComponent, { type SubcontractorProfile } from "@/components/fema/SubcontractorRisk";
 import PhotoUploadComponent, { type UploadedPhoto } from "@/components/fema/PhotoUpload";
+import JobTrackerComponent, { type JobEntry } from "@/components/fema/JobTracker";
 
 interface LaborRate {
   id: string;
@@ -1448,10 +1449,12 @@ export default function FemaAuditDashboard() {
   const [leanerHangerEntries, setLeanerHangerEntries] = useState<LeanerHangerEntry[]>([]);
   const [subcontractors, setSubcontractors] = useState<SubcontractorProfile[]>([]);
   const [workPhotos, setWorkPhotos] = useState<UploadedPhoto[]>([]);
+  const [jobEntries, setJobEntries] = useState<JobEntry[]>([]);
 
   const NAV_SECTIONS = [
     { id: 'contract', label: 'Contract Setup', icon: Building2, group: 'Setup' },
     { id: 'rate-sheet', label: 'Rate Sheet', icon: DollarSign, group: 'Setup' },
+    { id: 'job-tracker', label: 'Job Tracker', icon: Briefcase, group: 'Jobs' },
     { id: 'roster', label: 'Roster', icon: Users, group: 'Labor' },
     { id: 'signin', label: 'Sign-In/Out', icon: UserPlus, group: 'Labor' },
     { id: 'timesheet', label: 'Timesheet', icon: ClipboardList, group: 'Labor' },
@@ -1523,6 +1526,13 @@ export default function FemaAuditDashboard() {
             <RateSheetTab
               laborRates={laborRates} setLaborRates={setLaborRates}
               equipmentRates={equipmentRates} setEquipmentRates={setEquipmentRates}
+            />
+          )}
+          {activeTab === 'job-tracker' && (
+            <JobTrackerComponent
+              jobs={jobEntries} setJobs={setJobEntries}
+              laborRates={laborRates} equipmentRates={equipmentRates}
+              setLaborRates={setLaborRates} setEquipmentRates={setEquipmentRates}
             />
           )}
           {activeTab === 'roster' && (
