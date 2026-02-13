@@ -120,9 +120,13 @@ export default function ContentForge() {
     onSuccess: (data) => {
       if (data.success && data.result) {
         setAdResult(data.result);
-        setGeneratedAds(prev => [data.result, ...prev]);
-        playRachelVoice("Your ad is ready! I created compelling copy, headlines, hashtags, and a custom image. Take a look and let me know if you want to tweak anything.");
-        toast({ title: "Ad Created!", description: "Your AI-generated ad is ready to use." });
+        setGeneratedAds(prev => {
+          const exists = prev.some(a => a.adCopy === data.result.adCopy);
+          if (!exists) return [data.result, ...prev];
+          return prev;
+        });
+        playRachelVoice("Your ad is ready! I created compelling copy, headlines, hashtags, and a custom image. You can save it, download it, share it, or copy everything with one click.");
+        toast({ title: "Ad Created!", description: "Your AI-generated ad is ready. Save it, download it, or share it!" });
       }
     },
     onError: (error: any) => {
@@ -559,29 +563,95 @@ export default function ContentForge() {
                       </Card>
                     )}
 
-                    <div className="flex gap-3">
-                      <Button
-                        variant="outline"
-                        onClick={() => {
-                          setAdResult(null);
-                          setPrompt('');
-                        }}
-                        className="flex-1"
-                      >
-                        <RefreshCw className="w-4 h-4 mr-2" />
-                        Create Another
-                      </Button>
-                      <Button
-                        className="flex-1 bg-gradient-to-r from-pink-600 to-purple-600"
-                        onClick={() => {
-                          const all = `${adResult.headlines?.join('\n')}\n\n${adResult.adCopy}\n\n${adResult.callToAction}\n\n${adResult.hashtags?.join(' ')}`;
-                          copyToClipboard(all, 'Everything');
-                        }}
-                      >
-                        <Copy className="w-4 h-4 mr-2" />
-                        Copy Everything
-                      </Button>
-                    </div>
+                    <Card className="border-2 border-green-200 dark:border-green-800 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20">
+                      <CardContent className="py-5">
+                        <h3 className="font-bold text-base text-slate-800 dark:text-white mb-3 flex items-center gap-2">
+                          <Check className="w-5 h-5 text-green-600" />
+                          Your Ad Is Ready!
+                        </h3>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                          <Button
+                            variant="outline"
+                            className="flex flex-col items-center gap-1 h-auto py-3 border-green-300 dark:border-green-700 hover:bg-green-100 dark:hover:bg-green-900/30"
+                            onClick={() => {
+                              setGeneratedAds(prev => {
+                                const exists = prev.some(a => a.adCopy === adResult.adCopy);
+                                if (!exists) return [adResult, ...prev];
+                                return prev;
+                              });
+                              toast({ title: "Saved!", description: "Ad saved to My Ads gallery" });
+                            }}
+                          >
+                            <Heart className="w-5 h-5 text-pink-500" />
+                            <span className="text-xs">Save for Later</span>
+                          </Button>
+                          <Button
+                            variant="outline"
+                            className="flex flex-col items-center gap-1 h-auto py-3 border-blue-300 dark:border-blue-700 hover:bg-blue-100 dark:hover:bg-blue-900/30"
+                            onClick={() => {
+                              const all = `${adResult.headlines?.join('\n')}\n\n${adResult.adCopy}\n\n${adResult.callToAction}\n\n${adResult.hashtags?.join(' ')}`;
+                              copyToClipboard(all, 'Everything');
+                            }}
+                          >
+                            <Copy className="w-5 h-5 text-blue-500" />
+                            <span className="text-xs">Copy All</span>
+                          </Button>
+                          <Button
+                            variant="outline"
+                            className="flex flex-col items-center gap-1 h-auto py-3 border-purple-300 dark:border-purple-700 hover:bg-purple-100 dark:hover:bg-purple-900/30"
+                            onClick={() => {
+                              const content = `📢 ${adResult.headlines?.[0] || ''}\n\n${adResult.adCopy}\n\n👉 ${adResult.callToAction}\n\n${adResult.hashtags?.join(' ')}`;
+                              const blob = new Blob([content], { type: 'text/plain' });
+                              const url = URL.createObjectURL(blob);
+                              const a = document.createElement('a');
+                              a.href = url;
+                              a.download = `ad-${Date.now()}.txt`;
+                              a.click();
+                              URL.revokeObjectURL(url);
+                              if (adResult.imageUrl) {
+                                const imgLink = document.createElement('a');
+                                imgLink.href = adResult.imageUrl;
+                                imgLink.download = `ad-image-${Date.now()}.png`;
+                                imgLink.target = '_blank';
+                                imgLink.click();
+                              }
+                              toast({ title: "Downloaded!", description: "Ad content and image saved to your device" });
+                            }}
+                          >
+                            <Download className="w-5 h-5 text-purple-500" />
+                            <span className="text-xs">Download</span>
+                          </Button>
+                          <Button
+                            variant="outline"
+                            className="flex flex-col items-center gap-1 h-auto py-3 border-green-300 dark:border-green-700 hover:bg-green-100 dark:hover:bg-green-900/30"
+                            onClick={() => {
+                              const text = `${adResult.headlines?.[0] || ''}\n\n${adResult.adCopy}\n\n${adResult.callToAction}`;
+                              if (navigator.share) {
+                                navigator.share({ title: adResult.headlines?.[0] || 'My Ad', text }).catch(() => {});
+                              } else {
+                                copyToClipboard(text, 'Ad for sharing');
+                                toast({ title: "Copied!", description: "Ad copied - paste it anywhere to share" });
+                              }
+                            }}
+                          >
+                            <Share2 className="w-5 h-5 text-green-500" />
+                            <span className="text-xs">Share / Post</span>
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setAdResult(null);
+                        setPrompt('');
+                      }}
+                      className="w-full"
+                    >
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                      Create Another Ad
+                    </Button>
                   </div>
                 )}
 
@@ -693,18 +763,52 @@ export default function ContentForge() {
               ) : (
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {generatedAds.map((ad, index) => (
-                    <Card key={index} className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer" onClick={() => { setAdResult(ad); setActiveTab('studio'); }}>
+                    <Card key={index} className="overflow-hidden hover:shadow-lg transition-shadow">
                       {ad.imageUrl && (
-                        <img src={ad.imageUrl} alt={`Ad ${index + 1}`} className="w-full h-48 object-cover" />
+                        <img 
+                          src={ad.imageUrl} 
+                          alt={`Ad ${index + 1}`} 
+                          className="w-full h-48 object-cover cursor-pointer" 
+                          onClick={() => { setAdResult(ad); setActiveTab('studio'); }}
+                        />
                       )}
                       <CardContent className="pt-4">
-                        <h3 className="font-bold text-base mb-1 line-clamp-1">{ad.headlines?.[0] || 'AI Generated Ad'}</h3>
-                        <p className="text-sm text-slate-600 dark:text-slate-400 line-clamp-2 mb-2">{ad.adCopy}</p>
-                        <div className="flex flex-wrap gap-1">
+                        <h3 
+                          className="font-bold text-base mb-1 line-clamp-1 cursor-pointer hover:text-pink-600 transition-colors"
+                          onClick={() => { setAdResult(ad); setActiveTab('studio'); }}
+                        >
+                          {ad.headlines?.[0] || 'AI Generated Ad'}
+                        </h3>
+                        <p className="text-sm text-slate-600 dark:text-slate-400 line-clamp-2 mb-3">{ad.adCopy}</p>
+                        <div className="flex flex-wrap gap-1 mb-3">
                           {ad.platforms?.slice(0, 3).map((p, i) => (
                             <Badge key={i} variant="outline" className="text-xs">{p}</Badge>
                           ))}
                           {ad.videoConcept && <Badge className="bg-purple-100 text-purple-700 text-xs">Video</Badge>}
+                        </div>
+                        <div className="flex gap-2 border-t pt-3 border-slate-100 dark:border-slate-800">
+                          <Button size="sm" variant="ghost" className="flex-1 text-xs" onClick={() => { setAdResult(ad); setActiveTab('studio'); }}>
+                            <Eye className="w-3 h-3 mr-1" /> View
+                          </Button>
+                          <Button size="sm" variant="ghost" className="flex-1 text-xs" onClick={() => {
+                            const all = `${ad.headlines?.join('\n')}\n\n${ad.adCopy}\n\n${ad.callToAction}\n\n${ad.hashtags?.join(' ')}`;
+                            copyToClipboard(all, `Ad ${index + 1}`);
+                          }}>
+                            <Copy className="w-3 h-3 mr-1" /> Copy
+                          </Button>
+                          <Button size="sm" variant="ghost" className="flex-1 text-xs" onClick={() => {
+                            const content = `${ad.headlines?.[0] || ''}\n\n${ad.adCopy}\n\n${ad.callToAction}\n\n${ad.hashtags?.join(' ')}`;
+                            const blob = new Blob([content], { type: 'text/plain' });
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `ad-${Date.now()}.txt`;
+                            a.click();
+                            URL.revokeObjectURL(url);
+                            toast({ title: "Downloaded!" });
+                          }}>
+                            <Download className="w-3 h-3 mr-1" /> Save
+                          </Button>
                         </div>
                       </CardContent>
                     </Card>
