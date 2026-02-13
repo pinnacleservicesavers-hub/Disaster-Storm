@@ -152,7 +152,7 @@ export default function LandingPage() {
                     </div>
                   </Link>
 
-                  <Link to="/workhub/contractor" className="block">
+                  <Link to="/workhub" className="block">
                     <div className="bg-purple-900/40 border border-purple-500/30 rounded-lg p-4 hover:border-purple-400/50 transition-all group/card">
                       <div className="flex items-center gap-3 mb-2">
                         <Sparkles className="w-6 h-6 text-purple-400" />
@@ -178,9 +178,9 @@ export default function LandingPage() {
                   </p>
                 </div>
 
-                <Link to="/workhub/contractor">
+                <Link to="/workhub">
                   <Button className="w-full bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white font-bold py-6 text-lg" data-testid="button-contractor-entry">
-                    Contractor Dashboard
+                    WorkHub
                     <ArrowRight className="ml-2 w-5 h-5" />
                   </Button>
                 </Link>

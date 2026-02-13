@@ -90,7 +90,7 @@ export default function TopNav() {
                     Disaster Direct
                   </Link>
                   <Link 
-                    to="/workhub/contractor" 
+                    to="/workhub" 
                     className="px-3 py-1.5 rounded-md bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 transition-colors font-medium"
                     data-testid="nav-workhub"
                   >
