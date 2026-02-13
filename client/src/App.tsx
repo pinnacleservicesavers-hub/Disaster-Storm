@@ -287,7 +287,7 @@ export default function App() {
           <Route path="/workhub" element={<ProtectedRoute><WorkHubMarketplace /></ProtectedRoute>} />
           {/* Customer portal is public - no login required for customers to submit requests */}
           <Route path="/workhub/customer" element={<WorkHubCustomerPortal />} />
-          <Route path="/workhub/contractor" element={<ProtectedRoute><WorkHubContractorDashboard /></ProtectedRoute>} />
+          <Route path="/workhub/contractor" element={<Navigate to="/workhub" replace />} />
           <Route path="/workhub/scopesnap" element={<ProtectedRoute><WorkHubScopeSnap /></ProtectedRoute>} />
           <Route path="/workhub/pricewhisperer" element={<ProtectedRoute><WorkHubPriceWhisperer /></ProtectedRoute>} />
           <Route path="/workhub/contractormatch" element={<ProtectedRoute><WorkHubContractorMatch /></ProtectedRoute>} />
