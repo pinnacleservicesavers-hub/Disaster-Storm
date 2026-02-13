@@ -684,6 +684,34 @@ function TimesheetTab({ timesheets, setTimesheets, roster, laborRates }: {
   const updateWorkerName = (entryIdx: number, workerId: string) => {
     const member = roster.find(m => m.id === workerId);
     if (!member) return;
+
+    const currentTs = timesheets[selectedTimesheetIdx];
+
+    const duplicateInSameSheet = currentTs.entries.find(
+      (e, i) => i !== entryIdx && e.workerId === workerId
+    );
+    if (duplicateInSameSheet) {
+      toast({
+        title: "Duplicate Entry Blocked",
+        description: `${member.fullName} is already on this timesheet. Each person can only appear once per timesheet.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const conflictSheet = timesheets.find(
+      (ts, i) => i !== selectedTimesheetIdx &&
+        ts.weekEnding === currentTs.weekEnding &&
+        ts.entries.some(e => e.workerId === workerId)
+    );
+    if (conflictSheet) {
+      toast({
+        title: "Cross-Contract Conflict Detected",
+        description: `${member.fullName} is already assigned to ${conflictSheet.crewName} for the same week (ending ${conflictSheet.weekEnding}). This has been flagged for review.`,
+        variant: "destructive",
+      });
+    }
+
     const updated = [...timesheets];
     const ts = { ...updated[selectedTimesheetIdx] };
     const entries = [...ts.entries];
@@ -711,6 +739,16 @@ function TimesheetTab({ timesheets, setTimesheets, roster, laborRates }: {
     updated[selectedTimesheetIdx] = ts;
     setTimesheets(updated);
   };
+
+  const getWorkerConflicts = useCallback((workerId: string): string | null => {
+    if (!workerId || !currentTimesheet) return null;
+    const conflict = timesheets.find(
+      (ts, i) => i !== selectedTimesheetIdx &&
+        ts.weekEnding === currentTimesheet.weekEnding &&
+        ts.entries.some(e => e.workerId === workerId)
+    );
+    return conflict ? conflict.crewName : null;
+  }, [timesheets, selectedTimesheetIdx, currentTimesheet]);
 
   const grandTotals = useMemo(() => {
     if (!currentTimesheet) return { totalST: 0, totalOT: 0, totalDT: 0, totalHrs: 0, totalCost: 0 };
@@ -863,22 +901,31 @@ function TimesheetTab({ timesheets, setTimesheets, roster, laborRates }: {
                   {currentTimesheet.entries.map((entry, entryIdx) => {
                     const totals = calculateWorkerTotal(entry);
                     const rate = getRateForClassification(entry.classification);
+                    const conflictCrew = getWorkerConflicts(entry.workerId);
                     return (
-                      <TableRow key={entryIdx} className="hover:bg-slate-800/30">
+                      <TableRow key={entryIdx} className={`hover:bg-slate-800/30 ${conflictCrew ? 'bg-red-500/10 border-l-2 border-l-red-500' : ''}`}>
                         <TableCell className="sticky left-0 bg-slate-900/95 z-10">
-                          <Select value={entry.workerId} onValueChange={(v) => updateWorkerName(entryIdx, v)}>
-                            <SelectTrigger className="h-8 text-xs">
-                              <SelectValue placeholder="Select person">{entry.workerName || 'Select person'}</SelectValue>
-                            </SelectTrigger>
-                            <SelectContent>
-                              {crewMembers.map(m => (
-                                <SelectItem key={m.id} value={m.id}>{m.fullName}</SelectItem>
-                              ))}
-                              {roster.filter(m => m.crew !== currentTimesheet.crewName).map(m => (
-                                <SelectItem key={m.id} value={m.id}>{m.fullName} ({m.crew})</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          <div className="space-y-1">
+                            <Select value={entry.workerId} onValueChange={(v) => updateWorkerName(entryIdx, v)}>
+                              <SelectTrigger className="h-8 text-xs">
+                                <SelectValue placeholder="Select person">{entry.workerName || 'Select person'}</SelectValue>
+                              </SelectTrigger>
+                              <SelectContent>
+                                {crewMembers.map(m => (
+                                  <SelectItem key={m.id} value={m.id}>{m.fullName}</SelectItem>
+                                ))}
+                                {roster.filter(m => m.crew !== currentTimesheet.crewName).map(m => (
+                                  <SelectItem key={m.id} value={m.id}>{m.fullName} ({m.crew})</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            {conflictCrew && (
+                              <div className="flex items-center gap-1 text-[10px] text-red-400 font-medium">
+                                <AlertTriangle className="h-3 w-3" />
+                                Also on {conflictCrew}
+                              </div>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell>
                           <Select value={entry.classification} onValueChange={(v) => updateClassification(entryIdx, v)}>
