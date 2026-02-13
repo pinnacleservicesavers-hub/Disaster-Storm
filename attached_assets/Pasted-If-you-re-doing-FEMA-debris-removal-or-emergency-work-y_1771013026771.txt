@@ -1,0 +1,245 @@
+If you’re doing FEMA debris removal or emergency work, your paperwork has to be clean, organized, and audit-ready. FEMA is strict — especially under the:
+
+Federal Emergency Management Agency
+
+Stafford Act
+
+2 CFR Part 200 (Uniform Guidance)
+
+Below is a complete list of FEMA-style forms typically required for debris removal, emergency protective measures, and storm response contracts.
+
+✅ 1. FEMA TIMESHEET (Daily Force Account Labor Record)
+What FEMA Requires:
+
+Employee Name
+
+Job Title / Classification
+
+Regular Hours
+
+Overtime Hours
+
+Fringe Benefit Rate
+
+Pay Rate (Base + OT)
+
+Total Daily Cost
+
+Work Location
+
+Description of Work Performed
+
+Supervisor Signature
+
+Employee Signature
+
+Date
+
+Must Include:
+
+✔ Breakout of regular vs overtime
+✔ Equipment used (if operator)
+✔ FEMA Project Worksheet (PW) Number
+✔ Incident Number
+
+✅ 2. EQUIPMENT TIMESHEET (Force Account Equipment Record)
+
+For every piece of equipment used.
+
+Required Fields:
+
+Equipment ID #
+
+Equipment Type
+
+FEMA Equipment Code (if applicable)
+
+Operator Name
+
+Start Time / End Time
+
+Hours Used
+
+Standby vs Operating
+
+Location
+
+PW Number
+
+Supervisor Signature
+
+FEMA often compares this against the official FEMA Equipment Rate Schedule.
+
+✅ 3. DAILY CREW ROSTER
+
+Used for debris monitoring & accountability.
+
+Must Show:
+
+Crew Leader
+
+All Crew Members
+
+Badge ID #
+
+Company Name
+
+Equipment Assigned
+
+GPS Location
+
+Type of Work (Debris Removal, Leaner/Hanger, ROW Clearing)
+
+Start / Stop Time
+
+This helps validate labor charged.
+
+✅ 4. CONTRACTOR DAILY REPORT (CDR)
+
+This is HUGE in FEMA work.
+
+Includes:
+
+Contract Number
+
+Monitoring Firm Name
+
+Debris Type
+
+Truck Numbers
+
+Load Tickets Issued
+
+Dump Site Used
+
+Cubic Yards Hauled
+
+Weather Conditions
+
+Safety Incidents
+
+Photos
+
+✅ 5. LOAD TICKET (Debris Removal Work)
+
+Every debris load MUST have:
+
+Unique Load Ticket Number
+
+Truck ID #
+
+Debris Type (C&D, Veg, Mixed, White Goods)
+
+Pick-up Location
+
+Dump Site
+
+Cubic Yard Measurement
+
+Monitor Signature
+
+Driver Signature
+
+These are audited heavily.
+
+✅ 6. PROJECT WORKSHEET (PW)
+
+Created in FEMA’s system:
+
+Damage Description
+
+Scope of Work
+
+Cost Estimate
+
+Contract Type
+
+Incident Period
+
+This ties everything together.
+
+✅ 7. FRINGE BENEFIT CALCULATION SHEET
+
+You must show:
+
+Payroll Tax %
+
+Workers Comp %
+
+Health Insurance
+
+Retirement
+
+Total Fringe %
+
+FEMA will NOT just accept “fully burdened rate” without breakdown.
+
+✅ 8. DAILY INSPECTION FORMS
+
+Equipment Safety Inspection
+
+PPE Checklist
+
+JHA (Job Hazard Analysis)
+
+Tailboard Safety Meeting Form
+
+Incident Report Form
+
+OSHA compliance ties into reimbursement.
+
+✅ 9. SUBCONTRACTOR DOCUMENTATION
+
+If using subs:
+
+Signed Subcontract
+
+Insurance Certs
+
+W9
+
+E-Verify Compliance
+
+Rate Sheet
+
+Proof of Payment
+
+✅ 10. TRAVEL & PER DIEM LOG
+
+If claiming:
+
+Lodging receipts
+
+Per diem rate
+
+Travel mileage log
+
+Fuel receipts
+
+📌 Most Important FEMA Audit Rules
+
+If it’s not documented, it didn’t happen.
+
+Signatures matter.
+
+Time must match equipment.
+
+Equipment must match crew.
+
+Load tickets must match cubic yards billed.
+
+Pay must match payroll records.
+
+⚠️ Common FEMA Audit Triggers
+
+Rounded hours (always 10 hrs every day)
+
+Missing supervisor signatures
+
+No GPS proof
+
+No fringe breakdown
+
+Subcontractor markups without contract language
+
+Inconsistent truck yardage
