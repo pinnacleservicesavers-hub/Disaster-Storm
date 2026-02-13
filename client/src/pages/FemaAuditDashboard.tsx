@@ -1,11 +1,8 @@
 import { useState, useMemo, useCallback } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { queryClient, apiRequest } from "@/lib/queryClient";
 import { ModuleWrapper } from "@/components/ModuleWrapper";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,11 +16,21 @@ import {
   FileText, Camera, Satellite, Brain, Activity, DollarSign,
   XCircle, RefreshCw, Plus, ChevronRight, Target, Zap,
   Trash2, Edit, Save, Calculator, ClipboardList, Receipt,
-  UserPlus, Settings, ChevronDown, ChevronUp, Printer
+  UserPlus, Settings, ChevronDown, ChevronUp, Printer,
+  Building2, Navigation
 } from "lucide-react";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow
 } from "@/components/ui/table";
+import ContractSetupComponent, { type ContractInfo } from "@/components/fema/ContractSetup";
+import LoadTicketsComponent, { type LoadTicket } from "@/components/fema/LoadTickets";
+import EquipmentLogComponent, { type EquipmentLogEntry } from "@/components/fema/EquipmentLog";
+import DailySignInComponent, { type SignInRecord } from "@/components/fema/DailySignIn";
+import MonitorLogComponent, { type MonitorLogEntry } from "@/components/fema/MonitorLog";
+import DailyActivityComponent, { type DailyActivity } from "@/components/fema/DailyActivityReport";
+import GPSTrackingComponent from "@/components/fema/GPSTracking";
+import TruckCertComponent, { type TruckCert } from "@/components/fema/TruckCertification";
+import ComplianceDashboardComponent from "@/components/fema/ComplianceDashboard";
 
 interface LaborRate {
   id: string;
@@ -1400,7 +1407,7 @@ function OverviewTab() {
 
 export default function FemaAuditDashboard() {
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState("rate-sheet");
+  const [activeTab, setActiveTab] = useState("contract");
   const [laborRates, setLaborRates] = useState<LaborRate[]>(DEFAULT_LABOR_RATES);
   const [equipmentRates, setEquipmentRates] = useState<EquipmentRate[]>(DEFAULT_EQUIPMENT_RATES);
   const [roster, setRoster] = useState<RosterMember[]>([
@@ -1418,17 +1425,50 @@ export default function FemaAuditDashboard() {
     { id: '12', fullName: 'Johnny Williams', classification: 'Trimmer A', phone: '706-786-7992', email: '', crew: 'Crew 4', stateId: '', crewNumber: '4', mobilizedDate: '2026-01-25', startWorkDate: '2026-01-26', company: 'Strategic Land Management', equipmentAssigned: '', lastDayOnJob: '' },
   ]);
   const [timesheets, setTimesheets] = useState<TimesheetWeek[]>([]);
+  const [contractInfo, setContractInfo] = useState<ContractInfo>({
+    primeContractor: '', subContractor: 'Strategic Land Management', contractNumber: '',
+    taskOrder: '', femaDisasterNumber: '', femaRegion: '', projectWorksheetNumber: '',
+    incidentNumber: '', incidentType: '', declarationDate: '', declarationTitle: '',
+    stateOfEmergency: '', county: '', workLocation: '', scopeOfWork: '',
+    contractStartDate: '', contractEndDate: '', mobilizationDate: '', demobilizationDate: '',
+    projectManager: '', projectManagerPhone: '', femaMonitor: '', femaMonitorPhone: '',
+    osrRepresentative: '', osrPhone: '', applicantName: '', applicantPOC: '', applicantPhone: '',
+  });
+  const [loadTickets, setLoadTickets] = useState<LoadTicket[]>([]);
+  const [equipmentLogEntries, setEquipmentLogEntries] = useState<EquipmentLogEntry[]>([]);
+  const [signInRecords, setSignInRecords] = useState<SignInRecord[]>([]);
+  const [monitorEntries, setMonitorEntries] = useState<MonitorLogEntry[]>([]);
+  const [dailyActivities, setDailyActivities] = useState<DailyActivity[]>([]);
+  const [truckCerts, setTruckCerts] = useState<TruckCert[]>([]);
+
+  const NAV_SECTIONS = [
+    { id: 'contract', label: 'Contract Setup', icon: Building2, group: 'Setup' },
+    { id: 'rate-sheet', label: 'Rate Sheet', icon: DollarSign, group: 'Setup' },
+    { id: 'roster', label: 'Roster', icon: Users, group: 'Labor' },
+    { id: 'signin', label: 'Sign-In/Out', icon: UserPlus, group: 'Labor' },
+    { id: 'timesheet', label: 'Timesheet', icon: ClipboardList, group: 'Labor' },
+    { id: 'activity', label: 'Daily Activity', icon: FileText, group: 'Field' },
+    { id: 'equipment-log', label: 'Equipment Log', icon: Wrench, group: 'Field' },
+    { id: 'load-tickets', label: 'Load Tickets', icon: Truck, group: 'Debris' },
+    { id: 'truck-cert', label: 'Truck Cert', icon: Truck, group: 'Debris' },
+    { id: 'monitor', label: 'Monitor Log', icon: Eye, group: 'Oversight' },
+    { id: 'gps', label: 'GPS Tracking', icon: Navigation, group: 'GPS' },
+    { id: 'invoice', label: 'Invoice', icon: Receipt, group: 'Billing' },
+    { id: 'compliance', label: 'Compliance', icon: Shield, group: 'Audit' },
+  ];
+
+  const groups = [...new Set(NAV_SECTIONS.map(s => s.group))];
 
   return (
     <ModuleWrapper moduleId="fema-audit">
-      <div className="container mx-auto px-4 py-8 space-y-6">
+      <div className="container mx-auto px-4 py-6 space-y-4">
         <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2 text-white">
               <Shield className="h-7 w-7 text-blue-500" />
-              Compliance & Audit Center
+              FEMA Compliance & Audit Center
             </h1>
-            <p className="text-slate-400">Rate sheets, rosters, timesheets, invoices, fraud detection & compliance</p>
+            <p className="text-slate-400">Complete FEMA-ready documentation for Prime Contractors (AshBritt, Ceres, DRC, CrowderGulf, OSR)</p>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" size="sm">
@@ -1442,56 +1482,92 @@ export default function FemaAuditDashboard() {
           </div>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid grid-cols-5 w-full max-w-3xl">
-            <TabsTrigger value="rate-sheet" className="flex items-center gap-1.5">
-              <DollarSign className="h-4 w-4" />
-              <span className="hidden sm:inline">Rate Sheet</span>
-            </TabsTrigger>
-            <TabsTrigger value="roster" className="flex items-center gap-1.5">
-              <Users className="h-4 w-4" />
-              <span className="hidden sm:inline">Roster</span>
-            </TabsTrigger>
-            <TabsTrigger value="timesheet" className="flex items-center gap-1.5">
-              <ClipboardList className="h-4 w-4" />
-              <span className="hidden sm:inline">Timesheet</span>
-            </TabsTrigger>
-            <TabsTrigger value="invoice" className="flex items-center gap-1.5">
-              <Receipt className="h-4 w-4" />
-              <span className="hidden sm:inline">Invoice</span>
-            </TabsTrigger>
-            <TabsTrigger value="overview" className="flex items-center gap-1.5">
-              <Shield className="h-4 w-4" />
-              <span className="hidden sm:inline">Compliance</span>
-            </TabsTrigger>
-          </TabsList>
+        <div className="flex gap-1.5 flex-wrap border-b border-slate-700 pb-3">
+          {groups.map(group => (
+            <div key={group} className="flex items-center gap-0.5">
+              <span className="text-[10px] text-slate-500 uppercase tracking-wide mr-1 hidden md:inline">{group}</span>
+              {NAV_SECTIONS.filter(s => s.group === group).map(section => (
+                <Button
+                  key={section.id}
+                  size="sm"
+                  variant={activeTab === section.id ? "default" : "ghost"}
+                  className={`h-8 text-xs px-2.5 ${activeTab === section.id ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                  onClick={() => setActiveTab(section.id)}
+                >
+                  <section.icon className="h-3.5 w-3.5 mr-1" />
+                  <span className="hidden lg:inline">{section.label}</span>
+                </Button>
+              ))}
+              {group !== groups[groups.length - 1] && <div className="w-px h-6 bg-slate-700 mx-1 hidden md:block" />}
+            </div>
+          ))}
+        </div>
 
-          <TabsContent value="rate-sheet" className="mt-6">
+        <div className="mt-4">
+          {activeTab === 'contract' && (
+            <ContractSetupComponent contractInfo={contractInfo} setContractInfo={setContractInfo} />
+          )}
+          {activeTab === 'rate-sheet' && (
             <RateSheetTab
               laborRates={laborRates} setLaborRates={setLaborRates}
               equipmentRates={equipmentRates} setEquipmentRates={setEquipmentRates}
             />
-          </TabsContent>
-
-          <TabsContent value="roster" className="mt-6">
+          )}
+          {activeTab === 'roster' && (
             <RosterTab roster={roster} setRoster={setRoster} laborRates={laborRates} />
-          </TabsContent>
-
-          <TabsContent value="timesheet" className="mt-6">
+          )}
+          {activeTab === 'signin' && (
+            <DailySignInComponent records={signInRecords} setRecords={setSignInRecords} roster={roster} />
+          )}
+          {activeTab === 'timesheet' && (
             <TimesheetTab
               timesheets={timesheets} setTimesheets={setTimesheets}
               roster={roster} laborRates={laborRates}
             />
-          </TabsContent>
-
-          <TabsContent value="invoice" className="mt-6">
+          )}
+          {activeTab === 'activity' && (
+            <DailyActivityComponent activities={dailyActivities} setActivities={setDailyActivities}
+              contractPW={contractInfo.projectWorksheetNumber} contractIncident={contractInfo.incidentNumber} />
+          )}
+          {activeTab === 'equipment-log' && (
+            <EquipmentLogComponent entries={equipmentLogEntries} setEntries={setEquipmentLogEntries}
+              equipmentRates={equipmentRates} contractPW={contractInfo.projectWorksheetNumber} contractIncident={contractInfo.incidentNumber} />
+          )}
+          {activeTab === 'load-tickets' && (
+            <LoadTicketsComponent loadTickets={loadTickets} setLoadTickets={setLoadTickets}
+              contractPW={contractInfo.projectWorksheetNumber} contractIncident={contractInfo.incidentNumber} />
+          )}
+          {activeTab === 'truck-cert' && (
+            <TruckCertComponent certs={truckCerts} setCerts={setTruckCerts} />
+          )}
+          {activeTab === 'monitor' && (
+            <MonitorLogComponent entries={monitorEntries} setEntries={setMonitorEntries}
+              contractPW={contractInfo.projectWorksheetNumber} />
+          )}
+          {activeTab === 'gps' && (
+            <GPSTrackingComponent />
+          )}
+          {activeTab === 'invoice' && (
             <InvoiceTab timesheets={timesheets} laborRates={laborRates} equipmentRates={equipmentRates} />
-          </TabsContent>
-
-          <TabsContent value="overview" className="mt-6">
-            <OverviewTab />
-          </TabsContent>
-        </Tabs>
+          )}
+          {activeTab === 'compliance' && (
+            <ComplianceDashboardComponent
+              hasContract={!!(contractInfo.projectWorksheetNumber && contractInfo.femaDisasterNumber)}
+              rosterCount={roster.length}
+              timesheetCount={timesheets.length}
+              loadTicketCount={loadTickets.length}
+              equipmentLogCount={equipmentLogEntries.length}
+              signInCount={signInRecords.length}
+              monitorVisitCount={monitorEntries.length}
+              activityReportCount={dailyActivities.length}
+              truckCertCount={truckCerts.length}
+              geofenceCount={4}
+              gpsActiveCount={6}
+              impossibleTravelFlags={1}
+              duplicateFlags={0}
+            />
+          )}
+        </div>
       </div>
     </ModuleWrapper>
   );
