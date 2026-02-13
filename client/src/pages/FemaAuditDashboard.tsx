@@ -60,6 +60,9 @@ interface TimesheetEntry {
   workerId: string;
   workerName: string;
   classification: string;
+  isDuplicate: boolean;
+  duplicateNote: string;
+  duplicateSource: string;
   days: {
     [key: string]: { start: string; stop: string; stHrs: number; otHrs: number; dtHrs: number };
   };
@@ -628,6 +631,15 @@ function TimesheetTab({ timesheets, setTimesheets, roster, laborRates }: {
   const [newTs, setNewTs] = useState({
     crewName: 'Crew 1', weekEnding: '', stormEvent: '', contractorCompany: '', foremanName: ''
   });
+  const [duplicateOverride, setDuplicateOverride] = useState<{
+    show: boolean;
+    entryIdx: number;
+    workerId: string;
+    workerName: string;
+    conflictType: 'same-sheet' | 'cross-contract';
+    conflictCrew: string;
+    explanation: string;
+  }>({ show: false, entryIdx: -1, workerId: '', workerName: '', conflictType: 'same-sheet', conflictCrew: '', explanation: '' });
 
   const getRateForClassification = useCallback((classification: string) => {
     return laborRates.find(r => r.classification === classification) || null;
@@ -681,6 +693,22 @@ function TimesheetTab({ timesheets, setTimesheets, roster, laborRates }: {
     setTimesheets(updated);
   };
 
+  const applyWorkerAssignment = (entryIdx: number, workerId: string, isDuplicate: boolean, duplicateNote: string, duplicateSource: string) => {
+    const member = roster.find(m => m.id === workerId);
+    if (!member) return;
+    const updated = [...timesheets];
+    const ts = { ...updated[selectedTimesheetIdx] };
+    const entries = [...ts.entries];
+    entries[entryIdx] = {
+      ...entries[entryIdx],
+      workerId, workerName: member.fullName, classification: member.classification,
+      isDuplicate, duplicateNote, duplicateSource
+    };
+    ts.entries = entries;
+    updated[selectedTimesheetIdx] = ts;
+    setTimesheets(updated);
+  };
+
   const updateWorkerName = (entryIdx: number, workerId: string) => {
     const member = roster.find(m => m.id === workerId);
     if (!member) return;
@@ -691,10 +719,9 @@ function TimesheetTab({ timesheets, setTimesheets, roster, laborRates }: {
       (e, i) => i !== entryIdx && e.workerId === workerId
     );
     if (duplicateInSameSheet) {
-      toast({
-        title: "Duplicate Entry Blocked",
-        description: `${member.fullName} is already on this timesheet. Each person can only appear once per timesheet.`,
-        variant: "destructive",
+      setDuplicateOverride({
+        show: true, entryIdx, workerId, workerName: member.fullName,
+        conflictType: 'same-sheet', conflictCrew: currentTs.crewName, explanation: ''
       });
       return;
     }
@@ -705,20 +732,14 @@ function TimesheetTab({ timesheets, setTimesheets, roster, laborRates }: {
         ts.entries.some(e => e.workerId === workerId)
     );
     if (conflictSheet) {
-      toast({
-        title: "Cross-Contract Conflict Detected",
-        description: `${member.fullName} is already assigned to ${conflictSheet.crewName} for the same week (ending ${conflictSheet.weekEnding}). This has been flagged for review.`,
-        variant: "destructive",
+      setDuplicateOverride({
+        show: true, entryIdx, workerId, workerName: member.fullName,
+        conflictType: 'cross-contract', conflictCrew: conflictSheet.crewName, explanation: ''
       });
+      return;
     }
 
-    const updated = [...timesheets];
-    const ts = { ...updated[selectedTimesheetIdx] };
-    const entries = [...ts.entries];
-    entries[entryIdx] = { ...entries[entryIdx], workerId, workerName: member.fullName, classification: member.classification };
-    ts.entries = entries;
-    updated[selectedTimesheetIdx] = ts;
-    setTimesheets(updated);
+    applyWorkerAssignment(entryIdx, workerId, false, '', '');
   };
 
   const addWorkerRow = () => {
@@ -727,7 +748,7 @@ function TimesheetTab({ timesheets, setTimesheets, roster, laborRates }: {
     weekDates.forEach(d => { emptyDays[d] = { start: '', stop: '', stHrs: 0, otHrs: 0, dtHrs: 0 }; });
     const updated = [...timesheets];
     const ts = { ...updated[selectedTimesheetIdx] };
-    ts.entries = [...ts.entries, { workerId: '', workerName: '', classification: '', days: emptyDays }];
+    ts.entries = [...ts.entries, { workerId: '', workerName: '', classification: '', isDuplicate: false, duplicateNote: '', duplicateSource: '', days: emptyDays }];
     updated[selectedTimesheetIdx] = ts;
     setTimesheets(updated);
   };
@@ -770,7 +791,7 @@ function TimesheetTab({ timesheets, setTimesheets, roster, laborRates }: {
     const entries: TimesheetEntry[] = members.map(m => {
       const days: TimesheetEntry['days'] = {};
       dates.forEach(d => { days[d] = { start: '', stop: '', stHrs: 0, otHrs: 0, dtHrs: 0 }; });
-      return { workerId: m.id, workerName: m.fullName, classification: m.classification, days };
+      return { workerId: m.id, workerName: m.fullName, classification: m.classification, isDuplicate: false, duplicateNote: '', duplicateSource: '', days };
     });
     setTimesheets([...timesheets, {
       id: generateId(), crewName: newTs.crewName, weekEnding: newTs.weekEnding,
@@ -902,12 +923,13 @@ function TimesheetTab({ timesheets, setTimesheets, roster, laborRates }: {
                     const totals = calculateWorkerTotal(entry);
                     const rate = getRateForClassification(entry.classification);
                     const conflictCrew = getWorkerConflicts(entry.workerId);
+                    const hasDuplicateFlag = entry.isDuplicate || !!conflictCrew;
                     return (
-                      <TableRow key={entryIdx} className={`hover:bg-slate-800/30 ${conflictCrew ? 'bg-red-500/10 border-l-2 border-l-red-500' : ''}`}>
-                        <TableCell className="sticky left-0 bg-slate-900/95 z-10">
+                      <TableRow key={entryIdx} className={`hover:bg-slate-800/30 ${hasDuplicateFlag ? 'bg-red-500/10 border-l-4 border-l-red-500' : ''}`}>
+                        <TableCell className={`sticky left-0 z-10 ${hasDuplicateFlag ? 'bg-red-950/80' : 'bg-slate-900/95'}`}>
                           <div className="space-y-1">
                             <Select value={entry.workerId} onValueChange={(v) => updateWorkerName(entryIdx, v)}>
-                              <SelectTrigger className="h-8 text-xs">
+                              <SelectTrigger className={`h-8 text-xs ${hasDuplicateFlag ? 'border-red-500/50' : ''}`}>
                                 <SelectValue placeholder="Select person">{entry.workerName || 'Select person'}</SelectValue>
                               </SelectTrigger>
                               <SelectContent>
@@ -919,10 +941,17 @@ function TimesheetTab({ timesheets, setTimesheets, roster, laborRates }: {
                                 ))}
                               </SelectContent>
                             </Select>
-                            {conflictCrew && (
-                              <div className="flex items-center gap-1 text-[10px] text-red-400 font-medium">
-                                <AlertTriangle className="h-3 w-3" />
-                                Also on {conflictCrew}
+                            {hasDuplicateFlag && (
+                              <div className="rounded bg-red-500/20 border border-red-500/30 px-2 py-1">
+                                <div className="flex items-center gap-1 text-[10px] text-red-400 font-bold">
+                                  <AlertTriangle className="h-3 w-3 flex-shrink-0" />
+                                  DUPLICATE — {entry.isDuplicate ? entry.duplicateSource : `Also on ${conflictCrew}`}
+                                </div>
+                                {entry.duplicateNote && (
+                                  <p className="text-[9px] text-red-300/80 mt-0.5 italic">
+                                    Override: {entry.duplicateNote}
+                                  </p>
+                                )}
                               </div>
                             )}
                           </div>
@@ -1038,6 +1067,80 @@ function TimesheetTab({ timesheets, setTimesheets, roster, laborRates }: {
           </CardContent>
         </Card>
       )}
+
+      <Dialog open={duplicateOverride.show} onOpenChange={(open) => {
+        if (!open) setDuplicateOverride({ ...duplicateOverride, show: false });
+      }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-400">
+              <AlertTriangle className="h-5 w-5" />
+              Duplicate Employee Detected
+            </DialogTitle>
+            <DialogDescription>
+              {duplicateOverride.conflictType === 'same-sheet'
+                ? `${duplicateOverride.workerName} is already listed on this timesheet.`
+                : `${duplicateOverride.workerName} is already assigned to ${duplicateOverride.conflictCrew} for the same week.`
+              }
+            </DialogDescription>
+          </DialogHeader>
+          <div className="rounded-lg bg-red-500/10 border border-red-500/30 p-4 space-y-2">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 text-red-400 mt-0.5 flex-shrink-0" />
+              <div className="text-sm">
+                <p className="font-semibold text-red-300">This flag will remain permanently visible</p>
+                <p className="text-red-200/70 text-xs mt-1">
+                  The duplicate indicator will always show in red on this timesheet entry for auditing purposes.
+                  Time can still be entered and calculated normally, but this entry will be flagged for review.
+                </p>
+              </div>
+            </div>
+          </div>
+          <div>
+            <Label className="text-sm font-semibold">Override Explanation (Required)</Label>
+            <p className="text-xs text-muted-foreground mb-2">
+              Explain why this person is being added to multiple timesheets. This note is part of the audit record.
+            </p>
+            <Textarea
+              placeholder="e.g. Worker was reassigned mid-week from Crew 2 to Crew 1 due to staffing shortage. Split time approved by supervisor."
+              value={duplicateOverride.explanation}
+              onChange={(e) => setDuplicateOverride({ ...duplicateOverride, explanation: e.target.value })}
+              rows={3}
+              className="resize-none"
+            />
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" onClick={() => setDuplicateOverride({ ...duplicateOverride, show: false })}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={!duplicateOverride.explanation.trim()}
+              onClick={() => {
+                const source = duplicateOverride.conflictType === 'same-sheet'
+                  ? `Duplicate on ${duplicateOverride.conflictCrew}`
+                  : `Also on ${duplicateOverride.conflictCrew}`;
+                applyWorkerAssignment(
+                  duplicateOverride.entryIdx,
+                  duplicateOverride.workerId,
+                  true,
+                  duplicateOverride.explanation.trim(),
+                  source
+                );
+                toast({
+                  title: "Duplicate Override Applied",
+                  description: `${duplicateOverride.workerName} added with permanent duplicate flag. This entry is flagged for audit review.`,
+                  variant: "destructive",
+                });
+                setDuplicateOverride({ show: false, entryIdx: -1, workerId: '', workerName: '', conflictType: 'same-sheet', conflictCrew: '', explanation: '' });
+              }}
+            >
+              <AlertTriangle className="h-4 w-4 mr-1" />
+              Override & Flag as Duplicate
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

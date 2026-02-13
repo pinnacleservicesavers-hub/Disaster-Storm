@@ -1,0 +1,65 @@
+Here are official FEMA (and FEMA-aligned) links with templates, forms, checklists, and Excel tools you can use to build FEMA-ready timesheets, equipment logs, load tickets, and other documentation for compliance and auditing:
+
+📄 1. FEMA Public Assistance Project Templates & Forms (Direct from FEMA)
+
+👉 Public Assistance Project Templates and Forms – search/download many PA forms (including Force Account Labor Summary, Force Account Equipment Summary, and other standardized templates you can adapt for FEMA compliance) 📥
+https://www.fema.gov/assistance/public/tools-resources/templates-forms
+
+⚠️ Note: not all are Excel, but most are downloadable and can be adapted to Excel or Google Sheets.
+
+📌 Examples of forms listed here:
+
+Force Account Equipment Summary – FEMA Form FF-104-FY-21-141
+
+Force Account Labor Summary – FEMA Form FF-104-FY-21-137
+👉 These can be turned into timesheet and equipment tracking spreadsheets.
+
+📋 2. Public Assistance Forms & Job Aids (Guides + Templates)
+
+👉 Public Assistance Forms & Training page – includes forms and job aids for documenting labor, equipment, load tickets, fringe benefits, and more in FEMA Public Assistance programs:
+https://www.vaemergency.gov/divisions/finance/grants/recovery-grant-programs/public-assistance-resources
+
+On this page you’ll find downloadable tools like:
+
+Activity Report (tracks hours & work performed)
+
+Equipment & Material Log
+
+FEMA Documentation Guide
+
+Fringe Benefit Form
+
+Labor-Backfill Roster
+
+Load Ticket (with instructions and job aid)
+
+Monitor Log
+
+Truck Certification Instructions
+👉 These are typically Word/PDF but easily converted to Excel.
+
+📊 3. State / Template Examples (Excel Tools You Can Use)
+
+👉 FEMA-style disaster log & equipment templates (Excel) – example Excel worksheets used for equipment logs that follow the FEMA documentation style:
+https://www.tnwarn.org/downloads/FEMADisasterLogstemplates.xls
+
+These aren’t official FEMA forms, but they mirror how FEMA wants equipment and labor logged — and they can be dropped directly into your compliance binder.
+
+📑 4. Additional FEMA & Compliance Resources
+
+👉 FEMA NIMS ICS Forms Booklet (PDF) – includes standardized Incident Command forms that help with documentation, time tracking, incident logs, and resource check-in/out that supports FEMA compliance.
+Accessible as a PDF booklet with key incident and resource forms.
+
+🔧 Tips for Using These Templates
+
+✔ Convert to Excel or Google Sheets – Most FEMA forms are PDF/Word. You can copy fields into spreadsheets to manage multiple crews and days.
+✔ Match FEMA Terms – Use the exact field names FEMA uses (e.g., “Incident #”, “Work Location”, “Employee Classification”) to reduce audit questions.
+✔ Tie to Project Worksheet (PW) – All logs should reference the FEMA PW # and Incident #.
+✔ Signatures & Dates – Include spaces for supervisor and employee signatures and dates.
+
+If you’d like, I can generate ready-to-use Excel templates for:
+🗒 Timesheets
+🚜 Equipment logs
+📦 Load tickets (debris hauling)
+📊 Fringe benefit calculators
+🏁 Daily crew sign-in sheets
