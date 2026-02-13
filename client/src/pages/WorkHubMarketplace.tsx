@@ -73,10 +73,30 @@ export default function WorkHubMarketplace() {
     },
   });
 
+  const fullGuidePrompt = `You're Rachel, the voice guide for WorkHub. Give a warm, energetic walkthrough of ALL 15 modules. Keep each module description to 1 sentence. Here's the order:
+
+1. ScopeSnap - Upload photos and AI instantly identifies the job, issues, and what trades you need.
+2. ContractorMatch - AI matches you with verified local contractors based on trade, ratings, and availability.
+3. PriceWhisperer - Get AI-powered fair price estimates with real market comparisons so you never overpay.
+4. CloseBot - Your AI sales agent that calls customers, handles objections, and closes deals for you.
+5. MediaVault - Creative studio for AI video, flyers, ads, brochures, and sound design for any industry.
+6. JobFlow - Your project command center to track every job from estimate to completion.
+7. CalendarSync - AI scheduling that books appointments and prevents conflicts automatically.
+8. Lead Pipeline - Track and manage every lead from first contact to closed deal.
+9. PayStream - In-app invoicing and payments so you get paid faster with one-click checkout.
+10. QuickFinance - Offer customers Pay-in-4 and monthly payment plans to close more deals.
+11. ReviewRocket - Automatically collect reviews on Google and Facebook, with AI responses.
+12. ContentForge - AI creates social media posts, ads, and marketing content from your job photos.
+13. FairnessScore - AI trust scores based on pricing accuracy, reliability, and customer satisfaction.
+14. JobSnap - Capture timestamped, GPS-tagged before, during, and after photos organized by project.
+15. FEMA Audit - Enterprise compliance with AI field verification, fraud detection, and one-click audit export.
+
+End with something encouraging like "Click any module to get started. I'm here if you need help!"`;
+
   useEffect(() => {
     if (!hasPlayedWelcome.current && voiceEnabledRef.current) {
       hasPlayedWelcome.current = true;
-      voiceMutation.mutate("Give a 1-sentence welcome to WorkHub. You're Rachel. This is the command center with all their business tools — AI vision, creative studio, sales agent, payments, and more. Keep it short and energetic.");
+      voiceMutation.mutate(fullGuidePrompt);
     }
   }, []);
 
@@ -120,6 +140,24 @@ export default function WorkHubMarketplace() {
               <p className="text-purple-200 text-lg">Your complete AI-powered business command center — every tool in one place</p>
             </div>
             <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setIsVoiceEnabled(true);
+                  voiceEnabledRef.current = true;
+                  voiceMutation.mutate(fullGuidePrompt);
+                }}
+                disabled={voiceMutation.isPending}
+                className="border-white/30 text-white hover:bg-white/10"
+              >
+                {voiceMutation.isPending ? (
+                  <Volume2 className="w-4 h-4 mr-2 animate-pulse" />
+                ) : (
+                  <Mic className="w-4 h-4 mr-2" />
+                )}
+                {voiceMutation.isPending ? 'Loading Guide...' : 'Start Voice Guide'}
+              </Button>
               <Button variant="ghost" size="lg" onClick={toggleVoice} className="text-white hover:bg-white/10">
                 {isPlaying ? <Volume2 className="w-6 h-6 animate-pulse" /> : isVoiceEnabled ? <Volume2 className="w-6 h-6" /> : <VolumeX className="w-6 h-6" />}
               </Button>
