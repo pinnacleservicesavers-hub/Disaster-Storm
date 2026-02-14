@@ -387,10 +387,18 @@ export default function MediaVault() {
       <div className="max-w-7xl mx-auto px-4 py-6">
         <AutonomousAgentBadge moduleName="MediaVault" />
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid grid-cols-6 w-full max-w-4xl mb-6">
+          <TabsList className="flex flex-wrap gap-1 w-full max-w-6xl mb-6">
             <TabsTrigger value="vault" className="flex items-center gap-1.5">
               <Folder className="w-4 h-4" />
               Media Vault
+            </TabsTrigger>
+            <TabsTrigger value="uploads" className="flex items-center gap-1.5">
+              <Upload className="w-4 h-4" />
+              Upload Center
+            </TabsTrigger>
+            <TabsTrigger value="templates" className="flex items-center gap-1.5">
+              <Palette className="w-4 h-4" />
+              Templates
             </TabsTrigger>
             <TabsTrigger value="video" className="flex items-center gap-1.5">
               <Film className="w-4 h-4" />
@@ -404,9 +412,17 @@ export default function MediaVault() {
               <BookOpen className="w-4 h-4" />
               Brochures
             </TabsTrigger>
+            <TabsTrigger value="campaigns" className="flex items-center gap-1.5">
+              <Megaphone className="w-4 h-4" />
+              Campaigns
+            </TabsTrigger>
             <TabsTrigger value="sound" className="flex items-center gap-1.5">
               <Mic className="w-4 h-4" />
               Sound Studio
+            </TabsTrigger>
+            <TabsTrigger value="tools" className="flex items-center gap-1.5">
+              <Wand2 className="w-4 h-4" />
+              Tools & Export
             </TabsTrigger>
             <TabsTrigger value="gallery" className="flex items-center gap-1.5">
               <Layers className="w-4 h-4" />
@@ -541,6 +557,14 @@ export default function MediaVault() {
             </div>
           </TabsContent>
 
+          <TabsContent value="uploads">
+            <UploadCenter uploadedFiles={uploadedFiles} previewUrls={previewUrls} onUpload={handleFileUpload} onRemove={removeFile} onOpenCamera={openCamera} />
+          </TabsContent>
+
+          <TabsContent value="templates">
+            <TemplatesLibrary onSelectTemplate={(prompt: string) => { setCreativePrompt(prompt); setActiveTab('flyers'); }} />
+          </TabsContent>
+
           <TabsContent value="video">
             <AICreativeStudio
               title="AI Video Creator"
@@ -565,11 +589,13 @@ export default function MediaVault() {
               onCopy={copyToClipboard}
               onImageFullscreen={() => setImageFullscreen(true)}
               examples={[
-                "Create a 30-second cinematic video ad for a storm damage restoration company showing the journey from destruction to beautiful restoration",
-                "Make a TikTok-style satisfying transformation video for a pressure washing company — dramatic before and after reveal",
-                "Design a YouTube pre-roll ad for an emergency tree removal service — dramatic fallen tree footage, fast response, happy customer testimonial",
-                "Create a Facebook video ad showing a day in the life of a roofing crew — dawn to completion, teamwork, professional results",
-                "Make a viral-worthy Instagram Reel for a painting company — time-lapse room transformation with trendy music"
+                "Create a 30-second cinematic video ad for a storm damage restoration company — opening aerial drone shot of devastated neighborhood, cut to crew arriving at dawn, time-lapse restoration montage, emotional homeowner reveal, fade to logo with soaring music",
+                "Make a TikTok-style satisfying transformation video for a pressure washing company — POV angle, dramatic split-screen dirty vs clean, ASMR water sounds, trendy audio, text overlays with pricing, 'Link in bio' ending",
+                "Design a YouTube pre-roll ad for emergency tree removal — 5-second hook with crashing tree sound, fast-cut emergency response footage, customer testimonial soundbite, '$200 OFF' flash, phone number and website",
+                "Create a Facebook video ad for a roofing company — drone footage of crew working on roof at golden hour, owner-to-camera testimonial, insurance claim success story, before/after split screen, free inspection CTA",
+                "Make a viral Instagram Reel for a painting company — time-lapse room transformation set to trending audio, color palette reveal, designer commentary voiceover, 'Save this for your next project' hook",
+                "Design a 60-second brand story video for a family-owned construction company — founder narrates over vintage photos, modern crew footage, community projects, emotional music, 'Three generations of trust' tagline",
+                "Create a product demo video for a smart home installer — POV walkthrough of automated home, voice control demos, app interface closeups, pricing packages, 'Schedule your smart home consultation' CTA"
               ]}
               color="purple"
             />
@@ -599,11 +625,13 @@ export default function MediaVault() {
               onCopy={copyToClipboard}
               onImageFullscreen={() => setImageFullscreen(true)}
               examples={[
-                "Design a door hanger flyer for a roofing company offering free storm damage inspections — professional, urgent, trustworthy",
-                "Create a Facebook ad for a tree removal company with a seasonal special — 20% off winter clearance with dramatic imagery",
-                "Make an Instagram post for a painting contractor showcasing luxury interior work — clean, modern, aspirational",
-                "Design a yard sign for emergency board-up services — bold, easy to read from the road, phone number prominent",
-                "Create a direct mail postcard for a general contractor targeting homeowners in recently storm-hit neighborhoods"
+                "Design a premium door hanger flyer for a roofing company — free storm damage inspections, before/after photos, insurance claim help, BBB accredited badge, phone number in 3 places, QR code to reviews, limited time offer urgency",
+                "Create a scroll-stopping Facebook ad for a tree removal company — dramatic fallen tree image, '$200 OFF emergency removal this week only', 5-star review quote, licensed & insured badge, 'Get Free Estimate' CTA button",
+                "Make a luxury Instagram carousel post for a painting contractor — 5 slides: dramatic room reveal, color palette showcase, process shots, client testimonial, booking CTA with spring discount code",
+                "Design a professional yard sign for emergency board-up services — bold red/white/black, readable from 100 feet, '24/7 EMERGENCY' header, phone number massive, QR code, 'Licensed Bonded Insured' footer",
+                "Create a direct mail postcard for a general contractor — storm damage alert header, satellite image of neighborhood, free inspection offer, 3 service photos, financing available badge, response deadline",
+                "Design a Google Display ad set for an HVAC company — $49 tune-up special, 'Before Your AC Dies This Summer' hook, energy savings calculator teaser, same-day service badge",
+                "Create a TikTok-style vertical ad for a pressure washing company — dramatic split-screen dirty vs clean, satisfying transformation, '$99 driveway special' overlay, 'Book Now' swipe-up CTA"
               ]}
               color="pink"
             />
@@ -633,18 +661,28 @@ export default function MediaVault() {
               onCopy={copyToClipboard}
               onImageFullscreen={() => setImageFullscreen(true)}
               examples={[
-                "Create a tri-fold brochure for a full-service home restoration company — list all services, showcase work quality, include contact info and financing options",
-                "Design a service menu brochure for a landscaping company — tree removal, trimming, stump grinding, lawn care, with pricing tiers",
-                "Make a capabilities brochure for a general contractor targeting insurance adjusters — certifications, past projects, IICRC credentials",
-                "Create a new homeowner welcome packet brochure — seasonal maintenance tips, emergency services contact, warranty information",
-                "Design a commercial services brochure for a restoration company targeting property managers — 24/7 response, multi-location support"
+                "Create a luxury tri-fold brochure for a full-service home restoration company — cover panel with stunning hero image, inside panels listing all services with icons, testimonials section with 5-star reviews, financing options, before/after gallery, QR code to portfolio, contact info with map",
+                "Design a premium service menu brochure for a landscaping empire — tree removal, trimming, stump grinding, lawn care, hardscaping, irrigation, seasonal maintenance packages with Bronze/Silver/Gold/Platinum pricing tiers, team photo, certifications",
+                "Create a corporate capabilities brochure for a general contractor targeting insurance adjusters and property managers — IICRC certifications, response time guarantees, past project case studies with dollar values, fleet photos, service area map, 24/7 dispatch number",
+                "Design a stunning real estate listing brochure — full-page property photos, floor plan layout, neighborhood highlights, school ratings, comparable sales data, agent bio with headshot, virtual tour QR code, open house schedule",
+                "Create a medical practice welcome brochure — warm provider photos and bios, services offered, insurance accepted list, patient testimonials, facility tour photos, new patient checklist, portal signup instructions, emergency protocol",
+                "Design a restaurant grand opening brochure — mouth-watering food photography descriptions, chef bio, menu highlights with pricing, happy hour specials, private event booking, loyalty program, location map, social media handles",
+                "Create a political campaign brochure — candidate photo and bio, key platform positions, endorsements, community involvement history, voting record highlights, volunteer signup, donation tiers, event calendar"
               ]}
               color="indigo"
             />
           </TabsContent>
 
+          <TabsContent value="campaigns">
+            <CampaignBuilder />
+          </TabsContent>
+
           <TabsContent value="sound">
             <SoundStudio playRachelVoice={playRachelVoice} />
+          </TabsContent>
+
+          <TabsContent value="tools">
+            <ToolsAndExport createdItems={createdItems} />
           </TabsContent>
 
           <TabsContent value="gallery">
@@ -1610,6 +1648,50 @@ function SoundStudio({ playRachelVoice }: { playRachelVoice: (msg: string) => vo
                   <SelectItem value="leaves-crunch">Leaves Crunch</SelectItem>
                   <SelectItem value="harvest-festival">Harvest Festival</SelectItem>
                   <SelectItem value="corn-maze">Corn Maze</SelectItem>
+
+                  <SelectItem value="_header_sports" disabled className="font-bold text-xs uppercase tracking-wider text-slate-500 bg-slate-50 dark:bg-slate-900">Sports</SelectItem>
+                  <SelectItem value="stadium-crowd">Stadium Crowd</SelectItem>
+                  <SelectItem value="buzzer-beater">Buzzer Beater</SelectItem>
+                  <SelectItem value="referee-whistle">Referee Whistle</SelectItem>
+                  <SelectItem value="basketball-dribble">Basketball Dribble</SelectItem>
+                  <SelectItem value="baseball-bat-crack">Baseball Bat Crack</SelectItem>
+                  <SelectItem value="football-tackle">Football Tackle</SelectItem>
+                  <SelectItem value="soccer-goal">Soccer Goal Celebration</SelectItem>
+                  <SelectItem value="boxing-bell">Boxing Bell</SelectItem>
+                  <SelectItem value="race-countdown">Race Countdown</SelectItem>
+                  <SelectItem value="victory-horn">Victory Horn</SelectItem>
+                  <SelectItem value="sports-anthem">Sports Anthem</SelectItem>
+                  <SelectItem value="gym-workout">Gym Workout Beats</SelectItem>
+
+                  <SelectItem value="_header_motor" disabled className="font-bold text-xs uppercase tracking-wider text-slate-500 bg-slate-50 dark:bg-slate-900">Motor & Motorcycle</SelectItem>
+                  <SelectItem value="engine-rev">Engine Rev</SelectItem>
+                  <SelectItem value="motorcycle-rumble">Motorcycle Rumble</SelectItem>
+                  <SelectItem value="harley-idle">Harley Davidson Idle</SelectItem>
+                  <SelectItem value="sportbike-flyby">Sportbike Flyby</SelectItem>
+                  <SelectItem value="muscle-car-rev">Muscle Car Rev</SelectItem>
+                  <SelectItem value="drag-race-launch">Drag Race Launch</SelectItem>
+                  <SelectItem value="burnout-tires">Burnout Tires</SelectItem>
+                  <SelectItem value="nascar-pass">NASCAR Pass</SelectItem>
+                  <SelectItem value="diesel-truck">Diesel Truck</SelectItem>
+                  <SelectItem value="turbo-spool">Turbo Spool</SelectItem>
+                  <SelectItem value="exhaust-pop">Exhaust Pop</SelectItem>
+
+                  <SelectItem value="_header_meme" disabled className="font-bold text-xs uppercase tracking-wider text-slate-500 bg-slate-50 dark:bg-slate-900">Funny & Meme Sounds</SelectItem>
+                  <SelectItem value="bruh-moment">Bruh Moment</SelectItem>
+                  <SelectItem value="sad-trombone">Sad Trombone</SelectItem>
+                  <SelectItem value="rimshot">Rimshot (Ba Dum Tss)</SelectItem>
+                  <SelectItem value="record-scratch">Record Scratch</SelectItem>
+                  <SelectItem value="vine-boom">Vine Boom</SelectItem>
+                  <SelectItem value="air-horn">Air Horn</SelectItem>
+                  <SelectItem value="crickets">Crickets</SelectItem>
+                  <SelectItem value="dramatic-chipmunk">Dramatic Reveal</SelectItem>
+                  <SelectItem value="wrong-answer">Wrong Answer Buzzer</SelectItem>
+                  <SelectItem value="cash-register">Cash Register Cha-Ching</SelectItem>
+                  <SelectItem value="sitcom-laugh">Sitcom Laugh Track</SelectItem>
+                  <SelectItem value="fart-sound">Fart Sound</SelectItem>
+                  <SelectItem value="clown-horn">Clown Horn</SelectItem>
+                  <SelectItem value="cartoon-boing">Cartoon Boing</SelectItem>
+                  <SelectItem value="wilhelm-scream">Wilhelm Scream</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1902,6 +1984,586 @@ function SoundStudio({ playRachelVoice }: { playRachelVoice: (msg: string) => vo
             </CardContent>
           </Card>
         )}
+      </div>
+    </div>
+  );
+}
+
+function UploadCenter({ uploadedFiles, previewUrls, onUpload, onRemove, onOpenCamera }: {
+  uploadedFiles: File[];
+  previewUrls: string[];
+  onUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onRemove: (idx: number) => void;
+  onOpenCamera: (mode: 'photo' | 'video') => void;
+}) {
+  const [activeCategory, setActiveCategory] = useState('all');
+  const categories = [
+    { id: 'all', label: 'All Files', icon: Folder, count: previewUrls.length },
+    { id: 'photos', label: 'Photos', icon: Camera, count: uploadedFiles.filter(f => f.type.startsWith('image/')).length },
+    { id: 'videos', label: 'Videos', icon: Video, count: uploadedFiles.filter(f => f.type.startsWith('video/')).length },
+    { id: 'logos', label: 'Logos', icon: Shield, count: 0 },
+    { id: 'products', label: 'Products', icon: Image, count: 0 },
+    { id: 'brand', label: 'Brand Kit', icon: Palette, count: 0 },
+    { id: 'voice', label: 'Voice', icon: Mic, count: 0 },
+    { id: 'documents', label: 'Docs', icon: FileText, count: 0 },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <div className="text-center mb-8">
+        <h2 className="text-2xl font-bold text-slate-800 dark:text-white mb-2">Upload Center</h2>
+        <p className="text-slate-500">Upload photos, logos, brand kits, video clips, product images, voice recordings, and past brochures</p>
+      </div>
+      <div className="flex flex-wrap gap-2 mb-6">
+        {categories.map(cat => (
+          <Button key={cat.id} variant={activeCategory === cat.id ? 'default' : 'outline'} size="sm" onClick={() => setActiveCategory(cat.id)} className={activeCategory === cat.id ? 'bg-indigo-600' : ''}>
+            <cat.icon className="w-4 h-4 mr-1.5" />{cat.label}
+            {cat.count > 0 && <Badge className="ml-1.5 bg-white/20 text-xs">{cat.count}</Badge>}
+          </Button>
+        ))}
+      </div>
+      <Card className="border-dashed border-2 border-indigo-300 dark:border-indigo-700 bg-indigo-50/50 dark:bg-indigo-950/20">
+        <CardContent className="py-12">
+          <div className="text-center">
+            <div className="w-20 h-20 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 mx-auto mb-4 flex items-center justify-center">
+              <Upload className="w-10 h-10 text-white" />
+            </div>
+            <h3 className="text-xl font-bold mb-2">Drag and Drop Files Here</h3>
+            <p className="text-slate-500 mb-6">Or use the buttons below to upload or capture media</p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 max-w-2xl mx-auto">
+              <div>
+                <input type="file" id="uc-photos" multiple accept="image/*" onChange={onUpload} className="hidden" />
+                <label htmlFor="uc-photos"><Button asChild className="w-full bg-blue-600 hover:bg-blue-700"><span><Camera className="w-4 h-4 mr-1.5" />Upload Photos</span></Button></label>
+              </div>
+              <div>
+                <input type="file" id="uc-videos" multiple accept="video/*" onChange={onUpload} className="hidden" />
+                <label htmlFor="uc-videos"><Button asChild className="w-full bg-purple-600 hover:bg-purple-700"><span><Video className="w-4 h-4 mr-1.5" />Upload Videos</span></Button></label>
+              </div>
+              <div>
+                <input type="file" id="uc-logos" multiple accept="image/*,.svg" onChange={onUpload} className="hidden" />
+                <label htmlFor="uc-logos"><Button asChild className="w-full bg-emerald-600 hover:bg-emerald-700"><span><Shield className="w-4 h-4 mr-1.5" />Upload Logo</span></Button></label>
+              </div>
+              <div>
+                <input type="file" id="uc-docs" multiple accept=".pdf,.doc,.docx,image/*" onChange={onUpload} className="hidden" />
+                <label htmlFor="uc-docs"><Button asChild className="w-full bg-amber-600 hover:bg-amber-700"><span><FileText className="w-4 h-4 mr-1.5" />Upload Docs</span></Button></label>
+              </div>
+            </div>
+            <div className="flex gap-3 justify-center mt-4 flex-wrap">
+              <Button variant="outline" onClick={() => onOpenCamera('photo')}><Aperture className="w-4 h-4 mr-2" />Take Photo</Button>
+              <Button variant="outline" onClick={() => onOpenCamera('video')}><Video className="w-4 h-4 mr-2" />Record Video</Button>
+              <div>
+                <input type="file" id="uc-voice" multiple accept="audio/*" onChange={onUpload} className="hidden" />
+                <label htmlFor="uc-voice"><Button asChild variant="outline"><span><Mic className="w-4 h-4 mr-2" />Upload Voice</span></Button></label>
+              </div>
+              <div>
+                <input type="file" id="uc-products" multiple accept="image/*" onChange={onUpload} className="hidden" />
+                <label htmlFor="uc-products"><Button asChild variant="outline"><span><Image className="w-4 h-4 mr-2" />Product Images</span></Button></label>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+      {previewUrls.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <span className="flex items-center gap-2"><Folder className="w-5 h-5 text-indigo-600" />Your Media Library ({previewUrls.length} files)</span>
+              <Badge className="bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300"><Lock className="w-3 h-3 mr-1" />AI Auto-Tagged</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-8 gap-3">
+              {previewUrls.map((url, idx) => (
+                <div key={idx} className="relative aspect-square rounded-lg overflow-hidden border-2 border-slate-200 dark:border-slate-700 group hover:border-indigo-400 transition-colors">
+                  <img src={url} alt={`File ${idx + 1}`} className="w-full h-full object-cover" />
+                  <button onClick={() => onRemove(idx)} className="absolute top-1 right-1 w-6 h-6 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"><X className="w-3 h-3" /></button>
+                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent text-white text-xs py-1.5 px-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {uploadedFiles[idx]?.name?.slice(0, 15) || `File ${idx + 1}`}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+      <div className="grid md:grid-cols-3 gap-4">
+        <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 border-blue-200 dark:border-blue-800">
+          <CardContent className="pt-6 text-center">
+            <Sparkles className="w-10 h-10 text-blue-600 mx-auto mb-2" />
+            <h3 className="font-bold mb-1">AI Auto-Tagging</h3>
+            <p className="text-sm text-slate-500">Every upload is automatically analyzed and tagged by AI for instant search</p>
+          </CardContent>
+        </Card>
+        <Card className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 border-green-200 dark:border-green-800">
+          <CardContent className="pt-6 text-center">
+            <Lock className="w-10 h-10 text-green-600 mx-auto mb-2" />
+            <h3 className="font-bold mb-1">Secure Storage</h3>
+            <p className="text-sm text-slate-500">All files are encrypted and timestamped for legal protection and dispute evidence</p>
+          </CardContent>
+        </Card>
+        <Card className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950/20 dark:to-pink-950/20 border-purple-200 dark:border-purple-800">
+          <CardContent className="pt-6 text-center">
+            <Folder className="w-10 h-10 text-purple-600 mx-auto mb-2" />
+            <h3 className="font-bold mb-1">Smart Folders</h3>
+            <p className="text-sm text-slate-500">Auto-organized by project, date, and media type with bulk upload support</p>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+function TemplatesLibrary({ onSelectTemplate }: { onSelectTemplate: (prompt: string) => void }) {
+  const [selectedIndustry, setSelectedIndustry] = useState('all');
+  const [selectedType, setSelectedType] = useState('all');
+  const { toast } = useToast();
+
+  const industries = [
+    { id: 'all', label: 'All Industries' }, { id: 'tree-service', label: 'Tree Service' }, { id: 'roofing', label: 'Roofing' },
+    { id: 'storm-cleanup', label: 'Storm Cleanup' }, { id: 'real-estate', label: 'Real Estate' }, { id: 'restaurant', label: 'Restaurants' },
+    { id: 'construction', label: 'Construction' }, { id: 'hvac', label: 'HVAC' }, { id: 'landscaping', label: 'Landscaping' },
+    { id: 'auto-repair', label: 'Auto Repair' }, { id: 'medical', label: 'Medical' }, { id: 'political', label: 'Political Campaign' },
+    { id: 'event', label: 'Event Promotion' }, { id: 'nonprofit', label: 'Nonprofit' }, { id: 'church', label: 'Church' },
+    { id: 'ecommerce', label: 'E-commerce' }, { id: 'plumbing', label: 'Plumbing' }, { id: 'electrical', label: 'Electrical' },
+    { id: 'painting', label: 'Painting' }, { id: 'fitness', label: 'Fitness & Gym' },
+  ];
+
+  const templateTypes = [
+    { id: 'all', label: 'All Types' }, { id: 'tri-fold', label: 'Tri-Fold Brochure' }, { id: 'bi-fold', label: 'Bi-Fold Brochure' },
+    { id: 'postcard', label: 'Postcard' }, { id: 'door-hanger', label: 'Door Hanger' }, { id: 'yard-sign', label: 'Yard Sign' },
+    { id: 'social-carousel', label: 'Social Carousel' }, { id: 'facebook-ad', label: 'Facebook Ad' },
+    { id: 'instagram-reel', label: 'Instagram Reel' }, { id: 'youtube-ad', label: 'YouTube Ad' }, { id: 'billboard', label: 'Billboard' },
+    { id: 'email-campaign', label: 'Email Campaign' }, { id: 'proposal-pdf', label: 'Proposal PDF' }, { id: 'flyer', label: 'Flyer' },
+    { id: 'business-card', label: 'Business Card' }, { id: 'banner', label: 'Web Banner' }, { id: 'direct-mail', label: 'Direct Mail' },
+  ];
+
+  const templates = [
+    { industry: 'tree-service', type: 'door-hanger', title: 'Emergency Tree Removal Door Hanger', desc: 'Bold design with 24/7 emergency messaging', prompt: 'Create a professional door hanger for an emergency tree removal company — bold red and black colors, 24/7 availability, before/after photos, phone number prominent, urgent tone', color: 'bg-emerald-100 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800' },
+    { industry: 'tree-service', type: 'facebook-ad', title: 'Storm Damage Tree Service Ad', desc: 'Facebook ad targeting storm-affected homeowners', prompt: 'Design a Facebook ad for tree removal service targeting homeowners after a storm — show fallen trees, fast response promise, licensed & insured badge, get a free estimate CTA', color: 'bg-emerald-100 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800' },
+    { industry: 'roofing', type: 'postcard', title: 'Free Roof Inspection Postcard', desc: 'Direct mail postcard with inspection offer', prompt: 'Create a professional direct mail postcard for a roofing company offering free storm damage inspections — before/after roof photos, insurance claim assistance, BBB accredited, call now', color: 'bg-blue-100 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800' },
+    { industry: 'roofing', type: 'yard-sign', title: 'Roofing Company Yard Sign', desc: 'Job site yard sign for brand visibility', prompt: 'Design a bold yard sign for a professional roofing company — easy to read from 50 feet, company name, phone number, website, licensed bonded insured badge', color: 'bg-blue-100 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800' },
+    { industry: 'storm-cleanup', type: 'flyer', title: 'Storm Cleanup Emergency Flyer', desc: 'Rapid deploy flyer for storm-hit areas', prompt: 'Create an emergency storm cleanup flyer — FEMA-compliant services, debris removal, board-up services, tarping, tree removal, 24/7 hotline, insurance documentation assistance', color: 'bg-red-100 dark:bg-red-900/20 border-red-200 dark:border-red-800' },
+    { industry: 'real-estate', type: 'social-carousel', title: 'Property Listing Carousel', desc: 'Multi-slide property showcase', prompt: 'Create a stunning Instagram carousel for a luxury property listing — 5 slides showing exterior, kitchen, living room, master suite, and backyard. Modern, aspirational, include price and agent contact', color: 'bg-amber-100 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800' },
+    { industry: 'restaurant', type: 'instagram-reel', title: 'Grand Opening Restaurant Reel', desc: 'Viral-worthy restaurant opening ad', prompt: 'Create a TikTok/Instagram Reel concept for a restaurant grand opening — food close-ups, chef action shots, ambient dining shots, special opening week deals, mouth-watering descriptions', color: 'bg-orange-100 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800' },
+    { industry: 'restaurant', type: 'flyer', title: 'Catering Services Flyer', desc: 'Professional catering menu flyer', prompt: 'Design an elegant catering services flyer — menu highlights, pricing tiers (Silver/Gold/Platinum), event photos, testimonials, minimum headcount, booking CTA', color: 'bg-orange-100 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800' },
+    { industry: 'construction', type: 'proposal-pdf', title: 'Construction Proposal Template', desc: 'Professional project proposal', prompt: 'Create a professional construction proposal template — cover page, project overview, scope of work, timeline, pricing breakdown, terms & conditions, about us, portfolio photos', color: 'bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700' },
+    { industry: 'hvac', type: 'postcard', title: 'HVAC Seasonal Tune-Up Postcard', desc: 'Seasonal maintenance promotion', prompt: 'Create a direct mail postcard for HVAC seasonal tune-up special — $49 tune-up offer, prevent breakdowns messaging, comfort guarantee, 5-star reviews, before winter urgency', color: 'bg-cyan-100 dark:bg-cyan-900/20 border-cyan-200 dark:border-cyan-800' },
+    { industry: 'landscaping', type: 'door-hanger', title: 'Landscaping Services Door Hanger', desc: 'Neighborhood canvassing door hanger', prompt: 'Design a vibrant landscaping services door hanger — beautiful lawn transformation photos, weekly/monthly packages, free estimate, spring special discount, eco-friendly badge', color: 'bg-green-100 dark:bg-green-900/20 border-green-200 dark:border-green-800' },
+    { industry: 'auto-repair', type: 'flyer', title: 'Auto Repair Shop Flyer', desc: 'Full service auto repair promotion', prompt: 'Create a professional auto repair shop flyer — oil change special, brake service, engine diagnostics, tire rotation, ASE certified mechanics, family-owned trust messaging', color: 'bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-700' },
+    { industry: 'medical', type: 'email-campaign', title: 'Medical Practice Welcome Email', desc: 'New patient welcome email sequence', prompt: 'Design a warm welcome email for a medical practice — new patient information, what to expect, insurance accepted, office hours, provider bios, patient portal setup', color: 'bg-teal-100 dark:bg-teal-900/20 border-teal-200 dark:border-teal-800' },
+    { industry: 'political', type: 'billboard', title: 'Political Campaign Billboard', desc: 'High-impact campaign billboard', prompt: 'Create a bold political campaign billboard — candidate photo, campaign slogan, key issue highlights (Jobs, Safety, Education), patriotic colors, vote date, paid for by disclaimer', color: 'bg-red-100 dark:bg-red-900/20 border-red-200 dark:border-red-800' },
+    { industry: 'event', type: 'flyer', title: 'Community Event Flyer', desc: 'Local event promotion flyer', prompt: 'Design a vibrant community event flyer — date, time, location, activities list, food vendors, live music, kids zone, sponsors section, free admission badge', color: 'bg-violet-100 dark:bg-violet-900/20 border-violet-200 dark:border-violet-800' },
+    { industry: 'nonprofit', type: 'email-campaign', title: 'Nonprofit Fundraiser Email', desc: 'Donation campaign email', prompt: 'Create a compelling nonprofit fundraiser email — emotional story, impact statistics, donation tiers ($25/$50/$100/$250), matching gift mention, donate button', color: 'bg-rose-100 dark:bg-rose-900/20 border-rose-200 dark:border-rose-800' },
+    { industry: 'church', type: 'flyer', title: 'Church Event Invitation', desc: 'Welcoming church event flyer', prompt: 'Design a warm inviting church event flyer — Sunday service times, special guest speaker, worship music, childcare available, community potluck, all are welcome', color: 'bg-indigo-100 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-800' },
+    { industry: 'ecommerce', type: 'facebook-ad', title: 'Flash Sale Facebook Ad', desc: 'Limited time sale promotion', prompt: 'Create an urgent flash sale Facebook ad — 48 HOURS ONLY, up to 70% off, product showcase grid, countdown timer visual, shop now button, free shipping over $50', color: 'bg-pink-100 dark:bg-pink-900/20 border-pink-200 dark:border-pink-800' },
+    { industry: 'plumbing', type: 'yard-sign', title: 'Plumbing Emergency Yard Sign', desc: '24/7 emergency plumber sign', prompt: 'Design a clear bold yard sign for 24/7 emergency plumbing — large phone number, No Extra Charge Weekends badge, licensed & insured, water heater and drain icons', color: 'bg-blue-100 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800' },
+    { industry: 'fitness', type: 'instagram-reel', title: 'Gym Membership Promo Reel', desc: 'New year fitness campaign', prompt: 'Create an energetic Instagram Reel concept for a gym membership promotion — transformation montage, equipment showcase, group classes, personal training, first month free offer', color: 'bg-orange-100 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800' },
+    { industry: 'painting', type: 'tri-fold', title: 'Painting Company Tri-Fold', desc: 'Comprehensive services brochure', prompt: 'Create a professional tri-fold brochure for a painting company — interior/exterior services, color consultation, before/after gallery, customer testimonials, free estimate coupon, 10-year warranty', color: 'bg-purple-100 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800' },
+    { industry: 'electrical', type: 'flyer', title: 'Electrical Services Flyer', desc: 'Licensed electrician services', prompt: 'Design a professional electrical services flyer — panel upgrades, outlet installation, lighting design, generator installation, EV charger installation, licensed master electrician', color: 'bg-yellow-100 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800' },
+  ];
+
+  const filtered = templates.filter(t => (selectedIndustry === 'all' || t.industry === selectedIndustry) && (selectedType === 'all' || t.type === selectedType));
+
+  return (
+    <div className="space-y-6">
+      <div className="text-center mb-8">
+        <h2 className="text-2xl font-bold text-slate-800 dark:text-white mb-2">Templates Library</h2>
+        <p className="text-slate-500">Browse industry-specific templates. Click any template to customize it with AI.</p>
+      </div>
+      <div className="flex flex-wrap gap-4 mb-6">
+        <div className="flex-1 min-w-[200px]">
+          <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1 block">Industry</label>
+          <Select value={selectedIndustry} onValueChange={setSelectedIndustry}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent className="max-h-[300px]">{industries.map(ind => (<SelectItem key={ind.id} value={ind.id}>{ind.label}</SelectItem>))}</SelectContent>
+          </Select>
+        </div>
+        <div className="flex-1 min-w-[200px]">
+          <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1 block">Template Type</label>
+          <Select value={selectedType} onValueChange={setSelectedType}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent className="max-h-[300px]">{templateTypes.map(tt => (<SelectItem key={tt.id} value={tt.id}>{tt.label}</SelectItem>))}</SelectContent>
+          </Select>
+        </div>
+      </div>
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-sm text-slate-500">{filtered.length} template{filtered.length !== 1 ? 's' : ''} found</p>
+        <Badge variant="outline" className="text-indigo-600">{industries.length - 1} Industries &middot; {templateTypes.length - 1} Types</Badge>
+      </div>
+      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {filtered.map((template, idx) => (
+          <Card key={idx} className={`cursor-pointer transition-all hover:shadow-lg hover:scale-[1.02] ${template.color}`} onClick={() => { onSelectTemplate(template.prompt); toast({ title: "Template loaded!", description: `${template.title} - customize it in the Flyers & Ads editor` }); }}>
+            <CardContent className="pt-5">
+              <div className="flex items-start justify-between mb-3">
+                <Badge variant="outline" className="text-xs capitalize">{template.type.replace(/-/g, ' ')}</Badge>
+                <Badge className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-xs capitalize">{template.industry.replace(/-/g, ' ')}</Badge>
+              </div>
+              <h3 className="font-bold text-base mb-1">{template.title}</h3>
+              <p className="text-sm text-slate-500 mb-3">{template.desc}</p>
+              <div className="flex items-center gap-2">
+                <Wand2 className="w-4 h-4 text-indigo-500" />
+                <span className="text-xs text-indigo-600 font-medium">Click to customize with AI</span>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function CampaignBuilder() {
+  const { toast } = useToast();
+  const [campaignPrompt, setCampaignPrompt] = useState('');
+  const [city, setCity] = useState('');
+  const [targetAudience, setTargetAudience] = useState('');
+  const [avgJobValue, setAvgJobValue] = useState('');
+  const [competitors, setCompetitors] = useState('');
+  const [budget, setBudget] = useState('');
+  const [goal, setGoal] = useState('leads');
+  const [campaignResult, setCampaignResult] = useState<any>(null);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [mode, setMode] = useState<'contractor' | 'marketer'>('contractor');
+
+  const campaignMutation = useMutation({
+    mutationFn: async (params: any) => {
+      const res = await apiRequest("/api/ai-ads/freeform-create", "POST", params);
+      return res;
+    },
+    onSuccess: (data) => {
+      if (data.success && data.result) {
+        setCampaignResult(data.result);
+        toast({ title: "Full Campaign Generated!", description: "Your multi-piece marketing campaign is ready!" });
+      }
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to generate campaign", variant: "destructive" });
+    }
+  });
+
+  const handleLaunchCampaign = () => {
+    if (!campaignPrompt.trim()) { toast({ title: "Describe your campaign", variant: "destructive" }); return; }
+    const bizIntel = [city && `City/Market: ${city}`, targetAudience && `Target Audience: ${targetAudience}`, avgJobValue && `Average Job Value: $${avgJobValue}`, competitors && `Competitors: ${competitors}`, budget && `Budget: $${budget}`, `Goal: ${goal}`, `Mode: ${mode === 'contractor' ? 'Quick Deploy Contractor Mode' : 'Full Marketing Pro Mode'}`].filter(Boolean).join('\n');
+    const fullPrompt = `FULL MULTI-PIECE MARKETING CAMPAIGN REQUEST:\n\n"${campaignPrompt.trim()}"\n\nBUSINESS INTELLIGENCE:\n${bizIntel}\n\nGenerate a COMPLETE marketing campaign package with ALL of these pieces:\n\n1. FLYER: Print-ready promotional flyer with headline, body copy, and CTA\n2. FACEBOOK AD: Scroll-stopping Facebook/Instagram ad with copy, headline, and CTA\n3. 30-SECOND VIDEO AD SCRIPT: Complete video script with scenes, voiceover, and music\n4. WEBSITE HERO COPY: Hero section headline, subheadline, and CTA button text\n5. EMAIL SEQUENCE: 3-email drip sequence (subject lines and body copy)\n6. SMS FOLLOW-UP: 3 SMS messages for lead follow-up (under 160 chars each)\n7. DOOR HANGER COPY: Front and back copy for a door hanger\n8. YARD SIGN: Bold yard sign copy (company name, tagline, phone, website)\n9. GOOGLE AD COPY: 3 Google search ad variations (headline 1, headline 2, description)\n10. SOCIAL MEDIA POSTS: 5 social media post ideas with hashtags\n\nCRITICAL: Perfect spelling and grammar throughout. Zero typos. Professional quality.`;
+    campaignMutation.mutate({ prompt: fullPrompt, adType: 'full_campaign', style: 'professional', platform: 'multi-platform', includeImage: true });
+  };
+
+  const copyText = (text: string, field: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedField(field);
+    setTimeout(() => setCopiedField(null), 2000);
+    toast({ title: "Copied!" });
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="text-center mb-6">
+        <h2 className="text-2xl font-bold text-slate-800 dark:text-white mb-2">AI Campaign Builder</h2>
+        <p className="text-slate-500">One prompt creates flyer, Facebook ad, video script, emails, SMS, door hanger, yard sign, Google ads, and social posts</p>
+      </div>
+      <div className="flex gap-2 justify-center mb-6">
+        <Button variant={mode === 'contractor' ? 'default' : 'outline'} onClick={() => setMode('contractor')} className={mode === 'contractor' ? 'bg-amber-600' : ''}>
+          <Shield className="w-4 h-4 mr-1.5" />Contractor Mode
+        </Button>
+        <Button variant={mode === 'marketer' ? 'default' : 'outline'} onClick={() => setMode('marketer')} className={mode === 'marketer' ? 'bg-indigo-600' : ''}>
+          <Sparkles className="w-4 h-4 mr-1.5" />Marketing Pro Mode
+        </Button>
+      </div>
+      <div className="grid lg:grid-cols-5 gap-6">
+        <div className="lg:col-span-2 space-y-4">
+          <Card className="border-2 border-indigo-200 dark:border-indigo-800 bg-indigo-50/50 dark:bg-indigo-950/20">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-lg"><Megaphone className="w-5 h-5 text-indigo-600" /><span className="text-indigo-600">Campaign Brief</span></CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <Textarea value={campaignPrompt} onChange={(e) => setCampaignPrompt(e.target.value)} placeholder={mode === 'contractor' ? 'Example: "Full marketing campaign for my tree removal company in Columbus GA targeting homeowners with storm damage"' : 'Example: "Comprehensive marketing campaign for a luxury real estate agency targeting high-net-worth buyers in Miami"'} className="min-h-[100px] resize-none" />
+              <div className="grid grid-cols-2 gap-2">
+                <div><label className="text-xs font-medium text-slate-600 dark:text-slate-400">City / Market</label><input type="text" value={city} onChange={(e) => setCity(e.target.value)} placeholder="Columbus, GA" className="w-full px-3 py-1.5 text-sm rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800" /></div>
+                <div><label className="text-xs font-medium text-slate-600 dark:text-slate-400">Target Audience</label><input type="text" value={targetAudience} onChange={(e) => setTargetAudience(e.target.value)} placeholder="Homeowners 35-65" className="w-full px-3 py-1.5 text-sm rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800" /></div>
+                <div><label className="text-xs font-medium text-slate-600 dark:text-slate-400">Avg Job Value</label><input type="text" value={avgJobValue} onChange={(e) => setAvgJobValue(e.target.value)} placeholder="2500" className="w-full px-3 py-1.5 text-sm rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800" /></div>
+                <div><label className="text-xs font-medium text-slate-600 dark:text-slate-400">Budget</label><input type="text" value={budget} onChange={(e) => setBudget(e.target.value)} placeholder="500" className="w-full px-3 py-1.5 text-sm rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800" /></div>
+              </div>
+              <div><label className="text-xs font-medium text-slate-600 dark:text-slate-400">Competitors (optional)</label><input type="text" value={competitors} onChange={(e) => setCompetitors(e.target.value)} placeholder="ABC Tree Service, XYZ Roofing" className="w-full px-3 py-1.5 text-sm rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800" /></div>
+              <div>
+                <label className="text-xs font-medium text-slate-600 dark:text-slate-400">Campaign Goal</label>
+                <Select value={goal} onValueChange={setGoal}>
+                  <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="leads">Generate Leads</SelectItem>
+                    <SelectItem value="branding">Brand Awareness</SelectItem>
+                    <SelectItem value="sales">Direct Sales</SelectItem>
+                    <SelectItem value="recruitment">Recruit Workers</SelectItem>
+                    <SelectItem value="retention">Customer Retention</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold py-5 text-base" onClick={handleLaunchCampaign} disabled={campaignMutation.isPending}>
+                {campaignMutation.isPending ? <><Loader2 className="w-5 h-5 mr-2 animate-spin" />Building your campaign...</> : <><Wand2 className="w-5 h-5 mr-2" />Launch Full Campaign</>}
+              </Button>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-600 dark:text-slate-400">What you get in one click</CardTitle></CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-1.5 text-sm">
+                {['Flyer', 'Facebook Ad', '30-sec Video Script', 'Website Hero Copy', '3-Email Sequence', 'SMS Follow-Ups', 'Door Hanger', 'Yard Sign', 'Google Ad Copy', 'Social Media Posts'].map((item, i) => (
+                  <div key={i} className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400"><Check className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />{item}</div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20">
+            <CardContent className="pt-5">
+              <h4 className="font-bold text-sm mb-2">Quick Campaign Ideas</h4>
+              <div className="space-y-2">
+                {[mode === 'contractor' ? 'Full storm cleanup marketing campaign for my area' : 'Luxury brand launch campaign for upscale market', mode === 'contractor' ? 'Emergency tree removal marketing blitz after tornado' : 'Restaurant grand opening campaign with social media focus', mode === 'contractor' ? 'Roofing company lead generation campaign for spring' : 'E-commerce flash sale campaign for Black Friday'].map((idea, i) => (
+                  <button key={i} onClick={() => setCampaignPrompt(idea)} className="w-full text-left text-sm p-2 rounded-lg bg-white/70 dark:bg-slate-800/70 hover:bg-indigo-50 dark:hover:bg-indigo-950/20 text-slate-700 dark:text-slate-300 border border-transparent hover:border-indigo-200 dark:hover:border-indigo-800 transition-colors">
+                    <span className="text-indigo-500 mr-1.5">&rarr;</span>{idea}
+                  </button>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+        <div className="lg:col-span-3 space-y-4">
+          {campaignMutation.isPending && !campaignResult && (
+            <Card className="border-2 border-indigo-200 dark:border-indigo-800">
+              <CardContent className="py-16 text-center">
+                <div className="relative mx-auto w-20 h-20 mb-6">
+                  <div className="absolute inset-0 rounded-full border-4 border-indigo-200" />
+                  <div className="absolute inset-0 rounded-full border-4 border-t-indigo-600 animate-spin" />
+                  <Megaphone className="w-8 h-8 text-indigo-600 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+                </div>
+                <h3 className="text-xl font-bold mb-2">Building your full campaign...</h3>
+                <p className="text-slate-500">Creating flyer, Facebook ad, video script, emails, SMS, door hanger, yard sign, Google ads, and social posts. About 30-60 seconds.</p>
+              </CardContent>
+            </Card>
+          )}
+          {campaignResult && (
+            <div className="space-y-4">
+              {campaignResult.imageUrl && (<Card className="overflow-hidden"><img src={campaignResult.imageUrl} alt="Campaign Visual" className="w-full max-h-[400px] object-cover" /></Card>)}
+              {campaignResult.adCopy && (
+                <Card>
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="flex items-center gap-2"><Megaphone className="w-5 h-5 text-indigo-600" />Full Campaign Package</CardTitle>
+                      <Button size="sm" variant="ghost" onClick={() => copyText(campaignResult.adCopy, 'campaign')}>{copiedField === 'campaign' ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}</Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent><div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap">{campaignResult.adCopy}</div></CardContent>
+                </Card>
+              )}
+              {campaignResult.headlines && campaignResult.headlines.length > 0 && (
+                <Card>
+                  <CardHeader className="pb-2"><CardTitle className="text-base">Campaign Headlines</CardTitle></CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      {campaignResult.headlines.map((h: string, i: number) => (
+                        <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-800 group">
+                          <span className="font-semibold">{h}</span>
+                          <Button size="sm" variant="ghost" className="opacity-0 group-hover:opacity-100" onClick={() => copyText(h, `ch${i}`)}>{copiedField === `ch${i}` ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}</Button>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+              {campaignResult.videoConcept && (
+                <Card className="border-2 border-purple-200 dark:border-purple-800">
+                  <CardHeader><CardTitle className="flex items-center gap-2"><Film className="w-5 h-5 text-purple-600" />Video Ad Script</CardTitle></CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {campaignResult.videoConcept.scenes?.map((scene: any, i: number) => (
+                        <div key={i} className="pl-6 pb-3 border-l-2 border-purple-200 dark:border-purple-800">
+                          <div className="flex items-center gap-2 mb-1"><Badge className="bg-purple-600 text-white text-xs">{i + 1}</Badge><Badge variant="outline" className="text-xs">{scene.duration}</Badge></div>
+                          <p className="text-sm"><strong>Visual:</strong> {scene.description}</p>
+                          <p className="text-sm text-slate-600 dark:text-slate-400"><strong>VO:</strong> "{scene.voiceover}"</p>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+              <Card className="bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900">
+                <CardContent className="pt-5 pb-4">
+                  <h4 className="font-semibold text-sm mb-3 flex items-center gap-2"><Download className="w-4 h-4" />Export Campaign</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    <Button size="sm" variant="outline" onClick={() => {
+                      let c = `FULL MARKETING CAMPAIGN\n${'='.repeat(50)}\n\n`;
+                      if (campaignResult.headlines?.length) c += 'HEADLINES\n' + campaignResult.headlines.join('\n') + '\n\n';
+                      if (campaignResult.adCopy) c += 'CAMPAIGN CONTENT\n' + campaignResult.adCopy + '\n\n';
+                      if (campaignResult.hashtags?.length) c += 'HASHTAGS\n' + campaignResult.hashtags.join(' ');
+                      const blob = new Blob([c], { type: 'text/plain' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `campaign-${Date.now()}.txt`; a.click(); URL.revokeObjectURL(url);
+                    }}><FileText className="w-3.5 h-3.5 mr-1" />TXT</Button>
+                    <Button size="sm" variant="outline" onClick={() => { const all = `${campaignResult.headlines?.join('\n')}\n\n${campaignResult.adCopy}\n\n${campaignResult.hashtags?.join(' ')}`; navigator.clipboard.writeText(all); toast({ title: "Entire campaign copied!" }); }}><Copy className="w-3.5 h-3.5 mr-1" />Copy All</Button>
+                    {campaignResult.imageUrl && (<Button size="sm" className="bg-purple-600 hover:bg-purple-700" onClick={() => { const a = document.createElement('a'); a.href = campaignResult.imageUrl; a.download = `campaign-image.png`; a.target = '_blank'; a.click(); }}><Download className="w-3.5 h-3.5 mr-1" />Image</Button>)}
+                    <Button size="sm" variant="outline" onClick={() => { setCampaignResult(null); setCampaignPrompt(''); }}><RefreshCw className="w-3.5 h-3.5 mr-1" />New Campaign</Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+          {!campaignResult && !campaignMutation.isPending && (
+            <Card className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950/20 dark:to-purple-950/20 border-2 border-indigo-200 dark:border-indigo-800">
+              <CardContent className="py-16 text-center">
+                <div className="w-20 h-20 rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 mx-auto mb-6 flex items-center justify-center"><Megaphone className="w-10 h-10 text-white" /></div>
+                <h3 className="text-2xl font-bold text-slate-800 dark:text-white mb-3">AI Marketing Agency in a Box</h3>
+                <p className="text-slate-600 dark:text-slate-400 max-w-lg mx-auto mb-6">Describe your business once and Rachel creates 10+ marketing pieces instantly — flyer, Facebook ad, video script, emails, SMS, door hanger, yard sign, Google ads, and social posts.</p>
+                <div className="grid grid-cols-5 gap-3 max-w-md mx-auto">
+                  {[{ icon: LayoutTemplate, label: 'Flyer' }, { icon: Megaphone, label: 'Ads' }, { icon: Film, label: 'Video' }, { icon: Send, label: 'Email' }, { icon: FileText, label: 'Print' }].map((item, i) => (
+                    <div key={i} className="text-center"><item.icon className="w-7 h-7 text-indigo-500 mx-auto mb-1" /><p className="text-xs text-slate-500">{item.label}</p></div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ToolsAndExport({ createdItems }: { createdItems: CreativeResult[] }) {
+  const { toast } = useToast();
+  const [qrText, setQrText] = useState('');
+  const [qrGenerated, setQrGenerated] = useState(false);
+  const [headlineToScore, setHeadlineToScore] = useState('');
+  const [headlineScore, setHeadlineScore] = useState<any>(null);
+  const [abTestPrompt, setAbTestPrompt] = useState('');
+  const [abResult, setAbResult] = useState<any>(null);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+
+  const headlineScoreMutation = useMutation({
+    mutationFn: async (headline: string) => {
+      const res = await apiRequest("/api/ai-ads/freeform-create", "POST", {
+        prompt: `Score this headline for advertising effectiveness on a scale of 1-100 and provide specific feedback:\n\n"${headline}"\n\nProvide: Overall Score (X/100), Emotional Impact (X/10), Clarity (X/10), Urgency (X/10), Curiosity (X/10), Action Words (X/10), Strengths, Weaknesses, and 3 Improved Versions.\n\nIMPORTANT: Perfect spelling and grammar in your response. Zero typos.`,
+        adType: 'image', style: 'professional'
+      });
+      return res;
+    },
+    onSuccess: (data) => { if (data.success && data.result) { setHeadlineScore(data.result); toast({ title: "Headline Scored!" }); } }
+  });
+
+  const abTestMutation = useMutation({
+    mutationFn: async (prompt: string) => {
+      const res = await apiRequest("/api/ai-ads/freeform-create", "POST", {
+        prompt: `Create an A/B test for this ad concept:\n\n"${prompt}"\n\nGenerate TWO completely different versions:\n\nVERSION A (Emotional Approach): Headline, Ad Copy (50 words), CTA, Tone, Target Audience\nVERSION B (Logical Approach): Headline, Ad Copy (50 words), CTA, Tone, Target Audience\n\nAI PREDICTION: Predicted Winner, Reason, Expected CTR Difference (%), Recommended Test Duration, Sample Size Needed\n\nIMPORTANT: Perfect spelling and grammar. Zero typos.`,
+        adType: 'image', style: 'professional'
+      });
+      return res;
+    },
+    onSuccess: (data) => { if (data.success && data.result) { setAbResult(data.result); toast({ title: "A/B Test Generated!" }); } }
+  });
+
+  const copyText = (text: string, field: string) => {
+    navigator.clipboard.writeText(text); setCopiedField(field); setTimeout(() => setCopiedField(null), 2000); toast({ title: "Copied!" });
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="text-center mb-6">
+        <h2 className="text-2xl font-bold text-slate-800 dark:text-white mb-2">Tools & Export Center</h2>
+        <p className="text-slate-500">Advanced marketing tools, AI scoring, A/B testing, QR codes, and export options</p>
+      </div>
+      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <Card className="border-2 border-amber-200 dark:border-amber-800">
+          <CardHeader><CardTitle className="flex items-center gap-2 text-base"><Sparkles className="w-5 h-5 text-amber-600" />Headline Scorer</CardTitle></CardHeader>
+          <CardContent className="space-y-3">
+            <Textarea value={headlineToScore} onChange={(e) => setHeadlineToScore(e.target.value)} placeholder="Paste your headline here to get an AI score and improvement suggestions..." className="min-h-[60px] resize-none text-sm" />
+            <Button className="w-full bg-amber-600 hover:bg-amber-700" size="sm" onClick={() => headlineToScore.trim() && headlineScoreMutation.mutate(headlineToScore.trim())} disabled={headlineScoreMutation.isPending}>
+              {headlineScoreMutation.isPending ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Sparkles className="w-4 h-4 mr-1.5" />}Score Headline
+            </Button>
+            {headlineScore && (
+              <div className="p-3 bg-amber-50 dark:bg-amber-950/20 rounded-lg text-sm">
+                <pre className="whitespace-pre-wrap text-xs">{headlineScore.adCopy}</pre>
+                <Button size="sm" variant="ghost" className="mt-2" onClick={() => copyText(headlineScore.adCopy, 'score')}>{copiedField === 'score' ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}<span className="ml-1">Copy Report</span></Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+        <Card className="border-2 border-blue-200 dark:border-blue-800">
+          <CardHeader><CardTitle className="flex items-center gap-2 text-base"><SplitSquareHorizontal className="w-5 h-5 text-blue-600" />A/B Test Generator</CardTitle></CardHeader>
+          <CardContent className="space-y-3">
+            <Textarea value={abTestPrompt} onChange={(e) => setAbTestPrompt(e.target.value)} placeholder="Describe your ad concept and AI will create two test versions with a predicted winner..." className="min-h-[60px] resize-none text-sm" />
+            <Button className="w-full bg-blue-600 hover:bg-blue-700" size="sm" onClick={() => abTestPrompt.trim() && abTestMutation.mutate(abTestPrompt.trim())} disabled={abTestMutation.isPending}>
+              {abTestMutation.isPending ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <SplitSquareHorizontal className="w-4 h-4 mr-1.5" />}Generate A/B Test
+            </Button>
+            {abResult && (
+              <div className="p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg text-sm">
+                <pre className="whitespace-pre-wrap text-xs">{abResult.adCopy}</pre>
+                <Button size="sm" variant="ghost" className="mt-2" onClick={() => copyText(abResult.adCopy, 'ab')}>{copiedField === 'ab' ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}<span className="ml-1">Copy Test</span></Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+        <Card className="border-2 border-emerald-200 dark:border-emerald-800">
+          <CardHeader><CardTitle className="flex items-center gap-2 text-base"><Share2 className="w-5 h-5 text-emerald-600" />QR Code Generator</CardTitle></CardHeader>
+          <CardContent className="space-y-3">
+            <input type="text" value={qrText} onChange={(e) => setQrText(e.target.value)} placeholder="Enter URL or text for QR code..." className="w-full px-3 py-2 text-sm rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800" />
+            <Button className="w-full bg-emerald-600 hover:bg-emerald-700" size="sm" onClick={() => { if (qrText.trim()) { setQrGenerated(true); toast({ title: "QR Code Generated!" }); } }}>
+              <Share2 className="w-4 h-4 mr-1.5" />Generate QR Code
+            </Button>
+            {qrGenerated && qrText && (
+              <div className="text-center p-4 bg-white dark:bg-slate-800 rounded-lg border">
+                <img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrText)}`} alt="QR Code" className="mx-auto mb-2" />
+                <p className="text-xs text-slate-500 break-all">{qrText}</p>
+                <Button size="sm" variant="outline" className="mt-2" onClick={() => { const a = document.createElement('a'); a.href = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(qrText)}`; a.download = 'qr-code.png'; a.click(); }}><Download className="w-3 h-3 mr-1" />Download QR</Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+      <Card className="border-2 border-purple-200 dark:border-purple-800">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><Download className="w-5 h-5 text-purple-600" />Export Center</CardTitle>
+          <p className="text-sm text-slate-500">Download all your created content in various formats</p>
+        </CardHeader>
+        <CardContent>
+          {createdItems.length === 0 ? (
+            <div className="text-center py-8 text-slate-400"><Layers className="w-12 h-12 mx-auto mb-2 opacity-50" /><p>No content created yet. Use the Video, Flyers, Brochures, or Campaign tabs first.</p></div>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <p className="font-medium">{createdItems.length} item{createdItems.length !== 1 ? 's' : ''} ready for export</p>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" onClick={() => {
+                    let allContent = ''; createdItems.forEach((item, idx) => { allContent += `\n${'='.repeat(50)}\nITEM ${idx + 1}\n${'='.repeat(50)}\n`; if (item.headlines?.length) allContent += '\nHEADLINES:\n' + item.headlines.join('\n'); if (item.adCopy) allContent += '\n\nCOPY:\n' + item.adCopy; if (item.callToAction) allContent += '\n\nCTA: ' + item.callToAction; if (item.hashtags?.length) allContent += '\n\nHASHTAGS: ' + item.hashtags.join(' '); if (item.videoScript) allContent += '\n\nSCRIPT:\n' + item.videoScript; });
+                    const blob = new Blob([allContent], { type: 'text/plain' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `all-content-${Date.now()}.txt`; a.click(); URL.revokeObjectURL(url); toast({ title: "All content exported!" });
+                  }}><FileText className="w-4 h-4 mr-1.5" />Export All as TXT</Button>
+                  <Button size="sm" className="bg-purple-600 hover:bg-purple-700" onClick={() => { createdItems.forEach((item, idx) => { if (item.imageUrl) { const a = document.createElement('a'); a.href = item.imageUrl; a.download = `image-${idx + 1}.png`; a.target = '_blank'; a.click(); } }); toast({ title: "Downloading all images..." }); }}><Download className="w-4 h-4 mr-1.5" />Download All Images</Button>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                {createdItems.map((item, idx) => (
+                  <Card key={idx} className="overflow-hidden hover:shadow-md transition-shadow">
+                    {item.imageUrl && <img src={item.imageUrl} alt="" className="w-full h-24 object-cover" />}
+                    <CardContent className="p-3">
+                      <p className="text-xs font-medium line-clamp-1 mb-2">{item.headlines?.[0] || `Item ${idx + 1}`}</p>
+                      <div className="flex gap-1">
+                        <Button size="sm" variant="outline" className="flex-1 text-xs h-7" onClick={() => { const all = `${item.headlines?.join('\n')}\n\n${item.adCopy}\n\n${item.callToAction}\n\n${item.hashtags?.join(' ')}`; navigator.clipboard.writeText(all); toast({ title: "Copied!" }); }}><Copy className="w-3 h-3" /></Button>
+                        {item.imageUrl && (<Button size="sm" variant="outline" className="flex-1 text-xs h-7" onClick={() => { const a = document.createElement('a'); a.href = item.imageUrl!; a.download = `creative-${idx + 1}.png`; a.target = '_blank'; a.click(); }}><Download className="w-3 h-3" /></Button>)}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+      <div className="grid md:grid-cols-4 gap-4">
+        <Card className="bg-gradient-to-br from-rose-50 to-pink-50 dark:from-rose-950/20 dark:to-pink-950/20 border-rose-200 dark:border-rose-800">
+          <CardContent className="pt-5 text-center"><Heart className="w-8 h-8 text-rose-500 mx-auto mb-2" /><h4 className="font-bold text-sm">Tone Analyzer</h4><p className="text-xs text-slate-500 mt-1">AI analyzes emotional impact of your ads</p></CardContent>
+        </Card>
+        <Card className="bg-gradient-to-br from-cyan-50 to-teal-50 dark:from-cyan-950/20 dark:to-teal-950/20 border-cyan-200 dark:border-cyan-800">
+          <CardContent className="pt-5 text-center"><Eye className="w-8 h-8 text-cyan-500 mx-auto mb-2" /><h4 className="font-bold text-sm">Heat Map Prediction</h4><p className="text-xs text-slate-500 mt-1">AI predicts where eyes focus on your ad</p></CardContent>
+        </Card>
+        <Card className="bg-gradient-to-br from-violet-50 to-purple-50 dark:from-violet-950/20 dark:to-purple-950/20 border-violet-200 dark:border-violet-800">
+          <CardContent className="pt-5 text-center"><Sparkles className="w-8 h-8 text-violet-500 mx-auto mb-2" /><h4 className="font-bold text-sm">Conversion Predictor</h4><p className="text-xs text-slate-500 mt-1">AI estimates conversion probability</p></CardContent>
+        </Card>
+        <Card className="bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-950/20 dark:to-green-950/20 border-emerald-200 dark:border-emerald-800">
+          <CardContent className="pt-5 text-center"><Share2 className="w-8 h-8 text-emerald-500 mx-auto mb-2" /><h4 className="font-bold text-sm">ROI Calculator</h4><p className="text-xs text-slate-500 mt-1">Estimate return on ad spend</p></CardContent>
+        </Card>
       </div>
     </div>
   );
