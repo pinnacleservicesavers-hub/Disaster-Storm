@@ -390,6 +390,18 @@ router.post('/export-audit-packet', async (req: Request, res: Response) => {
     const ci = contractInfo.rows[0] as any || {};
     const exportDate = new Date().toISOString().split('T')[0];
 
+    const contractDocs = await db.execute(sql`SELECT id, document_type, document_name, description, uploaded_by, uploaded_by_role, file_size_bytes, version, created_at FROM fema_contract_documents WHERE is_active = true ORDER BY created_at DESC`);
+    const projectMessages = await db.execute(sql`SELECT id, sender_name, sender_role, subject, message_body, message_type, priority, thread_id, created_at FROM fema_project_messages ORDER BY created_at ASC`);
+
+    const docTypes = (contractDocs.rows as any[]).map(d => d.document_type);
+    const requiredDocTypes = ['Master Service Agreement (MSA)', 'Approved Rate Sheet', 'Notice to Proceed (NTP)', 'Job Classification', 'Insurance Certificate', 'Bond Documentation', 'Safety Plan'];
+    const docCompliance = requiredDocTypes.map(type => ({
+      documentType: type,
+      status: docTypes.includes(type) ? 'on_file' : 'missing',
+      uploadedOn: (contractDocs.rows as any[]).find(d => d.document_type === type)?.created_at || null,
+      uploadedBy: (contractDocs.rows as any[]).find(d => d.document_type === type)?.uploaded_by || null,
+    }));
+
     const packet = {
       exportDate,
       exportedBy: 'AuditShield AI',
@@ -414,6 +426,8 @@ router.post('/export-audit-packet', async (req: Request, res: Response) => {
         geoZones: { totalZones: geoZones.rows.length, zones: geoZones.rows },
         aiFindings: { totalFindings: aiFindings.rows.length, findings: aiFindings.rows },
         auditTrail: { totalEntries: auditLogs.rows.length, entries: auditLogs.rows },
+        contractDocuments: { totalDocuments: contractDocs.rows.length, documents: contractDocs.rows, complianceStatus: docCompliance },
+        projectCommunications: { totalMessages: projectMessages.rows.length, messages: projectMessages.rows },
       },
       complianceSummary: {
         contractSetup: contractInfo.rows.length > 0 ? 'Complete' : 'Missing',
@@ -427,6 +441,8 @@ router.post('/export-audit-packet', async (req: Request, res: Response) => {
         gpsVerification: geoZones.rows.length > 0 ? `${geoZones.rows.length} zones` : 'Not configured',
         aiFindings: aiFindings.rows.length > 0 ? `${aiFindings.rows.length} findings` : 'None',
         auditTrail: `${auditLogs.rows.length} entries`,
+        contractDocuments: `${contractDocs.rows.length} on file (${docCompliance.filter(d => d.status === 'on_file').length}/${requiredDocTypes.length} required)`,
+        projectCommunications: `${projectMessages.rows.length} messages logged`,
       }
     };
 
@@ -513,6 +529,39 @@ router.post('/ai-scan', async (_req: Request, res: Response) => {
       findings.push({ type: 'missing_documentation', severity: 'medium', description: 'No timesheets submitted', category: 'Labor' });
     }
 
+    const docs = await db.execute(sql`SELECT document_type FROM fema_contract_documents WHERE is_active = true`);
+    const uploadedTypes = new Set((docs.rows as any[]).map(d => d.document_type));
+    const requiredDocs = [
+      { type: 'Master Service Agreement (MSA)', severity: 'critical' as const, reason: 'Governs all labor classifications, rates, and scope — required before any work begins' },
+      { type: 'Approved Rate Sheet', severity: 'critical' as const, reason: 'All labor and equipment rates must be validated against the governing rate sheet' },
+      { type: 'Notice to Proceed (NTP)', severity: 'critical' as const, reason: 'No work should begin without a documented NTP — legal and billing prerequisite' },
+      { type: 'Job Classification', severity: 'high' as const, reason: 'Labor classifications must match the contract to ensure proper rate application' },
+      { type: 'Insurance Certificate', severity: 'high' as const, reason: 'Proof of insurance required for all contractors and subcontractors on site' },
+      { type: 'Bond Documentation', severity: 'medium' as const, reason: 'Performance and payment bonds may be required by the governing agreement' },
+      { type: 'Safety Plan', severity: 'medium' as const, reason: 'OSHA-compliant safety plan required for all disaster response operations' },
+    ];
+    for (const req of requiredDocs) {
+      if (!uploadedTypes.has(req.type)) {
+        findings.push({
+          type: 'missing_contract_document',
+          severity: req.severity,
+          description: `Missing "${req.type}" — ${req.reason}`,
+          category: 'Contract Documents',
+        });
+      }
+    }
+    if (uploadedTypes.size > 0) {
+      const changeOrderDocs = (docs.rows as any[]).filter(d => ['Change Order', 'Amendment', 'Written Modification', 'Supplemental Agreement'].includes(d.document_type));
+      if (changeOrderDocs.length === 0) {
+        findings.push({
+          type: 'contract_document_info',
+          severity: 'medium',
+          description: 'No change orders or amendments on file — ensure any scope/rate changes are documented',
+          category: 'Contract Documents',
+        });
+      }
+    }
+
     for (const f of findings) {
       try {
         await db.execute(sql`INSERT INTO fema_ai_findings (id, contract_id, finding_type, severity, description, entity_id)
@@ -536,6 +585,56 @@ router.post('/ai-scan', async (_req: Request, res: Response) => {
   } catch (error) {
     console.error('Error running AI scan:', error);
     res.status(500).json({ success: false, error: 'Failed to run AI scan' });
+  }
+});
+
+// ============ DOCUMENT COMPLIANCE STATUS ============
+
+router.get('/document-compliance', async (req: Request, res: Response) => {
+  try {
+    const docs = await db.execute(sql`SELECT id, document_type, document_name, uploaded_by, uploaded_by_role, created_at FROM fema_contract_documents WHERE is_active = true ORDER BY created_at DESC`);
+    const uploadedTypes = (docs.rows as any[]).map(d => d.document_type);
+    const requiredDocs = [
+      { type: 'Master Service Agreement (MSA)', severity: 'critical', reason: 'Governs all labor classifications, rates, and scope — required before any work begins', required: true },
+      { type: 'Approved Rate Sheet', severity: 'critical', reason: 'All labor and equipment rates must be validated against the governing rate sheet', required: true },
+      { type: 'Notice to Proceed (NTP)', severity: 'critical', reason: 'No work should begin without a documented NTP — legal and billing prerequisite', required: true },
+      { type: 'Job Classification', severity: 'high', reason: 'Labor classifications must match the contract for proper rate application', required: true },
+      { type: 'Insurance Certificate', severity: 'high', reason: 'Proof of insurance required for all contractors on site', required: true },
+      { type: 'Bond Documentation', severity: 'medium', reason: 'Performance and payment bonds may be required', required: false },
+      { type: 'Safety Plan', severity: 'medium', reason: 'OSHA-compliant safety plan required for disaster response', required: false },
+      { type: 'Change Order', severity: 'medium', reason: 'Any scope or rate changes must be documented via change order', required: false },
+      { type: 'Amendment', severity: 'medium', reason: 'Contract amendments must be on file', required: false },
+      { type: 'Supplemental Agreement', severity: 'low', reason: 'Supplemental agreements should be documented', required: false },
+      { type: 'Procurement Documentation', severity: 'low', reason: 'Procurement docs for audit trail', required: false },
+      { type: 'Subcontract Agreement', severity: 'medium', reason: 'All sub agreements must be on file', required: false },
+    ];
+    const status = requiredDocs.map(req => {
+      const doc = (docs.rows as any[]).find(d => d.document_type === req.type);
+      return {
+        ...req,
+        status: doc ? 'on_file' : 'missing',
+        documentId: doc?.id || null,
+        documentName: doc?.document_name || null,
+        uploadedBy: doc?.uploaded_by || null,
+        uploadedAt: doc?.created_at || null,
+      };
+    });
+    const totalRequired = status.filter(s => s.required).length;
+    const requiredOnFile = status.filter(s => s.required && s.status === 'on_file').length;
+    const totalOnFile = status.filter(s => s.status === 'on_file').length;
+    const complianceScore = totalRequired > 0 ? Math.round((requiredOnFile / totalRequired) * 100) : 0;
+    res.json({
+      success: true,
+      complianceScore,
+      totalDocuments: docs.rows.length,
+      requiredOnFile,
+      totalRequired,
+      totalOnFile,
+      status,
+    });
+  } catch (error) {
+    console.error('Error fetching document compliance:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch document compliance' });
   }
 });
 

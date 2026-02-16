@@ -1,10 +1,13 @@
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { apiRequest } from "@/lib/queryClient";
 import {
   Shield, CheckCircle2, AlertTriangle, XCircle, FileText, Users, Truck, Clock,
-  Target, Brain, Satellite, Zap, Download, Eye, MapPin, Camera, DollarSign, Activity
+  Target, Brain, Satellite, Zap, Download, Eye, MapPin, Camera, DollarSign, Activity,
+  FolderOpen
 } from "lucide-react";
 
 interface ComplianceProps {
@@ -32,6 +35,25 @@ interface CheckItem {
 }
 
 export default function ComplianceDashboard(props: ComplianceProps) {
+  const [docCompliance, setDocCompliance] = useState<any>(null);
+
+  const loadDocCompliance = useCallback(async () => {
+    try {
+      const data = await apiRequest('/api/fema-data/document-compliance');
+      if (data.success) setDocCompliance(data);
+    } catch (err) {
+      console.error('Failed to load doc compliance:', err);
+    }
+  }, []);
+
+  useEffect(() => { loadDocCompliance(); }, [loadDocCompliance]);
+
+  const hasMSA = docCompliance?.status?.find((s: any) => s.type.includes('MSA'))?.status === 'on_file';
+  const hasRateSheet = docCompliance?.status?.find((s: any) => s.type.includes('Rate Sheet'))?.status === 'on_file';
+  const hasNTP = docCompliance?.status?.find((s: any) => s.type.includes('NTP'))?.status === 'on_file';
+  const hasInsurance = docCompliance?.status?.find((s: any) => s.type.includes('Insurance'))?.status === 'on_file';
+  const docScore = docCompliance?.complianceScore ?? 0;
+
   const checks: CheckItem[] = [
     {
       label: 'Contract/PW Setup',
@@ -39,6 +61,41 @@ export default function ComplianceDashboard(props: ComplianceProps) {
       status: props.hasContract ? 'pass' : 'fail',
       detail: props.hasContract ? 'FEMA disaster #, PW #, and contract info configured' : 'Missing required FEMA project identifiers — required for all documentation',
       icon: FileText,
+    },
+    {
+      label: 'Master Service Agreement (MSA)',
+      category: 'Contract Documents',
+      status: hasMSA ? 'pass' : 'fail',
+      detail: hasMSA ? 'MSA on file — governing agreement verified' : 'MSA not uploaded — required before any work begins',
+      icon: FolderOpen,
+    },
+    {
+      label: 'Approved Rate Sheet',
+      category: 'Contract Documents',
+      status: hasRateSheet ? 'pass' : 'fail',
+      detail: hasRateSheet ? 'Rate sheet on file — labor/equipment rates validated' : 'Rate sheet missing — rates cannot be validated against governing agreement',
+      icon: FolderOpen,
+    },
+    {
+      label: 'Notice to Proceed (NTP)',
+      category: 'Contract Documents',
+      status: hasNTP ? 'pass' : 'fail',
+      detail: hasNTP ? 'NTP on file — authorization to begin work documented' : 'NTP missing — legal/billing prerequisite not satisfied',
+      icon: FolderOpen,
+    },
+    {
+      label: 'Insurance Certificates',
+      category: 'Contract Documents',
+      status: hasInsurance ? 'pass' : 'fail',
+      detail: hasInsurance ? 'Insurance certificate on file' : 'Insurance certificate missing — proof of coverage required',
+      icon: FolderOpen,
+    },
+    {
+      label: 'Document Vault Compliance',
+      category: 'Contract Documents',
+      status: docScore >= 80 ? 'pass' : docScore >= 40 ? 'warn' : 'fail',
+      detail: `${docCompliance?.requiredOnFile || 0}/${docCompliance?.totalRequired || 0} required documents on file (${docScore}% compliance)`,
+      icon: Shield,
     },
     {
       label: 'Crew Roster Complete',
@@ -235,6 +292,10 @@ export default function ComplianceDashboard(props: ComplianceProps) {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {[
+              { form: 'Master Service Agreement (MSA)', ref: 'Governing Contract Document', status: hasMSA },
+              { form: 'Approved Rate Sheet', ref: 'Contract Rate Validation', status: hasRateSheet },
+              { form: 'Notice to Proceed (NTP)', ref: 'Work Authorization', status: hasNTP },
+              { form: 'Insurance Certificates', ref: 'Liability & Workers Comp', status: hasInsurance },
               { form: 'Force Account Labor Summary', ref: 'FEMA FF-104-FY-21-137', status: props.timesheetCount > 0 },
               { form: 'Force Account Equipment Summary', ref: 'FEMA FF-104-FY-21-141', status: props.equipmentLogCount > 0 },
               { form: 'Load Ticket (Debris Chain of Custody)', ref: 'Prime Contractor Standard', status: props.loadTicketCount > 0 },
@@ -242,10 +303,8 @@ export default function ComplianceDashboard(props: ComplianceProps) {
               { form: 'Daily Crew Sign-In/Out', ref: 'Labor Documentation', status: props.signInCount > 0 },
               { form: 'Monitor Visit Log', ref: 'FEMA Site Monitoring', status: props.monitorVisitCount > 0 },
               { form: 'Truck Certification', ref: 'Debris Hauling Requirement', status: props.truckCertCount > 0 },
-              { form: 'Equipment Rate Sheet', ref: 'Contract Rate Schedule', status: true },
               { form: 'Crew Roster', ref: 'Force Account Personnel', status: props.rosterCount > 0 },
               { form: 'GPS Geofence Verification', ref: 'Work Zone Compliance', status: props.geofenceCount > 0 },
-              { form: 'Fringe Benefit Calculator', ref: 'Labor Overhead', status: true },
               { form: 'Invoice / Payment Application', ref: 'Contract Billing', status: props.timesheetCount > 0 },
             ].map(item => (
               <div key={item.form} className="flex items-center justify-between p-2 rounded border border-slate-600 bg-slate-700/30">

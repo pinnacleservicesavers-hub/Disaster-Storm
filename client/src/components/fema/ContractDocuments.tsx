@@ -10,9 +10,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { Progress } from "@/components/ui/progress";
 import {
   FileText, Upload, Trash2, Download, Search, Filter,
-  Clock, User, Shield, FolderOpen, Plus, Eye, FileCheck
+  Clock, User, Shield, FolderOpen, Plus, Eye, FileCheck,
+  CheckCircle2, XCircle, AlertTriangle
 } from "lucide-react";
 
 interface ContractDocument {
@@ -59,9 +61,31 @@ const ROLE_OPTIONS = [
   { value: 'admin', label: 'Administrator' },
 ];
 
+interface ComplianceItem {
+  type: string;
+  severity: string;
+  reason: string;
+  required: boolean;
+  status: string;
+  documentId: number | null;
+  documentName: string | null;
+  uploadedBy: string | null;
+  uploadedAt: string | null;
+}
+
+interface ComplianceData {
+  complianceScore: number;
+  totalDocuments: number;
+  requiredOnFile: number;
+  totalRequired: number;
+  totalOnFile: number;
+  status: ComplianceItem[];
+}
+
 export default function ContractDocumentsComponent() {
   const { toast } = useToast();
   const [documents, setDocuments] = useState<ContractDocument[]>([]);
+  const [compliance, setCompliance] = useState<ComplianceData | null>(null);
   const [loading, setLoading] = useState(true);
   const [showUpload, setShowUpload] = useState(false);
   const [filterType, setFilterType] = useState<string>('all');
@@ -78,6 +102,15 @@ export default function ContractDocumentsComponent() {
     fileName: '',
   });
 
+  const loadCompliance = useCallback(async () => {
+    try {
+      const data = await apiRequest('/api/fema-data/document-compliance');
+      if (data.success) setCompliance(data);
+    } catch (err) {
+      console.error('Failed to load compliance:', err);
+    }
+  }, []);
+
   const loadDocuments = useCallback(async () => {
     try {
       const data = await apiRequest('/api/fema-data/contract-documents');
@@ -90,7 +123,7 @@ export default function ContractDocumentsComponent() {
     setLoading(false);
   }, []);
 
-  useEffect(() => { loadDocuments(); }, [loadDocuments]);
+  useEffect(() => { loadDocuments(); loadCompliance(); }, [loadDocuments, loadCompliance]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -133,6 +166,7 @@ export default function ContractDocumentsComponent() {
         setShowUpload(false);
         setNewDoc({ documentType: '', documentName: '', description: '', uploadedBy: '', uploadedByRole: 'contractor', fileContent: '', fileMimeType: '', fileName: '' });
         loadDocuments();
+        loadCompliance();
       }
     } catch (err) {
       toast({ title: "Upload Failed", description: "Could not upload document", variant: "destructive" });
@@ -187,6 +221,74 @@ export default function ContractDocumentsComponent() {
 
   return (
     <div className="space-y-4">
+      {compliance && (
+        <Card className={`border-2 ${compliance.complianceScore >= 80 ? 'border-green-500/30 bg-green-500/5' : compliance.complianceScore >= 40 ? 'border-amber-500/30 bg-amber-500/5' : 'border-red-500/30 bg-red-500/5'}`}>
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base text-white flex items-center gap-2">
+                <Shield className="h-5 w-5 text-blue-400" />
+                Contract Document Compliance
+              </CardTitle>
+              <div className="flex items-center gap-3">
+                <span className={`text-2xl font-bold ${compliance.complianceScore >= 80 ? 'text-green-400' : compliance.complianceScore >= 40 ? 'text-amber-400' : 'text-red-400'}`}>
+                  {compliance.complianceScore}%
+                </span>
+                <Badge variant="outline" className="text-slate-400 border-slate-600">
+                  {compliance.requiredOnFile}/{compliance.totalRequired} Required
+                </Badge>
+              </div>
+            </div>
+            <Progress value={compliance.complianceScore} className="mt-2 h-2" />
+          </CardHeader>
+          <CardContent className="pt-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+              {compliance.status.map((item) => (
+                <div key={item.type}
+                  className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-colors ${
+                    item.status === 'on_file'
+                      ? 'border-green-500/20 bg-green-500/5 hover:bg-green-500/10'
+                      : item.required
+                        ? 'border-red-500/20 bg-red-500/5 hover:bg-red-500/10'
+                        : 'border-slate-600/30 bg-slate-800/30 hover:bg-slate-800/50'
+                  }`}
+                  onClick={() => {
+                    if (item.status === 'missing') {
+                      setNewDoc(prev => ({ ...prev, documentType: item.type }));
+                      setShowUpload(true);
+                    }
+                  }}
+                >
+                  {item.status === 'on_file' ? (
+                    <CheckCircle2 className="h-4 w-4 text-green-400 shrink-0" />
+                  ) : item.required ? (
+                    <XCircle className="h-4 w-4 text-red-400 shrink-0" />
+                  ) : (
+                    <AlertTriangle className="h-4 w-4 text-slate-500 shrink-0" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-white truncate">{item.type}</p>
+                    {item.status === 'on_file' ? (
+                      <p className="text-[10px] text-green-400 truncate">
+                        {item.uploadedBy} — {new Date(item.uploadedAt!).toLocaleDateString()}
+                      </p>
+                    ) : (
+                      <p className="text-[10px] text-slate-500 truncate">
+                        {item.required ? 'Required — click to upload' : 'Recommended'}
+                      </p>
+                    )}
+                  </div>
+                  {item.required && (
+                    <Badge variant="outline" className={`text-[9px] shrink-0 ${item.status === 'on_file' ? 'text-green-400 border-green-500/30' : 'text-red-400 border-red-500/30'}`}>
+                      {item.severity === 'critical' ? 'CRITICAL' : 'REQ'}
+                    </Badge>
+                  )}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Card className="bg-slate-900 border-slate-700">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
